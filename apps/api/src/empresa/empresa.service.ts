@@ -1,0 +1,128 @@
+import { Injectable } from '@nestjs/common'
+import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
+import type { Prisma } from '@saas/db'
+import type { CreateEmpresaInput, UpdateEmpresaInput, ListEmpresaInput } from '@saas/types'
+
+const FIELD_LABELS: Record<string, string> = {
+  razaoSocial: 'Razão Social', nomeFantasia: 'Nome Fantasia', cnpj: 'CNPJ',
+  inscricaoEstadual: 'IE', inscricaoMunicipal: 'IM', taxRegime: 'Regime Tributário',
+  cep: 'CEP', logradouro: 'Logradouro', numero: 'Número', complemento: 'Complemento',
+  bairro: 'Bairro', cidade: 'Cidade', uf: 'UF',
+  telefone: 'Telefone', email: 'E-mail', site: 'Site',
+  logoUrl: 'Logo', logoDarkUrl: 'Logo Dark', isActive: 'Status',
+}
+
+function detectChanges(before: Record<string, unknown>, after: Record<string, unknown>) {
+  const changes: Record<string, { from: unknown; to: unknown }> = {}
+  for (const key of Object.keys(FIELD_LABELS)) {
+    const oldVal = before[key] ?? null
+    const newVal = after[key] ?? null
+    if (String(oldVal) !== String(newVal)) changes[key] = { from: oldVal, to: newVal }
+  }
+  return Object.keys(changes).length > 0 ? changes : null
+}
+
+@Injectable()
+export class EmpresaService {
+  async list(input: ListEmpresaInput) {
+    const { page, limit, search, sortBy, sortDir, isActive } = input
+    const { skip, take } = getPrismaSkipTake(page, limit)
+
+    const where: Prisma.EmpresaWhereInput = {
+      ...(search ? { OR: [
+        { razaoSocial: { contains: search, mode: 'insensitive' as const } },
+        { nomeFantasia: { contains: search, mode: 'insensitive' as const } },
+        { cnpj: { contains: search } },
+      ] } : {}),
+      ...(isActive !== undefined ? { isActive } : {}),
+    }
+
+    const orderBy = sortBy ? { [sortBy]: sortDir } : { code: 'asc' as const }
+
+    const [data, total] = await Promise.all([
+      prisma.empresa.findMany({ where, orderBy, skip, take }),
+      prisma.empresa.count({ where }),
+    ])
+
+    return buildPaginatedResponse(data, total, page, limit)
+  }
+
+  async getById(id: string) {
+    return prisma.empresa.findUniqueOrThrow({ where: { id } })
+  }
+
+  async create(input: CreateEmpresaInput, userId?: string) {
+    return prisma.$transaction(async (tx) => {
+      const empresa = await tx.empresa.create({
+        data: {
+          razaoSocial: input.razaoSocial, nomeFantasia: input.nomeFantasia || null,
+          cnpj: input.cnpj, inscricaoEstadual: input.inscricaoEstadual || null,
+          inscricaoMunicipal: input.inscricaoMunicipal || null, taxRegime: input.taxRegime || null,
+          isActive: input.isActive, cep: input.cep || null, logradouro: input.logradouro || null,
+          numero: input.numero || null, complemento: input.complemento || null,
+          bairro: input.bairro || null, cidade: input.cidade || null, uf: input.uf || null,
+          telefone: input.telefone || null, email: input.email || null, site: input.site || null,
+          logoUrl: input.logoUrl || null, logoDarkUrl: input.logoDarkUrl || null, version: 1,
+        },
+      })
+      await tx.empresaEvent.create({ data: { empresaId: empresa.id, userId: userId || null, type: 'created', version: 1 } })
+      return empresa
+    })
+  }
+
+  async update(id: string, input: UpdateEmpresaInput, userId?: string) {
+    return prisma.$transaction(async (tx) => {
+      const before = await tx.empresa.findUniqueOrThrow({ where: { id } })
+      const data: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(input)) {
+        if (value !== undefined) data[key] = typeof value === 'string' && value === '' ? null : value
+      }
+      const newVersion = before.version + 1
+      data.version = newVersion
+      const empresa = await tx.empresa.update({ where: { id }, data })
+      const changes = detectChanges(before as unknown as Record<string, unknown>, data)
+      if (changes) {
+        await tx.empresaEvent.create({ data: { empresaId: id, userId: userId || null, type: 'updated', version: newVersion, changes: changes as Prisma.InputJsonValue } })
+      }
+      return empresa
+    })
+  }
+
+  async delete(id: string, userId?: string) {
+    return prisma.$transaction(async (tx) => {
+      const empresa = await tx.empresa.findUniqueOrThrow({ where: { id } })
+      await tx.empresaEvent.create({ data: { empresaId: id, userId: userId || null, type: 'deleted', version: empresa.version } })
+      return tx.empresa.delete({ where: { id } })
+    })
+  }
+
+  async getEvents(empresaId: string) {
+    return prisma.empresaEvent.findMany({
+      where: { empresaId }, orderBy: { createdAt: 'desc' },
+      include: { user: { select: { id: true, name: true } } },
+    })
+  }
+
+  async exportAll() {
+    return prisma.empresa.findMany({ orderBy: { razaoSocial: 'asc' } })
+  }
+
+  async bulkCreate(items: CreateEmpresaInput[], userId?: string) {
+    const results = { created: 0, errors: [] as string[] }
+    for (let i = 0; i < items.length; i++) {
+      try {
+        await this.create(items[i]!, userId)
+        results.created++
+      } catch (e) { results.errors.push(`Linha ${i + 1}: ${(e as Error).message}`) }
+    }
+    return results
+  }
+
+  async listForSelect() {
+    return prisma.empresa.findMany({
+      where: { isActive: true },
+      select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, logoUrl: true, logoDarkUrl: true },
+      orderBy: { razaoSocial: 'asc' },
+    })
+  }
+}
