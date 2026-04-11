@@ -28,5 +28,11 @@ packages/db/src/generated/
 *.log
 pnpm-debug.log*
 
+# Backups
+backups/
+
+# Uploads
+uploads/
+
 # Testing
 coverage/
