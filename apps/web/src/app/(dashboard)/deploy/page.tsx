@@ -5,7 +5,8 @@ import {
   Rocket, GitBranch, GitCommit, RefreshCw, Loader2, CheckCircle2,
   XCircle, Package, Download, Upload, FileText,
   Clock, User, ArrowUp, ArrowDown, AlertTriangle, ChevronDown,
-  ChevronRight, Copy,
+  ChevronRight, Copy, Link, Unlink, ArrowUpFromLine, ArrowDownToLine,
+  Settings,
 } from 'lucide-react'
 import { Button, Card, CardHeader, Input, Checkbox, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -76,6 +77,14 @@ export default function DeployPage() {
   const [showChangedFiles, setShowChangedFiles] = useState(false)
   const [showCommitLog, setShowCommitLog] = useState(false)
 
+  // Remote config
+  const [showRemoteConfig, setShowRemoteConfig] = useState(false)
+  const [remoteUrl, setRemoteUrl] = useState('')
+  const [remoteName, setRemoteName] = useState('origin')
+  const [savingRemote, setSavingRemote] = useState(false)
+  const [pushing, setPushing] = useState(false)
+  const [pulling, setPulling] = useState(false)
+
   async function loadData() {
     try {
       const [status, log] = await Promise.all([
@@ -137,6 +146,66 @@ export default function DeployPage() {
 
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text)
+  }
+
+  async function handleSaveRemote() {
+    if (!remoteUrl.trim()) return
+    setSavingRemote(true)
+    try {
+      const result = await trpc.admin.setGitRemote.mutate({ url: remoteUrl.trim(), name: remoteName }) as { ok: boolean; message: string }
+      if (result.ok) {
+        alerts.success('Remote configurado', result.message)
+        setShowRemoteConfig(false)
+        handleRefresh()
+      } else {
+        alerts.error('Erro', result.message)
+      }
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally { setSavingRemote(false) }
+  }
+
+  async function handleRemoveRemote() {
+    const ok = await alerts.confirmDelete(`remote "${remoteName}"`)
+    if (!ok) return
+    try {
+      await trpc.admin.removeGitRemote.mutate({ name: remoteName })
+      alerts.success('Removido', 'Remote desvinculado.')
+      setRemoteUrl('')
+      handleRefresh()
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    }
+  }
+
+  async function handlePush() {
+    setPushing(true)
+    try {
+      const result = await trpc.admin.gitPush.mutate({ remote: gs?.remote || 'origin' }) as { ok: boolean; message: string }
+      if (result.ok) {
+        alerts.success('Push realizado', result.message)
+        handleRefresh()
+      } else {
+        alerts.error('Erro no push', result.message)
+      }
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally { setPushing(false) }
+  }
+
+  async function handlePull() {
+    setPulling(true)
+    try {
+      const result = await trpc.admin.gitPull.mutate({ remote: gs?.remote || 'origin' }) as { ok: boolean; message: string }
+      if (result.ok) {
+        alerts.success('Pull realizado', result.message)
+        handleRefresh()
+      } else {
+        alerts.error('Erro no pull', result.message)
+      }
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally { setPulling(false) }
   }
 
   if (loading) {
@@ -246,11 +315,142 @@ export default function DeployPage() {
                     <div className="text-[10px] text-muted-foreground truncate" title={gs.remoteUrl || ''}>{gs.remote}</div>
                   </div>
                 ) : (
-                  <div className="text-xs text-muted-foreground">Sem remote</div>
+                  <button
+                    onClick={() => setShowRemoteConfig(true)}
+                    className="text-xs text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1"
+                  >
+                    <Link className="h-3 w-3" /> Configurar
+                  </button>
                 )}
               </div>
             </Card>
           </div>
+
+          {/* Card: Repositório Remoto */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between w-full">
+                <h5 className="text-sm font-semibold mb-0 flex items-center gap-2">
+                  <Link className="h-4 w-4 text-muted-foreground" /> Repositório Remoto
+                </h5>
+                <div className="flex items-center gap-2">
+                  {gs.remote && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={pushing}
+                        onClick={handlePush}
+                        className="flex items-center gap-1.5 text-xs"
+                      >
+                        {pushing ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowUpFromLine className="h-3 w-3" />}
+                        Push
+                        {(gs.ahead || 0) > 0 && <span className="bg-amber-100 text-amber-700 text-[10px] px-1 rounded">{gs.ahead}</span>}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={pulling}
+                        onClick={handlePull}
+                        className="flex items-center gap-1.5 text-xs"
+                      >
+                        {pulling ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowDownToLine className="h-3 w-3" />}
+                        Pull
+                        {(gs.behind || 0) > 0 && <span className="bg-red-100 text-red-700 text-[10px] px-1 rounded">{gs.behind}</span>}
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setShowRemoteConfig(!showRemoteConfig); if (gs.remoteUrl) setRemoteUrl(gs.remoteUrl) }}
+                    className="flex items-center gap-1.5 text-xs"
+                  >
+                    <Settings className="h-3 w-3" />
+                    Configurar
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <div className="px-5 pb-4">
+              {gs.remote ? (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 flex-1 min-w-0 bg-muted/50 rounded px-3 py-2">
+                    <Link className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold">{gs.remote}</div>
+                      <div className="text-[11px] font-mono text-muted-foreground truncate">{gs.remoteUrl}</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Unlink className="h-3.5 w-3.5" />
+                  Nenhum repositório remoto configurado. Clique em &quot;Configurar&quot; para vincular.
+                </div>
+              )}
+
+              {/* Formulário de configuração */}
+              {showRemoteConfig && (
+                <div className="mt-4 pt-4 border-t border-[rgba(0,0,0,0.08)] space-y-3" style={{ animation: 'fadeSlideIn 0.2s ease-out' }}>
+                  <div className="grid grid-cols-12 gap-3">
+                    <div className="col-span-12 md:col-span-2">
+                      <label className="text-xs font-medium text-foreground">Nome</label>
+                      <Input
+                        placeholder="origin"
+                        value={remoteName}
+                        onChange={(e) => setRemoteName(e.target.value)}
+                        className="mt-1 text-xs font-mono"
+                      />
+                    </div>
+                    <div className="col-span-12 md:col-span-10">
+                      <label className="text-xs font-medium text-foreground">URL do Repositório</label>
+                      <Input
+                        placeholder="https://github.com/usuario/repositorio.git"
+                        value={remoteUrl}
+                        onChange={(e) => setRemoteUrl(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSaveRemote() }}
+                        className="mt-1 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Formatos aceitos: HTTPS (https://github.com/user/repo.git) ou SSH (git@github.com:user/repo.git)
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="success"
+                      size="sm"
+                      disabled={savingRemote || !remoteUrl.trim()}
+                      onClick={handleSaveRemote}
+                      className="flex items-center gap-1.5"
+                    >
+                      {savingRemote ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link className="h-3.5 w-3.5" />}
+                      {gs.remote ? 'Atualizar Remote' : 'Vincular Remote'}
+                    </Button>
+                    {gs.remote && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRemoveRemote}
+                        className="flex items-center gap-1.5 text-red-600 border-red-300 hover:bg-red-50"
+                      >
+                        <Unlink className="h-3.5 w-3.5" />
+                        Desvincular
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowRemoteConfig(false)}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
 
           {/* Info do último commit */}
           <Card>

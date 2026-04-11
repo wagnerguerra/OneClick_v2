@@ -56,6 +56,22 @@ export function createAdminRouter(adminService: AdminService) {
       .input(z.object({ limit: z.number().min(1).max(100).default(20) }).optional())
       .query(({ input }) => adminService.getGitLog(input?.limit)),
 
+    setGitRemote: protectedProcedure
+      .input(z.object({ url: z.string().min(1), name: z.string().default('origin') }))
+      .mutation(({ input }) => adminService.setGitRemote(input.url, input.name)),
+
+    removeGitRemote: protectedProcedure
+      .input(z.object({ name: z.string().default('origin') }))
+      .mutation(({ input }) => adminService.removeGitRemote(input.name)),
+
+    gitPush: protectedProcedure
+      .input(z.object({ remote: z.string().default('origin'), branch: z.string().optional() }))
+      .mutation(({ input }) => adminService.gitPush(input.remote, input.branch)),
+
+    gitPull: protectedProcedure
+      .input(z.object({ remote: z.string().default('origin'), branch: z.string().optional() }))
+      .mutation(({ input }) => adminService.gitPull(input.remote, input.branch)),
+
     generateDeployPackage: protectedProcedure
       .input(z.object({ fromCommit: z.string().optional(), includeDb: z.boolean().default(false) }))
       .mutation(({ input }) => adminService.generateDeployPackage(input)),

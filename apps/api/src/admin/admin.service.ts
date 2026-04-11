@@ -892,6 +892,59 @@ OneClick_Code/
     }
   }
 
+  async setGitRemote(url: string, name = 'origin') {
+    const root = this.getProjectRoot()
+    try {
+      // Verificar se já existe
+      const remotes = this.gitExec('git remote').split('\n').filter(Boolean)
+      if (remotes.includes(name)) {
+        // Atualiza URL
+        this.gitExec(`git remote set-url ${name} "${url}"`)
+      } else {
+        // Adiciona novo
+        this.gitExec(`git remote add ${name} "${url}"`)
+      }
+      // Testar conexão (fetch sem erro = URL válida)
+      try {
+        execSync(`git fetch ${name} --quiet`, { cwd: root, timeout: 20000, windowsHide: true })
+        return { ok: true, message: `Remote "${name}" configurado e conectado.`, url }
+      } catch {
+        return { ok: true, message: `Remote "${name}" configurado, mas não foi possível conectar (verifique credenciais/URL).`, url }
+      }
+    } catch (e) {
+      return { ok: false, message: (e as Error).message, url }
+    }
+  }
+
+  async removeGitRemote(name = 'origin') {
+    try {
+      this.gitExec(`git remote remove ${name}`)
+      return { ok: true, message: `Remote "${name}" removido.` }
+    } catch (e) {
+      return { ok: false, message: (e as Error).message }
+    }
+  }
+
+  async gitPush(remoteName = 'origin', branch?: string) {
+    try {
+      const currentBranch = branch || this.gitExec('git rev-parse --abbrev-ref HEAD')
+      this.gitExec(`git push -u ${remoteName} ${currentBranch}`)
+      return { ok: true, message: `Push realizado para ${remoteName}/${currentBranch}` }
+    } catch (e) {
+      return { ok: false, message: (e as Error).message }
+    }
+  }
+
+  async gitPull(remoteName = 'origin', branch?: string) {
+    try {
+      const currentBranch = branch || this.gitExec('git rev-parse --abbrev-ref HEAD')
+      const output = this.gitExec(`git pull ${remoteName} ${currentBranch}`)
+      return { ok: true, message: output || `Pull realizado de ${remoteName}/${currentBranch}` }
+    } catch (e) {
+      return { ok: false, message: (e as Error).message }
+    }
+  }
+
   async getGitLog(limit = 20) {
     try {
       const lines = this.gitExec(`git log -${limit} --format=%H|||%h|||%s|||%an|||%ci`)
