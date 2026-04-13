@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OneClick ERP — Service Manager</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f1f1f1;
+      --card: #fff;
+      --header-bg: linear-gradient(135deg, #1a2332 0%, #2d4a5e 100%);
+      --text: #212529;
+      --text-muted: #878a99;
+      --border: #e9ebec;
+      --green: #6ada7d;
+      --red: #fa896b;
+      --yellow: #f7b84b;
+      --primary: #5ea3cb;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* Header */
+    .header { background: var(--header-bg); color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .header-logo { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+    .header-logo span { color: var(--primary); }
+    .header-sub { font-size: 12px; color: rgba(255,255,255,.6); margin-top: 2px; }
+    .header-indicators { display: flex; gap: 8px; }
+    .indicator { padding: 4px 12px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+    .indicator.ok { background: rgba(106,218,125,.2); color: var(--green); }
+    .indicator.fail { background: rgba(250,137,107,.2); color: var(--red); }
+
+    /* Container */
+    .container { max-width: 100%; margin: 0 auto; padding: 24px; flex: 1; width: 100%; }
+
+    /* Cards grid */
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .service-card { background: var(--card); border-radius: 6px; padding: 20px; border-left: 4px solid #ccc; box-shadow: 0 1px 3px rgba(56,65,74,.1); transition: border-color .3s; }
+    .service-card.running { border-left-color: var(--green); }
+    .service-card.stopped { border-left-color: var(--red); }
+    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .card-name { font-size: 15px; font-weight: 600; }
+    .status-badge { padding: 3px 10px; border-radius: 3px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+    .status-badge.running { background: rgba(106,218,125,.15); color: #28a745; }
+    .status-badge.stopped { background: rgba(250,137,107,.15); color: #dc3545; }
+    .card-info { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+    .card-info strong { color: var(--text); font-weight: 600; }
+    .card-actions { display: flex; gap: 8px; }
+    .card-actions button { flex: 1; }
+
+    /* Buttons */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px; border-radius: 4px; border: none; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; font-family: inherit; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-success { background: var(--green); color: #fff; }
+    .btn-success:hover:not(:disabled) { background: #4fc766; }
+    .btn-danger { background: var(--red); color: #fff; }
+    .btn-danger:hover:not(:disabled) { background: #e87260; }
+    .btn-warning { background: var(--yellow); color: #fff; }
+    .btn-warning:hover:not(:disabled) { background: #e5a83a; }
+    .btn-outline { background: #fff; color: var(--text); border: 1px solid var(--border); }
+    .btn-outline:hover:not(:disabled) { background: #f8f9fa; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #4a8db5; }
+
+    /* Global actions */
+    .global-actions { display: flex; gap: 10px; margin-bottom: 20px; }
+    .global-actions .btn { padding: 10px 20px; font-size: 13px; flex: 1; }
+
+    /* Logs */
+    .logs-container { background: var(--card); border-radius: 6px; box-shadow: 0 1px 3px rgba(56,65,74,.1); overflow: hidden; }
+    .logs-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    .logs-header h3 { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .logs-header-actions { display: flex; gap: 8px; align-items: center; }
+    .logs-body { display: grid; grid-template-columns: 1fr 1fr 1fr; height: 500px; }
+    .log-column { border-right: 1px solid var(--border); overflow-y: auto; overflow-x: hidden; padding: 0; position: relative; }
+    .log-column:last-child { border-right: none; }
+    .log-column-header { position: sticky; top: 0; background: #f8f9fa; padding: 8px 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); border-bottom: 1px solid var(--border); z-index: 1; display: flex; align-items: center; justify-content: space-between; }
+    .btn-copy { background: none; border: none; cursor: pointer; font-size: 14px; opacity: .4; padding: 2px 4px; border-radius: 3px; transition: all .15s; }
+    .btn-copy:hover { opacity: 1; background: rgba(0,0,0,.05); }
+    .btn-copy.copied { opacity: 1; }
+    .log-column-body { padding: 8px; font-family: 'Consolas', 'Monaco', monospace; font-size: 11px; line-height: 1.6; }
+    .log-entry { padding: 1px 4px; border-radius: 2px; white-space: pre-wrap; word-break: break-all; }
+    .log-entry.stderr { color: var(--red); }
+    .log-entry.system { color: var(--primary); font-style: italic; }
+    .log-entry.error { color: #dc3545; font-weight: 600; }
+    .log-time { color: var(--text-muted); margin-right: 6px; font-size: 10px; }
+
+    /* Toggle */
+    .toggle-label { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .toggle-label input { cursor: pointer; }
+
+    /* Users table */
+    .users-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .users-table th { text-align: left; padding: 8px 12px; background: #f8f9fa; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-muted); text-transform: uppercase; font-size: 10px; letter-spacing: .5px; }
+    .users-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+    .users-table tr:last-child td { border-bottom: none; }
+    .users-table tr:hover td { background: #f8f9fa; }
+    .user-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; margin-right: 8px; vertical-align: middle; }
+    .user-online { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 6px; }
+    .user-agent-cell { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .logs-body { grid-template-columns: 1fr; }
+      .global-actions { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div>
+        <div class="header-logo">ONE<span>CLICK</span> ERP</div>
+        <div class="header-sub">Service Manager</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="header-indicators" id="indicators"></div>
+      <span class="indicator" id="sci-indicator" style="cursor:pointer;" onclick="checkSci()" title="Clique para testar conexão">SCI: ...</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Service Cards -->
+    <div class="cards-grid" id="cards"></div>
+
+    <!-- Global Actions -->
+    <div class="global-actions">
+      <button class="btn btn-success" onclick="startAll()">&#9654; Iniciar Todos</button>
+      <button class="btn btn-danger" onclick="stopAll()">&#9632; Parar Todos</button>
+      <button class="btn btn-warning" onclick="restartAll()">&#8635; Reiniciar Todos</button>
+    </div>
+
+    <!-- Usuários Logados -->
+    <div class="logs-container" style="margin-bottom:20px;">
+      <div class="logs-header">
+        <h3>&#128100; Usuários Logados</h3>
+        <button class="btn btn-outline" onclick="fetchActiveUsers()">&#8635; Atualizar</button>
+      </div>
+      <div id="active-users" style="padding:12px;">
+        <span style="color:var(--text-muted);font-size:12px;">Carregando...</span>
+      </div>
+    </div>
+
+    <!-- Logs -->
+    <div class="logs-container">
+      <div class="logs-header">
+        <h3>&#128196; Logs dos Serviços</h3>
+        <div class="logs-header-actions">
+          <button class="btn btn-outline" onclick="clearLogs()">Limpar Tudo</button>
+          <button class="btn btn-outline" onclick="clearServiceLogs('api')">Limpar API</button>
+          <button class="btn btn-outline" onclick="clearServiceLogs('web')">Limpar Web</button>
+          <button class="btn btn-outline" onclick="clearBrowserLogs()">Limpar Browser</button>
+          <label class="toggle-label">
+            <input type="checkbox" id="autoScroll" checked> Auto-scroll: <span id="autoScrollLabel">ON</span>
+          </label>
+        </div>
+      </div>
+      <div class="logs-body">
+        <div class="log-column">
+          <div class="log-column-header"><span>API (NestJS) — :4000</span><button class="btn-copy" onclick="copyLog('logs-api')" title="Copiar logs">&#128203;</button></div>
+          <div class="log-column-body" id="logs-api"></div>
+        </div>
+        <div class="log-column">
+          <div class="log-column-header"><span>Web (Next.js) — :3000</span><button class="btn-copy" onclick="copyLog('logs-web')" title="Copiar logs">&#128203;</button></div>
+          <div class="log-column-body" id="logs-web"></div>
+        </div>
+        <div class="log-column">
+          <div class="log-column-header"><span>Browser Console — :3000</span><button class="btn-copy" onclick="copyLog('logs-browser')" title="Copiar logs">&#128203;</button></div>
+          <div class="log-column-body" id="logs-browser"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let statusData = {};
+    let autoScroll = true;
+
+    document.getElementById('autoScroll').addEventListener('change', (e) => {
+      autoScroll = e.target.checked;
+      document.getElementById('autoScrollLabel').textContent = autoScroll ? 'ON' : 'OFF';
+    });
+
+    // Fetch status
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        statusData = await res.json();
+        renderCards();
+        renderIndicators();
+      } catch {}
+    }
+
+    // Render cards
+    function renderCards() {
+      const grid = document.getElementById('cards');
+      grid.innerHTML = '';
+      for (const [id, svc] of Object.entries(statusData)) {
+        const running = svc.running;
+        const card = document.createElement('div');
+        card.className = `service-card ${running ? 'running' : 'stopped'}`;
+        card.innerHTML = `
+          <div class="card-header">
+            <span class="card-name">${svc.name}</span>
+            <span class="status-badge ${running ? 'running' : 'stopped'}">${running ? 'RODANDO' : 'PARADO'}</span>
+          </div>
+          <div class="card-info">
+            Porta: <strong>${svc.port}</strong>
+            ${running ? `&nbsp;&nbsp;|&nbsp;&nbsp;URL: <a href="http://localhost:${svc.port}" target="_blank" style="color:var(--primary)">http://localhost:${svc.port}</a>` : ''}
+          </div>
+          ${svc.managed ? `
+            <div class="card-actions">
+              ${running
+                ? `<button class="btn btn-danger" onclick="stopService('${id}')">&#9632; Parar</button>`
+                : `<button class="btn btn-success" onclick="startService('${id}')">&#9654; Iniciar</button>`
+              }
+              ${running ? `<button class="btn btn-warning" onclick="restartService('${id}')">&#8635; Reiniciar</button>` : ''}
+            </div>
+          ` : `<div style="font-size:11px;color:var(--text-muted)">Serviço externo (apenas monitoramento)</div>`}
+        `;
+        grid.appendChild(card);
+      }
+    }
+
+    // Render header indicators
+    function renderIndicators() {
+      const el = document.getElementById('indicators');
+      const entries = Object.entries(statusData);
+      el.innerHTML = entries.map(([id, svc]) =>
+        `<span class="indicator ${svc.running ? 'ok' : 'fail'}">${svc.name.split('(')[0].trim()}: ${svc.running ? 'OK' : 'OFF'}</span>`
+      ).join('');
+    }
+
+    // Actions
+    async function startService(id) {
+      await fetch(`/api/start/${id}`, { method: 'POST' });
+      setTimeout(fetchStatus, 2000);
+    }
+    async function stopService(id) {
+      await fetch(`/api/stop/${id}`, { method: 'POST' });
+      setTimeout(fetchStatus, 1000);
+    }
+    async function restartService(id) {
+      await fetch(`/api/restart/${id}`, { method: 'POST' });
+      setTimeout(fetchStatus, 4000);
+    }
+    async function startAll() {
+      await fetch('/api/start-all', { method: 'POST' });
+      setTimeout(fetchStatus, 3000);
+    }
+    async function stopAll() {
+      await fetch('/api/stop-all', { method: 'POST' });
+      setTimeout(fetchStatus, 1000);
+    }
+    async function restartAll() {
+      await fetch('/api/stop-all', { method: 'POST' });
+      setTimeout(async () => {
+        await fetch('/api/start-all', { method: 'POST' });
+        setTimeout(fetchStatus, 3000);
+      }, 2000);
+    }
+
+    // Logs
+    async function clearLogs() {
+      await fetch('/api/logs/clear', { method: 'POST' });
+      await fetch('/api/logs/clear/browser', { method: 'POST' });
+      document.getElementById('logs-api').innerHTML = '';
+      document.getElementById('logs-web').innerHTML = '';
+      document.getElementById('logs-browser').innerHTML = '';
+    }
+    async function clearServiceLogs(id) {
+      await fetch(`/api/logs/clear/${id}`, { method: 'POST' });
+      document.getElementById(`logs-${id}`).innerHTML = '';
+    }
+    function copyLog(containerId) {
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      const lines = Array.from(el.querySelectorAll('.log-entry')).map(e => e.textContent).join('\n');
+      if (!lines.trim()) { return; }
+      navigator.clipboard.writeText(lines).then(() => {
+        const btn = el.closest('.log-column').querySelector('.btn-copy');
+        if (btn) {
+          const orig = btn.innerHTML;
+          btn.innerHTML = '&#10003;';
+          btn.classList.add('copied');
+          setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('copied'); }, 1500);
+        }
+      });
+    }
+
+    async function clearBrowserLogs() {
+      await fetch('/api/logs/clear/browser', { method: 'POST' });
+      document.getElementById('logs-browser').innerHTML = '';
+    }
+
+    function appendLog(service, entry) {
+      const el = document.getElementById(`logs-${service}`);
+      if (!el) return;
+      const div = document.createElement('div');
+      div.className = `log-entry ${entry.type}`;
+      const time = new Date(entry.time).toLocaleTimeString('pt-BR');
+      div.innerHTML = `<span class="log-time">${time}</span>${escapeHtml(entry.text)}`;
+      el.appendChild(div);
+      if (el.children.length > 500) el.removeChild(el.firstChild);
+      if (autoScroll) {
+        const scrollParent = el.closest('.log-column') || el;
+        scrollParent.scrollTop = scrollParent.scrollHeight;
+      }
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // SSE for real-time logs
+    function connectSSE() {
+      const es = new EventSource('/api/logs');
+      es.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          appendLog(data.service, data);
+        } catch {}
+      };
+      es.onerror = () => {
+        es.close();
+        setTimeout(connectSSE, 3000);
+      };
+    }
+
+    // Active users
+    async function fetchActiveUsers() {
+      const el = document.getElementById('active-users');
+      try {
+        const res = await fetch('/api/active-users');
+        const data = await res.json();
+        if (data.error) {
+          el.innerHTML = '<span style="color:var(--text-muted);font-size:12px;">Erro: ' + escapeHtml(data.error) + '</span>';
+          return;
+        }
+        if (!Array.isArray(data) || data.length === 0) {
+          el.innerHTML = '<span style="color:var(--text-muted);font-size:12px;">Nenhum usuário logado no momento.</span>';
+          return;
+        }
+        const initials = (name) => (name || '??').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+        const timeAgo = (dt) => {
+          const diff = Date.now() - new Date(dt).getTime();
+          const min = Math.floor(diff / 60000);
+          if (min < 1) return 'agora';
+          if (min < 60) return min + ' min';
+          const hrs = Math.floor(min / 60);
+          if (hrs < 24) return hrs + 'h ' + (min % 60) + 'min';
+          return Math.floor(hrs / 24) + 'd';
+        };
+        const parseBrowser = (ua) => {
+          if (!ua) return 'Desconhecido';
+          if (ua.includes('Chrome') && !ua.includes('Edg')) return 'Chrome';
+          if (ua.includes('Edg')) return 'Edge';
+          if (ua.includes('Firefox')) return 'Firefox';
+          if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari';
+          return 'Outro';
+        };
+        let html = '<table class="users-table"><thead><tr><th></th><th>Usuário</th><th>E-mail</th><th>IP</th><th>Navegador</th><th>Sessão iniciada</th><th>Expira em</th></tr></thead><tbody>';
+        for (const u of data) {
+          const expiresIn = timeAgo(u.expires_at).replace('agora', 'expirado');
+          html += '<tr>';
+          html += '<td><span class="user-online"></span></td>';
+          html += '<td><span class="user-avatar">' + escapeHtml(initials(u.name)) + '</span>' + escapeHtml(u.name || '—') + '</td>';
+          html += '<td>' + escapeHtml(u.email || '—') + '</td>';
+          html += '<td>' + escapeHtml(u.ip || '—') + '</td>';
+          html += '<td class="user-agent-cell" title="' + escapeHtml(u.user_agent || '') + '">' + escapeHtml(parseBrowser(u.user_agent)) + '</td>';
+          html += '<td>' + new Date(u.created_at).toLocaleString('pt-BR') + '</td>';
+          html += '<td>' + escapeHtml(expiresIn) + '</td>';
+          html += '</tr>';
+        }
+        html += '</tbody></table>';
+        el.innerHTML = html;
+      } catch (e) {
+        el.innerHTML = '<span style="color:var(--text-muted);font-size:12px;">Não foi possível carregar (PostgreSQL offline?).</span>';
+      }
+    }
+
+    // SCI status check
+    async function checkSci() {
+      const el = document.getElementById('sci-indicator');
+      el.textContent = 'SCI: ...';
+      el.className = 'indicator';
+      el.style.background = 'rgba(255,255,255,.1)';
+      el.style.color = '#aaa';
+      try {
+        const res = await fetch('/api/sci-status');
+        const data = await res.json();
+        if (data.connected) {
+          el.textContent = 'SCI: OK';
+          el.className = 'indicator ok';
+          el.style.background = '';
+          el.style.color = '';
+        } else {
+          el.textContent = 'SCI: OFF';
+          el.className = 'indicator fail';
+          el.style.background = '';
+          el.style.color = '';
+          el.title = data.error || 'Não conectado';
+        }
+      } catch {
+        el.textContent = 'SCI: OFF';
+        el.className = 'indicator fail';
+        el.style.background = '';
+        el.style.color = '';
+      }
+    }
+
+    // Init
+    fetchStatus();
+    setInterval(fetchStatus, 5000);
+    checkSci();
+    setInterval(checkSci, 30000);
+    fetchActiveUsers();
+    setInterval(fetchActiveUsers, 15000); // Atualizar usuarios a cada 15s
+    connectSSE();
+  </script>
+</body>
+</html>

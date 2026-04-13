@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+.turbo/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma
+packages/db/src/generated/
+
+# Logs
+*.log
+pnpm-debug.log*
+
+# Testing
+coverage/
+
+# Uploads (certificados, arquivos de usuários)
+apps/api/uploads/
+!apps/api/uploads/.gitkeep
+
+# PEM files
+*.pem

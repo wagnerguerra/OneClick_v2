@@ -1,0 +1,7 @@
+node_modules/
+dist/
+assets/icon.png
+assets/icon-32.png
+assets/tray-icon.png
+assets/icon.ico
+launcher-error.log

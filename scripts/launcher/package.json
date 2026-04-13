@@ -1,0 +1,58 @@
+{
+  "name": "oneclick-launcher",
+  "version": "1.0.0",
+  "description": "OneClick ERP — Launcher & Service Manager",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "generate-icon": "node generate-icon.js",
+    "build": "node generate-icon.js && electron-builder --win",
+    "build:dir": "node generate-icon.js && electron-builder --win --dir"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.0"
+  },
+  "build": {
+    "appId": "com.oneclick.erp.launcher",
+    "productName": "OneClick ERP",
+    "copyright": "Copyright © 2026 OneClick",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "signAndEditExecutable": false
+    },
+    "forceCodeSigning": false,
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OneClick ERP"
+    },
+    "portable": {
+      "artifactName": "OneClick-ERP-Portable.exe"
+    },
+    "extraResources": [],
+    "asar": true
+  }
+}

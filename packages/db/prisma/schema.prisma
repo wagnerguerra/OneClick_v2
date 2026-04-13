@@ -1,0 +1,1047 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Multi-tenancy: schema public — dados globais
+// ============================================================
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Tenant {
+  id                String       @id @default(cuid())
+  name              String
+  slug              String       @unique
+  schema            String       @unique // nome do schema no Postgres: tenant_<id>
+  status            TenantStatus @default(ACTIVE)
+  stripeCustomerId  String?      @unique @map("stripe_customer_id")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  users         User[]
+  subscriptions Subscription[]
+
+  @@map("tenants")
+}
+
+// ============================================================
+// Planos e assinaturas (Stripe)
+// ============================================================
+
+enum PlanInterval {
+  MONTHLY
+  YEARLY
+}
+
+model Plan {
+  id             String       @id @default(cuid())
+  name           String
+  description    String?
+  stripePriceId  String       @unique @map("stripe_price_id")
+  interval       PlanInterval @default(MONTHLY)
+  price          Int          // valor em centavos
+  features       Json         @default("[]")
+  maxUsers       Int          @default(5) @map("max_users")
+  isActive       Boolean      @default(true) @map("is_active")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+  INCOMPLETE
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  tenantId             String             @map("tenant_id")
+  planId               String             @map("plan_id")
+  stripeSubscriptionId String             @unique @map("stripe_subscription_id")
+  stripeCustomerId     String             @map("stripe_customer_id")
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart   DateTime           @map("current_period_start")
+  currentPeriodEnd     DateTime           @map("current_period_end")
+  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  @@map("subscriptions")
+}
+
+// ============================================================
+// Usuários e autenticação (Better Auth)
+// ============================================================
+
+enum Role {
+  COLABORADOR_INTERNO
+  PRESTADOR_SERVICO
+  COLABORADOR_CLIENTE
+  GESTOR
+  COORDENADOR
+  DIRETOR
+}
+
+enum UserProfile {
+  OPERADOR
+  SUPERVISOR
+  GERENTE
+  ADMIN
+}
+
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  name          String
+  emailVerified Boolean     @default(false) @map("email_verified")
+  image         String?
+  role          Role        @default(COLABORADOR_INTERNO)
+  profile       UserProfile @default(OPERADOR)
+  isMaster          Boolean     @default(false) @map("is_master")
+  isEmpresaMaster   Boolean     @default(false) @map("is_empresa_master")
+  isActive      Boolean     @default(true) @map("is_active")
+  tenantId      String?     @map("tenant_id")
+  empresaId     String?     @map("empresa_id")
+
+  // Contato
+  telefone      String?
+
+  // Dados Organizacionais
+  areaId        String?     @map("area_id")
+  cargoId       String?     @map("cargo_id")
+  salario       Decimal?    @db.Decimal(10, 2)
+
+  // Férias (RH)
+  dataAdmissao  DateTime?   @map("data_admissao")
+  idOneClick    String?     @map("id_oneclick")
+  incluirFerias Boolean     @default(true) @map("incluir_ferias")
+
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  tenant      Tenant?          @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  empresa     Empresa?         @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  area        Area?            @relation("UserArea", fields: [areaId], references: [id], onDelete: SetNull)
+  cargo       Cargo?           @relation(fields: [cargoId], references: [id], onDelete: SetNull)
+  sessions    Session[]
+  accounts    Account[]
+  ledAreas    Area[]
+  permissions UserPermission[]
+  cargoEvents      CargoEvent[]
+  empresaEvents    EmpresaEvent[]
+  clienteEvents    ClienteEvent[]
+  clienteArquivos      ClienteArquivo[]
+  clienteHistoricos    ClienteHistorico[]
+  colaboradores        Colaborador[]
+  colaboradorEvents    ColaboradorEvent[]
+  fornecedorEvents     FornecedorEvent[]
+  socioEvents          SocioEvent[]
+  socioArquivos        SocioArquivo[]
+  socioMensagens       SocioMensagem[]
+  situacoesFiscais     SituacaoFiscal[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String   @map("user_id")
+  accountId         String   @map("account_id")
+  providerId        String   @map("provider_id")
+  accessToken       String?  @map("access_token")
+  refreshToken      String?  @map("refresh_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope             String?
+  idToken           String?  @map("id_token")
+  password          String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("verifications")
+}
+
+// ============================================================
+// Módulo Cadastros — Áreas
+// ============================================================
+
+enum CostType {
+  DIRECT
+  INDIRECT
+}
+
+model Area {
+  id                 String   @id @default(cuid())
+  code               Int      @default(autoincrement())
+  name               String
+  isActive           Boolean  @default(true) @map("is_active")
+  empresaId          String?  @map("empresa_id")
+
+  // Visibilidade e Contratação
+  availableForHiring Boolean  @default(false) @map("available_for_hiring")
+  showInOrgChart     Boolean  @default(false) @map("show_in_org_chart")
+
+  // Contato e Hierarquia
+  email              String?
+  leaderId           String?  @map("leader_id")
+  parentId           String?  @map("parent_id")
+
+  // Custeio por Cliente
+  costType           CostType @default(DIRECT) @map("cost_type")
+  costWeight         Decimal  @default(1) @map("cost_weight") @db.Decimal(10, 4)
+  excludeFromCosting Boolean  @default(false) @map("exclude_from_costing")
+
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  empresa         Empresa?         @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  parent          Area?            @relation("AreaHierarchy", fields: [parentId], references: [id])
+  children        Area[]           @relation("AreaHierarchy")
+  leader          User?            @relation(fields: [leaderId], references: [id])
+  users           User[]           @relation("UserArea")
+  cargos          Cargo[]
+  colaboradores   Colaborador[]
+  clienteContatos ClienteContato[]
+
+  @@map("areas")
+}
+
+// ============================================================
+// Módulo Cadastros — Cargos
+// ============================================================
+
+model Cargo {
+  id                String   @id @default(cuid())
+  code              Int      @default(autoincrement())
+  name              String
+  isActive          Boolean  @default(true) @map("is_active")
+  empresaId         String?  @map("empresa_id")
+  areaId            String?  @map("area_id")
+  showInOrgChart    Boolean  @default(false) @map("show_in_org_chart")
+
+  // Campos descritivos (rich text — HTML)
+  descricaoSumaria  String?  @map("descricao_sumaria") @db.Text
+  responsabilidades String?  @db.Text
+  habilidades       String?  @db.Text
+  autoridades       String?  @db.Text
+  experiencias      String?  @db.Text
+  treinamentos      String?  @db.Text
+  educacao          String?  @db.Text
+
+  // Versionamento (ISO 9001)
+  version           Int      @default(1)
+
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  empresa       Empresa?       @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  area          Area?          @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  users         User[]
+  colaboradores Colaborador[]
+  events        CargoEvent[]
+
+  @@map("cargos")
+}
+
+// ============================================================
+// Log de Eventos — Cargos (Auditoria ISO 9001)
+// ============================================================
+
+model CargoEvent {
+  id        String   @id @default(cuid())
+  cargoId   String   @map("cargo_id")
+  userId    String?  @map("user_id")
+  type      String   // "created", "updated", "deleted"
+  version   Int      // Versão no momento do evento
+  changes   Json?    // { campo: { from: "antigo", to: "novo" } }
+  createdAt DateTime @default(now()) @map("created_at")
+
+  cargo Cargo @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("cargo_events")
+}
+
+// ============================================================
+// Módulo Cadastros — Empresas
+// ============================================================
+
+enum TaxRegime {
+  SIMPLES_NACIONAL
+  LUCRO_PRESUMIDO
+  LUCRO_REAL
+  MEI
+}
+
+model Empresa {
+  id                  String     @id @default(cuid())
+  code                Int        @default(autoincrement())
+
+  // Dados Legais
+  razaoSocial         String     @map("razao_social")
+  nomeFantasia        String?    @map("nome_fantasia")
+  cnpj                String     @unique
+  inscricaoEstadual   String?    @map("inscricao_estadual")
+  inscricaoMunicipal  String?    @map("inscricao_municipal")
+  taxRegime           TaxRegime? @map("tax_regime")
+  isActive            Boolean    @default(true) @map("is_active")
+
+  // Endereço
+  cep                 String?
+  logradouro          String?
+  numero              String?
+  complemento         String?
+  bairro              String?
+  cidade              String?
+  uf                  String?    @db.Char(2)
+
+  // Contato
+  telefone            String?
+  email               String?
+  site                String?
+
+  // Logo
+  logoUrl             String?    @map("logo_url")
+  logoDarkUrl         String?    @map("logo_dark_url")
+
+  // Versionamento (ISO 9001)
+  version             Int        @default(1)
+
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+
+  users               User[]
+  areas               Area[]
+  cargos              Cargo[]
+  clientes            Cliente[]
+  colaboradores       Colaborador[]
+  fornecedores        Fornecedor[]
+  socios              Socio[]
+  events              EmpresaEvent[]
+
+  @@map("empresas")
+}
+
+model EmpresaEvent {
+  id        String   @id @default(cuid())
+  empresaId String   @map("empresa_id")
+  userId    String?  @map("user_id")
+  type      String
+  version   Int
+  changes   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("empresa_events")
+}
+
+// ============================================================
+// Permissões de Usuário por Módulo
+// ============================================================
+
+model UserPermission {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  moduleSlug     String   @map("module_slug")
+  canRead        Boolean  @default(true) @map("can_read")
+  canWrite       Boolean  @default(false) @map("can_write")
+  canDelete      Boolean  @default(false) @map("can_delete")
+  subPermissions Json?    @default("{}") @map("sub_permissions")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleSlug])
+  @@map("user_permissions")
+}
+
+// ============================================================
+// Módulo Cadastros — Clientes
+// ============================================================
+
+enum ClienteSituacao {
+  MENSAL
+  EM_CONSTITUICAO
+  POTENCIAL
+  AVULSO
+  PARALIZADO
+  PRE_OPERACIONAL
+  PROSPECT
+}
+
+enum ClienteStatus {
+  ATIVA
+  INATIVA
+  SUSPENSA
+  BAIXADA
+  INAPTA
+  NULA
+}
+
+enum TipoDocumento {
+  CNPJ
+  CPF
+}
+
+enum RegimeContabil {
+  CAIXA
+  COMPETENCIA
+}
+
+model Cliente {
+  id                  String           @id @default(cuid())
+  code                Int              @default(autoincrement())
+
+  // Identificação
+  razaoSocial         String           @map("razao_social")
+  nomeFantasia        String?          @map("nome_fantasia")
+  documento           String
+  tipoDocumento       TipoDocumento    @default(CNPJ) @map("tipo_documento")
+  tipoCliente         String?          @map("tipo_cliente")
+  logoUrl             String?          @map("logo_url")
+
+  // Integração
+  idSistema           String?          @map("id_sistema")
+  idOmie              String?          @map("id_omie")
+  omieEmpresa         String?          @map("omie_empresa")
+  idOneClick          String?          @map("id_oneclick")
+
+  // Comercial
+  situacao            ClienteSituacao  @default(MENSAL)
+  status              ClienteStatus    @default(ATIVA)
+  grupo               String?
+  categoria           String?          @default("NAO_INFORMADO")
+  origem              String?
+  dataEntrada         DateTime?        @map("data_entrada")
+  dataSaida           DateTime?        @map("data_saida")
+  observacoes         String?          @db.Text
+
+  // Fiscal
+  tributacao          TaxRegime?
+  regime              RegimeContabil?
+  inscricaoEstadual   String?          @map("inscricao_estadual")
+  inscricaoMunicipal  String?          @map("inscricao_municipal")
+
+  // Áreas contratadas (semicolon-separated: "Contabil;Fiscal;Trabalhista")
+  areasContratadas    String?          @map("areas_contratadas") @db.Text
+
+  // Endereço
+  cep                 String?
+  logradouro          String?
+  numero              String?
+  complemento         String?
+  bairro              String?
+  cidade              String?
+  uf                  String?          @db.Char(2)
+
+  // Contato
+  telefone            String?
+  email               String?
+
+  // Multi-empresa
+  empresaId           String?          @map("empresa_id")
+
+  // Versionamento (ISO 9001)
+  version             Int              @default(1)
+  isActive            Boolean          @default(true) @map("is_active")
+  deletedAt           DateTime?        @map("deleted_at")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  empresa             Empresa?         @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  socios              Socio[]
+  situacoesFiscais    SituacaoFiscal[]
+  events              ClienteEvent[]
+  arquivos            ClienteArquivo[]
+  contatos            ClienteContato[]
+  contratoParams      ClienteContratoParam[]
+  erpSnapshots        ClienteErpSnapshot[]
+  historicos          ClienteHistorico[]
+
+  @@map("clientes")
+}
+
+// Arquivos do Cliente
+model ClienteArquivo {
+  id          String   @id @default(cuid())
+  clienteId   String   @map("cliente_id")
+  fileName    String   @map("file_name")
+  fileUrl     String   @map("file_url")
+  fileSize    Int?     @map("file_size")
+  mimeType    String?  @map("mime_type")
+  vencimento  DateTime?
+  userId      String?  @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  cliente     Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("cliente_arquivos")
+}
+
+// Contatos do Cliente
+model ClienteContato {
+  id          String   @id @default(cuid())
+  clienteId   String   @map("cliente_id")
+  areaId      String?  @map("area_id")
+  nome        String
+  cargo       String?
+  telefone    String?
+  email       String?
+  observacoes String?  @db.Text
+  principal   Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  cliente     Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  area        Area?    @relation(fields: [areaId], references: [id], onDelete: SetNull)
+
+  @@map("cliente_contatos")
+}
+
+// Parâmetros do Contrato do Cliente
+model ClienteContratoParam {
+  id            String   @id @default(cuid())
+  clienteId     String   @map("cliente_id")
+  empresaId     String?  @map("empresa_id")
+  honorario     Float    @default(0)
+  lancamentos   Int      @default(0)
+  faturamento   Float    @default(0)
+  nfEntrada     Int      @default(0) @map("nf_entrada")
+  nfSaida       Int      @default(0) @map("nf_saida")
+  nfPrestado    Int      @default(0) @map("nf_prestado")
+  nfTomado      Int      @default(0) @map("nf_tomado")
+  funcionarios  Int      @default(0)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  cliente       Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, empresaId])
+  @@map("cliente_contrato_params")
+}
+
+// Snapshots mensais do ERP (SCI) por cliente
+model ClienteErpSnapshot {
+  id            String   @id @default(cuid())
+  clienteId     String   @map("cliente_id")
+  empresaId     String?  @map("empresa_id")
+  mes           String                        // formato "YYYY-MM"
+  indicador     String                        // "lancamentos", "nf_entrada", "faturamento", etc
+  valor         Float    @default(0)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  cliente       Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, empresaId, mes, indicador])
+  @@index([clienteId, mes])
+  @@map("cliente_erp_snapshots")
+}
+
+// Histórico comercial (chat de negociações)
+model ClienteHistorico {
+  id            String   @id @default(cuid())
+  clienteId     String   @map("cliente_id")
+  userId        String?  @map("user_id")
+  mensagem      String   @db.Text
+  tipo          String   @default("equipe")   // "equipe" | "cliente"
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  cliente       Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("cliente_historicos")
+}
+
+// Log de Eventos — Clientes (Auditoria ISO 9001)
+// ============================================================
+
+model ClienteEvent {
+  id        String   @id @default(cuid())
+  clienteId String   @map("cliente_id")
+  userId    String?  @map("user_id")
+  type      String   // "created", "updated", "deleted"
+  version   Int      // Versão no momento do evento
+  changes   Json?    // { campo: { from: "antigo", to: "novo" } }
+  createdAt DateTime @default(now()) @map("created_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("cliente_events")
+}
+
+// ============================================================
+// Módulo Cadastros — Colaboradores
+// ============================================================
+
+enum TipoContrato {
+  CLT
+  PJ
+  ESTAGIARIO
+  TEMPORARIO
+  AUTONOMO
+  TERCEIRIZADO
+}
+
+enum EstadoCivil {
+  SOLTEIRO
+  CASADO
+  DIVORCIADO
+  VIUVO
+  UNIAO_ESTAVEL
+  SEPARADO
+}
+
+enum Sexo {
+  MASCULINO
+  FEMININO
+  OUTRO
+}
+
+model Colaborador {
+  id                  String        @id @default(cuid())
+  code                Int           @default(autoincrement())
+
+  // Dados Pessoais
+  nomeCompleto        String        @map("nome_completo")
+  cpf                 String
+  rg                  String?
+  orgaoEmissor        String?       @map("orgao_emissor")
+  dataNascimento      DateTime?     @map("data_nascimento")
+  sexo                Sexo?
+  estadoCivil         EstadoCivil?  @map("estado_civil")
+  nacionalidade       String?       @default("Brasileira")
+  naturalidade        String?
+  fotoUrl             String?       @map("foto_url")
+
+  // Documentos Trabalhistas
+  pis                 String?
+  ctps                String?
+  ctpsSerie           String?       @map("ctps_serie")
+  tituloEleitor       String?       @map("titulo_eleitor")
+  reservista          String?
+
+  // Contato
+  email               String?
+  telefone            String?
+  celular             String?
+
+  // Endereço
+  cep                 String?
+  logradouro          String?
+  numero              String?
+  complemento         String?
+  bairro              String?
+  cidade              String?
+  uf                  String?       @db.Char(2)
+
+  // Contrato / RH
+  tipoContrato        TipoContrato  @default(CLT) @map("tipo_contrato")
+  dataAdmissao        DateTime?     @map("data_admissao")
+  dataDemissao        DateTime?     @map("data_demissao")
+  salario             Decimal?      @db.Decimal(10, 2)
+  cargaHoraria        Int?          @default(44) @map("carga_horaria")
+  incluirFerias       Boolean       @default(true) @map("incluir_ferias")
+  observacoes         String?       @db.Text
+
+  // Vínculos
+  empresaId           String?       @map("empresa_id")
+  areaId              String?       @map("area_id")
+  cargoId             String?       @map("cargo_id")
+  userId              String?       @map("user_id")
+
+  // Controle
+  isActive            Boolean       @default(true) @map("is_active")
+  version             Int           @default(1)
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  empresa             Empresa?      @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  area                Area?         @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  cargo               Cargo?        @relation(fields: [cargoId], references: [id], onDelete: SetNull)
+  user                User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  events              ColaboradorEvent[]
+
+  @@map("colaboradores")
+}
+
+model ColaboradorEvent {
+  id              String   @id @default(cuid())
+  colaboradorId   String   @map("colaborador_id")
+  userId          String?  @map("user_id")
+  type            String
+  version         Int
+  changes         Json?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  colaborador     Colaborador @relation(fields: [colaboradorId], references: [id], onDelete: Cascade)
+  user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("colaborador_events")
+}
+
+// ============================================================
+// Módulo Cadastros — Fornecedores
+// ============================================================
+
+enum TipoFornecedor {
+  PRODUTO
+  SERVICO
+  AMBOS
+}
+
+model Fornecedor {
+  id                  String          @id @default(cuid())
+  code                Int             @default(autoincrement())
+
+  // Identificação
+  razaoSocial         String          @map("razao_social")
+  nomeFantasia        String?         @map("nome_fantasia")
+  documento           String
+  tipoDocumento       TipoDocumento   @default(CNPJ) @map("tipo_documento")
+  inscricaoEstadual   String?         @map("inscricao_estadual")
+  inscricaoMunicipal  String?         @map("inscricao_municipal")
+  tipoFornecedor      TipoFornecedor  @default(AMBOS) @map("tipo_fornecedor")
+  categoria           String?
+  logoUrl             String?         @map("logo_url")
+
+  // Contato
+  telefone            String?
+  celular             String?
+  email               String?
+  site                String?
+  contatoPrincipal    String?         @map("contato_principal")
+  cargoContato        String?         @map("cargo_contato")
+
+  // Endereço
+  cep                 String?
+  logradouro          String?
+  numero              String?
+  complemento         String?
+  bairro              String?
+  cidade              String?
+  uf                  String?         @db.Char(2)
+
+  // Dados Bancários
+  banco               String?
+  agencia             String?
+  conta               String?
+  tipoConta           String?         @map("tipo_conta")
+  pixChave            String?         @map("pix_chave")
+  pixTipo             String?         @map("pix_tipo")
+
+  // Comercial
+  observacoes         String?         @db.Text
+
+  // Multi-empresa
+  empresaId           String?         @map("empresa_id")
+
+  // Controle
+  isActive            Boolean         @default(true) @map("is_active")
+  version             Int             @default(1)
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+
+  empresa             Empresa?        @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  events              FornecedorEvent[]
+
+  @@map("fornecedores")
+}
+
+model FornecedorEvent {
+  id              String   @id @default(cuid())
+  fornecedorId    String   @map("fornecedor_id")
+  userId          String?  @map("user_id")
+  type            String
+  version         Int
+  changes         Json?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  fornecedor      Fornecedor @relation(fields: [fornecedorId], references: [id], onDelete: Cascade)
+  user            User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("fornecedor_events")
+}
+
+// ============================================================
+// Módulo Cadastros — Sócios
+// ============================================================
+
+enum TipoSocio {
+  SOCIO_ADMINISTRADOR
+  SOCIO_QUOTISTA
+  SOCIO_DIRETOR
+  ACIONISTA
+  TITULAR
+  PROCURADOR
+  REPRESENTANTE_LEGAL
+}
+
+model Socio {
+  id                  String      @id @default(cuid())
+  code                Int         @default(autoincrement())
+
+  // Dados Pessoais
+  nomeCompleto        String      @map("nome_completo")
+  cpf                 String
+  rg                  String?
+  orgaoEmissor        String?     @map("orgao_emissor")
+  dataNascimento      DateTime?   @map("data_nascimento")
+  nacionalidade       String?     @default("Brasileira")
+  estadoCivil         EstadoCivil? @map("estado_civil")
+  profissao           String?
+
+  // Contato
+  email               String?
+  telefone            String?
+  celular             String?
+
+  // Endereço
+  cep                 String?
+  logradouro          String?
+  numero              String?
+  complemento         String?
+  bairro              String?
+  cidade              String?
+  uf                  String?     @db.Char(2)
+
+  // Dados Societários
+  tipoSocio           TipoSocio   @default(SOCIO_QUOTISTA) @map("tipo_socio")
+  participacao        Decimal?    @db.Decimal(10, 4)
+  valorQuotas         Decimal?    @map("valor_quotas") @db.Decimal(14, 2)
+  dataEntrada         DateTime?   @map("data_entrada")
+  dataSaida           DateTime?   @map("data_saida")
+  assinaNaEmpresa     Boolean     @default(false) @map("assina_na_empresa")
+  responsavelLegal    Boolean     @default(false) @map("responsavel_legal")
+  observacoes         String?     @db.Text
+
+  // Vínculo com empresa (qual empresa este sócio pertence)
+  empresaId           String?     @map("empresa_id")
+  // Vínculo com cliente (se for sócio de um cliente)
+  clienteId           String?     @map("cliente_id")
+
+  // Controle
+  isActive            Boolean     @default(true) @map("is_active")
+  version             Int         @default(1)
+  createdAt           DateTime    @default(now()) @map("created_at")
+  updatedAt           DateTime    @updatedAt @map("updated_at")
+
+  empresa             Empresa?    @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  cliente             Cliente?    @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  events              SocioEvent[]
+  arquivos            SocioArquivo[]
+  mensagens           SocioMensagem[]
+
+  @@index([cpf])
+  @@index([clienteId])
+  @@map("socios")
+}
+
+model SocioArquivo {
+  id          String   @id @default(cuid())
+  socioId     String   @map("socio_id")
+  fileName    String   @map("file_name")
+  fileUrl     String   @map("file_url")
+  fileSize    Int?     @map("file_size")
+  mimeType    String?  @map("mime_type")
+  vencimento  DateTime?
+  userId      String?  @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  socio       Socio    @relation(fields: [socioId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("socio_arquivos")
+}
+
+model SocioMensagem {
+  id          String   @id @default(cuid())
+  socioId     String   @map("socio_id")
+  userId      String?  @map("user_id")
+  mensagem    String   @db.Text
+  tipo        String   @default("interna")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  socio       Socio    @relation(fields: [socioId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("socio_mensagens")
+}
+
+model SocioEvent {
+  id          String   @id @default(cuid())
+  socioId     String   @map("socio_id")
+  userId      String?  @map("user_id")
+  type        String
+  version     Int
+  changes     Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  socio       Socio    @relation(fields: [socioId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("socio_events")
+}
+
+// ============================================================
+// Configurações do Sistema (key-value)
+// ============================================================
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  label     String?
+  group     String?
+  encrypted Boolean  @default(false)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_config")
+}
+
+model SavedQuery {
+  id        String   @id @default(cuid())
+  name      String
+  sql       String   @db.Text
+  dbType    String   @map("db_type") // postgresql | mysql | firebird
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("saved_query")
+}
+
+// ============================================================
+// Log de Requisições API (para Métricas)
+// ============================================================
+
+model ApiLog {
+  id        String   @id @default(cuid())
+  source    String                          // ex: "serpro", "brasilapi", "omie"
+  endpoint  String                          // ex: "/cnpj/v1"
+  method    String   @default("GET")
+  status    Int?                             // HTTP status code
+  duration  Int?                             // ms
+  documento String?                          // CNPJ/CPF consultado
+  userId    String?  @map("user_id")
+  empresaId String?  @map("empresa_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([source, createdAt])
+  @@index([createdAt])
+  @@map("api_logs")
+}
+
+// Preços por fonte de API (para cálculo de custo)
+model ApiPricing {
+  id         String  @id @default(cuid())
+  source     String  @unique
+  unitPrice  Float   @default(0) @map("unit_price")
+  multiplier Float   @default(1)
+  currency   String  @default("BRL")
+
+  @@map("api_pricing")
+}
+
+// ============================================================
+// Situação Fiscal (Integra Contador SERPRO)
+// ============================================================
+
+model SituacaoFiscal {
+  id                String   @id @default(cuid())
+  documento         String
+  tipoDocumento     Int      @default(2) @map("tipo_documento")
+  razaoSocial       String?  @map("razao_social")
+
+  // Protocolo e etapa
+  protocolo         String?
+  etapa             String   @default("pendente")
+
+  // Resultado
+  tipoCertidao      String?  @map("tipo_certidao")
+  numeroCertidao    String?  @map("numero_certidao")
+  dataEmissao       DateTime? @map("data_emissao")
+  dataValidade      DateTime? @map("data_validade")
+
+  // PDF em base64
+  pdfBase64         String?  @map("pdf_base64") @db.Text
+
+  // Dados extraídos do PDF (JSON)
+  dadosExtraidos    Json?    @map("dados_extraidos")
+
+  // Resposta completa da API (JSON)
+  respostaCompleta  Json?    @map("resposta_completa")
+
+  // Status
+  sucesso           Boolean  @default(false)
+  erro              String?  @db.Text
+  statusHttp        Int?     @map("status_http")
+
+  // Vínculo com cliente
+  clienteId         String?  @map("cliente_id")
+  empresaId         String?  @map("empresa_id")
+  userId            String?  @map("user_id")
+
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  cliente           Cliente? @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([documento])
+  @@index([clienteId])
+  @@index([createdAt])
+  @@map("situacao_fiscal")
+}
