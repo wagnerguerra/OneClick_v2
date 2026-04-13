@@ -35,5 +35,6 @@ coverage/
 apps/api/uploads/
 !apps/api/uploads/.gitkeep
 
-# PEM files
-*.pem
+# PEM/PFX files (exceto pasta certs/ que é versionada)
+apps/api/uploads/*.pem
+apps/api/uploads/*.pfx
