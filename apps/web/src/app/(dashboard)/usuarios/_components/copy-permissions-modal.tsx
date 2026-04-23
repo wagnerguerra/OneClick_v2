@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Copy, Loader2, Search, Check } from 'lucide-react'
 import {
   Button, Input, Badge,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
+  Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
   Checkbox, Avatar, AvatarFallback,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
@@ -98,7 +98,7 @@ export function CopyPermissionsModal({ open, onClose, onSuccess }: CopyPermissio
   return (
     <Dialog open={open} onOpenChange={o => !o && handleClose()}>
       <DialogContent className="max-w-lg">
-        <DialogHeader className="border-b border-border/60 bg-muted/30">
+        <DialogHeader>
           <DialogTitle className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
               <Copy className="h-4.5 w-4.5 text-primary" />
@@ -114,7 +114,7 @@ export function CopyPermissionsModal({ open, onClose, onSuccess }: CopyPermissio
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-6 pb-2 max-h-[50vh] overflow-y-auto">
+        <DialogBody>
           {/* Busca */}
           <div className="relative mb-3 mt-2">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -189,9 +189,8 @@ export function CopyPermissionsModal({ open, onClose, onSuccess }: CopyPermissio
               })}
             </div>
           )}
-        </div>
-
-        <DialogFooter className="border-t border-border/60 bg-muted/30">
+        </DialogBody>
+        <DialogFooter>
           {step === 'targets' && (
             <>
               <Button

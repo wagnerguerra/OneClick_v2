@@ -30,6 +30,7 @@ import { cn } from '@saas/ui'
 import { masks } from '@/lib/masks'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { getApiUrl } from '@/lib/api-url'
 import { refreshEmpresaAtiva } from '@/hooks/use-empresa-ativa'
 
 interface EmpresaFormProps {
@@ -91,7 +92,7 @@ function LogoUpload({ control, setValue, fieldName = 'logoUrl', label }: {
       const formData = new FormData()
       formData.append('file', file)
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
+      const apiUrl = getApiUrl()
       const res = await fetch(`${apiUrl}/api/upload`, {
         method: 'POST',
         body: formData,

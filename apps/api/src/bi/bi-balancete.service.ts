@@ -1,0 +1,559 @@
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common'
+import { prisma } from '@saas/db'
+import { SciService, type SciBalanceteLinha } from '../cliente/sci.service'
+
+export interface RefreshJob {
+  status: 'idle' | 'running' | 'done' | 'error'
+  progress: number
+  message: string
+  log: string[]
+  startedAt: Date
+  completedAt?: Date
+}
+
+interface RefreshStatusUpdate {
+  status?: RefreshJob['status']
+  progress?: number
+  message?: string
+  log?: string[]
+  completedAt?: Date
+}
+
+@Injectable()
+export class BiBalanceteService {
+  private readonly logger = new Logger(BiBalanceteService.name)
+  private refreshJobs = new Map<string, RefreshJob>()
+
+  constructor(
+    @Inject(forwardRef(() => SciService)) private readonly sciService: SciService,
+  ) {}
+
+  // ---------------------------------------------------------------------------
+  // 1. syncCategoriasFromLinhas
+  // ---------------------------------------------------------------------------
+  async syncCategoriasFromLinhas(
+    clienteId: string,
+    preservarPersonalizacoes = true,
+  ): Promise<{ synced: number; created: number }> {
+    // Get all distinct contas from linhas
+    const linhas = await prisma.clienteBiLinha.findMany({
+      where: { clienteId },
+      select: { conta: true, nomeConta: true },
+      distinct: ['conta'],
+    })
+
+    // Filter contas that start with '0'
+    const contasValidas = linhas.filter((l) => l.conta.startsWith('0'))
+
+    // Build a set of all contas we need (including ancestors)
+    const contaMap = new Map<string, string>() // conta -> nomeConta
+    for (const { conta, nomeConta } of contasValidas) {
+      contaMap.set(conta, nomeConta)
+    }
+
+    // Backfill ancestor categories
+    for (const { conta } of contasValidas) {
+      const parts = conta.split('.')
+      for (let i = 1; i < parts.length; i++) {
+        const ancestorConta = parts.slice(0, i).join('.')
+        if (!contaMap.has(ancestorConta)) {
+          contaMap.set(ancestorConta, ancestorConta)
+        }
+      }
+    }
+
+    // Get existing categories for this client
+    const existingCategorias = await prisma.clienteBiCategoria.findMany({
+      where: { clienteId },
+    })
+    const existingMap = new Map(existingCategorias.map((c) => [c.conta, c]))
+
+    let synced = 0
+    let created = 0
+
+    for (const [conta, nomeConta] of contaMap) {
+      const parts = conta.split('.')
+      const nivel = parts.length
+      const parentConta = parts.length > 1 ? parts.slice(0, -1).join('.') : null
+
+      const existing = existingMap.get(conta)
+
+      if (existing) {
+        // Update existing — only update nomeSci (account name from SCI)
+        // NEVER touch ativo, nomeExibicao, parentConta, ordem when preserving
+        if (preservarPersonalizacoes) {
+          await prisma.clienteBiCategoria.update({
+            where: { id: existing.id },
+            data: {
+              nomeSci: nomeConta,
+              nivel,
+            },
+          })
+        } else {
+          await prisma.clienteBiCategoria.update({
+            where: { id: existing.id },
+            data: {
+              nomeSci: nomeConta,
+              nomeExibicao: nomeConta,
+              parentConta,
+              nivel,
+              ordem: 0,
+              ativo: false,
+            },
+          })
+        }
+        synced++
+      } else {
+        // New category — ativo=false by default (user must opt-in via "No BI")
+        await prisma.clienteBiCategoria.create({
+          data: {
+            clienteId,
+            conta,
+            nomeSci: nomeConta,
+            nomeExibicao: nomeConta,
+            parentConta,
+            nivel,
+            ordem: 0,
+            tipo: 'real',
+            ativo: false,
+          },
+        })
+        created++
+        synced++
+      }
+    }
+
+    return { synced, created }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 2. normalizeContaForStorage
+  // ---------------------------------------------------------------------------
+  normalizeContaForStorage(conta: string): string {
+    // Remove surrounding quotes
+    let cleaned = conta.replace(/^["']|["']$/g, '')
+
+    // Split, trim each part
+    const parts = cleaned.split('.').map((p) => p.trim())
+
+    // If first part is single digit, pad to 2 digits
+    if (parts.length > 0 && parts[0] && /^\d$/.test(parts[0])) {
+      parts[0] = parts[0].padStart(2, '0')
+    }
+
+    return parts.join('.')
+  }
+
+  // ---------------------------------------------------------------------------
+  // 3. excluirBalancetePeriodo
+  // ---------------------------------------------------------------------------
+  async excluirBalancetePeriodo(
+    clienteId: string,
+    periodo: string,
+  ): Promise<{ deletedLinhas: number; deletedCache: number }> {
+    const ref = parseInt(periodo, 10)
+
+    const deletedLinhas = await prisma.clienteBiLinha.deleteMany({
+      where: { clienteId, periodo },
+    })
+
+    const deletedCache = await prisma.biCacheBalancete.deleteMany({
+      where: { clienteId, ref },
+    })
+
+    return {
+      deletedLinhas: deletedLinhas.count,
+      deletedCache: deletedCache.count,
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 4. excluirBalancetePeriodoRange
+  // ---------------------------------------------------------------------------
+  async excluirBalancetePeriodoRange(
+    clienteId: string,
+    periodoInicio: string,
+    periodoFim: string,
+  ): Promise<{ deletedLinhas: number; deletedCache: number }> {
+    const refInicio = parseInt(periodoInicio, 10)
+    const refFim = parseInt(periodoFim, 10)
+
+    const anoInicio = Math.floor(refInicio / 100)
+    const mesInicio = refInicio % 100
+    const anoFim = Math.floor(refFim / 100)
+    const mesFim = refFim % 100
+
+    const refs = this.rangeMeses(anoInicio, mesInicio, anoFim, mesFim)
+
+    let totalDeletedLinhas = 0
+    let totalDeletedCache = 0
+
+    for (const ref of refs) {
+      const periodo = String(ref)
+      const result = await this.excluirBalancetePeriodo(clienteId, periodo)
+      totalDeletedLinhas += result.deletedLinhas
+      totalDeletedCache += result.deletedCache
+    }
+
+    return {
+      deletedLinhas: totalDeletedLinhas,
+      deletedCache: totalDeletedCache,
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 5. getRefreshStatus
+  // ---------------------------------------------------------------------------
+  getRefreshStatus(
+    clienteId: string,
+    ano: number,
+  ): {
+    status: 'idle' | 'running' | 'done' | 'error'
+    progress?: number
+    message?: string
+    log?: string[]
+  } {
+    const key = `${clienteId}_${ano}`
+    const job = this.refreshJobs.get(key)
+
+    if (!job) {
+      return { status: 'idle' }
+    }
+
+    return {
+      status: job.status,
+      progress: job.progress,
+      message: job.message,
+      log: job.log,
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 6. startRefresh
+  // ---------------------------------------------------------------------------
+  startRefresh(
+    clienteId: string,
+    ano: number,
+    force = false,
+  ): { jobId: string } {
+    const key = `${clienteId}_${ano}`
+
+    const existing = this.refreshJobs.get(key)
+    if (existing && existing.status === 'running' && !force) {
+      return { jobId: key }
+    }
+
+    this.refreshJobs.set(key, {
+      status: 'running',
+      progress: 0,
+      message: 'Iniciando importação...',
+      log: [],
+      startedAt: new Date(),
+    })
+
+    return { jobId: key }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 7. updateRefreshStatus
+  // ---------------------------------------------------------------------------
+  updateRefreshStatus(
+    clienteId: string,
+    ano: number,
+    update: RefreshStatusUpdate,
+  ): void {
+    const key = `${clienteId}_${ano}`
+    const job = this.refreshJobs.get(key)
+
+    if (!job) {
+      this.logger.warn(`Job não encontrado: ${key}`)
+      return
+    }
+
+    if (update.status !== undefined) job.status = update.status
+    if (update.progress !== undefined) job.progress = update.progress
+    if (update.message !== undefined) job.message = update.message
+    if (update.log !== undefined) job.log.push(...update.log)
+    if (update.completedAt !== undefined) job.completedAt = update.completedAt
+  }
+
+  // ---------------------------------------------------------------------------
+  // 8. monthRange
+  // ---------------------------------------------------------------------------
+  monthRange(
+    ano: number,
+    mes: number,
+  ): { dataIni: string; dataFim: string } {
+    const year = ano
+    const month = mes
+
+    // First day of month
+    const dataIni = `${year}-${String(month).padStart(2, '0')}-01`
+
+    // Last day of month
+    const lastDay = new Date(year, month, 0).getDate()
+    const dataFim = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+
+    return { dataIni, dataFim }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 9. rangeMeses
+  // ---------------------------------------------------------------------------
+  rangeMeses(
+    anoInicio: number,
+    mesInicio: number,
+    anoFim: number,
+    mesFim: number,
+  ): number[] {
+    const refs: number[] = []
+
+    let ano = anoInicio
+    let mes = mesInicio
+
+    while (ano < anoFim || (ano === anoFim && mes <= mesFim)) {
+      refs.push(ano * 100 + mes)
+      mes++
+      if (mes > 12) {
+        mes = 1
+        ano++
+      }
+    }
+
+    return refs
+  }
+
+  // ---------------------------------------------------------------------------
+  // 10. getPeriodosImportados
+  // ---------------------------------------------------------------------------
+  async getPeriodosImportados(
+    clienteId: string,
+  ): Promise<Array<{ ref: number; totalLinhas: number; atualizadoEm: Date }>> {
+    const caches = await prisma.biCacheBalancete.findMany({
+      where: { clienteId },
+      select: {
+        ref: true,
+        totalLinhas: true,
+        atualizadoEm: true,
+      },
+      orderBy: { ref: 'asc' },
+    })
+
+    return caches.map((c) => ({
+      ref: c.ref,
+      totalLinhas: c.totalLinhas,
+      atualizadoEm: c.atualizadoEm,
+    }))
+  }
+
+  // ---------------------------------------------------------------------------
+  // 11. importarBalanceteSci — Importação completa do SCI mês a mês
+  // ---------------------------------------------------------------------------
+  async importarBalanceteSci(opts: {
+    clienteId: string
+    prcodemp: number
+    anoInicio: number
+    mesInicio: number
+    anoFim: number
+    mesFim: number
+    substituirExistentes: boolean
+  }) {
+    const { clienteId, prcodemp, anoInicio, mesInicio, anoFim, mesFim, substituirExistentes } = opts
+    const jobKey = `${clienteId}_${anoInicio}${String(mesInicio).padStart(2, '0')}_${anoFim}${String(mesFim).padStart(2, '0')}`
+
+    // Check if already running
+    const existing = this.refreshJobs.get(jobKey)
+    if (existing && existing.status === 'running') {
+      return { started: false, job: existing }
+    }
+
+    const refs = this.rangeMeses(anoInicio, mesInicio, anoFim, mesFim)
+    const job: RefreshJob = {
+      status: 'running',
+      progress: 0,
+      message: `Iniciando importação de ${refs.length} mês(es)...`,
+      log: [],
+      startedAt: new Date(),
+    }
+    this.refreshJobs.set(jobKey, job)
+
+    // Run in background
+    this.runImportJob(jobKey, clienteId, prcodemp, refs, substituirExistentes).catch((e) => {
+      this.logger.error(`Import job failed: ${(e as Error).message}`)
+    })
+
+    return { started: true, job: { status: job.status, totalMeses: refs.length } }
+  }
+
+  private async runImportJob(
+    jobKey: string,
+    clienteId: string,
+    prcodemp: number,
+    refs: number[],
+    substituirExistentes: boolean,
+  ) {
+    const job = this.refreshJobs.get(jobKey)!
+    let ok = 0, skipped = 0, failed = 0
+    const errorsByMes: Record<number, string> = {}
+
+    for (let i = 0; i < refs.length; i++) {
+      const ref = refs[i]!
+      const ano = Math.floor(ref / 100)
+      const mes = ref % 100
+      const { dataIni, dataFim } = this.monthRange(ano, mes)
+
+      job.progress = Math.round((i / refs.length) * 100)
+      job.message = `Importando ${String(mes).padStart(2, '0')}/${ano} (${i + 1}/${refs.length})...`
+      job.log.push(`[${new Date().toLocaleTimeString('pt-BR')}] Consultando SCI ref=${ref}...`)
+
+      // Retry logic (3 tentativas)
+      let success = false
+      let lastError = ''
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const linhas = await this.sciService.buscarBalanceteMes(prcodemp, dataIni, dataFim, ref)
+
+          if (linhas.length === 0) {
+            job.log.push(`[${new Date().toLocaleTimeString('pt-BR')}] ref=${ref}: 0 linhas retornadas (pulando)`)
+            skipped++
+            success = true
+            break
+          }
+
+          // Persistir no banco
+          await this.persistirMes(clienteId, ref, linhas, substituirExistentes)
+
+          job.log.push(`[${new Date().toLocaleTimeString('pt-BR')}] ref=${ref}: ${linhas.length} linhas importadas`)
+          ok++
+          success = true
+          break
+        } catch (e) {
+          lastError = (e as Error).message
+          if (attempt < 2) {
+            const wait = 700 * Math.pow(2, attempt)
+            job.log.push(`[${new Date().toLocaleTimeString('pt-BR')}] ref=${ref}: tentativa ${attempt + 1} falhou, retry em ${wait}ms...`)
+            await new Promise((r) => setTimeout(r, wait))
+          }
+        }
+      }
+
+      if (!success) {
+        failed++
+        errorsByMes[ref] = lastError
+        job.log.push(`[${new Date().toLocaleTimeString('pt-BR')}] ref=${ref}: FALHOU após 3 tentativas — ${lastError}`)
+      }
+    }
+
+    // Sync categorias (preservar personalizações)
+    try {
+      await this.syncCategoriasFromLinhas(clienteId, true)
+      job.log.push(`[${new Date().toLocaleTimeString('pt-BR')}] Categorias sincronizadas`)
+    } catch (e) {
+      job.log.push(`[${new Date().toLocaleTimeString('pt-BR')}] Erro ao sincronizar categorias: ${(e as Error).message}`)
+    }
+
+    // Update job status
+    job.status = failed > 0 && ok === 0 ? 'error' : 'done'
+    job.progress = 100
+    job.completedAt = new Date()
+    job.message = `Concluído: ${ok} importado(s), ${skipped} pulado(s), ${failed} falha(s)`
+    ;(job as any).ok = ok
+    ;(job as any).skipped = skipped
+    ;(job as any).failed = failed
+    ;(job as any).errorsByMes = errorsByMes
+    ;(job as any).totalMeses = refs.length
+  }
+
+  private async persistirMes(
+    clienteId: string,
+    ref: number,
+    linhas: SciBalanceteLinha[],
+    substituirExistentes: boolean,
+  ) {
+    const periodo = String(ref)
+
+    // Normalizar e deduplicar
+    const deduped = new Map<string, {
+      conta: string; nomeConta: string
+      saldoAnterior: number; debitos: number; creditos: number
+      saldoAtual: number; movimento: number
+    }>()
+
+    for (const l of linhas) {
+      const conta = this.normalizeContaForStorage(l.CLASSIFICACAO)
+      if (!conta) continue
+
+      const existing = deduped.get(conta)
+      if (existing) {
+        // Consolidar duplicatas somando valores
+        existing.saldoAnterior += l.BDSALDO_ANTERIOR
+        existing.debitos += l.DEBITO
+        existing.creditos += l.CREDITO
+        existing.saldoAtual += l.BDSALDO_ATUAL
+        // Para movimento, usar o menor em valor absoluto (evitar inflação)
+        if (Math.abs(l.BDMOVIMENTO) < Math.abs(existing.movimento)) {
+          existing.movimento = l.BDMOVIMENTO
+        }
+      } else {
+        deduped.set(conta, {
+          conta,
+          nomeConta: l.NOME_CONTA,
+          saldoAnterior: l.BDSALDO_ANTERIOR,
+          debitos: l.DEBITO,
+          creditos: l.CREDITO,
+          saldoAtual: l.BDSALDO_ATUAL,
+          movimento: l.BDMOVIMENTO,
+        })
+      }
+    }
+
+    const rows = Array.from(deduped.values())
+
+    await prisma.$transaction(async (tx) => {
+      if (substituirExistentes) {
+        await tx.clienteBiLinha.deleteMany({ where: { clienteId, periodo } })
+      }
+
+      if (substituirExistentes) {
+        // Insert all
+        await tx.clienteBiLinha.createMany({
+          data: rows.map((r) => ({
+            clienteId, periodo,
+            conta: r.conta, nomeConta: r.nomeConta,
+            saldoAnterior: r.saldoAnterior, debitos: r.debitos,
+            creditos: r.creditos, saldoAtual: r.saldoAtual, movimento: r.movimento,
+          })),
+        })
+      } else {
+        // Insert only new (skip existing)
+        for (const r of rows) {
+          await tx.clienteBiLinha.upsert({
+            where: { clienteId_periodo_conta: { clienteId, periodo, conta: r.conta } },
+            create: {
+              clienteId, periodo,
+              conta: r.conta, nomeConta: r.nomeConta,
+              saldoAnterior: r.saldoAnterior, debitos: r.debitos,
+              creditos: r.creditos, saldoAtual: r.saldoAtual, movimento: r.movimento,
+            },
+            update: {}, // No update — preserve existing
+          })
+        }
+      }
+
+      // Update cache metadata
+      await tx.biCacheBalancete.upsert({
+        where: { clienteId_ref_fonte: { clienteId, ref, fonte: 'sci' } },
+        create: { clienteId, ref, fonte: 'sci', totalLinhas: rows.length },
+        update: { totalLinhas: rows.length, atualizadoEm: new Date() },
+      })
+    })
+  }
+
+  // Get refresh status by refInicio/refFim key
+  getRefreshStatusByRange(clienteId: string, refInicio: number, refFim: number) {
+    const jobKey = `${clienteId}_${refInicio}_${refFim}`
+    const job = this.refreshJobs.get(jobKey)
+    if (!job) return { status: 'idle' as const, job: null }
+    return { status: job.status, job }
+  }
+}

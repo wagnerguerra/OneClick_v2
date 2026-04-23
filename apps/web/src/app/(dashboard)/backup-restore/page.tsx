@@ -5,6 +5,7 @@ import { Archive, Download, Upload, Loader2, CheckCircle, FileArchive, AlertTria
 import { Button, Card, CardHeader, Checkbox, Label, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { getApiUrl } from '@/lib/api-url'
 
 interface BackupFile {
   filename: string
@@ -18,8 +19,6 @@ interface BackupResult {
   size: number
   dbDumpOk: boolean
 }
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 
 export default function BackupRestorePage() {
   const [generating, setGenerating] = useState(false)
@@ -85,7 +84,7 @@ export default function BackupRestorePage() {
   }
 
   function downloadBackup(filename: string) {
-    window.open(`${API_URL}/api/backup/download/${encodeURIComponent(filename)}`, '_blank')
+    window.open(`${getApiUrl()}/api/backup/download/${encodeURIComponent(filename)}`, '_blank')
   }
 
   function formatBytes(bytes: number) {

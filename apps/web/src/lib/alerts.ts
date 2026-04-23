@@ -15,6 +15,15 @@ export const alerts = {
     })
   },
 
+  warning(title: string, text?: string) {
+    return Swal.fire({
+      icon: 'warning',
+      title,
+      text,
+      confirmButtonColor: themeColor,
+    })
+  },
+
   error(title: string, text?: string) {
     return Swal.fire({
       icon: 'error',
@@ -22,6 +31,21 @@ export const alerts = {
       text,
       confirmButtonColor: themeColor,
     })
+  },
+
+  async confirm(opts: { title: string; text: string; confirmText?: string; icon?: 'warning' | 'question' | 'info' }) {
+    const result = await Swal.fire({
+      icon: opts.icon ?? 'warning',
+      title: opts.title,
+      text: opts.text,
+      showCancelButton: true,
+      confirmButtonColor: themeColor,
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: opts.confirmText ?? 'Confirmar',
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true,
+    })
+    return result.isConfirmed
   },
 
   async confirmDelete(itemName?: string) {

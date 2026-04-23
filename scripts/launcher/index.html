@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OneClick ERP — Service Manager</title>
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       Theme: Dark (default)
+       ═══════════════════════════════════════════════════════════ */
+    [data-theme="dark"] {
+      --bg-primary: #0b0f19;
+      --bg-secondary: #111827;
+      --bg-card: #1a2332;
+      --bg-card-hover: #1f2b3d;
+      --bg-surface: rgba(255,255,255,0.03);
+      --border: rgba(255,255,255,0.06);
+      --border-light: rgba(255,255,255,0.1);
+      --text-primary: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --scrollbar-thumb: rgba(255,255,255,0.1);
+      --scrollbar-thumb-hover: rgba(255,255,255,0.2);
+      --log-hover: rgba(255,255,255,0.03);
+      --toggle-bg: rgba(255,255,255,0.1);
+      --shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       Theme: Light
+       ═══════════════════════════════════════════════════════════ */
+    [data-theme="light"] {
+      --bg-primary: #f1f5f9;
+      --bg-secondary: #ffffff;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f8fafc;
+      --bg-surface: rgba(0,0,0,0.02);
+      --border: rgba(0,0,0,0.08);
+      --border-light: rgba(0,0,0,0.12);
+      --text-primary: #1e293b;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --scrollbar-thumb: rgba(0,0,0,0.12);
+      --scrollbar-thumb-hover: rgba(0,0,0,0.2);
+      --log-hover: rgba(0,0,0,0.03);
+      --toggle-bg: rgba(0,0,0,0.1);
+      --shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       Shared accent colors (both themes)
+       ═══════════════════════════════════════════════════════════ */
+    :root {
+      --green: #22c55e;
+      --green-dim: rgba(34,197,94,0.15);
+      --red: #ef4444;
+      --red-dim: rgba(239,68,68,0.15);
+      --blue: #3b82f6;
+      --blue-dim: rgba(59,130,246,0.15);
+      --yellow: #f59e0b;
+      --yellow-dim: rgba(245,158,11,0.15);
+      --purple: #8b5cf6;
+      --cyan: #06b6d4;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --transition: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    *::-webkit-scrollbar { width: 6px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+    *::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 13px;
+      line-height: 1.5;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       Title Bar
+       ═══════════════════════════════════════════════════════════ */
+    .titlebar {
+      -webkit-app-region: drag;
+      height: 38px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .titlebar-brand {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 600;
+      color: var(--text-secondary); letter-spacing: 0.5px;
+    }
+    .titlebar-brand .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(34,197,94,0.4);
+      transition: var(--transition);
+    }
+    .titlebar-brand .dot.offline { background: var(--red); box-shadow: 0 0 8px rgba(239,68,68,0.4); }
+    .titlebar-controls { -webkit-app-region: no-drag; display: flex; gap: 2px; }
+    .titlebar-btn {
+      width: 36px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent; border: none;
+      color: var(--text-muted); cursor: pointer;
+      border-radius: 4px; transition: var(--transition); font-size: 16px;
+    }
+    .titlebar-btn:hover { background: var(--border-light); color: var(--text-primary); }
+    .titlebar-btn.close:hover { background: var(--red); color: #fff; }
+
+    /* ═══════════════════════════════════════════════════════════
+       Layout
+       ═══════════════════════════════════════════════════════════ */
+    .app-layout { display: flex; flex: 1; overflow: hidden; }
+
+    .sidebar {
+      width: 220px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .sidebar-header { padding: 20px 16px 16px; border-bottom: 1px solid var(--border); }
+    .sidebar-logo { font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.5px; }
+    .sidebar-logo span { color: var(--green); }
+    .sidebar-sub { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-top: 2px; }
+
+    .sidebar-nav { flex: 1; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: var(--radius-sm);
+      cursor: pointer; color: var(--text-secondary);
+      transition: background 0.1s, color 0.1s;
+      font-size: 13px; font-weight: 500;
+      border: none; background: none; width: 100%; text-align: left;
+    }
+    .nav-item:hover { background: var(--border-light); color: var(--text-primary); }
+    .nav-item.active { background: rgba(34,197,94,0.1); color: var(--green); }
+    .nav-item .nav-icon { width: 18px; text-align: center; font-size: 15px; display: flex; align-items: center; justify-content: center; }
+    .nav-badge { margin-left: auto; font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: 600; }
+    .nav-badge.ok { background: var(--green-dim); color: var(--green); }
+    .nav-badge.off { background: var(--red-dim); color: var(--red); }
+
+    .sidebar-footer { padding: 12px 8px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
+    .sidebar-footer .nav-item { font-size: 12px; padding: 8px 12px; }
+
+    .main-content { flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; }
+
+    /* ═══════════════════════════════════════════════════════════
+       Pages — instant switch via visibility/opacity, no reflow
+       ═══════════════════════════════════════════════════════════ */
+    .page {
+      position: absolute;
+      inset: 0;
+      padding: 24px;
+      overflow-y: auto;
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.08s ease-out;
+    }
+    .page.active {
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .page-title { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+    .page-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ═══════════════════════════════════════════════════════════
+       Service Cards
+       ═══════════════════════════════════════════════════════════ */
+    .services-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .service-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px;
+      transition: border-color 0.15s, background 0.15s;
+      position: relative; overflow: hidden;
+    }
+    .service-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 3px; background: var(--red); transition: background 0.3s;
+    }
+    .service-card.running::before { background: var(--green); }
+    .service-card:hover { border-color: var(--border-light); background: var(--bg-card-hover); }
+
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+    .card-icon-wrap {
+      width: 44px; height: 44px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; background: var(--bg-surface); border: 1px solid var(--border);
+    }
+    .card-icon-wrap svg { flex-shrink: 0; }
+    .status-indicator {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--red); box-shadow: 0 0 0 3px var(--red-dim);
+      flex-shrink: 0;
+    }
+    .status-dot.running {
+      background: var(--green); box-shadow: 0 0 0 3px var(--green-dim);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 3px var(--green-dim); }
+      50% { box-shadow: 0 0 0 6px var(--green-dim); }
+    }
+    .card-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .card-meta { font-size: 11px; color: var(--text-muted); display: flex; gap: 12px; }
+    .card-meta span { display: flex; align-items: center; gap: 4px; }
+    .card-actions { display: flex; gap: 8px; margin-top: 16px; }
+
+    /* ═══════════════════════════════════════════════════════════
+       Buttons
+       ═══════════════════════════════════════════════════════════ */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 16px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--bg-card);
+      color: var(--text-secondary); font-size: 12px; font-weight: 500;
+      cursor: pointer; transition: var(--transition); font-family: inherit; white-space: nowrap;
+    }
+    .btn:hover { border-color: var(--border-light); color: var(--text-primary); background: var(--bg-card-hover); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn:active:not(:disabled) { transform: scale(0.97); }
+    .btn-green { border-color: rgba(34,197,94,0.3); color: var(--green); }
+    .btn-green:hover { background: var(--green-dim); border-color: var(--green); }
+    .btn-red { border-color: rgba(239,68,68,0.3); color: var(--red); }
+    .btn-red:hover { background: var(--red-dim); border-color: var(--red); }
+    .btn-yellow { border-color: rgba(245,158,11,0.3); color: var(--yellow); }
+    .btn-yellow:hover { background: var(--yellow-dim); border-color: var(--yellow); }
+    .btn-blue { border-color: rgba(59,130,246,0.3); color: var(--blue); }
+    .btn-blue:hover { background: var(--blue-dim); border-color: var(--blue); }
+    .btn-solid-green { background: var(--green); color: #fff; border-color: var(--green); }
+    .btn-solid-green:hover { background: #16a34a; }
+    .btn-solid-red { background: var(--red); color: #fff; border-color: var(--red); }
+    .btn-solid-red:hover { background: #dc2626; }
+    .btn-lg { padding: 12px 24px; font-size: 13px; font-weight: 600; }
+    .btn-sm { padding: 5px 10px; font-size: 11px; }
+    .btn-flex { flex: 1; }
+    .actions-bar { display: flex; gap: 10px; margin-bottom: 24px; }
+
+    /* ═══════════════════════════════════════════════════════════
+       Logs Panel
+       ═══════════════════════════════════════════════════════════ */
+    .logs-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .logs-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--bg-surface);
+    }
+    .logs-header h3 { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .logs-header-actions { display: flex; gap: 6px; align-items: center; }
+    .logs-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg-surface); padding: 0 8px; }
+    .log-tab {
+      padding: 10px 16px; font-size: 12px; font-weight: 500;
+      color: var(--text-muted); cursor: pointer;
+      border-bottom: 2px solid transparent; transition: color 0.1s, border-color 0.1s;
+      background: none; border-top: none; border-left: none; border-right: none;
+      font-family: inherit; display: flex; align-items: center; gap: 6px;
+    }
+    .log-tab:hover { color: var(--text-secondary); }
+    .log-tab.active { color: var(--text-primary); border-bottom-color: var(--green); }
+    .log-tab .count { background: var(--toggle-bg); padding: 1px 6px; border-radius: 8px; font-size: 10px; }
+    .log-content {
+      height: 350px; overflow-y: auto; padding: 8px;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 11.5px; line-height: 1.7;
+    }
+    .log-entry { padding: 1px 6px; border-radius: 3px; white-space: pre-wrap; word-break: break-all; }
+    .log-entry:hover { background: var(--log-hover); }
+    .log-entry.stderr { color: var(--yellow); }
+    .log-entry.system { color: var(--cyan); font-style: italic; }
+    .log-entry.error { color: var(--red); }
+    .log-time { color: var(--text-muted); margin-right: 8px; font-size: 10px; }
+
+    /* Toggle switch */
+    .toggle-wrap { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); }
+    .toggle-switch { position: relative; width: 32px; height: 18px; cursor: pointer; }
+    .toggle-switch input { display: none; }
+    .toggle-switch .slider {
+      position: absolute; inset: 0; background: var(--toggle-bg);
+      border-radius: 9px; transition: var(--transition);
+    }
+    .toggle-switch .slider::after {
+      content: ''; position: absolute; width: 14px; height: 14px;
+      left: 2px; top: 2px; background: var(--text-muted);
+      border-radius: 50%; transition: var(--transition);
+    }
+    .toggle-switch input:checked + .slider { background: var(--green-dim); }
+    .toggle-switch input:checked + .slider::after { transform: translateX(14px); background: var(--green); }
+
+    /* ═══════════════════════════════════════════════════════════
+       Users Table
+       ═══════════════════════════════════════════════════════════ */
+    .users-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 24px; }
+    .users-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--bg-surface);
+    }
+    .users-header h3 { font-size: 14px; font-weight: 600; }
+    .users-body { padding: 0; }
+    .users-table { width: 100%; border-collapse: collapse; }
+    .users-table th {
+      text-align: left; padding: 10px 16px; font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .users-table td { padding: 10px 16px; font-size: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+    .users-table tr:last-child td { border-bottom: none; }
+    .users-table tr:hover td { background: var(--log-hover); }
+    .user-avatar {
+      width: 30px; height: 30px; border-radius: 8px;
+      background: var(--blue-dim); color: var(--blue);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600; margin-right: 10px; vertical-align: middle;
+    }
+    .user-online-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; margin-right: 6px; }
+    .users-empty { padding: 32px; text-align: center; color: var(--text-muted); font-size: 12px; }
+
+    /* ═══════════════════════════════════════════════════════════
+       Docker Page
+       ═══════════════════════════════════════════════════════════ */
+    .docker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .docker-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; text-align: center; }
+    .docker-icon { font-size: 32px; margin-bottom: 12px; }
+    .docker-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .docker-port { font-size: 11px; color: var(--text-muted); margin-bottom: 12px; }
+
+    /* ═══════════════════════════════════════════════════════════
+       Toast
+       ═══════════════════════════════════════════════════════════ */
+    .toast-container { position: fixed; top: 50px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+      background: var(--bg-card); border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm); padding: 12px 16px;
+      box-shadow: var(--shadow); display: flex; align-items: center;
+      gap: 10px; min-width: 280px; animation: slideIn 0.2s ease-out; font-size: 12px;
+    }
+    .toast.leaving { animation: slideOut 0.2s ease-in forwards; }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes slideOut { to { opacity: 0; transform: translateX(60px); } }
+    .toast-icon { font-size: 16px; }
+    .toast-text { flex: 1; }
+    .toast-title { font-weight: 600; font-size: 12px; color: var(--text-primary); }
+    .toast-body { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+    /* ═══════════════════════════════════════════════════════════
+       Stat Cards
+       ═══════════════════════════════════════════════════════════ */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; display: flex; align-items: center; gap: 14px; }
+    .stat-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+    .stat-icon.green { background: var(--green-dim); }
+    .stat-icon.red { background: var(--red-dim); }
+    .stat-icon.blue { background: var(--blue-dim); }
+    .stat-icon.yellow { background: var(--yellow-dim); }
+    .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 22px; font-weight: 700; margin-top: 2px; }
+
+    /* ═══════════════════════════════════════════════════════════
+       Theme toggle button
+       ═══════════════════════════════════════════════════════════ */
+    .theme-toggle {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; border-radius: var(--radius-sm);
+      cursor: pointer; color: var(--text-secondary);
+      font-size: 12px; font-weight: 500;
+      border: none; background: none; width: 100%; text-align: left;
+      transition: background 0.1s, color 0.1s;
+    }
+    .theme-toggle:hover { background: var(--border-light); color: var(--text-primary); }
+    .theme-toggle .theme-icon { width: 18px; text-align: center; font-size: 15px; }
+
+    /* SCI badge */
+    .sci-badge {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: var(--radius-sm);
+      font-size: 11px; font-weight: 600; cursor: pointer;
+      border: 1px solid var(--border); background: var(--bg-card);
+      color: var(--text-muted); transition: var(--transition);
+    }
+    .sci-badge:hover { background: var(--bg-card-hover); }
+    .sci-badge.ok { border-color: rgba(34,197,94,0.3); color: var(--green); }
+    .sci-badge.fail { border-color: rgba(239,68,68,0.3); color: var(--red); }
+
+    /* ═══════════════════════════════════════════════════════════
+       Settings Page
+       ═══════════════════════════════════════════════════════════ */
+    .settings-section {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px 24px; margin-bottom: 16px;
+    }
+    .settings-section-title {
+      font-size: 15px; font-weight: 700; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+      padding-bottom: 12px; border-bottom: 1px solid var(--border);
+    }
+    .settings-row { margin-bottom: 14px; }
+    .settings-label { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: block; }
+    .settings-input-group { display: flex; gap: 8px; align-items: center; }
+    .settings-input {
+      flex: 1; padding: 9px 14px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--bg-surface);
+      color: var(--text-primary); font-size: 12px; font-family: 'Cascadia Code', 'Fira Code', monospace;
+      outline: none; transition: border-color 0.15s;
+    }
+    .settings-input:focus { border-color: var(--green); }
+    .settings-input::placeholder { color: var(--text-muted); }
+    .settings-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+    .ports-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+    .port-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 14px; border-radius: var(--radius-sm);
+      background: var(--bg-surface); border: 1px solid var(--border);
+    }
+    .port-label { font-size: 12px; color: var(--text-secondary); }
+    .port-value { font-size: 13px; font-weight: 700; font-family: 'Cascadia Code', monospace; color: var(--text-primary); }
+
+    /* Group separator label */
+    .group-label {
+      grid-column: 1 / -1; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);
+      margin: 8px 0 -4px; padding: 0 4px;
+    }
+  </style>
+</head>
+<body>
+  <!-- ═══ Title Bar ═══ -->
+  <div class="titlebar">
+    <div class="titlebar-brand">
+      <div class="dot" id="globalDot"></div>
+      <span>ONECLICK ERP</span>
+    </div>
+    <div class="titlebar-controls">
+      <button class="titlebar-btn" onclick="api.minimizeWindow()" title="Minimizar">&#x2015;</button>
+      <button class="titlebar-btn" onclick="api.maximizeWindow()" title="Maximizar">&#x25A1;</button>
+      <button class="titlebar-btn close" onclick="api.closeWindow()" title="Fechar">&#x2715;</button>
+    </div>
+  </div>
+
+  <!-- ═══ App Layout ═══ -->
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">ONE<span>CLICK</span></div>
+        <div class="sidebar-sub">Service Manager</div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-page="overview">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span> Visão Geral
+        </button>
+        <button class="nav-item" data-page="services">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="18" r="1" fill="currentColor"/></svg></span> Serviços
+          <span class="nav-badge off" id="navServicesBadge">0/0</span>
+        </button>
+        <button class="nav-item" data-page="docker">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span> Docker
+        </button>
+        <button class="nav-item" data-page="logs">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span> Logs
+        </button>
+        <button class="nav-item" data-page="users">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> Usuários
+        </button>
+        <div style="margin:12px 8px 4px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);padding:0 4px;">Ferramentas</div>
+        <button class="nav-item" data-page="settings">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Configurações
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+          <span class="theme-icon" id="themeIcon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
+          <span id="themeLabel">Tema Claro</span>
+        </button>
+        <button class="sci-badge" id="sciBadge" onclick="checkSci()" title="Testar conexão SCI (Firebird)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          SCI: ...
+        </button>
+        <button class="nav-item" onclick="launchClaude()" title="Abrir Claude Code no PowerShell" style="color:var(--purple);">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span> Claude Code
+        </button>
+        <button class="nav-item" onclick="api.openExternal('http://localhost:3000')">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span> Abrir App
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+
+      <!-- ═══ Page: Overview ═══ -->
+      <div class="page active" id="page-overview">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Visão Geral</div>
+            <div class="page-subtitle">Monitoramento em tempo real de todos os serviços</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-solid-green btn-lg" onclick="startEverything()">&#9654; Iniciar Tudo</button>
+            <button class="btn btn-solid-red btn-lg" onclick="stopEverything()">&#9632; Parar Tudo</button>
+          </div>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card">
+            <div class="stat-icon green">&#9679;</div>
+            <div><div class="stat-label">Serviços Online</div><div class="stat-value" id="statOnline">0</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon red">&#9888;</div>
+            <div><div class="stat-label">Serviços Offline</div><div class="stat-value" id="statOffline">0</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon blue">&#128100;</div>
+            <div><div class="stat-label">Usuários Ativos</div><div class="stat-value" id="statUsers">-</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon yellow">&#128230;</div>
+            <div><div class="stat-label">Docker</div><div class="stat-value" id="statDocker" style="font-size:16px;">-</div></div>
+          </div>
+        </div>
+
+        <div class="services-grid" id="overviewCards"></div>
+      </div>
+
+      <!-- ═══ Page: Services ═══ -->
+      <div class="page" id="page-services">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Gerenciar Serviços</div>
+            <div class="page-subtitle">Controle individual de cada serviço do sistema</div>
+          </div>
+        </div>
+        <div class="actions-bar">
+          <button class="btn btn-green btn-lg btn-flex" onclick="startAll()">&#9654; Iniciar Todos</button>
+          <button class="btn btn-red btn-lg btn-flex" onclick="stopAll()">&#9632; Parar Todos</button>
+          <button class="btn btn-yellow btn-lg btn-flex" onclick="restartAll()">&#8635; Reiniciar Todos</button>
+        </div>
+        <div class="services-grid" id="serviceCards"></div>
+      </div>
+
+      <!-- ═══ Page: Docker ═══ -->
+      <div class="page" id="page-docker">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Docker Containers</div>
+            <div class="page-subtitle">Gerenciamento de PostgreSQL e Redis via Docker</div>
+          </div>
+        </div>
+        <div class="actions-bar">
+          <button class="btn btn-green btn-lg btn-flex" onclick="startDocker()">&#9654; Iniciar Containers</button>
+          <button class="btn btn-red btn-lg btn-flex" onclick="stopDocker()">&#9632; Parar Containers</button>
+        </div>
+        <div class="docker-grid" id="dockerGrid">
+          <div class="docker-card">
+            <div class="docker-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#336791" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v6c0 1.66-4 3-9 3s-9-1.34-9-3V5"/><path d="M21 11v6c0 1.66-4 3-9 3s-9-1.34-9-3v-6"/></svg></div>
+            <div class="docker-name">PostgreSQL 16</div>
+            <div class="docker-port">Porta 5432</div>
+            <div id="dockerPgStatus"><span class="status-dot"></span></div>
+          </div>
+          <div class="docker-card">
+            <div class="docker-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#dc382d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+            <div class="docker-name">Redis 7</div>
+            <div class="docker-port">Porta 6379</div>
+            <div id="dockerRedisStatus"><span class="status-dot"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Page: Logs ═══ -->
+      <div class="page" id="page-logs">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Logs dos Serviços</div>
+            <div class="page-subtitle">Saída em tempo real de API, Web e Browser</div>
+          </div>
+        </div>
+        <div class="logs-panel">
+          <div class="logs-header">
+            <div class="logs-tabs" id="logTabs">
+              <button class="log-tab active" data-log="api">API (NestJS) <span class="count" id="logCountApi">0</span></button>
+              <button class="log-tab" data-log="web">Web (Next.js) <span class="count" id="logCountWeb">0</span></button>
+              <button class="log-tab" data-log="serpro_backend">SERPRO2 BE <span class="count" id="logCountSerpro_backend">0</span></button>
+              <button class="log-tab" data-log="serpro_frontend">SERPRO2 FE <span class="count" id="logCountSerpro_frontend">0</span></button>
+              <button class="log-tab" data-log="apache">Apache <span class="count" id="logCountApache">0</span></button>
+              <button class="log-tab" data-log="mysql">MySQL <span class="count" id="logCountMysql">0</span></button>
+            </div>
+            <div class="logs-header-actions">
+              <div class="toggle-wrap">
+                <span>Auto-scroll</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="autoScrollToggle" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <button class="btn btn-sm" onclick="clearCurrentLog()">Limpar</button>
+              <button class="btn btn-sm" onclick="clearAllLogs()">Limpar Tudo</button>
+              <button class="btn btn-sm" onclick="copyCurrentLog()">&#128203; Copiar</button>
+            </div>
+          </div>
+          <div class="log-content" id="logContent"></div>
+        </div>
+      </div>
+
+      <!-- ═══ Page: Users ═══ -->
+      <div class="page" id="page-users">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Usuários Logados</div>
+            <div class="page-subtitle">Sessões ativas no sistema</div>
+          </div>
+          <button class="btn btn-blue" onclick="fetchActiveUsers()">&#8635; Atualizar</button>
+        </div>
+        <div class="users-panel">
+          <div class="users-body" id="usersBody">
+            <div class="users-empty">Carregando...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Page: Settings ═══ -->
+      <div class="page" id="page-settings">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Configurações</div>
+            <div class="page-subtitle">Caminhos de projetos e ferramentas externas</div>
+          </div>
+        </div>
+
+        <!-- Inicialização -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <span style="color:var(--green);font-size:18px;">&#9654;</span> Inicialização
+          </div>
+          <div class="settings-row" style="display:flex;align-items:center;gap:14px;">
+            <label class="toggle-switch">
+              <input type="checkbox" id="settingAutoStart">
+              <span class="slider"></span>
+            </label>
+            <div>
+              <div class="settings-label" style="margin-bottom:0;">Iniciar com o Windows</div>
+              <div class="settings-hint" style="margin-top:2px;">O Service Manager abre automaticamente ao ligar o computador (minimizado na bandeja)</div>
+            </div>
+          </div>
+          <div class="settings-row" style="display:flex;align-items:center;gap:14px;margin-top:12px;">
+            <label class="toggle-switch">
+              <input type="checkbox" id="settingAutoStartServices">
+              <span class="slider"></span>
+            </label>
+            <div>
+              <div class="settings-label" style="margin-bottom:0;">Iniciar todos os serviços automaticamente</div>
+              <div class="settings-hint" style="margin-top:2px;">Ao abrir o Service Manager, todos os serviços gerenciáveis são iniciados (Docker, API, Web, SERPRO2, Apache, MySQL)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Claude Code -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <span style="color:var(--purple);font-size:18px;">&#9674;</span> Claude Code
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">Diretório de trabalho</label>
+            <div class="settings-input-group">
+              <input type="text" class="settings-input" id="settingClaudeDir" placeholder="Ex: C:\Users\wagner\Desktop\PROJETOS\OneClick_Code" />
+              <button class="btn btn-sm" onclick="browseClaudeDir()">Procurar...</button>
+            </div>
+            <div class="settings-hint">Pasta onde o Claude Code será iniciado via PowerShell</div>
+          </div>
+          <div style="margin-top:12px;">
+            <button class="btn btn-lg" style="border-color:rgba(139,92,246,0.3);color:var(--purple);" onclick="launchClaude()">
+              &#9654; Abrir Claude Code
+            </button>
+          </div>
+        </div>
+
+        <!-- SERPRO2 -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <span style="color:var(--yellow);font-size:18px;">&#9889;</span> Projeto SERPRO2
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">Diretório do SERPRO2</label>
+            <div class="settings-input-group">
+              <input type="text" class="settings-input" id="settingSerpro2Dir" placeholder="Ex: C:\Users\wagner\Desktop\PROJETOS\SERPRO2" />
+              <button class="btn btn-sm" onclick="browseSerpro2Dir()">Procurar...</button>
+            </div>
+            <div class="settings-hint">Pasta raiz do projeto SERPRO2 (backend :3001, frontend :5173)</div>
+          </div>
+        </div>
+
+        <!-- Portas de referência -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <span style="color:var(--cyan);font-size:18px;">&#128268;</span> Mapa de Portas
+          </div>
+          <div class="ports-grid">
+            <div class="port-item"><span class="port-label">OneClick API</span><span class="port-value">:4000</span></div>
+            <div class="port-item"><span class="port-label">OneClick Web</span><span class="port-value">:3000</span></div>
+            <div class="port-item"><span class="port-label">PostgreSQL</span><span class="port-value">:5432</span></div>
+            <div class="port-item"><span class="port-label">Redis</span><span class="port-value">:6379</span></div>
+            <div class="port-item" style="border-left:3px solid var(--yellow)"><span class="port-label">SERPRO2 Backend</span><span class="port-value">:3001</span></div>
+            <div class="port-item" style="border-left:3px solid var(--purple)"><span class="port-label">SERPRO2 Frontend</span><span class="port-value">:5173</span></div>
+            <div class="port-item" style="border-left:3px solid #c23616"><span class="port-label">Apache HTTP</span><span class="port-value">:80</span></div>
+            <div class="port-item" style="border-left:3px solid #00758f"><span class="port-label">MySQL</span><span class="port-value">:3306</span></div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;">
+          <button class="btn btn-solid-green btn-lg" onclick="saveAllSettings()">&#10003; Salvar Configurações</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════
+    // State
+    // ═══════════════════════════════════════════════════════════
+    let statusData = {};
+    let autoScroll = true;
+    let activeLogTab = 'api';
+    let activePage = 'overview';
+    const logData = { api: [], web: [], serpro_backend: [], serpro_frontend: [], apache: [], mysql: [] };
+
+    // ═══════════════════════════════════════════════════════════
+    // Theme
+    // ═══════════════════════════════════════════════════════════
+    const sunSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+    const moonSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('oc-theme', theme);
+      const icon = document.getElementById('themeIcon');
+      const label = document.getElementById('themeLabel');
+      if (theme === 'dark') {
+        icon.innerHTML = sunSvg;
+        label.textContent = 'Tema Claro';
+      } else {
+        icon.innerHTML = moonSvg;
+        label.textContent = 'Tema Escuro';
+      }
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      applyTheme(current === 'dark' ? 'light' : 'dark');
+    }
+
+    // Restore saved theme
+    const savedTheme = localStorage.getItem('oc-theme') || 'dark';
+    applyTheme(savedTheme);
+
+    // ═══════════════════════════════════════════════════════════
+    // Navigation — instant page switch
+    // ═══════════════════════════════════════════════════════════
+    const navButtons = document.querySelectorAll('.nav-item[data-page]');
+    const pages = document.querySelectorAll('.page');
+
+    navButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.page;
+        if (target === activePage) return; // already there
+        activePage = target;
+
+        // Update nav
+        navButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Switch page — no animation delay, just opacity swap
+        pages.forEach(p => p.classList.remove('active'));
+        const page = document.getElementById('page-' + target);
+        if (page) page.classList.add('active');
+      });
+    });
+
+    // ═══════════════════════════════════════════════════════════
+    // Auto-scroll toggle
+    // ═══════════════════════════════════════════════════════════
+    document.getElementById('autoScrollToggle').addEventListener('change', (e) => {
+      autoScroll = e.target.checked;
+    });
+
+    // ═══════════════════════════════════════════════════════════
+    // Log tabs — instant switch
+    // ═══════════════════════════════════════════════════════════
+    document.querySelectorAll('.log-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        if (tab.dataset.log === activeLogTab) return;
+        document.querySelectorAll('.log-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        activeLogTab = tab.dataset.log;
+        renderLogs();
+      });
+    });
+
+    // ═══════════════════════════════════════════════════════════
+    // Render functions
+    // ═══════════════════════════════════════════════════════════
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // SVG icons — clean corporate style (16x16 viewBox)
+    const svgIcon = (d, color) => `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+    const iconMap = {
+      api:              svgIcon('<rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="18" r="1" fill="currentColor"/>', '#5ea3cb'),
+      web:              svgIcon('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>', '#6ada7d'),
+      postgres:         svgIcon('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v6c0 1.66-4 3-9 3s-9-1.34-9-3V5"/><path d="M21 11v6c0 1.66-4 3-9 3s-9-1.34-9-3v-6"/>', '#336791'),
+      redis:            svgIcon('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>', '#dc382d'),
+      serpro_backend:   svgIcon('<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>', '#f59e0b'),
+      serpro_frontend:  svgIcon('<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>', '#a855f7'),
+      apache:           svgIcon('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', '#c23616'),
+      mysql:            svgIcon('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v6c0 1.66-4 3-9 3s-9-1.34-9-3V5"/><path d="M21 11v6c0 1.66-4 3-9 3s-9-1.34-9-3v-6"/>', '#00758f'),
+    };
+
+    function buildCardHtml(id, svc) {
+      const running = svc.running;
+      const icon = iconMap[id] || svgIcon('<circle cx="12" cy="12" r="10"/>', 'var(--text-muted)');
+      const statusText = running ? 'Online' : 'Offline';
+      let actions;
+      if (svc.managed) {
+        actions = running
+          ? `<button class="btn btn-red btn-sm btn-flex" onclick="stopService('${id}')">&#9632; Parar</button>
+             <button class="btn btn-yellow btn-sm btn-flex" onclick="restartService('${id}')">&#8635; Reiniciar</button>`
+          : `<button class="btn btn-green btn-sm btn-flex" onclick="startService('${id}')">&#9654; Iniciar</button>`;
+      } else {
+        actions = `<span style="font-size:11px;color:var(--text-muted);">Monitoramento apenas</span>`;
+      }
+      return `<div class="service-card ${running ? 'running' : ''}">
+        <div class="card-top">
+          <div class="card-icon-wrap">${icon}</div>
+          <div class="status-indicator">
+            <div class="status-dot ${running ? 'running' : ''}"></div>
+            <span style="color:${running ? 'var(--green)' : 'var(--red)'}">${statusText}</span>
+          </div>
+        </div>
+        <div class="card-name">${svc.name}</div>
+        <div class="card-meta">
+          <span style="display:flex;align-items:center;gap:4px;">
+            ${svgIcon('<circle cx="12" cy="12" r="1"/><line x1="12" y1="5" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="19"/>', 'var(--text-muted)').replace('width="20" height="20"','width="12" height="12"')}
+            Porta ${svc.port}
+          </span>
+        </div>
+        <div class="card-actions">${actions}</div>
+      </div>`;
+    }
+
+    // Cache previous status to skip redundant DOM rebuilds
+    let prevStatusKey = '';
+
+    function renderAllCards() {
+      // Build a fast key to detect actual changes
+      const key = Object.entries(statusData).map(([id, s]) => id + s.running).join('|');
+      if (key === prevStatusKey) return; // nothing changed, skip DOM work
+      prevStatusKey = key;
+
+      // Separate services by group
+      const oneclickSvcs = Object.entries(statusData).filter(([id]) => !['serpro_backend','serpro_frontend','apache','mysql'].includes(id));
+      const serproSvcs = Object.entries(statusData).filter(([id]) => ['serpro_backend','serpro_frontend','apache','mysql'].includes(id));
+
+      let html = '';
+      html += '<div class="group-label">OneClick ERP</div>';
+      html += oneclickSvcs.map(([id, svc]) => buildCardHtml(id, svc)).join('');
+      html += '<div class="group-label">SERPRO2 / Legado</div>';
+      html += serproSvcs.map(([id, svc]) => buildCardHtml(id, svc)).join('');
+
+      document.getElementById('overviewCards').innerHTML = html;
+      document.getElementById('serviceCards').innerHTML = html;
+
+      // Stats
+      const entries = Object.values(statusData);
+      const online = entries.filter(s => s.running).length;
+      const offline = entries.filter(s => !s.running).length;
+      document.getElementById('statOnline').textContent = online;
+      document.getElementById('statOffline').textContent = offline;
+
+      // Nav badge
+      const badge = document.getElementById('navServicesBadge');
+      badge.textContent = `${online}/${entries.length}`;
+      badge.className = online === entries.length ? 'nav-badge ok' : 'nav-badge off';
+
+      // Global dot
+      document.getElementById('globalDot').className = online > 0 ? 'dot' : 'dot offline';
+
+      // Docker
+      const pgUp = statusData.postgres?.running;
+      const redisUp = statusData.redis?.running;
+      const dockerEl = document.getElementById('statDocker');
+      dockerEl.textContent = (pgUp && redisUp) ? 'Online' : 'Offline';
+      dockerEl.style.color = (pgUp && redisUp) ? 'var(--green)' : 'var(--red)';
+
+      const pgDot = document.querySelector('#dockerPgStatus .status-dot');
+      const redisDot = document.querySelector('#dockerRedisStatus .status-dot');
+      if (pgDot) pgDot.className = pgUp ? 'status-dot running' : 'status-dot';
+      if (redisDot) redisDot.className = redisUp ? 'status-dot running' : 'status-dot';
+    }
+
+    function renderLogs() {
+      const container = document.getElementById('logContent');
+      const entries = logData[activeLogTab] || [];
+      // Use DocumentFragment for fast bulk insert
+      const frag = document.createDocumentFragment();
+      for (const e of entries) {
+        const div = document.createElement('div');
+        div.className = 'log-entry ' + (e.type || '');
+        const time = new Date(e.time).toLocaleTimeString('pt-BR');
+        div.innerHTML = `<span class="log-time">${time}</span>${escapeHtml(e.text)}`;
+        frag.appendChild(div);
+      }
+      container.innerHTML = '';
+      container.appendChild(frag);
+      if (autoScroll) container.scrollTop = container.scrollHeight;
+    }
+
+    function appendLogEntry(service, entry) {
+      if (!logData[service]) logData[service] = [];
+      logData[service].push(entry);
+      if (logData[service].length > 500) logData[service].splice(0, logData[service].length - 500);
+
+      const countEl = document.getElementById('logCount' + service.charAt(0).toUpperCase() + service.slice(1));
+      if (countEl) countEl.textContent = logData[service].length;
+
+      if (service === activeLogTab) {
+        const container = document.getElementById('logContent');
+        const div = document.createElement('div');
+        div.className = 'log-entry ' + (entry.type || '');
+        const time = new Date(entry.time).toLocaleTimeString('pt-BR');
+        div.innerHTML = `<span class="log-time">${time}</span>${escapeHtml(entry.text)}`;
+        container.appendChild(div);
+        if (container.children.length > 500) container.removeChild(container.firstChild);
+        if (autoScroll) container.scrollTop = container.scrollHeight;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Toasts
+    // ═══════════════════════════════════════════════════════════
+    function showToast(title, body) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.innerHTML = `
+        <div class="toast-icon">&#128276;</div>
+        <div class="toast-text">
+          <div class="toast-title">${escapeHtml(title)}</div>
+          <div class="toast-body">${escapeHtml(body)}</div>
+        </div>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.add('leaving');
+        setTimeout(() => toast.remove(), 200);
+      }, 4000);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Actions
+    // ═══════════════════════════════════════════════════════════
+    async function startService(id) { await api.startService(id); showToast('Serviço', `Iniciando ${statusData[id]?.name || id}...`); }
+    async function stopService(id) { await api.stopService(id); showToast('Serviço', `Parando ${statusData[id]?.name || id}...`); }
+    async function restartService(id) { await api.restartService(id); showToast('Serviço', `Reiniciando ${statusData[id]?.name || id}...`); }
+    async function startAll() { await api.startAll(); showToast('Serviços', 'Iniciando API e Web...'); }
+    async function stopAll() { await api.stopAll(); showToast('Serviços', 'Parando API e Web...'); }
+    async function restartAll() {
+      await api.stopAll();
+      setTimeout(async () => { await api.startAll(); showToast('Serviços', 'Reiniciando API e Web...'); }, 2000);
+    }
+    async function startDocker() { showToast('Docker', 'Iniciando containers...'); await api.startDocker(); }
+    async function stopDocker() { await api.stopDocker(); showToast('Docker', 'Parando containers...'); }
+    async function startEverything() { showToast('OneClick ERP', 'Iniciando todos os serviços...'); await api.startEverything(); }
+    async function stopEverything() { showToast('OneClick ERP', 'Parando todos os serviços...'); await api.stopEverything(); }
+    async function clearCurrentLog() { await api.clearLogs(activeLogTab); logData[activeLogTab] = []; renderLogs(); }
+    async function clearAllLogs() {
+      await api.clearAllLogs();
+      for (const key of Object.keys(logData)) logData[key] = [];
+      renderLogs();
+      document.getElementById('logCountApi').textContent = '0';
+      document.getElementById('logCountWeb').textContent = '0';
+      const serproBe = document.getElementById('logCountSerpro_backend');
+      const serproFe = document.getElementById('logCountSerpro_frontend');
+      if (serproBe) serproBe.textContent = '0';
+      if (serproFe) serproFe.textContent = '0';
+    }
+    function copyCurrentLog() {
+      const entries = logData[activeLogTab] || [];
+      const text = entries.map(e => `[${new Date(e.time).toLocaleTimeString('pt-BR')}] ${e.text}`).join('\n');
+      navigator.clipboard.writeText(text);
+      showToast('Copiado', 'Logs copiados para a área de transferência');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Active Users
+    // ═══════════════════════════════════════════════════════════
+    async function fetchActiveUsers() {
+      const el = document.getElementById('usersBody');
+      const statEl = document.getElementById('statUsers');
+      try {
+        const data = await api.getActiveUsers();
+        if (data.error) { el.innerHTML = `<div class="users-empty">Erro: ${escapeHtml(data.error)}</div>`; statEl.textContent = '-'; return; }
+        if (!Array.isArray(data) || data.length === 0) { el.innerHTML = '<div class="users-empty">Nenhum usuário logado no momento.</div>'; statEl.textContent = '0'; return; }
+        statEl.textContent = data.length;
+        const initials = (name) => (name || '??').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+        const parseBrowser = (ua) => {
+          if (!ua) return 'Desconhecido';
+          if (ua.includes('Chrome') && !ua.includes('Edg')) return 'Chrome';
+          if (ua.includes('Edg')) return 'Edge';
+          if (ua.includes('Firefox')) return 'Firefox';
+          if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari';
+          return 'Outro';
+        };
+        let html = '<table class="users-table"><thead><tr><th></th><th>Usuário</th><th>E-mail</th><th>IP</th><th>Navegador</th><th>Sessão</th></tr></thead><tbody>';
+        for (const u of data) {
+          html += `<tr>
+            <td><span class="user-online-dot"></span></td>
+            <td><span class="user-avatar">${escapeHtml(initials(u.name))}</span>${escapeHtml(u.name || '—')}</td>
+            <td>${escapeHtml(u.email || '—')}</td>
+            <td>${escapeHtml(u.ip || '—')}</td>
+            <td>${escapeHtml(parseBrowser(u.user_agent))}</td>
+            <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
+          </tr>`;
+        }
+        html += '</tbody></table>';
+        el.innerHTML = html;
+      } catch {
+        el.innerHTML = '<div class="users-empty">PostgreSQL offline — não é possível consultar sessões.</div>';
+        statEl.textContent = '-';
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // SCI Check
+    // ═══════════════════════════════════════════════════════════
+    const sciSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
+
+    async function checkSci() {
+      const el = document.getElementById('sciBadge');
+      el.innerHTML = sciSvg + ' SCI: ...';
+      el.className = 'sci-badge';
+      try {
+        const data = await api.getSciStatus();
+        if (data.connected) { el.innerHTML = sciSvg + ' SCI: OK'; el.className = 'sci-badge ok'; }
+        else { el.innerHTML = sciSvg + ' SCI: OFF'; el.className = 'sci-badge fail'; el.title = data.error || 'Não conectado'; }
+      } catch { el.innerHTML = sciSvg + ' SCI: OFF'; el.className = 'sci-badge fail'; }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Settings & Claude Code
+    // ═══════════════════════════════════════════════════════════
+    async function loadSettingsUI() {
+      const settings = await api.getSettings();
+      document.getElementById('settingClaudeDir').value = settings.claudeDir || '';
+      document.getElementById('settingSerpro2Dir').value = settings.serpro2Dir || '';
+      document.getElementById('settingAutoStart').checked = !!settings.autoStart;
+      document.getElementById('settingAutoStartServices').checked = !!settings.autoStartServices;
+    }
+
+    async function saveAllSettings() {
+      const settings = {
+        claudeDir: document.getElementById('settingClaudeDir').value.trim(),
+        serpro2Dir: document.getElementById('settingSerpro2Dir').value.trim(),
+        autoStart: document.getElementById('settingAutoStart').checked,
+        autoStartServices: document.getElementById('settingAutoStartServices').checked,
+      };
+      const result = await api.saveSettings(settings);
+      if (result.ok) {
+        showToast('Configurações', 'Configurações salvas com sucesso!');
+      } else {
+        showToast('Erro', result.error || 'Falha ao salvar configurações');
+      }
+    }
+
+    async function browseClaudeDir() {
+      const result = await api.browseFolder();
+      if (!result.canceled) document.getElementById('settingClaudeDir').value = result.path;
+    }
+
+    async function browseSerpro2Dir() {
+      const result = await api.browseFolder();
+      if (!result.canceled) document.getElementById('settingSerpro2Dir').value = result.path;
+    }
+
+    async function launchClaude() {
+      const dirInput = document.getElementById('settingClaudeDir');
+      const dir = dirInput ? dirInput.value.trim() : '';
+      const result = await api.launchClaude(dir || undefined);
+      if (result.ok) {
+        showToast('Claude Code', 'PowerShell aberto com Claude Code');
+      } else {
+        showToast('Erro', result.error || 'Falha ao abrir Claude Code');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // IPC Event Listeners
+    // ═══════════════════════════════════════════════════════════
+    api.onStatusUpdate((status) => { statusData = status; renderAllCards(); });
+    api.onLog((entry) => { appendLogEntry(entry.service, entry); });
+    api.onNotification(({ title, body }) => { showToast(title, body); });
+
+    // ═══════════════════════════════════════════════════════════
+    // Init
+    // ═══════════════════════════════════════════════════════════
+    async function init() {
+      statusData = await api.getStatus();
+      renderAllCards();
+
+      const allLogs = await api.getLogs('all');
+      for (const [svcId, entries] of Object.entries(allLogs)) {
+        if (!logData[svcId]) logData[svcId] = [];
+        logData[svcId] = entries;
+        // Try both naming patterns for the counter element
+        let countEl = document.getElementById('logCount' + svcId.charAt(0).toUpperCase() + svcId.slice(1));
+        if (!countEl) countEl = document.getElementById('logCount' + svcId);
+        if (countEl) countEl.textContent = entries.length;
+      }
+      renderLogs();
+
+      fetchActiveUsers();
+      setInterval(fetchActiveUsers, 15000);
+      checkSci();
+      setInterval(checkSci, 30000);
+
+      // Load settings into UI
+      loadSettingsUI();
+    }
+    init();
+  </script>
+</body>
+</html>

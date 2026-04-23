@@ -28,6 +28,19 @@ import { createSocioRouter } from '../socio/socio.router'
 import { CnpjService } from '../cnpj/cnpj.service'
 import { SitfisService } from '../sitfis/sitfis.service'
 import { createSitfisRouter } from '../sitfis/sitfis.router'
+import { CaixaPostalService } from '../caixapostal/caixapostal.service'
+import { CaixaPostalSchedulerService } from '../caixapostal/caixapostal.scheduler'
+import { createCaixaPostalRouter } from '../caixapostal/caixapostal.router'
+import { IntegrationService } from '../cliente/integration.service'
+import { CndService } from '../cnd/cnd.service'
+import { DctfwebService } from '../dctfweb/dctfweb.service'
+import { createDctfwebRouter } from '../dctfweb/dctfweb.router'
+import { CndSchedulerService } from '../cnd/cnd.scheduler'
+import { createCndRouter } from '../cnd/cnd.router'
+import { BiService } from '../bi/bi.service'
+import { createBiRouter, createBiPublicRouter } from '../bi/bi.router'
+import { FolhaService } from '../folha/folha.service'
+import { createFolhaRouter } from '../folha/folha.router'
 
 export interface TrpcContext {
   tenantId?: string
@@ -147,6 +160,14 @@ export class TrpcService {
     @Inject(SocioService) private readonly socioService: SocioService,
     @Inject(CnpjService) private readonly cnpjService: CnpjService,
     @Inject(SitfisService) private readonly sitfisService: SitfisService,
+    @Inject(CaixaPostalService) private readonly caixaPostalService: CaixaPostalService,
+    @Inject(CaixaPostalSchedulerService) private readonly caixaPostalScheduler: CaixaPostalSchedulerService,
+    @Inject(IntegrationService) private readonly integrationService: IntegrationService,
+    @Inject(CndService) private readonly cndService: CndService,
+    @Inject(CndSchedulerService) private readonly cndScheduler: CndSchedulerService,
+    @Inject(DctfwebService) private readonly dctfwebService: DctfwebService,
+    @Inject(BiService) private readonly biService: BiService,
+    @Inject(FolhaService) private readonly folhaService: FolhaService,
   ) {
     this.appRouter = this.createRouter()
   }
@@ -165,12 +186,18 @@ export class TrpcService {
       cargo: createCargoRouter(this.cargoService),
       onboarding: createOnboardingRouter(this.onboardingService),
       admin: createAdminRouter(this.adminService),
-      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService),
+      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService),
       billing: createBillingRouter(this.stripeService),
       colaborador: createColaboradorRouter(this.colaboradorService),
       fornecedor: createFornecedorRouter(this.fornecedorService),
       socio: createSocioRouter(this.socioService, this.cnpjService),
-      sitfis: createSitfisRouter(this.sitfisService),
+      sitfis: createSitfisRouter(this.sitfisService, this.cnpjService, this.socioService),
+      caixaPostal: createCaixaPostalRouter(this.caixaPostalService, this.caixaPostalScheduler),
+      cnd: createCndRouter(this.cndService, this.cndScheduler),
+      dctfweb: createDctfwebRouter(this.dctfwebService),
+      bi: createBiRouter(this.biService),
+      biPublic: createBiPublicRouter(this.biService),
+      folha: createFolhaRouter(this.folhaService),
     })
   }
 }

@@ -17,6 +17,7 @@ import {
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { getApiUrl } from '@/lib/api-url'
 import { masks } from '@/lib/masks'
 
 interface SelectOption { id: string; razaoSocial?: string; nomeCompleto?: string }
@@ -114,7 +115,7 @@ export function SocioForm({ mode, socioId, title, description, icon, defaultValu
         try {
           const formData = new FormData()
           formData.append('file', file)
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/upload`, { method: 'POST', body: formData, credentials: 'include' })
+          const res = await fetch(`${getApiUrl()}/api/upload`, { method: 'POST', body: formData, credentials: 'include' })
           if (!res.ok) throw new Error('Falha no upload')
           const { url, filename } = await res.json() as { url: string; filename: string }
           await trpc.socio.addArquivo.mutate({ socioId, fileName: file.name, fileUrl: url, fileSize: file.size, mimeType: file.type })

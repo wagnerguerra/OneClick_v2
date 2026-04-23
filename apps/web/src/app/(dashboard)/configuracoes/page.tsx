@@ -37,7 +37,8 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
 /* Sub-abas do grupo Banco de Dados */
 const DB_SUBTABS = [
   { key: 'postgresql', label: 'PostgreSQL', icon: Database },
-  { key: 'mysql', label: 'MySQL Legado', icon: Database },
+  { key: 'oneclick_v2', label: 'OneClick v2', icon: Database },
+  { key: 'oneclick_v1', label: 'OneClick v1', icon: Server },
   { key: 'firebird', label: 'ERP SCI (Firebird)', icon: Landmark },
 ]
 
@@ -146,7 +147,8 @@ export default function ConfiguracoesPage() {
     try {
       let result: TestResult = null
       if (dbType === 'postgresql') result = await trpc.admin.testPostgresql.mutate() as TestResult
-      else if (dbType === 'mysql') result = await trpc.admin.testMysql.mutate() as TestResult
+      else if (dbType === 'oneclick_v2') result = await trpc.admin.testMysql.mutate() as TestResult
+      else if (dbType === 'oneclick_v1') result = await trpc.admin.testOneclickV1.mutate() as TestResult
       else if (dbType === 'firebird') result = await trpc.admin.testFirebird.mutate() as TestResult
       setTestResults(prev => ({ ...prev, [dbType]: result }))
     } catch (e) {
@@ -175,7 +177,8 @@ export default function ConfiguracoesPage() {
     try {
       let result: SqlResult | null = null
       if (dbType === 'postgresql') result = await trpc.admin.execSqlPostgresql.mutate({ sql: query }) as SqlResult
-      else if (dbType === 'mysql') result = await trpc.admin.execSqlMysql.mutate({ sql: query }) as SqlResult
+      else if (dbType === 'oneclick_v2') result = await trpc.admin.execSqlMysql.mutate({ sql: query }) as SqlResult
+      else if (dbType === 'oneclick_v1') result = await trpc.admin.execSqlOneclickV1.mutate({ sql: query }) as SqlResult
       else if (dbType === 'firebird') result = await trpc.admin.execSqlFirebird.mutate({ sql: query }) as SqlResult
       setSqlResult(prev => ({ ...prev, [dbType]: result }))
     } catch (e) {

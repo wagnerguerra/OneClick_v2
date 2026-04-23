@@ -15,9 +15,14 @@ import { FornecedorModule } from '../fornecedor/fornecedor.module'
 import { SocioModule } from '../socio/socio.module'
 import { CnpjModule } from '../cnpj/cnpj.module'
 import { SitfisModule } from '../sitfis/sitfis.module'
+import { CaixaPostalModule } from '../caixapostal/caixapostal.module'
+import { CndModule } from '../cnd/cnd.module'
+import { DctfwebModule } from '../dctfweb/dctfweb.module'
+import { BiModule } from '../bi/bi.module'
+import { FolhaModule } from '../folha/folha.module'
 
 @Module({
-  imports: [AreaModule, EmpresaModule, UserModule, CargoModule, OnboardingModule, ClienteModule, AdminModule, AuthModule, StripeModule, ColaboradorModule, FornecedorModule, SocioModule, CnpjModule, SitfisModule],
+  imports: [AreaModule, EmpresaModule, UserModule, CargoModule, OnboardingModule, ClienteModule, AdminModule, AuthModule, StripeModule, ColaboradorModule, FornecedorModule, SocioModule, CnpjModule, SitfisModule, CaixaPostalModule, CndModule, DctfwebModule, BiModule, FolhaModule],
   providers: [TrpcService],
   controllers: [TrpcController],
   exports: [TrpcService],

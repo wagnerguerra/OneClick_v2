@@ -44,12 +44,25 @@ export const PROFILE_VALUES = ['OPERADOR', 'SUPERVISOR', 'GERENTE', 'ADMIN'] as 
 export const MODULE_SLUGS = [
   'dashboard',
   // Cadastros
-  'areas', 'cargos', 'colaboradores', 'clientes', 'empresas',
-  'fornecedores', 'obrigacoes-fixas', 'obrigacoes-demanda', 'socios', 'usuarios',
-  // Corporativo
-  'agenda', 'coleta-documentos', 'contatos', 'ativos', 'estoque',
-  'crm', 'beneficios-fiscais', 'certificados', 'contratos', 'helpdesk',
-  'obrigacoes-servicos', 'orcamentos', 'processos', 'projetos', 'quadro-societario',
+  'areas', 'cargos', 'clientes', 'colaboradores', 'empresas',
+  'fornecedores', 'grupos-empresariais', 'obrigacoes-fixas', 'obrigacoes-demanda',
+  'servicos', 'socios', 'usuarios',
+  // Comercial
+  'comercial', 'contratos', 'custeio-clientes', 'graficos-contrato-erp',
+  'orcamentos', 'comercial-relatorios', 'contratos-relatorios',
+  // Administrativo
+  'agenda', 'coleta-documentos', 'contatos', 'estoque', 'organograma',
+  // Legalização
+  'certificados', 'gestao-certificados', 'processos', 'quadro-societario',
+  // Trabalhista
+  'banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento',
+  // Fiscal
+  'beneficios-fiscais', 'caixapostal', 'certidoes-cnd', 'dctfweb', 'obrigacoes-servicos', 'situacao-fiscal',
+
+  // Contábil
+  'bi-faturamento',
+  // TI
+  'ativos', 'helpdesk', 'projetos',
   // Qualidade
   'qualidade', 'aquisicoes', 'analise-contexto', 'capacitacoes',
   'documentos-internos', 'documentos-externos', 'tabelas-registros',
@@ -62,28 +75,51 @@ export type ModuleSlug = (typeof MODULE_SLUGS)[number]
 
 export const MODULE_LABELS: Record<string, string> = {
   dashboard: 'Dashboard',
-  areas: 'Áreas', cargos: 'Cargos', colaboradores: 'Colaboradores',
-  clientes: 'Clientes', empresas: 'Empresas', fornecedores: 'Fornecedores',
+  // Cadastros
+  areas: 'Áreas', cargos: 'Cargos', clientes: 'Clientes', colaboradores: 'Colaboradores',
+  empresas: 'Empresas', fornecedores: 'Fornecedores', 'grupos-empresariais': 'Grupos Empresariais',
   'obrigacoes-fixas': 'Obrigações Fixas', 'obrigacoes-demanda': 'Obrigações Sob Demanda',
-  socios: 'Sócios', usuarios: 'Usuários',
-  agenda: 'Agenda Corporativa', 'coleta-documentos': 'Coleta de Documentos',
-  contatos: 'Contatos', ativos: 'Controle de Ativos', estoque: 'Controle de Estoque',
-  crm: 'CRM', 'beneficios-fiscais': 'Benefícios Fiscais', certificados: 'Certificados',
-  contratos: 'Contratos', helpdesk: 'HelpDesk',
-  'obrigacoes-servicos': 'Obrigações e Serviços', orcamentos: 'Orçamentos',
-  processos: 'Processos', projetos: 'Projetos', 'quadro-societario': 'Quadro Societário',
+  servicos: 'Serviços', socios: 'Sócios', usuarios: 'Usuários',
+  // Comercial
+  comercial: 'Comercial', contratos: 'Contratos', 'custeio-clientes': 'Custeio por Cliente',
+  'graficos-contrato-erp': 'Gráficos Contrato x ERP', orcamentos: 'Orçamentos',
+  'comercial-relatorios': 'Relatórios Comerciais', 'contratos-relatorios': 'Relatórios de Contratos',
+  // Administrativo
+  agenda: 'Agenda Corporativa', 'coleta-documentos': 'Coleta e Recebimento',
+  contatos: 'Contatos', estoque: 'Controle de Estoque', organograma: 'Organograma',
+  // Legalização
+  certificados: 'Certificados', 'gestao-certificados': 'Certificados Digitais',
+  processos: 'Processos', 'quadro-societario': 'Quadro Societário',
+  // Trabalhista
+  'banco-horas': 'Banco de Horas', beneficios: 'Benefícios', 'controle-ferias': 'Controle de Férias',
+  'fgts-digital': 'FGTS Digital', 'folha-pagamento': 'Importação de Folha',
+  // Fiscal
+  'beneficios-fiscais': 'Benefícios Fiscais', 'caixapostal': 'Caixa Postal e-CAC', 'certidoes-cnd': "CND's Federais", dctfweb: 'DCTFWeb',
+  'obrigacoes-servicos': 'Obrigações e Serviços', 'situacao-fiscal': 'Situação Fiscal',
+  // Contábil
+  'bi-faturamento': 'Dashboard Financeiro',
+  // TI
+  ativos: 'Controle de Ativos', helpdesk: 'HelpDesk', projetos: 'Projetos',
+  // Qualidade
   qualidade: 'Painel da Qualidade', aquisicoes: 'Aquisições',
   'analise-contexto': 'Análise de Contexto', capacitacoes: 'Capacitações',
   'documentos-internos': 'Documentos Internos', 'documentos-externos': 'Documentos Externos',
   'tabelas-registros': 'Tabelas de Registros', elogios: 'Elogios',
   melhorias: 'Melhorias', 'nao-conformidades': 'Não Conformidades',
   reclamacoes: 'Reclamações', reunioes: 'Reuniões', sugestoes: 'Sugestões',
+  // Configurações
   configuracoes: 'Configurações Gerais',
 }
 
 export const MODULE_GROUPS = {
-  'Cadastros': ['areas', 'cargos', 'colaboradores', 'clientes', 'empresas', 'fornecedores', 'obrigacoes-fixas', 'obrigacoes-demanda', 'socios', 'usuarios'],
-  'Corporativo': ['agenda', 'coleta-documentos', 'contatos', 'ativos', 'estoque', 'crm', 'beneficios-fiscais', 'certificados', 'contratos', 'helpdesk', 'obrigacoes-servicos', 'orcamentos', 'processos', 'projetos', 'quadro-societario'],
+  'Cadastros': ['areas', 'cargos', 'clientes', 'colaboradores', 'empresas', 'fornecedores', 'grupos-empresariais', 'obrigacoes-fixas', 'obrigacoes-demanda', 'servicos', 'socios', 'usuarios'],
+  'Comercial': ['comercial', 'contratos', 'custeio-clientes', 'graficos-contrato-erp', 'orcamentos', 'comercial-relatorios', 'contratos-relatorios'],
+  'Administrativo': ['agenda', 'coleta-documentos', 'contatos', 'estoque', 'organograma'],
+  'Legalização': ['certificados', 'gestao-certificados', 'processos', 'quadro-societario'],
+  'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento'],
+  'Fiscal': ['beneficios-fiscais', 'caixapostal', 'certidoes-cnd', 'dctfweb', 'obrigacoes-servicos', 'situacao-fiscal'],
+  'Contábil': ['bi-faturamento'],
+  'TI': ['ativos', 'helpdesk', 'projetos'],
   'Qualidade': ['qualidade', 'aquisicoes', 'analise-contexto', 'capacitacoes', 'documentos-internos', 'documentos-externos', 'tabelas-registros', 'elogios', 'melhorias', 'nao-conformidades', 'reclamacoes', 'reunioes', 'sugestoes'],
   'Configurações': ['configuracoes'],
 } as const
@@ -125,7 +161,7 @@ export const permissionSchema = z.object({
 
 export const createUserSchema = z.object({
   name: z.coerce.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
-  email: z.coerce.string().min(1, 'E-mail é obrigatório'),
+  email: z.coerce.string().email('E-mail inválido').min(1, 'E-mail é obrigatório'),
   password: z.coerce.string().optional(),
   telefone: z.coerce.string().optional(),
   role: z.coerce.string().optional().default('COLABORADOR_INTERNO'),

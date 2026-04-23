@@ -11,7 +11,7 @@ const archiver = require('archiver')
 // Definição dos campos de configuração
 // ============================================================
 
-interface ConfigField {
+export interface ConfigField {
   key: string
   label: string
   group: string
@@ -57,12 +57,19 @@ const CONFIG_FIELDS: ConfigField[] = [
   { key: 'DATABASE_URL', label: 'URL PostgreSQL', group: 'Banco de Dados', type: 'text', placeholder: 'postgresql://user:pass@localhost:5432/db', subgroup: 'postgresql' },
   { key: 'REDIS_URL', label: 'URL Redis', group: 'Banco de Dados', type: 'text', placeholder: 'redis://localhost:6379', subgroup: 'postgresql' },
 
-  // Banco de Dados — MySQL Legado (subgroup: mysql)
-  { key: 'LEGACY_DB_HOST', label: 'Host', group: 'Banco de Dados', type: 'text', placeholder: 'localhost', subgroup: 'mysql' },
-  { key: 'LEGACY_DB_PORT', label: 'Porta', group: 'Banco de Dados', type: 'number', placeholder: '3306', subgroup: 'mysql' },
-  { key: 'LEGACY_DB_USER', label: 'Usuário', group: 'Banco de Dados', type: 'text', subgroup: 'mysql' },
-  { key: 'LEGACY_DB_PASSWORD', label: 'Senha', group: 'Banco de Dados', type: 'password', secret: true, subgroup: 'mysql' },
-  { key: 'LEGACY_DB_NAME', label: 'Database', group: 'Banco de Dados', type: 'text', subgroup: 'mysql' },
+  // Banco de Dados — OneClick v2 (subgroup: oneclick_v2)
+  { key: 'LEGACY_DB_HOST', label: 'Host', group: 'Banco de Dados', type: 'text', placeholder: 'localhost', subgroup: 'oneclick_v2' },
+  { key: 'LEGACY_DB_PORT', label: 'Porta', group: 'Banco de Dados', type: 'number', placeholder: '3306', subgroup: 'oneclick_v2' },
+  { key: 'LEGACY_DB_USER', label: 'Usuário', group: 'Banco de Dados', type: 'text', subgroup: 'oneclick_v2' },
+  { key: 'LEGACY_DB_PASSWORD', label: 'Senha', group: 'Banco de Dados', type: 'password', secret: true, subgroup: 'oneclick_v2' },
+  { key: 'LEGACY_DB_NAME', label: 'Database', group: 'Banco de Dados', type: 'text', subgroup: 'oneclick_v2' },
+
+  // Banco de Dados — OneClick v1 (subgroup: oneclick_v1)
+  { key: 'OCK_V1_DB_HOST', label: 'Host', group: 'Banco de Dados', type: 'text', placeholder: 'localhost', subgroup: 'oneclick_v1' },
+  { key: 'OCK_V1_DB_PORT', label: 'Porta', group: 'Banco de Dados', type: 'number', placeholder: '3306', subgroup: 'oneclick_v1' },
+  { key: 'OCK_V1_DB_USER', label: 'Usuário', group: 'Banco de Dados', type: 'text', subgroup: 'oneclick_v1' },
+  { key: 'OCK_V1_DB_PASSWORD', label: 'Senha', group: 'Banco de Dados', type: 'password', secret: true, subgroup: 'oneclick_v1' },
+  { key: 'OCK_V1_DB_NAME', label: 'Database', group: 'Banco de Dados', type: 'text', placeholder: 'db_intranet', subgroup: 'oneclick_v1' },
 
   // Banco de Dados — ERP SCI Firebird (subgroup: firebird)
   { key: 'SCI_DSN', label: 'DSN Firebird', group: 'Banco de Dados', type: 'text', help: 'Formato: \\\\host\\share\\path\\banco.SDB', subgroup: 'firebird', colSpan: 6 },
@@ -981,6 +988,33 @@ OneClick_Code/
     }
   }
 
+  async testOneclickV1(): Promise<{ ok: boolean; message: string; details?: string }> {
+    const { values } = this.parseEnvFile()
+    const host = values.get('OCK_V1_DB_HOST') || process.env.OCK_V1_DB_HOST
+    const port = values.get('OCK_V1_DB_PORT') || process.env.OCK_V1_DB_PORT || '3306'
+    const user = values.get('OCK_V1_DB_USER') || process.env.OCK_V1_DB_USER
+    const password = values.get('OCK_V1_DB_PASSWORD') || process.env.OCK_V1_DB_PASSWORD
+    const database = values.get('OCK_V1_DB_NAME') || process.env.OCK_V1_DB_NAME
+
+    if (!host || !user || !database) {
+      return { ok: false, message: 'Configuração incompleta. Preencha Host, Usuário e Database.' }
+    }
+
+    const start = Date.now()
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const mysql2 = require('mysql2/promise')
+      const conn = await mysql2.createConnection({ host, port: Number(port), user, password, database, connectTimeout: 10000 })
+      const [rows] = await conn.query('SELECT VERSION() as version')
+      await conn.end()
+      const ms = Date.now() - start
+      const version = (rows as Array<{ version: string }>)[0]?.version || 'MySQL'
+      return { ok: true, message: `Conexão bem-sucedida (${ms}ms)`, details: `MySQL ${version} — ${database}` }
+    } catch (e) {
+      return { ok: false, message: `Falha na conexão: ${(e as Error).message}` }
+    }
+  }
+
   async testFirebird(): Promise<{ ok: boolean; message: string; details?: string }> {
     const { values } = this.parseEnvFile()
     const dsn = values.get('SCI_DSN') || process.env.SCI_DSN
@@ -992,7 +1026,7 @@ OneClick_Code/
       return { ok: false, message: 'Configuração incompleta. Preencha DSN e Usuário.' }
     }
 
-    const scriptPath = path.resolve(process.cwd(), 'src', 'admin', 'test_firebird.py')
+    const scriptPath = path.resolve(process.cwd(), 'apps', 'api', 'src', 'admin', 'test_firebird.py')
     try {
       const result = spawnSync('python', [scriptPath, dsn, user, password || '', charset], {
         encoding: 'utf8',
@@ -1096,6 +1130,40 @@ OneClick_Code/
     }
   }
 
+  async execSqlOneclickV1(sql: string): Promise<{ ok: boolean; columns: string[]; rows: unknown[][]; rowCount: number; ms: number; error?: string }> {
+    const { values } = this.parseEnvFile()
+    const host = values.get('OCK_V1_DB_HOST') || process.env.OCK_V1_DB_HOST
+    const port = values.get('OCK_V1_DB_PORT') || process.env.OCK_V1_DB_PORT || '3306'
+    const user = values.get('OCK_V1_DB_USER') || process.env.OCK_V1_DB_USER
+    const password = values.get('OCK_V1_DB_PASSWORD') || process.env.OCK_V1_DB_PASSWORD
+    const database = values.get('OCK_V1_DB_NAME') || process.env.OCK_V1_DB_NAME
+
+    if (!host || !user || !database) {
+      return { ok: false, columns: [], rows: [], rowCount: 0, ms: 0, error: 'Configuração incompleta.' }
+    }
+
+    const start = Date.now()
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const mysql2 = require('mysql2/promise')
+      const conn = await mysql2.createConnection({ host, port: Number(port), user, password, database, connectTimeout: 10000 })
+      const [result, fields] = await conn.query(sql)
+      await conn.end()
+      const ms = Date.now() - start
+
+      if (!Array.isArray(result)) {
+        const info = result as { affectedRows?: number; changedRows?: number }
+        return { ok: true, columns: ['affectedRows', 'changedRows'], rows: [[info.affectedRows ?? 0, info.changedRows ?? 0]], rowCount: 1, ms }
+      }
+
+      const columns = (fields as Array<{ name: string }>).map((f) => f.name)
+      const rows = (result as Record<string, unknown>[]).map(r => columns.map(c => r[c]))
+      return { ok: true, columns, rows, rowCount: rows.length, ms }
+    } catch (e) {
+      return { ok: false, columns: [], rows: [], rowCount: 0, ms: Date.now() - start, error: (e as Error).message }
+    }
+  }
+
   async execSqlFirebird(sql: string): Promise<{ ok: boolean; columns: string[]; rows: unknown[][]; rowCount: number; ms: number; error?: string }> {
     const { values } = this.parseEnvFile()
     const dsn = values.get('SCI_DSN') || process.env.SCI_DSN
@@ -1107,7 +1175,7 @@ OneClick_Code/
       return { ok: false, columns: [], rows: [], rowCount: 0, ms: 0, error: 'Configuração incompleta.' }
     }
 
-    const scriptPath = path.resolve(process.cwd(), 'src', 'admin', 'exec_firebird.py')
+    const scriptPath = path.resolve(process.cwd(), 'apps', 'api', 'src', 'admin', 'exec_firebird.py')
     const start = Date.now()
     try {
       const result = spawnSync('python', [scriptPath, dsn, user, password || '', charset, sql], {

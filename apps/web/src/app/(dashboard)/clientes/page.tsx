@@ -7,7 +7,7 @@ import {
   Plus, Pencil, Trash2, Search, Filter,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
-  Handshake, MoreVertical, FileUp, FileDown,
+  Handshake, MoreVertical, FileUp, FileDown, Plug,
   ChevronDown, RotateCcw, Archive, X, Database, Loader2,
 } from 'lucide-react'
 import {
@@ -21,6 +21,7 @@ import {
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { ImportModal } from './_components/import-modal'
+import { IntegracoesModal } from './_components/integracoes-modal'
 import { exportToExcel, type ExportColumn } from '@/lib/export-data'
 import { SITUACAO_LABELS, SITUACAO_COLORS, AREA_CONTRATADA_OPTIONS } from '@saas/types'
 import { masks } from '@/lib/masks'
@@ -38,7 +39,7 @@ const PAGE_SIZES = [10, 20, 50, 100]
 
 const TRIBUTACAO_LABELS: Record<string, string> = {
   SIMPLES_NACIONAL: 'Simples Nacional', LUCRO_PRESUMIDO: 'Lucro Presumido',
-  LUCRO_REAL: 'Lucro Real', MEI: 'MEI',
+  LUCRO_REAL: 'Lucro Real', MEI: 'MEI', IMUNE: 'Imune', ISENTA: 'Isenta',
 }
 
 export default function ClientesPage() {
@@ -51,6 +52,7 @@ export default function ClientesPage() {
   const [data, setData] = useState<{ data: Cliente[]; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean } | null>(null)
   const [loading, setLoading] = useState(true)
   const [importOpen, setImportOpen] = useState(false)
+  const [integracoesOpen, setIntegracoesOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
 
   // Filtros
@@ -61,6 +63,21 @@ export default function ClientesPage() {
   const [filterCidade, setFilterCidade] = useState('')
   const [filterUf, setFilterUf] = useState('')
   const [filterOptions, setFilterOptions] = useState<{ grupos: string[]; cidades: string[]; estados: string[] }>({ grupos: [], cidades: [], estados: [] })
+
+  // Filtro persistente: somente mensais
+  const [onlyMensal, setOnlyMensal] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('clientes_only_mensal') === '1'
+    return false
+  })
+  function toggleOnlyMensal() {
+    setOnlyMensal(prev => {
+      const next = !prev
+      localStorage.setItem('clientes_only_mensal', next ? '1' : '0')
+      if (next) setFilterSituacao('')
+      setPage(1)
+      return next
+    })
+  }
 
   // Lixeira
   const [trashMode, setTrashMode] = useState(false)
@@ -84,10 +101,14 @@ export default function ClientesPage() {
   const fetchClientes = useCallback(async () => {
     setLoading(true)
     try {
+      const situacaoFinal = onlyMensal ? 'MENSAL' : (filterSituacao || undefined)
       const input = {
         page, limit, search: debouncedSearch || undefined, sortBy: sort.column, sortDir: sort.dir,
-        ...(filterSituacao ? { situacao: filterSituacao as 'MENSAL' } : {}),
+        ...(situacaoFinal ? { situacao: situacaoFinal as 'MENSAL' } : {}),
         ...(filterTributacao ? { tributacao: filterTributacao as 'SIMPLES_NACIONAL' } : {}),
+        ...(filterGrupo ? { grupo: filterGrupo } : {}),
+        ...(filterCidade ? { cidade: filterCidade } : {}),
+        ...(filterUf ? { uf: filterUf } : {}),
       }
       const result = trashMode
         ? await trpc.cliente.listTrash.query(input)
@@ -95,7 +116,7 @@ export default function ClientesPage() {
       setData(result)
       setSelected(new Set())
     } catch { /* silent */ } finally { setLoading(false) }
-  }, [page, limit, debouncedSearch, sort, filterSituacao, filterTributacao, trashMode])
+  }, [page, limit, debouncedSearch, sort, filterSituacao, filterTributacao, filterGrupo, filterCidade, filterUf, onlyMensal, trashMode])
 
   useEffect(() => { fetchClientes() }, [fetchClientes])
 
@@ -160,6 +181,25 @@ export default function ClientesPage() {
     } catch { alerts.error('Erro', 'Não foi possível restaurar.') }
   }
 
+  async function handleEmptyTrash() {
+    const confirmed = await alerts.confirmDelete('TODOS os clientes da lixeira permanentemente')
+    if (!confirmed) return
+    try {
+      const result = await (trpc.cliente.emptyTrash as any).mutate() as { deleted: number; total: number; errors?: string[] }
+      if (result.errors && result.errors.length > 0) {
+        await alerts.error(
+          `${result.deleted}/${result.total} excluídos`,
+          `Alguns registros falharam:\n${result.errors.slice(0, 5).join('\n')}`
+        )
+      } else {
+        await alerts.success('Lixeira esvaziada', `${result.deleted} cliente${result.deleted !== 1 ? 's' : ''} excluído${result.deleted !== 1 ? 's' : ''} permanentemente.`)
+      }
+      fetchClientes()
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message || 'Não foi possível esvaziar a lixeira.')
+    }
+  }
+
   async function handleBulkDelete() {
     if (selected.size === 0) return
     const confirmed = await alerts.confirmDelete(`${selected.size} clientes selecionados`)
@@ -192,16 +232,41 @@ export default function ClientesPage() {
     return tipo === 'CPF' ? masks.cpf(doc) : masks.cnpj(doc)
   }
 
+  const AREA_BADGE_MAP: Record<string, { label: string; bg: string; text: string }> = {
+    contabil: { label: 'CTB', bg: '#059669', text: '#fff' },
+    contábil: { label: 'CTB', bg: '#059669', text: '#fff' },
+    fiscal: { label: 'FSC', bg: '#0284c7', text: '#fff' },
+    trabalhista: { label: 'TRB', bg: '#d97706', text: '#fff' },
+    societario: { label: 'SOC', bg: '#7c3aed', text: '#fff' },
+    societário: { label: 'SOC', bg: '#7c3aed', text: '#fff' },
+    legalizacao: { label: 'LEG', bg: '#e11d48', text: '#fff' },
+    legalização: { label: 'LEG', bg: '#e11d48', text: '#fff' },
+    administrativo: { label: 'ADM', bg: '#475569', text: '#fff' },
+    financeiro: { label: 'FIN', bg: '#0891b2', text: '#fff' },
+    pessoal: { label: 'PES', bg: '#ea580c', text: '#fff' },
+    dp: { label: 'DP', bg: '#ea580c', text: '#fff' },
+  }
+
   function renderAreas(areas: string | null) {
     if (!areas) return <span className="text-muted-foreground">—</span>
     return (
-      <div className="flex flex-wrap gap-1 mt-0.5">
+      <div className="flex flex-wrap gap-[3px] mt-0.5">
         {areas.split(';').map((area) => {
           const trimmed = area.trim()
-          const opt = AREA_CONTRATADA_OPTIONS.find((o) => o.value.toLowerCase() === trimmed.toLowerCase())
+          if (!trimmed) return null
+          const key = trimmed.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          const badge = AREA_BADGE_MAP[trimmed.toLowerCase()] || AREA_BADGE_MAP[key]
+          const bg = badge?.bg || '#6b7280'
+          const text = badge?.text || '#fff'
+          const label = badge?.label || trimmed.slice(0, 3).toUpperCase()
           return (
-            <span key={trimmed} className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${opt?.color || 'bg-muted text-muted-foreground'}`}>
-              {opt?.label || trimmed}
+            <span
+              key={trimmed}
+              title={trimmed}
+              className="inline-flex items-center justify-center rounded-[3px] px-[5px] py-[1px] text-[9px] font-bold leading-tight tracking-wider"
+              style={{ backgroundColor: bg, color: text }}
+            >
+              {label}
             </span>
           )
         })}
@@ -222,7 +287,7 @@ export default function ClientesPage() {
     return pages
   }
 
-  const hasActiveFilters = filterSituacao || filterTributacao || filterGrupo || filterCidade || filterUf
+  const hasActiveFilters = filterSituacao || filterTributacao || filterGrupo || filterCidade || filterUf || onlyMensal
 
   return (
     <div className="space-y-6">
@@ -245,6 +310,9 @@ export default function ClientesPage() {
               <Button variant="success" size="sm" asChild>
                 <Link href="/clientes/new"><Plus className="h-4 w-4" />Novo Cliente</Link>
               </Button>
+              <Button variant="outline" size="sm" onClick={() => setIntegracoesOpen(true)} className="gap-1.5">
+                <Plug className="h-4 w-4" />Integrações
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>
@@ -262,9 +330,14 @@ export default function ClientesPage() {
             </>
           )}
           {trashMode && (
-            <Button variant="outline" size="sm" onClick={() => { setTrashMode(false); setPage(1) }}>
-              <ArrowUp className="h-4 w-4" />Voltar aos ativos
-            </Button>
+            <>
+              <Button variant="destructive" size="sm" onClick={handleEmptyTrash}>
+                <Trash2 className="h-4 w-4" />Esvaziar Lixeira
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => { setTrashMode(false); setPage(1) }}>
+                <ArrowUp className="h-4 w-4" />Voltar aos ativos
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -273,10 +346,24 @@ export default function ClientesPage() {
       {!trashMode && (
         <Card className={cn('overflow-hidden transition-all', filtersOpen ? '' : 'cursor-pointer')} onClick={() => !filtersOpen && setFiltersOpen(true)}>
           <div className="flex items-center justify-between px-4 py-3 bg-muted/20" onClick={(e) => { e.stopPropagation(); setFiltersOpen(!filtersOpen) }}>
-            <div className="flex items-center gap-2 text-sm font-medium cursor-pointer">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              Filtros
-              {hasActiveFilters && <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-emerald-500">{[filterSituacao, filterTributacao, filterGrupo, filterCidade, filterUf].filter(Boolean).length}</Badge>}
+            <div className="flex items-center gap-3 text-sm font-medium cursor-pointer">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                Filtros
+                {hasActiveFilters && (() => { const count = [filterSituacao, filterTributacao, filterGrupo, filterCidade, filterUf].filter(Boolean).length + (onlyMensal ? 1 : 0); return count > 0 ? <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-emerald-500">{count}</Badge> : null })()}
+              </div>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); toggleOnlyMensal() }}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-[3px] px-2.5 py-[3px] text-[10px] font-semibold transition-all',
+                  onlyMensal
+                    ? 'bg-[#5ea3cb] text-white shadow-sm'
+                    : 'bg-transparent text-muted-foreground border border-border/60 hover:border-[#5ea3cb] hover:text-[#5ea3cb]',
+                )}
+              >
+                Somente Mensais
+              </button>
             </div>
             <div className="flex items-center gap-2">
               {hasActiveFilters && (
@@ -292,7 +379,7 @@ export default function ClientesPage() {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Situação</label>
-                  <Select value={filterSituacao || '__all__'} onValueChange={(v) => { setFilterSituacao(v === '__all__' ? '' : v); setPage(1) }}>
+                  <Select value={onlyMensal ? 'MENSAL' : (filterSituacao || '__all__')} onValueChange={(v) => { setFilterSituacao(v === '__all__' ? '' : v); setPage(1) }} disabled={onlyMensal}>
                     <SelectTrigger className="h-8 text-xs bg-card"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todas</SelectItem>
@@ -503,6 +590,7 @@ export default function ClientesPage() {
       </Card>
 
       <ImportModal open={importOpen} onClose={() => setImportOpen(false)} onSuccess={fetchClientes} />
+      <IntegracoesModal open={integracoesOpen} onClose={() => setIntegracoesOpen(false)} onRefreshList={fetchClientes} />
     </div>
   )
 }
@@ -522,13 +610,17 @@ function InlineSituacaoSelect({ clienteId, value, onUpdated }: { clienteId: stri
   }
 
   const sc = SITUACAO_COLORS[value as keyof typeof SITUACAO_COLORS]
+  const isSolid = value === 'MENSAL'
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="block w-full rounded-full px-3 py-1 text-[10px] font-medium text-center cursor-pointer transition-opacity hover:opacity-80"
-          style={{ backgroundColor: sc?.bg || '#e5e5e5', color: sc?.color || '#666' }}
+          className="block w-full rounded-[3px] px-2.5 py-[3px] text-[10px] font-semibold text-center cursor-pointer transition-opacity hover:opacity-80"
+          style={isSolid
+            ? { backgroundColor: sc?.bg || '#e5e5e5', color: sc?.color || '#666' }
+            : { backgroundColor: 'transparent', color: sc?.bg || '#666', border: `1.5px solid ${sc?.bg || '#ccc'}` }
+          }
         >
           {saving ? '...' : (SITUACAO_LABELS[value as keyof typeof SITUACAO_LABELS] || value)}
         </button>
@@ -536,11 +628,15 @@ function InlineSituacaoSelect({ clienteId, value, onUpdated }: { clienteId: stri
       <DropdownMenuContent align="start" className="p-1 min-w-[140px]">
         {Object.entries(SITUACAO_LABELS).map(([v, l]) => {
           const c = SITUACAO_COLORS[v as keyof typeof SITUACAO_COLORS]
+          const solid = v === 'MENSAL'
           return (
             <DropdownMenuItem key={v} onClick={() => handleChange(v)} className="p-1 focus:bg-transparent">
               <span
-                className={`block w-full rounded-full px-3 py-1 text-[10px] font-medium text-center ${v === value ? 'ring-2 ring-offset-1 ring-primary' : ''}`}
-                style={{ backgroundColor: c?.bg || '#e5e5e5', color: c?.color || '#666' }}
+                className={`block w-full rounded-[3px] px-2.5 py-[3px] text-[10px] font-semibold text-center ${v === value ? 'ring-2 ring-offset-1 ring-primary' : ''}`}
+                style={solid
+                  ? { backgroundColor: c?.bg || '#e5e5e5', color: c?.color || '#666' }
+                  : { backgroundColor: 'transparent', color: c?.bg || '#666', border: `1.5px solid ${c?.bg || '#ccc'}` }
+                }
               >
                 {l}
               </span>

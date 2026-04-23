@@ -8,6 +8,7 @@ import {
 import { Button, Input, Label, Card, CardHeader, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { getApiUrl } from '@/lib/api-url'
 import Swal from 'sweetalert2'
 
 interface CertInfo {
@@ -106,7 +107,7 @@ export default function CertificadoSettingsPage() {
         const formData = new FormData()
         formData.append('file', file)
         formData.append('senha', senha)
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/upload/certificado`, {
+        const res = await fetch(`${getApiUrl()}/api/upload/certificado`, {
           method: 'POST', body: formData, credentials: 'include',
         })
         if (!res.ok) {

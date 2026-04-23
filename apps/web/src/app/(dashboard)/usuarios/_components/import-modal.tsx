@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { FileUp, Download, Loader2, CheckCircle, XCircle, AlertTriangle, ArrowRight } from 'lucide-react'
 import {
   Button, Badge,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
+  Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
@@ -111,8 +111,6 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
         dataAdmissao: r.data.dataAdmissao ?? '', idOneClick: r.data.idOneClick ?? '',
         incluirFerias: parseBooleanPt(r.data.incluirFerias ?? 'sim'), isActive: true,
       }))
-      console.log('Import payload first item:', JSON.stringify(items[0]))
-      console.log('Import total items:', items.length)
       const result = await trpc.user.importBulk.mutate({ items })
       await alerts.success(result.errors.length ? 'Importação parcial' : 'Importação concluída', `${result.created} registros importados.`)
       handleClose(); onSuccess()
@@ -126,7 +124,7 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
   return (
     <Dialog open={open} onOpenChange={o => !o && handleClose()}>
       <DialogContent className="max-w-3xl">
-        <DialogHeader className="border-b border-border/60 bg-muted/30">
+        <DialogHeader>
           <DialogTitle className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/10"><FileUp className="h-4.5 w-4.5 text-emerald-600" /></div>
             <div><span>Importar Usuários</span><DialogDescription className="mt-0.5">
@@ -136,7 +134,7 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
             </DialogDescription></div>
           </DialogTitle>
         </DialogHeader>
-        <div className="px-6 pb-2 max-h-[60vh] overflow-y-auto">
+        <DialogBody>
           {step === 'upload' && (
             <div className="space-y-4 py-2">
               <div className="flex flex-wrap gap-2">
@@ -161,8 +159,8 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
               {invalidRows.length > 0 && <div className="flex items-start gap-2 rounded-[2px] bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400"><AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /><span>Registros com erros serão ignorados.</span></div>}
             </div>
           )}
-        </div>
-        <DialogFooter className="border-t border-border/60 bg-muted/30">
+        </DialogBody>
+        <DialogFooter>
           {step === 'mapping' && (<><Button variant="success" size="sm" type="button" disabled={!requiredsMapped} onClick={handleMappingConfirm}><ArrowRight className="h-4 w-4" />Continuar</Button><Button variant="outline" size="sm" type="button" onClick={reset}>Voltar</Button></>)}
           {step === 'preview' && (<><Button variant="success" size="sm" type="button" disabled={validRows.length === 0 || importing} onClick={handleImport}>{importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}{importing ? 'Importando...' : `Importar ${validRows.length}`}</Button><Button variant="outline" size="sm" type="button" onClick={() => setStep('mapping')}>Voltar ao mapeamento</Button></>)}
           <DialogClose asChild><Button variant="outline" size="sm" type="button">Fechar</Button></DialogClose>

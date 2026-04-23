@@ -158,6 +158,12 @@ model User {
   socioArquivos        SocioArquivo[]
   socioMensagens       SocioMensagem[]
   situacoesFiscais     SituacaoFiscal[]
+  caixaPostalItems          CaixaPostalItem[]     @relation("CaixaPostalLeitora")
+  caixaPostalResponsavel    CaixaPostalItem[]     @relation("CaixaPostalResponsavel")
+  caixaPostalRegras         CaixaPostalRegra[]
+  caixaPostalEventLogs      CaixaPostalEventLog[]
+  responsavelAreas     ClienteAreaContratada[] @relation("AreaResponsavel")
+  substitutoAreas      ClienteAreaContratada[] @relation("AreaSubstituto")
 
   @@map("users")
 }
@@ -248,7 +254,8 @@ model Area {
   users           User[]           @relation("UserArea")
   cargos          Cargo[]
   colaboradores   Colaborador[]
-  clienteContatos ClienteContato[]
+  clienteContatos      ClienteContato[]
+  clienteAreas         ClienteAreaContratada[]
 
   @@map("areas")
 }
@@ -318,6 +325,8 @@ enum TaxRegime {
   LUCRO_PRESUMIDO
   LUCRO_REAL
   MEI
+  IMUNE
+  ISENTA
 }
 
 model Empresa {
@@ -474,6 +483,17 @@ model Cliente {
   // Áreas contratadas (semicolon-separated: "Contabil;Fiscal;Trabalhista")
   areasContratadas    String?          @map("areas_contratadas") @db.Text
 
+  // Legalização
+  nire                String?
+  rgEdificacao        String?          @map("rg_edificacao")
+  codigoSimples       String?          @map("codigo_simples")
+  bombeirosOcupacao   String?          @map("bombeiros_ocupacao")
+  bombeirosMetragem   String?          @map("bombeiros_metragem")
+  bombeirosRota       String?          @map("bombeiros_rota")
+  bombeirosProjeto    String?          @map("bombeiros_projeto")
+  bombeirosCapacidade String?          @map("bombeiros_capacidade")
+  cnaePrincipal       String?          @map("cnae_principal")
+
   // Endereço
   cep                 String?
   logradouro          String?
@@ -490,6 +510,9 @@ model Cliente {
   // Multi-empresa
   empresaId           String?          @map("empresa_id")
 
+  // CRM
+  isLead              Boolean          @default(false) @map("is_lead")
+
   // Versionamento (ISO 9001)
   version             Int              @default(1)
   isActive            Boolean          @default(true) @map("is_active")
@@ -505,7 +528,18 @@ model Cliente {
   contatos            ClienteContato[]
   contratoParams      ClienteContratoParam[]
   erpSnapshots        ClienteErpSnapshot[]
+  biCategorias        ClienteBiCategoria[]
+  biLinhas            ClienteBiLinha[]
+  biLinks             ClienteBiLink[]
+  biCacheFaturamento  BiCacheFaturamento[]
+  biCacheBalancete    BiCacheBalancete[]
+  biKpiContasIgnoradas BiKpiContaIgnorada[]
+  biKpiRegrasCalculo  BiKpiRegraCalculo[]
   historicos          ClienteHistorico[]
+  servicosContratados ClienteAreaContratada[]
+  folhaFiliais        FolhaFilial[]
+  folhaEventoContas   FolhaEventoConta[]
+  folhaImportacoes    FolhaImportacao[]
 
   @@map("clientes")
 }
@@ -619,6 +653,181 @@ model ClienteEvent {
   user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("cliente_events")
+}
+
+// ============================================================
+// ============================================================
+// BI Balancete — Categorias, Linhas e Links Públicos
+// ============================================================
+
+model ClienteBiCategoria {
+  id            String   @id @default(cuid())
+  clienteId     String   @map("cliente_id")
+  conta         String
+  nomeSci       String   @default("") @map("nome_sci")
+  nomeExibicao  String   @default("") @map("nome_exibicao")
+  parentConta   String?  @map("parent_conta")
+  nivel         Int      @default(1)
+  ordem         Int      @default(0)
+  tipo          String   @default("real") // real | calculada | referencia
+  ativo         Boolean  @default(true)
+  formula       Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, conta])
+  @@index([clienteId])
+  @@map("cliente_bi_categorias")
+}
+
+model ClienteBiLinha {
+  id            String   @id @default(cuid())
+  clienteId     String   @map("cliente_id")
+  periodo       String   // AAAAMM
+  conta         String
+  nomeConta     String   @default("") @map("nome_conta")
+  saldoAnterior Decimal  @default(0) @map("saldo_anterior") @db.Decimal(18, 2)
+  debitos       Decimal  @default(0) @db.Decimal(18, 2)
+  creditos      Decimal  @default(0) @db.Decimal(18, 2)
+  saldoAtual    Decimal  @default(0) @map("saldo_atual") @db.Decimal(18, 2)
+  movimento     Decimal  @default(0) @db.Decimal(18, 2)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, periodo, conta])
+  @@index([clienteId, periodo])
+  @@map("cliente_bi_linhas")
+}
+
+model ClienteBiLink {
+  id        String    @id @default(cuid())
+  clienteId String    @unique @map("cliente_id")
+  token     String    @unique
+  expiraEm  DateTime? @map("expira_em")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@map("cliente_bi_links")
+}
+
+// BI — Cache de Faturamento (dados SCI / manual)
+// ============================================================
+
+model BiCacheFaturamento {
+  id           String   @id @default(cuid())
+  clienteId    String   @map("cliente_id")
+  ano          Int
+  mes          Int      // 1-12
+  valor        Decimal  @default(0) @db.Decimal(18, 2)
+  fonte        String   @default("sci") // sci | manual
+  atualizadoEm DateTime @default(now()) @map("atualizado_em")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, ano, mes, fonte])
+  @@index([clienteId, ano])
+  @@map("bi_cache_faturamento")
+}
+
+// BI — Cache de Balancete (metadados de importação)
+// ============================================================
+
+model BiCacheBalancete {
+  id           String   @id @default(cuid())
+  clienteId    String   @map("cliente_id")
+  ref          Int      // AAAAMM (ex: 202501)
+  fonte        String   @default("sci")
+  totalLinhas  Int      @default(0) @map("total_linhas")
+  payload      Json?
+  atualizadoEm DateTime @default(now()) @map("atualizado_em")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, ref, fonte])
+  @@index([clienteId])
+  @@map("bi_cache_balancete")
+}
+
+// BI — KPI Contas Ignoradas por cliente
+// ============================================================
+
+model BiKpiContaIgnorada {
+  id        String   @id @default(cuid())
+  clienteId String   @map("cliente_id")
+  tipoKpi   String   @map("tipo_kpi")
+  conta     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, tipoKpi, conta])
+  @@index([clienteId, tipoKpi])
+  @@map("bi_kpi_contas_ignoradas")
+}
+
+// BI — KPI Regras de Cálculo customizadas
+// ============================================================
+
+model BiKpiRegraCalculo {
+  id        String   @id @default(cuid())
+  clienteId String   @map("cliente_id")
+  tipoKpi   String   @map("tipo_kpi")
+  regra     Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, tipoKpi])
+  @@map("bi_kpi_regras_calculo")
+}
+
+// Serviços Contratados por Cliente (Areas Contratadas)
+// ============================================================
+
+model ClienteAreaContratada {
+  id                String    @id @default(cuid())
+  clienteId         String    @map("cliente_id")
+  areaId            String    @map("area_id")
+  contratado        Boolean   @default(false)
+  responsavelId     String?   @map("responsavel_id")
+  substitutoId      String?   @map("substituto_id")
+  dataEncerramento  DateTime? @map("data_encerramento")
+  observacoes       String?   @db.Text
+  complexidadePeso  Decimal   @default(0) @map("complexidade_peso") @db.Decimal(8, 4)
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  cliente     Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  area        Area    @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  responsavel User?   @relation("AreaResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  substituto  User?   @relation("AreaSubstituto", fields: [substitutoId], references: [id], onDelete: SetNull)
+  parametros  ClienteAreaParametro[]
+
+  @@unique([clienteId, areaId])
+  @@index([clienteId])
+  @@index([areaId])
+  @@map("cliente_areas_contratadas")
+}
+
+model ClienteAreaParametro {
+  id                      String   @id @default(cuid())
+  clienteAreaContratadaId String   @map("cliente_area_contratada_id")
+  tipo                    String   @default("Geral")
+  nome                    String
+  descricao               String?  @db.Text
+  valor                   Decimal  @default(0) @db.Decimal(3, 1)
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  areaContratada ClienteAreaContratada @relation(fields: [clienteAreaContratadaId], references: [id], onDelete: Cascade)
+
+  @@index([clienteAreaContratadaId])
+  @@map("cliente_area_parametros")
 }
 
 // ============================================================
@@ -1001,11 +1210,13 @@ model ApiPricing {
 model SituacaoFiscal {
   id                String   @id @default(cuid())
   documento         String
+  periodo           String?                         // AAAAMM ou null
   tipoDocumento     Int      @default(2) @map("tipo_documento")
+  cnpjContratante   String?  @map("cnpj_contratante")
   razaoSocial       String?  @map("razao_social")
 
   // Protocolo e etapa
-  protocolo         String?
+  protocolo         String?  @db.VarChar(500)
   etapa             String   @default("pendente")
 
   // Resultado
@@ -1022,6 +1233,9 @@ model SituacaoFiscal {
 
   // Resposta completa da API (JSON)
   respostaCompleta  Json?    @map("resposta_completa")
+
+  // Headers da resposta (JSON)
+  headersResposta   Json?    @map("headers_resposta")
 
   // Status
   sucesso           Boolean  @default(false)
@@ -1041,7 +1255,323 @@ model SituacaoFiscal {
   user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([documento])
+  @@index([documento, periodo, etapa])
   @@index([clienteId])
   @@index([createdAt])
+  @@index([deletedAt])
   @@map("situacao_fiscal")
+}
+
+// ============================================================
+// Caixa Postal e-CAC (Integra Contador SERPRO)
+// ============================================================
+
+enum CaixaPostalPrioridade {
+  P0
+  P1
+  P2
+  P3
+}
+
+enum CaixaPostalTipoOperacao {
+  LISTAR
+  DETALHAR
+  INDICADOR
+}
+
+enum CaixaPostalRegraTipo {
+  PRIORIDADE
+  RELEVANCIA
+  DESCONSIDERAR
+}
+
+// Cache/auditoria de chamadas à API SERPRO
+model CaixaPostalMensagem {
+  id                String                  @id @default(cuid())
+  tipoOperacao      CaixaPostalTipoOperacao @map("tipo_operacao")
+  isn               String?
+  statusLeitura     String?                 @map("status_leitura")
+  indicadorPagina   String?                 @map("indicador_pagina")
+  ponteiroPagina    String?                 @map("ponteiro_pagina")
+  contratante       String
+  autorPedido       String                  @map("autor_pedido")
+  contribuinte      String
+  payloadRequisicao Json?                   @map("payload_requisicao")
+  resposta          Json?
+  sucesso           Boolean                 @default(true)
+  erro              String?                 @db.Text
+  statusHttp        Int?                    @map("status_http")
+  empresaId         String?                 @map("empresa_id")
+  createdAt         DateTime                @default(now()) @map("created_at")
+
+  @@index([tipoOperacao])
+  @@index([isn])
+  @@index([contribuinte])
+  @@index([empresaId])
+  @@index([createdAt])
+  @@map("caixa_postal_mensagem")
+}
+
+// Mensagens individuais classificadas com prioridade e status de leitura
+model CaixaPostalItem {
+  id                    String                @id @default(cuid())
+  isn                   String
+  contribuinte          String
+  empresaId             String?               @map("empresa_id")
+  mensagemOriginal      Json                  @map("mensagem_original")
+  prioridade            CaixaPostalPrioridade @default(P3)
+  score                 Int                   @default(0)
+  motivos               Json?
+  acaoRecomendada       String?               @map("acao_recomendada") @db.Text
+  slaDias               Int?                  @map("sla_dias")
+  prazoUrgente          Boolean               @default(false) @map("prazo_urgente")
+  precisaTriagemHumana  Boolean               @default(false) @map("precisa_triagem_humana")
+  lida                  Boolean               @default(false)
+  dataLeitura           DateTime?             @map("data_leitura")
+  userId                String?               @map("user_id")
+  responsavelId         String?               @map("responsavel_id")
+  status                String                @default("pendente") // pendente, em_andamento, concluido, arquivado
+  observacoes           String?               @db.Text
+  arquivada             Boolean               @default(false)
+  importante            Boolean               @default(false)
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+
+  user                  User?                 @relation("CaixaPostalLeitora", fields: [userId], references: [id], onDelete: SetNull)
+  responsavel           User?                 @relation("CaixaPostalResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  acaoLogs              CaixaPostalAcaoLog[]
+  eventos               CaixaPostalEventLog[]
+
+  @@unique([isn, contribuinte])
+  @@index([contribuinte])
+  @@index([empresaId])
+  @@index([prioridade])
+  @@index([lida])
+  @@index([prazoUrgente])
+  @@index([responsavelId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("caixa_postal_item")
+}
+
+// Log de eventos/histórico de ações em mensagens da caixa postal
+model CaixaPostalEventLog {
+  id          String          @id @default(cuid())
+  itemId      String          @map("item_id")
+  userId      String?         @map("user_id")
+  tipo        String          // LEITURA, ENCAMINHAMENTO, RESPONSAVEL, OBSERVACAO, STATUS, OBRIGACAO_CRIADA, RECLASSIFICACAO
+  descricao   String          @db.Text
+  detalhes    Json?           // Dados extras (ex: para quem encaminhou, status anterior/novo, etc.)
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  item        CaixaPostalItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user        User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([itemId])
+  @@index([userId])
+  @@index([tipo])
+  @@index([createdAt])
+  @@map("caixa_postal_event_log")
+}
+
+// Regras de classificação automática de mensagens (por empresa)
+model CaixaPostalRegra {
+  id                       String                 @id @default(cuid())
+  empresaId                String                 @map("empresa_id")
+  nome                     String
+  descricao                String?                @db.Text
+  tipo                     CaixaPostalRegraTipo
+  ativo                    Boolean                @default(true)
+  ordem                    Int                    @default(0)
+
+  // Condições
+  palavrasChave            String?                @map("palavras_chave") @db.Text
+  origemContem             String?                @map("origem_contem")
+  assuntoContem            String?                @map("assunto_contem")
+  codigoSistema            String?                @map("codigo_sistema")
+
+  // Ações de classificação
+  pesoScore                Int                    @default(0) @map("peso_score")
+  prioridadeMinima         CaixaPostalPrioridade? @map("prioridade_minima")
+  marcarRelevante          Boolean                @default(false) @map("marcar_relevante")
+  desconsiderarSePesoMenor Int?                   @map("desconsiderar_se_peso_menor")
+
+  // Ações automáticas
+  autoNotificar            Boolean                @default(false) @map("auto_notificar")
+  autoNotificarLider       Boolean                @default(false) @map("auto_notificar_lider")
+  autoNotificarGerente     Boolean                @default(false) @map("auto_notificar_gerente")
+  autoCriarTarefa          Boolean                @default(false) @map("auto_criar_tarefa")
+  autoMarcarLida           Boolean                @default(false) @map("auto_marcar_lida")
+  emailsExtras             String?                @map("emails_extras") @db.Text
+
+  // Metadata
+  criadoPor                String?                @map("criado_por")
+  createdAt                DateTime               @default(now()) @map("created_at")
+  updatedAt                DateTime               @updatedAt @map("updated_at")
+
+  user                     User?                  @relation(fields: [criadoPor], references: [id], onDelete: SetNull)
+
+  @@index([empresaId])
+  @@index([tipo])
+  @@index([ativo])
+  @@index([ordem])
+  @@map("caixa_postal_regra")
+}
+
+// Configuração editável do classificador automático
+model CaixaPostalConfig {
+  id        String   @id @default(cuid())
+  empresaId String   @unique @map("empresa_id")
+  config    Json     // Thresholds, keywords, pesos de prazo/relevância/leitura
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("caixa_postal_config")
+}
+
+// Log de ações automáticas executadas
+model CaixaPostalAcaoLog {
+  id            String          @id @default(cuid())
+  itemId        String          @map("item_id")
+  regraId       String?         @map("regra_id")
+  empresaId     String?         @map("empresa_id")
+  tipoAcao      String          @map("tipo_acao")
+  detalhes      Json?
+  sucesso       Boolean         @default(true)
+  erro          String?         @db.Text
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  item          CaixaPostalItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@index([empresaId])
+  @@index([tipoAcao])
+  @@index([createdAt])
+  @@map("caixa_postal_acao_log")
+}
+
+// ============================================================
+// Módulo Contabilização de Folha de Pagamento
+// ============================================================
+
+model FolhaFilial {
+  id              String   @id @default(cuid())
+  clienteId       String   @map("cliente_id")
+  cnpj            String
+  codigoFilial    String   @map("codigo_filial") // MTZ, COL, LIN, VIT
+  endereco        String   @default("")
+  contaLiquido    Int      @default(1287) @map("conta_liquido") // Conta crédito do líquido salarial
+  contaLiquidoAlt Int?     @map("conta_liquido_alt") // Override (ex: 1368 para caso especial)
+  ativo           Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  cliente  Cliente       @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  setores  FolhaSetor[]
+  lancamentos FolhaLancamento[]
+
+  @@unique([clienteId, cnpj])
+  @@index([clienteId])
+  @@map("folha_filiais")
+}
+
+model FolhaSetor {
+  id            String   @id @default(cuid())
+  filialId      String   @map("filial_id")
+  nome          String   // ADMINISTRATIVO, ADMINISTRACAO, DOCENTE
+  tipoContabil  String   @map("tipo_contabil") // CUSTO ou DESPESA
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  filial      FolhaFilial       @relation(fields: [filialId], references: [id], onDelete: Cascade)
+  lancamentos FolhaLancamento[]
+
+  @@unique([filialId, nome])
+  @@map("folha_setores")
+}
+
+model FolhaEventoConta {
+  id                  String   @id @default(cuid())
+  clienteId           String   @map("cliente_id")
+  codigoEvento        Int      @map("codigo_evento")
+  descricao           String   @default("")
+  tipo                String   // PROVENTO ou DESCONTO
+  contaCustoDebito    Int?     @map("conta_custo_debito")
+  contaCustoCredito   Int?     @map("conta_custo_credito")
+  contaDespesaDebito  Int?     @map("conta_despesa_debito")
+  contaDespesaCredito Int?     @map("conta_despesa_credito")
+  geraLancamento      Boolean  @default(true) @map("gera_lancamento")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, codigoEvento, tipo])
+  @@index([clienteId])
+  @@map("folha_evento_contas")
+}
+
+model FolhaImportacao {
+  id              String   @id @default(cuid())
+  clienteId       String   @map("cliente_id")
+  competencia     String   // MM/AAAA
+  dataImportacao  DateTime @default(now()) @map("data_importacao")
+  arquivoOrigem   String?  @map("arquivo_origem")
+  status          String   @default("importado") // importado, contabilizado, exportado
+  totalLinhas     Int      @default(0) @map("total_linhas")
+  totalLancamentos Int     @default(0) @map("total_lancamentos")
+  erros           Json?    // Eventos não encontrados, alertas
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  cliente     Cliente             @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  lancamentos FolhaLancamento[]
+  dados       FolhaImportacaoDado[]
+
+  @@index([clienteId])
+  @@index([competencia])
+  @@map("folha_importacoes")
+}
+
+model FolhaImportacaoDado {
+  id            String   @id @default(cuid())
+  importacaoId  String   @map("importacao_id")
+  endereco      String   @default("")
+  setor         String   @default("")
+  cnpj          String   @default("")
+  competencia   String   @default("")
+  codDebito     Int?     @map("cod_debito")
+  descDebito    String?  @map("desc_debito")
+  valorDebito   Decimal? @map("valor_debito") @db.Decimal(14, 2)
+  codCredito    Int?     @map("cod_credito")
+  descCredito   String?  @map("desc_credito")
+  valorCredito  Decimal? @map("valor_credito") @db.Decimal(14, 2)
+
+  importacao FolhaImportacao @relation(fields: [importacaoId], references: [id], onDelete: Cascade)
+
+  @@index([importacaoId])
+  @@map("folha_importacao_dados")
+}
+
+model FolhaLancamento {
+  id                String   @id @default(cuid())
+  importacaoId      String   @map("importacao_id")
+  filialId          String?  @map("filial_id")
+  setorId           String?  @map("setor_id")
+  dataLancamento    DateTime @map("data_lancamento")
+  contaDebito       Int?     @map("conta_debito")
+  contaCredito      Int?     @map("conta_credito")
+  valor             Decimal  @db.Decimal(14, 2)
+  historico         String   @default("")
+  tipo              String   // DEBITO ou CREDITO
+  codigoEvento      Int      @map("codigo_evento")
+  descricaoEvento   String   @default("") @map("descricao_evento")
+  lote              Int?     // Sequencial de exportação
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  importacao FolhaImportacao @relation(fields: [importacaoId], references: [id], onDelete: Cascade)
+  filial     FolhaFilial?    @relation(fields: [filialId], references: [id], onDelete: SetNull)
+  setor      FolhaSetor?     @relation(fields: [setorId], references: [id], onDelete: SetNull)
+
+  @@index([importacaoId])
+  @@index([filialId])
+  @@index([tipo])
+  @@map("folha_lancamentos")
 }

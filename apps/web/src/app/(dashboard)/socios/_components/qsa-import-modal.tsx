@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Checkbox,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
+  Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
@@ -132,7 +132,7 @@ export function QsaImportModal({ open, onClose, onSuccess, prefilledCnpj, prefil
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="max-w-2xl">
-        <DialogHeader className="border-b border-border/60 bg-muted/30">
+        <DialogHeader>
           <DialogTitle className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/10">
               <Users className="h-4.5 w-4.5 text-emerald-600" />
@@ -147,7 +147,7 @@ export function QsaImportModal({ open, onClose, onSuccess, prefilledCnpj, prefil
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-6 pb-2 max-h-[60vh] overflow-y-auto">
+        <DialogBody>
           {step === 'input' && (
             <div className="space-y-4 py-3">
               {/* CNPJ */}
@@ -265,9 +265,8 @@ export function QsaImportModal({ open, onClose, onSuccess, prefilledCnpj, prefil
               )}
             </div>
           )}
-        </div>
-
-        <DialogFooter className="border-t border-border/60 bg-muted/30">
+        </DialogBody>
+        <DialogFooter>
           {step === 'preview' && (
             <>
               <Button

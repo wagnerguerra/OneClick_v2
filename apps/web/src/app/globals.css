@@ -51,7 +51,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Dialog animations */
+/* Dialog animations — Bootstrap-style zoom in/out */
 @keyframes dialog-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -60,26 +60,26 @@
   from { opacity: 1; }
   to { opacity: 0; }
 }
-@keyframes dialog-content-in {
-  from { opacity: 0; transform: scale(0.96) translateY(6px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+@keyframes dialog-zoom-in {
+  from { opacity: 0; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1); }
 }
-@keyframes dialog-content-out {
-  from { opacity: 1; transform: scale(1) translateY(0); }
-  to { opacity: 0; transform: scale(0.96) translateY(6px); }
+@keyframes dialog-zoom-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.7); }
 }
 
 .dialog-overlay[data-state="open"] {
-  animation: dialog-fade-in 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: dialog-fade-in 200ms ease-out forwards;
 }
 .dialog-overlay[data-state="closed"] {
-  animation: dialog-fade-out 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: dialog-fade-out 150ms ease-in forwards;
 }
 .dialog-content[data-state="open"] {
-  animation: dialog-content-in 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: dialog-zoom-in 250ms cubic-bezier(0, 0, 0.2, 1) forwards;
 }
 .dialog-content[data-state="closed"] {
-  animation: dialog-content-out 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: dialog-zoom-out 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 /* Dropdown / Select / Popover animations (gaveta) */

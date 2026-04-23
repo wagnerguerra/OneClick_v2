@@ -16,6 +16,11 @@ export function createSocioRouter(socioService: SocioService, cnpjService: CnpjS
       .input(z.object({ id: z.string() }))
       .query(({ input, ctx }) => socioService.getById(input.id, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
+    // Socios por cliente (para aba Legalizacao)
+    listByCliente: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => socioService.listByCliente(input.clienteId)),
+
     create: writeProcedure(MODULE)
       .input(createSocioSchema)
       .mutation(({ input, ctx }) => socioService.create(input, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),

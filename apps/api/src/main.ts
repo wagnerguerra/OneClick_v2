@@ -20,7 +20,15 @@ async function bootstrap() {
   app.useBodyParser('urlencoded', { extended: true, limit: '10mb' })
 
   app.enableCors({
-    origin: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+    origin: (origin, callback) => {
+      // Permitir localhost, IP da rede e qualquer origem configurada
+      const allowed = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+      if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('192.168.') || origin === allowed) {
+        callback(null, true)
+      } else {
+        callback(null, true) // Em dev, aceitar todas as origens
+      }
+    },
     credentials: true,
   })
 
@@ -44,7 +52,7 @@ async function bootstrap() {
   })
 
   const port = process.env.PORT ?? 4000
-  await app.listen(port)
+  await app.listen(port, '0.0.0.0')
 }
 
 bootstrap()

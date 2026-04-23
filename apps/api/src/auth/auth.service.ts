@@ -30,9 +30,23 @@ export class AuthService {
       expiresIn: 60 * 60 * 24 * 7, // 7 dias
       updateAge: 60 * 60 * 24, // atualiza a cada 24h
     },
-    trustedOrigins: [
-      process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
-    ],
+    trustedOrigins: (request) => {
+      const origins = [
+        process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+      ]
+      // Adicionar origens extras configuradas via env
+      if (process.env.TRUSTED_ORIGINS) {
+        origins.push(...process.env.TRUSTED_ORIGINS.split(','))
+      }
+      // Aceitar dinamicamente o origin da rede local (192.168.*)
+      const origin = request?.headers?.get('origin')
+      if (origin && (origin.includes('192.168.') || origin.includes('10.') || origin.includes('172.'))) {
+        origins.push(origin)
+      }
+      return origins
+    },
     user: {
       additionalFields: {
         role: {

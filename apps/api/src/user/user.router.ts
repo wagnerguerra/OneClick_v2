@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, protectedProcedure, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
-import { createUserSchema, updateUserSchema, listUserSchema } from '@saas/types'
+import { createUserSchema, updateUserSchema, listUserSchema, permissionSchema } from '@saas/types'
 import { UserService } from './user.service'
 
 const MODULE = 'usuarios'
@@ -44,9 +44,27 @@ export function createUserRouter(userService: UserService) {
         userService.listForSelect(ctx.isMaster ?? false, ctx.empresaId),
       ),
 
+    // Clientes vinculados ao usuário (responsável/substituto)
+    getAssignedClients: readProcedure(MODULE)
+      .input(z.object({ userId: z.string() }))
+      .query(({ input }) => userService.getAssignedClients(input.userId)),
+
+    // Importar carteira de clientes do OneClick v1
+    importarCarteiraOneClick: writeProcedure(MODULE)
+      .input(z.object({
+        userId: z.string(),
+        dryRun: z.boolean().default(false),
+        somenteAreaUsuario: z.boolean().default(false),
+      }))
+      .mutation(({ input }) => userService.importarCarteiraOneClick(input.userId, input)),
+
     // getMyPermissions permanece como protectedProcedure — todo usuário pode consultar suas próprias permissões
     getMyPermissions: protectedProcedure
       .query(({ ctx }) => userService.getMyPermissions(ctx.userId)),
+
+    updatePermissions: writeProcedure(MODULE)
+      .input(z.object({ userId: z.string(), permissions: z.array(permissionSchema) }))
+      .mutation(({ input }) => userService.updatePermissions(input.userId, input.permissions)),
 
     copyPermissions: writeProcedure(MODULE)
       .input(z.object({
@@ -54,6 +72,11 @@ export function createUserRouter(userService: UserService) {
         targetUserIds: z.array(z.string()).min(1),
       }))
       .mutation(({ input }) => userService.copyPermissions(input.sourceUserId, input.targetUserIds)),
+
+    // Buscar dados do usuário nos bancos legados (SERPRO2 + OneClick v1)
+    buscarDadosLegado: readProcedure(MODULE)
+      .input(z.object({ email: z.string().email() }))
+      .query(({ input }) => userService.buscarDadosLegado(input.email)),
 
     exportAll: readProcedure(MODULE)
       .query(({ ctx }) => userService.exportAll(ctx.isMaster ?? false, ctx.empresaId)),

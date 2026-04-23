@@ -33,12 +33,14 @@ export default function EditClientePage() {
     )
   }
 
-  // Converter datas para formato de input date
-  const defaultValues = {
-    ...cliente,
-    dataEntrada: cliente.dataEntrada ? new Date(cliente.dataEntrada as string).toISOString().slice(0, 10) : '',
-    dataSaida: cliente.dataSaida ? new Date(cliente.dataSaida as string).toISOString().slice(0, 10) : '',
-  }
+  // Converter datas e limpar nulls para compatibilidade com Zod (.optional() não aceita null)
+  const defaultValues = Object.fromEntries(
+    Object.entries({
+      ...cliente,
+      dataEntrada: cliente.dataEntrada ? new Date(cliente.dataEntrada as string).toISOString().slice(0, 10) : '',
+      dataSaida: cliente.dataSaida ? new Date(cliente.dataSaida as string).toISOString().slice(0, 10) : '',
+    }).map(([k, v]) => [k, v === null ? undefined : v])
+  )
 
   return (
     <ClienteForm

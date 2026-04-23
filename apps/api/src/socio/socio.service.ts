@@ -263,6 +263,14 @@ export class SocioService {
 
   // ============================================================
 
+  async listByCliente(clienteId: string) {
+    return prisma.socio.findMany({
+      where: { clienteId },
+      select: { id: true, nomeCompleto: true, cpf: true, tipoSocio: true, participacao: true },
+      orderBy: { nomeCompleto: 'asc' },
+    })
+  }
+
   async deleteByClienteId(clienteId: string, tenantSchema?: string) {
     return scoped(tenantSchema, (db) =>
       db.socio.deleteMany({ where: { clienteId } }),

@@ -52,6 +52,9 @@ export function createAdminRouter(adminService: AdminService) {
     testMysql: protectedProcedure
       .mutation(() => adminService.testMysql()),
 
+    testOneclickV1: protectedProcedure
+      .mutation(() => adminService.testOneclickV1()),
+
     testFirebird: protectedProcedure
       .mutation(() => adminService.testFirebird()),
 
@@ -90,6 +93,10 @@ export function createAdminRouter(adminService: AdminService) {
     execSqlMysql: protectedProcedure
       .input(z.object({ sql: z.string().min(1) }))
       .mutation(({ input }) => adminService.execSqlMysql(input.sql)),
+
+    execSqlOneclickV1: protectedProcedure
+      .input(z.object({ sql: z.string().min(1) }))
+      .mutation(({ input }) => adminService.execSqlOneclickV1(input.sql)),
 
     execSqlFirebird: protectedProcedure
       .input(z.object({ sql: z.string().min(1) }))

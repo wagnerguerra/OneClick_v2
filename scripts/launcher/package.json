@@ -10,6 +10,9 @@
     "build": "node generate-icon.js && electron-builder --win",
     "build:dir": "node generate-icon.js && electron-builder --win --dir"
   },
+  "dependencies": {
+    "pg": "^8.20.0"
+  },
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^25.1.0"
@@ -23,6 +26,8 @@
     },
     "files": [
       "main.js",
+      "preload.js",
+      "index.html",
       "assets/**/*"
     ],
     "win": {
@@ -53,6 +58,9 @@
       "artifactName": "OneClick-ERP-Portable.exe"
     },
     "extraResources": [],
-    "asar": true
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/pg/**"
+    ]
   }
 }

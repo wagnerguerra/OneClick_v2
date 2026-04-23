@@ -10,10 +10,12 @@ import {
   Briefcase, FileBarChart, History, File, Calculator, Shield,
   ListChecks, StickyNote, FileInput, MessageSquareQuote, Users, ListTodo,
   ExternalLink, X, Loader2, Building2, Phone, MapPin, Star, Pencil, Trash2, Link2,
-  CircleUser, CheckCircle2, XCircle, Download,
+  CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import {
-  cn, Button, Input, Label, Card, CardHeader, Checkbox, RichEditor,
+  cn, Button, Input, Label, Card, CardHeader, Checkbox, RichEditor, Badge,
+  Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tabs, TabsList, TabsTrigger, TabsContent,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
@@ -21,6 +23,13 @@ import {
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { getApiUrl } from '@/lib/api-url'
+import { ServicosCard } from './servicos-card'
+import { ParticularidadesCard } from './particularidades-card'
+import { LegalizacaoCard } from './legalizacao-card'
+import { ContabilCard } from './contabil-card'
+import { ObrigacoesCard } from './obrigacoes-card'
+import { ProtocolosCard } from './protocolos-card'
 import { masks, numeroParaMoeda, moedaParaNumero } from '@/lib/masks'
 import {
   createClienteSchema,
@@ -84,6 +93,8 @@ const TRIBUTACAO_OPTIONS = [
   { value: 'LUCRO_PRESUMIDO', label: 'Lucro Presumido' },
   { value: 'LUCRO_REAL', label: 'Lucro Real' },
   { value: 'MEI', label: 'MEI' },
+  { value: 'IMUNE', label: 'Imune' },
+  { value: 'ISENTA', label: 'Isenta' },
 ]
 
 interface ClienteFormProps {
@@ -198,7 +209,10 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
 
   return (
     <TooltipProvider>
-      <form onSubmit={handleSubmit(onSubmit)} className={isEdit ? 'space-y-0' : 'space-y-5'}>
+      <form onSubmit={handleSubmit(onSubmit, (validationErrors) => {
+        const fields = Object.keys(validationErrors).join(', ')
+        setError(`Campos com erro de validação: ${fields}`)
+      })} className={isEdit ? 'space-y-0' : 'space-y-5'}>
 
         {/* ============================================================ */}
         {/* HEADER                                                       */}
@@ -212,7 +226,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   {clienteLogo ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
-                      src={clienteLogo.startsWith('http') ? clienteLogo : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${clienteLogo.startsWith('/') ? '' : '/api/upload/'}${clienteLogo}`}
+                      src={clienteLogo.startsWith('http') ? clienteLogo : `${getApiUrl()}${clienteLogo.startsWith('/') ? '' : '/api/upload/'}${clienteLogo}`}
                       alt="Logo"
                       className="h-[70px] w-[70px] object-contain rounded-full"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
@@ -224,7 +238,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                 <button
                   type="button"
                   className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md hover:bg-emerald-600 transition-colors border-2 border-white dark:border-gray-800"
-                  onClick={async () => {
+                  onClick={() => {
                     const input = document.createElement('input')
                     input.type = 'file'
                     input.accept = 'image/*'
@@ -234,11 +248,10 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                       const formData = new FormData()
                       formData.append('file', file)
                       try {
-                        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
-                        const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: formData })
+                        const apiUrl = getApiUrl()
+                        const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: formData, credentials: 'include' })
                         if (!res.ok) { alerts.error('Erro', 'Falha no upload.'); return }
                         const data = await res.json()
-                        // A URL retornada pode ser absoluta ou relativa
                         const logoUrl = data.url && data.url.startsWith('http') ? data.url : `${apiUrl}/api/upload/${data.filename}`
                         setClienteLogo(logoUrl)
                         if (clienteId) {
@@ -379,85 +392,55 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
               {/* TAB: FISCAL                                               */}
               {/* ======================================================== */}
               <TabsContent value="fiscal" className="mt-0">
-                <div className="grid gap-5 lg:grid-cols-[180px_1fr]">
-                  {/* Atalhos rápidos */}
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Atalhos</p>
-                    <Button type="button" variant="outline" size="sm" className="w-full justify-start text-xs" onClick={() => window.open('https://agenciavirtual.sefaz.es.gov.br', '_blank')}>
-                      <ExternalLink className="h-3.5 w-3.5" /> Agência Virtual
-                    </Button>
-                    <Button type="button" variant="outline" size="sm" className="w-full justify-start text-xs" onClick={() => window.open('https://cav.receita.fazenda.gov.br', '_blank')}>
-                      <ExternalLink className="h-3.5 w-3.5" /> e-CAC Receita Federal
-                    </Button>
-                  </div>
-                  {/* Campos fiscais */}
-                  <Card className="p-5">
-                    <SectionTitle icon={Receipt}>Dados Fiscais</SectionTitle>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <Label>Tributação</Label>
-                        <Controller control={control} name="tributacao" render={({ field }) => (
-                          <Select value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? undefined : v)}>
-                            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">Não informado</SelectItem>
-                              {TRIBUTACAO_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        )} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Regime</Label>
-                        <Controller control={control} name="regime" render={({ field }) => (
-                          <Select value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? undefined : v)}>
-                            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">Não informado</SelectItem>
-                              {Object.entries(REGIME_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        )} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Inscrição Estadual</Label>
-                        <Input placeholder="IE" {...register('inscricaoEstadual')} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Inscrição Municipal</Label>
-                        <Input placeholder="IM" {...register('inscricaoMunicipal')} />
-                      </div>
-                    </div>
-                  </Card>
-
-                  {/* Situação Fiscal (SERPRO) */}
-                  {isEdit && clienteId && (
-                    <Card className="p-5 mt-4">
-                      <SituacaoFiscalCard clienteId={clienteId} documento={watchedValues.documento || defaultValues?.documento || ''} />
-                    </Card>
-                  )}
-                </div>
+                <FiscalCard
+                  register={register}
+                  control={control}
+                  clienteId={clienteId}
+                  isEdit={!!isEdit}
+                  documento={watchedValues.documento || defaultValues?.documento || ''}
+                />
               </TabsContent>
 
               {/* ======================================================== */}
               {/* TABS PLACEHOLDER (futuras)                                */}
               {/* ======================================================== */}
               <TabsContent value="contabil" className="mt-0">
-                <PlaceholderTab icon={Calculator} title="Contábil" description="Configurações contábeis do cliente. Este módulo será implementado em breve." />
+                {isEdit && clienteId ? (
+                  <ContabilCard clienteId={clienteId} documento={(watchedValues.documento || defaultValues?.documento || '').replace(/\D/g, '')} />
+                ) : (
+                  <PlaceholderTab icon={Calculator} title="Contábil" description="Salve o cliente primeiro para acessar o BI Balancete." />
+                )}
               </TabsContent>
               <TabsContent value="legalizacao" className="mt-0">
-                <PlaceholderTab icon={Shield} title="Legalização" description="Registros e documentos de legalização do cliente. Este módulo será implementado em breve." />
+                <LegalizacaoCard register={register} clienteId={clienteId} />
               </TabsContent>
               <TabsContent value="obrigacoes" className="mt-0">
-                <PlaceholderTab icon={ListChecks} title="Obrigações" description="Obrigações fiscais e trabalhistas do cliente. Este módulo será implementado em breve." />
+                {isEdit && clienteId ? (
+                  <ObrigacoesCard clienteId={clienteId} />
+                ) : (
+                  <PlaceholderTab icon={ListChecks} title="Obrigações" description="Salve o cliente primeiro para gerenciar obrigações." />
+                )}
               </TabsContent>
               <TabsContent value="servicos" className="mt-0">
-                <PlaceholderTab icon={Briefcase} title="Serviços" description="Serviços contratados pelo cliente. Este módulo será implementado em breve." />
+                {isEdit && clienteId ? (
+                  <ServicosCard clienteId={clienteId} />
+                ) : (
+                  <PlaceholderTab icon={Briefcase} title="Serviços" description="Salve o cliente primeiro para gerenciar serviços contratados." />
+                )}
               </TabsContent>
               <TabsContent value="particularidades" className="mt-0">
-                <PlaceholderTab icon={StickyNote} title="Particularidades" description="Particularidades e observações específicas do cliente. Este módulo será implementado em breve." />
+                {isEdit && clienteId ? (
+                  <ParticularidadesCard clienteId={clienteId} />
+                ) : (
+                  <PlaceholderTab icon={StickyNote} title="Particularidades" description="Salve o cliente primeiro para gerenciar particularidades." />
+                )}
               </TabsContent>
               <TabsContent value="protocolos" className="mt-0">
-                <PlaceholderTab icon={FileInput} title="Protocolos" description="Protocolos e documentações protocoladas. Este módulo será implementado em breve." />
+                {isEdit && clienteId ? (
+                  <ProtocolosCard clienteId={clienteId} />
+                ) : (
+                  <PlaceholderTab icon={FileInput} title="Protocolos" description="Salve o cliente primeiro para registrar protocolos." />
+                )}
               </TabsContent>
               <TabsContent value="reclamacoes" className="mt-0">
                 <PlaceholderTab icon={MessageSquareQuote} title="Reclamações" description="Registro de reclamações e tratativas. Este módulo será implementado em breve." />
@@ -487,52 +470,62 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                     <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${progress.percent}%` }} />
                   </div>
                   <p className="text-xs text-muted-foreground">{progress.filled} de {progress.total} campos preenchidos</p>
+                  {progress.percent < 100 && (
+                    <details className="mt-3">
+                      <summary className="text-[11px] text-emerald-600 cursor-pointer hover:underline">Ver campos pendentes</summary>
+                      <ul className="mt-2 space-y-1">
+                        {PROGRESS_FIELDS.filter(f => { const v = watchedValues[f]; return !v || String(v).trim() === '' }).map(f => {
+                          const FIELD_TAB_MAP: Record<string, { tab: string; label: string }> = {
+                            razaoSocial: { tab: 'detalhes', label: 'Razao Social' },
+                            documento: { tab: 'detalhes', label: 'Documento' },
+                            nomeFantasia: { tab: 'detalhes', label: 'Nome Fantasia' },
+                            tipoCliente: { tab: 'detalhes', label: 'Tipo Cliente' },
+                            telefone: { tab: 'detalhes', label: 'Telefone' },
+                            email: { tab: 'detalhes', label: 'E-mail' },
+                            cep: { tab: 'detalhes', label: 'CEP' },
+                            logradouro: { tab: 'detalhes', label: 'Logradouro' },
+                            bairro: { tab: 'detalhes', label: 'Bairro' },
+                            cidade: { tab: 'detalhes', label: 'Cidade' },
+                            uf: { tab: 'detalhes', label: 'UF' },
+                            situacao: { tab: 'comercial', label: 'Situacao' },
+                            status: { tab: 'comercial', label: 'Status' },
+                            grupo: { tab: 'comercial', label: 'Grupo' },
+                            origem: { tab: 'comercial', label: 'Origem' },
+                            tributacao: { tab: 'fiscal', label: 'Tributacao' },
+                            areasContratadas: { tab: 'servicos', label: 'Areas Contratadas' },
+                          }
+                          const info = FIELD_TAB_MAP[f] || { tab: 'detalhes', label: f }
+                          return (
+                            <li key={f} className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                              <span>{info.label}</span>
+                              <span className="text-[10px] text-muted-foreground/60">({info.tab})</span>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </details>
+                  )}
                 </Card>
 
-                {/* Atividades e Benefícios */}
+                {/* Areas Contratadas (resumo rapido) */}
                 <Card className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-semibold">Atividades e Benefícios</h4>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button type="button" variant="outline" size="sm"><Plus className="h-3.5 w-3.5" /> Adicionar</Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-52">
-                        <DropdownMenuItem><Briefcase className="h-3.5 w-3.5" /> Atividade</DropdownMenuItem>
-                        <DropdownMenuItem><Receipt className="h-3.5 w-3.5" /> Benefício Fiscal</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  <h4 className="text-sm font-semibold mb-3">Areas Contratadas</h4>
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {AREA_CONTRATADA_OPTIONS.map((area) => {
+                      const active = selectedAreas.includes(area.value)
+                      return (
+                        <button key={area.value} type="button" onClick={() => toggleArea(area.value)}
+                          className={cn(
+                            'inline-flex items-center rounded px-2 py-1 text-[11px] font-medium cursor-pointer transition-all',
+                            active ? area.color : 'bg-muted/50 text-muted-foreground opacity-50 hover:opacity-75',
+                          )}>
+                          {area.label} {active ? '✓' : ''}
+                        </button>
+                      )
+                    })}
                   </div>
-                  {/* Tags das areas contratadas */}
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {selectedAreas.length > 0 ? (
-                      selectedAreas.map((area) => {
-                        const opt = AREA_CONTRATADA_OPTIONS.find((o) => o.value === area)
-                        return (
-                          <button key={area} type="button" onClick={() => toggleArea(area)}
-                            className={cn('inline-flex items-center rounded px-2 py-1 text-xs font-medium cursor-pointer hover:opacity-70', opt?.color || 'bg-muted')}>
-                            {opt?.label || area} ×
-                          </button>
-                        )
-                      })
-                    ) : (
-                      <p className="text-xs text-muted-foreground">Nenhuma atividade/benefício cadastrado ainda.</p>
-                    )}
-                  </div>
-                  {selectedAreas.length === 0 && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button type="button" variant="outline" size="sm" className="w-full"><Plus className="h-3.5 w-3.5" /> Adicionar Área</Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        {AREA_CONTRATADA_OPTIONS.map((area) => (
-                          <DropdownMenuItem key={area.value} onClick={() => toggleArea(area.value)}>
-                            <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium mr-2 ${area.color}`}>{area.label}</span>
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                  <p className="text-[10px] text-muted-foreground">{selectedAreas.length} de {AREA_CONTRATADA_OPTIONS.length} areas ativas</p>
                 </Card>
 
                 {/* Arquivos */}
@@ -1196,7 +1189,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
   async function uploadFiles(fileList: FileList | File[]) {
     if (!clienteId || !fileList || (fileList as FileList).length === 0) return
     setUploading(true)
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+    const apiUrl = getApiUrl()
     let uploaded = 0
     for (const file of Array.from(fileList)) {
       try {
@@ -1503,7 +1496,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                               <tbody>
                                 {rows.map((r, i) => (
                                   <tr key={i} className="border-b border-border/20">
-                                    <td className="py-1 pr-3">{String(r.mes).padStart(2, '0')}/{r.ano}</td>
+                                    <td className="py-1 pr-3">{String(r.mes).padStart(2, '0')}/{String(r.ano)}</td>
                                     <td className="py-1 text-right font-mono">
                                       {ind === 'faturamento'
                                         ? `R$ ${Number(r.movimentacao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
@@ -1574,7 +1567,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                     {files.map((f) => {
                       const isImage = f.mimeType?.startsWith('image/')
                       const isPdf = f.mimeType === 'application/pdf' || f.fileName.endsWith('.pdf')
-                      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+                      const apiUrl = getApiUrl()
                       const fullUrl = f.fileUrl.startsWith('http') ? f.fileUrl : `${apiUrl}${f.fileUrl}`
                       return (
                         <div key={f.id} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/20 group">
@@ -1844,7 +1837,7 @@ function ChartModal({ chartDatei, setChartDatei, chartDatef, setChartDatef, char
                               <tbody>
                                 {rows.map((r: Record<string, unknown>, i: number) => (
                                   <tr key={i} className="border-b border-border/10">
-                                    <td className="py-0.5">{String(r.mes).padStart(2, '0')}/{r.ano}</td>
+                                    <td className="py-0.5">{String(r.mes).padStart(2, '0')}/{String(r.ano)}</td>
                                     <td className="py-0.5 text-right font-mono">{fmtVal(Number(r.movimentacao) || 0, ind.isMoney)}</td>
                                   </tr>
                                 ))}
@@ -1955,6 +1948,170 @@ function GoogleMapsEmbed({ logradouro, numero, bairro, cidade, uf, cep }: {
 }
 
 // ============================================================
+// ============================================================
+// FiscalCard — pills laterais (padrão igual ComercialCard)
+// ============================================================
+
+function FiscalCard({ register, control, clienteId, isEdit, documento }: {
+  register: ReturnType<typeof useForm<CreateClienteInput>>['register']
+  control: ReturnType<typeof useForm<CreateClienteInput>>['control']
+  clienteId?: string
+  isEdit: boolean
+  documento: string
+}) {
+  const [activeTab, setActiveTab] = useState('dados')
+
+  const tabs = [
+    { key: 'dados', label: 'Dados Fiscais', icon: Receipt },
+    { key: 'situacao', label: 'Situação Fiscal', icon: Shield },
+    { key: 'caixapostal', label: 'Caixa Postal', icon: Mail },
+    { key: 'atalhos', label: 'Atalhos', icon: ExternalLink },
+  ]
+
+  return (
+    <Card>
+      <CardHeader>
+        <h5 className="text-sm font-semibold mb-0 flex items-center gap-2">
+          <Receipt className="h-4 w-4 text-muted-foreground" /> Fiscal
+        </h5>
+      </CardHeader>
+      <div className="flex min-h-[450px]">
+        {/* Pills laterais */}
+        <div className="w-[170px] shrink-0 border-r border-[rgba(0,0,0,0.08)] bg-[#f8f9fa] p-3 overflow-y-auto">
+          <div className="space-y-1">
+            {tabs.map((tab) => {
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={cn(
+                    'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
+                    activeTab === tab.key
+                      ? 'text-white shadow-sm'
+                      : 'text-muted-foreground hover:bg-white hover:text-foreground'
+                  )}
+                  style={activeTab === tab.key ? { backgroundColor: '#10b981' } : undefined}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  {tab.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Conteúdo */}
+        <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+          {activeTab === 'dados' && (
+            <div className="-m-5">
+              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <h4 className="text-[13px] font-semibold text-foreground">Dados Fiscais</h4>
+              </div>
+              <div className="p-5 grid grid-cols-12 gap-3">
+                <div className="col-span-12 md:col-span-6 space-y-1.5">
+                  <Label>Tributação</Label>
+                  <Controller control={control} name="tributacao" render={({ field }) => (
+                    <Select value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? undefined : v)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Não informado</SelectItem>
+                        {TRIBUTACAO_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )} />
+                </div>
+                <div className="col-span-12 md:col-span-6 space-y-1.5">
+                  <Label>Regime</Label>
+                  <Controller control={control} name="regime" render={({ field }) => (
+                    <Select value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? undefined : v)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Não informado</SelectItem>
+                        {Object.entries(REGIME_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )} />
+                </div>
+                <div className="col-span-12 md:col-span-6 space-y-1.5">
+                  <Label>Inscrição Estadual</Label>
+                  <Input placeholder="IE" {...register('inscricaoEstadual')} />
+                </div>
+                <div className="col-span-12 md:col-span-6 space-y-1.5">
+                  <Label>Inscrição Municipal</Label>
+                  <Input placeholder="IM" {...register('inscricaoMunicipal')} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'situacao' && (
+            <div className="-m-5">
+              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <h4 className="text-[13px] font-semibold text-foreground">Situação Fiscal (SERPRO)</h4>
+              </div>
+              <div className="p-5">
+                {isEdit && clienteId ? (
+                  <SituacaoFiscalCard clienteId={clienteId} documento={documento} />
+                ) : (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <Shield className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-xs">Salve o cliente para consultar a situação fiscal.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'caixapostal' && (
+            <div className="-m-5">
+              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <h4 className="text-[13px] font-semibold text-foreground">Caixa Postal e-CAC</h4>
+              </div>
+              <div className="p-5">
+                {isEdit && clienteId ? (
+                  <CaixaPostalClienteCard documento={documento} />
+                ) : (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <Mail className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-xs">Salve o cliente para visualizar a caixa postal.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'atalhos' && (
+            <div className="-m-5">
+              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <h4 className="text-[13px] font-semibold text-foreground">Atalhos Fiscais</h4>
+              </div>
+              <div className="p-5 space-y-2">
+                <Button type="button" variant="outline" size="sm" className="w-full justify-start text-xs" onClick={() => window.open('https://agenciavirtual.sefaz.es.gov.br', '_blank')}>
+                  <ExternalLink className="h-3.5 w-3.5" /> Agência Virtual — SEFAZ/ES
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="w-full justify-start text-xs" onClick={() => window.open('https://cav.receita.fazenda.gov.br', '_blank')}>
+                  <ExternalLink className="h-3.5 w-3.5" /> e-CAC — Receita Federal
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="w-full justify-start text-xs" onClick={() => window.open('https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/PJ/Emitir', '_blank')}>
+                  <ExternalLink className="h-3.5 w-3.5" /> Certidão Negativa — Receita Federal
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="w-full justify-start text-xs" onClick={() => window.open('https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf', '_blank')}>
+                  <ExternalLink className="h-3.5 w-3.5" /> CRF — FGTS (Caixa)
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="w-full justify-start text-xs" onClick={() => window.open('https://cndt-certidao.tst.jus.br/inicio.faces', '_blank')}>
+                  <ExternalLink className="h-3.5 w-3.5" /> CNDT — Certidão Trabalhista
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 // Situação Fiscal Card (dentro da aba Fiscal)
 // ============================================================
 
@@ -2143,7 +2300,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
 
   useEffect(() => { load() }, [clienteId])
 
-  async function handleUpload() {
+  function handleUpload() {
     const input = document.createElement('input')
     input.type = 'file'
     input.multiple = true
@@ -2154,7 +2311,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
         const formData = new FormData()
         formData.append('file', file)
         try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/upload`, { method: 'POST', body: formData })
+          const res = await fetch(`${getApiUrl()}/api/upload`, { method: 'POST', body: formData, credentials: 'include' })
           const { url } = await res.json()
           await trpc.cliente.addArquivo.mutate({
             clienteId, fileName: file.name, fileUrl: url,
@@ -2510,6 +2667,353 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ============================================================
+// Caixa Postal do cliente (dentro da aba Fiscal)
+// ============================================================
+
+const PRIORIDADE_STYLES: Record<string, { bg: string; text: string; icon: typeof AlertTriangle }> = {
+  P0: { bg: 'bg-red-600', text: 'text-white', icon: AlertTriangle },
+  P1: { bg: 'bg-orange-500', text: 'text-white', icon: MailWarning },
+  P2: { bg: 'bg-amber-400', text: 'text-amber-950', icon: Clock },
+  P3: { bg: 'bg-gray-200 dark:bg-gray-700', text: 'text-gray-600 dark:text-gray-300', icon: Mail },
+}
+
+function CaixaPostalBadge({ p }: { p: string }) {
+  const s = PRIORIDADE_STYLES[p] || PRIORIDADE_STYLES.P3!
+  const Icon = s.icon
+  return (
+    <span className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold shadow-sm', s.bg, s.text)}>
+      <Icon className="h-3 w-3" />{p}
+    </span>
+  )
+}
+
+function formatDateSerpro(d: string | undefined) {
+  if (!d) return '—'
+  if (d.length === 8) return `${d.slice(6, 8)}/${d.slice(4, 6)}/${d.slice(0, 4)}`
+  return d
+}
+
+interface CaixaPostalMsg {
+  isn?: string; ISN?: string
+  assuntoModelo?: string; origemModelo?: string; descricaoOrigem?: string
+  dataEnvio?: string; prioridade: string; score: number
+  sla_dias: number | null; lida: boolean; importante?: boolean
+  [key: string]: unknown
+}
+
+function CaixaPostalClienteCard({ documento }: { documento: string }) {
+  const [mensagens, setMensagens] = useState<CaixaPostalMsg[]>([])
+  const [loading, setLoading] = useState(true)
+  const [consultando, setConsultando] = useState(false)
+  const [pagina, setPagina] = useState(1)
+  const POR_PAGINA = 20
+
+  // Modal de detalhe
+  const [detalheOpen, setDetalheOpen] = useState(false)
+  const [detalheMsg, setDetalheMsg] = useState<CaixaPostalMsg | null>(null)
+  const [detalheData, setDetalheData] = useState<unknown>(null)
+  const [detalheLoading, setDetalheLoading] = useState(false)
+
+  const docLimpo = documento.replace(/\D/g, '')
+  const tipo = docLimpo.length === 11 ? 1 : 2
+
+  const carregarCache = useCallback(async () => {
+    setLoading(true)
+    setPagina(1)
+    try {
+      const result = await trpc.caixaPostal.listCache.query({ contribuinte: { numero: docLimpo, tipo } }) as { mensagensClassificadas: CaixaPostalMsg[] }
+      setMensagens(result.mensagensClassificadas || [])
+    } catch {
+      setMensagens([])
+    } finally { setLoading(false) }
+  }, [docLimpo, tipo])
+
+  useEffect(() => { carregarCache() }, [carregarCache])
+
+  async function consultarApi() {
+    setConsultando(true)
+    setPagina(1)
+    try {
+      const result = await trpc.caixaPostal.consultarClassificadas.mutate({ contribuinte: { numero: docLimpo, tipo } }) as { mensagensClassificadas: CaixaPostalMsg[] }
+      setMensagens(result.mensagensClassificadas || [])
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally { setConsultando(false) }
+  }
+
+  async function handleDetalhar(msg: CaixaPostalMsg) {
+    const isn = msg.isn || msg.ISN
+    if (!isn) return
+
+    setDetalheOpen(true)
+    setDetalheLoading(true)
+    setDetalheData(null)
+    setDetalheMsg(msg)
+
+    try {
+      const result = await trpc.caixaPostal.detalhar.mutate({
+        contribuinte: { numero: docLimpo, tipo },
+        isn,
+      })
+      setDetalheData(result)
+
+      // Marcar como lida
+      if (!msg.lida) {
+        await trpc.caixaPostal.marcarLida.mutate({ isn, contribuinte: docLimpo })
+        setMensagens(prev => prev.map(m => (m.isn || m.ISN) === isn ? { ...m, lida: true } : m))
+      }
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setDetalheLoading(false)
+    }
+  }
+
+  function extrairCorpoMensagem(dados: unknown): string | null {
+    if (!dados) return null
+    let base = dados as Record<string, unknown>
+    if (typeof dados === 'string') { try { base = JSON.parse(dados) } catch { return null } }
+    if (base?.dados && typeof base.dados === 'string') { try { base = JSON.parse(base.dados as string) } catch { /* keep */ } }
+    else if (base?.dados && typeof base.dados === 'object') { base = base.dados as Record<string, unknown> }
+    if (base?.conteudo && Array.isArray(base.conteudo) && base.conteudo.length > 0) {
+      const msg = base.conteudo[0] as Record<string, unknown>
+      if (msg?.corpoModelo && typeof msg.corpoModelo === 'string') {
+        let result = msg.corpoModelo as string
+        if (msg.valorParametroAssunto && typeof msg.valorParametroAssunto === 'string') {
+          const params = (msg.valorParametroAssunto as string).split('|')
+          if (params[0]) result = result.replace(/\+\+1\+\+/g, params[0])
+          if (params[1]) result = result.replace(/\+\+2\+\+/g, params[1])
+        }
+        result = result.replace(/\+\+\d+\+\+/g, '')
+        return result
+      }
+    }
+    return null
+  }
+
+  const naoLidas = mensagens.filter(m => !m.lida).length
+  const importantes = mensagens.filter(m => m.importante).length
+
+  const totalPaginas = Math.max(1, Math.ceil(mensagens.length / POR_PAGINA))
+  const paginaAtual = Math.min(pagina, totalPaginas)
+  const msgPaginadas = mensagens.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA)
+  const startRec = mensagens.length > 0 ? (paginaAtual - 1) * POR_PAGINA + 1 : 0
+  const endRec = Math.min(paginaAtual * POR_PAGINA, mensagens.length)
+
+  function getCpPageNumbers() {
+    const pages: number[] = []
+    let start = Math.max(1, paginaAtual - 2)
+    const end = Math.min(totalPaginas, start + 4)
+    start = Math.max(1, end - 4)
+    for (let i = start; i <= end; i++) pages.push(i)
+    return pages
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Modal de detalhamento */}
+      <Dialog open={detalheOpen} onOpenChange={(o) => { if (!o) setDetalheOpen(false) }}>
+        <DialogContent className="max-w-[720px]">
+          <DialogHeader>
+            <div className="flex items-center gap-4">
+              {detalheMsg && (() => {
+                const p = detalheMsg.prioridade
+                const styles: Record<string, { bg: string; text: string; label: string; icon: typeof AlertTriangle }> = {
+                  P0: { bg: 'bg-red-600', text: 'text-white', label: 'Crítica', icon: AlertTriangle },
+                  P1: { bg: 'bg-orange-500', text: 'text-white', label: 'Alta', icon: MailWarning },
+                  P2: { bg: 'bg-amber-400', text: 'text-amber-950', label: 'Média', icon: Clock },
+                  P3: { bg: 'bg-gray-300 dark:bg-gray-600', text: 'text-gray-700 dark:text-gray-200', label: 'Baixa', icon: Mail },
+                }
+                const s = styles[p] || styles.P3!
+                const Icon = s.icon
+                return (
+                  <div className={cn('flex flex-col items-center justify-center rounded-lg px-3 py-2 min-w-[56px] shadow-sm', s.bg, s.text)}>
+                    <Icon className="h-5 w-5" />
+                    <span className="text-[11px] font-black mt-0.5">{p}</span>
+                    <span className="text-[8px] font-semibold uppercase tracking-wider opacity-80">{s.label}</span>
+                  </div>
+                )
+              })()}
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Detalhamento da Mensagem</DialogTitle>
+                {detalheMsg && <DialogDescription className="truncate">{detalheMsg.assuntoModelo || 'Sem assunto'}</DialogDescription>}
+              </div>
+            </div>
+          </DialogHeader>
+
+          <DialogBody>
+            {detalheLoading ? (
+              <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : (
+              <div>
+                {/* Metadados */}
+                {detalheMsg && (
+                  <div className="mb-4 p-3 rounded-lg bg-muted/20 space-y-2">
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                      <div><span className="text-muted-foreground">Origem: </span><span className="font-medium">{detalheMsg.descricaoOrigem || detalheMsg.origemModelo || '—'}</span></div>
+                      <div><span className="text-muted-foreground">Data envio: </span><span className="font-medium">{formatDateSerpro(detalheMsg.dataEnvio)}</span></div>
+                      {detalheMsg.sla_dias !== null && detalheMsg.sla_dias !== undefined && (
+                        <div><span className="text-muted-foreground">SLA: </span><span className={cn('font-medium', detalheMsg.sla_dias <= 0 ? 'text-red-600' : detalheMsg.sla_dias <= 3 ? 'text-orange-600' : '')}>{detalheMsg.sla_dias} dia(s)</span></div>
+                      )}
+                      <div><span className="text-muted-foreground">Score: </span><span className="font-medium">{detalheMsg.score}/100</span></div>
+                    </div>
+                    {typeof detalheMsg.acao_recomendada === 'string' && detalheMsg.acao_recomendada && (
+                      <div className="text-xs p-2 rounded bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300">
+                        <strong>Ação recomendada:</strong> {detalheMsg.acao_recomendada as string}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Corpo */}
+                {(() => {
+                  const corpo = extrairCorpoMensagem(detalheData)
+                  if (corpo) return <div className="prose prose-sm max-w-none text-sm leading-relaxed [&_p]:mb-3 [&_a]:text-sky-600 [&_a]:underline" dangerouslySetInnerHTML={{ __html: corpo }} />
+                  if (detalheData) return (<div><p className="text-xs text-muted-foreground mb-2">Resposta bruta da API:</p><pre className="text-xs whitespace-pre-wrap bg-muted/30 rounded-lg p-4 overflow-x-auto max-h-[400px]">{JSON.stringify(detalheData, null, 2)}</pre></div>)
+                  return <p className="text-center text-muted-foreground py-10">Nenhum conteúdo disponível.</p>
+                })()}
+
+                {/* Motivos */}
+                {detalheMsg && Array.isArray(detalheMsg.motivos) && (detalheMsg.motivos as string[]).length > 0 && (
+                  <div className="mt-4 pt-3 border-t">
+                    <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">Motivos da classificação</p>
+                    <div className="flex flex-wrap gap-1">
+                      {(detalheMsg.motivos as string[]).map((m, i) => <Badge key={i} variant="outline" className="text-[10px] font-normal">{m}</Badge>)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogBody>
+
+          <DialogFooter>
+            {detalheMsg && (
+              <div className="flex-1 text-xs text-muted-foreground">
+                ISN: <span className="font-mono">{detalheMsg.isn || detalheMsg.ISN || '—'}</span>
+              </div>
+            )}
+            <Button type="button" variant="outline" size="sm" onClick={() => setDetalheOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Header com ações e resumo */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {mensagens.length > 0 && (
+            <>
+              <Badge variant="outline" className="text-[10px]">{mensagens.length} mensagem(ns)</Badge>
+              {naoLidas > 0 && <Badge variant="destructive" className="text-[10px]">{naoLidas} não lida(s)</Badge>}
+              {importantes > 0 && (
+                <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
+                  <Star className="h-3 w-3 fill-amber-400 mr-0.5" />{importantes} importante(s)
+                </Badge>
+              )}
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" className="text-[11px] h-7 gap-1" onClick={carregarCache} disabled={loading}>
+            <Mail className="h-3 w-3" />Cache
+          </Button>
+          <Button type="button" variant="success" size="sm" className="text-[11px] h-7 gap-1" onClick={consultarApi} disabled={consultando}>
+            {consultando ? <Loader2 className="h-3 w-3 animate-spin" /> : <SearchIcon className="h-3 w-3" />}
+            Consultar API
+          </Button>
+          <Button type="button" variant="outline" size="sm" className="text-[11px] h-7 gap-1" asChild>
+            <a href="/caixapostal" target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3 w-3" />Abrir módulo
+            </a>
+          </Button>
+        </div>
+      </div>
+
+      {/* Tabela de mensagens */}
+      {loading ? (
+        <div className="flex items-center justify-center py-10 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin mr-2" />Carregando...
+        </div>
+      ) : mensagens.length === 0 ? (
+        <div className="text-center py-10 text-muted-foreground">
+          <Mail className="h-8 w-8 mx-auto mb-2 opacity-30" />
+          <p className="text-xs">Nenhuma mensagem na caixa postal.</p>
+          <p className="text-[10px] mt-1">Clique em "Consultar API" para buscar mensagens do SERPRO.</p>
+        </div>
+      ) : (
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-muted/30 border-b">
+                <th className="text-left px-3 py-2 font-medium w-[50px]">Prior.</th>
+                <th className="text-left px-3 py-2 font-medium">Assunto</th>
+                <th className="text-left px-3 py-2 font-medium hidden md:table-cell">Origem</th>
+                <th className="text-left px-3 py-2 font-medium w-[80px]">Data</th>
+                <th className="text-center px-3 py-2 font-medium w-[50px]">SLA</th>
+                <th className="text-center px-3 py-2 font-medium w-[40px]">Lida</th>
+              </tr>
+            </thead>
+            <tbody>
+              {msgPaginadas.map((m, idx) => {
+                const isn = m.isn || m.ISN || `m-${idx}`
+                const isImp = m.importante === true
+                return (
+                  <tr key={`${isn}-${idx}`} onClick={() => handleDetalhar(m)} className={cn(
+                    'border-b last:border-b-0 hover:bg-muted/30 cursor-pointer',
+                    isImp && 'bg-amber-50/60 dark:bg-amber-950/15',
+                    !isImp && !m.lida && 'bg-sky-50/40 dark:bg-sky-950/15',
+                  )}>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-1">
+                        <CaixaPostalBadge p={m.prioridade} />
+                        {isImp && <Star className="h-3 w-3 text-amber-500 fill-amber-400" />}
+                      </div>
+                    </td>
+                    <td className={cn('px-3 py-2 max-w-[250px] truncate', !m.lida ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
+                      {m.assuntoModelo || '(Sem assunto)'}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground hidden md:table-cell max-w-[180px] truncate">
+                      {m.descricaoOrigem || m.origemModelo || '—'}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{formatDateSerpro(m.dataEnvio)}</td>
+                    <td className="px-3 py-2 text-center">
+                      {m.sla_dias !== null && m.sla_dias !== undefined ? (
+                        <span className={cn('font-mono text-[10px]', m.sla_dias <= 0 ? 'text-red-600 font-bold' : m.sla_dias <= 3 ? 'text-orange-600' : 'text-muted-foreground')}>
+                          {m.sla_dias}d
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      {m.lida ? <MailOpen className="h-3.5 w-3.5 text-muted-foreground/40 mx-auto" /> : <Mail className="h-3.5 w-3.5 text-sky-500 mx-auto" />}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {/* Paginação */}
+          {mensagens.length > POR_PAGINA && (
+            <div className="flex items-center justify-between border-t bg-muted/20 px-3 py-2">
+              <p className="text-[10px] text-muted-foreground">
+                Mostrando <span className="font-medium">{startRec}</span> a <span className="font-medium">{endRec}</span> de <span className="font-medium">{mensagens.length}</span>
+              </p>
+              <div className="flex items-center gap-0.5">
+                <Button type="button" variant="outline" size="icon-xs" disabled={paginaAtual === 1} onClick={() => setPagina(1)}><ChevronsLeft className="h-3 w-3" /></Button>
+                <Button type="button" variant="outline" size="icon-xs" disabled={paginaAtual === 1} onClick={() => setPagina(p => p - 1)}><ChevronLeft className="h-3 w-3" /></Button>
+                {getCpPageNumbers().map(p => (
+                  <Button type="button" key={p} variant={p === paginaAtual ? 'soft' : 'outline'} size="icon-xs" className="text-[10px]" onClick={() => setPagina(p)}>{p}</Button>
+                ))}
+                <Button type="button" variant="outline" size="icon-xs" disabled={paginaAtual === totalPaginas} onClick={() => setPagina(p => p + 1)}><ChevronRight className="h-3 w-3" /></Button>
+                <Button type="button" variant="outline" size="icon-xs" disabled={paginaAtual === totalPaginas} onClick={() => setPagina(totalPaginas)}><ChevronsRight className="h-3 w-3" /></Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

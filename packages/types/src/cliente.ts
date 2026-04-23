@@ -118,13 +118,24 @@ export const createClienteSchema = z.object({
   observacoes: z.coerce.string().optional().or(z.literal('')),
 
   // Fiscal
-  tributacao: z.enum(['SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI']).optional(),
-  regime: z.enum(['CAIXA', 'COMPETENCIA']).optional(),
+  tributacao: z.enum(['SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI', 'IMUNE', 'ISENTA']).nullish(),
+  regime: z.enum(['CAIXA', 'COMPETENCIA']).nullish(),
   inscricaoEstadual: z.coerce.string().optional().or(z.literal('')),
   inscricaoMunicipal: z.coerce.string().optional().or(z.literal('')),
 
   // Áreas contratadas (semicolon-separated string)
   areasContratadas: z.coerce.string().optional().or(z.literal('')),
+
+  // Legalização
+  nire: z.coerce.string().optional().or(z.literal('')),
+  rgEdificacao: z.coerce.string().optional().or(z.literal('')),
+  codigoSimples: z.coerce.string().optional().or(z.literal('')),
+  bombeirosOcupacao: z.coerce.string().optional().or(z.literal('')),
+  bombeirosMetragem: z.coerce.string().optional().or(z.literal('')),
+  bombeirosRota: z.coerce.string().optional().or(z.literal('')),
+  bombeirosProjeto: z.coerce.string().optional().or(z.literal('')),
+  bombeirosCapacidade: z.coerce.string().optional().or(z.literal('')),
+  cnaePrincipal: z.coerce.string().optional().or(z.literal('')),
 
   // Endereço
   cep: z.coerce.string().optional().or(z.literal('')),
@@ -151,7 +162,10 @@ export const updateClienteSchema = createClienteSchema.partial()
 export const listClienteSchema = paginationSchema.extend({
   situacao: z.enum(['MENSAL', 'EM_CONSTITUICAO', 'POTENCIAL', 'AVULSO', 'PARALIZADO', 'PRE_OPERACIONAL', 'PROSPECT']).optional(),
   status: z.enum(['ATIVA', 'INATIVA', 'SUSPENSA', 'BAIXADA', 'INAPTA', 'NULA']).optional(),
-  tributacao: z.enum(['SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI']).optional(),
+  tributacao: z.enum(['SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI', 'IMUNE', 'ISENTA']).optional(),
+  grupo: z.string().optional(),
+  cidade: z.string().optional(),
+  uf: z.string().optional(),
 })
 
 export type CreateClienteInput = z.infer<typeof createClienteSchema>
