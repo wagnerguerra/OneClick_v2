@@ -39,6 +39,17 @@ export {
 export { Badge, badgeVariants, type BadgeProps } from './components/badge'
 export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell } from './components/table'
 export { FormSection } from './components/form-section'
-export { Tabs, TabsList, TabsTrigger, TabsContent } from './components/tabs'
+export { Tabs, TabsList, TabsTrigger, TabsContent, SlidingTabsList } from './components/tabs'
 export { RichEditor } from './components/rich-editor'
+export {
+  Sheet,
+  SheetTrigger,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetBody,
+  SheetFooter,
+  SheetTitle,
+  SheetDescription,
+} from './components/sheet'
 export { cn } from './lib/utils'

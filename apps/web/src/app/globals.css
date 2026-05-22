@@ -1,5 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
+@import "react-grid-layout/css/styles.css";
+@import "react-resizable/css/styles.css";
 
 @source "../../../../packages/ui/src/**/*.{ts,tsx}";
 
@@ -45,11 +47,247 @@
 .modal-overlay { animation: modalOverlayIn 0.2s ease-out forwards; }
 .modal-content { animation: modalContentIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
+/* SweetAlert2 — customizações */
+.swal-icon-no-border { border: none !important; }
+.swal-cancel-dark { color: #374151 !important; }
+/* Sheet slide-over animations */
+@keyframes sheetSlideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes sheetSlideOutRight { from { transform: translateX(0); } to { transform: translateX(100%); } }
+@keyframes sheetSlideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@keyframes sheetSlideOutLeft { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+@keyframes sheetOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheetOverlayOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* Sino — efeito de "desenrolar" (roll down) e "reenrolar" (roll up) */
+@keyframes bellRollDown {
+  0%   { transform: scaleY(0)   translateY(-8px); opacity: 0; filter: blur(2px); }
+  60%  { transform: scaleY(1.04) translateY(0);   opacity: 1; filter: blur(0); }
+  100% { transform: scaleY(1)   translateY(0);   opacity: 1; }
+}
+@keyframes bellRollUp {
+  0%   { transform: scaleY(1)   translateY(0);   opacity: 1; }
+  100% { transform: scaleY(0)   translateY(-8px); opacity: 0; filter: blur(2px); }
+}
+.bell-popover[data-state="open"]    { animation: bellRollDown 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards; transform-origin: top right; }
+.bell-popover[data-state="closing"] { animation: bellRollUp   200ms cubic-bezier(0.4, 0, 1, 1) forwards;    transform-origin: top right; }
+
+.sheet-overlay[data-state="open"] { animation: sheetOverlayIn 0.25s ease-out forwards; }
+.sheet-overlay[data-state="closed"] { animation: sheetOverlayOut 0.2s ease-in forwards; }
+.sheet-slide-right[data-state="open"] { animation: sheetSlideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.sheet-slide-right[data-state="closed"] { animation: sheetSlideOutRight 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.sheet-slide-left[data-state="open"] { animation: sheetSlideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.sheet-slide-left[data-state="closed"] { animation: sheetSlideOutLeft 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+/* CRM Kanban drag-and-drop */
+.crm-column-over { background-color: rgba(251, 113, 133, 0.06) !important; }
+
+/* SweetAlert2 acima do Radix Dialog focus trap */
+.swal2-container { z-index: 9999 !important; pointer-events: auto !important; }
+.swal2-popup { pointer-events: auto !important; }
+
+/* Sidebar group/item hover — usa CSS variable --gc para cor dinâmica */
+.sidebar-group-btn:hover {
+  background-color: color-mix(in srgb, var(--gc, #5ea3cb) 12%, transparent);
+  color: var(--gc, #5ea3cb);
+}
+
+/* Sidebar accordion — animação sanfona */
+@keyframes sidebar-accordion-open {
+  from { height: 0; opacity: 0; }
+  to { height: var(--radix-collapsible-content-height); opacity: 1; }
+}
+@keyframes sidebar-accordion-close {
+  from { height: var(--radix-collapsible-content-height); opacity: 1; }
+  to { height: 0; opacity: 0; }
+}
+.sidebar-accordion[data-state="open"] {
+  animation: sidebar-accordion-open 0.25s ease-out;
+  overflow: hidden;
+}
+.sidebar-accordion[data-state="closed"] {
+  animation: sidebar-accordion-close 0.2s ease-in forwards;
+  overflow: hidden;
+}
+
 /* Tab transition */
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+ * Theme color override por bloco — quando a página tem a classe
+ * `.mod-<slug>` no wrapper, sobrescreve a paleta Tailwind correspondente
+ * pra usar var(--mod-<slug>). Isso resolve casos onde os componentes
+ * usam classes Tailwind estáticas (bg-fuchsia-500, etc) que não respondem
+ * à mudança da CSS variable diretamente.
+ *
+ * Pra ativar num bloco: adicionar `<div className="mod-<slug>">` no
+ * wrapper raiz da página. Veja /gestao-certificados e /certidoes-cnd.
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* Função reutilizável — para cada par (slug, palette-name), gera um bloco
+ * que sobrescreve as classes Tailwind `bg-<palette>-N`, `text-<palette>-N`,
+ * `border-<palette>-N`, `from-<palette>-N`, `to-<palette>-N` e suas variantes
+ * dark, usando `var(--mod-<slug>)`.
+ *
+ * Mapeamento atual:
+ *   cadastros     → emerald
+ *   comercial     → rose
+ *   corporativo   → sky
+ *   legalizacao   → fuchsia
+ *   trabalhista   → lime
+ *   fiscal        → indigo
+ *   contabil      → violet
+ *   ti            → cyan
+ *   qualidade     → amber
+ *   configuracoes → orange
+ *   processos     → violet (mesmo Tailwind palette de contabil; escopo separa)
+ *   faq           → cyan (mesmo Tailwind palette de ti; escopo separa)
+ *   administrativo → sky (mesmo Tailwind palette de corporativo; escopo separa)
+ *   perfil        → sky (mesmo Tailwind palette; escopo separa)
+ */
+
+/* === Legalização → fuchsia === */
+.mod-legalizacao .bg-fuchsia-500, .mod-legalizacao .bg-fuchsia-600 { background-color: var(--mod-legalizacao, #e879f9); }
+.mod-legalizacao .hover\:bg-fuchsia-600:hover, .mod-legalizacao .hover\:bg-fuchsia-700:hover { background-color: color-mix(in srgb, var(--mod-legalizacao, #e879f9) 87%, black); }
+.mod-legalizacao .text-fuchsia-500, .mod-legalizacao .text-fuchsia-600, .mod-legalizacao .text-fuchsia-700 { color: var(--mod-legalizacao, #e879f9); }
+.mod-legalizacao .border-fuchsia-200, .mod-legalizacao .border-fuchsia-300, .mod-legalizacao .border-fuchsia-400, .mod-legalizacao .border-fuchsia-500 { border-color: color-mix(in srgb, var(--mod-legalizacao, #e879f9) 40%, transparent); }
+.mod-legalizacao .bg-fuchsia-50, .mod-legalizacao .bg-fuchsia-100 { background-color: color-mix(in srgb, var(--mod-legalizacao, #e879f9) 12%, transparent); }
+.mod-legalizacao .from-fuchsia-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-legalizacao, #e879f9) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(232 121 249 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.mod-legalizacao .to-fuchsia-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-legalizacao, #e879f9) 80%, black) var(--tw-gradient-to-position); }
+.mod-legalizacao .from-fuchsia-500 { --tw-gradient-from: var(--mod-legalizacao, #e879f9) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.dark .mod-legalizacao .dark\:bg-fuchsia-950\/30, .dark .mod-legalizacao .dark\:bg-fuchsia-900\/40 { background-color: color-mix(in srgb, var(--mod-legalizacao, #e879f9) 18%, transparent); }
+.dark .mod-legalizacao .dark\:text-fuchsia-400, .dark .mod-legalizacao .dark\:text-fuchsia-300 { color: color-mix(in srgb, var(--mod-legalizacao, #e879f9) 80%, white); }
+.dark .mod-legalizacao .dark\:border-fuchsia-800, .dark .mod-legalizacao .dark\:border-fuchsia-900 { border-color: color-mix(in srgb, var(--mod-legalizacao, #e879f9) 35%, transparent); }
+
+/* === Cadastros → emerald === */
+.mod-cadastros .bg-emerald-500, .mod-cadastros .bg-emerald-600 { background-color: var(--mod-cadastros, #10b981); }
+.mod-cadastros .hover\:bg-emerald-600:hover, .mod-cadastros .hover\:bg-emerald-700:hover { background-color: color-mix(in srgb, var(--mod-cadastros, #10b981) 87%, black); }
+.mod-cadastros .text-emerald-500, .mod-cadastros .text-emerald-600, .mod-cadastros .text-emerald-700 { color: var(--mod-cadastros, #10b981); }
+.mod-cadastros .border-emerald-200, .mod-cadastros .border-emerald-300, .mod-cadastros .border-emerald-400, .mod-cadastros .border-emerald-500 { border-color: color-mix(in srgb, var(--mod-cadastros, #10b981) 40%, transparent); }
+.mod-cadastros .bg-emerald-50, .mod-cadastros .bg-emerald-100 { background-color: color-mix(in srgb, var(--mod-cadastros, #10b981) 12%, transparent); }
+.mod-cadastros .from-emerald-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-cadastros, #10b981) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(16 185 129 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.mod-cadastros .to-emerald-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-cadastros, #10b981) 80%, black) var(--tw-gradient-to-position); }
+.mod-cadastros .from-emerald-500 { --tw-gradient-from: var(--mod-cadastros, #10b981) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.dark .mod-cadastros .dark\:bg-emerald-950\/30, .dark .mod-cadastros .dark\:bg-emerald-900\/40 { background-color: color-mix(in srgb, var(--mod-cadastros, #10b981) 18%, transparent); }
+.dark .mod-cadastros .dark\:text-emerald-400, .dark .mod-cadastros .dark\:text-emerald-300 { color: color-mix(in srgb, var(--mod-cadastros, #10b981) 80%, white); }
+.dark .mod-cadastros .dark\:border-emerald-800, .dark .mod-cadastros .dark\:border-emerald-900 { border-color: color-mix(in srgb, var(--mod-cadastros, #10b981) 35%, transparent); }
+
+/* === Comercial → rose === */
+.mod-comercial .bg-rose-500, .mod-comercial .bg-rose-600 { background-color: var(--mod-comercial, #fb7185); }
+.mod-comercial .hover\:bg-rose-600:hover, .mod-comercial .hover\:bg-rose-700:hover { background-color: color-mix(in srgb, var(--mod-comercial, #fb7185) 87%, black); }
+.mod-comercial .text-rose-500, .mod-comercial .text-rose-600, .mod-comercial .text-rose-700 { color: var(--mod-comercial, #fb7185); }
+.mod-comercial .border-rose-200, .mod-comercial .border-rose-300, .mod-comercial .border-rose-400, .mod-comercial .border-rose-500 { border-color: color-mix(in srgb, var(--mod-comercial, #fb7185) 40%, transparent); }
+.mod-comercial .bg-rose-50, .mod-comercial .bg-rose-100 { background-color: color-mix(in srgb, var(--mod-comercial, #fb7185) 12%, transparent); }
+.mod-comercial .from-rose-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-comercial, #fb7185) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(251 113 133 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.mod-comercial .to-rose-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-comercial, #fb7185) 80%, black) var(--tw-gradient-to-position); }
+.mod-comercial .from-rose-500 { --tw-gradient-from: var(--mod-comercial, #fb7185) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.dark .mod-comercial .dark\:bg-rose-950\/30, .dark .mod-comercial .dark\:bg-rose-900\/40 { background-color: color-mix(in srgb, var(--mod-comercial, #fb7185) 18%, transparent); }
+.dark .mod-comercial .dark\:text-rose-400, .dark .mod-comercial .dark\:text-rose-300 { color: color-mix(in srgb, var(--mod-comercial, #fb7185) 80%, white); }
+.dark .mod-comercial .dark\:border-rose-800, .dark .mod-comercial .dark\:border-rose-900 { border-color: color-mix(in srgb, var(--mod-comercial, #fb7185) 35%, transparent); }
+
+/* === Corporativo / Administrativo / Perfil → sky === */
+.mod-corporativo .bg-sky-500, .mod-corporativo .bg-sky-600,
+.mod-administrativo .bg-sky-500, .mod-administrativo .bg-sky-600,
+.mod-perfil .bg-sky-500, .mod-perfil .bg-sky-600 { background-color: var(--mod-corporativo, #0ea5e9); }
+.mod-corporativo .hover\:bg-sky-600:hover, .mod-corporativo .hover\:bg-sky-700:hover,
+.mod-administrativo .hover\:bg-sky-600:hover, .mod-administrativo .hover\:bg-sky-700:hover,
+.mod-perfil .hover\:bg-sky-600:hover, .mod-perfil .hover\:bg-sky-700:hover { background-color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 87%, black); }
+.mod-corporativo .text-sky-500, .mod-corporativo .text-sky-600, .mod-corporativo .text-sky-700,
+.mod-administrativo .text-sky-500, .mod-administrativo .text-sky-600, .mod-administrativo .text-sky-700,
+.mod-perfil .text-sky-500, .mod-perfil .text-sky-600, .mod-perfil .text-sky-700 { color: var(--mod-corporativo, #0ea5e9); }
+.mod-corporativo .border-sky-200, .mod-corporativo .border-sky-300, .mod-corporativo .border-sky-400, .mod-corporativo .border-sky-500,
+.mod-administrativo .border-sky-200, .mod-administrativo .border-sky-300, .mod-administrativo .border-sky-400, .mod-administrativo .border-sky-500,
+.mod-perfil .border-sky-200, .mod-perfil .border-sky-300, .mod-perfil .border-sky-400, .mod-perfil .border-sky-500 { border-color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 40%, transparent); }
+.mod-corporativo .bg-sky-50, .mod-corporativo .bg-sky-100,
+.mod-administrativo .bg-sky-50, .mod-administrativo .bg-sky-100,
+.mod-perfil .bg-sky-50, .mod-perfil .bg-sky-100 { background-color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 12%, transparent); }
+.mod-corporativo .from-sky-400, .mod-administrativo .from-sky-400, .mod-perfil .from-sky-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(14 165 233 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.mod-corporativo .to-sky-600, .mod-administrativo .to-sky-600, .mod-perfil .to-sky-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 80%, black) var(--tw-gradient-to-position); }
+.mod-corporativo .from-sky-500, .mod-administrativo .from-sky-500, .mod-perfil .from-sky-500 { --tw-gradient-from: var(--mod-corporativo, #0ea5e9) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.dark .mod-corporativo .dark\:bg-sky-950\/30, .dark .mod-corporativo .dark\:bg-sky-900\/40,
+.dark .mod-administrativo .dark\:bg-sky-950\/30, .dark .mod-administrativo .dark\:bg-sky-900\/40,
+.dark .mod-perfil .dark\:bg-sky-950\/30, .dark .mod-perfil .dark\:bg-sky-900\/40 { background-color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 18%, transparent); }
+.dark .mod-corporativo .dark\:text-sky-400, .dark .mod-corporativo .dark\:text-sky-300,
+.dark .mod-administrativo .dark\:text-sky-400, .dark .mod-administrativo .dark\:text-sky-300,
+.dark .mod-perfil .dark\:text-sky-400, .dark .mod-perfil .dark\:text-sky-300 { color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 80%, white); }
+
+/* === TI / FAQ → cyan === */
+.mod-ti .bg-cyan-500, .mod-ti .bg-cyan-600, .mod-faq .bg-cyan-500, .mod-faq .bg-cyan-600 { background-color: var(--mod-ti, #22d3ee); }
+.mod-ti .hover\:bg-cyan-600:hover, .mod-ti .hover\:bg-cyan-700:hover, .mod-faq .hover\:bg-cyan-600:hover, .mod-faq .hover\:bg-cyan-700:hover { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 87%, black); }
+.mod-ti .text-cyan-500, .mod-ti .text-cyan-600, .mod-ti .text-cyan-700, .mod-faq .text-cyan-500, .mod-faq .text-cyan-600, .mod-faq .text-cyan-700 { color: var(--mod-ti, #22d3ee); }
+.mod-ti .border-cyan-200, .mod-ti .border-cyan-300, .mod-ti .border-cyan-400, .mod-ti .border-cyan-500, .mod-faq .border-cyan-200, .mod-faq .border-cyan-300, .mod-faq .border-cyan-400, .mod-faq .border-cyan-500 { border-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 40%, transparent); }
+.mod-ti .bg-cyan-50, .mod-ti .bg-cyan-100, .mod-faq .bg-cyan-50, .mod-faq .bg-cyan-100 { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 12%, transparent); }
+.mod-ti .from-cyan-400, .mod-faq .from-cyan-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-ti, #22d3ee) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(34 211 238 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.mod-ti .to-cyan-600, .mod-faq .to-cyan-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-ti, #22d3ee) 80%, black) var(--tw-gradient-to-position); }
+.mod-ti .from-cyan-500, .mod-faq .from-cyan-500 { --tw-gradient-from: var(--mod-ti, #22d3ee) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.dark .mod-ti .dark\:bg-cyan-950\/30, .dark .mod-ti .dark\:bg-cyan-900\/40, .dark .mod-faq .dark\:bg-cyan-950\/30, .dark .mod-faq .dark\:bg-cyan-900\/40 { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 18%, transparent); }
+.dark .mod-ti .dark\:text-cyan-400, .dark .mod-ti .dark\:text-cyan-300, .dark .mod-faq .dark\:text-cyan-400, .dark .mod-faq .dark\:text-cyan-300 { color: color-mix(in srgb, var(--mod-ti, #22d3ee) 80%, white); }
+
+/* === Trabalhista → lime === */
+.mod-trabalhista .bg-lime-500, .mod-trabalhista .bg-lime-600 { background-color: var(--mod-trabalhista, #a3e635); }
+.mod-trabalhista .hover\:bg-lime-600:hover, .mod-trabalhista .hover\:bg-lime-700:hover { background-color: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 87%, black); }
+.mod-trabalhista .text-lime-500, .mod-trabalhista .text-lime-600, .mod-trabalhista .text-lime-700 { color: var(--mod-trabalhista, #a3e635); }
+.mod-trabalhista .border-lime-200, .mod-trabalhista .border-lime-300, .mod-trabalhista .border-lime-400, .mod-trabalhista .border-lime-500 { border-color: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 40%, transparent); }
+.mod-trabalhista .bg-lime-50, .mod-trabalhista .bg-lime-100 { background-color: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 12%, transparent); }
+.mod-trabalhista .from-lime-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(163 230 53 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.mod-trabalhista .to-lime-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 80%, black) var(--tw-gradient-to-position); }
+.dark .mod-trabalhista .dark\:bg-lime-950\/30, .dark .mod-trabalhista .dark\:bg-lime-900\/40 { background-color: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 18%, transparent); }
+.dark .mod-trabalhista .dark\:text-lime-400, .dark .mod-trabalhista .dark\:text-lime-300 { color: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 80%, white); }
+
+/* === Fiscal → indigo === */
+.mod-fiscal .bg-indigo-500, .mod-fiscal .bg-indigo-600 { background-color: var(--mod-fiscal, #0369a1); }
+.mod-fiscal .hover\:bg-indigo-600:hover, .mod-fiscal .hover\:bg-indigo-700:hover { background-color: color-mix(in srgb, var(--mod-fiscal, #0369a1) 87%, black); }
+.mod-fiscal .text-indigo-500, .mod-fiscal .text-indigo-600, .mod-fiscal .text-indigo-700 { color: var(--mod-fiscal, #0369a1); }
+.mod-fiscal .border-indigo-200, .mod-fiscal .border-indigo-300, .mod-fiscal .border-indigo-400, .mod-fiscal .border-indigo-500 { border-color: color-mix(in srgb, var(--mod-fiscal, #0369a1) 40%, transparent); }
+.mod-fiscal .bg-indigo-50, .mod-fiscal .bg-indigo-100 { background-color: color-mix(in srgb, var(--mod-fiscal, #0369a1) 12%, transparent); }
+.mod-fiscal .from-indigo-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-fiscal, #0369a1) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(99 102 241 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.mod-fiscal .to-indigo-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-fiscal, #0369a1) 80%, black) var(--tw-gradient-to-position); }
+.dark .mod-fiscal .dark\:bg-indigo-950\/30, .dark .mod-fiscal .dark\:bg-indigo-900\/40 { background-color: color-mix(in srgb, var(--mod-fiscal, #0369a1) 18%, transparent); }
+.dark .mod-fiscal .dark\:text-indigo-400, .dark .mod-fiscal .dark\:text-indigo-300 { color: color-mix(in srgb, var(--mod-fiscal, #0369a1) 80%, white); }
+
+/* === Contábil / Processos → violet === */
+.mod-contabil .bg-violet-500, .mod-contabil .bg-violet-600, .mod-processos .bg-violet-500, .mod-processos .bg-violet-600 { background-color: var(--mod-contabil, #a78bfa); }
+.mod-processos .bg-violet-500, .mod-processos .bg-violet-600 { background-color: var(--mod-processos, #8b5cf6); }
+.mod-contabil .hover\:bg-violet-600:hover, .mod-contabil .hover\:bg-violet-700:hover { background-color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 87%, black); }
+.mod-processos .hover\:bg-violet-600:hover, .mod-processos .hover\:bg-violet-700:hover { background-color: color-mix(in srgb, var(--mod-processos, #8b5cf6) 87%, black); }
+.mod-contabil .text-violet-500, .mod-contabil .text-violet-600, .mod-contabil .text-violet-700 { color: var(--mod-contabil, #a78bfa); }
+.mod-processos .text-violet-500, .mod-processos .text-violet-600, .mod-processos .text-violet-700 { color: var(--mod-processos, #8b5cf6); }
+.mod-contabil .border-violet-200, .mod-contabil .border-violet-300, .mod-contabil .border-violet-400, .mod-contabil .border-violet-500 { border-color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 40%, transparent); }
+.mod-processos .border-violet-200, .mod-processos .border-violet-300, .mod-processos .border-violet-400, .mod-processos .border-violet-500 { border-color: color-mix(in srgb, var(--mod-processos, #8b5cf6) 40%, transparent); }
+.mod-contabil .bg-violet-50, .mod-contabil .bg-violet-100 { background-color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 12%, transparent); }
+.mod-processos .bg-violet-50, .mod-processos .bg-violet-100 { background-color: color-mix(in srgb, var(--mod-processos, #8b5cf6) 12%, transparent); }
+.mod-contabil .from-violet-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-contabil, #a78bfa) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(167 139 250 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.mod-processos .from-violet-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-processos, #8b5cf6) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(139 92 246 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.mod-contabil .to-violet-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-contabil, #a78bfa) 80%, black) var(--tw-gradient-to-position); }
+.mod-processos .to-violet-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-processos, #8b5cf6) 80%, black) var(--tw-gradient-to-position); }
+.dark .mod-contabil .dark\:bg-violet-950\/30, .dark .mod-contabil .dark\:bg-violet-900\/40 { background-color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 18%, transparent); }
+.dark .mod-processos .dark\:bg-violet-950\/30, .dark .mod-processos .dark\:bg-violet-900\/40 { background-color: color-mix(in srgb, var(--mod-processos, #8b5cf6) 18%, transparent); }
+.dark .mod-contabil .dark\:text-violet-400, .dark .mod-contabil .dark\:text-violet-300 { color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 80%, white); }
+.dark .mod-processos .dark\:text-violet-400, .dark .mod-processos .dark\:text-violet-300 { color: color-mix(in srgb, var(--mod-processos, #8b5cf6) 80%, white); }
+
+/* === Qualidade → amber === */
+.mod-qualidade .bg-amber-500, .mod-qualidade .bg-amber-600 { background-color: var(--mod-qualidade, #f59e0b); }
+.mod-qualidade .hover\:bg-amber-600:hover, .mod-qualidade .hover\:bg-amber-700:hover { background-color: color-mix(in srgb, var(--mod-qualidade, #f59e0b) 87%, black); }
+.mod-qualidade .text-amber-500, .mod-qualidade .text-amber-600, .mod-qualidade .text-amber-700 { color: var(--mod-qualidade, #f59e0b); }
+.mod-qualidade .border-amber-200, .mod-qualidade .border-amber-300, .mod-qualidade .border-amber-400, .mod-qualidade .border-amber-500 { border-color: color-mix(in srgb, var(--mod-qualidade, #f59e0b) 40%, transparent); }
+.mod-qualidade .bg-amber-50, .mod-qualidade .bg-amber-100 { background-color: color-mix(in srgb, var(--mod-qualidade, #f59e0b) 12%, transparent); }
+.mod-qualidade .from-amber-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-qualidade, #f59e0b) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(245 158 11 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.mod-qualidade .to-amber-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-qualidade, #f59e0b) 80%, black) var(--tw-gradient-to-position); }
+.dark .mod-qualidade .dark\:bg-amber-950\/30, .dark .mod-qualidade .dark\:bg-amber-900\/40 { background-color: color-mix(in srgb, var(--mod-qualidade, #f59e0b) 18%, transparent); }
+.dark .mod-qualidade .dark\:text-amber-400, .dark .mod-qualidade .dark\:text-amber-300 { color: color-mix(in srgb, var(--mod-qualidade, #f59e0b) 80%, white); }
+
+/* === Configurações → orange === */
+.mod-configuracoes .bg-orange-500, .mod-configuracoes .bg-orange-600 { background-color: var(--mod-configuracoes, #f97316); }
+.mod-configuracoes .hover\:bg-orange-600:hover, .mod-configuracoes .hover\:bg-orange-700:hover { background-color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 87%, black); }
+.mod-configuracoes .text-orange-500, .mod-configuracoes .text-orange-600, .mod-configuracoes .text-orange-700 { color: var(--mod-configuracoes, #f97316); }
+.mod-configuracoes .border-orange-200, .mod-configuracoes .border-orange-300, .mod-configuracoes .border-orange-400, .mod-configuracoes .border-orange-500 { border-color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 40%, transparent); }
+.mod-configuracoes .bg-orange-50, .mod-configuracoes .bg-orange-100 { background-color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 12%, transparent); }
+.mod-configuracoes .from-orange-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-configuracoes, #f97316) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(249 115 22 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.mod-configuracoes .to-orange-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-configuracoes, #f97316) 80%, black) var(--tw-gradient-to-position); }
+.dark .mod-configuracoes .dark\:bg-orange-950\/30, .dark .mod-configuracoes .dark\:bg-orange-900\/40 { background-color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 18%, transparent); }
+.dark .mod-configuracoes .dark\:text-orange-400, .dark .mod-configuracoes .dark\:text-orange-300 { color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 80%, white); }
 
 /* Dialog animations — Bootstrap-style zoom in/out */
 @keyframes dialog-fade-in {
@@ -161,6 +399,63 @@
   .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
 
+  /* ─── Scrollbar customizada (.nice-scrollbar) ─────────────────────────
+   * Estilo refinado pra painéis longos. Usa tokens semânticos do tema,
+   * funcionando bem em claro e escuro.
+   *  - Largura: 10px (8px do thumb + 1px de padding em cada lado, via border-clip)
+   *  - Track sutil pra dar profundidade sem poluir
+   *  - Thumb arredondado, com transição suave de cor e tamanho no hover
+   *  - Firefox: usa o atalho `scrollbar-color` (thin)
+   *  - Esconde os botões de seta (default ugly do Windows)
+   * ─────────────────────────────────────────────────────────────────────── */
+  .nice-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.35) hsl(var(--muted) / 0.4);
+  }
+  .nice-scrollbar::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .nice-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--muted) / 0.35);
+    border-radius: 10px;
+    margin: 2px;
+  }
+  .nice-scrollbar::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+    transition: background-color 160ms ease-in-out;
+    min-height: 32px;
+  }
+  .nice-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.55);
+  }
+  .nice-scrollbar::-webkit-scrollbar-thumb:active {
+    background-color: hsl(var(--muted-foreground) / 0.7);
+  }
+  .nice-scrollbar::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  /* Esconde os botões de seta (Windows) */
+  .nice-scrollbar::-webkit-scrollbar-button {
+    display: none;
+  }
+  /* Modo escuro: thumb um pouco mais opaco (cinza claro fica mais visível no fundo escuro) */
+  .dark .nice-scrollbar {
+    scrollbar-color: hsl(var(--muted-foreground) / 0.5) hsl(var(--muted) / 0.3);
+  }
+  .dark .nice-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--muted) / 0.25);
+  }
+  .dark .nice-scrollbar::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.45);
+  }
+  .dark .nice-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.7);
+  }
+
   /* Input com icone a esquerda */
   .input-with-icon { padding-left: 2.25rem !important; }
 
@@ -183,6 +478,8 @@
     color: #e5e5e5;
   }
 
+  /* Estilizacao base de inputs/textarea/select. SEM !important — componentes
+     podem sobrescrever via Tailwind (ex.: borderless em chip-inputs). */
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="range"]):not([type="color"]),
   textarea,
   select,
@@ -190,17 +487,17 @@
   button[role="combobox"] {
     display: block;
     width: 100%;
-    padding: 0.55rem 0.75rem !important;
-    font-size: .77rem !important;
-    line-height: 1.4285714286 !important;
+    padding: 0.55rem 0.75rem;
+    font-size: .77rem;
+    line-height: 1.4285714286;
     color: #212040;
     background-color: #fff;
     background-clip: padding-box;
-    border: 1px solid #ced4da !important;
+    border: 1px solid #ced4da;
     appearance: none;
-    border-radius: 0.25rem !important;
+    border-radius: 0.25rem;
     transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
-    height: auto !important;
+    height: auto;
   }
 
   .dark input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="range"]):not([type="color"]),
@@ -210,14 +507,14 @@
   .dark button[role="combobox"] {
     color: #e5e5e5;
     background-color: #1a1d27;
-    border-color: #2d3040 !important;
+    border-color: #2d3040;
   }
 
   input:focus, textarea:focus, select:focus,
   [role="combobox"]:focus, button[role="combobox"]:focus {
-    border-color: #5ea3cb !important;
+    border-color: #5ea3cb;
     outline: 0;
-    box-shadow: 0 0 0 0 rgba(94, 163, 203, .25) !important;
+    box-shadow: 0 0 0 0 rgba(94, 163, 203, .25);
   }
 
   input::placeholder, textarea::placeholder {
@@ -238,6 +535,12 @@
   }
 
   /* ====== Nav tabs (Velzon custom pattern) ====== */
+  [role="tablist"] {
+    box-shadow: 0 6px 14px -3px rgba(0, 0, 0, 0.18), 0 2px 4px -1px rgba(0, 0, 0, 0.08);
+  }
+  .dark [role="tablist"] {
+    box-shadow: 0 6px 14px -3px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  }
   [role="tablist"] button[role="tab"] {
     margin-bottom: -1px;
     background: transparent;
@@ -250,6 +553,32 @@
     color: #495057;
     transition: color .15s ease-in-out, border-color .15s ease-in-out;
   }
+  /* Override para tabs em pills (SlidingTabsList) — estilo pill nao usa underline,
+     entao removemos toda a heranca legada (margin-bottom, border-bottom transparente
+     e padding) que quebram o alinhamento vertical do texto dentro da pill.
+     Usa attribute selector para casar tanto `rounded-full` quanto `!rounded-full`
+     (Tailwind serializa `!` como `\!` no class name). */
+  [role="tablist"][class*="rounded-full"] button[role="tab"] {
+    margin-bottom: 0;
+    border-bottom: 0;
+    padding: 0;
+  }
+
+  /* Lock region — usado em formularios "congelados" (ex: orcamento APROVADO+).
+     Bloqueia interacao com os controles via CSS sem usar `<fieldset disabled>`
+     (que nao tem como ser cancelado em descendentes — disabled propaga para
+     toda a subarvore mesmo com fieldsets aninhados). Permite excecoes via
+     `[data-editable]` em wrappers de campos que devem permanecer editaveis. */
+  [data-locked="true"] :where(input, textarea, select, button, [contenteditable]) {
+    pointer-events: none;
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+  [data-locked="true"] [data-editable] :where(input, textarea, select, button, [contenteditable]) {
+    pointer-events: auto;
+    opacity: 1;
+    cursor: auto;
+  }
   [role="tablist"] button[role="tab"]:hover {
     color: #5ea3cb;
     border-bottom-color: rgba(94, 163, 203, 0.3);
@@ -257,7 +586,9 @@
   [role="tablist"] button[role="tab"][data-state="active"] {
     color: #5ea3cb;
     border-bottom-color: #5ea3cb;
-    background: transparent;
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 6px 6px 0 0;
+    box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.06);
   }
   .dark [role="tablist"] button[role="tab"] {
     color: #adb5bd;
@@ -265,6 +596,9 @@
   .dark [role="tablist"] button[role="tab"][data-state="active"] {
     color: #5ea3cb;
     border-bottom-color: #5ea3cb;
+    background: rgba(30, 41, 59, 0.92);
+    border-radius: 6px 6px 0 0;
+    box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.3);
   }
   .dark [role="tablist"] button[role="tab"]:hover {
     color: #5ea3cb;
@@ -296,4 +630,18 @@
     --color-sidebar-border: #252830;
     --color-overlay: rgba(0, 0, 0, 0.7);
   }
+}
+
+/* Bloco órfão no fluxo — sem conexões, precisa ser reconectado ou removido.
+   Aplicado no Node React Flow via className. Outline tracejado amber +
+   pulsing pra chamar atenção. */
+.fluxo-node-orfao {
+  outline: 2px dashed #f59e0b;
+  outline-offset: 6px;
+  border-radius: 10px;
+  animation: fluxo-orfao-pulse 2s ease-in-out infinite;
+}
+@keyframes fluxo-orfao-pulse {
+  0%, 100% { outline-color: #f59e0b; }
+  50%      { outline-color: #fbbf24; }
 }

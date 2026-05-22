@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { PanelLeftClose, PanelLeft, LayoutDashboard, X } from 'lucide-react'
 import { useMemo } from 'react'
+import { usePathname } from 'next/navigation'
 import { cn, ScrollArea, Separator, TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@saas/ui'
 import { navigation } from '@/lib/navigation'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -22,6 +23,28 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
 
   // Filtrar navigation baseado nas permissões do usuário
   const { isMaster, allowedSlugs, loading: permsLoading } = useUserPermissions()
+
+  const pathname = usePathname()
+
+  // Controle de accordion: apenas um grupo aberto por vez
+  const [openGroup, setOpenGroup] = useState<string | null>(() => {
+    for (const group of navigation) {
+      if (group.items.some(item => pathname === item.href || pathname.startsWith(item.href + '/'))) {
+        return group.label
+      }
+    }
+    return null
+  })
+
+  // Atualizar grupo aberto quando a rota muda
+  useEffect(() => {
+    for (const group of navigation) {
+      if (group.items.some(item => pathname === item.href || pathname.startsWith(item.href + '/'))) {
+        setOpenGroup(group.label)
+        return
+      }
+    }
+  }, [pathname])
 
   const filteredNavigation = useMemo(() => {
     if (isMaster) return navigation // MASTER vê tudo
@@ -79,28 +102,63 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
         </div>
 
         {/* Navigation */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 scrollbar-none">
-          <div className="space-y-1">
-            <SidebarItem
-              label="Dashboard"
-              href="/dashboard"
-              icon={LayoutDashboard}
-              collapsed={collapsed && !mobileOpen}
-            />
+        {collapsed && !mobileOpen ? (
+          /* Collapsed: Dashboard topo, blocos centralizados, toggle fundo */
+          <div className="flex flex-1 flex-col overflow-hidden px-3">
+            {/* Dashboard fixo no topo */}
+            <div className="shrink-0 pt-4 pb-2">
+              <SidebarItem
+                label="Dashboard"
+                href="/dashboard"
+                icon={LayoutDashboard}
+                collapsed
+              />
+            </div>
 
-            <Separator className="my-3" />
+            <Separator />
 
-            <div className="space-y-1">
-              {filteredNavigation.map((group) => (
-                <SidebarGroup
-                  key={group.label}
-                  group={group}
-                  collapsed={collapsed && !mobileOpen}
-                />
-              ))}
+            {/* Blocos centralizados */}
+            <div className="flex-1 flex flex-col items-center justify-center overflow-y-auto scrollbar-none">
+              <div className="space-y-1">
+                {filteredNavigation.map((group) => (
+                  <SidebarGroup
+                    key={group.label}
+                    group={group}
+                    collapsed
+                    isOpen={openGroup === group.label}
+                    onToggle={() => setOpenGroup(prev => prev === group.label ? null : group.label)}
+                  />
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          /* Expanded: layout normal */
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 scrollbar-none">
+            <div className="space-y-1">
+              <SidebarItem
+                label="Dashboard"
+                href="/dashboard"
+                icon={LayoutDashboard}
+                collapsed={false}
+              />
+
+              <Separator className="my-3" />
+
+              <div className="space-y-1">
+                {filteredNavigation.map((group) => (
+                  <SidebarGroup
+                    key={group.label}
+                    group={group}
+                    collapsed={false}
+                    isOpen={openGroup === group.label}
+                    onToggle={() => setOpenGroup(prev => prev === group.label ? null : group.label)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Toggle button — desktop only */}
         <div className="hidden lg:block border-t border-sidebar-border p-3">

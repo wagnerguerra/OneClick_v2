@@ -50,6 +50,7 @@ import {
   Database,
   CalendarDays,
   DollarSign,
+  CircleDollarSign,
   BadgeCheck,
   Landmark,
   Folders,
@@ -64,6 +65,10 @@ import {
   BookOpen,
   FileSpreadsheet,
   Monitor,
+  MailWarning,
+  Star,
+  Workflow,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -72,6 +77,9 @@ export interface NavItem {
   href: string
   icon: LucideIcon
   category?: string // Sub-categoria visual dentro do grupo (ex: "Contábil", "Gestão")
+  // Sub-itens hierárquicos (ex: Contratos → Cláusulas, Modelos, Relatórios).
+  // O item pai continua navegável (clicar no label abre o href dele).
+  subItems?: NavItem[]
 }
 
 export interface NavGroup {
@@ -92,8 +100,7 @@ export const navigation: NavGroup[] = [
       { label: 'Empresas', href: '/empresas', icon: Building2 },
       { label: 'Fornecedores', href: '/fornecedores', icon: Package },
       { label: 'Grupos Empresariais', href: '/grupos-empresariais', icon: Folders },
-      { label: 'Obrigações Fixas', href: '/obrigacoes-fixas', icon: ClipboardCheck },
-      { label: 'Obrigações Sob Demanda', href: '/obrigacoes-demanda', icon: ListChecks },
+      { label: 'Obrigações', href: '/obrigacoes', icon: Receipt },
       { label: 'Serviços', href: '/servicos', icon: CheckSquare },
       { label: 'Sócios', href: '/socios', icon: UserPlus },
       { label: 'Usuários', href: '/usuarios', icon: UserCog },
@@ -103,13 +110,28 @@ export const navigation: NavGroup[] = [
     label: 'Comercial',
     icon: Store,
     items: [
-      { label: 'Comercial', href: '/comercial', icon: Store },
-      { label: 'Contratos', href: '/contratos', icon: FileText },
-      { label: 'Custeio por Cliente', href: '/custeio-clientes', icon: PieChart },
-      { label: 'Gráficos Contrato x ERP', href: '/graficos-contrato-erp', icon: BarChart3 },
-      { label: 'Orçamentos', href: '/orcamentos', icon: Scale },
+      { label: 'CRM', href: '/crm', icon: Target },
+      {
+        label: 'Contratos',
+        href: '/contratos',
+        icon: FileText,
+        subItems: [
+          { label: 'Cláusulas', href: '/clausulas', icon: FileCheck },
+          { label: 'Modelos de Contrato', href: '/contrato-templates', icon: FileBox },
+          { label: 'Gráficos Contrato x ERP', href: '/graficos-contrato-erp', icon: BarChart3 },
+          { label: 'Relatórios de Contratos', href: '/contratos-relatorios', icon: FileBarChart },
+        ],
+      },
+      {
+        label: 'Orçamentos',
+        href: '/orcamentos',
+        icon: CircleDollarSign,
+        subItems: [
+          { label: 'Custeio por Cliente', href: '/custeio-clientes', icon: PieChart },
+          { label: 'Pesquisa de Satisfação', href: '/pesquisas', icon: Star },
+        ],
+      },
       { label: 'Relatórios Comerciais', href: '/comercial-relatorios', icon: FileBarChart },
-      { label: 'Relatórios de Contratos', href: '/contratos-relatorios', icon: FileBarChart },
     ],
   },
   {
@@ -120,6 +142,9 @@ export const navigation: NavGroup[] = [
       { label: 'Coleta e Recebimento', href: '/coleta-documentos', icon: FolderInput },
       { label: 'Contatos', href: '/contatos', icon: Phone },
       { label: 'Controle de Estoque', href: '/estoque', icon: Boxes },
+      { label: 'Gerenciador de Serviços', href: '/meus-servicos', icon: ListChecks },
+      { label: 'Minhas Obrigações', href: '/minhas-obrigacoes', icon: ClipboardCheck },
+      { label: 'Processos', href: '/processos', icon: Workflow },
       { label: 'Organograma', href: '/organograma', icon: GitBranch },
     ],
   },
@@ -127,9 +152,8 @@ export const navigation: NavGroup[] = [
     label: 'Legalização',
     icon: Scale,
     items: [
-      { label: 'Certificados', href: '/certificados', icon: Key },
       { label: 'Certificados Digitais', href: '/gestao-certificados', icon: BadgeCheck },
-      { label: 'Processos', href: '/processos', icon: FolderKanban },
+      { label: 'Certidões e Alvarás', href: '/certidoes-cnd', icon: FileOutput },
       { label: 'Quadro Societário', href: '/quadro-societario', icon: UsersRound },
     ],
   },
@@ -150,7 +174,8 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Benefícios Fiscais', href: '/beneficios-fiscais', icon: DollarSign },
       { label: 'Caixa Postal e-CAC', href: '/caixapostal', icon: Mail },
-      { label: "CND's Federais", href: '/certidoes-cnd', icon: FileOutput },
+      { label: 'DANFE (NFe → PDF)', href: '/danfe', icon: FileSpreadsheet },
+      { label: 'DT-e ES', href: '/dte', icon: MailWarning },
       { label: 'DCTFWeb', href: '/dctfweb', icon: ListChecks },
       { label: 'Obrigações e Serviços', href: '/obrigacoes-servicos', icon: Receipt },
       { label: 'Situação Fiscal', href: '/situacao-fiscal', icon: CircleUser },
@@ -160,6 +185,7 @@ export const navigation: NavGroup[] = [
     label: 'Contábil',
     icon: Calculator,
     items: [
+      { label: 'Categorias de Balancete', href: '/bi-categorias-balancete', icon: FolderKanban },
       { label: 'Dashboard Financeiro', href: '/bi-faturamento', icon: BarChart2 },
     ],
   },
@@ -167,7 +193,7 @@ export const navigation: NavGroup[] = [
     label: 'TI',
     icon: Monitor,
     items: [
-      { label: 'Controle de Ativos', href: '/ativos', icon: Database },
+      { label: 'Gestão de Ativos', href: '/ativos', icon: Database },
       { label: 'HelpDesk', href: '/helpdesk', icon: Headphones },
       { label: 'Projetos', href: '/projetos', icon: Contact },
     ],
@@ -192,12 +218,21 @@ export const navigation: NavGroup[] = [
     ],
   },
   {
+    label: 'Ajuda',
+    icon: HelpCircle,
+    items: [
+      { label: "FAQ's", href: '/faq', icon: HelpCircle },
+      { label: 'Design System', href: '/admin/design-system', icon: Sparkles },
+    ],
+  },
+  {
     label: 'Configurações',
     icon: Settings,
     items: [
       { label: 'Configurações Gerais', href: '/configuracoes', icon: Settings },
       { label: 'Certificado Digital', href: '/configuracoes/certificado', icon: BadgeCheck },
       { label: 'Stripe', href: '/configuracoes/stripe', icon: CreditCard },
+      { label: 'Assinatura de email', href: '/admin/assinatura-template', icon: Mail },
       { label: 'Métricas', href: '/metricas', icon: Activity },
       { label: 'Backup e Restore', href: '/backup-restore', icon: Archive },
     ],
@@ -215,3 +250,45 @@ export const MODULE_ICONS: Record<string, LucideIcon> = Object.fromEntries(
 export const GROUP_ICONS: Record<string, LucideIcon> = Object.fromEntries(
   navigation.map((group) => [group.label, group.icon])
 )
+
+// Cor hex de cada grupo da sidebar — usado em abas, cabeçalhos, badges
+export const GROUP_HEX: Record<string, string> = {
+  'Cadastros': '#34d399',
+  'Comercial': '#fb7185',
+  'Administrativo': '#38bdf8',
+  'Legalização': '#e879f9',
+  'Trabalhista': '#a3e635',
+  'Fiscal': '#818cf8',
+  'Contábil': '#a78bfa',
+  'TI': '#22d3ee',
+  'Qualidade': '#fbbf24',
+  'Configurações': '#fb923c',
+}
+
+const DEFAULT_HEX = '#5ea3cb'
+
+/**
+ * Retorna a cor hex do grupo ao qual a rota pertence (procura no `navigation`).
+ * Faz match exato primeiro; depois prefix match (ex: /clientes/123 → /clientes).
+ * Sub-itens (subItems) também são considerados — usam a cor do grupo pai.
+ */
+export function getGroupHexForHref(href: string): string {
+  const pathClean = href.split('?')[0]!.split('#')[0]
+  for (const group of navigation) {
+    for (const item of group.items) {
+      if (item.href === pathClean) return GROUP_HEX[group.label] ?? DEFAULT_HEX
+      if (item.subItems?.some(s => s.href === pathClean)) return GROUP_HEX[group.label] ?? DEFAULT_HEX
+    }
+  }
+  // Prefix match: /clientes/abc → /clientes
+  const segments = pathClean.split('/').filter(Boolean)
+  if (segments.length === 0) return DEFAULT_HEX
+  const primeiroSegmento = `/${segments[0]}`
+  for (const group of navigation) {
+    for (const item of group.items) {
+      if (item.href === primeiroSegmento) return GROUP_HEX[group.label] ?? DEFAULT_HEX
+      if (item.subItems?.some(s => s.href === primeiroSegmento)) return GROUP_HEX[group.label] ?? DEFAULT_HEX
+    }
+  }
+  return DEFAULT_HEX
+}

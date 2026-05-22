@@ -10,23 +10,27 @@ interface SidebarItemProps {
   href: string
   icon: LucideIcon
   collapsed: boolean
+  groupHex?: string
 }
 
-export function SidebarItem({ label, href, icon: Icon, collapsed }: SidebarItemProps) {
+export function SidebarItem({ label, href, icon: Icon, collapsed, groupHex }: SidebarItemProps) {
   const pathname = usePathname()
-  const isActive = pathname === href
+  const isActive = pathname === href || pathname.startsWith(href + '/')
 
   const content = (
     <Link
       href={href}
       className={cn(
-        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-        'hover:bg-[#5ea3cb]/10 hover:text-[#5ea3cb]',
+        'sidebar-group-btn flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer',
         isActive
-          ? 'bg-[#5ea3cb]/10 text-[#5ea3cb] font-medium'
+          ? 'font-medium'
           : 'text-muted-foreground',
         collapsed && 'justify-center px-2',
       )}
+      style={{
+        '--gc': groupHex ?? '#5ea3cb',
+        ...(isActive ? { backgroundColor: `color-mix(in srgb, ${groupHex ?? '#5ea3cb'} 15%, transparent)`, color: groupHex ?? '#5ea3cb' } : {}),
+      } as React.CSSProperties}
     >
       <Icon className={cn('shrink-0', collapsed ? 'h-5 w-5' : 'h-4 w-4')} />
       {!collapsed && <span className="truncate">{label}</span>}

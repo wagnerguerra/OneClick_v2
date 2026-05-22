@@ -34,6 +34,19 @@ const DialogContent = React.forwardRef<
           'dialog-content relative my-auto w-full max-w-lg flex flex-col border bg-card shadow-2xl rounded-lg overflow-hidden max-h-[calc(100vh-3rem)]',
           className,
         )}
+        onPointerDownOutside={e => {
+          const target = e.target as HTMLElement
+          if (target?.closest?.('.swal2-container, .swal2-popup')) e.preventDefault()
+        }}
+        onInteractOutside={e => {
+          const target = e.target as HTMLElement
+          if (target?.closest?.('.swal2-container, .swal2-popup')) e.preventDefault()
+        }}
+        onFocusOutside={e => {
+          // Permitir foco no SweetAlert2
+          const target = e.target as HTMLElement
+          if (target?.closest?.('.swal2-container, .swal2-popup')) e.preventDefault()
+        }}
         {...props}
       >
         {children}

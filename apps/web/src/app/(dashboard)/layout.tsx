@@ -4,19 +4,63 @@ import { useEffect } from 'react'
 import { useSession } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import { useSidebar } from '@/hooks/use-sidebar'
+import { usePageMeta } from '@/hooks/use-page-meta'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { Header } from '@/components/dashboard/header'
 import { PageTransition } from '@/components/dashboard/page-transition'
+import { RouteProgress } from '@/components/dashboard/route-progress'
+import { TabBar } from '@/components/dashboard/tab-bar'
+import { ApiHealthMonitor } from '@/components/dashboard/api-health-monitor'
+import { TabsProvider } from '@/lib/tabs-store'
+import { useSyncRouteTab } from '@/hooks/use-sync-route-tab'
+import { useTabShortcuts } from '@/hooks/use-tab-shortcuts'
+import { usePermissionsSse } from '@/hooks/use-permissions-sse'
+import { useModuleScope } from '@/hooks/use-module-scope'
 import { cn } from '@saas/ui'
 
-export default function DashboardLayout({
-  children,
-}: {
+// Componente interno que usa os hooks (precisa estar dentro do TabsProvider)
+function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMobile, closeMobile }: {
   children: React.ReactNode
+  collapsed: boolean
+  toggle: () => void
+  mobileOpen: boolean
+  openMobile: () => void
+  closeMobile: () => void
 }) {
+  useSyncRouteTab()
+  useTabShortcuts()
+  usePermissionsSse()
+  useModuleScope()
+
+  return (
+    <div
+      className="min-h-screen bg-background"
+      style={{ ['--sidebar-w' as string]: collapsed ? '68px' : '260px' }}
+    >
+      <RouteProgress />
+      <Sidebar collapsed={collapsed} onToggle={toggle} mobileOpen={mobileOpen} onCloseMobile={closeMobile} />
+      <div
+        className={cn(
+          'transition-all duration-300',
+          collapsed ? 'lg:ml-[68px]' : 'lg:ml-[260px]',
+        )}
+      >
+        <Header onOpenMobile={openMobile} />
+        <TabBar />
+        <main className="p-4 sm:p-6">
+          <PageTransition>{children}</PageTransition>
+        </main>
+      </div>
+      <ApiHealthMonitor />
+    </div>
+  )
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = useSession()
   const { collapsed, toggle, mobileOpen, openMobile, closeMobile, mounted } = useSidebar()
   const router = useRouter()
+  usePageMeta()
 
   useEffect(() => {
     if (isPending) return
@@ -33,7 +77,11 @@ export default function DashboardLayout({
     }
   }, [isPending, session, router])
 
-  if (isPending || !mounted || !session) {
+  // Loader full-screen SÓ no carregamento inicial (sem sessão ainda). Durante
+  // revalidações do better-auth (isPending=true momentâneo com sessão existente),
+  // mantemos a árvore renderizada — desmontar tudo aborta navegações em curso
+  // e dá a impressão de "carregando que some sem fazer nada" ao clicar no sidebar.
+  if (!mounted || (isPending && !session) || !session) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -45,26 +93,16 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar
+    <TabsProvider userId={session.user.id}>
+      <DashboardLayoutInner
         collapsed={collapsed}
-        onToggle={toggle}
+        toggle={toggle}
         mobileOpen={mobileOpen}
-        onCloseMobile={closeMobile}
-      />
-      <div
-        className={cn(
-          'transition-all duration-300',
-          // Desktop: margin-left para sidebar fixa
-          // Mobile: sem margin (sidebar é overlay)
-          collapsed ? 'lg:ml-[68px]' : 'lg:ml-[260px]',
-        )}
+        openMobile={openMobile}
+        closeMobile={closeMobile}
       >
-        <Header onOpenMobile={openMobile} />
-        <main className="p-4 sm:p-6">
-          <PageTransition>{children}</PageTransition>
-        </main>
-      </div>
-    </div>
+        {children}
+      </DashboardLayoutInner>
+    </TabsProvider>
   )
 }
