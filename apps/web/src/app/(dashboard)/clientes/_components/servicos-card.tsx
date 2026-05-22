@@ -11,10 +11,11 @@ import {
   Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-  Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter,
+  Dialog, DialogContent, DialogBody, DialogFooter,
   DialogTitle, DialogDescription, DialogClose,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useSession } from '@/lib/auth-client'
@@ -446,12 +447,12 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="max-w-[700px]">
-        <DialogHeader>
+        <DialogHeaderIcon icon={Settings} color="violet">
           <DialogTitle>Parametros — {areaNome}</DialogTitle>
           <DialogDescription>
             Media geral: <span className="font-semibold text-emerald-600">{calcMedia}</span> | {params.length} parametro(s)
           </DialogDescription>
-        </DialogHeader>
+        </DialogHeaderIcon>
 
         <DialogBody className="space-y-4">
           {loading ? (
@@ -543,10 +544,10 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
       {copiarOpen && (
         <Dialog open={copiarOpen} onOpenChange={(o) => { if (!o) setCopiarOpen(false) }}>
           <DialogContent className="max-w-md">
-            <DialogHeader>
+            <DialogHeaderIcon icon={Copy} color="sky">
               <DialogTitle>Copiar estrutura de parametros</DialogTitle>
               <DialogDescription>Selecione o cliente de origem. Os parametros atuais serao substituidos.</DialogDescription>
-            </DialogHeader>
+            </DialogHeaderIcon>
             <DialogBody>
               {copiarLoading ? (
                 <div className="py-4 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></div>
@@ -602,10 +603,10 @@ function EncerramentoDialog({ open, onClose, row, onSave }: {
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="max-w-md">
-        <DialogHeader>
+        <DialogHeaderIcon icon={CalendarOff} color="amber">
           <DialogTitle>Rotina de Encerramento — {row.areaNome}</DialogTitle>
           <DialogDescription>Defina a data e observacoes do encerramento desta area.</DialogDescription>
-        </DialogHeader>
+        </DialogHeaderIcon>
 
         <DialogBody className="space-y-4">
           <div className="space-y-1.5">

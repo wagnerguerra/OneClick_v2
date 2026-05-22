@@ -9,7 +9,7 @@ import {
   LineChart, Line,
 } from 'recharts'
 
-const MODULE_COLOR = '#8b5cf6'
+const MODULE_COLOR = 'var(--mod-contabil, #8b5cf6)'
 
 const MESES_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 

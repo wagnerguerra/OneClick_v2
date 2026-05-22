@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Inject } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as crypto from 'crypto'
 import { execSync, spawnSync } from 'child_process'
+import { EmailService } from '../common/email.service'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const archiver = require('archiver')
 
@@ -26,7 +27,7 @@ export interface ConfigField {
 }
 
 const SECRET_KEYS = new Set([
-  'CONSUMER_KEY', 'CONSUMER_SECRET', 'CERTIFICADO_SENHA',
+  'CONSUMER_KEY', 'CONSUMER_SECRET', 'CERTIFICADO_SENHA', 'CERTIFICADO_PF_SENHA',
   'DB_PASSWORD', 'BETTER_AUTH_SECRET',
   'SCI_PASSWORD',
   'ONECLICK_DB_PASSWORD',
@@ -36,10 +37,13 @@ const SECRET_KEYS = new Set([
   'S3_ACCESS_KEY', 'S3_SECRET_KEY',
   'LEADS_API_KEY', 'CRM_EXTERNO_API_KEY',
   'TWILIO_AUTH_TOKEN',
-  'CAPTCHA_2CAPTCHA_API_KEY',
+  'CAPTCHA_2CAPTCHA_API_KEY', 'CAPTCHA_FREECAPTCHA_API_KEY',
   'OPENAI_API_KEY',
   'GOOGLE_CLIENT_SECRET',
+  'GOOGLE_CALENDAR_CLIENT_SECRET',
   'TSA_BASIC_PASS',
+  'GOVBR_CLIENT_SECRET',
+  'SERPROID_CLIENT_SECRET',
 ])
 
 // Chaves que não devem ser apagadas mesmo se vierem vazias
@@ -51,7 +55,8 @@ const CONFIG_FIELDS: ConfigField[] = [
   { key: 'PUBLIC_BASE_URL', label: 'URL Publica', group: 'SERPRO', type: 'text', placeholder: 'http://192.168.0.108:5176/' },
   { key: 'CONSUMER_KEY', label: 'Consumer Key', group: 'SERPRO', type: 'password', secret: true },
   { key: 'CONSUMER_SECRET', label: 'Consumer Secret', group: 'SERPRO', type: 'password', secret: true },
-  { key: 'CERTIFICADO_SENHA', label: 'Senha do Certificado PFX', group: 'SERPRO', type: 'password', secret: true },
+  { key: 'CERTIFICADO_SENHA', label: 'Senha do Certificado PJ (PFX)', group: 'SERPRO', type: 'password', secret: true },
+  { key: 'CERTIFICADO_PF_SENHA', label: 'Senha do Certificado PF (Contador)', group: 'SERPRO', type: 'password', secret: true },
 
   // Banco de Dados — PostgreSQL (subgroup: postgresql)
   { key: 'DATABASE_URL', label: 'URL PostgreSQL', group: 'Banco de Dados', type: 'text', placeholder: 'postgresql://user:pass@localhost:5432/db', subgroup: 'postgresql' },
@@ -83,10 +88,12 @@ const CONFIG_FIELDS: ConfigField[] = [
   { key: 'BETTER_AUTH_URL', label: 'Auth URL', group: 'Autenticacao', type: 'text', placeholder: 'http://localhost:4000' },
 
   // SMTP
-  { key: 'SMTP_HOST', label: 'Host SMTP', group: 'E-mail (SMTP)', type: 'text', placeholder: 'smtp.gmail.com' },
-  { key: 'SMTP_PORT', label: 'Porta SMTP', group: 'E-mail (SMTP)', type: 'number', placeholder: '587' },
-  { key: 'SMTP_USER', label: 'Usuario SMTP', group: 'E-mail (SMTP)', type: 'text' },
-  { key: 'SMTP_PASS', label: 'Senha SMTP', group: 'E-mail (SMTP)', type: 'password', secret: true },
+  { key: 'SMTP_HOST', label: 'Host SMTP', group: 'E-mail (SMTP)', type: 'text', placeholder: 'smtp.gmail.com', help: 'Servidor de envio de e-mails' },
+  { key: 'SMTP_PORT', label: 'Porta SMTP', group: 'E-mail (SMTP)', type: 'number', placeholder: '587', help: 'Porta do servidor (587 para TLS, 465 para SSL)' },
+  { key: 'SMTP_SECURE', label: 'Conexão segura (SSL)', group: 'E-mail (SMTP)', type: 'text', placeholder: 'false', help: 'Use "true" para porta 465 (SSL direto)' },
+  { key: 'SMTP_USER', label: 'Usuário SMTP', group: 'E-mail (SMTP)', type: 'text', placeholder: 'sistema@empresa.com.br', help: 'E-mail usado para autenticação' },
+  { key: 'SMTP_PASS', label: 'Senha SMTP', group: 'E-mail (SMTP)', type: 'password', secret: true, help: 'Senha ou senha de app do e-mail' },
+  { key: 'SMTP_FROM', label: 'Remetente', group: 'E-mail (SMTP)', type: 'text', placeholder: 'Sistema OneClick <sistema@empresa.com.br>', help: 'Nome e e-mail que aparece como remetente' },
 
   // Omie
   { key: 'OMIE_APP_KEY_CENTRAL', label: 'App Key (Central)', group: 'Omie ERP', type: 'text' },
@@ -101,16 +108,29 @@ const CONFIG_FIELDS: ConfigField[] = [
   { key: 'TWILIO_AUTH_TOKEN', label: 'Auth Token', group: 'WhatsApp (Twilio)', type: 'password', secret: true },
   { key: 'TWILIO_WHATSAPP_FROM', label: 'Numero WhatsApp', group: 'WhatsApp (Twilio)', type: 'text', placeholder: '+5527999078863' },
 
-  // 2Captcha
-  { key: 'CAPTCHA_2CAPTCHA_API_KEY', label: 'API Key', group: '2Captcha', type: 'password', secret: true },
+  // Captcha Providers
+  { key: 'CAPTCHA_2CAPTCHA_API_KEY', label: 'API Key (2Captcha)', group: 'Captcha', type: 'password', secret: true, help: 'Chave da API do 2captcha.com — usado para resolver hCaptcha, reCAPTCHA e captchas de imagem' },
+  { key: 'CAPTCHA_FREECAPTCHA_API_KEY', label: 'API Key (FreeCaptchaBypass)', group: 'Captcha', type: 'password', secret: true, help: 'Chave da API do freecaptchabypass — alternativa ao 2Captcha para hCaptcha' },
 
   // OpenAI
   { key: 'OPENAI_API_KEY', label: 'API Key', group: 'OpenAI (ChatGPT)', type: 'password', secret: true },
   { key: 'OPENAI_MODEL', label: 'Modelo', group: 'OpenAI (ChatGPT)', type: 'text', default: 'gpt-4o-mini' },
 
-  // Google
-  { key: 'GOOGLE_CLIENT_ID', label: 'Client ID', group: 'Google', type: 'text' },
-  { key: 'GOOGLE_CLIENT_SECRET', label: 'Client Secret', group: 'Google', type: 'password', secret: true },
+  // Google → OAuth Principal (geral, usado pelo auth do sistema)
+  { key: 'GOOGLE_CLIENT_ID', label: 'Client ID', group: 'Google', subgroup: 'oauth', type: 'text' },
+  { key: 'GOOGLE_CLIENT_SECRET', label: 'Client Secret', group: 'Google', subgroup: 'oauth', type: 'password', secret: true },
+
+  // Google → Calendar
+  { key: 'GOOGLE_CALENDAR_CLIENT_ID', label: 'Client ID', group: 'Google', subgroup: 'calendar', type: 'text', placeholder: 'xxxx.apps.googleusercontent.com', help: 'ID do cliente OAuth2 do Google Cloud Console' },
+  { key: 'GOOGLE_CALENDAR_CLIENT_SECRET', label: 'Client Secret', group: 'Google', subgroup: 'calendar', type: 'password', secret: true, help: 'Segredo do cliente OAuth2' },
+  { key: 'GOOGLE_CALENDAR_REDIRECT_URI', label: 'URI de Redirecionamento', group: 'Google', subgroup: 'calendar', type: 'text', placeholder: 'http://localhost:3000/agenda/google-callback', help: 'URL de callback do OAuth2 (deve ser registrada no Google Cloud Console)' },
+
+  // Google → Drive (ingestão automática de XMLs por cliente)
+  { key: 'GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE', label: 'Credentials.json (caminho)', group: 'Google', subgroup: 'drive', type: 'text', placeholder: './google/credentials.json', help: 'Caminho pro JSON do OAuth Client (Desktop/installed). Relativo à raiz do monorepo.', colSpan: 12 },
+  { key: 'GOOGLE_DRIVE_OAUTH_REFRESH_TOKEN', label: 'Refresh Token (OAuth)', group: 'Google', subgroup: 'drive', type: 'password', secret: true, help: 'Refresh token de uma conta Google autorizada. Extrair com scripts/extract-google-refresh-token.py.', colSpan: 12 },
+  { key: 'GOOGLE_DRIVE_SA_JSON_FILE', label: 'Service Account JSON (caminho)', group: 'Google', subgroup: 'drive', type: 'text', placeholder: './google/service-account.json', help: 'Alternativa ao OAuth: caminho pro JSON da Service Account. Deixe vazio se usa OAuth acima.', colSpan: 12 },
+  { key: 'GOOGLE_DRIVE_SYNC_ENABLED', label: 'Sync automático ativo', group: 'Google', subgroup: 'drive', type: 'text', placeholder: 'true', help: 'true | false. Liga o cron de sincronização periódica.', colSpan: 6 },
+  { key: 'GOOGLE_DRIVE_SYNC_CRON', label: 'Cron de sync', group: 'Google', subgroup: 'drive', type: 'text', placeholder: '*/15 * * * *', help: 'Expressão cron (default: a cada 15 min). Timezone: America/Sao_Paulo.', colSpan: 6 },
 
   // Stripe
   { key: 'STRIPE_SECRET_KEY', label: 'Secret Key', group: 'Stripe', type: 'password', secret: true },
@@ -126,15 +146,44 @@ const CONFIG_FIELDS: ConfigField[] = [
   { key: 'NEXT_PUBLIC_APP_URL', label: 'URL Frontend', group: 'Servidor', type: 'text', placeholder: 'http://localhost:3000' },
   { key: 'API_URL', label: 'URL API', group: 'Servidor', type: 'text', placeholder: 'http://localhost:4000' },
 
+  // Abas (Sistema de tabs Chrome-like)
+  { key: 'tabs.max_tabs', label: 'Limite de abas por usuário', group: 'Abas', type: 'number', placeholder: '10', help: 'Máximo de abas simultâneas que cada usuário pode ter abertas (1-50). Padrão: 10.' },
+
   // TSA
   { key: 'TSA_URL', label: 'URL TSA', group: 'Carimbo de Tempo (TSA)', type: 'text' },
   { key: 'TSA_AUTH', label: 'Tipo Auth', group: 'Carimbo de Tempo (TSA)', type: 'text', help: 'none | basic | serpro_oauth' },
   { key: 'TSA_HASH_ALGO', label: 'Algoritmo Hash', group: 'Carimbo de Tempo (TSA)', type: 'text', default: 'SHA-256' },
   { key: 'TSA_TIMEOUT_MS', label: 'Timeout (ms)', group: 'Carimbo de Tempo (TSA)', type: 'number', default: '30000' },
+
+  // gov.br Assinatura — usado para o cliente assinar contratos via portal gov.br.
+  // Cadastre a aplicação em https://sso.staging.acesso.gov.br (homologação)
+  // ou https://sso.acesso.gov.br (produção) com scope "sign".
+  { key: 'GOVBR_CLIENT_ID', label: 'Client ID', group: 'gov.br Assinatura', type: 'text', help: 'Identificador da aplicação cadastrada no portal gov.br' },
+  { key: 'GOVBR_CLIENT_SECRET', label: 'Client Secret', group: 'gov.br Assinatura', type: 'password', secret: true, help: 'Segredo emitido após aprovação do cadastro' },
+  { key: 'GOVBR_REDIRECT_URI', label: 'URI de Redirecionamento', group: 'gov.br Assinatura', type: 'text', placeholder: 'https://app.central-rnc.com.br/contratos/publico/[token]', help: 'URL pública para onde o gov.br devolve o code após autorização' },
+  { key: 'GOVBR_BASE_URL_SSO', label: 'Base URL SSO', group: 'gov.br Assinatura', type: 'text', default: 'https://sso.staging.acesso.gov.br', help: 'Use sso.staging.acesso.gov.br em homologação e sso.acesso.gov.br em produção' },
+  { key: 'GOVBR_BASE_URL_ASSINATURA', label: 'Base URL Assinatura', group: 'gov.br Assinatura', type: 'text', default: 'https://assinatura-api.staging.iti.br', help: 'Use assinatura-api.staging.iti.br em homologação e assinatura-api.iti.br em produção' },
+
+  // SERPRO Neo iD Assinatura — alternativa nacional ao gov.br para assinar contratos.
+  // Documentacao: https://neoid.estaleiro.serpro.gov.br/manual-integracao/utilizacao-certificado/assinatura-digital/
+  // Aplicacao deve ser cadastrada junto ao SERPRO com scope "signature".
+  { key: 'SERPROID_CLIENT_ID', label: 'Client ID', group: 'SERPRO Neo iD', type: 'text', help: 'Identificador da aplicação cadastrada junto ao SERPRO' },
+  { key: 'SERPROID_CLIENT_SECRET', label: 'Client Secret', group: 'SERPRO Neo iD', type: 'password', secret: true, help: 'Segredo emitido pelo SERPRO' },
+  { key: 'SERPROID_REDIRECT_URI', label: 'URI de Redirecionamento', group: 'SERPRO Neo iD', type: 'text', placeholder: 'https://app.central-rnc.com.br/contratos/publico/[token]', help: 'URL pública para onde o SERPRO devolve o code após autorização. Mesma página do contrato (detect ?code=&state=).' },
+  { key: 'SERPROID_BASE_URL', label: 'Base URL', group: 'SERPRO Neo iD', type: 'text', default: 'https://serproid.serpro.gov.br', help: 'Endpoint base do SerproID (homologação e produção compartilham)' },
+
+  // Acessórias — integração pra dar baixa automática nas rotinas mensais.
+  // API REST com Bearer Token (gerado em Configurações → API Token no Acessórias).
+  // Documentação: https://api.acessorias.com/documentation
+  { key: 'ACESSORIAS_API_URL', label: 'URL Base da API', group: 'Acessórias', type: 'text', default: 'https://api.acessorias.com', placeholder: 'https://api.acessorias.com', help: 'Endpoint REST do Acessórias (sem /v1 ou afins)' },
+  { key: 'ACESSORIAS_API_TOKEN', label: 'API Token', group: 'Acessórias', type: 'password', secret: true, help: 'Bearer Token gerado em Configurações → API Token no Acessórias. Rate limit 100 req/min.' },
+  { key: 'ACESSORIAS_USER', label: 'Usuário (e-mail)', group: 'Acessórias', type: 'text', placeholder: 'usuario@empresa.com.br', help: 'E-mail do usuário no Acessórias (auditoria/identificação)' },
+  { key: 'ACESSORIAS_PASSWORD', label: 'Senha', group: 'Acessórias', type: 'password', secret: true, help: 'Mantida só pra fallback ou geração programática de token, se necessário' },
 ]
 
 @Injectable()
 export class AdminService {
+  constructor(@Inject(EmailService) private readonly emailService: EmailService) {}
 
   private getEnvPath(): string {
     return path.resolve(process.cwd(), '.env')
@@ -946,6 +995,73 @@ OneClick_Code/
   }
 
   // ============================================================
+  // CERTIFICADO DIGITAL PF (Pessoa Física do Contador)
+  // ============================================================
+
+  private getCertificadoPfPath(): string {
+    return path.resolve(process.cwd(), 'uploads', 'certificado-pf.pfx')
+  }
+
+  async getCertificadoPfInfo(): Promise<{
+    exists: boolean; fileName: string | null; fileSize: number | null; uploadedAt: string | null
+    validFrom: string | null; validTo: string | null; subject: string | null; issuer: string | null
+    daysRemaining: number | null; expired: boolean; senha: boolean
+  }> {
+    const certPath = this.getCertificadoPfPath()
+    const { values } = this.parseEnvFile()
+    let exists = false, fileSize: number | null = null, uploadedAt: string | null = null
+    let validFrom: string | null = null, validTo: string | null = null
+    let subject: string | null = null, issuer: string | null = null
+    let daysRemaining: number | null = null, expired = false
+
+    if (fs.existsSync(certPath)) {
+      exists = true
+      const stat = fs.statSync(certPath)
+      fileSize = stat.size
+      uploadedAt = stat.mtime.toISOString()
+
+      const senha = values.get('CERTIFICADO_PF_SENHA') || process.env.CERTIFICADO_PF_SENHA || ''
+      try {
+        let output = ''
+        for (const extraArgs of [[], ['-legacy']]) {
+          const result = spawnSync('openssl', [
+            'pkcs12', '-in', certPath, '-passin', `pass:${senha}`,
+            '-nokeys', '-clcerts', '-nodes', ...extraArgs,
+          ], { encoding: 'utf8', timeout: 10000 })
+          output = (result.stdout || '') + (result.stderr || '')
+          if (output.includes('BEGIN CERTIFICATE')) break
+        }
+        const pemMatch = output.match(/(-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----)/m)
+        if (pemMatch) {
+          const x509 = new crypto.X509Certificate(pemMatch[1]!)
+          validFrom = new Date(x509.validFrom).toISOString()
+          validTo = new Date(x509.validTo).toISOString()
+          subject = x509.subject.split('\n').find(l => l.startsWith('CN='))?.slice(3) || x509.subject
+          issuer = x509.issuer.split('\n').find(l => l.startsWith('CN='))?.slice(3) || x509.issuer
+          const expDate = new Date(x509.validTo)
+          daysRemaining = Math.ceil((expDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+          expired = daysRemaining < 0
+        }
+      } catch { /* */ }
+    }
+
+    return {
+      exists, fileName: exists ? 'certificado-pf.pfx' : null, fileSize, uploadedAt,
+      validFrom, validTo, subject, issuer, daysRemaining, expired,
+      senha: !!(values.get('CERTIFICADO_PF_SENHA') || process.env.CERTIFICADO_PF_SENHA),
+    }
+  }
+
+  async deleteCertificadoPf(): Promise<{ ok: boolean; message: string }> {
+    const certPath = this.getCertificadoPfPath()
+    if (fs.existsSync(certPath)) {
+      fs.unlinkSync(certPath)
+      return { ok: true, message: 'Certificado PF removido com sucesso.' }
+    }
+    return { ok: false, message: 'Nenhum certificado PF encontrado.' }
+  }
+
+  // ============================================================
   // TESTES DE CONEXÃO COM BANCOS DE DADOS
   // ============================================================
 
@@ -1195,5 +1311,24 @@ OneClick_Code/
     } catch (e) {
       return { ok: false, columns: [], rows: [], rowCount: 0, ms: Date.now() - start, error: (e as Error).message }
     }
+  }
+
+  // ============================================================
+  // Teste de E-mail SMTP
+  // ============================================================
+
+  async testSmtp(destinatario: string) {
+    const ok = await this.emailService.sendMail({
+      to: destinatario,
+      subject: '✅ Teste SMTP — OneClick ERP',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:20px">
+          <h2 style="color:#10b981">Teste de E-mail</h2>
+          <p>Se você está lendo esta mensagem, a configuração SMTP está funcionando corretamente.</p>
+          <p style="color:#6b7280;font-size:12px">Enviado em ${new Date().toLocaleString('pt-BR')} pelo OneClick ERP.</p>
+        </div>
+      `,
+    })
+    return { ok, message: ok ? 'E-mail de teste enviado com sucesso!' : 'Falha ao enviar. Verifique as configurações SMTP.' }
   }
 }

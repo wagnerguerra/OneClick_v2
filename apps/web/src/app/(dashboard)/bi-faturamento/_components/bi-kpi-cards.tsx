@@ -5,7 +5,7 @@ import { DollarSign, Receipt, Wallet, BarChart3, Info, X, Loader2, Search, Save 
 import { Card, CardContent, Button, Input, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 
-const MODULE_COLOR = '#8b5cf6'
+const MODULE_COLOR = 'var(--mod-contabil, #8b5cf6)'
 
 interface FonteItem { contaLonga: string; nomeConta: string; valor: number; isDeducao?: boolean }
 interface MesCustoDespesa { mes: number; custosFixos: number; despesas: number }

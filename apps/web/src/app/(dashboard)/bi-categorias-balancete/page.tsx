@@ -37,7 +37,7 @@ interface Categoria {
   formula?: unknown
 }
 
-const MODULE_COLOR = '#8b5cf6'
+const MODULE_COLOR = 'var(--mod-contabil, #8b5cf6)'
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 

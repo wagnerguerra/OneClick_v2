@@ -6,6 +6,7 @@ import type { PermissionInput } from '@saas/types'
 
 interface UserPermissionsState {
   isMaster: boolean
+  isEmpresaMaster: boolean
   role: string
   empresaId: string | null
   permissions: PermissionInput[]
@@ -22,6 +23,7 @@ export function refreshUserPermissions() {
 export function useUserPermissions(): UserPermissionsState {
   const [state, setState] = useState<UserPermissionsState>({
     isMaster: false,
+    isEmpresaMaster: false,
     role: 'USER',
     empresaId: null,
     permissions: [],
@@ -31,13 +33,14 @@ export function useUserPermissions(): UserPermissionsState {
 
   const load = useCallback(async () => {
     try {
-      const data = await trpc.user.getMyPermissions.query()
+      const data = await trpc.user.getMyPermissions.query() as any
       const allowedSlugs = data.isMaster
         ? [] // MASTER não precisa de lista — vê tudo
-        : data.permissions.filter((p) => p.canRead).map((p) => p.moduleSlug)
+        : data.permissions.filter((p: PermissionInput) => p.canRead).map((p: PermissionInput) => p.moduleSlug)
 
       setState({
         isMaster: data.isMaster,
+        isEmpresaMaster: data.isEmpresaMaster ?? false,
         role: data.role,
         empresaId: data.empresaId,
         permissions: data.permissions,

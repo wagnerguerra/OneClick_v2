@@ -48,8 +48,10 @@ export class UploadController {
       throw new BadRequestException('Nenhum arquivo enviado.')
     }
 
-    const apiUrl = process.env.BETTER_AUTH_URL ?? process.env.API_URL ?? 'http://localhost:4000'
-    const url = `${apiUrl}/api/upload/${file.filename}`
+    // Retorna URL relativa pra que o frontend resolva o host dinamicamente.
+    // Salvar URL absoluta congela o hostname (localhost) no banco e quebra
+    // quando o app é acessado por IP de rede ou domínio diferente.
+    const url = `/api/upload/${file.filename}`
 
     return { url, filename: file.filename }
   }
@@ -75,6 +77,33 @@ export class UploadController {
     }),
   )
   uploadCertificado(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Nenhum arquivo enviado.')
+    }
+    return { ok: true, fileName: file.originalname, fileSize: file.size }
+  }
+
+  @Post('certificado-pf')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: UPLOADS_DIR,
+        filename: (_req, _file, cb) => {
+          cb(null, 'certificado-pf.pfx')
+        },
+      }),
+      limits: { fileSize: MAX_SIZE },
+      fileFilter: (_req, file, cb) => {
+        const ext = extname(file.originalname).toLowerCase()
+        if (!['.pfx', '.p12'].includes(ext)) {
+          cb(new BadRequestException('Apenas arquivos .pfx ou .p12 são aceitos.'), false)
+        } else {
+          cb(null, true)
+        }
+      },
+    }),
+  )
+  uploadCertificadoPf(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('Nenhum arquivo enviado.')
     }

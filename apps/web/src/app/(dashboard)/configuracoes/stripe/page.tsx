@@ -26,7 +26,7 @@ const TABS: PillTab[] = [
   { key: 'info',     label: 'Informações Gerais',  icon: FileText },
 ]
 
-const MODULE_COLOR = '#f97316'
+const MODULE_COLOR = 'var(--mod-configuracoes, #f97316)'
 
 /* ── Tipos ─────────────────────────────────────────────── */
 
@@ -183,7 +183,7 @@ export default function StripeSettingsPage() {
         </CardHeader>
         <div className="flex min-h-[500px]">
           {/* Pills laterais */}
-          <div className="w-[200px] shrink-0 border-r border-[rgba(0,0,0,0.08)] bg-[#f8f9fa] dark:bg-[#1a1a2e] p-3 overflow-y-auto">
+          <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
             <div className="space-y-1">
               {TABS.map((tab) => {
                 const Icon = tab.icon

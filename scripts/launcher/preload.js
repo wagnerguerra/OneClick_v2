@@ -52,6 +52,20 @@ contextBridge.exposeInMainWorld('api', {
   // Browse folder
   browseFolder: () => ipcRenderer.invoke('browse-folder'),
 
+  // Project root
+  getProjectRoot: () => ipcRenderer.invoke('get-project-root'),
+  setProjectRoot: (path) => ipcRenderer.invoke('set-project-root', path),
+
+  // Auto-update
+  checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  onUpdateEvent: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('update-event', handler);
+    return () => ipcRenderer.removeListener('update-event', handler);
+  },
+
   // Events from main
   onStatusUpdate: (callback) => {
     const handler = (_event, data) => callback(data);
@@ -62,5 +76,16 @@ contextBridge.exposeInMainWorld('api', {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on('notification', handler);
     return () => ipcRenderer.removeListener('notification', handler);
+  },
+
+  // NFe Watcher (pasta local)
+  nfeWatcherStatus: () => ipcRenderer.invoke('nfe-watcher:status'),
+  nfeWatcherRefresh: () => ipcRenderer.invoke('nfe-watcher:refresh'),
+  nfeWatcherStart: () => ipcRenderer.invoke('nfe-watcher:start'),
+  nfeWatcherStop: () => ipcRenderer.invoke('nfe-watcher:stop'),
+  onNfeWatcherLog: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('nfe-watcher:log', handler);
+    return () => ipcRenderer.removeListener('nfe-watcher:log', handler);
   },
 });

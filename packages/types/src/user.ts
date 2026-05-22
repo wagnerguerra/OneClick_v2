@@ -45,22 +45,24 @@ export const MODULE_SLUGS = [
   'dashboard',
   // Cadastros
   'areas', 'cargos', 'clientes', 'colaboradores', 'empresas',
-  'fornecedores', 'grupos-empresariais', 'obrigacoes-fixas', 'obrigacoes-demanda',
+  'fornecedores', 'grupos-empresariais', 'obrigacoes', 'obrigacoes-fixas', 'obrigacoes-demanda',
   'servicos', 'socios', 'usuarios',
   // Comercial
-  'comercial', 'contratos', 'custeio-clientes', 'graficos-contrato-erp',
-  'orcamentos', 'comercial-relatorios', 'contratos-relatorios',
+  'crm', 'clausulas', 'comercial', 'contratos', 'contrato-templates',
+  'custeio-clientes', 'graficos-contrato-erp',
+  'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios',
   // Administrativo
-  'agenda', 'coleta-documentos', 'contatos', 'estoque', 'organograma',
+  'agenda', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma',
   // Legalização
   'certificados', 'gestao-certificados', 'processos', 'quadro-societario',
   // Trabalhista
   'banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento',
   // Fiscal
-  'beneficios-fiscais', 'caixapostal', 'certidoes-cnd', 'dctfweb', 'obrigacoes-servicos', 'situacao-fiscal',
+  'beneficios-fiscais', 'caixapostal', 'certidoes-cnd', 'dctfweb', 'dte',
+  'obrigacoes-servicos', 'situacao-fiscal',
 
   // Contábil
-  'bi-faturamento',
+  'bi-categorias-balancete', 'bi-faturamento',
   // TI
   'ativos', 'helpdesk', 'projetos',
   // Qualidade
@@ -68,7 +70,7 @@ export const MODULE_SLUGS = [
   'documentos-internos', 'documentos-externos', 'tabelas-registros',
   'elogios', 'melhorias', 'nao-conformidades', 'reclamacoes', 'reunioes', 'sugestoes',
   // Configurações
-  'configuracoes',
+  'configuracoes', 'metricas', 'backup-restore',
 ] as const
 
 export type ModuleSlug = (typeof MODULE_SLUGS)[number]
@@ -78,15 +80,21 @@ export const MODULE_LABELS: Record<string, string> = {
   // Cadastros
   areas: 'Áreas', cargos: 'Cargos', clientes: 'Clientes', colaboradores: 'Colaboradores',
   empresas: 'Empresas', fornecedores: 'Fornecedores', 'grupos-empresariais': 'Grupos Empresariais',
+  obrigacoes: 'Obrigações Acessórias',
   'obrigacoes-fixas': 'Obrigações Fixas', 'obrigacoes-demanda': 'Obrigações Sob Demanda',
   servicos: 'Serviços', socios: 'Sócios', usuarios: 'Usuários',
   // Comercial
-  comercial: 'Comercial', contratos: 'Contratos', 'custeio-clientes': 'Custeio por Cliente',
+  crm: 'CRM',
+  clausulas: 'Cláusulas', comercial: 'Comercial', contratos: 'Contratos',
+  'contrato-templates': 'Modelos de Contrato',
+  'custeio-clientes': 'Custeio por Cliente',
   'graficos-contrato-erp': 'Gráficos Contrato x ERP', orcamentos: 'Orçamentos',
+  pesquisas: 'Pesquisa de Satisfação',
   'comercial-relatorios': 'Relatórios Comerciais', 'contratos-relatorios': 'Relatórios de Contratos',
   // Administrativo
   agenda: 'Agenda Corporativa', 'coleta-documentos': 'Coleta e Recebimento',
-  contatos: 'Contatos', estoque: 'Controle de Estoque', organograma: 'Organograma',
+  contatos: 'Contatos', estoque: 'Controle de Estoque',
+  'meus-servicos': 'Meus Serviços', 'minhas-obrigacoes': 'Minhas Obrigações', organograma: 'Organograma',
   // Legalização
   certificados: 'Certificados', 'gestao-certificados': 'Certificados Digitais',
   processos: 'Processos', 'quadro-societario': 'Quadro Societário',
@@ -94,12 +102,13 @@ export const MODULE_LABELS: Record<string, string> = {
   'banco-horas': 'Banco de Horas', beneficios: 'Benefícios', 'controle-ferias': 'Controle de Férias',
   'fgts-digital': 'FGTS Digital', 'folha-pagamento': 'Importação de Folha',
   // Fiscal
-  'beneficios-fiscais': 'Benefícios Fiscais', 'caixapostal': 'Caixa Postal e-CAC', 'certidoes-cnd': "CND's Federais", dctfweb: 'DCTFWeb',
+  'beneficios-fiscais': 'Benefícios Fiscais', 'caixapostal': 'Caixa Postal e-CAC',
+  'certidoes-cnd': "CND's Federais", danfe: 'DANFE (NFe → PDF)', dctfweb: 'DCTFWeb', dte: 'DT-e ES',
   'obrigacoes-servicos': 'Obrigações e Serviços', 'situacao-fiscal': 'Situação Fiscal',
   // Contábil
-  'bi-faturamento': 'Dashboard Financeiro',
+  'bi-categorias-balancete': 'Categorias de Balancete', 'bi-faturamento': 'Dashboard Financeiro',
   // TI
-  ativos: 'Controle de Ativos', helpdesk: 'HelpDesk', projetos: 'Projetos',
+  ativos: 'Gestão de Ativos', helpdesk: 'HelpDesk', projetos: 'Projetos',
   // Qualidade
   qualidade: 'Painel da Qualidade', aquisicoes: 'Aquisições',
   'analise-contexto': 'Análise de Contexto', capacitacoes: 'Capacitações',
@@ -109,19 +118,21 @@ export const MODULE_LABELS: Record<string, string> = {
   reclamacoes: 'Reclamações', reunioes: 'Reuniões', sugestoes: 'Sugestões',
   // Configurações
   configuracoes: 'Configurações Gerais',
+  metricas: 'Métricas',
+  'backup-restore': 'Backup e Restore',
 }
 
 export const MODULE_GROUPS = {
-  'Cadastros': ['areas', 'cargos', 'clientes', 'colaboradores', 'empresas', 'fornecedores', 'grupos-empresariais', 'obrigacoes-fixas', 'obrigacoes-demanda', 'servicos', 'socios', 'usuarios'],
-  'Comercial': ['comercial', 'contratos', 'custeio-clientes', 'graficos-contrato-erp', 'orcamentos', 'comercial-relatorios', 'contratos-relatorios'],
-  'Administrativo': ['agenda', 'coleta-documentos', 'contatos', 'estoque', 'organograma'],
+  'Cadastros': ['areas', 'cargos', 'clientes', 'colaboradores', 'empresas', 'fornecedores', 'grupos-empresariais', 'obrigacoes', 'obrigacoes-fixas', 'obrigacoes-demanda', 'servicos', 'socios', 'usuarios'],
+  'Comercial': ['crm', 'clausulas', 'comercial', 'contratos', 'contrato-templates', 'custeio-clientes', 'graficos-contrato-erp', 'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios'],
+  'Administrativo': ['agenda', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma'],
   'Legalização': ['certificados', 'gestao-certificados', 'processos', 'quadro-societario'],
   'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento'],
-  'Fiscal': ['beneficios-fiscais', 'caixapostal', 'certidoes-cnd', 'dctfweb', 'obrigacoes-servicos', 'situacao-fiscal'],
-  'Contábil': ['bi-faturamento'],
+  'Fiscal': ['beneficios-fiscais', 'caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal'],
+  'Contábil': ['bi-categorias-balancete', 'bi-faturamento'],
   'TI': ['ativos', 'helpdesk', 'projetos'],
   'Qualidade': ['qualidade', 'aquisicoes', 'analise-contexto', 'capacitacoes', 'documentos-internos', 'documentos-externos', 'tabelas-registros', 'elogios', 'melhorias', 'nao-conformidades', 'reclamacoes', 'reunioes', 'sugestoes'],
-  'Configurações': ['configuracoes'],
+  'Configurações': ['configuracoes', 'metricas', 'backup-restore'],
 } as const
 
 // Sub-permissões específicas por módulo
@@ -130,9 +141,27 @@ export interface SubPermissionDef {
   key: string
   label: string
   group?: string
+  /** Observação opcional — exibida em itálico abaixo do label no modal de
+   *  permissões. Útil pra sinalizar status especial ("Em desenvolvimento",
+   *  "Legado — descontinuado em breve", etc). */
+  observacao?: string
 }
 
 export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
+  agenda: [
+    { key: 'manage_tipos', label: 'Gerenciar tipos de evento', group: 'Configurações' },
+    { key: 'import_legado', label: 'Importar eventos do sistema legado', group: 'Configurações' },
+    { key: 'manage_recorrencia', label: 'Criar eventos recorrentes', group: 'Eventos' },
+    { key: 'manage_participantes', label: 'Adicionar/remover participantes', group: 'Eventos' },
+    { key: 'delete_eventos', label: 'Excluir eventos', group: 'Eventos' },
+  ],
+  caixapostal: [
+    { key: 'bulk_actions', label: 'Consulta em lote e ações em massa', group: 'Ações' },
+    { key: 'archive_delete', label: 'Arquivar e excluir mensagens', group: 'Ações' },
+    { key: 'reclassify', label: 'Reclassificar mensagens', group: 'Ações' },
+    { key: 'manage_gestao', label: 'Acesso à aba Gestão e Históricos', group: 'Gestão' },
+    { key: 'dashboard_panel', label: 'Exibir painel de mensagens no Dashboard', group: 'Dashboard' },
+  ],
   clientes: [
     { key: 'view_all', label: 'Visualizar todos os tipos de clientes', group: 'Gerais' },
     { key: 'edit_details', label: 'Editar detalhes do cliente', group: 'Gerais' },
@@ -149,6 +178,64 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'manage_registration', label: 'Gerenciar aba de registro / legalização', group: 'Registro / Legalização' },
     { key: 'manage_client_users', label: 'Gerenciar aba usuários do cliente', group: 'Usuários do Cliente' },
   ],
+  orcamentos: [
+    // Cadastro — espelha legado orc_cadastro
+    { key: 'cadastro_completo', label: 'Cadastrar com formulário completo (tipo, validade, desconto, etc.)', group: 'Cadastro' },
+    // Escopo de listagem — espelha legado acesso (1=meus, 2=financeiro, 3=area, 4=todos)
+    { key: 'scope_proprios', label: 'Visualizar meus orçamentos e sob minha responsabilidade', group: 'Escopo de listagem' },
+    { key: 'scope_financeiro', label: 'Visualizar orçamentos para liberação do financeiro', group: 'Escopo de listagem' },
+    { key: 'scope_area', label: 'Visualizar orçamentos da minha área', group: 'Escopo de listagem' },
+    { key: 'scope_todos', label: 'Visualizar todos os orçamentos em aberto', group: 'Escopo de listagem' },
+    // Painéis — espelha legado painel_indicadores / painel_consultas
+    { key: 'panel_indicadores', label: 'Acesso ao painel de indicadores', group: 'Painéis' },
+    {
+      key: 'panel_consultas',
+      label: 'Acesso ao painel de consultas',
+      group: 'Painéis',
+      observacao: '* Reservado para desenvolvimento futuro — painel ainda não portado do legado.',
+    },
+    // Permissões gerais
+    { key: 'manage_itens', label: 'Incluir/editar itens nos orçamentos', group: 'Ações' },
+    { key: 'edit_timeline_dates', label: 'Alterar datas da timeline', group: 'Ações' },
+    { key: 'mover_kanban', label: 'Mover cards no kanban (alterar status arrastando)', group: 'Ações' },
+    { key: 'acao_enviar', label: 'Enviar orçamentos', group: 'Ações' },
+    { key: 'acao_aprovar', label: 'Aprovar/reprovar orçamentos', group: 'Ações' },
+    { key: 'acao_liberar', label: 'Liberar orçamentos', group: 'Ações' },
+    { key: 'acao_encerrar', label: 'Encerrar orçamentos', group: 'Ações' },
+    { key: 'acao_paralizar', label: 'Paralisar/pausar orçamentos', group: 'Ações' },
+    { key: 'acao_retomar', label: 'Retomar orçamentos paralisados', group: 'Ações' },
+    { key: 'acao_reabrir', label: 'Reabrir orçamentos para edição', group: 'Ações' },
+    { key: 'acao_duplicar', label: 'Duplicar orçamentos', group: 'Ações' },
+    { key: 'acao_arquivar', label: 'Arquivar orçamentos', group: 'Ações' },
+    { key: 'change_solicitante', label: 'Alterar solicitante do orçamento', group: 'Ações' },
+    { key: 'change_responsavel', label: 'Alterar responsável pelos serviços', group: 'Ações' },
+  ],
+  helpdesk: [
+    // Atuação como agente (quem tem 'canRead' já abre tickets como solicitante;
+    // estas sub-perms diferenciam o agente da TI)
+    { key: 'atuar_agente', label: 'Atuar como agente (assumir, atender, mudar status)', group: 'Atendimento' },
+    { key: 'change_responsavel', label: 'Atribuir/reatribuir responsável', group: 'Atendimento' },
+    { key: 'change_prazo', label: 'Alterar prazo/SLA do ticket', group: 'Atendimento' },
+    { key: 'change_prioridade', label: 'Alterar prioridade', group: 'Atendimento' },
+    { key: 'nota_interna', label: 'Escrever notas internas (não visíveis ao solicitante)', group: 'Atendimento' },
+    // Escopo de listagem
+    { key: 'scope_proprios', label: 'Ver tickets em que sou solicitante ou responsável', group: 'Escopo' },
+    { key: 'scope_area', label: 'Ver tickets da minha área', group: 'Escopo' },
+    { key: 'scope_todos', label: 'Ver todos os tickets da empresa', group: 'Escopo' },
+    // Operações
+    { key: 'mover_kanban', label: 'Mover cards no kanban (arrastar status)', group: 'Ações' },
+    { key: 'arquivar', label: 'Arquivar tickets', group: 'Ações' },
+    // Administração
+    { key: 'gerenciar_categorias', label: 'Gerenciar categorias e SLA padrão', group: 'Administração' },
+    { key: 'panel_metricas', label: 'Acesso ao painel de métricas', group: 'Administração' },
+  ],
+  'gestao-certificados': [
+    { key: 'download_arquivo', label: 'Baixar arquivo PFX do certificado', group: 'Acesso ao certificado' },
+    { key: 'ver_senha', label: 'Visualizar senha em claro', group: 'Acesso ao certificado' },
+    { key: 'usar_assinatura', label: 'Usar para assinar documentos', group: 'Acesso ao certificado' },
+    { key: 'manage_acessos', label: 'Ver trilha de auditoria completa', group: 'Auditoria' },
+    { key: 'revogar', label: 'Revogar certificado', group: 'Operações' },
+  ],
 }
 
 export const permissionSchema = z.object({
@@ -164,6 +251,8 @@ export const createUserSchema = z.object({
   email: z.coerce.string().email('E-mail inválido').min(1, 'E-mail é obrigatório'),
   password: z.coerce.string().optional(),
   telefone: z.coerce.string().optional(),
+  celular: z.coerce.string().optional(),
+  ramal: z.coerce.string().optional(),
   role: z.coerce.string().optional().default('COLABORADOR_INTERNO'),
   profile: z.coerce.string().optional().default('OPERADOR'),
   empresaId: z.coerce.string().optional(),
@@ -174,6 +263,35 @@ export const createUserSchema = z.object({
   idOneClick: z.coerce.string().optional(),
   incluirFerias: z.coerce.boolean().default(true),
   isActive: z.coerce.boolean().default(true),
+  exibirComoColaborador: z.coerce.boolean().default(false),
+  // Documentos pessoais
+  cpf: z.coerce.string().optional(),
+  rg: z.coerce.string().optional(),
+  orgaoEmissor: z.coerce.string().optional(),
+  dataNascimento: z.coerce.string().optional(),
+  sexo: z.coerce.string().optional(),
+  estadoCivil: z.coerce.string().optional(),
+  nacionalidade: z.coerce.string().optional(),
+  naturalidade: z.coerce.string().optional(),
+  // Documentos trabalhistas
+  pis: z.coerce.string().optional(),
+  ctps: z.coerce.string().optional(),
+  ctpsSerie: z.coerce.string().optional(),
+  tituloEleitor: z.coerce.string().optional(),
+  reservista: z.coerce.string().optional(),
+  // Endereço
+  cep: z.coerce.string().optional(),
+  logradouro: z.coerce.string().optional(),
+  numero: z.coerce.string().optional(),
+  complemento: z.coerce.string().optional(),
+  bairro: z.coerce.string().optional(),
+  cidade: z.coerce.string().optional(),
+  uf: z.coerce.string().optional(),
+  // Contrato / RH
+  tipoContrato: z.coerce.string().optional(),
+  dataDemissao: z.coerce.string().optional(),
+  cargaHoraria: z.coerce.number().optional(),
+  observacoes: z.coerce.string().optional(),
   permissions: z.array(permissionSchema).optional(),
 })
 
@@ -182,6 +300,8 @@ export const updateUserSchema = z.object({
   email: z.coerce.string().email().optional(),
   password: z.coerce.string().optional(),
   telefone: z.coerce.string().optional(),
+  celular: z.coerce.string().optional(),
+  ramal: z.coerce.string().optional(),
   role: z.coerce.string().optional(),
   profile: z.coerce.string().optional(),
   empresaId: z.coerce.string().optional(),
@@ -192,12 +312,42 @@ export const updateUserSchema = z.object({
   idOneClick: z.coerce.string().optional(),
   incluirFerias: z.coerce.boolean().optional(),
   isActive: z.coerce.boolean().optional(),
+  exibirComoColaborador: z.coerce.boolean().optional(),
+  // Documentos pessoais
+  cpf: z.coerce.string().optional(),
+  rg: z.coerce.string().optional(),
+  orgaoEmissor: z.coerce.string().optional(),
+  dataNascimento: z.coerce.string().optional(),
+  sexo: z.coerce.string().optional(),
+  estadoCivil: z.coerce.string().optional(),
+  nacionalidade: z.coerce.string().optional(),
+  naturalidade: z.coerce.string().optional(),
+  // Documentos trabalhistas
+  pis: z.coerce.string().optional(),
+  ctps: z.coerce.string().optional(),
+  ctpsSerie: z.coerce.string().optional(),
+  tituloEleitor: z.coerce.string().optional(),
+  reservista: z.coerce.string().optional(),
+  // Endereço
+  cep: z.coerce.string().optional(),
+  logradouro: z.coerce.string().optional(),
+  numero: z.coerce.string().optional(),
+  complemento: z.coerce.string().optional(),
+  bairro: z.coerce.string().optional(),
+  cidade: z.coerce.string().optional(),
+  uf: z.coerce.string().optional(),
+  // Contrato / RH
+  tipoContrato: z.coerce.string().optional(),
+  dataDemissao: z.coerce.string().optional(),
+  cargaHoraria: z.coerce.number().optional(),
+  observacoes: z.coerce.string().optional(),
   permissions: z.array(permissionSchema).optional(),
 })
 
 export const listUserSchema = paginationSchema.extend({
   role: z.enum(ROLE_VALUES).optional(),
   empresaId: z.string().optional(),
+  incluirInativos: z.coerce.boolean().optional(),
 })
 
 export type CreateUserInput = z.infer<typeof createUserSchema>

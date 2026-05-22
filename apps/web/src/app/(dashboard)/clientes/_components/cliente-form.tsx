@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -10,26 +10,31 @@ import {
   Briefcase, FileBarChart, History, File, Calculator, Shield,
   ListChecks, StickyNote, FileInput, MessageSquareQuote, Users, ListTodo,
   ExternalLink, X, Loader2, Building2, Phone, MapPin, Star, Pencil, Trash2, Link2,
-  CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen,
+  CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen, HardDriveDownload,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  Image as ImageIcon,
 } from 'lucide-react'
 import {
   cn, Button, Input, Label, Card, CardHeader, Checkbox, RichEditor, Badge,
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  Tabs, TabsList, TabsTrigger, TabsContent,
+  Tabs, TabsList, TabsTrigger, TabsContent, SlidingTabsList,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { getApiUrl } from '@/lib/api-url'
+import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { ServicosCard } from './servicos-card'
 import { ParticularidadesCard } from './particularidades-card'
 import { LegalizacaoCard } from './legalizacao-card'
 import { ContabilCard } from './contabil-card'
 import { ObrigacoesCard } from './obrigacoes-card'
+import { ObrigacoesClienteSection } from './obrigacoes-cliente-section'
 import { ProtocolosCard } from './protocolos-card'
+import { DriveSyncCard } from './drive-sync-card'
 import { masks, numeroParaMoeda, moedaParaNumero } from '@/lib/masks'
 import {
   createClienteSchema,
@@ -78,15 +83,7 @@ const CATEGORIA_OPTIONS = [
   { value: 'PREMIUM', label: 'PREMIUM' },
 ]
 
-const ORIGEM_OPTIONS = [
-  { value: 'NAO_INFORMADO', label: 'NÃO INFORMADO' },
-  { value: 'INDICACAO_CLIENTE', label: 'INDICAÇÃO DE CLIENTE' },
-  { value: 'INDICACAO_COLABORADOR', label: 'INDICAÇÃO DE COLABORADOR' },
-  { value: 'INDICACAO_PARCEIRO', label: 'INDICAÇÃO DE PARCEIRO' },
-  { value: 'INTERNET', label: 'INTERNET' },
-  { value: 'RADIO', label: 'RÁDIO' },
-  { value: 'RNC', label: 'RNC' },
-]
+// ORIGEM_OPTIONS carregado dinamicamente do banco via loadOpcoes
 
 const TRIBUTACAO_OPTIONS = [
   { value: 'SIMPLES_NACIONAL', label: 'Simples Nacional' },
@@ -96,6 +93,17 @@ const TRIBUTACAO_OPTIONS = [
   { value: 'IMUNE', label: 'Imune' },
   { value: 'ISENTA', label: 'Isenta' },
 ]
+
+interface CnpjCardData {
+  cnpj: string; razaoSocial: string; nomeFantasia: string | null; situacao: string; dataAbertura: string | null
+  cep: string | null; logradouro: string | null; numero: string | null; complemento: string | null
+  bairro: string | null; municipio: string | null; uf: string | null
+  naturezaJuridica: string | null; atividadePrincipal: string | null; porte: string | null
+  capitalSocial: number | null; cnaePrincipalCodigo: string | null
+  cnaesSecundarios: Array<{ codigo: string; descricao: string }>
+  qsa: Array<{ nome: string; cpfCnpj: string; qualificacao: string; percentualCapital: number | null }>
+  fonte: string
+}
 
 interface ClienteFormProps {
   mode: 'create' | 'edit'
@@ -114,9 +122,54 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('detalhes')
   const [clienteLogo, setClienteLogo] = useState<string | null>(defaultValues?.logoUrl || null)
   const [chatMsg, setChatMsg] = useState('')
   const [chatAsCliente, setChatAsCliente] = useState(false)
+
+  // Capa do header — config global do modulo. Apenas Master pode editar.
+  const { isMaster } = useUserPermissions()
+  const [headerCover, setHeaderCover] = useState<string>('')
+  const [uploadingCover, setUploadingCover] = useState(false)
+  const coverInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const cfg = await (trpc.cliente as any).getHeaderCover.query()
+        setHeaderCover(cfg?.headerCover || '')
+      } catch { /* silent */ }
+    })()
+  }, [])
+
+  async function handleCoverUpload(file: File) {
+    setUploadingCover(true)
+    try {
+      const apiUrl = getApiUrl()
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: formData, credentials: 'include' })
+      if (!res.ok) throw new Error(`Falha no upload (${res.status})`)
+      const data = await res.json()
+      const fileUrl = data.url && data.url.startsWith('http') ? data.url : `${apiUrl}/api/upload/${data.filename}`
+      await (trpc.cliente as any).setHeaderCover.mutate({ url: fileUrl })
+      setHeaderCover(fileUrl)
+      alerts.success('Capa atualizada', 'A imagem de fundo do header foi atualizada')
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setUploadingCover(false) }
+  }
+
+  async function handleCoverRemove() {
+    const ok = await alerts.confirm({ title: 'Remover capa?', text: 'A imagem de fundo personalizada será removida e voltará ao padrão.', icon: 'warning', confirmText: 'Remover' })
+    if (!ok) return
+    setUploadingCover(true)
+    try {
+      await (trpc.cliente as any).setHeaderCover.mutate({ url: null })
+      setHeaderCover('')
+      alerts.success('Capa removida', 'A imagem de fundo foi removida')
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setUploadingCover(false) }
+  }
 
   const { register, handleSubmit, formState: { errors }, control, setValue, watch } = useForm<CreateClienteInput>({
     resolver: zodResolver(createClienteSchema),
@@ -135,6 +188,13 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
 
   const tipoDocumento = watch('tipoDocumento')
   const watchedValues = watch()
+  const [opcoesOrigem, setOpcoesOrigem] = useState<Array<{ id: string; valor: string }>>([])
+
+  useEffect(() => {
+    ;(trpc.cliente as any).listOpcoes.query({ tipo: 'ORIGEM' }).then((data: Array<{ id: string; valor: string }>) => setOpcoesOrigem(data)).catch(() => {})
+  }, [])
+  const [cnpjCard, setCnpjCard] = useState<CnpjCardData | null>(null)
+  const [cnpjCardLoading, setCnpjCardLoading] = useState(false)
 
   const progress = useMemo(() => {
     let filled = 0
@@ -149,11 +209,12 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
     const doc = watch('documento')?.replace(/\D/g, '')
     if (!doc || doc.length < 14) return alerts.error('CNPJ inválido', 'Informe um CNPJ com 14 dígitos.')
     try {
-      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${doc}`)
-      if (!res.ok) throw new Error()
-      const data = await res.json()
-      if (data.razao_social) setValue('razaoSocial', data.razao_social)
-      if (data.nome_fantasia) setValue('nomeFantasia', data.nome_fantasia)
+      const data = await (trpc.socio as any).consultarCnpj.query({ cnpj: doc }) as {
+        razaoSocial: string; nomeFantasia: string | null; cep: string | null; logradouro: string | null
+        numero: string | null; complemento: string | null; bairro: string | null; municipio: string | null; uf: string | null
+      }
+      if (data.razaoSocial) setValue('razaoSocial', data.razaoSocial)
+      if (data.nomeFantasia) setValue('nomeFantasia', data.nomeFantasia)
       if (data.cep) setValue('cep', masks.cep(String(data.cep)))
       if (data.logradouro) setValue('logradouro', data.logradouro)
       if (data.numero) setValue('numero', data.numero)
@@ -161,7 +222,58 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
       if (data.bairro) setValue('bairro', data.bairro)
       if (data.municipio) setValue('cidade', data.municipio)
       if (data.uf) setValue('uf', data.uf)
-    } catch { alerts.error('Erro', 'Não foi possível consultar o CNPJ.') }
+      alerts.success('CNPJ consultado', data.razaoSocial || 'Dados preenchidos com sucesso.')
+    } catch (err) {
+      alerts.error('Erro', (err as Error).message || 'Não foi possível consultar o CNPJ.')
+    }
+  }
+
+  async function consultarCartaoCnpj() {
+    const doc = watch('documento')?.replace(/\D/g, '')
+    if (!doc || doc.length < 14) return alerts.error('CNPJ inválido', 'Informe um CNPJ com 14 dígitos.')
+    try {
+      setCnpjCardLoading(true)
+      const data = await (trpc.socio as any).consultarCnpj.query({ cnpj: doc }) as CnpjCardData
+
+      // Buscar sócios do cache (já salvos com participações do PDF)
+      if (clienteId) {
+        let socios = await (trpc.socio as any).listByCliente.query({ clienteId }) as Array<{ nomeCompleto: string; cpf: string; tipoSocio: string; participacao: number | null }>
+
+        // Se não houver sócios no cache, importar via QSA
+        if (socios.length === 0) {
+          try {
+            await (trpc.socio as any).importQsa.mutate({ clienteId, documento: doc, force: false })
+            socios = await (trpc.socio as any).listByCliente.query({ clienteId }) as typeof socios
+          } catch { /* silencioso — usa QSA da API */ }
+        }
+
+        // Enriquecer o QSA do cartão com os percentuais do cache
+        if (socios.length > 0) {
+          // Buscar capital social do cliente
+          let capitalCliente = data.capitalSocial
+          try {
+            const cs = await (trpc.cliente as any).getCapitalSocial.query({ clienteId }) as { capitalSocial: number | null }
+            if (cs.capitalSocial != null) capitalCliente = cs.capitalSocial
+          } catch { /* usa o da API */ }
+          if (capitalCliente != null) data.capitalSocial = capitalCliente
+
+          data.qsa = socios.map(s => {
+            // Encontrar o sócio correspondente na API para manter qualificação
+            const apiMatch = data.qsa.find(q => q.nome.toUpperCase() === s.nomeCompleto.toUpperCase())
+            return {
+              nome: s.nomeCompleto,
+              cpfCnpj: s.cpf || apiMatch?.cpfCnpj || '',
+              qualificacao: apiMatch?.qualificacao || s.tipoSocio,
+              percentualCapital: s.participacao,
+            }
+          })
+        }
+      }
+
+      setCnpjCard(data)
+    } catch (err) {
+      alerts.error('Erro', (err as Error).message || 'Não foi possível consultar o CNPJ.')
+    } finally { setCnpjCardLoading(false) }
   }
 
   async function buscarCep() {
@@ -215,10 +327,73 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
       })} className={isEdit ? 'space-y-0' : 'space-y-5'}>
 
         {/* ============================================================ */}
-        {/* HEADER                                                       */}
+        {/* HEADER + TABS (Tabs envolve para incluir TabsList no wrapper)*/}
         {/* ============================================================ */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
         {isEdit ? (
-          <div className="-mx-4 sm:-mx-6 -mt-4 sm:-mt-6 px-4 sm:px-6 pt-4 sm:pt-6 pb-5" style={{ backgroundColor: 'rgba(106, 218, 125, .18)' }}>
+          <div
+            className="relative -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 overflow-hidden group/cover"
+            style={!headerCover ? { backgroundColor: 'rgba(106, 218, 125, .18)' } : undefined}
+          >
+            {/* Imagem de fundo personalizada — tile + opacity 0.2 */}
+            {headerCover && (
+              <div
+                aria-label="Capa do cliente"
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: `url('${headerCover}')`,
+                  backgroundRepeat: 'repeat',
+                  backgroundSize: 'auto',
+                  backgroundPosition: 'top left',
+                  opacity: 0.2,
+                }}
+              />
+            )}
+            {/* Overlay verde em gradiente: 0% esq → 80% dir */}
+            {headerCover && (
+              <div
+                className="absolute inset-0"
+                style={{ backgroundImage: 'linear-gradient(to right, rgba(106, 218, 125, 0) 0%, rgba(106, 218, 125, 0.8) 100%)' }}
+              />
+            )}
+            {/* Controles de capa — somente Master, hover, base direita */}
+            {isMaster && (
+              <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 opacity-0 pointer-events-none group-hover/cover:opacity-100 group-hover/cover:pointer-events-auto transition-opacity">
+                <button
+                  type="button"
+                  onClick={() => coverInputRef.current?.click()}
+                  disabled={uploadingCover}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-white/90 hover:bg-white text-foreground px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors disabled:opacity-60"
+                  title={headerCover ? 'Trocar imagem de fundo' : 'Personalizar capa'}
+                >
+                  {uploadingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+                  <span className="hidden sm:inline">{headerCover ? 'Trocar capa' : 'Personalizar capa'}</span>
+                </button>
+                {headerCover && (
+                  <button
+                    type="button"
+                    onClick={handleCoverRemove}
+                    disabled={uploadingCover}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-white/90 hover:bg-white text-rose-600 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors disabled:opacity-60"
+                    title="Remover capa"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <input
+                  ref={coverInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleCoverUpload(file)
+                    e.target.value = ''
+                  }}
+                />
+              </div>
+            )}
+            <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-4">
               <div className="relative group">
@@ -226,7 +401,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   {clienteLogo ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
-                      src={clienteLogo.startsWith('http') ? clienteLogo : `${getApiUrl()}${clienteLogo.startsWith('/') ? '' : '/api/upload/'}${clienteLogo}`}
+                      src={resolveAssetUrl(clienteLogo.startsWith('http') || clienteLogo.startsWith('/') ? clienteLogo : `/api/upload/${clienteLogo}`)}
                       alt="Logo"
                       className="h-[70px] w-[70px] object-contain rounded-full"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
@@ -314,10 +489,52 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <Button variant="success" size="icon-sm" type="submit" disabled={saving}><Save className="h-4 w-4" /></Button>
-              <Button type="button" variant="outline" size="icon-sm" onClick={() => router.push('/clientes')}><ArrowLeft className="h-4 w-4" /></Button>
+              <Button variant="success" size="icon-sm" type="submit" disabled={saving} title="Salvar"><Save className="h-4 w-4" /></Button>
+              <Button type="button" variant="outline" size="icon-sm" onClick={() => router.push('/clientes')} title="Voltar" className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90"><ArrowLeft className="h-4 w-4" /></Button>
             </div>
           </div>
+            </div>
+            {/* TabsList em pills — mesmo padrão de /orcamentos/[id] (cor do módulo: emerald) */}
+            <div className="relative z-10 px-4 sm:px-6 pb-2 overflow-x-auto flex justify-center">
+              <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
+                <TabsTrigger value="detalhes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
+                  <FileText className="h-3.5 w-3.5" /> Detalhes
+                </TabsTrigger>
+                <TabsTrigger value="comercial" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
+                  <Handshake className="h-3.5 w-3.5" /> Comercial
+                </TabsTrigger>
+                <TabsTrigger value="fiscal" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
+                  <Receipt className="h-3.5 w-3.5" /> Fiscal
+                </TabsTrigger>
+                <TabsTrigger value="contabil" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
+                  <Calculator className="h-3.5 w-3.5" /> Contábil
+                </TabsTrigger>
+                <TabsTrigger value="legalizacao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
+                  <Shield className="h-3.5 w-3.5" /> Legalização
+                </TabsTrigger>
+                <TabsTrigger value="obrigacoes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
+                  <ListChecks className="h-3.5 w-3.5" /> Obrigações
+                </TabsTrigger>
+                <TabsTrigger value="servicos" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
+                  <Briefcase className="h-3.5 w-3.5" /> Serviços
+                </TabsTrigger>
+                <TabsTrigger value="particularidades" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
+                  <StickyNote className="h-3.5 w-3.5" /> Particularidades
+                </TabsTrigger>
+                <TabsTrigger value="protocolos" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
+                  <FileInput className="h-3.5 w-3.5" /> Protocolos
+                </TabsTrigger>
+                <TabsTrigger value="reclamacoes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
+                  <MessageSquareQuote className="h-3.5 w-3.5" /> Reclamações
+                </TabsTrigger>
+                <TabsTrigger value="usuarios" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
+                  <Users className="h-3.5 w-3.5" /> Usuários
+                </TabsTrigger>
+                <TabsTrigger value="logs" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
+                  <ListTodo className="h-3.5 w-3.5" /> Log&apos;s
+                </TabsTrigger>
+              </SlidingTabsList>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -339,11 +556,9 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
 
         {error && <div className={cn('rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive', isEdit && 'mx-4 sm:mx-6 mt-4')}>{error}</div>}
 
-        {/* ============================================================ */}
-        {/* TABS PRINCIPAIS (12 tabs como no legado)                     */}
-        {/* ============================================================ */}
-        <Tabs defaultValue="detalhes">
-          <div className={cn('overflow-x-auto', isEdit ? '-mx-4 sm:-mx-6 px-4 sm:px-6' : '')} style={isEdit ? { backgroundColor: 'rgba(106, 218, 125, .18)' } : undefined}>
+        {/* No modo create, TabsList aparece aqui (sem o wrapper de capa) */}
+        {!isEdit && (
+          <div className="overflow-x-auto">
             <TabsList className="min-w-max">
               <TabsTrigger value="detalhes">Detalhes</TabsTrigger>
               <TabsTrigger value="comercial">Comercial</TabsTrigger>
@@ -359,6 +574,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
               <TabsTrigger value="logs">Log&apos;s</TabsTrigger>
             </TabsList>
           </div>
+        )}
 
           {/* Layout 2 colunas */}
           <div className={cn('mt-5', isEdit ? 'grid gap-5 lg:grid-cols-[1fr_320px]' : '')}>
@@ -373,6 +589,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   setValue={setValue} clienteId={clienteId}
                   watchedValues={watchedValues} tipoDocumento={tipoDocumento}
                   buscarCnpj={buscarCnpj} buscarCep={buscarCep}
+                  consultarCartaoCnpj={consultarCartaoCnpj} cnpjCard={cnpjCard} cnpjCardLoading={cnpjCardLoading} setCnpjCard={setCnpjCard}
                 />
               </TabsContent>
 
@@ -385,6 +602,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   chatMsg={chatMsg} setChatMsg={setChatMsg}
                   chatAsCliente={chatAsCliente} setChatAsCliente={setChatAsCliente}
                   clienteId={clienteId}
+                  opcoesOrigem={opcoesOrigem}
                 />
               </TabsContent>
 
@@ -412,11 +630,11 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                 )}
               </TabsContent>
               <TabsContent value="legalizacao" className="mt-0">
-                <LegalizacaoCard register={register} clienteId={clienteId} />
+                <LegalizacaoCard register={register} clienteId={clienteId} documento={(watchedValues.documento || defaultValues?.documento || '').replace(/\D/g, '')} />
               </TabsContent>
               <TabsContent value="obrigacoes" className="mt-0">
                 {isEdit && clienteId ? (
-                  <ObrigacoesCard clienteId={clienteId} />
+                  <ObrigacoesClienteSection clienteId={clienteId} />
                 ) : (
                   <PlaceholderTab icon={ListChecks} title="Obrigações" description="Salve o cliente primeiro para gerenciar obrigações." />
                 )}
@@ -547,7 +765,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
 /* ================================================================== */
 /* DetalhesCard — pills laterais (padrão igual ComercialCard)         */
 /* ================================================================== */
-function DetalhesCard({ register, control, watch, errors, setValue, clienteId, watchedValues, tipoDocumento, buscarCnpj, buscarCep }: {
+function DetalhesCard({ register, control, watch, errors, setValue, clienteId, watchedValues, tipoDocumento, buscarCnpj, buscarCep, consultarCartaoCnpj, cnpjCard, cnpjCardLoading, setCnpjCard }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
@@ -558,6 +776,10 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   tipoDocumento: string
   buscarCnpj: () => void
   buscarCep: () => void
+  consultarCartaoCnpj: () => void
+  cnpjCard: CnpjCardData | null
+  cnpjCardLoading: boolean
+  setCnpjCard: (v: CnpjCardData | null) => void
 }) {
   const [activeTab, setActiveTab] = useState('dados')
 
@@ -577,7 +799,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
       </CardHeader>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
-        <div className="w-[170px] shrink-0 border-r border-[rgba(0,0,0,0.08)] bg-[#f8f9fa] p-3 overflow-y-auto">
+        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
           <div className="space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon
@@ -620,20 +842,20 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                 </div>
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
                   <Label>CNPJ</Label>
-                  <div className="flex" style={{ borderRadius: '0.25rem', overflow: 'hidden' }}>
+                  <div className="flex" style={{ borderRadius: '0.25rem' }}>
                     <Controller control={control} name="documento" render={({ field }) => (
                       <Input
                         placeholder={tipoDocumento === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
                         value={tipoDocumento === 'CPF' ? masks.cpf(field.value || '') : masks.cnpj(field.value || '')}
                         onChange={(e) => field.onChange(tipoDocumento === 'CPF' ? masks.cpf(e.target.value) : masks.cnpj(e.target.value))}
-                        style={{ borderRadius: '0.25rem 0 0 0.25rem', borderRight: 'none' }}
+                        className="rounded-r-none border-r-0"
                       />
                     )} />
-                    <button type="button" onClick={buscarCnpj} className="shrink-0 whitespace-nowrap" style={{ padding: '0.55rem 0.75rem', fontSize: '.77rem', fontWeight: 500, backgroundColor: '#5ea3cb', color: '#fff', border: '1px solid #5ea3cb', borderLeft: 'none', cursor: 'pointer' }}>
+                    <button type="button" className="shrink-0 rounded-none border border-l-0 border-r-0 border-[#5ea3cb] h-9 px-3 text-[12px] font-medium bg-[#5ea3cb] text-white cursor-pointer hover:bg-[#4d8fb5]" onClick={() => buscarCnpj()}>
                       Completar
                     </button>
-                    <button type="button" onClick={buscarCnpj} className="shrink-0 whitespace-nowrap flex items-center gap-1" style={{ padding: '0.55rem 0.75rem', fontSize: '.77rem', fontWeight: 500, backgroundColor: '#fff', color: '#212529', border: '1px solid #ced4da', borderLeft: 'none', borderRadius: '0 0.25rem 0.25rem 0', cursor: 'pointer' }}>
-                      <SearchIcon className="h-3.5 w-3.5" /> Consultar
+                    <button type="button" className="shrink-0 rounded-r-[0.25rem] border border-l-0 border-input h-9 px-3 text-[12px] font-medium cursor-pointer hover:bg-accent flex items-center gap-1" onClick={() => consultarCartaoCnpj()} disabled={cnpjCardLoading}>
+                      {cnpjCardLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />} {cnpjCardLoading ? 'Consultando...' : 'Consultar'}
                     </button>
                   </div>
                   {errors.documento && <p className="text-xs text-destructive">{errors.documento.message}</p>}
@@ -809,16 +1031,304 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                   )} />
                   <p className="text-[11px] text-muted-foreground">Empresa vinculada no Omie para este cliente</p>
                 </div>
+
+                {/* Subtítulo Acessórias */}
+                <div className="col-span-12 -mx-5 mt-1">
+                  <div className="px-5 py-2 border-t border-[rgba(0,0,0,0.08)]">
+                    <h4 className="text-[13px] font-semibold text-foreground">Acessórias</h4>
+                  </div>
+                </div>
+
+                <AcessoriasIntegracao clienteId={clienteId ?? null} />
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Modal Cartão CNPJ — Réplica fiel do SERPRO2 */}
+      {cnpjCard && (() => {
+        const cnpjF = cnpjCard.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || cnpjCard.cnpj
+        const dtAb = cnpjCard.dataAbertura ? new Date(cnpjCard.dataAbertura + 'T00:00:00').toLocaleDateString('pt-BR') : '\u2014'
+        const capF = cnpjCard.capitalSocial != null ? `R$ ${Number(cnpjCard.capitalSocial).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '\u2014'
+        const cellB = 'border: 1px solid #000; padding: 3.5pt;'
+        const cellL = 'border-left: none; border-right: 1px solid #000; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 3.5pt;'
+        return (
+        <Dialog open={!!cnpjCard} onOpenChange={(open) => { if (!open) setCnpjCard(null) }}>
+          <DialogContent className="max-w-[700px] max-h-[90vh] overflow-y-auto p-0 gap-0">
+            <DialogHeaderIcon icon={FileText} color="emerald">
+              <DialogTitle className="text-[15px]">Cartao CNPJ (Consulta)</DialogTitle>
+              <DialogDescription className="text-[11px]">
+                Comprovante de inscricao e situacao cadastral — Receita Federal | Fonte: {cnpjCard.fonte === 'serpro' ? 'SERPRO' : 'BrasilAPI'}
+              </DialogDescription>
+            </DialogHeaderIcon>
+            <DialogBody>
+              <div style={{ maxWidth: '17cm', margin: '0 auto', lineHeight: '9pt', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                <div dangerouslySetInnerHTML={{ __html: `
+                  <style>
+                    .cnpj-cw { max-width: 17cm; margin: 0 auto; line-height: 9pt; font-family: Arial, Helvetica, sans-serif; }
+                    .cnpj-cw table { border-collapse: collapse; width: 100%; font-size: 8pt; }
+                    .cnpj-cw .cl { font-size: 6pt; text-transform: uppercase; }
+                    .cnpj-cw .cv { font-weight: 700; }
+                    .cnpj-cw .sp { margin: 0; height: 6px; font-size: 1px; line-height: 6px; }
+                  </style>
+                  <div class="cnpj-cw">
+                  <table border="1" cellspacing="0" style="line-height: 9pt;"><tbody><tr><td style="${cellB}">
+
+                    <table border="0" width="100%" style="line-height: 9pt;">
+                      <tbody><tr>
+                        <td valign="middle" align="left" width="60" height="60">
+                          <img width="60" height="60" src="/brasao2.png" alt="Brasao" border="0" />
+                        </td>
+                        <td align="center">
+                          <p style="margin:0cm; margin-bottom:0pt;">&nbsp;</p>
+                          <font face="Arial" size="4"><b>REP\u00daBLICA FEDERATIVA DO BRASIL</b></font>
+                          <p style="margin:0cm; margin-bottom:0pt;">&nbsp;</p>
+                          <p style="margin:0cm; margin-bottom:0pt;">&nbsp;</p>
+                          <p style="margin:0cm; margin-bottom:0pt;">&nbsp;</p>
+                          <font face="Arial"><b>CADASTRO NACIONAL DA PESSOA JUR\u00cdDICA</b></font>
+                          <p style="margin:0cm; margin-bottom:0pt;">&nbsp;</p>
+                        </td>
+                        <td valign="middle" align="left" width="60" height="60"></td>
+                      </tr></tbody>
+                    </table>
+                    <p class="sp">&nbsp;</p>
+
+                    <table border="0" width="100%" style="border-collapse: collapse;">
+                      <tbody><tr>
+                        <td width="24%" valign="top" style="${cellB}">
+                          <span class="cl">N\u00daMERO DE INSCRI\u00c7\u00c3O</span><br>
+                          <span class="cv">${cnpjF}</span><br><span class="cv">MATRIZ</span><br>
+                        </td>
+                        <td width="52%" valign="center" style="${cellL}">
+                          <center><span class="cv" style="font-size: 10pt;">COMPROVANTE DE INSCRI\u00c7\u00c3O E DE SITUA\u00c7\u00c3O CADASTRAL</span></center>
+                        </td>
+                        <td width="24%" valign="top" style="${cellB}">
+                          <span class="cl">DATA DE ABERTURA</span><br>
+                          <span class="cv">${dtAb}</span><br>
+                        </td>
+                      </tr></tbody>
+                    </table>
+                    <p class="sp">&nbsp;</p>
+
+                    <table border="0" width="100%" style="border-collapse: collapse;">
+                      <tbody><tr>
+                        <td width="100%" valign="top" style="${cellB}">
+                          <span class="cl">NOME EMPRESARIAL</span><br>
+                          <span class="cv">${cnpjCard.razaoSocial || '\u2014'}</span><br>
+                        </td>
+                      </tr></tbody>
+                    </table>
+                    <p class="sp">&nbsp;</p>
+
+                    <table border="0" width="100%" style="border-collapse: collapse;">
+                      <tbody><tr>
+                        <td width="100%" valign="top" style="${cellB}">
+                          <span class="cl">CAPITAL SOCIAL</span><br>
+                          <span class="cv">${capF}</span><br>
+                        </td>
+                      </tr></tbody>
+                    </table>
+                    <p class="sp">&nbsp;</p>
+
+                    <table border="0" width="100%" style="border-collapse: collapse;">
+                      <tbody><tr>
+                        <td width="88%" valign="top" style="${cellB}">
+                          <span class="cl">T\u00cdTULO DO ESTABELECIMENTO (NOME DE FANTASIA)</span><br>
+                          <span class="cv">${cnpjCard.nomeFantasia || '\u2014'}</span><br>
+                        </td>
+                        <td width="2%" style="border-right: 1px solid #000;"></td>
+                        <td width="10%" valign="top" style="${cellB}">
+                          <span class="cl">PORTE</span><br>
+                          <span class="cv">${cnpjCard.porte || '\u2014'}</span><br>
+                        </td>
+                      </tr></tbody>
+                    </table>
+                    <p class="sp">&nbsp;</p>
+
+                    <table border="0" width="100%" style="border-collapse: collapse;">
+                      <tbody><tr>
+                        <td width="100%" valign="top" style="${cellB}">
+                          <span class="cl">C\u00d3DIGO E DESCRI\u00c7\u00c3O DA ATIVIDADE ECON\u00d4MICA PRINCIPAL</span><br>
+                          <span class="cv">${cnpjCard.cnaePrincipalCodigo ? cnpjCard.cnaePrincipalCodigo + ' - ' : ''}${cnpjCard.atividadePrincipal || '\u2014'}</span><br>
+                        </td>
+                      </tr></tbody>
+                    </table>
+                    <p class="sp">&nbsp;</p>
+
+                    <table border="0" width="100%" style="border-collapse: collapse;">
+                      <tbody><tr>
+                        <td width="100%" valign="top" style="${cellB}">
+                          <span class="cl">C\u00d3DIGO E DESCRI\u00c7\u00c3O DAS ATIVIDADES ECON\u00d4MICAS SECUND\u00c1RIAS</span><br>
+                          ${cnpjCard.cnaesSecundarios.length > 0
+                            ? cnpjCard.cnaesSecundarios.map(c => `<span class="cv">${c.codigo} - ${c.descricao}</span><br>`).join('')
+                            : '<span class="cv">\u2014</span><br>'}
+                        </td>
+                      </tr></tbody>
+                    </table>
+                    <p class="sp">&nbsp;</p>
+
+                    <table border="0" width="100%" style="border-collapse: collapse;">
+                      <tbody><tr>
+                        <td width="100%" valign="top" style="${cellB}">
+                          <span class="cl">C\u00d3DIGO E DESCRI\u00c7\u00c3O DA NATUREZA JUR\u00cdDICA</span><br>
+                          <span class="cv">${cnpjCard.naturezaJuridica || '\u2014'}</span><br>
+                        </td>
+                      </tr></tbody>
+                    </table>
+                    <p class="sp">&nbsp;</p>
+
+                    <table border="0" width="100%" style="border-collapse: collapse;">
+                      <tbody><tr>
+                        <td width="100%" valign="top" style="${cellB}">
+                          <span class="cl">QSA \u2014 QUADRO DE S\u00d3CIOS E ADMINISTRADORES</span>
+                          ${cnpjCard.qsa.length > 0
+                            ? `<table border="0" width="100%" style="border-collapse: collapse; margin-top: 4pt; font-size: inherit;">
+                                <thead><tr>
+                                  <th style="${cellB} text-align: left;">S\u00f3cio</th>
+                                  <th style="${cellB} text-align: left;">CPF/CNPJ</th>
+                                  <th style="${cellB} text-align: left;">Qualifica\u00e7\u00e3o</th>
+                                  <th style="${cellB} text-align: right;">Participa\u00e7\u00e3o</th>
+                                  <th style="${cellB} text-align: right;">Valor</th>
+                                </tr></thead>
+                                <tbody>${cnpjCard.qsa.map(s => {
+                                  const doc = s.cpfCnpj ? s.cpfCnpj.replace(/\D/g, '').replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4') : '\u2014'
+                                  const pct = s.percentualCapital != null ? Number(s.percentualCapital) : null
+                                  const pctStr = pct != null ? pct.toFixed(2) + '%' : '\u2014'
+                                  const valorPart = pct != null && cnpjCard.capitalSocial != null ? (cnpjCard.capitalSocial * pct / 100) : null
+                                  const valorStr = valorPart != null ? 'R$ ' + valorPart.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '\u2014'
+                                  return `<tr><td style="${cellB}">${s.nome}</td><td style="${cellB}">${doc}</td><td style="${cellB}">${s.qualificacao}</td><td style="${cellB} text-align: right;">${pctStr}</td><td style="${cellB} text-align: right;">${valorStr}</td></tr>`
+                                }).join('')}
+                                ${cnpjCard.capitalSocial != null ? `<tr style="background: #f5f5f5;"><td colspan="3" style="${cellB} text-align: right; font-weight: 700;">Capital Social</td><td style="${cellB} text-align: right; font-weight: 700;">100,00%</td><td style="${cellB} text-align: right; font-weight: 700;">${capF}</td></tr>` : ''}
+                                </tbody>
+                              </table>`
+                            : '<br><span class="cv">\u2014</span>'}
+                        </td>
+                      </tr></tbody>
+                    </table>
+                    <p class="sp">&nbsp;</p>
+
+                    <table border="0" width="100%" style="border-collapse: collapse;">
+                      <tbody><tr>
+                        <td width="50%" valign="top" style="${cellB}">
+                          <span class="cl">LOGRADOURO</span><br>
+                          <span class="cv">${cnpjCard.logradouro || '\u2014'}</span><br>
+                        </td>
+                        <td width="2%" style="border-right: 1px solid #000;"></td>
+                        <td width="10%" valign="top" style="${cellL}">
+                          <span class="cl">N\u00daMERO</span><br>
+                          <span class="cv">${cnpjCard.numero || '\u2014'}</span><br>
+                        </td>
+                        <td width="2%" style="border-right: 1px solid #000;"></td>
+                        <td width="36%" valign="top" style="${cellL}">
+                          <span class="cl">COMPLEMENTO</span><br>
+                          <span class="cv">${cnpjCard.complemento || '\u2014'}</span><br>
+                        </td>
+                      </tr></tbody>
+                    </table>
+                    <p class="sp">&nbsp;</p>
+
+                    <table border="0" width="100%" style="border-collapse: collapse;">
+                      <tbody><tr>
+                        <td width="18%" valign="top" style="${cellB}">
+                          <span class="cl">CEP</span><br>
+                          <span class="cv">${cnpjCard.cep || '\u2014'}</span><br>
+                        </td>
+                        <td width="2%" style="border-right: 1px solid #000;"></td>
+                        <td width="30%" valign="top" style="${cellL}">
+                          <span class="cl">BAIRRO/DISTRITO</span><br>
+                          <span class="cv">${cnpjCard.bairro || '\u2014'}</span><br>
+                        </td>
+                        <td width="2%" style="border-right: 1px solid #000;"></td>
+                        <td width="38%" valign="top" style="${cellL}">
+                          <span class="cl">MUNIC\u00cdPIO</span><br>
+                          <span class="cv">${cnpjCard.municipio || '\u2014'}</span><br>
+                        </td>
+                        <td width="2%" style="border-right: 1px solid #000;"></td>
+                        <td width="10%" valign="top" style="${cellL}">
+                          <span class="cl">UF</span><br>
+                          <span class="cv">${cnpjCard.uf || '\u2014'}</span><br>
+                        </td>
+                      </tr></tbody>
+                    </table>
+                    <p class="sp">&nbsp;</p>
+
+                    <table border="0" width="100%" style="border-collapse: collapse;">
+                      <tbody><tr>
+                        <td width="100%" valign="top" style="${cellB}">
+                          <span class="cl">ENTE FEDERATIVO RESPONS\u00c1VEL (EFR)</span><br>
+                          <span class="cv">*****</span><br>
+                        </td>
+                      </tr></tbody>
+                    </table>
+                    <p class="sp">&nbsp;</p>
+
+                    <table border="0" width="100%" style="border-collapse: collapse;">
+                      <tbody><tr>
+                        <td width="64%" valign="top" style="${cellB}">
+                          <span class="cl">SITUA\u00c7\u00c3O CADASTRAL</span><br>
+                          <span class="cv">${cnpjCard.situacao || '\u2014'}</span><br>
+                        </td>
+                        <td width="2%" style="border-right: 1px solid #000;"></td>
+                        <td width="24%" valign="top" style="${cellL}">
+                          <span class="cl">DATA DA SITUA\u00c7\u00c3O CADASTRAL</span><br>
+                          <span class="cv">${dtAb}</span><br>
+                        </td>
+                      </tr></tbody>
+                    </table>
+                    <p class="sp">&nbsp;</p>
+
+                    <table border="0" width="100%" style="border-collapse: collapse;">
+                      <tbody><tr>
+                        <td width="100%" valign="top" style="${cellB}">
+                          <span class="cl">MOTIVO DE SITUA\u00c7\u00c3O CADASTRAL</span><br>
+                          <span class="cv"></span><br>
+                        </td>
+                      </tr></tbody>
+                    </table>
+                    <p class="sp">&nbsp;</p>
+
+                    <table border="0" width="100%" style="border-collapse: collapse;">
+                      <tbody><tr>
+                        <td width="64%" valign="top" style="${cellB}">
+                          <span class="cl">SITUA\u00c7\u00c3O ESPECIAL</span><br>
+                          <span class="cv">********</span><br>
+                        </td>
+                        <td width="2%" style="border-right: 1px solid #000;"></td>
+                        <td width="24%" valign="top" style="${cellL}">
+                          <span class="cl">DATA DA SITUA\u00c7\u00c3O ESPECIAL</span><br>
+                          <span class="cv">********</span><br>
+                        </td>
+                      </tr></tbody>
+                    </table>
+
+                  </td></tr></tbody></table>
+                  </div>
+                ` }} />
+              </div>
+            </DialogBody>
+            <DialogFooter className="sm:justify-between">
+              <a href="https://solucoes.receita.fazenda.gov.br/servicos/cnpjreva/cnpjreva_solicitacao.asp" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:underline flex items-center gap-1">
+                <ExternalLink className="h-3 w-3" /> Abrir cartao oficial
+              </a>
+              <div className="flex gap-2">
+                <Button type="button" variant="success" size="sm" className="gap-1" onClick={() => { buscarCnpj(); setCnpjCard(null) }}>
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Completar no formulario
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setCnpjCard(null)}>
+                  Fechar
+                </Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        )
+      })()}
     </Card>
   )
 }
 
-function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId }: {
+function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
@@ -826,6 +1336,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
   chatMsg: string; setChatMsg: (v: string) => void
   chatAsCliente: boolean; setChatAsCliente: (v: boolean) => void
   clienteId?: string
+  opcoesOrigem: Array<{ id: string; valor: string }>
 }) {
   const [activeTab, setActiveTab] = useState('cadastros')
   const [historicos, setHistoricos] = useState<Array<{ id: string; mensagem: string; tipo: string; createdAt: string; user: { id: string; name: string } | null }>>([])
@@ -880,7 +1391,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
       </CardHeader>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
-        <div className="w-[170px] shrink-0 border-r border-[rgba(0,0,0,0.08)] bg-[#f8f9fa] p-3 overflow-y-auto">
+        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
           <div className="space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon
@@ -949,9 +1460,9 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
                   <Label>Origem</Label>
                   <Controller control={control} name="origem" render={({ field }) => (
-                    <Select value={field.value || 'NAO_INFORMADO'} onValueChange={(v) => field.onChange(v === 'NAO_INFORMADO' ? '' : v)}>
+                    <Select value={field.value || ''} onValueChange={field.onChange}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{ORIGEM_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                      <SelectContent>{opcoesOrigem.map((o) => <SelectItem key={o.id} value={o.valor}>{o.valor}</SelectItem>)}</SelectContent>
                     </Select>
                   )} />
                 </div>
@@ -1948,6 +2459,75 @@ function GoogleMapsEmbed({ logradouro, numero, bairro, cidade, uf, cep }: {
 }
 
 // ============================================================
+// AcessoriasIntegracao — bloco da aba Integrações que mostra o ID
+// atual no Acessórias (se existir) e o botão de cadastro/sincronia.
+// Lê o status via trpc.cliente.getById (idAcessorias) e dispara
+// trpc.acessorias.createCompanyFromCliente quando clicado.
+// ============================================================
+function AcessoriasIntegracao({ clienteId }: { clienteId: string | null }) {
+  const [loading, setLoading] = useState(false)
+  const [idAtual, setIdAtual] = useState<number | null>(null)
+  const [fetchedFor, setFetchedFor] = useState<string | null>(null)
+
+  // Busca o idAcessorias atual ao abrir a aba (só uma vez por cliente)
+  useEffect(() => {
+    if (!clienteId || fetchedFor === clienteId) return
+    setFetchedFor(clienteId)
+    trpc.cliente.getById.query({ id: clienteId })
+      .then((c: any) => setIdAtual(c?.idAcessorias ?? null))
+      .catch(() => setIdAtual(null))
+  }, [clienteId, fetchedFor])
+
+  const handleCadastrar = async () => {
+    if (!clienteId) {
+      alerts.error('Salve o cliente', 'Salve o cliente antes de cadastrar no Acessórias.')
+      return
+    }
+    if (idAtual) {
+      const ok = await alerts.confirmDelete(
+        `Cliente já está vinculado ao Acessórias (ID ${idAtual}). Reenviar dados pode atualizar o cadastro lá. Continuar?`,
+      )
+      if (!ok) return
+    }
+    setLoading(true)
+    try {
+      const r = await (trpc as any).acessorias.createCompanyFromCliente.mutate({ clienteId })
+      setIdAtual(r.idAcessorias)
+      await alerts.success(
+        r.atualizou ? 'Cliente atualizado no Acessórias' : 'Cliente cadastrado no Acessórias',
+        `ID Acessórias: ${r.idAcessorias}. ${r.mensagem}`,
+      )
+    } catch (e) {
+      alerts.error('Falha ao cadastrar', (e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="col-span-12 md:col-span-6 space-y-1.5">
+        <Label>ID Acessórias</Label>
+        <Input value={idAtual != null ? String(idAtual) : ''} readOnly placeholder="—" />
+        <p className="text-[11px] text-muted-foreground">Atualizado automaticamente ao cadastrar via botão</p>
+      </div>
+      <div className="col-span-12 md:col-span-6 flex items-end">
+        <Button
+          type="button"
+          onClick={handleCadastrar}
+          disabled={loading || !clienteId}
+          className="gap-2"
+          style={{ backgroundColor: '#0ea5e9', color: '#fff' }}
+        >
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+          {idAtual ? 'Sincronizar no Acessórias' : 'Cadastrar no Acessórias'}
+        </Button>
+      </div>
+    </>
+  )
+}
+
+// ============================================================
 // ============================================================
 // FiscalCard — pills laterais (padrão igual ComercialCard)
 // ============================================================
@@ -1965,6 +2545,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento }: {
     { key: 'dados', label: 'Dados Fiscais', icon: Receipt },
     { key: 'situacao', label: 'Situação Fiscal', icon: Shield },
     { key: 'caixapostal', label: 'Caixa Postal', icon: Mail },
+    { key: 'drive', label: 'Monitorar XML', icon: HardDriveDownload },
     { key: 'atalhos', label: 'Atalhos', icon: ExternalLink },
   ]
 
@@ -1977,7 +2558,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento }: {
       </CardHeader>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
-        <div className="w-[170px] shrink-0 border-r border-[rgba(0,0,0,0.08)] bg-[#f8f9fa] p-3 overflow-y-auto">
+        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
           <div className="space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon
@@ -2076,6 +2657,24 @@ function FiscalCard({ register, control, clienteId, isEdit, documento }: {
                   <div className="text-center py-10 text-muted-foreground">
                     <Mail className="h-8 w-8 mx-auto mb-2 opacity-30" />
                     <p className="text-xs">Salve o cliente para visualizar a caixa postal.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'drive' && (
+            <div className="-m-5">
+              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <h4 className="text-[13px] font-semibold text-foreground">Monitorar XML — captura automática de NFe</h4>
+              </div>
+              <div className="p-5">
+                {isEdit && clienteId ? (
+                  <DriveSyncCard clienteId={clienteId} />
+                ) : (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <HardDriveDownload className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-xs">Salve o cliente para vincular uma pasta do Drive.</p>
                   </div>
                 )}
               </div>
@@ -2819,6 +3418,9 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
       {/* Modal de detalhamento */}
       <Dialog open={detalheOpen} onOpenChange={(o) => { if (!o) setDetalheOpen(false) }}>
         <DialogContent className="max-w-[720px]">
+          {/* Exceção ao padrão DialogHeaderIcon: o slot do ícone é ocupado pelo
+              badge de prioridade dinâmico (P0/P1/P2/P3 com cor/ícone variáveis).
+              Padrão não comporta esse caso. */}
           <DialogHeader>
             <div className="flex items-center gap-4">
               {detalheMsg && (() => {

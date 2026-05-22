@@ -10,7 +10,7 @@ import {
   PieChart, Pie, Cell, Legend, LabelList,
 } from 'recharts'
 
-const MODULE_COLOR = '#8b5cf6'
+const MODULE_COLOR = 'var(--mod-contabil, #8b5cf6)'
 const GREEN = 'rgba(16, 185, 129, 0.85)'
 const GREEN_SOLID = '#10b981'
 const RED = 'rgba(239, 68, 68, 0.85)'

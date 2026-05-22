@@ -64,4 +64,54 @@ export const alerts = {
     })
     return result.isConfirmed
   },
+
+  /**
+   * Prompt de texto. Retorna o valor digitado (string vazia se em branco) ou
+   * `null` se o usuário cancelou. Distinguir cancelamento de "salvou em branco"
+   * é importante pra fluxos onde o motivo é opcional mas a ação ainda precisa rodar.
+   */
+  async input(opts: {
+    title: string
+    text?: string
+    inputLabel?: string
+    inputPlaceholder?: string
+    confirmText?: string
+    icon?: 'warning' | 'question' | 'info'
+    inputType?: 'text' | 'textarea'
+    required?: boolean
+  }): Promise<string | null> {
+    const result = await Swal.fire({
+      icon: opts.icon ?? 'question',
+      title: opts.title,
+      text: opts.text,
+      input: opts.inputType ?? 'text',
+      inputLabel: opts.inputLabel,
+      inputPlaceholder: opts.inputPlaceholder,
+      showCancelButton: true,
+      confirmButtonColor: themeColor,
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: opts.confirmText ?? 'Confirmar',
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true,
+      inputValidator: opts.required
+        ? (v) => (!v?.trim() ? 'Campo obrigatório' : null)
+        : undefined,
+    })
+    if (!result.isConfirmed) return null
+    return (result.value as string) ?? ''
+  },
+
+  async custom(opts: { title: string; html: string; confirmButtonText?: string; showCancelButton?: boolean; cancelButtonText?: string; preConfirm?: () => unknown }) {
+    return Swal.fire({
+      title: opts.title,
+      html: opts.html,
+      showCancelButton: opts.showCancelButton ?? true,
+      confirmButtonColor: themeColor,
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: opts.confirmButtonText ?? 'Confirmar',
+      cancelButtonText: opts.cancelButtonText ?? 'Cancelar',
+      reverseButtons: true,
+      preConfirm: opts.preConfirm,
+    })
+  },
 }

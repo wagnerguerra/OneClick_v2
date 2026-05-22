@@ -4,20 +4,22 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Trash2, Search, Filter,
+  Plus, Pencil, Trash2, Search, Filter, Settings2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
   Handshake, MoreVertical, FileUp, FileDown, Plug,
-  ChevronDown, RotateCcw, Archive, X, Database, Loader2,
+  ChevronDown, RotateCcw, Archive, X, Database, Loader2, Sparkles, UserCog,
 } from 'lucide-react'
 import {
   Button, Input, Badge,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Card, Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Checkbox,
   cn,
 } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { ImportModal } from './_components/import-modal'
@@ -25,6 +27,8 @@ import { IntegracoesModal } from './_components/integracoes-modal'
 import { exportToExcel, type ExportColumn } from '@/lib/export-data'
 import { SITUACAO_LABELS, SITUACAO_COLORS, AREA_CONTRATADA_OPTIONS } from '@saas/types'
 import { masks } from '@/lib/masks'
+import { EnriquecerCnaeDialog } from './_components/enriquecer-cnae-dialog'
+import { SincronizarResponsaveisDialog } from './_components/sincronizar-responsaveis-dialog'
 
 interface Cliente {
   id: string; code: number; razaoSocial: string; nomeFantasia: string | null
@@ -52,7 +56,49 @@ export default function ClientesPage() {
   const [data, setData] = useState<{ data: Cliente[]; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean } | null>(null)
   const [loading, setLoading] = useState(true)
   const [importOpen, setImportOpen] = useState(false)
+  const [enriquecimentoOpen, setEnriquecimentoOpen] = useState(false)
+  const [responsaveisOpen, setResponsaveisOpen] = useState(false)
   const [integracoesOpen, setIntegracoesOpen] = useState(false)
+
+  // Gerenciador de opcoes (Atividade, Origem)
+  const [opcoesModal, setOpcoesModal] = useState(false)
+  const [opcoesTab, setOpcoesTab] = useState<'ATIVIDADE' | 'ORIGEM'>('ATIVIDADE')
+  const [opcoes, setOpcoes] = useState<Array<{ id: string; tipo: string; valor: string; ordem: number }>>([])
+  const [opcoesLoading, setOpcoesLoading] = useState(false)
+  const [novaOpcao, setNovaOpcao] = useState('')
+
+  const loadOpcoes = useCallback(async (tipo: string) => {
+    setOpcoesLoading(true)
+    try {
+      const data = await (trpc.cliente as any).listOpcoes.query({ tipo }) as typeof opcoes
+      setOpcoes(data)
+    } catch { /* */ }
+    finally { setOpcoesLoading(false) }
+  }, [])
+
+  const openOpcoesModal = () => { setOpcoesModal(true); loadOpcoes(opcoesTab) }
+
+  const handleAddOpcao = async () => {
+    if (!novaOpcao.trim()) return
+    try {
+      await (trpc.cliente as any).createOpcao.mutate({ tipo: opcoesTab, valor: novaOpcao.trim() })
+      setNovaOpcao('')
+      loadOpcoes(opcoesTab)
+    } catch (err) { alerts.error('Erro', (err as Error).message) }
+  }
+
+  const handleUpdateOpcao = async (id: string, valor: string) => {
+    try { await (trpc.cliente as any).updateOpcao.mutate({ id, valor }) } catch { /* */ }
+  }
+
+  const handleDeleteOpcao = async (id: string, valor: string) => {
+    const ok = await alerts.confirmDelete(valor)
+    if (!ok) return
+    try {
+      await (trpc.cliente as any).deleteOpcao.mutate({ id })
+      setOpcoes(prev => prev.filter(o => o.id !== id))
+    } catch (err) { alerts.error('Erro', (err as Error).message) }
+  }
   const [exporting, setExporting] = useState(false)
 
   // Filtros
@@ -310,6 +356,9 @@ export default function ClientesPage() {
               <Button variant="success" size="sm" asChild>
                 <Link href="/clientes/new"><Plus className="h-4 w-4" />Novo Cliente</Link>
               </Button>
+              <Button variant="outline" size="sm" onClick={openOpcoesModal} className="gap-1.5">
+                <Settings2 className="h-4 w-4" /> Opcoes
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setIntegracoesOpen(true)} className="gap-1.5">
                 <Plug className="h-4 w-4" />Integrações
               </Button>
@@ -324,6 +373,12 @@ export default function ClientesPage() {
                     {legacyImporting ? 'Importando...' : 'Importar do Legado'}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleExport} disabled={exporting}><FileDown className="h-4 w-4" />Exportar</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setEnriquecimentoOpen(true)}>
+                    <Sparkles className="h-4 w-4 text-orange-500" />Enriquecer CNAE
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setResponsaveisOpen(true)}>
+                    <UserCog className="h-4 w-4 text-orange-500" />Sincronizar Responsáveis
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => { setTrashMode(true); setPage(1) }}><Archive className="h-4 w-4" />Lixeira</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -465,7 +520,7 @@ export default function ClientesPage() {
             <TableRow>
               {!trashMode && (
                 <TableHead className="w-[40px]">
-                  <Checkbox checked={data?.data && data.data.length > 0 && selected.size === data.data.length} onCheckedChange={toggleSelectAll} />
+                  <Checkbox checked={!!(data?.data && data.data.length > 0 && selected.size === data.data.length)} onCheckedChange={toggleSelectAll} />
                 </TableHead>
               )}
               <TableHead className="w-[60px]">
@@ -591,6 +646,69 @@ export default function ClientesPage() {
 
       <ImportModal open={importOpen} onClose={() => setImportOpen(false)} onSuccess={fetchClientes} />
       <IntegracoesModal open={integracoesOpen} onClose={() => setIntegracoesOpen(false)} onRefreshList={fetchClientes} />
+      <EnriquecerCnaeDialog
+        open={enriquecimentoOpen}
+        onOpenChange={setEnriquecimentoOpen}
+        onAfterRun={fetchClientes}
+      />
+      <SincronizarResponsaveisDialog
+        open={responsaveisOpen}
+        onOpenChange={setResponsaveisOpen}
+        onAfterRun={fetchClientes}
+      />
+
+      {/* Gerenciador de Opcoes (Atividade / Origem) */}
+      <Dialog open={opcoesModal} onOpenChange={setOpcoesModal}>
+        <DialogContent className="max-w-[500px]">
+          <DialogHeaderIcon icon={Settings2} color="emerald">
+            <DialogTitle className="text-[15px]">Opcoes de Cadastro</DialogTitle>
+            <DialogDescription className="text-[11px]">Gerencie as opcoes dos campos Atividade e Origem</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            {/* Tabs */}
+            <div className="flex gap-1 mb-4 border-b">
+              {(['ATIVIDADE', 'ORIGEM'] as const).map(tab => (
+                <button key={tab} type="button"
+                  className={cn('px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px', opcoesTab === tab ? 'border-emerald-500 text-emerald-700' : 'border-transparent text-muted-foreground hover:text-foreground')}
+                  onClick={() => { setOpcoesTab(tab); loadOpcoes(tab) }}
+                >
+                  {tab === 'ATIVIDADE' ? 'Atividades' : 'Origens'}
+                </button>
+              ))}
+            </div>
+            {/* Lista */}
+            <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+              {opcoesLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+              ) : opcoes.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">Nenhuma opcao cadastrada</p>
+              ) : opcoes.map(op => (
+                <div key={op.id} className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/30">
+                  <Input
+                    value={op.valor}
+                    onChange={e => setOpcoes(prev => prev.map(o => o.id === op.id ? { ...o, valor: e.target.value } : o))}
+                    onBlur={() => handleUpdateOpcao(op.id, op.valor)}
+                    className="h-8 text-sm flex-1"
+                  />
+                  <button type="button" className="text-muted-foreground hover:text-destructive shrink-0" onClick={() => handleDeleteOpcao(op.id, op.valor)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            {/* Adicionar */}
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t">
+              <Input placeholder={opcoesTab === 'ATIVIDADE' ? 'Nova atividade...' : 'Nova origem...'} value={novaOpcao} onChange={e => setNovaOpcao(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddOpcao() }} className="h-8 text-sm flex-1" />
+              <Button size="sm" variant="outline" className="h-8 gap-1 shrink-0" onClick={handleAddOpcao} disabled={!novaOpcao.trim()}>
+                <Plus className="h-3.5 w-3.5" /> Adicionar
+              </Button>
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setOpcoesModal(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

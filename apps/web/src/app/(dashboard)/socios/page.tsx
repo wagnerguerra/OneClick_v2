@@ -21,6 +21,7 @@ import { exportToExcel } from '@/lib/export-data'
 import { TIPO_SOCIO_LABELS } from '@saas/types'
 import { ImportModal } from './_components/import-modal'
 import { QsaImportModal } from './_components/qsa-import-modal'
+import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 
 interface Socio {
   id: string
@@ -95,7 +96,7 @@ export default function SociosPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md"><UserPlus className="h-6 w-6" /></div>
+          <PageHeaderIcon module="cadastros" icon={UserPlus} />
           <div><h1>Sócios</h1><p className="text-sm text-muted-foreground">Gerencie o quadro societário</p></div>
         </div>
         <div className="flex items-center gap-2 shrink-0">

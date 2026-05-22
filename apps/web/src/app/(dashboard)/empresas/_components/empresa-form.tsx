@@ -2,15 +2,15 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useForm, Controller, type Control } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createEmpresaSchema, type CreateEmpresaInput } from '@saas/types'
-import { HelpCircle, Scale, MapPin, Phone, Search, Loader2, Upload, X, Save, ArrowLeft } from 'lucide-react'
+import { HelpCircle, Scale, MapPin, Phone, Search, Loader2, Upload, X, Save, ArrowLeft, Building2 } from 'lucide-react'
 import {
   Button,
   Input,
   Label,
-  Checkbox,
   Card,
   Select,
   SelectTrigger,
@@ -21,16 +21,34 @@ import {
   TooltipTrigger,
   TooltipContent,
   TooltipProvider,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
 } from '@saas/ui'
+
+const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
+
+const EMPRESA_TABS = [
+  { key: 'dados-legais', label: 'Dados Legais', icon: Scale },
+  { key: 'endereco',     label: 'Endereço',     icon: MapPin },
+  { key: 'contato',      label: 'Contato',      icon: Phone },
+  { key: 'logo',         label: 'Logomarca',    icon: Upload },
+] as const
+
+type EmpresaTabKey = typeof EMPRESA_TABS[number]['key']
+
+// Mapeia cada campo do schema pra aba onde está renderizado — usado pra pular
+// pro tab com erro quando o usuário tenta salvar sem preencher tudo.
+const TAB_BY_FIELD: Record<string, EmpresaTabKey> = {
+  razaoSocial: 'dados-legais', nomeFantasia: 'dados-legais', cnpj: 'dados-legais',
+  inscricaoEstadual: 'dados-legais', inscricaoMunicipal: 'dados-legais', taxRegime: 'dados-legais',
+  cep: 'endereco', logradouro: 'endereco', numero: 'endereco', complemento: 'endereco',
+  bairro: 'endereco', cidade: 'endereco', uf: 'endereco',
+  telefone: 'contato', email: 'contato', site: 'contato',
+  logoUrl: 'logo', logoDarkUrl: 'logo', marcaDaguaUrl: 'logo',
+}
 import { cn } from '@saas/ui'
 import { masks } from '@/lib/masks'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { getApiUrl } from '@/lib/api-url'
+import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { refreshEmpresaAtiva } from '@/hooks/use-empresa-ativa'
 
 interface EmpresaFormProps {
@@ -39,7 +57,6 @@ interface EmpresaFormProps {
   title: string
   description: string
   icon?: React.ReactNode
-  iconBg?: string
   defaultValues?: Partial<CreateEmpresaInput> & { code?: number }
 }
 
@@ -69,7 +86,7 @@ const UF_OPTIONS = [
 function LogoUpload({ control, setValue, fieldName = 'logoUrl', label }: {
   control: Control<CreateEmpresaInput>
   setValue: ReturnType<typeof useForm<CreateEmpresaInput>>['setValue']
-  fieldName?: 'logoUrl' | 'logoDarkUrl'
+  fieldName?: 'logoUrl' | 'logoDarkUrl' | 'marcaDaguaUrl'
   label?: string
 }) {
   const [uploading, setUploading] = useState(false)
@@ -129,7 +146,7 @@ function LogoUpload({ control, setValue, fieldName = 'logoUrl', label }: {
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={url}
+                src={resolveAssetUrl(url)}
                 alt="Logo"
                 className="h-16 w-auto max-w-[180px] rounded-[2px] border border-border object-contain bg-white p-1.5"
               />
@@ -185,10 +202,11 @@ function LogoUpload({ control, setValue, fieldName = 'logoUrl', label }: {
   )
 }
 
-export function EmpresaForm({ mode, empresaId, title, description, icon, iconBg = 'from-emerald-500 to-emerald-600', defaultValues }: EmpresaFormProps) {
+export function EmpresaForm({ mode, empresaId, title, description, icon, defaultValues }: EmpresaFormProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<EmpresaTabKey>('dados-legais')
 
   const {
     register,
@@ -219,6 +237,7 @@ export function EmpresaForm({ mode, empresaId, title, description, icon, iconBg 
       site: '',
       logoUrl: '',
       logoDarkUrl: '',
+      marcaDaguaUrl: '',
       ...defaultValues,
     },
   })
@@ -237,29 +256,35 @@ export function EmpresaForm({ mode, empresaId, title, description, icon, iconBg 
     setCnpjError(null)
     setFetching(true)
     try {
-      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`)
-      if (!res.ok) {
-        setCnpjError('CNPJ não encontrado na Receita Federal')
-        return
+      // Via backend (tRPC) — evita CORS, extensões do browser e centraliza fallback BrasilAPI/SERPRO.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = await (trpc.socio as any).consultarCnpj.query({ cnpj: digits }) as {
+        razaoSocial: string | null
+        nomeFantasia: string | null
+        cep: string | null
+        logradouro: string | null
+        numero: string | null
+        complemento: string | null
+        bairro: string | null
+        municipio: string | null
+        uf: string | null
       }
-      const data = await res.json()
 
-      setValue('razaoSocial', data.razao_social ?? '', { shouldDirty: true })
-      setValue('nomeFantasia', data.nome_fantasia ?? '', { shouldDirty: true })
-      setValue('cep', data.cep?.replace(/\D/g, '') ?? '', { shouldDirty: true })
-      setValue('logradouro', data.logradouro ?? '', { shouldDirty: true })
-      setValue('numero', data.numero ?? '', { shouldDirty: true })
-      setValue('complemento', data.complemento ?? '', { shouldDirty: true })
-      setValue('bairro', data.bairro ?? '', { shouldDirty: true })
-      setValue('cidade', data.municipio ?? '', { shouldDirty: true })
-      setValue('uf', data.uf ?? '', { shouldDirty: true })
-
-      if (data.ddd_telefone_1) {
-        const tel = data.ddd_telefone_1.replace(/\D/g, '')
-        setValue('telefone', tel, { shouldDirty: true })
-      }
-    } catch {
-      setCnpjError('Erro ao consultar CNPJ. Tente novamente.')
+      if (data.razaoSocial) setValue('razaoSocial', data.razaoSocial, { shouldDirty: true })
+      if (data.nomeFantasia) setValue('nomeFantasia', data.nomeFantasia, { shouldDirty: true })
+      if (data.cep) setValue('cep', String(data.cep).replace(/\D/g, ''), { shouldDirty: true })
+      if (data.logradouro) setValue('logradouro', data.logradouro, { shouldDirty: true })
+      if (data.numero) setValue('numero', data.numero, { shouldDirty: true })
+      if (data.complemento) setValue('complemento', data.complemento, { shouldDirty: true })
+      if (data.bairro) setValue('bairro', data.bairro, { shouldDirty: true })
+      if (data.municipio) setValue('cidade', data.municipio, { shouldDirty: true })
+      if (data.uf) setValue('uf', data.uf, { shouldDirty: true })
+    } catch (err) {
+      const msg = (err as Error).message || ''
+      setCnpjError(msg.includes('não encontrado') || msg.includes('404')
+        ? 'CNPJ não encontrado na Receita Federal'
+        : 'Erro ao consultar CNPJ. Tente novamente.',
+      )
     } finally {
       setFetching(false)
     }
@@ -286,14 +311,30 @@ export function EmpresaForm({ mode, empresaId, title, description, icon, iconBg 
     }
   }
 
+  // Pula pra primeira aba com erro + mostra toast quando a validação falha.
+  // Sem isso, o clique no Salvar parecia não fazer nada porque o erro estava em
+  // aba não-visível (ex: telefone faltando em "Contato" mas usuário em "Dados Legais").
+  function onInvalid(errs: Record<string, unknown>) {
+    const firstErrorField = Object.keys(errs)[0]
+    const targetTab = firstErrorField ? TAB_BY_FIELD[firstErrorField] : undefined
+    if (targetTab && targetTab !== activeTab) setActiveTab(targetTab)
+    alerts.warning(
+      'Campos obrigatórios',
+      'Preencha os campos destacados em vermelho antes de salvar.',
+    )
+  }
+
   return (
     <TooltipProvider>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-5">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             {icon && (
-              <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white bg-gradient-to-br shadow-md', iconBg)}>
+              <div
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
+                style={{ backgroundColor: MODULE_COLOR }}
+              >
                 {icon}
               </div>
             )}
@@ -307,9 +348,15 @@ export function EmpresaForm({ mode, empresaId, title, description, icon, iconBg 
               <Save className="h-4 w-4" />
               {saving ? 'Salvando...' : 'Salvar'}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => router.push('/empresas')}>
-              <ArrowLeft className="h-4 w-4" />
-              Voltar
+            <Button
+              asChild
+              variant="outline"
+              size="icon-sm"
+              title="Voltar"
+            >
+              <Link href="/empresas">
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
             </Button>
           </div>
         </div>
@@ -321,25 +368,45 @@ export function EmpresaForm({ mode, empresaId, title, description, icon, iconBg 
         )}
 
         <Card className="overflow-hidden">
-          <Tabs defaultValue="dados-legais" orientation="vertical" className="flex min-h-[500px]">
-            <TabsList variant="pills" className="w-[124px] shrink-0 border-r border-border bg-muted/30 p-3 items-center">
-              <TabsTrigger variant="pills" value="dados-legais" icon={<Scale className="h-4 w-4" />}>
-                Dados Legais
-              </TabsTrigger>
-              <TabsTrigger variant="pills" value="endereco" icon={<MapPin className="h-4 w-4" />}>
-                Endereço
-              </TabsTrigger>
-              <TabsTrigger variant="pills" value="contato" icon={<Phone className="h-4 w-4" />}>
-                Contato
-              </TabsTrigger>
-              <TabsTrigger variant="pills" value="logo" icon={<Upload className="h-4 w-4" />}>
-                Logomarca
-              </TabsTrigger>
-            </TabsList>
-            <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <h5 className="text-[13px] font-semibold">Detalhes da Empresa</h5>
+          </div>
+          <div className="flex min-h-[500px]">
+            {/* Pills laterais — padrão dos demais módulos */}
+            <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+              <div className="space-y-1">
+                {EMPRESA_TABS.map(tab => {
+                  const Icon = tab.icon
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setActiveTab(tab.key)}
+                      className={cn(
+                        'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
+                        activeTab === tab.key
+                          ? 'text-white shadow-sm'
+                          : 'text-muted-foreground hover:bg-white dark:hover:bg-muted/60 hover:text-foreground',
+                      )}
+                      style={activeTab === tab.key ? { backgroundColor: MODULE_COLOR } : undefined}
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" />
+                      <span>{tab.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div
+              key={activeTab}
+              className="flex-1 min-w-0 p-5"
+              style={{ animation: 'fadeSlideIn 0.25s ease-out' }}
+            >
 
             {/* DADOS LEGAIS */}
-            <TabsContent value="dados-legais" className="p-5">
+            {activeTab === 'dados-legais' && (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {mode === 'edit' && defaultValues?.code !== undefined && (
                   <div className="space-y-1.5">
@@ -451,10 +518,10 @@ export function EmpresaForm({ mode, empresaId, title, description, icon, iconBg 
                   />
                 </div>
               </div>
-            </TabsContent>
+            )}
 
             {/* ENDEREÇO */}
-            <TabsContent value="endereco" className="p-5">
+            {activeTab === 'endereco' && (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="cep">CEP</Label>
@@ -541,10 +608,10 @@ export function EmpresaForm({ mode, empresaId, title, description, icon, iconBg 
                   )}
                 </div>
               </div>
-            </TabsContent>
+            )}
 
             {/* CONTATO */}
-            <TabsContent value="contato" className="p-5">
+            {activeTab === 'contato' && (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="telefone">Telefone<RequiredMark /></Label>
@@ -579,10 +646,10 @@ export function EmpresaForm({ mode, empresaId, title, description, icon, iconBg 
                   />
                 </div>
               </div>
-            </TabsContent>
+            )}
 
             {/* LOGOMARCA */}
-            <TabsContent value="logo" className="p-5">
+            {activeTab === 'logo' && (
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5">
@@ -598,10 +665,17 @@ export function EmpresaForm({ mode, empresaId, title, description, icon, iconBg 
                   </div>
                   <LogoUpload control={control} setValue={setValue} fieldName="logoDarkUrl" />
                 </div>
+                <div className="space-y-1.5 sm:col-span-2 pt-4 border-t border-border/40">
+                  <div className="flex items-center gap-1.5">
+                    <Label>Marca d&apos;água</Label>
+                    <FieldHint text="Imagem grande exibida no fundo dos documentos impressos (ex: orçamento). Idealmente uma versão monocromática ou com transparência da logo da empresa, em PNG. Aparece com baixa opacidade, centralizada na página." />
+                  </div>
+                  <LogoUpload control={control} setValue={setValue} fieldName="marcaDaguaUrl" />
+                </div>
               </div>
-            </TabsContent>
+            )}
             </div>
-          </Tabs>
+          </div>
         </Card>
 
       </form>

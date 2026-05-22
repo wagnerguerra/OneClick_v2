@@ -18,7 +18,7 @@ import { BiMatriz } from './_components/bi-matriz'
 import { BiAnalise } from './_components/bi-analise'
 import { BiGerenciar } from './_components/bi-gerenciar'
 
-const MODULE_COLOR = '#8b5cf6'
+const MODULE_COLOR = 'var(--mod-contabil, #8b5cf6)'
 
 interface ClienteOption {
   id: string
@@ -335,7 +335,7 @@ export default function BiFaturamentoPage() {
           </CardHeader>
           <div className="flex min-h-[450px]">
             {/* Pills laterais */}
-            <div className="w-[170px] shrink-0 border-r border-[rgba(0,0,0,0.08)] bg-[#f8f9fa] p-3">
+            <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3">
               <div className="space-y-1">
                 {TABS.map(tab => {
                   const Icon = tab.icon

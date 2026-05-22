@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
+import { router, readProcedure, writeProcedure, deleteProcedure, protectedProcedure } from '../trpc/trpc.service'
 import { createEmpresaSchema, updateEmpresaSchema, listEmpresaSchema } from '@saas/types'
 import { EmpresaService } from './empresa.service'
 
@@ -16,5 +16,7 @@ export function createEmpresaRouter(empresaService: EmpresaService) {
     exportAll: readProcedure(MODULE).query(() => empresaService.exportAll()),
     listForSelect: readProcedure(MODULE).query(() => empresaService.listForSelect()),
     importBulk: writeProcedure(MODULE).input(z.object({ items: z.array(createEmpresaSchema) })).mutation(({ input, ctx }) => empresaService.bulkCreate(input.items, ctx.userId)),
+    /** Retorna a empresa vinculada ao usuário logado — sem exigir permissão no módulo */
+    getMyEmpresa: protectedProcedure.query(({ ctx }) => empresaService.getMyEmpresa(ctx.userId)),
   })
 }

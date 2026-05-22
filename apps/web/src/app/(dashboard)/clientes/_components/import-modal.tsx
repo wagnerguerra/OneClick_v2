@@ -4,10 +4,11 @@ import { useState } from 'react'
 import { FileUp, Download, Loader2, CheckCircle, XCircle, AlertTriangle, ArrowRight } from 'lucide-react'
 import {
   Button, Badge,
-  Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
+  Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import {
@@ -136,16 +137,14 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
   return (
     <Dialog open={open} onOpenChange={o => !o && handleClose()}>
       <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10"><FileUp className="h-4.5 w-4.5 text-emerald-600" /></div>
-            <div><span>Importar Clientes</span><DialogDescription>
-              {step === 'upload' && 'Faca upload de um arquivo Excel ou CSV.'}
-              {step === 'mapping' && 'Mapeie as colunas do arquivo.'}
-              {step === 'preview' && `${validRows.length} de ${rows.length} registros validos.`}
-            </DialogDescription></div>
-          </DialogTitle>
-        </DialogHeader>
+        <DialogHeaderIcon icon={FileUp} color="emerald">
+          <DialogTitle>Importar Clientes</DialogTitle>
+          <DialogDescription>
+            {step === 'upload' && 'Faca upload de um arquivo Excel ou CSV.'}
+            {step === 'mapping' && 'Mapeie as colunas do arquivo.'}
+            {step === 'preview' && `${validRows.length} de ${rows.length} registros validos.`}
+          </DialogDescription>
+        </DialogHeaderIcon>
         <DialogBody>
           {step === 'upload' && (
             <div className="space-y-4">

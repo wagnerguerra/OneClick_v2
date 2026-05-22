@@ -30,9 +30,17 @@ export class AuthController {
 
     const response = await this.authService.handleRequest(webRequest)
 
+    // CRITICO: Set-Cookie pode aparecer multiplas vezes (verifyTotp seta 2-3 cookies de uma vez:
+    // session_token, expirar two_factor, trust_device). res.setHeader sobrescreve, perdendo cookies.
+    // Usamos getSetCookie() (array) + res.setHeader com array para enviar todos.
+    const setCookieHeaders = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.() ?? []
     response.headers.forEach((value, key) => {
+      if (key.toLowerCase() === 'set-cookie') return // tratado separadamente
       res.setHeader(key, value)
     })
+    if (setCookieHeaders.length > 0) {
+      res.setHeader('Set-Cookie', setCookieHeaders)
+    }
 
     res.status(response.status)
 

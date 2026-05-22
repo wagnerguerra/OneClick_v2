@@ -19,8 +19,17 @@ import {
   Button, Input, Label, Checkbox, Card,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
-  Tabs, TabsList, TabsTrigger, TabsContent,
 } from '@saas/ui'
+
+const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
+
+const COLAB_TABS = [
+  { key: 'identificacao', label: 'Identificação', icon: User },
+  { key: 'documentos',    label: 'Documentos',    icon: FileText },
+  { key: 'endereco',      label: 'Endereço',      icon: MapPin },
+  { key: 'contrato',      label: 'Contrato / RH', icon: Briefcase },
+  { key: 'contato',       label: 'Contato',       icon: Phone },
+] as const
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -33,7 +42,6 @@ interface ColaboradorFormProps {
   title: string
   description: string
   icon?: React.ReactNode
-  iconBg?: string
   colaboradorId?: string
   defaultValues?: Partial<CreateColaboradorInput> & { code?: number }
 }
@@ -50,13 +58,13 @@ function FieldHint({ text }: { text: string }) {
 }
 
 export function ColaboradorForm({
-  mode, colaboradorId, title, description, icon,
-  iconBg = 'from-emerald-500 to-emerald-600', defaultValues,
+  mode, colaboradorId, title, description, icon, defaultValues,
 }: ColaboradorFormProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [areas, setAreas] = useState<SelectOption[]>([])
   const [cargos, setCargos] = useState<SelectOption[]>([])
+  const [activeTab, setActiveTab] = useState<typeof COLAB_TABS[number]['key']>('identificacao')
 
   const {
     register, handleSubmit, control, setValue, watch,
@@ -144,7 +152,10 @@ export function ColaboradorForm({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             {icon && (
-              <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white bg-gradient-to-br shadow-md', iconBg)}>
+              <div
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
+                style={{ backgroundColor: MODULE_COLOR }}
+              >
                 {icon}
               </div>
             )}
@@ -164,30 +175,48 @@ export function ColaboradorForm({
           </div>
         </div>
 
-        <Card className="overflow-hidden">
-          <Tabs defaultValue="identificacao" orientation="vertical" className="flex min-h-[550px]">
-            <TabsList variant="pills" className="w-[140px] shrink-0 border-r border-border bg-muted/30 p-3 items-center">
-              <TabsTrigger variant="pills" value="identificacao" icon={<User className="h-4 w-4" />}>
-                Identificação
-              </TabsTrigger>
-              <TabsTrigger variant="pills" value="documentos" icon={<FileText className="h-4 w-4" />}>
-                Documentos
-              </TabsTrigger>
-              <TabsTrigger variant="pills" value="endereco" icon={<MapPin className="h-4 w-4" />}>
-                Endereço
-              </TabsTrigger>
-              <TabsTrigger variant="pills" value="contrato" icon={<Briefcase className="h-4 w-4" />}>
-                Contrato / RH
-              </TabsTrigger>
-              <TabsTrigger variant="pills" value="contato" icon={<Phone className="h-4 w-4" />}>
-                Contato
-              </TabsTrigger>
-            </TabsList>
+        <Card>
+          <div className="flex items-center gap-2 border-b border-[rgba(0,0,0,0.08)] px-5 py-3">
+            <User className="h-4 w-4 text-muted-foreground" />
+            <h5 className="text-[13px] font-semibold">Detalhes do Colaborador</h5>
+          </div>
+          <div className="flex min-h-[500px]">
+            {/* Pills laterais — padrão dos demais módulos */}
+            <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+              <div className="space-y-1">
+                {COLAB_TABS.map(tab => {
+                  const Icon = tab.icon
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setActiveTab(tab.key)}
+                      className={cn(
+                        'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
+                        activeTab === tab.key
+                          ? 'text-white shadow-sm'
+                          : 'text-muted-foreground hover:bg-white dark:hover:bg-muted/60 hover:text-foreground',
+                      )}
+                      style={activeTab === tab.key ? { backgroundColor: MODULE_COLOR } : undefined}
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" />
+                      {tab.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
 
-            <div className="flex-1 min-w-0">
+            {/* Conteúdo */}
+            <div key={activeTab} className="flex-1 min-w-0" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
 
               {/* ── IDENTIFICAÇÃO ─────────────────────── */}
-              <TabsContent value="identificacao" className="p-5">
+              {activeTab === 'identificacao' && (
+              <div>
+                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                  <h4 className="text-[13px] font-semibold text-foreground">Identificação</h4>
+                </div>
+                <div className="p-5">
                 <div className="grid grid-cols-12 gap-4">
                   {mode === 'edit' && defaultValues?.code !== undefined && (
                     <div className="col-span-2">
@@ -266,10 +295,17 @@ export function ColaboradorForm({
                     <Input id="naturalidade" placeholder="Cidade/UF" {...register('naturalidade')} className="mt-1.5" />
                   </div>
                 </div>
-              </TabsContent>
+                </div>
+              </div>
+              )}
 
               {/* ── DOCUMENTOS ────────────────────────── */}
-              <TabsContent value="documentos" className="p-5">
+              {activeTab === 'documentos' && (
+              <div>
+                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                  <h4 className="text-[13px] font-semibold text-foreground">Documentos</h4>
+                </div>
+                <div className="p-5">
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-4">
                     <Label htmlFor="rg">RG</Label>
@@ -300,10 +336,17 @@ export function ColaboradorForm({
                     <Input id="reservista" placeholder="Número" {...register('reservista')} className="mt-1.5" />
                   </div>
                 </div>
-              </TabsContent>
+                </div>
+              </div>
+              )}
 
               {/* ── ENDEREÇO ──────────────────────────── */}
-              <TabsContent value="endereco" className="p-5">
+              {activeTab === 'endereco' && (
+              <div>
+                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                  <h4 className="text-[13px] font-semibold text-foreground">Endereço</h4>
+                </div>
+                <div className="p-5">
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-3">
                     <Label htmlFor="cep">CEP</Label>
@@ -352,10 +395,17 @@ export function ColaboradorForm({
                     />
                   </div>
                 </div>
-              </TabsContent>
+                </div>
+              </div>
+              )}
 
               {/* ── CONTRATO / RH ─────────────────────── */}
-              <TabsContent value="contrato" className="p-5">
+              {activeTab === 'contrato' && (
+              <div>
+                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                  <h4 className="text-[13px] font-semibold text-foreground">Contrato / RH</h4>
+                </div>
+                <div className="p-5">
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-4">
                     <Label>Tipo de Contrato</Label>
@@ -464,10 +514,17 @@ export function ColaboradorForm({
                     />
                   </div>
                 </div>
-              </TabsContent>
+                </div>
+              </div>
+              )}
 
               {/* ── CONTATO ───────────────────────────── */}
-              <TabsContent value="contato" className="p-5">
+              {activeTab === 'contato' && (
+              <div>
+                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                  <h4 className="text-[13px] font-semibold text-foreground">Contato</h4>
+                </div>
+                <div className="p-5">
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-6">
                     <Label htmlFor="email">E-mail</Label>
@@ -495,10 +552,12 @@ export function ColaboradorForm({
                     />
                   </div>
                 </div>
-              </TabsContent>
+                </div>
+              </div>
+              )}
 
             </div>
-          </Tabs>
+          </div>
         </Card>
       </form>
     </TooltipProvider>

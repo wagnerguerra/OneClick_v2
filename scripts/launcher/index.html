@@ -61,6 +61,9 @@
       --yellow-dim: rgba(245,158,11,0.15);
       --purple: #8b5cf6;
       --cyan: #06b6d4;
+      --sky: #0ea5e9;
+      --sky-dim: rgba(14,165,233,0.15);
+      --sky-deep: #0369a1;
       --radius: 12px;
       --radius-sm: 8px;
       --transition: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
@@ -134,14 +137,49 @@
       background: var(--bg-secondary);
       border-right: 1px solid var(--border);
       display: flex; flex-direction: column; flex-shrink: 0;
-      transition: background 0.3s;
+      transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
+      position: relative;
     }
-    .sidebar-header { padding: 20px 16px 16px; border-bottom: 1px solid var(--border); }
-    .sidebar-logo { font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.5px; }
-    .sidebar-logo span { color: var(--green); }
-    .sidebar-sub { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-top: 2px; }
+    .sidebar.collapsed { width: 64px; }
 
-    .sidebar-nav { flex: 1; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; }
+    .sidebar-header {
+      padding: 20px 16px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+      min-height: 67px;
+      transition: padding 0.22s ease;
+    }
+    .sidebar.collapsed .sidebar-header { padding: 16px 12px; justify-content: center; }
+    .sidebar-logo-icon {
+      width: 32px; height: 32px; flex-shrink: 0;
+      background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 50%, #0369a1 100%);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(14, 165, 233, 0.35);
+    }
+    .sidebar-logo-text { display: flex; flex-direction: column; transition: opacity 0.18s; }
+    .sidebar.collapsed .sidebar-logo-text { display: none; }
+    .sidebar-logo { font-size: 16px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.5px; line-height: 1.1; }
+    .sidebar-logo span { color: var(--sky); }
+    .sidebar-sub { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-top: 2px; }
+
+    .sidebar-collapse-btn {
+      position: absolute;
+      top: 22px; right: -11px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--bg-card); border: 1px solid var(--border-light);
+      color: var(--text-secondary); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 10;
+      transition: var(--transition);
+      box-shadow: var(--shadow);
+    }
+    .sidebar-collapse-btn:hover { color: var(--sky); border-color: var(--sky); }
+    .sidebar-collapse-btn svg { transition: transform 0.22s ease; }
+    .sidebar.collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
+
+    .sidebar-nav { flex: 1; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
     .nav-item {
       display: flex; align-items: center; gap: 10px;
       padding: 10px 12px; border-radius: var(--radius-sm);
@@ -149,16 +187,41 @@
       transition: background 0.1s, color 0.1s;
       font-size: 13px; font-weight: 500;
       border: none; background: none; width: 100%; text-align: left;
+      position: relative;
+      white-space: nowrap;
     }
     .nav-item:hover { background: var(--border-light); color: var(--text-primary); }
-    .nav-item.active { background: rgba(34,197,94,0.1); color: var(--green); }
-    .nav-item .nav-icon { width: 18px; text-align: center; font-size: 15px; display: flex; align-items: center; justify-content: center; }
+    .nav-item.active { background: rgba(14,165,233,0.12); color: var(--sky); }
+    .nav-item .nav-icon { width: 18px; text-align: center; font-size: 15px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .nav-item .nav-label { transition: opacity 0.18s; flex: 1; }
+    .sidebar.collapsed .nav-item { padding: 10px; justify-content: center; }
+    .sidebar.collapsed .nav-item .nav-label { display: none; }
+    .sidebar.collapsed .nav-badge { display: none; }
+    .sidebar.collapsed .nav-section-label { display: none; }
+
+    /* Tooltip on collapsed nav-item hover */
+    .sidebar.collapsed .nav-item:hover::after {
+      content: attr(data-label);
+      position: absolute;
+      left: calc(100% + 12px);
+      top: 50%; transform: translateY(-50%);
+      background: var(--bg-card); border: 1px solid var(--border-light);
+      color: var(--text-primary); padding: 6px 10px; border-radius: 6px;
+      font-size: 12px; font-weight: 500; white-space: nowrap;
+      box-shadow: var(--shadow);
+      pointer-events: none; z-index: 100;
+    }
+
     .nav-badge { margin-left: auto; font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: 600; }
-    .nav-badge.ok { background: var(--green-dim); color: var(--green); }
+    .nav-badge.ok { background: rgba(14,165,233,0.15); color: var(--sky); }
     .nav-badge.off { background: var(--red-dim); color: var(--red); }
 
     .sidebar-footer { padding: 12px 8px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
     .sidebar-footer .nav-item { font-size: 12px; padding: 8px 12px; }
+    .sidebar.collapsed .sidebar-footer .nav-item { padding: 8px; }
+    .sidebar.collapsed .theme-toggle span:last-child,
+    .sidebar.collapsed .sci-badge span:last-child { display: none; }
+    .sidebar.collapsed .sci-badge { justify-content: center; padding: 8px; }
 
     .main-content { flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; }
 
@@ -256,10 +319,46 @@
     .btn-solid-green:hover { background: #16a34a; }
     .btn-solid-red { background: var(--red); color: #fff; border-color: var(--red); }
     .btn-solid-red:hover { background: #dc2626; }
+    .btn-sky { border-color: rgba(14,165,233,0.3); color: var(--sky); }
+    .btn-sky:hover { background: var(--sky-dim); border-color: var(--sky); }
     .btn-lg { padding: 12px 24px; font-size: 13px; font-weight: 600; }
     .btn-sm { padding: 5px 10px; font-size: 11px; }
     .btn-flex { flex: 1; }
     .actions-bar { display: flex; gap: 10px; margin-bottom: 24px; }
+
+    /* Estados pending (Iniciando.../Parando...) */
+    .btn.pending {
+      cursor: wait; opacity: 0.85;
+      pointer-events: none;
+    }
+    .btn.pending .btn-spinner {
+      width: 12px; height: 12px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Banner de atualização disponível */
+    .update-banner {
+      display: none;
+      align-items: center; gap: 12px;
+      padding: 10px 16px; background: var(--sky-dim);
+      border: 1px solid rgba(14,165,233,0.3);
+      border-radius: var(--radius-sm);
+      margin-bottom: 16px;
+      font-size: 12px; color: var(--sky);
+    }
+    .update-banner.visible { display: flex; }
+    .update-banner-text { flex: 1; }
+    .update-banner-text strong { color: var(--text-primary); font-weight: 700; }
+    .update-progress {
+      height: 4px; background: rgba(14,165,233,0.2); border-radius: 2px;
+      margin-top: 6px; overflow: hidden;
+    }
+    .update-progress-bar { height: 100%; background: var(--sky); transition: width 0.3s; width: 0%; }
 
     /* ═══════════════════════════════════════════════════════════
        Logs Panel
@@ -463,49 +562,68 @@
   <!-- ═══ App Layout ═══ -->
   <div class="app-layout">
     <!-- Sidebar -->
-    <div class="sidebar">
+    <div class="sidebar" id="sidebar">
+      <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Recolher/expandir menu">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
       <div class="sidebar-header">
-        <div class="sidebar-logo">ONE<span>CLICK</span></div>
-        <div class="sidebar-sub">Service Manager</div>
+        <div class="sidebar-logo-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+            <circle cx="12" cy="12" r="6"/>
+            <circle cx="12" cy="12" r="2" fill="#fff"/>
+          </svg>
+        </div>
+        <div class="sidebar-logo-text">
+          <div class="sidebar-logo">ONE<span>CLICK</span></div>
+          <div class="sidebar-sub">Service Manager</div>
+        </div>
       </div>
 
       <nav class="sidebar-nav">
-        <button class="nav-item active" data-page="overview">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span> Visão Geral
+        <button class="nav-item active" data-page="overview" data-label="Visão Geral">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span> <span class="nav-label">Visão Geral</span>
         </button>
-        <button class="nav-item" data-page="services">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="18" r="1" fill="currentColor"/></svg></span> Serviços
+        <button class="nav-item" data-page="services" data-label="Serviços">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="18" r="1" fill="currentColor"/></svg></span> <span class="nav-label">Serviços</span>
           <span class="nav-badge off" id="navServicesBadge">0/0</span>
         </button>
-        <button class="nav-item" data-page="docker">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span> Docker
+        <button class="nav-item" data-page="docker" data-label="Docker">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span> <span class="nav-label">Docker</span>
         </button>
-        <button class="nav-item" data-page="logs">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span> Logs
+        <button class="nav-item" data-page="logs" data-label="Logs">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span> <span class="nav-label">Logs</span>
         </button>
-        <button class="nav-item" data-page="users">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> Usuários
+        <button class="nav-item" data-page="users" data-label="Usuários">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> <span class="nav-label">Usuários</span>
         </button>
-        <div style="margin:12px 8px 4px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);padding:0 4px;">Ferramentas</div>
-        <button class="nav-item" data-page="settings">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Configurações
+        <button class="nav-item" data-page="nfe-watcher" data-label="NFe Watcher">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+          <span class="nav-label">NFe Watcher</span>
+          <span class="nav-badge off" id="navNfeBadge">off</span>
+        </button>
+        <div class="nav-section-label" style="margin:12px 8px 4px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);padding:0 4px;">Ferramentas</div>
+        <button class="nav-item" data-page="settings" data-label="Configurações">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> <span class="nav-label">Configurações</span>
         </button>
       </nav>
 
       <div class="sidebar-footer">
-        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" data-label="Tema">
           <span class="theme-icon" id="themeIcon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
           <span id="themeLabel">Tema Claro</span>
         </button>
-        <button class="sci-badge" id="sciBadge" onclick="checkSci()" title="Testar conexão SCI (Firebird)">
+        <button class="sci-badge" id="sciBadge" onclick="checkSci()" title="Testar conexão SCI (Firebird)" data-label="SCI">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          SCI: ...
+          <span>SCI: ...</span>
         </button>
-        <button class="nav-item" onclick="launchClaude()" title="Abrir Claude Code no PowerShell" style="color:var(--purple);">
-          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span> Claude Code
+        <button class="nav-item" onclick="launchClaude()" title="Abrir Claude Code no PowerShell" data-label="Claude Code" style="color:var(--purple);">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span> <span class="nav-label">Claude Code</span>
         </button>
-        <button class="nav-item" onclick="api.openExternal('http://localhost:3000')">
-          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span> Abrir App
+        <button class="nav-item" onclick="api.openExternal('http://localhost:3000')" data-label="Abrir App">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span> <span class="nav-label">Abrir App</span>
+        </button>
+        <button class="nav-item" onclick="api.openExternal('http://localhost:3000/admin/erros-cliente')" title="Erros JS do navegador (DEV)" data-label="Erros JS" style="color:var(--red);">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l1.88 1.88"/><path d="M14.12 3.88L16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6z"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg></span> <span class="nav-label">Erros JS</span>
         </button>
       </div>
     </div>
@@ -515,6 +633,16 @@
 
       <!-- ═══ Page: Overview ═══ -->
       <div class="page active" id="page-overview">
+        <!-- Banner de atualização -->
+        <div class="update-banner" id="updateBanner">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+          <div class="update-banner-text">
+            <span id="updateBannerMessage"><strong>Atualização disponível!</strong> Baixando em segundo plano...</span>
+            <div class="update-progress" id="updateProgress" style="display:none;"><div class="update-progress-bar" id="updateProgressBar"></div></div>
+          </div>
+          <button class="btn btn-sky btn-sm" id="updateInstallBtn" style="display:none;" onclick="installUpdate()">Reiniciar e instalar</button>
+        </div>
+
         <div class="page-header">
           <div>
             <div class="page-title">Visão Geral</div>
@@ -546,6 +674,39 @@
         </div>
 
         <div class="services-grid" id="overviewCards"></div>
+
+        <!-- Card NFe Watcher -->
+        <div style="margin-top:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;transition:border-color 0.15s;" onclick="goToPage('nfe-watcher')" onmouseover="this.style.borderColor='var(--border-light)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="padding:14px 16px;display:flex;align-items:center;gap:14px;">
+            <div style="width:40px;height:40px;border-radius:8px;background:rgba(14,165,233,0.15);color:#0ea5e9;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div style="font-size:14px;font-weight:600;color:var(--text-primary);">NFe Watcher</div>
+                <span id="overviewNfeStatus" style="padding:1px 8px;border-radius:10px;font-size:10px;font-weight:600;background:rgba(148,163,184,0.2);color:#94a3b8;">parado</span>
+              </div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+                <span id="overviewNfeSummary">Monitoramento de pastas locais para captura automática de XMLs</span>
+              </div>
+            </div>
+            <div style="text-align:right;display:flex;align-items:center;gap:16px;flex-shrink:0;">
+              <div>
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Pastas</div>
+                <div style="font-size:20px;font-weight:700;color:var(--text-primary);" id="overviewNfeWatchers">0</div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Enviados</div>
+                <div style="font-size:20px;font-weight:700;color:var(--text-primary);" id="overviewNfeEnviados">0</div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Erros</div>
+                <div style="font-size:20px;font-weight:700;color:var(--text-primary);" id="overviewNfeErros">0</div>
+              </div>
+              <button class="btn btn-sm" onclick="event.stopPropagation(); nfeQuickToggle()" id="overviewNfeBtn" style="min-width:90px;">&#9654; Iniciar</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- ═══ Page: Services ═══ -->
@@ -597,7 +758,7 @@
         <div class="page-header">
           <div>
             <div class="page-title">Logs dos Serviços</div>
-            <div class="page-subtitle">Saída em tempo real de API, Web e Browser</div>
+            <div class="page-subtitle">Saída em tempo real da API e do Web</div>
           </div>
         </div>
         <div class="logs-panel">
@@ -605,10 +766,6 @@
             <div class="logs-tabs" id="logTabs">
               <button class="log-tab active" data-log="api">API (NestJS) <span class="count" id="logCountApi">0</span></button>
               <button class="log-tab" data-log="web">Web (Next.js) <span class="count" id="logCountWeb">0</span></button>
-              <button class="log-tab" data-log="serpro_backend">SERPRO2 BE <span class="count" id="logCountSerpro_backend">0</span></button>
-              <button class="log-tab" data-log="serpro_frontend">SERPRO2 FE <span class="count" id="logCountSerpro_frontend">0</span></button>
-              <button class="log-tab" data-log="apache">Apache <span class="count" id="logCountApache">0</span></button>
-              <button class="log-tab" data-log="mysql">MySQL <span class="count" id="logCountMysql">0</span></button>
             </div>
             <div class="logs-header-actions">
               <div class="toggle-wrap">
@@ -639,6 +796,65 @@
         <div class="users-panel">
           <div class="users-body" id="usersBody">
             <div class="users-empty">Carregando...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Page: NFe Watcher ═══ -->
+      <div class="page" id="page-nfe-watcher">
+        <div class="page-header">
+          <div>
+            <div class="page-title">
+              NFe Watcher
+              <span id="nfeStatusBadge" style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(148,163,184,0.2);color:#94a3b8;">parado</span>
+            </div>
+            <div class="page-subtitle">Monitoramento de pastas locais — XMLs de NFe enviados automaticamente pra API</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-blue" id="nfeRefreshBtn" onclick="nfeRefresh()">&#8635; Atualizar</button>
+            <button class="btn btn-solid-green" id="nfeStartBtn" onclick="nfeStart()">&#9654; Iniciar</button>
+            <button class="btn btn-solid-red" id="nfeStopBtn" onclick="nfeStop()" style="display:none;">&#9632; Parar</button>
+          </div>
+        </div>
+
+        <!-- Resumo -->
+        <div class="stats-grid" id="nfeStats" style="margin-bottom:16px;">
+          <div class="stat-card">
+            <div class="stat-icon green">&#128193;</div>
+            <div><div class="stat-label">Pastas monitoradas</div><div class="stat-value" id="nfeStatWatchers">0</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon blue">&#128229;</div>
+            <div><div class="stat-label">Arquivos enviados</div><div class="stat-value" id="nfeStatEnviados">0</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(245,158,11,0.15);color:#f59e0b;">&#9888;</div>
+            <div><div class="stat-label">Com erro</div><div class="stat-value" id="nfeStatErros">0</div></div>
+          </div>
+        </div>
+
+        <!-- Lista de pastas -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px;">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">
+            Pastas monitoradas
+          </div>
+          <div id="nfeWatchersList" style="padding:8px;">
+            <div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">
+              Watcher não iniciado. Clique em "Iniciar" pra carregar pastas configuradas.
+            </div>
+          </div>
+        </div>
+
+        <!-- Log -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">
+              Log do daemon
+            </div>
+            <button class="btn btn-sm" onclick="document.getElementById('nfeLog').innerHTML=''">Limpar</button>
+          </div>
+          <div id="nfeLog" style="max-height:300px;overflow-y:auto;padding:8px 16px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:11px;line-height:1.5;color:var(--text-muted);">
+            <div style="padding:8px 0;color:var(--text-muted);">(sem eventos ainda)</div>
           </div>
         </div>
       </div>
@@ -674,8 +890,40 @@
             </label>
             <div>
               <div class="settings-label" style="margin-bottom:0;">Iniciar todos os serviços automaticamente</div>
-              <div class="settings-hint" style="margin-top:2px;">Ao abrir o Service Manager, todos os serviços gerenciáveis são iniciados (Docker, API, Web, SERPRO2, Apache, MySQL)</div>
+              <div class="settings-hint" style="margin-top:2px;">Ao abrir o Service Manager, todos os serviços gerenciáveis são iniciados (Docker, API e Web)</div>
             </div>
+          </div>
+        </div>
+
+        <!-- Atualizações -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <span style="color:var(--sky);font-size:18px;">&#8635;</span> Atualizações
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div>
+              <div class="settings-label" style="margin-bottom:4px;">Versão atual: <span id="settingAppVersion" style="color:var(--sky);">-</span></div>
+              <div class="settings-hint">O Service Manager verifica atualizações automaticamente a cada 6 horas.</div>
+            </div>
+            <button class="btn btn-sky" onclick="manualCheckUpdate()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+              Verificar agora
+            </button>
+          </div>
+        </div>
+
+        <!-- Diretório do projeto -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <span style="color:var(--sky);font-size:18px;">&#128193;</span> Diretório do projeto
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">Pasta do OneClick_Code</label>
+            <div class="settings-input-group">
+              <input type="text" class="settings-input" id="settingProjectDir" placeholder="Ex: C:\Users\wagner\Desktop\PROJETOS\OneClick_Code" />
+              <button class="btn btn-sm" onclick="browseProjectDir()">Procurar...</button>
+            </div>
+            <div class="settings-hint">Pasta raiz do repositório (precisa ter package.json com "name": "oneclick-code"). É daqui que API e Web são iniciadas.</div>
           </div>
         </div>
 
@@ -699,35 +947,16 @@
           </div>
         </div>
 
-        <!-- SERPRO2 -->
-        <div class="settings-section">
-          <div class="settings-section-title">
-            <span style="color:var(--yellow);font-size:18px;">&#9889;</span> Projeto SERPRO2
-          </div>
-          <div class="settings-row">
-            <label class="settings-label">Diretório do SERPRO2</label>
-            <div class="settings-input-group">
-              <input type="text" class="settings-input" id="settingSerpro2Dir" placeholder="Ex: C:\Users\wagner\Desktop\PROJETOS\SERPRO2" />
-              <button class="btn btn-sm" onclick="browseSerpro2Dir()">Procurar...</button>
-            </div>
-            <div class="settings-hint">Pasta raiz do projeto SERPRO2 (backend :3001, frontend :5173)</div>
-          </div>
-        </div>
-
         <!-- Portas de referência -->
         <div class="settings-section">
           <div class="settings-section-title">
             <span style="color:var(--cyan);font-size:18px;">&#128268;</span> Mapa de Portas
           </div>
           <div class="ports-grid">
-            <div class="port-item"><span class="port-label">OneClick API</span><span class="port-value">:4000</span></div>
-            <div class="port-item"><span class="port-label">OneClick Web</span><span class="port-value">:3000</span></div>
-            <div class="port-item"><span class="port-label">PostgreSQL</span><span class="port-value">:5432</span></div>
-            <div class="port-item"><span class="port-label">Redis</span><span class="port-value">:6379</span></div>
-            <div class="port-item" style="border-left:3px solid var(--yellow)"><span class="port-label">SERPRO2 Backend</span><span class="port-value">:3001</span></div>
-            <div class="port-item" style="border-left:3px solid var(--purple)"><span class="port-label">SERPRO2 Frontend</span><span class="port-value">:5173</span></div>
-            <div class="port-item" style="border-left:3px solid #c23616"><span class="port-label">Apache HTTP</span><span class="port-value">:80</span></div>
-            <div class="port-item" style="border-left:3px solid #00758f"><span class="port-label">MySQL</span><span class="port-value">:3306</span></div>
+            <div class="port-item" style="border-left:3px solid var(--sky)"><span class="port-label">OneClick API</span><span class="port-value">:4000</span></div>
+            <div class="port-item" style="border-left:3px solid var(--green)"><span class="port-label">OneClick Web</span><span class="port-value">:3000</span></div>
+            <div class="port-item" style="border-left:3px solid #336791"><span class="port-label">PostgreSQL</span><span class="port-value">:5432</span></div>
+            <div class="port-item" style="border-left:3px solid #dc382d"><span class="port-label">Redis</span><span class="port-value">:6379</span></div>
           </div>
         </div>
 
@@ -750,7 +979,11 @@
     let autoScroll = true;
     let activeLogTab = 'api';
     let activePage = 'overview';
-    const logData = { api: [], web: [], serpro_backend: [], serpro_frontend: [], apache: [], mysql: [] };
+    const logData = { api: [], web: [] };
+    // Pending state per service: id → 'starting' | 'stopping' | 'restarting' | null
+    // Limpa automaticamente quando o status reflete a mudança esperada ou
+    // após um timeout de segurança (10s).
+    const pendingActions = {};
 
     // ═══════════════════════════════════════════════════════════
     // Theme
@@ -838,26 +1071,36 @@
       web:              svgIcon('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>', '#6ada7d'),
       postgres:         svgIcon('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v6c0 1.66-4 3-9 3s-9-1.34-9-3V5"/><path d="M21 11v6c0 1.66-4 3-9 3s-9-1.34-9-3v-6"/>', '#336791'),
       redis:            svgIcon('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>', '#dc382d'),
-      serpro_backend:   svgIcon('<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>', '#f59e0b'),
-      serpro_frontend:  svgIcon('<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>', '#a855f7'),
-      apache:           svgIcon('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', '#c23616'),
-      mysql:            svgIcon('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v6c0 1.66-4 3-9 3s-9-1.34-9-3V5"/><path d="M21 11v6c0 1.66-4 3-9 3s-9-1.34-9-3v-6"/>', '#00758f'),
     };
+
+    // Renderiza o conjunto de botões pra um service-card, respeitando pending state.
+    function renderCardActions(id, svc) {
+      if (!svc.managed) {
+        return `<span style="font-size:11px;color:var(--text-muted);">Monitoramento apenas</span>`;
+      }
+      const pending = pendingActions[id];
+      if (pending === 'starting') {
+        return `<button class="btn btn-green btn-sm btn-flex pending"><span class="btn-spinner"></span> Iniciando...</button>`;
+      }
+      if (pending === 'stopping') {
+        return `<button class="btn btn-red btn-sm btn-flex pending"><span class="btn-spinner"></span> Parando...</button>`;
+      }
+      if (pending === 'restarting') {
+        return `<button class="btn btn-yellow btn-sm btn-flex pending"><span class="btn-spinner"></span> Reiniciando...</button>`;
+      }
+      if (svc.running) {
+        return `<button class="btn btn-red btn-sm btn-flex" onclick="stopService('${id}')">&#9632; Parar</button>
+                <button class="btn btn-yellow btn-sm btn-flex" onclick="restartService('${id}')">&#8635; Reiniciar</button>`;
+      }
+      return `<button class="btn btn-green btn-sm btn-flex" onclick="startService('${id}')">&#9654; Iniciar</button>`;
+    }
 
     function buildCardHtml(id, svc) {
       const running = svc.running;
       const icon = iconMap[id] || svgIcon('<circle cx="12" cy="12" r="10"/>', 'var(--text-muted)');
       const statusText = running ? 'Online' : 'Offline';
-      let actions;
-      if (svc.managed) {
-        actions = running
-          ? `<button class="btn btn-red btn-sm btn-flex" onclick="stopService('${id}')">&#9632; Parar</button>
-             <button class="btn btn-yellow btn-sm btn-flex" onclick="restartService('${id}')">&#8635; Reiniciar</button>`
-          : `<button class="btn btn-green btn-sm btn-flex" onclick="startService('${id}')">&#9654; Iniciar</button>`;
-      } else {
-        actions = `<span style="font-size:11px;color:var(--text-muted);">Monitoramento apenas</span>`;
-      }
-      return `<div class="service-card ${running ? 'running' : ''}">
+      const actions = renderCardActions(id, svc);
+      return `<div class="service-card ${running ? 'running' : ''}" data-service="${id}">
         <div class="card-top">
           <div class="card-icon-wrap">${icon}</div>
           <div class="status-indicator">
@@ -872,28 +1115,30 @@
             Porta ${svc.port}
           </span>
         </div>
-        <div class="card-actions">${actions}</div>
+        <div class="card-actions" data-service-actions="${id}">${actions}</div>
       </div>`;
     }
 
     // Cache previous status to skip redundant DOM rebuilds
     let prevStatusKey = '';
 
+    // Atualiza só os botões de um service-card, sem rebuild do card inteiro.
+    function refreshCardActions(id) {
+      const svc = statusData[id];
+      if (!svc) return;
+      document.querySelectorAll(`[data-service-actions="${id}"]`).forEach((el) => {
+        el.innerHTML = renderCardActions(id, svc);
+      });
+    }
+
     function renderAllCards() {
-      // Build a fast key to detect actual changes
-      const key = Object.entries(statusData).map(([id, s]) => id + s.running).join('|');
+      // Build a fast key to detect actual changes (incluindo pending pra refletir mudanças)
+      const key = Object.entries(statusData).map(([id, s]) => id + s.running + (pendingActions[id] || '')).join('|');
       if (key === prevStatusKey) return; // nothing changed, skip DOM work
       prevStatusKey = key;
 
-      // Separate services by group
-      const oneclickSvcs = Object.entries(statusData).filter(([id]) => !['serpro_backend','serpro_frontend','apache','mysql'].includes(id));
-      const serproSvcs = Object.entries(statusData).filter(([id]) => ['serpro_backend','serpro_frontend','apache','mysql'].includes(id));
-
-      let html = '';
-      html += '<div class="group-label">OneClick ERP</div>';
-      html += oneclickSvcs.map(([id, svc]) => buildCardHtml(id, svc)).join('');
-      html += '<div class="group-label">SERPRO2 / Legado</div>';
-      html += serproSvcs.map(([id, svc]) => buildCardHtml(id, svc)).join('');
+      const oneclickSvcs = Object.entries(statusData);
+      const html = oneclickSvcs.map(([id, svc]) => buildCardHtml(id, svc)).join('');
 
       document.getElementById('overviewCards').innerHTML = html;
       document.getElementById('serviceCards').innerHTML = html;
@@ -986,14 +1231,62 @@
     // ═══════════════════════════════════════════════════════════
     // Actions
     // ═══════════════════════════════════════════════════════════
-    async function startService(id) { await api.startService(id); showToast('Serviço', `Iniciando ${statusData[id]?.name || id}...`); }
-    async function stopService(id) { await api.stopService(id); showToast('Serviço', `Parando ${statusData[id]?.name || id}...`); }
-    async function restartService(id) { await api.restartService(id); showToast('Serviço', `Reiniciando ${statusData[id]?.name || id}...`); }
-    async function startAll() { await api.startAll(); showToast('Serviços', 'Iniciando API e Web...'); }
-    async function stopAll() { await api.stopAll(); showToast('Serviços', 'Parando API e Web...'); }
+    // ─── Pending state helpers ─────────────────────────────
+    // Marca o serviço como pendente, força refresh, e agenda um clear de segurança.
+    function setPending(id, kind) {
+      pendingActions[id] = kind;
+      refreshCardActions(id);
+      // Failsafe: limpa após 15s mesmo se o status não mudar
+      clearTimeout(pendingActions[`${id}__timer`]);
+      pendingActions[`${id}__timer`] = setTimeout(() => {
+        if (pendingActions[id] === kind) {
+          delete pendingActions[id];
+          refreshCardActions(id);
+        }
+      }, 15000);
+    }
+
+    function clearPending(id) {
+      if (pendingActions[id]) {
+        delete pendingActions[id];
+        clearTimeout(pendingActions[`${id}__timer`]);
+        delete pendingActions[`${id}__timer`];
+        refreshCardActions(id);
+      }
+    }
+
+    async function startService(id) {
+      setPending(id, 'starting');
+      showToast('Serviço', `Iniciando ${statusData[id]?.name || id}...`);
+      try { await api.startService(id); } catch {}
+    }
+    async function stopService(id) {
+      setPending(id, 'stopping');
+      showToast('Serviço', `Parando ${statusData[id]?.name || id}...`);
+      try { await api.stopService(id); } catch {}
+    }
+    async function restartService(id) {
+      setPending(id, 'restarting');
+      showToast('Serviço', `Reiniciando ${statusData[id]?.name || id}...`);
+      try { await api.restartService(id); } catch {}
+    }
+    async function startAll() {
+      for (const id of Object.keys(statusData)) {
+        if (statusData[id]?.managed && !statusData[id].running) setPending(id, 'starting');
+      }
+      showToast('Serviços', 'Iniciando API e Web...');
+      try { await api.startAll(); } catch {}
+    }
+    async function stopAll() {
+      for (const id of Object.keys(statusData)) {
+        if (statusData[id]?.managed && statusData[id].running) setPending(id, 'stopping');
+      }
+      showToast('Serviços', 'Parando API e Web...');
+      try { await api.stopAll(); } catch {}
+    }
     async function restartAll() {
-      await api.stopAll();
-      setTimeout(async () => { await api.startAll(); showToast('Serviços', 'Reiniciando API e Web...'); }, 2000);
+      await stopAll();
+      setTimeout(async () => { await startAll(); }, 2000);
     }
     async function startDocker() { showToast('Docker', 'Iniciando containers...'); await api.startDocker(); }
     async function stopDocker() { await api.stopDocker(); showToast('Docker', 'Parando containers...'); }
@@ -1006,10 +1299,6 @@
       renderLogs();
       document.getElementById('logCountApi').textContent = '0';
       document.getElementById('logCountWeb').textContent = '0';
-      const serproBe = document.getElementById('logCountSerpro_backend');
-      const serproFe = document.getElementById('logCountSerpro_frontend');
-      if (serproBe) serproBe.textContent = '0';
-      if (serproFe) serproFe.textContent = '0';
     }
     function copyCurrentLog() {
       const entries = logData[activeLogTab] || [];
@@ -1079,15 +1368,35 @@
     async function loadSettingsUI() {
       const settings = await api.getSettings();
       document.getElementById('settingClaudeDir').value = settings.claudeDir || '';
-      document.getElementById('settingSerpro2Dir').value = settings.serpro2Dir || '';
       document.getElementById('settingAutoStart').checked = !!settings.autoStart;
       document.getElementById('settingAutoStartServices').checked = !!settings.autoStartServices;
+
+      // Project root vem de fonte separada (pode ter sido auto-detectado)
+      try {
+        const proj = await api.getProjectRoot();
+        document.getElementById('settingProjectDir').value = proj.path || '';
+      } catch {}
+
+      // Versão do app
+      try {
+        const v = await api.getAppVersion();
+        document.getElementById('settingAppVersion').textContent = `${v.version}`;
+      } catch {}
     }
 
     async function saveAllSettings() {
+      // ProjectDir é validado e setado separado (precisa ser raiz válida)
+      const newProjectDir = document.getElementById('settingProjectDir').value.trim();
+      if (newProjectDir) {
+        const projResult = await api.setProjectRoot(newProjectDir);
+        if (!projResult.ok) {
+          showToast('Erro', projResult.error || 'Caminho do projeto inválido');
+          return;
+        }
+      }
+
       const settings = {
         claudeDir: document.getElementById('settingClaudeDir').value.trim(),
-        serpro2Dir: document.getElementById('settingSerpro2Dir').value.trim(),
         autoStart: document.getElementById('settingAutoStart').checked,
         autoStartServices: document.getElementById('settingAutoStartServices').checked,
       };
@@ -1104,9 +1413,9 @@
       if (!result.canceled) document.getElementById('settingClaudeDir').value = result.path;
     }
 
-    async function browseSerpro2Dir() {
+    async function browseProjectDir() {
       const result = await api.browseFolder();
-      if (!result.canceled) document.getElementById('settingSerpro2Dir').value = result.path;
+      if (!result.canceled) document.getElementById('settingProjectDir').value = result.path;
     }
 
     async function launchClaude() {
@@ -1123,9 +1432,239 @@
     // ═══════════════════════════════════════════════════════════
     // IPC Event Listeners
     // ═══════════════════════════════════════════════════════════
-    api.onStatusUpdate((status) => { statusData = status; renderAllCards(); });
+    api.onStatusUpdate((status) => {
+      // Limpa pending dos serviços onde o estado já mudou conforme esperado
+      for (const id of Object.keys(status)) {
+        const pending = pendingActions[id];
+        if (!pending) continue;
+        const running = status[id].running;
+        if (pending === 'starting' && running) clearPending(id);
+        else if (pending === 'stopping' && !running) clearPending(id);
+        else if (pending === 'restarting' && running) clearPending(id);
+      }
+      statusData = status;
+      renderAllCards();
+    });
     api.onLog((entry) => { appendLogEntry(entry.service, entry); });
     api.onNotification(({ title, body }) => { showToast(title, body); });
+
+    // ═══════════════════════════════════════════════════════════
+    // Sidebar collapse (retrátil)
+    // ═══════════════════════════════════════════════════════════
+    const sidebar = document.getElementById('sidebar');
+    const sidebarCollapseBtn = document.getElementById('sidebarCollapseBtn');
+    function applySidebarState(collapsed) {
+      if (collapsed) sidebar.classList.add('collapsed');
+      else sidebar.classList.remove('collapsed');
+      localStorage.setItem('oc-sidebar-collapsed', collapsed ? '1' : '0');
+    }
+    sidebarCollapseBtn.addEventListener('click', () => {
+      applySidebarState(!sidebar.classList.contains('collapsed'));
+    });
+    applySidebarState(localStorage.getItem('oc-sidebar-collapsed') === '1');
+
+    // ═══════════════════════════════════════════════════════════
+    // Auto-update — banner + handlers
+    // ═══════════════════════════════════════════════════════════
+    const updateBanner = document.getElementById('updateBanner');
+    const updateMessage = document.getElementById('updateBannerMessage');
+    const updateProgress = document.getElementById('updateProgress');
+    const updateProgressBar = document.getElementById('updateProgressBar');
+    const updateInstallBtn = document.getElementById('updateInstallBtn');
+
+    api.onUpdateEvent((event) => {
+      switch (event.kind) {
+        case 'checking':
+          // silencioso
+          break;
+        case 'available':
+          updateBanner.classList.add('visible');
+          updateMessage.innerHTML = `<strong>Versão ${event.version} disponível!</strong> Baixando em segundo plano...`;
+          updateProgress.style.display = 'block';
+          updateInstallBtn.style.display = 'none';
+          break;
+        case 'progress':
+          updateProgressBar.style.width = `${event.percent}%`;
+          updateMessage.innerHTML = `<strong>Baixando atualização...</strong> ${event.percent}%`;
+          break;
+        case 'downloaded':
+          updateMessage.innerHTML = `<strong>Versão ${event.version} pronta!</strong> Clique pra reiniciar e instalar.`;
+          updateProgress.style.display = 'none';
+          updateInstallBtn.style.display = 'inline-flex';
+          break;
+        case 'error':
+          showToast('Erro de atualização', event.message);
+          updateBanner.classList.remove('visible');
+          break;
+        case 'up-to-date':
+          // só feedback se o usuário pediu manualmente — handled abaixo
+          break;
+      }
+    });
+
+    async function installUpdate() {
+      await api.installUpdate();
+    }
+
+    let manualCheckRequested = false;
+    async function manualCheckUpdate() {
+      manualCheckRequested = true;
+      showToast('Atualização', 'Verificando...');
+      const result = await api.checkForUpdate();
+      if (!result.ok) {
+        showToast('Atualização', result.error || 'Falha ao verificar.');
+      } else if (!result.version) {
+        showToast('Atualização', 'Você está na versão mais recente.');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // NFe Watcher
+    // ═══════════════════════════════════════════════════════════
+    function fmtNfeTime(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleString('pt-BR'); } catch { return iso; }
+    }
+
+    function appendNfeLog(entry) {
+      const log = document.getElementById('nfeLog');
+      if (!log) return;
+      // Limpa placeholder
+      if (log.querySelector('div[style*="sem eventos"]')) log.innerHTML = '';
+      const colors = { info: 'var(--text-muted)', warn: '#f59e0b', error: '#ef4444' };
+      const div = document.createElement('div');
+      div.style.cssText = `padding:2px 0;color:${colors[entry.level] || 'var(--text-muted)'};`;
+      div.innerHTML = `<span style="color:#64748b;">[${entry.ts}]</span> ${entry.msg.replace(/</g, '&lt;')}`;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+      // Limita a 500 linhas
+      while (log.children.length > 500) log.removeChild(log.firstChild);
+    }
+
+    async function nfeRefresh() {
+      const r = await api.nfeWatcherStatus();
+      const badge = document.getElementById('nfeStatusBadge');
+      const navBadge = document.getElementById('navNfeBadge');
+      const startBtn = document.getElementById('nfeStartBtn');
+      const stopBtn = document.getElementById('nfeStopBtn');
+
+      if (r.running) {
+        if (badge) {
+          badge.textContent = 'rodando';
+          badge.style.background = 'rgba(16,185,129,0.2)';
+          badge.style.color = '#10b981';
+        }
+        if (navBadge) { navBadge.textContent = `${r.watchers.length}`; navBadge.className = 'nav-badge on'; }
+        if (startBtn) startBtn.style.display = 'none';
+        if (stopBtn) stopBtn.style.display = 'inline-flex';
+      } else {
+        if (badge) {
+          badge.textContent = 'parado';
+          badge.style.background = 'rgba(148,163,184,0.2)';
+          badge.style.color = '#94a3b8';
+        }
+        if (navBadge) { navBadge.textContent = 'off'; navBadge.className = 'nav-badge off'; }
+        if (startBtn) startBtn.style.display = 'inline-flex';
+        if (stopBtn) stopBtn.style.display = 'none';
+      }
+
+      // Stats agregados
+      const totalEnviados = r.watchers.reduce((s, w) => s + (w.totalEnviados || 0), 0);
+      const totalErros = r.watchers.filter(w => w.ultimoErro).length;
+      const setIf = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      setIf('nfeStatWatchers', r.watchers.length);
+      setIf('nfeStatEnviados', totalEnviados);
+      setIf('nfeStatErros', totalErros);
+
+      // Card da Visão Geral
+      const ovStatus = document.getElementById('overviewNfeStatus');
+      const ovBtn = document.getElementById('overviewNfeBtn');
+      const ovSummary = document.getElementById('overviewNfeSummary');
+      if (ovStatus) {
+        if (r.running) {
+          ovStatus.textContent = 'rodando';
+          ovStatus.style.background = 'rgba(16,185,129,0.2)';
+          ovStatus.style.color = '#10b981';
+        } else {
+          ovStatus.textContent = 'parado';
+          ovStatus.style.background = 'rgba(148,163,184,0.2)';
+          ovStatus.style.color = '#94a3b8';
+        }
+      }
+      if (ovBtn) {
+        ovBtn.innerHTML = r.running ? '&#9632; Parar' : '&#9654; Iniciar';
+        ovBtn.className = r.running ? 'btn btn-sm btn-red' : 'btn btn-sm btn-solid-green';
+      }
+      if (ovSummary) {
+        if (r.running && r.watchers.length > 0) {
+          const ativos = r.watchers.filter(w => w.watching).length;
+          ovSummary.textContent = `${ativos} pasta${ativos !== 1 ? 's' : ''} ativa${ativos !== 1 ? 's' : ''}${totalErros > 0 ? ' · ' + totalErros + ' com erro' : ''}`;
+        } else if (r.running) {
+          ovSummary.textContent = 'Nenhuma pasta configurada — vá em Clientes → Fiscal → Drive → Pasta local';
+        } else {
+          ovSummary.textContent = 'Monitoramento de pastas locais para captura automática de XMLs';
+        }
+      }
+      setIf('overviewNfeWatchers', r.watchers.length);
+      setIf('overviewNfeEnviados', totalEnviados);
+      setIf('overviewNfeErros', totalErros);
+
+      // Lista de pastas
+      const list = document.getElementById('nfeWatchersList');
+      if (r.watchers.length === 0) {
+        list.innerHTML = r.running
+          ? '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">Nenhuma pasta configurada. Vá em <code>/clientes/[id]</code> → Fiscal → Drive → aba "Pasta local (PC)".</div>'
+          : '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">Watcher parado. Clique em "Iniciar" pra carregar pastas configuradas.</div>';
+      } else {
+        list.innerHTML = r.watchers.map(w => `
+          <div style="padding:10px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <div style="min-width:0;flex:1;">
+              <div style="font-size:13px;font-weight:600;color:var(--text-primary);">${w.razaoSocial}</div>
+              <div style="font-size:11px;color:var(--text-muted);font-family:ui-monospace,monospace;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${w.path}">${w.path}</div>
+              ${w.ultimoErro ? `<div style="font-size:11px;color:#ef4444;margin-top:2px;">⚠ ${w.ultimoErro}</div>` : ''}
+            </div>
+            <div style="text-align:right;font-size:11px;color:var(--text-muted);flex-shrink:0;">
+              <div><strong style="color:var(--text-primary);">${w.totalEnviados || 0}</strong> enviados</div>
+              <div>${w.lastSync ? fmtNfeTime(w.lastSync) : 'nunca'}</div>
+            </div>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${w.watching ? '#10b981' : '#94a3b8'};flex-shrink:0;"></span>
+          </div>
+        `).join('');
+      }
+    }
+
+    async function nfeStart() {
+      document.getElementById('nfeStartBtn').disabled = true;
+      const r = await api.nfeWatcherStart();
+      if (!r.ok) showToast('NFe Watcher', r.error || 'Falha ao iniciar.');
+      setTimeout(() => { nfeRefresh(); document.getElementById('nfeStartBtn').disabled = false; }, 500);
+    }
+
+    async function nfeStop() {
+      document.getElementById('nfeStopBtn').disabled = true;
+      await api.nfeWatcherStop();
+      setTimeout(() => { nfeRefresh(); document.getElementById('nfeStopBtn').disabled = false; }, 500);
+    }
+
+    // Toggle rápido a partir do card da Visão Geral
+    async function nfeQuickToggle() {
+      const btn = document.getElementById('overviewNfeBtn');
+      if (btn) btn.disabled = true;
+      const r = await api.nfeWatcherStatus();
+      if (r.running) await api.nfeWatcherStop();
+      else await api.nfeWatcherStart();
+      setTimeout(() => { nfeRefresh(); if (btn) btn.disabled = false; }, 500);
+    }
+
+    // Navegar pra outra página (usado pelo card da Visão Geral)
+    function goToPage(target) {
+      const btn = document.querySelector(`.nav-item[data-page="${target}"]`);
+      if (btn) btn.click();
+    }
+
+    if (api.onNfeWatcherLog) {
+      api.onNfeWatcherLog((entry) => appendNfeLog(entry));
+    }
 
     // ═══════════════════════════════════════════════════════════
     // Init
@@ -1149,6 +1688,10 @@
       setInterval(fetchActiveUsers, 15000);
       checkSci();
       setInterval(checkSci, 30000);
+
+      // NFe Watcher — status inicial + refresh periódico
+      nfeRefresh();
+      setInterval(nfeRefresh, 5000);
 
       // Load settings into UI
       loadSettingsUI();

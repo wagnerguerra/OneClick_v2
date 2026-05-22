@@ -266,8 +266,15 @@ export class SocioService {
   async listByCliente(clienteId: string) {
     return prisma.socio.findMany({
       where: { clienteId },
-      select: { id: true, nomeCompleto: true, cpf: true, tipoSocio: true, participacao: true },
+      select: { id: true, nomeCompleto: true, cpf: true, tipoSocio: true, participacao: true, createdAt: true },
       orderBy: { nomeCompleto: 'asc' },
+    })
+  }
+
+  async findByNameAndCliente(nome: string, clienteId: string) {
+    return prisma.socio.findFirst({
+      where: { clienteId, nomeCompleto: { equals: nome, mode: 'insensitive' } },
+      select: { id: true },
     })
   }
 

@@ -3,8 +3,28 @@ import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
 import type { Prisma } from '@saas/db'
 import type { CreateColaboradorInput, UpdateColaboradorInput, ListColaboradorInput } from '@saas/types'
 
-function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.ColaboradorWhereInput {
+/**
+ * Módulo Colaboradores agora opera sobre a tabela `User`,
+ * filtrando apenas usuários com `exibirComoColaborador = true`.
+ * Permissões/RBAC ficam no módulo /usuarios.
+ */
+
+function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.UserWhereInput {
   return !isMaster && empresaId ? { empresaId } : {}
+}
+
+/** Aceita um User do Prisma e devolve no shape antigo de Colaborador (compat com frontend). */
+function userToColaborador(u: any) {
+  if (!u) return u
+  return {
+    ...u,
+    // Aliases pra manter compatibilidade com o front
+    nomeCompleto: u.name,
+    fotoUrl: u.image,
+    // Campos legados sem equivalente direto — preencher com defaults pra frontend não quebrar
+    code: 0,
+    version: 1,
+  }
 }
 
 @Injectable()
@@ -13,11 +33,12 @@ export class ColaboradorService {
     const { page, limit, search, sortBy, sortDir, isActive, tipoContrato, areaId, cargoId } = input
     const { skip, take } = getPrismaSkipTake(page, limit)
 
-    const where: Prisma.ColaboradorWhereInput = {
+    const where: Prisma.UserWhereInput = {
+      exibirComoColaborador: true,
       ...empresaFilter(isMaster, empresaId),
       ...(search ? {
         OR: [
-          { nomeCompleto: { contains: search, mode: 'insensitive' as const } },
+          { name: { contains: search, mode: 'insensitive' as const } },
           { cpf: { contains: search } },
           { email: { contains: search, mode: 'insensitive' as const } },
         ],
@@ -28,42 +49,56 @@ export class ColaboradorService {
       ...(cargoId ? { cargoId } : {}),
     }
 
-    const orderBy = sortBy ? { [sortBy]: sortDir } : { code: 'asc' as const }
+    // sortBy mapping (compat: nomeCompleto → name; fotoUrl → image)
+    const sortField = sortBy === 'nomeCompleto' ? 'name' : (sortBy === 'fotoUrl' ? 'image' : sortBy)
+    const orderBy = sortField ? { [sortField]: sortDir } : { name: 'asc' as const }
 
     const [data, total] = await Promise.all([
-      prisma.colaborador.findMany({
+      prisma.user.findMany({
         where, orderBy, skip, take,
         include: {
           area: { select: { id: true, name: true } },
           cargo: { select: { id: true, name: true } },
         },
       }),
-      prisma.colaborador.count({ where }),
+      prisma.user.count({ where }),
     ])
 
-    return buildPaginatedResponse(data, total, page, limit)
+    return buildPaginatedResponse(data.map(userToColaborador), total, page, limit)
   }
 
   async getById(id: string, isMaster: boolean, empresaId?: string) {
-    const colaborador = await prisma.colaborador.findUniqueOrThrow({
+    const user = await prisma.user.findUniqueOrThrow({
       where: { id },
       include: {
         area: { select: { id: true, name: true } },
         cargo: { select: { id: true, name: true } },
-        user: { select: { id: true, name: true, email: true } },
       },
     })
-    if (!isMaster && empresaId && colaborador.empresaId !== empresaId) {
+    if (!isMaster && empresaId && user.empresaId !== empresaId) {
       throw new Error('Acesso negado.')
     }
-    return colaborador
+    if (!user.exibirComoColaborador) {
+      throw new Error('Usuário não está marcado como colaborador.')
+    }
+    return userToColaborador(user)
   }
 
-  async create(input: CreateColaboradorInput, userId?: string, _isMaster?: boolean, empresaId?: string) {
-    const colaborador = await prisma.colaborador.create({
+  async create(input: CreateColaboradorInput, _userId?: string, _isMaster?: boolean, empresaId?: string) {
+    // Email único — se não vier, gera um placeholder determinístico (cpf-XXXXX@sem-acesso.local)
+    const cpfLimpo = input.cpf.replace(/\D/g, '')
+    const email = (input.email && input.email.trim()) || `cpf-${cpfLimpo}@sem-acesso.local`
+
+    const user = await prisma.user.create({
       data: {
-        nomeCompleto: input.nomeCompleto,
-        cpf: input.cpf.replace(/\D/g, ''),
+        // Identidade (User base)
+        name: input.nomeCompleto,
+        email,
+        // Visibilidade no módulo Colaboradores
+        exibirComoColaborador: true,
+        isActive: input.isActive,
+        // Documentos
+        cpf: cpfLimpo,
         rg: input.rg || null,
         orgaoEmissor: input.orgaoEmissor || null,
         dataNascimento: input.dataNascimento ? new Date(input.dataNascimento) : null,
@@ -71,15 +106,17 @@ export class ColaboradorService {
         estadoCivil: input.estadoCivil || null,
         nacionalidade: input.nacionalidade || 'Brasileira',
         naturalidade: input.naturalidade || null,
-        fotoUrl: input.fotoUrl || null,
+        image: input.fotoUrl || null,
+        // Documentos trabalhistas
         pis: input.pis || null,
         ctps: input.ctps || null,
         ctpsSerie: input.ctpsSerie || null,
         tituloEleitor: input.tituloEleitor || null,
         reservista: input.reservista || null,
-        email: input.email || null,
+        // Contato
         telefone: input.telefone || null,
         celular: input.celular || null,
+        // Endereço
         cep: input.cep || null,
         logradouro: input.logradouro || null,
         numero: input.numero || null,
@@ -87,6 +124,7 @@ export class ColaboradorService {
         bairro: input.bairro || null,
         cidade: input.cidade || null,
         uf: input.uf || null,
+        // Contrato / RH
         tipoContrato: input.tipoContrato,
         dataAdmissao: input.dataAdmissao ? new Date(input.dataAdmissao) : null,
         dataDemissao: input.dataDemissao ? new Date(input.dataDemissao) : null,
@@ -94,156 +132,165 @@ export class ColaboradorService {
         cargaHoraria: input.cargaHoraria ?? 44,
         incluirFerias: input.incluirFerias,
         observacoes: input.observacoes || null,
+        // Vínculos
         areaId: input.areaId || null,
         cargoId: input.cargoId || null,
-        userId: input.userId || null,
-        isActive: input.isActive,
         empresaId: empresaId || null,
       },
     })
 
-    await prisma.colaboradorEvent.create({
-      data: {
-        colaboradorId: colaborador.id,
-        userId: userId || null,
-        type: 'created',
-        version: 1,
-        changes: undefined,
-      },
-    })
-
-    return colaborador
+    return userToColaborador(user)
   }
 
-  async update(id: string, input: UpdateColaboradorInput, userId?: string, isMaster?: boolean, empresaId?: string) {
-    const existing = await prisma.colaborador.findUniqueOrThrow({ where: { id } })
+  async update(id: string, input: UpdateColaboradorInput, _userId?: string, isMaster?: boolean, empresaId?: string) {
+    const existing = await prisma.user.findUniqueOrThrow({ where: { id } })
     if (!isMaster && empresaId && existing.empresaId !== empresaId) {
       throw new Error('Acesso negado.')
     }
 
-    // Detectar mudanças para audit trail
-    const changes: Record<string, { from: unknown; to: unknown }> = {}
-    const data: Prisma.ColaboradorUpdateInput = {}
+    const data: Prisma.UserUpdateInput = {}
 
-    function track<K extends keyof UpdateColaboradorInput>(field: K, dbField?: string) {
+    function set<K extends keyof UpdateColaboradorInput>(field: K, dbField?: string) {
       if (input[field] === undefined) return
       const key = dbField || (field as string)
-      const oldVal = (existing as Record<string, unknown>)[key]
       let newVal: unknown = input[field]
-
       if (field === 'cpf' && typeof newVal === 'string') newVal = newVal.replace(/\D/g, '')
       if (['dataNascimento', 'dataAdmissao', 'dataDemissao'].includes(field as string)) {
         newVal = newVal ? new Date(newVal as string) : null
       }
       if (newVal === '') newVal = null
-
-      if (String(oldVal ?? '') !== String(newVal ?? '')) {
-        changes[field as string] = { from: oldVal, to: newVal }
-      }
       ;(data as Record<string, unknown>)[key] = newVal
     }
 
-    track('nomeCompleto')
-    track('cpf')
-    track('rg')
-    track('orgaoEmissor')
-    track('dataNascimento')
-    track('sexo')
-    track('estadoCivil')
-    track('nacionalidade')
-    track('naturalidade')
-    track('fotoUrl')
-    track('pis')
-    track('ctps')
-    track('ctpsSerie')
-    track('tituloEleitor')
-    track('reservista')
-    track('email')
-    track('telefone')
-    track('celular')
-    track('cep')
-    track('logradouro')
-    track('numero')
-    track('complemento')
-    track('bairro')
-    track('cidade')
-    track('uf')
-    track('tipoContrato')
-    track('dataAdmissao')
-    track('dataDemissao')
-    track('salario')
-    track('cargaHoraria')
-    track('incluirFerias')
-    track('observacoes')
-    track('areaId')
-    track('cargoId')
-    track('userId')
-    track('isActive')
+    // Mapping nomeCompleto → name, fotoUrl → image
+    set('nomeCompleto', 'name')
+    set('fotoUrl', 'image')
+    set('cpf')
+    set('rg')
+    set('orgaoEmissor')
+    set('dataNascimento')
+    set('sexo')
+    set('estadoCivil')
+    set('nacionalidade')
+    set('naturalidade')
+    set('pis')
+    set('ctps')
+    set('ctpsSerie')
+    set('tituloEleitor')
+    set('reservista')
+    set('email')
+    set('telefone')
+    set('celular')
+    set('cep')
+    set('logradouro')
+    set('numero')
+    set('complemento')
+    set('bairro')
+    set('cidade')
+    set('uf')
+    set('tipoContrato')
+    set('dataAdmissao')
+    set('dataDemissao')
+    set('salario')
+    set('cargaHoraria')
+    set('incluirFerias')
+    set('observacoes')
+    set('areaId')
+    set('cargoId')
+    set('isActive')
 
-    const newVersion = existing.version + 1
-    data.version = newVersion
-
-    const updated = await prisma.colaborador.update({ where: { id }, data })
-
-    if (Object.keys(changes).length > 0) {
-      await prisma.colaboradorEvent.create({
-        data: {
-          colaboradorId: id,
-          userId: userId || null,
-          type: 'updated',
-          version: newVersion,
-          changes: changes as unknown as Prisma.InputJsonValue,
-        },
-      })
-    }
-
-    return updated
+    const updated = await prisma.user.update({ where: { id }, data })
+    return userToColaborador(updated)
   }
 
-  async delete(id: string, userId?: string, isMaster?: boolean, empresaId?: string) {
-    const existing = await prisma.colaborador.findUniqueOrThrow({ where: { id } })
+  async delete(id: string, _userId?: string, isMaster?: boolean, empresaId?: string) {
+    const existing = await prisma.user.findUniqueOrThrow({ where: { id } })
     if (!isMaster && empresaId && existing.empresaId !== empresaId) {
       throw new Error('Acesso negado.')
     }
-
-    await prisma.colaboradorEvent.create({
-      data: {
-        colaboradorId: id,
-        userId: userId || null,
-        type: 'deleted',
-        version: existing.version,
-        changes: undefined,
-      },
+    // Não apaga o User — apenas retira do módulo Colaboradores
+    return prisma.user.update({
+      where: { id },
+      data: { exibirComoColaborador: false },
     })
-
-    return prisma.colaborador.delete({ where: { id } })
   }
 
   async listForSelect(isMaster: boolean, empresaId?: string) {
-    return prisma.colaborador.findMany({
-      where: { isActive: true, ...empresaFilter(isMaster, empresaId) },
-      select: { id: true, nomeCompleto: true, code: true, cpf: true },
-      orderBy: { nomeCompleto: 'asc' },
+    const users = await prisma.user.findMany({
+      where: { isActive: true, exibirComoColaborador: true, ...empresaFilter(isMaster, empresaId) },
+      select: { id: true, name: true, cpf: true },
+      orderBy: { name: 'asc' },
     })
+    return users.map(u => ({ id: u.id, nomeCompleto: u.name, code: 0, cpf: u.cpf }))
   }
 
-  async getEvents(id: string) {
-    return prisma.colaboradorEvent.findMany({
-      where: { colaboradorId: id },
-      include: { user: { select: { id: true, name: true } } },
-      orderBy: { createdAt: 'desc' },
-    })
+  /**
+   * Lista colaboradores ativos com telefone/celular preenchido.
+   * O ramal é derivado dos 4 últimos dígitos do telefone (preferindo celular).
+   */
+  async listRamais(isMaster: boolean, empresaId?: string) {
+    const where: Prisma.UserWhereInput = {
+      isActive: true,
+      exibirComoColaborador: true,
+      ...empresaFilter(isMaster, empresaId),
+    }
+
+    const [users, totalAtivos] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          image: true,
+          email: true,
+          telefone: true,
+          celular: true,
+          area: { select: { name: true } },
+          cargo: { select: { name: true } },
+        },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.user.count({ where }),
+    ])
+
+    const items = users
+      .map(u => {
+        const fonte = u.celular || u.telefone || ''
+        const digitos = fonte.replace(/\D/g, '')
+        const ramal = digitos.length >= 4 ? digitos.slice(-4) : null
+        return {
+          id: u.id,
+          nomeCompleto: u.name,
+          fotoUrl: u.image,
+          email: u.email,
+          telefone: u.telefone,
+          celular: u.celular,
+          area: u.area,
+          cargo: u.cargo,
+          ramal,
+        }
+      })
+      .filter(c => c.ramal !== null)
+
+    return { items, totalAtivos }
+  }
+
+  async getEvents(_id: string) {
+    // Eventos do módulo legado de Colaborador foram desativados na unificação com User.
+    // Histórico de auditoria do User pode ser feito via outro mecanismo no futuro.
+    return []
   }
 
   async exportAll(isMaster: boolean, empresaId?: string) {
-    return prisma.colaborador.findMany({
-      where: { isActive: true, ...empresaFilter(isMaster, empresaId) },
+    const users = await prisma.user.findMany({
+      where: { isActive: true, exibirComoColaborador: true, ...empresaFilter(isMaster, empresaId) },
       include: {
         area: { select: { name: true } },
         cargo: { select: { name: true } },
       },
-      orderBy: { code: 'asc' },
+      orderBy: { name: 'asc' },
     })
+    return users.map(userToColaborador)
   }
 
   async bulkCreate(items: CreateColaboradorInput[], userId?: string, isMaster?: boolean, empresaId?: string) {

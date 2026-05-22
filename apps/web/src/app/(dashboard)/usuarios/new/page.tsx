@@ -10,7 +10,6 @@ export default function NewUserPage() {
       title="Novo Usuário"
       description="Preencha os dados para cadastrar um novo usuário"
       icon={<UserCog className="h-6 w-6" />}
-      iconBg="from-emerald-500 to-emerald-600"
     />
   )
 }

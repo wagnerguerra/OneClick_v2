@@ -62,7 +62,9 @@ export class EmpresaService {
           numero: input.numero || null, complemento: input.complemento || null,
           bairro: input.bairro || null, cidade: input.cidade || null, uf: input.uf || null,
           telefone: input.telefone || null, email: input.email || null, site: input.site || null,
-          logoUrl: input.logoUrl || null, logoDarkUrl: input.logoDarkUrl || null, version: 1,
+          logoUrl: input.logoUrl || null, logoDarkUrl: input.logoDarkUrl || null,
+          marcaDaguaUrl: (input as { marcaDaguaUrl?: string }).marcaDaguaUrl || null,
+          version: 1,
         },
       })
       await tx.empresaEvent.create({ data: { empresaId: empresa.id, userId: userId || null, type: 'created', version: 1 } })
@@ -121,8 +123,21 @@ export class EmpresaService {
   async listForSelect() {
     return prisma.empresa.findMany({
       where: { isActive: true },
-      select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, logoUrl: true, logoDarkUrl: true },
+      select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, logoUrl: true, logoDarkUrl: true, marcaDaguaUrl: true },
       orderBy: { razaoSocial: 'asc' },
+    })
+  }
+
+  /** Retorna a empresa do usuário logado (sem exigir permissão no módulo empresas) */
+  async getMyEmpresa(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { empresaId: true },
+    })
+    if (!user?.empresaId) return null
+    return prisma.empresa.findUnique({
+      where: { id: user.empresaId },
+      select: { id: true, code: true, razaoSocial: true, nomeFantasia: true, logoUrl: true, logoDarkUrl: true, marcaDaguaUrl: true },
     })
   }
 }

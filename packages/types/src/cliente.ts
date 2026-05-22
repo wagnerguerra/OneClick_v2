@@ -166,6 +166,7 @@ export const listClienteSchema = paginationSchema.extend({
   grupo: z.string().optional(),
   cidade: z.string().optional(),
   uf: z.string().optional(),
+  isLead: z.boolean().optional(),
 })
 
 export type CreateClienteInput = z.infer<typeof createClienteSchema>

@@ -17,9 +17,10 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   Tabs, TabsList, TabsTrigger, TabsContent,
-  Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
+  Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { MODULE_ICONS, GROUP_ICONS } from '@/lib/navigation'
 import { masks, moedaParaNumero, numeroParaMoeda, dataParaISO, isoParaData } from '@/lib/masks'
 import { trpc } from '@/lib/trpc'
@@ -34,7 +35,6 @@ interface UserFormProps {
   title: string
   description: string
   icon?: React.ReactNode
-  iconBg?: string
   defaultValues?: Partial<CreateUserInput> & { isMaster?: boolean; permissions?: PermissionInput[] }
 }
 
@@ -129,7 +129,7 @@ function buildPermissionsMap(perms?: PermissionInput[]): Record<string, Permissi
   return map
 }
 
-export function UserForm({ mode, userId, title, description, icon, iconBg = 'from-emerald-500 to-emerald-600', defaultValues }: UserFormProps) {
+export function UserForm({ mode, userId, title, description, icon, defaultValues }: UserFormProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -152,7 +152,13 @@ export function UserForm({ mode, userId, title, description, icon, iconBg = 'fro
       role: 'COLABORADOR_INTERNO', profile: 'OPERADOR',
       empresaId: '', areaId: '', cargoId: '',
       salario: '', dataAdmissao: '', idOneClick: '',
-      incluirFerias: true, isActive: true,
+      incluirFerias: true, isActive: true, exibirComoColaborador: false,
+      cpf: '', rg: '', orgaoEmissor: '',
+      dataNascimento: '', sexo: '', estadoCivil: '',
+      nacionalidade: 'Brasileira', naturalidade: '',
+      celular: '', ramal: '',
+      cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '',
+      tipoContrato: 'CLT', dataDemissao: '', cargaHoraria: 44, observacoes: '',
       ...defaultValues,
     },
   })
@@ -170,11 +176,15 @@ export function UserForm({ mode, userId, title, description, icon, iconBg = 'fro
   async function onSubmit(data: CreateUserInput) {
     setError(null); setSaving(true)
     const permissions = Object.values(permissionsMap)
-    // Converter campos formatados para o backend
+    // Converter campos formatados para o backend.
+    // Datas: dd/mm/yyyy → yyyy-mm-dd. Sem conversão o backend faz new Date() em
+    // formato BR e gera Invalid Date, derrubando o update (500).
     const payload = {
       ...data,
       salario: moedaParaNumero(String(data.salario ?? '')) ?? undefined,
-      dataAdmissao: data.dataAdmissao ? dataParaISO(String(data.dataAdmissao)) : '',
+      dataAdmissao:    data.dataAdmissao    ? dataParaISO(String(data.dataAdmissao))    : '',
+      dataNascimento:  data.dataNascimento  ? dataParaISO(String(data.dataNascimento))  : '',
+      dataDemissao:    data.dataDemissao    ? dataParaISO(String(data.dataDemissao))    : '',
       permissions,
     }
     try {
@@ -197,7 +207,10 @@ export function UserForm({ mode, userId, title, description, icon, iconBg = 'fro
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             {icon && (
-              <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white bg-gradient-to-br shadow-md', iconBg)}>
+              <div
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
+                style={{ backgroundColor: MODULE_COLOR }}
+              >
                 {icon}
               </div>
             )}
@@ -238,10 +251,11 @@ export function UserForm({ mode, userId, title, description, icon, iconBg = 'fro
 // Card principal com pills laterais (padrão Cadastros)
 // ============================================================
 
-const MODULE_COLOR = '#10b981' // Cadastros = emerald
+const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // Cadastros = emerald
 
 const USER_TABS = [
   { key: 'dados', label: 'Dados Pessoais', icon: User },
+  { key: 'endereco', label: 'Endereço', icon: Building2 },
   { key: 'organizacional', label: 'Organizacional', icon: Briefcase },
   { key: 'ferias', label: 'Férias / RH', icon: Calendar },
   { key: 'empresa', label: 'Empresa', icon: Building2 },
@@ -293,7 +307,7 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
       </div>
       <div className="flex min-h-[500px]">
         {/* Pills laterais */}
-        <div className="w-[170px] shrink-0 border-r border-[rgba(0,0,0,0.08)] bg-[#f8f9fa] dark:bg-muted/20 p-3 overflow-y-auto">
+        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
           <div className="space-y-1">
             {visibleTabs.map(tab => {
               const Icon = tab.icon
@@ -339,21 +353,117 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
                   )} />
                 </div>
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
+                  <Label htmlFor="cpf">CPF</Label>
+                  <Input id="cpf" placeholder="000.000.000-00" {...register('cpf')} />
+                </div>
+                <div className="col-span-12 md:col-span-4 space-y-1.5">
+                  <Label htmlFor="rg">RG</Label>
+                  <Input id="rg" placeholder="0000000" {...register('rg')} />
+                </div>
+                <div className="col-span-12 md:col-span-4 space-y-1.5">
+                  <Label htmlFor="orgaoEmissor">Órgão Emissor</Label>
+                  <Input id="orgaoEmissor" placeholder="SSP/UF" {...register('orgaoEmissor')} />
+                </div>
+                <div className="col-span-12 md:col-span-4 space-y-1.5">
+                  <Label htmlFor="dataNascimento">Data de Nascimento</Label>
+                  <Input id="dataNascimento" type="date" {...register('dataNascimento')} />
+                </div>
+                <div className="col-span-12 md:col-span-4 space-y-1.5">
+                  <Label>Sexo</Label>
+                  <Controller control={control} name="sexo" render={({ field }) => (
+                    <Select value={field.value || '__none__'} onValueChange={v => field.onChange(v === '__none__' ? '' : v)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Não informado</SelectItem>
+                        <SelectItem value="MASCULINO">Masculino</SelectItem>
+                        <SelectItem value="FEMININO">Feminino</SelectItem>
+                        <SelectItem value="OUTRO">Outro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )} />
+                </div>
+                <div className="col-span-12 md:col-span-4 space-y-1.5">
+                  <Label>Estado Civil</Label>
+                  <Controller control={control} name="estadoCivil" render={({ field }) => (
+                    <Select value={field.value || '__none__'} onValueChange={v => field.onChange(v === '__none__' ? '' : v)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Não informado</SelectItem>
+                        <SelectItem value="SOLTEIRO">Solteiro(a)</SelectItem>
+                        <SelectItem value="CASADO">Casado(a)</SelectItem>
+                        <SelectItem value="DIVORCIADO">Divorciado(a)</SelectItem>
+                        <SelectItem value="VIUVO">Viúvo(a)</SelectItem>
+                        <SelectItem value="UNIAO_ESTAVEL">União Estável</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )} />
+                </div>
+                <div className="col-span-12 md:col-span-4 space-y-1.5">
                   <Label htmlFor="email">E-mail<RequiredMark /></Label>
                   <Input id="email" type="email" placeholder="usuario@empresa.com" {...register('email')} />
                   {errors.email && <p className="text-xs text-destructive mt-1">{errors.email.message}</p>}
                 </div>
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
                   <Label htmlFor="telefone">Telefone</Label>
-                  <Input id="telefone" placeholder="(00) 00000-0000" {...register('telefone')} onChange={e => { e.target.value = masks.telefone(e.target.value); register('telefone').onChange(e) }} />
+                  <Input id="telefone" placeholder="(00) 0000-0000" {...register('telefone')} onChange={e => { e.target.value = masks.telefone(e.target.value); register('telefone').onChange(e) }} />
                 </div>
-                <div className="col-span-12 md:col-span-4 space-y-1.5">
+                <div className="col-span-12 md:col-span-3 space-y-1.5">
+                  <Label htmlFor="celular">Celular</Label>
+                  <Input id="celular" placeholder="(00) 00000-0000" {...register('celular')} onChange={e => { e.target.value = masks.telefone(e.target.value); register('celular').onChange(e) }} />
+                </div>
+                <div className="col-span-12 md:col-span-3 space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="ramal">Ramal</Label>
+                    <FieldHint text="Aparece no widget Ramais. Default = 4 últimos dígitos do telefone." />
+                  </div>
+                  <Input id="ramal" placeholder="0000" {...register('ramal')} />
+                </div>
+                <div className="col-span-12 md:col-span-6 space-y-1.5">
                   <div className="flex items-center gap-1.5">
                     <Label htmlFor="password">Senha{mode === 'create' && <RequiredMark />}</Label>
                     {mode === 'edit' && <FieldHint text="Deixe em branco para manter a senha atual." />}
                   </div>
                   <Input id="password" type="password" placeholder={mode === 'edit' ? 'Deixe vazio para manter' : 'Mínimo 8 caracteres'} autoComplete="new-password" {...register('password')} defaultValue="" />
                   {errors.password && <p className="text-xs text-destructive mt-1">{errors.password.message}</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ENDEREÇO */}
+          {activeTab === 'endereco' && (
+            <div className="-m-0">
+              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <h4 className="text-[13px] font-semibold text-foreground">Endereço</h4>
+              </div>
+              <div className="p-5 grid grid-cols-12 gap-3">
+                <div className="col-span-6 md:col-span-3 space-y-1.5">
+                  <Label htmlFor="cep">CEP</Label>
+                  <Input id="cep" placeholder="00000-000" {...register('cep')} />
+                </div>
+                <div className="col-span-12 md:col-span-7 space-y-1.5">
+                  <Label htmlFor="logradouro">Logradouro</Label>
+                  <Input id="logradouro" placeholder="Rua, Avenida..." {...register('logradouro')} />
+                </div>
+                <div className="col-span-6 md:col-span-2 space-y-1.5">
+                  <Label htmlFor="numero">Número</Label>
+                  <Input id="numero" placeholder="123" {...register('numero')} />
+                </div>
+                <div className="col-span-12 md:col-span-4 space-y-1.5">
+                  <Label htmlFor="complemento">Complemento</Label>
+                  <Input id="complemento" placeholder="Apto, sala..." {...register('complemento')} />
+                </div>
+                <div className="col-span-12 md:col-span-4 space-y-1.5">
+                  <Label htmlFor="bairro">Bairro</Label>
+                  <Input id="bairro" {...register('bairro')} />
+                </div>
+                <div className="col-span-12 md:col-span-3 space-y-1.5">
+                  <Label htmlFor="cidade">Cidade</Label>
+                  <Input id="cidade" {...register('cidade')} />
+                </div>
+                <div className="col-span-12 md:col-span-1 space-y-1.5">
+                  <Label htmlFor="uf">UF</Label>
+                  <Input id="uf" maxLength={2} placeholder="SP" {...register('uf')} />
                 </div>
               </div>
             </div>
@@ -478,6 +588,14 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
                 <div className="col-span-12 md:col-span-4 flex items-end pb-1">
                   <Controller control={control} name="incluirFerias" render={({ field }) => (
                     <label className="flex items-center gap-2 cursor-pointer"><Checkbox checked={field.value} onCheckedChange={field.onChange} /><span className="text-sm">Incluir no controle de férias</span></label>
+                  )} />
+                </div>
+                <div className="col-span-12 md:col-span-6 flex items-end pb-1">
+                  <Controller control={control} name="exibirComoColaborador" render={({ field }) => (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox checked={!!field.value} onCheckedChange={field.onChange} />
+                      <span className="text-sm">Exibir no módulo Colaboradores</span>
+                    </label>
                   )} />
                 </div>
               </div>
@@ -685,17 +803,10 @@ function SubPermissionsModal({ slug, permissionsMap, setPermissionsMap, onClose,
     <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
       <DialogContent className="max-w-2xl">
         {/* Header */}
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
-              {Icon ? <Icon className="h-4.5 w-4.5 text-primary" /> : <ShieldCheck className="h-4.5 w-4.5 text-primary" />}
-            </div>
-            <div>
-              <span>Permissões — {label}</span>
-              <DialogDescription className="mt-0.5">Defina o que este usuário pode ver e fazer neste módulo.</DialogDescription>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
+        <DialogHeaderIcon icon={Icon || ShieldCheck} color="sky">
+          <DialogTitle>Permissões — {label}</DialogTitle>
+          <DialogDescription>Defina o que este usuário pode ver e fazer neste módulo.</DialogDescription>
+        </DialogHeaderIcon>
 
         {/* Corpo scrollável */}
         <DialogBody className="space-y-4">
@@ -714,12 +825,19 @@ function SubPermissionsModal({ slug, permissionsMap, setPermissionsMap, onClose,
               </div>
               <div className="grid gap-0 sm:grid-cols-2 px-4 py-3 bg-primary/[0.01]">
                 {defs.map(d => (
-                  <label key={d.key} className="flex items-center gap-2.5 py-2 cursor-pointer group">
+                  <label key={d.key} className="flex items-start gap-2.5 py-2 cursor-pointer group">
                     <ToggleSwitch checked={!!subs[d.key]} onChange={v => toggleSub(d.key, v)} />
-                    <span className={cn(
-                      'text-sm transition-colors duration-200',
-                      subs[d.key] ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground/80',
-                    )}>{d.label}</span>
+                    <span className="flex flex-col">
+                      <span className={cn(
+                        'text-sm transition-colors duration-200',
+                        subs[d.key] ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground/80',
+                      )}>{d.label}</span>
+                      {d.observacao && (
+                        <span className="text-[11px] italic text-muted-foreground/80 mt-0.5">
+                          {d.observacao}
+                        </span>
+                      )}
+                    </span>
                   </label>
                 ))}
               </div>

@@ -24,12 +24,13 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
 
+const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
+
 interface FornecedorFormProps {
   mode: 'create' | 'edit'
   title: string
   description: string
   icon?: React.ReactNode
-  iconBg?: string
   fornecedorId?: string
   defaultValues?: Partial<CreateFornecedorInput> & { code?: number }
 }
@@ -45,7 +46,7 @@ function FieldHint({ text }: { text: string }) {
 
 const UF_OPTIONS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
 
-export function FornecedorForm({ mode, fornecedorId, title, description, icon, iconBg = 'from-emerald-500 to-emerald-600', defaultValues }: FornecedorFormProps) {
+export function FornecedorForm({ mode, fornecedorId, title, description, icon, defaultValues }: FornecedorFormProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
 
@@ -82,7 +83,14 @@ export function FornecedorForm({ mode, fornecedorId, title, description, icon, i
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            {icon && <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white bg-gradient-to-br shadow-md', iconBg)}>{icon}</div>}
+            {icon && (
+              <div
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
+                style={{ backgroundColor: MODULE_COLOR }}
+              >
+                {icon}
+              </div>
+            )}
             <div><h1>{title}</h1><p className="text-sm text-muted-foreground">{description}</p></div>
           </div>
           <div className="flex items-center gap-2 shrink-0">

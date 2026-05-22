@@ -7,11 +7,12 @@ import {
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Checkbox,
-  Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
+  Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -132,20 +133,13 @@ export function QsaImportModal({ open, onClose, onSuccess, prefilledCnpj, prefil
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/10">
-              <Users className="h-4.5 w-4.5 text-emerald-600" />
-            </div>
-            <div>
-              <span>Importar QSA do CNPJ</span>
-              <DialogDescription className="mt-0.5">
-                {step === 'input' && 'Informe o CNPJ para consultar o quadro de sócios na Receita Federal.'}
-                {step === 'preview' && resultado && `${resultado.qsa.length} sócio(s) encontrado(s) — ${resultado.razaoSocial}`}
-              </DialogDescription>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
+        <DialogHeaderIcon icon={Users} color="emerald">
+          <DialogTitle>Importar QSA do CNPJ</DialogTitle>
+          <DialogDescription>
+            {step === 'input' && 'Informe o CNPJ para consultar o quadro de sócios na Receita Federal.'}
+            {step === 'preview' && resultado && `${resultado.qsa.length} sócio(s) encontrado(s) — ${resultado.razaoSocial}`}
+          </DialogDescription>
+        </DialogHeaderIcon>
 
         <DialogBody>
           {step === 'input' && (

@@ -587,7 +587,7 @@ export class BiService {
     if (!cliente) throw new Error('Cliente não encontrado.')
 
     // Resolver PRCODEMP
-    const prcodemp = await this.resolverPrcodemp(cliente.documento, cliente.idSistema)
+    const prcodemp = this.resolverPrcodemp(cliente.documento, cliente.idSistema)
 
     return this.balancete.importarBalanceteSci({
       clienteId, prcodemp, anoInicio: ano, mesInicio: 1, anoFim: ano, mesFim: 12,
@@ -602,7 +602,7 @@ export class BiService {
     })
     if (!cliente) throw new Error('Cliente não encontrado.')
 
-    const prcodemp = await this.resolverPrcodemp(cliente.documento, cliente.idSistema)
+    const prcodemp = this.resolverPrcodemp(cliente.documento, cliente.idSistema)
 
     return this.balancete.importarBalanceteSci({
       clienteId, prcodemp, anoInicio, mesInicio, anoFim, mesFim, substituirExistentes,
@@ -617,20 +617,10 @@ export class BiService {
     return this.balancete.getRefreshStatusByRange(clienteId, refInicio, refFim)
   }
 
-  /** Resolve PRCODEMP: tenta buscar pelo CNPJ no SCI, fallback para id_sistema do cadastro */
-  private async resolverPrcodemp(documento: string, idSistema?: string | null): Promise<number> {
-    // Tentar via CNPJ no SCI
-    try {
-      const { SciService } = await import('../cliente/sci.service')
-      const sci = new SciService()
-      const result = await sci.buscarIdSistemaPorCnpj(documento)
-      if (result?.idCliente) return result.idCliente
-    } catch { /* fallback */ }
-
-    // Fallback: id_sistema do cadastro
+  /** Resolve PRCODEMP: exige id_sistema (ID SCI) preenchido no cadastro do cliente */
+  private resolverPrcodemp(_documento: string, idSistema?: string | null): number {
     if (idSistema && Number(idSistema) > 0) return Number(idSistema)
-
-    throw new Error('Cliente não possui id_sistema (SCI) vinculado. Preencha o campo no cadastro do cliente.')
+    throw new Error('Cliente não possui ID SCI vinculado. Preencha o campo "ID SCI" na aba Integrações do cadastro do cliente.')
   }
 
   async balanceteExcluirPeriodo(clienteId: string, ano: number, mesInicio?: number, mesFim?: number) {

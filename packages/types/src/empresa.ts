@@ -6,6 +6,8 @@ export const TaxRegime = {
   LUCRO_PRESUMIDO: 'LUCRO_PRESUMIDO',
   LUCRO_REAL: 'LUCRO_REAL',
   MEI: 'MEI',
+  IMUNE: 'IMUNE',
+  ISENTA: 'ISENTA',
 } as const
 
 export type TaxRegime = (typeof TaxRegime)[keyof typeof TaxRegime]
@@ -15,7 +17,12 @@ export const taxRegimeLabels: Record<TaxRegime, string> = {
   LUCRO_PRESUMIDO: 'Lucro Presumido',
   LUCRO_REAL: 'Lucro Real',
   MEI: 'MEI',
+  IMUNE: 'Imune',
+  ISENTA: 'Isenta',
 }
+
+/** Lista canônica das chaves — útil pra .map em selects. */
+export const TAX_REGIME_VALUES = Object.values(TaxRegime)
 
 export const createEmpresaSchema = z.object({
   razaoSocial: z.string().min(2, 'Razão Social é obrigatória'),
@@ -43,6 +50,8 @@ export const createEmpresaSchema = z.object({
   // Logo
   logoUrl: z.string().optional().or(z.literal('')),
   logoDarkUrl: z.string().optional().or(z.literal('')),
+  // Marca d'agua exibida em documentos impressos (ex: orçamento)
+  marcaDaguaUrl: z.string().optional().or(z.literal('')),
 })
 
 export const updateEmpresaSchema = createEmpresaSchema.partial()

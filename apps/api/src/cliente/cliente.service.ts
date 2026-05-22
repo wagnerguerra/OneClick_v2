@@ -76,12 +76,12 @@ export class ClienteService {
   // Listagem (ativos)
   // ============================================================
   async list(input: ListClienteInput, isMaster?: boolean, empresaId?: string) {
-    const { page, limit, search, sortBy, sortDir, situacao, status, tributacao, grupo, cidade, uf } = input
+    const { page, limit, search, sortBy, sortDir, situacao, status, tributacao, grupo, cidade, uf, isLead } = input
     const { skip, take } = getPrismaSkipTake(page, limit)
 
     const where: Prisma.ClienteWhereInput = {
       deletedAt: null,
-      isLead: false,
+      ...(isLead !== undefined ? { isLead } : {}),
       ...empresaFilter(isMaster, empresaId),
       ...(search ? { OR: [
         { razaoSocial: { contains: search, mode: 'insensitive' as const } },
@@ -375,9 +375,18 @@ export class ClienteService {
   // ============================================================
   // Lista para select (dropdown)
   // ============================================================
+  // Lookup leve usado em vários módulos (orçamentos, CRM, contratos, etc).
+  // Diferente do `list` completo, este filtro inclui clientes órfãos
+  // (empresaId=null — legado/migração) para que dropdowns nunca venham
+  // vazios por causa de divergência de scope. Master continua vendo tudo.
   async listForSelect(isMaster?: boolean, empresaId?: string) {
+    const where: Prisma.ClienteWhereInput = isMaster
+      ? { deletedAt: null }
+      : empresaId
+        ? { deletedAt: null, OR: [{ empresaId }, { empresaId: null }] }
+        : { deletedAt: null, empresaId: null }
     return prisma.cliente.findMany({
-      where: { deletedAt: null, ...empresaFilter(isMaster, empresaId) },
+      where,
       select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, documento: true, situacao: true },
       orderBy: { razaoSocial: 'asc' },
     })
@@ -1194,5 +1203,32 @@ export class ClienteService {
   async removeOcorrencia(id: string) {
     await prisma.$executeRawUnsafe(`DELETE FROM cliente_ocorrencias WHERE id = $1`, id)
     return { deleted: true }
+  }
+
+  // ── Configuracao do modulo (capa do header) ───────────────────
+  async getHeaderCover(empresaId?: string): Promise<{ headerCover: string }> {
+    const rows = await prisma.$queryRawUnsafe<Array<{ valor: string }>>(
+      `SELECT valor FROM opcoes_cadastro WHERE tipo = 'CLIENTE_CONFIG' AND valor LIKE 'header_cover=%' ${empresaId ? `AND empresa_id = '${empresaId}'` : 'AND empresa_id IS NULL'} LIMIT 1`
+    ).catch(() => [])
+    const raw = rows[0]?.valor || ''
+    const idx = raw.indexOf('=')
+    return { headerCover: idx > 0 ? raw.slice(idx + 1) : '' }
+  }
+
+  // Restricao a master e aplicada no router. URL vazia/null limpa.
+  async setHeaderCover(url: string | null, empresaId?: string) {
+    const value = url || ''
+    const existing = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `SELECT id FROM opcoes_cadastro WHERE tipo = 'CLIENTE_CONFIG' AND valor LIKE 'header_cover=%' ${empresaId ? `AND empresa_id = '${empresaId}'` : 'AND empresa_id IS NULL'} LIMIT 1`
+    ).catch(() => [])
+    if (existing.length > 0) {
+      await prisma.$executeRawUnsafe(`UPDATE opcoes_cadastro SET valor = $1 WHERE id = $2`, `header_cover=${value}`, existing[0]!.id)
+    } else {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO opcoes_cadastro (id, tipo, valor, empresa_id) VALUES (gen_random_uuid(), 'CLIENTE_CONFIG', $1, $2)`,
+        `header_cover=${value}`, empresaId || null
+      )
+    }
+    return { ok: true }
   }
 }

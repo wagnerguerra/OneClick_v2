@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Sistema de Abas (Chrome-like)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f3f4f6;
+    --card: #ffffff;
+    --border: #e5e7eb;
+    --border-soft: #f1f5f9;
+    --text: #111827;
+    --muted: #6b7280;
+    --primary: #5ea3cb;
+    --primary-soft: #eaf3f9;
+    --green: #10b981;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --sidebar-bg: #1e293b;
+    --sidebar-fg: #cbd5e1;
+    --sidebar-active: #5ea3cb;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    font-size: 14px;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    grid-template-rows: 56px 42px 1fr;
+    height: 100vh;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    grid-row: 1 / -1;
+    background: var(--sidebar-bg);
+    color: var(--sidebar-fg);
+    overflow-y: auto;
+    padding: 16px 0;
+  }
+  .sidebar-logo {
+    padding: 0 20px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 12px;
+  }
+  .sidebar-logo strong { color: white; font-size: 16px; }
+  .sidebar-section { padding: 12px 0; }
+  .sidebar-section h6 {
+    color: rgba(255,255,255,0.4);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 0 20px 6px;
+    font-weight: 600;
+  }
+  .sidebar-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 20px; cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s;
+  }
+  .sidebar-item:hover { background: rgba(255,255,255,0.05); color: white; }
+  .sidebar-item.has-tab::before {
+    content: '';
+    width: 3px; height: 3px; border-radius: 50%;
+    background: var(--primary); margin-right: -7px;
+  }
+  .sidebar-item .ico { width: 16px; text-align: center; opacity: 0.7; }
+
+  /* ── Header (mock simplificado) ── */
+  .header {
+    grid-column: 2;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px;
+  }
+  .header .brand { font-weight: 600; }
+  .header .actions { display: flex; align-items: center; gap: 8px; }
+  .header .icon-btn {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px; cursor: pointer; position: relative;
+    transition: background 0.15s;
+  }
+  .header .icon-btn:hover { background: var(--bg); }
+  .header .badge {
+    position: absolute; top: 4px; right: 4px;
+    background: var(--red); color: white;
+    width: 16px; height: 16px; border-radius: 8px;
+    font-size: 9px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--card);
+  }
+  .header .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--primary); color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 12px; cursor: pointer;
+  }
+
+  /* ── Tab Bar ── */
+  .tab-bar {
+    grid-column: 2;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 8px 0 0;
+    overflow: hidden;
+    position: relative;
+  }
+  .tab-list {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    height: 100%;
+    padding: 0 4px;
+  }
+  .tab-list::-webkit-scrollbar { height: 0; }
+
+  .tab {
+    height: 36px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px;
+    font-size: 13px;
+    cursor: pointer;
+    border-right: 1px solid var(--border-soft);
+    background: transparent;
+    color: var(--muted);
+    user-select: none;
+    flex-shrink: 0;
+    max-width: 200px;
+    position: relative;
+    transition: background 0.12s;
+  }
+  .tab:hover { background: var(--border-soft); color: var(--text); }
+
+  .tab.active {
+    background: var(--bg);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .tab.active::before {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--primary);
+  }
+
+  .tab.pinned {
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+    background: var(--border-soft);
+  }
+  .tab.pinned .label { display: none; }
+  .tab.pinned .close-btn { display: none; }
+  .tab.pinned.active { background: var(--primary-soft); }
+
+  .tab .ico { font-size: 14px; opacity: 0.85; flex-shrink: 0; }
+  .tab .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tab .close-btn {
+    width: 16px; height: 16px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s;
+    flex-shrink: 0;
+    margin-left: 4px;
+  }
+  .tab:hover .close-btn { opacity: 0.7; }
+  .tab .close-btn:hover { background: rgba(0,0,0,0.1); opacity: 1; }
+  .tab.has-changes .label::after {
+    content: '•';
+    color: var(--amber);
+    margin-left: 4px;
+    font-weight: 700;
+  }
+
+  /* Pin separator */
+  .pin-separator {
+    width: 1px;
+    height: 22px;
+    background: var(--border);
+    margin: 0 6px;
+  }
+
+  /* Botão + nova aba */
+  .new-tab {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--muted);
+    flex-shrink: 0;
+    margin: 0 4px;
+  }
+  .new-tab:hover { background: var(--border-soft); color: var(--text); }
+
+  /* Contador */
+  .tab-counter {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 0 12px;
+    border-left: 1px solid var(--border);
+    height: 100%;
+    display: flex; align-items: center;
+    flex-shrink: 0;
+  }
+  .tab-counter.warning { color: var(--amber); font-weight: 600; }
+
+  /* Main content */
+  .main {
+    grid-column: 2;
+    overflow-y: auto;
+    padding: 24px;
+    background: var(--bg);
+  }
+  .main h1 {
+    font-size: 22px; font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .main .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .demo-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .demo-card h3 {
+    font-size: 14px; font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .demo-card p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .demo-card kbd {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 11px;
+    font-family: ui-monospace, monospace;
+    box-shadow: 0 1px 0 var(--border);
+  }
+
+  .features {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .feature {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+  }
+  .feature .ico {
+    width: 32px; height: 32px;
+    background: var(--primary-soft);
+    color: var(--primary);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+  .feature h4 { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .feature p { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  /* Context menu */
+  .ctx-menu {
+    position: absolute;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    padding: 4px;
+    min-width: 180px;
+    z-index: 100;
+    display: none;
+  }
+  .ctx-menu.open { display: block; }
+  .ctx-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .ctx-item:hover { background: var(--border-soft); }
+  .ctx-item.danger { color: var(--red); }
+  .ctx-divider { height: 1px; background: var(--border); margin: 4px 0; }
+  .ctx-item .ico { width: 14px; opacity: 0.7; font-size: 12px; }
+
+  /* Toast (sync) */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--green);
+    border-radius: 6px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    font-size: 13px;
+    display: none;
+    align-items: center; gap: 8px;
+    animation: slideUp 0.3s ease-out;
+  }
+  .toast.show { display: flex; }
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── Sidebar (simplificada) ── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <strong>OneClick</strong>
+      <div style="color: rgba(255,255,255,0.4); font-size: 10px; margin-top: 2px;">SaaS ERP/CRM</div>
+    </div>
+
+    <div class="sidebar-section">
+      <h6>Cadastros</h6>
+      <div class="sidebar-item has-tab" onclick="focusOrOpen('/clientes', 'Clientes', '👥')">
+        <span class="ico">👥</span><span>Clientes</span>
+      </div>
+      <div class="sidebar-item" onclick="focusOrOpen('/empresas', 'Empresas', '🏢')">
+        <span class="ico">🏢</span><span>Empresas</span>
+      </div>
+      <div class="sidebar-item has-tab" onclick="focusOrOpen('/servicos', 'Serviços', '🔧')">
+        <span class="ico">🔧</span><span>Serviços</span>
+      </div>
+      <div class="sidebar-item" onclick="focusOrOpen('/colaboradores', 'Colaboradores', '👤')">
+        <span class="ico">👤</span><span>Colaboradores</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <h6>Comercial</h6>
+      <div class="sidebar-item has-tab" onclick="focusOrOpen('/crm', 'CRM', '🎯')">
+        <span class="ico">🎯</span><span>CRM</span>
+      </div>
+      <div class="sidebar-item has-tab" onclick="focusOrOpen('/orcamentos', 'Orçamentos', '📋')">
+        <span class="ico">📋</span><span>Orçamentos</span>
+      </div>
+      <div class="sidebar-item" onclick="focusOrOpen('/contratos', 'Contratos', '📄')">
+        <span class="ico">📄</span><span>Contratos</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <h6>Administrativo</h6>
+      <div class="sidebar-item" onclick="focusOrOpen('/agenda', 'Agenda', '📅')">
+        <span class="ico">📅</span><span>Agenda</span>
+      </div>
+      <div class="sidebar-item has-tab" onclick="focusOrOpen('/meus-servicos', 'Meus Serviços', '✓')">
+        <span class="ico">✓</span><span>Meus Serviços</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <h6>Fiscal</h6>
+      <div class="sidebar-item has-tab" onclick="focusOrOpen('/caixapostal', 'Caixa Postal', '📨')">
+        <span class="ico">📨</span><span>Caixa Postal e-CAC</span>
+      </div>
+      <div class="sidebar-item" onclick="focusOrOpen('/situacao-fiscal', 'Sit. Fiscal', '📊')">
+        <span class="ico">📊</span><span>Situação Fiscal</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Header ── -->
+  <header class="header">
+    <div class="brand">📊 Dashboard</div>
+    <div class="actions">
+      <div class="icon-btn">🌙</div>
+      <div class="icon-btn">
+        🔔
+        <div class="badge">3</div>
+      </div>
+      <div class="avatar">WG</div>
+    </div>
+  </header>
+
+  <!-- ── Tab Bar (NOVA) ── -->
+  <div class="tab-bar">
+    <div class="tab-list" id="tab-list">
+      <!-- Renderizado por JS -->
+    </div>
+    <div class="new-tab" title="Nova aba (Ctrl+T)" onclick="newTab()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+    </div>
+    <div class="tab-counter" id="counter">3 / 10</div>
+  </div>
+
+  <!-- ── Conteúdo ── -->
+  <main class="main">
+    <div id="content">
+      <!-- Renderizado por JS -->
+    </div>
+  </main>
+
+</div>
+
+<!-- Menu de contexto -->
+<div class="ctx-menu" id="ctx-menu">
+  <div class="ctx-item" onclick="ctxAction('reload')"><span class="ico">↻</span>Recarregar aba</div>
+  <div class="ctx-item" onclick="ctxAction('pin')"><span class="ico">📌</span><span id="ctx-pin-label">Fixar aba</span></div>
+  <div class="ctx-item" onclick="ctxAction('duplicate')"><span class="ico">📑</span>Duplicar aba</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item danger" onclick="ctxAction('close')"><span class="ico">✕</span>Fechar (Ctrl+W)</div>
+  <div class="ctx-item danger" onclick="ctxAction('closeOthers')"><span class="ico">✕</span>Fechar outras</div>
+  <div class="ctx-item danger" onclick="ctxAction('closeRight')"><span class="ico">✕</span>Fechar à direita</div>
+  <div class="ctx-item danger" onclick="ctxAction('closeAll')"><span class="ico">✕</span>Fechar todas</div>
+</div>
+
+<!-- Toast de sync -->
+<div class="toast" id="toast">
+  <span style="color: var(--green); font-size: 16px;">⟳</span>
+  <span><strong>Cliente atualizado</strong> em outra aba — dados sincronizados</span>
+</div>
+
+<script>
+  // ──────────────────────────────────────────────────────────
+  // Estado das abas (mockup — em produção: Zustand + persistência banco)
+  // ──────────────────────────────────────────────────────────
+  let tabs = [
+    { id: 't1', href: '/dashboard', label: 'Dashboard', icon: '📊', pinned: true, hasChanges: false },
+    { id: 't2', href: '/caixapostal', label: 'Caixa Postal', icon: '📨', pinned: true, hasChanges: false },
+    { id: 't3', href: '/agenda', label: 'Agenda', icon: '📅', pinned: true, hasChanges: false },
+    { id: 't4', href: '/clientes', label: 'Clientes', icon: '👥', pinned: false, hasChanges: false },
+    { id: 't5', href: '/servicos', label: 'Serviços', icon: '🔧', pinned: false, hasChanges: true },
+    { id: 't6', href: '/orcamentos', label: 'Orçamentos #4489', icon: '📋', pinned: false, hasChanges: false },
+  ]
+  const MAX_TABS = 10
+  let activeId = 't4'
+  let ctxTabId = null
+
+  // ──────────────────────────────────────────────────────────
+  // Render
+  // ──────────────────────────────────────────────────────────
+  function render() {
+    const list = document.getElementById('tab-list')
+    list.innerHTML = ''
+
+    const pinned = tabs.filter(t => t.pinned)
+    const normal = tabs.filter(t => !t.pinned)
+    const sorted = [...pinned, ...normal]
+
+    sorted.forEach((t, idx) => {
+      const el = document.createElement('div')
+      el.className = 'tab'
+      if (t.pinned) el.classList.add('pinned')
+      if (t.id === activeId) el.classList.add('active')
+      if (t.hasChanges) el.classList.add('has-changes')
+      el.title = t.pinned ? `${t.label} (fixada)` : t.label
+      el.dataset.id = t.id
+      el.onclick = () => activate(t.id)
+      el.oncontextmenu = (e) => { e.preventDefault(); openCtxMenu(e, t.id) }
+      el.innerHTML = `
+        <span class="ico">${t.icon}</span>
+        <span class="label">${t.label}</span>
+        <span class="close-btn" onclick="event.stopPropagation(); closeTab('${t.id}')">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6L18 18M6 18L18 6"/></svg>
+        </span>
+      `
+      list.appendChild(el)
+
+      // Separador depois das pinadas
+      if (t.pinned && idx === pinned.length - 1 && pinned.length < tabs.length) {
+        const sep = document.createElement('div')
+        sep.className = 'pin-separator'
+        list.appendChild(sep)
+      }
+    })
+
+    // Counter
+    const counter = document.getElementById('counter')
+    counter.textContent = `${tabs.length} / ${MAX_TABS}`
+    counter.classList.toggle('warning', tabs.length >= MAX_TABS)
+
+    // Conteúdo placeholder
+    renderContent()
+  }
+
+  function renderContent() {
+    const t = tabs.find(x => x.id === activeId)
+    if (!t) {
+      document.getElementById('content').innerHTML = '<p>Selecione uma aba</p>'
+      return
+    }
+    document.getElementById('content').innerHTML = `
+      <h1>${t.icon} ${t.label}</h1>
+      <p class="subtitle">Rota: <code>${t.href}</code> · Aba: ${t.id} · Estado preservado em keep-alive</p>
+
+      <div class="demo-card">
+        <h3>📌 O que esse mockup demonstra</h3>
+        <p>Esta é uma visualização <strong>estática</strong> do design proposto. Botões funcionam, mas dados são fictícios.</p>
+        <p style="margin-top:8px"><strong>Teste:</strong> Clique em outra aba; clique com <em>botão direito</em> em uma aba para ver o menu; clique no <strong>+</strong> para criar nova aba; passe o mouse em uma aba pra ver o X de fechar.</p>
+      </div>
+
+      <h3 style="margin: 16px 0 12px; font-size: 14px;">🎯 Comportamentos chave</h3>
+      <div class="features">
+        <div class="feature">
+          <div class="ico">📌</div>
+          <h4>Fixar abas</h4>
+          <p>Pinada vira ícone compacto, fica à esquerda, sem botão de fechar. Botão direito → "Fixar".</p>
+        </div>
+        <div class="feature">
+          <div class="ico">⚡</div>
+          <h4>Sidebar inteligente</h4>
+          <p>Click no menu lateral foca aba se já existe; senão, cria nova. Bolinha azul indica aba aberta.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">🔄</div>
+          <h4>Sync entre abas</h4>
+          <p>Editou cliente na aba A; aba B com listagem do mesmo cliente atualiza automaticamente.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">⌨️</div>
+          <h4>Atalhos de teclado</h4>
+          <p>
+            <kbd>Ctrl</kbd>+<kbd>W</kbd> fecha · <kbd>Ctrl</kbd>+<kbd>Tab</kbd> navega ·
+            <kbd>Ctrl</kbd>+<kbd>1..9</kbd> pula direto
+          </p>
+        </div>
+        <div class="feature">
+          <div class="ico">💾</div>
+          <h4>Persistência em banco</h4>
+          <p>Abas e ordem salvas no servidor por usuário. Login em qualquer máquina restaura o estado.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">⚙️</div>
+          <h4>Limite configurável</h4>
+          <p>Master configura via /configuracoes (default: 10). Indicador <strong>${tabs.length}/10</strong> à direita.</p>
+        </div>
+      </div>
+
+      <div class="demo-card" style="margin-top: 20px; background: var(--primary-soft); border-color: var(--primary);">
+        <h3 style="color: var(--primary);">⚙️ Detalhe técnico — Sync entre abas (sua decisão #1)</h3>
+        <p>Quando uma aba modifica um registro (ex: editou cliente), as demais que dependem dele recebem invalidação via:</p>
+        <p style="margin-top:6px;">
+          <strong>1.</strong> <code>BroadcastChannel API</code> — propagação instantânea entre abas/janelas do mesmo navegador<br>
+          <strong>2.</strong> <code>tRPC react-query invalidation</code> — refetch das queries afetadas<br>
+          <strong>3.</strong> Opcional: WebSocket pra sync entre máquinas/users diferentes
+        </p>
+        <button onclick="showToast()" style="margin-top:10px; background: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+          Simular evento de sync →
+        </button>
+      </div>
+    `
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // Ações
+  // ──────────────────────────────────────────────────────────
+  function activate(id) {
+    activeId = id
+    closeCtxMenu()
+    render()
+  }
+
+  function closeTab(id) {
+    const idx = tabs.findIndex(t => t.id === id)
+    if (idx === -1) return
+    const wasActive = id === activeId
+    tabs.splice(idx, 1)
+    if (wasActive && tabs.length > 0) {
+      activeId = (tabs[idx] || tabs[tabs.length - 1]).id
+    }
+    render()
+  }
+
+  function newTab() {
+    if (tabs.length >= MAX_TABS) {
+      alert(`Limite de ${MAX_TABS} abas atingido. Feche alguma para abrir outra.`)
+      return
+    }
+    const id = 't' + Date.now()
+    tabs.push({ id, href: '/dashboard', label: 'Nova aba', icon: '📊', pinned: false, hasChanges: false })
+    activeId = id
+    render()
+  }
+
+  function focusOrOpen(href, label, icon) {
+    // Decisão #2: foca se já existe, senão cria
+    const existing = tabs.find(t => t.href === href)
+    if (existing) {
+      activeId = existing.id
+    } else {
+      if (tabs.length >= MAX_TABS) {
+        alert(`Limite de ${MAX_TABS} abas atingido.`)
+        return
+      }
+      const id = 't' + Date.now()
+      tabs.push({ id, href, label, icon, pinned: false, hasChanges: false })
+      activeId = id
+    }
+    render()
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // Menu contextual
+  // ──────────────────────────────────────────────────────────
+  function openCtxMenu(e, tabId) {
+    ctxTabId = tabId
+    const menu = document.getElementById('ctx-menu')
+    menu.style.left = e.pageX + 'px'
+    menu.style.top = e.pageY + 'px'
+    menu.classList.add('open')
+    const t = tabs.find(x => x.id === tabId)
+    document.getElementById('ctx-pin-label').textContent = t?.pinned ? 'Desafixar aba' : 'Fixar aba'
+  }
+  function closeCtxMenu() {
+    document.getElementById('ctx-menu').classList.remove('open')
+    ctxTabId = null
+  }
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#ctx-menu')) closeCtxMenu()
+  })
+
+  function ctxAction(action) {
+    if (!ctxTabId) return
+    const t = tabs.find(x => x.id === ctxTabId)
+    if (!t) return
+    switch (action) {
+      case 'reload':
+        alert('Recarregando aba ' + t.label + ' (refetch das queries)')
+        break
+      case 'pin':
+        t.pinned = !t.pinned
+        break
+      case 'duplicate':
+        if (tabs.length >= MAX_TABS) { alert('Limite atingido'); break }
+        tabs.push({ ...t, id: 't' + Date.now(), label: t.label, pinned: false })
+        break
+      case 'close':
+        closeTab(ctxTabId); closeCtxMenu(); return
+      case 'closeOthers':
+        tabs = tabs.filter(x => x.id === ctxTabId || x.pinned)
+        activeId = ctxTabId
+        break
+      case 'closeRight':
+        const idx = tabs.findIndex(x => x.id === ctxTabId)
+        tabs = tabs.filter((x, i) => i <= idx || x.pinned)
+        break
+      case 'closeAll':
+        tabs = tabs.filter(x => x.pinned)
+        if (tabs.length) activeId = tabs[0].id
+        break
+    }
+    closeCtxMenu()
+    render()
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // Atalhos de teclado (decisão #5)
+  // ──────────────────────────────────────────────────────────
+  document.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return
+    // Ctrl+W = fecha aba ativa
+    if (e.key === 'w' || e.key === 'W') {
+      e.preventDefault()
+      const t = tabs.find(x => x.id === activeId)
+      if (t && !t.pinned) closeTab(activeId)
+      return
+    }
+    // Ctrl+T = nova aba
+    if (e.key === 't' || e.key === 'T') {
+      e.preventDefault(); newTab(); return
+    }
+    // Ctrl+Tab = próxima
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      const idx = tabs.findIndex(t => t.id === activeId)
+      const next = e.shiftKey
+        ? tabs[(idx - 1 + tabs.length) % tabs.length]
+        : tabs[(idx + 1) % tabs.length]
+      activeId = next.id
+      render()
+      return
+    }
+    // Ctrl+1..9 = pula pra aba N
+    if (/^[1-9]$/.test(e.key)) {
+      e.preventDefault()
+      const n = parseInt(e.key, 10) - 1
+      if (tabs[n]) { activeId = tabs[n].id; render() }
+    }
+  })
+
+  // ──────────────────────────────────────────────────────────
+  // Toast (sync demo)
+  // ──────────────────────────────────────────────────────────
+  function showToast() {
+    const t = document.getElementById('toast')
+    t.classList.add('show')
+    setTimeout(() => t.classList.remove('show'), 3500)
+  }
+
+  // Inicializar
+  render()
+</script>
+
+</body>
+</html>

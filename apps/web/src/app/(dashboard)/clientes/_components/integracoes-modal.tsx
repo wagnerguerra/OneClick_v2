@@ -7,10 +7,11 @@ import {
 } from 'lucide-react'
 import {
   Button, Input,
-  Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter,
+  Dialog, DialogContent, DialogBody, DialogFooter,
   DialogTitle, DialogDescription, DialogClose,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -473,19 +474,12 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
     <Dialog open={open} onOpenChange={(o) => { if (!o && canClose) resetAndClose() }}>
       <DialogContent className="max-w-[760px]">
         {/* Header */}
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
-              <Database className="h-4.5 w-4.5 text-emerald-600" />
-            </div>
-            <div>
-              {flowTitle || 'Integracoes'}
-              <DialogDescription>
-                {flowTitle ? 'Configure as opcoes e inicie o processamento' : 'Importacoes e atualizacoes para clientes'}
-              </DialogDescription>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
+        <DialogHeaderIcon icon={Database} color="emerald">
+          <DialogTitle>{flowTitle || 'Integracoes'}</DialogTitle>
+          <DialogDescription>
+            {flowTitle ? 'Configure as opcoes e inicie o processamento' : 'Importacoes e atualizacoes para clientes'}
+          </DialogDescription>
+        </DialogHeaderIcon>
 
         {/* Body */}
         <DialogBody>

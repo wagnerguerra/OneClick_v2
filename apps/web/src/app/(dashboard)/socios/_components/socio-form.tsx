@@ -178,7 +178,14 @@ export function SocioForm({ mode, socioId, title, description, icon, defaultValu
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            {icon && <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md">{icon}</div>}
+            {icon && (
+              <div
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
+                style={{ backgroundColor: 'var(--mod-cadastros, #10b981)' }}
+              >
+                {icon}
+              </div>
+            )}
             <div><h1>{title}</h1><p className="text-sm text-muted-foreground">{description}</p></div>
           </div>
           <div className="flex items-center gap-2 shrink-0">

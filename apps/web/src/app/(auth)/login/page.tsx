@@ -40,6 +40,13 @@ export default function LoginPage() {
         return
       }
 
+      // Se o usuario tem MFA ativo, o plugin twoFactorClient ja redirecionou via
+      // window.location.href (onTwoFactorRedirect). NAO fazer push pra /dashboard
+      // para evitar conflito de redirects (causa "removeChild" em portals abertos).
+      if ((result.data as Record<string, unknown> | undefined)?.twoFactorRedirect) {
+        return
+      }
+
       router.push('/dashboard')
     } catch {
       setError('Usuário ou senha inválidos. Verifique suas credenciais e tente novamente.')

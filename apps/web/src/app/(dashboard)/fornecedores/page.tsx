@@ -19,6 +19,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { exportToExcel } from '@/lib/export-data'
 import { TIPO_FORNECEDOR_LABELS } from '@saas/types'
+import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { ImportModal } from './_components/import-modal'
 
 interface Fornecedor {
@@ -128,9 +129,7 @@ export default function FornecedoresPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md">
-            <Package className="h-6 w-6" />
-          </div>
+          <PageHeaderIcon module="cadastros" icon={Package} />
           <div>
             <h1>Fornecedores</h1>
             <p className="text-sm text-muted-foreground">Gerencie os fornecedores da empresa</p>

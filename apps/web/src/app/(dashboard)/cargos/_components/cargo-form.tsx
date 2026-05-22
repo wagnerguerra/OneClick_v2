@@ -36,13 +36,14 @@ const FIELD_LABELS: Record<string, string> = {
   treinamentos: 'Treinamentos', educacao: 'Educação', isActive: 'Status',
 }
 
+const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
+
 interface CargoFormProps {
   mode: 'create' | 'edit'
   cargoId?: string
   title: string
   description: string
   icon?: React.ReactNode
-  iconBg?: string
   defaultValues?: Partial<CreateCargoInput> & { code?: number }
   linkedUsers?: LinkedUser[]
   events?: CargoEventItem[]
@@ -56,7 +57,7 @@ const PROFILE_LABELS: Record<string, string> = {
   OPERADOR: 'Operador', SUPERVISOR: 'Supervisor', GERENTE: 'Gerente', ADMIN: 'Admin',
 }
 
-export function CargoForm({ mode, cargoId, title, description, icon, iconBg = 'from-emerald-500 to-emerald-600', defaultValues, linkedUsers = [], events = [] }: CargoFormProps) {
+export function CargoForm({ mode, cargoId, title, description, icon, defaultValues, linkedUsers = [], events = [] }: CargoFormProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [areas, setAreas] = useState<AreaOption[]>([])
@@ -92,7 +93,10 @@ export function CargoForm({ mode, cargoId, title, description, icon, iconBg = 'f
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             {icon && (
-              <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white bg-gradient-to-br shadow-md', iconBg)}>
+              <div
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
+                style={{ backgroundColor: MODULE_COLOR }}
+              >
                 {icon}
               </div>
             )}

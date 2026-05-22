@@ -79,6 +79,7 @@ export const createColaboradorSchema = z.object({
   email: z.string().email('E-mail inválido').optional().or(z.literal('')),
   telefone: z.string().optional().or(z.literal('')),
   celular: z.string().optional().or(z.literal('')),
+  ramal: z.string().optional().or(z.literal('')),
 
   // Endereço
   cep: z.string().optional().or(z.literal('')),

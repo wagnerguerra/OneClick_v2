@@ -1,10 +1,30 @@
 import { Injectable } from '@nestjs/common'
 import { betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
+import { twoFactor } from 'better-auth/plugins'
 import { prisma } from '@saas/db'
 
 @Injectable()
 export class AuthService {
+  /**
+   * Valida se a senha informada corresponde ao usuário (reauth).
+   * Usado para confirmar identidade antes de operações sensíveis (ex:
+   * download de PFX, ver senha de certificado). Não cria sessão nova
+   * persistente — usa o signInEmail do better-auth como verificador
+   * (ele lança erro se a senha for inválida).
+   */
+  async verifyPassword(email: string, password: string): Promise<boolean> {
+    try {
+      const result = await this.auth.api.signInEmail({
+        body: { email, password },
+        asResponse: false,
+      } as any)
+      return !!result
+    } catch {
+      return false
+    }
+  }
+
   public readonly auth = betterAuth({
     baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:4000',
     basePath: '/api/auth',
@@ -29,6 +49,9 @@ export class AuthService {
     session: {
       expiresIn: 60 * 60 * 24 * 7, // 7 dias
       updateAge: 60 * 60 * 24, // atualiza a cada 24h
+      cookieCache: {
+        enabled: false, // Desabilita cache server-side da session — evita stale data apos verifyTotp
+      },
     },
     trustedOrigins: (request) => {
       const origins = [
@@ -76,6 +99,11 @@ export class AuthService {
         },
       },
     },
+    plugins: [
+      twoFactor({
+        issuer: 'OneClick SaaS', // nome que aparece no app autenticador (Google Authenticator, Authy, etc.)
+      }),
+    ],
   })
 
   async handleRequest(request: Request) {

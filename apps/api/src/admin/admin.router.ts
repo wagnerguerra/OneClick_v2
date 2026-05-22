@@ -61,12 +61,23 @@ export function createAdminRouter(adminService: AdminService) {
     testStripe: protectedProcedure
       .mutation(() => adminService.testStripe()),
 
+    testSmtp: protectedProcedure
+      .input(z.object({ destinatario: z.string().email() }))
+      .mutation(({ input }) => adminService.testSmtp(input.destinatario)),
+
     // === CERTIFICADO DIGITAL ===
     getCertificadoInfo: protectedProcedure
       .query(() => adminService.getCertificadoInfo()),
 
     deleteCertificado: protectedProcedure
       .mutation(() => adminService.deleteCertificado()),
+
+    // Certificado PF (Pessoa Física do Contador)
+    getCertificadoPfInfo: protectedProcedure
+      .query(() => adminService.getCertificadoPfInfo()),
+
+    deleteCertificadoPf: protectedProcedure
+      .mutation(() => adminService.deleteCertificadoPf()),
 
     // === CONSULTAS SALVAS ===
     listSavedQueries: protectedProcedure

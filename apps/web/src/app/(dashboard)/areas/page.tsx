@@ -28,6 +28,7 @@ import {
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { ImportModal } from './_components/import-modal'
 
 interface Area {
@@ -134,9 +135,7 @@ export default function AreasPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md">
-            <LayoutGrid className="h-6 w-6" />
-          </div>
+          <PageHeaderIcon module="cadastros" icon={LayoutGrid} />
           <div>
             <h1>Áreas</h1>
             <p className="text-sm text-muted-foreground">Gerencie as áreas da empresa</p>

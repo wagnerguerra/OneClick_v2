@@ -227,7 +227,7 @@ export default function EmpresasPage() {
 
         {/* Table */}
         <Table className="table-fixed">
-          <TableHeader>
+          <TableHeader className="[&_th]:whitespace-nowrap">
             <TableRow>
               <TableHead className="w-[70px]">
                 <button onClick={() => toggleSort('code')} className="flex items-center gap-1 hover:text-foreground transition-colors">

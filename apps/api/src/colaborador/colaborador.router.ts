@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
+import { router, readProcedure, writeProcedure, deleteProcedure, protectedProcedure } from '../trpc/trpc.service'
 import { createColaboradorSchema, updateColaboradorSchema, listColaboradorSchema } from '@saas/types'
 import { ColaboradorService } from './colaborador.service'
 
@@ -29,6 +29,10 @@ export function createColaboradorRouter(colaboradorService: ColaboradorService) 
 
     listForSelect: readProcedure(MODULE)
       .query(({ ctx }) => colaboradorService.listForSelect(ctx.isMaster ?? false, ctx.empresaId)),
+
+    /** Lista colaboradores com ramal — qualquer user autenticado da empresa pode ler. */
+    listRamais: protectedProcedure
+      .query(({ ctx }) => colaboradorService.listRamais(ctx.isMaster ?? false, ctx.empresaId)),
 
     getEvents: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))

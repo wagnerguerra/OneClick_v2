@@ -19,6 +19,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { exportToExcel, exportToCsv } from '@/lib/export-data'
 import { TIPO_CONTRATO_LABELS } from '@saas/types'
+import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { ImportModal } from './_components/import-modal'
 
 interface Colaborador {
@@ -46,7 +47,7 @@ export default function ColaboradoresPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
-  const [sort, setSort] = useState<SortState>({ column: 'code', dir: 'asc' })
+  const [sort, setSort] = useState<SortState>({ column: 'name', dir: 'asc' })
   const [data, setData] = useState<{
     data: Colaborador[]; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean
   } | null>(null)
@@ -71,8 +72,8 @@ export default function ColaboradoresPage() {
         sortDir: sort.dir,
       })
       setData(result)
-    } catch {
-      // silencioso
+    } catch (e) {
+      console.error('[Colaboradores] Erro ao listar:', e)
     } finally {
       setLoading(false)
     }
@@ -129,7 +130,8 @@ export default function ColaboradoresPage() {
     }
   }
 
-  function formatCpf(cpf: string) {
+  function formatCpf(cpf: string | null | undefined) {
+    if (!cpf) return '—'
     const d = cpf.replace(/\D/g, '')
     if (d.length !== 11) return cpf
     return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`
@@ -153,9 +155,7 @@ export default function ColaboradoresPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md">
-            <Users className="h-6 w-6" />
-          </div>
+          <PageHeaderIcon module="cadastros" icon={Users} />
           <div>
             <h1>Colaboradores</h1>
             <p className="text-sm text-muted-foreground">Gerencie os colaboradores da empresa</p>
@@ -198,14 +198,9 @@ export default function ColaboradoresPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[70px]">
-                <button onClick={() => toggleSort('code')} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                  ID <SortIcon column="code" />
-                </button>
-              </TableHead>
               <TableHead>
-                <button onClick={() => toggleSort('nomeCompleto')} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                  Nome <SortIcon column="nomeCompleto" />
+                <button onClick={() => toggleSort('name')} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                  Nome <SortIcon column="name" />
                 </button>
               </TableHead>
               <TableHead className="hidden lg:table-cell w-[130px]">CPF</TableHead>
@@ -218,7 +213,7 @@ export default function ColaboradoresPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-10">
+                <TableCell colSpan={6} className="text-center py-10">
                   <div className="flex items-center justify-center gap-2 text-muted-foreground">
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                     Carregando...
@@ -227,7 +222,7 @@ export default function ColaboradoresPage() {
               </TableRow>
             ) : !data?.data.length ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
                   Nenhum colaborador encontrado
                 </TableCell>
               </TableRow>
@@ -238,7 +233,6 @@ export default function ColaboradoresPage() {
                   className="cursor-pointer"
                   onClick={() => router.push(`/colaboradores/${col.id}`)}
                 >
-                  <TableCell className="font-mono text-muted-foreground text-xs">{col.code}</TableCell>
                   <TableCell className="font-medium text-sm">{col.nomeCompleto}</TableCell>
                   <TableCell className="hidden lg:table-cell text-xs font-mono text-muted-foreground">
                     {formatCpf(col.cpf)}

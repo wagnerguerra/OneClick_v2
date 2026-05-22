@@ -197,6 +197,7 @@ export function BiMatriz({ clienteId, ano }: { clienteId: string; ano: number })
               const valColor = rowType === 'receita' ? 'text-emerald-700 dark:text-emerald-400'
                 : rowType === 'despesa' ? 'text-red-800 dark:text-red-400'
                 : ''
+              const isRowSel = selRow === row.id
 
               return (
                 <tr key={row.id} className={cn('border-b border-border/15 hover:bg-muted/20 transition-colors', isGroup && 'bg-muted/10', isRowSel && 'mz-row-sel')}>

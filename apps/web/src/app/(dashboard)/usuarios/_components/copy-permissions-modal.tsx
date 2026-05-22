@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react'
 import { Copy, Loader2, Search, Check } from 'lucide-react'
 import {
   Button, Input, Badge,
-  Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
+  Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
   Checkbox, Avatar, AvatarFallback,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -98,21 +99,14 @@ export function CopyPermissionsModal({ open, onClose, onSuccess }: CopyPermissio
   return (
     <Dialog open={open} onOpenChange={o => !o && handleClose()}>
       <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
-              <Copy className="h-4.5 w-4.5 text-primary" />
-            </div>
-            <div>
-              <span>Copiar Permissões</span>
-              <DialogDescription className="mt-0.5">
-                {step === 'source'
-                  ? 'Selecione o usuário de origem (copiar de).'
-                  : `Selecione os usuários de destino (copiar para). Origem: ${sourceUser?.name}`}
-              </DialogDescription>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
+        <DialogHeaderIcon icon={Copy} color="indigo">
+          <DialogTitle>Copiar Permissões</DialogTitle>
+          <DialogDescription>
+            {step === 'source'
+              ? 'Selecione o usuário de origem (copiar de).'
+              : `Selecione os usuários de destino (copiar para). Origem: ${sourceUser?.name}`}
+          </DialogDescription>
+        </DialogHeaderIcon>
 
         <DialogBody>
           {/* Busca */}

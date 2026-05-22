@@ -6,12 +6,14 @@ import { Users } from 'lucide-react'
 import type { CreateColaboradorInput } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { ColaboradorForm } from '../_components/colaborador-form'
+import { useTabLabel } from '@/hooks/use-tab-label'
 
 export default function EditColaboradorPage() {
   const params = useParams<{ id: string }>()
   const [loading, setLoading] = useState(true)
   const [colaborador, setColaborador] = useState<(Partial<CreateColaboradorInput> & { code?: number }) | null>(null)
   const [error, setError] = useState<string | null>(null)
+  useTabLabel(colaborador?.nomeCompleto ? `Colaborador: ${colaborador.nomeCompleto}` : null)
 
   useEffect(() => {
     if (!params.id) return
@@ -79,7 +81,7 @@ export default function EditColaboradorPage() {
       mode="edit"
       colaboradorId={params.id}
       title="Editar Colaborador"
-      description={`Altere os dados do colaborador #${colaborador.code}`}
+      description={`Altere os dados do colaborador ${colaborador.nomeCompleto ?? ''}`}
       icon={<Users className="h-6 w-6" />}
       defaultValues={colaborador}
     />

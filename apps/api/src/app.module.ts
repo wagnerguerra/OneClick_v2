@@ -16,6 +16,14 @@ import { DctfwebModule } from './dctfweb/dctfweb.module'
 import { EmailModule } from './common/email.module'
 import { BiModule } from './bi/bi.module'
 import { FolhaModule } from './folha/folha.module'
+import { HelpdeskModule } from './helpdesk/helpdesk.module'
+import { DriveSyncModule } from './drive-sync/drive-sync.module'
+import { LauncherModule } from './launcher/launcher.module'
+import { NfeDistModule } from './nfe-dist/nfe-dist.module'
+import { NfseDistModule } from './nfse-dist/nfse-dist.module'
+import { AgendamentoModule } from './agendamento/agendamento.module'
+import { GoogleBackupModule } from './google-backup/google-backup.module'
+import { SignatureModule } from './signature/signature.module'
 
 @Module({
   imports: [
@@ -42,6 +50,14 @@ import { FolhaModule } from './folha/folha.module'
     EmailModule,
     BiModule,
     FolhaModule,
+    HelpdeskModule,
+    DriveSyncModule,
+    LauncherModule,
+    NfeDistModule,
+    NfseDistModule,
+    AgendamentoModule,
+    GoogleBackupModule,
+    SignatureModule,
   ],
 })
 export class AppModule implements NestModule {
