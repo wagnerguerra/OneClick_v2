@@ -11,6 +11,15 @@ dist/
 .env.local
 .env.*.local
 
+# MCP — pode conter tokens (Hostinger, etc.)
+.mcp.json
+
+# Credenciais de deploy (SSH, registry, etc.)
+.deploy.local
+.deploy-*.local
+*.pem
+*.ppk
+
 # IDE
 .vscode/
 .idea/
@@ -38,3 +47,38 @@ apps/api/uploads/
 # PEM/PFX files (exceto pasta certs/ que é versionada)
 apps/api/uploads/*.pem
 apps/api/uploads/*.pfx
+
+# Credenciais Google (Service Account, OAuth tokens, etc.)
+/google/
+
+# Claude Code — personal/local agent files (skills, worktrees, local settings)
+.claude/skills/
+.claude/worktrees/
+.claude/settings.local.json
+.claude/plans/
+
+# Build artifacts e binários grandes
+OneClick-ERP.exe
+*.exe
+*.dll
+
+# Backups e dumps (NÃO versionar — usar S3/Drive)
+*.bak
+*.dump
+*.sql.gz
+_backups/
+apps/web/_backups/
+dump-deploy.dump
+
+# Legado v1 (referência, não versionar)
+/modelo/
+
+# Screenshots / capturas
+/prints/
+
+# Razao frames (gerados pelo launcher)
+scripts/launcher/razao-frames/
+
+# Next.js build cache
+**/tsconfig.tsbuildinfo
+**/next-env.d.ts

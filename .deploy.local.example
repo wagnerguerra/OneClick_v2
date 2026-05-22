@@ -1,0 +1,24 @@
+# Credenciais de deploy — NÃO COMITAR.
+# Copie pra .deploy.local e preencha. Este arquivo (.example) pode ir pro git.
+#
+# Opção A — chave SSH (RECOMENDADO):
+#   1. Gere chave local: ssh-keygen -t ed25519 -f ~/.ssh/oneclick_deploy -C "deploy@oneclick"
+#   2. Adicione a chave pública na VPS:
+#      - Via SSH: ssh-copy-id -i ~/.ssh/oneclick_deploy.pub root@72.60.155.69
+#      - OU via Hostinger panel → VPS → SSH Keys (cole o conteúdo de ~/.ssh/oneclick_deploy.pub)
+#   3. Preencha:
+
+SSH_HOST=72.60.155.69
+SSH_USER=root
+SSH_PORT=22
+SSH_KEY_PATH=/c/Users/wagner/.ssh/oneclick_deploy
+
+# Opção B — senha (menos seguro, mas funcional):
+# Deixe SSH_KEY_PATH vazio e preencha SSH_PASSWORD.
+# Vou usar `sshpass` ou prompt interativo.
+# SSH_PASSWORD=
+
+# Docker Hub (pra push da imagem)
+# Crie token em https://hub.docker.com/settings/security (não use senha da conta)
+# DOCKER_HUB_USER=
+# DOCKER_HUB_TOKEN=
