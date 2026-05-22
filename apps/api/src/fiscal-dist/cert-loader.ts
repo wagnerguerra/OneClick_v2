@@ -1,0 +1,89 @@
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import { prisma } from '@saas/db'
+import { decryptPassword, parseCipher } from '../certificado-digital/crypto.helper'
+
+// Mesmo root usado pelo CertificadoDigitalService — `arquivoPath` no banco é relativo a este diretório.
+const STORAGE_ROOT = path.resolve(process.cwd(), 'uploads', 'certificados')
+
+export interface CertLoaded {
+  certificadoId: string
+  pfxBuffer: Buffer
+  passphrase: string
+  cnpj: string
+  razaoSocial: string
+  expiraEm: Date
+}
+
+/**
+ * Carrega o PFX + senha decifrada do certificado A1 vinculado ao cliente.
+ *
+ * Ordem de busca:
+ *  1. `certificadoExplicitoId` (se passado pelo caller)
+ *  2. Cert ativo do próprio cliente (status='ATIVO', !arquivado, !vencido)
+ *  3. Throw — sem cert disponível
+ */
+export async function carregarCertificadoCliente(
+  clienteId: string,
+  certificadoExplicitoId?: string | null,
+): Promise<CertLoaded> {
+  const cliente = await prisma.cliente.findUnique({
+    where: { id: clienteId },
+    select: { id: true, documento: true, razaoSocial: true },
+  })
+  if (!cliente) throw new Error(`Cliente ${clienteId} não encontrado.`)
+
+  const cert = certificadoExplicitoId
+    ? await prisma.certificadoDigital.findUnique({ where: { id: certificadoExplicitoId } })
+    : await prisma.certificadoDigital.findFirst({
+        where: {
+          clienteId: clienteId,
+          tipo: 'A1',
+          arquivado: false,
+          status: { not: 'VENCIDO' },
+          arquivoPath: { not: null },
+          senhaCifrada: { not: null },
+        },
+        orderBy: { expiraEm: 'desc' },
+      })
+
+  if (!cert) {
+    throw new Error(`Cliente ${cliente.razaoSocial} sem certificado A1 ativo cadastrado.`)
+  }
+  if (!cert.arquivoPath || !cert.senhaCifrada) {
+    throw new Error(`Certificado ${cert.id}: arquivo PFX ou senha ausente.`)
+  }
+
+  // arquivoPath é relativo a STORAGE_ROOT (uploads/certificados). Mantém compat
+  // com caminhos absolutos antigos ou que já incluam o prefixo uploads/.
+  let pfxAbsPath: string
+  if (path.isAbsolute(cert.arquivoPath)) {
+    pfxAbsPath = cert.arquivoPath
+  } else {
+    const candidatoStorage = path.resolve(STORAGE_ROOT, cert.arquivoPath)
+    const candidatoCwd = path.resolve(process.cwd(), cert.arquivoPath)
+    pfxAbsPath = fs.existsSync(candidatoStorage) ? candidatoStorage : candidatoCwd
+  }
+  if (!fs.existsSync(pfxAbsPath)) {
+    throw new Error(`Arquivo PFX não encontrado: ${pfxAbsPath}`)
+  }
+  const pfxBuffer = fs.readFileSync(pfxAbsPath)
+
+  let passphrase: string
+  try {
+    passphrase = decryptPassword(parseCipher(cert.senhaCifrada))
+  } catch (e) {
+    throw new Error(`Falha ao decifrar senha do cert ${cert.id}: ${(e as Error).message}`)
+  }
+
+  const cnpj = cliente.documento.replace(/\D/g, '')
+
+  return {
+    certificadoId: cert.id,
+    pfxBuffer,
+    passphrase,
+    cnpj,
+    razaoSocial: cliente.razaoSocial,
+    expiraEm: cert.expiraEm,
+  }
+}

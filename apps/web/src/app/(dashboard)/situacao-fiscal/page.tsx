@@ -13,6 +13,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -52,6 +53,7 @@ interface ClienteMensal {
   razaoSocial: string
   documento: string
   tipoDocumento: string
+  alertaProcuracao?: boolean
 }
 
 type LoteStatus = 'idle' | 'running' | 'paused' | 'done'
@@ -604,7 +606,12 @@ export default function SituacaoFiscalPage() {
                             className="h-3.5 w-3.5 rounded border-gray-300"
                           />
                         </TableCell>
-                        <TableCell className="text-xs font-medium">{c.razaoSocial}</TableCell>
+                        <TableCell className="text-xs font-medium">
+                          <span className="flex items-center gap-1.5">
+                            {c.razaoSocial}
+                            {c.alertaProcuracao && <span title="Possível falta de procuração no e-CAC" className="shrink-0 text-amber-500"><AlertTriangle className="h-3.5 w-3.5" /></span>}
+                          </span>
+                        </TableCell>
                         <TableCell className="text-xs font-mono text-muted-foreground">
                           {c.documento.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}
                         </TableCell>
@@ -715,9 +722,7 @@ export default function SituacaoFiscalPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md">
-            <Shield className="h-6 w-6" />
-          </div>
+          <PageHeaderIcon module="fiscal" icon={Shield} />
           <div>
             <h1>{trashMode ? 'Lixeira — Situação Fiscal' : 'Situação Fiscal'}</h1>
             <p className="text-sm text-muted-foreground">

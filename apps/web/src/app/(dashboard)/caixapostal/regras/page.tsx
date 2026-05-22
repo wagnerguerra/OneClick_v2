@@ -11,10 +11,12 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Collapsible, CollapsibleTrigger, CollapsibleContent,
-  Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import Link from 'next/link'
@@ -278,10 +280,10 @@ export default function CaixaPostalRegrasPage() {
       {/* Modal de criação/edição */}
       <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) setModalOpen(false) }}>
         <DialogContent className="max-w-[640px]">
-          <DialogHeader>
+          <DialogHeaderIcon icon={editId ? Pencil : Plus} color={editId ? 'sky' : 'emerald'}>
             <DialogTitle>{editId ? 'Editar Regra' : 'Nova Regra'}</DialogTitle>
             <DialogDescription>Configure as condições e ações da regra de classificação</DialogDescription>
-          </DialogHeader>
+          </DialogHeaderIcon>
 
           <DialogBody className="space-y-5">
             {/* Dados básicos */}
@@ -418,9 +420,7 @@ export default function CaixaPostalRegrasPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-gradient-to-br from-sky-500 to-sky-600 text-white shadow-md">
-            <Shield className="h-6 w-6" />
-          </div>
+          <PageHeaderIcon module="fiscal" icon={Shield} />
           <div>
             <h1>Regras de Classificação</h1>
             <p className="text-sm text-muted-foreground">Gerencie regras automáticas de classificação de mensagens da Caixa Postal e-CAC</p>

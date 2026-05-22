@@ -717,7 +717,7 @@ export class CaixaPostalService {
     let prioFilter = ''
     const impFilter = apenasImportantes ? 'AND importante = true' : ''
     if (empresaId) { empFilter = `AND empresa_id = $${paramIdx}`; params.push(empresaId); paramIdx++ }
-    if (prioridade) { prioFilter = `AND prioridade = $${paramIdx}`; params.push(prioridade); paramIdx++ }
+    if (prioridade) { prioFilter = `AND prioridade = $${paramIdx}::"CaixaPostalPrioridade"`; params.push(prioridade); paramIdx++ }
 
     const items = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
       `SELECT * FROM caixa_postal_item

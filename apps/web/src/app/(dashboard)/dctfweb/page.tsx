@@ -12,9 +12,11 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-  Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -275,9 +277,7 @@ export default function DctfwebPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md">
-            <ListChecks className="h-6 w-6" />
-          </div>
+          <PageHeaderIcon module="fiscal" icon={ListChecks} />
           <div>
             <h1>Controle DCTFWeb</h1>
             <p className="text-sm text-muted-foreground">Hub de conformidade — eSocial, Reinf, DCTFWeb e DARF</p>
@@ -602,17 +602,10 @@ export default function DctfwebPage() {
       {/* Modal Sincronizar */}
       <Dialog open={syncOpen} onOpenChange={o => !o && setSyncOpen(false)}>
         <DialogContent className="max-w-[560px]">
-          <DialogHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md">
-                <Users className="h-6 w-6" />
-              </div>
-              <div>
-                <DialogTitle>Sincronizar DCTFWeb</DialogTitle>
-                <DialogDescription>Selecione os clientes para consultar a competência {competencia}</DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
+          <DialogHeaderIcon icon={Users} color="indigo">
+            <DialogTitle>Sincronizar DCTFWeb</DialogTitle>
+            <DialogDescription>Selecione os clientes para consultar a competência {competencia}</DialogDescription>
+          </DialogHeaderIcon>
           <DialogBody className="space-y-3">
             <div className="flex items-center justify-between">
               <Badge variant="outline" className="text-[10px]">{syncSelecionados.size} selecionado(s)</Badge>

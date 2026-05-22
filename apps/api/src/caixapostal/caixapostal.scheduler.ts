@@ -282,13 +282,28 @@ export class CaixaPostalSchedulerService implements OnModuleInit, OnModuleDestro
           progressItems[i] = { ...progressItems[i]!, status: 'ok' }
           logItens.push({ razaoSocial: c.razaoSocial, documento: docLimpo, status: 'ok', duracaoMs: Date.now() - itemStart })
           console.log(`[CaixaPostal Scheduler] ${i + 1}/${total} OK: ${c.razaoSocial}`)
+
+          // Limpar alerta de procuração se consulta foi bem-sucedida
+          await prisma.cliente.update({
+            where: { id: c.id },
+            data: { alertaProcuracao: false, alertaProcuracaoEm: null },
+          }).catch(() => {})
         } catch (e) {
           failed++
-          const msg = `${c.razaoSocial}: ${(e as Error).message}`
+          const errMsg = (e as Error).message
+          const msg = `${c.razaoSocial}: ${errMsg}`
           errors.push(msg)
-          progressItems[i] = { ...progressItems[i]!, status: 'erro', erro: (e as Error).message }
-          logItens.push({ razaoSocial: c.razaoSocial, documento: docLimpo, status: 'erro', erro: (e as Error).message, duracaoMs: Date.now() - itemStart })
+          progressItems[i] = { ...progressItems[i]!, status: 'erro', erro: errMsg }
+          logItens.push({ razaoSocial: c.razaoSocial, documento: docLimpo, status: 'erro', erro: errMsg, duracaoMs: Date.now() - itemStart })
           console.error(`[CaixaPostal Scheduler] ${i + 1}/${total} ERRO: ${msg}`)
+
+          // Marcar alerta de procuração se erro 403
+          if (errMsg.includes('403')) {
+            await prisma.cliente.update({
+              where: { id: c.id },
+              data: { alertaProcuracao: true, alertaProcuracaoEm: new Date() },
+            }).catch(() => {})
+          }
         }
 
         // Salvar progresso atualizado

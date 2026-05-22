@@ -40,6 +40,13 @@ export interface CnpjResult {
   atividadePrincipal: string | null
   porte: string | null
 
+  // Capital Social
+  capitalSocial: number | null
+
+  // CNAEs
+  cnaePrincipalCodigo: string | null
+  cnaesSecundarios: Array<{ codigo: string; descricao: string }>
+
   // QSA
   qsa: QsaSocio[]
 
@@ -161,7 +168,12 @@ export class CnpjService {
       cnpj,
       razaoSocial: String(data.nomeEmpresarial || ''),
       nomeFantasia: data.nomeFantasia ? String(data.nomeFantasia) : null,
-      situacao: situacao.motivo ? String(situacao.motivo) : (situacao.codigo ? String(situacao.codigo) : ''),
+      situacao: (() => {
+        const SITUACAO_MAP: Record<string, string> = { '1': 'NULA', '2': 'ATIVA', '3': 'SUSPENSA', '4': 'INAPTA', '8': 'BAIXADA' }
+        const cod = String(situacao.codigo || '')
+        const desc = situacao.motivo || SITUACAO_MAP[cod] || ''
+        return desc || cod
+      })(),
       dataAbertura: data.dataAbertura ? String(data.dataAbertura) : null,
       cep: endereco.cep ? String(endereco.cep) : null,
       logradouro: endereco.logradouro ? String(`${endereco.tipoLogradouro || ''} ${endereco.logradouro || ''}`.trim()) : null,
@@ -172,7 +184,14 @@ export class CnpjService {
       uf: endereco.uf ? String(endereco.uf) : null,
       naturezaJuridica: natureza.descricao ? String(`${natureza.codigo || ''} - ${natureza.descricao}`.trim()) : null,
       atividadePrincipal: cnaePrincipal.descricao ? String(cnaePrincipal.descricao) : null,
-      porte: data.porte ? String(data.porte) : null,
+      porte: (() => {
+        const PORTE_MAP: Record<string, string> = { '00': 'Não informado', '01': 'ME', '1': 'ME', '03': 'EPP', '3': 'EPP', '05': 'DEMAIS', '5': 'DEMAIS', '09': 'MEI', '9': 'MEI' }
+        const raw = data.porte ? String(data.porte).trim() : ''
+        return PORTE_MAP[raw] || raw || null
+      })(),
+      capitalSocial: data.capitalSocial != null ? Number(data.capitalSocial) / 100 : null, // SERPRO retorna em centavos
+      cnaePrincipalCodigo: cnaePrincipal.codigo ? String(cnaePrincipal.codigo) : null,
+      cnaesSecundarios: Array.isArray(data.cnaesSecundarios) ? data.cnaesSecundarios.map((c: { codigo: string; descricao: string }) => ({ codigo: String(c.codigo || ''), descricao: String(c.descricao || '') })) : [],
       qsa,
       fonte: 'serpro',
     }
@@ -266,6 +285,50 @@ export class CnpjService {
   }
 
   /**
+   * Variante de `consultarCnpj` que tenta BrasilAPI primeiro (gratuita) e cai
+   * pra SERPRO (paga) só quando BrasilAPI falhar. Usado por rotinas em lote
+   * que enriquecem N clientes — economiza créditos SERPRO.
+   */
+  async consultarPreferindoBrasilApi(cnpj: string): Promise<CnpjResult> {
+    const doc = cnpj.replace(/\D/g, '')
+    if (doc.length !== 14) throw new Error('CNPJ deve ter 14 dígitos.')
+    const start = Date.now()
+
+    // 1ª tentativa: BrasilAPI
+    try {
+      const result = await this.consultarViaBrasilApi(doc)
+      await prisma.apiLog.create({
+        data: { source: 'brasilapi', endpoint: `/cnpj/v1/${doc}`, method: 'GET', status: 200, duration: Date.now() - start, documento: doc },
+      }).catch(() => {})
+      return result
+    } catch (e) {
+      await prisma.apiLog.create({
+        data: { source: 'brasilapi', endpoint: `/cnpj/v1/${doc}`, method: 'GET', status: 500, duration: Date.now() - start, documento: doc },
+      }).catch(() => {})
+      console.warn(`[CnpjService] BrasilAPI falhou, tentando SERPRO: ${(e as Error).message}`)
+    }
+
+    // Fallback: SERPRO (se credenciais disponíveis)
+    const serpro = this.getSerproCredentials()
+    if (!serpro) {
+      throw new Error('BrasilAPI indisponível e SERPRO não está configurado.')
+    }
+    const fallbackStart = Date.now()
+    try {
+      const result = await this.consultarViaSerpro(doc, serpro.consumerKey, serpro.consumerSecret)
+      await prisma.apiLog.create({
+        data: { source: 'serpro', endpoint: `/consulta-cnpj-df/v2/empresa/${doc}`, method: 'GET', status: 200, duration: Date.now() - fallbackStart, documento: doc },
+      }).catch(() => {})
+      return result
+    } catch (e) {
+      await prisma.apiLog.create({
+        data: { source: 'serpro', endpoint: `/consulta-cnpj-df/v2/empresa/${doc}`, method: 'GET', status: 500, duration: Date.now() - fallbackStart, documento: doc },
+      }).catch(() => {})
+      throw e
+    }
+  }
+
+  /**
    * Consulta via BrasilAPI (gratuita, sem autenticação).
    */
   private async consultarViaBrasilApi(cnpj: string): Promise<CnpjResult> {
@@ -311,6 +374,9 @@ export class CnpjService {
       naturezaJuridica: data.natureza_juridica ? String(data.natureza_juridica) : null,
       atividadePrincipal: data.cnae_fiscal_descricao ? String(data.cnae_fiscal_descricao) : null,
       porte: data.porte ? String(data.porte) : (data.descricao_porte ? String(data.descricao_porte) : null),
+      capitalSocial: data.capital_social != null ? Number(data.capital_social) : null,
+      cnaePrincipalCodigo: data.cnae_fiscal ? String(data.cnae_fiscal) : null,
+      cnaesSecundarios: Array.isArray(data.cnaes_secundarios) ? data.cnaes_secundarios.map((c: { codigo: number; descricao: string }) => ({ codigo: String(c.codigo || ''), descricao: String(c.descricao || '') })) : [],
       qsa,
       fonte: 'brasilapi',
     }

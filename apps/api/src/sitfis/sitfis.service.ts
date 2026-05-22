@@ -1059,13 +1059,67 @@ export class SitfisService {
     }
   }
 
-  async listClientesMensal(_empresaId?: string) {
+  async listClientesMensal(_empresaId?: string, userId?: string, isMaster?: boolean) {
+    // Master vê todos os clientes mensais
+    if (isMaster || !userId) {
+      return prisma.cliente.findMany({
+        where: { deletedAt: null, situacao: 'MENSAL' },
+        select: { id: true, razaoSocial: true, documento: true, tipoDocumento: true, alertaProcuracao: true },
+        orderBy: { razaoSocial: 'asc' },
+      })
+    }
+
+    // Buscar role e areaId do usuário
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, areaId: true },
+    })
+    if (!user) return []
+
+    const { role, areaId } = user
+
+    // Coordenador / Diretor: todos os clientes mensais com serviços contratados
+    if (role === 'COORDENADOR' || role === 'DIRETOR') {
+      return prisma.cliente.findMany({
+        where: {
+          deletedAt: null,
+          situacao: 'MENSAL',
+          servicosContratados: { some: { contratado: true } },
+        },
+        select: { id: true, razaoSocial: true, documento: true, tipoDocumento: true, alertaProcuracao: true },
+        orderBy: { razaoSocial: 'asc' },
+      })
+    }
+
+    // Gestor: clientes que tenham a área dele contratada
+    if (role === 'GESTOR') {
+      if (!areaId) return []
+      return prisma.cliente.findMany({
+        where: {
+          deletedAt: null,
+          situacao: 'MENSAL',
+          servicosContratados: { some: { contratado: true, areaId } },
+        },
+        select: { id: true, razaoSocial: true, documento: true, tipoDocumento: true, alertaProcuracao: true },
+        orderBy: { razaoSocial: 'asc' },
+      })
+    }
+
+    // Colaborador Interno (e demais): clientes onde a área dele está contratada E ele é o responsável
+    if (!areaId) return []
     return prisma.cliente.findMany({
       where: {
         deletedAt: null,
         situacao: 'MENSAL',
+        servicosContratados: {
+          some: {
+            contratado: true,
+            areaId,
+            OR: [{ responsavelId: userId }, { substitutoId: userId }],
+          },
+        },
       },
-      select: { id: true, razaoSocial: true, documento: true, tipoDocumento: true },
+      select: { id: true, razaoSocial: true, documento: true, tipoDocumento: true, alertaProcuracao: true },
       orderBy: { razaoSocial: 'asc' },
     })
   }

@@ -208,38 +208,43 @@ export class CndService {
   private tableChecked = false
   async ensureTable() {
     if (this.tableChecked) return
-    const exists = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
-      `SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'certidoes_cnd')`,
-    )
-    if (exists[0]?.exists) { this.tableChecked = true; return }
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS certidoes_cnd (
-        id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-        documento TEXT NOT NULL,
-        tipo_documento INT NOT NULL DEFAULT 2,
-        razao_social TEXT,
-        etapa TEXT NOT NULL DEFAULT 'pendente',
-        tipo_certidao TEXT,
-        codigo_controle TEXT,
-        data_emissao TIMESTAMPTZ,
-        data_validade TIMESTAMPTZ,
-        pdf_base64 TEXT,
-        status_api INT,
-        mensagem_api TEXT,
-        resposta_completa JSONB,
-        sucesso BOOLEAN NOT NULL DEFAULT false,
-        erro TEXT,
-        cliente_id TEXT,
-        empresa_id TEXT,
-        user_id TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        deleted_at TIMESTAMPTZ
+    try {
+      const exists = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
+        `SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'certidoes_cnd')`,
       )
-    `)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_documento ON certidoes_cnd (documento)`)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_cliente_id ON certidoes_cnd (cliente_id)`)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_created ON certidoes_cnd (created_at DESC)`)
+      if (exists[0]?.exists) { this.tableChecked = true; return }
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS certidoes_cnd (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          documento TEXT NOT NULL,
+          tipo_documento INT NOT NULL DEFAULT 2,
+          razao_social TEXT,
+          etapa TEXT NOT NULL DEFAULT 'pendente',
+          tipo_certidao TEXT,
+          codigo_controle TEXT,
+          data_emissao TIMESTAMPTZ,
+          data_validade TIMESTAMPTZ,
+          pdf_base64 TEXT,
+          status_api INT,
+          mensagem_api TEXT,
+          resposta_completa JSONB,
+          sucesso BOOLEAN NOT NULL DEFAULT false,
+          erro TEXT,
+          cliente_id TEXT,
+          empresa_id TEXT,
+          user_id TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          deleted_at TIMESTAMPTZ
+        )
+      `)
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_documento ON certidoes_cnd (documento)`)
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_cliente_id ON certidoes_cnd (cliente_id)`)
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_created ON certidoes_cnd (created_at DESC)`)
+    } catch (e) {
+      // Tabela/tipo já existe — ignorar erro de conflito
+      if (!(e as Error).message?.includes('already exists')) throw e
+    }
     this.tableChecked = true
   }
 
@@ -371,23 +376,34 @@ export class CndService {
 
   // ── Log de execucao ───────────────────────────────────
 
+  private execLogTableChecked = false
   private async ensureExecLogTable() {
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS cnd_exec_log (
-        id TEXT PRIMARY KEY,
-        tipo TEXT NOT NULL DEFAULT 'manual',
-        iniciado_por TEXT,
-        nome_usuario TEXT,
-        iniciado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        finalizado_em TIMESTAMPTZ,
-        total INT NOT NULL DEFAULT 0,
-        sucesso INT NOT NULL DEFAULT 0,
-        falhas INT NOT NULL DEFAULT 0,
-        status TEXT NOT NULL DEFAULT 'running',
-        itens JSONB NOT NULL DEFAULT '[]'::jsonb,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    if (this.execLogTableChecked) return
+    try {
+      const exists = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
+        `SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'cnd_exec_log')`,
       )
-    `)
+      if (exists[0]?.exists) { this.execLogTableChecked = true; return }
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS cnd_exec_log (
+          id TEXT PRIMARY KEY,
+          tipo TEXT NOT NULL DEFAULT 'manual',
+          iniciado_por TEXT,
+          nome_usuario TEXT,
+          iniciado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          finalizado_em TIMESTAMPTZ,
+          total INT NOT NULL DEFAULT 0,
+          sucesso INT NOT NULL DEFAULT 0,
+          falhas INT NOT NULL DEFAULT 0,
+          status TEXT NOT NULL DEFAULT 'running',
+          itens JSONB NOT NULL DEFAULT '[]'::jsonb,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `)
+    } catch (e) {
+      if (!(e as Error).message?.includes('already exists')) throw e
+    }
+    this.execLogTableChecked = true
   }
 
   async listarExecLogs(limit = 20, offset = 0) {
@@ -502,6 +518,8 @@ export class CndService {
         COUNT(*) FILTER (WHERE sucesso = true AND tipo_certidao = 'Negativa')::int as negativas,
         COUNT(*) FILTER (WHERE sucesso = true AND tipo_certidao = 'Positiva com Efeitos de Negativa')::int as positivas_efeitos,
         COUNT(*) FILTER (WHERE sucesso = false AND etapa = 'concluido')::int as nao_emitidas,
+        COUNT(*) FILTER (WHERE sucesso = true AND data_validade IS NOT NULL AND data_validade < NOW())::int as vencidas,
+        COUNT(*) FILTER (WHERE sucesso = true AND data_validade IS NOT NULL AND data_validade >= NOW() AND data_validade <= NOW() + INTERVAL '15 days')::int as vencendo,
         COUNT(*) FILTER (WHERE deleted_at IS NOT NULL)::int as lixeira
       FROM certidoes_cnd WHERE deleted_at IS NULL
     `)
@@ -511,6 +529,8 @@ export class CndService {
       negativas: Number(r.negativas ?? 0),
       positivasEfeitos: Number(r.positivas_efeitos ?? 0),
       naoEmitidas: Number(r.nao_emitidas ?? 0),
+      vencidas: Number(r.vencidas ?? 0),
+      vencendo: Number(r.vencendo ?? 0),
       lixeira: Number(r.lixeira ?? 0),
     }
   }
@@ -533,6 +553,10 @@ export class CndService {
     if (clienteId) { conditions.push(`c.cliente_id = $${paramIdx}`); params.push(clienteId); paramIdx++ }
     if (tipoCertidao === '__nao_emitida__') {
       conditions.push(`c.sucesso = false AND c.etapa = 'concluido'`)
+    } else if (tipoCertidao === '__vencidas__') {
+      conditions.push(`c.sucesso = true AND c.data_validade IS NOT NULL AND c.data_validade < NOW()`)
+    } else if (tipoCertidao === '__vencendo__') {
+      conditions.push(`c.sucesso = true AND c.data_validade IS NOT NULL AND c.data_validade >= NOW() AND c.data_validade <= NOW() + INTERVAL '15 days'`)
     } else if (tipoCertidao) {
       conditions.push(`c.tipo_certidao = $${paramIdx}`); params.push(tipoCertidao); paramIdx++
     }

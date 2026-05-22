@@ -156,7 +156,7 @@ export function createSitfisRouter(sitfisService: SitfisService, cnpjService: Cn
 
     // Listar clientes com situação MENSAL (para o select de nova consulta)
     listClientesMensal: readProcedure(MODULE)
-      .query(({ ctx }) => sitfisService.listClientesMensal(ctx.empresaId)),
+      .query(({ ctx }) => sitfisService.listClientesMensal(ctx.empresaId, ctx.userId, ctx.isMaster)),
 
     // ── SICALC / DARF ───────────────────────────────────
 

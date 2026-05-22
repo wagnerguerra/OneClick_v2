@@ -1,10 +1,10 @@
 import { z } from 'zod'
-import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
+import { router, readProcedure, writeProcedure, deleteProcedure, writeSubProcedure, readSubProcedure, deleteSubProcedure } from '../trpc/trpc.service'
 import { CaixaPostalService } from './caixapostal.service'
 import { CaixaPostalSchedulerService } from './caixapostal.scheduler'
 import { TRPCError } from '@trpc/server'
 
-const MODULE = 'caixa-postal'
+const MODULE = 'caixapostal'
 
 const contribuinteSchema = z.object({
   numero: z.string().min(11),
@@ -96,27 +96,27 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
       .input(z.object({ itemIds: z.array(z.string()).min(1) }))
       .mutation(({ input, ctx }) => service.marcarNaoLidasLote(input.itemIds, ctx.userId)),
 
-    // ── Lote ──────────────────────────────────────────────
+    // ── Lote (sub: bulk_actions) ────────────────────────────
 
-    consultarNovasLote: writeProcedure(MODULE)
+    consultarNovasLote: writeSubProcedure(MODULE, 'bulk_actions', 'Consulta em lote')
       .mutation(() => service.consultarNovasLote(null)),
 
-    classificarLote: writeProcedure(MODULE)
+    classificarLote: writeSubProcedure(MODULE, 'bulk_actions', 'Consulta em lote')
       .mutation(() => service.classificarLote(null)),
 
-    // ── Reclassificação ─────────────────────────────────
+    // ── Reclassificação (sub: reclassify) ────────────────
 
-    reclassificar: writeProcedure(MODULE)
+    reclassificar: writeSubProcedure(MODULE, 'reclassify', 'Reclassificar mensagens')
       .input(z.object({ itemId: z.string() }))
       .mutation(({ input }) => service.reclassificarMensagem(input.itemId, null)),
 
-    reclassificarTodas: writeProcedure(MODULE)
+    reclassificarTodas: writeSubProcedure(MODULE, 'reclassify', 'Reclassificar mensagens')
       .input(z.object({ contribuinte: z.string() }))
       .mutation(({ input }) => service.reclassificarTodas(input.contribuinte, null)),
 
-    // ── Gestão de mensagens (responsável, status, eventos) ──
+    // ── Gestão de mensagens (sub: manage_gestao) ──────────
 
-    itemDetalhes: readProcedure(MODULE)
+    itemDetalhes: readSubProcedure(MODULE, 'manage_gestao', 'Gestão e históricos')
       .input(z.object({ itemId: z.string() }))
       .query(({ input }) => service.getItemDetalhes(input.itemId)),
 
@@ -124,27 +124,27 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
       .input(z.object({ isn: z.string(), contribuinte: z.string() }))
       .query(({ input }) => service.getItemByIsn(input.isn, input.contribuinte)),
 
-    listarEventos: readProcedure(MODULE)
+    listarEventos: readSubProcedure(MODULE, 'manage_gestao', 'Gestão e históricos')
       .input(z.object({ itemId: z.string() }))
       .query(({ input }) => service.listarEventos(input.itemId)),
 
-    definirResponsavel: writeProcedure(MODULE)
+    definirResponsavel: writeSubProcedure(MODULE, 'manage_gestao', 'Gestão e históricos')
       .input(z.object({ itemId: z.string(), responsavelId: z.string() }))
       .mutation(({ input, ctx }) => service.definirResponsavel(input.itemId, input.responsavelId, ctx.userId)),
 
-    alterarStatus: writeProcedure(MODULE)
+    alterarStatus: writeSubProcedure(MODULE, 'manage_gestao', 'Gestão e históricos')
       .input(z.object({ itemId: z.string(), status: z.enum(['pendente', 'em_andamento', 'concluido', 'arquivado']) }))
       .mutation(({ input, ctx }) => service.alterarStatus(input.itemId, input.status, ctx.userId)),
 
-    adicionarObservacao: writeProcedure(MODULE)
+    adicionarObservacao: writeSubProcedure(MODULE, 'manage_gestao', 'Gestão e históricos')
       .input(z.object({ itemId: z.string(), texto: z.string().min(1) }))
       .mutation(({ input, ctx }) => service.adicionarObservacao(input.itemId, input.texto, ctx.userId)),
 
-    encaminhar: writeProcedure(MODULE)
+    encaminhar: writeSubProcedure(MODULE, 'manage_gestao', 'Gestão e históricos')
       .input(z.object({ itemId: z.string(), destinatarioIds: z.array(z.string()).min(1), observacao: z.string().optional(), enviarEmail: z.boolean().optional() }))
       .mutation(({ input, ctx }) => service.encaminharMensagem(input.itemId, input.destinatarioIds, input.observacao, ctx.userId, input.enviarEmail)),
 
-    criarObrigacao: writeProcedure(MODULE)
+    criarObrigacao: writeSubProcedure(MODULE, 'manage_gestao', 'Gestão e históricos')
       .input(z.object({
         itemId: z.string(),
         nome: z.string().min(1),
@@ -160,7 +160,7 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
         return service.criarObrigacaoFromMensagem(itemId, dados, ctx.empresaId, ctx.userId)
       }),
 
-    listarUsuarios: readProcedure(MODULE)
+    listarUsuarios: readSubProcedure(MODULE, 'manage_gestao', 'Gestão e históricos')
       .query(() => service.listarUsuariosAtivos()),
 
     // ── Importante ──────────────────────────────────────────
@@ -173,21 +173,21 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
       .input(z.object({ itemIds: z.array(z.string()).min(1), importante: z.boolean() }))
       .mutation(({ input, ctx }) => service.marcarImportanteLote(input.itemIds, input.importante, ctx.userId)),
 
-    // ── Arquivamento de mensagens ────────────────────────────
+    // ── Arquivamento de mensagens (sub: archive_delete) ──────
 
-    arquivar: writeProcedure(MODULE)
+    arquivar: writeSubProcedure(MODULE, 'archive_delete', 'Arquivar mensagens')
       .input(z.object({ itemIds: z.array(z.string()).min(1) }))
       .mutation(({ input, ctx }) => service.arquivarMensagens(input.itemIds, ctx.userId)),
 
-    desarquivar: writeProcedure(MODULE)
+    desarquivar: writeSubProcedure(MODULE, 'archive_delete', 'Arquivar mensagens')
       .input(z.object({ itemIds: z.array(z.string()).min(1) }))
       .mutation(({ input, ctx }) => service.desarquivarMensagens(input.itemIds, ctx.userId)),
 
-    arquivarAntigas: writeProcedure(MODULE)
+    arquivarAntigas: writeSubProcedure(MODULE, 'archive_delete', 'Arquivar mensagens')
       .input(z.object({ contribuinte: z.string(), dias: z.number().min(1).default(90) }))
       .mutation(({ input, ctx }) => service.arquivarAntigas(input.contribuinte, input.dias, null, ctx.userId)),
 
-    listarArquivadas: readProcedure(MODULE)
+    listarArquivadas: readSubProcedure(MODULE, 'archive_delete', 'Arquivar mensagens')
       .input(z.object({ contribuinte: z.string() }))
       .query(({ input }) => service.listarArquivadas(input.contribuinte, null)),
 
@@ -201,13 +201,13 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
       .input(z.object({ clienteIds: z.array(z.string()).min(1) }))
       .mutation(({ input }) => service.inativarClientesLote(input.clienteIds)),
 
-    // ── Limpeza ───────────────────────────────────────────
+    // ── Limpeza (sub: archive_delete) ────────────────────────
 
-    excluirCache: deleteProcedure(MODULE)
+    excluirCache: deleteSubProcedure(MODULE, 'archive_delete', 'Excluir mensagens')
       .input(z.object({ documentos: z.array(z.string()).min(1) }))
       .mutation(({ input }) => service.excluirCache(input.documentos)),
 
-    limparTudo: deleteProcedure(MODULE)
+    limparTudo: deleteSubProcedure(MODULE, 'archive_delete', 'Excluir mensagens')
       .mutation(() => service.limparTudo()),
 
     // ── Configuração do classificador ─────────────────────

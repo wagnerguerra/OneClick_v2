@@ -20,9 +20,12 @@ import {
   Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 // ============================================================
 // Tipos
@@ -33,6 +36,7 @@ interface ClienteMensal {
   razaoSocial: string
   documento: string
   tipoDocumento: string
+  alertaProcuracao?: boolean
 }
 
 interface StatusInfo {
@@ -120,6 +124,15 @@ export default function CaixaPostalPage() {
   const router = useRouter()
   const prioridadeParam = searchParams.get('prioridade') as 'P0' | 'P1' | 'P2' | 'P3' | null
   const importanteParam = searchParams.get('importante') === '1'
+
+  // Sub-permissões do módulo caixapostal
+  const { isMaster, permissions } = useUserPermissions()
+  const caixaPostalPerm = permissions.find(p => p.moduleSlug === 'caixapostal')
+  const subPerms = (caixaPostalPerm?.subPermissions ?? {}) as Record<string, boolean>
+  const canBulkActions = isMaster || subPerms.bulk_actions === true
+  const canArchiveDelete = isMaster || subPerms.archive_delete === true
+  const canReclassify = isMaster || subPerms.reclassify === true
+  const canGestao = isMaster || subPerms.manage_gestao === true
 
   // Visão filtrada por prioridade ou importantes (vindo do dashboard)
   const [mensagensAgregadas, setMensagensAgregadas] = useState<MensagemAgregada[]>([])
@@ -927,17 +940,10 @@ export default function CaixaPostalPage() {
       {/* Modal Consulta Automática */}
       <Dialog open={scheduleOpen} onOpenChange={(o) => { if (!o) { setScheduleOpen(false); stopProgressPolling(); setExecLogDetalhe(null) } }}>
         <DialogContent className="max-w-[720px]">
-          <DialogHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-sky-500 dark:bg-sky-600">
-                <CalendarClock className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <DialogTitle>Consulta Automática e-CAC</DialogTitle>
-                <DialogDescription>Agende a busca automática de mensagens para todos os clientes mensais</DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
+          <DialogHeaderIcon icon={CalendarClock} color="sky">
+            <DialogTitle>Consulta Automática e-CAC</DialogTitle>
+            <DialogDescription>Agende a busca automática de mensagens para todos os clientes mensais</DialogDescription>
+          </DialogHeaderIcon>
 
           <DialogBody>
             {/* Tabs: Configuração / Histórico */}
@@ -1377,6 +1383,9 @@ export default function CaixaPostalPage() {
       {/* Modal detalhe da mensagem */}
       <Dialog open={detalheOpen} onOpenChange={(o) => { if (!o) setDetalheOpen(false) }}>
         <DialogContent className="max-w-[820px]">
+          {/* Exceção ao padrão DialogHeaderIcon: o slot do ícone é ocupado pelo
+              badge de prioridade dinâmico (P0/P1/P2/P3 com cor/ícone variáveis) +
+              status badge à direita + linha de abas. Padrão não comporta. */}
           <DialogHeader>
             <div className="flex items-center gap-4">
               {detalheMsg && (() => {
@@ -1418,8 +1427,10 @@ export default function CaixaPostalPage() {
             <div className="flex gap-0 -mb-4 mt-3">
               {([
                 { key: 'conteudo' as const, label: 'Conteúdo', icon: FileText },
-                { key: 'gestao' as const, label: 'Gestão', icon: User },
-                { key: 'historico' as const, label: 'Histórico', icon: History },
+                ...(canGestao ? [
+                  { key: 'gestao' as const, label: 'Gestão', icon: User },
+                  { key: 'historico' as const, label: 'Histórico', icon: History },
+                ] : []),
               ]).map(tab => {
                 const TabIcon = tab.icon
                 return (
@@ -1728,9 +1739,7 @@ export default function CaixaPostalPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md">
-            <Mail className="h-6 w-6" />
-          </div>
+          <PageHeaderIcon module="fiscal" icon={Mail} />
           <div>
             <h1>
               {modoFiltrado
@@ -1768,10 +1777,12 @@ export default function CaixaPostalPage() {
             </>
           ) : selectedCliente ? (
             <div className="flex items-center gap-1.5">
-              <Button size="sm" onClick={() => handleConsultarCliente(selectedCliente, false)} disabled={mensagensLoading} className="gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white">
-                {mensagensLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
-                Consultar API
-              </Button>
+              {canBulkActions && (
+                <Button size="sm" onClick={() => handleConsultarCliente(selectedCliente, false)} disabled={mensagensLoading} className="gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white">
+                  {mensagensLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                  Consultar API
+                </Button>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-8 w-8 p-0">
@@ -1780,42 +1791,48 @@ export default function CaixaPostalPage() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuItem onClick={() => handleConsultarCliente(selectedCliente, true)} className="text-xs gap-2"><Inbox className="h-3.5 w-3.5" />Ver cache</DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleReclassificarTodas} disabled={mensagensLoading || mensagens.length === 0} className="text-xs gap-2"><RotateCcw className="h-3.5 w-3.5" />Reclassificar todas</DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    if (verArquivadas) {
-                      setVerArquivadas(false)
-                      handleConsultarCliente(selectedCliente, true)
-                    } else {
-                      setVerArquivadas(true)
-                      setMensagensLoading(true)
-                      try {
-                        const r = await trpc.caixaPostal.listarArquivadas.query({ contribuinte: selectedCliente.documento }) as { mensagens: MensagemClassificada[]; total: number }
-                        setMensagens(r.mensagens || [])
-                      } catch (e) { alerts.error('Erro', (e as Error).message) }
-                      finally { setMensagensLoading(false) }
-                    }
-                  }} className="text-xs gap-2">
-                    {verArquivadas ? <Inbox className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
-                    {verArquivadas ? 'Voltar às ativas' : 'Ver arquivadas'}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    const ok = await alerts.confirm({ title: 'Arquivar antigas', text: 'Arquivar mensagens lidas com mais de 30 dias?', confirmText: 'Sim', icon: 'question' })
-                    if (!ok) return
-                    try {
-                      const r = await trpc.caixaPostal.arquivarAntigas.mutate({ contribuinte: selectedCliente.documento, dias: 30 }) as { total: number }
-                      await alerts.success('Arquivadas', `${r.total} mensagem(ns)`)
-                      handleConsultarCliente(selectedCliente, true)
-                    } catch (e) { alerts.error('Erro', (e as Error).message) }
-                  }} className="text-xs gap-2"><Clock className="h-3.5 w-3.5" />Arquivar lidas +30 dias</DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    const ok = await alerts.confirm({ title: 'Arquivar antigas', text: 'Arquivar mensagens lidas com mais de 90 dias?', confirmText: 'Sim', icon: 'question' })
-                    if (!ok) return
-                    try {
-                      const r = await trpc.caixaPostal.arquivarAntigas.mutate({ contribuinte: selectedCliente.documento, dias: 90 }) as { total: number }
-                      await alerts.success('Arquivadas', `${r.total} mensagem(ns)`)
-                      handleConsultarCliente(selectedCliente, true)
-                    } catch (e) { alerts.error('Erro', (e as Error).message) }
-                  }} className="text-xs gap-2"><Clock className="h-3.5 w-3.5" />Arquivar lidas +90 dias</DropdownMenuItem>
+                  {canReclassify && (
+                    <DropdownMenuItem onClick={handleReclassificarTodas} disabled={mensagensLoading || mensagens.length === 0} className="text-xs gap-2"><RotateCcw className="h-3.5 w-3.5" />Reclassificar todas</DropdownMenuItem>
+                  )}
+                  {canArchiveDelete && (
+                    <>
+                      <DropdownMenuItem onClick={async () => {
+                        if (verArquivadas) {
+                          setVerArquivadas(false)
+                          handleConsultarCliente(selectedCliente, true)
+                        } else {
+                          setVerArquivadas(true)
+                          setMensagensLoading(true)
+                          try {
+                            const r = await trpc.caixaPostal.listarArquivadas.query({ contribuinte: selectedCliente.documento }) as { mensagens: MensagemClassificada[]; total: number }
+                            setMensagens(r.mensagens || [])
+                          } catch (e) { alerts.error('Erro', (e as Error).message) }
+                          finally { setMensagensLoading(false) }
+                        }
+                      }} className="text-xs gap-2">
+                        {verArquivadas ? <Inbox className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+                        {verArquivadas ? 'Voltar às ativas' : 'Ver arquivadas'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={async () => {
+                        const ok = await alerts.confirm({ title: 'Arquivar antigas', text: 'Arquivar mensagens lidas com mais de 30 dias?', confirmText: 'Sim', icon: 'question' })
+                        if (!ok) return
+                        try {
+                          const r = await trpc.caixaPostal.arquivarAntigas.mutate({ contribuinte: selectedCliente.documento, dias: 30 }) as { total: number }
+                          await alerts.success('Arquivadas', `${r.total} mensagem(ns)`)
+                          handleConsultarCliente(selectedCliente, true)
+                        } catch (e) { alerts.error('Erro', (e as Error).message) }
+                      }} className="text-xs gap-2"><Clock className="h-3.5 w-3.5" />Arquivar lidas +30 dias</DropdownMenuItem>
+                      <DropdownMenuItem onClick={async () => {
+                        const ok = await alerts.confirm({ title: 'Arquivar antigas', text: 'Arquivar mensagens lidas com mais de 90 dias?', confirmText: 'Sim', icon: 'question' })
+                        if (!ok) return
+                        try {
+                          const r = await trpc.caixaPostal.arquivarAntigas.mutate({ contribuinte: selectedCliente.documento, dias: 90 }) as { total: number }
+                          await alerts.success('Arquivadas', `${r.total} mensagem(ns)`)
+                          handleConsultarCliente(selectedCliente, true)
+                        } catch (e) { alerts.error('Erro', (e as Error).message) }
+                      }} className="text-xs gap-2"><Clock className="h-3.5 w-3.5" />Arquivar lidas +90 dias</DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
               <Button variant="ghost" size="sm" onClick={handleVoltarLista} className="gap-1.5">
@@ -1824,23 +1841,25 @@ export default function CaixaPostalPage() {
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
-              {selecionados.size > 0 && (
+              {canArchiveDelete && selecionados.size > 0 && (
                 <Button variant="destructive" size="sm" onClick={handleInativarLote} disabled={inativandoLote} className="gap-1.5">
                   {inativandoLote ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserX className="h-3.5 w-3.5" />}
                   Inativar ({selecionados.size})
                 </Button>
               )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" className="gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white">
-                    <Play className="h-3.5 w-3.5" />Consultar em Lote
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem onClick={() => handleAbrirLote('classificar')} className="text-xs gap-2"><BookOpen className="h-3.5 w-3.5" />Classificar Mensagens</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleAbrirLote('indicador')} className="text-xs gap-2"><Search className="h-3.5 w-3.5" />Consultar Novas (indicador)</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {canBulkActions && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" className="gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white">
+                      <Play className="h-3.5 w-3.5" />Consultar em Lote
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => handleAbrirLote('classificar')} className="text-xs gap-2"><BookOpen className="h-3.5 w-3.5" />Classificar Mensagens</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleAbrirLote('indicador')} className="text-xs gap-2"><Search className="h-3.5 w-3.5" />Consultar Novas (indicador)</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-8 w-8 p-0">
@@ -1848,10 +1867,16 @@ export default function CaixaPostalPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuItem asChild><Link href="/caixapostal/regras" className="text-xs gap-2"><Shield className="h-3.5 w-3.5" />Regras de Classificação</Link></DropdownMenuItem>
-                  <DropdownMenuItem onClick={openScheduleModal} className="text-xs gap-2"><CalendarClock className="h-3.5 w-3.5" />Consulta Automática</DropdownMenuItem>
+                  {canBulkActions && (
+                    <>
+                      <DropdownMenuItem asChild><Link href="/caixapostal/regras" className="text-xs gap-2"><Shield className="h-3.5 w-3.5" />Regras de Classificação</Link></DropdownMenuItem>
+                      <DropdownMenuItem onClick={openScheduleModal} className="text-xs gap-2"><CalendarClock className="h-3.5 w-3.5" />Consulta Automática</DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuItem onClick={fetchClientes} className="text-xs gap-2"><RefreshCw className="h-3.5 w-3.5" />Atualizar lista</DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleLimparTudo} className="text-xs gap-2 text-red-600"><Trash2 className="h-3.5 w-3.5" />Limpar tudo</DropdownMenuItem>
+                  {canArchiveDelete && (
+                    <DropdownMenuItem onClick={handleLimparTudo} className="text-xs gap-2 text-red-600"><Trash2 className="h-3.5 w-3.5" />Limpar tudo</DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -2129,10 +2154,12 @@ export default function CaixaPostalPage() {
           {selecionados.size > 0 && (
             <div className="flex items-center gap-3 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 px-4 py-2.5 text-sm">
               <span className="font-medium text-indigo-700 dark:text-indigo-400">{selecionados.size} selecionado{selecionados.size > 1 ? 's' : ''}</span>
-              <Button variant="soft-destructive" size="sm" onClick={handleInativarLote} disabled={inativandoLote}>
-                {inativandoLote ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserX className="h-3.5 w-3.5" />}
-                Inativar selecionados
-              </Button>
+              {canArchiveDelete && (
+                <Button variant="soft-destructive" size="sm" onClick={handleInativarLote} disabled={inativandoLote}>
+                  {inativandoLote ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserX className="h-3.5 w-3.5" />}
+                  Inativar selecionados
+                </Button>
+              )}
               <Button variant="ghost" size="sm" onClick={() => setSelecionados(new Set())}>Limpar seleção</Button>
             </div>
           )}
@@ -2197,7 +2224,12 @@ export default function CaixaPostalPage() {
                         <Checkbox checked={selecionados.has(c.id)} onCheckedChange={() => toggleSelecionado(c.id)} />
                       </TableCell>
                       <TableCell>
-                        <p className={cn('text-sm truncate', temNaoLidas ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground')}>{c.razaoSocial}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className={cn('text-sm truncate', temNaoLidas ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground')}>{c.razaoSocial}</p>
+                          {c.alertaProcuracao && (
+                            <span title="Possível falta de procuração no e-CAC" className="shrink-0 text-amber-500"><AlertTriangle className="h-3.5 w-3.5" /></span>
+                          )}
+                        </div>
                         <p className="font-mono text-[10px] text-muted-foreground font-normal xl:hidden">{formatDoc(c.documento)}</p>
                       </TableCell>
                       <TableCell className="hidden xl:table-cell font-mono text-xs text-muted-foreground">{formatDoc(c.documento)}</TableCell>
@@ -2235,17 +2267,21 @@ export default function CaixaPostalPage() {
                             <DropdownMenuItem onClick={() => handleConsultarCliente(c, true)} className="text-xs gap-2">
                               <Inbox className="h-3.5 w-3.5" />Ver mensagens em cache
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleConsultarCliente(c, false)} className="text-xs gap-2">
-                              <Search className="h-3.5 w-3.5" />Consultar API
-                            </DropdownMenuItem>
+                            {canBulkActions && (
+                              <DropdownMenuItem onClick={() => handleConsultarCliente(c, false)} className="text-xs gap-2">
+                                <Search className="h-3.5 w-3.5" />Consultar API
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => handleRefreshCliente(c)} disabled={isRefreshing} className="text-xs gap-2">
                               {isRefreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                               Atualizar status
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleInativarCliente(c)} disabled={isInativando} className="text-xs gap-2 text-red-500 focus:text-red-500">
-                              {isInativando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserX className="h-3.5 w-3.5" />}
-                              Inativar cliente
-                            </DropdownMenuItem>
+                            {canArchiveDelete && (
+                              <DropdownMenuItem onClick={() => handleInativarCliente(c)} disabled={isInativando} className="text-xs gap-2 text-red-500 focus:text-red-500">
+                                {isInativando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserX className="h-3.5 w-3.5" />}
+                                Inativar cliente
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -2334,25 +2370,27 @@ export default function CaixaPostalPage() {
                   </Button>
 
                   {/* Arquivar/Desarquivar em lote */}
-                  <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1"
-                    onClick={async () => {
-                      const ids = Array.from(msgSelecionadas)
-                      const isArq = verArquivadas
-                      try {
-                        if (isArq) {
-                          await trpc.caixaPostal.desarquivar.mutate({ itemIds: ids })
-                          await alerts.success('Desarquivadas', `${ids.length} mensagem(ns) desarquivada(s).`)
-                        } else {
-                          await trpc.caixaPostal.arquivar.mutate({ itemIds: ids })
-                          await alerts.success('Arquivadas', `${ids.length} mensagem(ns) arquivada(s).`)
-                        }
-                        setMensagens(prev => prev.filter(m => !msgSelecionadas.has((m as Record<string, unknown>).id as string)))
-                        setMsgSelecionadas(new Set())
-                      } catch (e) { alerts.error('Erro', (e as Error).message) }
-                    }}>
-                    {verArquivadas ? <ArchiveRestore className="h-3 w-3" /> : <Archive className="h-3 w-3" />}
-                    {verArquivadas ? `Desarquivar (${msgSelecionadas.size})` : `Arquivar (${msgSelecionadas.size})`}
-                  </Button>
+                  {canArchiveDelete && (
+                    <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1"
+                      onClick={async () => {
+                        const ids = Array.from(msgSelecionadas)
+                        const isArq = verArquivadas
+                        try {
+                          if (isArq) {
+                            await trpc.caixaPostal.desarquivar.mutate({ itemIds: ids })
+                            await alerts.success('Desarquivadas', `${ids.length} mensagem(ns) desarquivada(s).`)
+                          } else {
+                            await trpc.caixaPostal.arquivar.mutate({ itemIds: ids })
+                            await alerts.success('Arquivadas', `${ids.length} mensagem(ns) arquivada(s).`)
+                          }
+                          setMensagens(prev => prev.filter(m => !msgSelecionadas.has((m as Record<string, unknown>).id as string)))
+                          setMsgSelecionadas(new Set())
+                        } catch (e) { alerts.error('Erro', (e as Error).message) }
+                      }}>
+                      {verArquivadas ? <ArchiveRestore className="h-3 w-3" /> : <Archive className="h-3 w-3" />}
+                      {verArquivadas ? `Desarquivar (${msgSelecionadas.size})` : `Arquivar (${msgSelecionadas.size})`}
+                    </Button>
+                  )}
 
                   {/* Marcar importante em lote */}
                   <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1"
@@ -2493,10 +2531,12 @@ export default function CaixaPostalPage() {
                               {isImportante ? 'Remover importância' : 'Marcar importante'}
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem onClick={() => handleReclassificar(m)} className="text-xs gap-2">
-                            <RotateCcw className="h-3.5 w-3.5" />Reclassificar
-                          </DropdownMenuItem>
-                          {typeof (m as Record<string, unknown>).id === 'string' && (
+                          {canReclassify && (
+                            <DropdownMenuItem onClick={() => handleReclassificar(m)} className="text-xs gap-2">
+                              <RotateCcw className="h-3.5 w-3.5" />Reclassificar
+                            </DropdownMenuItem>
+                          )}
+                          {canArchiveDelete && typeof (m as Record<string, unknown>).id === 'string' && (
                             <DropdownMenuItem className="text-xs gap-2" onClick={async () => {
                               const id = (m as Record<string, unknown>).id as string
                               const isArquivada = (m as Record<string, unknown>).arquivada
@@ -2596,8 +2636,10 @@ export default function CaixaPostalPage() {
                   <div className="shrink-0 flex border-b px-4">
                     {([
                       { key: 'conteudo' as const, label: 'Conteúdo', icon: FileText },
-                      { key: 'gestao' as const, label: 'Gestão', icon: User },
-                      { key: 'historico' as const, label: 'Histórico', icon: History },
+                      ...(canGestao ? [
+                        { key: 'gestao' as const, label: 'Gestão', icon: User },
+                        { key: 'historico' as const, label: 'Histórico', icon: History },
+                      ] : []),
                     ]).map(tab => {
                       const TabIcon = tab.icon
                       return (

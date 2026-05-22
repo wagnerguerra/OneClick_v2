@@ -13,7 +13,7 @@ import { FolhaImportTab } from './_components/folha-import'
 import { FolhaLancamentosTab } from './_components/folha-lancamentos'
 import { FolhaExportTab } from './_components/folha-export'
 
-const MODULE_COLOR = '#8b5cf6'
+const MODULE_COLOR = 'var(--mod-trabalhista, #8b5cf6)'
 
 interface ClienteOption { id: string; razaoSocial: string; documento: string }
 
@@ -130,7 +130,7 @@ export default function FolhaPagamentoPage() {
           </CardHeader>
           <div className="flex min-h-[500px]">
             {/* Pills laterais */}
-            <div className="w-[170px] shrink-0 border-r border-[rgba(0,0,0,0.08)] bg-[#f8f9fa] p-3">
+            <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3">
               <div className="space-y-1">
                 {TABS.map(tab => {
                   const Icon = tab.icon
