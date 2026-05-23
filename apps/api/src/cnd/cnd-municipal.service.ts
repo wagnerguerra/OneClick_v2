@@ -492,7 +492,6 @@ export class CndMunicipalService {
 
       if (!pdfBase64 && !pdfUrl) {
         console.log(`${tag} Nenhuma aba com PDF encontrada`)
-        await page.screenshot({ path: `C:/Users/wagner/Desktop/cnd_debug_${municipio.replace(' ', '_')}.png`, fullPage: true })
       }
 
       // Atualizar texto do resultado da página principal
