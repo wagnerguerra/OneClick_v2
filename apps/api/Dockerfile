@@ -13,6 +13,9 @@ RUN apk add --no-cache python3 make g++ openssl libc6-compat \
 # ─── Stage 1: deps ─────────────────────────────────────────
 # Camada cacheada quando o lockfile não muda.
 FROM base AS deps
+# Puppeteer não consegue rodar Chrome bundled em Alpine (musl ≠ glibc).
+# Pulamos o download durante install — runtime usa o chromium do apk.
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
@@ -35,9 +38,16 @@ RUN pnpm --filter @saas/api build
 
 # ─── Stage 3: runtime ──────────────────────────────────────
 FROM node:22-alpine AS runtime
+# Chromium do Alpine (puppeteer não consegue rodar o Chrome bundled em musl,
+# então usamos o /usr/bin/chromium-browser do apk). Fontes pra render PDF
+# de certidões CND/CNDT/CRF/etc. Ver PUPPETEER_EXECUTABLE_PATH abaixo.
 RUN apk add --no-cache openssl libc6-compat tini \
+      chromium nss freetype harfbuzz ttf-freefont ttf-liberation font-noto-emoji \
+      ca-certificates \
  && corepack enable \
  && corepack prepare pnpm@10.33.0 --activate
+ENV PUPPETEER_SKIP_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 WORKDIR /app
 
 # Workspace files necessários pra pnpm resolver workspace links em runtime
