@@ -69,7 +69,7 @@ export class CndtTrabalhistaService {
     try {
       const buf = Buffer.from(pdfBase64, 'base64')
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const data = await require('pdf-parse')(buf)
+      const data = await require('pdf-parse/lib/pdf-parse.js')(buf)
       const texto = data.text || ''
 
       const patterns = [
@@ -217,7 +217,7 @@ export class CndtTrabalhistaService {
 
         try {
           // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const pdfData = await require('pdf-parse')(Buffer.from(pdfBase64, 'base64'))
+          const pdfData = await require('pdf-parse/lib/pdf-parse.js')(Buffer.from(pdfBase64, 'base64'))
           const numMatch = (pdfData.text as string).match(/Certidão\s*n[°º]\s*[:.]?\s*([\d/]+)/i)
           if (numMatch) numeroCertidao = numMatch[1]!
         } catch { /* */ }

@@ -87,6 +87,11 @@ export class CrfFgtsService {
       this.consultaEtapa = 'Página carregada, consultando...'
       console.log(`${tag} Página carregada`)
 
+      // Espera o form JSF terminar de renderizar (em rede lenta da VPS o
+      // networkidle2 dispara antes do JSF compor os campos)
+      await page.waitForSelector('#mainForm\\:txtInscricao1', { timeout: 20000 })
+      await page.waitForSelector('#mainForm\\:btnConsultar', { timeout: 5000 })
+
       // Preencher CNPJ e consultar
       await page.evaluate(`document.getElementById("mainForm:txtInscricao1").value = "${doc}"`)
       await page.evaluate('document.getElementById("mainForm:btnConsultar").click()')

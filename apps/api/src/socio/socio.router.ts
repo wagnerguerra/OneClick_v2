@@ -99,7 +99,7 @@ export function createSocioRouter(socioService: SocioService, cnpjService: CnpjS
           console.log(`[QSA] PDF da Situação Fiscal encontrado: ${sitfisRows.length > 0 ? 'SIM' : 'NÃO'} (clienteId=${input.clienteId})`)
           if (sitfisRows[0]?.pdf_base64) {
             // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const pdfParse = require('pdf-parse')
+            const pdfParse = require('pdf-parse/lib/pdf-parse.js')
             const buf = Buffer.from(sitfisRows[0].pdf_base64, 'base64')
             const parsed = await pdfParse(buf)
             const texto = (parsed.text || '').replace(/\r\n/g, '\n')

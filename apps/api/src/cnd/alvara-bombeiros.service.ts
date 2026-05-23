@@ -99,7 +99,13 @@ export class AlvaraBombeirosService {
       const exists = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
         `SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'alvaras_bombeiros')`,
       )
-      if (exists[0]?.exists) { this.tableChecked = true; return }
+      if (exists[0]?.exists) {
+        // Garante que a coluna pdf_base64 existe (adicionada lazy posteriormente
+        // — sem isso o compilar-certidoes loga prisma:error mesmo com .catch())
+        await prisma.$executeRawUnsafe(`ALTER TABLE alvaras_bombeiros ADD COLUMN IF NOT EXISTS pdf_base64 TEXT`).catch(() => {})
+        this.tableChecked = true
+        return
+      }
       await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS alvaras_bombeiros (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -117,6 +123,7 @@ export class AlvaraBombeirosService {
           ocupacao TEXT,
           cliente_id TEXT,
           user_id TEXT,
+          pdf_base64 TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
       `)

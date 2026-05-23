@@ -79,7 +79,7 @@ export class CndMunicipalService {
     try {
       const buf = Buffer.from(pdfBase64, 'base64')
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const data = await require('pdf-parse')(buf)
+      const data = await require('pdf-parse/lib/pdf-parse.js')(buf)
       const texto = data.text || ''
 
       // Padrões comuns: "Data Validade:DD/MM/YYYY", "Válida até DD/MM/YYYY", "Validade: DD/MM/YYYY"
