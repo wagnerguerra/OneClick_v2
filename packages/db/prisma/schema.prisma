@@ -41,8 +41,8 @@ model Tenant {
 // ============================================================
 model ModuleColor {
   slug      String   @id // ex: "cadastros", "comercial", "fiscal"
-  label     String   // ex: "Cadastros"
-  color     String   // hex, ex: "#10b981"
+  label     String // ex: "Cadastros"
+  color     String // hex, ex: "#10b981"
   updatedAt DateTime @updatedAt @map("updated_at")
   updatedBy String?  @map("updated_by")
 
@@ -380,7 +380,7 @@ model Area {
   clienteAreas       ClienteAreaContratada[]
   helpdeskCategorias HelpdeskCategoria[]
   helpdeskTickets    HelpdeskTicket[]
-  ativos             Ativo[]            @relation("AtivoArea")
+  ativos             Ativo[]                 @relation("AtivoArea")
 
   @@map("areas")
 }
@@ -510,11 +510,10 @@ model Empresa {
 /**
  * Template de assinatura de email POR EMPRESA — editável só por isMaster em
  * /admin/assinatura-template. Quando não existe, usa-se os defaults hardcoded.
- *
  * Dois modos:
- *  1. Visual (default): renderiza HTML a partir das colunas (cores/fonte/logo/visibilidade).
- *  2. customHtmlEnabled=true: usa `customHtml` literal, com placeholders
- *     {{user.name}} {{empresa.logoUrl}} etc. interpolados client-side.
+ * 1. Visual (default): renderiza HTML a partir das colunas (cores/fonte/logo/visibilidade).
+ * 2. customHtmlEnabled=true: usa `customHtml` literal, com placeholders
+ * {{user.name}} {{empresa.logoUrl}} etc. interpolados client-side.
  */
 model EmpresaSignatureTemplate {
   id        String @id @default(cuid())
@@ -532,13 +531,13 @@ model EmpresaSignatureTemplate {
   fontFamily         String  @default("Arial, Helvetica, sans-serif") @map("font_family")
 
   // Visibilidade dos campos
-  showPhoto     Boolean @default(true) @map("show_photo")
-  showName      Boolean @default(true) @map("show_name")
-  showArea      Boolean @default(true) @map("show_area")
-  showPhone     Boolean @default(true) @map("show_phone")
-  showAddress   Boolean @default(true) @map("show_address")
-  showSite      Boolean @default(true) @map("show_site")
-  showInstagram Boolean @default(true) @map("show_instagram")
+  showPhoto           Boolean @default(true) @map("show_photo")
+  showName            Boolean @default(true) @map("show_name")
+  showArea            Boolean @default(true) @map("show_area")
+  showPhone           Boolean @default(true) @map("show_phone")
+  showAddress         Boolean @default(true) @map("show_address")
+  showSite            Boolean @default(true) @map("show_site")
+  showInstagram       Boolean @default(true) @map("show_instagram")
   showLogo            Boolean @default(true) @map("show_logo")
   /// Quando false, a célula esquerda (da foto) renderiza com fundo branco
   /// em vez de herdar o background do template — útil pra "isolar" a foto
@@ -550,7 +549,7 @@ model EmpresaSignatureTemplate {
 
   // Modo HTML avançado
   customHtmlEnabled Boolean @default(false) @map("custom_html_enabled")
-  customHtml        String? @db.Text @map("custom_html")
+  customHtml        String? @map("custom_html") @db.Text
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -641,16 +640,16 @@ model Cliente {
   logoUrl       String?       @map("logo_url")
 
   // Integração
-  idSistema   String? @map("id_sistema")
-  idOmie      String? @map("id_omie")
-  omieEmpresa String? @map("omie_empresa")
-  idOneClick  String? @map("id_oneclick")
+  idSistema      String? @map("id_sistema")
+  idOmie         String? @map("id_omie")
+  omieEmpresa    String? @map("omie_empresa")
+  idOneClick     String? @map("id_oneclick")
   /// ID interno do cliente no Acessórias (campo `ID` em /companies/ListAll).
   /// Resolvido na 1ª sincronização e cacheado pra acessos rápidos posteriores.
-  idAcessorias    Int?    @map("id_acessorias")
+  idAcessorias   Int?    @map("id_acessorias")
   /// CNPJ no Acessórias quando diferir do nosso (raro mas possível —
   /// ex: cliente migrou de filial, CNPJ antigo persistiu no Acessórias).
-  cnpjAcessorias  String? @map("cnpj_acessorias")
+  cnpjAcessorias String? @map("cnpj_acessorias")
 
   // Alertas
   alertaProcuracao   Boolean   @default(false) @map("alerta_procuracao")
@@ -714,34 +713,34 @@ model Cliente {
 
   // Pasta local (PC do escritório) — monitorada pelo Launcher Electron via chokidar.
   // O caminho é interpretado pelo daemon local, não pela API. UI só persiste o valor.
-  localFolderPath        String?   @map("local_folder_path")
-  localSyncEnabled       Boolean   @default(false) @map("local_sync_enabled")
-  localSyncedAt          DateTime? @map("local_synced_at")
-  localSyncStatus        String?   @map("local_sync_status") // ok | erro | nunca | aguardando_daemon | monitorando
+  localFolderPath      String?   @map("local_folder_path")
+  localSyncEnabled     Boolean   @default(false) @map("local_sync_enabled")
+  localSyncedAt        DateTime? @map("local_synced_at")
+  localSyncStatus      String?   @map("local_sync_status") // ok | erro | nunca | aguardando_daemon | monitorando
   /// Flag de "sync manual solicitada" — daemon detecta e faz scan completo. Limpa após processar.
-  localSyncRequestedAt   DateTime? @map("local_sync_requested_at")
+  localSyncRequestedAt DateTime? @map("local_sync_requested_at")
 
   // NFe SEFAZ (NFeDistribuicaoDFe) — entradas de mercadorias via web service oficial
-  nfeDistEnabled         Boolean   @default(false) @map("nfe_dist_enabled")
-  nfeDistUltimoNsu       BigInt?   @map("nfe_dist_ultimo_nsu")
-  nfeDistSyncedAt        DateTime? @map("nfe_dist_synced_at")
-  nfeDistSyncStatus      String?   @map("nfe_dist_sync_status")  // ok | erro | nunca | aguardando
-  nfeDistSyncRequestedAt DateTime? @map("nfe_dist_sync_requested_at")
-  nfeDistCertificadoId   String?   @map("nfe_dist_certificado_id")
+  nfeDistEnabled         Boolean             @default(false) @map("nfe_dist_enabled")
+  nfeDistUltimoNsu       BigInt?             @map("nfe_dist_ultimo_nsu")
+  nfeDistSyncedAt        DateTime?           @map("nfe_dist_synced_at")
+  nfeDistSyncStatus      String?             @map("nfe_dist_sync_status") // ok | erro | nunca | aguardando
+  nfeDistSyncRequestedAt DateTime?           @map("nfe_dist_sync_requested_at")
+  nfeDistCertificadoId   String?             @map("nfe_dist_certificado_id")
   nfeDistCertificado     CertificadoDigital? @relation("ClienteNFeDistCert", fields: [nfeDistCertificadoId], references: [id], onDelete: SetNull)
   /// Progresso em tempo real durante sync NFe SEFAZ — `{ etapa, mensagem, atual, total, pct }`
-  nfeDistProgresso       Json?     @map("nfe_dist_progresso")
+  nfeDistProgresso       Json?               @map("nfe_dist_progresso")
 
   // NFS-e Nacional (ADN) — entradas de serviços via REST com mTLS
-  nfseDistEnabled         Boolean   @default(false) @map("nfse_dist_enabled")
-  nfseDistUltimoNsu       BigInt?   @map("nfse_dist_ultimo_nsu")
-  nfseDistSyncedAt        DateTime? @map("nfse_dist_synced_at")
-  nfseDistSyncStatus      String?   @map("nfse_dist_sync_status")
-  nfseDistSyncRequestedAt DateTime? @map("nfse_dist_sync_requested_at")
-  nfseDistCertificadoId   String?   @map("nfse_dist_certificado_id")
+  nfseDistEnabled         Boolean             @default(false) @map("nfse_dist_enabled")
+  nfseDistUltimoNsu       BigInt?             @map("nfse_dist_ultimo_nsu")
+  nfseDistSyncedAt        DateTime?           @map("nfse_dist_synced_at")
+  nfseDistSyncStatus      String?             @map("nfse_dist_sync_status")
+  nfseDistSyncRequestedAt DateTime?           @map("nfse_dist_sync_requested_at")
+  nfseDistCertificadoId   String?             @map("nfse_dist_certificado_id")
   nfseDistCertificado     CertificadoDigital? @relation("ClienteNFSeDistCert", fields: [nfseDistCertificadoId], references: [id], onDelete: SetNull)
   /// Progresso em tempo real durante sync NFS-e Nacional
-  nfseDistProgresso       Json?     @map("nfse_dist_progresso")
+  nfseDistProgresso       Json?               @map("nfse_dist_progresso")
 
   // Versionamento (ISO 9001)
   version   Int       @default(1)
@@ -786,16 +785,16 @@ model Cliente {
 
 // Drive Sync — rastreia cada arquivo já processado (dedup por file_id + sha256)
 model DriveSyncedFile {
-  id            String   @id @default(cuid())
-  clienteId     String   @map("cliente_id")
-  fileId        String   @map("file_id")        // Drive file ID — estável
-  sha256        String                          // hash do conteúdo
-  fileName      String?  @map("file_name")
-  pathDrive     String?  @map("path_drive")     // caminho relativo dentro da pasta
-  processadoEm  DateTime @default(now()) @map("processado_em")
-  status        String                          // ok | duplicado | ignorado | erro
-  tipoIgnorado  String?  @map("tipo_ignorado")  // cce | cancelamento | inutilizacao | evento | nao_nfe
-  danfeId       String?  @map("danfe_id")
+  id           String   @id @default(cuid())
+  clienteId    String   @map("cliente_id")
+  fileId       String   @map("file_id") // Drive file ID — estável
+  sha256       String // hash do conteúdo
+  fileName     String?  @map("file_name")
+  pathDrive    String?  @map("path_drive") // caminho relativo dentro da pasta
+  processadoEm DateTime @default(now()) @map("processado_em")
+  status       String // ok | duplicado | ignorado | erro
+  tipoIgnorado String?  @map("tipo_ignorado") // cce | cancelamento | inutilizacao | evento | nao_nfe
+  danfeId      String?  @map("danfe_id")
 
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   danfe   Danfe?  @relation(fields: [danfeId], references: [id], onDelete: SetNull)
@@ -807,27 +806,27 @@ model DriveSyncedFile {
 
 // Drive Sync — log de cada execução de sincronização da pasta do cliente
 model DriveSyncLog {
-  id              String   @id @default(cuid())
-  clienteId       String   @map("cliente_id")
+  id                String    @id @default(cuid())
+  clienteId         String    @map("cliente_id")
   /// Origem da sync: automatico | manual | local_auto | local_manual | nfe-sefaz | nfse-nacional
-  tipo            String   @default("automatico")
-  iniciadoPor     String?  @map("iniciado_por")   // userId (se manual)
-  iniciadoEm      DateTime @default(now()) @map("iniciado_em")
-  finalizadoEm    DateTime? @map("finalizado_em")
-  status          String   @default("running") // running | completed | error
-  arquivosVistos  Int      @default(0) @map("arquivos_vistos")
-  arquivosNovos   Int      @default(0) @map("arquivos_novos")
-  arquivosOk      Int      @default(0) @map("arquivos_ok")
-  arquivosErro    Int      @default(0) @map("arquivos_erro")
-  arquivosIgnorados Int    @default(0) @map("arquivos_ignorados")
-  erroMensagem    String?  @map("erro_mensagem") @db.Text
+  tipo              String    @default("automatico")
+  iniciadoPor       String?   @map("iniciado_por") // userId (se manual)
+  iniciadoEm        DateTime  @default(now()) @map("iniciado_em")
+  finalizadoEm      DateTime? @map("finalizado_em")
+  status            String    @default("running") // running | completed | error
+  arquivosVistos    Int       @default(0) @map("arquivos_vistos")
+  arquivosNovos     Int       @default(0) @map("arquivos_novos")
+  arquivosOk        Int       @default(0) @map("arquivos_ok")
+  arquivosErro      Int       @default(0) @map("arquivos_erro")
+  arquivosIgnorados Int       @default(0) @map("arquivos_ignorados")
+  erroMensagem      String?   @map("erro_mensagem") @db.Text
   /// JSON: [{ nome, fileId, status: 'ok'|'erro'|'duplicado', danfeId?, erro? }]
-  itens           Json     @default("[]")
+  itens             Json      @default("[]")
   /// Progresso em tempo real (polling): { atual, total, nome, etapa }
-  progresso       Json?
+  progresso         Json?
   /// Logs antigos vão sendo arquivados quando passam de 10 ativos por cliente.
   /// Mantém histórico no banco mas some do painel "Últimas sincronizações".
-  arquivado       Boolean  @default(false)
+  arquivado         Boolean   @default(false)
 
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
 
@@ -964,6 +963,11 @@ model ClienteBiCategoria {
   tipo         String   @default("real") // real | calculada | referencia
   ativo        Boolean  @default(true)
   formula      Json?
+  // Override do template SERPRO2 — quando preenchidos, prevalecem sobre PlanoContasCategoriaPadrao
+  // Valores possíveis: RECEITA_BRUTA, DEDUCOES_IMPOSTOS, CUSTO_DAS_VENDAS, DESPESAS_VARIAVEIS,
+  // DESPESAS_OPERACIONAIS, RECEITAS_FINANCEIRAS, DESPESAS_FINANCEIRAS, IR_CS, DISTRIBUICAO_LUCROS
+  categoriaDre String?  @map("categoria_dre")
+  sinal        Int? // 1 (receita) ou -1 (despesa) — quando categoriaDre preenchida
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -971,7 +975,27 @@ model ClienteBiCategoria {
 
   @@unique([clienteId, conta])
   @@index([clienteId])
+  @@index([categoriaDre])
   @@map("cliente_bi_categorias")
+}
+
+// Template global SERPRO2 — mapeamento padrão de classificação contábil
+// para categoria de DRE + sinal. Replica o dPlano de Contas do PowerBI.
+// Cada cliente pode sobrescrever via ClienteBiCategoria.
+model PlanoContasCategoriaPadrao {
+  classificacao String   @id // ex: "04.2.1.01.001"
+  nivel1        String?
+  nivel2        String?
+  nivel3        String?
+  nivel4        String?
+  nivel5        String? // nome curto da conta (ex: "Salários")
+  categoriaDre  String   @map("categoria_dre")
+  sinal         Int // 1 ou -1
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([categoriaDre])
+  @@map("plano_contas_categoria_padrao")
 }
 
 model ClienteBiLinha {
@@ -1215,9 +1239,9 @@ model Fornecedor {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  empresa Empresa?          @relation(fields: [empresaId], references: [id], onDelete: SetNull)
-  events  FornecedorEvent[]
-  ativos  Ativo[]
+  empresa          Empresa?          @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  events           FornecedorEvent[]
+  ativos           Ativo[]
   ativoManutencoes AtivoManutencao[]
 
   @@map("fornecedores")
@@ -1493,13 +1517,13 @@ model CertificadoDigital {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  cliente Cliente?                   @relation(fields: [clienteId], references: [id], onDelete: SetNull)
-  empresa Empresa?                   @relation(fields: [empresaId], references: [id], onDelete: SetNull)
-  socio   Socio?                     @relation("CertificadoSocio", fields: [socioId], references: [id], onDelete: SetNull)
-  acessos CertificadoDigitalAcesso[]
+  cliente          Cliente?                   @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  empresa          Empresa?                   @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  socio            Socio?                     @relation("CertificadoSocio", fields: [socioId], references: [id], onDelete: SetNull)
+  acessos          CertificadoDigitalAcesso[]
   // Relações inversas — clientes que usam este certificado pra integrações fiscais
-  clientesNfeDist  Cliente[] @relation("ClienteNFeDistCert")
-  clientesNfseDist Cliente[] @relation("ClienteNFSeDistCert")
+  clientesNfeDist  Cliente[]                  @relation("ClienteNFeDistCert")
+  clientesNfseDist Cliente[]                  @relation("ClienteNFSeDistCert")
 
   @@index([clienteId])
   @@index([empresaId])
@@ -2420,20 +2444,30 @@ enum ServicoTipo {
 // Estratégia de atribuição de responsável na execução de um serviço.
 // O engine resolve em runtime conforme essa configuração no template.
 enum AtribuicaoResponsavel {
-  /** Default pra EXTRA: pega `responsavelId` do orçamento que originou a execução. */
+  /**
+   * Default pra EXTRA: pega `responsavelId` do orçamento que originou a execução.
+   */
   ORCAMENTO
-  /** Default pra MENSAL: busca `ClienteAreaContratada.responsavelId` no cliente,
-   *  matching pela `Servico.categoria` (case-insensitive) contra `Area.name`.
-   *  Fallback: substitutoId quando o responsável estiver ausente. */
+  /**
+   * Default pra MENSAL: busca `ClienteAreaContratada.responsavelId` no cliente,
+   * matching pela `Servico.categoria` (case-insensitive) contra `Area.name`.
+   * Fallback: substitutoId quando o responsável estiver ausente.
+   */
   CLIENTE_AREA
-  /** Usa `Servico.responsavelFixoId` — todo cliente/orçamento recebe a mesma pessoa. */
+  /**
+   * Usa `Servico.responsavelFixoId` — todo cliente/orçamento recebe a mesma pessoa.
+   */
   MANUAL_FIXO
-  /** Default pra FLUXO: herda do predecessor na cadeia de processos.
-   *  Já governado por `ServicoEncadeamento.herdaResponsavel`. */
+  /**
+   * Default pra FLUXO: herda do predecessor na cadeia de processos.
+   * Já governado por `ServicoEncadeamento.herdaResponsavel`.
+   */
   HERDA_PREDECESSOR
 }
 
-/** Como contar os dias do lembrete antes do vencimento. */
+/**
+ * Como contar os dias do lembrete antes do vencimento.
+ */
 enum TipoDiasAntes {
   CORRIDOS
   UTEIS
@@ -2477,92 +2511,144 @@ model Servico {
   // null = template genérico/avulso (Abertura de Empresa, Conciliação Bancária, certidões, etc).
   // Valores referenciam SEGMENTO_SLUGS em packages/types/src/segmento.ts
   segmentoSlug        String?           @map("segmento_slug")
-  /** Tipo do bloco no fluxograma — ATIVIDADE (default) ou DECISAO/INICIO/FIM */
+  /**
+   * Tipo do bloco no fluxograma — ATIVIDADE (default) ou DECISAO/INICIO/FIM
+   */
   tipo                ServicoTipo       @default(ATIVIDADE)
-  /** Papel deste registro: MENSAL/EXTRA = serviço top-level; FLUXO = item interno do fluxo. */
+  /**
+   * Papel deste registro: MENSAL/EXTRA = serviço top-level; FLUXO = item interno do fluxo.
+   */
   categoriaServico    ServicoCategoria  @default(EXTRA) @map("categoria_servico")
-  /** Quando categoriaServico = FLUXO, aponta pro serviço top-level dono do fluxo. */
+  /**
+   * Quando categoriaServico = FLUXO, aponta pro serviço top-level dono do fluxo.
+   */
   servicoPaiId        String?           @map("servico_pai_id")
-  /** Texto padrão (HTML do TipTap) — usado como conteúdo inicial em e-mails,
-   *  notas ou documentação automática quando o serviço é executado. */
+  /**
+   * Texto padrão (HTML do TipTap) — usado como conteúdo inicial em e-mails,
+   * notas ou documentação automática quando o serviço é executado.
+   */
   textoPadrao         String?           @map("texto_padrao") @db.Text
 
   // ── Bloco do tipo PERGUNTA — campos só preenchidos quando tipo=PERGUNTA ──
-  /** Texto da pergunta apresentada ao gestor em runtime
-   *  (ex.: "Serviço mensal em todas as áreas?"). */
-  perguntaTexto       String?           @map("pergunta_texto") @db.Text
-  /** Lista de opções de resposta (array de strings em JSON).
-   *  Cada opção vira um rótulo de aresta que filtra qual sucessor é disparado. */
-  perguntaOpcoes      Json?             @map("pergunta_opcoes")
-  /** Se true, gestor pode marcar várias opções (multi-seleção dispara N sucessores). */
-  perguntaMulti       Boolean           @default(false) @map("pergunta_multi")
+  /**
+   * /** Texto da pergunta apresentada ao gestor em runtime
+   * (ex.: "Serviço mensal em todas as áreas?").
+   */
+  perguntaTexto  String? @map("pergunta_texto") @db.Text
+  /**
+   * Lista de opções de resposta (array de strings em JSON).
+   * Cada opção vira um rótulo de aresta que filtra qual sucessor é disparado.
+   */
+  perguntaOpcoes Json?   @map("pergunta_opcoes")
+  /**
+   * Se true, gestor pode marcar várias opções (multi-seleção dispara N sucessores).
+   */
+  perguntaMulti  Boolean @default(false) @map("pergunta_multi")
 
   // ── Estratégia de atribuição de responsável (legado) ──
-  /** @deprecated Mantido apenas para compat com bloco PERGUNTA / fluxos antigos.
-   *  Novas decisões de atribuição usam os campos `atribuicao*` abaixo. */
+  /**
+   * /** @deprecated Mantido apenas para compat com bloco PERGUNTA / fluxos antigos.
+   * Novas decisões de atribuição usam os campos `atribuicao*` abaixo.
+   */
   atribuicaoResponsavel AtribuicaoResponsavel @default(ORCAMENTO) @map("atribuicao_responsavel")
-  /** @deprecated — ver `atribuicaoColaboradores`. */
-  responsavelFixoId   String?           @map("responsavel_fixo_id")
+  /**
+   * @deprecated — ver `atribuicaoColaboradores`.
+   */
+  responsavelFixoId     String?               @map("responsavel_fixo_id")
 
   // ── Atribuição multi-valor (nova, padrão obrigatório) ──
   // União das fontes abaixo define o conjunto de candidatos. Quando a execução
   // é criada, o engine resolve: 1 candidato → responsavelId direto; >1 ou 0 →
   // null (claim-first — todos veem em /meus-servicos, primeiro a marcar passo
   // reivindica). Configurado na pill "Identificação" do detalhe do serviço.
-  /** IDs de usuários candidatos diretamente listados. */
-  atribuicaoColaboradores  String[]  @default([]) @map("atribuicao_colaboradores")
-  /** IDs de áreas — todos os usuários ativos dessas áreas viram candidatos. */
-  atribuicaoAreas          String[]  @default([]) @map("atribuicao_areas")
-  /** Se true, soma o responsável do orçamento que originou a execução. */
-  atribuicaoUsaOrcamento   Boolean   @default(false) @map("atribuicao_usa_orcamento")
-  /** Se true, soma o responsável do cliente na área do serviço (ClienteAreaContratada). */
-  atribuicaoUsaClienteArea Boolean   @default(false) @map("atribuicao_usa_cliente_area")
+  /**
+   * /** IDs de usuários candidatos diretamente listados.
+   */
+  atribuicaoColaboradores  String[] @default([]) @map("atribuicao_colaboradores")
+  /**
+   * IDs de áreas — todos os usuários ativos dessas áreas viram candidatos.
+   */
+  atribuicaoAreas          String[] @default([]) @map("atribuicao_areas")
+  /**
+   * Se true, soma o responsável do orçamento que originou a execução.
+   */
+  atribuicaoUsaOrcamento   Boolean  @default(false) @map("atribuicao_usa_orcamento")
+  /**
+   * Se true, soma o responsável do cliente na área do serviço (ClienteAreaContratada).
+   */
+  atribuicaoUsaClienteArea Boolean  @default(false) @map("atribuicao_usa_cliente_area")
 
   // ── Procedência / referências externas ──
-  /** URL da fonte oficial onde o vencimento/regra foi confirmado (ex.: site Receita,
-   *  portal SEFAZ). Usada como prova de auditoria + facilita revisão anual. */
-  fonteUrl            String?           @map("fonte_url") @db.Text
-  /** URL da documentação oficial/guia/manual da obrigação (ex.: perguntas frequentes
-   *  Receita, Manual da DCTFWeb). Vinculada pra consulta rápida do operador. */
-  documentacaoUrl     String?           @map("documentacao_url") @db.Text
-  /** Marca o registro como template de "obrigação acessória" — listado em /obrigacoes
-   *  (Cadastros). Distingue dos demais Servicos globais ou da empresa. */
-  ehObrigacaoAcessoria Boolean          @default(false) @map("eh_obrigacao_acessoria")
-  /** Marca o registro como serviço de execução exclusivamente interna — não aparece
-   *  no catálogo de orçamentos. Listado em /servicos numa aba dedicada. */
-  ehServicoInterno     Boolean          @default(false) @map("eh_servico_interno")
+  /**
+   * /** URL da fonte oficial onde o vencimento/regra foi confirmado (ex.: site Receita,
+   * portal SEFAZ). Usada como prova de auditoria + facilita revisão anual.
+   */
+  fonteUrl             String? @map("fonte_url") @db.Text
+  /**
+   * URL da documentação oficial/guia/manual da obrigação (ex.: perguntas frequentes
+   * Receita, Manual da DCTFWeb). Vinculada pra consulta rápida do operador.
+   */
+  documentacaoUrl      String? @map("documentacao_url") @db.Text
+  /**
+   * Marca o registro como template de "obrigação acessória" — listado em /obrigacoes
+   * (Cadastros). Distingue dos demais Servicos globais ou da empresa.
+   */
+  ehObrigacaoAcessoria Boolean @default(false) @map("eh_obrigacao_acessoria")
+  /**
+   * Marca o registro como serviço de execução exclusivamente interna — não aparece
+   * no catálogo de orçamentos. Listado em /servicos numa aba dedicada.
+   */
+  ehServicoInterno     Boolean @default(false) @map("eh_servico_interno")
 
   // ── Configurações avançadas (espelho dos campos do Acessórias) ──
-  /** Apelido curto exibido em colunas/relatórios. Max 10 chars. */
-  mininome             String?          @db.VarChar(10)
-  /** Tempo previsto de execução em minutos — usado em planejamento e relatórios. */
-  tempoPrevistoMinutos Int?             @map("tempo_previsto_minutos")
-  /** Quantos dias antes do prazo o sistema deve avisar o responsável. 0 = sem aviso. */
-  lembrarDiasAntes     Int              @default(0) @map("lembrar_dias_antes")
-  /** Contagem dos dias do lembrete: corridos (calendário) ou úteis (excl. FDS/feriado). */
-  tipoDiasAntes        TipoDiasAntes    @default(CORRIDOS) @map("tipo_dias_antes")
-  /** Quando true, sábado é considerado dia útil para fins de prazo legal desta obrigação. */
-  sabadoEhUtil         Boolean          @default(false) @map("sabado_eh_util")
-  /** Quando true, exige que a entrega seja feita pelo robô (sem upload manual). */
-  exigirRobo           Boolean          @default(false) @map("exigir_robo")
-  /** Quando true, atraso gera multa — sinalização em dashboards. */
-  passivelDeMulta      Boolean          @default(true) @map("passivel_de_multa")
-  /** Quando true, gera alerta nos dashboards quando guia ainda não foi lida. */
-  alertaGuiaNaoLida    Boolean          @default(true) @map("alerta_guia_nao_lida")
-  /** Comentário padrão pré-preenchido no campo de comentário do anexo na entrega manual. Max 300. */
-  comentarioPadrao     String?          @map("comentario_padrao") @db.VarChar(300)
+  /**
+   * /** Apelido curto exibido em colunas/relatórios. Max 10 chars.
+   */
+  mininome             String?       @db.VarChar(10)
+  /**
+   * Tempo previsto de execução em minutos — usado em planejamento e relatórios.
+   */
+  tempoPrevistoMinutos Int?          @map("tempo_previsto_minutos")
+  /**
+   * Quantos dias antes do prazo o sistema deve avisar o responsável. 0 = sem aviso.
+   */
+  lembrarDiasAntes     Int           @default(0) @map("lembrar_dias_antes")
+  /**
+   * Contagem dos dias do lembrete: corridos (calendário) ou úteis (excl. FDS/feriado).
+   */
+  tipoDiasAntes        TipoDiasAntes @default(CORRIDOS) @map("tipo_dias_antes")
+  /**
+   * Quando true, sábado é considerado dia útil para fins de prazo legal desta obrigação.
+   */
+  sabadoEhUtil         Boolean       @default(false) @map("sabado_eh_util")
+  /**
+   * Quando true, exige que a entrega seja feita pelo robô (sem upload manual).
+   */
+  exigirRobo           Boolean       @default(false) @map("exigir_robo")
+  /**
+   * Quando true, atraso gera multa — sinalização em dashboards.
+   */
+  passivelDeMulta      Boolean       @default(true) @map("passivel_de_multa")
+  /**
+   * Quando true, gera alerta nos dashboards quando guia ainda não foi lida.
+   */
+  alertaGuiaNaoLida    Boolean       @default(true) @map("alerta_guia_nao_lida")
+  /**
+   * Comentário padrão pré-preenchido no campo de comentário do anexo na entrega manual. Max 300.
+   */
+  comentarioPadrao     String?       @map("comentario_padrao") @db.VarChar(300)
 
-  createdAt           DateTime          @default(now()) @map("created_at")
-  updatedAt           DateTime          @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   etapas               ServicoEtapa[]
   execucoes            ServicoExecucao[]
-  orcamentos           Orcamento[]           @relation("OrcamentoServicoTemplate")
+  orcamentos           Orcamento[]               @relation("OrcamentoServicoTemplate")
   clausulas            ServicoClausula[]
   contratoServicos     ContratoServico[]
-  processosRaiz        Processo[]            @relation("ProcessoRaiz")
-  encadeamentosOrigem  ServicoEncadeamento[] @relation("EncadeamentoOrigem")
-  encadeamentosDestino ServicoEncadeamento[] @relation("EncadeamentoDestino")
+  processosRaiz        Processo[]                @relation("ProcessoRaiz")
+  encadeamentosOrigem  ServicoEncadeamento[]     @relation("EncadeamentoOrigem")
+  encadeamentosDestino ServicoEncadeamento[]     @relation("EncadeamentoDestino")
   // Pertencimento a grupos — M→N: um serviço pode estar em vários grupos.
   grupos               ServicoGrupoItem[]
   // Mapeamentos do Acessórias (obrigações que disparam execuções deste serviço)
@@ -2597,9 +2683,9 @@ model ServicoEtapa {
   ordem     Int
   slaHoras  Int?   @map("sla_horas")
 
-  servico   Servico             @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+  servico   Servico           @relation(fields: [servicoId], references: [id], onDelete: Cascade)
   passos    ServicoPasso[]
-  materiais ServicoMaterial[]   @relation("EtapaMateriais")
+  materiais ServicoMaterial[] @relation("EtapaMateriais")
 
   @@index([servicoId])
   @@map("servico_etapas")
@@ -2631,10 +2717,10 @@ model ServicoPasso {
   // Passos ignorados desbloqueiam os próximos sem terem sido concluídos.
   permiteIgnorar   Boolean @default(false) @map("permite_ignorar")
 
-  etapa             ServicoEtapa      @relation(fields: [etapaId], references: [id], onDelete: Cascade)
-  dependeDoPasso    ServicoPasso?     @relation("ServicoPassoDependencia", fields: [dependeDoPassoId], references: [id], onDelete: SetNull)
-  passosDependentes ServicoPasso[]    @relation("ServicoPassoDependencia")
-  materiais         ServicoMaterial[] @relation("PassoMateriais")
+  etapa             ServicoEtapa                @relation(fields: [etapaId], references: [id], onDelete: Cascade)
+  dependeDoPasso    ServicoPasso?               @relation("ServicoPassoDependencia", fields: [dependeDoPassoId], references: [id], onDelete: SetNull)
+  passosDependentes ServicoPasso[]              @relation("ServicoPassoDependencia")
+  materiais         ServicoMaterial[]           @relation("PassoMateriais")
   emailTemplates    ServicoPassoEmailTemplate[]
   lembretes         ServicoPassoLembrete[]
   camposCliente     ServicoPassoCampoCliente[]
@@ -2656,24 +2742,24 @@ model ServicoPasso {
 /// Substitui os campos legados `enviaEmail/emailAssunto/emailCorpo` do
 /// `ServicoPasso` (que ficam como compat — único e-mail, sem confirmação).
 model ServicoPassoEmailTemplate {
-  id                String       @id @default(cuid())
-  passoId           String       @map("passo_id")
-  nome              String       /// Rótulo interno (ex: "Aviso ao cliente")
+  id                String   @id @default(cuid())
+  passoId           String   @map("passo_id")
+  nome              String /// Rótulo interno (ex: "Aviso ao cliente")
   assunto           String
-  corpo             String       @db.Text
+  corpo             String   @db.Text
   /// Destinatários default — gestor cadastra; gestor pode adicionar mais no
   /// momento do envio quando exigirConfirmacao=true.
-  destinatarios     String[]     @default([])
-  ativo             Boolean      @default(true)
-  ordem             Int          @default(0)
+  destinatarios     String[] @default([])
+  ativo             Boolean  @default(true)
+  ordem             Int      @default(0)
   /// Quando true, o togglePasso abre modal com preview e botão "Enviar".
   /// Quando false, dispara direto no commit do togglePasso.
-  exigirConfirmacao Boolean      @default(false) @map("exigir_confirmacao")
-  empresaId         String?      @map("empresa_id")
-  createdAt         DateTime     @default(now()) @map("created_at")
-  updatedAt         DateTime     @updatedAt @map("updated_at")
+  exigirConfirmacao Boolean  @default(false) @map("exigir_confirmacao")
+  empresaId         String?  @map("empresa_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
-  passo  ServicoPasso                       @relation(fields: [passoId], references: [id], onDelete: Cascade)
+  passo  ServicoPasso                     @relation(fields: [passoId], references: [id], onDelete: Cascade)
   anexos ServicoPassoEmailTemplateAnexo[]
 
   @@index([passoId])
@@ -2685,16 +2771,16 @@ model ServicoPassoEmailTemplate {
 /// O upload acontece via POST /api/upload (multer) e o frontend persiste só a
 /// referência (fileName/storageKey) aqui.
 model ServicoPassoEmailTemplateAnexo {
-  id          String   @id @default(cuid())
-  templateId  String   @map("template_id")
+  id         String   @id @default(cuid())
+  templateId String   @map("template_id")
   /// Nome amigável do arquivo (exibido pro destinatário no anexo do email).
-  fileName    String   @map("file_name")
+  fileName   String   @map("file_name")
   /// Chave de storage — corresponde ao nome físico em /uploads (cuid + ext).
   /// Resolvido em URL pelo frontend via `/api/upload/<storageKey>`.
-  storageKey  String   @map("storage_key")
-  fileSize    Int?     @map("file_size")
-  mimeType    String?  @map("mime_type")
-  createdAt   DateTime @default(now()) @map("created_at")
+  storageKey String   @map("storage_key")
+  fileSize   Int?     @map("file_size")
+  mimeType   String?  @map("mime_type")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   template ServicoPassoEmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
@@ -2714,24 +2800,24 @@ enum OffsetUnidade {
 /// offset (offsetValor + offsetUnidade), participantes configurados e o título
 /// resolvendo as mesmas tags suportadas nos templates de e-mail.
 model ServicoPassoLembrete {
-  id                  String        @id @default(cuid())
-  passoId             String        @map("passo_id")
-  nome                String        /// Rótulo interno (ex: "Parabenizar 1 ano de cliente")
-  titulo              String        /// Texto que vira o título do AgendaEvento (aceita tags)
-  descricao           String?       @db.Text  /// Descrição opcional do evento
-  offsetValor         Int           @map("offset_valor")     /// Ex.: 1
-  offsetUnidade       OffsetUnidade @map("offset_unidade")   /// Ex.: ANOS
+  id                 String        @id @default(cuid())
+  passoId            String        @map("passo_id")
+  nome               String /// Rótulo interno (ex: "Parabenizar 1 ano de cliente")
+  titulo             String /// Texto que vira o título do AgendaEvento (aceita tags)
+  descricao          String?       @db.Text /// Descrição opcional do evento
+  offsetValor        Int           @map("offset_valor") /// Ex.: 1
+  offsetUnidade      OffsetUnidade @map("offset_unidade") /// Ex.: ANOS
   /// Tipo de agenda (FK). Quando null, usa o primeiro tipo "Lembrete"/default da empresa.
-  tipoAgendaId        String?       @map("tipo_agenda_id")
+  tipoAgendaId       String?       @map("tipo_agenda_id")
   /// IDs de usuários que entram como participantes do evento.
-  participantes       String[]      @default([])
+  participantes      String[]      @default([])
   /// IDs de áreas — todos usuários ativos viram participantes.
-  participantesAreas  String[]      @default([]) @map("participantes_areas")
-  ativo               Boolean       @default(true)
-  ordem               Int           @default(0)
-  empresaId           String?       @map("empresa_id")
-  createdAt           DateTime      @default(now()) @map("created_at")
-  updatedAt           DateTime      @updatedAt @map("updated_at")
+  participantesAreas String[]      @default([]) @map("participantes_areas")
+  ativo              Boolean       @default(true)
+  ordem              Int           @default(0)
+  empresaId          String?       @map("empresa_id")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
 
   passo ServicoPasso @relation(fields: [passoId], references: [id], onDelete: Cascade)
 
@@ -2821,19 +2907,19 @@ enum ServicoMaterialTipo {
 /// servicoId=null pra um nome, o sync sabe que o usuário explicitamente decidiu
 /// não mapear (vs apenas "ainda não mapeei").
 model AcessoriasObligationMap {
-  id           String   @id @default(cuid())
+  id          String   @id @default(cuid())
   /// Nome exato como vem em /deliveries/...Entregas[].Nome
-  nome         String
+  nome        String
   /// Servico MENSAL vinculado. Null = vínculo "ignorar" (placeholder pra obrigação
   /// que o usuário decidiu não processar).
-  servicoId    String?  @map("servico_id")
+  servicoId   String?  @map("servico_id")
   /// Quando false, este vínculo específico é desabilitado (não cria execução)
   /// sem precisar deletar — útil pra pausar temporariamente.
-  ativo        Boolean  @default(true)
-  observacoes  String?  @db.Text
-  empresaId    String?  @map("empresa_id")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  ativo       Boolean  @default(true)
+  observacoes String?  @db.Text
+  empresaId   String?  @map("empresa_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   servico Servico? @relation("AcessoriasMapServico", fields: [servicoId], references: [id], onDelete: Cascade)
 
@@ -2847,27 +2933,27 @@ model AcessoriasObligationMap {
 /// Log de execução de sync — última vez que rodamos polling, quantos registros
 /// foram processados, erros encontrados. Usado pra UI mostrar histórico.
 model AcessoriasSyncLog {
-  id              String   @id @default(cuid())
+  id                    String    @id @default(cuid())
   /// Tipo de sync: 'companies' | 'deliveries' | 'manual' | 'cron'
-  tipo            String
-  startedAt       DateTime @default(now()) @map("started_at")
-  finishedAt      DateTime? @map("finished_at")
+  tipo                  String
+  startedAt             DateTime  @default(now()) @map("started_at")
+  finishedAt            DateTime? @map("finished_at")
   /// 'running' | 'success' | 'error' | 'partial'
-  status          String
+  status                String
   /// Contadores agregados — quantas empresas/deliveries criadas, atualizadas, ignoradas, com erro.
-  empresasNovas       Int @default(0) @map("empresas_novas")
-  empresasAtualizadas Int @default(0) @map("empresas_atualizadas")
-  empresasIgnoradas   Int @default(0) @map("empresas_ignoradas")
-  deliveriesNovas       Int @default(0) @map("deliveries_novas")
-  deliveriesAtualizadas Int @default(0) @map("deliveries_atualizadas")
-  deliveriesIgnoradas   Int @default(0) @map("deliveries_ignoradas")
+  empresasNovas         Int       @default(0) @map("empresas_novas")
+  empresasAtualizadas   Int       @default(0) @map("empresas_atualizadas")
+  empresasIgnoradas     Int       @default(0) @map("empresas_ignoradas")
+  deliveriesNovas       Int       @default(0) @map("deliveries_novas")
+  deliveriesAtualizadas Int       @default(0) @map("deliveries_atualizadas")
+  deliveriesIgnoradas   Int       @default(0) @map("deliveries_ignoradas")
   /// Mensagem de erro quando status = error. Texto livre.
-  erroMensagem    String?  @db.Text  @map("erro_mensagem")
+  erroMensagem          String?   @map("erro_mensagem") @db.Text
   /// Parâmetros da chamada (period, filtros) — debug.
-  parametros      Json?
+  parametros            Json?
   /// Usuário que disparou (null = cron automático).
-  triggeredBy     String?  @map("triggered_by")
-  empresaId       String?  @map("empresa_id")
+  triggeredBy           String?   @map("triggered_by")
+  empresaId             String?   @map("empresa_id")
 
   @@index([tipo, startedAt])
   @@index([empresaId])
@@ -2966,30 +3052,30 @@ model ServicoExecucao {
   // ── Sincronização com Acessórias ──
   /// Chave canônica da entrega no Acessórias (Config.EntID). Quando disponível,
   /// vira a chave primária do sync diferencial. Nulo até a 1ª sincronização.
-  acessoriasEntId    String?  @map("acessorias_ent_id")
+  acessoriasEntId       String?   @map("acessorias_ent_id")
   /// Nome da obrigação no Acessórias — usado como fallback de match quando
   /// EntID ainda não foi resolvido (chave composta com competencia + clienteId).
-  acessoriasNome     String?  @map("acessorias_nome")
+  acessoriasNome        String?   @map("acessorias_nome")
   /// Competência da entrega (mês de referência). YYYY-MM-DD = primeiro dia do mês.
-  acessoriasComp     DateTime? @map("acessorias_comp") @db.Date
+  acessoriasComp        DateTime? @map("acessorias_comp") @db.Date
   /// Prazo legal da entrega no Acessórias (EntDtPrazo).
-  acessoriasPrazo    DateTime? @map("acessorias_prazo") @db.Date
+  acessoriasPrazo       DateTime? @map("acessorias_prazo") @db.Date
   /// Status crú vindo do Acessórias (Pendente, Entregue, Atrasada!, Ent. antecipada, etc.).
   /// Mapeado pra ServicoExecucao.status na hora do sync, mas guardamos cru pra debug.
-  acessoriasStatus   String?  @map("acessorias_status")
+  acessoriasStatus      String?   @map("acessorias_status")
   /// EntLastDH — timestamp da última alteração no Acessórias. Usado pra detectar
   /// updates entre syncs (se mudou no Acessórias, reflete em OneClick).
-  acessoriasLastDH   DateTime? @map("acessorias_last_dh")
+  acessoriasLastDH      DateTime? @map("acessorias_last_dh")
   /// Quando esta execução foi sincronizada do Acessórias pela última vez.
-  acessoriasSyncedAt DateTime? @map("acessorias_synced_at")
+  acessoriasSyncedAt    DateTime? @map("acessorias_synced_at")
   /// Nome do responsável pelo PRAZO no Acessórias (Config.RespPrazo). String pura —
   /// match com User do OneClick é feito por SincronizarResponsaveisService.
-  acessoriasRespPrazo   String? @map("acessorias_resp_prazo")
+  acessoriasRespPrazo   String?   @map("acessorias_resp_prazo")
   /// Nome do responsável pela ENTREGA no Acessórias (Config.RespEntrega).
-  acessoriasRespEntrega String? @map("acessorias_resp_entrega")
+  acessoriasRespEntrega String?   @map("acessorias_resp_entrega")
   /// Departamento no Acessórias (Config.DptoNome): Fiscal, Trabalhista, Pessoal, Contábil...
   /// Usado pelo agregador pra decidir qual ClienteAreaContratada atualizar.
-  acessoriasDpto        String? @map("acessorias_dpto")
+  acessoriasDpto        String?   @map("acessorias_dpto")
 
   // ── Log de entrega manual (módulo /minhas-obrigacoes) ──
   /// Usuário que marcou esta execução como entregue.
@@ -3180,8 +3266,8 @@ model Processo {
 // cada raiz mantém sua posição independente.
 model ServicoFluxoLayout {
   id        String   @id @default(cuid())
-  raizId    String   @map("raiz_id")  // ID do serviço-raiz da visão
-  nodeId    String   @map("node_id")  // Servico.id desenhado no canvas
+  raizId    String   @map("raiz_id") // ID do serviço-raiz da visão
+  nodeId    String   @map("node_id") // Servico.id desenhado no canvas
   x         Float
   y         Float
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -3239,57 +3325,87 @@ enum RecorrenciaFrequencia {
 }
 
 enum RecorrenciaAncoragem {
-  /** Dia do mês fixo (valorAncoragem = 1..28). Ex: dia 20 todo mês. */
+  /**
+   * Dia do mês fixo (valorAncoragem = 1..28). Ex: dia 20 todo mês.
+   */
   DIA_DO_MES
-  /** N-ésimo dia útil do mês (valorAncoragem = 1..23). Ex: 5º dia útil. */
+  /**
+   * N-ésimo dia útil do mês (valorAncoragem = 1..23). Ex: 5º dia útil.
+   */
   DIA_UTIL
-  /** X dias após o fim da competência. Ex: dia 10 após mês de referência. */
+  /**
+   * X dias após o fim da competência. Ex: dia 10 após mês de referência.
+   */
   DIAS_APOS_COMPETENCIA
 }
 
-/** Como ajustar a data calculada quando cai em final de semana ou feriado nacional. */
+/**
+ * Como ajustar a data calculada quando cai em final de semana ou feriado nacional.
+ */
 enum AjusteVencimento {
-  /** Mantém a data exata (default — preserva legado e regras já oficialmente definidas em dia útil). */
+  /**
+   * Mantém a data exata (default — preserva legado e regras já oficialmente definidas em dia útil).
+   */
   MANTER
-  /** Antecipa para o dia útil imediatamente anterior. Comum em 13º salário, pagamentos contratuais. */
+  /**
+   * Antecipa para o dia útil imediatamente anterior. Comum em 13º salário, pagamentos contratuais.
+   */
   ANTECIPAR
-  /** Posterga para o próximo dia útil. Comum em obrigações fiscais (DAS, ICMS, ISS). */
+  /**
+   * Posterga para o próximo dia útil. Comum em obrigações fiscais (DAS, ICMS, ISS).
+   */
   POSTERGAR
 }
 
 model ServicoRecorrencia {
-  id                  String                @id @default(cuid())
-  servicoId           String                @unique @map("servico_id")
-  ativa               Boolean               @default(true)
-  frequencia          RecorrenciaFrequencia
-  ancoragem           RecorrenciaAncoragem  @default(DIA_DO_MES)
-  /** Significado depende da ancoragem: dia do mês (1..28), nº dia útil ou dias após competência. */
-  valorAncoragem      Int                   @map("valor_ancoragem")
-  /** Offset da competência em meses. 0 = mês corrente; 1 = competência mês anterior (típico fiscal). */
-  competenciaOffset   Int                   @default(1) @map("competencia_offset")
-  /** Responsável padrão atribuído à execução criada pelo cron. */
-  responsavelPadrao   String?               @map("responsavel_padrao")
-  ultimaExecucao      DateTime?             @map("ultima_execucao")
-  /** Pré-calculado quando regra muda. Scheduler filtra por <=now. */
-  proximaExecucao     DateTime?             @map("proxima_execucao")
+  id                String                @id @default(cuid())
+  servicoId         String                @unique @map("servico_id")
+  ativa             Boolean               @default(true)
+  frequencia        RecorrenciaFrequencia
+  ancoragem         RecorrenciaAncoragem  @default(DIA_DO_MES)
+  /**
+   * Significado depende da ancoragem: dia do mês (1..28), nº dia útil ou dias após competência.
+   */
+  valorAncoragem    Int                   @map("valor_ancoragem")
+  /**
+   * Offset da competência em meses. 0 = mês corrente; 1 = competência mês anterior (típico fiscal).
+   */
+  competenciaOffset Int                   @default(1) @map("competencia_offset")
+  /**
+   * Responsável padrão atribuído à execução criada pelo cron.
+   */
+  responsavelPadrao String?               @map("responsavel_padrao")
+  ultimaExecucao    DateTime?             @map("ultima_execucao")
+  /**
+   * Pré-calculado quando regra muda. Scheduler filtra por <=now.
+   */
+  proximaExecucao   DateTime?             @map("proxima_execucao")
   // ── Regras compostas (opcional). Quando preenchidos, substituem o modo simples
   // (ancoragem/valorAncoragem) e permitem múltiplos disparos por período.
   // Por que: situações como "DAS dia 20 e outra obrigação dia 5" exigem 2+ datas/mês
   // sem precisar de 2 ServicoRecorrencia separados. Mantém 1:1 com Servico.
-  /** Dias do mês a disparar (1..31; usar 31 como sentinela para "último dia"). Vazio = usa ancoragem clássica. */
-  diasDoMes           Int[]                 @default([]) @map("dias_do_mes")
-  /** Meses do ano elegíveis (1..12). Vazio = todos os meses (default). Usado pra regras tipo trimestral em meses fixos. */
-  mesesDoAno          Int[]                 @default([]) @map("meses_do_ano")
-  /** Quando true, scheduler usa diasDoMes/mesesDoAno em vez de frequencia+ancoragem (mesmo se vazios → regra inválida). */
-  modoPersonalizado   Boolean               @default(false) @map("modo_personalizado")
-  /** Política aplicada quando a data calculada cai em final de semana ou feriado nacional.
-   *  MANTER = não muda · ANTECIPAR = dia útil anterior · POSTERGAR = próximo dia útil. */
-  ajusteVencimento    AjusteVencimento      @default(MANTER) @map("ajuste_vencimento")
-  empresaId           String?               @map("empresa_id")
-  createdAt           DateTime              @default(now()) @map("created_at")
-  updatedAt           DateTime              @updatedAt @map("updated_at")
+  /**
+   * /** Dias do mês a disparar (1..31; usar 31 como sentinela para "último dia"). Vazio = usa ancoragem clássica.
+   */
+  diasDoMes         Int[]                 @default([]) @map("dias_do_mes")
+  /**
+   * Meses do ano elegíveis (1..12). Vazio = todos os meses (default). Usado pra regras tipo trimestral em meses fixos.
+   */
+  mesesDoAno        Int[]                 @default([]) @map("meses_do_ano")
+  /**
+   * Quando true, scheduler usa diasDoMes/mesesDoAno em vez de frequencia+ancoragem (mesmo se vazios → regra inválida).
+   */
+  modoPersonalizado Boolean               @default(false) @map("modo_personalizado")
+  /**
+   * Política aplicada quando a data calculada cai em final de semana ou feriado nacional.
+   * MANTER = não muda · ANTECIPAR = dia útil anterior · POSTERGAR = próximo dia útil.
+   */
+  ajusteVencimento  AjusteVencimento      @default(MANTER) @map("ajuste_vencimento")
+  empresaId         String?               @map("empresa_id")
+  createdAt         DateTime              @default(now()) @map("created_at")
+  updatedAt         DateTime              @updatedAt @map("updated_at")
 
-  servico             Servico               @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+  servico Servico @relation(fields: [servicoId], references: [id], onDelete: Cascade)
 
   @@index([proximaExecucao, ativa])
   @@map("servico_recorrencias")
@@ -3299,24 +3415,27 @@ model ServicoRecorrencia {
  * Override de vencimento por mês — espelha os campos ObrD01..ObrD12 do
  * Acessórias. Quando preenchido pra um (servico, mes), sobrescreve a regra
  * padrão de ServicoRecorrencia naquele mês específico.
- *
  * Encoding do campo `valor` (idem Acessórias, mantido por compatibilidade):
- *   0      = "Não tem" — não gera vencimento neste mês
- *   1..31  = "Todo dia N" — dia fixo do mês (clamp natural pra fevereiro)
- *   51..70 = "N-ésimo dia útil" (51=1º, 52=2º, ..., 70=20º)
- *   90     = "Último dia útil" do mês
+ * 0      = "Não tem" — não gera vencimento neste mês
+ * 1..31  = "Todo dia N" — dia fixo do mês (clamp natural pra fevereiro)
+ * 51..70 = "N-ésimo dia útil" (51=1º, 52=2º, ..., 70=20º)
+ * 90     = "Último dia útil" do mês
  */
 model ServicoVencimentoMensal {
   id        String   @id @default(cuid())
   servicoId String   @map("servico_id")
-  /** Mês 1-12 (Janeiro=1). */
+  /**
+   * Mês 1-12 (Janeiro=1).
+   */
   mes       Int
-  /** Valor encoded — ver doc do modelo. */
+  /**
+   * Valor encoded — ver doc do modelo.
+   */
   valor     Int
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  servico   Servico  @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+  servico Servico @relation(fields: [servicoId], references: [id], onDelete: Cascade)
 
   @@unique([servicoId, mes])
   @@index([servicoId])
@@ -3342,15 +3461,25 @@ enum NotificacaoCanal {
 }
 
 enum NotificacaoDestinatario {
-  /** Usuário atribuído à execução (ServicoExecucao.responsavelId) */
+  /**
+   * Usuário atribuído à execução (ServicoExecucao.responsavelId)
+   */
   RESPONSAVEL
-  /** Gestor do processo (Processo.responsavelId) ou líder da área */
+  /**
+   * Gestor do processo (Processo.responsavelId) ou líder da área
+   */
   GESTOR
-  /** E-mail principal do cliente vinculado */
+  /**
+   * E-mail principal do cliente vinculado
+   */
   CLIENTE
-  /** Lista de watchers cadastrados na execução */
+  /**
+   * Lista de watchers cadastrados na execução
+   */
   WATCHERS
-  /** Lista de e-mails livres (destinatariosCustom) */
+  /**
+   * Lista de e-mails livres (destinatariosCustom)
+   */
   CUSTOM
 }
 
@@ -3361,19 +3490,25 @@ model ServicoNotificacaoRegra {
   evento              NotificacaoEvento
   canal               NotificacaoCanal        @default(EMAIL)
   destinatariosTipo   NotificacaoDestinatario @map("destinatarios_tipo")
-  /** Quando destinatariosTipo=CUSTOM, lista de e-mails livres. */
+  /**
+   * Quando destinatariosTipo=CUSTOM, lista de e-mails livres.
+   */
   destinatariosCustom String[]                @default([]) @map("destinatarios_custom")
   assunto             String
-  /** HTML do TipTap com placeholders {{cliente.razaoSocial}} etc. */
+  /**
+   * HTML do TipTap com placeholders {{cliente.razaoSocial}} etc.
+   */
   corpoHtml           String                  @map("corpo_html") @db.Text
-  /** Quando evento=PRAZO_PROXIMO, antecedência em horas (24 = avisa 1 dia antes). */
+  /**
+   * Quando evento=PRAZO_PROXIMO, antecedência em horas (24 = avisa 1 dia antes).
+   */
   antecedenciaHoras   Int?                    @map("antecedencia_horas")
   empresaId           String?                 @map("empresa_id")
   createdAt           DateTime                @default(now()) @map("created_at")
   updatedAt           DateTime                @updatedAt @map("updated_at")
 
-  servico             Servico                 @relation(fields: [servicoId], references: [id], onDelete: Cascade)
-  logs                ServicoNotificacaoLog[]
+  servico Servico                 @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+  logs    ServicoNotificacaoLog[]
 
   @@index([servicoId, evento])
   @@map("servico_notificacao_regras")
@@ -3389,18 +3524,22 @@ enum NotificacaoStatus {
 }
 
 model ServicoNotificacaoLog {
-  id              String                 @id @default(cuid())
-  regraId         String                 @map("regra_id")
-  /** ID da execução que disparou a notificação. */
-  execucaoId      String                 @map("execucao_id")
-  evento          NotificacaoEvento
-  /** Lista de e-mails efetivamente atendidos no envio (snapshot). */
-  destinatarios   String[]               @default([])
-  status          NotificacaoStatus
-  erro            String?                @db.Text
-  sentAt          DateTime               @default(now()) @map("sent_at")
+  id            String            @id @default(cuid())
+  regraId       String            @map("regra_id")
+  /**
+   * ID da execução que disparou a notificação.
+   */
+  execucaoId    String            @map("execucao_id")
+  evento        NotificacaoEvento
+  /**
+   * Lista de e-mails efetivamente atendidos no envio (snapshot).
+   */
+  destinatarios String[]          @default([])
+  status        NotificacaoStatus
+  erro          String?           @db.Text
+  sentAt        DateTime          @default(now()) @map("sent_at")
 
-  regra           ServicoNotificacaoRegra @relation(fields: [regraId], references: [id], onDelete: Cascade)
+  regra ServicoNotificacaoRegra @relation(fields: [regraId], references: [id], onDelete: Cascade)
 
   // Idempotência: uma regra dispara no máximo 1 vez por (execucao, evento).
   // Retries do engine não duplicam — UPSERT no insert.
@@ -3434,20 +3573,20 @@ model ProcessoEvento {
 // sucessores cujo rotulo casa com alguma opção escolhida.
 // ============================================================
 model ProcessoRespostaPergunta {
-  id                String   @id @default(cuid())
-  processoId        String?  @map("processo_id")
-  execucaoId        String   @unique @map("execucao_id")
+  id               String   @id @default(cuid())
+  processoId       String?  @map("processo_id")
+  execucaoId       String   @unique @map("execucao_id")
   // Serviço do bloco PERGUNTA respondido — guardamos snapshot do texto e
   // opções no momento da resposta pra histórico não quebrar se o template
   // for editado depois.
-  servicoId         String   @map("servico_id")
-  perguntaSnapshot  String   @map("pergunta_snapshot") @db.Text
-  opcoesSnapshot    Json     @map("opcoes_snapshot") // string[]
-  opcoesEscolhidas  Json     @map("opcoes_escolhidas") // string[]
-  respondidoPor     String?  @map("respondido_por")
-  respondidoEm      DateTime @default(now()) @map("respondido_em")
-  observacao        String?  @db.Text
-  createdAt         DateTime @default(now()) @map("created_at")
+  servicoId        String   @map("servico_id")
+  perguntaSnapshot String   @map("pergunta_snapshot") @db.Text
+  opcoesSnapshot   Json     @map("opcoes_snapshot") // string[]
+  opcoesEscolhidas Json     @map("opcoes_escolhidas") // string[]
+  respondidoPor    String?  @map("respondido_por")
+  respondidoEm     DateTime @default(now()) @map("respondido_em")
+  observacao       String?  @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
 
   @@index([processoId])
   @@index([servicoId])
@@ -3891,7 +4030,7 @@ model HelpdeskTicket {
   // Vínculo opcional com um ativo (TI). Quando setado, a página do ativo
   // mostra os tickets relacionados e a página do ticket exibe histórico
   // de manutenção do ativo.
-  ativoId     String? @map("ativo_id")
+  ativoId String? @map("ativo_id")
 
   // SLA — datas-chave
   prazoSla              DateTime? @map("prazo_sla") // deadline absoluto de resolução
@@ -4012,9 +4151,11 @@ model HelpdeskEvento {
 // ============================================================
 // Calendário de feriados
 // ============================================================
-/** Classificação do feriado. Nacionais móveis (Páscoa/Carnaval/Corpus Christi) e
- *  fixos seguem em feriados-br.ts (lib). Tabela cobre estaduais, municipais e
- *  pontos facultativos, mais o que cada tenant precisar adicionar manualmente. */
+/**
+ * Classificação do feriado. Nacionais móveis (Páscoa/Carnaval/Corpus Christi) e
+ * fixos seguem em feriados-br.ts (lib). Tabela cobre estaduais, municipais e
+ * pontos facultativos, mais o que cada tenant precisar adicionar manualmente.
+ */
 enum FeriadoTipo {
   NACIONAL
   ESTADUAL
@@ -4023,24 +4164,24 @@ enum FeriadoTipo {
 }
 
 model Feriado {
-  id          String      @id @default(cuid())
-  nome        String
-  tipo        FeriadoTipo
+  id         String      @id @default(cuid())
+  nome       String
+  tipo       FeriadoTipo
   /// Data do feriado. Quando recorrente=true, dia/mês são o que importa (ano é referência).
-  data        DateTime    @db.Date
+  data       DateTime    @db.Date
   /// Quando true, vale todo ano (mesma data). Quando false, é específico daquele ano (ex.: ponto facultativo de 2026).
-  recorrente  Boolean     @default(true)
+  recorrente Boolean     @default(true)
   /// UF brasileira (ex.: 'ES'). Obrigatório quando tipo = ESTADUAL ou MUNICIPAL.
-  uf          String?     @db.VarChar(2)
+  uf         String?     @db.VarChar(2)
   /// Nome do município. Obrigatório quando tipo = MUNICIPAL.
-  cidade      String?
+  cidade     String?
   /// Observação livre — útil pra referenciar a lei municipal ou decreto estadual.
-  observacao  String?     @db.Text
+  observacao String?     @db.Text
   /// Quando null = template global (visível pra todos os tenants). Preenchido = só dessa empresa.
-  empresaId   String?     @map("empresa_id")
+  empresaId  String?     @map("empresa_id")
 
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([tipo])
   @@index([uf, cidade])
@@ -4052,33 +4193,47 @@ model Feriado {
 // ============================================================
 // Templates de grupos de obrigação + vínculo cliente↔obrigação
 // ============================================================
-/** Template de grupo de obrigações — agrupa N obrigações por regime/segmento/área.
- *  Ex.: "Simples Nacional · Comércio" com DAS, DEFIS, NFC-e, Balancete. Usado pra
- *  aplicar em lote no cliente (cria ClienteObrigacao em massa). */
+/**
+ * Template de grupo de obrigações — agrupa N obrigações por regime/segmento/área.
+ * Ex.: "Simples Nacional · Comércio" com DAS, DEFIS, NFC-e, Balancete. Usado pra
+ * aplicar em lote no cliente (cria ClienteObrigacao em massa).
+ */
 model GrupoObrigacao {
-  id           String      @id @default(cuid())
-  nome         String
-  slug         String      @unique
-  descricao    String?     @db.Text
-  /** Quando preenchido, sugere o template pra clientes desta tributação. */
-  tributacao   TaxRegime?
-  /** Slug do segmento (referencia SEGMENTO_SLUGS em packages/types). Opcional. */
-  segmentoSlug String?     @map("segmento_slug")
-  /** Área dominante (Fiscal | Trabalhista | Contabil | Comercial). Opcional. */
-  area         String?
-  /** Cor de identificação visual (hex). Default herda do módulo Cadastros. */
-  cor          String?     @default("#10b981")
-  ativo        Boolean     @default(true)
-  /** Global (empresaId=null) ou da empresa. */
-  empresaId    String?     @map("empresa_id")
-  /** Prefixos de CNAE aplicáveis (ex.: ["45", "47"] = Comércio). Match por
-   *  prefixo do cnaePrincipal do cliente. Vazio = qualquer atividade. */
-  cnaesAplicaveis String[] @default([]) @map("cnaes_aplicaveis")
+  id              String     @id @default(cuid())
+  nome            String
+  slug            String     @unique
+  descricao       String?    @db.Text
+  /**
+   * Quando preenchido, sugere o template pra clientes desta tributação.
+   */
+  tributacao      TaxRegime?
+  /**
+   * Slug do segmento (referencia SEGMENTO_SLUGS em packages/types). Opcional.
+   */
+  segmentoSlug    String?    @map("segmento_slug")
+  /**
+   * Área dominante (Fiscal | Trabalhista | Contabil | Comercial). Opcional.
+   */
+  area            String?
+  /**
+   * Cor de identificação visual (hex). Default herda do módulo Cadastros.
+   */
+  cor             String?    @default("#10b981")
+  ativo           Boolean    @default(true)
+  /**
+   * Global (empresaId=null) ou da empresa.
+   */
+  empresaId       String?    @map("empresa_id")
+  /**
+   * Prefixos de CNAE aplicáveis (ex.: ["45", "47"] = Comércio). Match por
+   * prefixo do cnaePrincipal do cliente. Vazio = qualquer atividade.
+   */
+  cnaesAplicaveis String[]   @default([]) @map("cnaes_aplicaveis")
 
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  itens        GrupoObrigacaoItem[]
+  itens             GrupoObrigacaoItem[]
   // Clientes que receberam ClienteObrigacao oriundas deste template (rastreio)
   clienteObrigacoes ClienteObrigacao[]
 
@@ -4087,45 +4242,55 @@ model GrupoObrigacao {
   @@map("grupos_obrigacao")
 }
 
-/** Pivot N:M GrupoObrigacao ↔ Servico (obrigação). */
+/**
+ * Pivot N:M GrupoObrigacao ↔ Servico (obrigação).
+ */
 model GrupoObrigacaoItem {
-  id          String         @id @default(cuid())
-  grupoId     String         @map("grupo_id")
-  servicoId   String         @map("servico_id")
-  /** Quando true, esta obrigação é OBRIGATÓRIA do template (sempre aplicada).
-   *  Quando false, é sugestão — pode ser desmarcada na hora de aplicar. */
-  obrigatoria Boolean        @default(true)
-  ordem       Int            @default(0)
+  id          String  @id @default(cuid())
+  grupoId     String  @map("grupo_id")
+  servicoId   String  @map("servico_id")
+  /**
+   * Quando true, esta obrigação é OBRIGATÓRIA do template (sempre aplicada).
+   * Quando false, é sugestão — pode ser desmarcada na hora de aplicar.
+   */
+  obrigatoria Boolean @default(true)
+  ordem       Int     @default(0)
 
-  grupo       GrupoObrigacao @relation(fields: [grupoId], references: [id], onDelete: Cascade)
-  servico     Servico        @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+  grupo   GrupoObrigacao @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+  servico Servico        @relation(fields: [servicoId], references: [id], onDelete: Cascade)
 
   @@unique([grupoId, servicoId])
   @@index([servicoId])
   @@map("grupos_obrigacao_itens")
 }
 
-/** Vínculo Cliente ↔ Servico (obrigação). Cada cliente tem sua lista própria.
- *  Originado de template (`vindoDeTemplateId`) ou cadastro manual (null). */
+/**
+ * Vínculo Cliente ↔ Servico (obrigação). Cada cliente tem sua lista própria.
+ * Originado de template (`vindoDeTemplateId`) ou cadastro manual (null).
+ */
 model ClienteObrigacao {
-  id                String          @id @default(cuid())
-  clienteId         String          @map("cliente_id")
-  servicoId         String          @map("servico_id")
-  /** Quando o vínculo veio de um template, aponta pra ele (rastreabilidade). */
-  vindoDeTemplateId String?         @map("vindo_de_template_id")
-  ativo             Boolean         @default(true)
-  observacao        String?         @db.Text
-  /** Override do ajuste de vencimento por cliente (FDS/feriado).
-   *  Quando null, usa o ajuste da ServicoRecorrencia global. */
+  id                       String            @id @default(cuid())
+  clienteId                String            @map("cliente_id")
+  servicoId                String            @map("servico_id")
+  /**
+   * Quando o vínculo veio de um template, aponta pra ele (rastreabilidade).
+   */
+  vindoDeTemplateId        String?           @map("vindo_de_template_id")
+  ativo                    Boolean           @default(true)
+  observacao               String?           @db.Text
+  /**
+   * Override do ajuste de vencimento por cliente (FDS/feriado).
+   * Quando null, usa o ajuste da ServicoRecorrencia global.
+   */
   ajusteVencimentoOverride AjusteVencimento? @map("ajuste_vencimento_override")
-  empresaId         String?         @map("empresa_id")
+  empresaId                String?           @map("empresa_id")
 
-  createdAt         DateTime        @default(now()) @map("created_at")
-  updatedAt         DateTime        @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  cliente           Cliente         @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  servico           Servico         @relation(fields: [servicoId], references: [id], onDelete: Cascade)
-  template          GrupoObrigacao? @relation(fields: [vindoDeTemplateId], references: [id], onDelete: SetNull)
+  cliente  Cliente         @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  servico  Servico         @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+  template GrupoObrigacao? @relation(fields: [vindoDeTemplateId], references: [id], onDelete: SetNull)
 
   @@unique([clienteId, servicoId])
   @@index([servicoId])
@@ -4139,22 +4304,22 @@ model ClienteObrigacao {
 // ============================================================
 
 enum AtivoStatus {
-  ATIVO         /// Em uso ativo
-  MANUTENCAO    /// Em conserto/revisão
-  ESTOQUE       /// Disponível, não atribuído
-  EMPRESTADO    /// Emprestado a cliente
-  DESCARTADO    /// Baixado por descarte
-  PERDIDO       /// Baixado por perda
+  ATIVO /// Em uso ativo
+  MANUTENCAO /// Em conserto/revisão
+  ESTOQUE /// Disponível, não atribuído
+  EMPRESTADO /// Emprestado a cliente
+  DESCARTADO /// Baixado por descarte
+  PERDIDO /// Baixado por perda
 }
 
 enum AtivoMovimentacaoTipo {
-  CADASTRO          /// Criação do registro
-  TRANSFERENCIA     /// Mudança de responsável/área
-  STATUS_CHANGE     /// Mudança de status
-  MANUTENCAO        /// Vínculo de manutenção
-  EMPRESTIMO        /// Empréstimo a cliente
-  DEVOLUCAO         /// Devolução de empréstimo
-  BAIXA             /// Descarte/perda definitiva
+  CADASTRO /// Criação do registro
+  TRANSFERENCIA /// Mudança de responsável/área
+  STATUS_CHANGE /// Mudança de status
+  MANUTENCAO /// Vínculo de manutenção
+  EMPRESTIMO /// Empréstimo a cliente
+  DEVOLUCAO /// Devolução de empréstimo
+  BAIXA /// Descarte/perda definitiva
 }
 
 enum AtivoManutencaoTipo {
@@ -4176,8 +4341,8 @@ enum AtivoAnexoTipo {
 model AtivoTipo {
   id        String   @id @default(cuid())
   nome      String
-  cor       String?  /// Hex usado em badges/chips
-  icone     String?  /// Nome de ícone lucide (laptop, monitor, mouse, etc)
+  cor       String? /// Hex usado em badges/chips
+  icone     String? /// Nome de ícone lucide (laptop, monitor, mouse, etc)
   ordem     Int      @default(0)
   ativo     Boolean  @default(true)
   empresaId String?  @map("empresa_id")
@@ -4248,7 +4413,7 @@ model Ativo {
 
   // Status atual
   status      AtivoStatus @default(ESTOQUE)
-  localizacao String?     /// Ex: "Sala TI", "Filial Vitória"
+  localizacao String? /// Ex: "Sala TI", "Filial Vitória"
 
   // Atribuição atual (snapshot — histórico real fica em AtivoMovimentacao)
   responsavelId String? @map("responsavel_id")
@@ -4267,16 +4432,16 @@ model Ativo {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  tipo        AtivoTipo       @relation(fields: [tipoId], references: [id])
-  categoria   AtivoCategoria  @relation(fields: [categoriaId], references: [id])
-  fornecedor  Fornecedor?     @relation(fields: [fornecedorId], references: [id], onDelete: SetNull)
-  responsavel User?           @relation("AtivoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
-  area        Area?           @relation("AtivoArea", fields: [areaId], references: [id], onDelete: SetNull)
-  cliente     Cliente?        @relation("AtivoCliente", fields: [clienteId], references: [id], onDelete: SetNull)
+  tipo        AtivoTipo      @relation(fields: [tipoId], references: [id])
+  categoria   AtivoCategoria @relation(fields: [categoriaId], references: [id])
+  fornecedor  Fornecedor?    @relation(fields: [fornecedorId], references: [id], onDelete: SetNull)
+  responsavel User?          @relation("AtivoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  area        Area?          @relation("AtivoArea", fields: [areaId], references: [id], onDelete: SetNull)
+  cliente     Cliente?       @relation("AtivoCliente", fields: [clienteId], references: [id], onDelete: SetNull)
 
-  movimentacoes  AtivoMovimentacao[]
-  manutencoes    AtivoManutencao[]
-  anexos         AtivoAnexo[]
+  movimentacoes   AtivoMovimentacao[]
+  manutencoes     AtivoManutencao[]
+  anexos          AtivoAnexo[]
   helpdeskTickets HelpdeskTicket[]
 
   @@index([tipoId])
@@ -4377,9 +4542,9 @@ model AtivoAnexo {
 // ============================================================
 
 enum ClientErrorLevel {
-  ERROR      /// console.error, window.onerror, ErrorBoundary catch
-  WARN       /// console.warn
-  REJECTION  /// unhandled promise rejection
+  ERROR /// console.error, window.onerror, ErrorBoundary catch
+  WARN /// console.warn
+  REJECTION /// unhandled promise rejection
 }
 
 /// Log agrupado de erros disparados no navegador. Cada `hash` (gerado a partir
@@ -4387,37 +4552,37 @@ enum ClientErrorLevel {
 /// do mesmo erro só incrementam `count` e atualizam `lastSeenAt`. Persiste só
 /// quando NODE_ENV !== 'production'. UI fica em /admin/erros-cliente.
 model ClientErrorLog {
-  id            String           @id @default(cuid())
+  id          String           @id @default(cuid())
   /// Hash dedup (message+stackLineNormalizada). Múltiplas ocorrências
   /// do mesmo erro incrementam count em vez de inserir nova row.
-  hash          String           @unique
-  level         ClientErrorLevel
-  message       String           @db.Text
-  stack         String?          @db.Text
+  hash        String           @unique
+  level       ClientErrorLevel
+  message     String           @db.Text
+  stack       String?          @db.Text
   /// URL onde o erro ocorreu (window.location.href).
-  url           String?
+  url         String?
   /// User-Agent do navegador.
-  userAgent     String?          @map("user_agent")
+  userAgent   String?          @map("user_agent")
   /// Usuário logado (se houver) quando o erro foi capturado.
-  userId        String?          @map("user_id")
-  user          User?            @relation("ClientErrorUser", fields: [userId], references: [id], onDelete: SetNull)
-  empresaId     String?          @map("empresa_id")
+  userId      String?          @map("user_id")
+  user        User?            @relation("ClientErrorUser", fields: [userId], references: [id], onDelete: SetNull)
+  empresaId   String?          @map("empresa_id")
   /// 'development' | 'production' | 'staging' — geralmente filtramos por 'development'.
-  environment   String           @default("development")
+  environment String           @default("development")
 
   /// Slug do módulo onde o erro aconteceu (derivado da URL no frontend).
   /// Ex: 'cnd', 'danfe', 'agendamento', 'sci', 'admin'. Null se não derivável.
-  modulo        String?
+  modulo String?
 
   /// Contagem total de ocorrências. Cresce a cada `report` com mesmo hash.
-  count         Int              @default(1)
-  firstSeenAt   DateTime         @default(now()) @map("first_seen_at")
-  lastSeenAt    DateTime         @default(now()) @map("last_seen_at")
+  count       Int      @default(1)
+  firstSeenAt DateTime @default(now()) @map("first_seen_at")
+  lastSeenAt  DateTime @default(now()) @map("last_seen_at")
 
   /// Marcação manual feita pelo dev quando corrige o erro.
-  resolvedAt    DateTime?        @map("resolved_at")
-  resolvedById  String?          @map("resolved_by_id")
-  resolvedBy    User?            @relation("ClientErrorResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolvedAt   DateTime? @map("resolved_at")
+  resolvedById String?   @map("resolved_by_id")
+  resolvedBy   User?     @relation("ClientErrorResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
 
   @@index([level])
   @@index([resolvedAt])
@@ -4438,45 +4603,45 @@ enum DanfeLoteStatus {
 }
 
 model Danfe {
-  id              String     @id @default(cuid())
+  id              String    @id @default(cuid())
   /// Chave de acesso de 44 dígitos (única no sistema).
-  chave           String     @unique
+  chave           String    @unique
   /// "55" = NFe, "65" = NFCe (futuro: 57 CTe, 58 MDFe).
   modelo          String
   numero          Int
   serie           Int
-  emitenteCnpj    String     @map("emitente_cnpj")
-  emitenteRazao   String     @map("emitente_razao")
-  destCnpjCpf     String?    @map("dest_cnpj_cpf")
-  destRazao       String?    @map("dest_razao")
-  valorTotal      Decimal    @db.Decimal(14, 2) @map("valor_total")
-  dataEmissao     DateTime   @map("data_emissao")
-  dataAutorizacao DateTime?  @map("data_autorizacao")
+  emitenteCnpj    String    @map("emitente_cnpj")
+  emitenteRazao   String    @map("emitente_razao")
+  destCnpjCpf     String?   @map("dest_cnpj_cpf")
+  destRazao       String?   @map("dest_razao")
+  valorTotal      Decimal   @map("valor_total") @db.Decimal(14, 2)
+  dataEmissao     DateTime  @map("data_emissao")
+  dataAutorizacao DateTime? @map("data_autorizacao")
   /// "AUTORIZADA" | "CANCELADA" | "DENEGADA" | "INUTILIZADA".
-  status          String     @default("AUTORIZADA")
+  status          String    @default("AUTORIZADA")
   protocolo       String?
   /// Path do XML no S3 (chave pra recuperar via signed URL).
-  xmlKey          String     @map("xml_key")
+  xmlKey          String    @map("xml_key")
   /// Path do PDF no S3 (gerado on-demand ou no upload).
-  pdfKey          String?    @map("pdf_key")
+  pdfKey          String?   @map("pdf_key")
 
-  loteId          String?    @map("lote_id")
-  lote            DanfeLote? @relation(fields: [loteId], references: [id], onDelete: SetNull)
+  loteId String?    @map("lote_id")
+  lote   DanfeLote? @relation(fields: [loteId], references: [id], onDelete: SetNull)
 
-  empresaId       String?    @map("empresa_id")
-  uploadedById    String     @map("uploaded_by_id")
-  uploadedBy      User       @relation("DanfeUploader", fields: [uploadedById], references: [id])
+  empresaId    String? @map("empresa_id")
+  uploadedById String  @map("uploaded_by_id")
+  uploadedBy   User    @relation("DanfeUploader", fields: [uploadedById], references: [id])
 
   /// Cliente vinculado — populado quando importado via Drive sync (pasta do cliente).
   /// Null em uploads manuais (não temos como inferir). Indexed pra galeria por cliente.
-  clienteId       String?    @map("cliente_id")
-  cliente         Cliente?   @relation("ClienteDanfes", fields: [clienteId], references: [id], onDelete: SetNull)
+  clienteId String?  @map("cliente_id")
+  cliente   Cliente? @relation("ClienteDanfes", fields: [clienteId], references: [id], onDelete: SetNull)
 
   // Relação inversa: itens do lote que apontam pra este DANFE quando o XML foi processado com sucesso
-  loteItens       DanfeLoteItem[]
+  loteItens        DanfeLoteItem[]
   driveSyncedFiles DriveSyncedFile[]
 
-  createdAt       DateTime   @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([emitenteCnpj])
   @@index([destCnpjCpf])
@@ -4488,22 +4653,22 @@ model Danfe {
 }
 
 model DanfeLote {
-  id           String          @id @default(cuid())
-  nome         String
-  status       DanfeLoteStatus @default(PROCESSANDO)
-  totalXmls    Int             @map("total_xmls")
-  processados  Int             @default(0)
-  sucesso      Int             @default(0)
-  erros        Int             @default(0)
-  iniciadoEm   DateTime        @default(now()) @map("iniciado_em")
-  concluidoEm  DateTime?       @map("concluido_em")
+  id          String          @id @default(cuid())
+  nome        String
+  status      DanfeLoteStatus @default(PROCESSANDO)
+  totalXmls   Int             @map("total_xmls")
+  processados Int             @default(0)
+  sucesso     Int             @default(0)
+  erros       Int             @default(0)
+  iniciadoEm  DateTime        @default(now()) @map("iniciado_em")
+  concluidoEm DateTime?       @map("concluido_em")
 
-  empresaId    String?         @map("empresa_id")
-  uploadedById String          @map("uploaded_by_id")
-  uploadedBy   User            @relation("DanfeLoteUploader", fields: [uploadedById], references: [id])
+  empresaId    String? @map("empresa_id")
+  uploadedById String  @map("uploaded_by_id")
+  uploadedBy   User    @relation("DanfeLoteUploader", fields: [uploadedById], references: [id])
 
-  itens        DanfeLoteItem[]
-  danfes       Danfe[]
+  itens  DanfeLoteItem[]
+  danfes Danfe[]
 
   @@index([uploadedById])
   @@index([status])
@@ -4524,22 +4689,22 @@ model NotaServicoImportada {
   codigoVerificacao String? @map("codigo_verificacao")
 
   // Prestador
-  prestadorCnpj       String  @map("prestador_cnpj")
-  prestadorRazao      String  @map("prestador_razao")
-  prestadorMunicipio  String? @map("prestador_municipio")  // código IBGE
+  prestadorCnpj      String  @map("prestador_cnpj")
+  prestadorRazao     String  @map("prestador_razao")
+  prestadorMunicipio String? @map("prestador_municipio") // código IBGE
 
   // Tomador
   tomadorCnpjCpf String? @map("tomador_cnpj_cpf")
   tomadorRazao   String? @map("tomador_razao")
 
   // Valores
-  valorServicos Decimal  @db.Decimal(14, 2) @map("valor_servicos")
-  valorIss      Decimal? @db.Decimal(14, 2) @map("valor_iss")
-  valorLiquido  Decimal? @db.Decimal(14, 2) @map("valor_liquido")
-  aliquotaIss   Decimal? @db.Decimal(7, 4)  @map("aliquota_iss")
+  valorServicos Decimal  @map("valor_servicos") @db.Decimal(14, 2)
+  valorIss      Decimal? @map("valor_iss") @db.Decimal(14, 2)
+  valorLiquido  Decimal? @map("valor_liquido") @db.Decimal(14, 2)
+  aliquotaIss   Decimal? @map("aliquota_iss") @db.Decimal(7, 4)
 
   // Serviço
-  itemListaServico String? @map("item_lista_servico")  // código LC 116/2003
+  itemListaServico String? @map("item_lista_servico") // código LC 116/2003
   cnae             String?
   discriminacao    String? @db.Text
 
@@ -4551,8 +4716,8 @@ model NotaServicoImportada {
   status String @default("EMITIDA")
 
   // Storage
-  xmlKey String  @map("xml_key")
-  pdfKey String? @map("pdf_key")
+  xmlKey     String  @map("xml_key")
+  pdfKey     String? @map("pdf_key")
   /// true = PDF é DANFSe oficial baixado da API gov.br; false = PDF auxiliar interno
   /// gerado pelo nosso gerador (layout simplificado). Quando true, layout v1.0 com QR.
   pdfOficial Boolean @default(false) @map("pdf_oficial")
@@ -4585,20 +4750,20 @@ model NotaServicoImportada {
 }
 
 model DanfeLoteItem {
-  id        String    @id @default(cuid())
-  loteId    String    @map("lote_id")
-  lote      DanfeLote @relation(fields: [loteId], references: [id], onDelete: Cascade)
+  id     String    @id @default(cuid())
+  loteId String    @map("lote_id")
+  lote   DanfeLote @relation(fields: [loteId], references: [id], onDelete: Cascade)
 
-  fileName  String    @map("file_name")
-  chave     String?
+  fileName String  @map("file_name")
+  chave    String?
   /// "OK" | "DUPLICADO" | "INVALIDO" | "ERRO_PDF".
-  status    String
-  mensagem  String?
+  status   String
+  mensagem String?
 
-  danfeId   String?   @map("danfe_id")
-  danfe     Danfe?    @relation(fields: [danfeId], references: [id], onDelete: SetNull)
+  danfeId String? @map("danfe_id")
+  danfe   Danfe?  @relation(fields: [danfeId], references: [id], onDelete: SetNull)
 
-  createdAt DateTime  @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([loteId])
   @@map("danfe_lote_itens")
@@ -4611,7 +4776,7 @@ model DanfeLoteItem {
 // Alimenta a tela /danfe/agendamento com histórico e KPIs.
 // ============================================================
 model SchedulerExecution {
-  id        String @id @default(cuid())
+  id String @id @default(cuid())
 
   /// Slug estável: 'nfe-dist' | 'nfse-dist' | futuros
   scheduler String

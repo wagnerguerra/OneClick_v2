@@ -40,6 +40,20 @@ export interface KpisCompleto {
   margemLiquida: number
 }
 
+// Categorias DRE — espelham o `dPlano de Contas` + `dMáscara` do PowerBI ref.
+// Valores armazenados em `plano_contas_categoria_padrao.categoria_dre` e
+// `cliente_bi_categorias.categoria_dre` (override).
+type CategoriaDre =
+  | 'RECEITA_BRUTA'
+  | 'DEDUCOES_IMPOSTOS'
+  | 'CUSTO_DAS_VENDAS'
+  | 'DESPESAS_VARIAVEIS'
+  | 'DESPESAS_OPERACIONAIS'
+  | 'RECEITAS_FINANCEIRAS'
+  | 'DESPESAS_FINANCEIRAS'
+  | 'IR_CS'
+  | 'DISTRIBUICAO_LUCROS'
+
 type KpiTipo =
   | 'receita_bruta'
   | 'deducoes'
@@ -80,6 +94,19 @@ function toNumber(val: unknown): number {
   return Number(val)
 }
 
+/** Mapeia KpiTipo -> CategoriaDre */
+function kpiTipoToCategoria(tipo: KpiTipo): CategoriaDre {
+  switch (tipo) {
+    case 'receita_bruta':         return 'RECEITA_BRUTA'
+    case 'deducoes':              return 'DEDUCOES_IMPOSTOS'
+    case 'custo_das_vendas':      return 'CUSTO_DAS_VENDAS'
+    case 'despesas_operacionais': return 'DESPESAS_OPERACIONAIS'
+    case 'receitas_financeiras':  return 'RECEITAS_FINANCEIRAS'
+    case 'despesas_financeiras':  return 'DESPESAS_FINANCEIRAS'
+    case 'ir_cs':                 return 'IR_CS'
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Monta clausula de periodo (BETWEEN ou IN)
 // ---------------------------------------------------------------------------
@@ -108,13 +135,62 @@ function buildPeriodoClause(
 }
 
 // ---------------------------------------------------------------------------
+// Núcleo: soma algébrica (Crédito - Débito) por Categoria DRE
+//
+// Replica o `Realizado Base` do PowerBI:
+//   CALCULATE(SUM(fResultados[Crédito]) - SUM(fResultados[Débito]),
+//             'dPlano de Contas'[Categoria] <> BLANK())
+//
+// Resolução da categoria por conta: override do cliente prevalece;
+// senão usa o template global (plano_contas_categoria_padrao).
+// ---------------------------------------------------------------------------
+
+async function somarPorCategoriaDre(
+  clienteId: string,
+  categoria: CategoriaDre,
+  periodoInicio: string,
+  periodoFim: string,
+  periodosSelecionados?: string[],
+  contasIgnoradas?: string[],
+): Promise<number> {
+  const p = buildPeriodoClause('l.periodo', periodoInicio, periodoFim, periodosSelecionados, 3)
+  let nextOffset = p.nextOffset
+
+  let ignoradasClause = ''
+  const extraParams: unknown[] = []
+  if (contasIgnoradas && contasIgnoradas.length > 0) {
+    const placeholders = contasIgnoradas.map((_, i) => `$${nextOffset + i}`).join(', ')
+    ignoradasClause = `AND l.conta NOT IN (${placeholders})`
+    extraParams.push(...contasIgnoradas)
+    nextOffset += contasIgnoradas.length
+  }
+
+  // COALESCE(override do cliente, template global)
+  const sql = `
+    SELECT COALESCE(SUM(l.creditos - l.debitos), 0)::float AS valor
+    FROM cliente_bi_linhas l
+    LEFT JOIN cliente_bi_categorias cbc
+      ON cbc.cliente_id = l.cliente_id AND cbc.conta = l.conta AND cbc.categoria_dre IS NOT NULL
+    LEFT JOIN plano_contas_categoria_padrao pccp
+      ON pccp.classificacao = l.conta
+    WHERE l.cliente_id = $1
+      AND ${p.sql}
+      AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) = $2
+      ${ignoradasClause}
+  `
+
+  const rows = await prisma.$queryRawUnsafe<KpiValor[]>(sql, clienteId, categoria, ...p.params, ...extraParams)
+  return toNumber(rows[0]?.valor)
+}
+
+// ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
 
 @Injectable()
 export class BiCalculosService {
   // ========================================================================
-  // 1. Receita Bruta — SUM(movimento) para contas 03.1.1 / 3.1.1
+  // 1. Receita Bruta — valor natural positivo (Crédito > Débito esperado)
   // ========================================================================
 
   async calcularReceitaBruta(
@@ -123,22 +199,11 @@ export class BiCalculosService {
     periodoFim: string,
     periodosSelecionados?: string[],
   ): Promise<number> {
-    const p = buildPeriodoClause('periodo', periodoInicio, periodoFim, periodosSelecionados, 2)
-
-    const sql = `
-      SELECT COALESCE(SUM(movimento), 0) AS valor
-      FROM cliente_bi_linhas
-      WHERE cliente_id = $1
-        AND ${p.sql}
-        AND conta IN ('03.1.1', '3.1.1')
-    `
-
-    const rows = await prisma.$queryRawUnsafe<KpiValor[]>(sql, clienteId, ...p.params)
-    return toNumber(rows[0]?.valor)
+    return somarPorCategoriaDre(clienteId, 'RECEITA_BRUTA', periodoInicio, periodoFim, periodosSelecionados)
   }
 
   // ========================================================================
-  // 2. Deducoes — SUM(ABS(movimento)) para contas 03.1.3 / 3.1.3
+  // 2. Deduções/Impostos — valor natural negativo (entrega ABS pro card)
   // ========================================================================
 
   async calcularDeducoes(
@@ -147,22 +212,12 @@ export class BiCalculosService {
     periodoFim: string,
     periodosSelecionados?: string[],
   ): Promise<number> {
-    const p = buildPeriodoClause('periodo', periodoInicio, periodoFim, periodosSelecionados, 2)
-
-    const sql = `
-      SELECT COALESCE(SUM(ABS(movimento)), 0) AS valor
-      FROM cliente_bi_linhas
-      WHERE cliente_id = $1
-        AND ${p.sql}
-        AND conta IN ('03.1.3', '3.1.3')
-    `
-
-    const rows = await prisma.$queryRawUnsafe<KpiValor[]>(sql, clienteId, ...p.params)
-    return toNumber(rows[0]?.valor)
+    const algebrico = await somarPorCategoriaDre(clienteId, 'DEDUCOES_IMPOSTOS', periodoInicio, periodoFim, periodosSelecionados)
+    return Math.abs(algebrico)
   }
 
   // ========================================================================
-  // 3. Custo das Vendas — SUM(movimento) para contas 04.1.% (leaf nodes)
+  // 3. Custo das Vendas — valor natural negativo, ABS pra card
   // ========================================================================
 
   async calcularCustoDasVendas(
@@ -172,34 +227,14 @@ export class BiCalculosService {
     contasIgnoradas?: string[],
     periodosSelecionados?: string[],
   ): Promise<number> {
-    const p = buildPeriodoClause('l.periodo', periodoInicio, periodoFim, periodosSelecionados, 2)
-
-    const ignoradasClause = contasIgnoradas && contasIgnoradas.length > 0
-      ? `AND l.conta NOT IN (${contasIgnoradas.map((_, i) => `$${p.nextOffset + i}`).join(', ')})`
-      : ''
-    const extraParams = contasIgnoradas && contasIgnoradas.length > 0 ? [...contasIgnoradas] : []
-
-    const sql = `
-      SELECT COALESCE(SUM(l.movimento), 0) AS valor
-      FROM cliente_bi_linhas l
-      WHERE l.cliente_id = $1
-        AND ${p.sql}
-        AND l.conta LIKE '04.1.%'
-        ${ignoradasClause}
-        AND NOT EXISTS (
-          SELECT 1 FROM cliente_bi_linhas c
-          WHERE c.cliente_id = l.cliente_id
-            AND c.periodo = l.periodo
-            AND c.conta LIKE l.conta || '.%'
-        )
-    `
-
-    const rows = await prisma.$queryRawUnsafe<KpiValor[]>(sql, clienteId, ...p.params, ...extraParams)
-    return toNumber(rows[0]?.valor)
+    const algebrico = await somarPorCategoriaDre(clienteId, 'CUSTO_DAS_VENDAS', periodoInicio, periodoFim, periodosSelecionados, contasIgnoradas)
+    return Math.abs(algebrico)
   }
 
   // ========================================================================
-  // 3b. Custos Fixos Card — 5 contas específicas (padrão SERPRO2)
+  // 3b. Custos Fixos Card — alias de Custo das Vendas (mesma categoria DRE)
+  // (mantido pra compatibilidade com o frontend; equivale ao card "Custos Fixos"
+  // do PowerBI que filtra dMáscara[Categoria]="CUSTO DAS VENDAS")
   // ========================================================================
 
   async calcularCustosFixosCard(
@@ -208,52 +243,15 @@ export class BiCalculosService {
     periodoFim: string,
     periodosSelecionados?: string[],
   ): Promise<number> {
-    const p = buildPeriodoClause('periodo', periodoInicio, periodoFim, periodosSelecionados, 2)
-    const contas = ['04.1.1.01.001', '04.1.1.01.032', '04.1.1.01.033', '04.1.1.01.035', '04.1.1.01.036']
-    const contasPlaceholders = contas.map((_, i) => `$${p.nextOffset + i}`).join(', ')
-
-    const sql = `
-      SELECT SUM(movimento)::float AS valor
-      FROM cliente_bi_linhas
-      WHERE cliente_id = $1
-        AND ${p.sql}
-        AND conta IN (${contasPlaceholders})
-    `
-    const rows = await prisma.$queryRawUnsafe<KpiValor[]>(sql, clienteId, ...p.params, ...contas)
-    const val = toNumber(rows[0]?.valor)
-
-    // Fallback: se resultado = 0, usar 04.1.% leaf com SUM(movimento)
-    if (val === 0) {
-      return this.calcularCustoDasVendas(clienteId, periodoInicio, periodoFim, undefined, periodosSelecionados)
-    }
-    return val
+    return this.calcularCustoDasVendas(clienteId, periodoInicio, periodoFim, undefined, periodosSelecionados)
   }
 
   // ========================================================================
-  // 3c. Lucro Líquido (fórmula SERPRO2: totalReceita03 - custos04_1 - despesas04_2)
-  // ========================================================================
-
-  async calcularLucroLiquidoSerpro(
-    clienteId: string,
-    periodoInicio: string,
-    periodoFim: string,
-    periodosSelecionados?: string[],
-  ): Promise<number> {
-    const p = buildPeriodoClause('periodo', periodoInicio, periodoFim, periodosSelecionados, 2)
-
-    // Lucro Líquido = conta sintética 03 (movimento) + conta sintética 04 (movimento)
-    // Isso dá o resultado líquido: receitas (positivo) + despesas/custos (negativo)
-    const sql = `
-      SELECT SUM(movimento)::float AS valor FROM cliente_bi_linhas
-      WHERE cliente_id = $1 AND ${p.sql}
-        AND conta IN ('03', '04')
-    `
-    const rows = await prisma.$queryRawUnsafe<KpiValor[]>(sql, clienteId, ...p.params)
-    return toNumber(rows[0]?.valor)
-  }
-
-  // ========================================================================
-  // 4. Despesas Operacionais — SUM(ABS(movimento)) para 04.2.1.% / 04.2.2.% nivel 4+
+  // 4. Despesas Operacionais — valor natural negativo, ABS pra card
+  //
+  // CORREÇÃO: antes usava SUM(ABS(movimento)) por leaf, o que inflava o total
+  // quando havia contas redutoras (estornos com Crédito > Débito, ex:
+  // "(-) Crédito COFINS sobre Aluguel"). Agora soma algébrico e ABS no final.
   // ========================================================================
 
   async calcularDespesasOperacionais(
@@ -263,35 +261,12 @@ export class BiCalculosService {
     contasIgnoradas?: string[],
     periodosSelecionados?: string[],
   ): Promise<number> {
-    const p = buildPeriodoClause('periodo', periodoInicio, periodoFim, periodosSelecionados, 2)
-
-    const ignoradasClause = contasIgnoradas && contasIgnoradas.length > 0
-      ? `AND conta NOT IN (${contasIgnoradas.map((_, i) => `$${p.nextOffset + i}`).join(', ')})`
-      : ''
-    const extraParams = contasIgnoradas && contasIgnoradas.length > 0 ? [...contasIgnoradas] : []
-
-    const sql = `
-      SELECT COALESCE(SUM(ABS(movimento)), 0) AS valor
-      FROM cliente_bi_linhas
-      WHERE cliente_id = $1
-        AND ${p.sql}
-        AND (conta LIKE '04.2.1.%' OR conta LIKE '04.2.2.%')
-        AND NOT EXISTS (
-          SELECT 1 FROM cliente_bi_linhas c
-          WHERE c.cliente_id = cliente_bi_linhas.cliente_id
-            AND c.periodo = cliente_bi_linhas.periodo
-            AND c.conta LIKE cliente_bi_linhas.conta || '.%'
-            AND LENGTH(c.conta) > LENGTH(cliente_bi_linhas.conta)
-        )
-        ${ignoradasClause}
-    `
-
-    const rows = await prisma.$queryRawUnsafe<KpiValor[]>(sql, clienteId, ...p.params, ...extraParams)
-    return toNumber(rows[0]?.valor)
+    const algebrico = await somarPorCategoriaDre(clienteId, 'DESPESAS_OPERACIONAIS', periodoInicio, periodoFim, periodosSelecionados, contasIgnoradas)
+    return Math.abs(algebrico)
   }
 
   // ========================================================================
-  // 5. Receitas Financeiras — SUM(ABS(movimento)) para 03.1.4.% / 03.1.6.% nivel 4
+  // 5. Receitas Financeiras — valor natural positivo
   // ========================================================================
 
   async calcularReceitasFinanceiras(
@@ -299,23 +274,11 @@ export class BiCalculosService {
     periodoInicio: string,
     periodoFim: string,
   ): Promise<number> {
-    const { start, end } = parsePeriodoRange(periodoInicio, periodoFim)
-
-    const sql = `
-      SELECT COALESCE(SUM(ABS(movimento)), 0) AS valor
-      FROM cliente_bi_linhas
-      WHERE cliente_id = $1
-        AND periodo BETWEEN $2 AND $3
-        AND (conta LIKE '03.1.4.%' OR conta LIKE '03.1.6.%')
-        AND LENGTH(conta) - LENGTH(REPLACE(conta, '.', '')) = 3
-    `
-
-    const rows = await prisma.$queryRawUnsafe<KpiValor[]>(sql, clienteId, start, end)
-    return toNumber(rows[0]?.valor)
+    return somarPorCategoriaDre(clienteId, 'RECEITAS_FINANCEIRAS', periodoInicio, periodoFim)
   }
 
   // ========================================================================
-  // 6. Despesas Financeiras — SUM(ABS(movimento)) para 04.2.3.% nivel 4
+  // 6. Despesas Financeiras — valor natural negativo, ABS pra card
   // ========================================================================
 
   async calcularDespesasFinanceiras(
@@ -323,23 +286,12 @@ export class BiCalculosService {
     periodoInicio: string,
     periodoFim: string,
   ): Promise<number> {
-    const { start, end } = parsePeriodoRange(periodoInicio, periodoFim)
-
-    const sql = `
-      SELECT COALESCE(SUM(ABS(movimento)), 0) AS valor
-      FROM cliente_bi_linhas
-      WHERE cliente_id = $1
-        AND periodo BETWEEN $2 AND $3
-        AND conta LIKE '04.2.3.%'
-        AND LENGTH(conta) - LENGTH(REPLACE(conta, '.', '')) = 3
-    `
-
-    const rows = await prisma.$queryRawUnsafe<KpiValor[]>(sql, clienteId, start, end)
-    return toNumber(rows[0]?.valor)
+    const algebrico = await somarPorCategoriaDre(clienteId, 'DESPESAS_FINANCEIRAS', periodoInicio, periodoFim)
+    return Math.abs(algebrico)
   }
 
   // ========================================================================
-  // 7. IR/CS — SUM(ABS(movimento)) para 04.4.2.% nivel 4
+  // 7. IR/CS — valor natural negativo, ABS pra card
   // ========================================================================
 
   async calcularIRCS(
@@ -347,23 +299,50 @@ export class BiCalculosService {
     periodoInicio: string,
     periodoFim: string,
   ): Promise<number> {
-    const { start, end } = parsePeriodoRange(periodoInicio, periodoFim)
+    const algebrico = await somarPorCategoriaDre(clienteId, 'IR_CS', periodoInicio, periodoFim)
+    return Math.abs(algebrico)
+  }
+
+  // ========================================================================
+  // 8. Lucro Líquido — soma natural de todas as contas categorizadas no DRE
+  //
+  // Equivale ao subtotal "RESULTADO LÍQUIDO" da dMáscara do PowerBI:
+  // acumula todas as categorias com sinal natural. Funciona porque:
+  //   RB(+) + Ded(-) + CV(-) + DespVar(-) + DespOp(-) + RF(+) + DF(-) + IR(-) + DistLucros(-)
+  // = Lucro Líquido
+  // ========================================================================
+
+  async calcularLucroLiquidoSerpro(
+    clienteId: string,
+    periodoInicio: string,
+    periodoFim: string,
+    periodosSelecionados?: string[],
+  ): Promise<number> {
+    const p = buildPeriodoClause('l.periodo', periodoInicio, periodoFim, periodosSelecionados, 2)
 
     const sql = `
-      SELECT COALESCE(SUM(ABS(movimento)), 0) AS valor
-      FROM cliente_bi_linhas
-      WHERE cliente_id = $1
-        AND periodo BETWEEN $2 AND $3
-        AND conta LIKE '04.4.2.%'
-        AND LENGTH(conta) - LENGTH(REPLACE(conta, '.', '')) = 3
+      SELECT COALESCE(SUM(l.creditos - l.debitos), 0)::float AS valor
+      FROM cliente_bi_linhas l
+      LEFT JOIN cliente_bi_categorias cbc
+        ON cbc.cliente_id = l.cliente_id AND cbc.conta = l.conta AND cbc.categoria_dre IS NOT NULL
+      LEFT JOIN plano_contas_categoria_padrao pccp
+        ON pccp.classificacao = l.conta
+      WHERE l.cliente_id = $1
+        AND ${p.sql}
+        AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) IS NOT NULL
     `
-
-    const rows = await prisma.$queryRawUnsafe<KpiValor[]>(sql, clienteId, start, end)
+    const rows = await prisma.$queryRawUnsafe<KpiValor[]>(sql, clienteId, ...p.params)
     return toNumber(rows[0]?.valor)
   }
 
   // ========================================================================
-  // 8. KPIs Completo — calcula todos e retorna objeto consolidado
+  // 9. KPIs Completo — consolida tudo
+  //
+  // CORREÇÃO EBITDA: antes era `lucroBruto - despesasOperacionais + resultadoFinanceiro`
+  // (somava o resultado financeiro indevidamente). EBITDA por definição não
+  // inclui resultado financeiro. Agora segue o PowerBI:
+  //   EBITDA = ReceitaBruta + Deduções + CustoDasVendas + DespOp (algébricos)
+  //         = ReceitaLiquida - CustoDasVendas - DespOp (com ABS)
   // ========================================================================
 
   async calcularKpisCompleto(
@@ -375,7 +354,6 @@ export class BiCalculosService {
     const [
       receitaBruta,
       deducoes,
-      custosFixos,
       custoDasVendas,
       despesasOperacionais,
       receitasFinanceiras,
@@ -385,7 +363,6 @@ export class BiCalculosService {
     ] = await Promise.all([
       this.calcularReceitaBruta(clienteId, periodoInicio, periodoFim, periodosSelecionados),
       this.calcularDeducoes(clienteId, periodoInicio, periodoFim, periodosSelecionados),
-      this.calcularCustosFixosCard(clienteId, periodoInicio, periodoFim, periodosSelecionados),
       this.calcularCustoDasVendas(clienteId, periodoInicio, periodoFim, undefined, periodosSelecionados),
       this.calcularDespesasOperacionais(clienteId, periodoInicio, periodoFim, undefined, periodosSelecionados),
       this.calcularReceitasFinanceiras(clienteId, periodoInicio, periodoFim),
@@ -394,11 +371,13 @@ export class BiCalculosService {
       this.calcularLucroLiquidoSerpro(clienteId, periodoInicio, periodoFim, periodosSelecionados),
     ])
 
+    // Todos os valores acima já vêm POSITIVOS (ABS aplicado pra despesas)
     const receitaLiquida = receitaBruta - deducoes
-    const lucroBruto = receitaLiquida + custoDasVendas // custoDasVendas é negativo (algébrico)
+    const lucroBruto = receitaLiquida - custoDasVendas
     const margemBruta = receitaLiquida !== 0 ? (lucroBruto / receitaLiquida) * 100 : 0
     const resultadoFinanceiro = receitasFinanceiras - despesasFinanceiras
-    const ebitda = lucroBruto - despesasOperacionais + resultadoFinanceiro
+    // EBITDA = Receita Líquida - Custo das Vendas - Despesas Operacionais (SEM resultado financeiro)
+    const ebitda = lucroBruto - despesasOperacionais
     const margemEbitda = receitaLiquida !== 0 ? (ebitda / receitaLiquida) * 100 : 0
     const margemLiquida = receitaLiquida !== 0 ? (lucroLiquido / receitaLiquida) * 100 : 0
 
@@ -406,7 +385,7 @@ export class BiCalculosService {
       receitaBruta,
       deducoes,
       receitaLiquida,
-      custosFixos,
+      custosFixos: custoDasVendas, // alias UI
       custoDasVendas,
       lucroBruto,
       margemBruta: Math.round(margemBruta * 100) / 100,
@@ -423,7 +402,7 @@ export class BiCalculosService {
   }
 
   // ========================================================================
-  // 9. Dados Mensais — retorna [{periodo, mes, valor}] por tipo de KPI
+  // 10. Dados Mensais — série por categoria DRE (gráficos de linha)
   // ========================================================================
 
   async obterDadosMensais(
@@ -433,66 +412,30 @@ export class BiCalculosService {
     tipo: KpiTipo,
   ): Promise<KpiMensal[]> {
     const { start, end } = parsePeriodoRange(periodoInicio, periodoFim)
+    const categoria = kpiTipoToCategoria(tipo)
 
-    let contaFilter: string
-    let valorExpr: string
-
-    switch (tipo) {
-      case 'receita_bruta':
-        contaFilter = "conta IN ('03.1.1', '3.1.1')"
-        valorExpr = 'COALESCE(SUM(movimento), 0)'
-        break
-      case 'deducoes':
-        contaFilter = "conta IN ('03.1.3', '3.1.3')"
-        valorExpr = 'COALESCE(SUM(ABS(movimento)), 0)'
-        break
-      case 'custo_das_vendas':
-        contaFilter = "conta LIKE '04.1.%'"
-        valorExpr = 'COALESCE(SUM(movimento), 0)'
-        break
-      case 'despesas_operacionais':
-        contaFilter = "(conta LIKE '04.2.1.%' OR conta LIKE '04.2.2.%') AND LENGTH(conta) - LENGTH(REPLACE(conta, '.', '')) = 3"
-        valorExpr = 'COALESCE(SUM(ABS(movimento)), 0)'
-        break
-      case 'receitas_financeiras':
-        contaFilter = "(conta LIKE '03.1.4.%' OR conta LIKE '03.1.6.%') AND LENGTH(conta) - LENGTH(REPLACE(conta, '.', '')) = 3"
-        valorExpr = 'COALESCE(SUM(ABS(movimento)), 0)'
-        break
-      case 'despesas_financeiras':
-        contaFilter = "conta LIKE '04.2.3.%' AND LENGTH(conta) - LENGTH(REPLACE(conta, '.', '')) = 3"
-        valorExpr = 'COALESCE(SUM(ABS(movimento)), 0)'
-        break
-      case 'ir_cs':
-        contaFilter = "conta LIKE '04.4.2.%' AND LENGTH(conta) - LENGTH(REPLACE(conta, '.', '')) = 3"
-        valorExpr = 'COALESCE(SUM(ABS(movimento)), 0)'
-        break
-    }
-
-    // Para custo_das_vendas precisamos do filtro de leaf node
-    const leafFilter = tipo === 'custo_das_vendas'
-      ? `AND NOT EXISTS (
-           SELECT 1 FROM cliente_bi_linhas c
-           WHERE c.cliente_id = l.cliente_id
-             AND c.periodo = l.periodo
-             AND c.conta LIKE l.conta || '.%'
-         )`
-      : ''
-
-    const alias = tipo === 'custo_das_vendas' ? 'l' : 'l'
+    // Despesas são apresentadas em ABS no gráfico; receitas em valor natural
+    const isReceita = categoria === 'RECEITA_BRUTA' || categoria === 'RECEITAS_FINANCEIRAS'
+    const valorExpr = isReceita
+      ? 'SUM(l.creditos - l.debitos)'
+      : 'ABS(SUM(l.creditos - l.debitos))'
 
     const sql = `
-      SELECT ${alias}.periodo, ${valorExpr.replace(/\b(movimento|conta)\b/g, `${alias}.$1`)} AS valor
-      FROM cliente_bi_linhas ${alias}
-      WHERE ${alias}.cliente_id = $1
-        AND ${alias}.periodo BETWEEN $2 AND $3
-        AND ${contaFilter.replace(/\b(conta)\b/g, `${alias}.$1`)}
-        ${leafFilter}
-      GROUP BY ${alias}.periodo
-      ORDER BY ${alias}.periodo ASC
+      SELECT l.periodo, COALESCE(${valorExpr}, 0)::float AS valor
+      FROM cliente_bi_linhas l
+      LEFT JOIN cliente_bi_categorias cbc
+        ON cbc.cliente_id = l.cliente_id AND cbc.conta = l.conta AND cbc.categoria_dre IS NOT NULL
+      LEFT JOIN plano_contas_categoria_padrao pccp
+        ON pccp.classificacao = l.conta
+      WHERE l.cliente_id = $1
+        AND l.periodo BETWEEN $2 AND $3
+        AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) = $4
+      GROUP BY l.periodo
+      ORDER BY l.periodo ASC
     `
 
     type RawRow = { periodo: string; valor: unknown }
-    const rows = await prisma.$queryRawUnsafe<RawRow[]>(sql, clienteId, start, end)
+    const rows = await prisma.$queryRawUnsafe<RawRow[]>(sql, clienteId, start, end, categoria)
 
     return rows.map(r => ({
       periodo: r.periodo,
@@ -502,7 +445,7 @@ export class BiCalculosService {
   }
 
   // ========================================================================
-  // 10. Contas por Natureza — leaf accounts 04.2.% ordenadas por saldo
+  // 11. Contas por Natureza — leaf accounts de DESPESAS_OPERACIONAIS por saldo
   // ========================================================================
 
   async obterContasPorNatureza(
@@ -512,15 +455,13 @@ export class BiCalculosService {
     const sql = `
       SELECT l.conta, l.nome_conta, l.saldo_atual
       FROM cliente_bi_linhas l
+      LEFT JOIN cliente_bi_categorias cbc
+        ON cbc.cliente_id = l.cliente_id AND cbc.conta = l.conta AND cbc.categoria_dre IS NOT NULL
+      LEFT JOIN plano_contas_categoria_padrao pccp
+        ON pccp.classificacao = l.conta
       WHERE l.cliente_id = $1
         AND l.periodo = $2
-        AND l.conta LIKE '04.2.%'
-        AND NOT EXISTS (
-          SELECT 1 FROM cliente_bi_linhas c
-          WHERE c.cliente_id = l.cliente_id
-            AND c.periodo = l.periodo
-            AND c.conta LIKE l.conta || '.%'
-        )
+        AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) = 'DESPESAS_OPERACIONAIS'
       ORDER BY ABS(l.saldo_atual) DESC
       LIMIT 100
     `

@@ -1,0 +1,1422 @@
+[
+  {
+    "classificacao": "04.2.1.01.001",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS TRABALHISTAS",
+    "nivel5": "Salários",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.01.002",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS TRABALHISTAS",
+    "nivel5": "Pró-Labore",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.01.003",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS TRABALHISTAS",
+    "nivel5": "Horas extras",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.01.006",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS TRABALHISTAS",
+    "nivel5": "Aviso prévio/indenizações trabalhistas",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.01.007",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS TRABALHISTAS",
+    "nivel5": "Gratificações",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.01.010",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS TRABALHISTAS",
+    "nivel5": "Comissões",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.01.011",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS TRABALHISTAS",
+    "nivel5": "Reembolso de Despesas",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.02.001",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "OUTRAS DESPESAS COM PESSOAL",
+    "nivel5": "Vale-transporte",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.02.002",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "OUTRAS DESPESAS COM PESSOAL",
+    "nivel5": "Assistência Médica e Odontológica",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.02.003",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "OUTRAS DESPESAS COM PESSOAL",
+    "nivel5": "Alimentação do Trabalhador",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.02.004",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "OUTRAS DESPESAS COM PESSOAL",
+    "nivel5": "Medicina Ocupacional",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.02.005",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "OUTRAS DESPESAS COM PESSOAL",
+    "nivel5": "Seguro de Vida em Grupo",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.02.006",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "OUTRAS DESPESAS COM PESSOAL",
+    "nivel5": "Bolsa Estágio",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.02.007",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "OUTRAS DESPESAS COM PESSOAL",
+    "nivel5": "Uniformes e EPI's",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.03.001",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "ENCARGOS SOCIAIS",
+    "nivel5": "INSS",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.03.002",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "ENCARGOS SOCIAIS",
+    "nivel5": "FGTS",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.03.003",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "ENCARGOS SOCIAIS",
+    "nivel5": "Multa rescisória FGTS",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.04.001",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "PROVISÕES TRABALHISTAS",
+    "nivel5": "Provisão de Férias",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.04.002",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "PROVISÕES TRABALHISTAS",
+    "nivel5": "Provisão de 13º Salário",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.04.003",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "PROVISÕES TRABALHISTAS",
+    "nivel5": "Provisão de Encargos S/Férias",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.04.004",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "PROVISÕES TRABALHISTAS",
+    "nivel5": "Provisão de Encargos S/13º Salário",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.05.001",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "PROPAGANDA E PUBLICIDADE",
+    "nivel5": "Propaganda e Publicidade",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.05.006",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "PROPAGANDA E PUBLICIDADE",
+    "nivel5": "Brindes e Donativos",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.05.008",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "PROPAGANDA E PUBLICIDADE",
+    "nivel5": "Material Gráfico",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.06.001",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS DE VIAGENS",
+    "nivel5": "Estadias",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.06.002",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS DE VIAGENS",
+    "nivel5": "Combustíveis",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.06.004",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS DE VIAGENS",
+    "nivel5": "Pedágios",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.06.007",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS DE VIAGENS",
+    "nivel5": "Viagens",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.07.001",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DEPRECIAÇÕES E AMORTIZAÇÕES",
+    "nivel5": "DEPRECIAÇÕES E AMORTIZAÇÕES",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.07.009",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DEPRECIAÇÕES E AMORTIZAÇÕES",
+    "nivel5": "(-) Crédito COFINS sobre Depreciação",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.07.010",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DEPRECIAÇÕES E AMORTIZAÇÕES",
+    "nivel5": "(-) Crédito PIS sobre Depreciação",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.08.001",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS MENSAIS",
+    "nivel5": "Aluguel",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.08.003",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS MENSAIS",
+    "nivel5": "Energia elétrica",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.08.004",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS MENSAIS",
+    "nivel5": "Internet",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.08.005",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS MENSAIS",
+    "nivel5": "Serviço de comunicação",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.08.006",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS MENSAIS",
+    "nivel5": "Água e esgoto",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.08.098",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS MENSAIS",
+    "nivel5": "(-) Crédito COFINS sobre Aluguel/Energia",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.08.099",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS MENSAIS",
+    "nivel5": "(-) Crédito PIS sobre Aluguel/Energia",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.001",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Serviços de Terceiros - Pessoa Jurídica",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.003",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Comissões e Corretagem",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.005",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Armazenagem",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.006",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Serviço de Transportes",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.008",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Assistência Técnica",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.009",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Certificado Digital",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.011",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Serviços de Dedetização",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.012",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Serviço de Vigilância e Segurança",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.013",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Serviço de Lavanderia",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.014",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Serviços de Manutenção e Reparo",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.015",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Honorários Contábeis",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.016",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Honorários Advocatícios",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.017",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Serviços Gráficos",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.018",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Serviços de Consultoria",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.020",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Serviços de Informática",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.022",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Serviços Administrativos",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.023",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Serviços de Engenharia",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.024",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Licenças de Sistema",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.09.032",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "SERVIÇOS PRESTADOS POR TERCEIROS",
+    "nivel5": "Cursos e Treinamentos",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.10.001",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS COM VEÍC., MANUT. BENS E INSTALAÇÕES",
+    "nivel5": "Manutenção e conservação",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.10.002",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS COM VEÍC., MANUT. BENS E INSTALAÇÕES",
+    "nivel5": "Limpeza e Conservação",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.10.004",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS COM VEÍC., MANUT. BENS E INSTALAÇÕES",
+    "nivel5": "Locação de Veículos",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.10.005",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS COM VEÍC., MANUT. BENS E INSTALAÇÕES",
+    "nivel5": "Locação de Máquinas e Equipamentos",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.10.006",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS COM VEÍC., MANUT. BENS E INSTALAÇÕES",
+    "nivel5": "Combustíveis e Lubrificantes",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.10.007",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS COM VEÍC., MANUT. BENS E INSTALAÇÕES",
+    "nivel5": "Manutenção de Máquinas e Equipamentos",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.10.008",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS COM VEÍC., MANUT. BENS E INSTALAÇÕES",
+    "nivel5": "Manutenção de Veículos",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.10.021",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS COM VEÍC., MANUT. BENS E INSTALAÇÕES",
+    "nivel5": "Seguro de Imóveis",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.11.006",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS COM VENDAS",
+    "nivel5": "Despachantes Aduaneiros na Venda",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.11.012",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS COM VENDAS",
+    "nivel5": "Manutenção e conservação",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.12.001",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS INDEDUTÍVEIS",
+    "nivel5": "Multas e Juros Indedutiveis",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.12.002",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS INDEDUTÍVEIS",
+    "nivel5": "Multas Fiscais Punitivas",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.12.004",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS INDEDUTÍVEIS",
+    "nivel5": "Despesas Não Dedutíveis",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.13.006",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "PERDAS",
+    "nivel5": "Perda/Roubo/Deterioração",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.003",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Despesas Legais e Judiciais",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.004",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Estacionamentos e Conduções",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.005",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Copa e Cozinha",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.006",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Material de expediente",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.007",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Material de limpeza",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.008",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Material de escritório",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.009",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Outras Despesas Operacionais",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.010",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Indenizações Contratuais",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.012",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Lanches e Refeições",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.013",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Correios e Malotes",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.014",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Fretes e Carretos",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.016",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Bens de pequeno valor",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.018",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Confraternizações",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.019",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Seguros",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.020",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Materiais de Informatica",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.021",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Material de Uso e Consumo",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.1.99.022",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS",
+    "nivel4": "DESPESAS GERAIS",
+    "nivel5": "Despesa de Marketing",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.2.01.002",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS TRIBUTÁRIAS",
+    "nivel4": "IMPOSTOS",
+    "nivel5": "IRRF (exclusivo Na Fonte)",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.2.01.003",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS TRIBUTÁRIAS",
+    "nivel4": "IMPOSTOS",
+    "nivel5": "IOF",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.2.01.004",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS TRIBUTÁRIAS",
+    "nivel4": "IMPOSTOS",
+    "nivel5": "PIS sobre receitas operacionais diversas",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.2.01.005",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS TRIBUTÁRIAS",
+    "nivel4": "IMPOSTOS",
+    "nivel5": "COFINS sobre Receitas Operacionais Diversas",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.2.01.007",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS TRIBUTÁRIAS",
+    "nivel4": "IMPOSTOS",
+    "nivel5": "COFINS e Outros",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.2.01.009",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS TRIBUTÁRIAS",
+    "nivel4": "IMPOSTOS",
+    "nivel5": "PIS sobre Receita Financeira",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.2.01.010",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS TRIBUTÁRIAS",
+    "nivel4": "IMPOSTOS",
+    "nivel5": "COFINS sobre Receita Financeira",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.2.01.011",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS TRIBUTÁRIAS",
+    "nivel4": "IMPOSTOS",
+    "nivel5": "IOF S/ Aplicação",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.2.02.001",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS TRIBUTÁRIAS",
+    "nivel4": "CONTRIBUIÇÕES, IMPOSTOS E TAXAS ESTADUAIS",
+    "nivel5": "Impostos Estaduais",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.2.02.002",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS TRIBUTÁRIAS",
+    "nivel4": "CONTRIBUIÇÕES, IMPOSTOS E TAXAS ESTADUAIS",
+    "nivel5": "IPVA",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.2.02.003",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS TRIBUTÁRIAS",
+    "nivel4": "CONTRIBUIÇÕES, IMPOSTOS E TAXAS ESTADUAIS",
+    "nivel5": "ICMS Diferencial de Alíquota",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.2.02.004",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS TRIBUTÁRIAS",
+    "nivel4": "CONTRIBUIÇÕES, IMPOSTOS E TAXAS ESTADUAIS",
+    "nivel5": "ICMS e OUTROS",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.2.03.001",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS TRIBUTÁRIAS",
+    "nivel4": "CONTRIBUIÇÕES, IMPOSTOS E TAXAS MUNICIPAIS",
+    "nivel5": "Impostos Municipais",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.2.03.002",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS TRIBUTÁRIAS",
+    "nivel4": "CONTRIBUIÇÕES, IMPOSTOS E TAXAS MUNICIPAIS",
+    "nivel5": "IPTU",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.2.04.003",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS TRIBUTÁRIAS",
+    "nivel4": "CONTRIBUIÇÕES, IMPOSTOS E TAXAS OUTROS",
+    "nivel5": "Contribuições Sindicais",
+    "categoriaDre": "DESPESAS_OPERACIONAIS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.3.01.001",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS FINANCEIRAS",
+    "nivel4": "DESPESAS FINANCEIRAS",
+    "nivel5": "Despesas Bancárias Diversas",
+    "categoriaDre": "DESPESAS_FINANCEIRAS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.3.01.002",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS FINANCEIRAS",
+    "nivel4": "DESPESAS FINANCEIRAS",
+    "nivel5": "Taxa Administrativa",
+    "categoriaDre": "DESPESAS_FINANCEIRAS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.3.01.003",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS FINANCEIRAS",
+    "nivel4": "DESPESAS FINANCEIRAS",
+    "nivel5": "Taxa e Encargos sobre Recebimento de Cartão",
+    "categoriaDre": "DESPESAS_FINANCEIRAS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.3.01.004",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS FINANCEIRAS",
+    "nivel4": "DESPESAS FINANCEIRAS",
+    "nivel5": "Descontos concedidos",
+    "categoriaDre": "DESPESAS_FINANCEIRAS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.3.01.005",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS FINANCEIRAS",
+    "nivel4": "DESPESAS FINANCEIRAS",
+    "nivel5": "Juros",
+    "categoriaDre": "DESPESAS_FINANCEIRAS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.3.01.007",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS FINANCEIRAS",
+    "nivel4": "DESPESAS FINANCEIRAS",
+    "nivel5": "Encargos sobre Empréstimos e Financiamentos",
+    "categoriaDre": "DESPESAS_FINANCEIRAS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.3.01.008",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS FINANCEIRAS",
+    "nivel4": "DESPESAS FINANCEIRAS",
+    "nivel5": "Encargos sobre Duplicatas Descontadas",
+    "categoriaDre": "DESPESAS_FINANCEIRAS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.2.3.01.009",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "DESPESAS",
+    "nivel3": "DESPESAS OPERACIONAIS FINANCEIRAS",
+    "nivel4": "DESPESAS FINANCEIRAS",
+    "nivel5": "Encargos Fundap",
+    "categoriaDre": "DESPESAS_FINANCEIRAS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "03.1.1.01.004",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "RECEITA BRUTA COM VENDAS E SERVIÇOS",
+    "nivel4": "RECEITA COM VENDAS NO PAÍS",
+    "nivel5": "Revenda de Mercadorias",
+    "categoriaDre": "RECEITA_BRUTA",
+    "sinal": 1
+  },
+  {
+    "classificacao": "03.1.3.01.001",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "DEDUÇÕES DAS RECEITAS C/VENDAS E SERVIÇO",
+    "nivel4": "DEVOLUÇÕES E ABATIMENTOS",
+    "nivel5": "(-) Devoluções de Vendas",
+    "categoriaDre": "DEDUCOES_IMPOSTOS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "03.1.3.01.002",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "DEDUÇÕES DAS RECEITAS C/VENDAS E SERVIÇO",
+    "nivel4": "DEVOLUÇÕES E ABATIMENTOS",
+    "nivel5": "(-) Abatimentos Concedidos",
+    "categoriaDre": "DEDUCOES_IMPOSTOS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "03.1.3.04.001",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "DEDUÇÕES DAS RECEITAS C/VENDAS E SERVIÇO",
+    "nivel4": "(-) IMPOSTOS ESTADUAIS SOBRE VENDAS",
+    "nivel5": "(-) ICMS sobre vendas",
+    "categoriaDre": "DEDUCOES_IMPOSTOS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "03.1.3.04.004",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "DEDUÇÕES DAS RECEITAS C/VENDAS E SERVIÇO",
+    "nivel4": "(-) IMPOSTOS ESTADUAIS SOBRE VENDAS",
+    "nivel5": "ICMS Devoluções",
+    "categoriaDre": "DEDUCOES_IMPOSTOS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "03.1.3.04.009",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "DEDUÇÕES DAS RECEITAS C/VENDAS E SERVIÇO",
+    "nivel4": "(-) IMPOSTOS ESTADUAIS SOBRE VENDAS",
+    "nivel5": "(-) Estorno Crédito Art. 534 ZZA",
+    "categoriaDre": "DEDUCOES_IMPOSTOS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "03.1.3.04.010",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "DEDUÇÕES DAS RECEITAS C/VENDAS E SERVIÇO",
+    "nivel4": "(-) IMPOSTOS ESTADUAIS SOBRE VENDAS",
+    "nivel5": "Estorno Débito",
+    "categoriaDre": "DEDUCOES_IMPOSTOS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "03.1.3.04.013",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "DEDUÇÕES DAS RECEITAS C/VENDAS E SERVIÇO",
+    "nivel4": "(-) IMPOSTOS ESTADUAIS SOBRE VENDAS",
+    "nivel5": "ICMS Crédito Presumido",
+    "categoriaDre": "DEDUCOES_IMPOSTOS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "03.1.3.05.003",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "DEDUÇÕES DAS RECEITAS C/VENDAS E SERVIÇO",
+    "nivel4": "(-) IMPOSTOS FEDERAIS SOBRE VENDAS",
+    "nivel5": "(-) PIS sobre vendas e serviços",
+    "categoriaDre": "DEDUCOES_IMPOSTOS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "03.1.3.05.006",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "DEDUÇÕES DAS RECEITAS C/VENDAS E SERVIÇO",
+    "nivel4": "(-) IMPOSTOS FEDERAIS SOBRE VENDAS",
+    "nivel5": "PIS Devoluções",
+    "categoriaDre": "DEDUCOES_IMPOSTOS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "03.1.3.05.007",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "DEDUÇÕES DAS RECEITAS C/VENDAS E SERVIÇO",
+    "nivel4": "(-) IMPOSTOS FEDERAIS SOBRE VENDAS",
+    "nivel5": "(-) COFINS sobre vendas e serviços",
+    "categoriaDre": "DEDUCOES_IMPOSTOS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "03.1.3.05.010",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "DEDUÇÕES DAS RECEITAS C/VENDAS E SERVIÇO",
+    "nivel4": "(-) IMPOSTOS FEDERAIS SOBRE VENDAS",
+    "nivel5": "COFINS Devoluções",
+    "categoriaDre": "DEDUCOES_IMPOSTOS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "03.1.4.02.001",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "RECEITAS FINANCEIRAS",
+    "nivel4": "GANHOS COM APLICAÇÕES FINANCEIRAS",
+    "nivel5": "Rendimentos de Aplicação do FAF",
+    "categoriaDre": "RECEITAS_FINANCEIRAS",
+    "sinal": 1
+  },
+  {
+    "classificacao": "03.1.4.03.001",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "RECEITAS FINANCEIRAS",
+    "nivel4": "JUROS E DESCONTOS OBTIDOS",
+    "nivel5": "Juros Ativos",
+    "categoriaDre": "RECEITAS_FINANCEIRAS",
+    "sinal": 1
+  },
+  {
+    "classificacao": "03.1.4.03.002",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "RECEITAS FINANCEIRAS",
+    "nivel4": "JUROS E DESCONTOS OBTIDOS",
+    "nivel5": "Descontos Obtidos",
+    "categoriaDre": "RECEITAS_FINANCEIRAS",
+    "sinal": 1
+  },
+  {
+    "classificacao": "03.1.4.03.003",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "RECEITAS FINANCEIRAS",
+    "nivel4": "JUROS E DESCONTOS OBTIDOS",
+    "nivel5": "Taxa Selic na Repetição de Indébito Tributário",
+    "categoriaDre": "RECEITAS_FINANCEIRAS",
+    "sinal": 1
+  },
+  {
+    "classificacao": "03.1.4.04.001",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "RECEITAS FINANCEIRAS",
+    "nivel4": "DESCONTOS INCONDICIONAIS",
+    "nivel5": "Descontos Incondicionais",
+    "categoriaDre": "RECEITAS_FINANCEIRAS",
+    "sinal": 1
+  },
+  {
+    "classificacao": "03.1.6.01.001",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "RECEITAS OPERACIONAIS DIVERSAS",
+    "nivel4": "RECEITAS OPERACIONAIS DIVERSAS",
+    "nivel5": "Recuperação de Despesas",
+    "categoriaDre": "RECEITAS_FINANCEIRAS",
+    "sinal": 1
+  },
+  {
+    "classificacao": "03.1.6.01.002",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "RECEITAS OPERACIONAIS DIVERSAS",
+    "nivel4": "RECEITAS OPERACIONAIS DIVERSAS",
+    "nivel5": "Recuperação de Impostos",
+    "categoriaDre": "RECEITAS_FINANCEIRAS",
+    "sinal": 1
+  },
+  {
+    "classificacao": "03.1.6.01.003",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "RECEITAS OPERACIONAIS DIVERSAS",
+    "nivel4": "RECEITAS OPERACIONAIS DIVERSAS",
+    "nivel5": "Recuperação de Despesas S/Folha Pgto",
+    "categoriaDre": "RECEITAS_FINANCEIRAS",
+    "sinal": 1
+  },
+  {
+    "classificacao": "03.1.6.01.005",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "RECEITAS OPERACIONAIS DIVERSAS",
+    "nivel4": "RECEITAS OPERACIONAIS DIVERSAS",
+    "nivel5": "Reembolso de Despesas",
+    "categoriaDre": "RECEITAS_FINANCEIRAS",
+    "sinal": 1
+  },
+  {
+    "classificacao": "03.1.6.01.007",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "RECEITAS OPERACIONAIS DIVERSAS",
+    "nivel4": "RECEITAS OPERACIONAIS DIVERSAS",
+    "nivel5": "Reversão de Provisão",
+    "categoriaDre": "RECEITAS_FINANCEIRAS",
+    "sinal": 1
+  },
+  {
+    "classificacao": "03.1.6.01.011",
+    "nivel1": "RECEITAS",
+    "nivel2": "RECEITAS OPERACIONAIS",
+    "nivel3": "RECEITAS OPERACIONAIS DIVERSAS",
+    "nivel4": "RECEITAS OPERACIONAIS DIVERSAS",
+    "nivel5": "Brindes e Bonificações",
+    "categoriaDre": "RECEITAS_FINANCEIRAS",
+    "sinal": 1
+  },
+  {
+    "classificacao": "03.2.3.01.001",
+    "nivel1": "RECEITAS",
+    "nivel2": "OUTRAS RECEITAS",
+    "nivel3": "OUTRAS RECEITAS",
+    "nivel4": "OUTRAS RECEITAS",
+    "nivel5": "OUTRAS RECEITAS",
+    "categoriaDre": "RECEITAS_FINANCEIRAS",
+    "sinal": 1
+  },
+  {
+    "classificacao": "04.1.1.01.001",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "CUSTOS",
+    "nivel3": "CUSTOS DAS MERCADORIAS VENDIDAS",
+    "nivel4": "CUSTOS DAS MERCADORIAS VENDIDAS",
+    "nivel5": "Custo Das Mercadorias Vendidas",
+    "categoriaDre": "CUSTO_DAS_VENDAS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.1.1.01.003",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "CUSTOS",
+    "nivel3": "CUSTOS DAS MERCADORIAS VENDIDAS",
+    "nivel4": "CUSTOS DAS MERCADORIAS VENDIDAS",
+    "nivel5": "Compra de Matéria Prima e Insumos",
+    "categoriaDre": "CUSTO_DAS_VENDAS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.1.1.01.031",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "CUSTOS",
+    "nivel3": "CUSTOS DAS MERCADORIAS VENDIDAS",
+    "nivel4": "CUSTOS DAS MERCADORIAS VENDIDAS",
+    "nivel5": "(-) ICMS sobre Compras",
+    "categoriaDre": "CUSTO_DAS_VENDAS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.1.1.01.032",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "CUSTOS",
+    "nivel3": "CUSTOS DAS MERCADORIAS VENDIDAS",
+    "nivel4": "CUSTOS DAS MERCADORIAS VENDIDAS",
+    "nivel5": "Estorno de Crédito Art. 530 LRK",
+    "categoriaDre": "CUSTO_DAS_VENDAS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.1.1.01.033",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "CUSTOS",
+    "nivel3": "CUSTOS DAS MERCADORIAS VENDIDAS",
+    "nivel4": "CUSTOS DAS MERCADORIAS VENDIDAS",
+    "nivel5": "Estorno de Crédito Art. 534 ZZA",
+    "categoriaDre": "CUSTO_DAS_VENDAS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.1.1.01.035",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "CUSTOS",
+    "nivel3": "CUSTOS DAS MERCADORIAS VENDIDAS",
+    "nivel4": "CUSTOS DAS MERCADORIAS VENDIDAS",
+    "nivel5": "(-) COFINS sobre Compras",
+    "categoriaDre": "CUSTO_DAS_VENDAS",
+    "sinal": -1
+  },
+  {
+    "classificacao": "04.1.1.01.036",
+    "nivel1": "CUSTOS E DESPESAS",
+    "nivel2": "CUSTOS",
+    "nivel3": "CUSTOS DAS MERCADORIAS VENDIDAS",
+    "nivel4": "CUSTOS DAS MERCADORIAS VENDIDAS",
+    "nivel5": "(-) PIS sobre Compras",
+    "categoriaDre": "CUSTO_DAS_VENDAS",
+    "sinal": -1
+  }
+]

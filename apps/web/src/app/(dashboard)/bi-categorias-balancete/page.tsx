@@ -35,7 +35,29 @@ interface Categoria {
   tipo: 'R' | 'C' | 'F' | string
   ativo: boolean
   formula?: unknown
+  /** Override do template SERPRO2 (null = herda do padrão global) */
+  categoriaDre?: string | null
+  sinal?: number | null
 }
+
+interface PlanoPadraoEntry {
+  classificacao: string
+  categoriaDre: string
+  sinal: number
+}
+
+/** Lista canônica de categorias DRE — espelha plano_contas_categoria_padrao.categoria_dre */
+const CATEGORIAS_DRE = [
+  { value: 'RECEITA_BRUTA',         label: 'Receita Bruta',         defaultSinal: 1 },
+  { value: 'DEDUCOES_IMPOSTOS',     label: 'Deduções/Impostos',     defaultSinal: -1 },
+  { value: 'CUSTO_DAS_VENDAS',      label: 'Custo das Vendas',      defaultSinal: -1 },
+  { value: 'DESPESAS_VARIAVEIS',    label: 'Despesas Variáveis',    defaultSinal: -1 },
+  { value: 'DESPESAS_OPERACIONAIS', label: 'Despesas Operacionais', defaultSinal: -1 },
+  { value: 'RECEITAS_FINANCEIRAS',  label: 'Receitas Financeiras',  defaultSinal: 1 },
+  { value: 'DESPESAS_FINANCEIRAS', label: 'Despesas Financeiras',   defaultSinal: -1 },
+  { value: 'IR_CS',                 label: 'IR / CS',               defaultSinal: -1 },
+  { value: 'DISTRIBUICAO_LUCROS',   label: 'Distribuição de Lucros', defaultSinal: -1 },
+] as const
 
 const MODULE_COLOR = 'var(--mod-contabil, #8b5cf6)'
 const CURRENT_YEAR = new Date().getFullYear()
@@ -341,6 +363,7 @@ export default function BiCategoriasBalancetePage() {
   const [year, setYear] = useState(CURRENT_YEAR)
 
   const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [planoPadrao, setPlanoPadrao] = useState<Map<string, PlanoPadraoEntry>>(new Map())
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
@@ -388,6 +411,19 @@ export default function BiCategoriasBalancetePage() {
   }, [clienteId])
 
   useEffect(() => { loadCategorias() }, [loadCategorias])
+
+  /* --- load PlanoContasCategoriaPadrao (global, 1x) --- */
+  useEffect(() => {
+    trpc.cliente.biListPlanoContasPadrao.query()
+      .then((rows) => {
+        const map = new Map<string, PlanoPadraoEntry>()
+        for (const r of rows as Array<{ classificacao: string; categoriaDre: string; sinal: number }>) {
+          map.set(r.classificacao, { classificacao: r.classificacao, categoriaDre: r.categoriaDre, sinal: r.sinal })
+        }
+        setPlanoPadrao(map)
+      })
+      .catch(() => { /* sem template padrão é OK — UI cai pra "sem categoria" */ })
+  }, [])
 
   /* --- warn on leave with unsaved changes --- */
   useEffect(() => {
@@ -1276,6 +1312,7 @@ export default function BiCategoriasBalancetePage() {
                   <th className="w-[130px] px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Pai</th>
                   <th className="w-[50px] px-2 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Ordem</th>
                   <th className="w-[95px] px-2 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Tipo</th>
+                  <th className="w-[170px] px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap" title="Categoria DRE — herda do template global (SERPRO2) quando vazio; override do cliente prevalece">Categoria DRE</th>
                   <th className="w-[70px] px-2 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
                     <div className="flex items-center justify-center gap-1.5">
                       <input
@@ -1297,13 +1334,18 @@ export default function BiCategoriasBalancetePage() {
               </thead>
               <tbody>
                 {visibleCategorias.length === 0 ? (
-                  <tr><td colSpan={9} className="py-8 text-center text-sm text-muted-foreground">Nenhuma categoria corresponde ao filtro</td></tr>
+                  <tr><td colSpan={10} className="py-8 text-center text-sm text-muted-foreground">Nenhuma categoria corresponde ao filtro</td></tr>
                 ) : visibleCategorias.map((cat) => {
                   const isExpanded = expanded.has(cat.conta)
                   const hasSub = hasChildren(cat.conta)
                   const indent = apenasNoBi ? 0 : (cat.nivel - 1) * 24
                   const isGroup = cat.nivel <= 2
                   const isMatch = matchSet.has(cat.conta)
+                  // Categoria DRE: override do cliente ou herdada do template global
+                  const padraoEntry = planoPadrao.get(cat.conta)
+                  const catDreEffective = cat.categoriaDre ?? padraoEntry?.categoriaDre ?? ''
+                  const catDreIsOverride = !!cat.categoriaDre
+                  const catDreIsInherited = !cat.categoriaDre && !!padraoEntry
                   return (
                     <tr
                       key={cat.conta}
@@ -1359,6 +1401,59 @@ export default function BiCategoriasBalancetePage() {
                           <option value="calculada">Calculada</option>
                           <option value="referencia">Referência</option>
                         </select>
+                      </td>
+                      <td className="px-2 py-1">
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={catDreEffective}
+                            onChange={(e) => {
+                              const val = e.target.value || null
+                              setCategorias((prev) => prev.map((c) => {
+                                if (c.conta !== cat.conta) return c
+                                if (!val) {
+                                  // Limpou — vira herdado do template (categoriaDre=null)
+                                  return { ...c, categoriaDre: null, sinal: null }
+                                }
+                                const cfg = CATEGORIAS_DRE.find(x => x.value === val)
+                                return { ...c, categoriaDre: val, sinal: cfg?.defaultSinal ?? null }
+                              }))
+                              setDirty(true)
+                            }}
+                            title={catDreIsInherited
+                              ? `Herdado do template global (sinal ${padraoEntry?.sinal === 1 ? '+1' : padraoEntry?.sinal})`
+                              : catDreIsOverride
+                                ? `Override do cliente (sinal ${cat.sinal === 1 ? '+1' : cat.sinal})`
+                                : 'Sem categoria — conta não entra na DRE'}
+                            className={cn(
+                              'h-6 w-full rounded border bg-background px-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-ring',
+                              catDreIsOverride
+                                ? 'border-violet-400 text-violet-700 font-medium dark:text-violet-300'
+                                : catDreIsInherited
+                                  ? 'border-input text-muted-foreground italic'
+                                  : 'border-input text-muted-foreground',
+                            )}
+                          >
+                            <option value="">— sem categoria —</option>
+                            {CATEGORIAS_DRE.map(c => (
+                              <option key={c.value} value={c.value}>{c.label}</option>
+                            ))}
+                          </select>
+                          {catDreIsOverride && (
+                            <button
+                              type="button"
+                              title="Limpar override (voltar a herdar do template)"
+                              onClick={() => {
+                                setCategorias((prev) => prev.map((c) =>
+                                  c.conta === cat.conta ? { ...c, categoriaDre: null, sinal: null } : c
+                                ))
+                                setDirty(true)
+                              }}
+                              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                            >
+                              <Eraser className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-2 py-1 text-center">
                         <input type="checkbox" checked={cat.ativo} onChange={(e) => updateField(cat.conta, 'ativo', e.target.checked)} className="h-3.5 w-3.5 rounded border-gray-300 accent-sky-500" />

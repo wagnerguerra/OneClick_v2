@@ -956,6 +956,7 @@ export class ClienteService {
       conta: string; nomeSci?: string; nomeExibicao?: string
       parentConta?: string | null; nivel?: number; ordem?: number
       tipo?: string; ativo?: boolean; formula?: unknown
+      categoriaDre?: string | null; sinal?: number | null
     }>,
   ) {
     let saved = 0
@@ -972,6 +973,8 @@ export class ClienteService {
           tipo: cat.tipo || 'real',
           ativo: cat.ativo ?? true,
           formula: cat.formula as Prisma.InputJsonValue ?? undefined,
+          categoriaDre: cat.categoriaDre ?? null,
+          sinal: cat.sinal ?? null,
         },
         update: {
           nomeExibicao: cat.nomeExibicao || undefined,
@@ -981,6 +984,8 @@ export class ClienteService {
           tipo: cat.tipo,
           ativo: cat.ativo,
           formula: cat.formula as Prisma.InputJsonValue ?? undefined,
+          categoriaDre: cat.categoriaDre,
+          sinal: cat.sinal,
         },
       })
       saved++
@@ -991,6 +996,17 @@ export class ClienteService {
   async biDeleteCategoria(clienteId: string, conta: string) {
     await prisma.clienteBiCategoria.deleteMany({ where: { clienteId, conta } })
     return { deleted: true }
+  }
+
+  /**
+   * Retorna o template global de Plano de Contas (categoria DRE + sinal padrão).
+   * UI usa pra mostrar valor herdado quando o cliente não tem override.
+   */
+  async biListPlanoContasPadrao() {
+    return prisma.planoContasCategoriaPadrao.findMany({
+      orderBy: { classificacao: 'asc' },
+      select: { classificacao: true, categoriaDre: true, sinal: true, nivel5: true },
+    })
   }
 
   async biListLinhas(clienteId: string, periodo?: string) {

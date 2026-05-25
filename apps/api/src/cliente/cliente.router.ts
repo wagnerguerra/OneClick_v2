@@ -471,6 +471,8 @@ export function createClienteRouter(
           parentConta: z.string().nullable().optional(), nivel: z.number().optional(),
           ordem: z.number().optional(), tipo: z.string().optional(),
           ativo: z.boolean().optional(), formula: z.any().optional(),
+          categoriaDre: z.string().nullable().optional(),
+          sinal: z.number().int().nullable().optional(),
         })),
       }))
       .mutation(({ input }) => clienteService.biSaveCategorias(input.clienteId, input.categorias)),
@@ -478,6 +480,9 @@ export function createClienteRouter(
     biDeleteCategoria: deleteProcedure(MODULE)
       .input(z.object({ clienteId: z.string(), conta: z.string() }))
       .mutation(({ input }) => clienteService.biDeleteCategoria(input.clienteId, input.conta)),
+
+    biListPlanoContasPadrao: readProcedure(MODULE)
+      .query(() => clienteService.biListPlanoContasPadrao()),
 
     biListLinhas: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string(), periodo: z.string().optional() }))
