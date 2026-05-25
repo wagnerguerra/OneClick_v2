@@ -11,8 +11,11 @@ import { Command } from 'cmdk'
 import {
   Button, Input, Card, CardHeader, Label,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogClose, DialogTitle, DialogDescription,
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem, Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import Swal from 'sweetalert2'
@@ -365,6 +368,27 @@ export default function BiCategoriasBalancetePage() {
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [planoPadrao, setPlanoPadrao] = useState<Map<string, PlanoPadraoEntry>>(new Map())
   const [loading, setLoading] = useState(false)
+  // Modal "Excluir Balancete" — padrão DialogHeaderIcon
+  const [excluirOpen, setExcluirOpen] = useState(false)
+  const [excluirSubmitting, setExcluirSubmitting] = useState(false)
+  const [excluirForm, setExcluirForm] = useState({
+    mesInicio: 1, anoInicio: new Date().getFullYear(),
+    mesFim: new Date().getMonth() + 1, anoFim: new Date().getFullYear(),
+  })
+
+  // Modal "Importar Balancete do SCI" — padrão DialogHeaderIcon
+  const [importarOpen, setImportarOpen] = useState(false)
+  const [importarForm, setImportarForm] = useState({
+    mesInicio: 1, anoInicio: new Date().getFullYear(),
+    mesFim: new Date().getMonth() + 1, anoFim: new Date().getFullYear(),
+    substituir: true,
+  })
+  const [importarStatus, setImportarStatus] = useState<{
+    running: boolean
+    progress: number
+    message: string
+    log: string[]
+  }>({ running: false, progress: 0, message: '', log: [] })
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
 
@@ -814,196 +838,111 @@ export default function BiCategoriasBalancetePage() {
     finally { e.target.value = '' }
   }
 
-  const handleImportarBalancete = async () => {
+  const handleImportarBalancete = () => {
     if (!clienteId) return
     const now = new Date()
-    const curYear = now.getFullYear()
-    const curMonth = now.getMonth() + 1
-
-    const mesesOpts = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${i + 1 === 1 ? 'selected' : ''}>${String(i + 1).padStart(2, '0')}</option>`).join('')
-    const mesesOptsFim = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${i + 1 === curMonth ? 'selected' : ''}>${String(i + 1).padStart(2, '0')}</option>`).join('')
-    const anosOpts = Array.from({ length: 6 }, (_, i) => `<option value="${curYear - i}" ${i === 0 ? 'selected' : ''}>${curYear - i}</option>`).join('')
-
-    const { value: formValues } = await Swal.fire({
-      title: 'Importar Balancete do SCI',
-      html: `
-        <div style="text-align:left;font-size:13px;">
-          <div style="display:flex;gap:12px;margin-bottom:12px;">
-            <div style="flex:1">
-              <label style="font-weight:600;font-size:11px;text-transform:uppercase;color:#6b7280;">Período De</label>
-              <div style="display:flex;gap:6px;margin-top:4px;">
-                <select id="swal-mesInicio" class="swal2-select" style="flex:1;padding:6px">${mesesOpts}</select>
-                <select id="swal-anoInicio" class="swal2-select" style="flex:1;padding:6px">${anosOpts}</select>
-              </div>
-            </div>
-            <div style="flex:1">
-              <label style="font-weight:600;font-size:11px;text-transform:uppercase;color:#6b7280;">Período Até</label>
-              <div style="display:flex;gap:6px;margin-top:4px;">
-                <select id="swal-mesFim" class="swal2-select" style="flex:1;padding:6px">${mesesOptsFim}</select>
-                <select id="swal-anoFim" class="swal2-select" style="flex:1;padding:6px">${anosOpts}</select>
-              </div>
-            </div>
-          </div>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:8px;">
-            <input type="checkbox" id="swal-substituir" checked style="width:16px;height:16px;accent-color:${MODULE_COLOR}">
-            <span>Substituir contas e valores existentes</span>
-          </label>
-          <p style="font-size:11px;color:#9ca3af;margin-top:6px;">
-            Se desmarcado, apenas contas/valores novos são adicionados. Personalizações do BI não são alteradas.
-          </p>
-        </div>
-      `,
-      showCancelButton: true,
-      confirmButtonColor: MODULE_COLOR,
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Importar',
-      cancelButtonText: 'Cancelar',
-      preConfirm: () => {
-        const mesInicio = Number((document.getElementById('swal-mesInicio') as HTMLSelectElement).value)
-        const anoInicio = Number((document.getElementById('swal-anoInicio') as HTMLSelectElement).value)
-        const mesFim = Number((document.getElementById('swal-mesFim') as HTMLSelectElement).value)
-        const anoFim = Number((document.getElementById('swal-anoFim') as HTMLSelectElement).value)
-        const substituir = (document.getElementById('swal-substituir') as HTMLInputElement).checked
-
-        const refIni = anoInicio * 100 + mesInicio
-        const refFim = anoFim * 100 + mesFim
-        if (refFim < refIni) {
-          Swal.showValidationMessage('O período "Até" deve ser igual ou posterior ao "De"')
-          return null
-        }
-        return { anoInicio, mesInicio, anoFim, mesFim, substituir, refIni, refFim }
-      },
+    setImportarForm({
+      mesInicio: 1, anoInicio: now.getFullYear(),
+      mesFim: now.getMonth() + 1, anoFim: now.getFullYear(),
+      substituir: true,
     })
+    setImportarStatus({ running: false, progress: 0, message: '', log: [] })
+    setImportarOpen(true)
+  }
 
-    if (!formValues) return
+  const handleImportarConfirmar = async () => {
+    if (!clienteId) return
+    const { anoInicio, mesInicio, anoFim, mesFim, substituir } = importarForm
+    const refIni = anoInicio * 100 + mesInicio
+    const refFim = anoFim * 100 + mesFim
+    if (refFim < refIni) {
+      alerts.warning('Período inválido', 'O período "Até" deve ser igual ou posterior ao "De"')
+      return
+    }
 
-    // Iniciar importação
+    setImportarStatus({ running: true, progress: 0, message: 'Iniciando importação...', log: [] })
+
     try {
       const result = await (trpc.bi as any).balanceteRefreshPeriodo.mutate({
-        clienteId,
-        anoInicio: formValues.anoInicio,
-        mesInicio: formValues.mesInicio,
-        anoFim: formValues.anoFim,
-        mesFim: formValues.mesFim,
-        substituirExistentes: formValues.substituir,
+        clienteId, anoInicio, mesInicio, anoFim, mesFim, substituirExistentes: substituir,
       })
 
       if (result.started === false) {
+        setImportarStatus(s => ({ ...s, running: false }))
         alerts.warning('Em andamento', 'Já existe uma importação em andamento para este período.')
         return
       }
 
-      // Polling de progresso
-      const refIni = formValues.refIni
-      const refFim = formValues.refFim
+      // Polling
+      const poll = setInterval(async () => {
+        try {
+          const status = await (trpc.bi as any).balanceteRefreshStatusByRange.query({
+            clienteId, refInicio: refIni, refFim: refFim,
+          })
+          const job = status.job
+          if (!job) { clearInterval(poll); setImportarStatus(s => ({ ...s, running: false })); return }
 
-      await Swal.fire({
-        title: 'Importando Balancete...',
-        html: '<div id="swal-progress-text" style="font-size:13px;color:#6b7280;">Iniciando...</div><div id="swal-progress-log" style="max-height:200px;overflow-y:auto;font-family:monospace;font-size:11px;text-align:left;margin-top:12px;padding:8px;background:#f8f9fa;border-radius:6px;"></div>',
-        allowOutsideClick: false,
-        showConfirmButton: false,
-        showCancelButton: false,
-        didOpen: () => {
-          Swal.showLoading()
+          setImportarStatus({
+            running: job.status === 'running',
+            progress: job.progress || 0,
+            message: job.message || 'Processando...',
+            log: job.log || [],
+          })
 
-          const poll = setInterval(async () => {
-            try {
-              const status = await (trpc.bi as any).balanceteRefreshStatusByRange.query({
-                clienteId, refInicio: refIni, refFim: refFim,
-              })
-
-              const job = status.job
-              if (!job) { clearInterval(poll); Swal.close(); return }
-
-              const textEl = document.getElementById('swal-progress-text')
-              const logEl = document.getElementById('swal-progress-log')
-              if (textEl) textEl.textContent = job.message || 'Processando...'
-              if (logEl && job.log) logEl.innerHTML = job.log.map((l: string) => `<div>${l}</div>`).join('')
-
-              if (job.status === 'done' || job.status === 'error') {
-                clearInterval(poll)
-                Swal.close()
-
-                const okCount = (job as any).ok ?? 0
-                const failedCount = (job as any).failed ?? 0
-                const skippedCount = (job as any).skipped ?? 0
-
-                if (job.status === 'error' && okCount === 0) {
-                  alerts.error('Falha na importação', `Nenhum mês importado. ${failedCount} falha(s).`)
-                } else {
-                  alerts.success('Importação concluída', `${okCount} importado(s), ${skippedCount} pulado(s), ${failedCount} falha(s)`)
-                }
-
-                // Recarregar categorias
-                await loadCategorias()
-              }
-            } catch {
-              // Ignore polling errors
+          if (job.status === 'done' || job.status === 'error') {
+            clearInterval(poll)
+            const okCount = job.ok ?? 0
+            const failedCount = job.failed ?? 0
+            const skippedCount = job.skipped ?? 0
+            if (job.status === 'error' && okCount === 0) {
+              alerts.error('Falha na importação', `Nenhum mês importado. ${failedCount} falha(s).`)
+            } else {
+              alerts.success('Importação concluída', `${okCount} importado(s), ${skippedCount} pulado(s), ${failedCount} falha(s)`)
             }
-          }, 1500)
-        },
-      })
+            setImportarOpen(false)
+            await loadCategorias()
+          }
+        } catch {
+          // Ignore polling errors — backoff implícito via interval
+        }
+      }, 1500)
     } catch (e) {
-      alerts.error('Erro', (e as Error).message || 'Falha ao iniciar importação')
+      setImportarStatus(s => ({ ...s, running: false }))
+      const msg = (e as Error).message || 'Falha ao iniciar importação'
+      // Erro comum: cliente sem id_sistema vinculado — mensagem específica
+      if (msg.includes('ID SCI')) {
+        alerts.error('Cliente sem ID SCI', `${msg}\n\nVá em /clientes → editar SERRAFER → aba Integrações → preencher "ID SCI" com o PRCODEMP do sistema SCI.`)
+      } else {
+        alerts.error('Erro ao iniciar importação', msg)
+      }
     }
   }
 
-  const handleExcluirBalancete = async () => {
+  const MESES_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+
+  const handleExcluirBalancete = () => {
     if (!clienteId) return
+    // Reseta form com defaults (mês atual no "Até")
     const now = new Date()
-    const curYear = now.getFullYear()
-    const curMonth = now.getMonth() + 1
-
-    const mesesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
-    const mesesOpts = (sel: number) => Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${i + 1 === sel ? 'selected' : ''}>${mesesNomes[i]}</option>`).join('')
-    const anosOpts = (sel: number) => Array.from({ length: 6 }, (_, i) => `<option value="${curYear - i}" ${curYear - i === sel ? 'selected' : ''}>${curYear - i}</option>`).join('')
-
-    const { value: formValues } = await Swal.fire({
-      title: 'Excluir Balancete',
-      html: `
-        <div style="text-align:left;font-size:13px;">
-          <p style="color:#6b7280;margin-bottom:12px;">Remover dados do balancete do período selecionado (linhas e consultas do mês/ano).</p>
-          <div style="display:flex;gap:12px;margin-bottom:12px;">
-            <div style="flex:1">
-              <label style="font-weight:600;font-size:11px;text-transform:uppercase;color:#6b7280;">De</label>
-              <div style="display:flex;gap:6px;margin-top:4px;">
-                <select id="swal-exc-mesDe" class="swal2-select" style="flex:1;padding:6px">${mesesOpts(1)}</select>
-                <select id="swal-exc-anoDe" class="swal2-select" style="flex:1;padding:6px">${anosOpts(curYear)}</select>
-              </div>
-            </div>
-            <div style="flex:1">
-              <label style="font-weight:600;font-size:11px;text-transform:uppercase;color:#6b7280;">Até</label>
-              <div style="display:flex;gap:6px;margin-top:4px;">
-                <select id="swal-exc-mesAte" class="swal2-select" style="flex:1;padding:6px">${mesesOpts(curMonth)}</select>
-                <select id="swal-exc-anoAte" class="swal2-select" style="flex:1;padding:6px">${anosOpts(curYear)}</select>
-              </div>
-            </div>
-          </div>
-          <p style="font-size:11px;color:#9ca3af;">As personalizações do BI (categorias, nomes, ordem) não são alteradas; apenas os dados importados do período são removidos.</p>
-        </div>
-      `,
-      showCancelButton: true,
-      confirmButtonColor: '#ef4444',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Excluir',
-      cancelButtonText: 'Cancelar',
-      preConfirm: () => {
-        const mesInicio = Number((document.getElementById('swal-exc-mesDe') as HTMLSelectElement).value)
-        const anoInicio = Number((document.getElementById('swal-exc-anoDe') as HTMLSelectElement).value)
-        const mesFim = Number((document.getElementById('swal-exc-mesAte') as HTMLSelectElement).value)
-        const anoFim = Number((document.getElementById('swal-exc-anoAte') as HTMLSelectElement).value)
-        const refIni = anoInicio * 100 + mesInicio
-        const refFim = anoFim * 100 + mesFim
-        if (refFim < refIni) { Swal.showValidationMessage('"Até" deve ser igual ou posterior a "De"'); return null }
-        return { anoInicio, mesInicio, anoFim, mesFim }
-      },
+    setExcluirForm({
+      mesInicio: 1, anoInicio: now.getFullYear(),
+      mesFim: now.getMonth() + 1, anoFim: now.getFullYear(),
     })
+    setExcluirOpen(true)
+  }
 
-    if (!formValues) return
+  const handleExcluirConfirmar = async () => {
+    if (!clienteId) return
+    const { mesInicio, anoInicio, mesFim, anoFim } = excluirForm
+    const refIni = anoInicio * 100 + mesInicio
+    const refFim = anoFim * 100 + mesFim
+    if (refFim < refIni) {
+      alerts.warning('Período inválido', '"Até" deve ser igual ou posterior a "De"')
+      return
+    }
 
-    // Confirmação extra
-    const deStr = `${mesesNomes[formValues.mesInicio - 1]}/${formValues.anoInicio}`
-    const ateStr = `${mesesNomes[formValues.mesFim - 1]}/${formValues.anoFim}`
+    const deStr = `${MESES_NOMES[mesInicio - 1]}/${anoInicio}`
+    const ateStr = `${MESES_NOMES[mesFim - 1]}/${anoFim}`
     const periodoStr = deStr === ateStr ? deStr : `${deStr} a ${ateStr}`
 
     const ok = await alerts.confirm({
@@ -1014,18 +953,19 @@ export default function BiCategoriasBalancetePage() {
     })
     if (!ok) return
 
+    setExcluirSubmitting(true)
     try {
       const result = await (trpc.bi as any).balanceteExcluirPeriodo.mutate({
-        clienteId,
-        ano: formValues.anoInicio,
-        mesInicio: formValues.mesInicio,
-        mesFim: formValues.mesFim,
+        clienteId, ano: anoInicio, mesInicio, mesFim,
       })
       const total = (result as any)?.deletedLinhas ?? (result as any)?.deleted ?? 0
+      setExcluirOpen(false)
       alerts.success('Período excluído', `Dados de ${periodoStr} removidos. ${total} linha(s) excluída(s).`)
       await loadCategorias()
     } catch (e) {
       alerts.error('Erro', (e as Error).message || 'Falha ao excluir período do balancete')
+    } finally {
+      setExcluirSubmitting(false)
     }
   }
 
@@ -1514,6 +1454,181 @@ export default function BiCategoriasBalancetePage() {
           />
         )
       })()}
+
+      {/* Modal: Importar Balancete do SCI (padrão DialogHeaderIcon) */}
+      <Dialog open={importarOpen} onOpenChange={(o) => { if (!importarStatus.running) setImportarOpen(o) }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeaderIcon icon={Download} color="violet">
+            <DialogTitle>Importar Balancete do SCI</DialogTitle>
+            <DialogDescription>Consulta o Firebird mês a mês e atualiza as linhas do balancete</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            {!importarStatus.running && importarStatus.log.length === 0 && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Período De</Label>
+                    <div className="flex gap-1.5">
+                      <Select value={String(importarForm.mesInicio)} onValueChange={(v) => setImportarForm(f => ({ ...f, mesInicio: Number(v) }))}>
+                        <SelectTrigger className="h-9 text-sm flex-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {MESES_NOMES.map((n, i) => <SelectItem key={i + 1} value={String(i + 1)}>{n}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Select value={String(importarForm.anoInicio)} onValueChange={(v) => setImportarForm(f => ({ ...f, anoInicio: Number(v) }))}>
+                        <SelectTrigger className="h-9 text-sm w-[90px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {YEARS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Período Até</Label>
+                    <div className="flex gap-1.5">
+                      <Select value={String(importarForm.mesFim)} onValueChange={(v) => setImportarForm(f => ({ ...f, mesFim: Number(v) }))}>
+                        <SelectTrigger className="h-9 text-sm flex-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {MESES_NOMES.map((n, i) => <SelectItem key={i + 1} value={String(i + 1)}>{n}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Select value={String(importarForm.anoFim)} onValueChange={(v) => setImportarForm(f => ({ ...f, anoFim: Number(v) }))}>
+                        <SelectTrigger className="h-9 text-sm w-[90px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {YEARS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                <label className="mt-4 flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={importarForm.substituir}
+                    onCheckedChange={(v) => setImportarForm(f => ({ ...f, substituir: v === true }))}
+                  />
+                  <span className="text-[13px]">Substituir contas e valores existentes</span>
+                </label>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Se desmarcado, apenas contas/valores novos são adicionados. Personalizações do BI não são alteradas.
+                </p>
+              </>
+            )}
+
+            {(importarStatus.running || importarStatus.log.length > 0) && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Loader2 className={cn('h-4 w-4', importarStatus.running && 'animate-spin', 'text-violet-500')} />
+                  <span className="text-[13px] text-foreground">{importarStatus.message}</span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full bg-violet-500 transition-all"
+                    style={{ width: `${importarStatus.progress}%` }}
+                  />
+                </div>
+                <div className="max-h-[180px] overflow-y-auto rounded-md bg-muted/40 border border-border p-2 font-mono text-[11px] text-foreground">
+                  {importarStatus.log.length === 0
+                    ? <span className="text-muted-foreground italic">Aguardando log...</span>
+                    : importarStatus.log.map((l, i) => <div key={i}>{l}</div>)}
+                </div>
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" size="sm" disabled={importarStatus.running}>
+                {importarStatus.running ? 'Aguarde...' : 'Cancelar'}
+              </Button>
+            </DialogClose>
+            {!importarStatus.running && importarStatus.log.length === 0 && (
+              <Button
+                size="sm"
+                onClick={handleImportarConfirmar}
+                className="gap-1.5"
+                style={{ background: MODULE_COLOR, color: 'white' }}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Importar
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Excluir Balancete (padrão DialogHeaderIcon) */}
+      <Dialog open={excluirOpen} onOpenChange={setExcluirOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeaderIcon icon={Trash2} color="rose">
+            <DialogTitle>Excluir Balancete</DialogTitle>
+            <DialogDescription>Remove os dados do balancete do período selecionado</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            <p className="text-[12px] text-muted-foreground mb-3">
+              Os dados importados (linhas e consultas do mês/ano) serão removidos.
+              As personalizações do BI — categorias, nomes e ordem — não são alteradas.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">De</Label>
+                <div className="flex gap-1.5">
+                  <Select value={String(excluirForm.mesInicio)} onValueChange={(v) => setExcluirForm(f => ({ ...f, mesInicio: Number(v) }))}>
+                    <SelectTrigger className="h-9 text-sm flex-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MESES_NOMES.map((n, i) => <SelectItem key={i + 1} value={String(i + 1)}>{n}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={String(excluirForm.anoInicio)} onValueChange={(v) => setExcluirForm(f => ({ ...f, anoInicio: Number(v) }))}>
+                    <SelectTrigger className="h-9 text-sm w-[90px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {YEARS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Até</Label>
+                <div className="flex gap-1.5">
+                  <Select value={String(excluirForm.mesFim)} onValueChange={(v) => setExcluirForm(f => ({ ...f, mesFim: Number(v) }))}>
+                    <SelectTrigger className="h-9 text-sm flex-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MESES_NOMES.map((n, i) => <SelectItem key={i + 1} value={String(i + 1)}>{n}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={String(excluirForm.anoFim)} onValueChange={(v) => setExcluirForm(f => ({ ...f, anoFim: Number(v) }))}>
+                    <SelectTrigger className="h-9 text-sm w-[90px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {YEARS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <p className="mt-3 text-[11px] text-muted-foreground italic">
+              Esta ação não pode ser desfeita.
+            </p>
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" size="sm" disabled={excluirSubmitting}>Cancelar</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleExcluirConfirmar}
+              disabled={excluirSubmitting}
+              className="gap-1.5"
+            >
+              {excluirSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              {excluirSubmitting ? 'Excluindo...' : 'Excluir'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -355,10 +355,26 @@ export class BiService {
     }
 
     const finalKpis = { ...kpis, ...overrides }
-    // Recalculate derived values if overrides applied
+    // Recalculate derived values if overrides applied.
+    // Após refactor, custoDasVendas e despesasOperacionais vêm POSITIVOS de
+    // calcularKpisCompleto (ABS aplicado). Mas somarContasSelecionadas
+    // retorna ALGÉBRICO (-ABS pra contas 04). Normalizamos pra ABS aqui antes
+    // de aplicar nas fórmulas, garantindo consistência em ambos os caminhos.
     if (Object.keys(overrides).length > 0) {
+      // Override values can be algebraic (somarContasSelecionadas) — força positivo
+      if ('custosFixos' in overrides) finalKpis.custosFixos = Math.abs(finalKpis.custosFixos)
+      if ('custoDasVendas' in overrides) finalKpis.custoDasVendas = Math.abs(finalKpis.custoDasVendas)
+      if ('despesasOperacionais' in overrides) finalKpis.despesasOperacionais = Math.abs(finalKpis.despesasOperacionais)
+
       finalKpis.receitaLiquida = finalKpis.receitaBruta - finalKpis.deducoes
-      finalKpis.lucroBruto = finalKpis.receitaLiquida + finalKpis.custoDasVendas
+      finalKpis.lucroBruto = finalKpis.receitaLiquida - finalKpis.custoDasVendas
+      finalKpis.ebitda = finalKpis.lucroBruto - finalKpis.despesasOperacionais
+      finalKpis.margemBruta = finalKpis.receitaLiquida !== 0
+        ? Math.round((finalKpis.lucroBruto / finalKpis.receitaLiquida) * 10000) / 100 : 0
+      finalKpis.margemEbitda = finalKpis.receitaLiquida !== 0
+        ? Math.round((finalKpis.ebitda / finalKpis.receitaLiquida) * 10000) / 100 : 0
+      finalKpis.margemLiquida = finalKpis.receitaLiquida !== 0
+        ? Math.round((finalKpis.lucroLiquido / finalKpis.receitaLiquida) * 10000) / 100 : 0
     }
 
     return { ...finalKpis, fontesReceita, fontesDespesas, mesesCustosDespesas }
