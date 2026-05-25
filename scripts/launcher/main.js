@@ -1103,6 +1103,82 @@ function registerIpcHandlers() {
 
   ipcMain.handle('bi-sync-logout', () => {
     biSyncCookies.clear()
+    biSyncStreamStop()
+    return { ok: true }
+  })
+
+  // ════════════════════════════════════════════════════════
+  // BI Sync SSE — main process abre stream HTTP pra
+  // `/api/bi-sync/eventos`, parsea eventos e envia pro renderer.
+  // (EventSource em Electron renderer não envia cookies cross-origin
+  // de forma confiável — fazemos manualmente com node fetch.)
+  // ════════════════════════════════════════════════════════
+  let biSyncStreamCtrl = null
+  function biSyncStreamStop() {
+    if (biSyncStreamCtrl) {
+      try { biSyncStreamCtrl.abort() } catch {}
+      biSyncStreamCtrl = null
+    }
+  }
+  async function biSyncStreamStart(baseUrl) {
+    biSyncStreamStop()
+    const cookieStr = biSyncCookies.get(baseUrl) || ''
+    if (!cookieStr) return // não autenticado
+    biSyncStreamCtrl = new AbortController()
+    const url = `${baseUrl}/api/bi-sync/eventos`
+    try {
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Origin': baseUrl,
+          'Accept': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Cookie': cookieStr,
+          'User-Agent': 'OneClick-Launcher/1.0',
+        },
+        signal: biSyncStreamCtrl.signal,
+      })
+      if (!resp.ok || !resp.body) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('bi-sync-event', { type: '__error', status: resp.status })
+        }
+        return
+      }
+      const reader = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        // SSE: eventos separados por blank line. Linhas começam com "data: ..."
+        const events = buffer.split('\n\n')
+        buffer = events.pop() || ''
+        for (const ev of events) {
+          const dataLine = ev.split('\n').find(l => l.startsWith('data:'))
+          if (!dataLine) continue
+          try {
+            const json = JSON.parse(dataLine.slice(5).trim())
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('bi-sync-event', json)
+            }
+          } catch { /* skip malformed */ }
+        }
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('bi-sync-event', { type: '__error', message: e.message })
+        }
+      }
+    }
+  }
+  ipcMain.handle('bi-sync-stream-start', (_e, baseUrl) => {
+    biSyncStreamStart(baseUrl).catch(() => {})
+    return { ok: true }
+  })
+  ipcMain.handle('bi-sync-stream-stop', () => {
+    biSyncStreamStop()
     return { ok: true }
   })
 

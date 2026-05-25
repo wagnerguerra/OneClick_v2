@@ -38,6 +38,14 @@ contextBridge.exposeInMainWorld('api', {
   // BI Sync — HTTP request da main process (com Origin header, cookie jar)
   biSyncRequest: (payload) => ipcRenderer.invoke('bi-sync-request', payload),
   biSyncLogout: () => ipcRenderer.invoke('bi-sync-logout'),
+  // BI Sync SSE — main process abre stream e push eventos pro renderer
+  biSyncStreamStart: (baseUrl) => ipcRenderer.invoke('bi-sync-stream-start', baseUrl),
+  biSyncStreamStop: () => ipcRenderer.invoke('bi-sync-stream-stop'),
+  onBiSyncEvent: (callback) => {
+    const handler = (_event, data) => callback(data)
+    ipcRenderer.on('bi-sync-event', handler)
+    return () => ipcRenderer.removeListener('bi-sync-event', handler)
+  },
 
   // Shell
   openExternal: (url) => ipcRenderer.invoke('open-external', url),

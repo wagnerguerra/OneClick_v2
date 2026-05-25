@@ -8,11 +8,13 @@
  * REST tradicional num path totalmente diferente (`/api/bi-sync/*`) bypassa.
  */
 
-import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common'
+import { Body, Controller, Get, Param, Post, Req, Sse } from '@nestjs/common'
 import type { Request } from 'express'
+import { Observable, map, merge, interval } from 'rxjs'
 import { prisma } from '@saas/db'
 import { BiService } from './bi.service'
 import { BiBalanceteService } from './bi-balancete.service'
+import { BiSyncEventsService } from './bi-sync-events.service'
 import type { SciBalanceteLinha } from '../cliente/sci.service'
 import { AuthService } from '../auth/auth.service'
 
@@ -22,7 +24,23 @@ export class BiSyncController {
     private readonly biService: BiService,
     private readonly balanceteService: BiBalanceteService,
     private readonly authService: AuthService,
+    private readonly events: BiSyncEventsService,
   ) {}
+
+  /**
+   * SSE — Stream de eventos BI Sync pro Launcher escutar em tempo real.
+   * Emite ping a cada 30s pra manter a conexão (evita timeout de proxy).
+   */
+  @Sse('eventos')
+  sse(): Observable<MessageEvent> {
+    const ping$ = interval(30000).pipe(
+      map(() => ({ data: JSON.stringify({ type: 'ping', timestamp: Date.now() }) }) as MessageEvent),
+    )
+    const events$ = this.events.events$.pipe(
+      map(event => ({ data: JSON.stringify(event) }) as MessageEvent),
+    )
+    return merge(events$, ping$)
+  }
 
   private async assertAuth(req: Request) {
     const headers = new Headers()

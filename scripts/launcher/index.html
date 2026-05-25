@@ -930,7 +930,17 @@
 
           <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;align-items:end;">
             <div style="position:relative;">
-              <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Cliente</label>
+              <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;justify-content:space-between;">
+                <span>Cliente</span>
+                <button type="button" onclick="biSyncLoadClientes()" title="Atualizar lista (puxa novos ID SCI cadastrados no app)"
+                        style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;padding:0;font-size:11px;text-transform:none;letter-spacing:0;display:flex;align-items:center;gap:3px;">
+                  <svg id="biSyncRefreshIcon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                    <polyline points="23 4 23 10 17 10"/>
+                  </svg>
+                  Atualizar
+                </button>
+              </label>
               <input id="biSyncClienteInput" type="text" autocomplete="off" placeholder="Buscar por nome ou CNPJ..."
                      oninput="biSyncFiltrarClientes()" onfocus="biSyncShowDropdown()" onblur="biSyncHideDropdownDelay()"
                      style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;" />
@@ -1152,6 +1162,12 @@
         pages.forEach(p => p.classList.remove('active'));
         const page = document.getElementById('page-' + target);
         if (page) page.classList.add('active');
+
+        // Auto-refresh dados ao entrar em páginas dinâmicas
+        if (target === 'bi-sync' && typeof biSync !== 'undefined' && biSync.baseUrl && !biSync.busy) {
+          // Já logado — re-fetch lista de clientes (pega novos ID SCI cadastrados no app)
+          if (typeof biSyncLoadClientes === 'function') biSyncLoadClientes()
+        }
       });
     });
 
@@ -1951,9 +1967,34 @@
       biSyncSetBadge('online')
       biSyncAppendLog(`Login OK em ${url}`, 'ok')
       await biSyncLoadClientes()
+      // Inicia SSE stream pra eventos em tempo real (cliente updated etc.)
+      window.api.biSyncStreamStart(url)
+      biSyncAppendLog('SSE conectado — escutando eventos em tempo real', 'info')
+    }
+
+    // Listener global de eventos SSE (instalado uma vez no boot)
+    if (window.api && window.api.onBiSyncEvent) {
+      window.api.onBiSyncEvent((ev) => {
+        if (!ev || !ev.type) return
+        if (ev.type === 'ping') return // keep-alive, ignora
+        if (ev.type === '__error') {
+          biSyncAppendLog(`SSE: erro ${ev.status || ev.message || ''}`, 'warn')
+          return
+        }
+        if (ev.type === 'cliente-updated') {
+          const novo = ev.payload?.idSistemaNovo
+          const ant = ev.payload?.idSistemaAnterior
+          biSyncAppendLog(`Cliente atualizado: ID SCI ${ant || '(vazio)'} → ${novo || '(vazio)'}`, 'info')
+          // Re-fetch lista pra refletir mudança
+          if (typeof biSyncLoadClientes === 'function' && biSync.baseUrl && !biSync.busy) {
+            biSyncLoadClientes()
+          }
+        }
+      })
     }
 
     function biSyncLogout() {
+      window.api.biSyncStreamStop()
       window.api.biSyncLogout() // limpa cookie jar na main process
       biSync.baseUrl = ''
       biSync.cookie = ''
@@ -1971,8 +2012,17 @@
 
     async function biSyncLoadClientes() {
       const input = document.getElementById('biSyncClienteInput')
-      input.value = ''
-      input.placeholder = 'Carregando...'
+      const refreshIcon = document.getElementById('biSyncRefreshIcon')
+      // Preservar seleção atual (se houver) pra restaurar após reload
+      const previousId = document.getElementById('biSyncCliente').value
+      const isFirstLoad = !biSync.clientes || biSync.clientes.length === 0
+      if (isFirstLoad) {
+        input.value = ''
+        input.placeholder = 'Carregando...'
+      }
+      if (refreshIcon) {
+        refreshIcon.style.animation = 'spin 0.8s linear infinite'
+      }
       try {
         const r = await window.api.biSyncRequest({
           baseUrl: biSync.baseUrl,
@@ -1984,10 +2034,23 @@
         const comSci = list.filter(c => c.temSci).length
         input.placeholder = `Buscar por nome ou CNPJ... (${comSci} c/ SCI, ${list.length - comSci} sem)`
         biSyncRenderDropdown(list)
+        // Restaurar seleção se cliente ainda existir
+        if (previousId) {
+          const prev = list.find(c => c.id === previousId)
+          if (prev && prev.temSci) {
+            document.getElementById('biSyncCliente').value = prev.id
+            input.value = `${prev.razaoSocial} — SCI ${prev.idSistema}`
+          }
+        }
         biSyncAppendLog(`${list.length} cliente(s) carregado(s) — ${comSci} com SCI vinculado`, 'ok')
       } catch (e) {
         input.placeholder = `Erro: ${e.message}`
         biSyncAppendLog(`Falha ao carregar clientes: ${e.message}`, 'err')
+      } finally {
+        if (refreshIcon) {
+          // Pequeno delay pra feedback visual mesmo em loads rápidos
+          setTimeout(() => { refreshIcon.style.animation = '' }, 300)
+        }
       }
     }
 

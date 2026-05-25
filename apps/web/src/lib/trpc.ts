@@ -42,10 +42,27 @@ const fetchWithCredentials: typeof fetch = async (input, init) => {
  * fetch nativo direto via helper. Mas a partir desse fix o trpc client deve
  * funcionar normalmente pra cadastros, edições, etc.
  */
+// URL do tRPC: em desenvolvimento (browser/Node de :3000), passamos via Next
+// rewrite `/be/trpc` → backend NestJS. Isso bypassa:
+//   1. Filtros do AdBlock que bloqueiam `/trpc/*` (regras adblock financeiras)
+//   2. Limite de 6 conexões cross-origin do Chrome (SSE streams pro :4000
+//      consumiam todos os slots → mutations ficavam Stalled)
+// Em prod (frontend e backend no mesmo host), o rewrite é no-op funcional.
+// `getApiUrl()` continua sendo a base de outros assets (imagens, uploads).
+const TRPC_PATH = '/be/trpc'
+function getTrpcUrl(): string {
+  if (typeof window === 'undefined') {
+    // SSR: usa URL direta do backend (não passa pelo Next dev)
+    return `${getApiUrl()}/trpc`
+  }
+  // Client-side: usa o rewrite local (mesmo host)
+  return TRPC_PATH
+}
+
 export const trpc = createTRPCClient<AppRouter>({
   links: [
     httpLink({
-      url: `${getApiUrl()}/trpc`,
+      url: getTrpcUrl(),
       fetch: fetchWithCredentials,
     }),
   ],

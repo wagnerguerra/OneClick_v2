@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
 import type { Prisma } from '@saas/db'
 import type { CreateClienteInput, UpdateClienteInput, ListClienteInput } from '@saas/types'
+import { BiSyncEventsService } from '../bi/bi-sync-events.service'
 
 const FIELD_LABELS: Record<string, string> = {
   razaoSocial: 'Razão Social', nomeFantasia: 'Nome Fantasia', documento: 'Documento',
@@ -72,6 +73,11 @@ function matchEnumTributacao(search: string): Prisma.ClienteWhereInput[] {
 
 @Injectable()
 export class ClienteService {
+  constructor(
+    @Inject(forwardRef(() => BiSyncEventsService))
+    private readonly biSyncEvents: BiSyncEventsService,
+  ) {}
+
   // ============================================================
   // Listagem (ativos)
   // ============================================================
@@ -255,6 +261,14 @@ export class ClienteService {
         await tx.clienteEvent.create({
           data: { clienteId: id, userId: userId || null, type: 'updated', version: newVersion, changes: changes as Prisma.InputJsonValue },
         })
+      }
+      // SSE: notifica o Launcher se idSistema mudou (pra refresh em tempo real)
+      if (changes && 'idSistema' in changes) {
+        this.biSyncEvents.emitClienteUpdated(
+          id,
+          (changes as Record<string, { from: unknown; to: unknown }>).idSistema?.from as string | null,
+          (changes as Record<string, { from: unknown; to: unknown }>).idSistema?.to as string | null,
+        )
       }
       return cliente
     })
