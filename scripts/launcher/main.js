@@ -1055,6 +1055,45 @@ function registerIpcHandlers() {
   ipcMain.handle('get-active-users', () => getActiveUsers());
   ipcMain.handle('get-sci-status', () => getSciStatus());
 
+  // ════════════════════════════════════════════════════════
+  // BI Sync: executa sci_balancete.py local e retorna linhas
+  // pro renderer enviar pra VPS via fetch.
+  // ════════════════════════════════════════════════════════
+  ipcMain.handle('bi-sync-fetch-sci', async (_e, payload) => {
+    try {
+      const { prcodemp, dataIni, dataFim, ref } = payload || {}
+      if (!prcodemp || !dataIni || !dataFim || !ref) {
+        return { sucesso: false, erro: 'Parâmetros obrigatórios: prcodemp, dataIni, dataFim, ref' }
+      }
+      const sciScript = path.join(projectRoot, 'apps', 'api', 'src', 'cliente', 'sci_balancete.py')
+      const result = spawnSync(
+        'python',
+        [sciScript, String(prcodemp), dataIni, dataFim, '1', String(ref)],
+        {
+          cwd: path.dirname(sciScript),
+          encoding: 'buffer',
+          env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+          timeout: 60000,
+          windowsHide: true,
+        },
+      )
+      if (result.error) return { sucesso: false, erro: result.error.message }
+      const stdout = (result.stdout || Buffer.from('')).toString('utf8').trim()
+      const stderr = (result.stderr || Buffer.from('')).toString('utf8').trim()
+      if (!stdout) return { sucesso: false, erro: stderr || 'Sem resposta do sci_balancete.py' }
+      try {
+        const parsed = JSON.parse(stdout)
+        return parsed.sucesso === false
+          ? { sucesso: false, erro: parsed.erro || 'SCI retornou sucesso=false' }
+          : { sucesso: true, dados: parsed.dados || [], total: (parsed.dados || []).length }
+      } catch (e) {
+        return { sucesso: false, erro: `JSON inválido: ${e.message}` }
+      }
+    } catch (e) {
+      return { sucesso: false, erro: e.message }
+    }
+  })
+
   ipcMain.handle('open-external', (_e, url) => shell.openExternal(url));
 
   ipcMain.handle('minimize-window', () => mainWindow && mainWindow.minimize());

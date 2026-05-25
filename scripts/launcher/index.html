@@ -601,6 +601,11 @@
           <span class="nav-label">NFe Watcher</span>
           <span class="nav-badge off" id="navNfeBadge">off</span>
         </button>
+        <button class="nav-item" data-page="bi-sync" data-label="BI Sync">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="23 4 23 10 17 10"/></svg></span>
+          <span class="nav-label">BI Sync (SCI → VPS)</span>
+          <span class="nav-badge off" id="navBiSyncBadge">offline</span>
+        </button>
         <div class="nav-section-label" style="margin:12px 8px 4px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);padding:0 4px;">Ferramentas</div>
         <button class="nav-item" data-page="settings" data-label="Configurações">
           <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> <span class="nav-label">Configurações</span>
@@ -854,6 +859,98 @@
             <button class="btn btn-sm" onclick="document.getElementById('nfeLog').innerHTML=''">Limpar</button>
           </div>
           <div id="nfeLog" style="max-height:300px;overflow-y:auto;padding:8px 16px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:11px;line-height:1.5;color:var(--text-muted);">
+            <div style="padding:8px 0;color:var(--text-muted);">(sem eventos ainda)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Page: BI Sync (SCI → VPS) ═══ -->
+      <div class="page" id="page-bi-sync">
+        <div class="page-header">
+          <div>
+            <div class="page-title">BI Sync (SCI → VPS)</div>
+            <div class="page-subtitle">Importa balancete do SCI Firebird local e envia pra produção</div>
+          </div>
+        </div>
+
+        <!-- Login -->
+        <div class="card" id="biSyncLoginCard" style="padding:16px;margin-bottom:12px;">
+          <div style="font-weight:600;font-size:13px;margin-bottom:10px;">Login na VPS</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:end;">
+            <div>
+              <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">URL da API</label>
+              <input id="biSyncUrl" type="text" placeholder="https://app.oneclick.central-rnc.com.br"
+                     value="https://app.oneclick.central-rnc.com.br"
+                     style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;" />
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Email</label>
+              <input id="biSyncEmail" type="email" placeholder="seu@email.com"
+                     style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;" />
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Senha</label>
+              <input id="biSyncPassword" type="password" placeholder="••••••••"
+                     style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;" />
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;align-items:center;">
+            <button onclick="biSyncLogin()" id="biSyncLoginBtn"
+                    style="background:var(--accent,#3b82f6);color:white;border:none;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;">
+              Entrar
+            </button>
+            <button onclick="biSyncLogout()" id="biSyncLogoutBtn" style="display:none;background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border);padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;">
+              Sair
+            </button>
+            <span id="biSyncAuthStatus" style="font-size:11px;color:var(--text-muted);"></span>
+          </div>
+        </div>
+
+        <!-- Form de Sync -->
+        <div class="card" id="biSyncFormCard" style="padding:16px;display:none;">
+          <div style="font-weight:600;font-size:13px;margin-bottom:10px;">Sincronizar balancete</div>
+
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;align-items:end;">
+            <div>
+              <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Cliente</label>
+              <select id="biSyncCliente"
+                      style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;">
+                <option value="">— Selecione —</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Mês início</label>
+              <select id="biSyncMesInicio" style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;"></select>
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Ano início</label>
+              <select id="biSyncAnoInicio" style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;"></select>
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Mês fim</label>
+              <select id="biSyncMesFim" style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;"></select>
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Ano fim</label>
+              <select id="biSyncAnoFim" style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;"></select>
+            </div>
+          </div>
+
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+            <button onclick="biSyncStart()" id="biSyncStartBtn"
+                    style="background:var(--accent,#3b82f6);color:white;border:none;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">
+              Iniciar sincronização
+            </button>
+            <span id="biSyncProgress" style="font-size:12px;color:var(--text-muted);"></span>
+          </div>
+        </div>
+
+        <!-- Log -->
+        <div class="card" id="biSyncLogCard" style="padding:0;margin-top:12px;display:none;overflow:hidden;">
+          <div style="padding:10px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:12px;">
+            Log da sincronização
+          </div>
+          <div id="biSyncLog" style="max-height:340px;overflow-y:auto;padding:8px 16px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:11px;line-height:1.5;color:var(--text-muted);">
             <div style="padding:8px 0;color:var(--text-muted);">(sem eventos ainda)</div>
           </div>
         </div>
@@ -1697,6 +1794,258 @@
       loadSettingsUI();
     }
     init();
+  </script>
+
+  <!-- ════════ BI Sync (SCI → VPS) ════════ -->
+  <script>
+    // Estado global da sync
+    const biSync = {
+      baseUrl: '',
+      cookie: '',   // session cookie da VPS
+      user: null,
+      clientes: [],
+      busy: false,
+    }
+
+    function biSyncSetBadge(status) {
+      const b = document.getElementById('navBiSyncBadge')
+      if (!b) return
+      if (status === 'online') {
+        b.textContent = 'online'
+        b.className = 'nav-badge on'
+      } else {
+        b.textContent = 'offline'
+        b.className = 'nav-badge off'
+      }
+    }
+
+    function biSyncAppendLog(msg, level = 'info') {
+      const log = document.getElementById('biSyncLog')
+      if (!log) return
+      const colors = { info: 'var(--text-muted)', ok: '#16a34a', err: '#dc2626', warn: '#f59e0b' }
+      const time = new Date().toLocaleTimeString('pt-BR')
+      const div = document.createElement('div')
+      div.style.padding = '2px 0'
+      div.style.color = colors[level] || colors.info
+      div.textContent = `[${time}] ${msg}`
+      // Limpar placeholder na primeira entrada
+      if (log.children.length === 1 && log.children[0].textContent.includes('sem eventos')) log.innerHTML = ''
+      log.appendChild(div)
+      log.scrollTop = log.scrollHeight
+    }
+
+    async function biSyncLogin() {
+      const url = document.getElementById('biSyncUrl').value.trim().replace(/\/$/, '')
+      const email = document.getElementById('biSyncEmail').value.trim()
+      const password = document.getElementById('biSyncPassword').value
+      if (!url || !email || !password) {
+        document.getElementById('biSyncAuthStatus').textContent = '⚠ Preencha URL, email e senha'
+        return
+      }
+
+      const btn = document.getElementById('biSyncLoginBtn')
+      btn.disabled = true; btn.textContent = 'Entrando...'
+
+      try {
+        // Better Auth — POST /api/auth/sign-in/email
+        const resp = await fetch(`${url}/api/auth/sign-in/email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email, password }),
+        })
+        if (!resp.ok) {
+          const txt = await resp.text().catch(() => '')
+          throw new Error(`HTTP ${resp.status}: ${txt.slice(0, 100)}`)
+        }
+        const data = await resp.json()
+        const setCookie = resp.headers.get('set-cookie') || ''
+        // Note: em Electron, fetch grava cookies internamente quando credentials:include
+        biSync.baseUrl = url
+        biSync.cookie = setCookie
+        biSync.user = data.user || { email }
+        document.getElementById('biSyncAuthStatus').textContent = `✓ Logado como ${biSync.user.email || email}`
+        document.getElementById('biSyncAuthStatus').style.color = '#16a34a'
+        document.getElementById('biSyncLoginBtn').style.display = 'none'
+        document.getElementById('biSyncLogoutBtn').style.display = ''
+        document.getElementById('biSyncFormCard').style.display = ''
+        document.getElementById('biSyncLogCard').style.display = ''
+        biSyncSetBadge('online')
+        biSyncAppendLog(`Login OK em ${url}`, 'ok')
+        // Carregar clientes
+        await biSyncLoadClientes()
+      } catch (e) {
+        document.getElementById('biSyncAuthStatus').textContent = `✗ ${e.message}`
+        document.getElementById('biSyncAuthStatus').style.color = '#dc2626'
+      } finally {
+        btn.disabled = false; btn.textContent = 'Entrar'
+      }
+    }
+
+    function biSyncLogout() {
+      biSync.baseUrl = ''
+      biSync.cookie = ''
+      biSync.user = null
+      biSync.clientes = []
+      document.getElementById('biSyncAuthStatus').textContent = ''
+      document.getElementById('biSyncLoginBtn').style.display = ''
+      document.getElementById('biSyncLogoutBtn').style.display = 'none'
+      document.getElementById('biSyncFormCard').style.display = 'none'
+      document.getElementById('biSyncLogCard').style.display = 'none'
+      biSyncSetBadge('offline')
+    }
+
+    async function biSyncLoadClientes() {
+      const sel = document.getElementById('biSyncCliente')
+      sel.innerHTML = '<option value="">Carregando...</option>'
+      try {
+        const resp = await fetch(`${biSync.baseUrl}/api/bi-sync/clientes`, { credentials: 'include' })
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+        const list = await resp.json()
+        biSync.clientes = list
+        sel.innerHTML = '<option value="">— Selecione —</option>'
+        for (const c of list) {
+          const opt = document.createElement('option')
+          opt.value = c.id
+          opt.textContent = `${c.razaoSocial} (SCI: ${c.idSistema})`
+          opt.dataset.idSistema = c.idSistema
+          sel.appendChild(opt)
+        }
+        biSyncAppendLog(`${list.length} cliente(s) elegível(eis) carregado(s)`, 'ok')
+      } catch (e) {
+        sel.innerHTML = `<option>Erro: ${e.message}</option>`
+        biSyncAppendLog(`Falha ao carregar clientes: ${e.message}`, 'err')
+      }
+    }
+
+    function biSyncPopulateMesesAnos() {
+      const meses = [
+        ['1','Janeiro'],['2','Fevereiro'],['3','Março'],['4','Abril'],['5','Maio'],['6','Junho'],
+        ['7','Julho'],['8','Agosto'],['9','Setembro'],['10','Outubro'],['11','Novembro'],['12','Dezembro'],
+      ]
+      const now = new Date()
+      const anoAtual = now.getFullYear()
+      const mesAtual = now.getMonth() + 1
+      const fillMes = (id, sel) => {
+        const el = document.getElementById(id)
+        el.innerHTML = ''
+        for (const [v, l] of meses) {
+          const opt = document.createElement('option')
+          opt.value = v; opt.textContent = l
+          if (Number(v) === sel) opt.selected = true
+          el.appendChild(opt)
+        }
+      }
+      const fillAno = (id, sel) => {
+        const el = document.getElementById(id)
+        el.innerHTML = ''
+        for (let y = anoAtual; y >= anoAtual - 5; y--) {
+          const opt = document.createElement('option')
+          opt.value = String(y); opt.textContent = String(y)
+          if (y === sel) opt.selected = true
+          el.appendChild(opt)
+        }
+      }
+      fillMes('biSyncMesInicio', 1)
+      fillAno('biSyncAnoInicio', anoAtual)
+      fillMes('biSyncMesFim', mesAtual)
+      fillAno('biSyncAnoFim', anoAtual)
+    }
+
+    function biSyncRange(anoInicio, mesInicio, anoFim, mesFim) {
+      const refs = []
+      let a = anoInicio, m = mesInicio
+      const fimRef = anoFim * 100 + mesFim
+      while (a * 100 + m <= fimRef) {
+        refs.push({ ano: a, mes: m, ref: a * 100 + m })
+        m++; if (m > 12) { m = 1; a++ }
+        if (a > 2099) break
+      }
+      return refs
+    }
+
+    function biSyncDateRange(ano, mes) {
+      const lastDay = new Date(ano, mes, 0).getDate()
+      const dataIni = `${ano}-${String(mes).padStart(2, '0')}-01`
+      const dataFim = `${ano}-${String(mes).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+      return { dataIni, dataFim }
+    }
+
+    async function biSyncStart() {
+      if (biSync.busy) return
+      const clienteId = document.getElementById('biSyncCliente').value
+      if (!clienteId) { alert('Selecione um cliente'); return }
+      const cliente = biSync.clientes.find(c => c.id === clienteId)
+      if (!cliente) { alert('Cliente inválido'); return }
+      const prcodemp = Number(cliente.idSistema)
+      if (!prcodemp) { alert('Cliente sem ID SCI vinculado'); return }
+
+      const anoInicio = Number(document.getElementById('biSyncAnoInicio').value)
+      const mesInicio = Number(document.getElementById('biSyncMesInicio').value)
+      const anoFim = Number(document.getElementById('biSyncAnoFim').value)
+      const mesFim = Number(document.getElementById('biSyncMesFim').value)
+      if (anoFim * 100 + mesFim < anoInicio * 100 + mesInicio) {
+        alert('Período "Até" deve ser igual ou posterior ao "De"')
+        return
+      }
+
+      const refs = biSyncRange(anoInicio, mesInicio, anoFim, mesFim)
+      biSync.busy = true
+      const btn = document.getElementById('biSyncStartBtn')
+      btn.disabled = true
+      const progressEl = document.getElementById('biSyncProgress')
+
+      let ok = 0, falhas = 0, skipped = 0
+      biSyncAppendLog(`Iniciando sync de ${cliente.razaoSocial} — ${refs.length} mês(es)`, 'info')
+
+      for (let i = 0; i < refs.length; i++) {
+        const { ano, mes, ref } = refs[i]
+        progressEl.textContent = `${i + 1}/${refs.length} — ${String(mes).padStart(2,'0')}/${ano}`
+
+        // 1. SCI local
+        const { dataIni, dataFim } = biSyncDateRange(ano, mes)
+        biSyncAppendLog(`SCI ref=${ref}: consultando...`, 'info')
+        const r = await window.api.biSyncFetchSci({ prcodemp, dataIni, dataFim, ref })
+        if (!r.sucesso) {
+          biSyncAppendLog(`✗ SCI ref=${ref}: ${r.erro}`, 'err')
+          falhas++; continue
+        }
+        if (!r.dados || r.dados.length === 0) {
+          biSyncAppendLog(`⚠ SCI ref=${ref}: 0 linhas (pulando)`, 'warn')
+          skipped++; continue
+        }
+
+        // 2. Upload pra VPS
+        try {
+          const resp = await fetch(`${biSync.baseUrl}/api/bi-sync/upload-balancete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ clienteId, ref, linhas: r.dados, substituirExistentes: true }),
+          })
+          if (!resp.ok) {
+            const txt = await resp.text().catch(() => '')
+            throw new Error(`HTTP ${resp.status}: ${txt.slice(0, 200)}`)
+          }
+          const result = await resp.json()
+          biSyncAppendLog(`✓ ref=${ref}: ${result.inserted} linhas inseridas`, 'ok')
+          ok++
+        } catch (e) {
+          biSyncAppendLog(`✗ Upload ref=${ref} falhou: ${e.message}`, 'err')
+          falhas++
+        }
+      }
+
+      progressEl.textContent = ''
+      btn.disabled = false
+      biSync.busy = false
+      biSyncAppendLog(`Finalizado: ${ok} OK, ${skipped} pulado(s), ${falhas} falha(s)`, falhas > 0 ? 'warn' : 'ok')
+    }
+
+    // Inicializa selects de mês/ano quando o launcher carrega
+    document.addEventListener('DOMContentLoaded', () => {
+      biSyncPopulateMesesAnos()
+    })
   </script>
 </body>
 </html>

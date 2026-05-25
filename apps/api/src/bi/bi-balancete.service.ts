@@ -464,6 +464,24 @@ export class BiBalanceteService {
     ;(job as any).totalMeses = refs.length
   }
 
+  /**
+   * Upload de balancete pré-importado (do Launcher local que tem acesso ao
+   * SCI Firebird LAN). Path usado pelo `POST /api/bi-sync/upload-balancete`.
+   * Espera o mesmo formato de linhas que `sci_balancete.py` retorna.
+   */
+  async uploadBalanceteMes(
+    clienteId: string,
+    ref: number,
+    linhas: SciBalanceteLinha[],
+    substituirExistentes = true,
+  ) {
+    if (!linhas || linhas.length === 0) {
+      return { inserted: 0, skipped: true }
+    }
+    await this.persistirMes(clienteId, ref, linhas, substituirExistentes)
+    return { inserted: linhas.length, skipped: false }
+  }
+
   private async persistirMes(
     clienteId: string,
     ref: number,

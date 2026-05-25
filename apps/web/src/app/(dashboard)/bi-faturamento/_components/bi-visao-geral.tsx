@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Loader2, TrendingUp, TrendingDown } from 'lucide-react'
-import { Card, CardContent, cn } from '@saas/ui'
+import { Card, CardContent, cn, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { BiKpiCards, type KpiData } from './bi-kpi-cards'
 import {
@@ -164,15 +164,16 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                   <TrendingUp className="h-4 w-4 text-muted-foreground shrink-0" />
                   Resultado no período {isComparativo ? 'x Ano anterior' : ''}
                 </h4>
-                <select
-                  value={indicador}
-                  onChange={e => setIndicador(e.target.value)}
-                  className="shrink-0 h-6 w-auto max-w-[180px] rounded border border-input bg-white dark:bg-card px-1.5 text-[11px] focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  {INDICADORES.map(ind => (
-                    <option key={ind.value} value={ind.value}>{ind.label}</option>
-                  ))}
-                </select>
+                <Select value={indicador} onValueChange={setIndicador}>
+                  <SelectTrigger className="shrink-0 h-7 w-[180px] text-[11px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INDICADORES.map(ind => (
+                      <SelectItem key={ind.value} value={ind.value} className="text-[11px]">{ind.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <CardContent className="p-4 bg-white dark:bg-card">
                 {(() => {

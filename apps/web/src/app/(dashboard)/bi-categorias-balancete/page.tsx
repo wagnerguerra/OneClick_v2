@@ -863,9 +863,20 @@ export default function BiCategoriasBalancetePage() {
     setImportarStatus({ running: true, progress: 0, message: 'Iniciando importação...', log: [] })
 
     try {
-      const result = await (trpc.bi as any).balanceteRefreshPeriodo.mutate({
-        clienteId, anoInicio, mesInicio, anoFim, mesFim, substituirExistentes: substituir,
+      // REST via Next rewrite `/be/*` → backend NestJS. Path RELATIVO (mesmo
+      // host), evita o limite de 6 conexões cross-origin do Chrome
+      // (SSE streams pra :4000 consomem todos os slots → POSTs ficam Stalled).
+      const resp = await fetch(`/be/api/bi-sync/importar`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clienteId, anoInicio, mesInicio, anoFim, mesFim, substituirExistentes: substituir }),
       })
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => '')
+        throw new Error(txt || `HTTP ${resp.status}`)
+      }
+      const result = await resp.json()
 
       if (result.started === false) {
         setImportarStatus(s => ({ ...s, running: false }))
@@ -873,12 +884,14 @@ export default function BiCategoriasBalancetePage() {
         return
       }
 
-      // Polling
+      // Polling — também REST
       const poll = setInterval(async () => {
         try {
-          const status = await (trpc.bi as any).balanceteRefreshStatusByRange.query({
-            clienteId, refInicio: refIni, refFim: refFim,
+          const statusResp = await fetch(`/be/api/bi-sync/status/${clienteId}/${refIni}/${refFim}`, {
+            credentials: 'include',
           })
+          if (!statusResp.ok) return
+          const status = await statusResp.json()
           const job = status.job
           if (!job) { clearInterval(poll); setImportarStatus(s => ({ ...s, running: false })); return }
 

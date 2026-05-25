@@ -11,6 +11,17 @@ const nextConfig: NextConfig = {
   // Quando estabilizar a base de código, remover essas flags.
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
+  // Rewrite `/be/*` → backend (NestJS). Frontend faz fetch relativo (mesmo
+  // host, sem cross-origin), Next proxia internamente pro :4000. Resolve
+  // bloqueio "Stalled" do Chrome (limite de 6 conexões/host quando SSE
+  // ocupam todos os slots disponíveis pro :4000).
+  // Em prod (mesmo host), o rewrite é no-op funcional.
+  async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+    return [
+      { source: '/be/:path*', destination: `${apiUrl}/:path*` },
+    ]
+  },
 }
 
 export default nextConfig

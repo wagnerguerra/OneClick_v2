@@ -74,11 +74,36 @@ export function createBiRouter(biService: BiService) {
         input.clienteId, input.anoInicio, input.mesInicio, input.anoFim, input.mesFim, input.substituirExistentes,
       )),
 
+    // Alias com nome neutro pra escapar de filtros do AdBlock que bloqueiam
+    // requests com palavras como "balancete" / "refresh" / "periodo".
+    // O nome `sincronizarDados` não casa com regras comuns de adblock.
+    sincronizarDados: protectedProcedure
+      .input(z.object({
+        clienteId: z.string(),
+        anoInicio: z.coerce.number(),
+        mesInicio: z.coerce.number().min(1).max(12),
+        anoFim: z.coerce.number(),
+        mesFim: z.coerce.number().min(1).max(12),
+        substituirExistentes: z.coerce.boolean().default(true),
+      }))
+      .mutation(({ input }) => biService.balanceteRefreshPeriodo(
+        input.clienteId, input.anoInicio, input.mesInicio, input.anoFim, input.mesFim, input.substituirExistentes,
+      )),
+
     balanceteRefreshStatus: protectedProcedure
       .input(biAnoSchema)
       .query(({ input }) => biService.balanceteRefreshStatus(input.clienteId, input.ano)),
 
     balanceteRefreshStatusByRange: protectedProcedure
+      .input(z.object({
+        clienteId: z.string(),
+        refInicio: z.coerce.number(),
+        refFim: z.coerce.number(),
+      }))
+      .query(({ input }) => biService.balanceteRefreshStatusByRange(input.clienteId, input.refInicio, input.refFim)),
+
+    // Alias com nome neutro pro polling de status (idem AdBlock workaround)
+    sincronizarStatus: protectedProcedure
       .input(z.object({
         clienteId: z.string(),
         refInicio: z.coerce.number(),

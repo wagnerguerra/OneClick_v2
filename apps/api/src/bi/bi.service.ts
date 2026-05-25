@@ -494,13 +494,19 @@ export class BiService {
   async balanceteAnalise(clienteId: string, ano: number, _meses?: string) {
     const periodoInicio = `${ano}01`
     const periodoFim = `${ano}12`
+    // Inclui dezembro do ano anterior pra calcular a variação% de janeiro
+    // (replica DAX PREVIOUSMONTH do PowerBI ref).
+    const periodoInicioExt = `${ano - 1}12`
 
-    // Get monthly data for key metrics
+    // Get monthly data for key metrics (estendido c/ dez do ano anterior)
     const tipos = ['receita_bruta', 'deducoes', 'custo_das_vendas', 'despesas_operacionais', 'receitas_financeiras', 'despesas_financeiras']
+    const resultExtended: Record<string, Array<{ periodo: string; mes: string; valor: number }>> = {}
     const result: Record<string, Array<{ periodo: string; mes: string; valor: number }>> = {}
 
     for (const tipo of tipos) {
-      result[tipo] = await this.calculos.obterDadosMensais(clienteId, periodoInicio, periodoFim, tipo as any)
+      resultExtended[tipo] = await this.calculos.obterDadosMensais(clienteId, periodoInicioExt, periodoFim, tipo as any)
+      // Filtra só os meses do ano-alvo pra `result` (usado pelo restante)
+      result[tipo] = resultExtended[tipo].filter(d => d.periodo >= periodoInicio)
     }
 
     // Calculate vertical analysis (% of receita liquida)
@@ -540,10 +546,11 @@ export class BiService {
 
     const indicadoresHorizontais: Record<string, Array<{ mes: number; valor: number }>> = {}
 
-    // Faturamento = Receita Bruta - Deduções
+    // Faturamento = Receita Bruta (replica DAX do PowerBI ref: [Indicador
+    // Selecionado] retorna [Receita Bruta] pra "Faturamento" — sem deduzir)
     indicadoresHorizontais.faturamento = periodos.map(p => ({
       mes: Number(p.slice(4)),
-      valor: getVal('receita_bruta', p) - getVal('deducoes', p),
+      valor: getVal('receita_bruta', p),
     }))
 
     // Despesas Operacionais = 04.2.1 + 04.2.2 (já temos)
@@ -580,7 +587,91 @@ export class BiService {
       valor: getVal('receita_bruta', p) - getVal('deducoes', p) - Math.abs(getVal('custo_das_vendas', p)),
     }))
 
-    return { analiseVertical, analiseHorizontal, dadosMensais: result, indicadoresHorizontais }
+    // ── Resultado por Natureza ──
+    // Top contas leaf categorizadas no DRE, ordenadas por |valor| desc.
+    // Replica o "Resultado por natureza" do PowerBI ref (bar chart horizontal).
+    const resultadoPorNatureza = await prisma.$queryRawUnsafe<Array<{ conta: string; nome: string; valor: number; categoria: string }>>(
+      `SELECT l.conta,
+              COALESCE(pccp.nivel5, l.nome_conta) AS nome,
+              SUM(l.creditos - l.debitos)::float AS valor,
+              COALESCE(cbc.categoria_dre, pccp.categoria_dre) AS categoria
+       FROM cliente_bi_linhas l
+       LEFT JOIN cliente_bi_categorias cbc ON cbc.cliente_id = l.cliente_id AND cbc.conta = l.conta AND cbc.categoria_dre IS NOT NULL
+       LEFT JOIN plano_contas_categoria_padrao pccp ON pccp.classificacao = l.conta
+       WHERE l.cliente_id = $1
+         AND l.periodo BETWEEN $2 AND $3
+         AND COALESCE(cbc.categoria_dre, pccp.categoria_dre) IS NOT NULL
+       GROUP BY l.conta, l.nome_conta, pccp.nivel5, cbc.categoria_dre, pccp.categoria_dre
+       HAVING ABS(SUM(l.creditos - l.debitos)) > 0.01
+       ORDER BY ABS(SUM(l.creditos - l.debitos)) DESC
+       LIMIT 10`,
+      clienteId, periodoInicio, periodoFim,
+    )
+
+    // ── Análise Vertical (DRE) ──
+    // Linhas da Demonstração de Resultado com seus % sobre Receita Líquida.
+    // Replica o painel "Análise Vertical" do PowerBI ref.
+    const kpis = await this.calculos.calcularKpisCompleto(clienteId, periodoInicio, periodoFim)
+    const rl = kpis.receitaLiquida
+    const pct = (v: number) => rl !== 0 ? Math.round((v / rl) * 10000) / 100 : 0
+    const margemContrib = kpis.receitaLiquida - kpis.custoDasVendas
+    const resultadoOperacional = kpis.ebitda - 0 // futuro: descontar depreciação se separado
+    const resultadoAntesParticipacoes = kpis.lucroLiquido
+    const analiseVerticalDre = [
+      { label: 'RECEITA LÍQUIDA',                       valor: kpis.receitaLiquida,         percentual: 100,                       destaque: 'principal' },
+      { label: 'MARGEM BRUTA',                          valor: kpis.lucroBruto,             percentual: pct(kpis.lucroBruto) },
+      { label: 'MARGEM DE CONTRIBUIÇÃO',                valor: margemContrib,               percentual: pct(margemContrib) },
+      { label: 'EBITDA',                                valor: kpis.ebitda,                 percentual: pct(kpis.ebitda) },
+      { label: 'RESULTADO OPERACIONAL',                 valor: resultadoOperacional,        percentual: pct(resultadoOperacional) },
+      { label: 'RESULTADO LÍQUIDO ANTES DE PARTICIPAÇÕES', valor: resultadoAntesParticipacoes, percentual: pct(resultadoAntesParticipacoes) },
+      { label: 'RESULTADO LÍQUIDO',                     valor: kpis.lucroLiquido,           percentual: pct(kpis.lucroLiquido) },
+    ]
+
+    // ── Análise Horizontal (variação mensal por indicador) ──
+    // Acrescenta variacao% em relação ao mês anterior pra cada indicador.
+    // Janeiro compara com dezembro do ano anterior (PREVIOUSMONTH do DAX).
+    const periodoAnteriorAno = `${ano - 1}12`
+    const getValExt = (tipo: string, periodo: string) =>
+      (resultExtended[tipo] || []).find(d => d.periodo === periodo)?.valor ?? 0
+
+    // Helper: calcula valor de cada indicador composto para um período qualquer
+    const calcIndicador = (key: string, p: string): number => {
+      switch (key) {
+        case 'faturamento':           return getValExt('receita_bruta', p)  // RB direto (alinhado com DAX do PBI)
+        case 'despesas_operacionais': return getValExt('despesas_operacionais', p)
+        case 'ebitda':                return getValExt('receita_bruta', p) - getValExt('deducoes', p) + getValExt('receitas_financeiras', p)
+                                            - Math.abs(getValExt('custo_das_vendas', p)) - getValExt('despesas_operacionais', p)
+        case 'ebitda_simplificado':   return getValExt('receita_bruta', p) - getValExt('deducoes', p)
+                                            - Math.abs(getValExt('custo_das_vendas', p)) - getValExt('despesas_operacionais', p)
+        case 'lucro_liquido':         return getValExt('receita_bruta', p) - getValExt('deducoes', p)
+                                            - Math.abs(getValExt('custo_das_vendas', p)) - getValExt('despesas_operacionais', p)
+                                            - getValExt('despesas_financeiras', p) + getValExt('receitas_financeiras', p)
+        case 'margem_contribuicao':   return getValExt('receita_bruta', p) - getValExt('deducoes', p) - Math.abs(getValExt('custo_das_vendas', p))
+        default: return 0
+      }
+    }
+
+    const indicadoresHorizontaisComVariacao: Record<string, Array<{ mes: number; valor: number; variacao: number | null }>> = {}
+    for (const [key, arr] of Object.entries(indicadoresHorizontais)) {
+      indicadoresHorizontaisComVariacao[key] = arr.map((d) => {
+        // Mês anterior real: para janeiro = dez/ano-1; para outros = mes-1 do mesmo ano
+        const mesAnterior = d.mes === 1 ? periodoAnteriorAno : `${ano}${String(d.mes - 1).padStart(2, '0')}`
+        const anterior = calcIndicador(key, mesAnterior)
+        if (anterior === 0) return { ...d, variacao: d.valor !== 0 ? null : 0 }
+        return { ...d, variacao: Math.round(((d.valor - anterior) / Math.abs(anterior)) * 10000) / 100 }
+      })
+    }
+
+    return {
+      analiseVertical,
+      analiseHorizontal,
+      dadosMensais: result,
+      indicadoresHorizontais,
+      // Novos campos pra aba "Análise" no padrão PowerBI:
+      resultadoPorNatureza,
+      analiseVerticalDre,
+      indicadoresHorizontaisComVariacao,
+    }
   }
 
   // ══════════════════════════════════════════════════════════════
