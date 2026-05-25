@@ -65,18 +65,22 @@ export class BiSyncController {
   }
 
   /**
-   * Lista clientes elegíveis pra sync (com id_sistema/PRCODEMP preenchido).
-   * Usado pelo Launcher pra montar a UI de seleção.
+   * Lista todos os clientes ativos com flag `temSci` (id_sistema preenchido).
+   * Launcher exibe a lista inteira com indicador visual; sync só permitido
+   * pra clientes com PRCODEMP > 0.
    */
   @Get('clientes')
   async listarClientes(@Req() req: Request) {
     await this.assertAuth(req)
     const clientes = await prisma.cliente.findMany({
-      where: { idSistema: { not: null }, deletedAt: null },
+      where: { deletedAt: null },
       select: { id: true, razaoSocial: true, documento: true, idSistema: true, cidade: true },
       orderBy: { razaoSocial: 'asc' },
     })
-    return clientes.filter(c => Number(c.idSistema) > 0)
+    return clientes.map(c => ({
+      ...c,
+      temSci: !!(c.idSistema && Number(c.idSistema) > 0),
+    }))
   }
 
   /**

@@ -1056,6 +1056,57 @@ function registerIpcHandlers() {
   ipcMain.handle('get-sci-status', () => getSciStatus());
 
   // ════════════════════════════════════════════════════════
+  // BI Sync: HTTP request da main process (não do renderer).
+  // Necessário porque o Chromium do Electron NÃO permite setar `Origin` em
+  // fetch do renderer (security feature) — Better Auth da VPS rejeita
+  // requests sem Origin (MISSING_OR_NULL_ORIGIN). Node fetch tem controle
+  // total dos headers, então fazemos aqui e retornamos pro renderer.
+  //
+  // Mantém um cookie jar simples (em memória) com a session do Better Auth.
+  // ════════════════════════════════════════════════════════
+  const biSyncCookies = new Map() // baseUrl → "cookieStr"
+  ipcMain.handle('bi-sync-request', async (_e, payload) => {
+    try {
+      const { baseUrl, path, method = 'GET', body } = payload || {}
+      if (!baseUrl || !path) return { ok: false, error: 'baseUrl e path obrigatórios' }
+      const url = `${baseUrl}${path}`
+      const headers = {
+        'Origin': baseUrl,
+        'User-Agent': 'OneClick-Launcher/1.0',
+      }
+      if (body !== undefined) headers['Content-Type'] = 'application/json'
+      // Envia cookie session (se já logado)
+      const cookieStr = biSyncCookies.get(baseUrl)
+      if (cookieStr) headers['Cookie'] = cookieStr
+
+      const resp = await fetch(url, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      })
+      // Captura set-cookie pra próximos requests (login)
+      const setCookie = resp.headers.getSetCookie ? resp.headers.getSetCookie() : []
+      if (setCookie.length > 0) {
+        // Append à string existente (cookie jar simples — funciona pra session_token)
+        const existing = biSyncCookies.get(baseUrl) || ''
+        const newCookies = setCookie.map(c => c.split(';')[0]).join('; ')
+        biSyncCookies.set(baseUrl, existing ? `${existing}; ${newCookies}` : newCookies)
+      }
+      const text = await resp.text()
+      let data = null
+      try { data = JSON.parse(text) } catch { data = text }
+      return { ok: resp.ok, status: resp.status, data }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('bi-sync-logout', () => {
+    biSyncCookies.clear()
+    return { ok: true }
+  })
+
+  // ════════════════════════════════════════════════════════
   // BI Sync: executa sci_balancete.py local e retorna linhas
   // pro renderer enviar pra VPS via fetch.
   // ════════════════════════════════════════════════════════

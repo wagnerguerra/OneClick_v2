@@ -35,6 +35,9 @@ contextBridge.exposeInMainWorld('api', {
   getSciStatus: () => ipcRenderer.invoke('get-sci-status'),
   // BI Sync — executa sci_balancete.py local e retorna linhas
   biSyncFetchSci: (payload) => ipcRenderer.invoke('bi-sync-fetch-sci', payload),
+  // BI Sync — HTTP request da main process (com Origin header, cookie jar)
+  biSyncRequest: (payload) => ipcRenderer.invoke('bi-sync-request', payload),
+  biSyncLogout: () => ipcRenderer.invoke('bi-sync-logout'),
 
   // Shell
   openExternal: (url) => ipcRenderer.invoke('open-external', url),

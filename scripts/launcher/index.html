@@ -904,6 +904,24 @@
             </button>
             <span id="biSyncAuthStatus" style="font-size:11px;color:var(--text-muted);"></span>
           </div>
+
+          <!-- 2FA — só aparece se a conta tem 2FA habilitado -->
+          <div id="biSync2faRow" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+            <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;">
+              <div style="flex:0 0 180px;">
+                <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Código 2FA</label>
+                <input id="biSync2faCode" type="text" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code"
+                       style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:14px;letter-spacing:4px;text-align:center;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;" />
+              </div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);cursor:pointer;">
+                <input id="biSync2faTrustDevice" type="checkbox" checked /> Confiar neste dispositivo (60 dias)
+              </label>
+              <button onclick="biSync2faVerify()" id="biSync2faBtn"
+                      style="background:var(--accent,#3b82f6);color:white;border:none;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;">
+                Verificar
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Form de Sync -->
@@ -911,12 +929,15 @@
           <div style="font-weight:600;font-size:13px;margin-bottom:10px;">Sincronizar balancete</div>
 
           <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;align-items:end;">
-            <div>
+            <div style="position:relative;">
               <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Cliente</label>
-              <select id="biSyncCliente"
-                      style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;">
-                <option value="">— Selecione —</option>
-              </select>
+              <input id="biSyncClienteInput" type="text" autocomplete="off" placeholder="Buscar por nome ou CNPJ..."
+                     oninput="biSyncFiltrarClientes()" onfocus="biSyncShowDropdown()" onblur="biSyncHideDropdownDelay()"
+                     style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;" />
+              <input id="biSyncCliente" type="hidden" value="" />
+              <div id="biSyncClienteDropdown"
+                   style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;max-height:260px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;margin-top:2px;box-shadow:0 4px 16px rgba(0,0,0,0.2);">
+              </div>
             </div>
             <div>
               <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Mês início</label>
@@ -1848,32 +1869,34 @@
 
       try {
         // Better Auth — POST /api/auth/sign-in/email
-        const resp = await fetch(`${url}/api/auth/sign-in/email`, {
+        // Request feito via main process (window.api.biSyncRequest) pra setar
+        // header Origin — fetch do renderer NÃO permite Origin custom.
+        const r = await window.api.biSyncRequest({
+          baseUrl: url,
+          path: '/api/auth/sign-in/email',
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ email, password }),
+          body: { email, password },
         })
-        if (!resp.ok) {
-          const txt = await resp.text().catch(() => '')
-          throw new Error(`HTTP ${resp.status}: ${txt.slice(0, 100)}`)
+        if (!r.ok) {
+          const msg = typeof r.data === 'object' ? (r.data.message || JSON.stringify(r.data)) : (r.data || r.error || 'HTTP ' + r.status)
+          throw new Error(msg.slice(0, 200))
         }
-        const data = await resp.json()
-        const setCookie = resp.headers.get('set-cookie') || ''
-        // Note: em Electron, fetch grava cookies internamente quando credentials:include
+        const data = r.data || {}
         biSync.baseUrl = url
-        biSync.cookie = setCookie
+
+        // Se a conta tem 2FA habilitado, Better Auth retorna twoFactorRedirect=true
+        // (sem session ainda). Mostra campo de código TOTP e aguarda verificação.
+        if (data.twoFactorRedirect) {
+          document.getElementById('biSync2faRow').style.display = ''
+          document.getElementById('biSyncAuthStatus').textContent = '⚠ Conta com 2FA — informe o código do app autenticador'
+          document.getElementById('biSyncAuthStatus').style.color = '#f59e0b'
+          setTimeout(() => document.getElementById('biSync2faCode').focus(), 100)
+          return
+        }
+
+        // Login direto (sem 2FA)
         biSync.user = data.user || { email }
-        document.getElementById('biSyncAuthStatus').textContent = `✓ Logado como ${biSync.user.email || email}`
-        document.getElementById('biSyncAuthStatus').style.color = '#16a34a'
-        document.getElementById('biSyncLoginBtn').style.display = 'none'
-        document.getElementById('biSyncLogoutBtn').style.display = ''
-        document.getElementById('biSyncFormCard').style.display = ''
-        document.getElementById('biSyncLogCard').style.display = ''
-        biSyncSetBadge('online')
-        biSyncAppendLog(`Login OK em ${url}`, 'ok')
-        // Carregar clientes
-        await biSyncLoadClientes()
+        biSyncOnLoggedIn(email, url)
       } catch (e) {
         document.getElementById('biSyncAuthStatus').textContent = `✗ ${e.message}`
         document.getElementById('biSyncAuthStatus').style.color = '#dc2626'
@@ -1882,11 +1905,62 @@
       }
     }
 
+    async function biSync2faVerify() {
+      const code = (document.getElementById('biSync2faCode').value || '').replace(/\D/g, '')
+      if (code.length !== 6) {
+        document.getElementById('biSyncAuthStatus').textContent = '✗ Código deve ter 6 dígitos'
+        document.getElementById('biSyncAuthStatus').style.color = '#dc2626'
+        return
+      }
+      const trustDevice = document.getElementById('biSync2faTrustDevice').checked
+      const btn = document.getElementById('biSync2faBtn')
+      btn.disabled = true; btn.textContent = 'Verificando...'
+
+      try {
+        const r = await window.api.biSyncRequest({
+          baseUrl: biSync.baseUrl,
+          path: '/api/auth/two-factor/verify-totp',
+          method: 'POST',
+          body: { code, trustDevice },
+        })
+        if (!r.ok) {
+          const msg = typeof r.data === 'object' ? (r.data.message || JSON.stringify(r.data)) : (r.data || r.error || `HTTP ${r.status}`)
+          throw new Error(String(msg).slice(0, 200))
+        }
+        const data = r.data || {}
+        const email = document.getElementById('biSyncEmail').value.trim()
+        biSync.user = data.user || { email }
+        document.getElementById('biSync2faRow').style.display = 'none'
+        document.getElementById('biSync2faCode').value = ''
+        biSyncOnLoggedIn(email, biSync.baseUrl)
+      } catch (e) {
+        document.getElementById('biSyncAuthStatus').textContent = `✗ ${e.message}`
+        document.getElementById('biSyncAuthStatus').style.color = '#dc2626'
+      } finally {
+        btn.disabled = false; btn.textContent = 'Verificar'
+      }
+    }
+
+    async function biSyncOnLoggedIn(email, url) {
+      document.getElementById('biSyncAuthStatus').textContent = `✓ Logado como ${biSync.user.email || email}`
+      document.getElementById('biSyncAuthStatus').style.color = '#16a34a'
+      document.getElementById('biSyncLoginBtn').style.display = 'none'
+      document.getElementById('biSyncLogoutBtn').style.display = ''
+      document.getElementById('biSyncFormCard').style.display = ''
+      document.getElementById('biSyncLogCard').style.display = ''
+      biSyncSetBadge('online')
+      biSyncAppendLog(`Login OK em ${url}`, 'ok')
+      await biSyncLoadClientes()
+    }
+
     function biSyncLogout() {
+      window.api.biSyncLogout() // limpa cookie jar na main process
       biSync.baseUrl = ''
       biSync.cookie = ''
       biSync.user = null
       biSync.clientes = []
+      document.getElementById('biSync2faRow').style.display = 'none'
+      document.getElementById('biSync2faCode').value = ''
       document.getElementById('biSyncAuthStatus').textContent = ''
       document.getElementById('biSyncLoginBtn').style.display = ''
       document.getElementById('biSyncLogoutBtn').style.display = 'none'
@@ -1896,26 +1970,99 @@
     }
 
     async function biSyncLoadClientes() {
-      const sel = document.getElementById('biSyncCliente')
-      sel.innerHTML = '<option value="">Carregando...</option>'
+      const input = document.getElementById('biSyncClienteInput')
+      input.value = ''
+      input.placeholder = 'Carregando...'
       try {
-        const resp = await fetch(`${biSync.baseUrl}/api/bi-sync/clientes`, { credentials: 'include' })
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-        const list = await resp.json()
+        const r = await window.api.biSyncRequest({
+          baseUrl: biSync.baseUrl,
+          path: '/api/bi-sync/clientes',
+        })
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        const list = Array.isArray(r.data) ? r.data : []
         biSync.clientes = list
-        sel.innerHTML = '<option value="">— Selecione —</option>'
-        for (const c of list) {
-          const opt = document.createElement('option')
-          opt.value = c.id
-          opt.textContent = `${c.razaoSocial} (SCI: ${c.idSistema})`
-          opt.dataset.idSistema = c.idSistema
-          sel.appendChild(opt)
-        }
-        biSyncAppendLog(`${list.length} cliente(s) elegível(eis) carregado(s)`, 'ok')
+        const comSci = list.filter(c => c.temSci).length
+        input.placeholder = `Buscar por nome ou CNPJ... (${comSci} c/ SCI, ${list.length - comSci} sem)`
+        biSyncRenderDropdown(list)
+        biSyncAppendLog(`${list.length} cliente(s) carregado(s) — ${comSci} com SCI vinculado`, 'ok')
       } catch (e) {
-        sel.innerHTML = `<option>Erro: ${e.message}</option>`
+        input.placeholder = `Erro: ${e.message}`
         biSyncAppendLog(`Falha ao carregar clientes: ${e.message}`, 'err')
       }
+    }
+
+    function biSyncFormatCnpj(doc) {
+      if (!doc) return ''
+      const d = String(doc).replace(/\D/g, '')
+      if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+      if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+      return doc
+    }
+
+    function biSyncRenderDropdown(list) {
+      const dd = document.getElementById('biSyncClienteDropdown')
+      if (list.length === 0) {
+        dd.innerHTML = '<div style="padding:10px;font-size:11px;color:var(--text-muted);text-align:center;">Nenhum cliente encontrado</div>'
+        return
+      }
+      dd.innerHTML = ''
+      for (const c of list) {
+        const item = document.createElement('div')
+        const enabled = c.temSci
+        item.className = 'bi-sync-cliente-item'
+        item.style.cssText = `padding:8px 10px;font-size:11px;cursor:${enabled ? 'pointer' : 'not-allowed'};border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;${enabled ? '' : 'opacity:0.5;'}`
+        item.onmouseenter = () => { if (enabled) item.style.background = 'var(--bg-card-hover, rgba(255,255,255,0.05))' }
+        item.onmouseleave = () => { item.style.background = '' }
+        if (enabled) {
+          item.onmousedown = (e) => { e.preventDefault(); biSyncSelectCliente(c) }
+        }
+        const badge = enabled
+          ? `<span style="display:inline-block;background:#10b981;color:white;font-size:9px;padding:1px 6px;border-radius:3px;font-weight:600;">SCI ${c.idSistema}</span>`
+          : `<span style="display:inline-block;background:rgba(220,38,38,0.2);color:#dc2626;font-size:9px;padding:1px 6px;border-radius:3px;font-weight:600;">sem SCI</span>`
+        item.innerHTML = `
+          ${badge}
+          <div style="flex:1;min-width:0;">
+            <div style="color:var(--text-primary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.razaoSocial}</div>
+            <div style="color:var(--text-muted);font-size:10px;">${biSyncFormatCnpj(c.documento)}${c.cidade ? ' · ' + c.cidade : ''}</div>
+          </div>
+        `
+        dd.appendChild(item)
+      }
+    }
+
+    function biSyncSelectCliente(c) {
+      document.getElementById('biSyncCliente').value = c.id
+      document.getElementById('biSyncClienteInput').value = `${c.razaoSocial} — SCI ${c.idSistema}`
+      document.getElementById('biSyncClienteDropdown').style.display = 'none'
+    }
+
+    function biSyncFiltrarClientes() {
+      const q = document.getElementById('biSyncClienteInput').value.toLowerCase().trim()
+      const filtered = !q
+        ? biSync.clientes
+        : biSync.clientes.filter(c => {
+            const nome = (c.razaoSocial || '').toLowerCase()
+            const doc = String(c.documento || '').toLowerCase()
+            const docFmt = biSyncFormatCnpj(c.documento).toLowerCase()
+            return nome.includes(q) || doc.includes(q) || docFmt.includes(q)
+          })
+      biSyncRenderDropdown(filtered)
+      document.getElementById('biSyncClienteDropdown').style.display = ''
+      // Limpa seleção se o user mudou o texto
+      document.getElementById('biSyncCliente').value = ''
+    }
+
+    function biSyncShowDropdown() {
+      if (biSync.clientes.length === 0) return
+      biSyncRenderDropdown(biSync.clientes)
+      document.getElementById('biSyncClienteDropdown').style.display = ''
+    }
+
+    function biSyncHideDropdownDelay() {
+      // Pequeno delay pra mousedown do item conseguir disparar antes do blur
+      setTimeout(() => {
+        document.getElementById('biSyncClienteDropdown').style.display = 'none'
+      }, 150)
     }
 
     function biSyncPopulateMesesAnos() {
@@ -2017,17 +2164,17 @@
 
         // 2. Upload pra VPS
         try {
-          const resp = await fetch(`${biSync.baseUrl}/api/bi-sync/upload-balancete`, {
+          const upload = await window.api.biSyncRequest({
+            baseUrl: biSync.baseUrl,
+            path: '/api/bi-sync/upload-balancete',
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ clienteId, ref, linhas: r.dados, substituirExistentes: true }),
+            body: { clienteId, ref, linhas: r.dados, substituirExistentes: true },
           })
-          if (!resp.ok) {
-            const txt = await resp.text().catch(() => '')
-            throw new Error(`HTTP ${resp.status}: ${txt.slice(0, 200)}`)
+          if (!upload.ok) {
+            const msg = typeof upload.data === 'object' ? (upload.data.message || JSON.stringify(upload.data)) : (upload.data || upload.error || `HTTP ${upload.status}`)
+            throw new Error(String(msg).slice(0, 200))
           }
-          const result = await resp.json()
+          const result = upload.data || {}
           biSyncAppendLog(`✓ ref=${ref}: ${result.inserted} linhas inseridas`, 'ok')
           ok++
         } catch (e) {
