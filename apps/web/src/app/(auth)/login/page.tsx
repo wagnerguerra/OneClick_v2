@@ -17,6 +17,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  // "Lembrar-me" controla a duração da sessão:
+  //  - desmarcado (padrão SaaS): cookie de sessão, expira ao fechar o navegador
+  //  - marcado: cookie persistente conforme session.expiresIn (7 dias)
+  const [rememberMe, setRememberMe] = useState(false)
 
   async function handleGoogleSignIn() {
     setError(null)
@@ -55,6 +59,7 @@ export default function LoginPage() {
       const result = await signIn.email({
         email: data.email,
         password: data.password,
+        rememberMe,
       })
 
       if (result.error) {
@@ -171,15 +176,23 @@ export default function LoginPage() {
             )}
           </div>
 
-          {/* Lembrar-me */}
+          {/* Lembrar-me — controla duração da sessão (7 dias se marcado, até fechar o navegador se não) */}
           <div className="flex items-center gap-2 pt-0.5">
             <input
               type="checkbox"
               id="remember"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
               className="h-3.5 w-3.5 rounded border-border text-primary accent-primary cursor-pointer"
             />
-            <label htmlFor="remember" className="text-[13px] text-muted-foreground cursor-pointer select-none">
-              Lembrar-me
+            <label
+              htmlFor="remember"
+              className="text-[13px] text-muted-foreground cursor-pointer select-none"
+              title={rememberMe
+                ? 'Sua sessão vai durar 7 dias neste navegador.'
+                : 'Sua sessão termina quando você fechar o navegador.'}
+            >
+              Lembrar-me por 7 dias
             </label>
           </div>
 
