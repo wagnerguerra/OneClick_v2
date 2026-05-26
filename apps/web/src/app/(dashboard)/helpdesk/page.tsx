@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Headphones, Plus, Loader2, Search, Filter, AlertTriangle, Clock, MessageSquare,
-  CheckCircle2, ListChecks, LayoutGrid, List as ListIcon, Inbox,
+  CheckCircle2, ListChecks, LayoutGrid, List as ListIcon, Inbox, Settings,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors,
@@ -272,6 +272,15 @@ export default function HelpdeskPage() {
             className="text-white gap-1.5"
           >
             <Plus className="h-4 w-4" /> Novo Ticket
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => router.push('/helpdesk/configuracoes')}
+            title="Configurações do HelpDesk"
+            className="h-9 w-9"
+          >
+            <Settings className="h-4 w-4" />
           </Button>
         </div>
       </div>

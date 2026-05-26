@@ -168,9 +168,62 @@ export class HelpdeskService {
     })
 
     // Notifica agentes da área (sino) — Fase 5 também manda e-mail
-    await this.notificarAgentesArea(ticket.id, areaId, userId, empresaId)
+    const notificouAgentes = await this.notificarAgentesArea(ticket.id, areaId, userId, empresaId)
+
+    // Fallback: se não há agentes da área (ex: ticket veio sem categoria via FAB
+    // "Fale com a TI"), envia email pro endereço configurado em HelpdeskConfig.
+    if (!notificouAgentes) {
+      await this.notificarEmailFallback(ticket.id)
+    }
 
     return ticket
+  }
+
+  /**
+   * Notificação por email quando nenhum agente da área foi notificado
+   * (ticket sem categoria/área — ex: FAB "Fale com a TI").
+   */
+  private async notificarEmailFallback(ticketId: string) {
+    try {
+      const cfg = await this.getConfig()
+      const destinatario = cfg.emailNotificacao
+      if (!destinatario) return
+
+      const ticket = await prisma.helpdeskTicket.findUnique({
+        where: { id: ticketId },
+        select: {
+          numero: true, titulo: true, descricao: true, tipo: true, prioridade: true, tags: true,
+          solicitante: { select: { name: true, email: true } },
+        },
+      })
+      if (!ticket) return
+
+      const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
+      const origem = ticket.tags.includes('fab-feedback') ? '🔔 Via balão "Fale com a TI"' : 'Sem categoria definida'
+      const html = `
+        <p>Um novo ticket foi aberto e precisa de atenção:</p>
+        <p><strong>${ticketNum}</strong> — ${escapeHtml(ticket.titulo)}</p>
+        <p style="font-size:12px;color:#6b7280;margin-top:4px;">
+          Tipo: <strong>${ticket.tipo}</strong> · Prioridade: <strong>${ticket.prioridade}</strong> · ${origem}
+        </p>
+        <p style="font-size:12px;color:#6b7280;">
+          Solicitante: ${ticket.solicitante ? escapeHtml(`${ticket.solicitante.name} <${ticket.solicitante.email}>`) : '—'}
+        </p>
+        <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb;">
+        ${ticket.descricao}
+        <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb;">
+        <p style="font-size:11px;color:#9ca3af;">
+          Para responder, abra o ticket no HelpDesk do OneClick.
+        </p>`
+
+      await this.emailService.sendMail({
+        to: destinatario,
+        subject: `HelpDesk ${ticketNum} — ${ticket.titulo.slice(0, 60)}`,
+        html,
+      })
+    } catch (e) {
+      console.warn('[Helpdesk] Falha no fallback email:', (e as Error).message)
+    }
   }
 
   private async notificarAgentesArea(
@@ -178,8 +231,8 @@ export class HelpdeskService {
     areaId: string | null,
     solicitanteId: string,
     empresaId?: string | null,
-  ) {
-    if (!areaId) return
+  ): Promise<boolean> {
+    if (!areaId) return false
     // Pega usuários da área com permissão helpdesk.atuar_agente
     const agentes = await prisma.user.findMany({
       where: {
@@ -190,12 +243,12 @@ export class HelpdeskService {
       },
       select: { id: true },
     })
-    if (agentes.length === 0) return
+    if (agentes.length === 0) return false
     const ticket = await prisma.helpdeskTicket.findUnique({
       where: { id: ticketId },
       select: { numero: true, titulo: true, prioridade: true },
     })
-    if (!ticket) return
+    if (!ticket) return false
     const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
     try {
       await this.notificationService.criarParaUsers(
@@ -209,8 +262,10 @@ export class HelpdeskService {
           empresaId: empresaId || null,
         },
       )
+      return true
     } catch (e) {
       console.warn('[Helpdesk] Falha ao notificar agentes:', (e as Error).message)
+      return false
     }
   }
 
@@ -1034,6 +1089,8 @@ export class HelpdeskService {
   private static readonly CFG_PREFIX = 'helpdesk.'
   private static readonly CFG_AUTO_FECHAMENTO_DIAS = 'helpdesk.auto_fechamento_dias'
   private static readonly CFG_INBOUND_EMAIL = 'helpdesk.inbound_email'
+  private static readonly CFG_EMAIL_NOTIFICACAO = 'helpdesk.email_notificacao'
+  private static readonly DEFAULT_EMAIL_NOTIFICACAO = 'ti@central-rnc.com.br'
   // SLA por prioridade — chaves helpdesk.sla.BAIXA / MEDIA / ALTA / URGENTE
 
   async getConfig() {
@@ -1051,6 +1108,7 @@ export class HelpdeskService {
       slaPorPrioridade,
       autoFechamentoDias: Number(map.get(HelpdeskService.CFG_AUTO_FECHAMENTO_DIAS) ?? 3),
       inboundEmail: map.get(HelpdeskService.CFG_INBOUND_EMAIL) ?? '',
+      emailNotificacao: map.get(HelpdeskService.CFG_EMAIL_NOTIFICACAO) ?? HelpdeskService.DEFAULT_EMAIL_NOTIFICACAO,
     }
   }
 
@@ -1058,6 +1116,7 @@ export class HelpdeskService {
     slaPorPrioridade?: Partial<Record<HelpdeskPrioridade, number>>
     autoFechamentoDias?: number
     inboundEmail?: string
+    emailNotificacao?: string
   }) {
     const upserts: Array<{ key: string; value: string; label: string }> = []
     if (input.slaPorPrioridade) {
@@ -1083,6 +1142,13 @@ export class HelpdeskService {
         key: HelpdeskService.CFG_INBOUND_EMAIL,
         value: String(input.inboundEmail).trim(),
         label: 'Endereço inbound para abertura de tickets por e-mail',
+      })
+    }
+    if (input.emailNotificacao !== undefined) {
+      upserts.push({
+        key: HelpdeskService.CFG_EMAIL_NOTIFICACAO,
+        value: String(input.emailNotificacao).trim(),
+        label: 'Email pra receber notificação de tickets sem categoria/área (ex: via FAB)',
       })
     }
     for (const u of upserts) {
@@ -1237,4 +1303,8 @@ export class HelpdeskService {
       id: u.id, name: u.name, image: u.image, areaName: u.area?.name ?? null,
     })))
   }
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }

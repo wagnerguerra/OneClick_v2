@@ -169,6 +169,7 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService) {
         slaPorPrioridade: z.record(z.string(), z.number().int().min(1).max(2400)).optional(),
         autoFechamentoDias: z.number().int().min(1).max(30).optional(),
         inboundEmail: z.string().email().optional().or(z.literal('')),
+        emailNotificacao: z.string().email().optional().or(z.literal('')),
       }))
       .mutation(({ input }) => helpdeskService.updateConfig(input)),
   })
