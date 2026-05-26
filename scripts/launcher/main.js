@@ -1183,6 +1183,376 @@ function registerIpcHandlers() {
   })
 
   // ════════════════════════════════════════════════════════
+  // DEPLOY — painel "Publicar Implementações"
+  // Lê .deploy.local (SSH host/key/user) e orquestra:
+  //   1. git push local  →  10%
+  //   2. ssh git pull    →  25%
+  //   3. ssh prisma db push (se schema mudou)  →  40%
+  //   4. ssh docker build api  →  65%
+  //   5. ssh docker build web  →  85%
+  //   6. ssh docker up -d + health check  →  100%
+  // ════════════════════════════════════════════════════════
+  function readDeployConfig() {
+    try {
+      const file = path.join(projectRoot, '.deploy.local')
+      if (!fs.existsSync(file)) return null
+      const content = fs.readFileSync(file, 'utf8')
+      const cfg = {}
+      for (const line of content.split(/\r?\n/)) {
+        const m = line.match(/^([A-Z_]+)=(.*)$/)
+        if (m) cfg[m[1]] = m[2].trim()
+      }
+      return cfg
+    } catch { return null }
+  }
+
+  function sshCmd(cfg) {
+    // Retorna o prefixo SSH como array de args
+    return [
+      '-i', cfg.SSH_KEY_PATH,
+      '-p', cfg.SSH_PORT || '22',
+      '-o', 'StrictHostKeyChecking=accept-new',
+      '-o', 'ConnectTimeout=10',
+      `${cfg.SSH_USER || 'root'}@${cfg.SSH_HOST}`,
+    ]
+  }
+
+  function gitOutput(args, cwd) {
+    const r = spawnSync('git', args, { cwd: cwd || projectRoot, encoding: 'utf8', windowsHide: true })
+    // ATENÇÃO: NÃO usar .trim() — o porcelain do git status começa com whitespace
+    // significativo (" M path" tem espaço no índice 0). Trim cortaria esse espaço e
+    // deslocaria o slice(3) que extrai o path, virando "apps/..." em "pps/...".
+    // Removemos APENAS \r\n no final.
+    return (r.stdout || '').replace(/\r?\n+$/, '')
+  }
+
+  ipcMain.handle('deploy:status', async () => {
+    try {
+      const cfg = readDeployConfig()
+      if (!cfg || !cfg.SSH_HOST) return { ok: false, error: '.deploy.local não configurado (SSH_HOST faltando)' }
+
+      // Local
+      const localBranch = gitOutput(['rev-parse', '--abbrev-ref', 'HEAD'])
+      const localSha = gitOutput(['rev-parse', 'HEAD'])
+      const localShort = gitOutput(['rev-parse', '--short', 'HEAD'])
+      const localStatus = gitOutput(['status', '--porcelain'])
+      const dirtyFiles = localStatus.split('\n').filter(Boolean).map(l => ({
+        status: l.slice(0, 2).trim(),
+        path: l.slice(3),
+      }))
+      // Ignora arquivos não-rastreados óbvios (backups de .env, tmp, etc)
+      // que não vão ser commitados de qualquer jeito
+      const dirtyRelevant = dirtyFiles.filter(d => {
+        if (d.status === '??') {
+          // Untracked — só conta se não bate com padrões de ignore comum
+          if (d.path.endsWith('.bak') || d.path.includes('.env.bak.') || d.path.includes('/tmp/')) return false
+        }
+        return true
+      })
+      const localDirty = dirtyRelevant.length
+
+      // Fetch silencioso pra atualizar refs do remote
+      spawnSync('git', ['fetch', '--quiet'], { cwd: projectRoot, timeout: 15000, windowsHide: true })
+      const remoteSha = gitOutput(['rev-parse', `origin/${localBranch}`])
+      const remoteShort = gitOutput(['rev-parse', '--short', `origin/${localBranch}`])
+
+      // Commits locais ainda não pushed
+      const pendingPush = gitOutput(['log', `origin/${localBranch}..HEAD`, '--oneline'])
+        .split('\n').filter(Boolean)
+        .map(l => { const i = l.indexOf(' '); return { sha: l.slice(0, i), msg: l.slice(i + 1) } })
+
+      // SHA da VPS via SSH
+      const sshArgs = sshCmd(cfg)
+      const vpsResult = spawnSync('ssh', [...sshArgs, 'cd /opt/oneclick-src && git rev-parse HEAD 2>/dev/null'], { encoding: 'utf8', timeout: 15000, windowsHide: true })
+      const vpsSha = (vpsResult.stdout || '').trim()
+      const vpsShort = vpsSha.slice(0, 7)
+      const vpsReachable = vpsResult.status === 0 && vpsSha.length > 0
+
+      // Commits remote vs VPS
+      let pendingDeploy = []
+      let schemaChanged = false
+      if (vpsReachable && vpsSha !== remoteSha) {
+        pendingDeploy = gitOutput(['log', `${vpsSha}..${remoteSha}`, '--oneline'])
+          .split('\n').filter(Boolean)
+          .map(l => { const i = l.indexOf(' '); return { sha: l.slice(0, i), msg: l.slice(i + 1) } })
+
+        // Schema mudou entre VPS e remote?
+        const diffFiles = gitOutput(['diff', '--name-only', vpsSha, remoteSha])
+        schemaChanged = diffFiles.split('\n').some(f => f === 'packages/db/prisma/schema.prisma')
+      }
+
+      return {
+        ok: true,
+        localBranch, localSha, localShort, localDirty,
+        dirtyFiles: dirtyRelevant.slice(0, 30), // limita pra não inflar payload
+        remoteSha, remoteShort,
+        vpsSha, vpsShort, vpsReachable,
+        pendingPush,           // commits locais ainda não no remote
+        pendingDeploy,         // commits no remote ainda não na VPS
+        schemaChanged,
+        synced: vpsReachable && vpsSha === localSha && pendingPush.length === 0 && localDirty === 0,
+      }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
+
+  // Log de debug em arquivo — toda atividade do deploy é gravada aqui pra diagnóstico
+  // mesmo quando o renderer não recebe os eventos IPC.
+  const deployDebugLogPath = path.join(app.getPath('userData'), 'deploy-debug.log')
+  function deployDebugLog(msg) {
+    try {
+      const line = `[${new Date().toISOString()}] ${msg}\n`
+      fs.appendFileSync(deployDebugLogPath, line)
+    } catch {}
+  }
+
+  function deployEmit(progress, step, log, level) {
+    deployDebugLog(`EMIT progress=${progress} step=${step} level=${level || 'info'} log="${(log || '').slice(0, 200)}"`)
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('deploy:event', { progress, step, log, level: level || 'info', timestamp: Date.now() })
+        deployDebugLog(`  ↳ webContents.send OK`)
+      } else {
+        deployDebugLog(`  ↳ SKIPPED (mainWindow=${!!mainWindow}, destroyed=${mainWindow ? mainWindow.isDestroyed() : 'n/a'})`)
+      }
+    } catch (e) {
+      deployDebugLog(`  ↳ ERROR: ${e.message}`)
+    }
+  }
+
+  function sshExec(cfg, remoteCmd, onLine) {
+    return new Promise((resolve) => {
+      const args = [...sshCmd(cfg), remoteCmd]
+      const proc = spawn('ssh', args, { windowsHide: true })
+      let stdoutBuf = ''
+      let stderrBuf = ''
+      proc.stdout.on('data', (d) => {
+        const s = d.toString()
+        stdoutBuf += s
+        if (onLine) s.split(/\r?\n/).filter(Boolean).forEach(onLine)
+      })
+      proc.stderr.on('data', (d) => {
+        const s = d.toString()
+        stderrBuf += s
+        if (onLine) s.split(/\r?\n/).filter(Boolean).forEach(l => onLine(l))
+      })
+      proc.on('close', (code) => resolve({ code, stdout: stdoutBuf, stderr: stderrBuf }))
+      proc.on('error', (err) => resolve({ code: 1, error: err.message, stdout: stdoutBuf, stderr: stderrBuf }))
+    })
+  }
+
+  // Async git executor — não bloqueia event loop (eventos IPC fluem em tempo real).
+  // GIT_TERMINAL_PROMPT=0 + GCM_INTERACTIVE=Never → falha imediato se faltar credencial
+  // (em vez de travar esperando popup).
+  function gitExec(args, onLine, timeoutMs) {
+    return new Promise((resolve) => {
+      const env = {
+        ...process.env,
+        GIT_TERMINAL_PROMPT: '0',
+        GCM_INTERACTIVE: 'Never',
+      }
+      const proc = spawn('git', args, { cwd: projectRoot, windowsHide: true, env })
+      let stdoutBuf = ''
+      let stderrBuf = ''
+      let killed = false
+      const timer = timeoutMs ? setTimeout(() => {
+        killed = true
+        try { proc.kill('SIGKILL') } catch {}
+      }, timeoutMs) : null
+      proc.stdout.on('data', (d) => {
+        const s = d.toString()
+        stdoutBuf += s
+        if (onLine) s.split(/\r?\n/).filter(Boolean).forEach(onLine)
+      })
+      proc.stderr.on('data', (d) => {
+        const s = d.toString()
+        stderrBuf += s
+        if (onLine) s.split(/\r?\n/).filter(Boolean).forEach(l => onLine(l))
+      })
+      proc.on('close', (code) => {
+        if (timer) clearTimeout(timer)
+        resolve({ code: killed ? 124 : code, stdout: stdoutBuf, stderr: stderrBuf, timedOut: killed })
+      })
+      proc.on('error', (err) => {
+        if (timer) clearTimeout(timer)
+        resolve({ code: 1, error: err.message, stdout: stdoutBuf, stderr: stderrBuf })
+      })
+    })
+  }
+
+  let deployRunning = false
+
+  ipcMain.handle('deploy:read-debug-log', async () => {
+    try {
+      if (!fs.existsSync(deployDebugLogPath)) return { ok: true, content: '(arquivo vazio — nenhum deploy registrado)' }
+      const all = fs.readFileSync(deployDebugLogPath, 'utf8')
+      const lines = all.split('\n')
+      const tail = lines.slice(-200).join('\n')
+      return { ok: true, content: tail, path: deployDebugLogPath }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('deploy:reset-flag', async () => {
+    const wasRunning = deployRunning
+    deployRunning = false
+    deployDebugLog(`⟲ deployRunning resetado manualmente (era ${wasRunning})`)
+    return { ok: true, wasRunning }
+  })
+
+  ipcMain.handle('deploy:execute', async (_e, payload) => {
+    deployDebugLog(`╔═══ deploy:execute INVOKED — payload=${JSON.stringify(payload || null).slice(0, 300)}`)
+    deployDebugLog(`║ deployRunning=${deployRunning}, mainWindow=${!!mainWindow}, projectRoot=${projectRoot}`)
+    if (deployRunning) {
+      deployDebugLog(`║ ✗ JÁ HÁ DEPLOY EM ANDAMENTO — retornando imediatamente`)
+      return { ok: false, error: 'Já existe um deploy em andamento. (Se você acha que travou, use o botão "Reset" no painel.)' }
+    }
+    deployRunning = true
+    // Emit inicial — prova ao renderer que o handler foi chamado.
+    deployEmit(1, 'init', `→ Iniciando deploy (payload=${payload ? 'com mensagem' : 'sem mensagem'})`, 'info')
+    try {
+      const cfg = readDeployConfig()
+      if (!cfg || !cfg.SSH_HOST) {
+        deployRunning = false
+        deployEmit(1, 'init', '✗ .deploy.local não configurado', 'err')
+        return { ok: false, error: '.deploy.local não configurado' }
+      }
+      deployEmit(1, 'init', `· VPS: ${cfg.SSH_HOST}`, 'info')
+
+      const commitMessage = (payload && payload.commitMessage) ? String(payload.commitMessage).trim() : ''
+
+      // ─── Stage 0: git commit (se houver dirty + mensagem) ───
+      const statusOut = gitOutput(['status', '--porcelain'])
+      const dirtyAll = statusOut.split('\n').filter(Boolean).map(l => ({
+        status: l.slice(0, 2).trim(),
+        path: l.slice(3),
+      }))
+      const dirtyRelevant = dirtyAll.filter(d => {
+        if (d.status === '??') {
+          if (d.path.endsWith('.bak') || d.path.includes('.env.bak.') || d.path.includes('/tmp/')) return false
+        }
+        return true
+      })
+      if (dirtyRelevant.length > 0) {
+        if (!commitMessage) {
+          deployRunning = false
+          return { ok: false, error: `${dirtyRelevant.length} arquivo(s) sem commit. Forneça uma mensagem de commit.`, needsCommitMessage: true }
+        }
+        deployEmit(2, 'commit', `→ Commitando ${dirtyRelevant.length} arquivo(s)...`, 'info')
+        // git add: só os relevantes (preserva ignorados óbvios). Async em paralelo seria possível,
+        // mas é mais seguro fazer sequencial pra preservar ordem e debugar.
+        for (const d of dirtyRelevant) {
+          const addRes = await gitExec(['add', '--', d.path], null, 10000)
+          if (addRes.code !== 0) {
+            const msg = addRes.stderr || addRes.error || 'git add falhou'
+            deployEmit(3, 'commit', `✗ git add "${d.path}": ${msg.slice(0, 200)}`, 'err')
+            deployRunning = false
+            return { ok: false, error: `git add falhou em ${d.path}: ${msg.slice(0, 200)}` }
+          }
+          deployEmit(3, 'commit', `  + ${d.path}`, 'info')
+        }
+        const commitRes = await gitExec(['commit', '-m', commitMessage], null, 30000)
+        if (commitRes.code !== 0) {
+          const msg = commitRes.stderr || commitRes.stdout || commitRes.error || 'git commit falhou'
+          deployEmit(4, 'commit', `✗ ${msg.slice(0, 300)}`, 'err')
+          deployRunning = false
+          return { ok: false, error: 'git commit falhou: ' + msg.slice(0, 200) }
+        }
+        deployEmit(4, 'commit', `✓ Commit criado: "${commitMessage.slice(0, 60)}"`, 'ok')
+      }
+
+      // ─── Stage 1: git push ─────────────────────────
+      deployEmit(5, 'push', '→ Pushing pro GitHub...', 'info')
+      const localBranch = gitOutput(['rev-parse', '--abbrev-ref', 'HEAD'])
+      // Timeout 60s — se Git Credential Manager pedir popup, mata em 60s ao invés de travar.
+      const pushResult = await gitExec(['push', 'origin', localBranch], (line) => deployEmit(7, 'push', line, 'info'), 60000)
+      if (pushResult.code !== 0) {
+        const msg = pushResult.stderr || pushResult.stdout || pushResult.error || 'git push falhou'
+        const extra = pushResult.timedOut ? ' [timeout 60s — provavelmente faltando credencial: rode `git push` no terminal pra autenticar]' : ''
+        deployEmit(10, 'push', `✗ ${msg.slice(0, 300)}${extra}`, 'err')
+        deployRunning = false
+        return { ok: false, error: 'git push falhou: ' + msg.slice(0, 200) + extra }
+      }
+      deployEmit(10, 'push', `✓ Push OK (${localBranch})`, 'ok')
+
+      // ─── Stage 2: SSH git pull ─────────────────────
+      deployEmit(15, 'pull', '→ git pull na VPS...', 'info')
+      const pull = await sshExec(cfg, 'cd /opt/oneclick-src && git pull --ff-only 2>&1', (line) => deployEmit(20, 'pull', line, 'info'))
+      if (pull.code !== 0) {
+        deployEmit(25, 'pull', `✗ ${(pull.stderr || pull.stdout || '').slice(0, 300)}`, 'err')
+        deployRunning = false
+        return { ok: false, error: 'git pull falhou na VPS' }
+      }
+      deployEmit(25, 'pull', '✓ Pull OK', 'ok')
+
+      // ─── Stage 3: Schema (se mudou) ────────────────
+      // Checa via novo status do remote+vps
+      const diffFiles = await sshExec(cfg, 'cd /opt/oneclick-src && git diff --name-only HEAD@{1} HEAD 2>/dev/null')
+      const schemaChanged = (diffFiles.stdout || '').split('\n').some(f => f === 'packages/db/prisma/schema.prisma')
+      if (schemaChanged) {
+        deployEmit(30, 'schema', '→ Schema mudou — aplicando prisma db push...', 'warn')
+        const dbpush = await sshExec(cfg, 'docker run --rm --network n8n_default --env-file /opt/oneclick/.env oneclick-api:latest sh -c "cd /app/packages/db && npx prisma db push --accept-data-loss --skip-generate" 2>&1', (line) => deployEmit(35, 'schema', line, 'info'))
+        if (dbpush.code !== 0) {
+          deployEmit(40, 'schema', `✗ db push falhou`, 'err')
+          deployRunning = false
+          return { ok: false, error: 'prisma db push falhou' }
+        }
+        deployEmit(40, 'schema', '✓ Schema aplicado', 'ok')
+      } else {
+        deployEmit(40, 'schema', '· Sem mudança de schema (skip)', 'info')
+      }
+
+      // ─── Stage 4: Build API ────────────────────────
+      deployEmit(45, 'build-api', '→ Building oneclick-api...', 'info')
+      const buildApi = await sshExec(cfg, 'cd /opt/oneclick && docker compose build api 2>&1', (line) => {
+        // Filtra ruído pra não inflar log
+        if (!/^\s*$/.test(line) && !/exporting layers|exporting manifest|extracting|building cache/i.test(line)) {
+          deployEmit(55, 'build-api', line, 'info')
+        }
+      })
+      if (buildApi.code !== 0) {
+        deployEmit(65, 'build-api', `✗ Build api falhou`, 'err')
+        deployRunning = false
+        return { ok: false, error: 'build api falhou' }
+      }
+      deployEmit(65, 'build-api', '✓ Build api OK', 'ok')
+
+      // ─── Stage 5: Build Web ────────────────────────
+      deployEmit(70, 'build-web', '→ Building oneclick-web...', 'info')
+      const buildWeb = await sshExec(cfg, 'cd /opt/oneclick && docker compose build web 2>&1', (line) => {
+        if (!/^\s*$/.test(line) && !/exporting layers|exporting manifest|extracting|building cache/i.test(line)) {
+          deployEmit(78, 'build-web', line, 'info')
+        }
+      })
+      if (buildWeb.code !== 0) {
+        deployEmit(85, 'build-web', `✗ Build web falhou`, 'err')
+        deployRunning = false
+        return { ok: false, error: 'build web falhou' }
+      }
+      deployEmit(85, 'build-web', '✓ Build web OK', 'ok')
+
+      // ─── Stage 6: Restart + Health check ───────────
+      deployEmit(90, 'restart', '→ Restart containers + health check...', 'info')
+      const up = await sshExec(cfg, 'cd /opt/oneclick && docker compose up -d --force-recreate api web 2>&1 && sleep 12 && curl -s -o /dev/null -w "API:%{http_code}\\n" http://127.0.0.1:4100/api/health', (line) => deployEmit(95, 'restart', line, 'info'))
+      if (up.code !== 0 || !/(API:200|API:204)/.test(up.stdout || '')) {
+        deployEmit(98, 'restart', `✗ Restart ou health falhou`, 'err')
+        deployRunning = false
+        return { ok: false, error: 'restart ou health check falhou' }
+      }
+      deployEmit(100, 'done', '✅ Deploy concluído com sucesso!', 'ok')
+
+      return { ok: true }
+    } catch (e) {
+      deployEmit(100, 'error', `✗ Exceção: ${e.message}`, 'err')
+      return { ok: false, error: e.message }
+    } finally {
+      deployRunning = false
+    }
+  })
+
+  // ════════════════════════════════════════════════════════
   // BI Sync: executa sci_balancete.py local e retorna linhas
   // pro renderer enviar pra VPS via fetch.
   // ════════════════════════════════════════════════════════

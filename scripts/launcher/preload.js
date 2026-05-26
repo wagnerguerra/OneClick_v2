@@ -47,6 +47,17 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('bi-sync-event', handler)
   },
 
+  // Deploy — painel "Publicar Implementações"
+  deployStatus: () => ipcRenderer.invoke('deploy:status'),
+  deployExecute: (payload) => ipcRenderer.invoke('deploy:execute', payload),
+  deployReadDebugLog: () => ipcRenderer.invoke('deploy:read-debug-log'),
+  deployResetFlag: () => ipcRenderer.invoke('deploy:reset-flag'),
+  onDeployEvent: (callback) => {
+    const handler = (_event, data) => callback(data)
+    ipcRenderer.on('deploy:event', handler)
+    return () => ipcRenderer.removeListener('deploy:event', handler)
+  },
+
   // Shell
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
 

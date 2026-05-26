@@ -606,6 +606,11 @@
           <span class="nav-label">BI Sync (SCI → VPS)</span>
           <span class="nav-badge off" id="navBiSyncBadge">offline</span>
         </button>
+        <button class="nav-item" data-page="deploy" data-label="Deploy">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l-2 0"/><path d="M19 12l2 0"/><path d="M12 5l0-2"/><path d="M12 19l0 2"/><path d="M7.05 7.05l-1.41-1.41"/><path d="M16.95 16.95l1.41 1.41"/><path d="M16.95 7.05l1.41-1.41"/><path d="M7.05 16.95l-1.41 1.41"/><circle cx="12" cy="12" r="4"/></svg></span>
+          <span class="nav-label">Deploy</span>
+          <span class="nav-badge off" id="navDeployBadge">—</span>
+        </button>
         <div class="nav-section-label" style="margin:12px 8px 4px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);padding:0 4px;">Ferramentas</div>
         <button class="nav-item" data-page="settings" data-label="Configurações">
           <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> <span class="nav-label">Configurações</span>
@@ -860,6 +865,136 @@
           </div>
           <div id="nfeLog" style="max-height:300px;overflow-y:auto;padding:8px 16px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:11px;line-height:1.5;color:var(--text-muted);">
             <div style="padding:8px 0;color:var(--text-muted);">(sem eventos ainda)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Page: Deploy ═══ -->
+      <div class="page" id="page-deploy">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Deploy — Publicar Implementações</div>
+            <div class="page-subtitle">Sincroniza local → GitHub → VPS de produção (api + web)</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button onclick="deployShowDebugLog()" title="Ver log de debug do main process"
+                    style="background:var(--bg-surface);color:var(--text-muted);border:1px solid var(--border);padding:6px 10px;border-radius:6px;font-size:11px;cursor:pointer;">🐞 Debug</button>
+            <button onclick="deployResetRunningFlag()" title="Resetar flag deployRunning travada"
+                    style="background:var(--bg-surface);color:var(--text-muted);border:1px solid var(--border);padding:6px 10px;border-radius:6px;font-size:11px;cursor:pointer;">⟲ Reset</button>
+            <button onclick="deployRefreshStatus()" id="deployRefreshBtn"
+                    style="background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <svg id="deployRefreshIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                <polyline points="23 4 23 10 17 10"/>
+              </svg>
+              Atualizar
+            </button>
+          </div>
+        </div>
+
+        <!-- Status cards -->
+        <div class="card" id="deployStatusCard" style="padding:16px;margin-bottom:12px;">
+          <div id="deployStatusLoading" style="text-align:center;padding:30px;color:var(--text-muted);font-size:12px;">
+            Carregando status...
+          </div>
+          <div id="deployStatusContent" style="display:none;">
+            <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:12px;">
+              <div style="padding:10px;background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;">
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Local (branch)</div>
+                <div style="font-size:13px;font-weight:600;color:var(--text-primary);" id="deployLocalBranch">—</div>
+                <div style="font-size:10px;color:var(--text-muted);font-family:ui-monospace,monospace;margin-top:2px;" id="deployLocalSha">—</div>
+                <div id="deployLocalDirty" style="display:none;margin-top:4px;font-size:10px;color:#f59e0b;">⚠ <span id="deployLocalDirtyCount">0</span> arquivo(s) não commitado(s)</div>
+              </div>
+              <div style="padding:10px;background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;">
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">GitHub (origin)</div>
+                <div style="font-size:13px;font-weight:600;color:var(--text-primary);">main</div>
+                <div style="font-size:10px;color:var(--text-muted);font-family:ui-monospace,monospace;margin-top:2px;" id="deployRemoteSha">—</div>
+              </div>
+              <div style="padding:10px;background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;">
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">VPS</div>
+                <div style="font-size:13px;font-weight:600;color:var(--text-primary);" id="deployVpsStatus">—</div>
+                <div style="font-size:10px;color:var(--text-muted);font-family:ui-monospace,monospace;margin-top:2px;" id="deployVpsSha">—</div>
+              </div>
+            </div>
+
+            <div id="deploySynced" style="display:none;padding:10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:6px;color:#16a34a;font-size:12px;">
+              ✅ Tudo sincronizado — local, GitHub e VPS no mesmo commit.
+            </div>
+
+            <!-- Aviso de arquivos não commitados — será commitado junto no Publicar -->
+            <div id="deployDirtyBox" style="display:none;margin-bottom:10px;padding:10px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:6px;">
+              <div style="font-size:12px;font-weight:600;color:#f59e0b;margin-bottom:4px;">📝 Arquivos modificados sem commit (<span id="deployDirtyCount">0</span>):</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Vão ser commitados automaticamente quando você clicar em <strong>Publicar Implementações</strong> (vai pedir a mensagem).</div>
+              <div id="deployDirtyList" style="background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;padding:6px;max-height:120px;overflow-y:auto;font-family:ui-monospace,monospace;font-size:10px;color:var(--text-muted);"></div>
+            </div>
+
+            <div id="deployPendingPushBox" style="display:none;margin-bottom:8px;">
+              <div style="font-size:11px;font-weight:600;color:#f59e0b;margin-bottom:4px;">⚠ Commits locais não pushados (<span id="deployPendingPushCount">0</span>):</div>
+              <div id="deployPendingPushList" style="background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;padding:6px;max-height:80px;overflow-y:auto;font-family:ui-monospace,monospace;font-size:10px;color:var(--text-muted);"></div>
+            </div>
+
+            <div id="deployPendingDeployBox" style="display:none;">
+              <div style="font-size:11px;font-weight:600;color:var(--accent,#3b82f6);margin-bottom:4px;">📦 Commits prontos pra deploy (<span id="deployPendingDeployCount">0</span>):</div>
+              <div id="deployPendingDeployList" style="background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;padding:6px;max-height:120px;overflow-y:auto;font-family:ui-monospace,monospace;font-size:10px;color:var(--text-muted);"></div>
+              <div id="deploySchemaWarn" style="display:none;margin-top:6px;padding:6px 8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:4px;color:#f59e0b;font-size:11px;">
+                ⚠ schema.prisma modificado — db push será aplicado automaticamente (--accept-data-loss)
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ação -->
+        <div class="card" style="padding:16px;margin-bottom:12px;">
+          <div style="display:flex;gap:10px;align-items:center;">
+            <button onclick="deployPublicar()" id="deployPublicarBtn" disabled
+                    style="background:var(--accent,#3b82f6);color:white;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;opacity:0.4;">
+              🚀 Publicar Implementações
+            </button>
+            <span id="deployActionHint" style="font-size:11px;color:var(--text-muted);">Carregando...</span>
+          </div>
+
+          <!-- Barra de progresso -->
+          <div id="deployProgressBox" style="display:none;margin-top:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span id="deployProgressStep" style="font-size:12px;font-weight:600;color:var(--text-primary);">—</span>
+              <span id="deployProgressPct" style="font-size:11px;color:var(--text-muted);font-family:ui-monospace,monospace;">0%</span>
+            </div>
+            <div style="height:8px;background:var(--bg-surface);border-radius:4px;overflow:hidden;">
+              <div id="deployProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg, #3b82f6, #06b6d4);transition:width 0.3s ease;"></div>
+            </div>
+            <div style="display:flex;gap:4px;margin-top:8px;font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">
+              <div id="step-push" class="deploy-step" style="flex:1;text-align:center;padding:3px 0;border-radius:3px;background:var(--bg-surface);">push</div>
+              <div id="step-pull" class="deploy-step" style="flex:1;text-align:center;padding:3px 0;border-radius:3px;background:var(--bg-surface);">pull</div>
+              <div id="step-schema" class="deploy-step" style="flex:1;text-align:center;padding:3px 0;border-radius:3px;background:var(--bg-surface);">schema</div>
+              <div id="step-build-api" class="deploy-step" style="flex:1;text-align:center;padding:3px 0;border-radius:3px;background:var(--bg-surface);">build api</div>
+              <div id="step-build-web" class="deploy-step" style="flex:1;text-align:center;padding:3px 0;border-radius:3px;background:var(--bg-surface);">build web</div>
+              <div id="step-restart" class="deploy-step" style="flex:1;text-align:center;padding:3px 0;border-radius:3px;background:var(--bg-surface);">restart</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Log -->
+        <div class="card" id="deployLogCard" style="padding:0;margin-top:0;display:none;overflow:hidden;">
+          <div style="padding:10px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:12px;">Log do deploy</div>
+          <div id="deployLog" style="max-height:340px;overflow-y:auto;padding:8px 16px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:11px;line-height:1.5;color:var(--text-muted);"></div>
+        </div>
+
+        <!-- Modal: pedir mensagem de commit antes de publicar -->
+        <div id="deployCommitModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px;width:520px;max-width:90vw;box-shadow:0 20px 40px rgba(0,0,0,0.4);">
+            <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--text-primary);">📝 Commit antes de publicar</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">
+              Os <span id="deployCommitModalCount">0</span> arquivos modificados serão commitados, pushados e deployados na VPS.
+            </div>
+            <div id="deployCommitModalFiles" style="background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;padding:6px;max-height:140px;overflow-y:auto;font-family:ui-monospace,monospace;font-size:10px;color:var(--text-muted);margin-bottom:12px;"></div>
+            <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">Mensagem do commit</label>
+            <input id="deployCommitMsg" type="text" placeholder="ex: feat(login): callbackURL absoluto pro Google OAuth"
+                   style="width:100%;padding:8px 10px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;margin-bottom:4px;" />
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:14px;">Convenção: <code>feat:</code> / <code>fix:</code> / <code>chore:</code> / <code>docs:</code></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button onclick="deployCommitCancel()" style="background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border);padding:8px 14px;border-radius:6px;font-size:12px;cursor:pointer;">Cancelar</button>
+              <button onclick="deployCommitConfirm()" style="background:var(--accent,#3b82f6);color:white;border:none;padding:8px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Commitar e Publicar</button>
+            </div>
           </div>
         </div>
       </div>
@@ -2255,6 +2390,380 @@
     // Inicializa selects de mês/ano quando o launcher carrega
     document.addEventListener('DOMContentLoaded', () => {
       biSyncPopulateMesesAnos()
+    })
+  </script>
+
+  <!-- ════════ Deploy ════════ -->
+  <script>
+    let deployState = { status: null, running: false }
+
+    function deploySetBadge(text, status) {
+      const b = document.getElementById('navDeployBadge')
+      if (!b) return
+      b.textContent = text
+      b.className = 'nav-badge ' + (status === 'ok' ? 'on' : 'off')
+    }
+
+    function deployAppendLog(msg, level = 'info') {
+      const log = document.getElementById('deployLog')
+      if (!log) return
+      const colors = { info: 'var(--text-muted)', ok: '#16a34a', err: '#dc2626', warn: '#f59e0b' }
+      const time = new Date().toLocaleTimeString('pt-BR')
+      const div = document.createElement('div')
+      div.style.padding = '2px 0'
+      div.style.color = colors[level] || colors.info
+      div.textContent = `[${time}] ${msg}`
+      log.appendChild(div)
+      log.scrollTop = log.scrollHeight
+    }
+
+    function deployRenderCommitList(elId, commits) {
+      const el = document.getElementById(elId)
+      el.innerHTML = ''
+      if (!commits || commits.length === 0) {
+        el.innerHTML = '<div style="color:var(--text-muted);padding:4px;">(nenhum)</div>'
+        return
+      }
+      for (const c of commits) {
+        const line = document.createElement('div')
+        line.style.padding = '2px 0'
+        line.innerHTML = `<span style="color:#10b981;">${c.sha}</span> ${c.msg}`
+        el.appendChild(line)
+      }
+    }
+
+    async function deployRefreshStatus() {
+      const icon = document.getElementById('deployRefreshIcon')
+      const btn = document.getElementById('deployPublicarBtn')
+      const hint = document.getElementById('deployActionHint')
+      if (icon) icon.style.animation = 'spin 0.8s linear infinite'
+
+      try {
+        const r = await window.api.deployStatus()
+        document.getElementById('deployStatusLoading').style.display = 'none'
+        document.getElementById('deployStatusContent').style.display = ''
+
+        if (!r.ok) {
+          hint.textContent = `✗ ${r.error}`
+          hint.style.color = '#dc2626'
+          btn.disabled = true
+          btn.style.opacity = '0.4'
+          deploySetBadge('erro', 'err')
+          return
+        }
+        deployState.status = r
+
+        // Local
+        document.getElementById('deployLocalBranch').textContent = r.localBranch
+        document.getElementById('deployLocalSha').textContent = r.localShort
+        if (r.localDirty > 0) {
+          document.getElementById('deployLocalDirty').style.display = ''
+          document.getElementById('deployLocalDirtyCount').textContent = r.localDirty
+          // Render lista grande na seção principal
+          document.getElementById('deployDirtyBox').style.display = ''
+          document.getElementById('deployDirtyCount').textContent = r.localDirty
+          const dirtyList = document.getElementById('deployDirtyList')
+          dirtyList.innerHTML = ''
+          for (const f of (r.dirtyFiles || [])) {
+            const line = document.createElement('div')
+            line.style.padding = '2px 0'
+            const statusColor = { 'M': '#f59e0b', 'A': '#16a34a', 'D': '#dc2626', '??': '#6b7280', 'R': '#06b6d4' }[f.status] || '#6b7280'
+            const statusLabel = { 'M': 'mod ', 'A': 'add ', 'D': 'del ', '??': 'new ', 'R': 'ren ' }[f.status] || (f.status + ' ')
+            line.innerHTML = `<span style="color:${statusColor};font-weight:600;">${statusLabel}</span> ${f.path}`
+            dirtyList.appendChild(line)
+          }
+        } else {
+          document.getElementById('deployLocalDirty').style.display = 'none'
+          document.getElementById('deployDirtyBox').style.display = 'none'
+        }
+
+        // Remote + VPS
+        document.getElementById('deployRemoteSha').textContent = r.remoteShort || '—'
+        if (r.vpsReachable) {
+          document.getElementById('deployVpsStatus').textContent = '🟢 online'
+          document.getElementById('deployVpsSha').textContent = r.vpsShort
+        } else {
+          document.getElementById('deployVpsStatus').textContent = '🔴 inacessível'
+          document.getElementById('deployVpsSha').textContent = '—'
+        }
+
+        // Commits pendentes
+        const hasPush = (r.pendingPush || []).length > 0
+        const hasDeploy = (r.pendingDeploy || []).length > 0
+        document.getElementById('deployPendingPushBox').style.display = hasPush ? '' : 'none'
+        document.getElementById('deployPendingDeployBox').style.display = hasDeploy ? '' : 'none'
+        if (hasPush) {
+          document.getElementById('deployPendingPushCount').textContent = r.pendingPush.length
+          deployRenderCommitList('deployPendingPushList', r.pendingPush)
+        }
+        if (hasDeploy) {
+          document.getElementById('deployPendingDeployCount').textContent = r.pendingDeploy.length
+          deployRenderCommitList('deployPendingDeployList', r.pendingDeploy)
+        }
+        document.getElementById('deploySchemaWarn').style.display = r.schemaChanged ? '' : 'none'
+
+        // Sync
+        if (r.synced) {
+          document.getElementById('deploySynced').style.display = ''
+          deploySetBadge('synced', 'ok')
+        } else {
+          document.getElementById('deploySynced').style.display = 'none'
+          const totalPend = (r.pendingPush?.length || 0) + (r.pendingDeploy?.length || 0) + ((r.localDirty || 0) > 0 ? 1 : 0)
+          deploySetBadge(`${totalPend} pendente(s)`, 'err')
+        }
+
+        // Botão Publicar — habilita se houver QUALQUER pendência (dirty, push ou deploy).
+        // Se houver dirty, o fluxo abre o modal de commit antes de publicar.
+        const hasPending = hasPush || hasDeploy
+        const hasDirty = (r.localDirty || 0) > 0
+        const totalAcoes = (r.pendingPush?.length || 0) + (r.pendingDeploy?.length || 0) + (hasDirty ? 1 : 0)
+        if (deployState.running) {
+          btn.disabled = true
+          btn.style.opacity = '0.4'
+          hint.textContent = 'Deploy em andamento...'
+          hint.style.color = '#f59e0b'
+        } else if (hasDirty || hasPending) {
+          btn.disabled = false
+          btn.style.opacity = '1'
+          const parts = []
+          if (hasDirty) parts.push(`1 commit novo (${r.localDirty} arquivos)`)
+          if (r.pendingPush?.length) parts.push(`${r.pendingPush.length} push`)
+          if (r.pendingDeploy?.length) parts.push(`${r.pendingDeploy.length} deploy`)
+          hint.textContent = parts.join(' + ')
+          hint.style.color = 'var(--text-muted)'
+        } else {
+          btn.disabled = true
+          btn.style.opacity = '0.4'
+          hint.textContent = 'Sem mudanças pra publicar'
+          hint.style.color = '#16a34a'
+        }
+      } catch (e) {
+        hint.textContent = `✗ ${e.message}`
+        hint.style.color = '#dc2626'
+      } finally {
+        if (icon) setTimeout(() => { icon.style.animation = '' }, 400)
+      }
+    }
+
+    // Mostra o log de debug do main process numa janela tipo modal
+    async function deployShowDebugLog() {
+      const r = await window.api.deployReadDebugLog()
+      if (!r.ok) {
+        alert(`Erro: ${r.error}`)
+        return
+      }
+      const w = window.open('', 'deploy-debug', 'width=900,height=600')
+      if (!w) return alert('Bloqueador de popup ativo')
+      w.document.title = 'Deploy Debug Log'
+      w.document.body.style.cssText = 'background:#0a0a0a;color:#e5e5e5;font-family:ui-monospace,monospace;font-size:11px;padding:14px;margin:0;white-space:pre-wrap;'
+      w.document.body.textContent = (r.path ? `Path: ${r.path}\n\n` : '') + (r.content || '(vazio)')
+    }
+
+    // Reseta o flag deployRunning no main process (caso tenha travado)
+    async function deployResetRunningFlag() {
+      if (!confirm('Resetar flag deployRunning?\n\nUse APENAS se o pipeline travou em "Deploy em andamento..." e você precisa tentar de novo.')) return
+      const r = await window.api.deployResetFlag()
+      if (r.ok) {
+        deployState.running = false
+        if (deployState._tickTimer) { clearInterval(deployState._tickTimer); deployState._tickTimer = null }
+        document.getElementById('deployActionHint').textContent = `⟲ Flag resetada (era running=${r.wasRunning})`
+        document.getElementById('deployActionHint').style.color = '#16a34a'
+        setTimeout(deployRefreshStatus, 500)
+      } else {
+        alert(`Erro: ${r.error}`)
+      }
+    }
+
+    // Sugere uma mensagem de commit baseada nas áreas dos arquivos modificados.
+    // Mapeia paths → escopo Conventional Commits. Usuário edita à vontade.
+    function deploySuggestCommitMessage(files) {
+      if (!files || files.length === 0) return ''
+      const areaByPath = (p) => {
+        if (p.startsWith('scripts/launcher/')) return 'launcher'
+        if (p.startsWith('apps/web/src/app/(auth)/')) return 'auth'
+        if (p.startsWith('apps/web/')) return 'web'
+        if (p.startsWith('apps/api/')) return 'api'
+        if (p.startsWith('packages/db/')) return 'db'
+        if (p.startsWith('packages/types/')) return 'types'
+        if (p.startsWith('packages/ui/')) return 'ui'
+        if (p.startsWith('docs/')) return 'docs'
+        if (p.startsWith('.github/')) return 'ci'
+        return 'misc'
+      }
+      const counts = {}
+      for (const f of files) {
+        const a = areaByPath(f.path)
+        counts[a] = (counts[a] || 0) + 1
+      }
+      const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1])
+      const principais = sorted.slice(0, 2).map(([a]) => a)
+      const scope = principais.join('+')
+
+      // Detecta tipo: só docs → docs, só ci → ci, mix com config → chore, senão chore.
+      const onlyDocs = sorted.length === 1 && sorted[0][0] === 'docs'
+      const onlyCi = sorted.length === 1 && sorted[0][0] === 'ci'
+      const tipo = onlyDocs ? 'docs' : onlyCi ? 'ci' : 'chore'
+
+      const data = new Date().toISOString().slice(0, 10)
+      return `${tipo}(${scope}): atualizações ${data}`
+    }
+
+    async function deployPublicar() {
+      const s = deployState.status
+      if (!s) return
+      const hasDirty = (s.localDirty || 0) > 0
+
+      // Se houver dirty, abre modal pra capturar mensagem de commit antes
+      if (hasDirty) {
+        document.getElementById('deployCommitModalCount').textContent = s.localDirty
+        const filesBox = document.getElementById('deployCommitModalFiles')
+        filesBox.innerHTML = ''
+        for (const f of (s.dirtyFiles || [])) {
+          const line = document.createElement('div')
+          line.style.padding = '2px 0'
+          const statusColor = { 'M': '#f59e0b', 'A': '#16a34a', 'D': '#dc2626', '??': '#6b7280', 'R': '#06b6d4' }[f.status] || '#6b7280'
+          const statusLabel = { 'M': 'mod ', 'A': 'add ', 'D': 'del ', '??': 'new ', 'R': 'ren ' }[f.status] || (f.status + ' ')
+          line.innerHTML = `<span style="color:${statusColor};font-weight:600;">${statusLabel}</span> ${f.path}`
+          filesBox.appendChild(line)
+        }
+        document.getElementById('deployCommitMsg').value = deploySuggestCommitMessage(s.dirtyFiles || [])
+        document.getElementById('deployCommitModal').style.display = 'flex'
+        // Foca e seleciona tudo pra usuário poder substituir digitando
+        setTimeout(() => {
+          const inp = document.getElementById('deployCommitMsg')
+          inp.focus()
+          inp.select()
+        }, 50)
+        return
+      }
+
+      // Sem dirty: vai direto pro confirm tradicional
+      const totalCommits = (s.pendingPush?.length || 0) + (s.pendingDeploy?.length || 0)
+      const commitList = [...(s.pendingPush || []), ...(s.pendingDeploy || [])]
+        .map(c => `  • ${c.sha} ${c.msg}`).join('\n')
+      const schemaWarn = s.schemaChanged ? '\n\n⚠ Schema.prisma MUDOU — db push --accept-data-loss será executado!' : ''
+      const ok = confirm(`Publicar ${totalCommits} commit(s):\n\n${commitList}${schemaWarn}\n\nConfirmar?`)
+      if (!ok) return
+
+      await deployRunPipeline(null)
+    }
+
+    function deployCommitCancel() {
+      document.getElementById('deployCommitModal').style.display = 'none'
+    }
+
+    async function deployCommitConfirm() {
+      const msg = document.getElementById('deployCommitMsg').value.trim()
+      if (!msg) {
+        alert('Informe a mensagem do commit.')
+        return
+      }
+      const s = deployState.status
+      const schemaWarn = s?.schemaChanged ? '\n\n⚠ Schema.prisma MUDOU — db push --accept-data-loss será executado!' : ''
+      if (schemaWarn && !confirm(`Confirma o deploy?${schemaWarn}`)) return
+      document.getElementById('deployCommitModal').style.display = 'none'
+      await deployRunPipeline(msg)
+    }
+
+    async function deployRunPipeline(commitMessage) {
+      deployState.running = true
+      document.getElementById('deployPublicarBtn').disabled = true
+      document.getElementById('deployPublicarBtn').style.opacity = '0.4'
+      document.getElementById('deployProgressBox').style.display = ''
+      document.getElementById('deployLogCard').style.display = ''
+      document.getElementById('deployLog').innerHTML = ''
+
+      // Contador de tempo + heartbeat no log — visibilidade enquanto pipeline roda
+      const t0 = Date.now()
+      const hintEl = document.getElementById('deployActionHint')
+      hintEl.style.color = '#f59e0b'
+      hintEl.textContent = 'Deploy em andamento... (0s)'
+      deployState._lastEventAt = t0  // qualquer evento IPC reseta isso
+      deployAppendLog(`▶ Pipeline iniciada (commitMessage=${commitMessage ? '"' + commitMessage.slice(0, 40) + '"' : 'nenhuma'})`, 'info')
+      const tickTimer = setInterval(() => {
+        if (!deployState.running) { clearInterval(tickTimer); return }
+        const secs = Math.floor((Date.now() - t0) / 1000)
+        hintEl.textContent = `Deploy em andamento... (${secs}s)`
+        // Heartbeat: a cada 3s sem evento novo, registra no log que tá vivo (ou travado)
+        const sinceLastEvent = Math.floor((Date.now() - deployState._lastEventAt) / 1000)
+        if (sinceLastEvent >= 3 && secs % 3 === 0) {
+          const level = sinceLastEvent >= 15 ? 'err' : sinceLastEvent >= 8 ? 'warn' : 'info'
+          const tag = sinceLastEvent >= 15 ? '⚠ POSSÍVEL TRAVAMENTO' : sinceLastEvent >= 8 ? 'sem resposta' : 'aguardando'
+          deployAppendLog(`· ${tag} — ${sinceLastEvent}s sem novo evento (total ${secs}s)`, level)
+        }
+      }, 1000)
+      deployState._tickTimer = tickTimer
+
+      // Reseta steps visuais — `;` no início pra evitar ASI (a linha anterior não tem `;` e o JS
+      // tentaria parsear `tickTimer['push','pull',...]` → undefined.forEach)
+      ;['push','pull','schema','build-api','build-web','restart'].forEach(s => {
+        const el = document.getElementById('step-' + s)
+        if (el) {
+          el.style.background = 'var(--bg-surface)'
+          el.style.color = 'var(--text-muted)'
+        }
+      })
+
+      try {
+        const payload = commitMessage ? { commitMessage } : undefined
+        const r = await window.api.deployExecute(payload)
+        if (r.ok) {
+          document.getElementById('deployActionHint').textContent = '✅ Deploy concluído!'
+          document.getElementById('deployActionHint').style.color = '#16a34a'
+          setTimeout(() => deployRefreshStatus(), 1500)
+        } else {
+          document.getElementById('deployActionHint').textContent = `✗ ${r.error}`
+          document.getElementById('deployActionHint').style.color = '#dc2626'
+        }
+      } catch (e) {
+        document.getElementById('deployActionHint').textContent = `✗ ${e.message}`
+        document.getElementById('deployActionHint').style.color = '#dc2626'
+      } finally {
+        deployState.running = false
+        if (deployState._tickTimer) { clearInterval(deployState._tickTimer); deployState._tickTimer = null }
+      }
+    }
+
+    // Listener de eventos do deploy (progresso + log)
+    if (window.api && window.api.onDeployEvent) {
+      window.api.onDeployEvent((ev) => {
+        if (!ev) return
+        // Reseta heartbeat — chegou evento, pipeline está viva
+        deployState._lastEventAt = Date.now()
+        // Atualiza barra
+        if (typeof ev.progress === 'number') {
+          document.getElementById('deployProgressBar').style.width = ev.progress + '%'
+          document.getElementById('deployProgressPct').textContent = ev.progress + '%'
+        }
+        if (ev.step) {
+          document.getElementById('deployProgressStep').textContent = ev.step.replace('-', ' ').toUpperCase()
+          // Marca step ativo no rail
+          const stepEl = document.getElementById('step-' + ev.step)
+          if (stepEl) {
+            const isOk = ev.level === 'ok'
+            const isErr = ev.level === 'err'
+            stepEl.style.background = isErr ? 'rgba(220,38,38,0.2)' : isOk ? 'rgba(34,197,94,0.2)' : 'rgba(59,130,246,0.2)'
+            stepEl.style.color = isErr ? '#dc2626' : isOk ? '#16a34a' : 'var(--accent, #3b82f6)'
+          }
+        }
+        if (ev.log) deployAppendLog(ev.log, ev.level)
+      })
+    }
+
+    // Auto-refresh ao entrar na aba Deploy (instalado no listener de nav já existente)
+    if (typeof navButtons !== 'undefined') {
+      // já há um listener — não duplicar; depende do hook genérico de switch page
+    }
+
+    // Hook manual: refresh ao clicar no nav-item "deploy"
+    document.addEventListener('DOMContentLoaded', () => {
+      const deployNavBtn = document.querySelector('.nav-item[data-page="deploy"]')
+      if (deployNavBtn) {
+        deployNavBtn.addEventListener('click', () => {
+          // Pequeno delay pra UI trocar antes
+          setTimeout(deployRefreshStatus, 100)
+        })
+      }
     })
   </script>
 </body>
