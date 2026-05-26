@@ -212,7 +212,7 @@ export default function LoginPage() {
           type="button"
           onClick={handleGoogleSignIn}
           disabled={googleLoading || loading}
-          className="flex w-full h-11 items-center justify-center gap-3 rounded-lg border border-border bg-background text-sm font-medium text-foreground transition-all hover:bg-accent hover:shadow-sm active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
+          className="flex w-full h-11 items-center justify-center gap-3 rounded-lg border border-border bg-background text-sm font-medium text-foreground transition-all hover:bg-muted/60 hover:border-foreground/20 hover:shadow-sm active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {googleLoading ? (
             <Loader2 className="h-[18px] w-[18px] animate-spin" />
