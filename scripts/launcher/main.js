@@ -1487,37 +1487,40 @@ function registerIpcHandlers() {
       }
       deployEmit(25, 'pull', '✓ Pull OK', 'ok')
 
-      // ─── Stage 3: Schema (se mudou) ────────────────
-      // Checa via novo status do remote+vps
-      const diffFiles = await sshExec(cfg, 'cd /opt/oneclick-src && git diff --name-only HEAD@{1} HEAD 2>/dev/null')
-      const schemaChanged = (diffFiles.stdout || '').split('\n').some(f => f === 'packages/db/prisma/schema.prisma')
-      if (schemaChanged) {
-        deployEmit(30, 'schema', '→ Schema mudou — aplicando prisma db push...', 'warn')
-        const dbpush = await sshExec(cfg, 'docker run --rm --network n8n_default --env-file /opt/oneclick/.env oneclick-api:latest sh -c "cd /app/packages/db && npx prisma db push --accept-data-loss --skip-generate" 2>&1', (line) => deployEmit(35, 'schema', line, 'info'))
-        if (dbpush.code !== 0) {
-          deployEmit(40, 'schema', `✗ db push falhou`, 'err')
-          deployRunning = false
-          return { ok: false, error: 'prisma db push falhou' }
-        }
-        deployEmit(40, 'schema', '✓ Schema aplicado', 'ok')
-      } else {
-        deployEmit(40, 'schema', '· Sem mudança de schema (skip)', 'info')
-      }
-
-      // ─── Stage 4: Build API ────────────────────────
-      deployEmit(45, 'build-api', '→ Building oneclick-api...', 'info')
+      // ─── Stage 3: Build API ────────────────────────
+      // IMPORTANTE: build api PRECEDE o db push porque o `prisma db push` usa
+      // a imagem `oneclick-api:latest` (que contém o schema.prisma). Se o build
+      // for depois, o db push acaba rodando com schema antigo e tabelas novas
+      // não são criadas.
+      deployEmit(30, 'build-api', '→ Building oneclick-api...', 'info')
       const buildApi = await sshExec(cfg, 'cd /opt/oneclick && docker compose build api 2>&1', (line) => {
-        // Filtra ruído pra não inflar log
         if (!/^\s*$/.test(line) && !/exporting layers|exporting manifest|extracting|building cache/i.test(line)) {
-          deployEmit(55, 'build-api', line, 'info')
+          deployEmit(45, 'build-api', line, 'info')
         }
       })
       if (buildApi.code !== 0) {
-        deployEmit(65, 'build-api', `✗ Build api falhou`, 'err')
+        deployEmit(50, 'build-api', `✗ Build api falhou`, 'err')
         deployRunning = false
         return { ok: false, error: 'build api falhou' }
       }
-      deployEmit(65, 'build-api', '✓ Build api OK', 'ok')
+      deployEmit(50, 'build-api', '✓ Build api OK', 'ok')
+
+      // ─── Stage 4: Schema (se mudou) ────────────────
+      // Roda APÓS o build api, usando a imagem recém-buildada (com schema novo).
+      const diffFiles = await sshExec(cfg, 'cd /opt/oneclick-src && git diff --name-only HEAD@{1} HEAD 2>/dev/null')
+      const schemaChanged = (diffFiles.stdout || '').split('\n').some(f => f === 'packages/db/prisma/schema.prisma')
+      if (schemaChanged) {
+        deployEmit(55, 'schema', '→ Schema mudou — aplicando prisma db push (imagem recém-buildada)...', 'warn')
+        const dbpush = await sshExec(cfg, 'docker run --rm --network n8n_default --env-file /opt/oneclick/.env oneclick-api:latest sh -c "cd /app/packages/db && npx prisma db push --accept-data-loss --skip-generate" 2>&1', (line) => deployEmit(60, 'schema', line, 'info'))
+        if (dbpush.code !== 0) {
+          deployEmit(65, 'schema', `✗ db push falhou`, 'err')
+          deployRunning = false
+          return { ok: false, error: 'prisma db push falhou' }
+        }
+        deployEmit(65, 'schema', '✓ Schema aplicado', 'ok')
+      } else {
+        deployEmit(65, 'schema', '· Sem mudança de schema (skip)', 'info')
+      }
 
       // ─── Stage 5: Build Web ────────────────────────
       deployEmit(70, 'build-web', '→ Building oneclick-web...', 'info')

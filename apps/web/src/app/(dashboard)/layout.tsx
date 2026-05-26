@@ -11,6 +11,7 @@ import { PageTransition } from '@/components/dashboard/page-transition'
 import { RouteProgress } from '@/components/dashboard/route-progress'
 import { TabBar } from '@/components/dashboard/tab-bar'
 import { ApiHealthMonitor } from '@/components/dashboard/api-health-monitor'
+import { FloatingFeedbackButton } from '@/components/dashboard/floating-feedback-button'
 import { TabsProvider } from '@/lib/tabs-store'
 import { useSyncRouteTab } from '@/hooks/use-sync-route-tab'
 import { useTabShortcuts } from '@/hooks/use-tab-shortcuts'
@@ -52,6 +53,7 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
         </main>
       </div>
       <ApiHealthMonitor />
+      <FloatingFeedbackButton />
     </div>
   )
 }
