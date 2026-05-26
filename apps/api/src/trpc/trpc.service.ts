@@ -96,6 +96,8 @@ import { FeriadoService } from '../feriado/feriado.service'
 import { createFeriadoRouter } from '../feriado/feriado.router'
 import { GrupoObrigacaoService } from '../grupo-obrigacao/grupo-obrigacao.service'
 import { createGrupoObrigacaoRouter } from '../grupo-obrigacao/grupo-obrigacao.router'
+import { ProjetoService } from '../projeto/projeto.service'
+import { createProjetoRouter } from '../projeto/projeto.router'
 import { MinhasObrigacoesService } from '../minhas-obrigacoes/minhas-obrigacoes.service'
 import { AtivoService } from '../ativo/ativo.service'
 import { createAtivoRouter } from '../ativo/ativo.router'
@@ -342,6 +344,7 @@ export class TrpcService {
     @Inject(ObrigacaoService) private readonly obrigacaoService: ObrigacaoService,
     @Inject(FeriadoService) private readonly feriadoService: FeriadoService,
     @Inject(GrupoObrigacaoService) private readonly grupoObrigacaoService: GrupoObrigacaoService,
+    @Inject(ProjetoService) private readonly projetoService: ProjetoService,
     @Inject(MinhasObrigacoesService) private readonly minhasObrigacoesService: MinhasObrigacoesService,
     @Inject(AtivoService) private readonly ativoService: AtivoService,
     @Inject(ClientErrorService) private readonly clientErrorService: ClientErrorService,
@@ -416,6 +419,7 @@ export class TrpcService {
       obrigacao: createObrigacaoRouter(this.obrigacaoService),
       feriado: createFeriadoRouter(this.feriadoService),
       grupoObrigacao: createGrupoObrigacaoRouter(this.grupoObrigacaoService),
+      projetos: createProjetoRouter(this.projetoService),
       minhasObrigacoes: createMinhasObrigacoesRouter(this.minhasObrigacoesService),
     })
   }

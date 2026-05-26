@@ -41,6 +41,7 @@ import { NotificacaoModule } from '../notificacao/notificacao.module'
 import { ObrigacaoModule } from '../obrigacao/obrigacao.module'
 import { FeriadoModule } from '../feriado/feriado.module'
 import { GrupoObrigacaoModule } from '../grupo-obrigacao/grupo-obrigacao.module'
+import { ProjetoModule } from '../projeto/projeto.module'
 import { MinhasObrigacoesModule } from '../minhas-obrigacoes/minhas-obrigacoes.module'
 import { AtivoModule } from '../ativo/ativo.module'
 import { ClientErrorModule } from '../client-error/client-error.module'
@@ -54,7 +55,7 @@ import { GoogleBackupModule } from '../google-backup/google-backup.module'
 import { SignatureModule } from '../signature/signature.module'
 
 @Module({
-  imports: [AreaModule, EmpresaModule, UserModule, CargoModule, OnboardingModule, ClienteModule, AdminModule, AuthModule, StripeModule, ColaboradorModule, FornecedorModule, SocioModule, CnpjModule, SitfisModule, CaixaPostalModule, CndModule, DctfwebModule, BiModule, FolhaModule, AgendaModule, DteModule, CrmModule, OrcamentoModule, ServicoModule, ProcessoModule, PesquisaModule, ContratoModule, NotificationModule, TabsModule, CertificadoDigitalModule, DashboardLayoutModule, PermissionsEventsModule, NotificationsEventsModule, DashboardCalendarioModule, HelpdeskModule, AcessoriasModule, NotificacaoModule, ObrigacaoModule, FeriadoModule, GrupoObrigacaoModule, MinhasObrigacoesModule, AtivoModule, ClientErrorModule, ThemeModule, DanfeModule, DriveSyncModule, NfeDistModule, NfseDistModule, AgendamentoModule, GoogleBackupModule, SignatureModule],
+  imports: [AreaModule, EmpresaModule, UserModule, CargoModule, OnboardingModule, ClienteModule, AdminModule, AuthModule, StripeModule, ColaboradorModule, FornecedorModule, SocioModule, CnpjModule, SitfisModule, CaixaPostalModule, CndModule, DctfwebModule, BiModule, FolhaModule, AgendaModule, DteModule, CrmModule, OrcamentoModule, ServicoModule, ProcessoModule, PesquisaModule, ContratoModule, NotificationModule, TabsModule, CertificadoDigitalModule, DashboardLayoutModule, PermissionsEventsModule, NotificationsEventsModule, DashboardCalendarioModule, HelpdeskModule, AcessoriasModule, NotificacaoModule, ObrigacaoModule, FeriadoModule, GrupoObrigacaoModule, ProjetoModule, MinhasObrigacoesModule, AtivoModule, ClientErrorModule, ThemeModule, DanfeModule, DriveSyncModule, NfeDistModule, NfseDistModule, AgendamentoModule, GoogleBackupModule, SignatureModule],
   providers: [TrpcService],
   controllers: [TrpcController],
   exports: [TrpcService],

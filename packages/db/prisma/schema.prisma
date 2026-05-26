@@ -4808,3 +4808,202 @@ model SchedulerExecution {
   @@index([status])
   @@map("scheduler_executions")
 }
+
+// ════════════════════════════════════════════════════════════════
+// PROJETOS (Bloco TI) — gestão de projetos de desenvolvimento
+// Modelo Linear: Projeto + Tarefa plana (parentId reserva subtarefa)
+// ════════════════════════════════════════════════════════════════
+
+enum ProjetoStatus {
+  NOVO
+  ANDAMENTO
+  PENDENTE
+  CONCLUIDO
+}
+
+enum TarefaStatus {
+  BACKLOG
+  A_FAZER
+  EM_ANDAMENTO
+  EM_REVISAO
+  CONCLUIDO
+  CANCELADO
+}
+
+enum TarefaPrioridade {
+  URGENTE
+  ALTA
+  MEDIA
+  BAIXA
+}
+
+model Projeto {
+  id            String        @id @default(cuid())
+  nome          String
+  descricao     String?       @db.Text
+  cor           String        @default("#22d3ee")
+  status        ProjetoStatus @default(NOVO)
+  responsavelId String?       @map("responsavel_id")
+  dataInicio    DateTime?     @map("data_inicio")
+  dataPrevisao  DateTime?     @map("data_previsao")
+  ordem         Int           @default(0)
+  empresaId     String?       @map("empresa_id")
+  isActive      Boolean       @default(true) @map("is_active")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  tarefas   ProjetoTarefa[]
+  tags      ProjetoTag[]
+  mensagens ProjetoMensagem[]
+  anexos    ProjetoAnexo[]
+  eventos   ProjetoEvento[]
+
+  @@index([status, isActive])
+  @@index([responsavelId])
+  @@map("projetos")
+}
+
+model ProjetoMensagem {
+  id        String   @id @default(cuid())
+  projetoId String   @map("projeto_id")
+  autorId   String?  @map("autor_id")
+  texto     String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  projeto Projeto @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+
+  @@index([projetoId, createdAt(sort: Desc)])
+  @@map("projetos_mensagens")
+}
+
+model ProjetoAnexo {
+  id           String   @id @default(cuid())
+  projetoId    String   @map("projeto_id")
+  nome         String
+  url          String   @db.Text
+  mimeType     String?  @map("mime_type")
+  tamanho      Int
+  uploadedById String?  @map("uploaded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  projeto Projeto @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+
+  @@index([projetoId])
+  @@map("projetos_anexos")
+}
+
+// Singleton de configurações do módulo Projetos (1 registro por schema/tenant).
+// O service garante a existência via getOrCreate.
+model ProjetoConfig {
+  id                     String   @id @default(cuid())
+  autoArquivarHabilitado Boolean  @default(false) @map("auto_arquivar_habilitado")
+  autoArquivarDias       Int      @default(90)    @map("auto_arquivar_dias")
+  ultimaExecucao         DateTime? @map("ultima_execucao")
+  ultimoTotalArquivados  Int      @default(0) @map("ultimo_total_arquivados")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("projetos_config")
+}
+
+model ProjetoEvento {
+  id          String   @id @default(cuid())
+  projetoId   String   @map("projeto_id")
+  tipo        String
+  autorId     String?  @map("autor_id")
+  comentario  String?  @db.Text
+  campoAntes  String?  @map("campo_antes") @db.Text
+  campoDepois String?  @map("campo_depois") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  projeto Projeto @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+
+  @@index([projetoId, createdAt(sort: Desc)])
+  @@map("projetos_eventos")
+}
+
+model ProjetoTag {
+  id        String   @id @default(cuid())
+  projetoId String   @map("projeto_id")
+  nome      String
+  cor       String   @default("#94a3b8")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  projeto       Projeto              @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  tarefasLinked ProjetoTarefaTag[]
+
+  @@unique([projetoId, nome])
+  @@map("projetos_tags")
+}
+
+model ProjetoTarefa {
+  id            String           @id @default(cuid())
+  projetoId     String           @map("projeto_id")
+  titulo        String
+  descricao     String?          @db.Text
+  status        TarefaStatus     @default(BACKLOG)
+  prioridade    TarefaPrioridade @default(MEDIA)
+  responsavelId String?          @map("responsavel_id")
+  prazo         DateTime?
+  estimativa    Int?
+  ordem         Int              @default(0)
+  parentId      String?          @map("parent_id")
+  concluidoEm   DateTime?        @map("concluido_em")
+  empresaId     String?          @map("empresa_id")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  projeto  Projeto               @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  parent   ProjetoTarefa?        @relation("ProjetoTarefaSubtask", fields: [parentId], references: [id])
+  children ProjetoTarefa[]       @relation("ProjetoTarefaSubtask")
+  tags     ProjetoTarefaTag[]
+  anexos   ProjetoTarefaAnexo[]
+  eventos  ProjetoTarefaEvento[]
+
+  @@index([projetoId, status])
+  @@index([responsavelId])
+  @@index([prazo])
+  @@map("projetos_tarefas")
+}
+
+model ProjetoTarefaTag {
+  tarefaId String @map("tarefa_id")
+  tagId    String @map("tag_id")
+
+  tarefa ProjetoTarefa @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
+  tag    ProjetoTag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([tarefaId, tagId])
+  @@map("projetos_tarefas_tags")
+}
+
+model ProjetoTarefaAnexo {
+  id           String   @id @default(cuid())
+  tarefaId     String   @map("tarefa_id")
+  nome         String
+  url          String   @db.Text
+  mimeType     String?  @map("mime_type")
+  tamanho      Int
+  uploadedById String?  @map("uploaded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tarefa ProjetoTarefa @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
+
+  @@index([tarefaId])
+  @@map("projetos_tarefas_anexos")
+}
+
+model ProjetoTarefaEvento {
+  id          String   @id @default(cuid())
+  tarefaId    String   @map("tarefa_id")
+  tipo        String
+  autorId     String?  @map("autor_id")
+  comentario  String?  @db.Text
+  campoAntes  String?  @map("campo_antes") @db.Text
+  campoDepois String?  @map("campo_depois") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tarefa ProjetoTarefa @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
+
+  @@index([tarefaId, createdAt(sort: Desc)])
+  @@map("projetos_tarefas_eventos")
+}

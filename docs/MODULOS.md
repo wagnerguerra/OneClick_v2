@@ -28,7 +28,6 @@ Lista canônica dos módulos do SaaS ERP/CRM, agrupados por bloco. Referenciada 
 - Obrigações e Serviços
 - Orçamentos
 - Processos
-- Projetos
 - Quadro Societário
 
 ## FISCAL
@@ -41,6 +40,11 @@ Lista canônica dos módulos do SaaS ERP/CRM, agrupados por bloco. Referenciada 
 - Caixa Postal e-CAC
 - DT-e SEFAZ ES (Agência Virtual)
 - DANFE / Galeria de Notas
+
+## TI
+- Gestão de Ativos
+- HelpDesk
+- Projetos
 
 ## QUALIDADE
 - Painel da Qualidade

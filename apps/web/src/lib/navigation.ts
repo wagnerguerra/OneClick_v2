@@ -195,7 +195,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Gestão de Ativos', href: '/ativos', icon: Database },
       { label: 'HelpDesk', href: '/helpdesk', icon: Headphones },
-      { label: 'Projetos', href: '/projetos', icon: Contact },
+      { label: 'Projetos', href: '/projetos', icon: FolderKanban },
     ],
   },
   {

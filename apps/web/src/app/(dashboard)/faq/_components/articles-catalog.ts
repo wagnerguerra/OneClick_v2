@@ -4,7 +4,7 @@ import {
   MailWarning, ListChecks, BadgeCheck, CircleUser, BarChart2, Calculator, FileText,
   Star, Calendar, Users, Building2, LayoutGrid, FileSpreadsheet, Layers,
   Truck, Factory, Cpu, Store, Briefcase, HardHat, Radio, GraduationCap,
-  Headphones, Receipt, CalendarDays, ClipboardCheck, Database,
+  Headphones, Receipt, CalendarDays, ClipboardCheck, Database, FolderKanban,
 } from 'lucide-react'
 
 export type FaqCategoria = 'Comercial' | 'Fiscal' | 'Operacional' | 'Cadastros e estrutura' | 'Trabalhista' | 'Templates por Segmento'
@@ -228,6 +228,17 @@ export const FAQ_ARTIGOS: FaqArtigo[] = [
     categoria: 'Operacional',
     disponivel: true,
     tags: ['ativos', 'patrimônio', 'ti', 'inventário', 'qr code', 'manutenção', 'depreciação', 'termo de responsabilidade'],
+  },
+  {
+    slug: 'projetos',
+    titulo: 'Projetos: gestão de desenvolvimento da TI',
+    descricao: 'Como cadastrar projetos, acompanhar tarefas em lista ou Kanban, registrar andamentos e anexar arquivos. Bloco TI — uso interno do time de TI.',
+    modulo: 'Projetos',
+    moduloColor: '#5ea3cb',
+    icon: FolderKanban,
+    categoria: 'Operacional',
+    disponivel: true,
+    tags: ['projetos', 'kanban', 'tarefas', 'ti', 'desenvolvimento', 'roadmap', 'backlog', 'anexos', 'comentários'],
   },
   {
     slug: 'meus-servicos',
