@@ -341,6 +341,83 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ─── Cards do pipeline de deploy ─────────────────────────────── */
+    .deploy-step {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      padding: 12px 14px 12px 56px;   /* esquerda gigante pro ícone-marca-d'água */
+      border-radius: 8px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      min-height: 76px;                /* fixa pra não pular quando detail muda */
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      overflow: hidden;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .deploy-step .step-icon-bg {
+      position: absolute;
+      left: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      font-weight: 700;
+      line-height: 1;
+      opacity: 0.20;
+      color: var(--text-muted);
+      pointer-events: none;
+      user-select: none;
+    }
+    .deploy-step .step-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      line-height: 1.1;
+    }
+    .deploy-step .step-detail {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.3;
+      min-height: 26px;                /* 2 linhas reservadas — não muda altura */
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      word-break: break-word;
+    }
+    /* Estados visuais — cor da borda, fundo e ícone */
+    .deploy-step[data-state="running"] {
+      border-color: rgba(59,130,246,0.4);
+      background: rgba(59,130,246,0.06);
+    }
+    .deploy-step[data-state="running"] .step-icon-bg { color: #3b82f6; animation: spin 1.4s linear infinite; }
+    .deploy-step[data-state="running"] .step-label { color: var(--text-primary); }
+
+    .deploy-step[data-state="ok"] {
+      border-color: rgba(34,197,94,0.4);
+      background: rgba(34,197,94,0.08);
+    }
+    .deploy-step[data-state="ok"] .step-icon-bg { color: #16a34a; }
+    .deploy-step[data-state="ok"] .step-label { color: #16a34a; }
+
+    .deploy-step[data-state="err"] {
+      border-color: rgba(220,38,38,0.4);
+      background: rgba(220,38,38,0.08);
+    }
+    .deploy-step[data-state="err"] .step-icon-bg { color: #dc2626; }
+    .deploy-step[data-state="err"] .step-label { color: #dc2626; }
+    .deploy-step[data-state="err"] .step-detail { color: #dc2626; }
+
     /* Banner de atualização disponível */
     .update-banner {
       display: none;
@@ -963,37 +1040,37 @@
               <div id="deployProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg, #3b82f6, #06b6d4);transition:width 0.3s ease;"></div>
             </div>
 
-            <!-- Cards de step: ícone (check ou spinner) + label + status atual abaixo -->
-            <div style="display:flex;gap:6px;margin-top:10px;">
-              <div id="step-push" class="deploy-step" data-label="push" style="flex:1;padding:8px 6px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border);text-align:center;">
-                <div class="step-icon" style="height:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);">○</div>
-                <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-top:2px;">push</div>
-                <div class="step-detail" style="font-size:9px;color:var(--text-muted);margin-top:3px;min-height:11px;line-height:1.2;"></div>
+            <!-- Cards de step: ícone marca-d'água à esquerda + label + status -->
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <div id="step-push" class="deploy-step" data-state="pending">
+                <div class="step-icon-bg">○</div>
+                <div class="step-label">Push</div>
+                <div class="step-detail"></div>
               </div>
-              <div id="step-pull" class="deploy-step" data-label="pull" style="flex:1;padding:8px 6px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border);text-align:center;">
-                <div class="step-icon" style="height:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);">○</div>
-                <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-top:2px;">pull</div>
-                <div class="step-detail" style="font-size:9px;color:var(--text-muted);margin-top:3px;min-height:11px;line-height:1.2;"></div>
+              <div id="step-pull" class="deploy-step" data-state="pending">
+                <div class="step-icon-bg">○</div>
+                <div class="step-label">Pull</div>
+                <div class="step-detail"></div>
               </div>
-              <div id="step-build-api" class="deploy-step" data-label="build api" style="flex:1;padding:8px 6px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border);text-align:center;">
-                <div class="step-icon" style="height:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);">○</div>
-                <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-top:2px;">build api</div>
-                <div class="step-detail" style="font-size:9px;color:var(--text-muted);margin-top:3px;min-height:11px;line-height:1.2;"></div>
+              <div id="step-build-api" class="deploy-step" data-state="pending">
+                <div class="step-icon-bg">○</div>
+                <div class="step-label">Build API</div>
+                <div class="step-detail"></div>
               </div>
-              <div id="step-schema" class="deploy-step" data-label="schema" style="flex:1;padding:8px 6px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border);text-align:center;">
-                <div class="step-icon" style="height:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);">○</div>
-                <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-top:2px;">schema</div>
-                <div class="step-detail" style="font-size:9px;color:var(--text-muted);margin-top:3px;min-height:11px;line-height:1.2;"></div>
+              <div id="step-schema" class="deploy-step" data-state="pending">
+                <div class="step-icon-bg">○</div>
+                <div class="step-label">Schema</div>
+                <div class="step-detail"></div>
               </div>
-              <div id="step-build-web" class="deploy-step" data-label="build web" style="flex:1;padding:8px 6px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border);text-align:center;">
-                <div class="step-icon" style="height:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);">○</div>
-                <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-top:2px;">build web</div>
-                <div class="step-detail" style="font-size:9px;color:var(--text-muted);margin-top:3px;min-height:11px;line-height:1.2;"></div>
+              <div id="step-build-web" class="deploy-step" data-state="pending">
+                <div class="step-icon-bg">○</div>
+                <div class="step-label">Build Web</div>
+                <div class="step-detail"></div>
               </div>
-              <div id="step-restart" class="deploy-step" data-label="restart" style="flex:1;padding:8px 6px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border);text-align:center;">
-                <div class="step-icon" style="height:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);">○</div>
-                <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-top:2px;">restart</div>
-                <div class="step-detail" style="font-size:9px;color:var(--text-muted);margin-top:3px;min-height:11px;line-height:1.2;"></div>
+              <div id="step-restart" class="deploy-step" data-state="pending">
+                <div class="step-icon-bg">○</div>
+                <div class="step-label">Restart</div>
+                <div class="step-detail"></div>
               </div>
             </div>
 
@@ -2771,10 +2848,7 @@
           const stepEl = document.getElementById('step-' + deployState._currentStep)
           if (stepEl) {
             const detail = stepEl.querySelector('.step-detail')
-            if (detail) {
-              detail.textContent = `aguarde… (${sinceLastEvent}s)`
-              detail.style.color = sinceLastEvent >= 30 ? '#f59e0b' : 'var(--text-muted)'
-            }
+            if (detail) detail.textContent = `aguarde… (${sinceLastEvent}s)`
           }
           // Loga UMA vez no log de debug, sem spammar
           if (sinceLastEvent >= 30 && !deployState._waitMessageShown) {
@@ -2823,56 +2897,28 @@
     }
 
     // ─── Helpers de step visual ───────────────────────────────────────
-    // Estados: 'pending' (○ cinza), 'running' (⟳ azul + spinner), 'ok' (✓ verde), 'err' (✕ vermelho)
+    // Estados (no atributo data-state, CSS aplica cor/borda/animação):
+    //   'pending' (○ cinza), 'running' (⟳ azul + spin), 'ok' (✓ verde), 'err' (✕ vermelho)
+    const STEP_ICON = { pending: '○', running: '⟳', ok: '✓', err: '✕' }
+
     function deployStepReset(stepId) {
       const el = document.getElementById('step-' + stepId)
       if (!el) return
       el.dataset.state = 'pending'
-      el.style.borderColor = 'var(--border)'
-      el.style.background = 'var(--bg-surface)'
-      const icon = el.querySelector('.step-icon')
-      if (icon) { icon.textContent = '○'; icon.style.color = 'var(--text-muted)'; icon.style.animation = '' }
+      const icon = el.querySelector('.step-icon-bg')
+      if (icon) icon.textContent = STEP_ICON.pending
       const detail = el.querySelector('.step-detail')
-      if (detail) { detail.textContent = ''; detail.style.color = 'var(--text-muted)' }
+      if (detail) detail.textContent = ''
     }
 
     function deployStepSetState(stepId, state, detail) {
       const el = document.getElementById('step-' + stepId)
       if (!el) return
       el.dataset.state = state
-      const iconEl = el.querySelector('.step-icon')
+      const iconEl = el.querySelector('.step-icon-bg')
       const detailEl = el.querySelector('.step-detail')
-
-      if (state === 'running') {
-        el.style.borderColor = 'rgba(59,130,246,0.4)'
-        el.style.background = 'rgba(59,130,246,0.06)'
-        if (iconEl) {
-          iconEl.textContent = '⟳'
-          iconEl.style.color = '#3b82f6'
-          iconEl.style.animation = 'spin 1.4s linear infinite'
-        }
-      } else if (state === 'ok') {
-        el.style.borderColor = 'rgba(34,197,94,0.4)'
-        el.style.background = 'rgba(34,197,94,0.08)'
-        if (iconEl) {
-          iconEl.textContent = '✓'
-          iconEl.style.color = '#16a34a'
-          iconEl.style.animation = ''
-        }
-      } else if (state === 'err') {
-        el.style.borderColor = 'rgba(220,38,38,0.4)'
-        el.style.background = 'rgba(220,38,38,0.08)'
-        if (iconEl) {
-          iconEl.textContent = '✕'
-          iconEl.style.color = '#dc2626'
-          iconEl.style.animation = ''
-        }
-      }
-
-      if (detail !== undefined && detailEl) {
-        detailEl.textContent = detail
-        detailEl.style.color = state === 'err' ? '#dc2626' : 'var(--text-muted)'
-      }
+      if (iconEl) iconEl.textContent = STEP_ICON[state] || STEP_ICON.pending
+      if (detail !== undefined && detailEl) detailEl.textContent = detail
     }
 
     // Resume curto da última linha do log pra exibir como "detail" do step ativo
