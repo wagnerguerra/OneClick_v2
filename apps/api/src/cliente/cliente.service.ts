@@ -507,8 +507,11 @@ export class ClienteService {
   // PARÂMETROS DO CONTRATO
   // ============================================================
   async getContratoParams(clienteId: string, empresaId?: string) {
+    // Retorna o mais recente (proteção contra duplicatas históricas; o save
+    // novo já garante linha única).
     return prisma.clienteContratoParam.findFirst({
       where: { clienteId, ...(empresaId ? { empresaId } : {}) },
+      orderBy: { updatedAt: 'desc' },
     })
   }
 
@@ -516,9 +519,6 @@ export class ClienteService {
     honorario: number; lancamentos: number; faturamento: number
     nfEntrada: number; nfSaida: number; nfPrestado: number; nfTomado: number; funcionarios: number
   }) {
-    // Sanitiza: o `input` do tRPC inclui `clienteId` no spread, e o Prisma 6
-    // pode rejeitar silenciosamente um update com colunas extras. Pegamos só os
-    // campos válidos do model + força tipos (Int não aceita decimal).
     const clean = {
       honorario: Number(data.honorario) || 0,
       lancamentos: Math.round(Number(data.lancamentos) || 0),
@@ -529,12 +529,17 @@ export class ClienteService {
       nfTomado: Math.round(Number(data.nfTomado) || 0),
       funcionarios: Math.round(Number(data.funcionarios) || 0),
     }
-    console.log(`[saveContratoParams] clienteId=${clienteId} empresaId=${empresaId || 'null'} data=`, JSON.stringify(clean))
-    return prisma.clienteContratoParam.upsert({
-      where: { clienteId_empresaId: { clienteId, empresaId: empresaId || '' } },
-      create: { clienteId, empresaId: empresaId || null, ...clean },
-      update: clean,
+    // Não usar `upsert` com chave composta que inclui empresa_id NULLável: no
+    // Postgres `NULL != NULL` em unique, então a constraint não dispara e o
+    // upsert insere linha duplicada toda vez. Faz find+update OR create.
+    const empresa = empresaId || null
+    const existing = await prisma.clienteContratoParam.findFirst({
+      where: { clienteId, empresaId: empresa },
     })
+    if (existing) {
+      return prisma.clienteContratoParam.update({ where: { id: existing.id }, data: clean })
+    }
+    return prisma.clienteContratoParam.create({ data: { clienteId, empresaId: empresa, ...clean } })
   }
 
   // ============================================================

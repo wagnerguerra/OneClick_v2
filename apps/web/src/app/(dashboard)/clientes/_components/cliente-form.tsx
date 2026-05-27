@@ -1785,10 +1785,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
     if (!clienteId) return
     setSavingParams(true)
     try {
-      const payload = { clienteId, ...params }
-      // DEBUG: ajuda a diagnosticar quando só algum campo aparece salvo
-      console.log('[saveParams] enviando', payload)
-      await trpc.cliente.saveContratoParams.mutate(payload)
+      await trpc.cliente.saveContratoParams.mutate({ clienteId, ...params })
       await alerts.success('Parametros salvos', 'Os parametros do contrato foram atualizados.')
       setShowParamModal(false)
     } catch (e) {
