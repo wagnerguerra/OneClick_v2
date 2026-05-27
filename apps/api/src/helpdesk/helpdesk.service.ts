@@ -96,25 +96,41 @@ export class HelpdeskService {
   }
 
   /**
-   * Verifica se o usuário pode ATUAR como agente (TI real): master/empresa-master,
-   * role DIRETOR/COORDENADOR, ou sub-permissão helpdesk.atuar_agente=true.
-   * Mesmos critérios do probeAtuarAgente — usar em qualquer ação restrita à TI
-   * (kanban, configurações, mover/atribuir cards).
+   * Verifica se o usuário pode ATUAR como agente (TI real). Critérios (qualquer um basta):
+   *  1. master / empresa-master
+   *  2. role DIRETOR / COORDENADOR
+   *  3. sub-permissão helpdesk.atuar_agente = true (explícita)
+   *  4. está em uma ÁREA de TI/Tecnologia/Suporte/Helpdesk (auto — qualquer usuário
+   *     dessas áreas é considerado agente sem precisar de sub-permissão manual)
+   *
+   * Usar em qualquer ação restrita à TI (kanban, configurações, mover/atribuir cards).
    */
   async canAtuarAgente(userId: string): Promise<boolean> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { isMaster: true, isEmpresaMaster: true, role: true },
+      select: {
+        isMaster: true,
+        isEmpresaMaster: true,
+        role: true,
+        area: { select: { name: true } },
+      },
     })
     if (!user) return false
     if (user.isMaster || user.isEmpresaMaster) return true
     if (user.role === 'DIRETOR' || user.role === 'COORDENADOR') return true
+
+    // Sub-permissão explícita
     const perm = await prisma.userPermission.findFirst({
       where: { userId, moduleSlug: 'helpdesk' },
       select: { subPermissions: true },
     })
     const sub = (perm?.subPermissions ?? {}) as Record<string, boolean>
-    return sub.atuar_agente === true
+    if (sub.atuar_agente === true) return true
+
+    // Área do usuário pertence ao suporte/TI? (auto-agente)
+    if (user.area?.name && isAreaTi(user.area.name)) return true
+
+    return false
   }
 
   private async addEvento(
@@ -1329,4 +1345,22 @@ export class HelpdeskService {
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+/**
+ * Detecta se o nome de uma área indica "TI/Suporte" pra promover seus usuários
+ * automaticamente a agentes do Helpdesk. Normaliza acentos e compara por palavras
+ * exatas — evita falso-positivo (ex: área "Atividades" não casa por conter "ti").
+ */
+function isAreaTi(areaName: string): boolean {
+  const normalizado = areaName
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .trim()
+  // Palavras exatas que indicam área de TI/Suporte
+  const palavras = normalizado.split(/\s+/)
+  const tiTokens = new Set(['ti', 'tecnologia', 'suporte', 'helpdesk', 'sistemas', 'informatica'])
+  // Match se qualquer palavra da área bate com um token de TI
+  return palavras.some((p) => tiTokens.has(p))
 }
