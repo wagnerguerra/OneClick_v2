@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 import Link from 'next/link'
@@ -46,19 +46,45 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    setValue,
+    getValues,
     formState: { errors },
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
   })
 
+  // Captura autofill do navegador — Chrome preenche programaticamente e RHF
+  // não detecta. Sem isso, primeira tentativa de submit falha validação Zod
+  // com campos "vazios" e o user precisa clicar em Entrar 2x.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const emailEl = document.getElementById('email') as HTMLInputElement | null
+      const passEl = document.getElementById('password') as HTMLInputElement | null
+      if (emailEl?.value && !getValues('email')) {
+        setValue('email', emailEl.value, { shouldValidate: false })
+      }
+      if (passEl?.value && !getValues('password')) {
+        setValue('password', passEl.value, { shouldValidate: false })
+      }
+    }, 100)
+    return () => clearTimeout(t)
+  }, [setValue, getValues])
+
   async function onSubmit(data: LoginInput) {
     setError(null)
     setLoading(true)
 
+    // Fallback de autofill: se RHF tem vazio mas o DOM tem valor, usa o DOM.
+    // (Defesa extra além do useEffect — cobre casos onde o autofill chega depois.)
+    const emailEl = document.getElementById('email') as HTMLInputElement | null
+    const passEl = document.getElementById('password') as HTMLInputElement | null
+    const email = data.email || emailEl?.value || ''
+    const password = data.password || passEl?.value || ''
+
     try {
       const result = await signIn.email({
-        email: data.email,
-        password: data.password,
+        email,
+        password,
         rememberMe,
       })
 

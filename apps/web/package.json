@@ -23,6 +23,7 @@
     "@xyflow/react": "^12.10.2",
     "better-auth": "^1.2.0",
     "chart.js": "^4.5.1",
+    "chartjs-plugin-datalabels": "^2.2.0",
     "cmdk": "1.0.0",
     "dagre": "^0.8.5",
     "html-to-image": "^1.11.13",

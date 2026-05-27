@@ -347,12 +347,11 @@ export class HelpdeskService {
       where: { id: userId },
       select: { id: true, isMaster: true, isEmpresaMaster: true, role: true, areaId: true },
     })
-    const isPriv = !!(
-      user?.isMaster
-      || user?.isEmpresaMaster
-      || user?.role === 'DIRETOR'
-      || user?.role === 'COORDENADOR'
-    )
+    // Privilegiado vê tudo sem filtro de escopo. Usa o mesmo critério do
+    // canAtuarAgente: master/empresa-master, DIRETOR/COORDENADOR, sub-perm
+    // helpdesk.atuar_agente, OU pertencer à área de TI/Suporte/Tecnologia.
+    const isPriv = await this.canAtuarAgente(userId)
+    console.log(`[Helpdesk.list] userId=${userId} scope=${input.scope} isPriv=${isPriv}`)
 
     // Where base
     const where: any = {

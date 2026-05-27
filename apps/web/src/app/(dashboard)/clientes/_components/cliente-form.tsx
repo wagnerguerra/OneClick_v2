@@ -35,6 +35,7 @@ import { ObrigacoesCard } from './obrigacoes-card'
 import { ObrigacoesClienteSection } from './obrigacoes-cliente-section'
 import { ProtocolosCard } from './protocolos-card'
 import { DriveSyncCard } from './drive-sync-card'
+import { ContratoChartModal } from './contrato-charts'
 import { masks, numeroParaMoeda, moedaParaNumero } from '@/lib/masks'
 import {
   createClienteSchema,
@@ -2134,9 +2135,9 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
         </>
       )}
 
-      {/* Modal Graficos */}
+      {/* Modal Gráficos — Contrato x ERP (componente extraído) */}
       {showChartModal && (
-        <ChartModal
+        <ContratoChartModal
           chartDatei={chartDatei} setChartDatei={setChartDatei}
           chartDatef={chartDatef} setChartDatef={setChartDatef}
           chartData={chartData} chartLoading={chartLoading}
@@ -2150,228 +2151,6 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
   )
 }
 
-// Modal de Graficos completo
-function ChartModal({ chartDatei, setChartDatei, chartDatef, setChartDatef, chartData, chartLoading, params, onLoad, onClose, onOpenErp }: {
-  chartDatei: string; setChartDatei: (v: string) => void
-  chartDatef: string; setChartDatef: (v: string) => void
-  chartData: Record<string, unknown> | null; chartLoading: boolean
-  params: Record<string, number>
-  onLoad: () => void; onClose: () => void; onOpenErp: () => void
-}) {
-  const [fullscreen, setFullscreen] = useState(false)
-  const [sections, setSections] = useState({
-    parametros: true, comparativo: true,
-    lancamentos: true, faturamento: true, nf_entrada: true, nf_saida: true,
-    nf_prestado: true, nf_tomado: true, vidas: true,
-  })
-  const [Charts, setCharts] = useState<{ Bar: React.ComponentType<Record<string, unknown>> } | null>(null)
-
-  useEffect(() => {
-    Promise.all([
-      import('chart.js').then(mod => {
-        mod.Chart.register(mod.CategoryScale, mod.LinearScale, mod.BarElement, mod.LineElement, mod.PointElement, mod.Title, mod.Tooltip, mod.Legend, mod.Filler)
-      }),
-      import('react-chartjs-2'),
-    ]).then(([, c]) => setCharts({ Bar: c.Bar as React.ComponentType<Record<string, unknown>> }))
-  }, [])
-
-  const INDICATORS = [
-    { key: 'lancamentos', label: 'Lancamentos', paramKey: 'lancamentos', color: '#5ea3cb', isMoney: false },
-    { key: 'faturamento', label: 'Faturamento', paramKey: 'faturamento', color: '#10b981', isMoney: true },
-    { key: 'nf_entrada', label: 'NF Entrada', paramKey: 'nfEntrada', color: '#f59e0b', isMoney: false },
-    { key: 'nf_saida', label: 'NF Saida', paramKey: 'nfSaida', color: '#8b5cf6', isMoney: false },
-    { key: 'nf_prestado', label: 'NF Prestado', paramKey: 'nfPrestado', color: '#06b6d4', isMoney: false },
-    { key: 'nf_tomado', label: 'NF Tomado', paramKey: 'nfTomado', color: '#ec4899', isMoney: false },
-    { key: 'vidas', label: 'Funcionarios', paramKey: 'funcionarios', color: '#f97316', isMoney: false },
-  ]
-
-  const fmtVal = (v: number, money: boolean) => money ? `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : v.toLocaleString('pt-BR')
-
-  return (
-    <>
-      <div className="fixed inset-0 z-50 bg-black/50 modal-overlay" onClick={() => !chartLoading && onClose()} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className={cn('bg-card rounded-lg shadow-xl flex flex-col modal-content transition-all', fullscreen ? 'w-full h-full max-w-none max-h-none rounded-none' : 'w-full max-w-5xl max-h-[90vh]')} onClick={(e) => e.stopPropagation()}>
-          {/* Header */}
-          <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between shrink-0">
-            <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
-              <FileBarChart className="h-4 w-4 text-muted-foreground" /> Graficos — Contrato x ERP
-            </h4>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setFullscreen(!fullscreen)} className="text-muted-foreground hover:text-foreground" title={fullscreen ? 'Restaurar' : 'Tela cheia'}>
-                {fullscreen ? <ArrowLeft className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
-              </button>
-              <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
-            </div>
-          </div>
-          {/* Filtros + Checkboxes */}
-          <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] shrink-0 space-y-2">
-            <div className="flex items-end gap-3 flex-wrap">
-              <div className="space-y-1"><Label>Inicio</Label><Input type="date" value={chartDatei} onChange={(e) => setChartDatei(e.target.value)} /></div>
-              <div className="space-y-1"><Label>Fim</Label><Input type="date" value={chartDatef} onChange={(e) => setChartDatef(e.target.value)} /></div>
-              <Button type="button" size="sm" onClick={onLoad} disabled={chartLoading} style={{ backgroundColor: '#10b981', color: '#fff' }}>
-                {chartLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />} Atualizar
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase">Exibir:</span>
-              {[
-                { k: 'parametros', l: 'Parametros' }, { k: 'comparativo', l: 'Comparativo' },
-                ...INDICATORS.map(i => ({ k: i.key, l: i.label })),
-              ].map(s => (
-                <label key={s.k} className="flex items-center gap-1 text-[10px] cursor-pointer">
-                  <Checkbox checked={sections[s.k as keyof typeof sections] ?? true} onCheckedChange={(v) => setSections(prev => ({ ...prev, [s.k]: !!v }))} />
-                  {s.l}
-                </label>
-              ))}
-            </div>
-          </div>
-          {/* Body */}
-          <div className="flex-1 overflow-y-auto p-5 scrollbar-none">
-            {chartLoading ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <Loader2 className="h-8 w-8 animate-spin text-emerald-500 mb-3" />
-                <p className="text-sm text-muted-foreground">Carregando dados do SCI...</p>
-              </div>
-            ) : !chartData ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <FileBarChart className="h-10 w-10 mb-2 opacity-20" />
-                <p className="text-sm mb-3">Nenhuma consulta ERP salva para este periodo.</p>
-                <Button type="button" variant="outline" size="sm" onClick={onOpenErp}>Executar Verificar no ERP</Button>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Parametros do contrato */}
-                {sections.parametros && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {INDICATORS.map(ind => {
-                      const paramVal = params[ind.paramKey] || 0
-                      const rows = chartData[ind.key] as Array<Record<string, unknown>> | undefined
-                      const total = rows ? (rows as Array<Record<string, unknown>>).reduce((s: number, r) => s + (Number(r.movimentacao) || 0), 0) : 0
-                      const avg = rows && rows.length > 0 ? total / rows.length : 0
-                      const status = paramVal > 0 && avg > paramVal ? 'defasado' : 'ok'
-                      return (
-                        <div key={ind.key} className="rounded border border-border/40 p-3">
-                          <p className="text-[10px] text-muted-foreground uppercase">{ind.label}</p>
-                          <p className="text-lg font-bold" style={{ color: ind.color }}>{fmtVal(Math.round(ind.isMoney ? avg : avg), ind.isMoney)}</p>
-                          {paramVal > 0 && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <span className="text-[9px] text-muted-foreground">Contrato: {fmtVal(paramVal, ind.isMoney)}</span>
-                              <span className={cn('text-[9px] font-bold px-1 rounded', status === 'ok' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700')}>
-                                {status === 'ok' ? 'OK' : 'DEFASADO'}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-
-                {/* Comparativo */}
-                {sections.comparativo && (
-                  <div className="rounded border border-border/40 overflow-hidden">
-                    <div className="px-4 py-2 bg-muted/30 border-b border-border/40">
-                      <h5 className="text-xs font-semibold">Comparativo: Contrato x ERP (media mensal)</h5>
-                    </div>
-                    <table className="w-full text-xs">
-                      <thead><tr className="border-b border-border/40 bg-muted/10">
-                        <th className="text-left py-2 px-3 font-semibold">Indicador</th>
-                        <th className="text-right py-2 px-3 font-semibold">Contrato</th>
-                        <th className="text-right py-2 px-3 font-semibold">ERP (media)</th>
-                        <th className="text-center py-2 px-3 font-semibold">Status</th>
-                      </tr></thead>
-                      <tbody>
-                        {INDICATORS.map(ind => {
-                          const paramVal = params[ind.paramKey] || 0
-                          const rows = chartData[ind.key] as Array<Record<string, unknown>> | undefined
-                          const total = rows ? rows.reduce((s: number, r) => s + (Number(r.movimentacao) || 0), 0) : 0
-                          const avg = rows && rows.length > 0 ? total / rows.length : 0
-                          const status = !paramVal ? 'sem parametro' : avg > paramVal ? 'defasado' : 'ok'
-                          return (
-                            <tr key={ind.key} className="border-b border-border/20">
-                              <td className="py-1.5 px-3 font-medium">{ind.label}</td>
-                              <td className="py-1.5 px-3 text-right font-mono">{paramVal ? fmtVal(paramVal, ind.isMoney) : '—'}</td>
-                              <td className="py-1.5 px-3 text-right font-mono">{fmtVal(ind.isMoney ? avg : Math.round(avg), ind.isMoney)}</td>
-                              <td className="py-1.5 px-3 text-center">
-                                <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded',
-                                  status === 'ok' ? 'bg-emerald-100 text-emerald-700' :
-                                  status === 'defasado' ? 'bg-red-100 text-red-700' :
-                                  'bg-gray-100 text-gray-500'
-                                )}>{status === 'ok' ? 'OK' : status === 'defasado' ? 'DEFASADO' : 'SEM PARAM'}</span>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                {/* Graficos por indicador */}
-                {Charts && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {INDICATORS.filter(ind => sections[ind.key as keyof typeof sections]).map((ind) => {
-                      const rows = (chartData[ind.key] as Array<Record<string, unknown>> | undefined || [])
-                        .sort((a: Record<string, unknown>, b: Record<string, unknown>) => (Number(a.ano) * 100 + Number(a.mes)) - (Number(b.ano) * 100 + Number(b.mes)))
-                      if (rows.length === 0) return null
-                      const labels = rows.map((r: Record<string, unknown>) => `${String(r.mes).padStart(2, '0')}/${r.ano}`)
-                      const values = rows.map((r: Record<string, unknown>) => Number(r.movimentacao) || 0)
-                      const paramVal = params[ind.paramKey] || 0
-
-                      const cData = {
-                        labels,
-                        datasets: [
-                          { label: 'ERP (SCI)', data: values, backgroundColor: ind.color + '80', borderColor: ind.color, borderWidth: 1, borderRadius: 3 },
-                          ...(paramVal > 0 ? [{ label: 'Limite contrato', data: labels.map(() => paramVal), type: 'line' as const, borderColor: '#ef4444', borderWidth: 2, borderDash: [6, 3], pointRadius: 0, fill: false }] : []),
-                        ],
-                      }
-                      const opts = {
-                        responsive: true, maintainAspectRatio: false,
-                        plugins: {
-                          legend: { position: 'top' as const, labels: { font: { size: 10 }, usePointStyle: true, pointStyleWidth: 8 } },
-                          title: { display: true, text: ind.label, font: { size: 12, weight: '600' as const }, color: '#212529' },
-                        },
-                        scales: {
-                          y: { beginAtZero: true, ticks: { font: { size: 9 }, callback: (v: number) => ind.isMoney ? `R$ ${(v/1000).toFixed(0)}k` : String(v) } },
-                          x: { ticks: { font: { size: 9 } } },
-                        },
-                      }
-                      return (
-                        <div key={ind.key} className="rounded border border-border/40 p-4">
-                          <div style={{ height: fullscreen ? '350px' : '220px' }}>
-                            <Charts.Bar data={cData} options={opts} />
-                          </div>
-                          {/* Mini tabela abaixo */}
-                          <div className="mt-2 max-h-[120px] overflow-y-auto scrollbar-none">
-                            <table className="w-full text-[10px]">
-                              <tbody>
-                                {rows.map((r: Record<string, unknown>, i: number) => (
-                                  <tr key={i} className="border-b border-border/10">
-                                    <td className="py-0.5">{String(r.mes).padStart(2, '0')}/{String(r.ano)}</td>
-                                    <td className="py-0.5 text-right font-mono">{fmtVal(Number(r.movimentacao) || 0, ind.isMoney)}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          {/* Footer */}
-          <div className="px-5 py-3 border-t border-[rgba(0,0,0,0.08)] flex justify-end shrink-0">
-            <Button type="button" variant="outline" size="sm" onClick={onClose}>Fechar</Button>
-          </div>
-        </div>
-      </div>
-    </>
-  )
-}
 
 function InlineFileName({ fileName, fileUrl, onRename }: { fileName: string; fileUrl: string; onRename: (name: string) => Promise<void> }) {
   const [editing, setEditing] = useState(false)
