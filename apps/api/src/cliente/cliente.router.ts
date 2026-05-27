@@ -29,6 +29,7 @@ export function createClienteRouter(
   cnpjService?: CnpjService,
   enriquecimentoService?: import('./cliente-enriquecimento.service').ClienteEnriquecimentoService,
   sincronizarResponsaveisService?: import('./sincronizar-responsaveis.service').SincronizarResponsaveisService,
+  contratoSyncService?: import('./contrato-sync.service').ContratoSyncService,
 ) {
   return router({
     // Listagem (ativos)
@@ -534,7 +535,26 @@ export function createClienteRouter(
       .query(async ({ input, ctx }) => {
         const cliente = await clienteService.getById(input.clienteId, ctx.isMaster, ctx.empresaId)
         const cnpj = (cliente.documento || '').replace(/\D/g, '')
-        return sciService.buscarMetricasSci(cnpj, input.datai, input.dataf, input.indicadores)
+
+        // Tenta SCI local primeiro. Se falhar com erro indicativo de que o SCI
+        // não está acessível (ENOENT no python, conexão recusada Firebird,
+        // timeout), faz fallback pra Launcher remoto via SSE.
+        try {
+          return await sciService.buscarMetricasSci(cnpj, input.datai, input.dataf, input.indicadores)
+        } catch (err) {
+          const msg = (err as Error).message || ''
+          const sciUnreachable = /ENOENT|conn|connect|refused|timeout|Firebird|python|Não foi possível conectar/i.test(msg)
+          if (!sciUnreachable || !contratoSyncService) throw err
+
+          // Fallback: pede ao Launcher local via SSE
+          console.log(`[Cliente] SCI local indisponível, pedindo ao Launcher: ${msg.slice(0, 100)}`)
+          return contratoSyncService.requestErpRemote({
+            cnpj,
+            datai: input.datai,
+            dataf: input.dataf,
+            indicadores: input.indicadores,
+          })
+        }
       }),
 
     atualizarIdSistemaSci: writeProcedure(MODULE)

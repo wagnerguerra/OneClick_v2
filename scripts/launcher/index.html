@@ -2227,6 +2227,13 @@
       // Inicia SSE stream pra eventos em tempo real (cliente updated etc.)
       window.api.biSyncStreamStart(url)
       biSyncAppendLog('SSE conectado — escutando eventos em tempo real', 'info')
+      // Stream paralelo: escuta pedidos de consulta SCI vindos do app web (VPS).
+      // Quando user clica "Verificar no ERP" no app, o launcher recebe, executa
+      // sci_metrics.py local e devolve via callback REST.
+      if (window.api.contratoSyncStreamStart) {
+        window.api.contratoSyncStreamStart(url)
+        biSyncAppendLog('Contratos: pronto pra responder consultas remotas', 'ok')
+      }
     }
 
     // Listener global de eventos SSE (instalado uma vez no boot)
@@ -2250,8 +2257,28 @@
       })
     }
 
+    // Listener de eventos do Contratos Sync — só pra logar atividade
+    if (window.api && window.api.onContratoSyncEvent) {
+      window.api.onContratoSyncEvent((ev) => {
+        if (!ev || !ev.type) return
+        if (ev.type === 'ping') return
+        if (ev.type === '__error') {
+          biSyncAppendLog(`Contratos SSE: erro ${ev.status || ev.message || ''}`, 'warn')
+          return
+        }
+        if (ev.type === 'request-started') {
+          biSyncAppendLog(`Contratos: pedido recebido (${ev.requestId.slice(0, 8)}) — executando SCI…`, 'info')
+        } else if (ev.type === 'request-completed') {
+          biSyncAppendLog(`Contratos: ✓ pedido (${ev.requestId.slice(0, 8)}) respondido`, 'ok')
+        } else if (ev.type === 'request-failed') {
+          biSyncAppendLog(`Contratos: ✗ pedido (${ev.requestId.slice(0, 8)}) falhou — ${ev.erro || ''}`, 'warn')
+        }
+      })
+    }
+
     function biSyncLogout() {
       window.api.biSyncStreamStop()
+      if (window.api.contratoSyncStreamStop) window.api.contratoSyncStreamStop()
       window.api.biSyncLogout() // limpa cookie jar na main process
       biSync.baseUrl = ''
       biSync.cookie = ''

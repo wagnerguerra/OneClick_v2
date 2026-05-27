@@ -19,6 +19,7 @@ import { SincronizarResponsaveisService } from '../cliente/sincronizar-responsav
 import { ImportOneclickService } from '../cliente/import-oneclick.service'
 import { LegacyImportService } from '../cliente/legacy-import.service'
 import { SciService } from '../cliente/sci.service'
+import { ContratoSyncService } from '../cliente/contrato-sync.service'
 import { createClienteRouter } from '../cliente/cliente.router'
 import { StripeService } from '../stripe/stripe.service'
 import { createBillingRouter } from '../stripe/stripe.router'
@@ -297,6 +298,7 @@ export class TrpcService {
     @Inject(SincronizarResponsaveisService) private readonly sincronizarResponsaveisService: SincronizarResponsaveisService,
     @Inject(LegacyImportService) private readonly legacyImportService: LegacyImportService,
     @Inject(SciService) private readonly sciService: SciService,
+    @Inject(ContratoSyncService) private readonly contratoSyncService: ContratoSyncService,
     @Inject(StripeService) private readonly stripeService: StripeService,
     @Inject(ColaboradorService) private readonly colaboradorService: ColaboradorService,
     @Inject(FornecedorService) private readonly fornecedorService: FornecedorService,
@@ -388,7 +390,7 @@ export class TrpcService {
       nfse: createNfseRouter(this.nfseDistService),
       onboarding: createOnboardingRouter(this.onboardingService),
       admin: createAdminRouter(this.adminService),
-      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService),
+      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService),
       billing: createBillingRouter(this.stripeService),
       colaborador: createColaboradorRouter(this.colaboradorService),
       fornecedor: createFornecedorRouter(this.fornecedorService),

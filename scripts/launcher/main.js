@@ -1203,6 +1203,154 @@ function registerIpcHandlers() {
   })
 
   // ════════════════════════════════════════════════════════
+  // CONTRATOS SYNC — Launcher escuta SSE da VPS, recebe pedidos de
+  // consulta SCI, executa sci_metrics.py local e devolve via callback.
+  //
+  // Reaproveita biSyncCookies (mesma sessão Better Auth — o user já se
+  // logou no BI Sync). O stream é independente do BI Sync e roda em
+  // paralelo. Quando a VPS publica evento `contrato-erp-request`, o
+  // launcher executa, posta callback, e a VPS resolve a Promise do tRPC.
+  // ════════════════════════════════════════════════════════
+  let contratoSyncStreamCtrl = null
+  function contratoSyncStreamStop() {
+    if (contratoSyncStreamCtrl) {
+      try { contratoSyncStreamCtrl.abort() } catch {}
+      contratoSyncStreamCtrl = null
+    }
+  }
+
+  async function executarSciMetricsLocal(payload) {
+    const { cnpj, datai, dataf, indicadores } = payload
+    const sciScript = path.join(projectRoot, 'apps', 'api', 'src', 'cliente', 'sci_metrics.py')
+    const args = [sciScript, datai, dataf, String(cnpj).replace(/\D/g, '')]
+    if (Array.isArray(indicadores) && indicadores.length > 0) {
+      args.push(indicadores.join(','))
+    }
+    const result = spawnSync('python', args, {
+      cwd: path.dirname(sciScript),
+      encoding: 'buffer',
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      timeout: 90000,
+      windowsHide: true,
+    })
+    if (result.error) throw new Error(result.error.message)
+    const stdout = (result.stdout || Buffer.from('')).toString('utf8').trim()
+    const stderr = (result.stderr || Buffer.from('')).toString('utf8').trim()
+    if (!stdout) throw new Error(stderr || 'sci_metrics.py sem resposta')
+    try {
+      return JSON.parse(stdout)
+    } catch (e) {
+      throw new Error(`JSON inválido: ${e.message}`)
+    }
+  }
+
+  async function postarContratoCallback(baseUrl, requestId, body) {
+    const cookieStr = biSyncCookies.get(baseUrl) || ''
+    if (!cookieStr) throw new Error('Sem cookie — não autenticado')
+    const url = `${baseUrl}/api/contratos-sync/callback/${encodeURIComponent(requestId)}`
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': baseUrl,
+        'Cookie': cookieStr,
+        'User-Agent': 'OneClick-Launcher/1.0',
+      },
+      body: JSON.stringify(body),
+    })
+    if (!resp.ok) throw new Error(`Callback HTTP ${resp.status}`)
+    return resp.json()
+  }
+
+  async function processarContratoErpRequest(baseUrl, event) {
+    const { requestId, payload } = event
+    if (!requestId || !payload) return
+    console.log(`[ContratoSync] Recebido pedido ${requestId} — cnpj=${payload.cnpj}, período=${payload.datai}..${payload.dataf}`)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('contrato-sync-event', { type: 'request-started', requestId, payload })
+    }
+    try {
+      const dados = await executarSciMetricsLocal(payload)
+      await postarContratoCallback(baseUrl, requestId, { dados })
+      console.log(`[ContratoSync] ✓ ${requestId} concluído`)
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('contrato-sync-event', { type: 'request-completed', requestId })
+      }
+    } catch (e) {
+      console.warn(`[ContratoSync] ✗ ${requestId}: ${e.message}`)
+      try { await postarContratoCallback(baseUrl, requestId, { erro: e.message }) } catch {}
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('contrato-sync-event', { type: 'request-failed', requestId, erro: e.message })
+      }
+    }
+  }
+
+  async function contratoSyncStreamStart(baseUrl) {
+    contratoSyncStreamStop()
+    const cookieStr = biSyncCookies.get(baseUrl) || ''
+    if (!cookieStr) return
+    contratoSyncStreamCtrl = new AbortController()
+    const url = `${baseUrl}/api/contratos-sync/eventos`
+    try {
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Origin': baseUrl,
+          'Accept': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Cookie': cookieStr,
+          'User-Agent': 'OneClick-Launcher/1.0',
+        },
+        signal: contratoSyncStreamCtrl.signal,
+      })
+      if (!resp.ok || !resp.body) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('contrato-sync-event', { type: '__error', status: resp.status })
+        }
+        return
+      }
+      const reader = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const events = buffer.split('\n\n')
+        buffer = events.pop() || ''
+        for (const ev of events) {
+          const dataLine = ev.split('\n').find(l => l.startsWith('data:'))
+          if (!dataLine) continue
+          try {
+            const json = JSON.parse(dataLine.slice(5).trim())
+            if (json.type === 'contrato-erp-request') {
+              // Dispatcha em background — não bloqueia o reader do SSE
+              processarContratoErpRequest(baseUrl, json).catch(() => {})
+            } else if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('contrato-sync-event', json)
+            }
+          } catch { /* skip malformed */ }
+        }
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('contrato-sync-event', { type: '__error', message: e.message })
+        }
+      }
+    }
+  }
+
+  ipcMain.handle('contrato-sync-stream-start', (_e, baseUrl) => {
+    contratoSyncStreamStart(baseUrl).catch(() => {})
+    return { ok: true }
+  })
+  ipcMain.handle('contrato-sync-stream-stop', () => {
+    contratoSyncStreamStop()
+    return { ok: true }
+  })
+
+  // ════════════════════════════════════════════════════════
   // DEPLOY — painel "Publicar Implementações"
   // Lê .deploy.local (SSH host/key/user) e orquestra:
   //   1. git push local  →  10%

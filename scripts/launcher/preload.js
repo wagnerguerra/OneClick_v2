@@ -47,6 +47,16 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('bi-sync-event', handler)
   },
 
+  // Contratos Sync — Launcher escuta SSE da VPS, executa sci_metrics.py local
+  // e devolve via callback. Reusa o cookie do BI Sync (mesma sessão).
+  contratoSyncStreamStart: (baseUrl) => ipcRenderer.invoke('contrato-sync-stream-start', baseUrl),
+  contratoSyncStreamStop: () => ipcRenderer.invoke('contrato-sync-stream-stop'),
+  onContratoSyncEvent: (callback) => {
+    const handler = (_event, data) => callback(data)
+    ipcRenderer.on('contrato-sync-event', handler)
+    return () => ipcRenderer.removeListener('contrato-sync-event', handler)
+  },
+
   // Deploy — painel "Publicar Implementações"
   deployStatus: () => ipcRenderer.invoke('deploy:status'),
   deployExecute: (payload) => ipcRenderer.invoke('deploy:execute', payload),
