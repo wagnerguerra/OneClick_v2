@@ -95,6 +95,28 @@ export class HelpdeskService {
     }
   }
 
+  /**
+   * Verifica se o usuário pode ATUAR como agente (TI real): master/empresa-master,
+   * role DIRETOR/COORDENADOR, ou sub-permissão helpdesk.atuar_agente=true.
+   * Mesmos critérios do probeAtuarAgente — usar em qualquer ação restrita à TI
+   * (kanban, configurações, mover/atribuir cards).
+   */
+  async canAtuarAgente(userId: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isMaster: true, isEmpresaMaster: true, role: true },
+    })
+    if (!user) return false
+    if (user.isMaster || user.isEmpresaMaster) return true
+    if (user.role === 'DIRETOR' || user.role === 'COORDENADOR') return true
+    const perm = await prisma.userPermission.findFirst({
+      where: { userId, moduleSlug: 'helpdesk' },
+      select: { subPermissions: true },
+    })
+    const sub = (perm?.subPermissions ?? {}) as Record<string, boolean>
+    return sub.atuar_agente === true
+  }
+
   private async addEvento(
     ticketId: string,
     autorId: string | null,

@@ -66,11 +66,12 @@ const STATUS_COR: Record<HelpdeskStatus, string> = {
 export default function HelpdeskPage() {
   const router = useRouter()
   // Estados independentes:
-  //   - isAgente: tem permissão helpdesk.canRead → vê painel completo (todos da empresa/área)
-  //   - podeAtuar: pode arrastar, atribuir, classificar prioridade (TI/diretor/coordenador)
-  // Um user do Fiscal pode ser isAgente=true (acompanha) mas podeAtuar=false (não mexe).
+  //   - isAgente: tem permissão helpdesk.canRead → vê o módulo (qualquer um que tenha o slug)
+  //   - podeAtuar: É TI/DIRETOR/COORDENADOR ou tem sub-permissão atuar_agente — vê tudo,
+  //     pode arrastar, configurar, etc. É o critério REAL pra distinguir "TI" dos demais.
+  // Colaborador comum: isAgente=true (vê módulo) MAS podeAtuar=false (vê só os próprios).
   const [isAgente, setIsAgente] = useState<boolean | null>(null)
-  const [podeAtuar, setPodeAtuar] = useState(false)
+  const [podeAtuar, setPodeAtuar] = useState<boolean | null>(null)
   const [items, setItems] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
   const [scope, setScope] = useState<'MEUS' | 'AREA' | 'TODOS'>('MEUS')
@@ -87,10 +88,10 @@ export default function HelpdeskPage() {
     if (typeof window !== 'undefined') window.localStorage.setItem('helpdesk:viewMode', viewMode)
   }, [viewMode])
 
-  // Não-agentes (usuários comuns) só veem em modo Lista — força quando descobrir o papel
+  // Não-TI (sem podeAtuar) só veem em modo Lista — força quando descobrir o papel
   useEffect(() => {
-    if (isAgente === false && viewMode !== 'lista') setViewMode('lista')
-  }, [isAgente, viewMode])
+    if (podeAtuar === false && viewMode !== 'lista') setViewMode('lista')
+  }, [podeAtuar, viewMode])
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300)
@@ -116,10 +117,12 @@ export default function HelpdeskPage() {
   }, [])
 
   const fetchData = useCallback(async () => {
-    if (isAgente === null) return
+    // Aguarda descobrir o papel real (podeAtuar = TI vs colaborador comum)
+    if (podeAtuar === null) return
     setLoading(true)
     try {
-      if (isAgente) {
+      if (podeAtuar) {
+        // TI: vê painel completo conforme escopo
         const res = await (trpc.helpdesk as any).list.query({
           scope,
           search: debouncedSearch || undefined,
@@ -129,10 +132,8 @@ export default function HelpdeskPage() {
         })
         setItems(res.data || [])
       } else {
-        // Colaborador: vê apenas os próprios tickets em formato kanban read-only
+        // Colaborador comum: vê APENAS os próprios tickets em formato lista
         const data = await (trpc.helpdesk as any).listMeus.query({ incluirHistorico: true })
-        // Filtros locais — não tem suporte server-side no listMeus, mas pra
-        // colaborador a volumetria é baixa
         const q = (debouncedSearch || '').trim().toLowerCase()
         const filtered = (data || []).filter((t: Ticket) => {
           if (filtroPrioridade && t.prioridade !== filtroPrioridade) return false
@@ -149,7 +150,7 @@ export default function HelpdeskPage() {
     } finally {
       setLoading(false)
     }
-  }, [isAgente, scope, debouncedSearch, filtroPrioridade])
+  }, [podeAtuar, scope, debouncedSearch, filtroPrioridade])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -252,8 +253,8 @@ export default function HelpdeskPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {/* Toggle Kanban/Lista — só pra agentes (TI). Demais usuários veem só Lista. */}
-          {isAgente && (
+          {/* Toggle Kanban/Lista — só TI (podeAtuar). Demais usuários veem só Lista. */}
+          {podeAtuar && (
             <div className="flex items-center border rounded-[2px] overflow-hidden">
               <button
                 type="button"
@@ -281,8 +282,8 @@ export default function HelpdeskPage() {
           >
             <Plus className="h-4 w-4" /> Novo Ticket
           </Button>
-          {/* Configurações — só TI/agentes */}
-          {isAgente && (
+          {/* Configurações — só TI (podeAtuar) */}
+          {podeAtuar && (
             <Button
               variant="outline"
               size="icon"
@@ -296,9 +297,9 @@ export default function HelpdeskPage() {
         </div>
       </div>
 
-      {/* Filtros — escopo e prioridade só pra TI/agente */}
+      {/* Filtros — escopo e prioridade só pra TI */}
       <div className="flex flex-wrap gap-2 shrink-0 items-center">
-        {isAgente && (
+        {podeAtuar && (
           <Select value={scope} onValueChange={v => setScope(v as 'MEUS' | 'AREA' | 'TODOS')}>
             <SelectTrigger className="h-8 text-xs w-[140px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -308,7 +309,7 @@ export default function HelpdeskPage() {
             </SelectContent>
           </Select>
         )}
-        {isAgente && (
+        {podeAtuar && (
           <Select value={filtroPrioridade || '__all__'} onValueChange={v => setFiltroPrioridade(v === '__all__' ? '' : v as HelpdeskPrioridade)}>
             <SelectTrigger className="h-8 text-xs w-[140px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
             <SelectContent>

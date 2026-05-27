@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TRPCError } from '@trpc/server'
 import { router, readProcedure, writeProcedure, protectedProcedure } from '../trpc/trpc.service'
 import {
   createTicketSchema, updateTicketSchema, listTicketSchema,
@@ -30,21 +31,9 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService) {
      * mas NÃO `atuar_agente` — então vê os tickets mas não move/atribui.
      */
     probeAtuarAgente: protectedProcedure
-      .query(async ({ ctx }) => {
-        const user = await prisma.user.findUnique({
-          where: { id: ctx.userId! },
-          select: { isMaster: true, isEmpresaMaster: true, role: true },
-        })
-        if (!user) return { ok: false }
-        if (user.isMaster || user.isEmpresaMaster) return { ok: true }
-        if (user.role === 'DIRETOR' || user.role === 'COORDENADOR') return { ok: true }
-        const perm = await prisma.userPermission.findFirst({
-          where: { userId: ctx.userId!, moduleSlug: 'helpdesk' },
-          select: { subPermissions: true },
-        })
-        const sub = (perm?.subPermissions ?? {}) as Record<string, boolean>
-        return { ok: sub.atuar_agente === true }
-      }),
+      .query(async ({ ctx }) => ({
+        ok: await helpdeskService.canAtuarAgente(ctx.userId!),
+      })),
 
     // ── Tickets ────────────────────────────────────────────────
 
@@ -161,18 +150,28 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService) {
       .query(({ input, ctx }) => helpdeskService.getMetricas(ctx.empresaId ?? null, input?.periodoDias ?? 30)),
 
     // ── Configurações do módulo (pill /configuracoes → Helpdesk) ──
-    // Config exige canRead helpdesk (mesma porta de entrada que define "agente"):
-    // colaborador comum não consegue ver configurações.
-    getConfig: readProcedure(MODULE)
-      .query(() => helpdeskService.getConfig()),
+    // Config — só TI real (master/empresa-master, DIRETOR/COORDENADOR ou
+    // sub-permissão helpdesk.atuar_agente). Mesma porta do probeAtuarAgente.
+    getConfig: protectedProcedure
+      .query(async ({ ctx }) => {
+        if (!(await helpdeskService.canAtuarAgente(ctx.userId!))) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas a TI pode acessar as configurações' })
+        }
+        return helpdeskService.getConfig()
+      }),
 
-    updateConfig: writeProcedure(MODULE)
+    updateConfig: protectedProcedure
       .input(z.object({
         slaPorPrioridade: z.record(z.string(), z.number().int().min(1).max(2400)).optional(),
         autoFechamentoDias: z.number().int().min(1).max(30).optional(),
         inboundEmail: z.string().email().optional().or(z.literal('')),
         emailNotificacao: z.string().email().optional().or(z.literal('')),
       }))
-      .mutation(({ input }) => helpdeskService.updateConfig(input)),
+      .mutation(async ({ input, ctx }) => {
+        if (!(await helpdeskService.canAtuarAgente(ctx.userId!))) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas a TI pode alterar configurações' })
+        }
+        return helpdeskService.updateConfig(input)
+      }),
   })
 }
