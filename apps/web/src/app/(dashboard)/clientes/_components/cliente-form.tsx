@@ -1785,7 +1785,10 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
     if (!clienteId) return
     setSavingParams(true)
     try {
-      await trpc.cliente.saveContratoParams.mutate({ clienteId, ...params })
+      const payload = { clienteId, ...params }
+      // DEBUG: ajuda a diagnosticar quando só algum campo aparece salvo
+      console.log('[saveParams] enviando', payload)
+      await trpc.cliente.saveContratoParams.mutate(payload)
       await alerts.success('Parametros salvos', 'Os parametros do contrato foram atualizados.')
       setShowParamModal(false)
     } catch (e) {
@@ -1855,7 +1858,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                     </div>
                     <div className="space-y-1.5">
                       <Label>Lancamentos</Label>
-                      <Input type="number" value={params.lancamentos} onChange={(e) => setParams(p => ({ ...p, lancamentos: Number(e.target.value) }))} />
+                      <Input type="number" placeholder="0" value={params.lancamentos || ''} onChange={(e) => setParams(p => ({ ...p, lancamentos: Number(e.target.value) || 0 }))} />
                     </div>
                     <div className="space-y-1.5">
                       <Label>Faturamento (R$)</Label>
@@ -1867,23 +1870,23 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                     </div>
                     <div className="space-y-1.5">
                       <Label>NF Entrada</Label>
-                      <Input type="number" value={params.nfEntrada} onChange={(e) => setParams(p => ({ ...p, nfEntrada: Number(e.target.value) }))} />
+                      <Input type="number" placeholder="0" value={params.nfEntrada || ''} onChange={(e) => setParams(p => ({ ...p, nfEntrada: Number(e.target.value) || 0 }))} />
                     </div>
                     <div className="space-y-1.5">
                       <Label>NF Saida</Label>
-                      <Input type="number" value={params.nfSaida} onChange={(e) => setParams(p => ({ ...p, nfSaida: Number(e.target.value) }))} />
+                      <Input type="number" placeholder="0" value={params.nfSaida || ''} onChange={(e) => setParams(p => ({ ...p, nfSaida: Number(e.target.value) || 0 }))} />
                     </div>
                     <div className="space-y-1.5">
                       <Label>NF Prestado</Label>
-                      <Input type="number" value={params.nfPrestado} onChange={(e) => setParams(p => ({ ...p, nfPrestado: Number(e.target.value) }))} />
+                      <Input type="number" placeholder="0" value={params.nfPrestado || ''} onChange={(e) => setParams(p => ({ ...p, nfPrestado: Number(e.target.value) || 0 }))} />
                     </div>
                     <div className="space-y-1.5">
                       <Label>NF Tomado</Label>
-                      <Input type="number" value={params.nfTomado} onChange={(e) => setParams(p => ({ ...p, nfTomado: Number(e.target.value) }))} />
+                      <Input type="number" placeholder="0" value={params.nfTomado || ''} onChange={(e) => setParams(p => ({ ...p, nfTomado: Number(e.target.value) || 0 }))} />
                     </div>
                     <div className="space-y-1.5">
                       <Label>Funcionarios</Label>
-                      <Input type="number" value={params.funcionarios} onChange={(e) => setParams(p => ({ ...p, funcionarios: Number(e.target.value) }))} />
+                      <Input type="number" placeholder="0" value={params.funcionarios || ''} onChange={(e) => setParams(p => ({ ...p, funcionarios: Number(e.target.value) || 0 }))} />
                     </div>
                   </div>
                 )}
