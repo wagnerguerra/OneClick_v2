@@ -87,6 +87,11 @@ export default function HelpdeskPage() {
     if (typeof window !== 'undefined') window.localStorage.setItem('helpdesk:viewMode', viewMode)
   }, [viewMode])
 
+  // Não-agentes (usuários comuns) só veem em modo Lista — força quando descobrir o papel
+  useEffect(() => {
+    if (isAgente === false && viewMode !== 'lista') setViewMode('lista')
+  }, [isAgente, viewMode])
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300)
     return () => clearTimeout(t)
@@ -247,24 +252,27 @@ export default function HelpdeskPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center border rounded-[2px] overflow-hidden">
-            <button
-              type="button"
-              className={cn('p-1.5 transition-colors', viewMode === 'kanban' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')}
-              onClick={() => setViewMode('kanban')}
-              title="Kanban"
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              className={cn('p-1.5 transition-colors', viewMode === 'lista' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')}
-              onClick={() => setViewMode('lista')}
-              title="Lista"
-            >
-              <ListIcon className="h-4 w-4" />
-            </button>
-          </div>
+          {/* Toggle Kanban/Lista — só pra agentes (TI). Demais usuários veem só Lista. */}
+          {isAgente && (
+            <div className="flex items-center border rounded-[2px] overflow-hidden">
+              <button
+                type="button"
+                className={cn('p-1.5 transition-colors', viewMode === 'kanban' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')}
+                onClick={() => setViewMode('kanban')}
+                title="Kanban"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className={cn('p-1.5 transition-colors', viewMode === 'lista' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')}
+                onClick={() => setViewMode('lista')}
+                title="Lista"
+              >
+                <ListIcon className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           <Button
             size="sm"
             onClick={() => setNovoOpen(true)}
@@ -273,15 +281,18 @@ export default function HelpdeskPage() {
           >
             <Plus className="h-4 w-4" /> Novo Ticket
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => router.push('/helpdesk/configuracoes')}
-            title="Configurações do HelpDesk"
-            className="h-9 w-9"
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
+          {/* Configurações — só TI/agentes */}
+          {isAgente && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => router.push('/helpdesk/configuracoes')}
+              title="Configurações do HelpDesk"
+              className="h-9 w-9"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 

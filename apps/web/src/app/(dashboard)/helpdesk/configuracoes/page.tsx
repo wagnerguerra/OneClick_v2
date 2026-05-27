@@ -44,11 +44,18 @@ export default function HelpdeskConfiguracoesPage() {
       setAutoFechamentoDias(c.autoFechamentoDias.toString())
       setInboundEmail(c.inboundEmail ?? '')
     } catch (e) {
-      alerts.error('Erro ao carregar config: ' + (e as Error).message)
+      // Sem permissão → redireciona pra listagem
+      const msg = (e as Error).message
+      if (/FORBIDDEN|UNAUTHORIZED|permiss/i.test(msg)) {
+        alerts.error('Acesso negado', 'Apenas a TI pode acessar as configurações do HelpDesk.')
+        router.replace('/helpdesk')
+        return
+      }
+      alerts.error('Erro ao carregar config: ' + msg)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [router])
 
   useEffect(() => { fetchConfig() }, [fetchConfig])
 

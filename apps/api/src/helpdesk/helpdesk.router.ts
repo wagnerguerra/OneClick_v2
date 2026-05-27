@@ -161,7 +161,9 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService) {
       .query(({ input, ctx }) => helpdeskService.getMetricas(ctx.empresaId ?? null, input?.periodoDias ?? 30)),
 
     // ── Configurações do módulo (pill /configuracoes → Helpdesk) ──
-    getConfig: protectedProcedure
+    // Config exige canRead helpdesk (mesma porta de entrada que define "agente"):
+    // colaborador comum não consegue ver configurações.
+    getConfig: readProcedure(MODULE)
       .query(() => helpdeskService.getConfig()),
 
     updateConfig: writeProcedure(MODULE)

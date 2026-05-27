@@ -309,12 +309,31 @@ function addLog(serviceId, text, type = 'stdout') {
 // ══════════════════════════════════════════════════════════════
 // Service management
 // ══════════════════════════════════════════════════════════════
-function startService(id) {
+async function startService(id) {
   const svc = services[id];
   if (!svc || svc.managed === false) return { ok: false, error: 'Serviço não gerenciável' };
   if (svc.process) return { ok: false, error: 'Já está rodando' };
 
   addLog(id, `Iniciando ${svc.name}...`, 'system');
+
+  // Limpa porta antes de iniciar — evita EADDRINUSE quando uma instância zumbi
+  // ficou rodando após reload/crash do launcher (Windows não derruba o processo
+  // filho quando o pai sai por SIGTERM brusco).
+  if (svc.port) {
+    const portInUse = await checkPort(svc.port);
+    if (portInUse) {
+      addLog(id, `⚠ Porta ${svc.port} ocupada — matando processo zumbi antes de iniciar...`, 'system');
+      killProcessOnPort(svc.port);
+      // Aguarda a porta liberar (Windows demora alguns ms pra refletir taskkill)
+      await sleep(1500);
+      const stillUsed = await checkPort(svc.port);
+      if (stillUsed) {
+        addLog(id, `✗ Falha ao liberar porta ${svc.port}. Mate manualmente o processo e tente de novo.`, 'error');
+        return { ok: false, error: `Porta ${svc.port} ainda ocupada` };
+      }
+      addLog(id, `✓ Porta ${svc.port} liberada`, 'system');
+    }
+  }
 
   const child = spawn(svc.command, svc.args, {
     cwd: svc.cwd,
@@ -373,10 +392,11 @@ async function restartService(id) {
   return startService(id);
 }
 
-function startAllServices() {
+async function startAllServices() {
   const results = {};
   for (const id of Object.keys(services)) {
-    if (services[id].managed !== false) results[id] = startService(id);
+    // Serial pra não congestionar killProcessOnPort em paralelo (cada um abre netstat)
+    if (services[id].managed !== false) results[id] = await startService(id);
   }
   return results;
 }
