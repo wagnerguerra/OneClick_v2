@@ -359,22 +359,29 @@
     }
     .deploy-step .step-icon-bg {
       position: absolute;
-      left: 6px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 44px;
-      height: 44px;
+      left: 8px;
+      top: 0;
+      bottom: 0;
+      width: 48px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 48px;
-      font-weight: 700;
-      line-height: 1;
-      opacity: 0.20;
       color: var(--text-muted);
       pointer-events: none;
       user-select: none;
     }
+    .deploy-step .step-icon-bg svg {
+      width: 44px;
+      height: 44px;
+      opacity: 0.22;
+      stroke-width: 2;
+      transform-origin: center center;
+      display: none;
+    }
+    .deploy-step[data-state="pending"] .step-icon-bg .icon-pending { display: block; }
+    .deploy-step[data-state="running"] .step-icon-bg .icon-running { display: block; animation: spin 1.2s linear infinite; }
+    .deploy-step[data-state="ok"] .step-icon-bg .icon-ok { display: block; opacity: 0.3; }
+    .deploy-step[data-state="err"] .step-icon-bg .icon-err { display: block; opacity: 0.32; }
     .deploy-step .step-label {
       font-size: 12px;
       font-weight: 700;
@@ -400,7 +407,7 @@
       border-color: rgba(59,130,246,0.4);
       background: rgba(59,130,246,0.06);
     }
-    .deploy-step[data-state="running"] .step-icon-bg { color: #3b82f6; animation: spin 1.4s linear infinite; }
+    .deploy-step[data-state="running"] .step-icon-bg { color: #3b82f6; }
     .deploy-step[data-state="running"] .step-label { color: var(--text-primary); }
 
     .deploy-step[data-state="ok"] {
@@ -1043,32 +1050,62 @@
             <!-- Cards de step: ícone marca-d'água à esquerda + label + status -->
             <div style="display:flex;gap:8px;margin-top:10px;">
               <div id="step-push" class="deploy-step" data-state="pending">
-                <div class="step-icon-bg">○</div>
+                <div class="step-icon-bg">
+                  <svg class="icon-pending" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>
+                  <svg class="icon-running" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                  <svg class="icon-ok" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  <svg class="icon-err" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                </div>
                 <div class="step-label">Push</div>
                 <div class="step-detail"></div>
               </div>
               <div id="step-pull" class="deploy-step" data-state="pending">
-                <div class="step-icon-bg">○</div>
+                <div class="step-icon-bg">
+                  <svg class="icon-pending" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>
+                  <svg class="icon-running" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                  <svg class="icon-ok" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  <svg class="icon-err" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                </div>
                 <div class="step-label">Pull</div>
                 <div class="step-detail"></div>
               </div>
               <div id="step-build-api" class="deploy-step" data-state="pending">
-                <div class="step-icon-bg">○</div>
+                <div class="step-icon-bg">
+                  <svg class="icon-pending" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>
+                  <svg class="icon-running" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                  <svg class="icon-ok" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  <svg class="icon-err" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                </div>
                 <div class="step-label">Build API</div>
                 <div class="step-detail"></div>
               </div>
               <div id="step-schema" class="deploy-step" data-state="pending">
-                <div class="step-icon-bg">○</div>
+                <div class="step-icon-bg">
+                  <svg class="icon-pending" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>
+                  <svg class="icon-running" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                  <svg class="icon-ok" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  <svg class="icon-err" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                </div>
                 <div class="step-label">Schema</div>
                 <div class="step-detail"></div>
               </div>
               <div id="step-build-web" class="deploy-step" data-state="pending">
-                <div class="step-icon-bg">○</div>
+                <div class="step-icon-bg">
+                  <svg class="icon-pending" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>
+                  <svg class="icon-running" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                  <svg class="icon-ok" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  <svg class="icon-err" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                </div>
                 <div class="step-label">Build Web</div>
                 <div class="step-detail"></div>
               </div>
               <div id="step-restart" class="deploy-step" data-state="pending">
-                <div class="step-icon-bg">○</div>
+                <div class="step-icon-bg">
+                  <svg class="icon-pending" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>
+                  <svg class="icon-running" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                  <svg class="icon-ok" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  <svg class="icon-err" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                </div>
                 <div class="step-label">Restart</div>
                 <div class="step-detail"></div>
               </div>
@@ -2897,14 +2934,32 @@
         const payload = commitMessage ? { commitMessage } : undefined
         const r = await window.api.deployExecute(payload)
         if (r.ok) {
+          // Marca o último step ativo (restart) como OK — o backend emite o
+          // evento final com step='done' que não casa com nenhum card, então
+          // o card ficaria preso em 'running' se não fizéssemos isso aqui.
+          if (deployState._currentStep) {
+            deployStepSetState(deployState._currentStep, 'ok', '')
+          }
+          // Garantia extra: marca todos os steps conhecidos como OK
+          ;['push','pull','build-api','schema','build-web','restart'].forEach((s) => {
+            const el = document.getElementById('step-' + s)
+            if (el && el.dataset.state === 'running') deployStepSetState(s, 'ok', '')
+          })
           document.getElementById('deployActionHint').textContent = '✅ Deploy concluído!'
           document.getElementById('deployActionHint').style.color = '#16a34a'
           setTimeout(() => deployRefreshStatus(), 1500)
         } else {
+          // Marca step atual como erro
+          if (deployState._currentStep) {
+            deployStepSetState(deployState._currentStep, 'err', r.error?.slice(0, 50) || 'falhou')
+          }
           document.getElementById('deployActionHint').textContent = `✗ ${r.error}`
           document.getElementById('deployActionHint').style.color = '#dc2626'
         }
       } catch (e) {
+        if (deployState._currentStep) {
+          deployStepSetState(deployState._currentStep, 'err', e.message?.slice(0, 50) || 'erro')
+        }
         document.getElementById('deployActionHint').textContent = `✗ ${e.message}`
         document.getElementById('deployActionHint').style.color = '#dc2626'
       } finally {
@@ -2924,16 +2979,12 @@
     }
 
     // ─── Helpers de step visual ───────────────────────────────────────
-    // Estados (no atributo data-state, CSS aplica cor/borda/animação):
-    //   'pending' (○ cinza), 'running' (⟳ azul + spin), 'ok' (✓ verde), 'err' (✕ vermelho)
-    const STEP_ICON = { pending: '○', running: '⟳', ok: '✓', err: '✕' }
-
+    // Estados (no atributo data-state, CSS troca o SVG e aplica animação):
+    //   'pending' = círculo · 'running' = loader que gira · 'ok' = check-circle · 'err' = x-circle
     function deployStepReset(stepId) {
       const el = document.getElementById('step-' + stepId)
       if (!el) return
       el.dataset.state = 'pending'
-      const icon = el.querySelector('.step-icon-bg')
-      if (icon) icon.textContent = STEP_ICON.pending
       const detail = el.querySelector('.step-detail')
       if (detail) detail.textContent = ''
     }
@@ -2942,9 +2993,7 @@
       const el = document.getElementById('step-' + stepId)
       if (!el) return
       el.dataset.state = state
-      const iconEl = el.querySelector('.step-icon-bg')
       const detailEl = el.querySelector('.step-detail')
-      if (iconEl) iconEl.textContent = STEP_ICON[state] || STEP_ICON.pending
       if (detail !== undefined && detailEl) detailEl.textContent = detail
     }
 
@@ -2983,9 +3032,21 @@
           const isErr = ev.level === 'err'
 
           // Transição: se mudou de step, marca o anterior como OK (caso ainda esteja running)
-          // e o novo como running. Ignora steps "init"/"commit"/"done"/"error" que não têm card.
+          // e o novo como running. Ignora steps "init"/"commit" que não têm card.
           const KNOWN_STEPS = ['push', 'pull', 'build-api', 'schema', 'build-web', 'restart']
-          if (KNOWN_STEPS.includes(ev.step)) {
+          // Sinais de fim de pipeline — finalizam o último step ativo
+          if (ev.step === 'done' || (ev.progress >= 100 && isOk)) {
+            if (deployState._currentStep) {
+              const cur = document.getElementById('step-' + deployState._currentStep)
+              if (cur && cur.dataset.state === 'running') {
+                deployStepSetState(deployState._currentStep, 'ok', '')
+              }
+            }
+          } else if (ev.step === 'error' || (isErr && !KNOWN_STEPS.includes(ev.step))) {
+            if (deployState._currentStep) {
+              deployStepSetState(deployState._currentStep, 'err', deployExtractDetail(ev.log))
+            }
+          } else if (KNOWN_STEPS.includes(ev.step)) {
             if (deployState._currentStep && deployState._currentStep !== ev.step) {
               const prevEl = document.getElementById('step-' + deployState._currentStep)
               if (prevEl && prevEl.dataset.state === 'running') {

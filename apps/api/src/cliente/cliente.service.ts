@@ -516,10 +516,24 @@ export class ClienteService {
     honorario: number; lancamentos: number; faturamento: number
     nfEntrada: number; nfSaida: number; nfPrestado: number; nfTomado: number; funcionarios: number
   }) {
+    // Sanitiza: o `input` do tRPC inclui `clienteId` no spread, e o Prisma 6
+    // pode rejeitar silenciosamente um update com colunas extras. Pegamos só os
+    // campos válidos do model + força tipos (Int não aceita decimal).
+    const clean = {
+      honorario: Number(data.honorario) || 0,
+      lancamentos: Math.round(Number(data.lancamentos) || 0),
+      faturamento: Number(data.faturamento) || 0,
+      nfEntrada: Math.round(Number(data.nfEntrada) || 0),
+      nfSaida: Math.round(Number(data.nfSaida) || 0),
+      nfPrestado: Math.round(Number(data.nfPrestado) || 0),
+      nfTomado: Math.round(Number(data.nfTomado) || 0),
+      funcionarios: Math.round(Number(data.funcionarios) || 0),
+    }
+    console.log(`[saveContratoParams] clienteId=${clienteId} empresaId=${empresaId || 'null'} data=`, JSON.stringify(clean))
     return prisma.clienteContratoParam.upsert({
       where: { clienteId_empresaId: { clienteId, empresaId: empresaId || '' } },
-      create: { clienteId, empresaId: empresaId || null, ...data },
-      update: data,
+      create: { clienteId, empresaId: empresaId || null, ...clean },
+      update: clean,
     })
   }
 
