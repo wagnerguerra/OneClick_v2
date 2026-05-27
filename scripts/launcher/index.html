@@ -962,13 +962,46 @@
             <div style="height:8px;background:var(--bg-surface);border-radius:4px;overflow:hidden;">
               <div id="deployProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg, #3b82f6, #06b6d4);transition:width 0.3s ease;"></div>
             </div>
-            <div style="display:flex;gap:4px;margin-top:8px;font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">
-              <div id="step-push" class="deploy-step" style="flex:1;text-align:center;padding:3px 0;border-radius:3px;background:var(--bg-surface);">push</div>
-              <div id="step-pull" class="deploy-step" style="flex:1;text-align:center;padding:3px 0;border-radius:3px;background:var(--bg-surface);">pull</div>
-              <div id="step-build-api" class="deploy-step" style="flex:1;text-align:center;padding:3px 0;border-radius:3px;background:var(--bg-surface);">build api</div>
-              <div id="step-schema" class="deploy-step" style="flex:1;text-align:center;padding:3px 0;border-radius:3px;background:var(--bg-surface);">schema</div>
-              <div id="step-build-web" class="deploy-step" style="flex:1;text-align:center;padding:3px 0;border-radius:3px;background:var(--bg-surface);">build web</div>
-              <div id="step-restart" class="deploy-step" style="flex:1;text-align:center;padding:3px 0;border-radius:3px;background:var(--bg-surface);">restart</div>
+
+            <!-- Cards de step: ícone (check ou spinner) + label + status atual abaixo -->
+            <div style="display:flex;gap:6px;margin-top:10px;">
+              <div id="step-push" class="deploy-step" data-label="push" style="flex:1;padding:8px 6px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border);text-align:center;">
+                <div class="step-icon" style="height:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);">○</div>
+                <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-top:2px;">push</div>
+                <div class="step-detail" style="font-size:9px;color:var(--text-muted);margin-top:3px;min-height:11px;line-height:1.2;"></div>
+              </div>
+              <div id="step-pull" class="deploy-step" data-label="pull" style="flex:1;padding:8px 6px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border);text-align:center;">
+                <div class="step-icon" style="height:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);">○</div>
+                <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-top:2px;">pull</div>
+                <div class="step-detail" style="font-size:9px;color:var(--text-muted);margin-top:3px;min-height:11px;line-height:1.2;"></div>
+              </div>
+              <div id="step-build-api" class="deploy-step" data-label="build api" style="flex:1;padding:8px 6px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border);text-align:center;">
+                <div class="step-icon" style="height:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);">○</div>
+                <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-top:2px;">build api</div>
+                <div class="step-detail" style="font-size:9px;color:var(--text-muted);margin-top:3px;min-height:11px;line-height:1.2;"></div>
+              </div>
+              <div id="step-schema" class="deploy-step" data-label="schema" style="flex:1;padding:8px 6px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border);text-align:center;">
+                <div class="step-icon" style="height:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);">○</div>
+                <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-top:2px;">schema</div>
+                <div class="step-detail" style="font-size:9px;color:var(--text-muted);margin-top:3px;min-height:11px;line-height:1.2;"></div>
+              </div>
+              <div id="step-build-web" class="deploy-step" data-label="build web" style="flex:1;padding:8px 6px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border);text-align:center;">
+                <div class="step-icon" style="height:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);">○</div>
+                <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-top:2px;">build web</div>
+                <div class="step-detail" style="font-size:9px;color:var(--text-muted);margin-top:3px;min-height:11px;line-height:1.2;"></div>
+              </div>
+              <div id="step-restart" class="deploy-step" data-label="restart" style="flex:1;padding:8px 6px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border);text-align:center;">
+                <div class="step-icon" style="height:16px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);">○</div>
+                <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-top:2px;">restart</div>
+                <div class="step-detail" style="font-size:9px;color:var(--text-muted);margin-top:3px;min-height:11px;line-height:1.2;"></div>
+              </div>
+            </div>
+
+            <!-- Toggle "Ver log" -->
+            <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+              <button id="deployLogToggle" type="button" onclick="deployToggleLog()" style="background:transparent;color:var(--text-muted);border:none;font-size:11px;cursor:pointer;padding:2px 6px;text-decoration:underline;">
+                Ver log detalhado
+              </button>
             </div>
           </div>
         </div>
@@ -2709,38 +2742,54 @@
       document.getElementById('deployPublicarBtn').disabled = true
       document.getElementById('deployPublicarBtn').style.opacity = '0.4'
       document.getElementById('deployProgressBox').style.display = ''
-      document.getElementById('deployLogCard').style.display = ''
+      // Log fica OCULTO por padrão — usuário pode abrir clicando em "Ver log detalhado"
+      document.getElementById('deployLogCard').style.display = 'none'
       document.getElementById('deployLog').innerHTML = ''
+      // Reseta toggle
+      const logToggleBtn = document.getElementById('deployLogToggle')
+      if (logToggleBtn) logToggleBtn.textContent = 'Ver log detalhado'
 
-      // Contador de tempo + heartbeat no log — visibilidade enquanto pipeline roda
+      // Contador de tempo — visibilidade do hint enquanto pipeline roda
       const t0 = Date.now()
       const hintEl = document.getElementById('deployActionHint')
       hintEl.style.color = '#f59e0b'
       hintEl.textContent = 'Deploy em andamento... (0s)'
       deployState._lastEventAt = t0  // qualquer evento IPC reseta isso
+      deployState._currentStep = null  // step ativo (com spinner + detail aparente)
+      deployState._waitMessageShown = false  // controla "Aguarde..." (uma vez só)
       deployAppendLog(`▶ Pipeline iniciada (commitMessage=${commitMessage ? '"' + commitMessage.slice(0, 40) + '"' : 'nenhuma'})`, 'info')
+
       const tickTimer = setInterval(() => {
         if (!deployState.running) { clearInterval(tickTimer); return }
         const secs = Math.floor((Date.now() - t0) / 1000)
         hintEl.textContent = `Deploy em andamento... (${secs}s)`
-        // Heartbeat: a cada 3s sem evento novo, registra no log que tá vivo (ou travado)
+
+        // Heartbeat discreto: se passou 8s sem evento, mostra "Aguarde..." no
+        // detail do step ativo (não polui o log). Se voltar a ter evento, some.
         const sinceLastEvent = Math.floor((Date.now() - deployState._lastEventAt) / 1000)
-        if (sinceLastEvent >= 3 && secs % 3 === 0) {
-          const level = sinceLastEvent >= 15 ? 'err' : sinceLastEvent >= 8 ? 'warn' : 'info'
-          const tag = sinceLastEvent >= 15 ? '⚠ POSSÍVEL TRAVAMENTO' : sinceLastEvent >= 8 ? 'sem resposta' : 'aguardando'
-          deployAppendLog(`· ${tag} — ${sinceLastEvent}s sem novo evento (total ${secs}s)`, level)
+        if (sinceLastEvent >= 8 && deployState._currentStep) {
+          const stepEl = document.getElementById('step-' + deployState._currentStep)
+          if (stepEl) {
+            const detail = stepEl.querySelector('.step-detail')
+            if (detail) {
+              detail.textContent = `aguarde… (${sinceLastEvent}s)`
+              detail.style.color = sinceLastEvent >= 30 ? '#f59e0b' : 'var(--text-muted)'
+            }
+          }
+          // Loga UMA vez no log de debug, sem spammar
+          if (sinceLastEvent >= 30 && !deployState._waitMessageShown) {
+            deployAppendLog(`· VPS demorando a responder (${sinceLastEvent}s). Aguarde…`, 'warn')
+            deployState._waitMessageShown = true
+          }
+        } else if (sinceLastEvent < 5) {
+          deployState._waitMessageShown = false
         }
       }, 1000)
       deployState._tickTimer = tickTimer
 
-      // Reseta steps visuais — `;` no início pra evitar ASI (a linha anterior não tem `;` e o JS
-      // tentaria parsear `tickTimer['push','pull',...]` → undefined.forEach)
+      // Reseta visual dos steps — todos voltam ao estado "pendente" (○)
       ;['push','pull','schema','build-api','build-web','restart'].forEach(s => {
-        const el = document.getElementById('step-' + s)
-        if (el) {
-          el.style.background = 'var(--bg-surface)'
-          el.style.color = 'var(--text-muted)'
-        }
+        deployStepReset(s)
       })
 
       try {
@@ -2763,28 +2812,126 @@
       }
     }
 
+    // Toggle do log detalhado
+    function deployToggleLog() {
+      const log = document.getElementById('deployLogCard')
+      const btn = document.getElementById('deployLogToggle')
+      if (!log || !btn) return
+      const visivel = log.style.display !== 'none'
+      log.style.display = visivel ? 'none' : ''
+      btn.textContent = visivel ? 'Ver log detalhado' : 'Ocultar log'
+    }
+
+    // ─── Helpers de step visual ───────────────────────────────────────
+    // Estados: 'pending' (○ cinza), 'running' (⟳ azul + spinner), 'ok' (✓ verde), 'err' (✕ vermelho)
+    function deployStepReset(stepId) {
+      const el = document.getElementById('step-' + stepId)
+      if (!el) return
+      el.dataset.state = 'pending'
+      el.style.borderColor = 'var(--border)'
+      el.style.background = 'var(--bg-surface)'
+      const icon = el.querySelector('.step-icon')
+      if (icon) { icon.textContent = '○'; icon.style.color = 'var(--text-muted)'; icon.style.animation = '' }
+      const detail = el.querySelector('.step-detail')
+      if (detail) { detail.textContent = ''; detail.style.color = 'var(--text-muted)' }
+    }
+
+    function deployStepSetState(stepId, state, detail) {
+      const el = document.getElementById('step-' + stepId)
+      if (!el) return
+      el.dataset.state = state
+      const iconEl = el.querySelector('.step-icon')
+      const detailEl = el.querySelector('.step-detail')
+
+      if (state === 'running') {
+        el.style.borderColor = 'rgba(59,130,246,0.4)'
+        el.style.background = 'rgba(59,130,246,0.06)'
+        if (iconEl) {
+          iconEl.textContent = '⟳'
+          iconEl.style.color = '#3b82f6'
+          iconEl.style.animation = 'spin 1.4s linear infinite'
+        }
+      } else if (state === 'ok') {
+        el.style.borderColor = 'rgba(34,197,94,0.4)'
+        el.style.background = 'rgba(34,197,94,0.08)'
+        if (iconEl) {
+          iconEl.textContent = '✓'
+          iconEl.style.color = '#16a34a'
+          iconEl.style.animation = ''
+        }
+      } else if (state === 'err') {
+        el.style.borderColor = 'rgba(220,38,38,0.4)'
+        el.style.background = 'rgba(220,38,38,0.08)'
+        if (iconEl) {
+          iconEl.textContent = '✕'
+          iconEl.style.color = '#dc2626'
+          iconEl.style.animation = ''
+        }
+      }
+
+      if (detail !== undefined && detailEl) {
+        detailEl.textContent = detail
+        detailEl.style.color = state === 'err' ? '#dc2626' : 'var(--text-muted)'
+      }
+    }
+
+    // Resume curto da última linha do log pra exibir como "detail" do step ativo
+    function deployExtractDetail(rawLog) {
+      if (!rawLog) return ''
+      // Tira prefixos do BuildKit `#21 12.24 ` ou `→ `, `· `, etc
+      let s = rawLog
+        .replace(/^#\d+\s+\d+\.\d+\s+/, '')
+        .replace(/^[→·✓✗+#-]+\s*/, '')
+        .trim()
+      // Tira ANSI codes residuais
+      s = s.replace(/\x1b\[[0-9;]*m/g, '')
+      // Curta — 50 chars no máximo
+      if (s.length > 50) s = s.slice(0, 48) + '…'
+      return s
+    }
+
     // Listener de eventos do deploy (progresso + log)
     if (window.api && window.api.onDeployEvent) {
       window.api.onDeployEvent((ev) => {
         if (!ev) return
         // Reseta heartbeat — chegou evento, pipeline está viva
         deployState._lastEventAt = Date.now()
+        deployState._waitMessageShown = false
+
         // Atualiza barra
         if (typeof ev.progress === 'number') {
           document.getElementById('deployProgressBar').style.width = ev.progress + '%'
           document.getElementById('deployProgressPct').textContent = ev.progress + '%'
         }
+
         if (ev.step) {
           document.getElementById('deployProgressStep').textContent = ev.step.replace('-', ' ').toUpperCase()
-          // Marca step ativo no rail
-          const stepEl = document.getElementById('step-' + ev.step)
-          if (stepEl) {
-            const isOk = ev.level === 'ok'
-            const isErr = ev.level === 'err'
-            stepEl.style.background = isErr ? 'rgba(220,38,38,0.2)' : isOk ? 'rgba(34,197,94,0.2)' : 'rgba(59,130,246,0.2)'
-            stepEl.style.color = isErr ? '#dc2626' : isOk ? '#16a34a' : 'var(--accent, #3b82f6)'
+          const isOk = ev.level === 'ok'
+          const isErr = ev.level === 'err'
+
+          // Transição: se mudou de step, marca o anterior como OK (caso ainda esteja running)
+          // e o novo como running. Ignora steps "init"/"commit"/"done"/"error" que não têm card.
+          const KNOWN_STEPS = ['push', 'pull', 'build-api', 'schema', 'build-web', 'restart']
+          if (KNOWN_STEPS.includes(ev.step)) {
+            if (deployState._currentStep && deployState._currentStep !== ev.step) {
+              const prevEl = document.getElementById('step-' + deployState._currentStep)
+              if (prevEl && prevEl.dataset.state === 'running') {
+                deployStepSetState(deployState._currentStep, 'ok', '')
+              }
+            }
+            deployState._currentStep = ev.step
+
+            if (isErr) {
+              deployStepSetState(ev.step, 'err', deployExtractDetail(ev.log))
+            } else if (isOk) {
+              deployStepSetState(ev.step, 'ok', '')
+            } else {
+              // Ainda em andamento — atualiza detail com o que está rolando
+              deployStepSetState(ev.step, 'running', deployExtractDetail(ev.log))
+            }
           }
         }
+
         if (ev.log) deployAppendLog(ev.log, ev.level)
       })
     }
