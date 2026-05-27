@@ -539,8 +539,9 @@ export function createClienteRouter(
         // Tenta SCI local primeiro. Se falhar com erro indicativo de que o SCI
         // não está acessível (ENOENT no python, conexão recusada Firebird,
         // timeout), faz fallback pra Launcher remoto via SSE.
+        let metricas: Record<string, unknown>
         try {
-          return await sciService.buscarMetricasSci(cnpj, input.datai, input.dataf, input.indicadores)
+          metricas = await sciService.buscarMetricasSci(cnpj, input.datai, input.dataf, input.indicadores)
         } catch (err) {
           const msg = (err as Error).message || ''
           const sciUnreachable = /ENOENT|conn|connect|refused|timeout|Firebird|python|Não foi possível conectar/i.test(msg)
@@ -548,14 +549,31 @@ export function createClienteRouter(
 
           // Fallback: pede ao Launcher local via SSE
           console.log(`[Cliente] SCI local indisponível, pedindo ao Launcher: ${msg.slice(0, 100)}`)
-          return contratoSyncService.requestErpRemote({
+          metricas = await contratoSyncService.requestErpRemote({
             cnpj,
             datai: input.datai,
             dataf: input.dataf,
             indicadores: input.indicadores,
           })
         }
+
+        // Persiste snapshot — gráficos passam a ler direto do DB sem tocar SCI.
+        // Falha de gravação não interrompe a resposta ao user.
+        try {
+          const r = await clienteService.salvarSnapshotsSci(input.clienteId, ctx.empresaId, metricas)
+          console.log(`[Cliente] Snapshot SCI salvo: ${r.salvos} registros (cliente=${input.clienteId})`)
+        } catch (e) {
+          console.error('[Cliente] Falha ao persistir snapshot SCI:', (e as Error).message)
+        }
+
+        return metricas
       }),
+
+    // Lê do snapshot (DB) — usado pelos gráficos. Mesmo shape do `buscarMetricasSci`
+    // mas sem tocar no SCI. Se o cliente nunca foi sincronizado, vem vazio.
+    getMetricasSnapshot: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string(), datai: z.string(), dataf: z.string() }))
+      .query(({ input, ctx }) => clienteService.getMetricasSnapshot(input.clienteId, ctx.empresaId, input.datai, input.dataf)),
 
     atualizarIdSistemaSci: writeProcedure(MODULE)
       .input(z.object({ clienteId: z.string(), force: z.boolean().default(false) }))

@@ -545,6 +545,77 @@ export class ClienteService {
   // ============================================================
   // SNAPSHOTS ERP (SCI)
   // ============================================================
+  /**
+   * Persiste o retorno do SCI no banco. Chamado após cada `buscarMetricasSci`
+   * bem-sucedida (local ou via Launcher remoto). Gráficos depois leem só do DB.
+   */
+  async salvarSnapshotsSci(
+    clienteId: string,
+    empresaId: string | undefined,
+    metricas: Record<string, unknown>,
+  ): Promise<{ salvos: number }> {
+    const INDICADORES = ['lancamentos', 'faturamento', 'nf_entrada', 'nf_saida', 'nf_prestado', 'nf_tomado', 'vidas']
+    const empresa = empresaId || null
+    let salvos = 0
+    for (const ind of INDICADORES) {
+      const rows = metricas[ind]
+      if (!Array.isArray(rows)) continue
+      for (const r of rows as Array<{ ano?: number; mes?: number; movimentacao?: number }>) {
+        const ano = Number(r.ano)
+        const mes = Number(r.mes)
+        if (!ano || !mes) continue
+        const valor = Number(r.movimentacao) || 0
+        const mesStr = `${ano}-${String(mes).padStart(2, '0')}`
+        const existing = await prisma.clienteErpSnapshot.findFirst({
+          where: { clienteId, empresaId: empresa, mes: mesStr, indicador: ind },
+        })
+        if (existing) {
+          await prisma.clienteErpSnapshot.update({ where: { id: existing.id }, data: { valor } })
+        } else {
+          await prisma.clienteErpSnapshot.create({
+            data: { clienteId, empresaId: empresa, mes: mesStr, indicador: ind, valor },
+          })
+        }
+        salvos++
+      }
+    }
+    return { salvos }
+  }
+
+  /**
+   * Lê o snapshot e devolve no MESMO shape do `sciService.buscarMetricasSci`
+   * (sucesso, periodo, indicador → linhas [{ ano, mes, movimentacao }]).
+   * Usado pelos gráficos pra evitar tocar no SCI a cada render.
+   */
+  async getMetricasSnapshot(
+    clienteId: string,
+    empresaId: string | undefined,
+    datai: string,
+    dataf: string,
+  ): Promise<Record<string, unknown>> {
+    const empresa = empresaId || null
+    const rows = await prisma.clienteErpSnapshot.findMany({
+      where: {
+        clienteId,
+        ...(empresa ? { empresaId: empresa } : {}),
+        mes: { gte: datai.slice(0, 7), lte: dataf.slice(0, 7) },
+      },
+      orderBy: { mes: 'asc' },
+    })
+    const out: Record<string, Array<{ ano: number; mes: number; movimentacao: number }>> = {
+      lancamentos: [], faturamento: [], nf_entrada: [], nf_saida: [], nf_prestado: [], nf_tomado: [], vidas: [],
+    }
+    for (const r of rows) {
+      const [anoStr, mesStr] = r.mes.split('-')
+      const ano = Number(anoStr)
+      const mes = Number(mesStr)
+      if (out[r.indicador]) {
+        out[r.indicador].push({ ano, mes, movimentacao: r.valor })
+      }
+    }
+    return { sucesso: true, periodo: { datai, dataf }, ...out, origem: 'snapshot' }
+  }
+
   async getErpSnapshots(clienteId: string, empresaId?: string, datai?: string, dataf?: string) {
     const where: Record<string, unknown> = { clienteId }
     if (empresaId) where.empresaId = empresaId

@@ -1674,9 +1674,10 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
     if (!clienteId) return
     setChartLoading(true)
     try {
-      const result = await trpc.cliente.buscarMetricasSci.query({
+      // Sempre lê do snapshot (DB). Quem alimenta é o botão "Verificar no ERP",
+      // que ao buscar do SCI também grava no DB.
+      const result = await trpc.cliente.getMetricasSnapshot.query({
         clienteId, datai: chartDatei, dataf: chartDatef,
-        indicadores: ['lancamentos', 'faturamento', 'nf_entrada', 'nf_saida', 'nf_prestado', 'nf_tomado', 'vidas'],
       })
       setChartData(result as Record<string, unknown>)
     } catch (e) {
