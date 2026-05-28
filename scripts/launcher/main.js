@@ -1793,23 +1793,62 @@ function registerIpcHandlers() {
   });
 
   // ── Claude Code launcher ──
+  // Em Electron empacotado (sem console), `spawn('powershell.exe', …, { detached, stdio:'ignore' })`
+  // não abre janela — o filho herda o "sem console" do parent. Solução: `cmd /c start ""` força
+  // criação de nova janela de console visível.
+  //
+  // NOTA: NÃO usar wt.exe direto — ele interpreta `;` como separador de tabs (gerou múltiplas
+  // abas de erro nas versões 1.2.42/1.2.43). E NÃO depender de Start-Process via PowerShell
+  // hidden — pode morrer antes do filho spawnar (versão 1.2.44 "abre toast mas não abre janela").
   ipcMain.handle('launch-claude', (_e, dir) => {
+    const logFile = path.join(app.getPath('userData'), 'claude-launcher.log');
+    const log = (msg) => {
+      try { fs.appendFileSync(logFile, `[${new Date().toISOString()}] ${msg}\n`); } catch {}
+    };
     try {
       const targetDir = dir || loadSettings().claudeDir || projectRoot;
-      // Open PowerShell with claude command in the target directory
-      const child = spawn('powershell.exe', [
-        '-NoExit',
-        '-Command',
-        `Set-Location '${targetDir}'; Write-Host '=== Claude Code ===' -ForegroundColor Green; Write-Host 'Diretorio: ${targetDir}' -ForegroundColor Cyan; claude`,
-      ], {
-        cwd: targetDir,
+      log(`launch-claude: targetDir=${targetDir}`);
+      if (!fs.existsSync(targetDir)) {
+        log(`targetDir não existe`);
+        return { ok: false, error: `Diretório não existe: ${targetDir}`, logFile };
+      }
+
+      // Script .ps1 temporário — zero nesting de aspas no command line.
+      // NÃO validamos `where claude` aqui porque o PATH do Electron pode dar falso negativo.
+      // Se faltar, o erro aparece dentro da janela do PowerShell (try/catch abaixo).
+      const safeDirSq = String(targetDir).replace(/'/g, "''");
+      const tmpPath = path.join(os.tmpdir(), `oneclick-claude-${Date.now()}.ps1`);
+      const psScript = [
+        `Set-Location -LiteralPath '${safeDirSq}'`,
+        `Write-Host '=== Claude Code ===' -ForegroundColor Green`,
+        `Write-Host "Diretorio: $PWD" -ForegroundColor Cyan`,
+        `try { claude } catch { Write-Host "Erro ao iniciar claude: $($_.Exception.Message)" -ForegroundColor Red; Write-Host "Verifique se 'claude' esta no PATH (npm install -g @anthropic-ai/claude-code)" -ForegroundColor Yellow; Read-Host "Enter para fechar" }`,
+      ].join('\r\n');
+      fs.writeFileSync(tmpPath, psScript, 'utf8');
+      log(`script: ${tmpPath}`);
+
+      // cmd /c start "" /D <dir> powershell.exe -NoExit -File <tmpPath>
+      // - "" = título obrigatório quando algum arg parece path quoted
+      // - /D = working directory pro start
+      // - -File aceita path; Node quota se tiver espaço
+      const args = [
+        '/c', 'start', '""', '/D', targetDir,
+        'powershell.exe', '-NoExit', '-ExecutionPolicy', 'Bypass', '-File', tmpPath,
+      ];
+      log(`spawn: cmd.exe ${args.join(' ')}`);
+
+      const child = spawn('cmd.exe', args, {
         detached: true,
         stdio: 'ignore',
+        windowsHide: true, // esconde cmd intermediário; start cria a janela visível
       });
+      child.on('error', (err) => log(`spawn error: ${err.message}`));
       child.unref();
-      return { ok: true };
+      log(`spawned pid=${child.pid || 'unknown'}`);
+      return { ok: true, logFile };
     } catch (e) {
-      return { ok: false, error: e.message };
+      log(`exception: ${e.message}\n${e.stack}`);
+      return { ok: false, error: e.message, logFile };
     }
   });
 

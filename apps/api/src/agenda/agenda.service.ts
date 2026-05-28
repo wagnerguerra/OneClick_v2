@@ -359,7 +359,10 @@ export class AgendaService {
   async update(id: string, data: UpdateEventoInput, userId: string) {
     const evento = await prisma.agendaEvento.findUniqueOrThrow({ where: { id } })
 
-    if (!evento.editavel) {
+    // Editavel=false vem de eventos importados do legado (SERPRO2, evemodifica='0').
+    // Regra: o criador (inclusive quem "herdou" o evento via mapeamento de email no
+    // import) sempre pode editar — alinha com o front que mostra "Editar" pro dono.
+    if (!evento.editavel && evento.criadorId !== userId) {
       throw new Error('Este evento não pode ser editado.')
     }
 
