@@ -1,6 +1,6 @@
 {
   "name": "oneclick-launcher",
-  "version": "1.2.46",
+  "version": "1.2.47",
   "description": "OneClick ERP — Launcher & Service Manager",
   "main": "main.js",
   "private": true,

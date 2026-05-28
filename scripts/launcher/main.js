@@ -1709,7 +1709,7 @@ function registerIpcHandlers() {
           deployEmit(67, 'sql', `  → ${fname}`, 'info')
           const sqlExec = await sshExec(
             cfg,
-            `cat ${sqlFile} | docker exec -i n8n-postgres-1 psql -U postgres -d saas_erp -v ON_ERROR_STOP=1 2>&1`,
+            `cat ${sqlFile} | docker exec -i n8n-postgres-1 psql -U oneclick -d oneclick -v ON_ERROR_STOP=1 2>&1`,
             (line) => {
               // Filtra NOTICE/INFO ruidosos do psql
               if (!/^NOTICE:|^INFO:|^DO$|^SET$|^BEGIN$|^COMMIT$|^$/.test(line)) {
