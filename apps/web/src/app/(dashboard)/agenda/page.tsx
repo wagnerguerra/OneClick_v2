@@ -778,8 +778,8 @@ export default function AgendaPage() {
             </div>
 
             {/* Grid dos dias (com scroll) */}
-            <div className="overflow-hidden flex-1">
-            <div className="grid grid-cols-7 h-full" style={{ gridTemplateRows: `repeat(${Math.ceil(totalCells / 7)}, 1fr)` }}>
+            <div className="overflow-y-auto flex-1">
+            <div className="grid grid-cols-7 min-h-full" style={{ gridTemplateRows: `repeat(${Math.ceil(totalCells / 7)}, minmax(140px, 1fr))` }}>
               {Array.from({ length: totalCells }, (_, i) => {
                 const dayNum = i - firstDay + 1
                 const isValid = dayNum >= 1 && dayNum <= daysInMonth
@@ -792,7 +792,7 @@ export default function AgendaPage() {
                   <div
                     key={i}
                     className={cn(
-                      'border-b border-r last:border-r-0 p-1 transition-all cursor-pointer overflow-hidden',
+                      'border-b border-r last:border-r-0 p-1 transition-all cursor-pointer overflow-hidden flex flex-col min-h-0',
                       !isValid && 'bg-muted/10',
                       isValid && !isPast && 'hover:bg-muted/20',
                       isPast && 'bg-muted/30 dark:bg-muted/10',
@@ -826,12 +826,13 @@ export default function AgendaPage() {
                     {isValid && (
                       <>
                         <div className={cn(
-                          'text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full',
+                          'text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full shrink-0',
                           today && 'bg-sky-500 text-white',
                           isPast && !today && 'text-muted-foreground/60',
                         )}>
                           {dayNum}
                         </div>
+                        {/* Container dos eventos — sem flex-1 pra ficarem colados ao topo (sem gap antes do "+N mais") */}
                         <div className="space-y-0.5">
                           {dayEvents.slice(0, 3).map(ev => (
                             <div
@@ -861,12 +862,21 @@ export default function AgendaPage() {
                               {ev.titulo}
                             </div>
                           ))}
-                          {dayEvents.length > 3 && (
-                            <div className="text-[9px] text-muted-foreground pl-1.5 font-medium">
-                              +{dayEvents.length - 3} mais
-                            </div>
-                          )}
                         </div>
+                        {/* "+N mais" fora do container com overflow — nunca é cortado */}
+                        {dayEvents.length > 3 && (
+                          <button
+                            type="button"
+                            className="shrink-0 mt-[10px] text-[10px] text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 hover:underline pl-1.5 font-medium cursor-pointer w-full text-left leading-none"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDayModalDate(dateStr)
+                              setDayModalOpen(true)
+                            }}
+                          >
+                            +{dayEvents.length - 3} mais
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
