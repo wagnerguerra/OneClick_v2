@@ -44,3 +44,12 @@ EXCEPTION
 END $$;
 
 CREATE INDEX IF NOT EXISTS "agenda_eventos_sala_id_idx" ON "agenda_eventos"("sala_id");
+
+-- Seeds: 2 salas padrão (idempotente — só insere se ainda não existe pelo nome)
+INSERT INTO "agenda_salas" ("id", "nome", "capacidade", "equipamentos", "ativo", "created_at", "updated_at")
+SELECT 'seed_sala_reunioes', 'Sala de reuniões', 8, 'TV, projetor', true, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM "agenda_salas" WHERE "nome" = 'Sala de reuniões');
+
+INSERT INTO "agenda_salas" ("id", "nome", "capacidade", "equipamentos", "ativo", "created_at", "updated_at")
+SELECT 'seed_sala_inovacao', 'Sala de inovação', 6, 'Lousa, monitor', true, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM "agenda_salas" WHERE "nome" = 'Sala de inovação');

@@ -1690,6 +1690,46 @@ function registerIpcHandlers() {
         deployEmit(65, 'schema', '· Sem mudança de schema (skip)', 'info')
       }
 
+      // ─── Stage 4.5: SQLs cirúrgicos (sempre) ────────
+      // Aplica os arquivos `packages/db/prisma/sql/*.sql` em ordem alfabética via
+      // psql no container. Devem ser idempotentes (IF NOT EXISTS / NOT EXISTS na
+      // INSERT etc) — assim podem rodar a cada deploy sem causar duplicação.
+      // Usado pra coisas que `prisma db push` não cobre: seeds, ALTER manuais,
+      // dados de configuração inicial (ex: salas padrão da agenda).
+      deployEmit(66, 'sql', '→ Verificando SQLs cirúrgicos...', 'info')
+      const listSql = await sshExec(cfg, 'ls /opt/oneclick-src/packages/db/prisma/sql/*.sql 2>/dev/null | sort')
+      const sqlFiles = (listSql.stdout || '').trim().split('\n').filter(Boolean)
+      if (sqlFiles.length === 0) {
+        deployEmit(67, 'sql', '· Nenhum SQL cirúrgico encontrado (skip)', 'info')
+      } else {
+        deployEmit(66, 'sql', `→ ${sqlFiles.length} arquivo(s) SQL a aplicar`, 'info')
+        let sqlFailed = false
+        for (const sqlFile of sqlFiles) {
+          const fname = sqlFile.split('/').pop()
+          deployEmit(67, 'sql', `  → ${fname}`, 'info')
+          const sqlExec = await sshExec(
+            cfg,
+            `cat ${sqlFile} | docker exec -i n8n-postgres-1 psql -U postgres -d saas_erp -v ON_ERROR_STOP=1 2>&1`,
+            (line) => {
+              // Filtra NOTICE/INFO ruidosos do psql
+              if (!/^NOTICE:|^INFO:|^DO$|^SET$|^BEGIN$|^COMMIT$|^$/.test(line)) {
+                deployEmit(67, 'sql', `    ${line}`, 'info')
+              }
+            },
+          )
+          if (sqlExec.code !== 0) {
+            deployEmit(68, 'sql', `✗ ${fname} falhou (code ${sqlExec.code})`, 'err')
+            sqlFailed = true
+            break
+          }
+        }
+        if (sqlFailed) {
+          deployRunning = false
+          return { ok: false, error: 'SQL cirúrgico falhou' }
+        }
+        deployEmit(68, 'sql', `✓ ${sqlFiles.length} SQL(s) aplicado(s)`, 'ok')
+      }
+
       // ─── Stage 5: Build Web ────────────────────────
       deployEmit(70, 'build-web', '→ Building oneclick-web...', 'info')
       const buildWeb = await sshExec(cfg, 'cd /opt/oneclick && docker compose build web 2>&1', (line) => {
