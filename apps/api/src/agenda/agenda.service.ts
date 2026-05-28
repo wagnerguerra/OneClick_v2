@@ -3,6 +3,7 @@ import { prisma } from '@saas/db'
 import type { Prisma } from '@saas/db'
 import { EmailService } from '../common/email.service'
 import { NotificationService } from '../notification/notification.service'
+import { AgendaConfigService } from './agenda-config.service'
 
 function decodeHtmlEntities(str: string | null | undefined): string | null {
   if (!str) return null
@@ -65,6 +66,7 @@ interface CreateEventoInput {
   particular?: boolean
   editavel?: boolean
   sala?: string | null
+  salaId?: string | null
   garagem?: boolean
   vagas?: number | null
   equipamentos?: string | null
@@ -92,6 +94,7 @@ interface UpdateEventoInput {
   particular?: boolean
   editavel?: boolean
   sala?: string | null
+  salaId?: string | null
   garagem?: boolean
   vagas?: number | null
   equipamentos?: string | null
@@ -127,6 +130,7 @@ export class AgendaService {
   constructor(
     @Inject(EmailService) private readonly emailService: EmailService,
     @Inject(NotificationService) private readonly notificationService: NotificationService,
+    @Inject(AgendaConfigService) private readonly configService: AgendaConfigService,
   ) {}
 
   private importProgress: ImportProgress = {
@@ -251,10 +255,26 @@ export class AgendaService {
     const {
       titulo, descricao, data, dataFim, horaInicio, horaFim, diaInteiro,
       local, contato, link, presenca, particular, editavel,
-      sala, garagem, vagas, equipamentos, isTarefa,
+      sala, salaId, garagem, vagas, equipamentos, isTarefa,
       tipoId, empresaId, participanteIds, participantesAvulsos,
       recorrencia, recorrenciaVezes,
     } = input
+
+    // Bloqueia agendamento em data passada (só no create — editar evento antigo
+    // continua permitido). Compara YYYY-MM-DD pra ignorar timezone.
+    const hojeStr = (() => {
+      const h = new Date()
+      return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`
+    })()
+    if (data && data < hojeStr) {
+      throw new Error('Não é possível agendar eventos em dias que já passaram.')
+    }
+
+    // Gate de conflito conforme AgendaConfig — pula se diaInteiro/sem horários.
+    await this.aplicarGateConflito({
+      data, horaInicio, horaFim, diaInteiro,
+      participanteIds, sala: sala || undefined, salaId: salaId || undefined,
+    })
 
     const baseDate = new Date(data)
     const rec = recorrencia || 'NENHUMA'
@@ -300,6 +320,7 @@ export class AgendaService {
           particular: particular ?? false,
           editavel: editavel ?? true,
           sala: sala || null,
+          salaId: salaId || null,
           garagem: garagem ?? false,
           vagas: vagas ?? null,
           equipamentos: equipamentos || null,
@@ -366,6 +387,19 @@ export class AgendaService {
       throw new Error('Este evento não pode ser editado.')
     }
 
+    // Gate de conflito conforme AgendaConfig — usa os valores novos quando passados,
+    // ou os atuais do evento como fallback. Pula se diaInteiro/sem horários.
+    await this.aplicarGateConflito({
+      data: data.data ?? evento.data.toISOString().slice(0, 10),
+      horaInicio: data.horaInicio !== undefined ? data.horaInicio : evento.horaInicio,
+      horaFim: data.horaFim !== undefined ? data.horaFim : evento.horaFim,
+      diaInteiro: data.diaInteiro !== undefined ? data.diaInteiro : evento.diaInteiro,
+      participanteIds: data.participanteIds,
+      sala: data.sala !== undefined ? (data.sala || undefined) : (evento.sala || undefined),
+      salaId: data.salaId !== undefined ? (data.salaId || undefined) : (evento.salaId || undefined),
+      eventoIdExcluir: id,
+    })
+
     const updateData: Record<string, unknown> = {}
     if (data.titulo !== undefined) updateData.titulo = data.titulo
     if (data.descricao !== undefined) updateData.descricao = data.descricao || null
@@ -381,6 +415,7 @@ export class AgendaService {
     if (data.particular !== undefined) updateData.particular = data.particular
     if (data.editavel !== undefined) updateData.editavel = data.editavel
     if (data.sala !== undefined) updateData.sala = data.sala || null
+    if (data.salaId !== undefined) updateData.salaId = data.salaId || null
     if (data.garagem !== undefined) updateData.garagem = data.garagem
     if (data.vagas !== undefined) updateData.vagas = data.vagas
     if (data.equipamentos !== undefined) updateData.equipamentos = data.equipamentos || null
@@ -494,9 +529,10 @@ export class AgendaService {
     horaFim: string
     participanteIds?: string[]
     sala?: string
+    salaId?: string  // novo: prioritário sobre `sala` (string) quando ambos passados
     eventoIdExcluir?: string // para ignorar o próprio evento ao editar
   }) {
-    const { data, horaInicio, horaFim, participanteIds, sala, eventoIdExcluir } = params
+    const { data, horaInicio, horaFim, participanteIds, sala, salaId, eventoIdExcluir } = params
     const conflitos: Array<{ tipo: 'participante' | 'sala'; nome: string; evento: string; horario: string }> = []
 
     const eventDate = new Date(data)
@@ -513,6 +549,7 @@ export class AgendaService {
       include: {
         participantes: { where: { isActive: true } },
         tipo: { select: { nome: true } },
+        salaRef: { select: { id: true, nome: true } },
       },
     })
 
@@ -545,8 +582,22 @@ export class AgendaService {
       }
     }
 
-    // Conflito de sala
-    if (sala && sala.trim()) {
+    // Conflito de sala — prioriza FK (salaId), faz fallback pra string (sala legado)
+    if (salaId) {
+      // Resolve nome da sala uma vez (pra mensagem)
+      const salaInfo = await prisma.agendaSala.findUnique({ where: { id: salaId }, select: { nome: true } })
+      const salaNome = salaInfo?.nome ?? '(sala)'
+      for (const ev of conflitantes) {
+        if (ev.salaId === salaId) {
+          conflitos.push({
+            tipo: 'sala',
+            nome: salaNome,
+            evento: ev.titulo,
+            horario: `${ev.horaInicio} — ${ev.horaFim}`,
+          })
+        }
+      }
+    } else if (sala && sala.trim()) {
       for (const ev of conflitantes) {
         if (ev.sala && ev.sala.toLowerCase() === sala.toLowerCase()) {
           conflitos.push({
@@ -645,6 +696,87 @@ export class AgendaService {
     return resultado
   }
 
+  /**
+   * Disponibilidade combinada num range de datas — usada pela página
+   * /agenda/disponibilidade pra montar um grid semanal mostrando quando todos
+   * os usuários selecionados estão livres ou ocupados.
+   *
+   * Retorna eventos com hora definida (não dia-inteiro) onde algum dos usuários
+   * solicitados participa OU é criador. Frontend monta o grid e calcula os
+   * slots livres por interseção.
+   */
+  async disponibilidadeRange(params: {
+    dataInicio: string  // YYYY-MM-DD
+    dataFim: string     // YYYY-MM-DD inclusivo
+    usuarioIds: string[]
+  }): Promise<Array<{
+    id: string
+    data: string          // YYYY-MM-DD
+    horaInicio: string    // HH:MM
+    horaFim: string       // HH:MM
+    titulo: string
+    tipoNome: string
+    tipoCor: string
+    usuariosOcupados: string[]   // ids dos solicitados que estão nesse evento
+    nomesOcupados: string[]      // nomes correspondentes (pra tooltip)
+  }>> {
+    if (params.usuarioIds.length === 0) return []
+    const inicio = new Date(params.dataInicio)
+    const fim = new Date(params.dataFim)
+
+    // Busca eventos com horário onde algum dos usuários (participante OU criador)
+    // tem envolvimento no range. Inclui dados pra montar tooltip no frontend.
+    const eventos = await prisma.agendaEvento.findMany({
+      where: {
+        isActive: true,
+        diaInteiro: false,
+        data: { gte: inicio, lte: fim },
+        OR: [
+          { criadorId: { in: params.usuarioIds } },
+          { participantes: { some: { usuarioId: { in: params.usuarioIds }, isActive: true } } },
+        ],
+      },
+      include: {
+        participantes: {
+          where: { isActive: true, usuarioId: { in: params.usuarioIds } },
+          include: { usuario: { select: { id: true, name: true } } },
+        },
+        criador: { select: { id: true, name: true } },
+        tipo: { select: { nome: true, cor: true } },
+      },
+      orderBy: [{ data: 'asc' }, { horaInicio: 'asc' }],
+    })
+
+    return eventos
+      .filter(ev => ev.horaInicio && ev.horaFim)
+      .map(ev => {
+        const partIds = ev.participantes.map(p => p.usuarioId).filter(Boolean) as string[]
+        const envolvidos = new Set<string>()
+        const nomes = new Map<string, string>()
+        for (const uid of params.usuarioIds) {
+          if (partIds.includes(uid) || ev.criadorId === uid) {
+            envolvidos.add(uid)
+            // Resolve nome: dos participantes ou do criador
+            const p = ev.participantes.find(x => x.usuarioId === uid)
+            if (p?.usuario) nomes.set(uid, p.usuario.name)
+            else if (ev.criadorId === uid) nomes.set(uid, ev.criador.name)
+          }
+        }
+        const dataIso = ev.data.toISOString().slice(0, 10)
+        return {
+          id: ev.id,
+          data: dataIso,
+          horaInicio: ev.horaInicio!,
+          horaFim: ev.horaFim!,
+          titulo: ev.titulo,
+          tipoNome: ev.tipo.nome,
+          tipoCor: ev.tipo.cor,
+          usuariosOcupados: Array.from(envolvidos),
+          nomesOcupados: Array.from(envolvidos).map(id => nomes.get(id) ?? id),
+        }
+      })
+  }
+
   // ============================================================
   // LOGS
   // ============================================================
@@ -660,9 +792,17 @@ export class AgendaService {
   // USUÁRIOS (para seleção de participantes)
   // ============================================================
 
-  async listUsuarios() {
+  /**
+   * Lista usuários disponíveis pra adicionar como participantes em eventos.
+   * Respeita multi-tenant: usuários comuns só veem colegas da própria empresa;
+   * masters veem todos do tenant. Inativos sempre ocultos.
+   */
+  async listUsuarios(isMaster: boolean, empresaId?: string | null) {
     return prisma.user.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(!isMaster && empresaId ? { empresaId } : {}),
+      },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     })
@@ -1185,5 +1325,57 @@ export class AgendaService {
     } catch (e) {
       console.error('[Agenda] Falha ao notificar participantes:', (e as Error).message)
     }
+  }
+
+  // ============================================================
+  // Gate de conflito — aplicado em create/update conforme AgendaConfig
+  // ============================================================
+
+  /**
+   * Antes de salvar um evento, lê a config global e dependendo dela:
+   *   - DESLIGADO: pula a verificação
+   *   - AVISAR:    NÃO bloqueia aqui (front já mostrou o dialog e usuário confirmou)
+   *   - BLOQUEAR:  re-verifica e lança erro se houver conflito do tipo bloqueado
+   *
+   * Eventos dia-inteiro ou sem horário definido são liberados (não há overlap a checar).
+   */
+  private async aplicarGateConflito(params: {
+    data: string
+    horaInicio?: string | null
+    horaFim?: string | null
+    diaInteiro?: boolean | null
+    participanteIds?: string[]
+    sala?: string
+    salaId?: string
+    eventoIdExcluir?: string
+  }): Promise<void> {
+    if (params.diaInteiro) return
+    if (!params.horaInicio || !params.horaFim) return
+
+    const cfg = await this.configService.get()
+    if (cfg.conflitoParticipante !== 'BLOQUEAR' && cfg.conflitoSala !== 'BLOQUEAR') return
+
+    const conflitos = await this.verificarConflitos({
+      data: params.data,
+      horaInicio: params.horaInicio,
+      horaFim: params.horaFim,
+      participanteIds: params.participanteIds,
+      sala: params.sala,
+      salaId: params.salaId,
+      eventoIdExcluir: params.eventoIdExcluir,
+    })
+
+    if (conflitos.length === 0) return
+
+    const bloqueiaParticipante = cfg.conflitoParticipante === 'BLOQUEAR'
+    const bloqueiaSala = cfg.conflitoSala === 'BLOQUEAR'
+    const fatais = conflitos.filter(c =>
+      (c.tipo === 'participante' && bloqueiaParticipante) ||
+      (c.tipo === 'sala' && bloqueiaSala),
+    )
+    if (fatais.length === 0) return
+
+    const detalhe = fatais.map(c => `${c.tipo === 'sala' ? 'Sala' : 'Participante'} "${c.nome}" em "${c.evento}" (${c.horario})`).join('; ')
+    throw new Error(`Conflito de agenda — evento bloqueado pelas regras da empresa: ${detalhe}`)
   }
 }

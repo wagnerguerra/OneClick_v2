@@ -149,6 +149,7 @@ export interface SubPermissionDef {
 
 export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
   agenda: [
+    { key: 'manage_config', label: 'Gerenciar configurações da agenda (regras de conflito e salas)', group: 'Configurações' },
     { key: 'manage_tipos', label: 'Gerenciar tipos de evento', group: 'Configurações' },
     { key: 'import_legado', label: 'Importar eventos do sistema legado', group: 'Configurações' },
     { key: 'manage_recorrencia', label: 'Criar eventos recorrentes', group: 'Eventos' },

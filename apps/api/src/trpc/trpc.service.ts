@@ -56,6 +56,8 @@ import { createFolhaRouter } from '../folha/folha.router'
 import { AgendaService } from '../agenda/agenda.service'
 import { AgendaGoogleService } from '../agenda/agenda-google.service'
 import { createAgendaRouter } from '../agenda/agenda.router'
+import { AgendaConfigService } from '../agenda/agenda-config.service'
+import { AgendaSalaService } from '../agenda/agenda-sala.service'
 import { DteService } from '../dte/dte.service'
 import { createDteRouter } from '../dte/dte.router'
 import { CrmService } from '../crm/crm.service'
@@ -323,6 +325,8 @@ export class TrpcService {
     @Inject(FolhaService) private readonly folhaService: FolhaService,
     @Inject(AgendaService) private readonly agendaService: AgendaService,
     @Inject(AgendaGoogleService) private readonly agendaGoogleService: AgendaGoogleService,
+    @Inject(AgendaConfigService) private readonly agendaConfigService: AgendaConfigService,
+    @Inject(AgendaSalaService) private readonly agendaSalaService: AgendaSalaService,
     @Inject(DteService) private readonly dteService: DteService,
     @Inject(CrmService) private readonly crmService: CrmService,
     @Inject(ImportComercialService) private readonly importComercialService: ImportComercialService,
@@ -402,7 +406,7 @@ export class TrpcService {
       bi: createBiRouter(this.biService),
       biPublic: createBiPublicRouter(this.biService),
       folha: createFolhaRouter(this.folhaService),
-      agenda: createAgendaRouter(this.agendaService, this.agendaGoogleService),
+      agenda: createAgendaRouter(this.agendaService, this.agendaGoogleService, this.agendaConfigService, this.agendaSalaService),
       dte: createDteRouter(this.dteService),
       crm: createCrmRouter(this.crmService, this.importComercialService),
       orcamento: createOrcamentoRouter(this.orcamentoService),

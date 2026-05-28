@@ -1,11 +1,19 @@
 import { z } from 'zod'
-import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
+import { router, readProcedure, writeProcedure, deleteProcedure, writeSubProcedure, deleteSubProcedure } from '../trpc/trpc.service'
 import { AgendaService } from './agenda.service'
 import { AgendaGoogleService } from './agenda-google.service'
+import { AgendaConfigService } from './agenda-config.service'
+import { AgendaSalaService } from './agenda-sala.service'
 
 const MODULE = 'agenda'
+const conflitoModoSchema = z.enum(['DESLIGADO', 'AVISAR', 'BLOQUEAR'])
 
-export function createAgendaRouter(service: AgendaService, googleService: AgendaGoogleService) {
+export function createAgendaRouter(
+  service: AgendaService,
+  googleService: AgendaGoogleService,
+  configService: AgendaConfigService,
+  salaService: AgendaSalaService,
+) {
   return router({
     // === TIPOS (Categorias) ===
     listTipos: readProcedure(MODULE)
@@ -110,6 +118,7 @@ export function createAgendaRouter(service: AgendaService, googleService: Agenda
           particular: z.boolean().optional(),
           editavel: z.boolean().optional(),
           sala: z.string().nullable().optional(),
+          salaId: z.string().nullable().optional(),
           garagem: z.boolean().optional(),
           vagas: z.number().nullable().optional(),
           equipamentos: z.string().nullable().optional(),
@@ -138,9 +147,54 @@ export function createAgendaRouter(service: AgendaService, googleService: Agenda
         horaFim: z.string(),
         participanteIds: z.array(z.string()).optional(),
         sala: z.string().optional(),
+        salaId: z.string().optional(),
         eventoIdExcluir: z.string().optional(),
       }))
       .query(({ input }) => service.verificarConflitos(input)),
+
+    // === CONFIGURAÇÃO (singleton) — leitura aberta pra qualquer um com acesso ao
+    // módulo (precisa pra o front saber se deve verificar conflitos antes de salvar).
+    // Update exige sub-permissão `manage_config`.
+    config: router({
+      get: readProcedure(MODULE)
+        .query(() => configService.get()),
+      update: writeSubProcedure(MODULE, 'manage_config', 'Gerenciar configurações da agenda')
+        .input(z.object({
+          conflitoParticipante: conflitoModoSchema.optional(),
+          conflitoSala: conflitoModoSchema.optional(),
+        }))
+        .mutation(({ input }) => configService.update(input)),
+    }),
+
+    // === SALAS — leitura aberta (necessária pro select no modal de evento).
+    // Mutações exigem sub-permissão `manage_config`.
+    sala: router({
+      list: readProcedure(MODULE)
+        .input(z.object({ incluirInativas: z.boolean().optional() }).optional())
+        .query(({ input }) => salaService.list({ incluirInativas: input?.incluirInativas })),
+      create: writeSubProcedure(MODULE, 'manage_config', 'Cadastrar salas da agenda')
+        .input(z.object({
+          nome: z.string().min(1),
+          capacidade: z.number().nullable().optional(),
+          equipamentos: z.string().nullable().optional(),
+          ativo: z.boolean().optional(),
+        }))
+        .mutation(({ input }) => salaService.create(input)),
+      update: writeSubProcedure(MODULE, 'manage_config', 'Editar salas da agenda')
+        .input(z.object({
+          id: z.string(),
+          data: z.object({
+            nome: z.string().min(1).optional(),
+            capacidade: z.number().nullable().optional(),
+            equipamentos: z.string().nullable().optional(),
+            ativo: z.boolean().optional(),
+          }),
+        }))
+        .mutation(({ input }) => salaService.update(input.id, input.data)),
+      delete: deleteSubProcedure(MODULE, 'manage_config', 'Remover salas da agenda')
+        .input(z.object({ id: z.string() }))
+        .mutation(({ input }) => salaService.delete(input.id)),
+    }),
 
     // === DISPONIBILIDADE ===
     verificarDisponibilidade: readProcedure(MODULE)
@@ -150,14 +204,23 @@ export function createAgendaRouter(service: AgendaService, googleService: Agenda
       }))
       .query(({ input }) => service.verificarDisponibilidade(input)),
 
+    // Disponibilidade combinada num range — usada pelo /agenda/disponibilidade
+    disponibilidadeRange: readProcedure(MODULE)
+      .input(z.object({
+        dataInicio: z.string(),
+        dataFim: z.string(),
+        usuarioIds: z.array(z.string()).min(1),
+      }))
+      .query(({ input }) => service.disponibilidadeRange(input)),
+
     // === LOGS ===
     listLogs: readProcedure(MODULE)
       .input(z.object({ eventoId: z.string() }))
       .query(({ input }) => service.listLogs(input.eventoId)),
 
-    // === USUÁRIOS (para select de participantes) ===
+    // === USUÁRIOS (para select de participantes) — filtra por empresa do user logado
     listUsuarios: readProcedure(MODULE)
-      .query(() => service.listUsuarios()),
+      .query(({ ctx }) => service.listUsuarios(ctx.isMaster ?? false, ctx.empresaId)),
 
     // === GOOGLE CALENDAR ===
     google: router({

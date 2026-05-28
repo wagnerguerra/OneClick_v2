@@ -1,10 +1,12 @@
 'use client'
 
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
-  ChevronLeft, ChevronRight, Plus, Loader2, Calendar, Clock,
+  ChevronLeft, ChevronRight, ChevronDown, Plus, Loader2, Calendar, Clock,
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
-  Repeat, Lock, History, Settings, Palette, Check, Download,
+  Repeat, Lock, History, Settings, Palette, Check, Download, DoorOpen,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card,
@@ -51,6 +53,7 @@ interface AgendaEvento {
   particular: boolean
   editavel: boolean
   sala: string | null
+  salaId: string | null
   isTarefa: boolean
   recorrencia: string
   lote: string | null
@@ -117,6 +120,17 @@ export default function AgendaPage() {
   const { data: session } = useSession()
   const currentUserId = session?.user?.id ?? ''
 
+  // Salas cadastradas (cadastro em /agenda/configuracoes → aba Salas) e config
+  // de regras de conflito — usadas pra select de sala no form e pra decidir o
+  // comportamento da verificação de conflitos antes de salvar.
+  type SalaCad = { id: string; nome: string; ativo: boolean }
+  type ConflitoModo = 'DESLIGADO' | 'AVISAR' | 'BLOQUEAR'
+  const [salasCadastradas, setSalasCadastradas] = useState<SalaCad[]>([])
+  const [agendaConfig, setAgendaConfig] = useState<{ conflitoParticipante: ConflitoModo; conflitoSala: ConflitoModo }>({
+    conflitoParticipante: 'AVISAR',
+    conflitoSala: 'AVISAR',
+  })
+
   // Sub-permissões do módulo agenda
   const { isMaster, permissions } = useUserPermissions()
   const agendaPerm = permissions.find(p => p.moduleSlug === 'agenda')
@@ -129,7 +143,8 @@ export default function AgendaPage() {
   // sempre disponível — quem cria evento naturalmente convida participantes.
   const canManageParticipantes = isMaster || subPerms.manage_participantes === true
   const canDeleteEventos = isMaster || subPerms.delete_eventos === true
-  const showSettingsDropdown = canManageTipos || canImportLegado
+  const canManageConfig = isMaster || subPerms.manage_config === true
+  const showSettingsDropdown = canManageTipos || canImportLegado || canManageConfig
 
   const [year, setYear] = useState(() => new Date().getFullYear())
   const [month, setMonth] = useState(() => new Date().getMonth())
@@ -148,6 +163,38 @@ export default function AgendaPage() {
   const [selectedEvento, setSelectedEvento] = useState<AgendaEvento | null>(null)
   const [saving, setSaving] = useState(false)
 
+  // Combobox filtrável do campo "Tipo" do modal
+  const [tipoSearchOpen, setTipoSearchOpen] = useState(false)
+  const [tipoSearchQuery, setTipoSearchQuery] = useState('')
+  const tipoSearchRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!tipoSearchOpen) return
+    function onClickOutside(e: MouseEvent) {
+      if (tipoSearchRef.current && !tipoSearchRef.current.contains(e.target as Node)) {
+        setTipoSearchOpen(false)
+        setTipoSearchQuery('')
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [tipoSearchOpen])
+
+  // Combobox filtrável de "Participantes" do modal
+  const [partSearchOpen, setPartSearchOpen] = useState(false)
+  const [partSearchQuery, setPartSearchQuery] = useState('')
+  const partSearchRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!partSearchOpen) return
+    function onClickOutside(e: MouseEvent) {
+      if (partSearchRef.current && !partSearchRef.current.contains(e.target as Node)) {
+        setPartSearchOpen(false)
+        setPartSearchQuery('')
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [partSearchOpen])
+
   // Formulário
   const [form, setForm] = useState({
     titulo: '',
@@ -164,6 +211,7 @@ export default function AgendaPage() {
     particular: false,
     editavel: true,
     sala: '',
+    salaId: '' as string,
     garagem: false,
     vagas: undefined as number | undefined,
     equipamentos: '',
@@ -196,7 +244,7 @@ export default function AgendaPage() {
 
   // Drag and drop
   const [draggingEventId, setDraggingEventId] = useState<string | null>(null)
-  const [dropTargetDay, setDropTargetDay] = useState<number | null>(null)
+  const [dropTargetDay, setDropTargetDay] = useState<string | null>(null)
 
   // Modal de detalhes do dia
   const [dayModalOpen, setDayModalOpen] = useState(false)
@@ -209,9 +257,16 @@ export default function AgendaPage() {
   const fetchEventos = useCallback(async () => {
     setLoading(true)
     try {
-      const dataInicio = `${year}-${String(month + 1).padStart(2, '0')}-01`
-      const lastDay = getDaysInMonth(year, month)
-      const dataFim = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+      // Range inclui os dias dos meses adjacentes visíveis na grade (4-6 semanas).
+      // Assim a célula do dia 30/abril (visível na primeira linha da grade de maio)
+      // também recebe os eventos do mês anterior.
+      const firstWeekDay = getFirstDayOfMonth(year, month)        // 0=dom, 5=sex...
+      const lastDayOfMonth = getDaysInMonth(year, month)
+      const cellsCount = Math.ceil((firstWeekDay + lastDayOfMonth) / 7) * 7
+      const gridStart = new Date(year, month, 1 - firstWeekDay)
+      const gridEnd = new Date(year, month, cellsCount - firstWeekDay - 1)
+      const dataInicio = formatDate(gridStart)
+      const dataFim = formatDate(gridEnd)
       const result = await trpc.agenda.listEventos.query({ dataInicio, dataFim }) as AgendaEvento[]
       setEventos(result)
     } catch (e) {
@@ -223,6 +278,41 @@ export default function AgendaPage() {
 
   useEffect(() => { fetchEventos() }, [fetchEventos])
 
+  // Pré-abre o modal de novo evento quando chegamos com `?novoEvento=1&data=...&...`
+  // (uso típico: /agenda/disponibilidade redireciona pra cá ao clicar num slot livre)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const novoEventoFlag = searchParams.get('novoEvento')
+  const verEventoId = searchParams.get('verEvento')
+  useEffect(() => {
+    if (novoEventoFlag !== '1') return
+    if (tipos.length === 0) return  // espera os tipos carregarem pra pegar default
+    const data = searchParams.get('data') || undefined
+    const horaInicio = searchParams.get('horaInicio') || undefined
+    const horaFim = searchParams.get('horaFim') || undefined
+    const participantes = (searchParams.get('participantes') || '').split(',').filter(Boolean)
+    openNewEvent(data, { horaInicio, horaFim, participanteIds: participantes })
+    // Limpa os query params da URL pra não reabrir caso usuário recarregue
+    router.replace('/agenda', { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [novoEventoFlag, tipos.length])
+
+  // Abre o modal em modo visualização quando chegamos com `?verEvento=<id>`
+  // (uso típico: /agenda/disponibilidade redireciona ao clicar num slot ocupado)
+  useEffect(() => {
+    if (!verEventoId) return
+    let cancelled = false
+    trpc.agenda.getById.query({ id: verEventoId })
+      .then((ev: unknown) => {
+        if (cancelled || !ev) return
+        openViewEvent(ev as AgendaEvento)
+        router.replace('/agenda', { scroll: false })
+      })
+      .catch(e => alerts.error('Erro', (e as Error).message))
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verEventoId])
+
   useEffect(() => {
     trpc.agenda.listTipos.query()
       .then((r: unknown) => setTipos(r as AgendaTipo[]))
@@ -230,6 +320,17 @@ export default function AgendaPage() {
     // Carregar usuarios para o select de participantes
     trpc.agenda.listUsuarios.query()
       .then((r: unknown) => setUsuarios(r as Array<{ id: string; name: string }>))
+      .catch(() => {})
+    // Salas cadastradas (só ativas) — usado no select do modal de evento
+    trpc.agenda.sala.list.query({})
+      .then((r: unknown) => setSalasCadastradas(r as SalaCad[]))
+      .catch(() => {})
+    // Config de regras de conflito — pra decidir como tratar conflitos no save
+    trpc.agenda.config.get.query()
+      .then((c: unknown) => {
+        const cfg = c as { conflitoParticipante: ConflitoModo; conflitoSala: ConflitoModo }
+        setAgendaConfig({ conflitoParticipante: cfg.conflitoParticipante, conflitoSala: cfg.conflitoSala })
+      })
       .catch(() => {})
   }, [])
 
@@ -266,8 +367,11 @@ export default function AgendaPage() {
     }).sort((a, b) => (a.horaInicio ?? '').localeCompare(b.horaInicio ?? ''))
   }, [eventos])
 
+  // Mapeia eventos por chave YYYY-MM-DD (não só dia número), assim dias de meses
+  // adjacentes visíveis na grade (ex: 30/abril aparecendo na primeira linha de maio)
+  // também recebem seus eventos próprios.
   const eventosPorDia = useMemo(() => {
-    const map: Record<number, AgendaEvento[]> = {}
+    const map: Record<string, AgendaEvento[]> = {}
     let filtered = filtroTipo ? eventos.filter(e => e.tipoId === filtroTipo) : eventos
     if (filtroParticipante) {
       filtered = filtered.filter(e =>
@@ -279,40 +383,40 @@ export default function AgendaPage() {
       const startDate = new Date(ev.data)
       const endDate = ev.dataFim ? new Date(ev.dataFim) : startDate
 
-      // Iterar por todos os dias que o evento cobre
+      // Iterar por todos os dias que o evento cobre (em UTC pra bater com como o
+      // backend retorna `data` — DateTime sem timezone do Postgres @db.Date).
       const cursor = new Date(startDate)
       while (cursor <= endDate) {
-        const day = cursor.getUTCDate()
-        const evMonth = cursor.getUTCMonth()
-        const evYear = cursor.getUTCFullYear()
-        if (evMonth === month && evYear === year) {
-          if (!map[day]) map[day] = []
-          if (!map[day]!.find(e => e.id === ev.id)) map[day]!.push(ev)
-        }
+        const key = `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}-${String(cursor.getUTCDate()).padStart(2, '0')}`
+        if (!map[key]) map[key] = []
+        if (!map[key]!.find(e => e.id === ev.id)) map[key]!.push(ev)
         cursor.setUTCDate(cursor.getUTCDate() + 1)
       }
     }
-    for (const day of Object.keys(map)) {
-      map[Number(day)]!.sort((a, b) => (a.horaInicio ?? '').localeCompare(b.horaInicio ?? ''))
+    for (const key of Object.keys(map)) {
+      map[key]!.sort((a, b) => (a.horaInicio ?? '').localeCompare(b.horaInicio ?? ''))
     }
     return map
-  }, [eventos, month, year, filtroTipo, filtroParticipante])
+  }, [eventos, filtroTipo, filtroParticipante])
 
   // ============================================================
   // Ações
   // ============================================================
 
-  function openNewEvent(dateStr?: string) {
+  function openNewEvent(dateStr?: string, opts?: { horaInicio?: string; horaFim?: string; participanteIds?: string[] }) {
     setModalMode('create')
     setSelectedEvento(null)
     setForm({
       titulo: '', descricao: '', data: dateStr || formatDate(new Date()), dataFim: '',
-      horaInicio: '09:00', horaFim: '10:00', diaInteiro: false,
+      horaInicio: opts?.horaInicio || '09:00',
+      horaFim: opts?.horaFim || '10:00',
+      diaInteiro: false,
       local: '', contato: '', link: '', presenca: 'PRESENCIAL',
-      particular: false, editavel: true, sala: '', garagem: false, vagas: undefined,
+      particular: false, editavel: true, sala: '', salaId: '', garagem: false, vagas: undefined,
       equipamentos: '', isTarefa: false,
       tipoId: tipos[0]?.id ?? '', recorrencia: 'NENHUMA', recorrenciaVezes: 2,
-      participanteIds: [], participantesAvulsos: [],
+      participanteIds: opts?.participanteIds ?? [],
+      participantesAvulsos: [],
     })
     setAvulsoInput('')
     setModalOpen(true)
@@ -347,6 +451,7 @@ export default function AgendaPage() {
       particular: ev.particular,
       editavel: ev.editavel,
       sala: ev.sala ?? '',
+      salaId: (ev as unknown as Record<string, unknown>).salaId as string ?? '',
       garagem: (ev as unknown as Record<string, unknown>).garagem as boolean ?? false,
       vagas: (ev as unknown as Record<string, unknown>).vagas as number | undefined,
       equipamentos: (ev as unknown as Record<string, unknown>).equipamentos as string ?? '',
@@ -364,27 +469,59 @@ export default function AgendaPage() {
   async function handleSave() {
     if (!form.titulo.trim()) { alerts.error('Erro', 'Título é obrigatório.'); return }
     if (!form.tipoId) { alerts.error('Erro', 'Selecione um tipo.'); return }
+    // Bloqueio de data passada — só no create. Editar evento antigo continua permitido.
+    if (modalMode === 'create' && form.data) {
+      const hojeStr = formatDate(new Date())
+      if (form.data < hojeStr) {
+        alerts.error('Data inválida', 'Não é possível agendar eventos em dias que já passaram.')
+        return
+      }
+    }
     setSaving(true)
     try {
-      // Verificar conflitos antes de salvar (se não for dia inteiro)
-      if (!form.diaInteiro && form.horaInicio && form.horaFim) {
+      // Verificar conflitos conforme AgendaConfig — só roda se algum dos modos
+      // (participante/sala) estiver em AVISAR ou BLOQUEAR, e se o evento tem horário.
+      const checaParticipante = agendaConfig.conflitoParticipante !== 'DESLIGADO'
+      const checaSala = agendaConfig.conflitoSala !== 'DESLIGADO'
+      if ((checaParticipante || checaSala) && !form.diaInteiro && form.horaInicio && form.horaFim) {
         const conflitos = await trpc.agenda.verificarConflitos.query({
           data: form.data,
           horaInicio: form.horaInicio,
           horaFim: form.horaFim,
-          participanteIds: form.participanteIds.length > 0 ? form.participanteIds : undefined,
-          sala: form.sala || undefined,
+          participanteIds: checaParticipante && form.participanteIds.length > 0 ? form.participanteIds : undefined,
+          sala: checaSala ? (form.sala || undefined) : undefined,
+          salaId: checaSala ? (form.salaId || undefined) : undefined,
           eventoIdExcluir: modalMode === 'edit' ? selectedEvento?.id : undefined,
         }) as Array<{ tipo: string; nome: string; evento: string; horario: string }>
 
-        if (conflitos.length > 0) {
-          const msgs = conflitos.map(c =>
+        // Filtra só os conflitos relevantes pra config atual (caso o backend retorne tudo)
+        const relevantes = conflitos.filter(c =>
+          (c.tipo === 'participante' && checaParticipante) ||
+          (c.tipo === 'sala' && checaSala)
+        )
+
+        if (relevantes.length > 0) {
+          const msgs = relevantes.map(c =>
             c.tipo === 'participante'
               ? `• ${c.nome} já está em "${c.evento}" (${c.horario})`
               : `• Sala "${c.nome}" ocupada por "${c.evento}" (${c.horario})`
           )
+          const fatais = relevantes.filter(c =>
+            (c.tipo === 'participante' && agendaConfig.conflitoParticipante === 'BLOQUEAR') ||
+            (c.tipo === 'sala' && agendaConfig.conflitoSala === 'BLOQUEAR')
+          )
+          if (fatais.length > 0) {
+            // Modo BLOQUEAR — não permite salvar. Botão só de OK.
+            await alerts.error(
+              `Conflito bloqueado (${fatais.length})`,
+              `Não é possível salvar — regras da empresa impedem:\n${msgs.join('\n')}`,
+            )
+            setSaving(false)
+            return
+          }
+          // Modo AVISAR — pergunta se quer salvar mesmo assim
           const ok = await alerts.confirm({
-            title: `${conflitos.length} conflito(s) detectado(s)`,
+            title: `${relevantes.length} conflito(s) detectado(s)`,
             text: msgs.join('\n'),
             confirmText: 'Salvar mesmo assim',
             icon: 'warning',
@@ -409,6 +546,7 @@ export default function AgendaPage() {
           particular: form.particular,
           editavel: form.editavel,
           sala: form.sala || undefined,
+          salaId: form.salaId || undefined,
           isTarefa: form.isTarefa,
           tipoId: form.tipoId,
           recorrencia: form.recorrencia as 'NENHUMA' | 'DIARIA' | 'SEMANAL' | 'MENSAL' | 'ANUAL',
@@ -435,6 +573,7 @@ export default function AgendaPage() {
             particular: form.particular,
             editavel: form.editavel,
             sala: form.sala || undefined,
+            salaId: form.salaId || undefined,
             isTarefa: form.isTarefa,
             tipoId: form.tipoId,
             participanteIds: form.participanteIds,
@@ -598,8 +737,7 @@ export default function AgendaPage() {
 
   const dayModalEvents = useMemo(() => {
     if (!dayModalDate) return []
-    const d = parseDate(dayModalDate)
-    return eventosPorDia[d.getDate()] ?? []
+    return eventosPorDia[dayModalDate] ?? []
   }, [dayModalDate, eventosPorDia])
 
   return (
@@ -613,6 +751,20 @@ export default function AgendaPage() {
             <p className="text-sm text-muted-foreground">Gerencie eventos, reuniões e compromissos</p>
           </div>
         </div>
+        <div className="flex items-center gap-2 shrink-0">
+        <Button
+          size="sm"
+          style={{ backgroundColor: 'var(--mod-administrativo, #38bdf8)' }}
+          className="text-white gap-1.5"
+          onClick={() => openNewEvent()}
+        >
+          <Plus className="h-4 w-4" /> Novo Evento
+        </Button>
+        <Button asChild variant="outline" size="sm" className="gap-1.5">
+          <Link href="/agenda/disponibilidade">
+            <Users className="h-4 w-4" /> Verificar disponibilidade
+          </Link>
+        </Button>
         {showSettingsDropdown && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -650,9 +802,17 @@ export default function AgendaPage() {
               <Download className="h-3.5 w-3.5" />Importar Eventos Legado
             </DropdownMenuItem>
             )}
+            {canManageConfig && (
+            <DropdownMenuItem asChild className="text-xs gap-2 cursor-pointer">
+              <Link href="/agenda/configuracoes">
+                <Settings className="h-3.5 w-3.5" />Configurações da agenda
+              </Link>
+            </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
         )}
+        </div>
       </div>
 
       <div className="flex gap-4 flex-1 min-h-0">
@@ -660,15 +820,6 @@ export default function AgendaPage() {
         {/* PAINEL ESQUERDO — ações, filtros, eventos de hoje */}
         {/* ============================================================ */}
         <div className="hidden xl:block w-[280px] shrink-0 space-y-3">
-          {/* Botões */}
-          <Card className="p-4 space-y-2">
-            <Button className="w-full gap-2 bg-sky-500 hover:bg-sky-600 text-white" onClick={() => openNewEvent()}>
-              <Calendar className="h-4 w-4" />Novo Evento
-            </Button>
-            <Button variant="outline" className="w-full gap-2" onClick={() => { setForm(f => ({ ...f, isTarefa: true })); openNewEvent() }}>
-              <Clock className="h-4 w-4" />Nova Tarefa
-            </Button>
-          </Card>
 
           {/* Filtros */}
           <Card className="p-4 space-y-3">
@@ -708,35 +859,50 @@ export default function AgendaPage() {
           </Card>
 
           {/* Eventos de hoje */}
-          <Card className="p-4">
-            <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Eventos de hoje</h5>
+          <div>
+            <h3 className="text-sm font-semibold">Eventos de Hoje</h3>
+            <p className="text-xs text-muted-foreground mb-3">Não perca os próximos eventos</p>
             {eventosHoje.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">Nenhum evento hoje</p>
+              <p className="text-xs text-muted-foreground text-center py-6">Nenhum evento hoje</p>
             ) : (
-              <div className="space-y-2 max-h-[350px] overflow-y-auto scrollbar-none">
-                {eventosHoje.map(ev => (
-                  <div
-                    key={ev.id}
-                    className="rounded-lg border p-2.5 hover:bg-muted/30 cursor-pointer transition-colors"
-                    onClick={() => openViewEvent(ev)}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ev.tipo.cor }} />
-                      <span className="text-[11px] text-muted-foreground">
-                        {ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio} — ${ev.horaFim}`}
-                      </span>
-                    </div>
-                    <p className="text-xs font-medium truncate">{ev.titulo}</p>
-                    {ev.participantes.length > 0 && (
-                      <p className="text-[10px] text-muted-foreground mt-1 truncate">
-                        {ev.participantes.map(p => p.usuario?.name ?? p.nomeAvulso).filter(Boolean).join(', ')}
-                      </p>
-                    )}
-                  </div>
-                ))}
+              <div className="space-y-2.5 max-h-[420px] overflow-y-auto scrollbar-none pr-1">
+                {(() => {
+                  const hoje = new Date()
+                  const dataHoje = `${String(hoje.getDate()).padStart(2, '0')}/${String(hoje.getMonth() + 1).padStart(2, '0')}/${hoje.getFullYear()}`
+                  return eventosHoje.map(ev => {
+                    const nomes = ev.participantes.map(p => p.usuario?.name ?? p.nomeAvulso).filter(Boolean) as string[]
+                    return (
+                      <Card
+                        key={ev.id}
+                        className="p-3 hover:bg-muted/30 cursor-pointer transition-colors"
+                        onClick={() => openViewEvent(ev)}
+                      >
+                        {/* Linha superior: data (esq) | horário com ícone (dir) */}
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ev.tipo.cor }} />
+                            <span className="text-[11px] text-muted-foreground">{dataHoje}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-[11px] text-sky-600 dark:text-sky-400 shrink-0">
+                            <Clock className="h-3 w-3" />
+                            {ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio} às ${ev.horaFim}`}
+                          </div>
+                        </div>
+                        {/* Título do evento */}
+                        <p className="text-xs font-semibold leading-snug line-clamp-2">{ev.titulo}</p>
+                        {/* Participantes */}
+                        {nomes.length > 0 && (
+                          <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug line-clamp-2">
+                            {nomes.join(', ')}
+                          </p>
+                        )}
+                      </Card>
+                    )
+                  })
+                })()}
               </div>
             )}
-          </Card>
+          </div>
         </div>
 
         {/* ============================================================ */}
@@ -758,77 +924,88 @@ export default function AgendaPage() {
           </div>
 
           <Card className="flex-1 flex flex-col min-h-0">
-            {/* Navegação mês */}
-            <div className="flex items-center justify-between border-b px-4 py-2.5">
-              <Button variant="ghost" size="icon-sm" onClick={prevMonth}><ChevronLeft className="h-4 w-4" /></Button>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold">{MESES[month]} {year}</h2>
-                <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={goToday}>Hoje</Button>
+            {/* Navegação mês — esq: ícone + "Agenda de <mês> de <ano>" · dir: Hoje + setas */}
+            <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                <h2 className="text-sm font-semibold truncate">
+                  Agenda de {MESES[month]?.toLowerCase()} de {year}
+                </h2>
               </div>
-              <Button variant="ghost" size="icon-sm" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button variant="outline" size="sm" className="h-8 text-xs px-3" onClick={goToday}>Hoje</Button>
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={prevMonth}><ChevronLeft className="h-4 w-4" /></Button>
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
+              </div>
             </div>
 
-            {/* Header dias da semana (fixo) */}
-            <div className="grid grid-cols-7">
+            {/* Grid dos dias com header sticky (mesmo container scrollable pra alinhar com a scrollbar) */}
+            <div className="overflow-y-auto flex-1">
+            {/* Header dias da semana — dentro do scroll com sticky top-0 pra ficar fixo no topo */}
+            <div className="grid grid-cols-7 sticky top-0 z-10 bg-background">
               {DIAS_SEMANA.map(d => (
                 <div key={d} className="border-b border-r last:border-r-0 px-2 py-1.5 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/30">
                   {d}
                 </div>
               ))}
             </div>
-
-            {/* Grid dos dias (com scroll) */}
-            <div className="overflow-y-auto flex-1">
-            <div className="grid grid-cols-7 min-h-full" style={{ gridTemplateRows: `repeat(${Math.ceil(totalCells / 7)}, minmax(140px, 1fr))` }}>
+            <div className="grid grid-cols-7" style={{ gridTemplateRows: `repeat(${Math.ceil(totalCells / 7)}, minmax(140px, 1fr))` }}>
               {Array.from({ length: totalCells }, (_, i) => {
-                const dayNum = i - firstDay + 1
-                const isValid = dayNum >= 1 && dayNum <= daysInMonth
-                const dayEvents = isValid ? (eventosPorDia[dayNum] ?? []) : []
-                const today = isValid && isToday(year, month, dayNum)
-                const isPast = isValid && new Date(year, month, dayNum) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())
-                const dateStr = isValid ? `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}` : ''
+                // Data real da célula (pode ser do mês anterior, atual ou próximo)
+                const cellDate = new Date(year, month, 1 - firstDay + i)
+                const dayNum = cellDate.getDate()
+                const isCurrentMonth = cellDate.getMonth() === month && cellDate.getFullYear() === year
+                const dateStr = formatDate(cellDate)
+                const dayEvents = eventosPorDia[dateStr] ?? []
+                const today = isToday(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate())
+                const isPast = cellDate < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())
 
                 return (
                   <div
                     key={i}
                     className={cn(
                       'border-b border-r last:border-r-0 p-1 transition-all cursor-pointer overflow-hidden flex flex-col min-h-0',
-                      !isValid && 'bg-muted/10',
-                      isValid && !isPast && 'hover:bg-muted/20',
-                      isPast && 'bg-muted/30 dark:bg-muted/10',
+                      isCurrentMonth && !isPast && 'hover:bg-muted/20',
+                      isCurrentMonth && isPast && 'bg-muted/30 dark:bg-muted/10',
                       today && 'bg-sky-50/50 dark:bg-sky-950/20',
-                      isValid && dropTargetDay === dayNum && 'bg-sky-100 dark:bg-sky-900/30 ring-2 ring-inset ring-sky-400',
+                      dropTargetDay === dateStr && 'bg-sky-100 dark:bg-sky-900/30 ring-2 ring-inset ring-sky-400',
                     )}
+                    // Listras diagonais discretas pra dias dos meses adjacentes — sinal
+                    // visual de "fora do mês corrente". Mesmo padrão funciona em light/dark.
+                    style={!isCurrentMonth ? {
+                      backgroundImage: 'repeating-linear-gradient(135deg, transparent 0px, transparent 8px, rgba(0,0,0,0.05) 8px, rgba(0,0,0,0.05) 9px)',
+                    } : undefined}
                     onClick={() => {
-                      if (!isValid) return
                       if (dayEvents.length > 0) {
                         setDayModalDate(dateStr)
                         setDayModalOpen(true)
-                      } else {
+                      } else if (!isPast) {
+                        // Não permite criar evento em dias que já passaram
                         openNewEvent(dateStr)
                       }
                     }}
                     onDragOver={e => {
-                      if (!isValid || !draggingEventId) return
+                      if (!draggingEventId) return
                       e.preventDefault()
                       e.dataTransfer.dropEffect = 'move'
-                      setDropTargetDay(dayNum)
+                      setDropTargetDay(dateStr)
                     }}
                     onDragLeave={() => setDropTargetDay(null)}
                     onDrop={e => {
                       e.preventDefault()
                       setDropTargetDay(null)
-                      if (!isValid || !draggingEventId) return
+                      if (!draggingEventId) return
                       handleDropEvent(draggingEventId, dateStr)
                       setDraggingEventId(null)
                     }}
                   >
-                    {isValid && (
+                    {(
                       <>
                         <div className={cn(
                           'text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full shrink-0',
                           today && 'bg-sky-500 text-white',
-                          isPast && !today && 'text-muted-foreground/60',
+                          isPast && !today && isCurrentMonth && 'text-muted-foreground/60',
+                          !isCurrentMonth && 'text-muted-foreground/50',
                         )}>
                           {dayNum}
                         </div>
@@ -850,9 +1027,13 @@ export default function AgendaPage() {
                                 draggingEventId === ev.id && 'opacity-40',
                               )}
                               style={{
-                                backgroundColor: isPast ? '#e5e7eb' : ev.tipo.cor,
-                                color: isPast ? '#6b7280' : ev.tipo.corTexto,
-                                borderLeft: `3px solid ${ev.tipo.corBorda}`,
+                                // Eventos de meses adjacentes: bg apagado + sem borda lateral colorida
+                                // (sinal visual de "fora do mês corrente"). Igual a `isPast`, mas
+                                // sobrescreve a borda pra não destacar.
+                                backgroundColor: !isCurrentMonth ? '#f3f4f6' : isPast ? '#e5e7eb' : ev.tipo.cor,
+                                color: !isCurrentMonth ? '#9ca3af' : isPast ? '#6b7280' : ev.tipo.corTexto,
+                                borderLeft: !isCurrentMonth ? 'none' : `3px solid ${ev.tipo.corBorda}`,
+                                paddingLeft: !isCurrentMonth ? '11px' : undefined, // compensa o `border-left: 3px` ausente
                               }}
                               onClick={e => { e.stopPropagation(); openViewEvent(ev) }}
                               title={`${ev.horaInicio ?? ''} ${ev.titulo} — arraste para mover`}
@@ -929,11 +1110,14 @@ export default function AgendaPage() {
               </div>
             ))}
           </DialogBody>
-          <DialogFooter>
-            <Button size="sm" onClick={() => { setDayModalOpen(false); openNewEvent(dayModalDate) }} className="gap-1.5 bg-sky-500 hover:bg-sky-600 text-white">
-              <Plus className="h-3.5 w-3.5" />Novo evento
-            </Button>
-          </DialogFooter>
+          {/* Footer só quando há ação possível — pra datas passadas, oculta inteiro */}
+          {dayModalDate >= formatDate(new Date()) && (
+            <DialogFooter>
+              <Button size="sm" onClick={() => { setDayModalOpen(false); openNewEvent(dayModalDate) }} className="gap-1.5 bg-sky-500 hover:bg-sky-600 text-white">
+                <Plus className="h-3.5 w-3.5" />Novo evento
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -941,19 +1125,27 @@ export default function AgendaPage() {
       {/* Modal criar/editar/visualizar evento */}
       {/* ============================================================ */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeaderIcon icon={modalMode === 'create' ? Plus : modalMode === 'edit' ? Edit2 : Calendar} color={modalMode === 'create' ? 'emerald' : modalMode === 'edit' ? 'sky' : 'sky'}>
-            <DialogTitle className="flex items-center gap-2">
-              {modalMode === 'view' && selectedEvento && (
-                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: selectedEvento.tipo.cor }} />
-              )}
-              {modalMode === 'create' ? 'Novo Evento' : modalMode === 'edit' ? 'Editar Evento' : selectedEvento?.titulo}
+        <DialogContent className="max-w-6xl">
+          <DialogHeaderIcon
+            icon={modalMode === 'create' ? Plus : modalMode === 'edit' ? Edit2 : Calendar}
+            color={modalMode === 'create' ? 'emerald' : 'sky'}
+          >
+            <DialogTitle>
+              {modalMode === 'create'
+                ? 'Novo evento'
+                : modalMode === 'edit'
+                  ? 'Editar evento'
+                  : (selectedEvento?.titulo ?? 'Evento')}
             </DialogTitle>
-            {modalMode === 'view' && selectedEvento && (
-              <DialogDescription>
-                {selectedEvento.tipo.nome} · Criado por {selectedEvento.criador.name}
-              </DialogDescription>
-            )}
+            <DialogDescription>
+              {modalMode === 'create'
+                ? 'Crie um novo evento ou tarefa na agenda corporativa.'
+                : modalMode === 'edit'
+                  ? 'Atualize os dados do evento.'
+                  : selectedEvento
+                    ? `${selectedEvento.tipo.nome} · Criado por ${selectedEvento.criador.name}`
+                    : ''}
+            </DialogDescription>
           </DialogHeaderIcon>
 
           <DialogBody>
@@ -1085,22 +1277,72 @@ export default function AgendaPage() {
               <div className="flex gap-4">
                 {/* COLUNA ESQUERDA — tipo, configurações, recorrência */}
                 <div className="w-[220px] shrink-0 space-y-4 border-r pr-4">
-                  {/* Tipo */}
+                  {/* Tipo — combobox filtrável */}
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold">Tipo *</Label>
-                    <Select value={form.tipoId} onValueChange={v => setForm(f => ({ ...f, tipoId: v }))}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>
-                        {tipos.map(t => (
-                          <SelectItem key={t.id} value={t.id}>
-                            <span className="flex items-center gap-2">
-                              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: t.cor }} />
-                              {t.nome}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {(() => {
+                      const selectedTipo = tipos.find(t => t.id === form.tipoId)
+                      const filteredTipos = tipoSearchQuery.trim()
+                        ? tipos.filter(t => t.nome.toLowerCase().includes(tipoSearchQuery.toLowerCase()))
+                        : tipos
+                      return (
+                        <div ref={tipoSearchRef} className="relative w-full">
+                          <button
+                            type="button"
+                            onClick={() => setTipoSearchOpen(o => !o)}
+                            className={cn(
+                              'flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-xs',
+                              'focus:outline-none focus:ring-1 focus:ring-ring',
+                            )}
+                          >
+                            {selectedTipo ? (
+                              <span className="flex items-center gap-2 min-w-0">
+                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: selectedTipo.cor }} />
+                                <span className="truncate">{selectedTipo.nome}</span>
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground truncate">Selecione</span>
+                            )}
+                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
+                          </button>
+                          {tipoSearchOpen && (
+                            <div className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-md">
+                              <div className="p-1.5 border-b bg-popover sticky top-0">
+                                <Input
+                                  autoFocus
+                                  value={tipoSearchQuery}
+                                  onChange={e => setTipoSearchQuery(e.target.value)}
+                                  placeholder="Buscar tipo..."
+                                  className="h-7 text-xs"
+                                />
+                              </div>
+                              <div className="max-h-56 overflow-y-auto py-1">
+                                {filteredTipos.length === 0 ? (
+                                  <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhum tipo encontrado</p>
+                                ) : filteredTipos.map(t => (
+                                  <button
+                                    key={t.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setForm(f => ({ ...f, tipoId: t.id }))
+                                      setTipoSearchOpen(false)
+                                      setTipoSearchQuery('')
+                                    }}
+                                    className={cn(
+                                      'w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2',
+                                      form.tipoId === t.id && 'bg-accent text-accent-foreground',
+                                    )}
+                                  >
+                                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.cor }} />
+                                    <span className="truncate">{t.nome}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
 
                   {/* Campos especiais: Reunião Interna / Treinamento */}
@@ -1125,19 +1367,53 @@ export default function AgendaPage() {
                         </div>
                       </div>
 
-                      {/* Sala */}
+                      {/* Sala — radios no mesmo estilo da Modalidade.
+                          Lista vem de /agenda/configuracoes (aba Salas) + "Outro local". */}
                       <div className="space-y-1.5">
-                        <Label className="text-[11px]">Ambiente *</Label>
+                        <Label className="text-[11px]">Sala *</Label>
                         <div className="space-y-1">
-                          {['Sala de reuniões', 'Sala de inovação', 'Outro'].map(s => (
-                            <label key={s} className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', form.sala === s ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400' : 'hover:bg-muted/50')}>
-                              <input type="radio" name="sala" checked={form.sala === s} onChange={() => setForm(f => ({ ...f, sala: s }))} className="accent-sky-500" />
-                              {s}
-                            </label>
-                          ))}
+                          {salasCadastradas.filter(s => s.ativo).map(s => {
+                            const active = form.salaId === s.id
+                            return (
+                              <label
+                                key={s.id}
+                                className={cn(
+                                  'flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors',
+                                  active ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400' : 'hover:bg-muted/50',
+                                )}
+                              >
+                                <input
+                                  type="radio"
+                                  name="sala-radio"
+                                  checked={active}
+                                  onChange={() => setForm(f => ({ ...f, salaId: s.id, sala: s.nome, local: '' }))}
+                                  className="accent-sky-500"
+                                />
+                                <DoorOpen className="h-3.5 w-3.5" />{s.nome}
+                              </label>
+                            )
+                          })}
+                          {/* Opção "Outro local" — limpa salaId e habilita o campo "Local" na coluna da direita */}
+                          <label
+                            className={cn(
+                              'flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors',
+                              form.sala === 'Outro' ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400' : 'hover:bg-muted/50',
+                            )}
+                          >
+                            <input
+                              type="radio"
+                              name="sala-radio"
+                              checked={form.sala === 'Outro'}
+                              onChange={() => setForm(f => ({ ...f, salaId: '', sala: 'Outro' }))}
+                              className="accent-sky-500"
+                            />
+                            <MapPin className="h-3.5 w-3.5" />Outro local
+                          </label>
                         </div>
-                        {form.sala === 'Outro' && (
-                          <Input className="h-7 text-xs mt-1" placeholder="Local do evento *" value={form.local} onChange={e => setForm(f => ({ ...f, local: e.target.value }))} />
+                        {salasCadastradas.length === 0 && canManageConfig && (
+                          <p className="text-[10px] text-muted-foreground">
+                            Nenhuma sala cadastrada. <Link href="/agenda/configuracoes" className="text-sky-600 hover:underline">Cadastrar agora</Link>
+                          </p>
                         )}
                       </div>
 
@@ -1186,22 +1462,61 @@ export default function AgendaPage() {
                     </div>
                   )}
 
-                  {/* Recorrência (apenas criação) */}
-                  {modalMode === 'create' && canManageRecorrencia && (
+                  {/* Recorrência (apenas criação) — opções contextualizadas pela data do evento,
+                      estilo Google Calendar. Cada preset traz um default sensato de N° de
+                      repetições; user pode ajustar livremente embaixo. */}
+                  {modalMode === 'create' && canManageRecorrencia && (() => {
+                    const d = form.data ? parseDate(form.data) : new Date()
+                    const dia = d.getDate()
+                    const mesNum = String(d.getMonth() + 1).padStart(2, '0')
+                    const diaSemana = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'][d.getDay()]
+                    const opcoes = [
+                      { v: 'NENHUMA' as const, label: 'Não se repete',                              defaultVezes: 1 },
+                      { v: 'DIARIA'  as const, label: 'Diariamente',                                defaultVezes: 14 },
+                      { v: 'SEMANAL' as const, label: `Semanalmente, toda ${diaSemana}`,            defaultVezes: 12 },
+                      { v: 'MENSAL'  as const, label: `Mensalmente no dia ${dia}`,                  defaultVezes: 12 },
+                      { v: 'ANUAL'   as const, label: `Anualmente em ${String(dia).padStart(2, '0')}/${mesNum}`, defaultVezes: 5 },
+                    ]
+                    return (
                     <div className="space-y-2">
                       <Label className="text-xs font-semibold">Repetir</Label>
-                      <Select value={form.recorrencia} onValueChange={v => setForm(f => ({ ...f, recorrencia: v }))}>
+                      <Select
+                        value={form.recorrencia}
+                        onValueChange={v => {
+                          const opt = opcoes.find(o => o.v === v)
+                          setForm(f => ({
+                            ...f,
+                            recorrencia: v,
+                            // Quando troca de frequência, recalcula o N° de repetições pro default
+                            // da opção escolhida (se for NENHUMA, fica 1; senão usa o default).
+                            recorrenciaVezes: opt ? opt.defaultVezes : f.recorrenciaVezes,
+                          }))
+                        }}
+                      >
                         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {Object.entries(RECORRENCIA_LABELS).map(([k, l]) => (
-                            <SelectItem key={k} value={k}>{l}</SelectItem>
+                          {opcoes.map(o => (
+                            <SelectItem key={o.v} value={o.v}>{o.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                       {form.recorrencia !== 'NENHUMA' && (
                         <div className="space-y-1.5">
-                          <Label className="text-[11px]">Repetições</Label>
-                          <Input type="number" min={2} max={52} className="h-7 text-xs w-20" value={form.recorrenciaVezes} onChange={e => setForm(f => ({ ...f, recorrenciaVezes: Math.max(2, Number(e.target.value) || 2) }))} />
+                          <Label className="text-[11px]">Repete por</Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number" min={2} max={52}
+                              className="h-7 text-xs w-16"
+                              value={form.recorrenciaVezes}
+                              onChange={e => setForm(f => ({ ...f, recorrenciaVezes: Math.max(2, Number(e.target.value) || 2) }))}
+                            />
+                            <span className="text-[11px] text-muted-foreground">
+                              {form.recorrencia === 'DIARIA'  && (form.recorrenciaVezes === 1 ? 'dia'    : 'dias')}
+                              {form.recorrencia === 'SEMANAL' && (form.recorrenciaVezes === 1 ? 'semana' : 'semanas')}
+                              {form.recorrencia === 'MENSAL'  && (form.recorrenciaVezes === 1 ? 'mês'    : 'meses')}
+                              {form.recorrencia === 'ANUAL'   && (form.recorrenciaVezes === 1 ? 'ano'    : 'anos')}
+                            </span>
+                          </div>
                           {recSummary && (
                             <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                               <Repeat className="h-3 w-3 shrink-0" />{recSummary}
@@ -1210,7 +1525,8 @@ export default function AgendaPage() {
                         </div>
                       )}
                     </div>
-                  )}
+                    )
+                  })()}
 
                   {/* Opções extras */}
                   <div className="space-y-2 pt-2 border-t">
@@ -1238,7 +1554,13 @@ export default function AgendaPage() {
                   <div className="flex items-end gap-3 flex-wrap">
                     <div className="space-y-1.5">
                       <Label className="text-xs">Data início *</Label>
-                      <Input type="date" className="h-8 text-sm" value={form.data} onChange={e => setForm(f => ({ ...f, data: e.target.value }))} />
+                      <Input
+                        type="date"
+                        className="h-8 text-sm"
+                        value={form.data}
+                        onChange={e => setForm(f => ({ ...f, data: e.target.value }))}
+                        min={modalMode === 'create' ? formatDate(new Date()) : undefined}
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Data término</Label>
@@ -1285,6 +1607,14 @@ export default function AgendaPage() {
                     </div>
                   )}
 
+                  {/* Local — só aparece quando "Outro local" foi escolhido na seção da sala */}
+                  {form.sala === 'Outro' && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Local *</Label>
+                      <Input className="h-8 text-sm" value={form.local} onChange={e => setForm(f => ({ ...f, local: e.target.value }))} placeholder="Endereço, sala externa, etc." />
+                    </div>
+                  )}
+
                   {/* Contato */}
                   <div className="space-y-1.5">
                     <Label className="text-xs">Contato</Label>
@@ -1313,16 +1643,65 @@ export default function AgendaPage() {
                         ))}
                       </div>
                     )}
-                    <div className="flex gap-2">
-                      <Select value="" onValueChange={v => { if (v && !form.participanteIds.includes(v)) setForm(f => ({ ...f, participanteIds: [...f.participanteIds, v] })) }}>
-                        <SelectTrigger className="flex-1 h-8 text-xs"><SelectValue placeholder="Adicionar usuário..." /></SelectTrigger>
-                        <SelectContent>
-                          {usuarios.filter(u => !form.participanteIds.includes(u.id)).map(u => (
-                            <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {(() => {
+                      const usuariosDisponiveis = usuarios.filter(u => !form.participanteIds.includes(u.id))
+                      const partFiltered = partSearchQuery.trim()
+                        ? usuariosDisponiveis.filter(u => u.name.toLowerCase().includes(partSearchQuery.toLowerCase()))
+                        : usuariosDisponiveis
+                      return (
+                        <div ref={partSearchRef} className="relative w-full">
+                          <button
+                            type="button"
+                            onClick={() => setPartSearchOpen(o => !o)}
+                            className={cn(
+                              'flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-xs',
+                              'focus:outline-none focus:ring-1 focus:ring-ring',
+                            )}
+                          >
+                            <span className="text-muted-foreground truncate">Adicionar usuário...</span>
+                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
+                          </button>
+                          {partSearchOpen && (
+                            <div className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-md">
+                              <div className="p-1.5 border-b bg-popover sticky top-0">
+                                <Input
+                                  autoFocus
+                                  value={partSearchQuery}
+                                  onChange={e => setPartSearchQuery(e.target.value)}
+                                  placeholder="Buscar usuário..."
+                                  className="h-7 text-xs"
+                                />
+                              </div>
+                              <div className="max-h-56 overflow-y-auto py-1">
+                                {partFiltered.length === 0 ? (
+                                  <p className="px-3 py-3 text-xs text-muted-foreground text-center">
+                                    {usuariosDisponiveis.length === 0 ? 'Todos os usuários já estão adicionados' : 'Nenhum usuário encontrado'}
+                                  </p>
+                                ) : partFiltered.map(u => (
+                                  <button
+                                    key={u.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setForm(f => ({ ...f, participanteIds: [...f.participanteIds, u.id] }))
+                                      setPartSearchOpen(false)
+                                      setPartSearchQuery('')
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
+                                  >
+                                    <span className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
+                                      <span className="text-[9px] font-bold text-muted-foreground">
+                                        {(u.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                                      </span>
+                                    </span>
+                                    <span className="truncate">{u.name}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
                     <div className="flex gap-2 mt-1">
                       <Input className="flex-1 h-8 text-xs" placeholder="Convidado externo..." value={avulsoInput} onChange={e => setAvulsoInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAvulso())} />
                       <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={addAvulso}>Adicionar</Button>

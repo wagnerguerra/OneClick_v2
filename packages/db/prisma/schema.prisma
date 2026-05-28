@@ -1977,6 +1977,41 @@ enum AgendaRecorrencia {
   ANUAL
 }
 
+/// Comportamento ao detectar conflito de horário (participante ou sala).
+enum AgendaConflitoModo {
+  DESLIGADO  // não verifica
+  AVISAR     // mostra dialog mas deixa salvar
+  BLOQUEAR   // impede salvar
+}
+
+/// Configuração singleton por tenant (1 linha apenas) — regras de conflito da agenda.
+model AgendaConfig {
+  id                   String             @id @default(cuid())
+  conflitoParticipante AgendaConflitoModo @default(AVISAR) @map("conflito_participante")
+  conflitoSala         AgendaConflitoModo @default(AVISAR) @map("conflito_sala")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  @@map("agenda_config")
+}
+
+/// Cadastro de salas de reunião — usado pra detectar conflito de uso da mesma sala
+/// no mesmo período. O AgendaEvento.salaId aponta pra cá; o campo legado `sala`
+/// (string) é mantido pra eventos importados do SERPRO2.
+model AgendaSala {
+  id           String   @id @default(cuid())
+  nome         String
+  capacidade   Int?
+  equipamentos String?  @db.Text
+  ativo        Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  eventos AgendaEvento[]
+
+  @@map("agenda_salas")
+}
+
 model AgendaTipo {
   id             String   @id @default(cuid())
   nome           String
@@ -2009,6 +2044,8 @@ model AgendaEvento {
   particular   Boolean        @default(false)
   editavel     Boolean        @default(true)
   sala         String?
+  salaId       String?        @map("sala_id")
+  salaRef      AgendaSala?    @relation(fields: [salaId], references: [id])
   garagem      Boolean        @default(false)
   vagas        Int?
   equipamentos String?
@@ -2041,6 +2078,7 @@ model AgendaEvento {
   @@index([tipoId])
   @@index([empresaId])
   @@index([lote])
+  @@index([salaId])
   @@map("agenda_eventos")
 }
 
