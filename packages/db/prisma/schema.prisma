@@ -1995,6 +1995,22 @@ model AgendaConfig {
   @@map("agenda_config")
 }
 
+/// Configuração singleton do disparo automático da "Agenda do Dia" por email.
+/// Quando ativo, o scheduler envia diariamente um email pros usuarios listados em
+/// `destinatariosIds` no horário/dias configurados.
+model AgendaDisparoConfig {
+  id               String   @id @default(cuid())
+  ativo            Boolean  @default(false)
+  horario          String   @default("07:00")             // HH:MM
+  diasSemana       Int[]    @default([1, 2, 3, 4, 5])    // 0=dom..6=sab — default seg-sex
+  destinatariosIds String[] @default([]) @map("destinatarios_ids")
+  ultimoDisparoEm  DateTime? @map("ultimo_disparo_em")    // pra evitar disparos duplicados no mesmo minuto
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("agenda_disparo_config")
+}
+
 /// Cadastro de salas de reunião — usado pra detectar conflito de uso da mesma sala
 /// no mesmo período. O AgendaEvento.salaId aponta pra cá; o campo legado `sala`
 /// (string) é mantido pra eventos importados do SERPRO2.

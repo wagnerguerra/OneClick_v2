@@ -14,6 +14,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Checkbox, RichEditor,
+  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -741,6 +742,7 @@ export default function AgendaPage() {
   }, [dayModalDate, eventosPorDia])
 
   return (
+    <TooltipProvider delayDuration={250}>
     <div className="space-y-3 flex flex-col" style={{ height: 'calc(100vh - 6rem)' }}>
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
@@ -1012,36 +1014,100 @@ export default function AgendaPage() {
                         {/* Container dos eventos — sem flex-1 pra ficarem colados ao topo (sem gap antes do "+N mais") */}
                         <div className="space-y-0.5">
                           {dayEvents.slice(0, 3).map(ev => (
-                            <div
-                              key={ev.id}
-                              draggable
-                              onDragStart={e => {
-                                e.stopPropagation()
-                                setDraggingEventId(ev.id)
-                                e.dataTransfer.effectAllowed = 'move'
-                                e.dataTransfer.setData('text/plain', ev.id)
-                              }}
-                              onDragEnd={() => { setDraggingEventId(null); setDropTargetDay(null) }}
-                              className={cn(
-                                'text-[11px] leading-snug px-2 py-1 rounded-[2px] truncate cursor-grab active:cursor-grabbing',
-                                draggingEventId === ev.id && 'opacity-40',
-                              )}
-                              style={{
-                                // Eventos de meses adjacentes: bg apagado + sem borda lateral colorida
-                                // (sinal visual de "fora do mês corrente"). Igual a `isPast`, mas
-                                // sobrescreve a borda pra não destacar.
-                                backgroundColor: !isCurrentMonth ? '#f3f4f6' : isPast ? '#e5e7eb' : ev.tipo.cor,
-                                color: !isCurrentMonth ? '#9ca3af' : isPast ? '#6b7280' : ev.tipo.corTexto,
-                                borderLeft: !isCurrentMonth ? 'none' : `3px solid ${ev.tipo.corBorda}`,
-                                paddingLeft: !isCurrentMonth ? '11px' : undefined, // compensa o `border-left: 3px` ausente
-                              }}
-                              onClick={e => { e.stopPropagation(); openViewEvent(ev) }}
-                              title={`${ev.horaInicio ?? ''} ${ev.titulo} — arraste para mover`}
-                            >
-                              {ev.horaInicio && <span className="font-semibold mr-1">{ev.horaInicio}</span>}
-                              {ev.particular && <Lock className="inline h-2.5 w-2.5 mr-0.5" />}
-                              {ev.titulo}
-                            </div>
+                            <Tooltip key={ev.id}>
+                              <TooltipTrigger asChild>
+                                <div
+                                  draggable
+                                  onDragStart={e => {
+                                    e.stopPropagation()
+                                    setDraggingEventId(ev.id)
+                                    e.dataTransfer.effectAllowed = 'move'
+                                    e.dataTransfer.setData('text/plain', ev.id)
+                                  }}
+                                  onDragEnd={() => { setDraggingEventId(null); setDropTargetDay(null) }}
+                                  className={cn(
+                                    'text-[11px] leading-snug px-2 py-1 rounded-[2px] truncate cursor-pointer active:cursor-grabbing transition-all duration-150 hover:brightness-110 hover:shadow-md hover:-translate-y-px',
+                                    draggingEventId === ev.id && 'opacity-40',
+                                  )}
+                                  style={{
+                                    // Eventos de meses adjacentes: bg apagado + sem borda lateral colorida
+                                    // (sinal visual de "fora do mês corrente"). Igual a `isPast`, mas
+                                    // sobrescreve a borda pra não destacar.
+                                    backgroundColor: !isCurrentMonth ? '#f3f4f6' : isPast ? '#e5e7eb' : ev.tipo.cor,
+                                    color: !isCurrentMonth ? '#9ca3af' : isPast ? '#6b7280' : ev.tipo.corTexto,
+                                    borderLeft: !isCurrentMonth ? 'none' : `3px solid ${ev.tipo.corBorda}`,
+                                    paddingLeft: !isCurrentMonth ? '11px' : undefined, // compensa o `border-left: 3px` ausente
+                                  }}
+                                  onClick={e => { e.stopPropagation(); openViewEvent(ev) }}
+                                >
+                                  {ev.horaInicio && <span className="font-semibold mr-1">{ev.horaInicio}</span>}
+                                  {ev.particular && <Lock className="inline h-2.5 w-2.5 mr-0.5" />}
+                                  {ev.titulo}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs p-0 overflow-hidden">
+                                {(() => {
+                                  const nomes = ev.participantes
+                                    .map(p => p.usuario?.name ?? p.nomeAvulso)
+                                    .filter(Boolean) as string[]
+                                  // Limita exibição: até 4 nomes, resto vira "+N"
+                                  const visiveis = nomes.slice(0, 4)
+                                  const restante = nomes.length - visiveis.length
+                                  const horaLinha = ev.diaInteiro
+                                    ? 'Dia inteiro'
+                                    : ev.horaInicio
+                                      ? `${ev.horaInicio}${ev.horaFim ? ` – ${ev.horaFim}` : ''}`
+                                      : null
+                                  return (
+                                    <>
+                                      {/* Header — título + bolinha do tipo */}
+                                      <div className="px-3 py-2 flex items-start gap-2 border-b border-background/20">
+                                        <span
+                                          className="h-2.5 w-2.5 rounded-full shrink-0 mt-1"
+                                          style={{ backgroundColor: ev.tipo.cor }}
+                                        />
+                                        <div className="min-w-0">
+                                          <p className="font-semibold leading-tight">{ev.titulo}</p>
+                                          <p className="text-[10px] opacity-70 mt-0.5">{ev.tipo.nome}</p>
+                                        </div>
+                                      </div>
+
+                                      {/* Corpo — meta info linha a linha com ícones */}
+                                      <div className="px-3 py-2 space-y-1.5">
+                                        {horaLinha && (
+                                          <div className="flex items-center gap-1.5 text-[11px]">
+                                            <Clock className="h-3 w-3 shrink-0 opacity-70" />
+                                            <span>{horaLinha}</span>
+                                          </div>
+                                        )}
+                                        {(ev.sala || ev.local) && (
+                                          <div className="flex items-center gap-1.5 text-[11px]">
+                                            <MapPin className="h-3 w-3 shrink-0 opacity-70" />
+                                            <span className="truncate">{ev.sala || ev.local}</span>
+                                          </div>
+                                        )}
+                                        {nomes.length > 0 && (
+                                          <div className="flex items-start gap-1.5 text-[11px]">
+                                            <Users className="h-3 w-3 shrink-0 opacity-70 mt-0.5" />
+                                            <span className="leading-snug">
+                                              {visiveis.join(', ')}
+                                              {restante > 0 && (
+                                                <span className="opacity-70"> +{restante}</span>
+                                              )}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Rodapé — dica de uso */}
+                                      <div className="px-3 py-1.5 border-t border-background/20 text-[10px] opacity-60 italic text-center">
+                                        Clique pra abrir · arraste pra mover
+                                      </div>
+                                    </>
+                                  )
+                                })()}
+                              </TooltipContent>
+                            </Tooltip>
                           ))}
                         </div>
                         {/* "+N mais" fora do container com overflow — nunca é cortado */}
@@ -1950,5 +2016,6 @@ export default function AgendaPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   )
 }

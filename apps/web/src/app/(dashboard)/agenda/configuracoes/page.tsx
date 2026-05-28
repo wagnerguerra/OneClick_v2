@@ -1,15 +1,17 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, Calendar, Plus, Edit2, Trash2, MoreVertical, Loader2, Settings, DoorOpen,
+  Mail, Send, X, ChevronDown, Search,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card, CardHeader,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -33,6 +35,29 @@ interface AgendaSala {
   equipamentos: string | null
   ativo: boolean
 }
+
+interface DisparoConfig {
+  id: string
+  ativo: boolean
+  horario: string             // HH:MM
+  diasSemana: number[]        // 0=dom..6=sab
+  destinatariosIds: string[]
+}
+
+interface UsuarioMini {
+  id: string
+  name: string
+}
+
+const DIAS_SEMANA = [
+  { num: 1, label: 'Seg' },
+  { num: 2, label: 'Ter' },
+  { num: 3, label: 'Qua' },
+  { num: 4, label: 'Qui' },
+  { num: 5, label: 'Sex' },
+  { num: 6, label: 'Sáb' },
+  { num: 0, label: 'Dom' },
+]
 
 const MODOS: { value: ConflitoModo; label: string; description: string }[] = [
   { value: 'DESLIGADO', label: 'Desligado', description: 'Não verifica conflitos' },
@@ -58,7 +83,7 @@ export default function AgendaConfiguracoesPage() {
   }, [permsLoading, canAccess, router])
 
   // ================== Estado ==================
-  const [activeTab, setActiveTab] = useState<'regras' | 'salas'>('regras')
+  const [activeTab, setActiveTab] = useState<'regras' | 'salas' | 'disparo'>('regras')
   const [config, setConfig] = useState<AgendaConfig | null>(null)
   const [savingConfig, setSavingConfig] = useState(false)
 
@@ -69,6 +94,28 @@ export default function AgendaConfiguracoesPage() {
     id: null, nome: '', capacidade: '', equipamentos: '', ativo: true,
   })
   const [savingSala, setSavingSala] = useState(false)
+
+  // === Disparo automático ===
+  const [disparo, setDisparo] = useState<DisparoConfig | null>(null)
+  const [savingDisparo, setSavingDisparo] = useState(false)
+  const [usuarios, setUsuarios] = useState<UsuarioMini[]>([])
+  const [enviandoTeste, setEnviandoTeste] = useState(false)
+  const [testeDestId, setTesteDestId] = useState<string>('')
+
+  // Combobox filtrável de destinatários
+  const [destSearchOpen, setDestSearchOpen] = useState(false)
+  const [destSearchQuery, setDestSearchQuery] = useState('')
+  const destSearchRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!destSearchOpen) return
+    function onClickOutside(e: MouseEvent) {
+      if (destSearchRef.current && !destSearchRef.current.contains(e.target as Node)) {
+        setDestSearchOpen(false); setDestSearchQuery('')
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [destSearchOpen])
 
   // ================== Carregamento ==================
   async function loadConfig() {
@@ -85,11 +132,25 @@ export default function AgendaConfiguracoesPage() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setLoadingSalas(false) }
   }
+  async function loadDisparo() {
+    try {
+      const d = await trpc.agenda.disparo.get.query() as DisparoConfig
+      setDisparo(d)
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+  async function loadUsuarios() {
+    try {
+      const r = await trpc.agenda.listUsuarios.query()
+      setUsuarios(r as UsuarioMini[])
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
 
   useEffect(() => {
     if (!canAccess) return
     loadConfig()
     loadSalas()
+    loadDisparo()
+    loadUsuarios()
   }, [canAccess])
 
   // ================== Ações: Config ==================
@@ -160,6 +221,46 @@ export default function AgendaConfiguracoesPage() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
+  // ================== Ações: Disparo automático ==================
+  async function updateDisparo(patch: Partial<DisparoConfig>) {
+    if (!disparo) return
+    const prev = disparo
+    setDisparo({ ...disparo, ...patch })
+    setSavingDisparo(true)
+    try {
+      const upd = await trpc.agenda.disparo.update.mutate(patch as never) as DisparoConfig
+      setDisparo(upd)
+    } catch (e) {
+      setDisparo(prev) // rollback
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setSavingDisparo(false)
+    }
+  }
+  function toggleDia(dia: number) {
+    if (!disparo) return
+    const novos = disparo.diasSemana.includes(dia)
+      ? disparo.diasSemana.filter(d => d !== dia)
+      : [...disparo.diasSemana, dia].sort((a, b) => a - b)
+    updateDisparo({ diasSemana: novos })
+  }
+  function toggleDestinatario(uid: string) {
+    if (!disparo) return
+    const novos = disparo.destinatariosIds.includes(uid)
+      ? disparo.destinatariosIds.filter(x => x !== uid)
+      : [...disparo.destinatariosIds, uid]
+    updateDisparo({ destinatariosIds: novos })
+  }
+  async function enviarTeste() {
+    if (!testeDestId) { alerts.error('Erro', 'Selecione um destinatário pro teste.'); return }
+    setEnviandoTeste(true)
+    try {
+      await trpc.agenda.disparo.enviarTeste.mutate({ destinatarioId: testeDestId })
+      alerts.success('Teste enviado', 'Verifique a caixa de entrada do destinatário.')
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setEnviandoTeste(false) }
+  }
+
   if (permsLoading || !canAccess) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -203,8 +304,9 @@ export default function AgendaConfiguracoesPage() {
           <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
             <div className="space-y-1">
               {([
-                { key: 'regras', label: 'Regras de conflito', icon: Calendar },
-                { key: 'salas',  label: 'Salas',              icon: DoorOpen },
+                { key: 'regras',  label: 'Regras de conflito', icon: Calendar },
+                { key: 'salas',   label: 'Salas',              icon: DoorOpen },
+                { key: 'disparo', label: 'Disparo automático', icon: Mail },
               ] as const).map(tab => {
                 const Icon = tab.icon
                 const active = activeTab === tab.key
@@ -371,6 +473,208 @@ export default function AgendaConfiguracoesPage() {
                     </tbody>
                   </table>
                 )}
+              </div>
+            )}
+
+            {/* ---- SUB-TAB: DISPARO AUTOMÁTICO ---- */}
+            {activeTab === 'disparo' && (
+              <div className="-m-5">
+                <div className="px-5 py-3 border-b border-border">
+                  <h4 className="text-[13px] font-semibold text-foreground">Disparo automático da agenda do dia</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Envia um email diário pros destinatários selecionados, listando os eventos do dia.
+                    Eventos particulares aparecem apenas no email do próprio criador.
+                  </p>
+                </div>
+                <div className="p-5 space-y-5">
+                  {!disparo ? (
+                    <div className="py-6 flex items-center justify-center">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <>
+                      {/* Toggle ativo + horário + dias */}
+                      <div className="grid grid-cols-12 gap-3">
+                        {/* Toggle ativo */}
+                        <div className="col-span-12 md:col-span-4 rounded-lg border border-border bg-muted/40 p-4 flex items-center gap-3">
+                          <Checkbox
+                            checked={disparo.ativo}
+                            onCheckedChange={(v) => updateDisparo({ ativo: !!v })}
+                            disabled={savingDisparo}
+                            className="h-5 w-5"
+                          />
+                          <div>
+                            <Label className="text-[13px] font-semibold cursor-pointer" onClick={() => updateDisparo({ ativo: !disparo.ativo })}>
+                              {disparo.ativo ? 'Ativo' : 'Inativo'}
+                            </Label>
+                            <p className="text-[11px] text-muted-foreground">
+                              {disparo.ativo ? 'Envia automaticamente no horário configurado' : 'Não envia automaticamente'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Horário */}
+                        <div className="col-span-12 md:col-span-4 space-y-1.5 rounded-lg border border-border bg-muted/40 p-4">
+                          <Label className="text-[13px] font-semibold">Horário do disparo</Label>
+                          <p className="text-[11px] text-muted-foreground">Hora do dia em que o email é enviado.</p>
+                          <Input
+                            type="time"
+                            className="h-9 text-sm mt-1"
+                            value={disparo.horario}
+                            onChange={(e) => updateDisparo({ horario: e.target.value })}
+                            disabled={savingDisparo}
+                          />
+                        </div>
+
+                        {/* Dias da semana */}
+                        <div className="col-span-12 md:col-span-4 space-y-1.5 rounded-lg border border-border bg-muted/40 p-4">
+                          <Label className="text-[13px] font-semibold">Dias da semana</Label>
+                          <p className="text-[11px] text-muted-foreground">Em quais dias disparar.</p>
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {DIAS_SEMANA.map(d => {
+                              const ativo = disparo.diasSemana.includes(d.num)
+                              return (
+                                <button
+                                  key={d.num}
+                                  type="button"
+                                  onClick={() => toggleDia(d.num)}
+                                  disabled={savingDisparo}
+                                  className={cn(
+                                    'h-8 px-2.5 text-[11px] font-medium rounded-md border transition-colors',
+                                    ativo
+                                      ? 'bg-sky-500 text-white border-sky-500 hover:bg-sky-600'
+                                      : 'bg-background border-border text-muted-foreground hover:bg-muted',
+                                  )}
+                                >
+                                  {d.label}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Destinatários */}
+                      <div className="space-y-1.5 rounded-lg border border-border bg-muted/40 p-4">
+                        <Label className="text-[13px] font-semibold">Destinatários ({disparo.destinatariosIds.length})</Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Usuários que vão receber o email da agenda do dia.
+                        </p>
+                        {disparo.destinatariosIds.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {disparo.destinatariosIds.map(id => {
+                              const u = usuarios.find(x => x.id === id)
+                              if (!u) return null
+                              return (
+                                <span key={id} className="flex items-center gap-1 text-xs bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 px-2.5 py-1 rounded-full">
+                                  {u.name}
+                                  <button type="button" onClick={() => toggleDestinatario(id)} className="hover:text-rose-500">
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </span>
+                              )
+                            })}
+                          </div>
+                        )}
+                        {/* Combobox pra adicionar destinatário */}
+                        <div ref={destSearchRef} className="relative max-w-md mt-2">
+                          <button
+                            type="button"
+                            onClick={() => setDestSearchOpen(o => !o)}
+                            className={cn(
+                              'flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-sm',
+                              'focus:outline-none focus:ring-1 focus:ring-ring',
+                            )}
+                          >
+                            <span className="text-muted-foreground flex items-center gap-2">
+                              <Search className="h-3.5 w-3.5" />
+                              Adicionar destinatário…
+                            </span>
+                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
+                          {destSearchOpen && (
+                            <div className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-md">
+                              <div className="p-1.5 border-b bg-popover sticky top-0">
+                                <Input
+                                  autoFocus
+                                  value={destSearchQuery}
+                                  onChange={e => setDestSearchQuery(e.target.value)}
+                                  placeholder="Buscar usuário..."
+                                  className="h-7 text-xs"
+                                />
+                              </div>
+                              <div className="max-h-56 overflow-y-auto py-1">
+                                {(() => {
+                                  const disp = usuarios.filter(u => !disparo.destinatariosIds.includes(u.id))
+                                  const filtered = destSearchQuery.trim()
+                                    ? disp.filter(u => u.name.toLowerCase().includes(destSearchQuery.toLowerCase()))
+                                    : disp
+                                  if (filtered.length === 0) {
+                                    return (
+                                      <p className="px-3 py-3 text-xs text-muted-foreground text-center">
+                                        {usuarios.length === disparo.destinatariosIds.length
+                                          ? 'Todos já foram adicionados'
+                                          : 'Nenhum usuário encontrado'}
+                                      </p>
+                                    )
+                                  }
+                                  return filtered.map(u => (
+                                    <button
+                                      key={u.id}
+                                      type="button"
+                                      onClick={() => {
+                                        toggleDestinatario(u.id)
+                                        setDestSearchOpen(false)
+                                        setDestSearchQuery('')
+                                      }}
+                                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
+                                    >
+                                      <span className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
+                                        <span className="text-[9px] font-bold text-muted-foreground">
+                                          {(u.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                                        </span>
+                                      </span>
+                                      <span className="truncate">{u.name}</span>
+                                    </button>
+                                  ))
+                                })()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Enviar teste */}
+                      <div className="space-y-1.5 rounded-lg border border-border bg-muted/40 p-4">
+                        <Label className="text-[13px] font-semibold">Enviar email de teste agora</Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Dispara o email da agenda de hoje pra um destinatário específico (não precisa estar na lista).
+                        </p>
+                        <div className="flex gap-2 mt-1">
+                          <Select value={testeDestId} onValueChange={setTesteDestId}>
+                            <SelectTrigger className="h-9 text-sm flex-1 max-w-md">
+                              <SelectValue placeholder="Escolha um usuário…" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {usuarios.map(u => (
+                                <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="sm"
+                            onClick={enviarTeste}
+                            disabled={enviandoTeste || !testeDestId}
+                            className="gap-1.5 bg-sky-500 hover:bg-sky-600 text-white"
+                          >
+                            {enviandoTeste ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                            Enviar teste
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             )}
 

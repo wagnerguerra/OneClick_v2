@@ -4,6 +4,7 @@ import { AgendaService } from './agenda.service'
 import { AgendaGoogleService } from './agenda-google.service'
 import { AgendaConfigService } from './agenda-config.service'
 import { AgendaSalaService } from './agenda-sala.service'
+import { AgendaDisparoService } from './agenda-disparo.service'
 
 const MODULE = 'agenda'
 const conflitoModoSchema = z.enum(['DESLIGADO', 'AVISAR', 'BLOQUEAR'])
@@ -13,6 +14,7 @@ export function createAgendaRouter(
   googleService: AgendaGoogleService,
   configService: AgendaConfigService,
   salaService: AgendaSalaService,
+  disparoService: AgendaDisparoService,
 ) {
   return router({
     // === TIPOS (Categorias) ===
@@ -221,6 +223,30 @@ export function createAgendaRouter(
     // === USUÁRIOS (para select de participantes) — filtra por empresa do user logado
     listUsuarios: readProcedure(MODULE)
       .query(({ ctx }) => service.listUsuarios(ctx.isMaster ?? false, ctx.empresaId)),
+
+    // === DISPARO AUTOMÁTICO (agenda do dia por email) ===
+    disparo: router({
+      get: readProcedure(MODULE)
+        .query(() => disparoService.get()),
+      update: writeSubProcedure(MODULE, 'manage_config', 'Gerenciar disparo automático da agenda')
+        .input(z.object({
+          ativo: z.boolean().optional(),
+          horario: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+          diasSemana: z.array(z.number().int().min(0).max(6)).optional(),
+          destinatariosIds: z.array(z.string()).optional(),
+        }))
+        .mutation(({ input }) => disparoService.update(input)),
+      enviarTeste: writeSubProcedure(MODULE, 'manage_config', 'Enviar teste do disparo automático')
+        .input(z.object({
+          destinatarioId: z.string(),
+          data: z.string().optional(),  // YYYY-MM-DD; default = hoje
+        }))
+        .mutation(({ input }) => {
+          const data = input.data ?? new Date().toISOString().slice(0, 10)
+          return disparoService.enviarAgendaDia(input.destinatarioId, data)
+            .then(() => ({ ok: true }))
+        }),
+    }),
 
     // === GOOGLE CALENDAR ===
     google: router({
