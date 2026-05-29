@@ -6,7 +6,7 @@ import {
   ImagePlus, Check, CheckCheck, MoreVertical, Edit2, Trash2, Smile, AtSign,
   Circle, ChevronDown,
 } from 'lucide-react'
-import { Button, Input, cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@saas/ui'
+import { Button, Input, cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, Sheet, SheetContent, SheetTitle } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
@@ -134,7 +134,6 @@ export function ChatHeaderButton() {
   const meuId = profile?.id ?? null
 
   const [open, setOpen] = useState(false)
-  const [entered, setEntered] = useState(false)
   const [tab, setTab] = useState<Tab>('conversas')
   const [conversas, setConversas] = useState<Conversa[]>([])
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
@@ -146,38 +145,14 @@ export function ChatHeaderButton() {
 
   const totalUnread = useMemo(() => conversas.reduce((sum, c) => sum + c.unreadCount, 0), [conversas])
 
-  const popoverRef = useRef<HTMLDivElement>(null)
-  const buttonRef = useRef<HTMLButtonElement>(null)
-
-  // ========== Toggle animado ==========
-  function toggle(next: boolean) {
-    if (next) {
-      setOpen(true)
-      setEntered(false)
-      requestAnimationFrame(() => requestAnimationFrame(() => setEntered(true)))
-    } else if (open) {
-      setEntered(false)
-      setTimeout(() => {
-        setOpen(false)
-        setConversaAtiva(null)
-        setNovoGrupoOpen(false)
-      }, 200)
+  // Reset estado interno quando o sheet fecha
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    if (!next) {
+      setConversaAtiva(null)
+      setNovoGrupoOpen(false)
     }
   }
-
-  // ========== Fecha ao clicar fora ==========
-  useEffect(() => {
-    if (!open) return
-    function handleClick(e: MouseEvent) {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        if (buttonRef.current?.contains(e.target as Node)) return
-        toggle(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
 
   // ========== Carregamento ==========
   const loadConversas = useCallback(async () => {
@@ -279,7 +254,7 @@ export function ChatHeaderButton() {
       })
       n.onclick = () => {
         window.focus()
-        toggle(true)
+        setOpen(true)
         const c = conversas.find(x => x.id === ev.conversaId)
         if (c) setConversaAtiva(c)
         n.close()
@@ -337,12 +312,11 @@ export function ChatHeaderButton() {
   // ============================================================
 
   return (
-    <div className="relative">
+    <>
       {/* Botão do header — mesmo padrão do sino */}
       <button
-        ref={buttonRef}
         type="button"
-        onClick={() => toggle(!open)}
+        onClick={() => setOpen(true)}
         className={cn(
           'relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-muted transition-colors',
           totalUnread > 0 && 'text-sky-600',
@@ -367,17 +341,10 @@ export function ChatHeaderButton() {
         )}
       </button>
 
-      {/* Painel */}
-      {open && (
-        <div
-          ref={popoverRef}
-          className={cn(
-            'absolute right-0 top-full mt-2 z-50 w-[400px] h-[600px] max-w-[calc(100vw-2.5rem)] max-h-[calc(100vh-6rem)]',
-            'rounded-xl border border-border bg-card shadow-2xl overflow-hidden flex flex-col',
-            'origin-top-right transition-all duration-200 ease-out',
-            entered ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2',
-          )}
-        >
+      {/* Sheet lateral — mesmo padrão de "Nova Oportunidade" em /crm */}
+      <Sheet open={open} onOpenChange={handleOpenChange}>
+        <SheetContent side="right" className="w-full sm:max-w-[540px] p-0 flex flex-col">
+          <SheetTitle className="sr-only">Chat interno</SheetTitle>
           {conversaAtiva ? (
             <ChatView
               conversa={conversaAtiva}
@@ -466,9 +433,9 @@ export function ChatHeaderButton() {
               </div>
             </>
           )}
-        </div>
-      )}
-    </div>
+        </SheetContent>
+      </Sheet>
+    </>
   )
 }
 
