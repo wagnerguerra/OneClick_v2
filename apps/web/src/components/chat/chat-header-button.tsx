@@ -1004,8 +1004,10 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
             const foiLida = foiLidaPorTodos(m, ehMinha)
             const isEditando = editandoId === m.id
             const isDeletada = !!m.deletedAt
-            // Agrupa reactions por emoji
-            const reactionsAgrupadas = useMemo(() => {
+            // Agrupa reactions por emoji — IIFE (não pode ser useMemo dentro de .map,
+            // viola regra dos hooks: quando chega mensagem-nova via SSE, o número de
+            // iterações muda e React quebra com error #310).
+            const reactionsAgrupadas = (() => {
               const map = new Map<string, { count: number; users: string[]; reagi: boolean }>()
               for (const r of m.reactions ?? []) {
                 const cur = map.get(r.emoji) ?? { count: 0, users: [], reagi: false }
@@ -1015,7 +1017,7 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
                 map.set(r.emoji, cur)
               }
               return Array.from(map.entries())
-            }, [m.reactions])
+            })()
 
             return (
               <div key={m.id} className={cn('flex gap-2 group/msg relative', ehMinha ? 'justify-end' : 'justify-start')}>
