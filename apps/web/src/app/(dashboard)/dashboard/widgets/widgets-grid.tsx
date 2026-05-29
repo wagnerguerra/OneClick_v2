@@ -86,13 +86,22 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
   const [areasOpcoes, setAreasOpcoes] = useState<Array<{ id: string; name: string }>>([])
   const [pickersLoaded, setPickersLoaded] = useState(false)
 
-  // Carrega layout salvo no mount (e quando empresa ativa muda — master pode trocar)
-  const fetchLayout = useCallback(() => {
-    return (trpc.dashboardLayout as any).get.query(empresaIdAtual ? { empresaId: empresaIdAtual } : undefined)
-      .then((data: { layout: SavedItem[]; updatedAt: Date } | null) => {
-        setLayout(data && data.layout && data.layout.length > 0 ? data.layout : DEFAULT_LAYOUT)
-      })
-      .catch(() => setLayout(DEFAULT_LAYOUT))
+  // Carrega layout salvo no mount. Ordem de prioridade:
+  //   1. Layout pessoal do user (getMine) — se ele já personalizou
+  //   2. Layout empresarial (get) — padrão configurado pelo master
+  //   3. DEFAULT_LAYOUT (hardcoded)
+  const fetchLayout = useCallback(async () => {
+    try {
+      const mine = await (trpc.dashboardLayout as any).getMine.query()
+      if (mine && mine.layout && mine.layout.length > 0) {
+        setLayout(mine.layout as SavedItem[])
+        return
+      }
+      const empresa = await (trpc.dashboardLayout as any).get.query(empresaIdAtual ? { empresaId: empresaIdAtual } : undefined)
+      setLayout(empresa && empresa.layout && empresa.layout.length > 0 ? empresa.layout : DEFAULT_LAYOUT)
+    } catch {
+      setLayout(DEFAULT_LAYOUT)
+    }
   }, [empresaIdAtual])
 
   useEffect(() => {
@@ -134,10 +143,13 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
     return () => { closed = true; es?.close(); clearTimeout(retryTimeout) }
   }, [empresaIdAtual, editing, fetchLayout])
 
-  // Filtra widgets desconhecidos (id que saiu do registry). Visibility só filtra
-  // widgets SEM requiresModule (a regra do widget). Widgets com módulo são
-  // controlados unicamente pela permissão do módulo — viram placeholder pra quem
-  // não tem leitura, não somem do layout. Admin em modo edição vê tudo.
+  // Filtra widgets desconhecidos (id que saiu do registry) e aplica regras de acesso:
+  //   - Admin em modo edição vê tudo (pra poder ajustar visibility/layout empresarial)
+  //   - User comum em modo edição: oculta SILENCIOSAMENTE widgets cujos módulos
+  //     ele não tem permissão (não faz sentido mostrar pra adicionar algo que ele
+  //     nem pode usar)
+  //   - User comum fora de edição: mesma coisa — só vê o que pode acessar
+  //   - Visibility: filtra só widgets SEM requiresModule (controle do admin)
   const visibleLayout = useMemo(() => {
     const source = editing && draftLayout ? draftLayout : layout
     return source
@@ -145,9 +157,14 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
         const def = WIDGET_REGISTRY[item.i]
         if (!def) return false
         if (editing && isAdmin) return true
-        // Widgets com requiresModule passam aqui (placeholder cuida do "sem acesso")
-        if (def.requiresModule) return true
-        // Widgets sem módulo seguem visibility
+        // Widget com requiresModule: oculta silenciosamente se user não tem permissão
+        // (era placeholder antes — agora some pra não poluir o dashboard pessoal)
+        if (def.requiresModule) {
+          if (isAdmin) return true
+          const perm = permissions.find(p => p.moduleSlug === def.requiresModule)
+          return !!perm?.canRead
+        }
+        // Widgets sem módulo seguem visibility (regra empresarial)
         return passVisibility(item.visibility, myUserId, myAreaId, isAdmin)
       })
       .map(item => {
@@ -158,13 +175,21 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
           minH: def.defaultLayout.minH,
         }
       })
-  }, [layout, draftLayout, editing, isAdmin, myUserId, myAreaId])
+  }, [layout, draftLayout, editing, isAdmin, myUserId, myAreaId, permissions])
 
-  // IDs ainda não no layout (pra menu "Adicionar widget")
+  // IDs ainda não no layout (pra menu "Adicionar widget"). User comum só vê
+  // widgets cujo módulo ele tem permissão (não faz sentido oferecer algo que
+  // ele nem consegue acessar). Admin enxerga todos pra configurar empresarial.
   const widgetsDisponiveis = useMemo(() => {
     const usados = new Set(visibleLayout.map(i => i.i))
-    return Object.values(WIDGET_REGISTRY).filter(w => !usados.has(w.id))
-  }, [visibleLayout])
+    return Object.values(WIDGET_REGISTRY).filter(w => {
+      if (usados.has(w.id)) return false
+      if (isAdmin) return true
+      if (!w.requiresModule) return true
+      const perm = permissions.find(p => p.moduleSlug === w.requiresModule)
+      return !!perm?.canRead
+    })
+  }, [visibleLayout, isAdmin, permissions])
 
   function handleEntrarEdicao() {
     setDraftLayout([...layout])
@@ -174,6 +199,28 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
   function handleCancelar() {
     setDraftLayout(null)
     setEditing(false)
+  }
+
+  /** Apaga a personalização pessoal e volta pro padrão da empresa (ou DEFAULT). */
+  async function handleRestaurarPadrao() {
+    const ok = await alerts.confirm({
+      title: 'Restaurar padrão da empresa?',
+      text: 'Sua personalização pessoal será apagada e o dashboard volta pro padrão configurado pela empresa.',
+      confirmText: 'Restaurar', icon: 'warning',
+    })
+    if (!ok) return
+    setSaving(true)
+    try {
+      await (trpc.dashboardLayout as any).resetMine.mutate()
+      setDraftLayout(null)
+      setEditing(false)
+      await fetchLayout()
+      alerts.success('Padrão restaurado', '')
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleLayoutChange = useCallback((newLayout: Layout[]) => {
@@ -251,13 +298,13 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
         // Label
         if (labelLimpo) next.customLabel = labelLimpo
         else delete next.customLabel
-        // Visibility — sempre persiste, mesmo 'all'. Isso marca que o admin
-        // configurou explicitamente, fazendo o widget ignorar o requiresModule
-        // do registry e usar só esta regra.
-        next.visibility = {
-          scope: editScope,
-          userIds: editScope === 'users' ? editUserIds : [],
-          areaIds: editScope === 'areas' ? editAreaIds : [],
+        // Visibility — só admin escreve. User comum mantém a visibility original.
+        if (isAdmin) {
+          next.visibility = {
+            scope: editScope,
+            userIds: editScope === 'users' ? editUserIds : [],
+            areaIds: editScope === 'areas' ? editAreaIds : [],
+          }
         }
         return next
       })
@@ -287,14 +334,11 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
         if (visibility) item.visibility = visibility
         return item
       })
-      await (trpc.dashboardLayout as any).save.mutate({
-        layout: payload,
-        ...(empresaIdAtual ? { empresaId: empresaIdAtual } : {}),
-      })
+      await (trpc.dashboardLayout as any).saveMine.mutate({ layout: payload })
       setLayout(payload)
       setDraftLayout(null)
       setEditing(false)
-      await alerts.success('Layout salvo', 'Configuração aplicada para toda a empresa.')
+      await alerts.success('Layout salvo', 'Sua personalização foi salva e sincroniza entre máquinas ao fazer login.')
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
     } finally {
@@ -315,12 +359,15 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
       {/* Header + Toolbar de edição — botões alinhados ao topo (com o título) */}
       <div className="flex items-start justify-between gap-2 mb-3 flex-wrap">
         <div className="min-w-0 flex-1">{header}</div>
-        {isAdmin && (
-          <div className="flex items-center gap-2 pt-1">
+        {/* Edição liberada pra TODO usuário do dashboard — cada um cuida do próprio.
+            Master continua tendo a opção de editar o padrão da empresa via outra rota. */}
+        <div className="flex items-center gap-2 pt-1">
           {!editing ? (
-            <Button size="sm" variant="outline" onClick={handleEntrarEdicao} className="gap-1.5">
-              <Pencil className="h-4 w-4" /> Editar Dashboard
-            </Button>
+            <>
+              <Button size="sm" variant="outline" onClick={handleEntrarEdicao} className="gap-1.5">
+                <Pencil className="h-4 w-4" /> Editar meu Dashboard
+              </Button>
+            </>
           ) : (
             <>
               {widgetsDisponiveis.length > 0 && (
@@ -342,6 +389,9 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
+              <Button size="sm" variant="ghost" onClick={handleRestaurarPadrao} disabled={saving} className="gap-1.5 text-muted-foreground hover:text-foreground">
+                Restaurar padrão da empresa
+              </Button>
               <Button size="sm" variant="ghost" onClick={handleCancelar} disabled={saving} className="gap-1.5">
                 <X className="h-4 w-4" /> Cancelar
               </Button>
@@ -351,8 +401,7 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
               </Button>
             </>
           )}
-          </div>
-        )}
+        </div>
       </div>
 
       <ResponsiveGrid
@@ -576,8 +625,9 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
               </p>
             </div>
 
-            {/* Quem vê — escopo */}
-            {(() => {
+            {/* Quem vê — escopo. Só admin configura (regra empresarial).
+                User comum só edita o próprio título (acima). */}
+            {isAdmin && (() => {
               const moduleSlug = editingWidgetId ? WIDGET_REGISTRY[editingWidgetId]?.requiresModule : undefined
               const hasModule = !!moduleSlug
               return (
@@ -626,8 +676,8 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
               )
             })()}
 
-            {/* Lista de usuários (se scope = users) — só pra widgets sem módulo */}
-            {editScope === 'users' && editingWidgetId && !WIDGET_REGISTRY[editingWidgetId]?.requiresModule && (
+            {/* Lista de usuários (se scope = users) — só pra widgets sem módulo, só pra admin */}
+            {isAdmin && editScope === 'users' && editingWidgetId && !WIDGET_REGISTRY[editingWidgetId]?.requiresModule && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <Label className="text-[13px] font-semibold">Usuários selecionados</Label>
@@ -694,8 +744,8 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
               </div>
             )}
 
-            {/* Lista de áreas (se scope = areas) — só pra widgets sem módulo */}
-            {editScope === 'areas' && editingWidgetId && !WIDGET_REGISTRY[editingWidgetId]?.requiresModule && (
+            {/* Lista de áreas (se scope = areas) — só pra widgets sem módulo, só pra admin */}
+            {isAdmin && editScope === 'areas' && editingWidgetId && !WIDGET_REGISTRY[editingWidgetId]?.requiresModule && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <Label className="text-[13px] font-semibold">Áreas selecionadas</Label>

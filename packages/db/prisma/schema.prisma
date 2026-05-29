@@ -2003,6 +2003,7 @@ model AgendaDisparoConfig {
   ativo            Boolean  @default(false)
   horario          String   @default("07:00")             // HH:MM
   diasSemana       Int[]    @default([1, 2, 3, 4, 5])    // 0=dom..6=sab — default seg-sex
+  enviarParaTodos  Boolean  @default(false) @map("enviar_para_todos")  // ignora destinatariosIds e manda pra todos os colaboradores ativos
   destinatariosIds String[] @default([]) @map("destinatarios_ids")
   ultimoDisparoEm  DateTime? @map("ultimo_disparo_em")    // pra evitar disparos duplicados no mesmo minuto
   createdAt        DateTime @default(now()) @map("created_at")
@@ -3993,6 +3994,22 @@ model DashboardLayout {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("dashboard_layouts")
+}
+
+/// Layout pessoal do dashboard por usuário. Se a linha existir, é usada como
+/// override sobre o DashboardLayout da empresa. Permite cada user ter sua
+/// própria organização de widgets persistente entre máquinas.
+model DashboardLayoutUser {
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id")
+  empresaId String?  @map("empresa_id")
+  // JSON: mesmo shape do DashboardLayout (array de SavedItem)
+  layout    Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("dashboard_layouts_user")
 }
 
 // ============================================================

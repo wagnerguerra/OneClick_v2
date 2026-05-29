@@ -41,6 +41,7 @@ interface DisparoConfig {
   ativo: boolean
   horario: string             // HH:MM
   diasSemana: number[]        // 0=dom..6=sab
+  enviarParaTodos: boolean
   destinatariosIds: string[]
 }
 
@@ -556,10 +557,30 @@ export default function AgendaConfiguracoesPage() {
 
                       {/* Destinatários */}
                       <div className="space-y-1.5 rounded-lg border border-border bg-muted/40 p-4">
-                        <Label className="text-[13px] font-semibold">Destinatários ({disparo.destinatariosIds.length})</Label>
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <Label className="text-[13px] font-semibold">
+                            Destinatários {!disparo.enviarParaTodos && `(${disparo.destinatariosIds.length})`}
+                          </Label>
+                          <label className="flex items-center gap-2 cursor-pointer text-xs">
+                            <Checkbox
+                              checked={disparo.enviarParaTodos}
+                              onCheckedChange={(v) => updateDisparo({ enviarParaTodos: !!v })}
+                              disabled={savingDisparo}
+                            />
+                            <span className="font-medium">Enviar para todos os colaboradores ativos</span>
+                          </label>
+                        </div>
                         <p className="text-[11px] text-muted-foreground">
-                          Usuários que vão receber o email da agenda do dia.
+                          {disparo.enviarParaTodos
+                            ? 'O email vai pra todos os usuários ativos da empresa. A lista manual abaixo é ignorada.'
+                            : 'Usuários que vão receber o email da agenda do dia.'}
                         </p>
+                        {disparo.enviarParaTodos ? (
+                          <div className="rounded border border-dashed border-border bg-background/40 p-3 mt-2 text-[11px] text-muted-foreground italic text-center">
+                            Modo "todos colaboradores" ativo — destinatários são resolvidos no momento do disparo
+                          </div>
+                        ) : (
+                          <>
                         {disparo.destinatariosIds.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {disparo.destinatariosIds.map(id => {
@@ -642,6 +663,8 @@ export default function AgendaConfiguracoesPage() {
                             </div>
                           )}
                         </div>
+                          </>
+                        )}
                       </div>
 
                       {/* Enviar teste */}

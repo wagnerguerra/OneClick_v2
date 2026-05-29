@@ -82,5 +82,39 @@ export function createDashboardLayoutRouter(
         events.emit({ type: 'reset', empresaId, actorUserId: ctx.userId ?? null })
         return result
       }),
+
+    // ============================================================
+    // Layout pessoal — qualquer user autenticado salva o próprio
+    // ============================================================
+
+    /** Layout pessoal do user logado. Retorna null se nunca foi personalizado
+     *  (frontend cai no empresarial, depois no DEFAULT_LAYOUT). */
+    getMine: protectedProcedure
+      .query(({ ctx }) => {
+        if (!ctx.userId) return null
+        return service.getForUser(ctx.userId)
+      }),
+
+    /** User logado salva o próprio layout. */
+    saveMine: protectedProcedure
+      .input(z.object({
+        layout: z.array(widgetItemSchema).max(50),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.userId) {
+          throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autenticado' })
+        }
+        await service.saveForUser(ctx.userId, ctx.empresaId ?? null, input.layout)
+        return { ok: true }
+      }),
+
+    /** Reset — apaga a personalização pessoal, volta pro empresarial/default. */
+    resetMine: protectedProcedure
+      .mutation(async ({ ctx }) => {
+        if (!ctx.userId) {
+          throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autenticado' })
+        }
+        return service.resetForUser(ctx.userId)
+      }),
   })
 }

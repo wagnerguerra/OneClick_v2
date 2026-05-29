@@ -52,4 +52,36 @@ export class DashboardLayoutService {
     await prisma.dashboardLayout.deleteMany({ where: { empresaId } })
     return { ok: true }
   }
+
+  // ============================================================
+  // Layout pessoal por usuário (sobrepõe o empresarial quando existe)
+  // ============================================================
+
+  /** Carrega layout pessoal. Retorna null se ainda não foi customizado pelo user. */
+  async getForUser(userId: string): Promise<{ layout: WidgetLayoutItem[]; updatedAt: Date } | null> {
+    const row = await prisma.dashboardLayoutUser.findUnique({
+      where: { userId },
+      select: { layout: true, updatedAt: true },
+    })
+    if (!row) return null
+    return {
+      layout: Array.isArray(row.layout) ? (row.layout as unknown as WidgetLayoutItem[]) : [],
+      updatedAt: row.updatedAt,
+    }
+  }
+
+  /** Qualquer usuário autenticado pode salvar o próprio layout. */
+  async saveForUser(userId: string, empresaId: string | null, layout: WidgetLayoutItem[]) {
+    return prisma.dashboardLayoutUser.upsert({
+      where: { userId },
+      create: { userId, empresaId, layout: layout as any },
+      update: { layout: layout as any, empresaId },
+    })
+  }
+
+  /** Remove personalização do user — volta pro layout empresarial (ou default). */
+  async resetForUser(userId: string) {
+    await prisma.dashboardLayoutUser.deleteMany({ where: { userId } })
+    return { ok: true }
+  }
 }

@@ -56,6 +56,7 @@ export class AgendaDisparoService implements OnModuleInit {
     ativo: boolean
     horario: string
     diasSemana: number[]
+    enviarParaTodos: boolean
     destinatariosIds: string[]
   }>): Promise<AgendaDisparoConfig> {
     const existing = await prisma.agendaDisparoConfig.findFirst()
@@ -79,7 +80,9 @@ export class AgendaDisparoService implements OnModuleInit {
   private async tickScheduler() {
     const cfg = await prisma.agendaDisparoConfig.findFirst()
     if (!cfg || !cfg.ativo) return
-    if (cfg.destinatariosIds.length === 0) return
+
+    const destinatarios = await this.resolverDestinatarios(cfg)
+    if (destinatarios.length === 0) return
 
     const agoraUtc = new Date()
     const agoraBr = this.getNowBrasilia()
@@ -95,13 +98,28 @@ export class AgendaDisparoService implements OnModuleInit {
       if (diffMs < 60_000) return
     }
 
-    console.log(`[AgendaDisparo] Disparando agenda do dia ${agoraBr.toISOString()} (BR ${horaAtualBr}) pra ${cfg.destinatariosIds.length} destinatário(s)`)
+    console.log(`[AgendaDisparo] Disparando agenda do dia ${agoraBr.toISOString()} (BR ${horaAtualBr}) pra ${destinatarios.length} destinatário(s)`)
     await prisma.agendaDisparoConfig.update({
       where: { id: cfg.id },
       data: { ultimoDisparoEm: agoraUtc },
     })
     // Data do email = data BR (não UTC) — pra não pegar dia errado depois das 21h
-    await this.enviarAgendaDiaParaTodos(this.formatDateKey(agoraBr), cfg.destinatariosIds)
+    await this.enviarAgendaDiaParaTodos(this.formatDateKey(agoraBr), destinatarios)
+  }
+
+  /**
+   * Resolve lista final de destinatários: se `enviarParaTodos=true`, retorna
+   * todos usuários ativos do tenant; senão usa a lista manual em `destinatariosIds`.
+   */
+  private async resolverDestinatarios(cfg: AgendaDisparoConfig): Promise<string[]> {
+    if (cfg.enviarParaTodos) {
+      const todos = await prisma.user.findMany({
+        where: { isActive: true, email: { not: '' } },
+        select: { id: true },
+      })
+      return todos.map(u => u.id)
+    }
+    return cfg.destinatariosIds
   }
 
   /**

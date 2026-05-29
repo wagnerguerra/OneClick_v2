@@ -233,6 +233,7 @@ export function createAgendaRouter(
           ativo: z.boolean().optional(),
           horario: z.string().regex(/^\d{2}:\d{2}$/).optional(),
           diasSemana: z.array(z.number().int().min(0).max(6)).optional(),
+          enviarParaTodos: z.boolean().optional(),
           destinatariosIds: z.array(z.string()).optional(),
         }))
         .mutation(({ input }) => disparoService.update(input)),

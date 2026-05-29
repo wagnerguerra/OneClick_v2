@@ -13,3 +13,5 @@ CREATE TABLE IF NOT EXISTS "agenda_disparo_config" (
   "created_at"          TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updated_at"          TIMESTAMP(3) NOT NULL
 );
+
+ALTER TABLE "agenda_disparo_config" ADD COLUMN IF NOT EXISTS "enviar_para_todos" BOOLEAN NOT NULL DEFAULT false;
