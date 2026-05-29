@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import {
   Headphones, Loader2, ArrowLeft, MessageSquare, Lock, Send, Paperclip, Clock,
