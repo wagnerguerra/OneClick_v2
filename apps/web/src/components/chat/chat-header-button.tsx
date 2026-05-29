@@ -123,6 +123,29 @@ function timeHm(d: Date | string): string {
 
 const EMOJI_QUICK = ['👍', '❤️', '😂', '😮', '😢', '👏']
 
+/**
+ * Wallpaper estilo WhatsApp — doodles sutis (balões, smileys, hearts, checks)
+ * em SVG inline. Opacidade baixa pra não competir com o conteúdo; cor neutra
+ * que funciona em light e dark mode (currentColor herdaria, mas SVG inline
+ * usa fill literal — uso cinza-500 com opacidade que serve nos dois temas).
+ */
+const CHAT_BG_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'>
+<g fill='#64748b' fill-opacity='0.07'>
+<path d='M30 28c-5 0-9 4-9 9v12c0 5 4 9 9 9h6l4 5 4-5h6c5 0 9-4 9-9V37c0-5-4-9-9-9H30zm0 2h26c4 0 7 3 7 7v12c0 4-3 7-7 7H49l-3 4-3-4H30c-4 0-7-3-7-7V37c0-4 3-7 7-7z'/>
+<circle cx='160' cy='40' r='10'/>
+<circle cx='157' cy='37' r='1.3' fill='#fff' fill-opacity='1'/>
+<circle cx='163' cy='37' r='1.3' fill='#fff' fill-opacity='1'/>
+<path d='M155 42c1 2 3 3 5 3s4-1 5-3' stroke='#fff' stroke-opacity='1' stroke-width='1.2' fill='none' stroke-linecap='round'/>
+<path d='M105 110c-3-3-9-3-12 0s-3 8 0 11l12 12 12-12c3-3 3-8 0-11s-9-3-12 0z'/>
+<path d='M55 150l4 4 8-10' stroke='#64748b' stroke-opacity='0.18' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/>
+<path d='M62 150l4 4 8-10' stroke='#64748b' stroke-opacity='0.18' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/>
+<path d='M170 130l18 6-18 6 4-6z'/>
+<path d='M40 100c-3 0-5 2-5 5v6c0 3 2 5 5 5h3l2 3 2-3h3c3 0 5-2 5-5v-6c0-3-2-5-5-5H40z'/>
+<text x='130' y='180' font-family='system-ui' font-size='14' font-weight='600'>@</text>
+</g>
+</svg>`
+const CHAT_BG_URL = `url("data:image/svg+xml;utf8,${encodeURIComponent(CHAT_BG_SVG)}")`
+
 /** Gera um gradiente colorido determinístico a partir do nome (pra fallback de avatar). */
 const AVATAR_GRADIENTS = [
   'from-sky-500 to-indigo-500',
@@ -421,7 +444,7 @@ export function ChatHeaderButton() {
                       />
                     </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto">
+                  <div className="flex-1 overflow-y-auto overflow-x-hidden">
                     <PessoasList pessoas={pessoasFiltradas} onClickPessoa={abrirDM} />
                   </div>
                 </div>
@@ -447,7 +470,7 @@ export function ChatHeaderButton() {
                       />
                     </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto">
+                  <div className="flex-1 overflow-y-auto overflow-x-hidden">
                     <ConversasList
                       conversas={conversasFiltradas}
                       meuId={meuId}
@@ -572,13 +595,13 @@ function PessoasList({ pessoas, onClickPessoa }: {
     return <div className="p-6 text-center text-[11px] text-muted-foreground">Ninguém por aqui.</div>
   }
   return (
-    <ul className="py-1">
+    <ul className="py-1 px-1">
       {pessoas.map(u => (
         <li key={u.id}>
           <button
             type="button"
             onClick={() => onClickPessoa(u.id)}
-            className="w-full px-2.5 py-1.5 flex items-center gap-2.5 hover:bg-muted/60 rounded-md transition-colors text-left mx-1"
+            className="w-full px-2.5 py-1.5 flex items-center gap-2.5 hover:bg-muted/60 rounded-md transition-colors text-left"
             title={`${u.name} · ${STATUS_LABEL[u.presenca]}`}
           >
             <Avatar user={u} presenca={u.presenca} size="sm" />
@@ -605,18 +628,18 @@ function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa }: {
     return <div className="p-6 text-center text-[11px] text-muted-foreground">Sem conversas ainda.<br/>Comece pela coluna <strong>Pessoas</strong>.</div>
   }
   return (
-    <ul className="py-1">
+    <ul className="py-1 px-1">
       {conversas.map(c => {
         const outro = !c.isGrupo ? c.participantes.find(p => p.id !== meuId) : null
         const preview = c.ultimaMensagem?.conteudo ?? '—'
         const ativa = c.id === conversaAtivaId
         return (
-          <li key={c.id}>
+          <li key={c.id} className="my-0.5">
             <button
               type="button"
               onClick={() => onClickConversa(c)}
               className={cn(
-                'w-full px-2.5 py-2 flex items-start gap-2.5 rounded-md transition-colors text-left mx-1 my-0.5 relative',
+                'w-full px-2.5 py-2 flex items-start gap-2.5 rounded-md transition-colors text-left relative',
                 ativa ? 'bg-sky-500/10 ring-1 ring-inset ring-sky-500/30' : 'hover:bg-muted/60',
               )}
             >
@@ -1023,8 +1046,13 @@ function ChatView({ conversa, meuId, onMessageSent }: {
         </div>
       </div>
 
-      {/* Mensagens */}
-      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-3 py-3 space-y-2 bg-muted/10 relative">
+      {/* Mensagens — wallpaper estilo WhatsApp */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 space-y-2 relative bg-muted/20"
+        style={{ backgroundImage: CHAT_BG_URL, backgroundRepeat: 'repeat', backgroundSize: '200px 200px' }}
+      >
         {loadingMais && (
           <div className="text-center py-2"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground inline" /></div>
         )}
