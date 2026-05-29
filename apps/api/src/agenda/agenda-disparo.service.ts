@@ -11,6 +11,42 @@ let LOGO_BUFFER: Buffer | null = null
 try { LOGO_BUFFER = fs.readFileSync(LOGO_PATH) } catch { /* sem logo */ }
 
 /**
+ * Marca d'água do hero — pattern SVG com motivos de calendário/relógio/check em
+ * branco com opacidade baixa. Aplicado SOBRE o gradient azul→indigo da hero td
+ * via background-image multi-camada. Outlook desktop ignora (fica só o gradient
+ * como fallback — visual continua decente).
+ */
+const HERO_PATTERN_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260'>
+<g fill='#ffffff' fill-opacity='0.09'>
+<!-- caixa de calendario grande -->
+<rect x='28' y='28' width='52' height='48' rx='6'/>
+<rect x='28' y='28' width='52' height='12' rx='6' fill-opacity='0.14'/>
+<rect x='36' y='22' width='4' height='12' rx='2' fill-opacity='0.14'/>
+<rect x='68' y='22' width='4' height='12' rx='2' fill-opacity='0.14'/>
+<circle cx='42' cy='54' r='2'/><circle cx='54' cy='54' r='2'/><circle cx='66' cy='54' r='2'/>
+<circle cx='42' cy='64' r='2'/><circle cx='54' cy='64' r='2'/>
+<!-- relogio -->
+<circle cx='200' cy='60' r='22' fill='none' stroke='#ffffff' stroke-opacity='0.14' stroke-width='2'/>
+<path d='M200 46 v14 l9 6' stroke='#ffffff' stroke-opacity='0.18' stroke-width='2.2' fill='none' stroke-linecap='round'/>
+<!-- check -->
+<path d='M115 130 l6 6 l12 -14' stroke='#ffffff' stroke-opacity='0.16' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/>
+<!-- caixa de calendario pequena -->
+<rect x='180' y='180' width='38' height='34' rx='4'/>
+<rect x='180' y='180' width='38' height='9' rx='4' fill-opacity='0.14'/>
+<!-- dots decorativos -->
+<circle cx='60' cy='180' r='3'/>
+<circle cx='90' cy='200' r='2.5'/>
+<circle cx='150' cy='220' r='2'/>
+<circle cx='230' cy='130' r='2.5'/>
+<circle cx='40' cy='130' r='2'/>
+<!-- linhas sutis -->
+<path d='M150 70 h28' stroke='#ffffff' stroke-opacity='0.12' stroke-width='1.5' stroke-linecap='round'/>
+<path d='M150 80 h20' stroke='#ffffff' stroke-opacity='0.10' stroke-width='1.5' stroke-linecap='round'/>
+</g>
+</svg>`
+const HERO_PATTERN_URL = `url("data:image/svg+xml;utf8,${encodeURIComponent(HERO_PATTERN_SVG)}")`
+
+/**
  * Disparo automático da "Agenda do Dia" por email — singleton de config + scheduler.
  *
  * Funcionamento:
@@ -257,14 +293,17 @@ export class AgendaDisparoService implements OnModuleInit {
       const nomes = (ev.participantes as Array<{ usuario?: { name: string } | null; nomeAvulso?: string | null }>)
         .map(p => p.usuario?.name ?? p.nomeAvulso)
         .filter(Boolean)
+      // Participantes: cada nome vira pill discreta pra não virar parede de texto
+      // grudada com "por <criador>" embaixo.
       const participantesHtml = nomes.length > 0
-        ? `<div class="ev-section" style="margin-top:10px;padding-top:8px;border-top:1px dashed #e2e8f0;font-size:11px;color:#64748b">
-             <strong style="color:#475569" class="ev-label">👥 Participantes:</strong> ${nomes.map(n => this.escape(n!)).join(', ')}
+        ? `<div class="ev-section" style="margin-top:12px;padding-top:10px;border-top:1px dashed #e2e8f0">
+             <div class="ev-label" style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">👥 Participantes</div>
+             <div style="line-height:1.9">${nomes.map(n => `<span class="ev-chip" style="display:inline-block;padding:2px 9px;margin:0 4px 4px 0;border-radius:999px;background:#f1f5f9;color:#475569;font-size:11px;font-weight:500;border:1px solid #e2e8f0">${this.escape(n!)}</span>`).join('')}</div>
            </div>`
         : ''
 
       const linkHtml = ev.link
-        ? `<div class="ev-section" style="margin-top:8px;font-size:11px;color:#64748b">
+        ? `<div class="ev-section" style="margin-top:10px;font-size:11px;color:#64748b">
              <strong style="color:#475569" class="ev-label">🔗 Link:</strong>
              <a href="${this.escapeAttr(ev.link)}" style="color:#0ea5e9;text-decoration:none;word-break:break-all">${this.escape(ev.link)}</a>
            </div>`
@@ -279,8 +318,9 @@ export class AgendaDisparoService implements OnModuleInit {
            </div>`
         : ''
 
+      // Linha do criador separada visualmente — fica isolada no rodapé do card
       const criadorHtml = ev.criador?.name
-        ? `<div class="ev-section" style="margin-top:8px;font-size:11px;color:#94a3b8" class="ev-creator">por ${this.escape(ev.criador.name)}</div>`
+        ? `<div class="ev-creator" style="margin-top:12px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Agendado por ${this.escape(ev.criador.name)}</div>`
         : ''
 
       return `
@@ -313,8 +353,8 @@ export class AgendaDisparoService implements OnModuleInit {
       : ''
 
     const brandBlock = temLogo
-      ? `<img src="cid:logo" alt="OneClick" width="130" style="display:block;height:auto;max-width:160px;border:0;outline:none;text-decoration:none"/>`
-      : `<div style="font-size:18px;font-weight:800;color:#0f172a;letter-spacing:-0.3px" class="brand-text">OneClick</div>`
+      ? `<img src="cid:logo" alt="OneClick" width="130" style="display:block;margin:0 auto;height:auto;max-width:160px;border:0;outline:none;text-decoration:none"/>`
+      : `<div style="font-size:18px;font-weight:800;color:#0f172a;letter-spacing:-0.3px;text-align:center" class="brand-text">OneClick</div>`
 
     return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -347,6 +387,8 @@ export class AgendaDisparoService implements OnModuleInit {
     .count-badge { background: rgba(255,255,255,0.08) !important; color: #cbd5e1 !important; }
     .footer-text { color: #64748b !important; }
     .total-text { color: #94a3b8 !important; }
+    .ev-chip { background: rgba(255,255,255,0.06) !important; color: #cbd5e1 !important; border-color: rgba(255,255,255,0.08) !important; }
+    .ev-creator { border-color: rgba(255,255,255,0.06) !important; color: #64748b !important; }
   }
   /* Reset Outlook */
   table { border-collapse: collapse; }
@@ -366,8 +408,8 @@ export class AgendaDisparoService implements OnModuleInit {
     ${brandBlock}
   </td></tr>
 
-  <!-- HERO: data + saudação + título -->
-  <tr><td style="padding:28px 28px 24px;background:linear-gradient(135deg,#0ea5e9 0%,#6366f1 100%);color:#ffffff">
+  <!-- HERO: data + saudação + título — gradient azul→indigo com marca d'água SVG sobreposta -->
+  <tr><td style="padding:28px 28px 24px;color:#ffffff;background-color:#0ea5e9;background-image:${HERO_PATTERN_URL},linear-gradient(135deg,#0ea5e9 0%,#6366f1 100%);background-repeat:repeat,no-repeat;background-size:260px 260px,100% 100%;background-position:center,center">
     <table cellpadding="0" cellspacing="0" border="0" width="100%">
       <tr>
         <!-- Tile de data — fundo branco sólido pra contraste forte sobre o azul -->
