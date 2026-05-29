@@ -10,41 +10,6 @@ const LOGO_PATH = path.resolve(process.cwd(), 'assets', 'email-logo.png')
 let LOGO_BUFFER: Buffer | null = null
 try { LOGO_BUFFER = fs.readFileSync(LOGO_PATH) } catch { /* sem logo */ }
 
-/**
- * Marca d'água do hero — pattern SVG com motivos de calendário/relógio/check em
- * branco com opacidade baixa. Aplicado SOBRE o gradient azul→indigo da hero td
- * via background-image multi-camada. Outlook desktop ignora (fica só o gradient
- * como fallback — visual continua decente).
- */
-const HERO_PATTERN_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260'>
-<g fill='#ffffff' fill-opacity='0.09'>
-<!-- caixa de calendario grande -->
-<rect x='28' y='28' width='52' height='48' rx='6'/>
-<rect x='28' y='28' width='52' height='12' rx='6' fill-opacity='0.14'/>
-<rect x='36' y='22' width='4' height='12' rx='2' fill-opacity='0.14'/>
-<rect x='68' y='22' width='4' height='12' rx='2' fill-opacity='0.14'/>
-<circle cx='42' cy='54' r='2'/><circle cx='54' cy='54' r='2'/><circle cx='66' cy='54' r='2'/>
-<circle cx='42' cy='64' r='2'/><circle cx='54' cy='64' r='2'/>
-<!-- relogio -->
-<circle cx='200' cy='60' r='22' fill='none' stroke='#ffffff' stroke-opacity='0.14' stroke-width='2'/>
-<path d='M200 46 v14 l9 6' stroke='#ffffff' stroke-opacity='0.18' stroke-width='2.2' fill='none' stroke-linecap='round'/>
-<!-- check -->
-<path d='M115 130 l6 6 l12 -14' stroke='#ffffff' stroke-opacity='0.16' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/>
-<!-- caixa de calendario pequena -->
-<rect x='180' y='180' width='38' height='34' rx='4'/>
-<rect x='180' y='180' width='38' height='9' rx='4' fill-opacity='0.14'/>
-<!-- dots decorativos -->
-<circle cx='60' cy='180' r='3'/>
-<circle cx='90' cy='200' r='2.5'/>
-<circle cx='150' cy='220' r='2'/>
-<circle cx='230' cy='130' r='2.5'/>
-<circle cx='40' cy='130' r='2'/>
-<!-- linhas sutis -->
-<path d='M150 70 h28' stroke='#ffffff' stroke-opacity='0.12' stroke-width='1.5' stroke-linecap='round'/>
-<path d='M150 80 h20' stroke='#ffffff' stroke-opacity='0.10' stroke-width='1.5' stroke-linecap='round'/>
-</g>
-</svg>`
-const HERO_PATTERN_URL = `url("data:image/svg+xml;utf8,${encodeURIComponent(HERO_PATTERN_SVG)}")`
 
 /**
  * Disparo automático da "Agenda do Dia" por email — singleton de config + scheduler.
@@ -259,6 +224,7 @@ export class AgendaDisparoService implements OnModuleInit {
     const dataObj = new Date(dataYyyyMmDd)
     const dataDisplay = this.formatDataBr(dataObj)
     const totalEventos = corporativos.length + pessoais.length
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://app.oneclick.central-rnc.com.br').replace(/\/$/, '')
     const meses = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ']
     const diasSemana = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
     const diaSemana = diasSemana[dataObj.getUTCDay()]
@@ -408,8 +374,9 @@ export class AgendaDisparoService implements OnModuleInit {
     ${brandBlock}
   </td></tr>
 
-  <!-- HERO: data + saudação + título — gradient azul→indigo com marca d'água SVG sobreposta -->
-  <tr><td style="padding:28px 28px 24px;color:#ffffff;background-color:#0ea5e9;background-image:${HERO_PATTERN_URL},linear-gradient(135deg,#0ea5e9 0%,#6366f1 100%);background-repeat:repeat,no-repeat;background-size:260px 260px,100% 100%;background-position:center,center">
+  <!-- HERO com marca d'agua SVG (URL publica). Fallback: gradient sozinho
+       na primeira declaracao sobrevive caso o cliente sanitize background-image. -->
+  <tr><td style="padding:28px 28px 24px;color:#ffffff;background:linear-gradient(135deg,#0ea5e9 0%,#6366f1 100%);background-image:url(${appUrl}/email-bg-agenda.svg),linear-gradient(135deg,#0ea5e9 0%,#6366f1 100%);background-repeat:repeat,no-repeat;background-size:260px 260px,100% 100%">
     <table cellpadding="0" cellspacing="0" border="0" width="100%">
       <tr>
         <!-- Tile de data — fundo branco sólido pra contraste forte sobre o azul -->
