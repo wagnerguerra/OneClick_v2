@@ -290,7 +290,7 @@ export class AgendaDisparoService implements OnModuleInit {
         : ''
 
       return `
-<table cellpadding="0" cellspacing="0" border="0" width="100%" class="ev-card" style="margin:0 0 10px;background:#ffffff;border:1px solid #e2e8f0;border-left:4px solid ${cor};border-radius:10px;overflow:hidden">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" class="ev-card" style="margin:0 0 14px;background:#ffffff;border:1px solid #cbd5e1;border-left:4px solid ${cor};border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.08)">
   <tr>
     <td width="68" valign="top" class="ev-time-cell" style="padding:14px 10px 14px 14px;text-align:center;border-right:1px solid #f1f5f9;vertical-align:middle;background:#f8fafc">
       ${horarioBlock}
@@ -341,7 +341,7 @@ export class AgendaDisparoService implements OnModuleInit {
     .brand-bar { background: #1e293b !important; border-color: rgba(255,255,255,0.08) !important; }
     .brand-text { color: #f1f5f9 !important; }
     .greeting-eyebrow { color: #94a3b8 !important; }
-    .ev-card { background: #1e293b !important; border-color: rgba(255,255,255,0.08) !important; }
+    .ev-card { background: #1e293b !important; border-color: rgba(255,255,255,0.14) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important; }
     .ev-time-cell { background: #0f172a !important; border-right-color: rgba(255,255,255,0.06) !important; }
     .ev-time { color: #f1f5f9 !important; }
     .ev-time-end { color: #64748b !important; }
