@@ -5,9 +5,15 @@ import { AgendaGoogleService } from './agenda-google.service'
 import { AgendaConfigService } from './agenda-config.service'
 import { AgendaSalaService } from './agenda-sala.service'
 import { AgendaDisparoService } from './agenda-disparo.service'
+import { AgendaLembreteService } from './agenda-lembrete.service'
 
 const MODULE = 'agenda'
 const conflitoModoSchema = z.enum(['DESLIGADO', 'AVISAR', 'BLOQUEAR'])
+const lembreteCanalSchema = z.enum(['POPUP', 'EMAIL'])
+const lembreteItemSchema = z.object({
+  canal: lembreteCanalSchema,
+  minutosAntes: z.number().int().min(1).max(43200),  // até 30 dias
+})
 
 export function createAgendaRouter(
   service: AgendaService,
@@ -15,6 +21,7 @@ export function createAgendaRouter(
   configService: AgendaConfigService,
   salaService: AgendaSalaService,
   disparoService: AgendaDisparoService,
+  lembreteService: AgendaLembreteService,
 ) {
   return router({
     // === TIPOS (Categorias) ===
@@ -271,6 +278,22 @@ export function createAgendaRouter(
       syncFromGoogle: writeProcedure(MODULE)
         .input(z.object({ daysBack: z.number().default(7), daysForward: z.number().default(30) }).optional())
         .mutation(({ input, ctx }) => googleService.syncFromGoogle(ctx.userId, input?.daysBack, input?.daysForward)),
+    }),
+
+    // === LEMBRETES ===
+    // Lembrete pertence ao evento — quem pode editar o evento pode mexer
+    // nos lembretes. Leitura abre pra todos com acesso ao módulo (precisam
+    // ver no modal de detalhes/edição).
+    lembrete: router({
+      list: readProcedure(MODULE)
+        .input(z.object({ eventoId: z.string() }))
+        .query(({ input }) => lembreteService.list(input.eventoId)),
+      save: writeProcedure(MODULE)
+        .input(z.object({
+          eventoId: z.string(),
+          lembretes: z.array(lembreteItemSchema).max(10),
+        }))
+        .mutation(({ input }) => lembreteService.save(input.eventoId, input.lembretes)),
     }),
   })
 }

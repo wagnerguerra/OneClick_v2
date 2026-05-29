@@ -7,6 +7,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Plus, Loader2, Calendar, Clock,
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
   Repeat, Lock, History, Settings, Palette, Check, Download, DoorOpen,
+  Bell, Mail,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card,
@@ -87,6 +88,17 @@ function getFirstDayOfMonth(year: number, month: number) {
 
 function formatDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function formatarMinutosAntes(min: number): string {
+  if (min < 60) return `${min} min antes`
+  if (min < 1440) {
+    const h = min / 60
+    return `${Number.isInteger(h) ? h : h.toFixed(1)} h antes`
+  }
+  const d = min / 1440
+  if (d >= 7 && Number.isInteger(d / 7)) return `${d / 7} sem antes`
+  return `${Number.isInteger(d) ? d : d.toFixed(1)} dia${d > 1 ? 's' : ''} antes`
 }
 
 function parseDate(s: string) {
@@ -224,6 +236,13 @@ export default function AgendaPage() {
     participantesAvulsos: [] as string[],
   })
   const [avulsoInput, setAvulsoInput] = useState('')
+
+  // Lembretes do evento (Google Calendar-like). Persistido em /agenda/lembrete.save
+  // após criar/editar o evento.
+  type LembreteForm = { canal: 'POPUP' | 'EMAIL'; minutosAntes: number }
+  const [lembretesForm, setLembretesForm] = useState<LembreteForm[]>([])
+  const [novoLembreteAntes, setNovoLembreteAntes] = useState<string>('10')
+  const [novoLembreteCanal, setNovoLembreteCanal] = useState<'POPUP' | 'EMAIL'>('POPUP')
 
   // Logs do evento
   const [eventLogs, setEventLogs] = useState<Array<{ id: string; acao: string; createdAt: string }>>([])
@@ -420,6 +439,7 @@ export default function AgendaPage() {
       participantesAvulsos: [],
     })
     setAvulsoInput('')
+    setLembretesForm([])
     setModalOpen(true)
   }
 
@@ -464,6 +484,13 @@ export default function AgendaPage() {
       participantesAvulsos: ev.participantes.filter(p => p.nomeAvulso).map(p => p.nomeAvulso!),
     })
     setAvulsoInput('')
+    setLembretesForm([])
+    trpc.agenda.lembrete.list.query({ eventoId: ev.id })
+      .then((r: unknown) => {
+        const arr = r as Array<{ canal: 'POPUP' | 'EMAIL'; minutosAntes: number }>
+        setLembretesForm(arr.map(l => ({ canal: l.canal, minutosAntes: l.minutosAntes })))
+      })
+      .catch(() => {})
     setModalOpen(true)
   }
 
@@ -532,7 +559,7 @@ export default function AgendaPage() {
       }
 
       if (modalMode === 'create') {
-        await trpc.agenda.create.mutate({
+        const criado = await trpc.agenda.create.mutate({
           titulo: form.titulo,
           descricao: form.descricao || undefined,
           data: form.data,
@@ -555,6 +582,13 @@ export default function AgendaPage() {
           participanteIds: form.participanteIds,
           participantesAvulsos: form.participantesAvulsos,
         })
+        // Salva lembretes (pode ser lista vazia — apaga tudo)
+        const novoId = (criado as { id?: string } | undefined)?.id
+          ?? (criado as Array<{ id: string }> | undefined)?.[0]?.id
+        if (novoId) {
+          await trpc.agenda.lembrete.save.mutate({ eventoId: novoId, lembretes: lembretesForm })
+            .catch(e => console.error('[Agenda] save lembretes:', (e as Error).message))
+        }
         alerts.success('Evento criado', '')
       } else if (modalMode === 'edit' && selectedEvento) {
         await trpc.agenda.update.mutate({
@@ -581,6 +615,8 @@ export default function AgendaPage() {
             participantesAvulsos: form.participantesAvulsos,
           },
         })
+        await trpc.agenda.lembrete.save.mutate({ eventoId: selectedEvento.id, lembretes: lembretesForm })
+          .catch(e => console.error('[Agenda] save lembretes:', (e as Error).message))
         alerts.success('Evento atualizado', '')
       }
       setModalOpen(false)
@@ -1772,6 +1808,80 @@ export default function AgendaPage() {
                       <Input className="flex-1 h-8 text-xs" placeholder="Convidado externo..." value={avulsoInput} onChange={e => setAvulsoInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAvulso())} />
                       <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={addAvulso}>Adicionar</Button>
                     </div>
+                  </div>
+
+                  {/* Lembretes */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1.5">
+                      <Bell className="h-3.5 w-3.5 text-muted-foreground" />
+                      Lembretes
+                      <span className="text-[10px] font-normal text-muted-foreground ml-auto">{lembretesForm.length}/10</span>
+                    </Label>
+                    {lembretesForm.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-1.5">
+                        {lembretesForm.map((l, idx) => (
+                          <span key={idx} className={cn(
+                            'flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full',
+                            l.canal === 'EMAIL'
+                              ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400'
+                              : 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400',
+                          )}>
+                            {l.canal === 'EMAIL' ? <Mail className="h-3 w-3" /> : <Bell className="h-3 w-3" />}
+                            {formatarMinutosAntes(l.minutosAntes)}
+                            <button
+                              type="button"
+                              onClick={() => setLembretesForm(arr => arr.filter((_, i) => i !== idx))}
+                              className="hover:text-red-500"
+                              aria-label="Remover lembrete"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <Select value={novoLembreteAntes} onValueChange={setNovoLembreteAntes}>
+                        <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="5">5 minutos antes</SelectItem>
+                          <SelectItem value="10">10 minutos antes</SelectItem>
+                          <SelectItem value="15">15 minutos antes</SelectItem>
+                          <SelectItem value="30">30 minutos antes</SelectItem>
+                          <SelectItem value="60">1 hora antes</SelectItem>
+                          <SelectItem value="120">2 horas antes</SelectItem>
+                          <SelectItem value="1440">1 dia antes</SelectItem>
+                          <SelectItem value="2880">2 dias antes</SelectItem>
+                          <SelectItem value="10080">1 semana antes</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={novoLembreteCanal} onValueChange={v => setNovoLembreteCanal(v as 'POPUP' | 'EMAIL')}>
+                        <SelectTrigger className="h-8 text-xs w-[130px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="POPUP">Notificação</SelectItem>
+                          <SelectItem value="EMAIL">E-mail</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        disabled={lembretesForm.length >= 10}
+                        onClick={() => {
+                          const min = parseInt(novoLembreteAntes, 10)
+                          if (!Number.isFinite(min) || min < 1) return
+                          // Evita duplicar mesma combinação canal+minutos
+                          if (lembretesForm.some(l => l.canal === novoLembreteCanal && l.minutosAntes === min)) return
+                          setLembretesForm(arr => [...arr, { canal: novoLembreteCanal, minutosAntes: min }])
+                        }}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />Adicionar
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Disparado pra todos os participantes. Notificação = popup do navegador + toast no app. E-mail = mensagem na caixa de entrada.
+                    </p>
                   </div>
 
                   {/* Descrição */}

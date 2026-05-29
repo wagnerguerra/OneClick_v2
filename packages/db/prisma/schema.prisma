@@ -2100,6 +2100,7 @@ model AgendaEvento {
 
   participantes AgendaParticipante[]
   logs          AgendaLog[]
+  lembretes     AgendaLembrete[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -2141,6 +2142,31 @@ model AgendaLog {
 
   @@index([eventoId])
   @@map("agenda_logs")
+}
+
+/// Canal de notificação do lembrete.
+/// POPUP: notificação no app (browser Notification API + toast in-app, via SSE).
+/// EMAIL: e-mail transacional via EmailService pros participantes do evento.
+enum AgendaLembreteCanal {
+  POPUP
+  EMAIL
+}
+
+/// Lembrete agendado pra um evento — pertence ao evento (todos participantes
+/// recebem o mesmo lembrete). Disparado pelo scheduler quando o "horário do
+/// evento - minutosAntes" cai na janela do tick atual.
+model AgendaLembrete {
+  id              String              @id @default(cuid())
+  eventoId        String              @map("evento_id")
+  evento          AgendaEvento        @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  canal           AgendaLembreteCanal @default(POPUP)
+  minutosAntes    Int                 @map("minutos_antes")
+  ultimoDisparoEm DateTime?           @map("ultimo_disparo_em")
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  @@index([eventoId])
+  @@index([minutosAntes])
+  @@map("agenda_lembretes")
 }
 
 // ============================================================

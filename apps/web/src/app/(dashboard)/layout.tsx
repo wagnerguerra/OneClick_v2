@@ -18,6 +18,7 @@ import { useTabShortcuts } from '@/hooks/use-tab-shortcuts'
 import { usePermissionsSse } from '@/hooks/use-permissions-sse'
 import { usePresencePing } from '@/hooks/use-presence-ping'
 import { useModuleScope } from '@/hooks/use-module-scope'
+import { useAgendaLembreteSse } from '@/hooks/use-agenda-lembrete-sse'
 import { cn } from '@saas/ui'
 
 // Componente interno que usa os hooks (precisa estar dentro do TabsProvider)
@@ -34,6 +35,7 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
   usePermissionsSse()
   usePresencePing()
   useModuleScope()
+  useAgendaLembreteSse()
 
   return (
     <div
