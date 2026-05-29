@@ -1,7 +1,14 @@
 import { Injectable, Inject, OnModuleInit } from '@nestjs/common'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import { prisma } from '@saas/db'
 import type { AgendaDisparoConfig } from '@saas/db'
 import { EmailService } from '../common/email.service'
+
+// Logo embarcada inline (cid:logo) — mesmo asset usado nos e-mails de lembrete.
+const LOGO_PATH = path.resolve(process.cwd(), 'assets', 'email-logo.png')
+let LOGO_BUFFER: Buffer | null = null
+try { LOGO_BUFFER = fs.readFileSync(LOGO_PATH) } catch { /* sem logo */ }
 
 /**
  * Disparo automático da "Agenda do Dia" por email — singleton de config + scheduler.
@@ -195,13 +202,14 @@ export class AgendaDisparoService implements OnModuleInit {
     const corporativos = visiveis.filter(ev => !isPessoal(ev))
     const pessoais = visiveis.filter(ev => isPessoal(ev))
 
-    const html = this.gerarHtmlEmail(dataYyyyMmDd, corporativos, pessoais, user.name)
+    const html = this.gerarHtmlEmail(dataYyyyMmDd, corporativos, pessoais, user.name, !!LOGO_BUFFER)
     const dataDisplay = this.formatDataBr(eventDate)
 
     await this.emailService.sendMail({
       to: user.email,
-      subject: `AGENDA DO DIA - ${dataDisplay}`,
+      subject: `Agenda do dia · ${dataDisplay}`,
       html,
+      attachments: LOGO_BUFFER ? [{ filename: 'logo.png', content: LOGO_BUFFER, cid: 'logo' }] : undefined,
     })
   }
 
@@ -211,87 +219,202 @@ export class AgendaDisparoService implements OnModuleInit {
 
   /** Gera HTML do email com 2 seções (Corporativos + Pessoais) e cards de eventos. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private gerarHtmlEmail(dataYyyyMmDd: string, corporativos: any[], pessoais: any[], nomeDestinatario: string): string {
-    const dataDisplay = this.formatDataBr(new Date(dataYyyyMmDd))
+  private gerarHtmlEmail(dataYyyyMmDd: string, corporativos: any[], pessoais: any[], nomeDestinatario: string, temLogo: boolean): string {
+    const dataObj = new Date(dataYyyyMmDd)
+    const dataDisplay = this.formatDataBr(dataObj)
     const totalEventos = corporativos.length + pessoais.length
+    const meses = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ']
+    const diasSemana = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
+    const diaSemana = diasSemana[dataObj.getUTCDay()]
+    const diaNum = dataObj.getUTCDate()
+    const mesAbrev = meses[dataObj.getUTCMonth()]
+    const anoNum = dataObj.getUTCFullYear()
+    const preheader = `${totalEventos} ${totalEventos === 1 ? 'compromisso' : 'compromissos'} hoje · ${dataDisplay}`
+
+    // Saudação contextual conforme hora do disparo (Brasília)
+    const horaBr = this.getNowBrasilia().getHours()
+    const saudacao = horaBr < 12 ? 'Bom dia' : horaBr < 18 ? 'Boa tarde' : 'Boa noite'
 
     const renderCard = (ev: typeof corporativos[number]) => {
-      const cor = ev.tipo.cor || '#94a3b8'
-      const bgClaro = this.hexComAlpha(cor, 0.08)
-      const horario = ev.diaInteiro
-        ? 'Dia inteiro'
-        : `${ev.horaInicio ?? ''}<br/>${ev.horaFim ?? ''}`
-      const modalidade = ev.presenca === 'ONLINE' ? '(Online)' : ev.presenca === 'HIBRIDO' ? '(Híbrido)' : '(Presencial)'
+      const cor = ev.tipo.cor || '#0ea5e9'
+      const horarioBlock = ev.diaInteiro
+        ? '<span style="font-weight:700;color:#0ea5e9">Dia inteiro</span>'
+        : `<div style="font-weight:700;font-size:14px;color:#0f172a;line-height:1.1" class="ev-time">${ev.horaInicio ?? ''}</div>
+           <div style="font-weight:500;font-size:11px;color:#94a3b8;line-height:1;margin-top:2px" class="ev-time-end">${ev.horaFim ?? ''}</div>`
+      const modalidadeLabel = ev.presenca === 'ONLINE' ? 'Online' : ev.presenca === 'HIBRIDO' ? 'Híbrido' : 'Presencial'
+      const modalidadeIcon = ev.presenca === 'ONLINE' ? '💻' : ev.presenca === 'HIBRIDO' ? '🔄' : '🏢'
       const local = ev.salaRef?.nome || ev.sala
-      const descricaoLocal = local ? ` a acontecer em ${this.escape(local)}` : ''
-      const tipoTexto = `Evento tipo ${this.escape(ev.tipo.nome)} ${modalidade}, agendado por ${this.escape(ev.criador.name)}${descricaoLocal}`
 
-      // "Preparação" derivada de equipamentos/sala
-      const prepItens: string[] = []
-      if (ev.salaRef || ev.sala) prepItens.push('Arrumar sala')
-      if (ev.equipamentos) prepItens.push('Disponibilizar equipamentos')
-      const prepHtml = prepItens.length > 0
-        ? `<div style="margin-top:8px;font-weight:600;font-size:13px;color:#1f2937">Preparação</div>
-           <div style="font-size:13px;color:#6b7280">${prepItens.join('; ')}</div>`
-        : ''
-
-      const linkHtml = ev.link
-        ? `<div style="margin-top:8px;font-weight:600;font-size:13px;color:#1f2937">Link de reunião online</div>
-           <div style="font-size:12px;color:#6b7280;word-break:break-all">${this.escape(ev.link)}</div>`
-        : ''
+      const linhaInfo: string[] = []
+      linhaInfo.push(`<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;background:${cor};color:#ffffff">${this.escape(ev.tipo.nome)}</span>`)
+      linhaInfo.push(`<span class="ev-meta" style="font-size:11px;color:#64748b">${modalidadeIcon} ${modalidadeLabel}</span>`)
+      if (local) linhaInfo.push(`<span class="ev-meta" style="font-size:11px;color:#64748b">📍 ${this.escape(local)}</span>`)
 
       const nomes = (ev.participantes as Array<{ usuario?: { name: string } | null; nomeAvulso?: string | null }>)
         .map(p => p.usuario?.name ?? p.nomeAvulso)
         .filter(Boolean)
       const participantesHtml = nomes.length > 0
-        ? `<div style="margin-top:8px;font-weight:600;font-size:13px;color:#1f2937">Participantes</div>
-           <div style="font-size:13px;color:#6b7280">${nomes.map(n => this.escape(n!)).join(', ')}</div>`
+        ? `<div class="ev-section" style="margin-top:10px;padding-top:8px;border-top:1px dashed #e2e8f0;font-size:11px;color:#64748b">
+             <strong style="color:#475569" class="ev-label">👥 Participantes:</strong> ${nomes.map(n => this.escape(n!)).join(', ')}
+           </div>`
+        : ''
+
+      const linkHtml = ev.link
+        ? `<div class="ev-section" style="margin-top:8px;font-size:11px;color:#64748b">
+             <strong style="color:#475569" class="ev-label">🔗 Link:</strong>
+             <a href="${this.escapeAttr(ev.link)}" style="color:#0ea5e9;text-decoration:none;word-break:break-all">${this.escape(ev.link)}</a>
+           </div>`
+        : ''
+
+      const prepItens: string[] = []
+      if (ev.salaRef || ev.sala) prepItens.push('Arrumar sala')
+      if (ev.equipamentos) prepItens.push('Disponibilizar equipamentos')
+      const prepHtml = prepItens.length > 0
+        ? `<div class="ev-section" style="margin-top:8px;font-size:11px;color:#64748b">
+             <strong style="color:#475569" class="ev-label">📋 Preparação:</strong> ${prepItens.join(' · ')}
+           </div>`
+        : ''
+
+      const criadorHtml = ev.criador?.name
+        ? `<div class="ev-section" style="margin-top:8px;font-size:11px;color:#94a3b8" class="ev-creator">por ${this.escape(ev.criador.name)}</div>`
         : ''
 
       return `
-<table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:0 0 10px;background:${bgClaro};border-left:4px solid ${cor};border-radius:4px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" class="ev-card" style="margin:0 0 10px;background:#ffffff;border:1px solid #e2e8f0;border-left:4px solid ${cor};border-radius:10px;overflow:hidden">
   <tr>
-    <td style="padding:12px 14px;width:54px;vertical-align:top;font-family:Arial,sans-serif;font-size:12px;color:#4b5563;line-height:1.4">
-      ${horario}
+    <td width="68" valign="top" class="ev-time-cell" style="padding:14px 10px 14px 14px;text-align:center;border-right:1px solid #f1f5f9;vertical-align:middle;background:#f8fafc">
+      ${horarioBlock}
     </td>
-    <td style="padding:12px 14px 12px 0;vertical-align:top;font-family:Arial,sans-serif">
-      <div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:3px">${this.escape(ev.titulo)}</div>
-      <div style="font-size:13px;color:#4b5563">${tipoTexto}</div>
-      ${prepHtml}
+    <td valign="top" style="padding:14px 16px;vertical-align:top">
+      <div class="ev-title" style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;line-height:1.3">${this.escape(ev.titulo)}</div>
+      <div style="margin-bottom:4px">${linhaInfo.join(' &nbsp; ')}</div>
       ${linkHtml}
+      ${prepHtml}
       ${participantesHtml}
+      ${criadorHtml}
     </td>
   </tr>
 </table>`
     }
 
-    const secao = (titulo: string, eventos: typeof corporativos) => eventos.length > 0
-      ? `<div style="font-family:Arial,sans-serif;font-size:14px;font-weight:700;color:#111827;margin:18px 0 10px">${titulo}</div>
+    const secao = (titulo: string, icon: string, eventos: typeof corporativos) => eventos.length > 0
+      ? `<div class="section-title" style="font-size:13px;font-weight:700;color:#0f172a;margin:22px 0 12px;display:flex;align-items:center;gap:8px">
+           <span>${icon}</span>
+           <span style="text-transform:uppercase;letter-spacing:0.8px">${titulo}</span>
+           <span class="count-badge" style="background:#e2e8f0;color:#475569;font-size:10px;padding:1px 8px;border-radius:999px;font-weight:600">${eventos.length}</span>
+         </div>
          ${eventos.map(renderCard).join('')}`
       : ''
 
-    return `<!doctype html>
-<html><head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background:#f9fafb">
-<table cellpadding="0" cellspacing="0" border="0" style="width:100%;background:#f9fafb">
-<tr><td align="center" style="padding:24px 12px">
-<table cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:680px;background:#ffffff;border-radius:8px;padding:24px;font-family:Arial,sans-serif">
-  <tr><td>
-    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px">Bom dia, ${this.escape(nomeDestinatario)}</div>
-    <div style="font-size:20px;font-weight:700;color:#0f172a;margin-top:4px">AGENDA DO DIA — ${dataDisplay}</div>
-    <div style="font-size:12px;color:#6b7280;margin-top:4px">${totalEventos} evento(s) na agenda</div>
-    <hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">
-    ${secao('Compromissos Corporativos', corporativos)}
-    ${secao('Compromissos Pessoais', pessoais)}
-    <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0 12px">
-    <div style="font-size:11px;color:#9ca3af;text-align:center">
-      Email automático da Agenda Corporativa OneClick · Para gerenciar, acesse a agenda no sistema
+    const brandBlock = temLogo
+      ? `<img src="cid:logo" alt="OneClick" width="130" style="display:block;height:auto;max-width:160px;border:0;outline:none;text-decoration:none"/>`
+      : `<div style="font-size:18px;font-weight:800;color:#0f172a;letter-spacing:-0.3px" class="brand-text">OneClick</div>`
+
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Agenda do dia · ${dataDisplay}</title>
+<style>
+  /* DARK MODE — adapta cores quando o cliente de email suportar prefers-color-scheme.
+     Apple Mail / Outlook 2019+ / iOS Mail respeitam. Gmail web (dark mode forçado)
+     faz inversão própria que geralmente fica decente porque mantemos fundos brancos
+     em containers chave. */
+  @media (prefers-color-scheme: dark) {
+    body, .bg-page { background: #0f172a !important; }
+    .card { background: #1e293b !important; border-color: rgba(255,255,255,0.08) !important; }
+    .brand-bar { background: #1e293b !important; border-color: rgba(255,255,255,0.08) !important; }
+    .brand-text { color: #f1f5f9 !important; }
+    .greeting-eyebrow { color: #94a3b8 !important; }
+    .ev-card { background: #1e293b !important; border-color: rgba(255,255,255,0.08) !important; }
+    .ev-time-cell { background: #0f172a !important; border-right-color: rgba(255,255,255,0.06) !important; }
+    .ev-time { color: #f1f5f9 !important; }
+    .ev-time-end { color: #64748b !important; }
+    .ev-title { color: #f1f5f9 !important; }
+    .ev-meta { color: #94a3b8 !important; }
+    .ev-section { border-color: rgba(255,255,255,0.08) !important; color: #94a3b8 !important; }
+    .ev-label { color: #cbd5e1 !important; }
+    .section-title { color: #f1f5f9 !important; }
+    .count-badge { background: rgba(255,255,255,0.08) !important; color: #cbd5e1 !important; }
+    .footer-text { color: #64748b !important; }
+    .total-text { color: #94a3b8 !important; }
+  }
+  /* Reset Outlook */
+  table { border-collapse: collapse; }
+  img { -ms-interpolation-mode: bicubic; }
+</style>
+</head>
+<body class="bg-page" style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+<!-- Preheader oculto (preview no client) -->
+<div style="display:none;font-size:0;line-height:0;max-height:0;max-width:0;opacity:0;overflow:hidden;color:transparent">${this.escape(preheader)}</div>
+
+<table cellpadding="0" cellspacing="0" border="0" width="100%" class="bg-page" style="background:#f1f5f9">
+<tr><td align="center" style="padding:32px 16px">
+<table cellpadding="0" cellspacing="0" border="0" width="600" class="card" style="max-width:600px;background:#ffffff;border-radius:16px;box-shadow:0 4px 24px rgba(15,23,42,0.08);overflow:hidden;border:1px solid #e2e8f0">
+
+  <!-- BRAND BAR -->
+  <tr><td class="brand-bar" style="padding:20px 28px;background:#ffffff;border-bottom:1px solid #e2e8f0">
+    ${brandBlock}
+  </td></tr>
+
+  <!-- HERO: data + saudação + título -->
+  <tr><td style="padding:28px 28px 24px;background:linear-gradient(135deg,#0ea5e9 0%,#6366f1 100%);color:#ffffff">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%">
+      <tr>
+        <!-- Tile de data -->
+        <td width="74" valign="top" style="padding-right:18px">
+          <table cellpadding="0" cellspacing="0" border="0" width="74" style="background:rgba(255,255,255,0.18);border-radius:12px;backdrop-filter:blur(10px)">
+            <tr><td style="padding:6px 0;text-align:center;font-size:11px;font-weight:800;color:rgba(255,255,255,0.95);text-transform:uppercase;letter-spacing:2px;background:rgba(255,255,255,0.12);border-radius:12px 12px 0 0">${mesAbrev}</td></tr>
+            <tr><td style="padding:8px 0 4px;text-align:center;font-size:32px;font-weight:800;color:#ffffff;line-height:1">${diaNum}</td></tr>
+            <tr><td style="padding:0 0 8px;text-align:center;font-size:10px;color:rgba(255,255,255,0.8);letter-spacing:1px">${anoNum}</td></tr>
+          </table>
+        </td>
+        <!-- Texto -->
+        <td valign="middle">
+          <div style="font-size:11px;color:rgba(255,255,255,0.85);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:6px">${saudacao}, ${this.escape(nomeDestinatario.split(' ')[0] || nomeDestinatario)}</div>
+          <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;line-height:1.15">Sua agenda do dia</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.9);margin-top:6px;text-transform:capitalize">${diaSemana}</div>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <!-- CONTADOR -->
+  <tr><td style="padding:18px 28px 0">
+    <div class="total-text" style="font-size:13px;color:#475569">
+      Você tem <strong style="color:#0ea5e9">${totalEventos}</strong> ${totalEventos === 1 ? 'compromisso' : 'compromissos'} hoje
+      ${corporativos.length > 0 && pessoais.length > 0
+        ? `<span style="color:#94a3b8"> · ${corporativos.length} corporativo${corporativos.length > 1 ? 's' : ''}, ${pessoais.length} pessoa${pessoais.length > 1 ? 'is' : 'l'}</span>`
+        : ''}
     </div>
+  </td></tr>
+
+  <!-- LISTAS -->
+  <tr><td style="padding:0 28px 24px">
+    ${secao('Compromissos corporativos', '💼', corporativos)}
+    ${secao('Compromissos pessoais', '🌟', pessoais)}
+  </td></tr>
+
+  <!-- FOOTER -->
+  <tr><td class="brand-bar" style="padding:18px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:center">
+    <p class="footer-text" style="margin:0;font-size:11px;color:#64748b;line-height:1.5">
+      E-mail automático da <strong>Agenda Corporativa</strong>. Configure horários e destinatários nas configurações da agenda.
+    </p>
+    <p class="footer-text" style="margin:8px 0 0;font-size:10px;color:#94a3b8">
+      OneClick · Agenda Corporativa
+    </p>
   </td></tr>
 </table>
 </td></tr>
 </table>
 </body></html>`
+  }
+
+  private escapeAttr(s: string): string {
+    return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
   }
 
   // ============================================================
@@ -306,16 +429,6 @@ export class AgendaDisparoService implements OnModuleInit {
     const dia = String(d.getUTCDate()).padStart(2, '0')
     const mes = String(d.getUTCMonth() + 1).padStart(2, '0')
     return `${dia}/${mes}/${d.getUTCFullYear()}`
-  }
-
-  private hexComAlpha(hex: string, alpha: number): string {
-    // Converte #RRGGBB pra rgba — pra bg dos cards
-    const h = hex.replace('#', '')
-    const bigint = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16)
-    const r = (bigint >> 16) & 255
-    const g = (bigint >> 8) & 255
-    const b = bigint & 255
-    return `rgba(${r},${g},${b},${alpha})`
   }
 
   private escape(s: string): string {
