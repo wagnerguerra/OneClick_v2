@@ -2233,3 +2233,18 @@ export default function AgendaPage() {
     </TooltipProvider>
   )
 }
+
+/** Card compacto com ícone + label + valor — usado no grid da prévia de evento. */
+function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 flex items-center gap-2.5">
+      <div className="h-8 w-8 rounded-md bg-card border border-border/60 flex items-center justify-center shrink-0">
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider leading-tight">{label}</div>
+        <div className="text-[13px] font-medium truncate leading-tight mt-0.5">{value}</div>
+      </div>
+    </div>
+  )
+}
