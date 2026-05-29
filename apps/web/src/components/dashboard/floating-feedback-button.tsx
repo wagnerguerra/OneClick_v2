@@ -4,10 +4,12 @@ import { useState, useRef, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import {
   MessageCircle, Bug, Lightbulb, MessageSquare, X, Send, Loader2, Check, ExternalLink,
+  ImagePlus, Paperclip,
 } from 'lucide-react'
 import { Button, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 
 /**
  * FAB ("Fale com a TI") — sempre visível no canto inferior direito.
@@ -23,16 +25,27 @@ const TIPOS: Array<{ valor: Tipo; label: string; icon: typeof Bug; cor: string }
   { valor: 'DUVIDA',    label: 'Outro',    icon: MessageSquare, cor: '#3b82f6' },
 ]
 
+interface AnexoPendente {
+  id: string
+  fileName: string
+  fileUrl: string       // relativo, ex: /api/upload/uuid.png
+  mimeType: string
+  tamanho: number
+  uploading?: boolean
+}
+
 export function FloatingFeedbackButton() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [tipo, setTipo] = useState<Tipo>('INCIDENTE')
   const [texto, setTexto] = useState('')
+  const [anexos, setAnexos] = useState<AnexoPendente[]>([])
   const [enviando, setEnviando] = useState(false)
   const [ticketCriado, setTicketCriado] = useState<{ numero: number; id: string; hash: string } | null>(null)
 
   const popoverRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Fecha ao clicar fora
   useEffect(() => {
@@ -64,6 +77,7 @@ export function FloatingFeedbackButton() {
         if (!open) {
           setTexto('')
           setTipo('INCIDENTE')
+          setAnexos([])
           setTicketCriado(null)
           setEnviando(false)
         }
@@ -72,9 +86,85 @@ export function FloatingFeedbackButton() {
     }
   }, [open])
 
+  /**
+   * Upload de um arquivo (imagem do paste ou file picker) → POST /api/upload.
+   * Aceita File ou Blob (paste do clipboard vem como Blob sem nome).
+   */
+  async function uploadFile(file: File | Blob, fallbackName?: string): Promise<AnexoPendente | null> {
+    const fileName = (file as File).name || fallbackName || `print-${Date.now()}.png`
+    const mimeType = file.type || 'image/png'
+    const placeholderId = crypto.randomUUID()
+    // Adiciona placeholder com flag uploading=true (mostra spinner no thumbnail)
+    setAnexos(prev => [...prev, {
+      id: placeholderId,
+      fileName,
+      fileUrl: '',
+      mimeType,
+      tamanho: file.size,
+      uploading: true,
+    }])
+    try {
+      const fd = new FormData()
+      fd.append('file', file, fileName)
+      const res = await fetch(`${getApiUrl()}/api/upload`, {
+        method: 'POST',
+        credentials: 'include',
+        body: fd,
+      })
+      if (!res.ok) throw new Error(`Upload falhou (HTTP ${res.status})`)
+      const data = await res.json() as { url: string; filename: string }
+      const final: AnexoPendente = {
+        id: placeholderId,
+        fileName,
+        fileUrl: data.url,
+        mimeType,
+        tamanho: file.size,
+      }
+      setAnexos(prev => prev.map(a => a.id === placeholderId ? final : a))
+      return final
+    } catch (e) {
+      setAnexos(prev => prev.filter(a => a.id !== placeholderId))
+      alerts.error('Erro ao enviar imagem', (e as Error).message)
+      return null
+    }
+  }
+
+  /** Captura Ctrl+V de imagem do clipboard (prints colados direto no textarea). */
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const items = e.clipboardData?.items
+    if (!items) return
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]!
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        e.preventDefault()  // evita colar nome de arquivo no texto
+        const blob = item.getAsFile()
+        if (blob) {
+          const ext = item.type.split('/')[1] || 'png'
+          uploadFile(blob, `print-${Date.now()}.${ext}`)
+        }
+      }
+    }
+  }
+
+  /** Botão "anexar imagem" pra quem não sabe usar Ctrl+V. */
+  function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || [])
+    for (const f of files) uploadFile(f)
+    e.target.value = ''  // permite re-selecionar o mesmo arquivo
+  }
+
+  function removerAnexo(id: string) {
+    setAnexos(prev => prev.filter(a => a.id !== id))
+  }
+
   async function handleEnviar() {
     if (!texto.trim()) {
       alerts.error('Descreva o que aconteceu')
+      return
+    }
+    // Bloqueia envio enquanto upload de algum anexo está em andamento
+    if (anexos.some(a => a.uploading)) {
+      alerts.error('Aguarde', 'Ainda enviando imagem(ns) anexada(s)...')
       return
     }
     setEnviando(true)
@@ -96,6 +186,23 @@ export function FloatingFeedbackButton() {
         prioridade: 'MEDIA',
         tags: ['fab-feedback'],
       }) as { id: string; numero: number; hash: string }
+
+      // Anexa as imagens enviadas (paste/upload) ao ticket recém-criado.
+      // Roda em paralelo — falhas são logadas mas não impedem o sucesso geral.
+      const anexosProntos = anexos.filter(a => !a.uploading && a.fileUrl)
+      if (anexosProntos.length > 0) {
+        await Promise.allSettled(
+          anexosProntos.map(a =>
+            trpc.helpdesk.addAnexo.mutate({
+              ticketId: ticket.id,
+              fileName: a.fileName,
+              fileUrl: a.fileUrl,
+              mimeType: a.mimeType,
+              tamanho: a.tamanho,
+            }),
+          ),
+        )
+      }
 
       setTicketCriado({ numero: ticket.numero, id: ticket.id, hash: ticket.hash })
     } catch (e) {
@@ -161,12 +268,13 @@ export function FloatingFeedbackButton() {
                 ))}
               </div>
 
-              {/* Textarea */}
+              {/* Textarea + anexos */}
               <div className="px-4 py-3">
                 <textarea
                   ref={textareaRef}
                   value={texto}
                   onChange={(e) => setTexto(e.target.value)}
+                  onPaste={handlePaste}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                       e.preventDefault()
@@ -174,15 +282,77 @@ export function FloatingFeedbackButton() {
                     }
                   }}
                   rows={5}
-                  placeholder="Descreva o que aconteceu ou sua sugestão..."
+                  placeholder="Descreva o que aconteceu ou sua sugestão... (cole prints com Ctrl+V)"
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
                 />
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-[10px] text-muted-foreground">
-                    📍 Inclui automaticamente: <code className="bg-muted px-1 rounded">{pathname || '/'}</code>
-                  </span>
+
+                {/* Thumbnails dos anexos */}
+                {anexos.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {anexos.map(a => (
+                      <div
+                        key={a.id}
+                        className="relative h-16 w-16 rounded-md border border-border bg-muted/40 overflow-hidden group/anexo"
+                        title={a.fileName}
+                      >
+                        {a.uploading ? (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : a.mimeType.startsWith('image/') ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={resolveAssetUrl(a.fileUrl)}
+                            alt={a.fileName}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground p-1">
+                            <Paperclip className="h-5 w-5" />
+                            <span className="text-[8px] truncate w-full text-center mt-0.5">
+                              {a.fileName.split('.').pop()?.toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        {!a.uploading && (
+                          <button
+                            type="button"
+                            onClick={() => removerAnexo(a.id)}
+                            className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover/anexo:opacity-100 transition-opacity"
+                            title="Remover"
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between mt-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                    title="Anexar imagem"
+                  >
+                    <ImagePlus className="h-3 w-3" /> Anexar imagem
+                  </button>
                   <span className="text-[10px] text-muted-foreground">Ctrl+Enter pra enviar</span>
                 </div>
+                <div className="mt-1 text-[10px] text-muted-foreground">
+                  📍 Inclui automaticamente: <code className="bg-muted px-1 rounded">{pathname || '/'}</code>
+                </div>
+
+                {/* Input file invisível controlado pelo botão acima */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFilePick}
+                  className="hidden"
+                />
               </div>
 
               {/* Footer */}

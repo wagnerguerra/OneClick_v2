@@ -1,11 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { loginSchema, type LoginInput } from '@saas/types'
 import { Button, Label } from '@saas/ui'
 import { signIn } from '@/lib/auth-client'
@@ -45,46 +44,49 @@ export default function LoginPage() {
 
   const {
     register,
-    handleSubmit,
-    setValue,
-    getValues,
+    setError: setFieldError,
+    clearErrors,
     formState: { errors },
   } = useForm<LoginInput>({
-    resolver: zodResolver(loginSchema),
+    // Sem `resolver` automático aqui — validamos manualmente no submit lendo
+    // direto do DOM via FormData (única fonte que sempre reflete o autofill
+    // do browser, mesmo quando Chrome popula os inputs sem disparar onChange).
   })
 
-  // Captura autofill do navegador — Chrome preenche programaticamente e RHF
-  // não detecta. Sem isso, primeira tentativa de submit falha validação Zod
-  // com campos "vazios" e o user precisa clicar em Entrar 2x.
-  useEffect(() => {
-    const t = setTimeout(() => {
-      const emailEl = document.getElementById('email') as HTMLInputElement | null
-      const passEl = document.getElementById('password') as HTMLInputElement | null
-      if (emailEl?.value && !getValues('email')) {
-        setValue('email', emailEl.value, { shouldValidate: false })
-      }
-      if (passEl?.value && !getValues('password')) {
-        setValue('password', passEl.value, { shouldValidate: false })
-      }
-    }, 100)
-    return () => clearTimeout(t)
-  }, [setValue, getValues])
-
-  async function onSubmit(data: LoginInput) {
+  /**
+   * Handler de submit DOM-first. Por quê: o autofill do Chrome popula os inputs
+   * mas NÃO dispara `onChange`, então o RHF state continua vazio. Se usássemos
+   * `handleSubmit(onSubmit)` do RHF, o zodResolver rejeitaria os "vazios" e o
+   * user veria a tela "piscar" sem login acontecer. Lendo via FormData no submit
+   * nativo do form, sempre temos os valores reais que o user vê.
+   */
+  async function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    clearErrors()
     setError(null)
+
+    const formData = new FormData(e.currentTarget)
+    const email = String(formData.get('email') || '').trim()
+    const password = String(formData.get('password') || '')
+
+    // Validação manual com o mesmo schema Zod — erros vão pro RHF pra mostrar
+    // nos campos. Mantém UX consistente com o resto do projeto.
+    const parsed = loginSchema.safeParse({ email, password })
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const path = issue.path[0]
+        if (path === 'email' || path === 'password') {
+          setFieldError(path, { type: 'manual', message: issue.message })
+        }
+      }
+      return
+    }
+
     setLoading(true)
-
-    // Fallback de autofill: se RHF tem vazio mas o DOM tem valor, usa o DOM.
-    // (Defesa extra além do useEffect — cobre casos onde o autofill chega depois.)
-    const emailEl = document.getElementById('email') as HTMLInputElement | null
-    const passEl = document.getElementById('password') as HTMLInputElement | null
-    const email = data.email || emailEl?.value || ''
-    const password = data.password || passEl?.value || ''
-
     try {
       const result = await signIn.email({
-        email,
-        password,
+        email: parsed.data.email,
+        password: parsed.data.password,
         rememberMe,
       })
 
@@ -138,7 +140,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleFormSubmit} className="space-y-4">
           {/* Alerta de erro */}
           {error && (
             <div className="flex items-start gap-3 rounded-lg bg-destructive/8 border border-destructive/20 px-4 py-3">
