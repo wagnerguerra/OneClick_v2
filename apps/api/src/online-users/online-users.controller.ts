@@ -45,8 +45,10 @@ export class OnlineUsersController {
     // 1º envio imediato
     await send()
 
-    // Tick a cada 5s
-    const interval = setInterval(send, 5000)
+    // Tick a cada 15s — antes era 5s, mas com vários clientes (web + launcher)
+    // conectados, isso virava 1 query SQL × N a cada 5s, saturando o pool.
+    // 15s ainda é "quase tempo real" pra um painel de presença.
+    const interval = setInterval(send, 15_000)
 
     // Ping a cada 30s pra manter a conexão viva atrás de proxies
     const ping = setInterval(() => {

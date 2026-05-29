@@ -1,5 +1,5 @@
 import { Controller, Sse } from '@nestjs/common'
-import { Observable, map } from 'rxjs'
+import { Observable, interval, map, merge } from 'rxjs'
 import { ClientErrorEventsService } from './client-error-events.service'
 
 /**
@@ -17,8 +17,13 @@ export class ClientErrorSseController {
 
   @Sse('events')
   sse(): Observable<MessageEvent> {
-    return this.events.events$.pipe(
+    // Ping a cada 30s pra manter conexão viva (proxy timeout).
+    const ping$ = interval(30_000).pipe(
+      map(() => ({ data: JSON.stringify({ type: 'ping', timestamp: Date.now() }) }) as MessageEvent),
+    )
+    const events$ = this.events.events$.pipe(
       map(event => ({ data: JSON.stringify(event) }) as MessageEvent),
     )
+    return merge(events$, ping$)
   }
 }

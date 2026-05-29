@@ -1,5 +1,5 @@
 import { Controller, Sse } from '@nestjs/common'
-import { Observable, map } from 'rxjs'
+import { Observable, interval, map, merge } from 'rxjs'
 import { OrcamentoEventsService } from './orcamento-events.service'
 
 @Controller('api/orcamentos')
@@ -18,8 +18,12 @@ export class OrcamentoSseController {
    */
   @Sse('events')
   sse(): Observable<MessageEvent> {
-    return this.events.events$.pipe(
+    const ping$ = interval(30_000).pipe(
+      map(() => ({ data: JSON.stringify({ type: 'ping', timestamp: Date.now() }) }) as MessageEvent),
+    )
+    const events$ = this.events.events$.pipe(
       map(event => ({ data: JSON.stringify(event) }) as MessageEvent),
     )
+    return merge(events$, ping$)
   }
 }
