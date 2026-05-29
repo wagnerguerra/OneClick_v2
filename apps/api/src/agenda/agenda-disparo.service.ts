@@ -245,8 +245,12 @@ export class AgendaDisparoService implements OnModuleInit {
       const modalidadeIcon = ev.presenca === 'ONLINE' ? '💻' : ev.presenca === 'HIBRIDO' ? '🔄' : '🏢'
       const local = ev.salaRef?.nome || ev.sala
 
+      // Pill da categoria — escolhe cor do texto (branco/escuro) com base no brilho
+      // do background pra garantir legibilidade mesmo quando o tipo tem cor pastel.
+      const textoNaPill = this.contrastarTexto(cor)
+      const corEscura = this.escurecer(cor, 0.25)
       const linhaInfo: string[] = []
-      linhaInfo.push(`<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;background:${cor};color:#ffffff">${this.escape(ev.tipo.nome)}</span>`)
+      linhaInfo.push(`<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;background:${cor};color:${textoNaPill};border:1px solid ${corEscura};box-shadow:0 1px 2px rgba(15,23,42,0.08)">${this.escape(ev.tipo.nome)}</span>`)
       linhaInfo.push(`<span class="ev-meta" style="font-size:11px;color:#64748b">${modalidadeIcon} ${modalidadeLabel}</span>`)
       if (local) linhaInfo.push(`<span class="ev-meta" style="font-size:11px;color:#64748b">📍 ${this.escape(local)}</span>`)
 
@@ -298,11 +302,13 @@ export class AgendaDisparoService implements OnModuleInit {
     }
 
     const secao = (titulo: string, icon: string, eventos: typeof corporativos) => eventos.length > 0
-      ? `<div class="section-title" style="font-size:13px;font-weight:700;color:#0f172a;margin:22px 0 12px;display:flex;align-items:center;gap:8px">
-           <span>${icon}</span>
-           <span style="text-transform:uppercase;letter-spacing:0.8px">${titulo}</span>
-           <span class="count-badge" style="background:#e2e8f0;color:#475569;font-size:10px;padding:1px 8px;border-radius:999px;font-weight:600">${eventos.length}</span>
-         </div>
+      ? `<table cellpadding="0" cellspacing="0" border="0" style="margin:22px 0 12px">
+           <tr>
+             <td valign="middle" style="padding-right:10px;font-size:16px;line-height:1">${icon}</td>
+             <td valign="middle" class="section-title" style="padding-right:10px;font-size:13px;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:0.8px;line-height:1">${titulo}</td>
+             <td valign="middle"><span class="count-badge" style="display:inline-block;background:#e2e8f0;color:#475569;font-size:10px;padding:2px 9px;border-radius:999px;font-weight:700;line-height:1.4">${eventos.length}</span></td>
+           </tr>
+         </table>
          ${eventos.map(renderCard).join('')}`
       : ''
 
@@ -355,8 +361,8 @@ export class AgendaDisparoService implements OnModuleInit {
 <tr><td align="center" style="padding:32px 16px">
 <table cellpadding="0" cellspacing="0" border="0" width="600" class="card" style="max-width:600px;background:#ffffff;border-radius:16px;box-shadow:0 4px 24px rgba(15,23,42,0.08);overflow:hidden;border:1px solid #e2e8f0">
 
-  <!-- BRAND BAR -->
-  <tr><td class="brand-bar" style="padding:20px 28px;background:#ffffff;border-bottom:1px solid #e2e8f0">
+  <!-- BRAND BAR — logo centralizada -->
+  <tr><td class="brand-bar" align="center" style="padding:20px 28px;background:#ffffff;border-bottom:1px solid #e2e8f0;text-align:center">
     ${brandBlock}
   </td></tr>
 
@@ -364,17 +370,17 @@ export class AgendaDisparoService implements OnModuleInit {
   <tr><td style="padding:28px 28px 24px;background:linear-gradient(135deg,#0ea5e9 0%,#6366f1 100%);color:#ffffff">
     <table cellpadding="0" cellspacing="0" border="0" width="100%">
       <tr>
-        <!-- Tile de data -->
-        <td width="74" valign="top" style="padding-right:18px">
-          <table cellpadding="0" cellspacing="0" border="0" width="74" style="background:rgba(255,255,255,0.18);border-radius:12px;backdrop-filter:blur(10px)">
-            <tr><td style="padding:6px 0;text-align:center;font-size:11px;font-weight:800;color:rgba(255,255,255,0.95);text-transform:uppercase;letter-spacing:2px;background:rgba(255,255,255,0.12);border-radius:12px 12px 0 0">${mesAbrev}</td></tr>
-            <tr><td style="padding:8px 0 4px;text-align:center;font-size:32px;font-weight:800;color:#ffffff;line-height:1">${diaNum}</td></tr>
-            <tr><td style="padding:0 0 8px;text-align:center;font-size:10px;color:rgba(255,255,255,0.8);letter-spacing:1px">${anoNum}</td></tr>
+        <!-- Tile de data — fundo branco sólido pra contraste forte sobre o azul -->
+        <td width="78" valign="top" style="padding-right:18px">
+          <table cellpadding="0" cellspacing="0" border="0" width="78" style="background:#ffffff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.18);overflow:hidden">
+            <tr><td style="padding:5px 0;text-align:center;font-size:11px;font-weight:800;color:#ffffff;text-transform:uppercase;letter-spacing:2px;background:#0f172a">${mesAbrev}</td></tr>
+            <tr><td style="padding:8px 0 2px;text-align:center;font-size:34px;font-weight:800;color:#0f172a;line-height:1">${diaNum}</td></tr>
+            <tr><td style="padding:0 0 8px;text-align:center;font-size:10px;color:#64748b;letter-spacing:1px;font-weight:600">${anoNum}</td></tr>
           </table>
         </td>
         <!-- Texto -->
         <td valign="middle">
-          <div style="font-size:11px;color:rgba(255,255,255,0.85);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:6px">${saudacao}, ${this.escape(nomeDestinatario.split(' ')[0] || nomeDestinatario)}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.95);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:6px">${saudacao}, ${this.escape(nomeDestinatario.split(' ')[0] || nomeDestinatario)}</div>
           <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;line-height:1.15">Sua agenda do dia</div>
           <div style="font-size:13px;color:rgba(255,255,255,0.9);margin-top:6px;text-transform:capitalize">${diaSemana}</div>
         </td>
@@ -385,7 +391,7 @@ export class AgendaDisparoService implements OnModuleInit {
   <!-- CONTADOR -->
   <tr><td style="padding:18px 28px 0">
     <div class="total-text" style="font-size:13px;color:#475569">
-      Você tem <strong style="color:#0ea5e9">${totalEventos}</strong> ${totalEventos === 1 ? 'compromisso' : 'compromissos'} hoje
+      Há <strong style="color:#0ea5e9">${totalEventos}</strong> ${totalEventos === 1 ? 'compromisso' : 'compromissos'} hoje
       ${corporativos.length > 0 && pessoais.length > 0
         ? `<span style="color:#94a3b8"> · ${corporativos.length} corporativo${corporativos.length > 1 ? 's' : ''}, ${pessoais.length} pessoa${pessoais.length > 1 ? 'is' : 'l'}</span>`
         : ''}
@@ -415,6 +421,37 @@ export class AgendaDisparoService implements OnModuleInit {
 
   private escapeAttr(s: string): string {
     return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
+  }
+
+  /** Retorna `#0f172a` (escuro) ou `#ffffff` (branco) conforme o brilho do fundo,
+   *  pra a pill da categoria ficar legível mesmo quando o tipo tem cor pastel. */
+  private contrastarTexto(hex: string): string {
+    const rgb = this.hexToRgb(hex)
+    if (!rgb) return '#ffffff'
+    // Luminância percebida (Rec. 601)
+    const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255
+    return lum > 0.62 ? '#0f172a' : '#ffffff'
+  }
+
+  /** Versão escurecida da cor (multiplica componentes por 1 - amount). Usada
+   *  como borda da pill pra dar definição contra fundos claros. */
+  private escurecer(hex: string, amount: number): string {
+    const rgb = this.hexToRgb(hex)
+    if (!rgb) return hex
+    const f = Math.max(0, 1 - amount)
+    const r = Math.round(rgb.r * f)
+    const g = Math.round(rgb.g * f)
+    const b = Math.round(rgb.b * f)
+    return `#${[r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')}`
+  }
+
+  private hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+    const h = hex.replace('#', '')
+    const expanded = h.length === 3 ? h.split('').map(c => c + c).join('') : h
+    if (expanded.length !== 6) return null
+    const n = parseInt(expanded, 16)
+    if (Number.isNaN(n)) return null
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
   }
 
   // ============================================================
