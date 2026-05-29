@@ -157,6 +157,9 @@ export default function AgendaPage() {
   const canManageParticipantes = isMaster || subPerms.manage_participantes === true
   const canDeleteEventos = isMaster || subPerms.delete_eventos === true
   const canManageConfig = isMaster || subPerms.manage_config === true
+  // `editar_todos_eventos` permite editar/excluir eventos de QUALQUER usuário,
+  // mesmo os marcados como editavel=false (importados do legado).
+  const canEditarTodosEventos = isMaster || subPerms.editar_todos_eventos === true
   const showSettingsDropdown = canManageTipos || canImportLegado || canManageConfig
 
   const [year, setYear] = useState(() => new Date().getFullYear())
@@ -1338,12 +1341,12 @@ export default function AgendaPage() {
                   const isOwner = selectedEvento.criadorId === currentUserId
                   return (
                 <div className="flex items-center gap-2 border-t pt-3">
-                  {(selectedEvento.editavel || isOwner) && (
+                  {(selectedEvento.editavel || isOwner || canEditarTodosEventos) && (
                     <Button size="sm" variant="outline" onClick={() => openEditEvent(selectedEvento)} className="gap-1.5">
                       <Edit2 className="h-3.5 w-3.5" />Editar
                     </Button>
                   )}
-                  {(canDeleteEventos || isOwner) && (
+                  {(canDeleteEventos || isOwner || canEditarTodosEventos) && (
                     <Button size="sm" variant="destructive" onClick={() => handleDelete(selectedEvento)} className="gap-1.5">
                       <Trash2 className="h-3.5 w-3.5" />Excluir
                     </Button>

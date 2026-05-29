@@ -138,6 +138,25 @@ export class AgendaService {
     participantes: 0, currentEvento: '', items: [],
   }
 
+  /**
+   * Bypass de propriedade: usuário com sub-perm `editar_todos_eventos` (ou MASTER
+   * global) pode editar/excluir eventos de qualquer pessoa, inclusive eventos
+   * marcados como `editavel=false` (importados do legado).
+   */
+  private async userPodeEditarTodos(userId: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isMaster: true },
+    })
+    if (user?.isMaster) return true
+    const perm = await prisma.userPermission.findUnique({
+      where: { userId_moduleSlug: { userId, moduleSlug: 'agenda' } },
+      select: { subPermissions: true },
+    })
+    const subs = (perm?.subPermissions ?? {}) as Record<string, boolean>
+    return subs.editar_todos_eventos === true
+  }
+
   getImportProgress(): ImportProgress {
     return { ...this.importProgress }
   }
@@ -383,8 +402,12 @@ export class AgendaService {
     // Editavel=false vem de eventos importados do legado (SERPRO2, evemodifica='0').
     // Regra: o criador (inclusive quem "herdou" o evento via mapeamento de email no
     // import) sempre pode editar — alinha com o front que mostra "Editar" pro dono.
+    // Bypass: usuário com sub-perm `editar_todos_eventos` (ou MASTER) ignora a checagem.
     if (!evento.editavel && evento.criadorId !== userId) {
-      throw new Error('Este evento não pode ser editado.')
+      const podeEditarTodos = await this.userPodeEditarTodos(userId)
+      if (!podeEditarTodos) {
+        throw new Error('Este evento não pode ser editado.')
+      }
     }
 
     // Gate de conflito conforme AgendaConfig — usa os valores novos quando passados,

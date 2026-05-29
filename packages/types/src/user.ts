@@ -154,6 +154,7 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'import_legado', label: 'Importar eventos do sistema legado', group: 'Configurações' },
     { key: 'manage_recorrencia', label: 'Criar eventos recorrentes', group: 'Eventos' },
     { key: 'manage_participantes', label: 'Adicionar/remover participantes', group: 'Eventos' },
+    { key: 'editar_todos_eventos', label: 'Editar todos os eventos (mesmo de outros usuários)', group: 'Eventos' },
     { key: 'delete_eventos', label: 'Excluir eventos', group: 'Eventos' },
   ],
   caixapostal: [
