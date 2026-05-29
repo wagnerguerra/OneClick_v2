@@ -129,6 +129,27 @@ function mencoesParaTexto(texto: string, participantes: Participante[]): string 
   })
 }
 
+/**
+ * Detecta se a mensagem é composta SÓ por emojis (sem texto comum).
+ * Usa Intl.Segmenter pra dividir corretamente sequências ZWJ (👨‍👩‍👧, 🏳️‍🌈)
+ * e modifiers de skin-tone como 1 emoji cada. Retorna count em grafemas.
+ */
+function analisarSoEmoji(texto: string): { soEmoji: boolean; count: number } {
+  const limpo = texto.replace(/\s+/g, '')
+  if (!limpo) return { soEmoji: false, count: 0 }
+  // Fallback se o ambiente não tiver Intl.Segmenter (Safari < 14.1)
+  if (typeof Intl === 'undefined' || !Intl.Segmenter) {
+    const soEmoji = /^[\p{Extended_Pictographic}‍️︎\p{Emoji_Modifier}]+$/u.test(limpo)
+    return { soEmoji, count: soEmoji ? Array.from(limpo).length : 0 }
+  }
+  const seg = new Intl.Segmenter('pt', { granularity: 'grapheme' })
+  const graphemes = Array.from(seg.segment(limpo), s => s.segment)
+  for (const g of graphemes) {
+    if (!/\p{Extended_Pictographic}/u.test(g)) return { soEmoji: false, count: 0 }
+  }
+  return { soEmoji: true, count: graphemes.length }
+}
+
 const EMOJI_QUICK = ['👍', '❤️', '😂', '😮', '😢', '👏']
 
 /** Catálogo de emojis pra inserir no texto da mensagem (não confundir com EMOJI_QUICK das reactions). */
@@ -1188,13 +1209,26 @@ function ChatView({ conversa, meuId, onMessageSent }: {
                   )}
                   {/* Quando a mensagem é só anexo (conteudo === "(anexo)"), escondemos
                       o texto placeholder e removemos o fundo da bolha — a imagem/arquivo
-                      vira a própria "bolha" sem moldura. */}
+                      vira a própria "bolha" sem moldura.
+                      Quando é só emojis (≤6), também tiramos a bolha e aumentamos o
+                      tamanho dos emojis (padrão WhatsApp: 1→jumbo, 2-3→grande, 4-6→médio). */}
                   {(() => {
                     const apenasAnexo = m.conteudo === '(anexo)' && m.anexos.length > 0
+                    const emojiInfo = analisarSoEmoji(m.conteudo)
+                    const emojiJumbo = emojiInfo.soEmoji && emojiInfo.count >= 1 && emojiInfo.count <= 6 && !apenasAnexo
+                    const semBolha = apenasAnexo || emojiJumbo
+                    const emojiSizeClass = emojiJumbo
+                      ? emojiInfo.count === 1
+                        ? 'text-[60px] leading-none py-1'
+                        : emojiInfo.count <= 3
+                          ? 'text-[40px] leading-none py-1'
+                          : 'text-[28px] leading-none py-1'
+                      : ''
                     return (
                       <div className={cn(
-                        'text-sm leading-snug break-words relative',
-                        apenasAnexo
+                        'leading-snug break-words relative',
+                        emojiJumbo ? emojiSizeClass : 'text-sm',
+                        semBolha
                           ? 'rounded-2xl overflow-hidden'
                           : cn(
                               'rounded-2xl px-3 py-1.5',
