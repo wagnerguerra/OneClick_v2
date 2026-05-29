@@ -18,21 +18,28 @@ export class OnlineUsersService {
 
   /** Throttle por user: só persiste no banco a cada 30s. */
   private readonly THROTTLE_MS = 30_000
-  private lastTouchByUser = new Map<string, number>()
+  /** Cache do último estado persistido por user (pra detectar mudança de path). */
+  private lastByUser = new Map<string, { ts: number; path: string | null }>()
 
   /**
-   * Atualiza presença do user. Throttled — chamadas seguidas no mesmo user
-   * dentro de 30s viram no-op (mas o path/ip mais recente é o que persiste
-   * quando o throttle libera).
+   * Atualiza presença do user. Throttled APENAS quando o path não mudou —
+   * mudança de página (ex.: navegação Next) sempre persiste na hora pro painel
+   * "Usuários online" refletir a aba atual em tempo real.
    *
    * Roda como fire-and-forget (catch silencioso) pra não bloquear a request.
    */
   touch(userId: string, path?: string | null, ip?: string | null): void {
     if (!userId) return
     const now = Date.now()
-    const last = this.lastTouchByUser.get(userId)
-    if (last && now - last < this.THROTTLE_MS) return
-    this.lastTouchByUser.set(userId, now)
+    const cached = this.lastByUser.get(userId)
+    const pathNorm = path ?? null
+
+    // Path mudou → sempre persiste (bypass throttle)
+    const pathChanged = cached && cached.path !== pathNorm
+    // Throttle: se path igual E < 30s desde a última escrita, skip
+    if (cached && !pathChanged && now - cached.ts < this.THROTTLE_MS) return
+
+    this.lastByUser.set(userId, { ts: now, path: pathNorm })
 
     prisma.user
       .update({

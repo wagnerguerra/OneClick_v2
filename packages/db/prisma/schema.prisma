@@ -248,6 +248,8 @@ model User {
   helpdeskAnexos         HelpdeskAnexo[]
   helpdeskWatchers       HelpdeskWatcher[]
   helpdeskEventos        HelpdeskEvento[]
+  // Chat interno
+  chatParticipacoes      ChatParticipante[]      @relation("ChatParticipanteUser")
   // Gestão de Ativos
   ativosResponsavel      Ativo[]                 @relation("AtivoResponsavel")
   ativoMovimentacoes     AtivoMovimentacao[]
@@ -4017,6 +4019,83 @@ model DashboardLayoutUser {
 
   @@index([userId])
   @@map("dashboard_layouts_user")
+}
+
+// ============================================================
+// Chat Interno — mensagens em tempo real entre usuários
+// ============================================================
+// MVP: DMs 1:1, grupos multi-pessoa, anexos, indicador "digitando" + lido.
+// Presença (online/ausente/offline) é derivada do User.lastActivityAt
+// (mesmo tracking usado pelo painel "Usuários online" do Service Manager).
+//
+// `isGrupo=false` → DM. Quando 2 usuários iniciam DM, criamos 1 ChatConversa
+// + 2 ChatParticipante. Lookup feito por interseção de participantes (não
+// guardamos par ordenado pra evitar duplicação).
+
+model ChatConversa {
+  id               String    @id @default(cuid())
+  nome             String?   // só pra grupos; DMs usam nome do "outro"
+  isGrupo          Boolean   @default(false) @map("is_grupo")
+  criadorId        String    @map("criador_id")
+  /// Cache do timestamp da última mensagem — usado pra ordenar conversas
+  /// na lista sem precisar de subquery a cada listagem.
+  ultimaMensagemEm DateTime? @map("ultima_mensagem_em")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  participantes ChatParticipante[]
+  mensagens     ChatMensagem[]
+
+  @@index([ultimaMensagemEm])
+  @@map("chat_conversas")
+}
+
+model ChatParticipante {
+  id          String       @id @default(cuid())
+  conversaId  String       @map("conversa_id")
+  conversa    ChatConversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  usuarioId   String       @map("usuario_id")
+  usuario     User         @relation("ChatParticipanteUser", fields: [usuarioId], references: [id])
+  /// Timestamp da última mensagem que o user marcou como lida. Mensagens com
+  /// createdAt > lastReadAt contam pro unreadCount.
+  lastReadAt  DateTime?    @map("last_read_at")
+  /// 'admin' ou 'membro' — só relevante em grupos. DMs ignoram.
+  papel       String       @default("membro")
+  joinedAt    DateTime     @default(now()) @map("joined_at")
+
+  @@unique([conversaId, usuarioId])
+  @@index([usuarioId])
+  @@map("chat_participantes")
+}
+
+model ChatMensagem {
+  id         String       @id @default(cuid())
+  conversaId String       @map("conversa_id")
+  conversa   ChatConversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  autorId    String       @map("autor_id")
+  /// Texto puro (sem HTML) — UI escapa na renderização.
+  conteudo   String       @db.Text
+  editedAt   DateTime?    @map("edited_at")
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  anexos ChatAnexo[]
+
+  @@index([conversaId, createdAt])
+  @@map("chat_mensagens")
+}
+
+model ChatAnexo {
+  id         String       @id @default(cuid())
+  mensagemId String       @map("mensagem_id")
+  mensagem   ChatMensagem @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
+  fileName   String       @map("file_name")
+  fileUrl    String       @map("file_url")
+  mimeType   String?      @map("mime_type")
+  tamanho    Int          @default(0)
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  @@index([mensagemId])
+  @@map("chat_anexos")
 }
 
 // ============================================================

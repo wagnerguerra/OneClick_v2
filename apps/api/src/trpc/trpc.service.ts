@@ -85,6 +85,9 @@ import { createCertificadoDigitalRouter } from '../certificado-digital/certifica
 import { DashboardLayoutService } from '../dashboard-layout/dashboard-layout.service'
 import { DashboardLayoutEventsService } from '../dashboard-layout/dashboard-layout-events.service'
 import { createDashboardLayoutRouter } from '../dashboard-layout/dashboard-layout.router'
+import { createPresenceRouter } from '../online-users/presence.router'
+import { ChatService } from '../chat/chat.service'
+import { createChatRouter } from '../chat/chat.router'
 import { DashboardCalendarioService } from '../dashboard-calendario/dashboard-calendario.service'
 import { createDashboardCalendarioRouter } from '../dashboard-calendario/dashboard-calendario.router'
 import { HelpdeskService } from '../helpdesk/helpdesk.service'
@@ -329,6 +332,7 @@ export class TrpcService {
     @Inject(AgendaConfigService) private readonly agendaConfigService: AgendaConfigService,
     @Inject(AgendaSalaService) private readonly agendaSalaService: AgendaSalaService,
     @Inject(AgendaDisparoService) private readonly agendaDisparoService: AgendaDisparoService,
+    @Inject(ChatService) private readonly chatService: ChatService,
     @Inject(DteService) private readonly dteService: DteService,
     @Inject(CrmService) private readonly crmService: CrmService,
     @Inject(ImportComercialService) private readonly importComercialService: ImportComercialService,
@@ -420,6 +424,8 @@ export class TrpcService {
       tabs: createTabsRouter(this.tabsService),
       certificadoDigital: createCertificadoDigitalRouter(this.certificadoDigitalService, this.authServiceForCert, this.legacyImportCertService, this.bulkImportCertService),
       dashboardLayout: createDashboardLayoutRouter(this.dashboardLayoutService, this.dashboardLayoutEventsService),
+      presence: createPresenceRouter(),
+      chat: createChatRouter(this.chatService),
       dashboardCalendario: createDashboardCalendarioRouter(this.dashboardCalendarioService),
       helpdesk: createHelpdeskRouter(this.helpdeskService),
       acessorias: createAcessoriasRouter(this.acessoriasService),

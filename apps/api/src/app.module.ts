@@ -25,6 +25,7 @@ import { AgendamentoModule } from './agendamento/agendamento.module'
 import { GoogleBackupModule } from './google-backup/google-backup.module'
 import { SignatureModule } from './signature/signature.module'
 import { OnlineUsersModule } from './online-users/online-users.module'
+import { ChatModule } from './chat/chat.module'
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { OnlineUsersModule } from './online-users/online-users.module'
     AgendamentoModule,
     GoogleBackupModule,
     OnlineUsersModule,
+    ChatModule,
     SignatureModule,
   ],
 })
