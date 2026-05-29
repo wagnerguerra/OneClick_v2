@@ -121,6 +121,14 @@ function timeHm(d: Date | string): string {
   return `${String(dd.getHours()).padStart(2, '0')}:${String(dd.getMinutes()).padStart(2, '0')}`
 }
 
+/** Converte "<@id>" para "@Nome" em texto puro (sem JSX) — usado em previews de lista. */
+function mencoesParaTexto(texto: string, participantes: Participante[]): string {
+  return texto.replace(/<@([a-z0-9]+)>/gi, (_, id) => {
+    const p = participantes.find(x => x.id === id)
+    return `@${p?.name ?? 'usuário'}`
+  })
+}
+
 const EMOJI_QUICK = ['👍', '❤️', '😂', '😮', '😢', '👏']
 
 /**
@@ -631,7 +639,9 @@ function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa }: {
     <ul className="py-1 px-1">
       {conversas.map(c => {
         const outro = !c.isGrupo ? c.participantes.find(p => p.id !== meuId) : null
-        const preview = c.ultimaMensagem?.conteudo ?? '—'
+        const preview = c.ultimaMensagem?.conteudo
+          ? mencoesParaTexto(c.ultimaMensagem.conteudo, c.participantes)
+          : '—'
         const ativa = c.id === conversaAtivaId
         return (
           <li key={c.id} className="my-0.5">
