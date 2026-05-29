@@ -5,7 +5,8 @@ import { useRouter, useParams } from 'next/navigation'
 import {
   Headphones, Loader2, ArrowLeft, MessageSquare, Lock, Send, Paperclip, Clock,
   AlertTriangle, CheckCircle2, XCircle, History, Layers, FileText, UserCog,
-  Eye, Star, Save, Tag, Building2,
+  Eye, Star, Save, Tag, Building2, Download, ExternalLink, Image as ImageIcon,
+  FileVideo, FileAudio, File as FileIcon, FileSpreadsheet,
 } from 'lucide-react'
 import {
   Button, Card, CardContent, Badge, Label, cn, RichEditor,
@@ -15,6 +16,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
+import { resolveAssetUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 import { useSession } from '@/lib/auth-client'
 import { linkifyHelpdesk } from '../_components/linkify'
@@ -103,6 +105,7 @@ export default function HelpdeskTicketDetailPage() {
   const [interna, setInterna] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [msgAnexos, setMsgAnexos] = useState<AnexoStaged[]>([])
+  const [anexoSelecionadoId, setAnexoSelecionadoId] = useState<string | null>(null)
 
   // Sidebar — edição inline
   const [savingField, setSavingField] = useState<string | null>(null)
@@ -142,6 +145,19 @@ export default function HelpdeskTicketDetailPage() {
   }, [id])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Auto-seleciona o primeiro anexo quando carrega ou quando o anexo selecionado
+  // não existe mais (foi removido). Garante que o painel de preview nunca fica vazio
+  // se há pelo menos 1 anexo.
+  useEffect(() => {
+    if (!ticket || ticket.anexos.length === 0) {
+      setAnexoSelecionadoId(null)
+      return
+    }
+    if (!anexoSelecionadoId || !ticket.anexos.some(a => a.id === anexoSelecionadoId)) {
+      setAnexoSelecionadoId(ticket.anexos[0]!.id)
+    }
+  }, [ticket, anexoSelecionadoId])
 
   // Carrega agentes atribuíveis (filtrado pela área da categoria)
   useEffect(() => {
@@ -537,26 +553,11 @@ export default function HelpdeskTicketDetailPage() {
                   Nenhum anexo neste ticket.
                 </CardContent></Card>
               ) : (
-                <Card><CardContent className="p-0 divide-y">
-                  {ticket.anexos.map(a => (
-                    <a
-                      key={a.id}
-                      href={a.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors"
-                    >
-                      <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{a.fileName}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {a.autor?.name || '—'} · {new Date(a.createdAt).toLocaleString('pt-BR')}
-                          {a.tamanho > 0 && ` · ${(a.tamanho / 1024).toFixed(1)} KB`}
-                        </p>
-                      </div>
-                    </a>
-                  ))}
-                </CardContent></Card>
+                <AnexosViewer
+                  anexos={ticket.anexos}
+                  selecionadoId={anexoSelecionadoId}
+                  onSelect={setAnexoSelecionadoId}
+                />
               )}
             </TabsContent>
 
@@ -762,6 +763,186 @@ function SideField({ label, icon: Icon, children }: { label: string; icon: typeo
         <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</Label>
       </div>
       {children}
+    </div>
+  )
+}
+
+// ============================================================
+// Visualizador inline de anexos — lista à esquerda + preview à direita.
+// Detecta o tipo pelo mimeType e renderiza embed apropriado (img/iframe/video/audio).
+// Tipos sem preview nativo (zip, docx, exe...) caem no fallback com botão de download.
+// ============================================================
+
+function categoriaArquivo(mime: string | null): 'image' | 'pdf' | 'video' | 'audio' | 'text' | 'other' {
+  if (!mime) return 'other'
+  if (mime.startsWith('image/')) return 'image'
+  if (mime === 'application/pdf') return 'pdf'
+  if (mime.startsWith('video/')) return 'video'
+  if (mime.startsWith('audio/')) return 'audio'
+  if (mime.startsWith('text/') || mime === 'application/json' || mime === 'application/xml') return 'text'
+  return 'other'
+}
+
+function iconeDoArquivo(mime: string | null) {
+  switch (categoriaArquivo(mime)) {
+    case 'image': return ImageIcon
+    case 'pdf': return FileText
+    case 'video': return FileVideo
+    case 'audio': return FileAudio
+    case 'text': return FileSpreadsheet
+    default: return FileIcon
+  }
+}
+
+function formatarBytes(b: number): string {
+  if (b < 1024) return `${b} B`
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function AnexosViewer({ anexos, selecionadoId, onSelect }: {
+  anexos: Anexo[]
+  selecionadoId: string | null
+  onSelect: (id: string) => void
+}) {
+  const ativo = anexos.find(a => a.id === selecionadoId) ?? anexos[0]
+
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] min-h-[480px]">
+          {/* Lista lateral de anexos */}
+          <div className="border-b md:border-b-0 md:border-r divide-y max-h-[680px] overflow-y-auto">
+            <div className="px-3 py-2 bg-muted/30 sticky top-0 z-10 border-b">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                {anexos.length} arquivo{anexos.length > 1 ? 's' : ''}
+              </span>
+            </div>
+            {anexos.map(a => {
+              const Icon = iconeDoArquivo(a.mimeType)
+              const isAtivo = a.id === ativo?.id
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => onSelect(a.id)}
+                  className={cn(
+                    'w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors',
+                    isAtivo ? 'bg-cyan-500/10 border-l-2 border-cyan-500' : 'hover:bg-muted/40 border-l-2 border-transparent',
+                  )}
+                >
+                  <Icon className={cn('h-4 w-4 shrink-0 mt-0.5', isAtivo ? 'text-cyan-600 dark:text-cyan-400' : 'text-muted-foreground')} />
+                  <div className="flex-1 min-w-0">
+                    <p className={cn('text-[12px] truncate leading-tight', isAtivo ? 'font-semibold text-foreground' : 'font-medium')}>{a.fileName}</p>
+                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5 truncate">
+                      {a.tamanho > 0 ? formatarBytes(a.tamanho) : '—'}
+                      {a.autor?.name && ` · ${a.autor.name}`}
+                    </p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Painel de preview */}
+          <div className="flex flex-col bg-muted/10 min-w-0">
+            {!ativo ? (
+              <div className="flex-1 flex items-center justify-center p-8 text-center text-xs text-muted-foreground">
+                Selecione um arquivo à esquerda pra visualizar
+              </div>
+            ) : (
+              <>
+                {/* Toolbar superior do preview */}
+                <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-card">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate">{ativo.fileName}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {ativo.mimeType || 'tipo desconhecido'}
+                      {ativo.tamanho > 0 && ` · ${formatarBytes(ativo.tamanho)}`}
+                      {' · '}{new Date(ativo.createdAt).toLocaleString('pt-BR')}
+                    </p>
+                  </div>
+                  <a
+                    href={resolveAssetUrl(ativo.fileUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    title="Abrir em nova aba"
+                  >
+                    <ExternalLink className="h-3 w-3" /> Abrir
+                  </a>
+                  <a
+                    href={resolveAssetUrl(ativo.fileUrl)}
+                    download={ativo.fileName}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium bg-cyan-600 hover:bg-cyan-700 text-white transition-colors"
+                    title="Baixar"
+                  >
+                    <Download className="h-3 w-3" /> Baixar
+                  </a>
+                </div>
+
+                {/* Corpo do preview por tipo */}
+                <div className="flex-1 overflow-auto p-3 min-h-[400px]">
+                  <AnexoPreview anexo={ativo} />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function AnexoPreview({ anexo }: { anexo: Anexo }) {
+  const url = resolveAssetUrl(anexo.fileUrl)
+  const cat = categoriaArquivo(anexo.mimeType)
+
+  if (cat === 'image') {
+    return (
+      <div className="flex items-center justify-center h-full">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={url} alt={anexo.fileName} className="max-w-full max-h-[600px] object-contain rounded shadow-sm" />
+      </div>
+    )
+  }
+  if (cat === 'pdf') {
+    return (
+      <iframe src={url} title={anexo.fileName} className="w-full h-[640px] rounded border border-border bg-white" />
+    )
+  }
+  if (cat === 'video') {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <video src={url} controls className="max-w-full max-h-[600px] rounded shadow-sm bg-black">
+          Seu navegador não suporta vídeo HTML5.
+        </video>
+      </div>
+    )
+  }
+  if (cat === 'audio') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
+        <FileAudio className="h-16 w-16 text-muted-foreground/50" strokeWidth={1.5} />
+        <audio src={url} controls className="w-full max-w-md">
+          Seu navegador não suporta áudio HTML5.
+        </audio>
+      </div>
+    )
+  }
+  // Fallback: ícone + mensagem + CTA
+  const Icon = iconeDoArquivo(anexo.mimeType)
+  return (
+    <div className="flex flex-col items-center justify-center h-full text-center gap-3 p-8">
+      <div className="h-20 w-20 rounded-2xl bg-muted flex items-center justify-center">
+        <Icon className="h-10 w-10 text-muted-foreground/60" strokeWidth={1.5} />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-foreground">Pré-visualização não disponível</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Este tipo de arquivo não pode ser exibido inline. Use os botões acima pra abrir ou baixar.
+        </p>
+      </div>
     </div>
   )
 }
