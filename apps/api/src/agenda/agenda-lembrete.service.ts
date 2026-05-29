@@ -1,8 +1,17 @@
 import { Injectable, Inject, OnModuleInit } from '@nestjs/common'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import { prisma } from '@saas/db'
 import type { AgendaLembrete, AgendaLembreteCanal } from '@saas/db'
 import { EmailService } from '../common/email.service'
 import { AgendaLembreteEventsService } from './agenda-lembrete-events.service'
+
+// Logo do sistema embarcada inline em todos e-mails (via cid:logo). Lê uma vez
+// no boot do módulo — se o arquivo não existir (dev sem assets), faz fallback
+// silencioso pra emoji ⏰.
+const LOGO_PATH = path.resolve(process.cwd(), 'assets', 'email-logo.png')
+let LOGO_BUFFER: Buffer | null = null
+try { LOGO_BUFFER = fs.readFileSync(LOGO_PATH) } catch { /* sem logo */ }
 
 /**
  * Lembretes de eventos da agenda — estilo Google Calendar.
@@ -178,13 +187,18 @@ export class AgendaLembreteService implements OnModuleInit {
         where: { id: { in: destinatarios } },
         select: { email: true, name: true },
       })
+      // Anexa a logo inline (cid:logo) se disponível
+      const attachments = LOGO_BUFFER
+        ? [{ filename: 'logo.png', content: LOGO_BUFFER, cid: 'logo' }]
+        : undefined
       for (const u of users) {
         if (!u.email) continue
         try {
           await this.emailService.sendMail({
             to: u.email,
             subject: `Lembrete: ${lembrete.evento.titulo}`,
-            html: this.renderEmailHtml(lembrete.evento, lembrete.minutosAntes, u.name),
+            html: this.renderEmailHtml(lembrete.evento, lembrete.minutosAntes, u.name, !!LOGO_BUFFER),
+            attachments,
           })
         } catch (e) {
           console.error(`[AgendaLembrete] Email pra ${u.email} falhou:`, (e as Error).message)
@@ -206,6 +220,7 @@ export class AgendaLembreteService implements OnModuleInit {
     },
     minutosAntes: number,
     nomeUsuario: string | null,
+    temLogo: boolean,
   ): string {
     const antecedencia = this.formatarAntecedenciaRica(minutosAntes)
     const dataLong = this.formatarDataExtenso(evento.data)
@@ -274,9 +289,16 @@ export class AgendaLembreteService implements OnModuleInit {
   <tr><td align="center" style="padding:32px 16px">
     <table cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background:#ffffff;border-radius:16px;box-shadow:0 4px 24px rgba(15,23,42,0.08);overflow:hidden">
 
+      <!-- BRAND BAR (faixa branca com a logo do sistema) -->
+      <tr><td style="padding:20px 32px;background:#ffffff;border-bottom:1px solid #e2e8f0">
+        ${temLogo
+          ? `<img src="cid:logo" alt="OneClick" width="120" style="display:block;height:auto;max-width:160px;border:0;outline:none;text-decoration:none"/>`
+          : `<div style="font-size:18px;font-weight:800;color:#0f172a;letter-spacing:-0.3px">OneClick</div>`}
+      </td></tr>
+
       <!-- HERO -->
-      <tr><td style="padding:36px 32px 28px;background:linear-gradient(135deg,#0ea5e9 0%,#6366f1 100%);text-align:center">
-        <div style="display:inline-block;width:60px;height:60px;border-radius:18px;background:rgba(255,255,255,0.22);text-align:center;line-height:60px;font-size:30px;margin-bottom:14px">⏰</div>
+      <tr><td style="padding:32px 32px 28px;background:linear-gradient(135deg,#0ea5e9 0%,#6366f1 100%);text-align:center">
+        <div style="display:inline-block;width:56px;height:56px;border-radius:16px;background:rgba(255,255,255,0.22);text-align:center;line-height:56px;font-size:28px;margin-bottom:12px">⏰</div>
         <div style="font-size:11px;color:rgba(255,255,255,0.85);text-transform:uppercase;letter-spacing:1.8px;font-weight:700;margin-bottom:8px">Lembrete · Daqui a</div>
         <div style="font-size:42px;line-height:1;font-weight:800;color:#ffffff;letter-spacing:-1px">${antecedencia.principal}</div>
         <div style="font-size:14px;color:rgba(255,255,255,0.9);font-weight:500;margin-top:4px;letter-spacing:0.5px">${antecedencia.unidade}</div>
