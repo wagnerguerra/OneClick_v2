@@ -131,6 +131,17 @@ function mencoesParaTexto(texto: string, participantes: Participante[]): string 
 
 const EMOJI_QUICK = ['👍', '❤️', '😂', '😮', '😢', '👏']
 
+/** Catálogo de emojis pra inserir no texto da mensagem (não confundir com EMOJI_QUICK das reactions). */
+const EMOJI_PICKER: Array<{ name: string; emojis: string[] }> = [
+  { name: 'Sorrisos', emojis: ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠'] },
+  { name: 'Pessoas', emojis: ['👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','💅','🤳','💪','🦾','🦵','🦿','🦶','👂','🦻','👃','🧠','🫀','🫁','🦷','🦴','👀','👁️','👅','👄','💋','🩸'] },
+  { name: 'Corações', emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️'] },
+  { name: 'Animais', emojis: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐽','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🪱','🐛','🦋','🐌','🐞','🐜','🪰','🪲','🪳','🦗','🕷️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈'] },
+  { name: 'Comida', emojis: ['🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠','🥐','🥯','🍞','🥖','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🥪','🌮','🌯','🫔','🥙','🧆','🥘','🍝','🍜','🍲','🍛','🍣','🍱','🍙','🍚','🍘','🍥','🥠','🥮','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🥛','🍼','☕','🍵','🧃','🥤','🧋','🍶','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🧉','🍾'] },
+  { name: 'Objetos', emojis: ['📱','💻','⌨️','🖥️','🖨️','🖱️','💾','💿','📀','🎥','📷','📸','📹','📞','☎️','📟','📠','📺','📻','⏰','⏱️','⏲️','🕰️','📡','🔋','🔌','💡','🔦','🕯️','🪔','🛢️','💸','💵','💴','💶','💷','🪙','💰','💳','💎','⚖️','🪜','🧰','🪛','🔧','🔨','⚒️','🛠️','⛏️','🪚','🔩','⚙️','🪤','🧱','📦','📫','📬','📭','📪','📮','📥','📤','📨','📧','💌','📜','📃','📄','📑','📊','📈','📉','📋','📌','📍','📎','🖇️','📐','📏','✂️','🗒️','🗓️','📆','📅','🗑️','📇','📁','📂','📒','📓','📔','📕','📖','📗','📘','📙','📚','📰','🔑','🗝️','🔒','🔓'] },
+  { name: 'Símbolos', emojis: ['✅','❌','⛔','🚫','⚠️','❗','❓','❕','❔','💯','✔️','✖️','➕','➖','➗','💲','💱','♾️','🔔','🔕','🚀','🔥','✨','⭐','🌟','💫','💥','💢','💨','💦','💤','🌈','☀️','🌤️','⛅','☁️','🌧️','⛈️','🌩️','❄️','☃️','🌪️','💧','🌊','🆗','🆕','🆒','🆓','🔝','🆙','🔄','🔃','🔂','🔁','▶️','⏸️','⏯️','⏹️','⏺️','⏭️','⏮️','⏩','⏪','🔼','🔽','⬆️','⬇️','⬅️','➡️','↗️','↘️','↙️','↖️','↕️','↔️','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⚪','🟤'] },
+]
+
 /**
  * Wallpaper estilo WhatsApp — doodles sutis (balões, smileys, hearts, checks)
  * em SVG inline. Opacidade baixa pra não competir com o conteúdo; cor neutra
@@ -709,9 +720,39 @@ function ChatView({ conversa, meuId, onMessageSent }: {
   const [anexosPendentes, setAnexosPendentes] = useState<Array<{ id: string; fileName: string; fileUrl: string; mimeType: string; tamanho: number; uploading?: boolean }>>([])
   const [typingUsers, setTypingUsers] = useState<Map<string, { nome: string; ts: number }>>(new Map())
   const [emojiPickerFor, setEmojiPickerFor] = useState<string | null>(null)
+  const [emojiInputOpen, setEmojiInputOpen] = useState(false)
   const [mentionState, setMentionState] = useState<{ open: boolean; query: string; start: number } | null>(null)
   // Mapeia "@Nome" (visível no input) → userId (usado no <@id> ao enviar)
   const [mentionsRefs, setMentionsRefs] = useState<Array<{ name: string; id: string }>>([])
+  const emojiPopupRef = useRef<HTMLDivElement>(null)
+
+  // Fecha popup de emojis ao clicar fora
+  useEffect(() => {
+    if (!emojiInputOpen) return
+    function handle(e: MouseEvent) {
+      if (emojiPopupRef.current && !emojiPopupRef.current.contains(e.target as Node)) setEmojiInputOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [emojiInputOpen])
+
+  // Insere emoji na posição do cursor (ou no fim se o textarea não tiver foco)
+  function insertEmoji(emoji: string) {
+    const t = textareaRef.current
+    if (!t) {
+      setTexto(prev => prev + emoji)
+      return
+    }
+    const start = t.selectionStart ?? texto.length
+    const end = t.selectionEnd ?? texto.length
+    const novoTexto = texto.slice(0, start) + emoji + texto.slice(end)
+    setTexto(novoTexto)
+    requestAnimationFrame(() => {
+      t.focus()
+      const pos = start + emoji.length
+      t.setSelectionRange(pos, pos)
+    })
+  }
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -1329,6 +1370,35 @@ function ChatView({ conversa, meuId, onMessageSent }: {
           <ImagePlus className="h-4 w-4" />
         </button>
         <input ref={fileInputRef} type="file" accept="image/*,application/*" multiple onChange={handleFilePick} className="hidden" />
+
+        {/* Picker de emojis pro input — popup acima do botão */}
+        <div className="relative">
+          <button type="button" onClick={() => setEmojiInputOpen(o => !o)}
+            className={cn('h-8 w-8 rounded hover:bg-muted flex items-center justify-center transition-colors',
+              emojiInputOpen ? 'text-sky-500 bg-muted' : 'text-muted-foreground')}
+            title="Emoji">
+            <Smile className="h-4 w-4" />
+          </button>
+          {emojiInputOpen && (
+            <div ref={emojiPopupRef}
+              className="absolute bottom-full left-0 mb-2 z-30 w-[340px] max-h-[300px] overflow-y-auto bg-card border border-border rounded-lg shadow-xl p-2">
+              {EMOJI_PICKER.map(cat => (
+                <div key={cat.name} className="mb-2 last:mb-0">
+                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 px-1 sticky top-0 bg-card py-0.5">{cat.name}</div>
+                  <div className="grid grid-cols-8 gap-0.5">
+                    {cat.emojis.map(e => (
+                      <button key={e} type="button" onClick={() => insertEmoji(e)}
+                        className="h-8 w-8 flex items-center justify-center rounded hover:bg-muted text-[18px] leading-none transition-colors"
+                        title={e}>
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <textarea
           ref={textareaRef}
           value={texto}
