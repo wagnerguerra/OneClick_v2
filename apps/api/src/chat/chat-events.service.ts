@@ -8,10 +8,14 @@ import { Subject } from 'rxjs'
  */
 export type ChatEvent =
   | { type: 'mensagem-nova'; conversaId: string; mensagem: unknown; destinatarios: string[] }
+  | { type: 'mensagem-editada'; conversaId: string; mensagem: unknown; destinatarios: string[] }
+  | { type: 'mensagem-deletada'; conversaId: string; mensagemId: string; destinatarios: string[] }
   | { type: 'anexo-adicionado'; conversaId: string; mensagemId: string; anexo: unknown; destinatarios: string[] }
+  | { type: 'reaction-mudou'; conversaId: string; mensagemId: string; destinatarios: string[] }
   | { type: 'lido'; conversaId: string; usuarioId: string; lidoEm: Date; destinatarios: string[] }
   | { type: 'typing'; conversaId: string; usuarioId: string; nome: string; destinatarios: string[] }
   | { type: 'conversa-criada'; conversaId: string; destinatarios: string[] }
+  | { type: 'status-mudou'; usuarioId: string; status: 'online' | 'ausente' | 'dnd' | 'invisible' | null; destinatarios: string[] }
 
 @Injectable()
 export class ChatEventsService {
@@ -22,6 +26,6 @@ export class ChatEventsService {
   }
 
   emit<T extends ChatEvent['type']>(type: T, payload: Omit<Extract<ChatEvent, { type: T }>, 'type'>) {
-    this.subject.next({ type, ...payload } as ChatEvent)
+    this.subject.next({ type, ...payload } as unknown as ChatEvent)
   }
 }

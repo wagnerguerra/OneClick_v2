@@ -178,21 +178,33 @@ export class ChatService {
     }
   }
 
-  /** Lista mensagens com paginação (cursor antes/depois). Default últimas 50. */
+  /**
+   * Lista mensagens com paginação cursor-based (scroll up infinito).
+   * - Sem cursor: retorna as N mais recentes
+   * - Com cursor: retorna as N anteriores ao cursor (mensagens mais antigas)
+   * Sempre retorna em ordem cronológica (mais antigo → mais novo) pra UI.
+   */
   async listMensagens(conversaId: string, meuUserId: string, opts?: { cursor?: string; take?: number }) {
     await this.assertAcesso(conversaId, meuUserId)
     const take = Math.min(opts?.take ?? 50, 100)
-    const mensagens = await prisma.chatMensagem.findMany({
+    const mensagens = await this.fetchMensagensWithReactions(conversaId, take, opts?.cursor)
+    // hasMore: pediu N, devolveu N → provavelmente tem mais antes
+    const hasMore = mensagens.length === take
+    return { mensagens, hasMore }
+  }
+
+  private async fetchMensagensWithReactions(conversaId: string, take: number, cursor?: string) {
+    const raw = await prisma.chatMensagem.findMany({
       where: { conversaId },
       orderBy: { createdAt: 'desc' },
       take,
-      ...(opts?.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: {
         anexos: true,
+        reactions: { select: { id: true, usuarioId: true, emoji: true } },
       },
     })
-    // Retorna em ordem cronológica (mais antigo → mais novo) pra UI
-    return mensagens.reverse()
+    return raw.reverse()
   }
 
   /** Envia mensagem. Emite SSE pra todos participantes (exceto autor). */
@@ -267,6 +279,121 @@ export class ChatService {
     const destinatarios = parts.map(p => p.usuarioId).filter(id => id !== meuUserId)
     this.events.emit('lido', { conversaId, usuarioId: meuUserId, lidoEm: agora, destinatarios })
     return { ok: true, lidoEm: agora }
+  }
+
+  // ============================================================
+  // Status manual (override do auto-tracking)
+  // ============================================================
+
+  /**
+   * Define o status do chat manualmente. Valores: 'online' | 'ausente' | 'dnd' |
+   * 'invisible' | null (auto). Emite SSE pra TODOS users — outros precisam
+   * recalcular a presença na lista de pessoas.
+   */
+  async setStatus(userId: string, status: 'online' | 'ausente' | 'dnd' | 'invisible' | null) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { chatStatus: status },
+    })
+    // Broadcast: destinatarios = todos os outros usuarios ativos (não filtra por DM/grupo)
+    const others = await prisma.user.findMany({
+      where: { isActive: true, id: { not: userId } },
+      select: { id: true },
+    })
+    this.events.emit('status-mudou', {
+      usuarioId: userId,
+      status,
+      destinatarios: others.map(o => o.id),
+    } as never)
+    return { ok: true, status }
+  }
+
+  // ============================================================
+  // Editar / Deletar
+  // ============================================================
+
+  async editarMensagem(mensagemId: string, autorId: string, conteudo: string) {
+    const texto = conteudo.trim()
+    if (!texto) throw new Error('Mensagem vazia')
+    const msg = await prisma.chatMensagem.findUniqueOrThrow({
+      where: { id: mensagemId },
+      select: { autorId: true, conversaId: true, deletedAt: true },
+    })
+    if (msg.autorId !== autorId) throw new Error('Só o autor pode editar')
+    if (msg.deletedAt) throw new Error('Mensagem já apagada')
+    const atualizada = await prisma.chatMensagem.update({
+      where: { id: mensagemId },
+      data: { conteudo: texto, editedAt: new Date() },
+      include: { anexos: true, reactions: { select: { id: true, usuarioId: true, emoji: true } } },
+    })
+    // Notifica outros participantes
+    const parts = await prisma.chatParticipante.findMany({
+      where: { conversaId: msg.conversaId },
+      select: { usuarioId: true },
+    })
+    const destinatarios = parts.map(p => p.usuarioId).filter(id => id !== autorId)
+    this.events.emit('mensagem-editada', {
+      conversaId: msg.conversaId,
+      mensagem: atualizada,
+      destinatarios,
+    } as never)
+    return atualizada
+  }
+
+  async deletarMensagem(mensagemId: string, autorId: string) {
+    const msg = await prisma.chatMensagem.findUniqueOrThrow({
+      where: { id: mensagemId },
+      select: { autorId: true, conversaId: true, deletedAt: true },
+    })
+    if (msg.autorId !== autorId) throw new Error('Só o autor pode apagar')
+    if (msg.deletedAt) return { ok: true }
+    await prisma.chatMensagem.update({
+      where: { id: mensagemId },
+      data: { deletedAt: new Date() },
+    })
+    const parts = await prisma.chatParticipante.findMany({
+      where: { conversaId: msg.conversaId },
+      select: { usuarioId: true },
+    })
+    const destinatarios = parts.map(p => p.usuarioId).filter(id => id !== autorId)
+    this.events.emit('mensagem-deletada', {
+      conversaId: msg.conversaId,
+      mensagemId,
+      destinatarios,
+    } as never)
+    return { ok: true }
+  }
+
+  // ============================================================
+  // Reactions
+  // ============================================================
+
+  /** Toggle: se já reagiu com esse emoji, remove. Senão, adiciona. */
+  async toggleReaction(mensagemId: string, userId: string, emoji: string) {
+    const msg = await prisma.chatMensagem.findUniqueOrThrow({
+      where: { id: mensagemId },
+      select: { conversaId: true },
+    })
+    await this.assertAcesso(msg.conversaId, userId)
+    const existente = await prisma.chatReaction.findUnique({
+      where: { mensagemId_usuarioId_emoji: { mensagemId, usuarioId: userId, emoji } },
+    })
+    if (existente) {
+      await prisma.chatReaction.delete({ where: { id: existente.id } })
+    } else {
+      await prisma.chatReaction.create({ data: { mensagemId, usuarioId: userId, emoji } })
+    }
+    // Notifica todos da conversa (incluindo autor, pra atualizar a UI dele)
+    const parts = await prisma.chatParticipante.findMany({
+      where: { conversaId: msg.conversaId },
+      select: { usuarioId: true },
+    })
+    this.events.emit('reaction-mudou', {
+      conversaId: msg.conversaId,
+      mensagemId,
+      destinatarios: parts.map(p => p.usuarioId),
+    } as never)
+    return { ok: true, removida: !!existente }
   }
 
   // ============================================================

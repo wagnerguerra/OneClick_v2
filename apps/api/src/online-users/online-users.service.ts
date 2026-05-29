@@ -58,13 +58,25 @@ export class OnlineUsersService {
       })
   }
 
-  /** Lista usuários ativos nos últimos WINDOW_MIN minutos. */
+  /**
+   * Lista usuários considerados "ativos" — atividade nos últimos WINDOW_MIN
+   * minutos OU com chatStatus manual definido (exceto 'invisible' que esconde
+   * mesmo se ativo). Para o chat, isso é "lista de pessoas com quem posso falar".
+   */
   async getOnline() {
     const cutoff = new Date(Date.now() - this.WINDOW_MIN * 60_000)
     const users = await prisma.user.findMany({
       where: {
         isActive: true,
-        lastActivityAt: { gte: cutoff },
+        // Inclui se: ativo recentemente OU declarou status manual não-invisible.
+        // Invisible: sempre exclui (parece offline pros outros).
+        AND: [
+          { OR: [
+            { lastActivityAt: { gte: cutoff } },
+            { chatStatus: { in: ['online', 'ausente', 'dnd'] } },
+          ] },
+          { NOT: { chatStatus: 'invisible' } },
+        ],
       },
       select: {
         id: true,
@@ -74,6 +86,7 @@ export class OnlineUsersService {
         lastActivityAt: true,
         lastActivityPath: true,
         lastActivityIp: true,
+        chatStatus: true,
         empresa: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
       },
       orderBy: { lastActivityAt: 'desc' },

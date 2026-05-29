@@ -12,6 +12,7 @@ import { resolveAssetUrl } from '@/lib/api-url'
 import { UserMenu } from './user-menu'
 import { NotificationBell } from './notification-bell'
 import { ClientErrorBadge } from './client-error-badge'
+import { ChatHeaderButton } from '@/components/chat/chat-header-button'
 
 const TRUST_COOKIE = 'oc-trust-device'
 const TRUST_PENDING_KEY = 'oc-trust-device-pending'
@@ -123,6 +124,9 @@ export function Header({ onOpenMobile }: HeaderProps) {
             <span className="sr-only">Alternar tema</span>
           </Button>
         )}
+
+        {/* Chat interno — ícone com indicador de status próprio */}
+        {session?.user && <ChatHeaderButton />}
 
         {/* Sino de notificações — só pra usuários autenticados */}
         {session?.user && <NotificationBell />}

@@ -2,10 +2,11 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import {
-  MessageSquare, X, Send, Loader2, ArrowLeft, Search, Users, Plus, Paperclip,
-  ImagePlus, Check, CheckCheck,
+  MessageSquare, X, Send, Loader2, ArrowLeft, Search, Users, Paperclip,
+  ImagePlus, Check, CheckCheck, MoreVertical, Edit2, Trash2, Smile, AtSign,
+  Circle, ChevronDown,
 } from 'lucide-react'
-import { Button, Input, cn } from '@saas/ui'
+import { Button, Input, cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
@@ -14,6 +15,8 @@ import { alerts } from '@/lib/alerts'
 // ============================================================
 // Tipos
 // ============================================================
+
+type ChatStatus = 'online' | 'ausente' | 'dnd' | 'invisible' | null
 
 interface Participante {
   id: string
@@ -40,6 +43,12 @@ interface Conversa {
   unreadCount: number
 }
 
+interface Reaction {
+  id: string
+  usuarioId: string
+  emoji: string
+}
+
 interface Mensagem {
   id: string
   conversaId: string
@@ -47,7 +56,9 @@ interface Mensagem {
   conteudo: string
   createdAt: Date | string
   editedAt?: Date | string | null
+  deletedAt?: Date | string | null
   anexos: Array<{ id: string; fileName: string; fileUrl: string; mimeType: string | null; tamanho: number }>
+  reactions: Reaction[]
 }
 
 interface OnlineUser {
@@ -57,6 +68,7 @@ interface OnlineUser {
   image: string | null
   lastActivityAt: Date | string | null
   lastActivityPath: string | null
+  chatStatus?: ChatStatus
 }
 
 type Tab = 'pessoas' | 'conversas'
@@ -65,9 +77,29 @@ type Tab = 'pessoas' | 'conversas'
 // Helpers
 // ============================================================
 
-function presencaDe(lastActivityAt: Date | string | null | undefined): 'online' | 'ausente' | 'offline' {
-  if (!lastActivityAt) return 'offline'
-  const diff = Date.now() - new Date(lastActivityAt).getTime()
+const STATUS_LABEL: Record<NonNullable<ChatStatus> | 'offline' | 'auto', string> = {
+  online: 'Online',
+  ausente: 'Ausente',
+  dnd: 'Não perturbar',
+  invisible: 'Invisível (parece offline)',
+  offline: 'Offline',
+  auto: 'Automático',
+}
+
+const STATUS_COR: Record<'online' | 'ausente' | 'dnd' | 'offline', string> = {
+  online:  'bg-emerald-500',
+  ausente: 'bg-amber-500',
+  dnd:     'bg-rose-500',
+  offline: 'bg-muted-foreground/40',
+}
+
+/** Resolve a presença visual a partir do chatStatus + lastActivityAt. */
+function presencaEfetiva(u: { chatStatus?: ChatStatus; lastActivityAt?: Date | string | null }): 'online' | 'ausente' | 'dnd' | 'offline' {
+  if (u.chatStatus === 'invisible') return 'offline'
+  if (u.chatStatus === 'online' || u.chatStatus === 'ausente' || u.chatStatus === 'dnd') return u.chatStatus
+  // Auto (chatStatus null/undefined) → deriva do lastActivityAt
+  if (!u.lastActivityAt) return 'offline'
+  const diff = Date.now() - new Date(u.lastActivityAt).getTime()
   if (diff < 2 * 60_000) return 'online'
   if (diff < 15 * 60_000) return 'ausente'
   return 'offline'
@@ -91,11 +123,13 @@ function timeHm(d: Date | string): string {
   return `${String(dd.getHours()).padStart(2, '0')}:${String(dd.getMinutes()).padStart(2, '0')}`
 }
 
+const EMOJI_QUICK = ['👍', '❤️', '😂', '😮', '😢', '👏']
+
 // ============================================================
 // Componente principal
 // ============================================================
 
-export function FloatingChatButton() {
+export function ChatHeaderButton() {
   const { profile } = useCurrentUserProfile()
   const meuId = profile?.id ?? null
 
@@ -107,10 +141,13 @@ export function FloatingChatButton() {
   const [conversaAtiva, setConversaAtiva] = useState<Conversa | null>(null)
   const [novoGrupoOpen, setNovoGrupoOpen] = useState(false)
   const [search, setSearch] = useState('')
-  // Total de não-lidas (badge no FAB) — derivado de conversas
+  // Meu status manual (null = auto)
+  const [meuStatus, setMeuStatus] = useState<ChatStatus>(null)
+
   const totalUnread = useMemo(() => conversas.reduce((sum, c) => sum + c.unreadCount, 0), [conversas])
 
   const popoverRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   // ========== Toggle animado ==========
   function toggle(next: boolean) {
@@ -133,8 +170,7 @@ export function FloatingChatButton() {
     if (!open) return
     function handleClick(e: MouseEvent) {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        const fabBtn = document.getElementById('floating-chat-button')
-        if (fabBtn?.contains(e.target as Node)) return
+        if (buttonRef.current?.contains(e.target as Node)) return
         toggle(false)
       }
     }
@@ -143,12 +179,12 @@ export function FloatingChatButton() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  // ========== Carregamento de conversas + lista online ==========
+  // ========== Carregamento ==========
   const loadConversas = useCallback(async () => {
     try {
       const r = await (trpc.chat as any).listConversas.query()
       setConversas(r as Conversa[])
-    } catch (e) { /* offline ou logout */ }
+    } catch { /* offline ou logout */ }
   }, [])
 
   const loadOnline = useCallback(async () => {
@@ -157,17 +193,32 @@ export function FloatingChatButton() {
       if (!r.ok) return
       const data = await r.json() as OnlineUser[]
       setOnlineUsers(data)
+      // Detecta meu próprio status do payload
+      if (meuId) {
+        const eu = data.find(u => u.id === meuId)
+        if (eu) setMeuStatus(eu.chatStatus ?? null)
+      }
     } catch { /* ignora */ }
-  }, [])
+  }, [meuId])
 
   useEffect(() => {
     loadConversas()
     loadOnline()
-    const i = setInterval(loadOnline, 30_000)  // refresh presença a cada 30s
+    const i = setInterval(loadOnline, 30_000)
     return () => clearInterval(i)
   }, [loadConversas, loadOnline])
 
-  // ========== SSE global do chat — atualiza badge mesmo com painel fechado ==========
+  // ========== Pedir permissão de notificação no 1º open ==========
+  const pediuPermissaoRef = useRef(false)
+  useEffect(() => {
+    if (!open || pediuPermissaoRef.current) return
+    pediuPermissaoRef.current = true
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {})
+    }
+  }, [open])
+
+  // ========== SSE global ==========
   useEffect(() => {
     if (!meuId) return
     let es: EventSource | null = null
@@ -183,14 +234,21 @@ export function FloatingChatButton() {
             const ev = JSON.parse(msg.data)
             if (ev.type === 'mensagem-nova') {
               loadConversas()
-              // Se for a conversa ativa, dispara reload de mensagens via custom event
               if (conversaAtiva && ev.conversaId === conversaAtiva.id) {
                 window.dispatchEvent(new CustomEvent('chat:mensagem-nova', { detail: ev }))
+              } else {
+                // Notificação browser quando painel fechado OU outra conversa
+                showBrowserNotification(ev)
               }
+            } else if (ev.type === 'mensagem-editada' || ev.type === 'mensagem-deletada' || ev.type === 'reaction-mudou' || ev.type === 'anexo-adicionado') {
+              window.dispatchEvent(new CustomEvent('chat:' + ev.type, { detail: ev }))
             } else if (ev.type === 'lido' || ev.type === 'conversa-criada') {
               loadConversas()
-            } else if (ev.type === 'anexo-adicionado' || ev.type === 'typing') {
-              window.dispatchEvent(new CustomEvent('chat:' + ev.type, { detail: ev }))
+              if (ev.type === 'lido') window.dispatchEvent(new CustomEvent('chat:lido', { detail: ev }))
+            } else if (ev.type === 'typing') {
+              window.dispatchEvent(new CustomEvent('chat:typing', { detail: ev }))
+            } else if (ev.type === 'status-mudou') {
+              loadOnline()
             }
           } catch { /* ignora */ }
         }
@@ -204,14 +262,44 @@ export function FloatingChatButton() {
     }
     connect()
     return () => { closed = true; es?.close(); clearTimeout(retry) }
-  }, [meuId, conversaAtiva, loadConversas])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meuId, conversaAtiva?.id])
 
-  // ========== Abrir DM (vem da aba Pessoas) ==========
+  function showBrowserNotification(ev: { conversaId: string; mensagem: Mensagem }) {
+    if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') return
+    // Acha conversa pra pegar nome
+    const conv = conversas.find(c => c.id === ev.conversaId)
+    const autor = conv?.participantes.find(p => p.id === ev.mensagem.autorId)
+    const titulo = conv?.isGrupo ? `${conv.nome} · ${autor?.name ?? 'Alguém'}` : (autor?.name ?? 'Nova mensagem')
+    try {
+      const n = new Notification(titulo, {
+        body: ev.mensagem.conteudo.slice(0, 100),
+        icon: '/logo.png',
+        tag: ev.conversaId,
+      })
+      n.onclick = () => {
+        window.focus()
+        toggle(true)
+        const c = conversas.find(x => x.id === ev.conversaId)
+        if (c) setConversaAtiva(c)
+        n.close()
+      }
+    } catch { /* navegador pode bloquear */ }
+  }
+
+  // ========== Trocar status ==========
+  async function trocarStatus(novo: ChatStatus) {
+    setMeuStatus(novo)
+    try {
+      await (trpc.chat as any).setStatus.mutate({ status: novo })
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
+  // ========== Abrir DM ==========
   async function abrirDM(outroUserId: string) {
     try {
       const conv = await (trpc.chat as any).criarDM.mutate({ outroUserId })
       await loadConversas()
-      // Garante que a conversa carregada agora bate (precisa do unreadCount etc — recarrega)
       const r = await (trpc.chat as any).listConversas.query() as Conversa[]
       const completa = r.find(c => c.id === conv.id)
       if (completa) setConversaAtiva(completa)
@@ -223,10 +311,9 @@ export function FloatingChatButton() {
     const q = search.trim().toLowerCase()
     const all = onlineUsers
       .filter(u => u.id !== meuId)
-      .map(u => ({ ...u, presenca: presencaDe(u.lastActivityAt) }))
-    // Ordena: online primeiro, depois ausente, depois alfabético
+      .map(u => ({ ...u, presenca: presencaEfetiva(u) }))
     all.sort((a, b) => {
-      const order = { online: 0, ausente: 1, offline: 2 }
+      const order = { online: 0, ausente: 1, dnd: 2, offline: 3 }
       if (order[a.presenca] !== order[b.presenca]) return order[a.presenca] - order[b.presenca]
       return a.name.localeCompare(b.name)
     })
@@ -238,43 +325,43 @@ export function FloatingChatButton() {
     return q ? conversas.filter(c => c.nome.toLowerCase().includes(q)) : conversas
   }, [conversas, search])
 
+  // Minha presença efetiva (pra o dot no botão do header)
+  const minhaPresenca: 'online' | 'ausente' | 'dnd' | 'offline' = useMemo(() => {
+    const eu = onlineUsers.find(u => u.id === meuId)
+    if (!eu) return meuStatus === 'online' ? 'online' : 'offline'
+    return presencaEfetiva({ ...eu, chatStatus: meuStatus })
+  }, [onlineUsers, meuId, meuStatus])
+
   // ============================================================
   // Render
   // ============================================================
 
   return (
-    <>
-      {/* FAB chat — ao lado do "Fale com a TI" */}
+    <div className="relative">
+      {/* Botão do header — mesmo padrão do sino */}
       <button
-        id="floating-chat-button"
+        ref={buttonRef}
         type="button"
         onClick={() => toggle(!open)}
-        aria-label="Chat interno"
-        title="Chat interno"
         className={cn(
-          'fixed bottom-5 right-[72px] z-50 h-12 w-12 rounded-full shadow-lg',
-          'flex items-center justify-center text-white',
-          'bg-sky-500 hover:bg-sky-600 hover:scale-105 active:scale-95',
-          'transition-all duration-200 ease-out',
-          open && 'ring-2 ring-offset-2 ring-sky-500 ring-offset-background rotate-90',
+          'relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-muted transition-colors',
+          totalUnread > 0 && 'text-sky-600',
         )}
+        aria-label={`${totalUnread} mensagem(ns) não lida(s)`}
+        title="Chat interno"
       >
-        <span className="relative h-5 w-5">
-          <MessageSquare
-            className={cn(
-              'absolute inset-0 h-5 w-5 transition-all duration-200',
-              open ? 'opacity-0 scale-50 rotate-90' : 'opacity-100 scale-100 rotate-0',
-            )}
-          />
-          <X
-            className={cn(
-              'absolute inset-0 h-5 w-5 transition-all duration-200',
-              open ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90',
-            )}
-          />
-        </span>
-        {!open && totalUnread > 0 && (
-          <span className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center shadow-md ring-2 ring-background">
+        <MessageSquare className="h-4 w-4" />
+        {/* Dot de status próprio */}
+        <span
+          className={cn(
+            'absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full ring-2 ring-card transition-colors',
+            STATUS_COR[minhaPresenca],
+          )}
+          title={`Status: ${STATUS_LABEL[minhaPresenca]}`}
+        />
+        {/* Badge de unread */}
+        {totalUnread > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-rose-500 text-white text-[9px] font-bold px-1 border-2 border-card">
             {totalUnread > 99 ? '99+' : totalUnread}
           </span>
         )}
@@ -285,10 +372,10 @@ export function FloatingChatButton() {
         <div
           ref={popoverRef}
           className={cn(
-            'fixed bottom-20 right-5 z-50 w-[380px] h-[600px] max-w-[calc(100vw-2.5rem)] max-h-[calc(100vh-7rem)]',
+            'absolute right-0 top-full mt-2 z-50 w-[400px] h-[600px] max-w-[calc(100vw-2.5rem)] max-h-[calc(100vh-6rem)]',
             'rounded-xl border border-border bg-card shadow-2xl overflow-hidden flex flex-col',
-            'origin-bottom-right transition-all duration-200 ease-out',
-            entered ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2',
+            'origin-top-right transition-all duration-200 ease-out',
+            entered ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2',
           )}
         >
           {conversaAtiva ? (
@@ -307,35 +394,43 @@ export function FloatingChatButton() {
             />
           ) : (
             <>
-              {/* Header com abas */}
-              <div className="flex items-center border-b border-border bg-muted/30">
-                <button
-                  type="button"
-                  onClick={() => setTab('conversas')}
-                  className={cn(
-                    'flex-1 py-3 text-sm font-medium transition-colors relative',
-                    tab === 'conversas' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  Conversas
-                  {totalUnread > 0 && (
-                    <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold">
-                      {totalUnread}
-                    </span>
-                  )}
-                  {tab === 'conversas' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-500" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTab('pessoas')}
-                  className={cn(
-                    'flex-1 py-3 text-sm font-medium transition-colors relative',
-                    tab === 'pessoas' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  Pessoas
-                  {tab === 'pessoas' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-500" />}
-                </button>
+              {/* Header com meu status + abas */}
+              <div className="border-b border-border bg-muted/30">
+                {/* Linha 1: meu status */}
+                <div className="px-3 py-2 flex items-center justify-between border-b border-border/50">
+                  <div className="text-[11px] text-muted-foreground">Meu status:</div>
+                  <StatusDropdown statusManual={meuStatus} presencaAtual={minhaPresenca} onChange={trocarStatus} />
+                </div>
+                {/* Linha 2: abas */}
+                <div className="flex">
+                  <button
+                    type="button"
+                    onClick={() => setTab('conversas')}
+                    className={cn(
+                      'flex-1 py-2.5 text-sm font-medium transition-colors relative',
+                      tab === 'conversas' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    Conversas
+                    {totalUnread > 0 && (
+                      <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                        {totalUnread}
+                      </span>
+                    )}
+                    {tab === 'conversas' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-500" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab('pessoas')}
+                    className={cn(
+                      'flex-1 py-2.5 text-sm font-medium transition-colors relative',
+                      tab === 'pessoas' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    Pessoas
+                    {tab === 'pessoas' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-500" />}
+                  </button>
+                </div>
               </div>
 
               {/* Search + criar grupo */}
@@ -373,24 +468,57 @@ export function FloatingChatButton() {
           )}
         </div>
       )}
-    </>
+    </div>
   )
 }
 
 // ============================================================
-// Subcomponentes
+// StatusDropdown — meu status manual
 // ============================================================
 
-function StatusDot({ presenca }: { presenca: 'online' | 'ausente' | 'offline' }) {
-  const cls = presenca === 'online'
-    ? 'bg-emerald-500'
-    : presenca === 'ausente'
-      ? 'bg-amber-500'
-      : 'bg-muted-foreground/40'
-  return <span className={cn('absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-card', cls)} />
+function StatusDropdown({ statusManual, presencaAtual, onChange }: {
+  statusManual: ChatStatus
+  presencaAtual: 'online' | 'ausente' | 'dnd' | 'offline'
+  onChange: (s: ChatStatus) => void
+}) {
+  const labelAtual = statusManual ? STATUS_LABEL[statusManual] : `${STATUS_LABEL[presencaAtual]} (auto)`
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className="inline-flex items-center gap-1.5 text-xs font-medium hover:bg-muted px-2 py-1 rounded-md transition-colors">
+          <span className={cn('h-2 w-2 rounded-full', STATUS_COR[presencaAtual])} />
+          {labelAtual}
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        {([
+          { v: null,        label: 'Automático',           icon: '⏱️', cor: 'bg-muted-foreground/40' },
+          { v: 'online',    label: 'Online',               icon: '🟢', cor: 'bg-emerald-500' },
+          { v: 'ausente',   label: 'Ausente',              icon: '🟡', cor: 'bg-amber-500' },
+          { v: 'dnd',       label: 'Não perturbar',        icon: '🔴', cor: 'bg-rose-500' },
+          { v: 'invisible', label: 'Invisível',            icon: '⚫', cor: 'bg-muted-foreground/40' },
+        ] as const).map(opt => (
+          <DropdownMenuItem
+            key={String(opt.v)}
+            onClick={() => onChange(opt.v as ChatStatus)}
+            className={cn('text-xs gap-2 cursor-pointer', statusManual === opt.v && 'bg-muted')}
+          >
+            <span className={cn('h-2 w-2 rounded-full', opt.cor)} />
+            {opt.label}
+            {statusManual === opt.v && <Check className="h-3 w-3 ml-auto text-sky-500" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }
 
-function Avatar({ user, presenca }: { user: { name: string; image: string | null }; presenca?: 'online' | 'ausente' | 'offline' }) {
+// ============================================================
+// Avatar
+// ============================================================
+
+function Avatar({ user, presenca }: { user: { name: string; image: string | null }; presenca?: 'online' | 'ausente' | 'dnd' | 'offline' }) {
   return (
     <div className="relative h-9 w-9 shrink-0">
       {user.image ? (
@@ -401,13 +529,15 @@ function Avatar({ user, presenca }: { user: { name: string; image: string | null
           {initials(user.name)}
         </div>
       )}
-      {presenca && <StatusDot presenca={presenca} />}
+      {presenca && (
+        <span className={cn('absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-card', STATUS_COR[presenca])} />
+      )}
     </div>
   )
 }
 
 function PessoasList({ pessoas, onClickPessoa }: {
-  pessoas: Array<OnlineUser & { presenca: 'online' | 'ausente' | 'offline' }>
+  pessoas: Array<OnlineUser & { presenca: 'online' | 'ausente' | 'dnd' | 'offline' }>
   onClickPessoa: (id: string) => void
 }) {
   if (pessoas.length === 0) {
@@ -426,9 +556,7 @@ function PessoasList({ pessoas, onClickPessoa }: {
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate">{u.name}</div>
               <div className="text-[11px] text-muted-foreground truncate">
-                {u.presenca === 'online' && u.lastActivityPath ? u.lastActivityPath : (
-                  u.presenca === 'ausente' ? 'Ausente' : u.presenca === 'offline' ? 'Offline' : 'Online'
-                )}
+                {u.presenca === 'online' && u.lastActivityPath ? u.lastActivityPath : STATUS_LABEL[u.presenca]}
               </div>
             </div>
           </button>
@@ -490,7 +618,7 @@ function ConversasList({ conversas, meuId, onClickConversa }: {
 }
 
 // ============================================================
-// ChatView — abre uma conversa específica
+// ChatView — abre uma conversa específica (com edit/delete/reactions/mentions/infinite scroll)
 // ============================================================
 
 function ChatView({ conversa, meuId, onClose, onMessageSent }: {
@@ -501,35 +629,77 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
 }) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMais, setLoadingMais] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [participantes, setParticipantes] = useState<Participante[]>(conversa.participantes)
   const [texto, setTexto] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [editTexto, setEditTexto] = useState('')
   const [anexosPendentes, setAnexosPendentes] = useState<Array<{ id: string; fileName: string; fileUrl: string; mimeType: string; tamanho: number; uploading?: boolean }>>([])
   const [typingUsers, setTypingUsers] = useState<Map<string, { nome: string; ts: number }>>(new Map())
+  const [emojiPickerFor, setEmojiPickerFor] = useState<string | null>(null)
+  const [mentionState, setMentionState] = useState<{ open: boolean; query: string; start: number } | null>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastTypingSentRef = useRef<number>(0)
 
-  // Carrega mensagens
+  // ========== Carrega últimas mensagens ==========
   const loadMensagens = useCallback(async () => {
     setLoading(true)
     try {
       const r = await (trpc.chat as any).listMensagens.query({ conversaId: conversa.id, take: 50 })
-      setMensagens(r as Mensagem[])
-      // Marca como lido
+      const data = r as { mensagens: Mensagem[]; hasMore: boolean }
+      setMensagens(data.mensagens)
+      setHasMore(data.hasMore)
       await (trpc.chat as any).marcarLido.mutate({ conversaId: conversa.id }).catch(() => {})
-      onMessageSent()  // refresh contador
+      onMessageSent()
     } finally { setLoading(false) }
   }, [conversa.id, onMessageSent])
 
   useEffect(() => { loadMensagens() }, [loadMensagens])
 
-  // Auto-scroll pro fim quando mensagens mudam
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [mensagens])
+  // Auto-scroll pro fim quando mensagens iniciais carregam ou nova chega
+  const prevLenRef = useRef(0)
+  useEffect(() => {
+    if (mensagens.length === 0) return
+    // Se mudou só por loadMais (msgs antigas adicionadas no início), não scroll
+    if (mensagens.length > prevLenRef.current && mensagens[mensagens.length - 1]?.id !== mensagens[prevLenRef.current - 1]?.id) {
+      bottomRef.current?.scrollIntoView({ behavior: prevLenRef.current === 0 ? 'auto' : 'smooth' })
+    }
+    prevLenRef.current = mensagens.length
+  }, [mensagens])
 
-  // Escuta SSE custom events pra mensagens novas + typing
+  // ========== Infinite scroll up ==========
+  async function carregarMaisAntigas() {
+    if (loadingMais || !hasMore || mensagens.length === 0) return
+    setLoadingMais(true)
+    const cursor = mensagens[0]!.id
+    const scrollEl = scrollRef.current
+    const prevHeight = scrollEl?.scrollHeight ?? 0
+    try {
+      const r = await (trpc.chat as any).listMensagens.query({ conversaId: conversa.id, cursor, take: 50 })
+      const data = r as { mensagens: Mensagem[]; hasMore: boolean }
+      setMensagens(prev => [...data.mensagens, ...prev])
+      setHasMore(data.hasMore)
+      // Preserva posição de scroll após injeção no topo
+      requestAnimationFrame(() => {
+        if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight - prevHeight
+      })
+    } finally { setLoadingMais(false) }
+  }
+
+  function handleScroll() {
+    if (!scrollRef.current) return
+    if (scrollRef.current.scrollTop < 50 && hasMore && !loadingMais) {
+      carregarMaisAntigas()
+    }
+  }
+
+  // ========== SSE listeners ==========
   useEffect(() => {
     function onNova(e: Event) {
       const ev = (e as CustomEvent).detail as { conversaId: string; mensagem: Mensagem }
@@ -538,24 +708,52 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
       ;(trpc.chat as any).marcarLido.mutate({ conversaId: conversa.id }).catch(() => {})
       onMessageSent()
     }
+    function onEditada(e: Event) {
+      const ev = (e as CustomEvent).detail as { mensagem: Mensagem }
+      setMensagens(prev => prev.map(m => m.id === ev.mensagem.id ? ev.mensagem : m))
+    }
+    function onDeletada(e: Event) {
+      const ev = (e as CustomEvent).detail as { mensagemId: string }
+      setMensagens(prev => prev.map(m => m.id === ev.mensagemId ? { ...m, deletedAt: new Date().toISOString() } : m))
+    }
+    function onReaction(e: Event) {
+      const ev = (e as CustomEvent).detail as { conversaId: string }
+      if (ev.conversaId !== conversa.id) return
+      // Recarrega só a última página pra pegar reactions atualizadas (não-otimizado, mas simples)
+      loadMensagens()
+    }
+    function onLido(e: Event) {
+      const ev = (e as CustomEvent).detail as { conversaId: string; usuarioId: string; lidoEm: string }
+      if (ev.conversaId !== conversa.id) return
+      setParticipantes(prev => prev.map(p => p.id === ev.usuarioId ? { ...p, lastReadAt: ev.lidoEm } : p))
+    }
     function onTyping(e: Event) {
       const ev = (e as CustomEvent).detail as { conversaId: string; usuarioId: string; nome: string }
       if (ev.conversaId !== conversa.id) return
       setTypingUsers(prev => {
         const next = new Map(prev)
-        next.set(ev.usuarioId, { nome: ev.nome, ts: Date.now() })
+        const part = participantes.find(p => p.id === ev.usuarioId)
+        next.set(ev.usuarioId, { nome: ev.nome || part?.name || 'Alguém', ts: Date.now() })
         return next
       })
     }
     window.addEventListener('chat:mensagem-nova', onNova)
+    window.addEventListener('chat:mensagem-editada', onEditada)
+    window.addEventListener('chat:mensagem-deletada', onDeletada)
+    window.addEventListener('chat:reaction-mudou', onReaction)
+    window.addEventListener('chat:lido', onLido)
     window.addEventListener('chat:typing', onTyping)
     return () => {
       window.removeEventListener('chat:mensagem-nova', onNova)
+      window.removeEventListener('chat:mensagem-editada', onEditada)
+      window.removeEventListener('chat:mensagem-deletada', onDeletada)
+      window.removeEventListener('chat:reaction-mudou', onReaction)
+      window.removeEventListener('chat:lido', onLido)
       window.removeEventListener('chat:typing', onTyping)
     }
-  }, [conversa.id, onMessageSent])
+  }, [conversa.id, participantes, loadMensagens, onMessageSent])
 
-  // Limpa typing após 4s sem update
+  // Limpa typing após 4s
   useEffect(() => {
     const i = setInterval(() => {
       setTypingUsers(prev => {
@@ -568,7 +766,7 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
     return () => clearInterval(i)
   }, [])
 
-  // Upload de anexo
+  // ========== Upload anexo ==========
   async function uploadFile(file: File | Blob, fallbackName?: string) {
     const fileName = (file as File).name || fallbackName || `print-${Date.now()}.png`
     const mimeType = file.type || 'image/png'
@@ -609,7 +807,7 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
 
   function notifyTyping() {
     const now = Date.now()
-    if (now - lastTypingSentRef.current < 3_000) return  // throttle 3s
+    if (now - lastTypingSentRef.current < 3_000) return
     lastTypingSentRef.current = now
     fetch(`${getApiUrl()}/api/chat/typing/${conversa.id}`, {
       method: 'POST', credentials: 'include',
@@ -618,6 +816,31 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
     }).catch(() => {})
   }
 
+  // ========== Detecta @ no textarea pra abrir mention picker ==========
+  function onTextChange(value: string, cursor: number) {
+    setTexto(value)
+    notifyTyping()
+    // Procura por @ não fechado antes do cursor
+    const ate = value.slice(0, cursor)
+    const m = ate.match(/@(\w*)$/)
+    if (m) {
+      setMentionState({ open: true, query: m[1] ?? '', start: cursor - m[0].length })
+    } else {
+      setMentionState(null)
+    }
+  }
+
+  function selecionarMention(p: Participante) {
+    if (!mentionState) return
+    const before = texto.slice(0, mentionState.start)
+    const after = texto.slice(mentionState.start + 1 + mentionState.query.length)
+    const novoTexto = `${before}<@${p.id}>${after} `
+    setTexto(novoTexto)
+    setMentionState(null)
+    setTimeout(() => textareaRef.current?.focus(), 0)
+  }
+
+  // ========== Enviar ==========
   async function enviar() {
     const conteudo = texto.trim()
     if (!conteudo && anexosPendentes.length === 0) return
@@ -635,35 +858,102 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
           mensagemId: msg.id, fileName: a.fileName, fileUrl: a.fileUrl, mimeType: a.mimeType, tamanho: a.tamanho,
         }).catch(() => {})
       }
-      setMensagens(prev => [...prev, { ...msg, anexos: [] }])
+      setMensagens(prev => [...prev, { ...msg, anexos: [], reactions: [] }])
       setTexto('')
       setAnexosPendentes([])
+      setMentionState(null)
       onMessageSent()
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setEnviando(false) }
   }
 
   function onKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (mentionState && (e.key === 'Escape' || e.key === 'Tab')) {
+      e.preventDefault()
+      setMentionState(null)
+      return
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       enviar()
-    } else {
-      notifyTyping()
     }
   }
 
-  // Computar quem leu até onde — pra checkmark duplo (1:1 = só checa o outro participante)
-  const lidoAteEm = useMemo(() => {
-    if (conversa.isGrupo) return null  // pra grupo não mostramos checkmark detalhado no MVP
-    const outro = conversa.participantes.find(p => p.id !== meuId)
-    return outro?.lastReadAt ? new Date(outro.lastReadAt) : null
-  }, [conversa, meuId])
+  // ========== Editar / Deletar ==========
+  function iniciarEdicao(m: Mensagem) {
+    setEditandoId(m.id)
+    setEditTexto(m.conteudo)
+  }
+  async function salvarEdicao(m: Mensagem) {
+    const conteudo = editTexto.trim()
+    if (!conteudo || conteudo === m.conteudo) {
+      setEditandoId(null)
+      return
+    }
+    try {
+      const atualizada = await (trpc.chat as any).editarMensagem.mutate({ mensagemId: m.id, conteudo }) as Mensagem
+      setMensagens(prev => prev.map(x => x.id === m.id ? atualizada : x))
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setEditandoId(null) }
+  }
+  async function deletar(m: Mensagem) {
+    const ok = await alerts.confirm({ title: 'Apagar mensagem?', text: 'Outras pessoas vão ver "mensagem apagada".', confirmText: 'Apagar', icon: 'warning' })
+    if (!ok) return
+    try {
+      await (trpc.chat as any).deletarMensagem.mutate({ mensagemId: m.id })
+      setMensagens(prev => prev.map(x => x.id === m.id ? { ...x, deletedAt: new Date().toISOString() } : x))
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+  async function toggleReaction(m: Mensagem, emoji: string) {
+    try {
+      await (trpc.chat as any).toggleReaction.mutate({ mensagemId: m.id, emoji })
+      setEmojiPickerFor(null)
+      // SSE vai disparar reaction-mudou → recarrega
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
 
-  const typingNames = Array.from(typingUsers.values()).map(t => {
-    if (t.nome) return t.nome
-    // Resolve via participantes da conversa
-    return ''
-  }).filter(Boolean)
+  // ========== Renderização de mensagem com mentions ==========
+  function renderConteudo(texto: string): React.ReactNode {
+    // Substitui <@userId> por nome do participante
+    const parts: React.ReactNode[] = []
+    const regex = /<@([a-z0-9]+)>/gi
+    let lastIdx = 0
+    let match: RegExpExecArray | null
+    let i = 0
+    while ((match = regex.exec(texto)) !== null) {
+      if (match.index > lastIdx) parts.push(texto.slice(lastIdx, match.index))
+      const userId = match[1]!
+      const part = participantes.find(p => p.id === userId)
+      parts.push(
+        <span key={`m-${i++}`} className="font-semibold text-sky-300 bg-sky-500/20 rounded px-1">
+          @{part?.name ?? 'usuário'}
+        </span>,
+      )
+      lastIdx = match.index + match[0].length
+    }
+    if (lastIdx < texto.length) parts.push(texto.slice(lastIdx))
+    return parts
+  }
+
+  // ========== "Lido por todos" em grupo ==========
+  function foiLidaPorTodos(m: Mensagem, ehMinha: boolean): boolean {
+    if (!ehMinha) return false
+    const outros = participantes.filter(p => p.id !== meuId)
+    if (outros.length === 0) return false
+    return outros.every(p => p.lastReadAt && new Date(p.lastReadAt) >= new Date(m.createdAt))
+  }
+
+  // ========== Mention popup helpers ==========
+  const mentionMatches = useMemo(() => {
+    if (!mentionState) return []
+    const q = mentionState.query.toLowerCase()
+    return participantes
+      .filter(p => p.id !== meuId)
+      .filter(p => !q || p.name.toLowerCase().includes(q))
+      .slice(0, 5)
+  }, [mentionState, participantes, meuId])
+
+  const typingNames = Array.from(typingUsers.values()).map(t => t.nome)
 
   return (
     <>
@@ -677,7 +967,7 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
             <Users className="h-4 w-4" />
           </div>
         ) : (() => {
-          const outro = conversa.participantes.find(p => p.id !== meuId)
+          const outro = participantes.find(p => p.id !== meuId)
           if (!outro) return null
           return <Avatar user={outro} />
         })()}
@@ -689,8 +979,8 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
             </div>
           ) : (
             <div className="text-[11px] text-muted-foreground truncate">
-              {conversa.isGrupo ? `${conversa.participantes.length} membros` : (
-                conversa.participantes.find(p => p.id !== meuId)?.email ?? ''
+              {conversa.isGrupo ? `${participantes.length} membros` : (
+                participantes.find(p => p.id !== meuId)?.email ?? ''
               )}
             </div>
           )}
@@ -698,7 +988,10 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
       </div>
 
       {/* Mensagens */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 bg-muted/10">
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-3 py-3 space-y-2 bg-muted/10 relative">
+        {loadingMais && (
+          <div className="text-center py-2"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground inline" /></div>
+        )}
         {loading ? (
           <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : mensagens.length === 0 ? (
@@ -706,11 +999,26 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
         ) : (
           mensagens.map((m, idx) => {
             const ehMinha = m.autorId === meuId
-            const autorPart = !ehMinha ? conversa.participantes.find(p => p.id === m.autorId) : null
+            const autorPart = !ehMinha ? participantes.find(p => p.id === m.autorId) : null
             const showAvatar = !ehMinha && (idx === 0 || mensagens[idx - 1]?.autorId !== m.autorId)
-            const foiLida = ehMinha && lidoAteEm && new Date(m.createdAt) <= lidoAteEm
+            const foiLida = foiLidaPorTodos(m, ehMinha)
+            const isEditando = editandoId === m.id
+            const isDeletada = !!m.deletedAt
+            // Agrupa reactions por emoji
+            const reactionsAgrupadas = useMemo(() => {
+              const map = new Map<string, { count: number; users: string[]; reagi: boolean }>()
+              for (const r of m.reactions ?? []) {
+                const cur = map.get(r.emoji) ?? { count: 0, users: [], reagi: false }
+                cur.count++
+                cur.users.push(r.usuarioId)
+                if (r.usuarioId === meuId) cur.reagi = true
+                map.set(r.emoji, cur)
+              }
+              return Array.from(map.entries())
+            }, [m.reactions])
+
             return (
-              <div key={m.id} className={cn('flex gap-2', ehMinha ? 'justify-end' : 'justify-start')}>
+              <div key={m.id} className={cn('flex gap-2 group/msg relative', ehMinha ? 'justify-end' : 'justify-start')}>
                 {!ehMinha && (
                   <div className="w-7 shrink-0">
                     {showAvatar && autorPart && (
@@ -730,34 +1038,117 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
                     <div className="text-[10px] text-muted-foreground font-medium mb-0.5 px-2">{autorPart.name}</div>
                   )}
                   <div className={cn(
-                    'rounded-2xl px-3 py-1.5 text-sm leading-snug break-words',
+                    'rounded-2xl px-3 py-1.5 text-sm leading-snug break-words relative',
                     ehMinha ? 'bg-sky-500 text-white rounded-br-sm' : 'bg-muted text-foreground rounded-bl-sm',
+                    isDeletada && 'italic opacity-60',
                   )}>
-                    {m.conteudo}
-                    {m.anexos.length > 0 && (
-                      <div className="mt-1.5 space-y-1">
-                        {m.anexos.map(a => (
-                          a.mimeType?.startsWith('image/') ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img key={a.id} src={resolveAssetUrl(a.fileUrl)} alt={a.fileName} className="max-h-48 rounded-md" />
-                          ) : (
-                            <a key={a.id} href={resolveAssetUrl(a.fileUrl)} target="_blank" rel="noopener noreferrer"
-                              className={cn('flex items-center gap-1.5 text-xs underline truncate', ehMinha ? 'text-white/90' : 'text-sky-600')}>
-                              <Paperclip className="h-3 w-3" />{a.fileName}
-                            </a>
-                          )
-                        ))}
+                    {isEditando ? (
+                      <div className="flex flex-col gap-1">
+                        <textarea
+                          value={editTexto}
+                          onChange={e => setEditTexto(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Escape') setEditandoId(null)
+                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); salvarEdicao(m) }
+                          }}
+                          autoFocus
+                          rows={2}
+                          className="text-foreground rounded px-2 py-1 text-sm resize-none bg-background w-[260px]"
+                        />
+                        <div className="flex justify-end gap-1">
+                          <button type="button" onClick={() => setEditandoId(null)} className="text-[10px] opacity-70 hover:opacity-100">Cancelar</button>
+                          <button type="button" onClick={() => salvarEdicao(m)} className="text-[10px] font-semibold">Salvar (Enter)</button>
+                        </div>
                       </div>
+                    ) : isDeletada ? (
+                      'mensagem apagada'
+                    ) : (
+                      <>
+                        {renderConteudo(m.conteudo)}
+                        {m.editedAt && <span className="text-[9px] opacity-50 ml-1">(editado)</span>}
+                        {m.anexos.length > 0 && (
+                          <div className="mt-1.5 space-y-1">
+                            {m.anexos.map(a => (
+                              a.mimeType?.startsWith('image/') ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img key={a.id} src={resolveAssetUrl(a.fileUrl)} alt={a.fileName} className="max-h-48 rounded-md" />
+                              ) : (
+                                <a key={a.id} href={resolveAssetUrl(a.fileUrl)} target="_blank" rel="noopener noreferrer"
+                                  className={cn('flex items-center gap-1.5 text-xs underline truncate', ehMinha ? 'text-white/90' : 'text-sky-600')}>
+                                  <Paperclip className="h-3 w-3" />{a.fileName}
+                                </a>
+                              )
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
+
+                  {/* Reactions */}
+                  {reactionsAgrupadas.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1 px-1">
+                      {reactionsAgrupadas.map(([emoji, info]) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => toggleReaction(m, emoji)}
+                          className={cn(
+                            'inline-flex items-center gap-0.5 text-[11px] px-1.5 py-0.5 rounded-full border transition-colors',
+                            info.reagi
+                              ? 'bg-sky-100 dark:bg-sky-950/40 border-sky-300 dark:border-sky-800 text-sky-700 dark:text-sky-300'
+                              : 'bg-muted border-border text-muted-foreground hover:bg-muted/80',
+                          )}
+                        >
+                          <span>{emoji}</span>
+                          <span className="font-semibold">{info.count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Timestamp + check */}
                   <div className={cn('text-[10px] text-muted-foreground mt-0.5 px-1 flex items-center gap-1', ehMinha && 'flex-row-reverse')}>
                     {timeHm(m.createdAt)}
-                    {ehMinha && (foiLida
+                    {ehMinha && !isDeletada && (foiLida
                       ? <CheckCheck className="h-3 w-3 text-sky-500" />
                       : <Check className="h-3 w-3 text-muted-foreground" />
                     )}
                   </div>
                 </div>
+
+                {/* Menu de ações no hover */}
+                {!isEditando && !isDeletada && (
+                  <div className={cn(
+                    'absolute top-0 z-10 opacity-0 group-hover/msg:opacity-100 transition-opacity flex gap-0.5 bg-card border border-border rounded-md shadow-md px-1 py-0.5',
+                    ehMinha ? 'right-10' : 'left-10',
+                  )}>
+                    <button type="button" onClick={() => setEmojiPickerFor(emojiPickerFor === m.id ? null : m.id)} className="h-6 w-6 flex items-center justify-center hover:bg-muted rounded" title="Reagir">
+                      <Smile className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                    {ehMinha && (
+                      <>
+                        <button type="button" onClick={() => iniciarEdicao(m)} className="h-6 w-6 flex items-center justify-center hover:bg-muted rounded" title="Editar">
+                          <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                        <button type="button" onClick={() => deletar(m)} className="h-6 w-6 flex items-center justify-center hover:bg-rose-100 dark:hover:bg-rose-950/40 hover:text-rose-600 rounded" title="Apagar">
+                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Emoji picker popover */}
+                {emojiPickerFor === m.id && (
+                  <div className={cn('absolute top-6 z-20 bg-card border border-border rounded-md shadow-lg p-1 flex gap-0.5', ehMinha ? 'right-10' : 'left-10')}>
+                    {EMOJI_QUICK.map(e => (
+                      <button key={e} type="button" onClick={() => toggleReaction(m, e)} className="h-7 w-7 flex items-center justify-center hover:bg-muted rounded text-lg">
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )
           })
@@ -794,7 +1185,19 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
       )}
 
       {/* Input */}
-      <div className="px-3 py-2.5 border-t border-border bg-card flex items-end gap-2">
+      <div className="px-3 py-2.5 border-t border-border bg-card flex items-end gap-2 relative">
+        {/* Mention picker — popup acima do input */}
+        {mentionState?.open && mentionMatches.length > 0 && (
+          <div className="absolute bottom-full left-3 right-3 mb-1 bg-card border border-border rounded-md shadow-lg overflow-hidden z-10">
+            {mentionMatches.map(p => (
+              <button key={p.id} type="button" onClick={() => selecionarMention(p)}
+                className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-muted/50 text-left">
+                <AtSign className="h-3 w-3 text-muted-foreground" />
+                <span className="text-sm">{p.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <button type="button" onClick={() => fileInputRef.current?.click()}
           className="h-8 w-8 rounded hover:bg-muted flex items-center justify-center text-muted-foreground" title="Anexar">
           <ImagePlus className="h-4 w-4" />
@@ -803,11 +1206,12 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
         <textarea
           ref={textareaRef}
           value={texto}
-          onChange={e => setTexto(e.target.value)}
+          onChange={e => onTextChange(e.target.value, e.target.selectionStart)}
+          onSelect={e => onTextChange((e.target as HTMLTextAreaElement).value, (e.target as HTMLTextAreaElement).selectionStart)}
           onPaste={handlePaste}
           onKeyDown={onKey}
           rows={1}
-          placeholder="Mensagem… (Shift+Enter pra quebrar linha)"
+          placeholder="Mensagem… (digite @ pra mencionar)"
           className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 max-h-24"
         />
         <Button size="sm" onClick={enviar} disabled={enviando || (!texto.trim() && anexosPendentes.length === 0)}
@@ -820,7 +1224,7 @@ function ChatView({ conversa, meuId, onClose, onMessageSent }: {
 }
 
 // ============================================================
-// NovoGrupoView — modal in-painel pra criar grupo
+// NovoGrupoView
 // ============================================================
 
 function NovoGrupoView({ meuId, onlineUsers, onCancel, onCreated }: {

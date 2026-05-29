@@ -148,6 +148,11 @@ model User {
   lastActivityPath String?   @map("last_activity_path")
   lastActivityIp   String?   @map("last_activity_ip")
 
+  /// Override manual do status do chat. Valores: 'online' | 'ausente' | 'dnd'
+  /// (não perturbar) | 'invisible' (parece offline pros outros). null = automático
+  /// derivado do lastActivityAt.
+  chatStatus       String?   @map("chat_status")
+
   // Documentos
   cpf            String?
   rg             String?
@@ -4073,15 +4078,34 @@ model ChatMensagem {
   conversaId String       @map("conversa_id")
   conversa   ChatConversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
   autorId    String       @map("autor_id")
-  /// Texto puro (sem HTML) — UI escapa na renderização.
+  /// Texto puro (sem HTML) — UI escapa na renderização. Mentions são gravadas
+  /// como `<@userId>` no texto e a UI resolve em runtime via lista de participantes.
   conteudo   String       @db.Text
   editedAt   DateTime?    @map("edited_at")
+  /// Soft delete — mensagem fica no histórico mas UI mostra "mensagem apagada".
+  deletedAt  DateTime?    @map("deleted_at")
   createdAt  DateTime     @default(now()) @map("created_at")
 
-  anexos ChatAnexo[]
+  anexos    ChatAnexo[]
+  reactions ChatReaction[]
 
   @@index([conversaId, createdAt])
   @@map("chat_mensagens")
+}
+
+/// Reações de emoji em mensagens — múltiplos users podem reagir com o mesmo
+/// emoji (agregado na UI por count). Único por user/emoji/mensagem.
+model ChatReaction {
+  id          String       @id @default(cuid())
+  mensagemId  String       @map("mensagem_id")
+  mensagem    ChatMensagem @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
+  usuarioId   String       @map("usuario_id")
+  emoji       String
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  @@unique([mensagemId, usuarioId, emoji])
+  @@index([mensagemId])
+  @@map("chat_reactions")
 }
 
 model ChatAnexo {
