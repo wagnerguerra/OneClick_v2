@@ -96,6 +96,8 @@ function shouldIgnore(message: string): boolean {
   // 30s e poluí o /admin/erros-cliente.
   if (lower.includes('clienterror.report') && lower.includes('failed to fetch')) return true
   if (lower.includes('/trpc/clienterror.report')) return true
+  // Qualquer log do nosso wrapper trpc indicando "API offline" — não é bug de app
+  if (lower.includes('[trpc]') && lower.includes('falhou em') && lower.includes('failed to fetch')) return true
   return false
 }
 

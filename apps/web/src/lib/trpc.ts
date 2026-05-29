@@ -23,7 +23,16 @@ const fetchWithCredentials: typeof fetch = async (input, init) => {
     return res
   } catch (err) {
     if (typeof window !== 'undefined') {
-      console.error(`[trpc] ${method} ${url} FALHOU em ${Math.round(performance.now() - t0)}ms`, err)
+      // "Failed to fetch" = API totalmente offline (não respondeu nem com erro).
+      // Loga como warn pra não disparar ErrorReporter + Next dev overlay.
+      // ErrorReporter já filtra warn de tracking — economiza ruído quando API cai.
+      const isNetworkDown = err instanceof TypeError && /failed to fetch/i.test(err.message)
+      const msg = `[trpc] ${method} ${url} FALHOU em ${Math.round(performance.now() - t0)}ms`
+      if (isNetworkDown) {
+        console.warn(msg, '(API offline)')
+      } else {
+        console.error(msg, err)
+      }
     }
     throw err
   }
