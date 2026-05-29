@@ -37,6 +37,10 @@ interface AnexoPendente {
 export function FloatingFeedbackButton() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  // `entered`: estado de animação. false = invisível (mounting OR closing),
+  // true = totalmente aberto. Permite controlar entrada (false→true após mount)
+  // e saída (true→false antes do unmount em 200ms).
+  const [entered, setEntered] = useState(false)
   const [tipo, setTipo] = useState<Tipo>('INCIDENTE')
   const [texto, setTexto] = useState('')
   const [anexos, setAnexos] = useState<AnexoPendente[]>([])
@@ -47,6 +51,21 @@ export function FloatingFeedbackButton() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  /** Toggle com animação de entrada/saída — atrasa o unmount em 200ms pra rolar o fade-out. */
+  function setOpenAnimated(next: boolean) {
+    if (next) {
+      setOpen(true)
+      // Começa visível (entered=false) e dispara entered=true no próximo frame
+      // pra CSS aplicar a transição. Sem isso, mounta já no estado "aberto"
+      // e a animação de entrada não aparece.
+      setEntered(false)
+      requestAnimationFrame(() => requestAnimationFrame(() => setEntered(true)))
+    } else if (open) {
+      setEntered(false)
+      setTimeout(() => setOpen(false), 200)
+    }
+  }
+
   // Fecha ao clicar fora
   useEffect(() => {
     if (!open) return
@@ -55,7 +74,7 @@ export function FloatingFeedbackButton() {
         // Não fecha se o clique foi no botão FAB (que tem onClick próprio pra toggle)
         const fabBtn = document.getElementById('floating-feedback-button')
         if (fabBtn?.contains(e.target as Node)) return
-        setOpen(false)
+        setOpenAnimated(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
@@ -218,27 +237,52 @@ export function FloatingFeedbackButton() {
       <button
         id="floating-feedback-button"
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpenAnimated(!open)}
         aria-label="Fale com a TI"
         title="Reportar erro, sugestão ou mensagem"
         className={cn(
-          'fixed bottom-5 right-5 z-50 h-12 w-12 rounded-full shadow-lg transition-all',
+          'fixed bottom-5 right-5 z-50 h-12 w-12 rounded-full shadow-lg',
           'flex items-center justify-center text-white',
           'bg-[var(--mod-ti,#22d3ee)] hover:scale-105 active:scale-95',
-          open && 'ring-2 ring-offset-2 ring-[var(--mod-ti,#22d3ee)] ring-offset-background',
+          'transition-all duration-200 ease-out',
+          open && 'ring-2 ring-offset-2 ring-[var(--mod-ti,#22d3ee)] ring-offset-background rotate-90',
         )}
       >
-        {open ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
+        {/* Crossfade entre os 2 ícones — fica mais suave que troca direta */}
+        <span className="relative h-5 w-5">
+          <MessageCircle
+            className={cn(
+              'absolute inset-0 h-5 w-5 transition-all duration-200',
+              open ? 'opacity-0 scale-50 rotate-90' : 'opacity-100 scale-100 rotate-0',
+            )}
+          />
+          <X
+            className={cn(
+              'absolute inset-0 h-5 w-5 transition-all duration-200',
+              open ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90',
+            )}
+          />
+        </span>
       </button>
 
       {/* Popover */}
       {open && (
         <div
           ref={popoverRef}
-          className="fixed bottom-20 right-5 z-50 w-[360px] max-w-[calc(100vw-2.5rem)] rounded-lg border border-border bg-card shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200"
+          className={cn(
+            'fixed bottom-20 right-5 z-50 w-[360px] max-w-[calc(100vw-2.5rem)]',
+            'rounded-lg border border-border bg-card shadow-2xl overflow-hidden',
+            // Transição manual (origin no canto inferior direito = "sai do botão FAB").
+            // closing=true → animation reversa (fade-out + shrink + slide-down)
+            'origin-bottom-right transition-all duration-200 ease-out',
+            entered
+              ? 'opacity-100 scale-100 translate-y-0'
+              : 'opacity-0 scale-95 translate-y-2',
+          )}
+          style={{ willChange: 'transform, opacity' }}
         >
           {ticketCriado ? (
-            <SuccessState ticket={ticketCriado} onClose={() => setOpen(false)} />
+            <SuccessState ticket={ticketCriado} onClose={() => setOpenAnimated(false)} />
           ) : (
             <>
               {/* Header */}

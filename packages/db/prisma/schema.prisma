@@ -141,6 +141,13 @@ model User {
   // Visibilidade no módulo Colaboradores (público) — quando true, aparece no listing
   exibirComoColaborador Boolean @default(false) @map("exibir_como_colaborador")
 
+  // Tracking de presença (atualizado por middleware em toda request autenticada,
+  // throttled a cada 30s pra não martelar o banco). Usado pelo painel "Usuários
+  // online" no Service Manager via SSE.
+  lastActivityAt   DateTime? @map("last_activity_at")
+  lastActivityPath String?   @map("last_activity_path")
+  lastActivityIp   String?   @map("last_activity_ip")
+
   // Documentos
   cpf            String?
   rg             String?

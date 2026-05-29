@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from 'express'
 import * as trpcExpress from '@trpc/server/adapters/express'
 import { TrpcService, type TrpcContext } from './trpc.service'
 import { AuthService } from '../auth/auth.service'
+import { OnlineUsersService } from '../online-users/online-users.service'
 import { resolveTenantSchema } from '@saas/db'
 
 // Cache de sessão em memória (TTL 30s para evitar queries repetidas)
@@ -22,7 +23,18 @@ export class TrpcController {
   constructor(
     private readonly trpcService: TrpcService,
     private readonly authService: AuthService,
+    private readonly onlineUsersService: OnlineUsersService,
   ) {}
+
+  /** Extrai IP do client respeitando proxies (X-Forwarded-For/X-Real-IP). */
+  private extractIp(req: Request): string | null {
+    const xff = req.headers['x-forwarded-for']
+    if (typeof xff === 'string') return xff.split(',')[0]!.trim()
+    if (Array.isArray(xff) && xff[0]) return xff[0].split(',')[0]!.trim()
+    const real = req.headers['x-real-ip']
+    if (typeof real === 'string') return real
+    return req.ip || req.socket.remoteAddress || null
+  }
 
   onModuleInit() {
     const authInstance = this.authService.auth
@@ -83,6 +95,24 @@ export class TrpcController {
           empresaId,
           isMaster,
           isEmpresaMaster,
+        }
+
+        // Tracking de presença — fire-and-forget, throttled internamente a 30s/user.
+        // Path vem do header X-Page (frontend manda o pathname atual) com fallback
+        // pra Referer pra requests legadas.
+        if (userId) {
+          const headerPage = req.headers['x-page']
+          const pageFromHeader = typeof headerPage === 'string'
+            ? headerPage
+            : Array.isArray(headerPage) ? headerPage[0] : null
+          let pathFinal: string | null = pageFromHeader ?? null
+          if (!pathFinal) {
+            const ref = req.headers.referer
+            if (typeof ref === 'string') {
+              try { pathFinal = new URL(ref).pathname } catch { /* ignora */ }
+            }
+          }
+          this.onlineUsersService.touch(userId, pathFinal, this.extractIp(req))
         }
 
         // Salvar no cache

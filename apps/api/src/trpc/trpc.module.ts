@@ -53,9 +53,10 @@ import { NfseDistModule } from '../nfse-dist/nfse-dist.module'
 import { AgendamentoModule } from '../agendamento/agendamento.module'
 import { GoogleBackupModule } from '../google-backup/google-backup.module'
 import { SignatureModule } from '../signature/signature.module'
+import { OnlineUsersModule } from '../online-users/online-users.module'
 
 @Module({
-  imports: [AreaModule, EmpresaModule, UserModule, CargoModule, OnboardingModule, ClienteModule, AdminModule, AuthModule, StripeModule, ColaboradorModule, FornecedorModule, SocioModule, CnpjModule, SitfisModule, CaixaPostalModule, CndModule, DctfwebModule, BiModule, FolhaModule, AgendaModule, DteModule, CrmModule, OrcamentoModule, ServicoModule, ProcessoModule, PesquisaModule, ContratoModule, NotificationModule, TabsModule, CertificadoDigitalModule, DashboardLayoutModule, PermissionsEventsModule, NotificationsEventsModule, DashboardCalendarioModule, HelpdeskModule, AcessoriasModule, NotificacaoModule, ObrigacaoModule, FeriadoModule, GrupoObrigacaoModule, ProjetoModule, MinhasObrigacoesModule, AtivoModule, ClientErrorModule, ThemeModule, DanfeModule, DriveSyncModule, NfeDistModule, NfseDistModule, AgendamentoModule, GoogleBackupModule, SignatureModule],
+  imports: [AreaModule, EmpresaModule, UserModule, CargoModule, OnboardingModule, ClienteModule, AdminModule, AuthModule, StripeModule, ColaboradorModule, FornecedorModule, SocioModule, CnpjModule, SitfisModule, CaixaPostalModule, CndModule, DctfwebModule, BiModule, FolhaModule, AgendaModule, DteModule, CrmModule, OrcamentoModule, ServicoModule, ProcessoModule, PesquisaModule, ContratoModule, NotificationModule, TabsModule, CertificadoDigitalModule, DashboardLayoutModule, PermissionsEventsModule, NotificationsEventsModule, DashboardCalendarioModule, HelpdeskModule, AcessoriasModule, NotificacaoModule, ObrigacaoModule, FeriadoModule, GrupoObrigacaoModule, ProjetoModule, MinhasObrigacoesModule, AtivoModule, ClientErrorModule, ThemeModule, DanfeModule, DriveSyncModule, NfeDistModule, NfseDistModule, AgendamentoModule, GoogleBackupModule, SignatureModule, OnlineUsersModule],
   providers: [TrpcService],
   controllers: [TrpcController],
   exports: [TrpcService],

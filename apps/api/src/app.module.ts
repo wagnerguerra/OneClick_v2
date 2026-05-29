@@ -24,6 +24,7 @@ import { NfseDistModule } from './nfse-dist/nfse-dist.module'
 import { AgendamentoModule } from './agendamento/agendamento.module'
 import { GoogleBackupModule } from './google-backup/google-backup.module'
 import { SignatureModule } from './signature/signature.module'
+import { OnlineUsersModule } from './online-users/online-users.module'
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { SignatureModule } from './signature/signature.module'
     NfseDistModule,
     AgendamentoModule,
     GoogleBackupModule,
+    OnlineUsersModule,
     SignatureModule,
   ],
 })

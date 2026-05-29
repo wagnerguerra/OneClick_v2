@@ -878,18 +878,32 @@
         </div>
       </div>
 
-      <!-- ═══ Page: Users ═══ -->
+      <!-- ═══ Page: Users (online em tempo real via SSE da VPS) ═══ -->
       <div class="page" id="page-users">
         <div class="page-header">
           <div>
-            <div class="page-title">Usuários Logados</div>
-            <div class="page-subtitle">Sessões ativas no sistema</div>
+            <div class="page-title">
+              Usuários Online
+              <span id="onlineUsersBadge" style="display:inline-block;margin-left:10px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(148,163,184,0.2);color:#94a3b8;">desconectado</span>
+            </div>
+            <div class="page-subtitle">Atividade em tempo real na VPS — atualiza a cada 5s via SSE</div>
           </div>
-          <button class="btn btn-blue" onclick="fetchActiveUsers()">&#8635; Atualizar</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-solid-green" id="onlineUsersConnectBtn" onclick="onlineUsersConnect()">&#9654; Conectar</button>
+            <button class="btn btn-solid-red" id="onlineUsersDisconnectBtn" onclick="onlineUsersDisconnect()" style="display:none;">&#9632; Desconectar</button>
+          </div>
         </div>
+
+        <!-- URL da VPS -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--text-secondary);">
+          <strong>URL da VPS:</strong> <span id="onlineUsersUrl" style="font-family:monospace;color:var(--text-primary);">—</span>
+          <span style="margin-left:12px;color:var(--text-muted);">(definida em BI Sync)</span>
+        </div>
+
+        <!-- Lista -->
         <div class="users-panel">
           <div class="users-body" id="usersBody">
-            <div class="users-empty">Carregando...</div>
+            <div class="users-empty">Clique em "Conectar" pra começar a receber updates em tempo real.</div>
           </div>
         </div>
       </div>
@@ -1738,40 +1752,127 @@
     // ═══════════════════════════════════════════════════════════
     // Active Users
     // ═══════════════════════════════════════════════════════════
-    async function fetchActiveUsers() {
+    // ═══════════════════════════════════════════════════════════
+    // Usuários online (SSE da VPS)
+    // ═══════════════════════════════════════════════════════════
+    let onlineUsersEs = null;
+    let onlineUsersTick = null;
+
+    function onlineUsersGetUrl() {
+      // Mesma URL do BI Sync — o user já configura uma vez lá
+      return (document.getElementById('biSyncUrl')?.value || '').trim().replace(/\/$/, '');
+    }
+
+    function onlineUsersSetBadge(state) {
+      const el = document.getElementById('onlineUsersBadge');
+      if (!el) return;
+      const cfg = {
+        online:       { bg: 'rgba(34,197,94,0.2)',  color: '#22c55e', text: 'conectado' },
+        connecting:   { bg: 'rgba(245,158,11,0.2)', color: '#f59e0b', text: 'conectando…' },
+        reconnecting: { bg: 'rgba(245,158,11,0.2)', color: '#f59e0b', text: 'reconectando…' },
+        offline:      { bg: 'rgba(148,163,184,0.2)', color: '#94a3b8', text: 'desconectado' },
+        error:        { bg: 'rgba(239,68,68,0.2)',  color: '#ef4444', text: 'erro' },
+      };
+      const c = cfg[state] || cfg.offline;
+      el.style.background = c.bg;
+      el.style.color = c.color;
+      el.textContent = c.text;
+    }
+
+    function relativeTime(iso) {
+      if (!iso) return '—';
+      const diff = Date.now() - new Date(iso).getTime();
+      if (diff < 60_000) return 'agora';
+      if (diff < 3_600_000) return `há ${Math.floor(diff / 60_000)} min`;
+      return `há ${Math.floor(diff / 3_600_000)}h`;
+    }
+
+    function renderOnlineUsers(users) {
       const el = document.getElementById('usersBody');
       const statEl = document.getElementById('statUsers');
-      try {
-        const data = await api.getActiveUsers();
-        if (data.error) { el.innerHTML = `<div class="users-empty">Erro: ${escapeHtml(data.error)}</div>`; statEl.textContent = '-'; return; }
-        if (!Array.isArray(data) || data.length === 0) { el.innerHTML = '<div class="users-empty">Nenhum usuário logado no momento.</div>'; statEl.textContent = '0'; return; }
-        statEl.textContent = data.length;
-        const initials = (name) => (name || '??').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
-        const parseBrowser = (ua) => {
-          if (!ua) return 'Desconhecido';
-          if (ua.includes('Chrome') && !ua.includes('Edg')) return 'Chrome';
-          if (ua.includes('Edg')) return 'Edge';
-          if (ua.includes('Firefox')) return 'Firefox';
-          if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari';
-          return 'Outro';
-        };
-        let html = '<table class="users-table"><thead><tr><th></th><th>Usuário</th><th>E-mail</th><th>IP</th><th>Navegador</th><th>Sessão</th></tr></thead><tbody>';
-        for (const u of data) {
-          html += `<tr>
-            <td><span class="user-online-dot"></span></td>
-            <td><span class="user-avatar">${escapeHtml(initials(u.name))}</span>${escapeHtml(u.name || '—')}</td>
-            <td>${escapeHtml(u.email || '—')}</td>
-            <td>${escapeHtml(u.ip || '—')}</td>
-            <td>${escapeHtml(parseBrowser(u.user_agent))}</td>
-            <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
-          </tr>`;
-        }
-        html += '</tbody></table>';
-        el.innerHTML = html;
-      } catch {
-        el.innerHTML = '<div class="users-empty">PostgreSQL offline — não é possível consultar sessões.</div>';
-        statEl.textContent = '-';
+      if (!users || users.length === 0) {
+        el.innerHTML = '<div class="users-empty">Nenhum usuário ativo nos últimos 5 minutos.</div>';
+        if (statEl) statEl.textContent = '0';
+        return;
       }
+      if (statEl) statEl.textContent = users.length;
+      const initials = (name) => (name || '??').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+      let html = '<table class="users-table"><thead><tr><th></th><th>Usuário</th><th>Empresa</th><th>Página</th><th>IP</th><th>Última atividade</th></tr></thead><tbody>';
+      for (const u of users) {
+        const empresa = u.empresa?.nomeFantasia || u.empresa?.razaoSocial || '—';
+        const pagina = u.lastActivityPath || '—';
+        html += `<tr>
+          <td><span class="user-online-dot"></span></td>
+          <td>
+            <span class="user-avatar">${escapeHtml(initials(u.name))}</span>
+            <div style="display:inline-block;vertical-align:middle;">
+              <div style="font-weight:600;">${escapeHtml(u.name || '—')}</div>
+              <div style="font-size:11px;color:var(--text-muted);">${escapeHtml(u.email || '')}</div>
+            </div>
+          </td>
+          <td>${escapeHtml(empresa)}</td>
+          <td><code style="font-size:11px;background:rgba(148,163,184,0.1);padding:2px 6px;border-radius:3px;">${escapeHtml(pagina)}</code></td>
+          <td>${escapeHtml(u.lastActivityIp || '—')}</td>
+          <td>${escapeHtml(relativeTime(u.lastActivityAt))}</td>
+        </tr>`;
+      }
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    }
+
+    function onlineUsersConnect() {
+      const baseUrl = onlineUsersGetUrl();
+      if (!baseUrl) {
+        document.getElementById('usersBody').innerHTML = '<div class="users-empty">⚠️ Configure a URL da VPS na aba BI Sync primeiro.</div>';
+        onlineUsersSetBadge('error');
+        return;
+      }
+      onlineUsersDisconnect();  // garante limpeza antes
+      document.getElementById('onlineUsersUrl').textContent = baseUrl;
+      onlineUsersSetBadge('connecting');
+      document.getElementById('onlineUsersConnectBtn').style.display = 'none';
+      document.getElementById('onlineUsersDisconnectBtn').style.display = '';
+
+      const sseUrl = `${baseUrl}/api/admin/online-users/events`;
+      try {
+        onlineUsersEs = new EventSource(sseUrl);
+        onlineUsersEs.onopen = () => onlineUsersSetBadge('online');
+        onlineUsersEs.onmessage = (msg) => {
+          try {
+            const payload = JSON.parse(msg.data);
+            if (payload.users) renderOnlineUsers(payload.users);
+          } catch { /* ignora payload inválido */ }
+        };
+        onlineUsersEs.onerror = () => {
+          onlineUsersSetBadge('reconnecting');
+          // EventSource já tenta reconectar sozinho
+        };
+      } catch (e) {
+        document.getElementById('usersBody').innerHTML = `<div class="users-empty">Erro: ${escapeHtml(e.message)}</div>`;
+        onlineUsersSetBadge('error');
+      }
+
+      // Tick local pra atualizar os "há X min" sem precisar de nova request
+      if (onlineUsersTick) clearInterval(onlineUsersTick);
+      onlineUsersTick = setInterval(() => {
+        const rows = document.querySelectorAll('#usersBody tr td:last-child');
+        // Os timestamps são re-renderizados a cada evento SSE (5s); esse tick
+        // só ajuda a manter o badge visual coerente entre eventos.
+      }, 30_000);
+    }
+
+    function onlineUsersDisconnect() {
+      if (onlineUsersEs) {
+        try { onlineUsersEs.close(); } catch {}
+        onlineUsersEs = null;
+      }
+      if (onlineUsersTick) {
+        clearInterval(onlineUsersTick);
+        onlineUsersTick = null;
+      }
+      onlineUsersSetBadge('offline');
+      document.getElementById('onlineUsersConnectBtn').style.display = '';
+      document.getElementById('onlineUsersDisconnectBtn').style.display = 'none';
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -2112,8 +2213,9 @@
       }
       renderLogs();
 
-      fetchActiveUsers();
-      setInterval(fetchActiveUsers, 15000);
+      // Usuários online: agora via SSE (página separada) — user clica "Conectar"
+      // quando quiser ver. Auto-conecta se a aba "Usuários" estiver aberta E
+      // já há URL configurada (BI Sync foi logado).
       checkSci();
       setInterval(checkSci, 30000);
 

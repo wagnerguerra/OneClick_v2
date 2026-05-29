@@ -64,6 +64,13 @@ export const trpc = createTRPCClient<AppRouter>({
     httpLink({
       url: getTrpcUrl(),
       fetch: fetchWithCredentials,
+      // X-Page: passa o pathname atual em toda request. O backend usa pra
+      // popular `User.lastActivityPath` (mostrado no painel "Usuários online"
+      // do Service Manager).
+      headers: () => {
+        if (typeof window === 'undefined') return {}
+        return { 'x-page': window.location.pathname }
+      },
     }),
   ],
 })
