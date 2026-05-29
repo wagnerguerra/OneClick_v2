@@ -639,9 +639,12 @@ function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa }: {
     <ul className="py-1 px-1">
       {conversas.map(c => {
         const outro = !c.isGrupo ? c.participantes.find(p => p.id !== meuId) : null
-        const preview = c.ultimaMensagem?.conteudo
-          ? mencoesParaTexto(c.ultimaMensagem.conteudo, c.participantes)
-          : '—'
+        const rawPreview = c.ultimaMensagem?.conteudo ?? ''
+        const preview = !rawPreview
+          ? '—'
+          : rawPreview === '(anexo)'
+            ? '📎 Arquivo'
+            : mencoesParaTexto(rawPreview, c.participantes)
         const ativa = c.id === conversaAtivaId
         return (
           <li key={c.id} className="my-0.5">
@@ -791,6 +794,14 @@ function ChatView({ conversa, meuId, onMessageSent }: {
       // Recarrega só a última página pra pegar reactions atualizadas (não-otimizado, mas simples)
       loadMensagens()
     }
+    function onAnexoAdicionado(e: Event) {
+      const ev = (e as CustomEvent).detail as { conversaId: string; mensagemId: string; anexo: Mensagem['anexos'][number] }
+      if (ev.conversaId !== conversa.id) return
+      setMensagens(prev => prev.map(m => m.id === ev.mensagemId
+        ? { ...m, anexos: m.anexos.some(a => a.id === ev.anexo.id) ? m.anexos : [...m.anexos, ev.anexo] }
+        : m,
+      ))
+    }
     function onLido(e: Event) {
       const ev = (e as CustomEvent).detail as { conversaId: string; usuarioId: string; lidoEm: string }
       if (ev.conversaId !== conversa.id) return
@@ -810,6 +821,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
     window.addEventListener('chat:mensagem-editada', onEditada)
     window.addEventListener('chat:mensagem-deletada', onDeletada)
     window.addEventListener('chat:reaction-mudou', onReaction)
+    window.addEventListener('chat:anexo-adicionado', onAnexoAdicionado)
     window.addEventListener('chat:lido', onLido)
     window.addEventListener('chat:typing', onTyping)
     return () => {
@@ -817,6 +829,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
       window.removeEventListener('chat:mensagem-editada', onEditada)
       window.removeEventListener('chat:mensagem-deletada', onDeletada)
       window.removeEventListener('chat:reaction-mudou', onReaction)
+      window.removeEventListener('chat:anexo-adicionado', onAnexoAdicionado)
       window.removeEventListener('chat:lido', onLido)
       window.removeEventListener('chat:typing', onTyping)
     }
@@ -932,13 +945,18 @@ function ChatView({ conversa, meuId, onMessageSent }: {
     try {
       const msgConteudo = conteudo || '(anexo)'
       const msg = await (trpc.chat as any).enviar.mutate({ conversaId: conversa.id, conteudo: msgConteudo }) as Mensagem
+      // Envia cada anexo e captura o retorno (objeto real do banco) pra exibir no estado local
+      const anexosCriados: Mensagem['anexos'] = []
       for (const a of anexosPendentes) {
         if (!a.fileUrl) continue
-        await (trpc.chat as any).addAnexo.mutate({
-          mensagemId: msg.id, fileName: a.fileName, fileUrl: a.fileUrl, mimeType: a.mimeType, tamanho: a.tamanho,
-        }).catch(() => {})
+        try {
+          const criado = await (trpc.chat as any).addAnexo.mutate({
+            mensagemId: msg.id, fileName: a.fileName, fileUrl: a.fileUrl, mimeType: a.mimeType, tamanho: a.tamanho,
+          }) as { id: string; fileName: string; fileUrl: string; mimeType: string | null; tamanho: number }
+          anexosCriados.push(criado)
+        } catch { /* anexo falhou, mas mensagem já foi */ }
       }
-      setMensagens(prev => [...prev, { ...msg, anexos: [], reactions: [] }])
+      setMensagens(prev => [...prev, { ...msg, anexos: anexosCriados, reactions: [] }])
       setTexto('')
       setAnexosPendentes([])
       setMentionState(null)
