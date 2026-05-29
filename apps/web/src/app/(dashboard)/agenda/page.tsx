@@ -21,6 +21,7 @@ import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { trpc } from '@/lib/trpc'
+import { resolveAssetUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 import Swal from 'sweetalert2'
 import { useSession } from '@/lib/auth-client'
@@ -248,7 +249,10 @@ export default function AgendaPage() {
   const [novoLembreteCanal, setNovoLembreteCanal] = useState<'POPUP' | 'EMAIL'>('POPUP')
 
   // Logs do evento
-  const [eventLogs, setEventLogs] = useState<Array<{ id: string; acao: string; createdAt: string }>>([])
+  const [eventLogs, setEventLogs] = useState<Array<{
+    id: string; acao: string; createdAt: string
+    usuario: { id: string; name: string; image: string | null } | null
+  }>>([])
 
   // Importação legado
   const [importModalOpen, setImportModalOpen] = useState(false)
@@ -1255,68 +1259,156 @@ export default function AgendaPage() {
 
           <DialogBody>
             {/* VIEW MODE */}
-            {modalMode === 'view' && selectedEvento && (
-              <div className="space-y-4">
-                {/* Data e hora */}
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  {(() => {
-                    const d = new Date(selectedEvento.data)
-                    const dataFmt = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
-                    const dataFimFmt = selectedEvento.dataFim ? (() => { const df = new Date(selectedEvento.dataFim!); return `${String(df.getUTCDate()).padStart(2, '0')}/${String(df.getUTCMonth() + 1).padStart(2, '0')}/${df.getUTCFullYear()}` })() : null
-                    if (selectedEvento.diaInteiro) {
-                      return <span>{dataFimFmt ? `${dataFmt} — ${dataFimFmt}` : `Dia inteiro — ${dataFmt}`}</span>
-                    }
-                    return <span>{selectedEvento.horaInicio} — {selectedEvento.horaFim} · {dataFimFmt ? `${dataFmt} a ${dataFimFmt}` : dataFmt}</span>
-                  })()}
-                </div>
-                {/* Local */}
-                {selectedEvento.local && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span>{selectedEvento.local}</span>
-                  </div>
-                )}
-                {/* Presença */}
-                <div className="flex items-center gap-2 text-sm">
-                  {(() => { const p = PRESENCA_LABELS[selectedEvento.presenca]; const I = p?.icon ?? Building2; return <><I className="h-4 w-4 text-muted-foreground" /><span>{p?.label ?? selectedEvento.presenca}</span></> })()}
-                </div>
-                {/* Link */}
-                {selectedEvento.link && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Video className="h-4 w-4 text-muted-foreground" />
-                    <a href={selectedEvento.link} target="_blank" rel="noopener noreferrer" className="text-sky-500 hover:underline truncate">{selectedEvento.link}</a>
-                  </div>
-                )}
-                {/* Recorrência */}
-                {selectedEvento.recorrencia !== 'NENHUMA' && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Repeat className="h-4 w-4 text-muted-foreground" />
-                    <span>{RECORRENCIA_LABELS[selectedEvento.recorrencia]}</span>
-                  </div>
-                )}
-                {/* Participantes */}
-                {selectedEvento.participantes.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-2 text-sm mb-2">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{selectedEvento.participantes.length} participante(s)</span>
+            {modalMode === 'view' && selectedEvento && (() => {
+              const ev = selectedEvento
+              const corTipo = ev.tipo.cor || '#0ea5e9'
+              const dataIni = new Date(ev.data)
+              const dataFim = ev.dataFim ? new Date(ev.dataFim) : null
+              const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+              const diasSemana = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
+              const presencaDef = PRESENCA_LABELS[ev.presenca]
+              const PresencaIcon = presencaDef?.icon ?? Building2
+              return (
+                <div className="space-y-4">
+                  {/* HERO: data destacada + tipo + horário */}
+                  <div
+                    className="rounded-xl overflow-hidden border"
+                    style={{ borderColor: `${corTipo}40` }}
+                  >
+                    <div
+                      className="px-5 py-4 flex items-stretch gap-4"
+                      style={{ background: `linear-gradient(135deg, ${corTipo}18 0%, ${corTipo}08 100%)` }}
+                    >
+                      {/* Bloco da data (calendário-like) */}
+                      <div
+                        className="shrink-0 w-16 rounded-lg overflow-hidden border bg-card"
+                        style={{ borderColor: `${corTipo}30` }}
+                      >
+                        <div
+                          className="text-center py-1 text-[10px] font-bold uppercase tracking-wider text-white"
+                          style={{ backgroundColor: corTipo }}
+                        >
+                          {meses[dataIni.getUTCMonth()]}
+                        </div>
+                        <div className="text-center py-2">
+                          <div className="text-2xl font-bold leading-none tabular-nums">{dataIni.getUTCDate()}</div>
+                          <div className="text-[9px] text-muted-foreground uppercase tracking-wider mt-1">
+                            {dataIni.getUTCFullYear()}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Conteúdo lateral: badges + data extensa + horário */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: corTipo, color: '#fff' }}
+                          >
+                            {ev.tipo.nome}
+                          </span>
+                          {ev.particular && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                              <Lock className="h-2.5 w-2.5" />Particular
+                            </span>
+                          )}
+                          {ev.recorrencia !== 'NENHUMA' && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-700 dark:text-violet-300">
+                              <Repeat className="h-2.5 w-2.5" />{RECORRENCIA_LABELS[ev.recorrencia]}
+                            </span>
+                          )}
+                          {ev.isTarefa && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                              Tarefa
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[13px] text-foreground/85 capitalize leading-tight">
+                          {diasSemana[dataIni.getUTCDay()]}
+                          {dataFim && dataFim.toISOString().slice(0, 10) !== dataIni.toISOString().slice(0, 10) && (
+                            <span className="text-muted-foreground"> → {String(dataFim.getUTCDate()).padStart(2, '0')}/{String(dataFim.getUTCMonth() + 1).padStart(2, '0')}/{dataFim.getUTCFullYear()}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-sm font-semibold">
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                          {ev.diaInteiro
+                            ? <span>Dia inteiro</span>
+                            : <span className="tabular-nums">{ev.horaInicio} <span className="text-muted-foreground/70 mx-1">—</span> {ev.horaFim}</span>}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-1.5 pl-6">
-                      {selectedEvento.participantes.map(p => (
-                        <span key={p.id} className="text-xs bg-muted px-2 py-1 rounded-full">
-                          {p.usuario?.name ?? p.nomeAvulso}
+                  </div>
+
+                  {/* GRID DE INFOS */}
+                  {(ev.local || ev.sala || true) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <InfoRow icon={PresencaIcon} label="Modalidade" value={presencaDef?.label ?? ev.presenca} />
+                      {ev.local && <InfoRow icon={MapPin} label="Local" value={ev.local} />}
+                      {ev.sala && <InfoRow icon={Building2} label="Sala" value={ev.sala} />}
+                      {ev.contato && <InfoRow icon={Users} label="Contato" value={ev.contato} />}
+                    </div>
+                  )}
+
+                  {/* Link da reunião */}
+                  {ev.link && (
+                    <div className="rounded-lg border border-border bg-muted/30 px-3.5 py-2.5 flex items-center gap-2.5">
+                      <div className="h-8 w-8 rounded-md bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                        <Video className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider leading-tight">Link da reunião</div>
+                        <a
+                          href={ev.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[13px] text-sky-600 dark:text-sky-400 hover:underline truncate block leading-tight"
+                        >
+                          {ev.link}
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Participantes — avatares */}
+                  {ev.participantes.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                          {ev.participantes.length} participante{ev.participantes.length > 1 ? 's' : ''}
                         </span>
-                      ))}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {ev.participantes.map(p => {
+                          const nome = p.usuario?.name ?? p.nomeAvulso ?? '?'
+                          const iniciais = nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+                          return (
+                            <span
+                              key={p.id}
+                              className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full bg-muted/60 border border-border/60"
+                              title={nome}
+                            >
+                              <span className="h-5 w-5 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-white text-[9px] font-bold flex items-center justify-center">
+                                {iniciais}
+                              </span>
+                              <span className="text-[12px] font-medium truncate max-w-[160px]">{nome}</span>
+                            </span>
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
-                {/* Descrição */}
-                {selectedEvento.descricao && (
-                  <div className="border-t pt-3 mt-3">
-                    <div className="text-sm prose prose-sm dark:prose-invert max-w-none [&_*]:text-sm" dangerouslySetInnerHTML={{ __html: selectedEvento.descricao }} />
-                  </div>
-                )}
+                  )}
+
+                  {/* Descrição */}
+                  {ev.descricao && (
+                    <div className="rounded-lg border-l-4 bg-muted/30 px-4 py-3" style={{ borderLeftColor: corTipo }}>
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Descrição</div>
+                      <div
+                        className="text-sm prose prose-sm dark:prose-invert max-w-none [&_*]:text-sm [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-sky-600"
+                        dangerouslySetInnerHTML={{ __html: ev.descricao }}
+                      />
+                    </div>
+                  )}
                 {/* Histórico */}
                 {eventLogs.length > 0 && (
                   <div className="border-t pt-3 mt-3">
@@ -1324,12 +1416,20 @@ export default function AgendaPage() {
                       <History className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-xs font-medium text-muted-foreground">Histórico</span>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       {eventLogs.map(log => (
                         <div key={log.id} className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                          <span className="shrink-0">{new Date(log.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                          <span>—</span>
+                          {log.usuario?.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={resolveAssetUrl(log.usuario.image)} alt={log.usuario.name} className="h-4 w-4 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <span className="h-4 w-4 rounded-full bg-muted text-muted-foreground text-[7px] font-bold flex items-center justify-center shrink-0">
+                              {(log.usuario?.name ?? '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                            </span>
+                          )}
+                          <span className="font-medium text-foreground/80 truncate">{log.usuario?.name ?? 'Sistema'}</span>
                           <span className="capitalize">{log.acao}</span>
+                          <span className="ml-auto shrink-0">{new Date(log.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
                       ))}
                     </div>
@@ -1355,7 +1455,8 @@ export default function AgendaPage() {
                   )
                 })()}
               </div>
-            )}
+              )
+            })()}
 
             {/* CREATE / EDIT MODE */}
             {(modalMode === 'create' || modalMode === 'edit') && (() => {

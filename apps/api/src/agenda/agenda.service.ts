@@ -805,10 +805,21 @@ export class AgendaService {
   // ============================================================
 
   async listLogs(eventoId: string) {
-    return prisma.agendaLog.findMany({
+    const logs = await prisma.agendaLog.findMany({
       where: { eventoId },
       orderBy: { createdAt: 'desc' },
     })
+    if (logs.length === 0) return []
+    // Enriquecimento: busca os nomes dos autores em batch (1 query) e adiciona
+    // como campo `usuario`. AgendaLog não tem relação direta no schema, então
+    // resolvemos manualmente em vez de mexer na migration.
+    const userIds = Array.from(new Set(logs.map(l => l.usuarioId).filter(Boolean)))
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, image: true },
+    })
+    const userMap = new Map(users.map(u => [u.id, u]))
+    return logs.map(l => ({ ...l, usuario: userMap.get(l.usuarioId) ?? null }))
   }
 
   // ============================================================

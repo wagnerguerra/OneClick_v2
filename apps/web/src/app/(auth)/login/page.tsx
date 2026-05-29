@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
@@ -11,7 +10,6 @@ import { signIn } from '@/lib/auth-client'
 import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -102,7 +100,12 @@ export default function LoginPage() {
         return
       }
 
-      router.push('/dashboard')
+      // Usa window.location em vez de router.push pra forçar full reload — o
+      // useSession() do (dashboard)/layout monta do zero e faz fetch fresh já
+      // com o cookie de sessão no jar. Com soft nav (router.push), o useSession
+      // reutiliza o cache anterior "session=null" e o layout redireciona de
+      // volta pra /login (tela "pisca" e o user precisa clicar 2x).
+      window.location.href = '/dashboard'
     } catch {
       setError('Usuário ou senha inválidos. Verifique suas credenciais e tente novamente.')
     } finally {
