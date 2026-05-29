@@ -697,6 +697,8 @@ function ChatView({ conversa, meuId, onMessageSent }: {
   const [typingUsers, setTypingUsers] = useState<Map<string, { nome: string; ts: number }>>(new Map())
   const [emojiPickerFor, setEmojiPickerFor] = useState<string | null>(null)
   const [mentionState, setMentionState] = useState<{ open: boolean; query: string; start: number } | null>(null)
+  // Mapeia "@Nome" (visível no input) → userId (usado no <@id> ao enviar)
+  const [mentionsRefs, setMentionsRefs] = useState<Array<{ name: string; id: string }>>([])
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -891,20 +893,31 @@ function ChatView({ conversa, meuId, onMessageSent }: {
     if (!mentionState) return
     const before = texto.slice(0, mentionState.start)
     const after = texto.slice(mentionState.start + 1 + mentionState.query.length)
-    const novoTexto = `${before}<@${p.id}>${after} `
+    // Insere "@Nome " visível no input (bonito); a conversão para <@id> acontece no enviar()
+    const novoTexto = `${before}@${p.name}${after} `
     setTexto(novoTexto)
+    setMentionsRefs(prev => prev.some(m => m.id === p.id) ? prev : [...prev, { name: p.name, id: p.id }])
     setMentionState(null)
     setTimeout(() => textareaRef.current?.focus(), 0)
   }
 
   // ========== Enviar ==========
   async function enviar() {
-    const conteudo = texto.trim()
-    if (!conteudo && anexosPendentes.length === 0) return
+    const textoCru = texto.trim()
+    if (!textoCru && anexosPendentes.length === 0) return
     if (anexosPendentes.some(a => a.uploading)) {
       alerts.error('Aguarde', 'Anexos ainda enviando…')
       return
     }
+    // Converte cada "@Nome" do input em "<@id>" (formato persistido no backend).
+    // Ordena por nome desc pra que "Wagner Guerra" seja resolvido antes de "Wagner".
+    let conteudo = textoCru
+    const refsOrdenadas = [...mentionsRefs].sort((a, b) => b.name.length - a.name.length)
+    for (const ref of refsOrdenadas) {
+      const esc = ref.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      conteudo = conteudo.replace(new RegExp(`@${esc}(?=\\s|$|[^\\w])`, 'g'), `<@${ref.id}>`)
+    }
+
     setEnviando(true)
     try {
       const msgConteudo = conteudo || '(anexo)'
@@ -919,6 +932,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
       setTexto('')
       setAnexosPendentes([])
       setMentionState(null)
+      setMentionsRefs([])
       onMessageSent()
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setEnviando(false) }
