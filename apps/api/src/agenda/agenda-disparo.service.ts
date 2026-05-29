@@ -289,21 +289,29 @@ export class AgendaDisparoService implements OnModuleInit {
         ? `<div class="ev-creator" style="margin-top:12px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Agendado por ${this.escape(ev.criador.name)}</div>`
         : ''
 
+      // Wrapper externo com bgcolor cinza + 1px padding cria efeito visual de
+      // "borda" que sobrevive a qualquer sanitizacao de CSS (Gmail, Outlook).
+      // Faixa lateral colorida vem como td separada de 4px largura.
       return `
-<table cellpadding="0" cellspacing="0" border="0" width="100%" class="ev-card" style="margin:0 0 14px;background:#ffffff;border:1px solid #cbd5e1;border-left:4px solid ${cor};border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.08)">
-  <tr>
-    <td width="68" valign="top" class="ev-time-cell" style="padding:14px 10px 14px 14px;text-align:center;border-right:1px solid #f1f5f9;vertical-align:middle;background:#f8fafc">
-      ${horarioBlock}
-    </td>
-    <td valign="top" style="padding:14px 16px;vertical-align:top">
-      <div class="ev-title" style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;line-height:1.3">${this.escape(ev.titulo)}</div>
-      <div style="margin-bottom:4px">${linhaInfo.join(' &nbsp; ')}</div>
-      ${linkHtml}
-      ${prepHtml}
-      ${participantesHtml}
-      ${criadorHtml}
-    </td>
-  </tr>
+<table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 14px">
+  <tr><td bgcolor="#cbd5e1" class="ev-border" style="background-color:#cbd5e1;padding:1px;border-radius:10px">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" class="ev-card" style="background:#ffffff;border-radius:9px;overflow:hidden">
+      <tr>
+        <td width="4" bgcolor="${cor}" style="background-color:${cor};width:4px;padding:0;line-height:0;font-size:0">&nbsp;</td>
+        <td width="68" valign="middle" class="ev-time-cell" style="padding:14px 10px 14px 14px;text-align:center;border-right:1px solid #f1f5f9;vertical-align:middle;background:#f8fafc">
+          ${horarioBlock}
+        </td>
+        <td valign="top" style="padding:14px 16px;vertical-align:top">
+          <div class="ev-title" style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;line-height:1.3">${this.escape(ev.titulo)}</div>
+          <div style="margin-bottom:4px">${linhaInfo.join(' &nbsp; ')}</div>
+          ${linkHtml}
+          ${prepHtml}
+          ${participantesHtml}
+          ${criadorHtml}
+        </td>
+      </tr>
+    </table>
+  </td></tr>
 </table>`
     }
 
@@ -341,7 +349,8 @@ export class AgendaDisparoService implements OnModuleInit {
     .brand-bar { background: #1e293b !important; border-color: rgba(255,255,255,0.08) !important; }
     .brand-text { color: #f1f5f9 !important; }
     .greeting-eyebrow { color: #94a3b8 !important; }
-    .ev-card { background: #1e293b !important; border-color: rgba(255,255,255,0.14) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important; }
+    .ev-border { background-color: #334155 !important; }
+    .ev-card { background: #1e293b !important; }
     .ev-time-cell { background: #0f172a !important; border-right-color: rgba(255,255,255,0.06) !important; }
     .ev-time { color: #f1f5f9 !important; }
     .ev-time-end { color: #64748b !important; }
