@@ -888,7 +888,93 @@ export class HelpdeskService {
       },
     })
     await this.addEvento(ticketId, autorId, 'anexo_adicionado', `Anexo: ${file.fileName}`)
+    // Anexo standalone (sem mensagem associada) notifica o outro lado por sino
+    // + e-mail. Se vier junto com uma mensagem, a notifyMensagem já notifica e
+    // duplicar seria ruído.
+    if (!mensagemId) {
+      void this.notifyAnexo(ticketId, autorId, file.fileName)
+    }
     return anexo
+  }
+
+  /**
+   * Notifica o "outro lado" quando um anexo é adicionado fora de uma mensagem:
+   *   - TI (responsável/agente) anexa → notifica solicitante (sino + email)
+   *   - Solicitante anexa → notifica responsável (ou área inteira se sem responsável)
+   *                          + watchers
+   */
+  private async notifyAnexo(ticketId: string, autorId: string, fileName: string) {
+    try {
+      const t = await prisma.helpdeskTicket.findUnique({
+        where: { id: ticketId },
+        select: {
+          numero: true, titulo: true, empresaId: true, areaId: true,
+          solicitanteId: true, responsavelId: true,
+          solicitante: { select: { name: true, email: true } },
+          responsavel: { select: { name: true, email: true } },
+          watchers: { select: { userId: true } },
+        },
+      })
+      if (!t) return
+      const ticketNum = `#HLP${String(t.numero).padStart(4, '0')}`
+      const link = `/helpdesk/${ticketId}`
+      const ehSolicitante = autorId === t.solicitanteId
+
+      // Sino — quem deve ver
+      const set = new Set<string>()
+      if (ehSolicitante) {
+        // Solicitante anexou: notifica responsável + watchers; sem responsável, área
+        if (t.responsavelId) set.add(t.responsavelId)
+        else if (t.areaId) {
+          const agentesArea = await prisma.user.findMany({
+            where: {
+              areaId: t.areaId,
+              isActive: true,
+              id: { not: autorId },
+              ...(t.empresaId ? { OR: [{ empresaId: t.empresaId }, { empresaId: null }] } : {}),
+            },
+            select: { id: true },
+          })
+          for (const a of agentesArea) set.add(a.id)
+        }
+        for (const w of t.watchers) set.add(w.userId)
+      } else {
+        // TI/agente anexou: notifica solicitante + watchers (exceto autor)
+        if (t.solicitanteId) set.add(t.solicitanteId)
+        for (const w of t.watchers) set.add(w.userId)
+      }
+      set.delete(autorId)
+      const dest = Array.from(set)
+
+      if (dest.length > 0) {
+        await this.notificationService.criarParaUsers(dest, {
+          titulo: `Novo anexo em ${ticketNum}`,
+          mensagem: `${fileName} — ${t.titulo}`,
+          tipo: 'info',
+          link,
+          origem: 'helpdesk',
+          empresaId: t.empresaId,
+        })
+      }
+
+      // E-mail pro outro lado
+      const corpo = `Um novo anexo foi adicionado ao ticket <strong>${t.titulo}</strong>:<br><br><strong>📎 ${fileName}</strong>`
+      if (ehSolicitante && t.responsavel?.email) {
+        void this.emailService.sendMail({
+          to: t.responsavel.email,
+          subject: `HelpDesk ${ticketNum} — solicitante anexou um arquivo`,
+          html: this.emailTpl(ticketNum, corpo, link),
+        })
+      } else if (!ehSolicitante && t.solicitante?.email) {
+        void this.emailService.sendMail({
+          to: t.solicitante.email,
+          subject: `HelpDesk ${ticketNum} — novo anexo`,
+          html: this.emailTpl(ticketNum, corpo, link),
+        })
+      }
+    } catch (e) {
+      console.warn('[Helpdesk] Falha em notifyAnexo:', (e as Error).message)
+    }
   }
 
   async listAnexos(ticketId: string) {

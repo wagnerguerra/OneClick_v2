@@ -425,16 +425,42 @@ export default function HelpdeskTicketDetailPage() {
 
             <TabsContent value="conversa" className="space-y-3 mt-0">
               {/* Descrição inicial */}
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-2 text-[11px] text-muted-foreground">
-                    <FileText className="h-3.5 w-3.5" />
-                    <span className="font-semibold">Descrição inicial</span>
-                    {ticket.solicitante && <span>· {ticket.solicitante.name}</span>}
-                    <span>· {new Date(ticket.createdAt).toLocaleString('pt-BR')}</span>
+              <Card className="border-l-4 border-l-cyan-500/70 overflow-hidden">
+                {/* Header com avatar + autor + timestamp */}
+                <div className="px-4 py-3 bg-muted/30 border-b flex items-center gap-3">
+                  {ticket.solicitante?.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={resolveAssetUrl(ticket.solicitante.image)}
+                      alt={ticket.solicitante.name}
+                      className="h-9 w-9 rounded-full object-cover shrink-0 ring-2 ring-card"
+                    />
+                  ) : (
+                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-cyan-500 to-sky-500 text-white text-xs font-bold flex items-center justify-center shrink-0 ring-2 ring-card">
+                      {(ticket.solicitante?.name ?? '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span className="text-sm font-semibold truncate">
+                        {ticket.solicitante?.name ?? 'Solicitante externo'}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-cyan-700 dark:text-cyan-400 px-1.5 py-0.5 rounded bg-cyan-500/10">
+                        <FileText className="h-2.5 w-2.5" /> Descrição inicial
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {ticket.solicitante?.email && (
+                        <span className="mr-2">{ticket.solicitante.email}</span>
+                      )}
+                      <span>{new Date(ticket.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    </p>
                   </div>
+                </div>
+                {/* Conteúdo da descrição */}
+                <CardContent className="px-5 py-4">
                   <div
-                    className="text-sm prose-sm max-w-none whitespace-pre-wrap"
+                    className="text-sm leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-cyan-600 [&_a]:underline"
                     dangerouslySetInnerHTML={{ __html: linkifyHelpdesk(ticket.descricao) }}
                   />
                 </CardContent>
@@ -548,17 +574,13 @@ export default function HelpdeskTicketDetailPage() {
             </TabsContent>
 
             <TabsContent value="anexos" className="mt-0">
-              {ticket.anexos.length === 0 ? (
-                <Card><CardContent className="p-6 text-center text-xs text-muted-foreground">
-                  Nenhum anexo neste ticket.
-                </CardContent></Card>
-              ) : (
-                <AnexosViewer
-                  anexos={ticket.anexos}
-                  selecionadoId={anexoSelecionadoId}
-                  onSelect={setAnexoSelecionadoId}
-                />
-              )}
+              <AnexosViewer
+                ticketId={ticket.id}
+                anexos={ticket.anexos}
+                selecionadoId={anexoSelecionadoId}
+                onSelect={setAnexoSelecionadoId}
+                onUploaded={() => fetchData(true)}
+              />
             </TabsContent>
 
             <TabsContent value="timeline" className="mt-0">
@@ -800,10 +822,12 @@ function formatarBytes(b: number): string {
   return `${(b / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function AnexosViewer({ anexos, selecionadoId, onSelect }: {
+function AnexosViewer({ ticketId, anexos, selecionadoId, onSelect, onUploaded }: {
+  ticketId: string
   anexos: Anexo[]
   selecionadoId: string | null
   onSelect: (id: string) => void
+  onUploaded: () => void
 }) {
   const ativo = anexos.find(a => a.id === selecionadoId) ?? anexos[0]
 
@@ -811,37 +835,44 @@ function AnexosViewer({ anexos, selecionadoId, onSelect }: {
     <Card>
       <CardContent className="p-0">
         <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] min-h-[480px]">
-          {/* Lista lateral de anexos */}
-          <div className="border-b md:border-b-0 md:border-r divide-y max-h-[680px] overflow-y-auto">
-            <div className="px-3 py-2 bg-muted/30 sticky top-0 z-10 border-b">
+          {/* Lista lateral de anexos + dropzone no topo */}
+          <div className="border-b md:border-b-0 md:border-r flex flex-col max-h-[680px]">
+            <AnexosDropArea ticketId={ticketId} onUploaded={onUploaded} />
+            <div className="px-3 py-2 bg-muted/30 border-b border-t">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                {anexos.length} arquivo{anexos.length > 1 ? 's' : ''}
+                {anexos.length === 0 ? 'Sem arquivos' : `${anexos.length} arquivo${anexos.length > 1 ? 's' : ''}`}
               </span>
             </div>
-            {anexos.map(a => {
-              const Icon = iconeDoArquivo(a.mimeType)
-              const isAtivo = a.id === ativo?.id
-              return (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => onSelect(a.id)}
-                  className={cn(
-                    'w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors',
-                    isAtivo ? 'bg-cyan-500/10 border-l-2 border-cyan-500' : 'hover:bg-muted/40 border-l-2 border-transparent',
-                  )}
-                >
-                  <Icon className={cn('h-4 w-4 shrink-0 mt-0.5', isAtivo ? 'text-cyan-600 dark:text-cyan-400' : 'text-muted-foreground')} />
-                  <div className="flex-1 min-w-0">
-                    <p className={cn('text-[12px] truncate leading-tight', isAtivo ? 'font-semibold text-foreground' : 'font-medium')}>{a.fileName}</p>
-                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5 truncate">
-                      {a.tamanho > 0 ? formatarBytes(a.tamanho) : '—'}
-                      {a.autor?.name && ` · ${a.autor.name}`}
-                    </p>
-                  </div>
-                </button>
-              )
-            })}
+            <div className="flex-1 overflow-y-auto divide-y">
+              {anexos.length === 0 ? (
+                <div className="px-3 py-6 text-center text-[11px] text-muted-foreground italic">
+                  Arraste ou clique acima<br />pra adicionar.
+                </div>
+              ) : anexos.map(a => {
+                const Icon = iconeDoArquivo(a.mimeType)
+                const isAtivo = a.id === ativo?.id
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => onSelect(a.id)}
+                    className={cn(
+                      'w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors',
+                      isAtivo ? 'bg-cyan-500/10 border-l-2 border-cyan-500' : 'hover:bg-muted/40 border-l-2 border-transparent',
+                    )}
+                  >
+                    <Icon className={cn('h-4 w-4 shrink-0 mt-0.5', isAtivo ? 'text-cyan-600 dark:text-cyan-400' : 'text-muted-foreground')} />
+                    <div className="flex-1 min-w-0">
+                      <p className={cn('text-[12px] truncate leading-tight', isAtivo ? 'font-semibold text-foreground' : 'font-medium')}>{a.fileName}</p>
+                      <p className="text-[10px] text-muted-foreground leading-tight mt-0.5 truncate">
+                        {a.tamanho > 0 ? formatarBytes(a.tamanho) : '—'}
+                        {a.autor?.name && ` · ${a.autor.name}`}
+                      </p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           {/* Painel de preview */}
@@ -943,6 +974,133 @@ function AnexoPreview({ anexo }: { anexo: Anexo }) {
           Este tipo de arquivo não pode ser exibido inline. Use os botões acima pra abrir ou baixar.
         </p>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Área dropzone embarcada no topo do painel de anexos. Click → file picker;
+ * drop → upload direto. Cada arquivo: POST /api/upload → trpc helpdesk.addAnexo
+ * (que dispara notificação pro outro lado: TI↔solicitante).
+ */
+function AnexosDropArea({ ticketId, onUploaded }: { ticketId: string; onUploaded: () => void }) {
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState(0)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const areaRef = useRef<HTMLDivElement>(null)
+
+  const handleFiles = useCallback(async (files: File[]) => {
+    if (files.length === 0) return
+    // Bloqueia executáveis no client
+    const blocked = ['.exe', '.bat', '.cmd', '.sh', '.msi', '.dll']
+    const MAX_BYTES = 20 * 1024 * 1024
+    const ok = files.filter(f => {
+      const ext = '.' + (f.name.split('.').pop() || '').toLowerCase()
+      if (blocked.includes(ext)) {
+        alerts.error('Bloqueado', `${f.name}: tipo não permitido.`)
+        return false
+      }
+      if (f.size > MAX_BYTES) {
+        alerts.error('Muito grande', `${f.name}: ${(f.size / 1024 / 1024).toFixed(1)}MB > 20MB.`)
+        return false
+      }
+      return true
+    })
+    if (ok.length === 0) return
+
+    setUploading(ok.length)
+    const apiUrl = (await import('@/lib/api-url')).getApiUrl()
+    let sucessos = 0
+    for (const file of ok) {
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: fd, credentials: 'include' })
+        if (!res.ok) throw new Error(`Upload falhou (${res.status})`)
+        const data = await res.json() as { url?: string; filename?: string }
+        const fileUrl = data.url || (data.filename ? `${apiUrl}/api/upload/${data.filename}` : null)
+        if (!fileUrl) throw new Error('URL ausente na resposta')
+        await (trpc.helpdesk as any).addAnexo.mutate({
+          ticketId,
+          fileName: file.name,
+          fileUrl,
+          mimeType: file.type || null,
+          tamanho: file.size,
+        })
+        sucessos++
+      } catch (e) {
+        alerts.error('Erro no anexo', `${file.name}: ${(e as Error).message}`)
+      }
+    }
+    setUploading(0)
+    if (sucessos > 0) {
+      onUploaded()
+    }
+  }, [ticketId, onUploaded])
+
+  useEffect(() => {
+    const el = areaRef.current
+    if (!el) return
+    function onDragEnter(e: DragEvent) { e.preventDefault(); setDragging(true) }
+    function onDragOver(e: DragEvent) { e.preventDefault() }
+    function onDragLeave(e: DragEvent) {
+      e.preventDefault()
+      const r = el!.getBoundingClientRect()
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) setDragging(false)
+    }
+    function onDrop(e: DragEvent) {
+      e.preventDefault(); setDragging(false)
+      const files = Array.from(e.dataTransfer?.files || [])
+      if (files.length > 0) void handleFiles(files)
+    }
+    el.addEventListener('dragenter', onDragEnter)
+    el.addEventListener('dragover', onDragOver)
+    el.addEventListener('dragleave', onDragLeave)
+    el.addEventListener('drop', onDrop)
+    return () => {
+      el.removeEventListener('dragenter', onDragEnter)
+      el.removeEventListener('dragover', onDragOver)
+      el.removeEventListener('dragleave', onDragLeave)
+      el.removeEventListener('drop', onDrop)
+    }
+  }, [handleFiles])
+
+  return (
+    <div
+      ref={areaRef}
+      onClick={() => uploading === 0 && fileInputRef.current?.click()}
+      className={cn(
+        'cursor-pointer m-2 rounded-md border-2 border-dashed transition-colors px-3 py-4 flex flex-col items-center gap-1.5 text-center',
+        dragging
+          ? 'border-cyan-400 bg-cyan-50/50 dark:bg-cyan-950/30'
+          : 'border-border/60 hover:border-cyan-300 hover:bg-muted/30',
+      )}
+    >
+      {uploading > 0 ? (
+        <>
+          <Loader2 className="h-5 w-5 text-cyan-600 animate-spin" />
+          <span className="text-[11px] text-muted-foreground">Enviando {uploading}…</span>
+        </>
+      ) : (
+        <>
+          <Paperclip className={cn('h-5 w-5', dragging ? 'text-cyan-600' : 'text-muted-foreground')} />
+          <div className="text-[11px] leading-tight text-muted-foreground">
+            <span className="font-medium text-foreground">Clique pra anexar</span>
+            <br />ou solte aqui
+          </div>
+        </>
+      )}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          const files = Array.from(e.target.files || [])
+          if (files.length > 0) void handleFiles(files)
+          e.target.value = ''
+        }}
+      />
     </div>
   )
 }
