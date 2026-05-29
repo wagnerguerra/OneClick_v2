@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Headphones, Plus, Loader2, Search, Filter, AlertTriangle, Clock, MessageSquare,
-  CheckCircle2, ListChecks, LayoutGrid, List as ListIcon, Inbox, Settings,
+  CheckCircle2, ListChecks, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors,
@@ -362,6 +362,26 @@ export default function HelpdeskPage() {
                   cor={STATUS_COR[status]}
                   tickets={porStatus.get(status) ?? []}
                   onCardClick={(id) => router.push(`/helpdesk/${id}`)}
+                  podeArquivarLote={!!podeAtuar && (status === 'CANCELADO' || status === 'CONCLUIDO')}
+                  onArchiveAll={async () => {
+                    const labelStatus = HELPDESK_STATUS_LABELS[status]
+                    const qtd = porStatus.get(status)?.length ?? 0
+                    if (qtd === 0) return
+                    const ok = await alerts.confirm({
+                      title: `Arquivar ${qtd} ticket${qtd > 1 ? 's' : ''}?`,
+                      text: `Todos os tickets da coluna "${labelStatus}" serão arquivados (somem do kanban mas continuam acessíveis pelo histórico).`,
+                      confirmText: 'Arquivar tudo',
+                      icon: 'warning',
+                    })
+                    if (!ok) return
+                    try {
+                      const r = await (trpc.helpdesk as any).arquivarPorStatus.mutate({ status }) as { count: number }
+                      alerts.success('Arquivados', `${r.count} ticket${r.count > 1 ? 's' : ''} arquivado${r.count > 1 ? 's' : ''}.`)
+                      fetchData()
+                    } catch (e) {
+                      alerts.error('Erro', (e as Error).message)
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -397,11 +417,13 @@ export default function HelpdeskPage() {
 // ─────────────────────────────────────────────────────────────────
 // Coluna Kanban (droppable, contém SortableContext com cards)
 // ─────────────────────────────────────────────────────────────────
-function KanbanColumn({ status, cor, tickets, onCardClick }: {
+function KanbanColumn({ status, cor, tickets, onCardClick, podeArquivarLote, onArchiveAll }: {
   status: HelpdeskStatus
   cor: string
   tickets: Ticket[]
   onCardClick: (id: string) => void
+  podeArquivarLote?: boolean
+  onArchiveAll?: () => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status })
   return (
@@ -414,14 +436,26 @@ function KanbanColumn({ status, cor, tickets, onCardClick }: {
       style={isOver ? { boxShadow: `0 0 0 2px ${cor}55` } : undefined}
     >
       <div
-        className="px-3 py-2.5 border-b flex items-center justify-between"
+        className="px-3 py-2.5 border-b flex items-center justify-between gap-2"
         style={{ backgroundColor: `${cor}12` }}
       >
         <div className="flex items-center gap-2 min-w-0">
           <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: cor }} />
           <span className="text-sm font-semibold truncate">{HELPDESK_STATUS_LABELS[status]}</span>
         </div>
-        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 shrink-0">{tickets.length}</Badge>
+        <div className="flex items-center gap-1 shrink-0">
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">{tickets.length}</Badge>
+          {podeArquivarLote && tickets.length > 0 && (
+            <button
+              type="button"
+              onClick={onArchiveAll}
+              title={`Arquivar todos os ${tickets.length} ticket${tickets.length > 1 ? 's' : ''} desta coluna`}
+              className="h-5 w-5 inline-flex items-center justify-center rounded text-muted-foreground hover:bg-background/60 hover:text-foreground transition-colors"
+            >
+              <Archive className="h-3 w-3" />
+            </button>
+          )}
+        </div>
       </div>
       <div className="flex-1 p-2 space-y-2 overflow-y-auto min-h-[120px]">
         <SortableContext items={tickets.map(t => t.id)} strategy={verticalListSortingStrategy}>
@@ -463,7 +497,7 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
       )}
     >
       <div className="flex">
-        <div className="w-[3px] shrink-0" style={{ backgroundColor: corPrioridade }} />
+        <div className="w-[3px] shrink-0" style={{ backgroundColor: cor }} />
         <div className="flex-1 min-w-0 flex flex-col p-2 gap-1">
           <div className="flex items-center gap-1.5">
             <span className="font-mono text-[10px] text-muted-foreground tabular-nums">{ticketNum}</span>
@@ -507,8 +541,6 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
           )}
         </div>
       </div>
-      {/* Borda inferior baseada na cor do status (sutil) */}
-      <div className="h-[2px]" style={{ backgroundColor: cor }} />
     </div>
   )
 }

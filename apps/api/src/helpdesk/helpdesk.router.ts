@@ -76,6 +76,13 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService) {
         return helpdeskService.update(input.id, input.data, ctx.userId!)
       }),
 
+    /** Arquivamento em massa de uma coluna inteira (usado pra "limpar" Cancelados/Concluídos). */
+    arquivarPorStatus: writeProcedure(MODULE)
+      .input(z.object({ status: z.enum(['CONCLUIDO', 'CANCELADO']) }))
+      .mutation(({ input, ctx }) =>
+        helpdeskService.arquivarPorStatus(input.status, ctx.userId!, ctx.empresaId ?? null),
+      ),
+
     // ── Mensagens ──────────────────────────────────────────────
     addMensagem: protectedProcedure
       .input(addMensagemSchema)

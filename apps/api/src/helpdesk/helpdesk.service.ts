@@ -566,6 +566,35 @@ export class HelpdeskService {
   }
 
   /**
+   * Arquiva em massa todos os tickets de um status. Usado pra "limpar" a coluna
+   * Cancelado/Concluído do kanban sem precisar abrir ticket por ticket. Registra
+   * um HelpdeskEvento "arquivado" pra cada ticket afetado pra trilha de auditoria.
+   * Retorna a contagem afetada.
+   */
+  async arquivarPorStatus(status: HelpdeskStatus, userId: string, empresaId?: string | null): Promise<{ count: number }> {
+    const where = {
+      status,
+      arquivado: false,
+      ...(empresaId ? { empresaId } : {}),
+    }
+    const ids = await prisma.helpdeskTicket.findMany({ where, select: { id: true } })
+    if (ids.length === 0) return { count: 0 }
+
+    await prisma.helpdeskTicket.updateMany({ where, data: { arquivado: true } })
+    await prisma.helpdeskEvento.createMany({
+      data: ids.map(t => ({
+        ticketId: t.id,
+        autorId: userId,
+        tipo: 'arquivado',
+        descricao: 'Ticket arquivado em lote',
+      })),
+    }).catch((e: Error) => {
+      console.warn('[Helpdesk] Falha ao registrar eventos de arquivamento em lote:', e.message)
+    })
+    return { count: ids.length }
+  }
+
+  /**
    * Notifica eventos relevantes após update:
    *  - Atribuição → notifica novo responsável (sino + e-mail)
    *  - Mudança de status → notifica solicitante + responsável (apenas mudanças
