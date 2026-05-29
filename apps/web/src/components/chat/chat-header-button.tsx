@@ -1145,53 +1145,71 @@ function ChatView({ conversa, meuId, onMessageSent }: {
                   {conversa.isGrupo && !ehMinha && showAvatar && autorPart && (
                     <div className="text-[10px] text-muted-foreground font-medium mb-0.5 px-2">{autorPart.name}</div>
                   )}
-                  <div className={cn(
-                    'rounded-2xl px-3 py-1.5 text-sm leading-snug break-words relative',
-                    ehMinha ? 'bg-sky-500 text-white rounded-br-sm' : 'bg-muted text-foreground rounded-bl-sm',
-                    isDeletada && 'italic opacity-60',
-                  )}>
-                    {isEditando ? (
-                      <div className="flex flex-col gap-1">
-                        <textarea
-                          value={editTexto}
-                          onChange={e => setEditTexto(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Escape') setEditandoId(null)
-                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); salvarEdicao(m) }
-                          }}
-                          autoFocus
-                          rows={2}
-                          className="text-foreground rounded px-2 py-1 text-sm resize-none bg-background w-[260px]"
-                        />
-                        <div className="flex justify-end gap-1">
-                          <button type="button" onClick={() => setEditandoId(null)} className="text-[10px] opacity-70 hover:opacity-100">Cancelar</button>
-                          <button type="button" onClick={() => salvarEdicao(m)} className="text-[10px] font-semibold">Salvar (Enter)</button>
-                        </div>
-                      </div>
-                    ) : isDeletada ? (
-                      'mensagem apagada'
-                    ) : (
-                      <>
-                        {renderConteudo(m.conteudo)}
-                        {m.editedAt && <span className="text-[9px] opacity-50 ml-1">(editado)</span>}
-                        {m.anexos.length > 0 && (
-                          <div className="mt-1.5 space-y-1">
-                            {m.anexos.map(a => (
-                              a.mimeType?.startsWith('image/') ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img key={a.id} src={resolveAssetUrl(a.fileUrl)} alt={a.fileName} className="max-h-48 rounded-md" />
-                              ) : (
-                                <a key={a.id} href={resolveAssetUrl(a.fileUrl)} target="_blank" rel="noopener noreferrer"
-                                  className={cn('flex items-center gap-1.5 text-xs underline truncate', ehMinha ? 'text-white/90' : 'text-sky-600')}>
-                                  <Paperclip className="h-3 w-3" />{a.fileName}
-                                </a>
-                              )
-                            ))}
+                  {/* Quando a mensagem é só anexo (conteudo === "(anexo)"), escondemos
+                      o texto placeholder e removemos o fundo da bolha — a imagem/arquivo
+                      vira a própria "bolha" sem moldura. */}
+                  {(() => {
+                    const apenasAnexo = m.conteudo === '(anexo)' && m.anexos.length > 0
+                    return (
+                      <div className={cn(
+                        'text-sm leading-snug break-words relative',
+                        apenasAnexo
+                          ? 'rounded-2xl overflow-hidden'
+                          : cn(
+                              'rounded-2xl px-3 py-1.5',
+                              ehMinha ? 'bg-sky-500 text-white rounded-br-sm' : 'bg-muted text-foreground rounded-bl-sm',
+                            ),
+                        isDeletada && 'italic opacity-60',
+                      )}>
+                        {isEditando ? (
+                          <div className="flex flex-col gap-1">
+                            <textarea
+                              value={editTexto}
+                              onChange={e => setEditTexto(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Escape') setEditandoId(null)
+                                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); salvarEdicao(m) }
+                              }}
+                              autoFocus
+                              rows={2}
+                              className="text-foreground rounded px-2 py-1 text-sm resize-none bg-background w-[260px]"
+                            />
+                            <div className="flex justify-end gap-1">
+                              <button type="button" onClick={() => setEditandoId(null)} className="text-[10px] opacity-70 hover:opacity-100">Cancelar</button>
+                              <button type="button" onClick={() => salvarEdicao(m)} className="text-[10px] font-semibold">Salvar (Enter)</button>
+                            </div>
                           </div>
+                        ) : isDeletada ? (
+                          'mensagem apagada'
+                        ) : (
+                          <>
+                            {!apenasAnexo && renderConteudo(m.conteudo)}
+                            {m.editedAt && !apenasAnexo && <span className="text-[9px] opacity-50 ml-1">(editado)</span>}
+                            {m.anexos.length > 0 && (
+                              <div className={cn(!apenasAnexo && 'mt-1.5', 'space-y-1')}>
+                                {m.anexos.map(a => (
+                                  a.mimeType?.startsWith('image/') ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img key={a.id} src={resolveAssetUrl(a.fileUrl)} alt={a.fileName} className={cn('rounded-md block', apenasAnexo ? 'max-h-64 max-w-full' : 'max-h-48')} />
+                                  ) : (
+                                    <a key={a.id} href={resolveAssetUrl(a.fileUrl)} target="_blank" rel="noopener noreferrer"
+                                      className={cn(
+                                        'flex items-center gap-1.5 text-xs underline truncate',
+                                        apenasAnexo
+                                          ? 'px-3 py-1.5 rounded-2xl ' + (ehMinha ? 'bg-sky-500 text-white' : 'bg-muted text-foreground')
+                                          : (ehMinha ? 'text-white/90' : 'text-sky-600'),
+                                      )}>
+                                      <Paperclip className="h-3 w-3" />{a.fileName}
+                                    </a>
+                                  )
+                                ))}
+                              </div>
+                            )}
+                          </>
                         )}
-                      </>
-                    )}
-                  </div>
+                      </div>
+                    )
+                  })()}
 
                   {/* Reactions */}
                   {reactionsAgrupadas.length > 0 && (
