@@ -10,6 +10,30 @@ import { AuthService } from '../auth/auth.service'
 const MODULE = 'gestao-certificados'
 
 /**
+ * Autoriza exclusão de certificados: master/empresa-master OU usuário com a
+ * sub-permissão `delete_certificados` em gestao-certificados. Joga FORBIDDEN
+ * em caso contrário (mensagem consistente entre os 3 endpoints de exclusão).
+ */
+async function ensurePodeExcluirCertificados(ctx: {
+  userId: string | null
+  isMaster?: boolean
+  isEmpresaMaster?: boolean
+}, label: string) {
+  if (ctx.isMaster || ctx.isEmpresaMaster) return
+  if (!ctx.userId) throw new TRPCError({ code: 'UNAUTHORIZED' })
+  const perm = await prisma.userPermission.findUnique({
+    where: { userId_moduleSlug: { userId: ctx.userId, moduleSlug: MODULE } },
+    select: { subPermissions: true },
+  })
+  const subs = (perm?.subPermissions ?? {}) as Record<string, boolean>
+  if (subs.delete_certificados === true) return
+  throw new TRPCError({
+    code: 'FORBIDDEN',
+    message: `Sem permissão para ${label}. Requer "Excluir certificados" ou conta master.`,
+  })
+}
+
+/**
  * Validação reauth: confirma a senha do user logado antes de ações sensíveis.
  * Lança FORBIDDEN se inválida. Recebe AuthService injetado.
  */
@@ -151,32 +175,28 @@ export function createCertificadoDigitalRouter(
         motivo: z.string().optional(),
       }))
       .mutation(async ({ input, ctx }) => {
-        if (!(ctx.isMaster || ctx.isEmpresaMaster)) {
-          throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas master/empresa-master pode excluir definitivamente' })
-        }
-        return certService.excluir(input.id, input.motivo || 'Excluído por master', { userId: ctx.userId })
+        await ensurePodeExcluirCertificados(ctx, 'excluir certificado')
+        const quem = ctx.isMaster || ctx.isEmpresaMaster ? 'master' : 'usuário com permissão'
+        return certService.excluir(input.id, input.motivo || `Excluído por ${quem}`, { userId: ctx.userId })
       }),
 
-    // Exclusão em massa — apenas master/empresa-master, sem reauth
+    // Exclusão em massa — master OU sub-perm `delete_certificados`
     excluirEmMassa: deleteProcedure(MODULE)
       .input(z.object({
         ids: z.array(z.string()).min(1).max(1000),
         motivo: z.string().optional(),
       }))
       .mutation(async ({ input, ctx }) => {
-        if (!(ctx.isMaster || ctx.isEmpresaMaster)) {
-          throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas master/empresa-master pode excluir em massa' })
-        }
-        return certService.excluirEmMassa(input.ids, input.motivo || 'Excluído em massa por master', { userId: ctx.userId })
+        await ensurePodeExcluirCertificados(ctx, 'excluir em massa')
+        const quem = ctx.isMaster || ctx.isEmpresaMaster ? 'master' : 'usuário com permissão'
+        return certService.excluirEmMassa(input.ids, input.motivo || `Excluído em massa por ${quem}`, { userId: ctx.userId })
       }),
 
-    // Varredura e exclusão de duplicatas — só master/empresa-master
+    // Varredura e exclusão de duplicatas — master OU sub-perm `delete_certificados`
     excluirDuplicatas: deleteProcedure(MODULE)
       .mutation(async ({ ctx }) => {
-        if (!(ctx.isMaster || ctx.isEmpresaMaster)) {
-          throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas master/empresa-master pode varrer duplicatas' })
-        }
-        // Master global: varre todas as empresas; empresa-master: só a sua
+        await ensurePodeExcluirCertificados(ctx, 'varrer duplicatas')
+        // Master global: varre todas as empresas; demais (empresa-master ou sub-perm): só a sua
         const empresaId = ctx.isMaster ? undefined : ctx.empresaId
         return certService.excluirDuplicatas(empresaId, { userId: ctx.userId })
       }),

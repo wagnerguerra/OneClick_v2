@@ -112,7 +112,8 @@ export class AgendaDisparoService implements OnModuleInit {
       data: { ultimoDisparoEm: agoraUtc },
     })
     // Data do email = data BR (não UTC) — pra não pegar dia errado depois das 21h
-    await this.enviarAgendaDiaParaTodos(this.formatDateKey(agoraBr), destinatarios)
+    const dataRef = this.formatDateKey(agoraBr)
+    await this.enviarAgendaDiaParaTodos(dataRef, destinatarios, 'auto', null)
   }
 
   /**
@@ -146,19 +147,85 @@ export class AgendaDisparoService implements OnModuleInit {
   // Envio
   // ============================================================
 
-  /** Dispara o email pra cada destinatário (personalizado por causa de eventos particulares). */
-  async enviarAgendaDiaParaTodos(data: string, destinatariosIds: string[]): Promise<{ enviados: number; falhas: number }> {
+  /**
+   * Dispara o email pra cada destinatário e GRAVA um log do disparo (audit).
+   * @param modo  'auto' (scheduler), 'teste' (botão UI) ou 'reenvio' (botão histórico)
+   * @param triggeredBy userId do operador (null pro automático)
+   */
+  async enviarAgendaDiaParaTodos(
+    data: string,
+    destinatariosIds: string[],
+    modo: 'auto' | 'teste' | 'reenvio' = 'auto',
+    triggeredBy: string | null = null,
+  ): Promise<{ enviados: number; falhas: number; logId: string }> {
     let enviados = 0, falhas = 0
+    const sucesso: string[] = []
+    const erros: Array<{ userId: string; email?: string; motivo: string }> = []
     for (const userId of destinatariosIds) {
       try {
         await this.enviarAgendaDia(userId, data)
         enviados++
+        sucesso.push(userId)
       } catch (e) {
         console.error(`[AgendaDisparo] Falha ao enviar pra ${userId}:`, (e as Error).message)
         falhas++
+        erros.push({ userId, motivo: (e as Error).message })
       }
     }
-    return { enviados, falhas }
+    // Grava o log do disparo. dataReferencia é DATE — passa string yyyy-MM-dd
+    // direto, sem timezone, pra evitar drift.
+    const log = await prisma.agendaDisparoLog.create({
+      data: {
+        dataReferencia: new Date(data + 'T00:00:00.000Z'),
+        modo,
+        enviados,
+        falhas,
+        destinatarios: sucesso,
+        erros: erros.length > 0 ? (erros as object) : undefined,
+        triggeredBy,
+      },
+    })
+    return { enviados, falhas, logId: log.id }
+  }
+
+  // ============================================================
+  // Histórico + reenvio
+  // ============================================================
+
+  async listLogs(limit = 30): Promise<Array<{
+    id: string; disparadoEm: Date; dataReferencia: Date; modo: string
+    enviados: number; falhas: number; destinatarios: string[]
+    erros: unknown; triggeredBy: string | null
+    triggeredByUser: { id: string; name: string | null } | null
+  }>> {
+    const logs = await prisma.agendaDisparoLog.findMany({
+      orderBy: { disparadoEm: 'desc' },
+      take: limit,
+    })
+    if (logs.length === 0) return []
+    const userIds = Array.from(new Set(logs.map(l => l.triggeredBy).filter((id): id is string => !!id)))
+    const users = userIds.length > 0
+      ? await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } })
+      : []
+    const userMap = new Map(users.map(u => [u.id, u]))
+    return logs.map(l => ({
+      ...l,
+      triggeredByUser: l.triggeredBy ? (userMap.get(l.triggeredBy) ?? null) : null,
+    }))
+  }
+
+  /**
+   * Reenvia o disparo de um log antigo. Usa a `dataReferencia` original
+   * (não a data atual) e os destinatários ATUAIS conforme a config — assim
+   * pega novos usuários que entraram depois do disparo original.
+   */
+  async reenviar(logId: string, triggeredBy: string): Promise<{ enviados: number; falhas: number; logId: string }> {
+    const log = await prisma.agendaDisparoLog.findUniqueOrThrow({ where: { id: logId } })
+    const cfg = await this.get()
+    const destinatarios = await this.resolverDestinatarios(cfg)
+    if (destinatarios.length === 0) throw new Error('Nenhum destinatário configurado')
+    const dataRef = log.dataReferencia.toISOString().slice(0, 10)
+    return this.enviarAgendaDiaParaTodos(dataRef, destinatarios, 'reenvio', triggeredBy)
   }
 
   /** Envia a "Agenda do Dia" pra UM destinatário (com filtro de privacidade aplicado). */

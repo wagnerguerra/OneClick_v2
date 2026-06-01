@@ -35,11 +35,37 @@ interface UserRow {
   empresa: { id: string; razaoSocial: string; nomeFantasia: string | null } | null
   area: { id: string; name: string } | null
   _count: { permissions: number }
+  lastLoginAt: string | null
 }
 
 type SortDir = 'asc' | 'desc'
 interface SortState { column: string; dir: SortDir }
 const PAGE_SIZES = [10, 20, 50, 100]
+
+/** Formata data ISO como "há X min/h/dias" pra a coluna de último login. */
+function formatRelativo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  if (diff < 60_000) return 'agora'
+  if (diff < 3_600_000) return `há ${Math.floor(diff / 60_000)} min`
+  if (diff < 86_400_000) return `há ${Math.floor(diff / 3_600_000)} h`
+  if (diff < 7 * 86_400_000) return `há ${Math.floor(diff / 86_400_000)} dia(s)`
+  // > 1 semana: data curta
+  const d = new Date(iso)
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+}
+
+/** Verde = hoje · Amarelo = ontem · Vermelho = mais antigo. Compara por dia de calendário (não diff de timestamp). */
+function loginCorClass(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const mesmoDia = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+  if (mesmoDia(d, now)) return 'text-emerald-600 dark:text-emerald-400 font-medium'
+  const ontem = new Date(now)
+  ontem.setDate(now.getDate() - 1)
+  if (mesmoDia(d, ontem)) return 'text-amber-600 dark:text-amber-400 font-medium'
+  return 'text-rose-600 dark:text-rose-400 font-medium'
+}
 
 const ROLE_CONFIG: Record<string, { label: string; color: string }> = {
   COLABORADOR_INTERNO: { label: 'Colaborador Interno', color: 'bg-emerald-500 text-white' },
@@ -454,6 +480,11 @@ export default function UsuariosPage() {
               </TableHead>
               <TableHead className="hidden lg:table-cell whitespace-nowrap">Área</TableHead>
               <TableHead className="hidden lg:table-cell w-[120px] text-center whitespace-nowrap">Colaborador</TableHead>
+              <TableHead className="hidden xl:table-cell w-[130px] whitespace-nowrap">
+                <button onClick={() => toggleSort('lastLoginAt')} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                  Último login <SortIcon column="lastLoginAt" />
+                </button>
+              </TableHead>
               <TableHead className="w-[60px] text-right whitespace-nowrap">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -561,6 +592,15 @@ export default function UsuariosPage() {
                         </button>
                       )
                     })()}
+                  </TableCell>
+                  <TableCell className="hidden xl:table-cell text-sm whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    {user.lastLoginAt ? (
+                      <span className={loginCorClass(user.lastLoginAt)} title={new Date(user.lastLoginAt).toLocaleString('pt-BR')}>
+                        {formatRelativo(user.lastLoginAt)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground/50">Nunca</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>

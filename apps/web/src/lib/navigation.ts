@@ -41,6 +41,7 @@ import {
   Store,
   FileBarChart,
   Clock,
+  CalendarClock,
   Gift,
   Mail,
   Key,
@@ -230,6 +231,7 @@ export const navigation: NavGroup[] = [
     icon: Settings,
     items: [
       { label: 'Configurações Gerais', href: '/configuracoes', icon: Settings },
+      { label: 'Centro de Agendamentos', href: '/configuracoes/agendamentos', icon: CalendarClock },
       { label: 'Certificado Digital', href: '/configuracoes/certificado', icon: BadgeCheck },
       { label: 'Stripe', href: '/configuracoes/stripe', icon: CreditCard },
       { label: 'Assinatura de email', href: '/admin/assinatura-template', icon: Mail },

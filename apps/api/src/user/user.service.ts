@@ -44,7 +44,7 @@ export class UserService {
 
     const orderBy = sortBy ? { [sortBy]: sortDir } : { name: 'asc' as const }
 
-    const [data, total] = await Promise.all([
+    const [raw, total] = await Promise.all([
       prisma.user.findMany({
         where,
         orderBy,
@@ -64,10 +64,23 @@ export class UserService {
           empresa: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
           area: { select: { id: true, name: true } },
           _count: { select: { permissions: true } },
+          // Última sessão = último login bem-sucedido (better-auth grava em Session.createdAt).
+          // Limita a 1 e descendente — Prisma não tem MAX agrupado direto no select.
+          sessions: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: { createdAt: true },
+          },
         },
       }),
       prisma.user.count({ where }),
     ])
+
+    // Achata sessions[] em lastLoginAt pra simplificar o front
+    const data = raw.map(({ sessions, ...u }) => ({
+      ...u,
+      lastLoginAt: sessions[0]?.createdAt ?? null,
+    }))
 
     return buildPaginatedResponse(data, total, page, limit)
   }

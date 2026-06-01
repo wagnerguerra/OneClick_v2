@@ -189,6 +189,115 @@ export class AgendamentoService {
     return prisma.schedulerExecution.findUnique({ where: { id } })
   }
 
+  // ============================================================
+  // Centro de agendamentos (observabilidade)
+  // ============================================================
+
+  /**
+   * Lista TODOS os schedulers do sistema (não só os do agendamento module).
+   * Lê o registry estático em `scheduler-registry.ts` e enriquece cada item
+   * com: cron atual, ativo, próxima execução, última execução (data + status).
+   */
+  async listAll() {
+    const { SCHEDULER_REGISTRY } = await import('./scheduler-registry')
+
+    // ── Pré-carrega fontes que serão consultadas em batch ──
+    const systemConfigKeys = SCHEDULER_REGISTRY.flatMap(s =>
+      s.cronSource.kind === 'systemConfig'
+        ? [s.cronSource.cronKey, s.cronSource.enabledKey].filter((k): k is string => !!k)
+        : [],
+    )
+    const systemConfigRows = systemConfigKeys.length > 0
+      ? await prisma.systemConfig.findMany({ where: { key: { in: systemConfigKeys } } })
+      : []
+    const systemConfigMap = new Map(systemConfigRows.map(r => [r.key, r.value]))
+
+    // Últimas execuções por slug (scheduler_executions)
+    const slugsExec = SCHEDULER_REGISTRY
+      .map(s => s.lastRunSource.kind === 'scheduler_executions' ? s.lastRunSource.slug : null)
+      .filter((x): x is string => !!x)
+    const ultimasExec = slugsExec.length > 0
+      ? await prisma.$queryRaw<Array<{ scheduler: string; iniciado_em: Date; finalizado_em: Date | null; status: string; total_clientes: number; sucesso: number; erros: number }>>`
+          SELECT DISTINCT ON (scheduler) scheduler, iniciado_em, finalizado_em, status, total_clientes, sucesso, erros
+          FROM scheduler_executions
+          WHERE scheduler = ANY(${slugsExec})
+          ORDER BY scheduler, iniciado_em DESC
+        `
+      : []
+    const ultimasExecMap = new Map(ultimasExec.map(r => [r.scheduler, r]))
+
+    // Última do agenda_disparo_logs
+    const ultimoDisparoAgenda = SCHEDULER_REGISTRY.some(s => s.lastRunSource.kind === 'agenda_disparo_logs')
+      ? await prisma.agendaDisparoLog.findFirst({
+          orderBy: { disparadoEm: 'desc' },
+          select: { disparadoEm: true, enviados: true, falhas: true, modo: true },
+        })
+      : null
+
+    // ── Monta resposta ──
+    return SCHEDULER_REGISTRY.map(item => {
+      // Resolve cron + ativo conforme a fonte
+      let cron: string
+      let ativo: boolean
+
+      if (item.cronSource.kind === 'literal') {
+        cron = item.cronSource.cron
+        ativo = item.cronSource.ativo
+      } else if (item.cronSource.kind === 'env') {
+        cron = (item.cronSource.cronEnv ? process.env[item.cronSource.cronEnv] : null) ?? item.cronSource.defaultCron
+        ativo = item.cronSource.enabledEnv ? process.env[item.cronSource.enabledEnv] === 'true' : true
+      } else if (item.cronSource.kind === 'systemConfig') {
+        cron = (item.cronSource.cronKey ? systemConfigMap.get(item.cronSource.cronKey) : null) ?? item.cronSource.defaultCron
+        ativo = item.cronSource.enabledKey
+          ? systemConfigMap.get(item.cronSource.enabledKey) === 'true'
+          : true
+      } else {
+        cron = '—'
+        ativo = true
+      }
+
+      // Próxima execução (só se cron é parseável)
+      const proximaExecucao = cron && cron !== '—' ? this.calcularProximaExecucao(cron) : null
+
+      // Última execução
+      let ultimaExecucao: {
+        iniciadoEm: Date | null
+        status: string | null
+        info: string | null
+      } = { iniciadoEm: null, status: null, info: null }
+
+      if (item.lastRunSource.kind === 'scheduler_executions') {
+        const r = ultimasExecMap.get(item.lastRunSource.slug)
+        if (r) {
+          ultimaExecucao = {
+            iniciadoEm: r.iniciado_em,
+            status: r.status,
+            info: `${r.sucesso}/${r.total_clientes} OK${r.erros > 0 ? `, ${r.erros} erro(s)` : ''}`,
+          }
+        }
+      } else if (item.lastRunSource.kind === 'agenda_disparo_logs' && ultimoDisparoAgenda) {
+        ultimaExecucao = {
+          iniciadoEm: ultimoDisparoAgenda.disparadoEm,
+          status: ultimoDisparoAgenda.falhas > 0 ? 'PARCIAL' : 'OK',
+          info: `${ultimoDisparoAgenda.enviados} enviado(s)${ultimoDisparoAgenda.falhas > 0 ? `, ${ultimoDisparoAgenda.falhas} falha(s)` : ''} · ${ultimoDisparoAgenda.modo}`,
+        }
+      }
+
+      return {
+        slug: item.slug,
+        nome: item.nome,
+        modulo: item.modulo,
+        descricao: item.descricao,
+        icon: item.icon,
+        cron,
+        ativo,
+        proximaExecucao,
+        ultimaExecucao,
+        configHref: item.configHref,
+      }
+    })
+  }
+
   private calcularProximaExecucao(cronExpr: string): Date | null {
     try {
       const ct = new CronTime(cronExpr, TZ)

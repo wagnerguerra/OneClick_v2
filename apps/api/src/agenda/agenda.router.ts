@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { router, readProcedure, writeProcedure, deleteProcedure, writeSubProcedure, deleteSubProcedure } from '../trpc/trpc.service'
+import { router, readProcedure, writeProcedure, deleteProcedure, writeSubProcedure, deleteSubProcedure, readSubProcedure } from '../trpc/trpc.service'
 import { AgendaService } from './agenda.service'
 import { AgendaGoogleService } from './agenda-google.service'
 import { AgendaConfigService } from './agenda-config.service'
@@ -249,11 +249,16 @@ export function createAgendaRouter(
           destinatarioId: z.string(),
           data: z.string().optional(),  // YYYY-MM-DD; default = hoje
         }))
-        .mutation(({ input }) => {
+        .mutation(({ input, ctx }) => {
           const data = input.data ?? new Date().toISOString().slice(0, 10)
-          return disparoService.enviarAgendaDia(input.destinatarioId, data)
-            .then(() => ({ ok: true }))
+          return disparoService.enviarAgendaDiaParaTodos(data, [input.destinatarioId], 'teste', ctx.userId)
         }),
+      listLogs: readSubProcedure(MODULE, 'manage_config', 'Ver histórico de disparos da agenda')
+        .input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional())
+        .query(({ input }) => disparoService.listLogs(input?.limit ?? 30)),
+      reenviar: writeSubProcedure(MODULE, 'manage_config', 'Reenviar disparo da agenda')
+        .input(z.object({ logId: z.string() }))
+        .mutation(({ input, ctx }) => disparoService.reenviar(input.logId, ctx.userId)),
     }),
 
     // === GOOGLE CALENDAR ===

@@ -237,6 +237,7 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'usar_assinatura', label: 'Usar para assinar documentos', group: 'Acesso ao certificado' },
     { key: 'manage_acessos', label: 'Ver trilha de auditoria completa', group: 'Auditoria' },
     { key: 'revogar', label: 'Revogar certificado', group: 'Operações' },
+    { key: 'delete_certificados', label: 'Excluir certificados (individual, em massa, duplicatas)', group: 'Operações' },
   ],
 }
 

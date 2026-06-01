@@ -19,6 +19,7 @@ import { alerts } from '@/lib/alerts'
 import { useTabLabel } from '@/hooks/use-tab-label'
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 const MODULE_COLOR = 'var(--mod-legalizacao, #e879f9)' // Legalização (fuchsia)
 
@@ -101,6 +102,13 @@ export default function GestaoCertificadosPage() {
   useTabLabel('Certificados Digitais')
   const { profile } = useCurrentUserProfile()
   const isAdmin = !!(profile?.isMaster || profile?.isEmpresaMaster)
+  // Sub-permissão delete_certificados — concede ações de exclusão a usuários
+  // não-master. Mantém os botões administrativos puros (Importar PFX em Lote,
+  // Importar do Legado) restritos a master.
+  const { permissions } = useUserPermissions()
+  const certPerm = permissions.find(p => p.moduleSlug === 'gestao-certificados')
+  const certSubs = (certPerm?.subPermissions ?? {}) as Record<string, boolean>
+  const canDelete = isAdmin || certSubs.delete_certificados === true
   const empresaIdAtual = profile?.empresa?.id ?? null
   const [items, setItems] = useState<Certificado[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
@@ -331,9 +339,9 @@ export default function GestaoCertificadosPage() {
   }
 
   async function handleExcluir(cert: Certificado) {
-    // Master/empresa-master: exclusão direta sem reauth nem motivo.
-    // Outros: backend bloqueia (forbidden).
-    if (isAdmin) {
+    // Master/empresa-master OU sub-perm delete_certificados: exclusão direta.
+    // Demais: backend bloqueia (FORBIDDEN).
+    if (canDelete) {
       const ok = await alerts.confirm({
         title: 'Excluir definitivamente',
         text: `Esta ação é IRREVERSÍVEL. "${cert.titular}" e seu arquivo PFX serão apagados permanentemente. Confirma?`,
@@ -399,6 +407,9 @@ export default function GestaoCertificadosPage() {
               >
                 <DatabaseBackup className="h-4 w-4" /> Importar do Legado
               </Button>
+              </>
+          )}
+          {canDelete && (
               <Button
                 variant="outline"
                 size="sm"
@@ -410,6 +421,9 @@ export default function GestaoCertificadosPage() {
                 {varrendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 {varrendo ? 'Varrendo...' : 'Limpar Duplicatas'}
               </Button>
+          )}
+          {isAdmin && (
+            <>
               <Button
                 variant="outline"
                 size="sm"
@@ -495,7 +509,7 @@ export default function GestaoCertificadosPage() {
       ) : (
         <Card className="flex-1 overflow-hidden flex flex-col">
           {/* Barra de ações em massa — só aparece quando há seleção */}
-          {isAdmin && selecionados.size > 0 && (
+          {canDelete && selecionados.size > 0 && (
             <div className="flex items-center justify-between gap-3 px-4 py-2 bg-fuchsia-50 dark:bg-fuchsia-950/20 border-b border-fuchsia-200 dark:border-fuchsia-900">
               <div className="text-sm font-medium">
                 {selecionados.size} selecionado(s)
@@ -521,7 +535,7 @@ export default function GestaoCertificadosPage() {
             <Table>
               <TableHeader>
                 <TableRow className="whitespace-nowrap">
-                  {isAdmin && (
+                  {canDelete && (
                     <TableHead className="w-[44px]">
                       <Checkbox
                         checked={filtered.length > 0 && filtered.every(c => selecionados.has(c.id))}
@@ -550,7 +564,7 @@ export default function GestaoCertificadosPage() {
                     )}
                     onClick={() => { setDetalhesId(c.id); setDetalhesOpen(true) }}
                   >
-                    {isAdmin && (
+                    {canDelete && (
                       <TableCell onClick={e => e.stopPropagation()}>
                         <Checkbox
                           checked={selecionados.has(c.id)}
@@ -592,9 +606,11 @@ export default function GestaoCertificadosPage() {
                           <DropdownMenuItem onClick={() => handleArquivar(c)}>
                             <Archive className="h-3.5 w-3.5 mr-2" /> Arquivar
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleExcluir(c)}>
-                            <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
-                          </DropdownMenuItem>
+                          {canDelete && (
+                            <DropdownMenuItem className="text-destructive" onClick={() => handleExcluir(c)}>
+                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

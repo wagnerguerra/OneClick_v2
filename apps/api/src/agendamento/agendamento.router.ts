@@ -59,5 +59,12 @@ export function createAgendamentoRouter(svc: AgendamentoService) {
     executarAgora: writeProcedure(MODULE)
       .input(z.object({ scheduler: schedulerSchema }))
       .mutation(({ input }) => svc.dispararAgora(input.scheduler as SchedulerSlug)),
+
+    /**
+     * Lista TODOS os schedulers do sistema (registry + última execução + status).
+     * Usado pela página /configuracoes/agendamentos como centro de observabilidade.
+     */
+    listAll: readProcedure(MODULE)
+      .query(() => svc.listAll()),
   })
 }

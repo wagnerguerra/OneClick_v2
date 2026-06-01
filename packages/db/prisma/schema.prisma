@@ -2026,6 +2026,24 @@ model AgendaDisparoConfig {
   @@map("agenda_disparo_config")
 }
 
+/// Log de cada disparo da "Agenda do Dia" — automático (scheduler), teste manual
+/// ou reenvio de um disparo histórico. Permite auditoria + botão "Reenviar" na UI.
+model AgendaDisparoLog {
+  id             String   @id @default(cuid())
+  disparadoEm    DateTime @default(now()) @map("disparado_em")
+  dataReferencia DateTime @map("data_referencia") @db.Date    // a data do "Agenda do Dia" disparada
+  modo           String                                       // 'auto' | 'teste' | 'reenvio'
+  enviados       Int      @default(0)
+  falhas         Int      @default(0)
+  destinatarios  String[] @default([])                        // userIds que receberam OK
+  erros          Json?                                        // [{ userId, email, motivo }]
+  triggeredBy    String?  @map("triggered_by")                // userId quando manual
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([disparadoEm(sort: Desc)])
+  @@map("agenda_disparo_logs")
+}
+
 /// Cadastro de salas de reunião — usado pra detectar conflito de uso da mesma sala
 /// no mesmo período. O AgendaEvento.salaId aponta pra cá; o campo legado `sala`
 /// (string) é mantido pra eventos importados do SERPRO2.

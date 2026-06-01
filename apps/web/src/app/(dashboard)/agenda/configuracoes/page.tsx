@@ -4,10 +4,10 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, Calendar, Plus, Edit2, Trash2, MoreVertical, Loader2, Settings, DoorOpen,
-  Mail, Send, X, ChevronDown, Search,
+  Mail, Send, X, ChevronDown, Search, RefreshCw, Check,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card, CardHeader,
+  Button, Input, Label, Card, CardHeader, Badge,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -103,6 +103,24 @@ export default function AgendaConfiguracoesPage() {
   const [enviandoTeste, setEnviandoTeste] = useState(false)
   const [testeDestId, setTesteDestId] = useState<string>('')
 
+  // === Histórico de disparos ===
+  interface DisparoLog {
+    id: string
+    disparadoEm: string
+    dataReferencia: string
+    modo: 'auto' | 'teste' | 'reenvio'
+    enviados: number
+    falhas: number
+    destinatarios: string[]
+    erros: Array<{ userId: string; motivo: string }> | null
+    triggeredBy: string | null
+    triggeredByUser: { id: string; name: string | null } | null
+  }
+  const [logs, setLogs] = useState<DisparoLog[]>([])
+  const [loadingLogs, setLoadingLogs] = useState(false)
+  const [reenviandoId, setReenviandoId] = useState<string | null>(null)
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null)
+
   // Combobox filtrável de destinatários
   const [destSearchOpen, setDestSearchOpen] = useState(false)
   const [destSearchQuery, setDestSearchQuery] = useState('')
@@ -145,6 +163,37 @@ export default function AgendaConfiguracoesPage() {
       setUsuarios(r as UsuarioMini[])
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
+  async function loadLogs() {
+    setLoadingLogs(true)
+    try {
+      const r = await (trpc.agenda.disparo as any).listLogs.query({ limit: 30 })
+      setLogs(r as DisparoLog[])
+    } catch { /* silencia se ainda não tem permissão/endpoint */ }
+    finally { setLoadingLogs(false) }
+  }
+  async function handleReenviar(log: DisparoLog) {
+    const dataFmt = (() => {
+      const d = new Date(log.dataReferencia)
+      return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
+    })()
+    const ok = await alerts.confirm({
+      title: 'Reenviar disparo?',
+      text: `Vai disparar a "Agenda do dia ${dataFmt}" pra TODOS os destinatários da configuração atual. Continuar?`,
+      confirmText: 'Reenviar',
+      icon: 'question',
+    })
+    if (!ok) return
+    setReenviandoId(log.id)
+    try {
+      const r = await (trpc.agenda.disparo as any).reenviar.mutate({ logId: log.id }) as { enviados: number; falhas: number }
+      alerts.success('Reenviado', `${r.enviados} enviado(s)${r.falhas ? `, ${r.falhas} falha(s)` : ''}.`)
+      loadLogs()
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setReenviandoId(null)
+    }
+  }
 
   useEffect(() => {
     if (!canAccess) return
@@ -152,6 +201,7 @@ export default function AgendaConfiguracoesPage() {
     loadSalas()
     loadDisparo()
     loadUsuarios()
+    loadLogs()
   }, [canAccess])
 
   // ================== Ações: Config ==================
@@ -697,6 +747,138 @@ export default function AgendaConfiguracoesPage() {
                       </div>
                     </>
                   )}
+                </div>
+
+                {/* Histórico de disparos */}
+                <div>
+                  <div className="px-5 py-3 border-b border-t border-border flex items-center justify-between">
+                    <div>
+                      <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
+                        Histórico de disparos
+                        {logs.length > 0 && <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{logs.length}</Badge>}
+                      </h4>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Cada execução do disparo (automático, teste ou reenvio) fica registrada aqui.
+                        Útil pra confirmar envio e reagir a falhas.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={loadLogs}
+                      disabled={loadingLogs}
+                      className="shrink-0 text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                      title="Recarregar"
+                    >
+                      {loadingLogs ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                      Atualizar
+                    </button>
+                  </div>
+                  <div className="p-5 space-y-3">
+                  {loadingLogs && logs.length === 0 ? (
+                    <div className="text-center py-6 text-xs text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin inline" /> Carregando…
+                    </div>
+                  ) : logs.length === 0 ? (
+                    <div className="rounded border border-dashed border-border/60 px-4 py-6 text-center text-xs text-muted-foreground">
+                      Nenhum disparo registrado ainda. O scheduler grava aqui automaticamente.
+                    </div>
+                  ) : (
+                    <div className="rounded border border-border overflow-hidden divide-y">
+                      {logs.map(log => {
+                        const dataDisp = new Date(log.disparadoEm)
+                        const dataRef = new Date(log.dataReferencia)
+                        const dataRefFmt = `${String(dataRef.getUTCDate()).padStart(2, '0')}/${String(dataRef.getUTCMonth() + 1).padStart(2, '0')}/${dataRef.getUTCFullYear()}`
+                        const dataDispFmt = dataDisp.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+                        const modoColor = log.modo === 'auto' ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300'
+                          : log.modo === 'teste' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                          : 'bg-violet-500/10 text-violet-700 dark:text-violet-300'
+                        const modoLabel = log.modo === 'auto' ? 'Automático' : log.modo === 'teste' ? 'Teste' : 'Reenvio'
+                        const expanded = expandedLogId === log.id
+                        return (
+                          <div key={log.id} className="px-3 py-2 text-xs hover:bg-muted/30 transition-colors">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <span className="font-medium">Dia <strong>{dataRefFmt}</strong></span>
+                              </div>
+                              <span className={cn('inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded', modoColor)}>
+                                {modoLabel}
+                              </span>
+                              <span className="text-muted-foreground">disparado em {dataDispFmt}</span>
+                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold inline-flex items-center gap-1">
+                                <Check className="h-3 w-3" /> {log.enviados}
+                              </span>
+                              {log.falhas > 0 && (
+                                <span className="text-rose-600 dark:text-rose-400 font-semibold inline-flex items-center gap-1">
+                                  <X className="h-3 w-3" /> {log.falhas}
+                                </span>
+                              )}
+                              {log.triggeredByUser && (
+                                <span className="text-muted-foreground text-[10px]">por {log.triggeredByUser.name}</span>
+                              )}
+                              <div className="ml-auto flex items-center gap-1">
+                                {(log.falhas > 0 || log.destinatarios.length > 0) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedLogId(expanded ? null : log.id)}
+                                    className="px-2 py-0.5 rounded text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                                  >
+                                    {expanded ? 'Ocultar' : 'Detalhes'}
+                                  </button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleReenviar(log)}
+                                  disabled={reenviandoId === log.id}
+                                  className="h-6 px-2 text-[10px] gap-1"
+                                >
+                                  {reenviandoId === log.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                                  Reenviar
+                                </Button>
+                              </div>
+                            </div>
+                            {expanded && (
+                              <div className="mt-2 pl-5 space-y-2 border-l-2 border-border/60">
+                                {log.destinatarios.length > 0 && (
+                                  <div className="text-[11px]">
+                                    <div className="text-muted-foreground font-semibold mb-1">{log.destinatarios.length} destinatário(s) com sucesso:</div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {log.destinatarios.map(uid => {
+                                        const u = usuarios.find(x => x.id === uid)
+                                        return (
+                                          <span key={uid} className="inline-flex text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                                            {u?.name ?? uid.slice(0, 8)}
+                                          </span>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                                {log.erros && log.erros.length > 0 && (
+                                  <div className="text-[11px]">
+                                    <div className="text-rose-600 dark:text-rose-400 font-semibold mb-1">{log.erros.length} falha(s):</div>
+                                    <div className="space-y-1">
+                                      {log.erros.map((er, idx) => {
+                                        const u = usuarios.find(x => x.id === er.userId)
+                                        return (
+                                          <div key={idx} className="flex items-start gap-2 text-[10px]">
+                                            <span className="font-medium">{u?.name ?? er.userId.slice(0, 8)}:</span>
+                                            <span className="text-muted-foreground">{er.motivo}</span>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  </div>
                 </div>
               </div>
             )}

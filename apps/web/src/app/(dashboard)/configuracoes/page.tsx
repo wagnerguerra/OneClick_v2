@@ -554,6 +554,17 @@ export default function ConfiguracoesPage() {
             <p className="text-sm text-muted-foreground">Gerencie variáveis de ambiente e integrações</p>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push('/configuracoes/agendamentos')}
+            className="gap-1.5"
+          >
+            <Clock className="h-3.5 w-3.5" />
+            Centro de agendamentos
+          </Button>
+        </div>
       </div>
 
       {/* Card com abas verticais */}
