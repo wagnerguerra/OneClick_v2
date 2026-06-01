@@ -457,7 +457,7 @@ function KanbanColumn({ status, cor, tickets, onCardClick, podeArquivarLote, onA
           )}
         </div>
       </div>
-      <div className="flex-1 p-2 space-y-2 overflow-y-auto min-h-[120px]">
+      <div className="flex-1 p-2 space-y-2 overflow-y-auto nice-scrollbar min-h-[120px]">
         <SortableContext items={tickets.map(t => t.id)} strategy={verticalListSortingStrategy}>
           {tickets.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-6 italic">Vazio</p>

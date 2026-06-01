@@ -53,13 +53,18 @@ export class HelpdeskService {
    *  - Líder da área do ticket → o próprio
    */
   async canAccess(userId: string, ticketId: string): Promise<boolean> {
+    // Agentes da TI (master/empresa-master, DIRETOR/COORDENADOR, sub-perm
+    // helpdesk.atuar_agente, ou pertencer à área de TI/Suporte/Tecnologia)
+    // veem TODOS os tickets — consistente com o `isPriv` do list().
+    // Sem essa checagem, um agente apareceria na listagem (sem filtro de escopo)
+    // mas receberia FORBIDDEN ao clicar num ticket de outra área.
+    if (await this.canAtuarAgente(userId)) return true
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { isMaster: true, isEmpresaMaster: true, role: true, empresaId: true, areaId: true },
+      select: { areaId: true },
     })
     if (!user) return false
-    if (user.isMaster || user.isEmpresaMaster) return true
-    if (user.role === 'DIRETOR' || user.role === 'COORDENADOR') return true
 
     const t = await prisma.helpdeskTicket.findUnique({
       where: { id: ticketId },
