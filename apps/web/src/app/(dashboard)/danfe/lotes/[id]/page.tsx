@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  History, ArrowLeft, Loader2, Download, RotateCw, X, CheckCircle2,
+  History, Loader2, Download, RotateCw, X, CheckCircle2,
   AlertOctagon, Copy as CopyIcon, FileText, ExternalLink,
 } from 'lucide-react'
 import {
@@ -12,6 +12,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
@@ -149,9 +150,7 @@ export default function LoteDetalhePage() {
                   <X className="h-3.5 w-3.5" /> Cancelar
                 </Button>
               )}
-              <Button variant="outline" size="icon-sm" onClick={() => router.push('/danfe/lotes')} title="Voltar" className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
+              <BackButton href="/danfe/lotes" />
             </div>
           </div>
         </div>

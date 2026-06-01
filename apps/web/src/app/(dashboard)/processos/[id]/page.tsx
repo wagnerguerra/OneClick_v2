@@ -5,13 +5,14 @@ import { createPortal } from 'react-dom'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Workflow, Loader2, ArrowLeft, CheckCircle2, XCircle, PlayCircle, Pause, Clock,
+  Workflow, Loader2, CheckCircle2, XCircle, PlayCircle, Pause, Clock,
   ListChecks, Layers, AlertCircle, AlertTriangle, History, Ban, MessageSquare, Search, X, UserCog,
 } from 'lucide-react'
 import {
   Button, Card, CardContent, Badge, Tabs, TabsList, TabsTrigger, TabsContent,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter, Label,
 } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -295,15 +296,7 @@ export default function ProcessoDetalhePage() {
                     <Ban className="h-3.5 w-3.5" />Cancelar
                   </Button>
                 )}
-                <Button
-                  variant="outline" size="icon"
-                  onClick={() => router.push('/processos')}
-                  title="Voltar"
-                  aria-label="Voltar"
-                  className="h-8 w-8 bg-white/70 hover:bg-white dark:bg-black/30 dark:hover:bg-black/50"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
+                <BackButton href="/processos" />
               </div>
             </div>
           </div>

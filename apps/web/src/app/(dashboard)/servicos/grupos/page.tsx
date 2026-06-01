@@ -12,7 +12,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Loader2, Edit, Trash2, ArrowLeft, Layers, Search, GripVertical, X,
+  Plus, Pencil, Loader2, Edit, Trash2, Layers, Search, GripVertical, X,
   MoreVertical, ClipboardCheck,
 } from 'lucide-react'
 import {
@@ -21,6 +21,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -233,9 +234,7 @@ export default function GruposPage() {
           <Button variant="success" size="sm" onClick={openCreate}>
             <Plus className="h-4 w-4" />Novo Grupo
           </Button>
-          <Button variant="outline" size="icon-sm" onClick={() => router.push('/servicos')} title="Voltar">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <BackButton href="/servicos" />
         </div>
       </div>
 

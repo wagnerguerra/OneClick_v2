@@ -4,13 +4,14 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  History, ArrowLeft, Loader2, Eye, ChevronLeft, ChevronRight,
+  History, Loader2, Eye, ChevronLeft, ChevronRight,
   CheckCircle2, AlertOctagon, RotateCw,
 } from 'lucide-react'
 import {
   Button, Card, cn, Badge,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 
 const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
@@ -54,9 +55,7 @@ export default function LotesPage() {
             <p className="text-sm text-muted-foreground">Histórico de uploads em lote</p>
           </div>
         </div>
-        <Button variant="outline" size="icon-sm" onClick={() => router.push('/danfe')} title="Voltar" className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <BackButton href="/danfe" />
       </div>
 
       <Card>

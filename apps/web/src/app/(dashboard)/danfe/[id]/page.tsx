@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  FileText, ArrowLeft, Loader2, Download, Trash2, RefreshCw,
+  FileText, Loader2, Download, Trash2, RefreshCw,
 } from 'lucide-react'
 import { Button, Card, cn } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
@@ -129,9 +130,7 @@ export default function DanfeDetalhePage() {
               <Button size="sm" variant="outline" onClick={handleDelete} className="gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50">
                 <Trash2 className="h-3.5 w-3.5" /> Excluir
               </Button>
-              <Button variant="outline" size="icon-sm" onClick={() => router.push('/danfe')} title="Voltar" className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
+              <BackButton href="/danfe" />
             </div>
           </div>
         </div>

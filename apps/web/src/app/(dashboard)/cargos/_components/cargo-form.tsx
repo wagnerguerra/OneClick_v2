@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createCargoSchema, type CreateCargoInput } from '@saas/types'
-import { Briefcase, GraduationCap, Save, ArrowLeft, Users, FileText, Clock } from 'lucide-react'
+import { Briefcase, GraduationCap, Save, Users, FileText, Clock } from 'lucide-react'
 import {
   Button, Input, Label, Checkbox, Card,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
@@ -14,6 +14,7 @@ import {
   RichEditor,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -109,9 +110,7 @@ export function CargoForm({ mode, cargoId, title, description, icon, defaultValu
             <Button variant="success" size="sm" type="submit" disabled={saving}>
               <Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => router.push('/cargos')}>
-              <ArrowLeft className="h-4 w-4" />Voltar
-            </Button>
+            <BackButton href="/cargos" label="Voltar" />
           </div>
         </div>
 

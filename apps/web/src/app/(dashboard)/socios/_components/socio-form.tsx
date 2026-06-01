@@ -15,6 +15,7 @@ import {
   TooltipProvider,
   Tabs, TabsList, TabsTrigger, TabsContent,
 } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
@@ -190,7 +191,7 @@ export function SocioForm({ mode, socioId, title, description, icon, defaultValu
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <Button variant="success" size="sm" type="submit" disabled={saving}><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => router.push('/socios')}><ArrowLeft className="h-4 w-4" />Voltar</Button>
+            <BackButton href="/socios" label="Voltar" />
           </div>
         </div>
 

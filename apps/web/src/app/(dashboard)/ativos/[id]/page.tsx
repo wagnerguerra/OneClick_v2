@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Loader2, Save, Trash2, Database, Coins, Wrench, Shield,
+  Loader2, Save, Trash2, Database, Coins, Wrench, Shield,
   History, FileText, Paperclip, Pencil, X, Plus, Download, Upload,
   AlertCircle, Printer, QrCode,
 } from 'lucide-react'
@@ -14,6 +14,7 @@ import {
   Tabs, TabsContent, SlidingTabsList, TabsTrigger,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
@@ -285,9 +286,7 @@ export default function AtivoDetalhePage() {
                 {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 Salvar
               </Button>
-              <Button variant="outline" size="icon-sm" onClick={() => router.push('/ativos')} title="Voltar" className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
+              <BackButton href="/ativos" />
             </div>
           </div>
         </div>

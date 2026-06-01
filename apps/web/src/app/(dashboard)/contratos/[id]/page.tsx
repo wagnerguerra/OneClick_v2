@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
-  ArrowLeft, FileText, Loader2, FileSignature, Download, RefreshCw, Send, Copy as CopyIcon,
+  FileText, Loader2, FileSignature, Download, RefreshCw, Send, Copy as CopyIcon,
   ShieldCheck, MoreVertical, X, History, Lock, CheckCircle2,
   Briefcase, FileCheck2, ExternalLink, Archive, Building2,
   ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown,
@@ -14,6 +14,7 @@ import {
   Tabs, TabsTrigger, TabsContent, SlidingTabsList,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { copyToClipboard } from '@/lib/clipboard'
@@ -481,15 +482,7 @@ export default function ContratoDetailPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onClick={() => router.push('/contratos')}
-                title="Voltar"
-                className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
+              <BackButton href="/contratos" />
             </div>
           </div>
         </div>

@@ -9,7 +9,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import {
-  Mail, Save, Loader2, Palette, ImageIcon, Code2, RefreshCcw, ArrowLeft,
+  Mail, Save, Loader2, Palette, ImageIcon, Code2, RefreshCcw,
   Upload, X, Eye, AlertTriangle,
 } from 'lucide-react'
 import {
@@ -20,6 +20,7 @@ import { useSession } from '@/lib/auth-client'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
+import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import {
   buildSignatureHtml,
@@ -259,9 +260,7 @@ export default function AssinaturaTemplatePage() {
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Salvar
           </Button>
-          <Button variant="outline" size="icon-sm" onClick={() => router.push('/admin')} title="Voltar">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <BackButton href="/admin" />
         </div>
       </div>
 

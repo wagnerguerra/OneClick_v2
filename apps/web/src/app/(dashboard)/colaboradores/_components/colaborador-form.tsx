@@ -13,7 +13,7 @@ import {
 } from '@saas/types'
 import {
   User, FileText, MapPin, Briefcase, Phone,
-  Save, ArrowLeft, HelpCircle,
+  Save, HelpCircle,
 } from 'lucide-react'
 import {
   Button, Input, Label, Checkbox, Card,
@@ -31,6 +31,7 @@ const COLAB_TABS = [
   { key: 'contato',       label: 'Contato',       icon: Phone },
 ] as const
 import { cn } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -169,9 +170,7 @@ export function ColaboradorForm({
               <Save className="h-4 w-4" />
               {saving ? 'Salvando...' : 'Salvar'}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => router.push('/colaboradores')}>
-              <ArrowLeft className="h-4 w-4" />Voltar
-            </Button>
+            <BackButton href="/colaboradores" label="Voltar" />
           </div>
         </div>
 

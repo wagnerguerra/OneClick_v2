@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import {
   FileText, Loader2, Search, Building2, FileSpreadsheet,
-  ArrowLeft, Download, ExternalLink, Maximize2, X,
+  Download, ExternalLink, Maximize2, X,
   ArrowDownToLine, ArrowUpFromLine, Calendar,
   ChevronLeft, ChevronRight, RefreshCw, ShieldCheck, AlertTriangle,
   PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, FileCode2,
@@ -14,6 +14,7 @@ import {
   Button, Input, Card, cn, Badge,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
@@ -457,11 +458,7 @@ export default function DanfeGaleriaPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Link href="/danfe">
-            <Button variant="outline" size="icon-sm" title="Voltar" className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
+          <BackButton href="/danfe" />
         </div>
       </div>
 

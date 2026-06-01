@@ -22,6 +22,7 @@ import {
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -491,7 +492,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Button variant="success" size="icon-sm" type="submit" disabled={saving} title="Salvar"><Save className="h-4 w-4" /></Button>
-              <Button type="button" variant="outline" size="icon-sm" onClick={() => router.push('/clientes')} title="Voltar" className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90"><ArrowLeft className="h-4 w-4" /></Button>
+              <BackButton href="/clientes" />
             </div>
           </div>
             </div>
@@ -550,7 +551,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Button variant="success" size="sm" type="submit" disabled={saving}><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => router.push('/clientes')}><ArrowLeft className="h-4 w-4" />Voltar</Button>
+              <BackButton href="/clientes" label="Voltar" />
             </div>
           </div>
         )}

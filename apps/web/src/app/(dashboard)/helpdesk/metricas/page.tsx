@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   BarChart3, Headphones, Loader2, AlertTriangle, CheckCircle2, Star, Clock,
-  Users, Tag, ArrowLeft, Inbox,
+  Users, Tag, Inbox,
 } from 'lucide-react'
 import { Card, CardContent, Badge, Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -82,9 +83,7 @@ export default function HelpdeskMetricasPage() {
               <SelectItem value="365">Últimos 365 dias</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" onClick={() => router.push('/helpdesk')} className="h-9 w-9" title="Voltar">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <BackButton href="/helpdesk" />
         </div>
       </div>
 

@@ -13,7 +13,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, Zap, Loader2, Play, Copy, CheckCircle2, XCircle, Database,
+  Zap, Loader2, Play, Copy, CheckCircle2, XCircle, Database,
   ChevronRight, ChevronDown, Building2, FileSearch, Link as LinkIcon,
   History, Search, RefreshCw, AlertCircle, Trash2, Save, Plus,
 } from 'lucide-react'
@@ -24,6 +24,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -128,9 +129,7 @@ export default function AcessoriasPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="icon-sm" onClick={() => router.push('/')} title="Voltar">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <BackButton href="/" />
         </div>
       </div>
 

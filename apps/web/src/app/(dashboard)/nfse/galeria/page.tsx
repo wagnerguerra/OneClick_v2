@@ -5,13 +5,14 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import {
   FileText, Loader2, Search, Building2, Receipt,
-  ArrowLeft, Download, ExternalLink, Maximize2, X,
+  Download, ExternalLink, Maximize2, X,
   ArrowDownToLine, ArrowUpFromLine, Calendar,
 } from 'lucide-react'
 import {
   Button, Input, Card, cn, Badge,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 
@@ -221,11 +222,7 @@ export default function NfseGaleriaPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Link href="/nfse">
-            <Button variant="outline" size="icon-sm" title="Voltar" className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
+          <BackButton href="/nfse" />
         </div>
       </div>
 

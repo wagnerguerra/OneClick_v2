@@ -11,7 +11,7 @@ import {
 } from '@saas/types'
 import {
   Building2, FileText, MapPin, CreditCard, Phone,
-  Save, ArrowLeft, HelpCircle,
+  Save, HelpCircle,
 } from 'lucide-react'
 import {
   Button, Input, Label, Checkbox, Card,
@@ -20,6 +20,7 @@ import {
   Tabs, TabsList, TabsTrigger, TabsContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -95,7 +96,7 @@ export function FornecedorForm({ mode, fornecedorId, title, description, icon, d
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <Button variant="success" size="sm" type="submit" disabled={saving}><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => router.push('/fornecedores')}><ArrowLeft className="h-4 w-4" />Voltar</Button>
+            <BackButton href="/fornecedores" label="Voltar" />
           </div>
         </div>
 

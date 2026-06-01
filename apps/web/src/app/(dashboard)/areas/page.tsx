@@ -7,7 +7,7 @@ import {
   Plus, Pencil, Trash2, Search,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
-  LayoutGrid, ArrowLeft, FileUp,
+  LayoutGrid, FileUp,
 } from 'lucide-react'
 import {
   Button,
@@ -28,6 +28,7 @@ import {
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { ImportModal } from './_components/import-modal'
 
@@ -148,9 +149,7 @@ export default function AreasPage() {
           <Button variant="soft" size="sm" onClick={() => setImportOpen(true)}>
             <FileUp className="h-4 w-4" />Importar
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard"><ArrowLeft className="h-4 w-4" />Voltar</Link>
-          </Button>
+          <BackButton href="/dashboard" label="Voltar" />
         </div>
       </div>
 

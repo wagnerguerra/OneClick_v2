@@ -7,7 +7,7 @@ import {
   Plus, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
-  Users, ArrowLeft, FileUp, Download,
+  Users, FileUp, Download,
 } from 'lucide-react'
 import {
   Button, Input, Badge,
@@ -19,6 +19,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { exportToExcel, exportToCsv } from '@/lib/export-data'
 import { TIPO_CONTRATO_LABELS } from '@saas/types'
+import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { ImportModal } from './_components/import-modal'
 
@@ -171,9 +172,7 @@ export default function ColaboradoresPage() {
           <Button variant="outline" size="sm" onClick={() => handleExport('excel')}>
             <Download className="h-4 w-4" />Excel
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard"><ArrowLeft className="h-4 w-4" />Voltar</Link>
-          </Button>
+          <BackButton href="/dashboard" label="Voltar" />
         </div>
       </div>
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  ArrowLeft, FileText, Loader2, Plus, Trash2, Pencil, Check, X,
+  FileText, Loader2, Plus, Trash2, Pencil, Check, X,
   Upload, DollarSign, Send, Printer, Copy as CopyIcon, ExternalLink,
   MoreVertical, Pause, Play, RotateCcw, AlertTriangle,
   Package, History, Type, ChevronDown, CalendarCheck, ThumbsUp, ThumbsDown, CheckCircle2,
@@ -19,6 +19,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -1617,9 +1618,7 @@ export default function OrcamentoDetailPage() {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="outline" size="icon-sm" onClick={() => router.push('/orcamentos')} title="Voltar" className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+            <BackButton href="/orcamentos" />
           </div>
         </div>
       </div>

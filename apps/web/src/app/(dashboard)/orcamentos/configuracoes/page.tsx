@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Settings2, Loader2, Save, Clock, Hash, Mail, FileText } from 'lucide-react'
+import { Settings2, Loader2, Save, Clock, Hash, Mail, FileText } from 'lucide-react'
 import { Button, Card, Input, RichEditor } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -117,9 +118,7 @@ export default function OrcamentosConfiguracoesPage() {
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Salvar
           </Button>
-          <Button variant="outline" size="icon-sm" onClick={() => router.push('/orcamentos')} title="Voltar" className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <BackButton href="/orcamentos" />
         </div>
       </div>
 

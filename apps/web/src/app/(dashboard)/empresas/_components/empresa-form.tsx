@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useForm, Controller, type Control } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createEmpresaSchema, type CreateEmpresaInput } from '@saas/types'
-import { HelpCircle, Scale, MapPin, Phone, Search, Loader2, Upload, X, Save, ArrowLeft, Building2 } from 'lucide-react'
+import { HelpCircle, Scale, MapPin, Phone, Search, Loader2, Upload, X, Save, Building2 } from 'lucide-react'
 import {
   Button,
   Input,
@@ -22,6 +22,7 @@ import {
   TooltipContent,
   TooltipProvider,
 } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
 
@@ -348,16 +349,7 @@ export function EmpresaForm({ mode, empresaId, title, description, icon, default
               <Save className="h-4 w-4" />
               {saving ? 'Salvando...' : 'Salvar'}
             </Button>
-            <Button
-              asChild
-              variant="outline"
-              size="icon-sm"
-              title="Voltar"
-            >
-              <Link href="/empresas">
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
+            <BackButton href="/empresas" />
           </div>
         </div>
 

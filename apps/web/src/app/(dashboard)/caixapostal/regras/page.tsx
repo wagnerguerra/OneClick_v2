@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Loader2, Plus, Pencil, Trash2, ArrowLeft, Shield, CheckCircle2,
+  Loader2, Plus, Pencil, Trash2, Shield, CheckCircle2,
   Mail, Bell, ClipboardList, BookOpen, X, ChevronDown,
   AlertTriangle, MailWarning, Clock, Star, Zap, RotateCcw,
 } from 'lucide-react'
@@ -15,6 +15,7 @@ import {
   Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { trpc } from '@/lib/trpc'
@@ -430,9 +431,7 @@ export default function CaixaPostalRegrasPage() {
           <Button variant="success" size="sm" onClick={handleNova} className="gap-1.5">
             <Plus className="h-4 w-4" /> Nova Regra
           </Button>
-          <Link href="/caixapostal">
-            <Button variant="ghost" size="sm" className="gap-1.5"><ArrowLeft className="h-4 w-4" />Voltar</Button>
-          </Link>
+          <BackButton href="/caixapostal" label="Voltar" />
         </div>
       </div>
 

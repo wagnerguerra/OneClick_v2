@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  User as UserIcon, ArrowLeft, Pencil, Shield, MapPin, Building2,
+  User as UserIcon, Pencil, Shield, MapPin, Building2,
   ClipboardList, Globe, Mail, Phone, Briefcase, Calendar, DollarSign,
   CheckCircle2, XCircle, Loader2, FileText, Clock,
 } from 'lucide-react'
@@ -13,6 +13,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { numeroParaMoeda } from '@/lib/masks'
 import { useTabLabel } from '@/hooks/use-tab-label'
@@ -200,15 +201,7 @@ export default function UserProfilePage() {
               >
                 <Pencil className="h-4 w-4" /> Editar
               </Button>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onClick={() => router.push('/usuarios')}
-                title="Voltar"
-                className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
+              <BackButton href="/usuarios" />
             </div>
           </div>
         </div>
