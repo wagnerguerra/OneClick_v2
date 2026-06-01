@@ -290,10 +290,12 @@ export class AgendaService {
       throw new Error('Não é possível agendar eventos em dias que já passaram.')
     }
 
-    // Gate de conflito conforme AgendaConfig — pula se diaInteiro/sem horários.
+    // Gate de conflito conforme AgendaConfig — pula se diaInteiro/sem horários
+    // ou se o tipo escolhido não bloqueia agenda (lembretes corporativos).
     await this.aplicarGateConflito({
       data, horaInicio, horaFim, diaInteiro,
       participanteIds, sala: sala || undefined, salaId: salaId || undefined,
+      tipoId,
     })
 
     const baseDate = new Date(data)
@@ -413,7 +415,8 @@ export class AgendaService {
     }
 
     // Gate de conflito conforme AgendaConfig — usa os valores novos quando passados,
-    // ou os atuais do evento como fallback. Pula se diaInteiro/sem horários.
+    // ou os atuais do evento como fallback. Pula se diaInteiro/sem horários ou se o
+    // tipo (novo ou atual) não bloqueia agenda (lembretes corporativos).
     await this.aplicarGateConflito({
       data: data.data ?? evento.data.toISOString().slice(0, 10),
       horaInicio: data.horaInicio !== undefined ? data.horaInicio : evento.horaInicio,
@@ -423,6 +426,7 @@ export class AgendaService {
       sala: data.sala !== undefined ? (data.sala || undefined) : (evento.sala || undefined),
       salaId: data.salaId !== undefined ? (data.salaId || undefined) : (evento.salaId || undefined),
       eventoIdExcluir: id,
+      tipoId: data.tipoId ?? evento.tipoId,
     })
 
     const updateData: Record<string, unknown> = {}
@@ -1396,9 +1400,19 @@ export class AgendaService {
     sala?: string
     salaId?: string
     eventoIdExcluir?: string
+    tipoId?: string
   }): Promise<void> {
     if (params.diaInteiro) return
     if (!params.horaInicio || !params.horaFim) return
+
+    // Tipo não-bloqueador (ex.: LEMBRETE CORPORATIVO) — sai antes mesmo de ler config.
+    if (params.tipoId) {
+      const tipoSel = await prisma.agendaTipo.findUnique({
+        where: { id: params.tipoId },
+        select: { bloqueiaAgenda: true },
+      })
+      if (tipoSel && !tipoSel.bloqueiaAgenda) return
+    }
 
     const cfg = await this.configService.get()
     if (cfg.conflitoParticipante !== 'BLOQUEAR' && cfg.conflitoSala !== 'BLOQUEAR') return
@@ -1411,6 +1425,7 @@ export class AgendaService {
       sala: params.sala,
       salaId: params.salaId,
       eventoIdExcluir: params.eventoIdExcluir,
+      tipoId: params.tipoId,
     })
 
     if (conflitos.length === 0) return
