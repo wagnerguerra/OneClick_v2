@@ -123,4 +123,23 @@ export class UploadController {
 
     res.sendFile(filePath)
   }
+
+  /**
+   * Serve arquivos de orçamentos migrados do legado (subpasta orcamentos-legado/).
+   * Nomes preservados do legado podem ter parênteses, espaços e acentos —
+   * sanitização aqui é só anti-path-traversal (../, /, \), não whitelisting.
+   */
+  @Get('orcamentos-legado/:filename')
+  serveOrcamentoLegado(@Param('filename') filename: string, @Res() res: Response) {
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      res.status(400).json({ message: 'Nome inválido.' })
+      return
+    }
+    const filePath = join(UPLOADS_DIR, 'orcamentos-legado', filename)
+    if (!existsSync(filePath)) {
+      res.status(404).json({ message: 'Arquivo não encontrado.' })
+      return
+    }
+    res.sendFile(filePath)
+  }
 }
