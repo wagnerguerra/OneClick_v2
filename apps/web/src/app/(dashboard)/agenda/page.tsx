@@ -577,8 +577,12 @@ export default function AgendaPage() {
     try {
       // Verificar conflitos conforme AgendaConfig — só roda se algum dos modos
       // (participante/sala) estiver em AVISAR ou BLOQUEAR, e se o evento tem horário.
-      const checaParticipante = agendaConfig.conflitoParticipante !== 'DESLIGADO'
-      const checaSala = agendaConfig.conflitoSala !== 'DESLIGADO'
+      // Tipos não-bloqueadores (ex.: LEMBRETE CORPORATIVO) são pulados aqui:
+      // não bloqueiam outros eventos nem disparam alerta pra o criador.
+      const tipoSelecionado = tipos.find(t => t.id === form.tipoId)
+      const tipoBloqueia = tipoSelecionado?.bloqueiaAgenda !== false
+      const checaParticipante = tipoBloqueia && agendaConfig.conflitoParticipante !== 'DESLIGADO'
+      const checaSala = tipoBloqueia && agendaConfig.conflitoSala !== 'DESLIGADO'
       if ((checaParticipante || checaSala) && !form.diaInteiro && form.horaInicio && form.horaFim) {
         const conflitos = await trpc.agenda.verificarConflitos.query({
           data: form.data,
@@ -588,6 +592,7 @@ export default function AgendaPage() {
           sala: checaSala ? (form.sala || undefined) : undefined,
           salaId: checaSala ? (form.salaId || undefined) : undefined,
           eventoIdExcluir: modalMode === 'edit' ? selectedEvento?.id : undefined,
+          tipoId: form.tipoId || undefined,
         }) as Array<{ tipo: string; nome: string; evento: string; horario: string }>
 
         // Filtra só os conflitos relevantes pra config atual (caso o backend retorne tudo)

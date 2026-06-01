@@ -160,6 +160,7 @@ export function createAgendaRouter(
         sala: z.string().optional(),
         salaId: z.string().optional(),
         eventoIdExcluir: z.string().optional(),
+        tipoId: z.string().optional(),
       }))
       .query(({ input }) => service.verificarConflitos(input)),
 

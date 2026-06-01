@@ -556,9 +556,21 @@ export class AgendaService {
     sala?: string
     salaId?: string  // novo: prioritário sobre `sala` (string) quando ambos passados
     eventoIdExcluir?: string // para ignorar o próprio evento ao editar
+    tipoId?: string // se o tipo do evento sendo criado/editado não bloqueia (ex.: LEMBRETE CORPORATIVO), pular toda a checagem
   }) {
-    const { data, horaInicio, horaFim, participanteIds, sala, salaId, eventoIdExcluir } = params
+    const { data, horaInicio, horaFim, participanteIds, sala, salaId, eventoIdExcluir, tipoId } = params
     const conflitos: Array<{ tipo: 'participante' | 'sala'; nome: string; evento: string; horario: string }> = []
+
+    // Se o tipo escolhido não bloqueia agenda, ele NUNCA gera nem sofre conflito —
+    // retorna lista vazia sem nem consultar o BD. Defesa em profundidade: o frontend
+    // já filtra, mas blindar aqui evita bypass de outros chamadores.
+    if (tipoId) {
+      const tipoSel = await prisma.agendaTipo.findUnique({
+        where: { id: tipoId },
+        select: { bloqueiaAgenda: true },
+      })
+      if (tipoSel && !tipoSel.bloqueiaAgenda) return conflitos
+    }
 
     const eventDate = new Date(data)
 
