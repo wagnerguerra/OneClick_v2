@@ -55,6 +55,7 @@ import {
 } from '@saas/ui'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { PageHeaderIcon, type ModuleSlug } from '@/components/ui/page-header-icon'
+import { BackButton } from '@/components/ui/back-button'
 import { FAQ_COLOR } from '@/app/(dashboard)/faq/_components/article-shell'
 import {
   Section, Step, DefRow, FlagRow, Callout, CascadeRow, CasoPratico, QuickLink,
@@ -1431,6 +1432,43 @@ function DetailPageSection() {
         <Rule>Cada tab tem ícone temático <code className="text-[11px]">h-3.5 w-3.5</code></Rule>
         <AntiRule>NÃO usar <code className="text-[11px]">{`<img object-cover>`}</code> (estica imagem) — sempre <code className="text-[11px]">{`<div>`}</code> com background</AntiRule>
         <AntiRule>NÃO posicionar controles em <code className="text-[11px]">top-3</code> (colide com botões do header)</AntiRule>
+      </Card>
+
+      <SubTitle>Botão de voltar (BackButton)</SubTitle>
+      <Note>
+        Todo header de página de detalhe (canto superior direito) usa o componente <code className="text-[11px]">{`<BackButton>`}</code>.
+        Encapsula cores corretas pra light/dark, hover que não some o ícone, e fallback de navegação quando a página é
+        aberta direto via link (sem histórico).
+      </Note>
+
+      <Card className="p-6 flex items-center gap-4 bg-gradient-to-r from-sky-100 to-cyan-200 dark:from-sky-900/40 dark:to-cyan-900/40">
+        <span className="text-[11px] text-foreground/70">Preview sobre header colorido:</span>
+        <BackButton href="#" />
+        <BackButton href="#" label="Voltar" />
+      </Card>
+
+      <CodeSnippet
+        label="Uso"
+        code={`import { BackButton } from '@/components/ui/back-button'
+
+// 1) Só ícone (padrão em pág. de detalhe — canto superior direito)
+<BackButton href="/helpdesk" />
+
+// 2) Com texto (footers de formulário)
+<BackButton href="/clientes" label="Voltar" />
+
+// 3) Sem href → router.back() com fallback pra "/" se não houver histórico
+<BackButton />
+<BackButton fallbackHref="/helpdesk" />`}
+      />
+
+      <Card className="p-4 space-y-2">
+        <h4 className="text-[12px] font-bold">Regras</h4>
+        <Rule>SEMPRE usar <code className="text-[11px]">{`<BackButton href="..."/>`}</code> — destino determinístico bate <code className="text-[11px]">router.back()</code> cego</Rule>
+        <Rule>Hover preserva o ícone (não vira branco-sobre-branco no light)</Rule>
+        <Rule>Dark mode: <code className="text-[11px]">bg-card</code> + <code className="text-[11px]">border-white/15</code> — não cria clarão sobre o gradiente</Rule>
+        <AntiRule>NÃO copiar o JSX antigo <code className="text-[11px]">{`<Button variant="outline" size="icon" ...>`}</code> com classes manuais</AntiRule>
+        <AntiRule>NÃO usar <code className="text-[11px]">router.back()</code> direto — quebra em link copiado/nova aba</AntiRule>
       </Card>
     </div>
   )
