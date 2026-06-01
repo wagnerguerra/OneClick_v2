@@ -247,6 +247,7 @@ model User {
   substitutoAreas        ClienteAreaContratada[] @relation("AreaSubstituto")
   eventoCriados          AgendaEvento[]          @relation("EventoCriador")
   eventoParticipacoes    AgendaParticipante[]    @relation("EventoParticipante")
+  tarefasCriadas         AgendaTarefa[]          @relation("TarefaCriador")
   helpdeskSolicitados    HelpdeskTicket[]        @relation("HelpdeskTicketSolicitante")
   helpdeskResponsavel    HelpdeskTicket[]        @relation("HelpdeskTicketResponsavel")
   helpdeskMensagens      HelpdeskMensagem[]
@@ -2168,6 +2169,50 @@ model AgendaLog {
 enum AgendaLembreteCanal {
   POPUP
   EMAIL
+}
+
+/// Tarefa simples na agenda — sem participantes, sem sala, sem link, sem
+/// conflito de horário. Tem prazo (data + hora opcional), pode ter lembrete
+/// próprio e ser marcada como concluída. Inspirada em Google Tasks.
+model AgendaTarefa {
+  id             String    @id @default(cuid())
+  titulo         String
+  descricao      String?   @db.Text
+  prazo          DateTime  @db.Date          // data do prazo (sempre UTC midnight)
+  horaPrazo      String?   @map("hora_prazo") // HH:MM opcional (null = sem hora específica)
+  concluida      Boolean   @default(false)
+  concluidaEm    DateTime? @map("concluida_em")
+  prioridade     String    @default("NORMAL") // BAIXA | NORMAL | ALTA
+
+  criadorId      String    @map("criador_id")
+  criador        User      @relation("TarefaCriador", fields: [criadorId], references: [id])
+  empresaId      String?   @map("empresa_id")
+
+  lembretes      AgendaTarefaLembrete[]
+
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([criadorId, concluida, prazo])
+  @@index([prazo])
+  @@index([empresaId])
+  @@map("agenda_tarefas")
+}
+
+/// Lembrete pra uma tarefa — mesma semântica do AgendaLembrete mas pra
+/// AgendaTarefa. Modelos separados pra evitar coluna opcional com FK condicional.
+model AgendaTarefaLembrete {
+  id              String              @id @default(cuid())
+  tarefaId        String              @map("tarefa_id")
+  tarefa          AgendaTarefa        @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
+  canal           AgendaLembreteCanal @default(POPUP)
+  minutosAntes    Int                 @map("minutos_antes")
+  ultimoDisparoEm DateTime?           @map("ultimo_disparo_em")
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  @@index([tarefaId])
+  @@index([minutosAntes])
+  @@map("agenda_tarefa_lembretes")
 }
 
 /// Lembrete agendado pra um evento — pertence ao evento (todos participantes

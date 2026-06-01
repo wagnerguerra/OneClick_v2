@@ -217,6 +217,7 @@ export class AgendaService {
 
     const where: Prisma.AgendaEventoWhereInput = {
       isActive: true,
+      isTarefa: false,  // tarefas agora moram em agenda_tarefas — não vazam pra listagem de eventos
       OR: [
         // Evento começa dentro do range
         { data: { gte: rangeStart, lte: rangeEnd } },

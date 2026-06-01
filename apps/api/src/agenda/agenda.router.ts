@@ -6,6 +6,7 @@ import { AgendaConfigService } from './agenda-config.service'
 import { AgendaSalaService } from './agenda-sala.service'
 import { AgendaDisparoService } from './agenda-disparo.service'
 import { AgendaLembreteService } from './agenda-lembrete.service'
+import { AgendaTarefaService } from './agenda-tarefa.service'
 
 const MODULE = 'agenda'
 const conflitoModoSchema = z.enum(['DESLIGADO', 'AVISAR', 'BLOQUEAR'])
@@ -22,6 +23,7 @@ export function createAgendaRouter(
   salaService: AgendaSalaService,
   disparoService: AgendaDisparoService,
   lembreteService: AgendaLembreteService,
+  tarefaService: AgendaTarefaService,
 ) {
   return router({
     // === TIPOS (Categorias) ===
@@ -283,6 +285,68 @@ export function createAgendaRouter(
       syncFromGoogle: writeProcedure(MODULE)
         .input(z.object({ daysBack: z.number().default(7), daysForward: z.number().default(30) }).optional())
         .mutation(({ input, ctx }) => googleService.syncFromGoogle(ctx.userId, input?.daysBack, input?.daysForward)),
+    }),
+
+    // === TAREFAS (entidade separada de eventos — sem participantes, sem conflito) ===
+    tarefa: router({
+      list: readProcedure(MODULE)
+        .input(z.object({
+          usuarioId: z.string().optional(),       // filtra por criador; default = só do user logado
+          apenasAbertas: z.boolean().optional(),
+          apenasConcluidas: z.boolean().optional(),
+          dataInicio: z.string().optional(),      // yyyy-MM-dd
+          dataFim: z.string().optional(),
+          todasDoTenant: z.boolean().optional(),  // se true e for master, traz de todos
+        }).optional())
+        .query(({ input, ctx }) => tarefaService.list({
+          usuarioId: input?.todasDoTenant && ctx.isMaster ? undefined : (input?.usuarioId ?? ctx.userId),
+          apenasAbertas: input?.apenasAbertas,
+          apenasConcluidas: input?.apenasConcluidas,
+          dataInicio: input?.dataInicio,
+          dataFim: input?.dataFim,
+          empresaId: ctx.empresaId,
+        })),
+      getById: readProcedure(MODULE)
+        .input(z.object({ id: z.string() }))
+        .query(({ input }) => tarefaService.getById(input.id)),
+      create: writeProcedure(MODULE)
+        .input(z.object({
+          titulo: z.string().min(1),
+          descricao: z.string().nullable().optional(),
+          prazo: z.string(),                                          // yyyy-MM-dd
+          horaPrazo: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+          prioridade: z.enum(['BAIXA', 'NORMAL', 'ALTA']).optional(),
+        }))
+        .mutation(({ input, ctx }) => tarefaService.create({ ...input, empresaId: ctx.empresaId }, ctx.userId)),
+      update: writeProcedure(MODULE)
+        .input(z.object({
+          id: z.string(),
+          data: z.object({
+            titulo: z.string().min(1).optional(),
+            descricao: z.string().nullable().optional(),
+            prazo: z.string().optional(),
+            horaPrazo: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+            prioridade: z.enum(['BAIXA', 'NORMAL', 'ALTA']).optional(),
+          }),
+        }))
+        .mutation(({ input }) => tarefaService.update(input.id, input.data)),
+      toggleConcluida: writeProcedure(MODULE)
+        .input(z.object({ id: z.string(), concluida: z.boolean() }))
+        .mutation(({ input }) => tarefaService.toggleConcluida(input.id, input.concluida)),
+      delete: deleteProcedure(MODULE)
+        .input(z.object({ id: z.string() }))
+        .mutation(({ input }) => tarefaService.delete(input.id)),
+      lembrete: router({
+        list: readProcedure(MODULE)
+          .input(z.object({ tarefaId: z.string() }))
+          .query(({ input }) => tarefaService.listLembretes(input.tarefaId)),
+        save: writeProcedure(MODULE)
+          .input(z.object({
+            tarefaId: z.string(),
+            lembretes: z.array(lembreteItemSchema).max(10),
+          }))
+          .mutation(({ input }) => tarefaService.saveLembretes(input.tarefaId, input.lembretes)),
+      }),
     }),
 
     // === LEMBRETES ===

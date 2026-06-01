@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Plus, Loader2, Calendar, Clock,
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
   Repeat, Lock, History, Settings, Palette, Check, Download, DoorOpen,
-  Bell, Mail,
+  Bell, Mail, CheckSquare, Square, ListTodo,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card,
@@ -22,6 +22,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
+import { TarefaModal } from './_components/tarefa-modal'
 import { alerts } from '@/lib/alerts'
 import Swal from 'sweetalert2'
 import { useSession } from '@/lib/auth-client'
@@ -241,6 +242,37 @@ export default function AgendaPage() {
   })
   const [avulsoInput, setAvulsoInput] = useState('')
 
+  // === Tarefas (entidade separada de eventos) ===
+  interface Tarefa {
+    id: string
+    titulo: string
+    descricao: string | null
+    prazo: string
+    horaPrazo: string | null
+    concluida: boolean
+    concluidaEm: string | null
+    prioridade: 'BAIXA' | 'NORMAL' | 'ALTA'
+    criadorId: string
+    criador?: { id: string; name: string; image: string | null }
+    lembretes?: Array<{ canal: 'POPUP' | 'EMAIL'; minutosAntes: number }>
+  }
+  const [tarefas, setTarefas] = useState<Tarefa[]>([])
+  const [tarefaModalOpen, setTarefaModalOpen] = useState(false)
+  const [tarefaEditando, setTarefaEditando] = useState<Tarefa | null>(null)
+  const loadTarefas = useCallback(async () => {
+    try {
+      const r = await (trpc.agenda.tarefa as any).list.query({ apenasAbertas: false })
+      setTarefas(r as Tarefa[])
+    } catch { /* sem permissão ou offline */ }
+  }, [])
+  useEffect(() => { loadTarefas() }, [loadTarefas])
+  async function toggleTarefaConcluida(t: Tarefa) {
+    try {
+      await (trpc.agenda.tarefa as any).toggleConcluida.mutate({ id: t.id, concluida: !t.concluida })
+      loadTarefas()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
   // Lembretes do evento (Google Calendar-like). Persistido em /agenda/lembrete.save
   // após criar/editar o evento.
   type LembreteForm = { canal: 'POPUP' | 'EMAIL'; minutosAntes: number }
@@ -397,6 +429,35 @@ export default function AgendaPage() {
   // Mapeia eventos por chave YYYY-MM-DD (não só dia número), assim dias de meses
   // adjacentes visíveis na grade (ex: 30/abril aparecendo na primeira linha de maio)
   // também recebem seus eventos próprios.
+  // Tarefas por dia — agrupadas pela `prazo` (UTC date) pra renderizar no grid
+  const tarefasPorDia = useMemo(() => {
+    const map: Record<string, Tarefa[]> = {}
+    for (const t of tarefas) {
+      const d = new Date(t.prazo)
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+      if (!map[key]) map[key] = []
+      map[key]!.push(t)
+    }
+    // Ordena: não concluídas primeiro, depois por hora (se tiver), depois título
+    for (const key of Object.keys(map)) {
+      map[key]!.sort((a, b) => {
+        if (a.concluida !== b.concluida) return a.concluida ? 1 : -1
+        if (a.horaPrazo && b.horaPrazo) return a.horaPrazo.localeCompare(b.horaPrazo)
+        if (a.horaPrazo) return -1
+        if (b.horaPrazo) return 1
+        return a.titulo.localeCompare(b.titulo)
+      })
+    }
+    return map
+  }, [tarefas])
+
+  // Minhas tarefas pendentes (sidebar widget) — apenas do user logado, não concluídas
+  const minhasTarefasPendentes = useMemo(() => {
+    return tarefas
+      .filter(t => !t.concluida && t.criadorId === currentUserId)
+      .sort((a, b) => new Date(a.prazo).getTime() - new Date(b.prazo).getTime())
+  }, [tarefas, currentUserId])
+
   const eventosPorDia = useMemo(() => {
     const map: Record<string, AgendaEvento[]> = {}
     let filtered = filtroTipo ? eventos.filter(e => e.tipoId === filtroTipo) : eventos
@@ -805,6 +866,14 @@ export default function AgendaPage() {
         >
           <Plus className="h-4 w-4" /> Novo Evento
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => { setTarefaEditando(null); setTarefaModalOpen(true) }}
+        >
+          <CheckSquare className="h-4 w-4" /> Nova Tarefa
+        </Button>
         <Button asChild variant="outline" size="sm" className="gap-1.5">
           <Link href="/agenda/disponibilidade">
             <Users className="h-4 w-4" /> Verificar disponibilidade
@@ -945,6 +1014,88 @@ export default function AgendaPage() {
                     )
                   })
                 })()}
+              </div>
+            )}
+          </div>
+
+          {/* Minhas tarefas pendentes */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                <ListTodo className="h-3.5 w-3.5 text-muted-foreground" />
+                Minhas tarefas
+              </h3>
+              <Link href="/agenda/tarefas" className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline">
+                Ver todas
+              </Link>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              {minhasTarefasPendentes.length === 0
+                ? 'Nenhuma pendente — bom trabalho!'
+                : `${minhasTarefasPendentes.length} pendente${minhasTarefasPendentes.length > 1 ? 's' : ''}`}
+            </p>
+            {minhasTarefasPendentes.length > 0 && (
+              <div className="space-y-1.5 max-h-[360px] overflow-y-auto scrollbar-none pr-1">
+                {minhasTarefasPendentes.slice(0, 10).map(t => {
+                  const d = new Date(t.prazo)
+                  const hoje = new Date()
+                  const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+                  const prazoDate = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+                  const diffDias = Math.floor((prazoDate.getTime() - inicioHoje.getTime()) / 86400000)
+                  const corStatus = diffDias < 0 ? 'rose' : diffDias === 0 ? 'amber' : 'sky'
+                  const labelStatus = diffDias < 0
+                    ? `Atrasada ${Math.abs(diffDias)}d`
+                    : diffDias === 0
+                      ? 'Hoje'
+                      : diffDias === 1
+                        ? 'Amanhã'
+                        : `${diffDias}d`
+                  return (
+                    <div
+                      key={t.id}
+                      className="group/tk flex items-start gap-2 p-2 rounded border border-border/60 hover:bg-muted/40 cursor-pointer transition-colors"
+                      onClick={() => { setTarefaEditando(t); setTarefaModalOpen(true) }}
+                    >
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); toggleTarefaConcluida(t) }}
+                        className="shrink-0 mt-0.5"
+                        title="Concluir"
+                      >
+                        <Square className="h-3.5 w-3.5 text-muted-foreground group-hover/tk:text-sky-500" />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-medium truncate leading-tight">{t.titulo}</p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className={cn(
+                            'inline-block text-[9px] font-bold uppercase tracking-wider px-1 py-0.5 rounded',
+                            corStatus === 'rose' && 'bg-rose-500/15 text-rose-700 dark:text-rose-400',
+                            corStatus === 'amber' && 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+                            corStatus === 'sky' && 'bg-sky-500/15 text-sky-700 dark:text-sky-400',
+                          )}>
+                            {labelStatus}
+                          </span>
+                          {t.horaPrazo && (
+                            <span className="text-[10px] text-muted-foreground tabular-nums">{t.horaPrazo}</span>
+                          )}
+                          {t.prioridade === 'ALTA' && (
+                            <span className="inline-flex items-center text-[9px] font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-orange-500/15 text-orange-700 dark:text-orange-400">
+                              Alta
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+                {minhasTarefasPendentes.length > 10 && (
+                  <Link
+                    href="/agenda/tarefas"
+                    className="block text-center text-[11px] text-sky-600 dark:text-sky-400 hover:underline py-1"
+                  >
+                    +{minhasTarefasPendentes.length - 10} mais
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -1167,6 +1318,53 @@ export default function AgendaPage() {
                             +{dayEvents.length - 3} mais
                           </button>
                         )}
+                        {/* TAREFAS — estilo Google Calendar: chip discreto com checkbox, sem slot horário */}
+                        {(() => {
+                          const dayTarefas = tarefasPorDia[dateStr] ?? []
+                          if (dayTarefas.length === 0) return null
+                          const visiveis = dayTarefas.slice(0, 2)
+                          const ocultas = dayTarefas.length - visiveis.length
+                          return (
+                            <div className="mt-1 space-y-0.5">
+                              {visiveis.map(t => (
+                                <div
+                                  key={t.id}
+                                  onClick={e => { e.stopPropagation(); setTarefaEditando(t); setTarefaModalOpen(true) }}
+                                  className={cn(
+                                    'group/tk text-[11px] leading-snug flex items-center gap-1 rounded-[2px] px-1 py-0.5 cursor-pointer hover:bg-muted/60',
+                                    t.concluida && 'opacity-60',
+                                    !isCurrentMonth && 'opacity-50',
+                                  )}
+                                  title={`Tarefa: ${t.titulo}`}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={e => { e.stopPropagation(); toggleTarefaConcluida(t) }}
+                                    className="shrink-0 inline-flex items-center justify-center"
+                                    title={t.concluida ? 'Desmarcar' : 'Concluir tarefa'}
+                                  >
+                                    {t.concluida
+                                      ? <CheckSquare className="h-3 w-3 text-emerald-600" />
+                                      : <Square className="h-3 w-3 text-muted-foreground group-hover/tk:text-sky-500" />}
+                                  </button>
+                                  <span className={cn('truncate', t.concluida && 'line-through text-muted-foreground')}>
+                                    {t.horaPrazo && <span className="text-[10px] text-muted-foreground mr-1 tabular-nums">{t.horaPrazo}</span>}
+                                    {t.titulo}
+                                  </span>
+                                </div>
+                              ))}
+                              {ocultas > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={e => { e.stopPropagation(); setDayModalDate(dateStr); setDayModalOpen(true) }}
+                                  className="text-[10px] text-emerald-700 dark:text-emerald-400 hover:underline pl-1 font-medium cursor-pointer w-full text-left leading-none"
+                                >
+                                  +{ocultas} tarefa{ocultas > 1 ? 's' : ''}
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </>
                     )}
                   </div>
@@ -1741,10 +1939,6 @@ export default function AgendaPage() {
                       <Checkbox checked={form.particular} onCheckedChange={v => setForm(f => ({ ...f, particular: !!v }))} />
                       <Lock className="h-3 w-3 text-muted-foreground" />Particular
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer text-xs">
-                      <Checkbox checked={form.isTarefa} onCheckedChange={v => setForm(f => ({ ...f, isTarefa: !!v }))} />
-                      <Check className="h-3 w-3 text-muted-foreground" />Tarefa
-                    </label>
                   </div>
                 </div>
 
@@ -2229,6 +2423,13 @@ export default function AgendaPage() {
           </DialogBody>
         </DialogContent>
       </Dialog>
+
+      <TarefaModal
+        open={tarefaModalOpen}
+        onOpenChange={setTarefaModalOpen}
+        tarefa={tarefaEditando}
+        onSaved={loadTarefas}
+      />
     </div>
     </TooltipProvider>
   )

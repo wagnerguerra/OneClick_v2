@@ -37,6 +37,7 @@ export class AgendaLembreteService implements OnModuleInit {
   onModuleInit() {
     setInterval(() => {
       this.tick().catch(e => console.error('[AgendaLembrete] tick falhou:', e))
+      this.tickTarefas().catch(e => console.error('[AgendaLembrete] tickTarefas falhou:', e))
     }, 60_000)
     console.log('[AgendaLembrete] Scheduler iniciado (tick 60s)')
   }
@@ -120,6 +121,79 @@ export class AgendaLembreteService implements OnModuleInit {
         await this.dispararLembrete(lembrete)
       } catch (e) {
         console.error(`[AgendaLembrete] Falha disparando ${lembrete.id}:`, (e as Error).message)
+      }
+    }
+  }
+
+  /**
+   * Tick análogo ao de eventos, mas pra tarefas — busca AgendaTarefaLembrete
+   * pendentes, calcula trigger pelo prazo + horaPrazo e dispara via mesmo
+   * canal (POPUP via SSE, EMAIL via EmailService). Lembrete só pra criador
+   * (tarefas não têm participantes).
+   */
+  private async tickTarefas() {
+    const agoraUtc = new Date()
+    const ate31dias = new Date(agoraUtc.getTime() + 31 * 86_400_000)
+    const lembretes = await prisma.agendaTarefaLembrete.findMany({
+      where: {
+        tarefa: {
+          concluida: false,
+          prazo: { gte: this.atStartOfDayUtc(agoraUtc), lte: ate31dias },
+        },
+        OR: [
+          { ultimoDisparoEm: null },
+          { ultimoDisparoEm: { lt: new Date(agoraUtc.getTime() - 12 * 3_600_000) } },
+        ],
+      },
+      include: {
+        tarefa: {
+          select: {
+            id: true, titulo: true, descricao: true, prazo: true, horaPrazo: true,
+            criadorId: true,
+            criador: { select: { name: true, email: true } },
+          },
+        },
+      },
+    })
+    if (lembretes.length === 0) return
+
+    for (const lembrete of lembretes) {
+      try {
+        const triggerUtc = this.calcularTrigger(lembrete.tarefa.prazo, lembrete.tarefa.horaPrazo, !lembrete.tarefa.horaPrazo, lembrete.minutosAntes)
+        if (!triggerUtc) continue
+        const deltaMs = agoraUtc.getTime() - triggerUtc.getTime()
+        if (deltaMs < -60_000 || deltaMs > 30_000) continue
+
+        const dataStr = lembrete.tarefa.prazo.toISOString().slice(0, 10)
+        if (lembrete.canal === 'POPUP') {
+          this.events.emit({
+            eventoId: lembrete.tarefa.id,
+            titulo: `📋 ${lembrete.tarefa.titulo}`,
+            data: dataStr,
+            horaInicio: lembrete.tarefa.horaPrazo,
+            diaInteiro: !lembrete.tarefa.horaPrazo,
+            local: null,
+            minutosAntes: lembrete.minutosAntes,
+            destinatarios: [lembrete.tarefa.criadorId],
+          })
+        } else if (lembrete.canal === 'EMAIL' && lembrete.tarefa.criador.email) {
+          // E-mail simplificado pra tarefa (sem template rico — não tem participantes/local/etc)
+          await this.emailService.sendMail({
+            to: lembrete.tarefa.criador.email,
+            subject: `Lembrete de tarefa: ${lembrete.tarefa.titulo}`,
+            html: `<div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#f1f5f9">
+              <div style="background:#fff;border-radius:12px;padding:24px;border-left:4px solid #0ea5e9">
+                <p style="margin:0 0 8px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:700">⏰ Lembrete de tarefa</p>
+                <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a">${lembrete.tarefa.titulo}</h2>
+                ${lembrete.tarefa.descricao ? `<p style="margin:0 0 12px;color:#475569;font-size:14px;line-height:1.5">${lembrete.tarefa.descricao.replace(/</g, '&lt;')}</p>` : ''}
+                <p style="margin:8px 0 0;font-size:13px;color:#64748b"><strong>Prazo:</strong> ${dataStr.split('-').reverse().join('/')}${lembrete.tarefa.horaPrazo ? ` às ${lembrete.tarefa.horaPrazo}` : ''}</p>
+              </div>
+            </div>`,
+          })
+        }
+        await prisma.agendaTarefaLembrete.update({ where: { id: lembrete.id }, data: { ultimoDisparoEm: new Date() } })
+      } catch (e) {
+        console.error(`[AgendaTarefaLembrete] Falha disparando ${lembrete.id}:`, (e as Error).message)
       }
     }
   }
