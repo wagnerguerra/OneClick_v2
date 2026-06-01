@@ -1445,20 +1445,51 @@ export class HelpdeskService {
   async listAgentesAtribuiveis(ticketId: string, callerId: string) {
     const ticket = await prisma.helpdeskTicket.findUnique({
       where: { id: ticketId },
-      select: { areaId: true, empresaId: true },
+      select: { empresaId: true },
     })
     if (!ticket) return []
-    const where: any = { isActive: true }
-    if (ticket.empresaId) where.OR = [{ empresaId: ticket.empresaId }, { empresaId: null }]
-    if (ticket.areaId) where.AND = [{ areaId: ticket.areaId }]
     void callerId
-    return prisma.user.findMany({
+
+    // Mesmas regras de canAtuarAgente, mas avaliadas em batch (sem N+1):
+    // master, empresa-master, DIRETOR/COORDENADOR, sub-perm atuar_agente
+    // ou pertencer a uma área de TI/Suporte.
+    const where: Record<string, unknown> = { isActive: true }
+    if (ticket.empresaId) {
+      where.OR = [{ empresaId: ticket.empresaId }, { empresaId: null }]
+    }
+    const users = await prisma.user.findMany({
       where,
-      select: { id: true, name: true, image: true, area: { select: { name: true } } },
+      select: {
+        id: true,
+        name: true,
+        image: true,
+        role: true,
+        isMaster: true,
+        isEmpresaMaster: true,
+        area: { select: { name: true } },
+        permissions: {
+          where: { moduleSlug: 'helpdesk' },
+          select: { subPermissions: true },
+        },
+      },
       orderBy: { name: 'asc' },
-    }).then(users => users.map(u => ({
-      id: u.id, name: u.name, image: u.image, areaName: u.area?.name ?? null,
-    })))
+    })
+
+    const agentes = users.filter((u) => {
+      if (u.isMaster || u.isEmpresaMaster) return true
+      if (u.role === 'DIRETOR' || u.role === 'COORDENADOR') return true
+      const sub = (u.permissions[0]?.subPermissions ?? {}) as Record<string, boolean>
+      if (sub.atuar_agente === true) return true
+      if (u.area?.name && isAreaTi(u.area.name)) return true
+      return false
+    })
+
+    return agentes.map((u) => ({
+      id: u.id,
+      name: u.name,
+      image: u.image,
+      areaName: u.area?.name ?? null,
+    }))
   }
 }
 
