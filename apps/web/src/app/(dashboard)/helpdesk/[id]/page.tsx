@@ -339,9 +339,17 @@ export default function HelpdeskTicketDetailPage() {
                 )}
                 <Button
                   variant="outline" size="icon"
-                  onClick={() => router.back()}
+                  onClick={() => {
+                    // router.back() falha quando a página foi aberta direto
+                    // (link copiado, nova aba): cai pra lista do helpdesk.
+                    if (typeof window !== 'undefined' && window.history.length > 1) {
+                      router.back()
+                    } else {
+                      router.push('/helpdesk')
+                    }
+                  }}
                   title="Voltar"
-                  className="h-8 w-8 bg-white/70 hover:bg-white"
+                  className="h-8 w-8 bg-white/70 hover:bg-white dark:bg-black/30 dark:hover:bg-black/40 dark:border-white/15 dark:text-foreground"
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
