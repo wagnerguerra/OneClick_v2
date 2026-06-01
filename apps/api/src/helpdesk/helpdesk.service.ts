@@ -1450,9 +1450,12 @@ export class HelpdeskService {
     if (!ticket) return []
     void callerId
 
-    // Mesmas regras de canAtuarAgente, mas avaliadas em batch (sem N+1):
-    // master, empresa-master, DIRETOR/COORDENADOR, sub-perm atuar_agente
-    // ou pertencer a uma área de TI/Suporte.
+    // ATRIBUIÇÃO de responsável é mais restritiva que canAtuarAgente: aqui
+    // só entram quem realmente OPERA o helpdesk no dia a dia — isMaster,
+    // sub-perm explícita `atuar_agente` ou usuário de uma área de TI/Suporte.
+    // DIRETOR/COORDENADOR/empresaMaster continuam VENDO todos os tickets
+    // (canAtuarAgente), mas não devem aparecer como opção de responsável
+    // — eles não tratam tickets, só supervisionam.
     const where: Record<string, unknown> = { isActive: true }
     if (ticket.empresaId) {
       where.OR = [{ empresaId: ticket.empresaId }, { empresaId: null }]
@@ -1476,8 +1479,7 @@ export class HelpdeskService {
     })
 
     const agentes = users.filter((u) => {
-      if (u.isMaster || u.isEmpresaMaster) return true
-      if (u.role === 'DIRETOR' || u.role === 'COORDENADOR') return true
+      if (u.isMaster) return true
       const sub = (u.permissions[0]?.subPermissions ?? {}) as Record<string, boolean>
       if (sub.atuar_agente === true) return true
       if (u.area?.name && isAreaTi(u.area.name)) return true
