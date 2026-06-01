@@ -20,6 +20,7 @@ import {
   Sparkles, Database, Plus, Search, Eye, Edit, Trash2,
   MoreVertical, Calculator, FileText, MessageSquare,
   Settings, X, Save, ListChecks, ShoppingCart, RotateCcw, Loader2,
+  ArrowLeft,
 } from 'lucide-react'
 import { useModuleColors, useRefreshModuleColors, useSetLocalModuleColor, DEFAULT_MODULE_COLORS } from '@/components/theme/module-colors'
 import { alerts } from '@/lib/alerts'
@@ -604,6 +605,46 @@ import { Database } from 'lucide-react'
           <Button className="gap-1.5">
             <Plus className="h-4 w-4" /> Novo ativo
           </Button>
+        </div>
+      </Demo>
+
+      <SubTitle>Botão Voltar — sempre à direita, só ícone</SubTitle>
+      <Note>
+        Em páginas de sub-nível (ex: <code className="text-[11px]">/agenda/tarefas</code>, <code className="text-[11px]">/configuracoes/agendamentos</code>), o botão de voltar pra página-pai fica <strong>à direita do header</strong>, depois dos botões de ação primários, usando <code className="text-[11px]">{`<Button variant="outline" size="icon" className="h-9 w-9">`}</code> com <strong>apenas o ícone</strong> <code className="text-[11px]">{`<ArrowLeft />`}</code>. Sem texto. Usar <code className="text-[11px]">title=&quot;Voltar pra ...&quot;</code> pra tooltip.
+        Nunca colocar o voltar acima do header (linha separada) ou com texto "Voltar pra ..." inline.
+      </Note>
+
+      <Demo
+        code={`<div className="flex items-center justify-between gap-4">
+  <div className="flex items-center gap-3">
+    <PageHeaderIcon module="administrativo" icon={ListTodo} />
+    <div>
+      <h1>Tarefas</h1>
+      <p className="text-sm text-muted-foreground">Lembretes pessoais com prazo</p>
+    </div>
+  </div>
+  <div className="flex items-center gap-2 shrink-0">
+    <Button className="gap-1.5"><Plus className="h-4 w-4" /> Nova tarefa</Button>
+    <Button variant="outline" size="icon" asChild className="h-9 w-9" title="Voltar pra Agenda">
+      <Link href="/agenda"><ArrowLeft className="h-4 w-4" /></Link>
+    </Button>
+  </div>
+</div>`}
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <PageHeaderIcon module="administrativo" icon={ListChecks} />
+            <div>
+              <h1 className="text-foreground">Tarefas</h1>
+              <p className="text-sm text-muted-foreground">Lembretes pessoais com prazo</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button className="gap-1.5"><Plus className="h-4 w-4" /> Nova tarefa</Button>
+            <Button variant="outline" size="icon" className="h-9 w-9" title="Voltar pra Agenda">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </Demo>
 

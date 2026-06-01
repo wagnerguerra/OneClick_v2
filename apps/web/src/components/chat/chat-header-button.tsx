@@ -263,6 +263,29 @@ export function ChatHeaderButton() {
     return () => clearInterval(i)
   }, [loadConversas, loadOnline])
 
+  // ========== Listener pra abrir o chat numa conversa específica (do toast) ==========
+  useEffect(() => {
+    function onOpenConversa(e: Event) {
+      const detail = (e as CustomEvent<{ conversaId: string }>).detail
+      if (!detail?.conversaId) return
+      setOpen(true)
+      // Aguarda load das conversas pra achar a conversa correta
+      const tentarSelecionar = () => {
+        const c = conversas.find(x => x.id === detail.conversaId)
+        if (c) { setConversaAtiva(c); return true }
+        return false
+      }
+      if (!tentarSelecionar()) {
+        // Conversa ainda não carregada — carrega e tenta de novo
+        loadConversas().then(() => {
+          setTimeout(tentarSelecionar, 0)
+        }).catch(() => {})
+      }
+    }
+    window.addEventListener('chat:open-conversa', onOpenConversa)
+    return () => window.removeEventListener('chat:open-conversa', onOpenConversa)
+  }, [conversas, loadConversas])
+
   // ========== Pedir permissão de notificação no 1º open ==========
   const pediuPermissaoRef = useRef(false)
   useEffect(() => {
@@ -294,6 +317,22 @@ export function ChatHeaderButton() {
               } else {
                 // Notificação browser quando painel fechado OU outra conversa
                 showBrowserNotification(ev)
+              }
+              // Toast in-app — SEMPRE, exceto se for a própria mensagem ou se a conversa ativa estiver visível (painel aberto)
+              if (ev.mensagem.autorId !== meuId && !(open && conversaAtiva && ev.conversaId === conversaAtiva.id)) {
+                const conv = conversas.find(c => c.id === ev.conversaId)
+                const autor = conv?.participantes.find(p => p.id === ev.mensagem.autorId)
+                window.dispatchEvent(new CustomEvent('chat:toast-mensagem', {
+                  detail: {
+                    conversaId: ev.conversaId,
+                    conversaNome: conv?.nome ?? 'Conversa',
+                    conversaIsGrupo: !!conv?.isGrupo,
+                    autorNome: autor?.name ?? 'Alguém',
+                    autorImage: autor?.image ?? null,
+                    mensagemConteudo: ev.mensagem.conteudo,
+                    mensagemId: ev.mensagem.id,
+                  },
+                }))
               }
             } else if (ev.type === 'mensagem-editada' || ev.type === 'mensagem-deletada' || ev.type === 'reaction-mudou' || ev.type === 'anexo-adicionado') {
               window.dispatchEvent(new CustomEvent('chat:' + ev.type, { detail: ev }))

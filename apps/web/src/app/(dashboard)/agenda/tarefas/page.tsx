@@ -12,6 +12,7 @@ import {
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { TarefaModal } from '../_components/tarefa-modal'
 
 interface Tarefa {
@@ -31,11 +32,18 @@ interface Tarefa {
 type Filtro = 'todas' | 'pendentes' | 'hoje' | 'atrasadas' | 'concluidas'
 
 export default function TarefasPage() {
+  const { profile } = useCurrentUserProfile()
+  const isMaster = !!(profile?.isMaster || profile?.isEmpresaMaster)
   const [tarefas, setTarefas] = useState<Tarefa[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filtro, setFiltro] = useState<Filtro>('pendentes')
+  // Master entra direto em "todas" pra visão global; usuário comum só vê as próprias.
+  // O default é "minhas" até o profile carregar — useEffect abaixo promove pra "todas" assim que detectar isMaster.
   const [escopo, setEscopo] = useState<'minhas' | 'todas'>('minhas')
+  useEffect(() => {
+    if (isMaster) setEscopo('todas')
+  }, [isMaster])
   const [modalOpen, setModalOpen] = useState(false)
   const [tarefaEditando, setTarefaEditando] = useState<Tarefa | null>(null)
 
@@ -268,8 +276,13 @@ export default function TarefasPage() {
                         {atrasada && ` · atrasada ${Math.abs(diffDias)}d`}
                         {hojeFlag && ' · hoje'}
                       </span>
-                      {t.criador && escopo === 'todas' && (
-                        <span className="text-muted-foreground">por {t.criador.name}</span>
+                      {t.criador && isMaster && (
+                        <span className="inline-flex items-center gap-1 text-muted-foreground">
+                          <span className="inline-block h-3.5 w-3.5 rounded-full bg-muted text-[8px] font-bold uppercase flex items-center justify-center text-muted-foreground">
+                            {t.criador.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                          </span>
+                          {t.criador.name}
+                        </span>
                       )}
                     </div>
                   </div>
