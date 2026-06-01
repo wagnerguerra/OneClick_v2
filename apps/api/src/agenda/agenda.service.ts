@@ -354,16 +354,17 @@ export class AgendaService {
         },
       })
 
-      // Create participants (user-based)
-      if (participanteIds && participanteIds.length > 0) {
-        await prisma.agendaParticipante.createMany({
-          data: participanteIds.map((uid) => ({
-            eventoId: evento.id,
-            usuarioId: uid,
-          })),
-          skipDuplicates: true,
-        })
-      }
+      // Create participants (user-based). Inclui o criador automaticamente —
+      // quem abre o evento sempre participa dele. `skipDuplicates` garante
+      // idempotência se o criador também aparecer na lista vinda do frontend.
+      const idsComCriador = Array.from(new Set([userId, ...(participanteIds ?? [])]))
+      await prisma.agendaParticipante.createMany({
+        data: idsComCriador.map((uid) => ({
+          eventoId: evento.id,
+          usuarioId: uid,
+        })),
+        skipDuplicates: true,
+      })
 
       // Create participants (avulsos — external names)
       if (participantesAvulsos && participantesAvulsos.length > 0) {
