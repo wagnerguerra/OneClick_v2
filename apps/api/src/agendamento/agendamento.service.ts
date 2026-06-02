@@ -212,6 +212,11 @@ export class AgendamentoService {
       : []
     const systemConfigMap = new Map(systemConfigRows.map(r => [r.key, r.value]))
 
+    // AgendaDisparoConfig — carrega 1x se algum item depende dele
+    const agendaDisparoCfg = SCHEDULER_REGISTRY.some(s => s.cronSource.kind === 'agendaDisparoConfig')
+      ? await prisma.agendaDisparoConfig.findFirst()
+      : null
+
     // Últimas execuções por slug (scheduler_executions)
     const slugsExec = SCHEDULER_REGISTRY
       .map(s => s.lastRunSource.kind === 'scheduler_executions' ? s.lastRunSource.slug : null)
@@ -251,6 +256,18 @@ export class AgendamentoService {
         ativo = item.cronSource.enabledKey
           ? systemConfigMap.get(item.cronSource.enabledKey) === 'true'
           : true
+      } else if (item.cronSource.kind === 'agendaDisparoConfig') {
+        // Converte horario (HH:MM) + diasSemana (array de 0-6) em cron 5 campos
+        // expressão "M H * * D1,D2,...". Cron usa 0=domingo, mesmo padrão.
+        if (agendaDisparoCfg) {
+          const [hh, mm] = agendaDisparoCfg.horario.split(':')
+          const dias = (agendaDisparoCfg.diasSemana ?? []).join(',') || '*'
+          cron = `${parseInt(mm ?? '0', 10)} ${parseInt(hh ?? '0', 10)} * * ${dias}`
+          ativo = agendaDisparoCfg.ativo
+        } else {
+          cron = '—'
+          ativo = false
+        }
       } else {
         cron = '—'
         ativo = true

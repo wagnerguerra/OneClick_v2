@@ -84,6 +84,11 @@ export class AgendaDisparoService implements OnModuleInit {
    * IMPORTANTE: container roda em UTC, mas usuários configuram horário pensando
    * em horário de Brasília. Por isso usamos `getNowBrasilia()` pra extrair
    * hora/dia da semana corretos (mesmo no container UTC).
+   *
+   * Catch-up: se o container for reiniciado depois do horário do dia (ex.: deploy
+   * às 10h e o horário configurado é 8h), no primeiro tick após o restart a
+   * lógica "horário já passou hoje E ainda não disparou hoje" dispara igualmente,
+   * pra não pular o dia inteiro.
    */
   private async tickScheduler() {
     const cfg = await prisma.agendaDisparoConfig.findFirst()
@@ -96,24 +101,27 @@ export class AgendaDisparoService implements OnModuleInit {
     const agoraBr = this.getNowBrasilia()
     const horaAtualBr = `${String(agoraBr.getHours()).padStart(2, '0')}:${String(agoraBr.getMinutes()).padStart(2, '0')}`
     const diaSemanaBr = agoraBr.getDay()  // 0=dom..6=sab em horário BR
+    const dataHojeBrKey = this.formatDateKey(agoraBr)
 
     if (!cfg.diasSemana.includes(diaSemanaBr)) return
-    if (horaAtualBr !== cfg.horario) return
 
-    // Anti-duplicação: se já disparou esse minuto (em UTC, comparação literal), pula
+    // Já disparou hoje (comparando data BR, não UTC)? Não dispara de novo.
     if (cfg.ultimoDisparoEm) {
-      const diffMs = agoraUtc.getTime() - new Date(cfg.ultimoDisparoEm).getTime()
-      if (diffMs < 60_000) return
+      const ultDispBr = this.toBrasilia(new Date(cfg.ultimoDisparoEm))
+      if (this.formatDateKey(ultDispBr) === dataHojeBrKey) return
     }
 
-    console.log(`[AgendaDisparo] Disparando agenda do dia ${agoraBr.toISOString()} (BR ${horaAtualBr}) pra ${destinatarios.length} destinatário(s)`)
+    // Dispara se o relógio bate exatamente o horário OU se já passou
+    // (string HH:MM permite comparação lexicográfica): catch-up depois de
+    // restart.
+    if (horaAtualBr < cfg.horario) return
+
+    console.log(`[AgendaDisparo] Disparando agenda do dia ${dataHojeBrKey} (BR ${horaAtualBr}, configurado ${cfg.horario}) pra ${destinatarios.length} destinatário(s)`)
     await prisma.agendaDisparoConfig.update({
       where: { id: cfg.id },
       data: { ultimoDisparoEm: agoraUtc },
     })
-    // Data do email = data BR (não UTC) — pra não pegar dia errado depois das 21h
-    const dataRef = this.formatDateKey(agoraBr)
-    await this.enviarAgendaDiaParaTodos(dataRef, destinatarios, 'auto', null)
+    await this.enviarAgendaDiaParaTodos(dataHojeBrKey, destinatarios, 'auto', null)
   }
 
   /**
@@ -137,10 +145,28 @@ export class AgendaDisparoService implements OnModuleInit {
    * conversão (sem depender de TZ do sistema).
    */
   private getNowBrasilia(): Date {
-    const agora = new Date()
-    // Truque comum: converte pra string no TZ BR e parseia de volta como local.
-    const brStr = agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })
-    return new Date(brStr)
+    return this.toBrasilia(new Date())
+  }
+
+  /**
+   * Converte um Date UTC pra um Date "virtual" cujos getHours/getDay/etc.
+   * retornam o equivalente em BR. Usa Intl.formatToParts pra evitar
+   * ambiguidade de formato (toLocaleString('en-US') usa 12h AM/PM e a
+   * reparseagem é frágil).
+   */
+  private toBrasilia(date: Date): Date {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false,
+    }).formatToParts(date)
+    const get = (t: string) => parts.find(p => p.type === t)?.value ?? '00'
+    // Reconstrói como string ISO com 'Z' final — o Date interpreta como UTC,
+    // então getHours/getDay no container UTC retornam exatamente os números BR.
+    let hour = get('hour')
+    if (hour === '24') hour = '00' // edge case Intl em meia-noite
+    return new Date(`${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}:${get('second')}Z`)
   }
 
   // ============================================================

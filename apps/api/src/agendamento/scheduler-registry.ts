@@ -16,6 +16,8 @@ export type CronSource =
   | { kind: 'systemConfig'; cronKey?: string; enabledKey?: string; defaultCron: string }
   /** env var (process.env.X) */
   | { kind: 'env'; cronEnv?: string; enabledEnv?: string; defaultCron: string }
+  /** lê de agenda_disparo_config — horario (HH:MM) + diasSemana viram cron */
+  | { kind: 'agendaDisparoConfig' }
   /** tem uma tabela de config própria — slug aponta pra a fonte específica */
   | { kind: 'custom'; descricao: string }
 
@@ -101,7 +103,7 @@ export const SCHEDULER_REGISTRY: SchedulerRegistryItem[] = [
     nome: 'Agenda do dia (e-mail)',
     modulo: 'Agenda',
     descricao: 'Envia diariamente o resumo da agenda do dia pros destinatários configurados.',
-    cronSource: { kind: 'custom', descricao: 'Horário + dias configurados em /agenda/configuracoes' },
+    cronSource: { kind: 'agendaDisparoConfig' },
     lastRunSource: { kind: 'agenda_disparo_logs' },
     configHref: '/agenda/configuracoes',
     icon: 'Calendar',
