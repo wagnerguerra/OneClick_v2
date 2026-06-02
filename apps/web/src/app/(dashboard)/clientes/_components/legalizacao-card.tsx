@@ -1226,6 +1226,44 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
 // Modal de edição de sócio in-place (chamado da aba Legalização → Sócios)
 // ============================================================
 
+/**
+ * Formata o valor de um campo de sócio pra exibir no histórico.
+ * Tipo de sócio usa o label, datas viram dd/MM/yyyy, booleans Sim/Não,
+ * null/'' viram '—'.
+ */
+function formatSocioFieldValue(field: string, value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—'
+  if (field === 'tipoSocio' && typeof value === 'string') return TIPO_SOCIO_LABELS[value] ?? value
+  if (typeof value === 'boolean') return value ? 'Sim' : 'Não'
+  if (['dataNascimento', 'dataEntrada', 'dataSaida'].includes(field) && typeof value === 'string') {
+    const d = new Date(value)
+    if (!isNaN(d.getTime())) return d.toLocaleDateString('pt-BR')
+  }
+  return String(value)
+}
+
+/** Mapa de campo → rótulo amigável pra exibir mudanças no histórico */
+const SOCIO_FIELD_LABELS: Record<string, string> = {
+  nomeCompleto: 'Nome', cpf: 'CPF', rg: 'RG', orgaoEmissor: 'Órgão emissor',
+  dataNascimento: 'Nascimento', nacionalidade: 'Nacionalidade', estadoCivil: 'Estado civil',
+  profissao: 'Profissão', email: 'E-mail', telefone: 'Telefone', celular: 'Celular',
+  cep: 'CEP', logradouro: 'Logradouro', numero: 'Número', complemento: 'Complemento',
+  bairro: 'Bairro', cidade: 'Cidade', uf: 'UF',
+  tipoSocio: 'Tipo de sócio', participacao: 'Participação (%)',
+  valorQuotas: 'Valor quotas', dataEntrada: 'Data de entrada', dataSaida: 'Data de saída',
+  assinaNaEmpresa: 'Assina pela empresa', responsavelLegal: 'Responsável legal',
+  observacoes: 'Observações', clienteId: 'Cliente', isActive: 'Ativo',
+}
+
+interface SocioEventLog {
+  id: string
+  type: string
+  version: number
+  createdAt: string
+  changes: Record<string, { from: unknown; to: unknown }> | null
+  user: { id: string; name: string } | null
+}
+
 interface SocioCompleto {
   id: string
   nomeCompleto: string
@@ -1256,13 +1294,23 @@ function EditSocioModal({ socioId, onClose, onSaved }: {
   const [socio, setSocio] = useState<SocioCompleto | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [eventos, setEventos] = useState<SocioEventLog[]>([])
+  const [historicoOpen, setHistoricoOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    ;(trpc.socio as any).getById.query({ id: socioId })
-      .then((s: SocioCompleto) => { if (!cancelled) setSocio(s) })
-      .catch((e: Error) => { if (!cancelled) alerts.error('Erro', e.message); onClose() })
+    // Carrega dados + histórico em paralelo
+    Promise.all([
+      (trpc.socio as any).getById.query({ id: socioId }) as Promise<SocioCompleto>,
+      (trpc.socio as any).getEvents.query({ id: socioId }) as Promise<SocioEventLog[]>,
+    ])
+      .then(([s, evs]) => {
+        if (cancelled) return
+        setSocio(s)
+        setEventos(evs)
+      })
+      .catch((e: Error) => { if (!cancelled) { alerts.error('Erro', e.message); onClose() } })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [socioId, onClose])
@@ -1446,6 +1494,67 @@ function EditSocioModal({ socioId, onClose, onSaved }: {
                 <textarea id="observacoes" rows={3} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={socio.observacoes ?? ''}
                   onChange={e => setField('observacoes', e.target.value)} />
+              </div>
+
+              {/* Histórico de alterações */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setHistoricoOpen(o => !o)}
+                  className="flex items-center justify-between w-full text-left py-2 border-t border-border"
+                >
+                  <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="h-3 w-3" />
+                    Histórico de alterações
+                    <span className="text-muted-foreground/70 normal-case font-normal">({eventos.length})</span>
+                  </h4>
+                  <span className="text-[10px] text-muted-foreground">{historicoOpen ? '−' : '+'}</span>
+                </button>
+                {historicoOpen && (
+                  eventos.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground italic py-2">Sem alterações registradas.</p>
+                  ) : (
+                    <ol className="space-y-3 mt-2 pl-2 border-l-2 border-border">
+                      {eventos.map(ev => (
+                        <li key={ev.id} className="relative pl-3">
+                          <span className={cn(
+                            'absolute -left-[7px] top-1 h-3 w-3 rounded-full ring-2 ring-card',
+                            ev.type === 'created' ? 'bg-emerald-500'
+                              : ev.type === 'deleted' ? 'bg-rose-500'
+                              : 'bg-sky-500',
+                          )} />
+                          <div className="flex items-baseline gap-2 flex-wrap">
+                            <span className="text-[11px] font-semibold">
+                              {ev.type === 'created' ? 'Sócio criado'
+                                : ev.type === 'deleted' ? 'Sócio excluído'
+                                : 'Sócio editado'}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">v{ev.version}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(ev.createdAt).toLocaleString('pt-BR', {
+                                day: '2-digit', month: '2-digit', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit',
+                              })}
+                              {ev.user?.name && ` · ${ev.user.name}`}
+                            </span>
+                          </div>
+                          {ev.changes && Object.keys(ev.changes).length > 0 && (
+                            <ul className="mt-1 space-y-0.5 text-[11px]">
+                              {Object.entries(ev.changes).map(([campo, diff]) => (
+                                <li key={campo} className="text-muted-foreground">
+                                  <span className="font-medium text-foreground">{SOCIO_FIELD_LABELS[campo] ?? campo}:</span>{' '}
+                                  <span className="line-through opacity-60">{formatSocioFieldValue(campo, diff.from)}</span>
+                                  {' → '}
+                                  <span className="text-foreground">{formatSocioFieldValue(campo, diff.to)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                  )
+                )}
               </div>
             </div>
           )}
