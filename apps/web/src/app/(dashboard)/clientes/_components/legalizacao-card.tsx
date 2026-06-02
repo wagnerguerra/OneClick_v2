@@ -60,6 +60,8 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   const [capitalSocial, setCapitalSocial] = useState<number | null>(null)
   // Modal de edição de sócio in-place (não redireciona pra /socios/[id])
   const [editSocioId, setEditSocioId] = useState<string | null>(null)
+  // Modal de cadastro novo (in-place, pré-vinculado ao cliente)
+  const [novoSocioOpen, setNovoSocioOpen] = useState(false)
   const [acessos, setAcessos] = useState<Acesso[]>([])
   const [acessosLoading, setAcessosLoading] = useState(false)
   const [vencimentos, setVencimentos] = useState<Vencimento[]>([])
@@ -524,17 +526,13 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                   </div>
                   {clienteId && (
                     <div className="flex items-center gap-1.5">
-                      {/* Cadastro manual — abre o form de sócio já vinculado ao cliente */}
-                      <a
-                        href={`/socios/new?clienteId=${encodeURIComponent(clienteId)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={e => e.stopPropagation()}
+                      {/* Cadastro manual — abre o modal in-place no contexto do cliente */}
+                      <Button
+                        variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
+                        onClick={e => { e.preventDefault(); e.stopPropagation(); setNovoSocioOpen(true) }}
                       >
-                        <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button">
-                          <Plus className="h-3 w-3" />Novo Sócio
-                        </Button>
-                      </a>
+                        <Plus className="h-3 w-3" />Novo Sócio
+                      </Button>
                       {documento && (
                       <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
                         onClick={async (e) => {
@@ -1209,10 +1207,24 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
 
     {editSocioId && clienteId && (
       <EditSocioModal
+        mode="edit"
         socioId={editSocioId}
         onClose={() => setEditSocioId(null)}
         onSaved={async () => {
           setEditSocioId(null)
+          const data = await (trpc.socio as any).listByCliente.query({ clienteId }) as Socio[]
+          setSocios(data)
+        }}
+      />
+    )}
+
+    {novoSocioOpen && clienteId && (
+      <EditSocioModal
+        mode="create"
+        clienteId={clienteId}
+        onClose={() => setNovoSocioOpen(false)}
+        onSaved={async () => {
+          setNovoSocioOpen(false)
           const data = await (trpc.socio as any).listByCliente.query({ clienteId }) as Socio[]
           setSocios(data)
         }}
@@ -1286,24 +1298,44 @@ interface SocioCompleto {
   isActive: boolean
 }
 
-function EditSocioModal({ socioId, onClose, onSaved }: {
+/**
+ * Modal único pra criar/editar sócio in-place no contexto do cliente.
+ *  - mode='edit' carrega via getById + getEvents e chama update
+ *  - mode='create' começa com form vazio pré-vinculado ao clienteId e chama create
+ */
+function EditSocioModal(props: {
+  mode: 'edit'
   socioId: string
   onClose: () => void
   onSaved: () => void
+} | {
+  mode: 'create'
+  clienteId: string
+  onClose: () => void
+  onSaved: () => void
 }) {
-  const [socio, setSocio] = useState<SocioCompleto | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { mode, onClose, onSaved } = props
+  const emptySocio: SocioCompleto = {
+    id: '', nomeCompleto: '', cpf: null, rg: null, email: null, telefone: null,
+    celular: null, tipoSocio: 'SOCIO_QUOTISTA', participacao: null, valorQuotas: null,
+    dataEntrada: null, dataSaida: null, profissao: null, nacionalidade: null,
+    estadoCivil: null, assinaNaEmpresa: false, responsavelLegal: false,
+    observacoes: null, isActive: true,
+  }
+  const [socio, setSocio] = useState<SocioCompleto | null>(mode === 'create' ? emptySocio : null)
+  const [loading, setLoading] = useState(mode === 'edit')
   const [saving, setSaving] = useState(false)
   const [eventos, setEventos] = useState<SocioEventLog[]>([])
   const [historicoOpen, setHistoricoOpen] = useState(false)
 
   useEffect(() => {
+    if (mode !== 'edit') return
     let cancelled = false
     setLoading(true)
     // Carrega dados + histórico em paralelo
     Promise.all([
-      (trpc.socio as any).getById.query({ id: socioId }) as Promise<SocioCompleto>,
-      (trpc.socio as any).getEvents.query({ id: socioId }) as Promise<SocioEventLog[]>,
+      (trpc.socio as any).getById.query({ id: props.socioId }) as Promise<SocioCompleto>,
+      (trpc.socio as any).getEvents.query({ id: props.socioId }) as Promise<SocioEventLog[]>,
     ])
       .then(([s, evs]) => {
         if (cancelled) return
@@ -1313,7 +1345,8 @@ function EditSocioModal({ socioId, onClose, onSaved }: {
       .catch((e: Error) => { if (!cancelled) { alerts.error('Erro', e.message); onClose() } })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [socioId, onClose])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, mode === 'edit' ? props.socioId : null])
 
   function setField<K extends keyof SocioCompleto>(key: K, value: SocioCompleto[K]) {
     setSocio(prev => prev ? { ...prev, [key]: value } : prev)
@@ -1321,9 +1354,17 @@ function EditSocioModal({ socioId, onClose, onSaved }: {
 
   async function salvar() {
     if (!socio) return
+    if (!socio.nomeCompleto.trim()) {
+      alerts.error('Erro', 'Nome é obrigatório.')
+      return
+    }
+    if (!socio.cpf || socio.cpf.replace(/\D/g, '').length < 11) {
+      alerts.error('Erro', 'CPF é obrigatório (11 dígitos).')
+      return
+    }
     setSaving(true)
     try {
-      // Só envia campos editáveis pra evitar conflito com schema do update
+      // Schema do create/update aceita os mesmos campos
       const data: Record<string, unknown> = {
         nomeCompleto: socio.nomeCompleto,
         cpf: socio.cpf ?? '',
@@ -1344,8 +1385,13 @@ function EditSocioModal({ socioId, onClose, onSaved }: {
         observacoes: socio.observacoes ?? '',
         isActive: socio.isActive,
       }
-      await (trpc.socio as any).update.mutate({ id: socio.id, data })
-      alerts.success('Salvo', 'Sócio atualizado com sucesso.')
+      if (mode === 'create') {
+        await (trpc.socio as any).create.mutate({ ...data, clienteId: props.clienteId })
+        alerts.success('Salvo', 'Sócio criado com sucesso.')
+      } else {
+        await (trpc.socio as any).update.mutate({ id: socio.id, data })
+        alerts.success('Salvo', 'Sócio atualizado com sucesso.')
+      }
       onSaved()
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
@@ -1358,8 +1404,8 @@ function EditSocioModal({ socioId, onClose, onSaved }: {
   return createPortal(
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeaderIcon icon={Pencil} color="sky">
-          <DialogTitle>Editar Sócio</DialogTitle>
+        <DialogHeaderIcon icon={mode === 'create' ? Plus : Pencil} color={mode === 'create' ? 'emerald' : 'sky'}>
+          <DialogTitle>{mode === 'create' ? 'Novo Sócio' : 'Editar Sócio'}</DialogTitle>
         </DialogHeaderIcon>
         <DialogBody className="overflow-y-auto">
           {loading || !socio ? (
@@ -1496,7 +1542,8 @@ function EditSocioModal({ socioId, onClose, onSaved }: {
                   onChange={e => setField('observacoes', e.target.value)} />
               </div>
 
-              {/* Histórico de alterações */}
+              {/* Histórico de alterações — só faz sentido no modo edição */}
+              {mode === 'edit' && (
               <div>
                 <button
                   type="button"
@@ -1556,6 +1603,7 @@ function EditSocioModal({ socioId, onClose, onSaved }: {
                   )
                 )}
               </div>
+              )}
             </div>
           )}
         </DialogBody>
