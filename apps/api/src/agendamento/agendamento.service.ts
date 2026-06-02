@@ -318,9 +318,12 @@ export class AgendamentoService {
   private calcularProximaExecucao(cronExpr: string): Date | null {
     try {
       const ct = new CronTime(cronExpr, TZ)
-      // A API de CronTime varia conforme versão. Tentamos dois caminhos:
+      // cron@4 retorna luxon DateTime (não Date). Luxon v3+ usa .toJSDate();
+      // versões antigas tinham .toDate(). Tentamos os dois pra robustez.
       const candidate = (ct as any).sendAt?.() ?? (ct as any).getNextDateFrom?.(new Date())
-      if (candidate?.toDate) return candidate.toDate()
+      if (!candidate) return null
+      if (typeof candidate.toJSDate === 'function') return candidate.toJSDate()
+      if (typeof candidate.toDate === 'function') return candidate.toDate()
       if (candidate instanceof Date) return candidate
       return null
     } catch {
