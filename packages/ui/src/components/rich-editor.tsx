@@ -106,6 +106,24 @@ export function RichEditor({ value, onChange, placeholder, className, onReady }:
     if (editor && onReady) onReady(editor)
   }, [editor, onReady])
 
+  // Sincroniza o conteúdo do editor quando o pai muda `value` externamente
+  // (ex.: setNovaMsg('') após enviar mensagem). Evita loop comparando com
+  // o HTML atual antes de chamar setContent. emitUpdate=false evita
+  // disparar onChange em cascata.
+  useEffect(() => {
+    if (!editor) return
+    const current = editor.getHTML()
+    const next = value ?? ''
+    if (current === next) return
+    // Editor TipTap considera '<p></p>' como vazio — só limpa de fato se
+    // estiver realmente sendo zerado pelo pai
+    if (next === '') {
+      editor.commands.clearContent(false)
+    } else {
+      editor.commands.setContent(next, { emitUpdate: false })
+    }
+  }, [value, editor])
+
   // Modo de edição de HTML cru — toggle no toolbar troca o EditorContent
   // por uma textarea com o source. Ao desligar, o HTML é re-injetado no editor.
   const [htmlMode, setHtmlMode] = useState(false)
