@@ -232,6 +232,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Configurações Gerais', href: '/configuracoes', icon: Settings },
       { label: 'Centro de Agendamentos', href: '/configuracoes/agendamentos', icon: CalendarClock },
+      { label: 'Chat Interno', href: '/configuracoes/chat', icon: MessageSquare },
       { label: 'Certificado Digital', href: '/configuracoes/certificado', icon: BadgeCheck },
       { label: 'Stripe', href: '/configuracoes/stripe', icon: CreditCard },
       { label: 'Assinatura de email', href: '/admin/assinatura-template', icon: Mail },
