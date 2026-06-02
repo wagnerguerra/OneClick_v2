@@ -614,7 +614,10 @@
 
   /* Dark mode overrides */
   .dark {
-    --color-background: #0f1117;
+    /* Background do conteúdo central — cinza-azulado um pouco mais claro que
+       o sidebar/header (que continuam quase pretos). Padrão estilo Asana/Trello
+       no dark: cards escuros 'flutuam' sobre o fundo mais claro. */
+    --color-background: #363c48;
     --color-foreground: #e5e5e5;
     --color-card: #1a1d27;
     --color-card-foreground: #e5e5e5;
