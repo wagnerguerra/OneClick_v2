@@ -1,55 +1,61 @@
 import { z } from 'zod'
-import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
+import { router, readProcedureAnyOf, socioWriteProcedure, socioDeleteProcedure } from '../trpc/trpc.service'
 import { createSocioSchema, updateSocioSchema, listSocioSchema } from '@saas/types'
 import { SocioService } from './socio.service'
 import { CnpjService } from '../cnpj/cnpj.service'
 import { SitfisService } from '../sitfis/sitfis.service'
-import { prisma, scoped } from '@saas/db'
+import { scoped } from '@saas/db'
 
-const MODULE = 'socios'
+// Leitura aceita quem tem acesso ao módulo 'socios' OU ao módulo 'clientes'
+// (sócios são exibidos dentro da aba Legalização do cliente).
+// Escrita/exclusão é mais permissiva: aceita quem tem direta em 'socios' OU
+// quem tem em 'clientes' E pertence à área Legalização (ver trpc.service).
+const readProcedure = () => readProcedureAnyOf('socios', 'clientes')
+const writeProcedure = () => socioWriteProcedure()
+const deleteProcedure = () => socioDeleteProcedure()
 
 export function createSocioRouter(socioService: SocioService, cnpjService: CnpjService, sitfisService?: SitfisService) {
   return router({
-    list: readProcedure(MODULE)
+    list: readProcedure()
       .input(listSocioSchema)
       .query(({ input, ctx }) => socioService.list(input, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
-    getById: readProcedure(MODULE)
+    getById: readProcedure()
       .input(z.object({ id: z.string() }))
       .query(({ input, ctx }) => socioService.getById(input.id, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
     // Socios por cliente (para aba Legalizacao)
-    listByCliente: readProcedure(MODULE)
+    listByCliente: readProcedure()
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => socioService.listByCliente(input.clienteId)),
 
-    create: writeProcedure(MODULE)
+    create: writeProcedure()
       .input(createSocioSchema)
       .mutation(({ input, ctx }) => socioService.create(input, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
-    update: writeProcedure(MODULE)
+    update: writeProcedure()
       .input(z.object({ id: z.string(), data: updateSocioSchema }))
       .mutation(({ input, ctx }) => socioService.update(input.id, input.data, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
-    delete: deleteProcedure(MODULE)
+    delete: deleteProcedure()
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => socioService.delete(input.id, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
-    listForSelect: readProcedure(MODULE)
+    listForSelect: readProcedure()
       .query(({ ctx }) => socioService.listForSelect(ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
-    getEvents: readProcedure(MODULE)
+    getEvents: readProcedure()
       .input(z.object({ id: z.string() }))
       .query(({ input }) => socioService.getEvents(input.id)),
 
-    exportAll: readProcedure(MODULE)
+    exportAll: readProcedure()
       .query(({ ctx }) => socioService.exportAll(ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
-    importBulk: writeProcedure(MODULE)
+    importBulk: writeProcedure()
       .input(z.object({ items: z.array(createSocioSchema) }))
       .mutation(({ input, ctx }) => socioService.bulkCreate(input.items, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
-    importQsa: writeProcedure(MODULE)
+    importQsa: writeProcedure()
       .input(z.object({ clienteId: z.string(), documento: z.string(), force: z.boolean().default(false) }))
       .mutation(async ({ input, ctx }) => {
         const doc = input.documento.replace(/\D/g, '')
@@ -205,11 +211,11 @@ export function createSocioRouter(socioService: SocioService, cnpjService: CnpjS
       }),
 
     // ── ARQUIVOS ──────────────────────────────────────────────
-    listArquivos: readProcedure(MODULE)
+    listArquivos: readProcedure()
       .input(z.object({ socioId: z.string() }))
       .query(({ input, ctx }) => socioService.listArquivos(input.socioId, ctx.tenantSchema)),
 
-    addArquivo: writeProcedure(MODULE)
+    addArquivo: writeProcedure()
       .input(z.object({
         socioId: z.string(),
         fileName: z.string(),
@@ -220,20 +226,20 @@ export function createSocioRouter(socioService: SocioService, cnpjService: CnpjS
       }))
       .mutation(({ input, ctx }) => socioService.addArquivo(input.socioId, input, ctx.userId, ctx.tenantSchema)),
 
-    renameArquivo: writeProcedure(MODULE)
+    renameArquivo: writeProcedure()
       .input(z.object({ arquivoId: z.string(), fileName: z.string().min(1) }))
       .mutation(({ input, ctx }) => socioService.renameArquivo(input.arquivoId, input.fileName, ctx.tenantSchema)),
 
-    removeArquivo: deleteProcedure(MODULE)
+    removeArquivo: deleteProcedure()
       .input(z.object({ arquivoId: z.string() }))
       .mutation(({ input, ctx }) => socioService.removeArquivo(input.arquivoId, ctx.tenantSchema)),
 
     // ── MENSAGENS ───────────────────────────────────────────
-    listMensagens: readProcedure(MODULE)
+    listMensagens: readProcedure()
       .input(z.object({ socioId: z.string() }))
       .query(({ input, ctx }) => socioService.listMensagens(input.socioId, ctx.tenantSchema)),
 
-    createMensagem: writeProcedure(MODULE)
+    createMensagem: writeProcedure()
       .input(z.object({
         socioId: z.string(),
         mensagem: z.string().min(1),
@@ -241,22 +247,22 @@ export function createSocioRouter(socioService: SocioService, cnpjService: CnpjS
       }))
       .mutation(({ input, ctx }) => socioService.createMensagem(input.socioId, ctx.userId, input.mensagem, input.tipo, ctx.tenantSchema)),
 
-    updateMensagem: writeProcedure(MODULE)
+    updateMensagem: writeProcedure()
       .input(z.object({ id: z.string(), mensagem: z.string().min(1) }))
       .mutation(({ input, ctx }) => socioService.updateMensagem(input.id, input.mensagem, ctx.tenantSchema)),
 
-    deleteMensagem: deleteProcedure(MODULE)
+    deleteMensagem: deleteProcedure()
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => socioService.deleteMensagem(input.id, ctx.tenantSchema)),
 
     // ── Consulta CNPJ (retorna dados + QSA) ─────────────────
-    consultarCnpj: readProcedure(MODULE)
+    consultarCnpj: readProcedure()
       .input(z.object({ cnpj: z.string().min(14) }))
       .query(({ input }) => cnpjService.consultarCnpj(input.cnpj)),
 
     // ── Importar QSA de um CNPJ ─────────────────────────────
     // Consulta o CNPJ, extrai o QSA e cria os sócios vinculados ao cliente
-    importarQsa: writeProcedure(MODULE)
+    importarQsa: writeProcedure()
       .input(z.object({
         cnpj: z.string().min(14),
         clienteId: z.string().optional(),

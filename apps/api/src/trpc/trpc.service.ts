@@ -242,6 +242,97 @@ export function deleteProcedure(moduleSlug: string) {
   return t.procedure.use(createPermissionMiddleware(moduleSlug, 'canDelete'))
 }
 
+/**
+ * Procedure que exige permissão de LEITURA em pelo menos UM dos módulos
+ * listados. Útil quando um recurso é "filho lógico" de outro (ex.: sócios
+ * vivem dentro do módulo de clientes; quem pode ler clientes deve poder
+ * visualizar os sócios deles).
+ */
+export function readProcedureAnyOf(...moduleSlugs: string[]) {
+  return t.procedure.use(async ({ ctx, next }) => {
+    if (!ctx.userId) {
+      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+    }
+    if (ctx.isMaster || ctx.isEmpresaMaster) {
+      return next({ ctx: { ...ctx, userId: ctx.userId } })
+    }
+    const permissions = await getUserPermissions(ctx.userId)
+    const ok = moduleSlugs.some(m => permissions.find(p => p.moduleSlug === m && p.canRead))
+    if (!ok) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: `Sem permissão de leitura em nenhum dos módulos: ${moduleSlugs.join(', ')}`,
+      })
+    }
+    return next({ ctx: { ...ctx, userId: ctx.userId } })
+  })
+}
+
+/**
+ * Detecta se uma área pertence ao setor de Legalização — usado pra permitir
+ * que usuários desta área editem/removam sócios mesmo sem permissão direta
+ * no módulo 'socios' (eles operam pelo módulo 'clientes'). Normaliza acentos
+ * e compara por palavras exatas, como o `isAreaTi` do helpdesk.
+ */
+function isAreaLegalizacao(areaName: string): boolean {
+  const normalizado = areaName
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .trim()
+  const palavras = normalizado.split(/\s+/)
+  const tokens = new Set(['legalizacao', 'societario', 'societaria'])
+  return palavras.some(p => tokens.has(p))
+}
+
+/**
+ * Procedure de escrita/exclusão pro módulo de sócios. Permite a ação se:
+ *  - master ou empresaMaster, OU
+ *  - tem `socios.canWrite/canDelete` direta, OU
+ *  - tem `clientes.canWrite/canDelete` E pertence à área Legalização
+ *
+ * Cobre o caso da aba Legalização → pill Sócios no detalhe do cliente:
+ * usuários da área operam o cadastro de sócios através do módulo clientes.
+ */
+function createSocioMiddleware(action: 'canWrite' | 'canDelete') {
+  return t.middleware(async ({ ctx, next }) => {
+    if (!ctx.userId) {
+      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+    }
+    if (ctx.isMaster || ctx.isEmpresaMaster) {
+      return next({ ctx: { ...ctx, userId: ctx.userId } })
+    }
+    const permissions = await getUserPermissions(ctx.userId)
+    const socios = permissions.find(p => p.moduleSlug === 'socios')
+    if (socios?.[action]) {
+      return next({ ctx: { ...ctx, userId: ctx.userId } })
+    }
+    // Fallback: tem a ação correspondente em clientes E está na área Legalização?
+    const clientes = permissions.find(p => p.moduleSlug === 'clientes')
+    if (clientes?.[action]) {
+      const user = await prisma.user.findUnique({
+        where: { id: ctx.userId },
+        select: { area: { select: { name: true } } },
+      })
+      if (user?.area?.name && isAreaLegalizacao(user.area.name)) {
+        return next({ ctx: { ...ctx, userId: ctx.userId } })
+      }
+    }
+    const actionLabels = { canWrite: 'escrita', canDelete: 'exclusão' }
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: `Sem permissão de ${actionLabels[action]} no módulo "socios"`,
+    })
+  })
+}
+
+export function socioWriteProcedure() {
+  return t.procedure.use(createSocioMiddleware('canWrite'))
+}
+export function socioDeleteProcedure() {
+  return t.procedure.use(createSocioMiddleware('canDelete'))
+}
+
 // ── Sub-permission middleware ──────────────────────────────
 // Verifica se o usuário tem uma sub-permissão específica dentro de um módulo.
 // Master/EmpresaMaster sempre passam. Se o usuário não tiver a sub-permissão

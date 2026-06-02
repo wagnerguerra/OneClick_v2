@@ -518,8 +518,20 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                       {socios.length > 0 && <p className="text-[10px] text-muted-foreground">Ultima consulta: <strong>{new Date(Math.max(...socios.map(s => new Date(s.createdAt).getTime()))).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong></p>}
                     </div>
                   </div>
-                  {clienteId && documento && (
+                  {clienteId && (
                     <div className="flex items-center gap-1.5">
+                      {/* Cadastro manual — abre o form de sócio já vinculado ao cliente */}
+                      <a
+                        href={`/socios/new?clienteId=${encodeURIComponent(clienteId)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button">
+                          <Plus className="h-3 w-3" />Novo Sócio
+                        </Button>
+                      </a>
+                      {documento && (
                       <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
                         onClick={async (e) => {
                           e.preventDefault(); e.stopPropagation()
@@ -563,6 +575,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                         }}>
                         <Download className="h-3 w-3" />Importar Sócios
                       </Button>
+                      )}
                     </div>
                   )}
                 </div>
