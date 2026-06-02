@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Headphones, Plus, Loader2, Search, Filter, AlertTriangle, Clock, MessageSquare,
   CheckCircle2, ListChecks, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
+  Paperclip,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors,
@@ -42,6 +43,8 @@ interface Ticket {
   categoria: { id: string; nome: string; cor: string | null } | null
   area: { id: string; name: string } | null
   _count: { mensagens: number; anexos: number }
+  /** Primeiro anexo de imagem do ticket — usado como capa do card no kanban. */
+  capa: { id: string; fileName: string; fileUrl: string; mimeType: string | null } | null
 }
 
 // Colunas do kanban — ordem visual horizontal
@@ -487,6 +490,7 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
   const corPrioridade = HELPDESK_PRIORIDADE_COLORS[ticket.prioridade]
   const prazoAtrasado = ticket.prazoSla && new Date(ticket.prazoSla).getTime() < Date.now()
     && !['CONCLUIDO', 'CANCELADO', 'RESOLVIDO'].includes(ticket.status)
+  const temCapa = !!ticket.capa
   return (
     <div
       className={cn(
@@ -494,6 +498,25 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
         dragging ? 'shadow-lg' : 'hover:shadow-md transition-shadow',
       )}
     >
+      {/* Capa — primeira imagem anexada. Mostra um banner 16:9 no topo, padrão
+          Trello/Notion. Se houver mais anexos, exibe um chip com o total. */}
+      {temCapa && (
+        <div className="relative w-full aspect-[16/9] bg-muted overflow-hidden border-b border-border/50">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={resolveAssetUrl(ticket.capa!.fileUrl)}
+            alt={ticket.capa!.fileName}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+          {ticket._count.anexos > 1 && (
+            <span className="absolute top-1 right-1 inline-flex items-center gap-0.5 bg-black/55 backdrop-blur-sm text-white text-[9px] font-semibold rounded-full px-1.5 py-0.5">
+              <Paperclip className="h-2.5 w-2.5" />
+              {ticket._count.anexos}
+            </span>
+          )}
+        </div>
+      )}
       <div className="flex">
         <div className="w-[3px] shrink-0" style={{ backgroundColor: cor }} />
         <div className="flex-1 min-w-0 flex flex-col p-2 gap-1">
@@ -512,6 +535,12 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
           <div className="flex items-center justify-between text-[10px] text-muted-foreground">
             <span className="truncate">{ticket.solicitante?.name || 'Externo'}</span>
             <span className="inline-flex items-center gap-1.5 shrink-0">
+              {/* Quando não há capa, mostra contador de anexos aqui (do lado das mensagens) */}
+              {!temCapa && ticket._count.anexos > 0 && (
+                <span className="inline-flex items-center gap-0.5">
+                  <Paperclip className="h-3 w-3" /> {ticket._count.anexos}
+                </span>
+              )}
               {ticket._count.mensagens > 0 && (
                 <span className="inline-flex items-center gap-0.5">
                   <MessageSquare className="h-3 w-3" /> {ticket._count.mensagens}

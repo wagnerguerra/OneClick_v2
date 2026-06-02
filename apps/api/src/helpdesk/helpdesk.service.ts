@@ -399,6 +399,15 @@ export class HelpdeskService {
           categoria: { select: { id: true, nome: true, cor: true } },
           area: { select: { id: true, name: true } },
           _count: { select: { mensagens: true, anexos: true } },
+          // Primeiro anexo de imagem do ticket — usado como capa do card no
+          // kanban. Filtro por mimeType evita trazer PDFs/zips. Ordenado por
+          // criação asc pra escolher a "primeira anexada".
+          anexos: {
+            where: { mimeType: { startsWith: 'image/' } },
+            orderBy: { createdAt: 'asc' },
+            take: 1,
+            select: { id: true, fileName: true, fileUrl: true, mimeType: true },
+          },
         },
         orderBy: [{ prioridade: 'desc' }, { createdAt: 'desc' }],
         skip: (input.page - 1) * input.limit,
@@ -406,8 +415,16 @@ export class HelpdeskService {
       }),
     ])
 
+    // Converte o array `anexos` (no máx 1) em um campo `capa` opcional —
+    // mais explícito na UI e evita confusão com a lista completa de anexos
+    // que aparece no detalhe do ticket.
+    const mapped = items.map(t => {
+      const { anexos, ...rest } = t as typeof t & { anexos: Array<{ id: string; fileName: string; fileUrl: string; mimeType: string | null }> }
+      return { ...rest, capa: anexos[0] ?? null }
+    })
+
     return {
-      data: items,
+      data: mapped,
       total,
       page: input.page,
       limit: input.limit,
