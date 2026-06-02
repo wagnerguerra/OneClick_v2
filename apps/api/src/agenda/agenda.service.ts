@@ -563,7 +563,14 @@ export class AgendaService {
     tipoId?: string // se o tipo do evento sendo criado/editado não bloqueia (ex.: LEMBRETE CORPORATIVO), pular toda a checagem
   }) {
     const { data, horaInicio, horaFim, participanteIds, sala, salaId, eventoIdExcluir, tipoId } = params
-    const conflitos: Array<{ tipo: 'participante' | 'sala'; nome: string; evento: string; horario: string }> = []
+    const conflitos: Array<{
+      tipo: 'participante' | 'sala'
+      nome: string
+      evento: string
+      horario: string
+      /** Avatar do user — só preenchido para tipo='participante' (pode ser null se o user não tem foto) */
+      image?: string | null
+    }> = []
 
     // Se o tipo escolhido não bloqueia agenda, ele NUNCA gera nem sofre conflito —
     // retorna lista vazia sem nem consultar o BD. Defesa em profundidade: o frontend
@@ -606,10 +613,10 @@ export class AgendaService {
         const participantesEvento = ev.participantes.map(p => p.usuarioId).filter(Boolean) as string[]
         const conflitados = participanteIds.filter(id => participantesEvento.includes(id))
         if (conflitados.length > 0) {
-          // Buscar nomes
+          // Buscar nomes + avatar pra exibir no alerta de conflito
           const users = await prisma.user.findMany({
             where: { id: { in: conflitados } },
-            select: { id: true, name: true },
+            select: { id: true, name: true, image: true },
           })
           for (const u of users) {
             conflitos.push({
@@ -617,6 +624,7 @@ export class AgendaService {
               nome: u.name,
               evento: ev.titulo,
               horario: `${ev.horaInicio} — ${ev.horaFim}`,
+              image: u.image ?? null,
             })
           }
         }
