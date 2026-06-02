@@ -7,6 +7,7 @@ import {
   Button, Input, Label, Card,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -57,6 +58,8 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   const [socios, setSocios] = useState<Socio[]>([])
   const [sociosLoading, setSociosLoading] = useState(false)
   const [capitalSocial, setCapitalSocial] = useState<number | null>(null)
+  // Modal de edição de sócio in-place (não redireciona pra /socios/[id])
+  const [editSocioId, setEditSocioId] = useState<string | null>(null)
   const [acessos, setAcessos] = useState<Acesso[]>([])
   const [acessosLoading, setAcessosLoading] = useState(false)
   const [vencimentos, setVencimentos] = useState<Vencimento[]>([])
@@ -632,7 +635,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                                   <DropdownMenuItem
                                     onClick={e => {
                                       e.stopPropagation()
-                                      window.open(`/socios/${s.id}`, '_blank')
+                                      setEditSocioId(s.id)
                                     }}
                                     className="text-xs gap-2 cursor-pointer"
                                   >
@@ -1203,6 +1206,259 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
       </Dialog>,
       document.body,
     )}
+
+    {editSocioId && clienteId && (
+      <EditSocioModal
+        socioId={editSocioId}
+        onClose={() => setEditSocioId(null)}
+        onSaved={async () => {
+          setEditSocioId(null)
+          const data = await (trpc.socio as any).listByCliente.query({ clienteId }) as Socio[]
+          setSocios(data)
+        }}
+      />
+    )}
     </>
+  )
+}
+
+// ============================================================
+// Modal de edição de sócio in-place (chamado da aba Legalização → Sócios)
+// ============================================================
+
+interface SocioCompleto {
+  id: string
+  nomeCompleto: string
+  cpf: string | null
+  rg: string | null
+  email: string | null
+  telefone: string | null
+  celular: string | null
+  tipoSocio: string
+  participacao: number | null
+  valorQuotas: number | null
+  dataEntrada: string | null
+  dataSaida: string | null
+  profissao: string | null
+  nacionalidade: string | null
+  estadoCivil: string | null
+  assinaNaEmpresa: boolean
+  responsavelLegal: boolean
+  observacoes: string | null
+  isActive: boolean
+}
+
+function EditSocioModal({ socioId, onClose, onSaved }: {
+  socioId: string
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [socio, setSocio] = useState<SocioCompleto | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    ;(trpc.socio as any).getById.query({ id: socioId })
+      .then((s: SocioCompleto) => { if (!cancelled) setSocio(s) })
+      .catch((e: Error) => { if (!cancelled) alerts.error('Erro', e.message); onClose() })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [socioId, onClose])
+
+  function setField<K extends keyof SocioCompleto>(key: K, value: SocioCompleto[K]) {
+    setSocio(prev => prev ? { ...prev, [key]: value } : prev)
+  }
+
+  async function salvar() {
+    if (!socio) return
+    setSaving(true)
+    try {
+      // Só envia campos editáveis pra evitar conflito com schema do update
+      const data: Record<string, unknown> = {
+        nomeCompleto: socio.nomeCompleto,
+        cpf: socio.cpf ?? '',
+        rg: socio.rg ?? '',
+        email: socio.email ?? '',
+        telefone: socio.telefone ?? '',
+        celular: socio.celular ?? '',
+        tipoSocio: socio.tipoSocio,
+        participacao: socio.participacao,
+        valorQuotas: socio.valorQuotas,
+        dataEntrada: socio.dataEntrada ?? '',
+        dataSaida: socio.dataSaida ?? '',
+        profissao: socio.profissao ?? '',
+        nacionalidade: socio.nacionalidade ?? '',
+        estadoCivil: socio.estadoCivil ?? null,
+        assinaNaEmpresa: socio.assinaNaEmpresa,
+        responsavelLegal: socio.responsavelLegal,
+        observacoes: socio.observacoes ?? '',
+        isActive: socio.isActive,
+      }
+      await (trpc.socio as any).update.mutate({ id: socio.id, data })
+      alerts.success('Salvo', 'Sócio atualizado com sucesso.')
+      onSaved()
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (typeof document === 'undefined') return null
+  return createPortal(
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeaderIcon icon={Pencil} color="sky">
+          <DialogTitle>Editar Sócio</DialogTitle>
+        </DialogHeaderIcon>
+        <DialogBody className="overflow-y-auto">
+          {loading || !socio ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando...
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {/* Dados pessoais */}
+              <div>
+                <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Dados pessoais</h4>
+                <div className="grid grid-cols-12 gap-3">
+                  <div className="col-span-12 space-y-1.5">
+                    <Label htmlFor="nomeCompleto" className="text-[13px] font-semibold">Nome completo *</Label>
+                    <Input id="nomeCompleto" className="h-9 text-sm" value={socio.nomeCompleto}
+                      onChange={e => setField('nomeCompleto', e.target.value)} />
+                  </div>
+                  <div className="col-span-6 space-y-1.5">
+                    <Label htmlFor="cpf" className="text-[13px] font-semibold">CPF *</Label>
+                    <Input id="cpf" className="h-9 text-sm" value={socio.cpf ?? ''}
+                      onChange={e => setField('cpf', e.target.value)} />
+                  </div>
+                  <div className="col-span-6 space-y-1.5">
+                    <Label htmlFor="rg" className="text-[13px] font-semibold">RG</Label>
+                    <Input id="rg" className="h-9 text-sm" value={socio.rg ?? ''}
+                      onChange={e => setField('rg', e.target.value)} />
+                  </div>
+                  <div className="col-span-4 space-y-1.5">
+                    <Label htmlFor="nacionalidade" className="text-[13px] font-semibold">Nacionalidade</Label>
+                    <Input id="nacionalidade" className="h-9 text-sm" value={socio.nacionalidade ?? ''}
+                      onChange={e => setField('nacionalidade', e.target.value)} />
+                  </div>
+                  <div className="col-span-4 space-y-1.5">
+                    <Label htmlFor="estadoCivil" className="text-[13px] font-semibold">Estado civil</Label>
+                    <Select value={socio.estadoCivil ?? '__none__'}
+                      onValueChange={v => setField('estadoCivil', v === '__none__' ? null : v)}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">—</SelectItem>
+                        <SelectItem value="SOLTEIRO">Solteiro(a)</SelectItem>
+                        <SelectItem value="CASADO">Casado(a)</SelectItem>
+                        <SelectItem value="DIVORCIADO">Divorciado(a)</SelectItem>
+                        <SelectItem value="VIUVO">Viúvo(a)</SelectItem>
+                        <SelectItem value="UNIAO_ESTAVEL">União estável</SelectItem>
+                        <SelectItem value="SEPARADO">Separado(a)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-4 space-y-1.5">
+                    <Label htmlFor="profissao" className="text-[13px] font-semibold">Profissão</Label>
+                    <Input id="profissao" className="h-9 text-sm" value={socio.profissao ?? ''}
+                      onChange={e => setField('profissao', e.target.value)} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Contato */}
+              <div>
+                <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Contato</h4>
+                <div className="grid grid-cols-12 gap-3">
+                  <div className="col-span-12 space-y-1.5">
+                    <Label htmlFor="email" className="text-[13px] font-semibold">E-mail</Label>
+                    <Input id="email" type="email" className="h-9 text-sm" value={socio.email ?? ''}
+                      onChange={e => setField('email', e.target.value)} />
+                  </div>
+                  <div className="col-span-6 space-y-1.5">
+                    <Label htmlFor="telefone" className="text-[13px] font-semibold">Telefone</Label>
+                    <Input id="telefone" className="h-9 text-sm" value={socio.telefone ?? ''}
+                      onChange={e => setField('telefone', e.target.value)} />
+                  </div>
+                  <div className="col-span-6 space-y-1.5">
+                    <Label htmlFor="celular" className="text-[13px] font-semibold">Celular</Label>
+                    <Input id="celular" className="h-9 text-sm" value={socio.celular ?? ''}
+                      onChange={e => setField('celular', e.target.value)} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Societário */}
+              <div>
+                <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Societário</h4>
+                <div className="grid grid-cols-12 gap-3">
+                  <div className="col-span-6 space-y-1.5">
+                    <Label htmlFor="tipoSocio" className="text-[13px] font-semibold">Tipo *</Label>
+                    <Select value={socio.tipoSocio} onValueChange={v => setField('tipoSocio', v)}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(TIPO_SOCIO_LABELS).map(([k, v]) => (
+                          <SelectItem key={k} value={k}>{v}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-3 space-y-1.5">
+                    <Label htmlFor="participacao" className="text-[13px] font-semibold">Participação (%)</Label>
+                    <Input id="participacao" type="number" step="0.01" min={0} max={100} className="h-9 text-sm"
+                      value={socio.participacao ?? ''}
+                      onChange={e => setField('participacao', e.target.value === '' ? null : Number(e.target.value))} />
+                  </div>
+                  <div className="col-span-3 space-y-1.5">
+                    <Label htmlFor="valorQuotas" className="text-[13px] font-semibold">Valor quotas (R$)</Label>
+                    <Input id="valorQuotas" type="number" step="0.01" min={0} className="h-9 text-sm"
+                      value={socio.valorQuotas ?? ''}
+                      onChange={e => setField('valorQuotas', e.target.value === '' ? null : Number(e.target.value))} />
+                  </div>
+                  <div className="col-span-6 space-y-1.5">
+                    <Label htmlFor="dataEntrada" className="text-[13px] font-semibold">Data de entrada</Label>
+                    <Input id="dataEntrada" type="date" className="h-9 text-sm" value={socio.dataEntrada ? socio.dataEntrada.slice(0, 10) : ''}
+                      onChange={e => setField('dataEntrada', e.target.value)} />
+                  </div>
+                  <div className="col-span-6 space-y-1.5">
+                    <Label htmlFor="dataSaida" className="text-[13px] font-semibold">Data de saída</Label>
+                    <Input id="dataSaida" type="date" className="h-9 text-sm" value={socio.dataSaida ? socio.dataSaida.slice(0, 10) : ''}
+                      onChange={e => setField('dataSaida', e.target.value)} />
+                  </div>
+                  <div className="col-span-6 flex items-center gap-2 mt-1">
+                    <input type="checkbox" id="assinaNaEmpresa" checked={socio.assinaNaEmpresa}
+                      onChange={e => setField('assinaNaEmpresa', e.target.checked)} />
+                    <Label htmlFor="assinaNaEmpresa" className="text-[13px] font-semibold cursor-pointer">Assina pela empresa</Label>
+                  </div>
+                  <div className="col-span-6 flex items-center gap-2 mt-1">
+                    <input type="checkbox" id="responsavelLegal" checked={socio.responsavelLegal}
+                      onChange={e => setField('responsavelLegal', e.target.checked)} />
+                    <Label htmlFor="responsavelLegal" className="text-[13px] font-semibold cursor-pointer">Responsável legal</Label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Observações */}
+              <div className="space-y-1.5">
+                <Label htmlFor="observacoes" className="text-[13px] font-semibold">Observações</Label>
+                <textarea id="observacoes" rows={3} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={socio.observacoes ?? ''}
+                  onChange={e => setField('observacoes', e.target.value)} />
+              </div>
+            </div>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" size="sm" type="button" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button variant="default" size="sm" type="button" onClick={salvar} disabled={saving || loading || !socio}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+            Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>,
+    document.body,
   )
 }
