@@ -581,10 +581,9 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
           </div>
         </div>
       )}
-      {/* Barra colorida da coluna — fina abaixo da capa, mais grossa quando é
-          o topo do card (sem capa) */}
+      {/* Barra colorida da coluna — ocupa 1/3 da largura, alinhada à esquerda */}
       <div
-        className={cn('mx-2 rounded-full', temCapa ? 'h-[2px] mt-2 mb-1.5' : 'h-1 mt-2 mb-2')}
+        className={cn('ml-2.5 w-1/3 rounded-full h-1.5', temCapa ? 'mt-2 mb-2' : 'mt-2.5 mb-2')}
         style={{ backgroundColor: cor }}
       />
 
