@@ -86,14 +86,14 @@ export class ClienteService {
     const { skip, take } = getPrismaSkipTake(page, limit)
 
     // Filtro de matriz quando agruparMatriz=true: oculta filiais (CNPJ ordem
-    // != 0001). Quando há `search`, NÃO aplica — pra que filiais ainda batam
-    // na busca textual e o usuário consiga achar uma filial pelo nome/CNPJ.
+    // != 0001) SEMPRE — inclusive em buscas textuais. Filiais ficam acessíveis
+    // apenas pelo modal de filiais da matriz.
     //
     // Prisma não tem operador `substring` em filtros, e endsWith('0001') não
     // serve porque o CNPJ ainda tem 2 dígitos de DV depois da ordem (posições
     // 13-14). Pegamos os IDs candidatos via SQL raw e usamos `id: { in: [] }`.
     let matrizFilter: Prisma.ClienteWhereInput[] = []
-    if (agruparMatriz && !search) {
+    if (agruparMatriz) {
       const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
         `SELECT id FROM clientes
          WHERE deleted_at IS NULL
