@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Shield, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, CalendarClock, Check, CheckCircle2, XCircle, AlertTriangle, FileText, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, X } from 'lucide-react'
+import { Shield, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, CalendarClock, Check, CheckCircle2, XCircle, AlertTriangle, FileText, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, X, MoreVertical } from 'lucide-react'
 import {
   Button, Input, Label, Card,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -601,6 +602,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           <th className="text-left px-3 py-2 font-medium">Tipo</th>
                           <th className="text-right px-3 py-2 font-medium">Participacao</th>
                           <th className="text-right px-3 py-2 font-medium">Valor</th>
+                          <th className="text-right px-3 py-2 font-medium w-10">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/40">
@@ -614,6 +616,54 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                             <td className="px-3 py-2 text-muted-foreground">{TIPO_SOCIO_LABELS[s.tipoSocio] || s.tipoSocio}</td>
                             <td className="px-3 py-2 text-right text-muted-foreground">{pct != null ? `${pct.toFixed(2)}%` : '--'}</td>
                             <td className="px-3 py-2 text-right text-muted-foreground">{valor != null ? `R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '--'}</td>
+                            <td className="px-3 py-2 text-right" onClick={e => e.stopPropagation()}>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={e => e.stopPropagation()}
+                                    className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-colors"
+                                    title="Ações"
+                                  >
+                                    <MoreVertical className="h-3.5 w-3.5" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-36">
+                                  <DropdownMenuItem
+                                    onClick={e => {
+                                      e.stopPropagation()
+                                      window.open(`/socios/${s.id}`, '_blank')
+                                    }}
+                                    className="text-xs gap-2 cursor-pointer"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={async e => {
+                                      e.stopPropagation()
+                                      const ok = await alerts.confirm({
+                                        title: 'Excluir sócio?',
+                                        text: `Deseja excluir o sócio "${s.nomeCompleto}"? Esta ação não pode ser desfeita.`,
+                                        confirmText: 'Excluir',
+                                        icon: 'warning',
+                                      })
+                                      if (!ok) return
+                                      try {
+                                        await (trpc.socio as any).delete.mutate({ id: s.id })
+                                        const data = await (trpc.socio as any).listByCliente.query({ clienteId }) as typeof socios
+                                        setSocios(data)
+                                        alerts.success('Excluído', 'Sócio removido com sucesso.')
+                                      } catch (err) { alerts.error('Erro', (err as Error).message) }
+                                    }}
+                                    className="text-xs gap-2 cursor-pointer text-rose-600 dark:text-rose-400"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    Excluir
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </td>
                           </tr>
                           )
                         })}

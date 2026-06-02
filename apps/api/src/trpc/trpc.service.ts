@@ -289,10 +289,10 @@ function isAreaLegalizacao(areaName: string): boolean {
  * Procedure de escrita/exclusão pro módulo de sócios. Permite a ação se:
  *  - master ou empresaMaster, OU
  *  - tem `socios.canWrite/canDelete` direta, OU
- *  - tem `clientes.canWrite/canDelete` E pertence à área Legalização
+ *  - pertence à área Legalização (independente de permissões em outros módulos)
  *
- * Cobre o caso da aba Legalização → pill Sócios no detalhe do cliente:
- * usuários da área operam o cadastro de sócios através do módulo clientes.
+ * A área Legalização é dona desse domínio — qualquer um lotado nela edita/
+ * exclui sócios mesmo sem o módulo 'socios' explicitamente habilitado.
  */
 function createSocioMiddleware(action: 'canWrite' | 'canDelete') {
   return t.middleware(async ({ ctx, next }) => {
@@ -307,16 +307,13 @@ function createSocioMiddleware(action: 'canWrite' | 'canDelete') {
     if (socios?.[action]) {
       return next({ ctx: { ...ctx, userId: ctx.userId } })
     }
-    // Fallback: tem a ação correspondente em clientes E está na área Legalização?
-    const clientes = permissions.find(p => p.moduleSlug === 'clientes')
-    if (clientes?.[action]) {
-      const user = await prisma.user.findUnique({
-        where: { id: ctx.userId },
-        select: { area: { select: { name: true } } },
-      })
-      if (user?.area?.name && isAreaLegalizacao(user.area.name)) {
-        return next({ ctx: { ...ctx, userId: ctx.userId } })
-      }
+    // Fallback: pertence à área Legalização?
+    const user = await prisma.user.findUnique({
+      where: { id: ctx.userId },
+      select: { area: { select: { name: true } } },
+    })
+    if (user?.area?.name && isAreaLegalizacao(user.area.name)) {
+      return next({ ctx: { ...ctx, userId: ctx.userId } })
     }
     const actionLabels = { canWrite: 'escrita', canDelete: 'exclusão' }
     throw new TRPCError({
