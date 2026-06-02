@@ -168,10 +168,14 @@ function SchedulerCard({ item, corModulo }: { item: SchedulerItem; corModulo: st
           {/* Linha de info: cron / próxima / última */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
             <div className="rounded border border-border bg-muted/30 px-2.5 py-1.5">
-              <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Cron</div>
-              <div className="font-mono font-semibold text-[11px] truncate">{item.cron}</div>
-              {cronExplicado && (
-                <div className="text-[10px] text-muted-foreground truncate">{cronExplicado}</div>
+              <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Agendamento</div>
+              {cronExplicado ? (
+                <>
+                  <div className="font-semibold text-[11px] truncate" title={item.cron}>{cronExplicado}</div>
+                  <div className="font-mono text-[10px] text-muted-foreground truncate">{item.cron}</div>
+                </>
+              ) : (
+                <div className="font-mono font-semibold text-[11px] truncate">{item.cron}</div>
               )}
             </div>
             <div className="rounded border border-border bg-muted/30 px-2.5 py-1.5">
@@ -239,6 +243,7 @@ function explicarCron(cron: string): string {
   const parts = cron.split(/\s+/)
   if (parts.length !== 5) return ''
   const [min, hr, dia, mes, dsem] = parts
+  const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
   // a cada minuto
   if (min === '*' && hr === '*' && dia === '*' && mes === '*' && dsem === '*') return 'A cada minuto'
   // a cada N minutos
@@ -249,10 +254,22 @@ function explicarCron(cron: string): string {
   if (/^\d+$/.test(min ?? '') && /^\d+$/.test(hr ?? '') && dia === '*' && mes === '*' && dsem === '*') {
     return `Todo dia às ${hr!.padStart(2, '0')}:${min!.padStart(2, '0')}`
   }
-  // dia da semana específico
-  if (/^\d+$/.test(min ?? '') && /^\d+$/.test(hr ?? '') && dia === '*' && mes === '*' && /^\d+$/.test(dsem ?? '')) {
-    const dias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
-    return `${dias[parseInt(dsem!, 10)]} às ${hr!.padStart(2, '0')}:${min!.padStart(2, '0')}`
+  // lista de dias da semana (ex.: 1,2,3,4,5) — formata HH:MM + dias abreviados
+  if (
+    /^\d+$/.test(min ?? '')
+    && /^\d+$/.test(hr ?? '')
+    && dia === '*'
+    && mes === '*'
+    && /^\d+(,\d+)*$/.test(dsem ?? '')
+  ) {
+    const horario = `${hr!.padStart(2, '0')}:${min!.padStart(2, '0')}`
+    const nums = dsem!.split(',').map(n => parseInt(n, 10)).filter(n => n >= 0 && n <= 6)
+    // Atalhos pra conjuntos canônicos
+    const key = nums.slice().sort().join(',')
+    if (key === '1,2,3,4,5') return `${horario}, seg a sex`
+    if (key === '0,1,2,3,4,5,6') return `${horario}, todo dia`
+    if (key === '0,6') return `${horario}, fins de semana`
+    return `${horario}, ${nums.map(n => DIAS[n]).join(', ')}`
   }
   return ''
 }
