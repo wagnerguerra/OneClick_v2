@@ -576,7 +576,9 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
   return (
     <div
       className={cn(
-        'rounded-md bg-white dark:bg-card cursor-grab active:cursor-grabbing group overflow-hidden border border-border/50',
+        // Card escuro um pouco mais preto que o bg-card global, pra destacar sobre
+        // o overlay sutil da coluna no dark.
+        'rounded-md bg-white dark:bg-[#1f242e] cursor-grab active:cursor-grabbing group overflow-hidden border border-border/50',
         dragging ? 'shadow-lg' : 'hover:shadow-md transition-shadow',
       )}
     >
