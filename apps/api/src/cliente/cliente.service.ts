@@ -88,16 +88,27 @@ export class ClienteService {
     // Filtro de matriz quando agruparMatriz=true: oculta filiais (CNPJ ordem
     // != 0001). Quando há `search`, NÃO aplica — pra que filiais ainda batam
     // na busca textual e o usuário consiga achar uma filial pelo nome/CNPJ.
-    const matrizFilter = (agruparMatriz && !search)
-      ? [{
-          OR: [
-            { tipoDocumento: { not: 'CNPJ' } },
-            { documento: null },
-            { documento: '' },
-            { documento: { endsWith: '0001' } },
-          ] as Prisma.ClienteWhereInput[],
-        }]
-      : []
+    //
+    // Prisma não tem operador `substring` em filtros, e endsWith('0001') não
+    // serve porque o CNPJ ainda tem 2 dígitos de DV depois da ordem (posições
+    // 13-14). Pegamos os IDs candidatos via SQL raw e usamos `id: { in: [] }`.
+    let matrizFilter: Prisma.ClienteWhereInput[] = []
+    if (agruparMatriz && !search) {
+      const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+        `SELECT id FROM clientes
+         WHERE deleted_at IS NULL
+           AND (
+             tipo_documento <> 'CNPJ'
+             OR documento IS NULL
+             OR documento = ''
+             OR length(documento) <> 14
+             OR substring(documento, 9, 4) = '0001'
+           )
+           ${isMaster ? '' : 'AND empresa_id = $1'}`,
+        ...(isMaster ? [] : [empresaId ?? '']),
+      )
+      matrizFilter = [{ id: { in: rows.map(r => r.id) } }]
+    }
 
     const searchFilter = search ? [{
       OR: [
@@ -150,9 +161,10 @@ export class ClienteService {
 
     // Pra cada matriz na página, conta as filiais (mesma raiz CNPJ, ordem != 0001).
     // Usa uma única query agrupada pra evitar N+1.
+    // Matriz: documento com 14 dígitos e posições 9-12 == '0001'.
     const cnpjBases: string[] = []
     for (const c of data) {
-      if (c.tipoDocumento === 'CNPJ' && c.documento && c.documento.length === 14 && c.documento.endsWith('0001')) {
+      if (c.tipoDocumento === 'CNPJ' && c.documento && c.documento.length === 14 && c.documento.substring(8, 12) === '0001') {
         cnpjBases.push(c.documento.slice(0, 8))
       }
     }
@@ -173,7 +185,7 @@ export class ClienteService {
 
     const mapped = data.map(c => {
       const { servicosContratados, ...rest } = c
-      const isMatriz = c.tipoDocumento === 'CNPJ' && !!c.documento && c.documento.length === 14 && c.documento.endsWith('0001')
+      const isMatriz = c.tipoDocumento === 'CNPJ' && !!c.documento && c.documento.length === 14 && c.documento.substring(8, 12) === '0001'
       const cnpjBase = isMatriz ? c.documento!.slice(0, 8) : null
       return {
         ...rest,
