@@ -498,23 +498,26 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
         dragging ? 'shadow-lg' : 'hover:shadow-md transition-shadow',
       )}
     >
-      {/* Capa — primeira imagem anexada. Mostra um banner 16:9 no topo, padrão
-          Trello/Notion. Se houver mais anexos, exibe um chip com o total. */}
+      {/* Capa — primeira imagem anexada. Imagem fica DENTRO do card com
+          padding em volta e bordas arredondadas (estilo Notion). Chip com
+          o total de anexos no canto da imagem quando há mais de 1. */}
       {temCapa && (
-        <div className="relative w-full aspect-[16/9] bg-muted overflow-hidden border-b border-border/50">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={resolveAssetUrl(ticket.capa!.fileUrl)}
-            alt={ticket.capa!.fileName}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-          {ticket._count.anexos > 1 && (
-            <span className="absolute top-1 right-1 inline-flex items-center gap-0.5 bg-black/55 backdrop-blur-sm text-white text-[9px] font-semibold rounded-full px-1.5 py-0.5">
-              <Paperclip className="h-2.5 w-2.5" />
-              {ticket._count.anexos}
-            </span>
-          )}
+        <div className="px-2 pt-2">
+          <div className="relative w-full aspect-[16/9] bg-muted overflow-hidden rounded-md">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={resolveAssetUrl(ticket.capa!.fileUrl)}
+              alt={ticket.capa!.fileName}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+            {ticket._count.anexos > 1 && (
+              <span className="absolute top-1 right-1 inline-flex items-center gap-0.5 bg-black/55 backdrop-blur-sm text-white text-[9px] font-semibold rounded-full px-1.5 py-0.5">
+                <Paperclip className="h-2.5 w-2.5" />
+                {ticket._count.anexos}
+              </span>
+            )}
+          </div>
         </div>
       )}
       <div className="flex">
