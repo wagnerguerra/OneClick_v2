@@ -451,21 +451,27 @@ function KanbanColumn({ status, cor, tickets, onCardClick, podeArquivarLote, onA
     <div
       ref={setNodeRef}
       className={cn(
-        'flex-1 min-w-[240px] flex flex-col border border-border/40 overflow-hidden rounded transition-colors',
+        // Coluna sem borda visível, com overlay sutil sobre o fundo do dashboard:
+        // - light: leve sombra preta (cinza-claro)
+        // - dark: leve overlay branco que clareia o cinza-azulado base
+        'flex-1 min-w-[240px] flex flex-col overflow-hidden rounded-lg transition-colors bg-black/[0.04] dark:bg-white/[0.04]',
         isOver && 'ring-2 ring-offset-1',
       )}
       style={isOver ? { boxShadow: `0 0 0 2px ${cor}55` } : undefined}
     >
-      <div
-        className="px-3 py-2.5 border-b flex items-center justify-between gap-2"
-        style={{ backgroundColor: `${cor}12` }}
-      >
+      {/* Header sem bg colorido nem border-b — só o dot da cor + título + pill */}
+      <div className="px-3 py-2.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: cor }} />
           <span className="text-sm font-semibold truncate">{HELPDESK_STATUS_LABELS[status]}</span>
+          <span
+            className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold text-white shrink-0"
+            style={{ backgroundColor: cor }}
+          >
+            {tickets.length}
+          </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">{tickets.length}</Badge>
           {podeArquivarLote && tickets.length > 0 && (
             <button
               type="button"
