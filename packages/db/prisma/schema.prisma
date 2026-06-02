@@ -4155,6 +4155,9 @@ model ChatParticipante {
   lastReadAt  DateTime?    @map("last_read_at")
   /// 'admin' ou 'membro' — só relevante em grupos. DMs ignoram.
   papel       String       @default("membro")
+  /// "Excluir conversa pra mim" — soft hide do lado do usuário. Quando uma
+  /// nova mensagem chega, o backend zera esse campo e a conversa reaparece.
+  hiddenAt    DateTime?    @map("hidden_at")
   joinedAt    DateTime     @default(now()) @map("joined_at")
 
   @@unique([conversaId, usuarioId])
@@ -4209,6 +4212,18 @@ model ChatAnexo {
 
   @@index([mensagemId])
   @@map("chat_anexos")
+}
+
+/// Configuração global do chat interno (singleton — sempre 1 linha).
+/// Editável apenas pelo master em /configuracoes/chat.
+model ChatConfig {
+  id              String   @id @default(cuid())
+  /// Minutos sem atividade antes do status virar 'ausente' automaticamente.
+  ausenteAposMin  Int      @default(5) @map("ausente_apos_min")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("chat_config")
 }
 
 // ============================================================

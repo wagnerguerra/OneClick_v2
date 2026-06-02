@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import {
   MessageSquare, X, Send, Loader2, ArrowLeft, Search, Users, Paperclip,
   ImagePlus, Check, CheckCheck, Edit2, Trash2, Smile, AtSign,
-  ChevronDown,
+  ChevronDown, MoreVertical,
 } from 'lucide-react'
 import { Button, Input, cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, Sheet, SheetContent, SheetTitle } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -75,13 +75,12 @@ interface OnlineUser {
 // Helpers
 // ============================================================
 
-const STATUS_LABEL: Record<NonNullable<ChatStatus> | 'offline' | 'auto', string> = {
+const STATUS_LABEL: Record<NonNullable<ChatStatus> | 'offline', string> = {
   online: 'Online',
   ausente: 'Ausente',
   dnd: 'Não perturbar',
   invisible: 'Invisível (parece offline)',
   offline: 'Offline',
-  auto: 'Automático',
 }
 
 const STATUS_COR: Record<'online' | 'ausente' | 'dnd' | 'offline', string> = {
@@ -91,15 +90,21 @@ const STATUS_COR: Record<'online' | 'ausente' | 'dnd' | 'offline', string> = {
   offline: 'bg-muted-foreground/40',
 }
 
-/** Resolve a presença visual a partir do chatStatus + lastActivityAt. */
-function presencaEfetiva(u: { chatStatus?: ChatStatus; lastActivityAt?: Date | string | null }): 'online' | 'ausente' | 'dnd' | 'offline' {
+/**
+ * Resolve a presença visual a partir do chatStatus + lastActivityAt.
+ * `ausenteAposMin` vem da ChatConfig (master configura em /configuracoes/chat).
+ * Depois desse tempo + dobro, vira offline.
+ */
+function presencaEfetiva(
+  u: { chatStatus?: ChatStatus; lastActivityAt?: Date | string | null },
+  ausenteAposMin = 5,
+): 'online' | 'ausente' | 'dnd' | 'offline' {
   if (u.chatStatus === 'invisible') return 'offline'
   if (u.chatStatus === 'online' || u.chatStatus === 'ausente' || u.chatStatus === 'dnd') return u.chatStatus
-  // Auto (chatStatus null/undefined) → deriva do lastActivityAt
   if (!u.lastActivityAt) return 'offline'
-  const diff = Date.now() - new Date(u.lastActivityAt).getTime()
-  if (diff < 2 * 60_000) return 'online'
-  if (diff < 15 * 60_000) return 'ausente'
+  const diffMin = (Date.now() - new Date(u.lastActivityAt).getTime()) / 60_000
+  if (diffMin < ausenteAposMin) return 'online'
+  if (diffMin < ausenteAposMin * 3) return 'ausente'
   return 'offline'
 }
 
@@ -222,6 +227,8 @@ export function ChatHeaderButton() {
   const [searchConversas, setSearchConversas] = useState('')
   // Meu status manual (null = auto)
   const [meuStatus, setMeuStatus] = useState<ChatStatus>(null)
+  // Tempo (em minutos) para ficar ausente — vem da ChatConfig. Default 5min até carregar.
+  const [ausenteAposMin, setAusenteAposMin] = useState(5)
 
   const totalUnread = useMemo(() => conversas.reduce((sum, c) => sum + c.unreadCount, 0), [conversas])
 
@@ -259,9 +266,38 @@ export function ChatHeaderButton() {
   useEffect(() => {
     loadConversas()
     loadOnline()
+    // ChatConfig: tempo de ausência (lido 1x no mount; mudanças do master
+    // refletem em F5 — sem SSE pra config porque é raro).
+    ;(trpc.chat as any).configGet.query()
+      .then((cfg: { ausenteAposMin: number }) => setAusenteAposMin(cfg.ausenteAposMin))
+      .catch(() => {})
     const i = setInterval(loadOnline, 30_000)
     return () => clearInterval(i)
   }, [loadConversas, loadOnline])
+
+  // ========== Beforeunload + visibilitychange → marca offline ==========
+  // Usa sendBeacon pra garantir que o request saia mesmo com a aba sendo
+  // destruída. Fetch comum é cancelado em beforeunload.
+  useEffect(() => {
+    if (!meuId) return
+    function markOffline() {
+      try {
+        const url = `${getApiUrl()}/api/chat/offline`
+        if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
+          navigator.sendBeacon(url, new Blob([], { type: 'application/json' }))
+        } else {
+          // Fallback: fetch keepalive (Safari < 14 não tem sendBeacon)
+          fetch(url, { method: 'POST', credentials: 'include', keepalive: true }).catch(() => {})
+        }
+      } catch { /* ignora */ }
+    }
+    window.addEventListener('beforeunload', markOffline)
+    window.addEventListener('pagehide', markOffline)
+    return () => {
+      window.removeEventListener('beforeunload', markOffline)
+      window.removeEventListener('pagehide', markOffline)
+    }
+  }, [meuId])
 
   // ========== Listener pra abrir o chat numa conversa específica (do toast) ==========
   useEffect(() => {
@@ -389,6 +425,22 @@ export function ChatHeaderButton() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
+  // ========== Excluir (esconder) conversa ==========
+  async function esconderConversa(c: Conversa) {
+    const ok = await alerts.confirm({
+      title: 'Excluir conversa?',
+      text: 'A conversa some daqui pra você. Se chegar uma nova mensagem, ela volta automaticamente. Outros participantes continuam vendo o histórico.',
+      confirmText: 'Excluir',
+      icon: 'warning',
+    })
+    if (!ok) return
+    try {
+      await (trpc.chat as any).hideConversa.mutate({ conversaId: c.id })
+      if (conversaAtiva?.id === c.id) setConversaAtiva(null)
+      await loadConversas()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
   // ========== Abrir DM ==========
   async function abrirDM(outroUserId: string) {
     try {
@@ -405,14 +457,14 @@ export function ChatHeaderButton() {
     const q = searchPessoas.trim().toLowerCase()
     const all = onlineUsers
       .filter(u => u.id !== meuId)
-      .map(u => ({ ...u, presenca: presencaEfetiva(u) }))
+      .map(u => ({ ...u, presenca: presencaEfetiva(u, ausenteAposMin) }))
     all.sort((a, b) => {
       const order = { online: 0, ausente: 1, dnd: 2, offline: 3 }
       if (order[a.presenca] !== order[b.presenca]) return order[a.presenca] - order[b.presenca]
       return a.name.localeCompare(b.name)
     })
     return q ? all.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) : all
-  }, [onlineUsers, searchPessoas, meuId])
+  }, [onlineUsers, searchPessoas, meuId, ausenteAposMin])
 
   const conversasFiltradas = useMemo(() => {
     const q = searchConversas.trim().toLowerCase()
@@ -420,15 +472,15 @@ export function ChatHeaderButton() {
   }, [conversas, searchConversas])
 
   const totalOnline = useMemo(() =>
-    onlineUsers.filter(u => u.id !== meuId && presencaEfetiva(u) === 'online').length,
-  [onlineUsers, meuId])
+    onlineUsers.filter(u => u.id !== meuId && presencaEfetiva(u, ausenteAposMin) === 'online').length,
+  [onlineUsers, meuId, ausenteAposMin])
 
   // Minha presença efetiva (pra o dot no botão do header)
   const minhaPresenca: 'online' | 'ausente' | 'dnd' | 'offline' = useMemo(() => {
     const eu = onlineUsers.find(u => u.id === meuId)
     if (!eu) return meuStatus === 'online' ? 'online' : 'offline'
-    return presencaEfetiva({ ...eu, chatStatus: meuStatus })
-  }, [onlineUsers, meuId, meuStatus])
+    return presencaEfetiva({ ...eu, chatStatus: meuStatus }, ausenteAposMin)
+  }, [onlineUsers, meuId, meuStatus, ausenteAposMin])
 
   // ============================================================
   // Render
@@ -555,6 +607,7 @@ export function ChatHeaderButton() {
                       meuId={meuId}
                       conversaAtivaId={conversaAtiva?.id ?? null}
                       onClickConversa={setConversaAtiva}
+                      onHideConversa={esconderConversa}
                     />
                   </div>
                 </div>
@@ -598,7 +651,10 @@ function StatusDropdown({ statusManual, presencaAtual, onChange }: {
   presencaAtual: 'online' | 'ausente' | 'dnd' | 'offline'
   onChange: (s: ChatStatus) => void
 }) {
-  const labelAtual = statusManual ? STATUS_LABEL[statusManual] : `${STATUS_LABEL[presencaAtual]} (auto)`
+  // Quando o user não escolheu manualmente, mostra a presença derivada (sem
+  // sufixo "(auto)"). Clicar na opção já marcada limpa o override (volta ao
+  // modo derivado). Não há opção "Automático" no dropdown.
+  const labelAtual = statusManual ? STATUS_LABEL[statusManual] : STATUS_LABEL[presencaAtual]
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -610,15 +666,15 @@ function StatusDropdown({ statusManual, presencaAtual, onChange }: {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">
         {([
-          { v: null,        label: 'Automático',           icon: '⏱️', cor: 'bg-muted-foreground/40' },
-          { v: 'online',    label: 'Online',               icon: '🟢', cor: 'bg-emerald-500' },
-          { v: 'ausente',   label: 'Ausente',              icon: '🟡', cor: 'bg-amber-500' },
-          { v: 'dnd',       label: 'Não perturbar',        icon: '🔴', cor: 'bg-rose-500' },
-          { v: 'invisible', label: 'Invisível',            icon: '⚫', cor: 'bg-muted-foreground/40' },
+          { v: 'online',    label: 'Online',               cor: 'bg-emerald-500' },
+          { v: 'ausente',   label: 'Ausente',              cor: 'bg-amber-500' },
+          { v: 'dnd',       label: 'Não perturbar',        cor: 'bg-rose-500' },
+          { v: 'invisible', label: 'Invisível',            cor: 'bg-muted-foreground/40' },
         ] as const).map(opt => (
           <DropdownMenuItem
             key={String(opt.v)}
-            onClick={() => onChange(opt.v as ChatStatus)}
+            // Clicar na opção já selecionada limpa o override → null (volta ao auto)
+            onClick={() => onChange(statusManual === opt.v ? null : (opt.v as ChatStatus))}
             className={cn('text-xs gap-2 cursor-pointer', statusManual === opt.v && 'bg-muted')}
           >
             <span className={cn('h-2 w-2 rounded-full', opt.cor)} />
@@ -697,11 +753,12 @@ function PessoasList({ pessoas, onClickPessoa }: {
   )
 }
 
-function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa }: {
+function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa, onHideConversa }: {
   conversas: Conversa[]
   meuId: string | null
   conversaAtivaId: string | null
   onClickConversa: (c: Conversa) => void
+  onHideConversa: (c: Conversa) => void
 }) {
   if (conversas.length === 0) {
     return <div className="p-6 text-center text-[11px] text-muted-foreground">Sem conversas ainda.<br/>Comece pela coluna <strong>Pessoas</strong>.</div>
@@ -718,7 +775,7 @@ function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa }: {
             : mencoesParaTexto(rawPreview, c.participantes)
         const ativa = c.id === conversaAtivaId
         return (
-          <li key={c.id} className="my-0.5">
+          <li key={c.id} className="my-0.5 group/conv relative">
             <button
               type="button"
               onClick={() => onClickConversa(c)}
@@ -735,7 +792,7 @@ function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa }: {
               ) : outro ? (
                 <Avatar user={outro} />
               ) : null}
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 pr-5">
                 <div className="flex items-center justify-between gap-2">
                   <div className={cn('text-[13px] truncate', c.unreadCount > 0 ? 'font-bold' : 'font-semibold')}>{c.nome}</div>
                   <span className="text-[10px] text-muted-foreground shrink-0">{timeRelative(c.ultimaMensagemEm)}</span>
@@ -752,6 +809,28 @@ function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa }: {
                 </div>
               </div>
             </button>
+            {/* Menu de ações (hover) — fica fora do <button> pra não conflitar com o onClick */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  onClick={e => e.stopPropagation()}
+                  className="absolute top-1.5 right-1.5 h-6 w-6 rounded hover:bg-muted flex items-center justify-center opacity-0 group-hover/conv:opacity-100 transition-opacity"
+                  title="Mais opções"
+                >
+                  <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem
+                  onClick={e => { e.stopPropagation(); onHideConversa(c) }}
+                  className="text-xs gap-2 cursor-pointer text-rose-600 dark:text-rose-400"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Excluir conversa
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </li>
         )
       })}
@@ -1097,7 +1176,12 @@ function ChatView({ conversa, meuId, onMessageSent }: {
     finally { setEditandoId(null) }
   }
   async function deletar(m: Mensagem) {
-    const ok = await alerts.confirm({ title: 'Apagar mensagem?', text: 'Outras pessoas vão ver "mensagem apagada".', confirmText: 'Apagar', icon: 'warning' })
+    const ok = await alerts.confirm({
+      title: 'Excluir mensagem?',
+      text: 'A mensagem será substituída por "Mensagem excluída" para todos os participantes.',
+      confirmText: 'Excluir',
+      icon: 'warning',
+    })
     if (!ok) return
     try {
       await (trpc.chat as any).deletarMensagem.mutate({ mensagemId: m.id })
@@ -1294,7 +1378,10 @@ function ChatView({ conversa, meuId, onMessageSent }: {
                             </div>
                           </div>
                         ) : isDeletada ? (
-                          'mensagem apagada'
+                          <span className="inline-flex items-center gap-1">
+                            <Trash2 className="h-3 w-3" />
+                            Mensagem excluída
+                          </span>
                         ) : (
                           <>
                             {!apenasAnexo && renderConteudo(m.conteudo)}

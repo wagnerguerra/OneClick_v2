@@ -558,6 +558,15 @@ export default function ConfiguracoesPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => router.push('/configuracoes/chat')}
+            className="gap-1.5"
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            Chat interno
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => router.push('/configuracoes/agendamentos')}
             className="gap-1.5"
           >

@@ -19,7 +19,12 @@ export class ChatService {
    */
   async listMinhasConversas(userId: string) {
     const conversas = await prisma.chatConversa.findMany({
-      where: { participantes: { some: { usuarioId: userId } } },
+      where: {
+        participantes: {
+          // Filtra conversas onde EU sou participante E não escondi pra mim
+          some: { usuarioId: userId, hiddenAt: null },
+        },
+      },
       include: {
         participantes: {
           include: { usuario: { select: { id: true, name: true, email: true, image: true } } },
@@ -223,6 +228,14 @@ export class ChatService {
       data: { ultimaMensagemEm: msg.createdAt },
     })
 
+    // Quem tinha escondido a conversa pra si reaparece automaticamente —
+    // padrão WhatsApp: deletar conversa não é "block", só esconde até a próxima
+    // mensagem chegar.
+    await prisma.chatParticipante.updateMany({
+      where: { conversaId, hiddenAt: { not: null } },
+      data: { hiddenAt: null },
+    })
+
     // Notifica outros participantes
     const parts = await prisma.chatParticipante.findMany({
       where: { conversaId },
@@ -394,6 +407,74 @@ export class ChatService {
       destinatarios: parts.map(p => p.usuarioId),
     } as never)
     return { ok: true, removida: !!existente }
+  }
+
+  // ============================================================
+  // ChatConfig (singleton)
+  // ============================================================
+
+  /** Lê config global do chat. Cria com defaults se ainda não existe. */
+  async getConfig() {
+    const existing = await prisma.chatConfig.findFirst()
+    if (existing) return existing
+    return prisma.chatConfig.create({ data: {} })
+  }
+
+  /**
+   * Atualiza config — só master pode chamar (validado no router).
+   * Aceita updates parciais; valores fora de range são normalizados.
+   */
+  async updateConfig(data: { ausenteAposMin?: number }) {
+    const patch: { ausenteAposMin?: number } = {}
+    if (typeof data.ausenteAposMin === 'number') {
+      patch.ausenteAposMin = Math.max(1, Math.min(120, Math.round(data.ausenteAposMin)))
+    }
+    const existing = await prisma.chatConfig.findFirst()
+    if (existing) {
+      return prisma.chatConfig.update({ where: { id: existing.id }, data: patch })
+    }
+    return prisma.chatConfig.create({ data: patch })
+  }
+
+  // ============================================================
+  // Esconder conversa pra si
+  // ============================================================
+
+  /** "Excluir conversa pra mim" — soft hide. Nova mensagem zera hiddenAt. */
+  async hideConversa(conversaId: string, userId: string) {
+    await this.assertAcesso(conversaId, userId)
+    await prisma.chatParticipante.updateMany({
+      where: { conversaId, usuarioId: userId },
+      data: { hiddenAt: new Date() },
+    })
+    return { ok: true }
+  }
+
+  // ============================================================
+  // Logoff / fechar aba → marca offline imediato
+  // ============================================================
+
+  /**
+   * Chamado via navigator.sendBeacon (REST POST) quando o user fecha a aba
+   * ou faz logout. Zera lastActivityAt na User pra `presencaEfetiva` cair
+   * em 'offline' na hora pros outros clientes. Não toca em chatStatus
+   * manual (se o user marcou 'dnd' manualmente, mantém quando voltar).
+   */
+  async goOffline(userId: string) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { lastActivityAt: null },
+    })
+    const others = await prisma.user.findMany({
+      where: { isActive: true, id: { not: userId } },
+      select: { id: true },
+    })
+    this.events.emit('status-mudou', {
+      usuarioId: userId,
+      status: 'offline',
+      destinatarios: others.map(o => o.id),
+    } as never)
+    return { ok: true }
   }
 
   // ============================================================

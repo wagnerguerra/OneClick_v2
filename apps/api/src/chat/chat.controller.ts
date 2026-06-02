@@ -2,6 +2,7 @@ import { Body, Controller, Inject, Param, Post, Req, Sse } from '@nestjs/common'
 import type { Request } from 'express'
 import { Observable, filter, interval, map, merge } from 'rxjs'
 import { ChatEventsService } from './chat-events.service'
+import { ChatService } from './chat.service'
 import { AuthService } from '../auth/auth.service'
 
 /**
@@ -12,6 +13,7 @@ import { AuthService } from '../auth/auth.service'
 export class ChatController {
   constructor(
     @Inject(ChatEventsService) private readonly events: ChatEventsService,
+    @Inject(ChatService) private readonly chatService: ChatService,
     @Inject(AuthService) private readonly authService: AuthService,
   ) {}
 
@@ -64,6 +66,22 @@ export class ChatController {
     const destinatarios = parts.map(p => p.usuarioId).filter(id => id !== userId)
     if (destinatarios.length === 0) return { ok: true }
     this.events.emit('typing', { conversaId, usuarioId: userId, nome: body.nome ?? '', destinatarios })
+    return { ok: true }
+  }
+
+  /**
+   * Marca o user como offline imediatamente. Usado por navigator.sendBeacon
+   * em `beforeunload` (fechar aba/navegador) e antes do signOut. O beacon
+   * permite que o request saia mesmo com a aba sendo destruída — diferente
+   * de fetch() comum que é cancelado.
+   *
+   * Aceita POST sem body. Auth via cookie de sessão (mesmo cookie do tRPC).
+   */
+  @Post('offline')
+  async offline(@Req() req: Request): Promise<{ ok: boolean }> {
+    const userId = await this.resolveUserId(req)
+    if (!userId) return { ok: false }
+    await this.chatService.goOffline(userId)
     return { ok: true }
   }
 }

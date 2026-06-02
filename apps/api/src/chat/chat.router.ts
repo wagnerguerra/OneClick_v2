@@ -1,6 +1,16 @@
 import { z } from 'zod'
+import { TRPCError } from '@trpc/server'
+import { prisma } from '@saas/db'
 import { router, protectedProcedure } from '../trpc/trpc.service'
 import { ChatService } from './chat.service'
+
+/** Garante que o user é master (isMaster=true). Lança FORBIDDEN se não for. */
+async function assertMaster(userId: string) {
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { isMaster: true } })
+  if (!u?.isMaster) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas o master pode alterar a configuração do chat.' })
+  }
+}
 
 export function createChatRouter(service: ChatService) {
   return router({
@@ -82,5 +92,27 @@ export function createChatRouter(service: ChatService) {
     toggleReaction: protectedProcedure
       .input(z.object({ mensagemId: z.string(), emoji: z.string().max(20) }))
       .mutation(({ input, ctx }) => service.toggleReaction(input.mensagemId, ctx.userId!, input.emoji)),
+
+    // === Hide conversa pra si ===
+    hideConversa: protectedProcedure
+      .input(z.object({ conversaId: z.string() }))
+      .mutation(({ input, ctx }) => service.hideConversa(input.conversaId, ctx.userId!)),
+
+    // === Marca offline (logoff / fechar aba) ===
+    goOffline: protectedProcedure
+      .mutation(({ ctx }) => service.goOffline(ctx.userId!)),
+
+    // === Config global (singleton — leitura aberta, escrita master) ===
+    configGet: protectedProcedure
+      .query(() => service.getConfig()),
+
+    configUpdate: protectedProcedure
+      .input(z.object({
+        ausenteAposMin: z.number().int().min(1).max(120).optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        await assertMaster(ctx.userId!)
+        return service.updateConfig(input)
+      }),
   })
 }
