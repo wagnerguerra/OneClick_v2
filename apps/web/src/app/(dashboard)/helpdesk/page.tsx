@@ -491,16 +491,17 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
   const prazoAtrasado = ticket.prazoSla && new Date(ticket.prazoSla).getTime() < Date.now()
     && !['CONCLUIDO', 'CANCELADO', 'RESOLVIDO'].includes(ticket.status)
   const temCapa = !!ticket.capa
+  // Quando o ticket tem capa, a imagem fica acima da barra colorida (modelo
+  // de cards visuais — Hero/Trello). Quando não tem, a barra fica grossa no
+  // topo do card (modelo simples — Landing page).
   return (
     <div
       className={cn(
-        'rounded-sm bg-white dark:bg-card cursor-grab active:cursor-grabbing group overflow-hidden border border-border/50',
+        'rounded-md bg-white dark:bg-card cursor-grab active:cursor-grabbing group overflow-hidden border border-border/50',
         dragging ? 'shadow-lg' : 'hover:shadow-md transition-shadow',
       )}
     >
-      {/* Capa — primeira imagem anexada. Imagem fica DENTRO do card com
-          padding em volta e bordas arredondadas (estilo Notion). Chip com
-          o total de anexos no canto da imagem quando há mais de 1. */}
+      {/* Capa (opcional) — primeira imagem anexada, com padding e cantos arredondados */}
       {temCapa && (
         <div className="px-2 pt-2">
           <div className="relative w-full aspect-[16/9] bg-muted overflow-hidden rounded-md">
@@ -511,64 +512,80 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
               className="w-full h-full object-cover"
               loading="lazy"
             />
-            {ticket._count.anexos > 1 && (
-              <span className="absolute top-1 right-1 inline-flex items-center gap-0.5 bg-black/55 backdrop-blur-sm text-white text-[9px] font-semibold rounded-full px-1.5 py-0.5">
-                <Paperclip className="h-2.5 w-2.5" />
-                {ticket._count.anexos}
-              </span>
-            )}
           </div>
         </div>
       )}
-      <div className="flex">
-        <div className="w-[3px] shrink-0" style={{ backgroundColor: cor }} />
-        <div className="flex-1 min-w-0 flex flex-col p-2 gap-1">
-          <div className="flex items-center gap-1.5">
-            <span className="font-mono text-[10px] text-muted-foreground tabular-nums">{ticketNum}</span>
-            <span className="text-[9px] uppercase tracking-wider font-medium" style={{ color: corPrioridade }}>
-              {HELPDESK_PRIORIDADE_LABELS[ticket.prioridade]}
+      {/* Barra colorida da coluna — fina abaixo da capa, mais grossa quando é
+          o topo do card (sem capa) */}
+      <div
+        className={cn('mx-2 rounded-full', temCapa ? 'h-[2px] mt-2 mb-1.5' : 'h-1 mt-2 mb-2')}
+        style={{ backgroundColor: cor }}
+      />
+
+      {/* Conteúdo */}
+      <div className="px-2.5 pb-2 flex flex-col gap-1.5">
+        {/* Linha 1: ticket# + prioridade + SLA atrasado */}
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-[10px] text-muted-foreground tabular-nums">{ticketNum}</span>
+          <span className="text-[9px] uppercase tracking-wider font-medium" style={{ color: corPrioridade }}>
+            {HELPDESK_PRIORIDADE_LABELS[ticket.prioridade]}
+          </span>
+          {prazoAtrasado && (
+            <span className="ml-auto inline-flex items-center gap-0.5 text-[9px] text-rose-600 font-semibold">
+              <AlertTriangle className="h-2.5 w-2.5" /> SLA
             </span>
-            {prazoAtrasado && (
-              <span className="ml-auto inline-flex items-center gap-0.5 text-[9px] text-rose-600 font-semibold">
-                <AlertTriangle className="h-2.5 w-2.5" /> SLA
+          )}
+        </div>
+
+        {/* Linha 2: título — com ícone de check à esquerda como nos modelos */}
+        <div className="flex items-start gap-1.5">
+          <CheckCircle2 className="h-3.5 w-3.5 mt-[1px] text-muted-foreground/70 shrink-0" />
+          <p className="text-[12px] font-semibold leading-tight line-clamp-2 flex-1">{ticket.titulo}</p>
+        </div>
+
+        {/* Linha 3: tag de categoria (estilo pill colorida, igual ao 'Illustration' do modelo) */}
+        {ticket.categoria && (
+          <div>
+            <span
+              className="inline-flex items-center gap-1 text-[10px] font-semibold text-white rounded-full px-2 py-0.5"
+              style={{ backgroundColor: ticket.categoria.cor || '#5ea3cb' }}
+            >
+              {ticket.categoria.nome}
+            </span>
+          </div>
+        )}
+
+        {/* Linha 4: avatar do responsável (+ nome) à esquerda · indicadores à direita */}
+        <div className="flex items-center justify-between gap-2 mt-0.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {ticket.responsavel ? (
+              ticket.responsavel.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={resolveAssetUrl(ticket.responsavel.image)} alt={ticket.responsavel.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
+              ) : (
+                <span className="h-5 w-5 rounded-full bg-[#5ea3cb] text-white text-[8px] flex items-center justify-center font-bold shrink-0">
+                  {ticket.responsavel.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                </span>
+              )
+            ) : (
+              <span className="h-5 w-5 rounded-full bg-muted text-muted-foreground text-[9px] flex items-center justify-center font-bold shrink-0">?</span>
+            )}
+            <span className="text-[11px] text-muted-foreground truncate">
+              {ticket.responsavel?.name || ticket.solicitante?.name || 'Não atribuído'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground shrink-0">
+            {ticket._count.anexos > 0 && (
+              <span className="inline-flex items-center gap-0.5">
+                <Paperclip className="h-3 w-3" /> {ticket._count.anexos}
+              </span>
+            )}
+            {ticket._count.mensagens > 0 && (
+              <span className="inline-flex items-center gap-0.5">
+                <MessageSquare className="h-3 w-3" /> {ticket._count.mensagens}
               </span>
             )}
           </div>
-          <p className="text-[12px] font-semibold leading-tight line-clamp-2">{ticket.titulo}</p>
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-            <span className="truncate">{ticket.solicitante?.name || 'Externo'}</span>
-            <span className="inline-flex items-center gap-1.5 shrink-0">
-              {/* Quando não há capa, mostra contador de anexos aqui (do lado das mensagens) */}
-              {!temCapa && ticket._count.anexos > 0 && (
-                <span className="inline-flex items-center gap-0.5">
-                  <Paperclip className="h-3 w-3" /> {ticket._count.anexos}
-                </span>
-              )}
-              {ticket._count.mensagens > 0 && (
-                <span className="inline-flex items-center gap-0.5">
-                  <MessageSquare className="h-3 w-3" /> {ticket._count.mensagens}
-                </span>
-              )}
-              {ticket.responsavel ? (
-                ticket.responsavel.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={resolveAssetUrl(ticket.responsavel.image)} alt={ticket.responsavel.name} className="h-4 w-4 rounded-full object-cover" />
-                ) : (
-                  <span className="h-4 w-4 rounded-full bg-[#5ea3cb] text-white text-[7px] flex items-center justify-center font-bold">
-                    {ticket.responsavel.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                  </span>
-                )
-              ) : (
-                <span className="h-4 w-4 rounded-full bg-muted text-muted-foreground text-[8px] flex items-center justify-center font-bold">?</span>
-              )}
-            </span>
-          </div>
-          {ticket.categoria && (
-            <span className="inline-flex items-center gap-1 text-[9px] text-muted-foreground">
-              {ticket.categoria.cor && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: ticket.categoria.cor }} />}
-              {ticket.categoria.nome}
-            </span>
-          )}
         </div>
       </div>
     </div>
