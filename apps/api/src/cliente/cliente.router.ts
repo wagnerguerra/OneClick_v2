@@ -42,6 +42,12 @@ export function createClienteRouter(
       .input(listClienteSchema)
       .query(({ input, ctx }) => clienteService.listTrash(input, ctx.isMaster, ctx.empresaId)),
 
+    // Lista filiais (CNPJ ordem != 0001) de uma matriz, dado o documento dela.
+    // Usado pelo modal de filiais na listagem de clientes.
+    listFiliais: readProcedure(MODULE)
+      .input(z.object({ documento: z.string() }))
+      .query(({ input, ctx }) => clienteService.listFiliais(input.documento, ctx.isMaster, ctx.empresaId)),
+
     // Obter por ID (inclui arquivos e contatos)
     getById: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))

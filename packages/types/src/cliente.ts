@@ -167,6 +167,12 @@ export const listClienteSchema = paginationSchema.extend({
   cidade: z.string().optional(),
   uf: z.string().optional(),
   isLead: z.boolean().optional(),
+  /**
+   * Quando true (default), lista apenas matrizes (CNPJ com ordem 0001).
+   * Filiais ficam ocultas e são exibidas via modal ao clicar na badge
+   * de filiais da matriz. Use false pra mostrar todas as inscrições.
+   */
+  agruparMatriz: z.coerce.boolean().optional().default(true),
 })
 
 export type CreateClienteInput = z.infer<typeof createClienteSchema>

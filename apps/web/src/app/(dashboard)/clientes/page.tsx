@@ -9,6 +9,7 @@ import {
   ArrowUpDown, ArrowUp, ArrowDown,
   Handshake, MoreVertical, FileUp, FileDown, Plug,
   ChevronDown, RotateCcw, Archive, X, Database, Loader2, Sparkles, UserCog,
+  Building2, ExternalLink,
 } from 'lucide-react'
 import {
   Button, Input, Badge,
@@ -35,6 +36,13 @@ interface Cliente {
   documento: string; tipoDocumento: string; situacao: string; status: string
   grupo: string | null; tributacao: string | null; areasContratadas: string | null
   cidade: string | null; uf: string | null; isActive: boolean; deletedAt?: string | null
+  /** Qtd de filiais quando o cliente é matriz (CNPJ ordem 0001). 0 caso contrário. */
+  filiaisCount?: number
+}
+
+interface Filial {
+  id: string; documento: string; razaoSocial: string; nomeFantasia: string | null
+  cidade: string | null; uf: string | null; status: string; situacao: string
 }
 
 type SortDir = 'asc' | 'desc'
@@ -59,6 +67,22 @@ export default function ClientesPage() {
   const [enriquecimentoOpen, setEnriquecimentoOpen] = useState(false)
   const [responsaveisOpen, setResponsaveisOpen] = useState(false)
   const [integracoesOpen, setIntegracoesOpen] = useState(false)
+
+  // Modal de filiais (grupo CNPJ — mesma raiz, ordens != 0001)
+  const [filiaisModal, setFiliaisModal] = useState<{ documento: string; matrizNome: string } | null>(null)
+  const [filiais, setFiliais] = useState<Filial[]>([])
+  const [filiaisLoading, setFiliaisLoading] = useState(false)
+
+  useEffect(() => {
+    if (!filiaisModal) { setFiliais([]); return }
+    let cancelled = false
+    setFiliaisLoading(true)
+    ;(trpc.cliente as any).listFiliais.query({ documento: filiaisModal.documento })
+      .then((r: Filial[]) => { if (!cancelled) setFiliais(r) })
+      .catch(() => { if (!cancelled) setFiliais([]) })
+      .finally(() => { if (!cancelled) setFiliaisLoading(false) })
+    return () => { cancelled = true }
+  }, [filiaisModal])
 
   // Gerenciador de opcoes (Atividade, Origem)
   const [opcoesModal, setOpcoesModal] = useState(false)
@@ -584,7 +608,20 @@ export default function ClientesPage() {
                   </TableCell>
                   <TableCell>
                     <div>
-                      <p className="font-medium text-sm">{cliente.razaoSocial}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-sm">{cliente.razaoSocial}</p>
+                        {(cliente.filiaisCount ?? 0) > 0 && (
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); setFiliaisModal({ documento: cliente.documento, matrizNome: cliente.razaoSocial }) }}
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors"
+                            title={`Ver ${cliente.filiaisCount} ${cliente.filiaisCount === 1 ? 'filial' : 'filiais'} deste grupo`}
+                          >
+                            <Building2 className="h-2.5 w-2.5" />
+                            {cliente.filiaisCount} {cliente.filiaisCount === 1 ? 'filial' : 'filiais'}
+                          </button>
+                        )}
+                      </div>
                       {renderAreas(cliente.areasContratadas)}
                     </div>
                   </TableCell>
@@ -656,6 +693,67 @@ export default function ClientesPage() {
         onOpenChange={setResponsaveisOpen}
         onAfterRun={fetchClientes}
       />
+
+      {/* Modal de filiais do grupo (CNPJ raiz comum, ordem != 0001) */}
+      <Dialog open={!!filiaisModal} onOpenChange={o => { if (!o) setFiliaisModal(null) }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeaderIcon icon={Building2} color="violet">
+            <DialogTitle className="text-[15px]">Filiais do grupo</DialogTitle>
+            <DialogDescription className="text-[11px]">
+              {filiaisModal?.matrizNome ?? ''}
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            {filiaisLoading ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando filiais...
+              </div>
+            ) : filiais.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-8">
+                Nenhuma filial encontrada com a mesma raiz de CNPJ.
+              </p>
+            ) : (
+              <div className="rounded-md border overflow-hidden">
+                <table className="w-full text-[12px]">
+                  <thead className="bg-muted/30 text-[11px] text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">CNPJ</th>
+                      <th className="text-left px-3 py-2 font-medium">Razão Social</th>
+                      <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">Cidade/UF</th>
+                      <th className="text-right px-3 py-2 font-medium w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40">
+                    {filiais.map(f => (
+                      <tr key={f.id} className="hover:bg-muted/20">
+                        <td className="px-3 py-2 font-mono text-muted-foreground">{formatDocumento(f.documento, 'CNPJ')}</td>
+                        <td className="px-3 py-2 font-medium text-foreground">{f.razaoSocial}</td>
+                        <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">
+                          {[f.cidade, f.uf].filter(Boolean).join('/') || '—'}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <a
+                            href={`/clientes/${f.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center h-7 w-7 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                            title="Abrir filial"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" type="button" onClick={() => setFiliaisModal(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Gerenciador de Opcoes (Atividade / Origem) */}
       <Dialog open={opcoesModal} onOpenChange={setOpcoesModal}>

@@ -82,14 +82,25 @@ export class ClienteService {
   // Listagem (ativos)
   // ============================================================
   async list(input: ListClienteInput, isMaster?: boolean, empresaId?: string) {
-    const { page, limit, search, sortBy, sortDir, situacao, status, tributacao, grupo, cidade, uf, isLead } = input
+    const { page, limit, search, sortBy, sortDir, situacao, status, tributacao, grupo, cidade, uf, isLead, agruparMatriz } = input
     const { skip, take } = getPrismaSkipTake(page, limit)
 
-    const where: Prisma.ClienteWhereInput = {
-      deletedAt: null,
-      ...(isLead !== undefined ? { isLead } : {}),
-      ...empresaFilter(isMaster, empresaId),
-      ...(search ? { OR: [
+    // Filtro de matriz quando agruparMatriz=true: oculta filiais (CNPJ ordem
+    // != 0001). Quando há `search`, NÃO aplica — pra que filiais ainda batam
+    // na busca textual e o usuário consiga achar uma filial pelo nome/CNPJ.
+    const matrizFilter = (agruparMatriz && !search)
+      ? [{
+          OR: [
+            { tipoDocumento: { not: 'CNPJ' } },
+            { documento: null },
+            { documento: '' },
+            { documento: { endsWith: '0001' } },
+          ] as Prisma.ClienteWhereInput[],
+        }]
+      : []
+
+    const searchFilter = search ? [{
+      OR: [
         { razaoSocial: { contains: search, mode: 'insensitive' as const } },
         { nomeFantasia: { contains: search, mode: 'insensitive' as const } },
         { documento: { contains: search } },
@@ -104,13 +115,22 @@ export class ClienteService {
         { idSistema: { contains: search } },
         ...matchEnumSituacao(search),
         ...matchEnumTributacao(search),
-      ] } : {}),
+      ],
+    }] : []
+
+    const where: Prisma.ClienteWhereInput = {
+      deletedAt: null,
+      ...(isLead !== undefined ? { isLead } : {}),
+      ...empresaFilter(isMaster, empresaId),
       ...(situacao ? { situacao } : {}),
       ...(status ? { status } : {}),
       ...(tributacao ? { tributacao } : {}),
       ...(grupo ? { grupo } : {}),
       ...(cidade ? { cidade } : {}),
       ...(uf ? { uf } : {}),
+      ...((searchFilter.length + matrizFilter.length) > 0
+        ? { AND: [...searchFilter, ...matrizFilter] as Prisma.ClienteWhereInput[] }
+        : {}),
     }
 
     const orderBy = sortBy ? { [sortBy]: sortDir } : { code: 'asc' as const }
@@ -128,17 +148,70 @@ export class ClienteService {
       prisma.cliente.count({ where }),
     ])
 
+    // Pra cada matriz na página, conta as filiais (mesma raiz CNPJ, ordem != 0001).
+    // Usa uma única query agrupada pra evitar N+1.
+    const cnpjBases: string[] = []
+    for (const c of data) {
+      if (c.tipoDocumento === 'CNPJ' && c.documento && c.documento.length === 14 && c.documento.endsWith('0001')) {
+        cnpjBases.push(c.documento.slice(0, 8))
+      }
+    }
+    const filiaisCountMap = new Map<string, number>()
+    if (cnpjBases.length > 0) {
+      const rows = await prisma.$queryRawUnsafe<Array<{ base: string; count: bigint }>>(
+        `SELECT substring(documento, 1, 8) AS base, COUNT(*)::bigint AS count
+         FROM clientes
+         WHERE deleted_at IS NULL
+           AND tipo_documento = 'CNPJ'
+           AND substring(documento, 1, 8) = ANY($1::text[])
+           AND substring(documento, 9, 4) <> '0001'
+         GROUP BY base`,
+        cnpjBases,
+      )
+      for (const r of rows) filiaisCountMap.set(r.base, Number(r.count))
+    }
+
     const mapped = data.map(c => {
       const { servicosContratados, ...rest } = c
+      const isMatriz = c.tipoDocumento === 'CNPJ' && !!c.documento && c.documento.length === 14 && c.documento.endsWith('0001')
+      const cnpjBase = isMatriz ? c.documento!.slice(0, 8) : null
       return {
         ...rest,
         areasContratadas: servicosContratados.length > 0
           ? servicosContratados.map(s => s.area.name).join(';')
           : rest.areasContratadas,
+        filiaisCount: cnpjBase ? (filiaisCountMap.get(cnpjBase) ?? 0) : 0,
       }
     })
 
     return buildPaginatedResponse(mapped, total, page, limit)
+  }
+
+  /**
+   * Lista filiais (CNPJ com ordem != 0001) de uma matriz, dado o CNPJ dela
+   * (apenas dígitos). Resultado ordenado por número da ordem.
+   */
+  async listFiliais(documentoMatriz: string, isMaster?: boolean, empresaId?: string) {
+    const doc = (documentoMatriz || '').replace(/\D/g, '')
+    if (doc.length !== 14) return []
+    const base = doc.slice(0, 8)
+    return prisma.$queryRawUnsafe<Array<{
+      id: string; documento: string; razaoSocial: string; nomeFantasia: string | null
+      cidade: string | null; uf: string | null; status: string; situacao: string
+    }>>(
+      `SELECT c.id, c.documento, c.razao_social AS "razaoSocial",
+              c.nome_fantasia AS "nomeFantasia", c.cidade, c.uf,
+              c.status::text AS status, c.situacao::text AS situacao
+       FROM clientes c
+       WHERE c.deleted_at IS NULL
+         AND c.tipo_documento = 'CNPJ'
+         AND substring(c.documento, 1, 8) = $1
+         AND substring(c.documento, 9, 4) <> '0001'
+         ${isMaster ? '' : 'AND c.empresa_id = $2'}
+       ORDER BY substring(c.documento, 9, 4)`,
+      base,
+      ...(isMaster ? [] : [empresaId]),
+    )
   }
 
   // ============================================================
