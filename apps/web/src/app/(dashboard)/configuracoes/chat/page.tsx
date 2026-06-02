@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { MessageSquare, Loader2, Save, ArrowLeft } from 'lucide-react'
+import { MessageSquare, Loader2, Save } from 'lucide-react'
 import { Button, Card, Input } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import { BackButton } from '@/components/ui/back-button'
 import { alerts } from '@/lib/alerts'
 
 export default function ChatConfigPage() {
@@ -56,19 +57,19 @@ export default function ChatConfigPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/configuracoes')} className="gap-1.5">
-          <ArrowLeft className="h-3.5 w-3.5" /> Voltar
-        </Button>
-      </div>
-      <div className="flex items-center gap-3">
-        <PageHeaderIcon icon={MessageSquare} module="configuracoes" />
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight">Chat interno</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Comportamento global do chat — quando o usuário fica ausente, regras de presença, etc. Edição restrita ao master.
-          </p>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <PageHeaderIcon module="configuracoes" icon={MessageSquare} />
+          <div>
+            <h1>Chat interno</h1>
+            <p className="text-sm text-muted-foreground">
+              Comportamento global do chat — quando o usuário fica ausente, regras de presença, etc. Edição restrita ao master.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <BackButton href="/configuracoes" label="Voltar" />
         </div>
       </div>
 

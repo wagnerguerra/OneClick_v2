@@ -2,16 +2,16 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import {
   Clock, RefreshCw, Loader2, CheckCircle2, AlertTriangle, AlertCircle,
   Calendar, Bell, Headphones, TrendingUp, ClipboardCheck, Database,
   HardDriveDownload, BellRing, FileSignature, Mailbox, ShieldCheck,
-  Receipt, FileText, ArrowRight, ArrowLeft, type LucideIcon,
+  Receipt, FileText, ArrowRight, type LucideIcon,
 } from 'lucide-react'
 import { Button, Card, Badge } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import { BackButton } from '@/components/ui/back-button'
 
 interface SchedulerItem {
   slug: string
@@ -42,7 +42,6 @@ const MODULO_COR: Record<string, string> = {
 }
 
 export default function CentroAgendamentosPage() {
-  const router = useRouter()
   const [items, setItems] = useState<SchedulerItem[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -79,24 +78,24 @@ export default function CentroAgendamentosPage() {
   }, [items])
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/configuracoes')} className="gap-1.5">
-          <ArrowLeft className="h-3.5 w-3.5" /> Voltar
-        </Button>
-      </div>
-      <div className="flex items-center gap-3">
-        <PageHeaderIcon icon={Clock} module="configuracoes" />
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight">Centro de agendamentos</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Todos os processos automáticos do sistema — cron, próxima execução e última rodada num só lugar.
-          </p>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <PageHeaderIcon module="configuracoes" icon={Clock} />
+          <div>
+            <h1>Centro de agendamentos</h1>
+            <p className="text-sm text-muted-foreground">
+              Todos os processos automáticos do sistema — cron, próxima execução e última rodada num só lugar.
+            </p>
+          </div>
         </div>
-        <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-1.5 shrink-0">
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          Atualizar
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-1.5">
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Atualizar
+          </Button>
+          <BackButton href="/configuracoes" label="Voltar" />
+        </div>
       </div>
 
       {loading && items.length === 0 ? (
