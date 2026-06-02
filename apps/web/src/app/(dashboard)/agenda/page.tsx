@@ -240,7 +240,7 @@ export default function AgendaPage() {
   const [eventos, setEventos] = useState<AgendaEvento[]>([])
   const [tipos, setTipos] = useState<AgendaTipo[]>([])
   const [loading, setLoading] = useState(true)
-  const [usuarios, setUsuarios] = useState<Array<{ id: string; name: string }>>([])
+  const [usuarios, setUsuarios] = useState<Array<{ id: string; name: string; image?: string | null }>>([])
 
   // Filtros
   const [filtroTipo, setFiltroTipo] = useState<string>('')
@@ -449,7 +449,7 @@ export default function AgendaPage() {
       .catch(() => {})
     // Carregar usuarios para o select de participantes
     trpc.agenda.listUsuarios.query()
-      .then((r: unknown) => setUsuarios(r as Array<{ id: string; name: string }>))
+      .then((r: unknown) => setUsuarios(r as Array<{ id: string; name: string; image?: string | null }>))
       .catch(() => {})
     // Salas cadastradas (só ativas) — usado no select do modal de evento
     trpc.agenda.sala.list.query({})
@@ -2109,7 +2109,15 @@ export default function AgendaPage() {
                         {form.participanteIds.map(id => {
                           const u = usuarios.find(u => u.id === id)
                           return u ? (
-                            <span key={id} className="flex items-center gap-1 text-[11px] bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 px-2 py-0.5 rounded-full">
+                            <span key={id} className="flex items-center gap-1.5 text-[11px] bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 pl-0.5 pr-2 py-0.5 rounded-full">
+                              {u.image ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={resolveAssetUrl(u.image)} alt={u.name} className="h-5 w-5 rounded-full object-cover" />
+                              ) : (
+                                <span className="h-5 w-5 rounded-full bg-sky-200 dark:bg-sky-800 flex items-center justify-center text-[8px] font-bold">
+                                  {(u.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                                </span>
+                              )}
                               {u.name}
                               <button type="button" onClick={() => setForm(f => ({ ...f, participanteIds: f.participanteIds.filter(p => p !== id) }))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
                             </span>
@@ -2168,11 +2176,20 @@ export default function AgendaPage() {
                                     }}
                                     className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
                                   >
-                                    <span className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                                      <span className="text-[9px] font-bold text-muted-foreground">
-                                        {(u.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                                    {u.image ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={resolveAssetUrl(u.image)}
+                                        alt={u.name}
+                                        className="h-6 w-6 rounded-full object-cover shrink-0 border border-border"
+                                      />
+                                    ) : (
+                                      <span className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
+                                        <span className="text-[9px] font-bold text-muted-foreground">
+                                          {(u.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                                        </span>
                                       </span>
-                                    </span>
+                                    )}
                                     <span className="truncate">{u.name}</span>
                                   </button>
                                 ))}

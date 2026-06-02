@@ -863,7 +863,8 @@ export class AgendaService {
         isActive: true,
         ...(!isMaster && empresaId ? { empresaId } : {}),
       },
-      select: { id: true, name: true },
+      // image pra exibir avatar nos selects de participantes
+      select: { id: true, name: true, image: true },
       orderBy: { name: 'asc' },
     })
   }
