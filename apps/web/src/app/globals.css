@@ -442,18 +442,26 @@
   .nice-scrollbar::-webkit-scrollbar-button {
     display: none;
   }
-  /* Modo escuro: thumb um pouco mais opaco (cinza claro fica mais visível no fundo escuro) */
+  /* Modo escuro: track transparente + thumb cinza-claro semi-opaco
+     (padrão de UIs modernas tipo Asana/Linear/Trello no dark). RGB literal
+     em vez de var(--muted-foreground) pra garantir tom neutro fixo —
+     algumas vars de tema têm tonalidade que destoa em fundo escuro. */
   .dark .nice-scrollbar {
-    scrollbar-color: hsl(var(--muted-foreground) / 0.5) hsl(var(--muted) / 0.3);
+    scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
   }
   .dark .nice-scrollbar::-webkit-scrollbar-track {
-    background: hsl(var(--muted) / 0.25);
+    background: transparent;
   }
   .dark .nice-scrollbar::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--muted-foreground) / 0.45);
+    background-color: rgba(148, 163, 184, 0.45);
+    border: 2px solid transparent;
+    background-clip: content-box;
   }
   .dark .nice-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(var(--muted-foreground) / 0.7);
+    background-color: rgba(148, 163, 184, 0.7);
+  }
+  .dark .nice-scrollbar::-webkit-scrollbar-thumb:active {
+    background-color: rgba(148, 163, 184, 0.85);
   }
 
   /* Input com icone a esquerda */
