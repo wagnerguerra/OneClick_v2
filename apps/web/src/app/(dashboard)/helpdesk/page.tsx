@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Headphones, Plus, Loader2, Search, Filter, AlertTriangle, Clock, MessageSquare,
@@ -169,14 +169,27 @@ export default function HelpdeskPage() {
     }
   }, [fetchData])
 
-  // ── DnD ──
+  // ── DnD — segue PADRAO_KANBAN_DND.md (mesma sensação de peso do CRM/orçamentos) ──
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeCardWidth, setActiveCardWidth] = useState<number | null>(null)
+  const [dragDeltaX, setDragDeltaX] = useState(0)
+  const lastDragXRef = useRef(0)
   const activeCard = useMemo(() => items.find(t => t.id === activeId) || null, [items, activeId])
 
   const handleDragStart = (e: DragStartEvent) => {
     if (!podeAtuar) return // só TI/diretor/coordenador move cards
     setActiveId(e.active.id as string)
+    // Captura largura real do card pra o overlay não "encolher" (colunas usam flex-1)
+    const initial = (e.active as unknown as { rect?: { current?: { initial?: { width: number } } } }).rect?.current?.initial
+    setActiveCardWidth(initial?.width ?? null)
+    setDragDeltaX(0)
+    lastDragXRef.current = 0
+  }
+  const handleDragMove = (e: { delta: { x: number; y: number } }) => {
+    const dx = e.delta.x - lastDragXRef.current
+    lastDragXRef.current = e.delta.x
+    setDragDeltaX(dx)
   }
   const handleDragEnd = async (e: DragEndEvent) => {
     setActiveId(null)
@@ -353,7 +366,7 @@ export default function HelpdeskPage() {
           <p className="text-sm">Nenhum ticket encontrado</p>
         </Card>
       ) : viewMode === 'kanban' ? (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
           <div className="overflow-x-auto overflow-y-hidden pb-4 -mx-1 flex-1">
             <div className="flex gap-3 px-1 h-full" style={{ minWidth: `${COLUNAS.length * 240}px` }}>
               {COLUNAS.map(status => (
@@ -387,8 +400,8 @@ export default function HelpdeskPage() {
               ))}
             </div>
           </div>
-          <DragOverlay>
-            {activeCard && <KanbanCard ticket={activeCard} dragging cor={STATUS_COR[activeCard.status]} />}
+          <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
+            {activeCard && <KanbanCardOverlay ticket={activeCard} cor={STATUS_COR[activeCard.status]} velocityX={dragDeltaX} width={activeCardWidth} />}
           </DragOverlay>
         </DndContext>
       ) : (
@@ -481,6 +494,59 @@ function SortableCard({ ticket, cor, onClick }: { ticket: Ticket; cor: string; o
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={onClick}>
       <KanbanCard ticket={ticket} cor={cor} />
+    </div>
+  )
+}
+
+/**
+ * Overlay do card durante o drag — replica o efeito de "peso" do kanban
+ * do CRM e dos orçamentos: simulador de mola-amortecedor que faz o card
+ * inclinar levemente na direção do movimento (-8°..+8°), com damping 0.82
+ * (perto do crítico) pra balançar UMA vez e estabilizar.
+ *
+ * Doc completo: docs/PADRAO_KANBAN_DND.md
+ */
+function KanbanCardOverlay({ ticket, cor, velocityX, width }: { ticket: Ticket; cor: string; velocityX: number; width?: number | null }) {
+  const [rotation, setRotation] = useState(0)
+  const rotRef = useRef(0)
+  const angVelRef = useRef(0)
+  const rafRef = useRef(0)
+  const inputVelRef = useRef(0)
+
+  useEffect(() => { inputVelRef.current = velocityX * 0.3 }, [velocityX])
+
+  useEffect(() => {
+    const tick = () => {
+      angVelRef.current += inputVelRef.current * 0.06
+      inputVelRef.current *= 0.3
+      // mola puxa de volta pra 0
+      angVelRef.current += -rotRef.current * 0.04
+      // damping forte (0.82) — perto do crítico: card balança uma vez e estabiliza
+      angVelRef.current *= 0.82
+      rotRef.current += angVelRef.current
+      rotRef.current = Math.max(-8, Math.min(8, rotRef.current))
+      if (Math.abs(rotRef.current) < 0.02 && Math.abs(angVelRef.current) < 0.02) {
+        rotRef.current = 0
+        angVelRef.current = 0
+      }
+      setRotation(rotRef.current)
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [])
+
+  return (
+    <div
+      // Largura dinâmica — vem do measurement no dragStart. Fallback 260px.
+      style={{
+        width: width ?? 260,
+        transform: `rotate(${rotation.toFixed(2)}deg) scale(1.02)`,
+        transformOrigin: 'top center',
+        boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+      }}
+    >
+      <KanbanCard ticket={ticket} cor={cor} dragging />
     </div>
   )
 }

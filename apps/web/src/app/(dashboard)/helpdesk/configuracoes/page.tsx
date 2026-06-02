@@ -171,7 +171,7 @@ export default function HelpdeskConfiguracoesPage() {
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-foreground">Auto-fechamento</h3>
                 <p className="text-[12px] text-muted-foreground">
-                  Tickets com status <strong>Resolvido</strong> que não receberem avaliação CSAT após X dias são
+                  Tickets com status <strong>Pendente</strong> que não receberem avaliação CSAT após X dias são
                   automaticamente fechados (status <strong>Concluído</strong>).
                 </p>
               </div>

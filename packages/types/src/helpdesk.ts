@@ -20,7 +20,7 @@ export type HelpdeskTipo = (typeof HELPDESK_TIPO)[number]
 export const HELPDESK_STATUS_LABELS: Record<HelpdeskStatus, string> = {
   NOVO: 'Novo',
   EM_ANDAMENTO: 'Em andamento',
-  RESOLVIDO: 'Resolvido',
+  RESOLVIDO: 'Pendente',
   CONCLUIDO: 'Concluído',
   CANCELADO: 'Cancelado',
 }
