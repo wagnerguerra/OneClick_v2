@@ -4,7 +4,6 @@ import { z } from 'zod'
 export const HELPDESK_STATUS = [
   'NOVO',
   'EM_ANDAMENTO',
-  'AGUARDANDO_RESPONSAVEL',
   'RESOLVIDO',
   'CONCLUIDO',
   'CANCELADO',
@@ -21,7 +20,6 @@ export type HelpdeskTipo = (typeof HELPDESK_TIPO)[number]
 export const HELPDESK_STATUS_LABELS: Record<HelpdeskStatus, string> = {
   NOVO: 'Novo',
   EM_ANDAMENTO: 'Em andamento',
-  AGUARDANDO_RESPONSAVEL: 'Aguardando responsável',
   RESOLVIDO: 'Resolvido',
   CONCLUIDO: 'Concluído',
   CANCELADO: 'Cancelado',
@@ -49,10 +47,10 @@ export const HELPDESK_PRIORIDADE_COLORS: Record<HelpdeskPrioridade, string> = {
   URGENTE: '#ef4444',
 }
 
-// Status onde o SLA está pausado (relógio congelado)
-export const HELPDESK_STATUS_PAUSADOS: HelpdeskStatus[] = [
-  'AGUARDANDO_RESPONSAVEL',
-]
+// Status onde o SLA está pausado (relógio congelado). Vazio atualmente — o
+// status que pausava (AGUARDANDO_RESPONSAVEL) foi removido. Mantido como
+// array tipado pra não quebrar callers e pra facilitar reintroduzir no futuro.
+export const HELPDESK_STATUS_PAUSADOS: HelpdeskStatus[] = []
 
 // Status finais (não conta como aberto)
 export const HELPDESK_STATUS_FINAIS: HelpdeskStatus[] = ['CONCLUIDO', 'CANCELADO']

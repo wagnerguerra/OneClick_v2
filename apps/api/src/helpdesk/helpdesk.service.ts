@@ -534,6 +534,26 @@ export class HelpdeskService {
       if (before.status === 'NOVO' && data.status !== 'NOVO' && !before.primeiroAtendimentoEm) {
         patch.primeiroAtendimentoEm = new Date()
       }
+      // Auto-atribuição: se o ticket ainda não tinha responsável e está saindo
+      // de NOVO, quem fez a alteração assume. Vale pro kanban e pra visualização
+      // — ambos passam por update(). Não sobrescreve responsavelId vindo na
+      // mesma requisição.
+      if (
+        before.status === 'NOVO'
+        && data.status !== 'NOVO'
+        && !before.responsavelId
+        && data.responsavelId === undefined
+      ) {
+        patch.responsavelId = userId
+        const autorNome = (await prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true },
+        }))?.name ?? '—'
+        eventos.push({
+          tipo: 'atribuido',
+          descricao: `Responsável: ${autorNome} (auto)`,
+        })
+      }
       // Pause/Resume SLA
       const eraPausado = HELPDESK_STATUS_PAUSADOS.includes(before.status as HelpdeskStatus)
       const ficaPausado = HELPDESK_STATUS_PAUSADOS.includes(data.status)
@@ -621,55 +641,90 @@ export class HelpdeskService {
         select: {
           id: true, numero: true, titulo: true, status: true, prioridade: true,
           empresaId: true, solicitanteId: true, responsavelId: true,
-          solicitante: { select: { name: true, email: true } },
-          responsavel: { select: { name: true, email: true } },
+          solicitante: { select: { id: true, name: true, email: true } },
+          responsavel: { select: { id: true, name: true, email: true } },
         },
       })
       if (!t) return
       const ticketNum = `#HLP${String(t.numero).padStart(4, '0')}`
       const link = `/helpdesk/${ticketId}`
 
-      // 1. Atribuição
-      if (patch.responsavelId !== undefined && patch.responsavelId !== before.responsavelId) {
-        if (patch.responsavelId && patch.responsavelId !== actorId) {
-          await this.notificationService.criar({
-            userId: patch.responsavelId,
-            titulo: `Você foi atribuído: ${ticketNum}`,
-            mensagem: `${t.titulo}`,
-            tipo: 'info',
-            link,
-            origem: 'helpdesk',
-            empresaId: t.empresaId,
+      // Resolve uma vez o e-mail/nome do responsável anterior (pra notificar
+      // sobre a alteração) — antes do .update() os dados eram do "before".
+      const responsavelAnterior = before.responsavelId
+        ? await prisma.user.findUnique({
+            where: { id: before.responsavelId },
+            select: { id: true, name: true, email: true },
           })
-          if (t.responsavel?.email) {
-            void this.emailService.sendMail({
-              to: t.responsavel.email,
-              subject: `HelpDesk ${ticketNum} — atribuído a você`,
-              html: this.emailTpl(ticketNum, `Você foi atribuído ao ticket <strong>${t.titulo}</strong>.`, link),
-            })
+        : null
+
+      // Helper local: envia push (sino) + e-mail pra cada destinatário único,
+      // pulando o próprio actor (quem fez a alteração não se notifica).
+      const notificarLote = async (
+        users: Array<{ id: string; email: string | null } | null | undefined>,
+        push: { titulo: string; mensagem: string; tipo: 'info' | 'success' | 'warning' | 'error' },
+        email: { subject: string; html: string },
+      ) => {
+        const validos = users
+          .filter((u): u is { id: string; email: string | null } => !!u?.id && u.id !== actorId)
+          // dedup por id (caso solicitante seja também o responsável anterior, etc.)
+          .filter((u, i, arr) => arr.findIndex(x => x.id === u.id) === i)
+        if (validos.length === 0) return
+        await this.notificationService.criarParaUsers(
+          validos.map(u => u.id),
+          { ...push, link, origem: 'helpdesk', empresaId: t.empresaId },
+        )
+        for (const u of validos) {
+          if (u.email) {
+            void this.emailService.sendMail({ to: u.email, subject: email.subject, html: email.html })
           }
         }
       }
 
-      // 2. Status mudou
-      if (patch.status && patch.status !== before.status) {
-        const destinatarios: string[] = []
-        if (t.solicitanteId && t.solicitanteId !== actorId) destinatarios.push(t.solicitanteId)
-        if (t.responsavelId && t.responsavelId !== actorId && t.responsavelId !== t.solicitanteId) {
-          destinatarios.push(t.responsavelId)
-        }
-        if (destinatarios.length > 0) {
-          await this.notificationService.criarParaUsers(destinatarios, {
-            titulo: `${ticketNum} → ${patch.status}`,
+      // ── 1. Responsável mudou ─────────────────────────────────────
+      // Destinatários: criador, responsável anterior, novo responsável.
+      // Todos pulam o actor automaticamente via notificarLote.
+      if (patch.responsavelId !== undefined && patch.responsavelId !== before.responsavelId) {
+        const novoNome = t.responsavel?.name ?? 'Nenhum'
+        const anteriorNome = responsavelAnterior?.name ?? 'Nenhum'
+        const corpo = `Responsável do ticket <strong>${t.titulo}</strong>: ` +
+          `<em>${anteriorNome}</em> → <strong>${novoNome}</strong>.`
+        await notificarLote(
+          [t.solicitante, responsavelAnterior, t.responsavel],
+          {
+            titulo: `${ticketNum} — responsável alterado`,
+            mensagem: `${anteriorNome} → ${novoNome}`,
+            tipo: 'info',
+          },
+          {
+            subject: `HelpDesk ${ticketNum} — responsável alterado`,
+            html: this.emailTpl(ticketNum, corpo, link),
+          },
+        )
+      }
+
+      // ── 2. Status mudou (ignorando mudanças para NOVO) ───────────
+      // Regra: criador sempre; responsável atual também, se diferente do actor.
+      if (patch.status && patch.status !== before.status && patch.status !== 'NOVO') {
+        const statusLabel = patch.status as string
+        const corpo = `Status do ticket <strong>${t.titulo}</strong> alterado para <strong>${statusLabel}</strong>.`
+        await notificarLote(
+          [t.solicitante, t.responsavel],
+          {
+            titulo: `${ticketNum} → ${statusLabel}`,
             mensagem: t.titulo,
             tipo: patch.status === 'RESOLVIDO' || patch.status === 'CONCLUIDO' ? 'success' : 'info',
-            link,
-            origem: 'helpdesk',
-            empresaId: t.empresaId,
-          })
-        }
-        // E-mail especial pedindo CSAT
-        if (patch.status === 'RESOLVIDO' && t.solicitante?.email) {
+          },
+          {
+            subject: `HelpDesk ${ticketNum} — ${statusLabel}`,
+            html: this.emailTpl(ticketNum, corpo, link),
+          },
+        )
+
+        // E-mail extra pro solicitante quando RESOLVIDO — pedindo CSAT.
+        // Mantém comportamento existente (sobrepõe ao genérico acima — é ok,
+        // são dois e-mails: "status alterado" + "avalie").
+        if (patch.status === 'RESOLVIDO' && t.solicitante?.email && t.solicitante.id !== actorId) {
           void this.emailService.sendMail({
             to: t.solicitante.email,
             subject: `HelpDesk ${ticketNum} resolvido — avalie o atendimento`,
@@ -729,17 +784,9 @@ export class HelpdeskService {
     )
 
     // Comportamentos automáticos em mensagem pública:
-    //  - se solicitante respondeu e estava AGUARDANDO_RESPONSAVEL, retoma EM_ANDAMENTO
     //  - marca primeiroAtendimentoEm se for primeira resposta de agente
     if (!input.interna) {
       const patch: any = {}
-      if (
-        userId === ticket.solicitanteId
-        && ticket.status === 'AGUARDANDO_RESPONSAVEL'
-      ) {
-        patch.status = 'EM_ANDAMENTO'
-        patch.pausadoEm = null
-      }
       if (userId !== ticket.solicitanteId && !ticket.primeiroAtendimentoEm) {
         patch.primeiroAtendimentoEm = new Date()
       }

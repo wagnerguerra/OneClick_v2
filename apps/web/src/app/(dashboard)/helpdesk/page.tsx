@@ -48,7 +48,6 @@ interface Ticket {
 const COLUNAS: HelpdeskStatus[] = [
   'NOVO',
   'EM_ANDAMENTO',
-  'AGUARDANDO_RESPONSAVEL',
   'RESOLVIDO',
   'CONCLUIDO',
   'CANCELADO',
@@ -57,7 +56,6 @@ const COLUNAS: HelpdeskStatus[] = [
 const STATUS_COR: Record<HelpdeskStatus, string> = {
   NOVO: '#0ea5e9',
   EM_ANDAMENTO: '#06b6d4',
-  AGUARDANDO_RESPONSAVEL: '#f59e0b',
   RESOLVIDO: '#10b981',
   CONCLUIDO: '#94a3b8',
   CANCELADO: '#f43f5e',

@@ -4228,7 +4228,6 @@ model ChatAnexo {
 enum HelpdeskStatus {
   NOVO
   EM_ANDAMENTO
-  AGUARDANDO_RESPONSAVEL // pausa SLA — TI aguardando resposta (solicitante, fornecedor, etc.)
   RESOLVIDO // técnico declarou; janela X dias pra confirmação/CSAT
   CONCLUIDO // CSAT preenchido ou auto-fechado
   CANCELADO
