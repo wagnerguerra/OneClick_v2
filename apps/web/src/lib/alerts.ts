@@ -101,10 +101,20 @@ export const alerts = {
     return (result.value as string) ?? ''
   },
 
-  async custom(opts: { title: string; html: string; confirmButtonText?: string; showCancelButton?: boolean; cancelButtonText?: string; preConfirm?: () => unknown }) {
+  async custom(opts: {
+    title: string; html: string
+    confirmButtonText?: string; showCancelButton?: boolean; cancelButtonText?: string
+    preConfirm?: () => unknown
+    /** Ícone do SweetAlert: 'success' | 'error' | 'warning' | 'info' | 'question' */
+    icon?: 'success' | 'error' | 'warning' | 'info' | 'question'
+    /** Largura do modal (px ou %) — default da lib é 32em */
+    width?: string | number
+  }) {
     return Swal.fire({
       title: opts.title,
       html: opts.html,
+      icon: opts.icon,
+      width: opts.width,
       showCancelButton: opts.showCancelButton ?? true,
       confirmButtonColor: themeColor,
       cancelButtonColor: '#6b7280',

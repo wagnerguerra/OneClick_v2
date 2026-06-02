@@ -108,6 +108,65 @@ function parseDate(s: string) {
   return new Date(y!, m! - 1, d!)
 }
 
+/**
+ * Renderiza HTML formatado da lista de conflitos de agenda pra mostrar no
+ * SweetAlert. Agrupa por tipo (participante / sala), cada item vira um
+ * card com badge do tipo, nome, evento conflitante e horário em destaque.
+ */
+function renderConflitosHtml(
+  conflitos: Array<{ tipo: string; nome: string; evento: string; horario: string }>,
+  bloqueado: boolean,
+): string {
+  const esc = (s: string) => String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+
+  const participantes = conflitos.filter(c => c.tipo === 'participante')
+  const salas = conflitos.filter(c => c.tipo === 'sala')
+
+  const card = (icon: string, color: string, badge: string, nome: string, evento: string, horario: string) => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;text-align:left">
+      <div style="flex-shrink:0;width:28px;height:28px;border-radius:6px;background:${color}1a;color:${color};display:flex;align-items:center;justify-content:center;font-size:14px">${icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap">
+          <span style="display:inline-block;padding:1px 7px;border-radius:999px;background:${color}1a;color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px">${badge}</span>
+          <span style="font-weight:600;color:#0f172a;font-size:13px">${esc(nome)}</span>
+        </div>
+        <div style="font-size:12px;color:#64748b">
+          Em <span style="color:#0f172a;font-weight:500">"${esc(evento)}"</span>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px;font-variant-numeric:tabular-nums">⏰ ${esc(horario)}</div>
+      </div>
+    </div>
+  `
+
+  const sections: string[] = []
+  if (participantes.length > 0) {
+    sections.push(`
+      <div style="margin-top:8px">
+        <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">Participantes ocupados (${participantes.length})</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${participantes.map(c => card('👤', '#0ea5e9', 'Participante', c.nome, c.evento, c.horario)).join('')}
+        </div>
+      </div>`)
+  }
+  if (salas.length > 0) {
+    sections.push(`
+      <div style="margin-top:8px">
+        <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">Salas ocupadas (${salas.length})</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${salas.map(c => card('🚪', '#a855f7', 'Sala', c.nome, c.evento, c.horario)).join('')}
+        </div>
+      </div>`)
+  }
+
+  const intro = bloqueado
+    ? '<p style="font-size:13px;color:#475569;margin:0 0 4px 0">As regras da empresa <strong style="color:#dc2626">bloqueiam o salvamento</strong> enquanto houver estes conflitos:</p>'
+    : '<p style="font-size:13px;color:#475569;margin:0 0 4px 0">Detectamos sobreposições com outros eventos. Você pode salvar mesmo assim ou revisar:</p>'
+
+  return `<div style="text-align:left">${intro}${sections.join('')}</div>`
+}
+
 function isToday(year: number, month: number, day: number) {
   const t = new Date()
   return t.getFullYear() === year && t.getMonth() === month && t.getDate() === day
@@ -602,32 +661,36 @@ export default function AgendaPage() {
         )
 
         if (relevantes.length > 0) {
-          const msgs = relevantes.map(c =>
-            c.tipo === 'participante'
-              ? `• ${c.nome} já está em "${c.evento}" (${c.horario})`
-              : `• Sala "${c.nome}" ocupada por "${c.evento}" (${c.horario})`
-          )
           const fatais = relevantes.filter(c =>
             (c.tipo === 'participante' && agendaConfig.conflitoParticipante === 'BLOQUEAR') ||
             (c.tipo === 'sala' && agendaConfig.conflitoSala === 'BLOQUEAR')
           )
+          const html = renderConflitosHtml(relevantes, fatais.length > 0)
+
           if (fatais.length > 0) {
-            // Modo BLOQUEAR — não permite salvar. Botão só de OK.
-            await alerts.error(
-              `Conflito bloqueado (${fatais.length})`,
-              `Não é possível salvar — regras da empresa impedem:\n${msgs.join('\n')}`,
-            )
+            // Modo BLOQUEAR — não permite salvar. Só OK pra fechar.
+            await alerts.custom({
+              icon: 'error',
+              title: `${fatais.length} conflito${fatais.length > 1 ? 's' : ''} de agenda`,
+              html,
+              showCancelButton: false,
+              confirmButtonText: 'Entendi',
+              width: '32rem',
+            })
             setSaving(false)
             return
           }
           // Modo AVISAR — pergunta se quer salvar mesmo assim
-          const ok = await alerts.confirm({
-            title: `${relevantes.length} conflito(s) detectado(s)`,
-            text: msgs.join('\n'),
-            confirmText: 'Salvar mesmo assim',
+          const r = await alerts.custom({
             icon: 'warning',
+            title: `${relevantes.length} conflito${relevantes.length > 1 ? 's' : ''} de agenda`,
+            html,
+            showCancelButton: true,
+            cancelButtonText: 'Revisar',
+            confirmButtonText: 'Salvar mesmo assim',
+            width: '32rem',
           })
-          if (!ok) { setSaving(false); return }
+          if (!r.isConfirmed) { setSaving(false); return }
         }
       }
 
