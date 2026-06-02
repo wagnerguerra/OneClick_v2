@@ -56,12 +56,19 @@ const COLUNAS: HelpdeskStatus[] = [
   'CANCELADO',
 ]
 
+// Cores semânticas das colunas — cada uma reflete a função do estado:
+//   NOVO         → azul       (entrada, aguardando triagem)
+//   EM_ANDAMENTO → âmbar      (trabalho ativo)
+//   RESOLVIDO    → violeta    (aguardando confirmação/CSAT do solicitante)
+//                  o label visível é 'Pendente' (HELPDESK_STATUS_LABELS)
+//   CONCLUIDO    → verde      (sucesso, fechado)
+//   CANCELADO    → vermelho   (anulado)
 const STATUS_COR: Record<HelpdeskStatus, string> = {
-  NOVO: '#0ea5e9',
-  EM_ANDAMENTO: '#06b6d4',
-  RESOLVIDO: '#10b981',
-  CONCLUIDO: '#94a3b8',
-  CANCELADO: '#f43f5e',
+  NOVO: '#3b82f6',         // blue-500
+  EM_ANDAMENTO: '#f59e0b', // amber-500
+  RESOLVIDO: '#a855f7',    // purple-500 (= 'Pendente' na UI)
+  CONCLUIDO: '#10b981',    // emerald-500
+  CANCELADO: '#ef4444',    // red-500
 }
 
 export default function HelpdeskPage() {

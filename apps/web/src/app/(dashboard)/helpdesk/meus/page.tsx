@@ -35,13 +35,15 @@ interface TicketMeu {
   _count: { mensagens: number }
 }
 
-// Cor da pill de status — usa cinza pra encerrados e cor distinta pra ativos
+// Cores semânticas das pills — alinhadas com STATUS_COR do kanban
+// (NOVO=blue · EM_ANDAMENTO=amber · RESOLVIDO/Pendente=purple ·
+//  CONCLUIDO=emerald · CANCELADO=red)
 const STATUS_BADGE: Record<HelpdeskStatus, string> = {
-  NOVO: 'bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-400',
-  EM_ANDAMENTO: 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 text-cyan-700 dark:text-cyan-400',
-  RESOLVIDO: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400',
-  CONCLUIDO: 'bg-gray-100 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400',
-  CANCELADO: 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400',
+  NOVO: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400',
+  EM_ANDAMENTO: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400',
+  RESOLVIDO: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-400',
+  CONCLUIDO: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400',
+  CANCELADO: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400',
 }
 
 type FilterKind = 'abertos' | 'historico' | 'todos'

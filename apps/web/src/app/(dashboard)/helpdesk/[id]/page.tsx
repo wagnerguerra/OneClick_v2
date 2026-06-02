@@ -81,12 +81,13 @@ interface Ticket {
   eventos: Evento[]
 }
 
+// Mesmas cores semânticas do kanban (STATUS_COR em ../page.tsx)
 const STATUS_BADGE: Record<HelpdeskStatus, string> = {
-  NOVO: 'bg-sky-50 dark:bg-sky-900/20 border-sky-200 text-sky-700',
-  EM_ANDAMENTO: 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 text-cyan-700',
-  RESOLVIDO: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 text-emerald-700',
-  CONCLUIDO: 'bg-gray-100 dark:bg-gray-800/40 border-gray-200 text-gray-600',
-  CANCELADO: 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 text-rose-700',
+  NOVO: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 text-blue-700',
+  EM_ANDAMENTO: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 text-amber-700',
+  RESOLVIDO: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 text-purple-700',
+  CONCLUIDO: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 text-emerald-700',
+  CANCELADO: 'bg-red-50 dark:bg-red-900/20 border-red-200 text-red-700',
 }
 
 export default function HelpdeskTicketDetailPage() {
