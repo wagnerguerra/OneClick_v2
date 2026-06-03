@@ -691,37 +691,39 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
           </div>
         )}
 
-        {/* Linha 4: avatar do responsável (+ nome) à esquerda · indicadores à direita */}
-        <div className="flex items-center justify-between gap-2 mt-0.5">
-          <div className="flex items-center gap-1.5 min-w-0">
+        {/* Linha 4 (rodapé): avatar do responsável (+ nome) à esquerda · indicadores à direita.
+            Padding maior + tipos um pouco maiores pra melhorar legibilidade — antes ficava
+            apertado e com fontes 9-10px que cansavam a vista. */}
+        <div className="flex items-center justify-between gap-2 mt-1 pt-1.5 border-t border-border/40">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             {ticket.responsavel ? (
               ticket.responsavel.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={resolveAssetUrl(ticket.responsavel.image)} alt={ticket.responsavel.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
+                <img src={resolveAssetUrl(ticket.responsavel.image)} alt={ticket.responsavel.name} className="h-6 w-6 rounded-full object-cover shrink-0" />
               ) : (
-                <span className="h-5 w-5 rounded-full bg-[#5ea3cb] text-white text-[8px] flex items-center justify-center font-bold shrink-0">
+                <span className="h-6 w-6 rounded-full bg-[#5ea3cb] text-white text-[10px] flex items-center justify-center font-bold shrink-0">
                   {ticket.responsavel.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
                 </span>
               )
             ) : (
-              <span className="h-5 w-5 rounded-full bg-muted text-muted-foreground text-[9px] flex items-center justify-center font-bold shrink-0">?</span>
+              <span className="h-6 w-6 rounded-full bg-muted text-muted-foreground text-[10px] flex items-center justify-center font-bold shrink-0">?</span>
             )}
-            <span className="text-[11px] text-muted-foreground truncate">
+            <span className="text-[12px] text-muted-foreground truncate min-w-0">
               {ticket.responsavel?.name || ticket.solicitante?.name || 'Não atribuído'}
             </span>
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground shrink-0">
+          <div className="flex items-center gap-2.5 text-[11px] text-muted-foreground shrink-0">
             {/* Score da triagem IA (#HLP0083). Violeta = atingiu threshold ou
                 tem plano; cinza = não-elegível. Tooltip via title detalha. */}
             {ticket.aiScore != null && <ScoreIaBadge ticket={ticket} />}
             {ticket._count.anexos > 0 && (
               <span className="inline-flex items-center gap-0.5">
-                <Paperclip className="h-3 w-3" /> {ticket._count.anexos}
+                <Paperclip className="h-3.5 w-3.5" /> {ticket._count.anexos}
               </span>
             )}
             {ticket._count.mensagens > 0 && (
               <span className="inline-flex items-center gap-0.5">
-                <MessageSquare className="h-3 w-3" /> {ticket._count.mensagens}
+                <MessageSquare className="h-3.5 w-3.5" /> {ticket._count.mensagens}
               </span>
             )}
           </div>
@@ -745,13 +747,13 @@ function ScoreIaBadge({ ticket }: { ticket: Ticket }) {
     <span
       title={title}
       className={cn(
-        'inline-flex items-center gap-0.5 rounded px-1 py-0.5 font-mono text-[9px] font-semibold tabular-nums',
+        'inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums',
         elegivel
           ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
           : 'bg-muted text-muted-foreground/70',
       )}
     >
-      <Bot className="h-2.5 w-2.5" />
+      <Bot className="h-3 w-3" />
       {ticket.aiScore}
     </span>
   )

@@ -240,7 +240,22 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
         return aiAgent.updateConfig(input)
       }),
 
-    // ── Aprovação/rejeição de plano gerado pela IA (#HLP0083) ───
+    // ── Processamento manual / aprovação / rejeição (#HLP0083) ──
+    /**
+     * Força processamento de um ticket pela IA, ignorando o threshold de score
+     * e a idempotência. Mantém os gates de custo (enabled, cap mensal, min/max
+     * chars). Útil pra tickets que receberam score baixo mas o operador acha
+     * que vale a pena planejar.
+     */
+    aiProcessarTicket: protectedProcedure
+      .input(z.object({ ticketId: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        await helpdeskService.assertCanAccess(ctx.userId!, input.ticketId)
+        // Síncrono — operador espera o resultado pra ver o plano aparecer
+        await aiAgent.processarTicket(input.ticketId, { forcar: true })
+        return { ok: true }
+      }),
+
     /** Operador aprova o plano. Status → EM_ANDAMENTO, plano vira nota interna. */
     aiAprovarPlano: protectedProcedure
       .input(z.object({ ticketId: z.string() }))

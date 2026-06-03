@@ -254,7 +254,7 @@ REGRAS DURAS:
   // ============================================================
 
   /**
-   * Processa um ticket recém-criado.
+   * Processa um ticket — chamado automaticamente no create() do ticket.
    *
    * Sequência:
    *  1. Idempotência (skip se já decidido)
@@ -264,15 +264,23 @@ REGRAS DURAS:
    *  5. Chama Claude pra gerar plano
    *  6. Salva plano + status → AGUARDANDO_AUDITORIA OU registra "não consegui planejar"
    *  7. Sempre grava HelpdeskAiDecision
+   *
+   * @param opts.forcar — quando true (operador clicou "Processar com IA" no detalhe),
+   *   pula a checagem de idempotência E o gate de score baixo. Mantém cap mensal +
+   *   enabled + min/max chars (gates de custo). Aceita ticket fora de NOVO também.
    */
-  async processarTicket(ticketId: string): Promise<void> {
-    // Idempotência: se já processado (sucesso), não duplica
-    const jaProcessado = await prisma.helpdeskAiDecision.findFirst({
-      where: { ticketId, complexidade: { not: 'erro' } },
-    })
-    if (jaProcessado) {
-      console.log(`[HelpdeskAI] Ticket ${ticketId} já processado — pulando`)
-      return
+  async processarTicket(ticketId: string, opts?: { forcar?: boolean }): Promise<void> {
+    const forcar = opts?.forcar === true
+
+    if (!forcar) {
+      // Idempotência: se já processado (sucesso), não duplica
+      const jaProcessado = await prisma.helpdeskAiDecision.findFirst({
+        where: { ticketId, complexidade: { not: 'erro' } },
+      })
+      if (jaProcessado) {
+        console.log(`[HelpdeskAI] Ticket ${ticketId} já processado — pulando`)
+        return
+      }
     }
 
     const ticket = await prisma.helpdeskTicket.findUnique({
@@ -286,7 +294,9 @@ REGRAS DURAS:
       },
     })
     if (!ticket) return
-    if (ticket.status !== 'NOVO') {
+    // Modo automático respeita o status NOVO; modo forçado aceita qualquer
+    // status (operador pode querer revisar plano de ticket EM_ANDAMENTO etc).
+    if (!forcar && ticket.status !== 'NOVO') {
       console.log(`[HelpdeskAI] Ticket ${ticketId} já saiu de NOVO — pulando`)
       return
     }
@@ -310,8 +320,9 @@ REGRAS DURAS:
       data: { aiScore: score, aiElegivel: elegivel },
     })
 
-    if (!elegivel) {
-      // Não chama API — pula com economia total
+    if (!elegivel && !forcar) {
+      // Não chama API — pula com economia total.
+      // Modo forçado ignora esse gate (operador clicou "Processar com IA").
       console.log(`[HelpdeskAI] #HLP${String(ticket.numero).padStart(4, '0')} score ${score} < ${config.scoreThreshold} — não elegível`)
       const aiUser = await this.ensureAiUser()
       await prisma.helpdeskEvento.create({

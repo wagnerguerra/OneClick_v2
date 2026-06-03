@@ -159,6 +159,8 @@ export default function HelpdeskTicketDetailPage() {
   const [processandoPlano, setProcessandoPlano] = useState(false)
   const [rejeitarOpen, setRejeitarOpen] = useState(false)
   const [rejeitarMotivo, setRejeitarMotivo] = useState('')
+  // Forçar processamento IA — ignora score baixo
+  const [forcandoIa, setForcandoIa] = useState(false)
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -316,6 +318,33 @@ export default function HelpdeskTicketDetailPage() {
       await fetchData(true)
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
+    }
+  }
+
+  /**
+   * Força processamento IA do ticket ignorando o threshold de score.
+   * Útil pra tickets não-elegíveis (score baixo) que o operador quer planejar
+   * mesmo assim (#HLP0083). Síncrono — espera o backend processar e refaz fetch.
+   */
+  async function handleForcarProcessamentoIa() {
+    const aindaSemPlano = !ticket?.aiPlano
+    const ok = await alerts.confirm({
+      title: 'Processar este ticket com IA?',
+      text: aindaSemPlano
+        ? 'A IA vai gerar um plano de resolução pra este ticket. Isso consome crédito da API (custo típico US$ 0.01–0.05).'
+        : 'O ticket já tem decisão da IA registrada. Reprocessar gera um NOVO plano (substitui o anterior se gerado). Consome crédito da API.',
+      confirmText: 'Processar',
+      icon: 'question',
+    })
+    if (!ok) return
+    setForcandoIa(true)
+    try {
+      await (trpc.helpdesk as any).aiProcessarTicket.mutate({ ticketId: id })
+      await fetchData(true)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setForcandoIa(false)
     }
   }
 
@@ -546,6 +575,38 @@ export default function HelpdeskTicketDetailPage() {
                   >
                     {csatEnviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Star className="h-3.5 w-3.5" />}
                     Enviar avaliação
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Status da triagem IA — botão pra forçar quando não tem plano pendente (#HLP0083).
+                Aparece se: ainda não tem plano OU plano foi rejeitado. Operador pode
+                forçar processamento mesmo se score ficou abaixo do threshold. */}
+            {(!ticket.aiPlano || ticket.aiPlanoStatus === 'rejeitado') && (
+              <Card className="border-l-4 border-l-slate-400 dark:border-l-slate-500">
+                <CardContent className="p-3 flex items-center gap-3">
+                  <Bot className="h-4 w-4 text-violet-600 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold">Triagem IA</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {ticket.aiPlanoStatus === 'rejeitado'
+                        ? 'O plano anterior foi rejeitado. Gere um novo se quiser uma nova proposta.'
+                        : ticket.aiScore == null
+                          ? 'Este ticket ainda não passou pela triagem automática.'
+                          : ticket.aiElegivel
+                            ? `Score ${ticket.aiScore} — elegível, mas sem plano gerado ainda.`
+                            : `Score ${ticket.aiScore} ficou abaixo do threshold — IA não foi consultada automaticamente.`}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={handleForcarProcessamentoIa}
+                    disabled={forcandoIa}
+                    className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white shrink-0"
+                  >
+                    {forcandoIa ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5" />}
+                    {forcandoIa ? 'Processando…' : 'Processar com IA'}
                   </Button>
                 </CardContent>
               </Card>
