@@ -255,16 +255,18 @@ export class CnpjService {
   }
 
   /**
-   * Consulta CPF via SERPRO — endpoint `/consulta-cpf-df/v1/cpf/{cpf}`.
-   * Retorna apenas Nome + Situação. Email/telefone do CPF NÃO existem na
-   * base da Receita (são dados internos da pessoa, não cadastrais).
+   * Consulta CPF via SERPRO — endpoint `/consulta-cpf-df/v2/cpf/{cpf}`.
+   * Retorna Nome, Situação Cadastral, Data de Nascimento e Data de Inscrição.
+   * Email/telefone do CPF NÃO existem na base da Receita.
    *
-   * Resposta SERPRO típica:
-   *   { ni, nome, nomeSocial, situacao: { codigo, descricao }, anoObito }
+   * Resposta v2 típica:
+   *   { ni, nome, situacao: { codigo, descricao }, nascimento: 'DDMMYYYY',
+   *     dataInscricao: 'DDMMYYYY' }
    *
    * Custo: ~R$ 0,06-0,15 por consulta (mesmo plano do CNPJ).
+   * Doc: https://apicenter.estaleiro.serpro.gov.br/documentacao/consulta-cpf/
    */
-  async consultarCpf(cpf: string): Promise<{ cpf: string; nome: string; situacao: string | null; anoObito: number | null; fonte: 'serpro' }> {
+  async consultarCpf(cpf: string): Promise<{ cpf: string; nome: string; situacao: string | null; nascimento: string | null; fonte: 'serpro' }> {
     const doc = cpf.replace(/\D/g, '')
     if (doc.length !== 11) throw new Error('CPF deve ter 11 dígitos.')
 
@@ -273,21 +275,19 @@ export class CnpjService {
 
     const start = Date.now()
     const token = await this.getSerproToken(serpro.consumerKey, serpro.consumerSecret)
-    const res = await fetch(`https://gateway.apiserpro.serpro.gov.br/consulta-cpf-df/v1/cpf/${doc}`, {
+    const endpoint = `/consulta-cpf-df/v2/cpf/${doc}`
+    const res = await fetch(`https://gateway.apiserpro.serpro.gov.br${endpoint}`, {
       headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
     })
 
     if (!res.ok) {
       const body = await res.text().catch(() => '')
       await prisma.apiLog.create({
-        data: { source: 'serpro', endpoint: `/consulta-cpf-df/v1/cpf/${doc}`, method: 'GET', status: res.status, duration: Date.now() - start, documento: doc, error: body.slice(0, 500) },
+        data: { source: 'serpro', endpoint, method: 'GET', status: res.status, duration: Date.now() - start, documento: doc, error: body.slice(0, 500) },
       }).catch(() => {})
       if (res.status === 404) throw new Error('CPF não encontrado na base do SERPRO.')
-      // 403 com 'subscription validation failed' = a credencial OAuth é válida
-      // mas o produto 'Consulta CPF' não está habilitado no plano contratado.
-      // Comum quando o tenant só assinou Consulta CNPJ no SERPRO Estaleiro.
       if (res.status === 403 && /subscription/i.test(body)) {
-        throw new Error('SERPRO_CPF_NAO_HABILITADO: plano atual não cobre Consulta CPF. Contrate o produto "Consulta CPF" no portal estaleiro.')
+        throw new Error('SERPRO_CPF_NAO_HABILITADO: plano atual não cobre Consulta CPF v2.')
       }
       throw new Error(`Erro na consulta CPF SERPRO: HTTP ${res.status}`)
     }
@@ -296,14 +296,20 @@ export class CnpjService {
     const data: any = await res.json()
 
     await prisma.apiLog.create({
-      data: { source: 'serpro', endpoint: `/consulta-cpf-df/v1/cpf/${doc}`, method: 'GET', status: 200, duration: Date.now() - start, documento: doc },
+      data: { source: 'serpro', endpoint, method: 'GET', status: 200, duration: Date.now() - start, documento: doc },
     }).catch(() => {})
+
+    // Data vem como 'DDMMYYYY' (string sem separadores) — formata pra dd/MM/yyyy
+    const formatarData = (s: string | undefined | null) => {
+      if (!s || s.length !== 8) return null
+      return `${s.slice(0, 2)}/${s.slice(2, 4)}/${s.slice(4, 8)}`
+    }
 
     return {
       cpf: doc,
       nome: String(data.nome || data.nomeSocial || '').trim(),
       situacao: data.situacao?.descricao ? String(data.situacao.descricao) : null,
-      anoObito: data.anoObito ? Number(data.anoObito) : null,
+      nascimento: formatarData(data.nascimento),
       fonte: 'serpro',
     }
   }
