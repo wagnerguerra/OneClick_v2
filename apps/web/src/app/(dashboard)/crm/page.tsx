@@ -25,7 +25,7 @@ import { useRouter } from 'next/navigation'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
-import { numeroParaMoeda, moedaParaNumero } from '@/lib/masks'
+import { numeroParaMoeda, moedaParaNumero, masks } from '@/lib/masks'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
 // ============================================================
@@ -147,6 +147,29 @@ export default function CrmPage() {
   const [novaTarefa, setNovaTarefa] = useState('')
   const [novaMensagem, setNovaMensagem] = useState('')
   const [saving, setSaving] = useState(false)
+  const [buscandoCnpj, setBuscandoCnpj] = useState(false)
+
+  /**
+   * Auto-completa razão social ao digitar/colar um CNPJ válido (14 dígitos)
+   * — mesmo padrão do cadastro de clientes. Disparado no onBlur do campo
+   * pra não bater na Receita a cada tecla. Só sobrescreve razaoSocial se
+   * estiver vazia (não pisa em edição manual).
+   */
+  async function buscarCnpjAuto(raw: string) {
+    const doc = raw.replace(/\D/g, '')
+    if (doc.length !== 14) return
+    if (form.razaoSocial.trim()) return // já preenchido manualmente
+    setBuscandoCnpj(true)
+    try {
+      const data = await (trpc.socio as any).consultarCnpj.query({ cnpj: doc }) as {
+        razaoSocial?: string
+      }
+      if (data?.razaoSocial) {
+        setForm(f => f.razaoSocial.trim() ? f : { ...f, razaoSocial: data.razaoSocial! })
+      }
+    } catch { /* silencioso — auto-complete não bloqueia o fluxo */ }
+    finally { setBuscandoCnpj(false) }
+  }
   const [editingTitle, setEditingTitle] = useState(false)
 
   // Config modal
@@ -858,11 +881,29 @@ export default function CrmPage() {
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Oportunidade *</label>
               <Input value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} placeholder="Titulo da oportunidade" className="h-9 text-sm" />
             </div>
-            {/* CPF/CNPJ + Empresa/Cliente */}
+            {/* CPF/CNPJ + Empresa/Cliente — CNPJ válido dispara auto-complete da razão via Receita */}
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-3">
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">CPF / CNPJ</label>
-                <Input value={form.cpfCnpj} onChange={e => setForm(f => ({ ...f, cpfCnpj: e.target.value }))} placeholder="00.000.000/0000-00" className="h-9 text-sm" />
+                <div className="relative">
+                  <Input
+                    value={form.cpfCnpj}
+                    onChange={e => setForm(f => ({ ...f, cpfCnpj: masks.cpfCnpj(e.target.value) }))}
+                    onBlur={e => buscarCnpjAuto(e.target.value)}
+                    onPaste={e => {
+                      // Busca direto se o user colar um CNPJ completo
+                      const pasted = e.clipboardData.getData('text')
+                      if (pasted.replace(/\D/g, '').length === 14) {
+                        setTimeout(() => buscarCnpjAuto(pasted), 0)
+                      }
+                    }}
+                    placeholder="00.000.000/0000-00"
+                    className="h-9 text-sm pr-8"
+                  />
+                  {buscandoCnpj && (
+                    <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  )}
+                </div>
               </div>
               <div className="col-span-9">
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Empresa / Cliente *</label>
