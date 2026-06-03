@@ -755,7 +755,10 @@ export default function MeuPerfilPage() {
             type="button"
             onClick={() => coverInputRef.current?.click()}
             disabled={uploadingCover}
-            className="inline-flex items-center gap-1.5 rounded-md bg-white/90 hover:bg-white text-foreground px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors disabled:opacity-60"
+            // bg-white/90 + text-foreground ficava branco-sobre-branco no dark
+            // (#HLP0085). Usando tokens semânticos: card é branco no light e
+            // gray-900 no dark; foreground espelha o contraste automaticamente.
+            className="inline-flex items-center gap-1.5 rounded-md bg-card/95 hover:bg-card text-foreground border border-border/40 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors disabled:opacity-60"
             title={profile.coverImage ? 'Trocar imagem de fundo' : 'Personalizar capa'}
           >
             {uploadingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
@@ -766,7 +769,7 @@ export default function MeuPerfilPage() {
               type="button"
               onClick={handleCoverRemove}
               disabled={uploadingCover}
-              className="inline-flex items-center gap-1.5 rounded-md bg-white/90 hover:bg-white text-rose-600 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-md bg-card/95 hover:bg-card text-rose-600 dark:text-rose-400 border border-border/40 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors disabled:opacity-60"
               title="Remover capa"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -827,10 +830,13 @@ export default function MeuPerfilPage() {
                 />
               </button>
 
-              {/* Nome + Cargo + Badges — mesmo padrao /orcamentos/[id] (text-xl semibold + meta muted + badge row) */}
+              {/* Nome + Cargo + Badges — mesmo padrao /orcamentos/[id] (text-xl semibold + meta muted + badge row).
+                  text-muted-foreground sobre o gradiente do header ficava com contraste fraco no dark
+                  (#HLP0085). Usamos text-foreground/85 (versão atenuada do foreground principal) que
+                  mantém legibilidade nos dois temas e sobre qualquer cor de fundo. */}
               <div className="min-w-0">
                 <h1 className="text-xl font-semibold">{profile.name}</h1>
-                <p className="text-sm text-muted-foreground mt-0.5">
+                <p className="text-sm text-foreground/85 mt-0.5">
                   {profile.cargo?.name || (USER_ROLE_LABELS[profile.role as keyof typeof USER_ROLE_LABELS] ?? 'Não informado')}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-2.5">
