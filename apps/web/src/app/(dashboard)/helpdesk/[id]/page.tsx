@@ -679,20 +679,32 @@ export default function HelpdeskTicketDetailPage() {
 
                   {/* Ações — só aparecem se plano está pendente */}
                   {ticket.aiPlanoStatus === 'pendente' && (
-                    <div className="flex gap-2 justify-end pt-2 border-t border-border">
+                    <div className="flex gap-2 justify-end pt-2 border-t border-border flex-wrap">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setRejeitarOpen(true)}
-                        disabled={processandoPlano}
+                        disabled={processandoPlano || forcandoIa}
                         className="gap-1.5 border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/30"
                       >
                         <ThumbsDown className="h-3.5 w-3.5" /> Rejeitar
                       </Button>
+                      {/* Reprocessar — útil quando há novas mensagens no ticket
+                          que devem entrar no contexto. Substitui o plano atual. */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleForcarProcessamentoIa}
+                        disabled={processandoPlano || forcandoIa}
+                        className="gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-300 dark:hover:bg-violet-950/30"
+                      >
+                        {forcandoIa ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5" />}
+                        Reprocessar
+                      </Button>
                       <Button
                         size="sm"
                         onClick={handleAprovarPlano}
-                        disabled={processandoPlano}
+                        disabled={processandoPlano || forcandoIa}
                         className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
                       >
                         {processandoPlano ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ThumbsUp className="h-3.5 w-3.5" />}
