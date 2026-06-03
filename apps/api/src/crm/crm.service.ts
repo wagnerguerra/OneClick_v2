@@ -4,6 +4,7 @@ import type { CreateOportunidadeInput, UpdateOportunidadeInput, ListOportunidade
 import { OrcamentoService } from '../orcamento/orcamento.service'
 import { CrmEventsService } from './crm-events.service'
 import { NotificationService } from '../notification/notification.service'
+import { CnpjService } from '../cnpj/cnpj.service'
 
 const DEFAULT_ETAPAS = [
   { nome: 'Deal Aberto', ordem: 1, cor: '#818cf8', probabilidade: 10, ehGanho: false, ehPerda: false },
@@ -22,6 +23,7 @@ export class CrmService {
     private readonly orcamentoService: OrcamentoService,
     private readonly crmEvents: CrmEventsService,
     private readonly notificationService: NotificationService,
+    private readonly cnpjService: CnpjService,
   ) {}
 
   /**
@@ -205,12 +207,16 @@ export class CrmService {
 
   // Verificar se cliente ja existe pelo CPF/CNPJ ou razao social
   /**
-   * Auto-complete por CPF — busca em Cliente (CPFs cadastrados) e Socio
-   * (sócios cadastrados de qualquer cliente). Retorna nome/email/telefone
-   * pra preencher o modal de oportunidade. CPF é dado pessoal protegido pela
-   * LGPD; usamos só dados internos (não consulta APIs externas como Receita).
+   * Auto-complete por CPF — busca em ordem:
+   *   1. Cliente (CPFs cadastrados)   → traz nome/email/telefone
+   *   2. Socio (sócios cadastrados)   → traz nome/email/telefone
+   *   3. SERPRO Consulta CPF          → traz apenas o nome (Receita não tem
+   *      email/telefone na base de pessoa física)
+   *
+   * Email/telefone só vêm das fontes 1 e 2. Fonte é informada na resposta
+   * pra UI poder indicar a origem ('cliente' | 'socio' | 'serpro').
    */
-  async lookupPorCpf(cpf: string): Promise<{ found: boolean; nome?: string; email?: string | null; telefone?: string | null }> {
+  async lookupPorCpf(cpf: string): Promise<{ found: boolean; nome?: string; email?: string | null; telefone?: string | null; fonte?: 'cliente' | 'socio' | 'serpro' }> {
     const doc = (cpf || '').replace(/\D/g, '')
     if (doc.length !== 11) return { found: false }
 
@@ -220,7 +226,7 @@ export class CrmService {
       select: { razaoSocial: true, email: true, telefone: true },
     })
     if (cliente) {
-      return { found: true, nome: cliente.razaoSocial, email: cliente.email, telefone: cliente.telefone }
+      return { found: true, nome: cliente.razaoSocial, email: cliente.email, telefone: cliente.telefone, fonte: 'cliente' }
     }
 
     // 2. Sócio com esse CPF (mais provável — sócios são pessoas físicas)
@@ -234,8 +240,17 @@ export class CrmService {
         nome: socio.nomeCompleto,
         email: socio.email,
         telefone: socio.celular || socio.telefone,
+        fonte: 'socio',
       }
     }
+
+    // 3. Fallback SERPRO — só traz o nome (Receita não expõe email/telefone)
+    try {
+      const r = await this.cnpjService.consultarCpf(doc)
+      if (r.nome) {
+        return { found: true, nome: r.nome, email: null, telefone: null, fonte: 'serpro' }
+      }
+    } catch { /* silencioso — credencial não configurada ou CPF não encontrado */ }
 
     return { found: false }
   }

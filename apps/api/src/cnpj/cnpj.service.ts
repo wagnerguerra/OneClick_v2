@@ -254,6 +254,54 @@ export class CnpjService {
     return null
   }
 
+  /**
+   * Consulta CPF via SERPRO — endpoint `/consulta-cpf-df/v1/cpf/{cpf}`.
+   * Retorna apenas Nome + Situação. Email/telefone do CPF NÃO existem na
+   * base da Receita (são dados internos da pessoa, não cadastrais).
+   *
+   * Resposta SERPRO típica:
+   *   { ni, nome, nomeSocial, situacao: { codigo, descricao }, anoObito }
+   *
+   * Custo: ~R$ 0,06-0,15 por consulta (mesmo plano do CNPJ).
+   */
+  async consultarCpf(cpf: string): Promise<{ cpf: string; nome: string; situacao: string | null; anoObito: number | null; fonte: 'serpro' }> {
+    const doc = cpf.replace(/\D/g, '')
+    if (doc.length !== 11) throw new Error('CPF deve ter 11 dígitos.')
+
+    const serpro = this.getSerproCredentials()
+    if (!serpro) throw new Error('Consulta CPF requer credenciais SERPRO configuradas (CONSUMER_KEY/CONSUMER_SECRET).')
+
+    const start = Date.now()
+    const token = await this.getSerproToken(serpro.consumerKey, serpro.consumerSecret)
+    const res = await fetch(`https://gateway.apiserpro.serpro.gov.br/consulta-cpf-df/v1/cpf/${doc}`, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+    })
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      await prisma.apiLog.create({
+        data: { source: 'serpro', endpoint: `/consulta-cpf-df/v1/cpf/${doc}`, method: 'GET', status: res.status, duration: Date.now() - start, documento: doc, error: body.slice(0, 500) },
+      }).catch(() => {})
+      if (res.status === 404) throw new Error('CPF não encontrado na base do SERPRO.')
+      throw new Error(`Erro na consulta CPF SERPRO: HTTP ${res.status}`)
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any = await res.json()
+
+    await prisma.apiLog.create({
+      data: { source: 'serpro', endpoint: `/consulta-cpf-df/v1/cpf/${doc}`, method: 'GET', status: 200, duration: Date.now() - start, documento: doc },
+    }).catch(() => {})
+
+    return {
+      cpf: doc,
+      nome: String(data.nome || data.nomeSocial || '').trim(),
+      situacao: data.situacao?.descricao ? String(data.situacao.descricao) : null,
+      anoObito: data.anoObito ? Number(data.anoObito) : null,
+      fonte: 'serpro',
+    }
+  }
+
   async consultarCnpj(cnpj: string): Promise<CnpjResult> {
     const doc = cnpj.replace(/\D/g, '')
     if (doc.length !== 14) throw new Error('CNPJ deve ter 14 dígitos.')

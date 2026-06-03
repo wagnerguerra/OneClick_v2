@@ -5,9 +5,10 @@ import { CrmSseController } from './crm-sse.controller'
 import { ImportComercialService } from './import-comercial.service'
 import { OrcamentoModule } from '../orcamento/orcamento.module'
 import { NotificationModule } from '../notification/notification.module'
+import { CnpjModule } from '../cnpj/cnpj.module'
 
 @Module({
-  imports: [forwardRef(() => OrcamentoModule), NotificationModule],
+  imports: [forwardRef(() => OrcamentoModule), NotificationModule, CnpjModule],
   controllers: [CrmSseController],
   providers: [CrmService, CrmEventsService, ImportComercialService],
   exports: [CrmService, CrmEventsService, ImportComercialService],
