@@ -4353,6 +4353,12 @@ model HelpdeskTicket {
   aiPlanoAprovadoPor     String?   @map("ai_plano_aprovado_por")
   aiPlanoAprovadoEm      DateTime? @map("ai_plano_aprovado_em")
   aiPlanoMotivoRejeicao  String?   @map("ai_plano_motivo_rejeicao") @db.Text
+  // Execução automática do plano via Claude API (#HLP0083). Resultado:
+  // { arquivosModificados: [{path, conteudo}], resumo: string, raciocinio }
+  // custoUsd: gasto real da chamada (input+output tokens × preço Sonnet)
+  aiExecutionResult      Json?     @map("ai_execution_result")
+  aiExecutionCustoUsd    Decimal?  @map("ai_execution_custo_usd") @db.Decimal(10, 6)
+  aiExecutionEm          DateTime? @map("ai_execution_em")
 
   arquivado Boolean  @default(false)
   ativo     Boolean  @default(true)

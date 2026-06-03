@@ -8,6 +8,7 @@ import {
   Eye, Star, Save, Tag, Building2, Download, ExternalLink, Image as ImageIcon,
   FileVideo, FileAudio, File as FileIcon, FileSpreadsheet,
   MoreVertical, Pencil, Trash2, Bot, ThumbsUp, ThumbsDown,
+  Terminal, Copy, Zap, FileCheck,
 } from 'lucide-react'
 import {
   Button, Card, CardContent, Badge, Label, cn, RichEditor,
@@ -98,6 +99,16 @@ interface Ticket {
   aiPlanoStatus?: 'pendente' | 'aprovado' | 'rejeitado' | null
   aiPlanoAprovadoEm?: string | null
   aiPlanoMotivoRejeicao?: string | null
+  // Execução automática do plano (#HLP0083)
+  aiExecutionResult?: {
+    arquivosModificados?: Array<{ path: string; conteudo: string; motivo: string }>
+    arquivosARevisar?: string[]
+    resumo?: string
+    raciocinio?: string
+    duracaoMs?: number
+  } | null
+  aiExecutionCustoUsd?: string | number | null
+  aiExecutionEm?: string | null
 }
 
 // Mesmas cores semânticas do kanban (STATUS_COR em ../page.tsx)
@@ -162,6 +173,29 @@ export default function HelpdeskTicketDetailPage() {
   const [rejeitarMotivo, setRejeitarMotivo] = useState('')
   // Forçar processamento IA — ignora score baixo
   const [forcandoIa, setForcandoIa] = useState(false)
+  // Modal "Como executar o plano" — abre ao aprovar
+  const [executarOpen, setExecutarOpen] = useState(false)
+  const [executarTab, setExecutarTab] = useState<'cli' | 'auto'>('cli')
+  const [promptCli, setPromptCli] = useState<string>('')
+  const [carregandoPrompt, setCarregandoPrompt] = useState(false)
+  const [estimativa, setEstimativa] = useState<{
+    arquivosLidos: number
+    arquivosNaoEncontrados: string[]
+    inputTokensEstimado: number
+    outputTokensEstimado: number
+    custoMinUsd: number
+    custoMaxUsd: number
+  } | null>(null)
+  const [estimando, setEstimando] = useState(false)
+  const [executandoAuto, setExecutandoAuto] = useState(false)
+  const [resultadoAuto, setResultadoAuto] = useState<{
+    arquivosModificados: Array<{ path: string; conteudo: string; motivo: string }>
+    arquivosARevisar?: string[]
+    resumo: string
+    raciocinio: string
+  } | null>(null)
+  const [custoRealAuto, setCustoRealAuto] = useState<number | null>(null)
+  const [copiouPrompt, setCopiouPrompt] = useState(false)
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -349,23 +383,88 @@ export default function HelpdeskTicketDetailPage() {
     }
   }
 
-  /** Aprovar plano gerado pela IA (#HLP0083). Status → EM_ANDAMENTO. */
+  /**
+   * Aprovar plano gerado pela IA (#HLP0083). Status → EM_ANDAMENTO + abre
+   * modal "Como executar o plano" com duas opções:
+   *  1) Copiar prompt pra colar no Claude Code CLI local (sem custo)
+   *  2) Executar automaticamente via Claude API (custo estimado mostrado antes)
+   */
   async function handleAprovarPlano() {
-    const ok = await alerts.confirm({
-      title: 'Aprovar plano da IA?',
-      text: 'O plano será registrado no ticket como nota interna e o status mudará pra "Em andamento". Você executará o plano manualmente.',
-      confirmText: 'Aprovar',
-      icon: 'question',
-    })
-    if (!ok) return
     setProcessandoPlano(true)
     try {
       await (trpc.helpdesk as any).aiAprovarPlano.mutate({ ticketId: id })
       await fetchData(true)
+      // Abre modal de execução já com a aba "CLI" carregando o prompt
+      setExecutarTab('cli')
+      setExecutarOpen(true)
+      setResultadoAuto(null)
+      setCustoRealAuto(null)
+      setEstimativa(null)
+      setCopiouPrompt(false)
+      // Busca o prompt CLI em paralelo
+      setCarregandoPrompt(true)
+      try {
+        const r = await (trpc.helpdesk as any).aiGerarPromptParaCli.query({ ticketId: id })
+        setPromptCli(r.prompt ?? '')
+      } catch (e) {
+        alerts.error('Erro ao gerar prompt', (e as Error).message)
+      } finally {
+        setCarregandoPrompt(false)
+      }
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
     } finally {
       setProcessandoPlano(false)
+    }
+  }
+
+  /** Carrega estimativa de custo da execução automática (lazy — só quando troca pra aba). */
+  async function carregarEstimativa() {
+    if (estimativa || estimando) return
+    setEstimando(true)
+    try {
+      const r = await (trpc.helpdesk as any).aiEstimarCustoExecucao.query({ ticketId: id })
+      setEstimativa(r)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setEstimando(false)
+    }
+  }
+
+  /** Dispara execução automática via API (custo real). */
+  async function handleExecutarAutomatico() {
+    if (!estimativa) return
+    const custoMax = estimativa.custoMaxUsd.toFixed(4)
+    const ok = await alerts.confirm({
+      title: 'Executar plano automaticamente?',
+      text: `Vai consumir crédito da API. Custo estimado: até US$ ${custoMax}. ${estimativa.arquivosLidos} arquivo(s) carregado(s) como contexto. A IA vai propor as alterações — você revisa antes de aplicar.`,
+      confirmText: `Executar (~US$ ${custoMax})`,
+      icon: 'question',
+    })
+    if (!ok) return
+    setExecutandoAuto(true)
+    try {
+      const r = await (trpc.helpdesk as any).aiExecutarPlanoAutomatico.mutate({ ticketId: id })
+      setCustoRealAuto(r.custoUsd)
+      await fetchData(true)
+      // Lê o resultado já gravado no ticket
+      // (o backend gravou em aiExecutionResult — depois do fetchData o ticket já tem)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setExecutandoAuto(false)
+    }
+  }
+
+  /** Copia o prompt pro clipboard com fallback. */
+  async function copiarPrompt() {
+    try {
+      await navigator.clipboard.writeText(promptCli)
+      setCopiouPrompt(true)
+      setTimeout(() => setCopiouPrompt(false), 2000)
+    } catch {
+      alerts.error('Erro', 'Não foi possível copiar. Selecione manualmente e copie (Ctrl+C).')
     }
   }
 
@@ -710,6 +809,35 @@ export default function HelpdeskTicketDetailPage() {
                       >
                         {processandoPlano ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ThumbsUp className="h-3.5 w-3.5" />}
                         Aprovar plano
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Plano já aprovado — abre o modal de execução pra revisar/copiar/auto-executar */}
+                  {ticket.aiPlanoStatus === 'aprovado' && (
+                    <div className="flex justify-end pt-2 border-t border-border">
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          setExecutarTab('cli')
+                          setExecutarOpen(true)
+                          setCopiouPrompt(false)
+                          if (!promptCli) {
+                            setCarregandoPrompt(true)
+                            try {
+                              const r = await (trpc.helpdesk as any).aiGerarPromptParaCli.query({ ticketId: id })
+                              setPromptCli(r.prompt ?? '')
+                            } catch (e) {
+                              alerts.error('Erro', (e as Error).message)
+                            } finally {
+                              setCarregandoPrompt(false)
+                            }
+                          }
+                        }}
+                        className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      >
+                        <FileCheck className="h-3.5 w-3.5" />
+                        Como executar
                       </Button>
                     </div>
                   )}
@@ -1130,6 +1258,199 @@ export default function HelpdeskTicketDetailPage() {
               {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal "Como executar o plano" (#HLP0083) — abre após aprovar */}
+      <Dialog open={executarOpen} onOpenChange={(o) => { if (!o) setExecutarOpen(false) }}>
+        <DialogContent className="sm:max-w-[820px]">
+          <DialogHeaderIcon icon={FileCheck} color="emerald">
+            <DialogTitle>Plano aprovado — como executar?</DialogTitle>
+            <DialogDescription>
+              Duas formas. A primeira não consome crédito da API — você cola o prompt no Claude Code CLI local e o agente executa no seu repo. A segunda dispara aqui mesmo, custo estimado mostrado antes.
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-4">
+            {/* Tabs */}
+            <div className="flex items-center gap-1 border-b border-border">
+              <button
+                type="button"
+                onClick={() => setExecutarTab('cli')}
+                className={cn(
+                  'px-3 py-1.5 text-[12px] font-medium border-b-2 transition-colors -mb-px',
+                  executarTab === 'cli'
+                    ? 'border-emerald-500 text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Terminal className="h-3.5 w-3.5 inline mr-1.5" />
+                Copiar pro CLI
+              </button>
+              <button
+                type="button"
+                onClick={() => { setExecutarTab('auto'); void carregarEstimativa() }}
+                className={cn(
+                  'px-3 py-1.5 text-[12px] font-medium border-b-2 transition-colors -mb-px',
+                  executarTab === 'auto'
+                    ? 'border-violet-500 text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Zap className="h-3.5 w-3.5 inline mr-1.5" />
+                Processar automaticamente
+              </button>
+            </div>
+
+            {/* TAB 1: CLI */}
+            {executarTab === 'cli' && (
+              <div className="space-y-2">
+                <p className="text-[11px] text-muted-foreground">
+                  Cole o conteúdo abaixo num <strong>Claude Code CLI</strong> aberto no diretório raiz do <code>OneClick_Code</code>. O agente vai executar o plano e fazer commit local.
+                </p>
+                {carregandoPrompt ? (
+                  <div className="flex items-center justify-center py-8 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" /> Gerando prompt…
+                  </div>
+                ) : (
+                  <>
+                    <textarea
+                      readOnly
+                      value={promptCli}
+                      onClick={e => (e.target as HTMLTextAreaElement).select()}
+                      className="w-full font-mono text-[11px] rounded-md border border-input bg-muted/30 px-3 py-2 min-h-[280px] max-h-[420px] overflow-auto"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        onClick={copiarPrompt}
+                        className={cn(
+                          'gap-1.5',
+                          copiouPrompt ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-sky-600 hover:bg-sky-700',
+                          'text-white',
+                        )}
+                      >
+                        {copiouPrompt ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                        {copiouPrompt ? 'Copiado!' : 'Copiar prompt'}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* TAB 2: AUTO */}
+            {executarTab === 'auto' && (
+              <div className="space-y-3">
+                {estimando ? (
+                  <div className="flex items-center justify-center py-8 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" /> Lendo arquivos e estimando custo…
+                  </div>
+                ) : estimativa ? (
+                  <>
+                    <div className="rounded-md border border-border bg-muted/20 p-3 space-y-2 text-[12px]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Arquivos carregados como contexto</span>
+                        <span className="font-mono tabular-nums">{estimativa.arquivosLidos}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Tokens estimados (entrada)</span>
+                        <span className="font-mono tabular-nums">{estimativa.inputTokensEstimado.toLocaleString('pt-BR')}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Tokens estimados (saída)</span>
+                        <span className="font-mono tabular-nums">{estimativa.outputTokensEstimado.toLocaleString('pt-BR')}</span>
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-border">
+                        <span className="font-semibold">Custo estimado</span>
+                        <span className="font-mono tabular-nums font-semibold text-violet-700 dark:text-violet-300">
+                          US$ {estimativa.custoMinUsd.toFixed(4)} – {estimativa.custoMaxUsd.toFixed(4)}
+                        </span>
+                      </div>
+                    </div>
+                    {estimativa.arquivosNaoEncontrados.length > 0 && (
+                      <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 text-[11px]">
+                        <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1">
+                          <AlertTriangle className="inline h-3 w-3 mr-1" />
+                          {estimativa.arquivosNaoEncontrados.length} arquivo(s) do plano não puderam ser carregados:
+                        </p>
+                        <ul className="space-y-0.5 text-amber-700/90 dark:text-amber-300/90 font-mono">
+                          {estimativa.arquivosNaoEncontrados.map((a, i) => <li key={i}>• {a}</li>)}
+                        </ul>
+                        <p className="mt-1 text-amber-700/80 dark:text-amber-300/80">
+                          A IA vai trabalhar com o que tem — pode incluir esses arquivos em "a revisar manualmente".
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Resultado da execução (quando disponível) */}
+                    {ticket.aiExecutionResult && (
+                      <div className="rounded-md border border-emerald-300 dark:border-emerald-700 bg-emerald-50/40 dark:bg-emerald-950/20 p-3 space-y-2">
+                        <div className="flex items-center justify-between text-[12px]">
+                          <p className="font-semibold text-emerald-800 dark:text-emerald-300">
+                            <CheckCircle2 className="inline h-3.5 w-3.5 mr-1" />
+                            Execução concluída
+                          </p>
+                          <span className="font-mono text-emerald-700 dark:text-emerald-400">
+                            Custo: US$ {Number(ticket.aiExecutionCustoUsd ?? custoRealAuto ?? 0).toFixed(4)}
+                          </span>
+                        </div>
+                        {ticket.aiExecutionResult.resumo && (
+                          <p className="text-[12px]"><strong>Resumo:</strong> {ticket.aiExecutionResult.resumo}</p>
+                        )}
+                        <div className="text-[11px] text-muted-foreground">
+                          {ticket.aiExecutionResult.arquivosModificados?.length ?? 0} arquivo(s) modificado(s) ·
+                          {' '}{ticket.aiExecutionResult.arquivosARevisar?.length ?? 0} a revisar manualmente
+                        </div>
+                        {(ticket.aiExecutionResult.arquivosModificados ?? []).map((arq, i) => (
+                          <details key={i} className="text-[11px] border border-border rounded bg-card">
+                            <summary className="cursor-pointer px-2 py-1.5 font-mono hover:bg-muted/40">
+                              📄 {arq.path}
+                            </summary>
+                            <div className="px-2 py-1.5 border-t border-border space-y-1">
+                              <p className="text-muted-foreground italic">{arq.motivo}</p>
+                              <pre className="bg-muted/30 p-2 rounded text-[10px] overflow-auto max-h-[300px] whitespace-pre">{arq.conteudo}</pre>
+                            </div>
+                          </details>
+                        ))}
+                        {ticket.aiExecutionResult.raciocinio && (
+                          <details className="text-[11px]">
+                            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                              Raciocínio técnico da IA
+                            </summary>
+                            <p className="mt-1 pl-2 border-l-2 border-border italic text-muted-foreground">
+                              {ticket.aiExecutionResult.raciocinio}
+                            </p>
+                          </details>
+                        )}
+                        <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 pt-1 border-t border-emerald-300/40">
+                          ⚠️ As alterações NÃO foram aplicadas no repo. Revise cada arquivo e copie manualmente, ou use a opção CLI pra deixar o agente local commitar.
+                        </p>
+                      </div>
+                    )}
+
+                    {!ticket.aiExecutionResult && (
+                      <div className="flex justify-end">
+                        <Button
+                          size="sm"
+                          onClick={handleExecutarAutomatico}
+                          disabled={executandoAuto}
+                          className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
+                        >
+                          {executandoAuto ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                          {executandoAuto ? 'Processando…' : `Processar (~US$ ${estimativa.custoMaxUsd.toFixed(4)})`}
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-[12px] text-muted-foreground text-center py-4">Aguardando estimativa...</p>
+                )}
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExecutarOpen(false)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

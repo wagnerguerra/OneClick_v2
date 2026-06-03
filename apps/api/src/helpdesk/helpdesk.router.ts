@@ -272,6 +272,31 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
         return aiAgent.rejeitarPlano(input.ticketId, ctx.userId!, input.motivo ?? '')
       }),
 
+    // ── Execução do plano (#HLP0083) ────────────────────────────
+    /** Gera prompt formatado pra colar no Claude Code CLI local. Sem custo. */
+    aiGerarPromptParaCli: protectedProcedure
+      .input(z.object({ ticketId: z.string() }))
+      .query(async ({ input, ctx }) => {
+        await helpdeskService.assertCanAccess(ctx.userId!, input.ticketId)
+        return { prompt: await aiAgent.gerarPromptParaCli(input.ticketId) }
+      }),
+
+    /** Lê arquivos do plano e estima quanto custaria a execução automática. Sem custo. */
+    aiEstimarCustoExecucao: protectedProcedure
+      .input(z.object({ ticketId: z.string() }))
+      .query(async ({ input, ctx }) => {
+        await helpdeskService.assertCanAccess(ctx.userId!, input.ticketId)
+        return aiAgent.estimarCustoExecucao(input.ticketId)
+      }),
+
+    /** Executa o plano via Claude API. CONSOME crédito. Frontend deve confirmar antes. */
+    aiExecutarPlanoAutomatico: protectedProcedure
+      .input(z.object({ ticketId: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        await helpdeskService.assertCanAccess(ctx.userId!, input.ticketId)
+        return aiAgent.executarPlanoAutomatico(input.ticketId)
+      }),
+
     // ── Logs/estatísticas de uso (#HLP0083) ─────────────────────
     /** Agregado mensal pra gráfico — gasto USD + contagem por mês. */
     aiEstatisticasMensais: protectedProcedure

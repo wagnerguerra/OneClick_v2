@@ -615,6 +615,297 @@ ${ticket.descricao.slice(0, 4000)}${bloocoMensagens}`
   }
 
   // ============================================================
+  // Execução do plano (#HLP0083)
+  // ============================================================
+
+  /**
+   * Gera um prompt formatado pra colar no Claude Code CLI local.
+   * Inclui contexto do ticket + plano + arquivos prováveis. O dev cola
+   * o prompt e executa no próprio repo. NÃO consome crédito da API.
+   */
+  async gerarPromptParaCli(ticketId: string): Promise<string> {
+    const ticket = await prisma.helpdeskTicket.findUnique({
+      where: { id: ticketId },
+      select: {
+        id: true, numero: true, titulo: true, descricao: true,
+        aiPlano: true, aiPlanoMeta: true,
+      },
+    })
+    if (!ticket) throw new Error('Ticket não encontrado')
+    if (!ticket.aiPlano) throw new Error('Ticket sem plano da IA')
+
+    const numeroFmt = `#HLP${String(ticket.numero).padStart(4, '0')}`
+    const meta = (ticket.aiPlanoMeta as { arquivosEnvolvidos?: string[]; riscos?: string; tempoEstimado?: string } | null) ?? {}
+    const arquivos = Array.isArray(meta.arquivosEnvolvidos) ? meta.arquivosEnvolvidos : []
+    const descricaoTexto = (ticket.descricao ?? '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+
+    return [
+      `# Ticket ${numeroFmt} — ${ticket.titulo}`,
+      '',
+      '## Descrição original do solicitante',
+      descricaoTexto || '(sem descrição)',
+      '',
+      '## Plano gerado e aprovado pela triagem IA',
+      ticket.aiPlano,
+      '',
+      arquivos.length > 0 ? '## Arquivos prováveis envolvidos\n' + arquivos.map(a => `- ${a}`).join('\n') : '',
+      meta.riscos ? `\n## Riscos\n${meta.riscos}` : '',
+      meta.tempoEstimado ? `\n## Tempo estimado pela IA\n${meta.tempoEstimado}` : '',
+      '',
+      '---',
+      `Execute o plano acima. Ao terminar, faça commit com a mensagem prefixada \`feat(helpdesk):\` ou \`fix(...):\` mencionando \`${numeroFmt}\` no corpo. Depois, marque o ticket como CONCLUÍDO no helpdesk do OneClick.`,
+    ].filter(Boolean).join('\n')
+  }
+
+  /**
+   * Lê os arquivos prováveis do plano direto do filesystem do servidor pra
+   * estimar quantos tokens serão usados na execução automática. Não chama
+   * a API — só calcula tamanho × preço Sonnet.
+   */
+  async estimarCustoExecucao(ticketId: string): Promise<{
+    arquivosLidos: number
+    arquivosNaoEncontrados: string[]
+    inputCharsEstimado: number
+    inputTokensEstimado: number
+    outputTokensEstimado: number
+    custoMinUsd: number
+    custoMaxUsd: number
+  }> {
+    const ticket = await prisma.helpdeskTicket.findUnique({
+      where: { id: ticketId },
+      select: { aiPlano: true, aiPlanoMeta: true, titulo: true, descricao: true },
+    })
+    if (!ticket?.aiPlano) throw new Error('Ticket sem plano da IA')
+
+    const meta = (ticket.aiPlanoMeta as { arquivosEnvolvidos?: string[] } | null) ?? {}
+    const arquivos = Array.isArray(meta.arquivosEnvolvidos) ? meta.arquivosEnvolvidos : []
+
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
+    const repoRoot = process.cwd().endsWith('apps/api') || process.cwd().endsWith('apps\\api')
+      ? path.resolve(process.cwd(), '../..')
+      : process.cwd()
+
+    let conteudoChars = 0
+    let arquivosLidos = 0
+    const naoEncontrados: string[] = []
+    for (const arq of arquivos) {
+      try {
+        const full = path.resolve(repoRoot, arq)
+        const stat = await fs.stat(full)
+        // Pula arquivos enormes (>200KB) — evita explodir o input em arquivo errado
+        if (stat.size > 200_000) {
+          naoEncontrados.push(`${arq} (muito grande: ${Math.round(stat.size / 1024)}KB)`)
+          continue
+        }
+        const content = await fs.readFile(full, 'utf8')
+        conteudoChars += content.length
+        arquivosLidos++
+      } catch {
+        naoEncontrados.push(arq)
+      }
+    }
+
+    // Heurística clássica: ~4 chars = 1 token (textos em geral)
+    const planoChars = (ticket.aiPlano || '').length
+    const tituloChars = (ticket.titulo || '').length
+    const descricaoChars = ((ticket.descricao || '').replace(/<[^>]+>/g, '')).length
+    const overheadPrompt = 2000 // system prompt + instruções
+    const inputCharsEstimado = conteudoChars + planoChars + tituloChars + descricaoChars + overheadPrompt
+    const inputTokensEstimado = Math.ceil(inputCharsEstimado / 4)
+    // Output: assumir que o agente retorna versões modificadas dos arquivos
+    // → no pior caso, 1.5× o tamanho dos arquivos lidos.
+    const outputTokensEstimado = Math.ceil((conteudoChars * 1.5) / 4) + 500
+
+    // Preços Sonnet 4.6: $3/MTok in, $15/MTok out. Aplico ±40% pra faixa.
+    const custoMedio = (inputTokensEstimado / 1_000_000) * this.PRICE_INPUT_USD_PER_MTOK
+                     + (outputTokensEstimado / 1_000_000) * this.PRICE_OUTPUT_USD_PER_MTOK
+    return {
+      arquivosLidos,
+      arquivosNaoEncontrados: naoEncontrados,
+      inputCharsEstimado,
+      inputTokensEstimado,
+      outputTokensEstimado,
+      custoMinUsd: Math.max(0.005, custoMedio * 0.6),
+      custoMaxUsd: custoMedio * 1.4,
+    }
+  }
+
+  /**
+   * Executa o plano via Claude API: passa o plano + conteúdo dos arquivos
+   * envolvidos, pede pro modelo retornar versões modificadas via tool_use.
+   * Grava resultado em ticket.aiExecutionResult e o custo real em
+   * ticket.aiExecutionCustoUsd. Não commita nada — operador decide depois
+   * como aplicar (copiar do modal ou deixar pra próxima fase com PR auto).
+   */
+  async executarPlanoAutomatico(ticketId: string): Promise<{ ok: true; custoUsd: number; arquivosModificados: number }> {
+    const client = this.getClient()
+    if (!client) throw new Error('ANTHROPIC_API_KEY não configurada')
+
+    const ticket = await prisma.helpdeskTicket.findUnique({
+      where: { id: ticketId },
+      select: {
+        id: true, numero: true, titulo: true, descricao: true,
+        aiPlano: true, aiPlanoMeta: true, aiPlanoStatus: true,
+      },
+    })
+    if (!ticket) throw new Error('Ticket não encontrado')
+    if (!ticket.aiPlano) throw new Error('Ticket sem plano da IA')
+    if (ticket.aiPlanoStatus !== 'aprovado') {
+      throw new Error(`Plano não está aprovado (status atual: ${ticket.aiPlanoStatus})`)
+    }
+
+    const meta = (ticket.aiPlanoMeta as { arquivosEnvolvidos?: string[]; riscos?: string; tempoEstimado?: string } | null) ?? {}
+    const arquivos = Array.isArray(meta.arquivosEnvolvidos) ? meta.arquivosEnvolvidos : []
+
+    // Lê conteúdo atual dos arquivos prováveis pra passar como contexto
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
+    const repoRoot = process.cwd().endsWith('apps/api') || process.cwd().endsWith('apps\\api')
+      ? path.resolve(process.cwd(), '../..')
+      : process.cwd()
+
+    const arquivosCarregados: Array<{ path: string; conteudo: string }> = []
+    const arquivosNaoEncontrados: string[] = []
+    for (const arq of arquivos) {
+      try {
+        const full = path.resolve(repoRoot, arq)
+        const stat = await fs.stat(full)
+        if (stat.size > 200_000) {
+          arquivosNaoEncontrados.push(`${arq} (>200KB)`)
+          continue
+        }
+        const content = await fs.readFile(full, 'utf8')
+        arquivosCarregados.push({ path: arq, conteudo: content })
+      } catch {
+        arquivosNaoEncontrados.push(arq)
+      }
+    }
+
+    const numeroFmt = `#HLP${String(ticket.numero).padStart(4, '0')}`
+    const descricaoTexto = (ticket.descricao ?? '').replace(/<[^>]+>/g, '').trim()
+
+    const systemPrompt = `Você é um agente que executa planos de resolução de tickets em código TypeScript no monorepo OneClick (Next.js 15 + NestJS + tRPC + Prisma).
+
+Receberá o plano aprovado pelo operador e o conteúdo atual dos arquivos prováveis envolvidos. Retorne via tool \`aplicar_plano\` os arquivos modificados.
+
+REGRAS:
+1. Modifique APENAS o que o plano descreve. Não refatore além do necessário.
+2. Mantenha estilo, formatação, imports e convenções existentes no arquivo.
+3. Se algum arquivo do plano não estiver no contexto (arquivos_disponiveis), você pode ainda assim referenciá-lo em arquivos_a_revisar — operador vai conferir manualmente.
+4. Comentários em português, código em inglês.
+5. Se não conseguir/souber executar com segurança, retorne arquivos_modificados=[] e explique em raciocinio.
+6. NUNCA invente caminhos. Use só os paths que vieram em arquivos_disponiveis ou que aparecerem no plano.`
+
+    const userContent = `# Ticket ${numeroFmt} — ${ticket.titulo}
+
+## Descrição
+${descricaoTexto || '(sem descrição)'}
+
+## Plano aprovado
+${ticket.aiPlano}
+
+## Arquivos disponíveis (conteúdo atual)
+${arquivosCarregados.length === 0 ? '(nenhum arquivo carregado — gere apenas instruções textuais em raciocinio)' : ''}
+${arquivosCarregados.map(a => `\n### ${a.path}\n\n\`\`\`\n${a.conteudo}\n\`\`\``).join('\n')}
+
+${arquivosNaoEncontrados.length > 0 ? `\n## Arquivos do plano que não pude carregar\n${arquivosNaoEncontrados.map(a => `- ${a}`).join('\n')}` : ''}`
+
+    const start = Date.now()
+    const resp = await client.messages.create({
+      model: this.MODEL,
+      max_tokens: 8000,
+      system: systemPrompt,
+      tools: [{
+        name: 'aplicar_plano',
+        description: 'Aplica o plano de resolução nos arquivos. Retorna as versões modificadas.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            arquivos_modificados: {
+              type: 'array',
+              description: 'Arquivos modificados com o conteúdo COMPLETO novo (não diff). Path relativo ao repo.',
+              items: {
+                type: 'object',
+                properties: {
+                  path: { type: 'string', description: 'Path relativo ao repo (ex.: apps/web/src/...)' },
+                  conteudo: { type: 'string', description: 'Conteúdo completo novo do arquivo' },
+                  motivo: { type: 'string', description: '1-2 frases sobre o que mudou e por quê' },
+                },
+                required: ['path', 'conteudo', 'motivo'],
+              },
+            },
+            arquivos_a_revisar: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Paths que o plano menciona mas você não pôde alterar (não estava no contexto). Operador vai conferir manualmente.',
+            },
+            resumo: {
+              type: 'string',
+              description: 'Resumo curto do que foi feito (1 parágrafo)',
+            },
+            raciocinio: {
+              type: 'string',
+              description: 'Notas técnicas pro operador — decisões tomadas, alternativas consideradas, pontos de atenção',
+            },
+          },
+          required: ['arquivos_modificados', 'resumo', 'raciocinio'],
+        },
+      }],
+      tool_choice: { type: 'tool', name: 'aplicar_plano' },
+      messages: [{ role: 'user', content: userContent }],
+    })
+
+    const toolUse = resp.content.find(c => c.type === 'tool_use')
+    if (!toolUse || toolUse.type !== 'tool_use') throw new Error('Resposta sem tool_use')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result: any = toolUse.input
+    const duracaoMs = Date.now() - start
+    const tokensIn = resp.usage.input_tokens
+    const tokensOut = resp.usage.output_tokens
+    const custoUsd = (tokensIn / 1_000_000) * this.PRICE_INPUT_USD_PER_MTOK
+                   + (tokensOut / 1_000_000) * this.PRICE_OUTPUT_USD_PER_MTOK
+
+    // Grava resultado + custo no ticket
+    await (prisma.helpdeskTicket.update as unknown as (a: unknown) => Promise<unknown>)({
+      where: { id: ticketId },
+      data: {
+        aiExecutionResult: {
+          arquivosModificados: result.arquivos_modificados ?? [],
+          arquivosARevisar: result.arquivos_a_revisar ?? [],
+          resumo: result.resumo ?? '',
+          raciocinio: result.raciocinio ?? '',
+          duracaoMs,
+          tokensInput: tokensIn,
+          tokensOutput: tokensOut,
+        },
+        aiExecutionCustoUsd: custoUsd,
+        aiExecutionEm: new Date(),
+      },
+    })
+
+    // Registra também em HelpdeskAiDecision pro histórico/custos
+    await prisma.helpdeskAiDecision.create({
+      data: {
+        ticketId,
+        modelo: this.MODEL,
+        complexidade: 'execucao',
+        decisao: result as object,
+        tokensInput: tokensIn,
+        tokensOutput: tokensOut,
+        custoUsd,
+        duracaoMs,
+      },
+    })
+
+    return {
+      ok: true,
+      custoUsd,
+      arquivosModificados: Array.isArray(result.arquivos_modificados) ? result.arquivos_modificados.length : 0,
+    }
+  }
+
+  // ============================================================
   // Auditoria & estatísticas (#HLP0083)
   // ============================================================
 
