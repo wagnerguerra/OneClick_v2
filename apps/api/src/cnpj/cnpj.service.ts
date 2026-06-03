@@ -35,6 +35,10 @@ export interface CnpjResult {
   municipio: string | null
   uf: string | null
 
+  // Contato (BrasilAPI tem; SERPRO retorna em campos próprios)
+  email: string | null
+  telefone: string | null
+
   // Fiscal
   naturezaJuridica: string | null
   atividadePrincipal: string | null
@@ -164,6 +168,15 @@ export class CnpjService {
     const natureza = data.naturezaJuridica || {}
     const cnaePrincipal = data.cnaePrincipal || {}
 
+    // Contato — SERPRO retorna `correioEletronico` (string) e `telefones` (array
+    // de { ddd, numero }). Pegamos o primeiro disponível.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const telefones: any[] = Array.isArray(data.telefones) ? data.telefones : []
+    const telefone0 = telefones[0]
+    const telefoneStr = telefone0
+      ? `${telefone0.ddd ? `(${telefone0.ddd}) ` : ''}${telefone0.numero || ''}`.trim()
+      : null
+
     return {
       cnpj,
       razaoSocial: String(data.nomeEmpresarial || ''),
@@ -182,6 +195,8 @@ export class CnpjService {
       bairro: endereco.bairro ? String(endereco.bairro) : null,
       municipio: municipio.descricao ? String(municipio.descricao) : null,
       uf: endereco.uf ? String(endereco.uf) : null,
+      email: data.correioEletronico ? String(data.correioEletronico).trim() : null,
+      telefone: telefoneStr,
       naturezaJuridica: natureza.descricao ? String(`${natureza.codigo || ''} - ${natureza.descricao}`.trim()) : null,
       atividadePrincipal: cnaePrincipal.descricao ? String(cnaePrincipal.descricao) : null,
       porte: (() => {
@@ -371,6 +386,8 @@ export class CnpjService {
       bairro: data.bairro ? String(data.bairro) : null,
       municipio: data.municipio ? String(data.municipio) : null,
       uf: data.uf ? String(data.uf) : null,
+      email: data.email ? String(data.email).trim() : null,
+      telefone: data.ddd_telefone_1 ? String(data.ddd_telefone_1).trim() : (data.ddd_telefone_2 ? String(data.ddd_telefone_2).trim() : null),
       naturezaJuridica: data.natureza_juridica ? String(data.natureza_juridica) : null,
       atividadePrincipal: data.cnae_fiscal_descricao ? String(data.cnae_fiscal_descricao) : null,
       porte: data.porte ? String(data.porte) : (data.descricao_porte ? String(data.descricao_porte) : null),

@@ -150,23 +150,37 @@ export default function CrmPage() {
   const [buscandoCnpj, setBuscandoCnpj] = useState(false)
 
   /**
-   * Auto-completa razão social ao digitar/colar um CNPJ válido (14 dígitos)
-   * — mesmo padrão do cadastro de clientes. Disparado no onBlur do campo
-   * pra não bater na Receita a cada tecla. Só sobrescreve razaoSocial se
-   * estiver vazia (não pisa em edição manual).
+   * Auto-completa dados ao digitar/colar um CNPJ válido (14 dígitos):
+   * razão social, e-mail, telefone e nome do contato (primeiro sócio admin
+   * ou titular do QSA). Disparado no onBlur do campo pra não bater na
+   * Receita a cada tecla. Cada campo só é preenchido se estiver vazio
+   * — não pisa em edição manual.
    */
   async function buscarCnpjAuto(raw: string) {
     const doc = raw.replace(/\D/g, '')
     if (doc.length !== 14) return
-    if (form.razaoSocial.trim()) return // já preenchido manualmente
     setBuscandoCnpj(true)
     try {
       const data = await (trpc.socio as any).consultarCnpj.query({ cnpj: doc }) as {
         razaoSocial?: string
+        email?: string | null
+        telefone?: string | null
+        qsa?: Array<{ nome: string; qualificacao?: string; codigoQualificacao?: number }>
       }
-      if (data?.razaoSocial) {
-        setForm(f => f.razaoSocial.trim() ? f : { ...f, razaoSocial: data.razaoSocial! })
-      }
+      // Heurística pra "nome do contato": prioriza Administrador → Titular →
+      // primeiro do QSA disponível. Códigos SERPRO: 5/49 admin, 54/65 titular.
+      const contatoCodigosPrioritarios = [49, 5, 10, 16, 54, 65]
+      const contatoSocio = data.qsa?.find(s => s.codigoQualificacao && contatoCodigosPrioritarios.includes(s.codigoQualificacao))
+        ?? data.qsa?.find(s => /administ|titular|presidente|diretor/i.test(s.qualificacao ?? ''))
+        ?? data.qsa?.[0]
+
+      setForm(f => ({
+        ...f,
+        razaoSocial: f.razaoSocial.trim() || data.razaoSocial || f.razaoSocial,
+        contatoEmail: f.contatoEmail.trim() || (data.email ?? '') || f.contatoEmail,
+        contatoTelefone: f.contatoTelefone.trim() || (data.telefone ?? '') || f.contatoTelefone,
+        contatoNome: f.contatoNome.trim() || (contatoSocio?.nome ?? '') || f.contatoNome,
+      }))
     } catch { /* silencioso — auto-complete não bloqueia o fluxo */ }
     finally { setBuscandoCnpj(false) }
   }
