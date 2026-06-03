@@ -241,7 +241,9 @@ export function FloatingFeedbackButton() {
         aria-label="Fale com a TI"
         title="Reportar erro, sugestão ou mensagem"
         className={cn(
-          'fixed bottom-5 right-5 z-50 h-12 w-12 rounded-full shadow-lg',
+          // z-30 pra ficar atrás de Sheets/Dialogs (z-50) — senão sobrepunha
+          // o modal de Nova Oportunidade do CRM e similares.
+          'fixed bottom-5 right-5 z-30 h-12 w-12 rounded-full shadow-lg',
           'flex items-center justify-center text-white',
           'bg-[var(--mod-ti,#22d3ee)] hover:scale-105 active:scale-95',
           'transition-all duration-200 ease-out',
@@ -270,7 +272,9 @@ export function FloatingFeedbackButton() {
         <div
           ref={popoverRef}
           className={cn(
-            'fixed bottom-20 right-5 z-50 w-[360px] max-w-[calc(100vw-2.5rem)]',
+            // Popover de feedback também em z-30 — alinhado com o FAB pra
+            // não sobrepor modais/sheets (z-50).
+            'fixed bottom-20 right-5 z-30 w-[360px] max-w-[calc(100vw-2.5rem)]',
             'rounded-lg border border-border bg-card shadow-2xl overflow-hidden',
             // Transição manual (origin no canto inferior direito = "sai do botão FAB").
             // closing=true → animation reversa (fade-out + shrink + slide-down)
