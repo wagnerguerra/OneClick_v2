@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Headphones, Plus, Loader2, Search, Filter, AlertTriangle, Clock, MessageSquare,
   CheckCircle2, ListChecks, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
-  Paperclip,
+  Paperclip, Bot,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors,
@@ -45,6 +45,11 @@ interface Ticket {
   _count: { mensagens: number; anexos: number }
   /** Primeiro anexo de imagem do ticket — usado como capa do card no kanban. */
   capa: { id: string; fileName: string; fileUrl: string; mimeType: string | null } | null
+  // Score da triagem IA (#HLP0083) — exibido como badge no card do kanban.
+  // aiElegivel=true → atingiu o threshold (cor violeta), false → não elegível (cinza).
+  aiScore?: number | null
+  aiElegivel?: boolean | null
+  aiPlanoStatus?: 'pendente' | 'aprovado' | 'rejeitado' | null
 }
 
 // Colunas do kanban — ordem visual horizontal
@@ -706,6 +711,9 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
             </span>
           </div>
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground shrink-0">
+            {/* Score da triagem IA (#HLP0083). Violeta = atingiu threshold ou
+                tem plano; cinza = não-elegível. Tooltip via title detalha. */}
+            {ticket.aiScore != null && <ScoreIaBadge ticket={ticket} />}
             {ticket._count.anexos > 0 && (
               <span className="inline-flex items-center gap-0.5">
                 <Paperclip className="h-3 w-3" /> {ticket._count.anexos}
@@ -720,6 +728,32 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * Badge minúscula com o score IA do ticket (#HLP0083). Cor reflete elegibilidade:
+ *  - violeta: elegível (atingiu o threshold) — IA chamou a API e gerou plano
+ *  - cinza: não-elegível — score baixo, ticket não consumiu crédito
+ */
+function ScoreIaBadge({ ticket }: { ticket: Ticket }) {
+  const elegivel = ticket.aiElegivel === true || !!ticket.aiPlanoStatus
+  const title = elegivel
+    ? `IA: score ${ticket.aiScore}${ticket.aiPlanoStatus ? ' · plano ' + ticket.aiPlanoStatus : ' · elegível'}`
+    : `IA: score ${ticket.aiScore} (abaixo do threshold — não chamou API)`
+  return (
+    <span
+      title={title}
+      className={cn(
+        'inline-flex items-center gap-0.5 rounded px-1 py-0.5 font-mono text-[9px] font-semibold tabular-nums',
+        elegivel
+          ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
+          : 'bg-muted text-muted-foreground/70',
+      )}
+    >
+      <Bot className="h-2.5 w-2.5" />
+      {ticket.aiScore}
+    </span>
   )
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, Save, Plus, X, ExternalLink } from 'lucide-react'
+import { Loader2, Save, Plus, X, ExternalLink, ChevronRight, ChevronDown, AlertTriangle, FileText, CheckCircle2, XCircle } from 'lucide-react'
 import { Button, Input, Label, Badge, cn } from '@saas/ui'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { trpc } from '@/lib/trpc'
@@ -43,6 +43,18 @@ const DEFAULT_REGRAS: RegrasPeso = {
 
 const TIPOS_TICKET = ['DUVIDA', 'INCIDENTE', 'REQUISICAO', 'MELHORIA'] as const
 
+interface AiDecisaoPayload {
+  elegivel_para_plano?: boolean
+  plano_resolucao?: string
+  arquivos_envolvidos?: string[]
+  riscos?: string
+  tempo_estimado?: string
+  raciocinio?: string
+  // Compatibilidade com decisões antigas (antes do refactor #HLP0083):
+  complexidade?: string
+  resposta_proposta?: string
+}
+
 interface DecisaoRow {
   id: string
   modelo: string
@@ -52,7 +64,18 @@ interface DecisaoRow {
   custoUsd: string | number | null
   duracaoMs: number | null
   createdAt: string
-  ticket: { id: string; numero: number; titulo: string } | null
+  decisao?: AiDecisaoPayload | null
+  erro?: string | null
+  ticket: {
+    id: string
+    numero: number
+    titulo: string
+    aiPlanoStatus?: 'pendente' | 'aprovado' | 'rejeitado' | null
+    aiPlanoMotivoRejeicao?: string | null
+    aiPlanoAprovadoEm?: string | null
+    aiScore?: number | null
+    aiElegivel?: boolean | null
+  } | null
 }
 
 interface EstatMensal {
@@ -79,6 +102,7 @@ export function HelpdeskIaSection() {
   const [estatisticas, setEstatisticas] = useState<EstatMensal[]>([])
   const [historico, setHistorico] = useState<{ data: DecisaoRow[]; total: number; totalPages: number } | null>(null)
   const [histPage, setHistPage] = useState(1)
+  const [expandidos, setExpandidos] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     let cancelled = false
@@ -406,14 +430,16 @@ export function HelpdeskIaSection() {
           </div>
         )}
 
-        {/* Tabela de histórico */}
+        {/* Tabela de histórico (com linhas expansíveis pro detalhamento) */}
         <div className="rounded-lg border border-border overflow-hidden">
           <table className="w-full text-[11px]">
             <thead className="bg-muted/40 text-muted-foreground">
               <tr>
+                <th className="w-6 px-2 py-2" />
                 <th className="text-left px-3 py-2 font-medium">Data</th>
                 <th className="text-left px-3 py-2 font-medium">Ticket</th>
                 <th className="text-left px-3 py-2 font-medium">Resultado</th>
+                <th className="text-left px-3 py-2 font-medium">Plano</th>
                 <th className="text-right px-3 py-2 font-medium">Tokens in/out</th>
                 <th className="text-right px-3 py-2 font-medium">Custo</th>
                 <th className="text-right px-3 py-2 font-medium">Latência</th>
@@ -421,38 +447,26 @@ export function HelpdeskIaSection() {
             </thead>
             <tbody className="divide-y divide-border/40">
               {!historico ? (
-                <tr><td colSpan={6} className="text-center py-6 text-muted-foreground"><Loader2 className="inline h-3 w-3 animate-spin mr-1" /> Carregando…</td></tr>
+                <tr><td colSpan={8} className="text-center py-6 text-muted-foreground"><Loader2 className="inline h-3 w-3 animate-spin mr-1" /> Carregando…</td></tr>
               ) : historico.data.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-6 text-muted-foreground">Nenhuma decisão registrada</td></tr>
-              ) : historico.data.map(d => (
-                <tr key={d.id} className="hover:bg-muted/20">
-                  <td className="px-3 py-2 font-mono tabular-nums">{new Date(d.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
-                  <td className="px-3 py-2">
-                    {d.ticket ? (
-                      <a href={`/helpdesk/${d.ticket.id}`} target="_blank" rel="noreferrer" className="text-sky-600 hover:underline inline-flex items-center gap-1">
-                        #HLP{String(d.ticket.numero).padStart(4, '0')}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    ) : '—'}
-                  </td>
-                  <td className="px-3 py-2">
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        'text-[10px] h-5',
-                        d.complexidade === 'plano' && 'bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/30 dark:text-violet-300',
-                        d.complexidade === 'complexo' && 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300',
-                        d.complexidade === 'erro' && 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/30 dark:text-rose-300',
-                      )}
-                    >
-                      {d.complexidade}
-                    </Badge>
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums">{d.tokensInput ?? 0} / {d.tokensOutput ?? 0}</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums">US$ {Number(d.custoUsd ?? 0).toFixed(4)}</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums">{d.duracaoMs ?? 0}ms</td>
-                </tr>
-              ))}
+                <tr><td colSpan={8} className="text-center py-6 text-muted-foreground">Nenhuma decisão registrada</td></tr>
+              ) : historico.data.map(d => {
+                const aberto = expandidos.has(d.id)
+                const planoStatus = d.ticket?.aiPlanoStatus
+                return (
+                  <DecisaoLinha
+                    key={d.id}
+                    decisao={d}
+                    aberto={aberto}
+                    planoStatus={planoStatus}
+                    onToggle={() => setExpandidos(s => {
+                      const n = new Set(s)
+                      if (n.has(d.id)) n.delete(d.id); else n.add(d.id)
+                      return n
+                    })}
+                  />
+                )
+              })}
             </tbody>
           </table>
           {historico && historico.totalPages > 1 && (
@@ -531,5 +545,194 @@ function FaixaTable({ faixas, onChange, onRemove, unidadeMin, unidadeMax }: {
         </tbody>
       </table>
     </div>
+  )
+}
+
+function PlanoStatusBadge({ status }: { status?: 'pendente' | 'aprovado' | 'rejeitado' | null }) {
+  if (!status) return <span className="text-muted-foreground/60">—</span>
+  if (status === 'pendente') {
+    return (
+      <Badge variant="outline" className="text-[10px] h-5 bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/30 dark:text-violet-300">
+        Pendente
+      </Badge>
+    )
+  }
+  if (status === 'aprovado') {
+    return (
+      <Badge variant="outline" className="text-[10px] h-5 bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 gap-0.5">
+        <CheckCircle2 className="h-2.5 w-2.5" /> Aprovado
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="outline" className="text-[10px] h-5 bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/30 dark:text-rose-300 gap-0.5">
+      <XCircle className="h-2.5 w-2.5" /> Rejeitado
+    </Badge>
+  )
+}
+
+function DecisaoLinha({ decisao: d, aberto, planoStatus, onToggle }: {
+  decisao: DecisaoRow
+  aberto: boolean
+  planoStatus?: 'pendente' | 'aprovado' | 'rejeitado' | null
+  onToggle: () => void
+}) {
+  const payload = d.decisao
+  // Plano pode vir do payload novo (plano_resolucao) ou do antigo (resposta_proposta)
+  const planoTexto = payload?.plano_resolucao || payload?.resposta_proposta || ''
+  const raciocinio = payload?.raciocinio || ''
+  const arquivos = Array.isArray(payload?.arquivos_envolvidos) ? payload!.arquivos_envolvidos : []
+  const riscos = payload?.riscos || ''
+  const tempo = payload?.tempo_estimado || ''
+
+  return (
+    <>
+      <tr
+        className={cn('hover:bg-muted/20 cursor-pointer', aberto && 'bg-muted/30')}
+        onClick={onToggle}
+      >
+        <td className="px-2 py-2 text-muted-foreground">
+          {aberto ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        </td>
+        <td className="px-3 py-2 font-mono tabular-nums">{new Date(d.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+        <td className="px-3 py-2">
+          {d.ticket ? (
+            <a
+              href={`/helpdesk/${d.ticket.id}`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="text-sky-600 hover:underline inline-flex items-center gap-1"
+            >
+              #HLP{String(d.ticket.numero).padStart(4, '0')}
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          ) : '—'}
+        </td>
+        <td className="px-3 py-2">
+          <Badge
+            variant="outline"
+            className={cn(
+              'text-[10px] h-5',
+              d.complexidade === 'plano' && 'bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/30 dark:text-violet-300',
+              d.complexidade === 'complexo' && 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300',
+              d.complexidade === 'erro' && 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/30 dark:text-rose-300',
+            )}
+          >
+            {d.complexidade}
+          </Badge>
+        </td>
+        <td className="px-3 py-2"><PlanoStatusBadge status={planoStatus ?? null} /></td>
+        <td className="px-3 py-2 text-right font-mono tabular-nums">{d.tokensInput ?? 0} / {d.tokensOutput ?? 0}</td>
+        <td className="px-3 py-2 text-right font-mono tabular-nums">US$ {Number(d.custoUsd ?? 0).toFixed(4)}</td>
+        <td className="px-3 py-2 text-right font-mono tabular-nums">{d.duracaoMs ?? 0}ms</td>
+      </tr>
+      {aberto && (
+        <tr className="bg-muted/10">
+          <td colSpan={8} className="px-4 py-3 border-t border-border">
+            <div className="space-y-3 text-[12px]">
+              {d.ticket?.titulo && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Título do ticket</p>
+                  <p className="text-foreground/85">{d.ticket.titulo}</p>
+                </div>
+              )}
+
+              {d.ticket?.aiScore != null && (
+                <div className="flex gap-4">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Score:</span>
+                  <span className="font-mono text-foreground">{d.ticket.aiScore}</span>
+                  {d.ticket.aiElegivel === false && (
+                    <span className="text-muted-foreground">(abaixo do threshold)</span>
+                  )}
+                </div>
+              )}
+
+              {raciocinio && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5 flex items-center gap-1">
+                    <FileText className="h-3 w-3" /> Raciocínio da IA
+                  </p>
+                  <p className="text-foreground/85 italic whitespace-pre-wrap">{raciocinio}</p>
+                </div>
+              )}
+
+              {planoTexto && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Plano gerado</p>
+                  <pre className="text-[11px] whitespace-pre-wrap font-mono bg-card border border-border rounded p-2 max-h-[280px] overflow-auto">{planoTexto}</pre>
+                </div>
+              )}
+
+              {(arquivos.length > 0 || riscos || tempo) && (
+                <div className="grid grid-cols-3 gap-3 pt-2 border-t border-border">
+                  {arquivos.length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Arquivos prováveis</p>
+                      <p className="text-[11px] font-mono break-words">{arquivos.join(' · ')}</p>
+                    </div>
+                  )}
+                  {riscos && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Riscos</p>
+                      <p className="text-[11px]">{riscos}</p>
+                    </div>
+                  )}
+                  {tempo && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Tempo estimado</p>
+                      <p className="text-[11px]">{tempo}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Resultado da auditoria humana (se o plano já foi avaliado) */}
+              {planoStatus && planoStatus !== 'pendente' && (
+                <div className={cn(
+                  'rounded p-2 border-l-2',
+                  planoStatus === 'aprovado' && 'border-l-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20',
+                  planoStatus === 'rejeitado' && 'border-l-rose-500 bg-rose-50/40 dark:bg-rose-950/20',
+                )}>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">
+                    Auditoria humana
+                  </p>
+                  {planoStatus === 'aprovado' && (
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                      ✓ Plano aprovado{d.ticket?.aiPlanoAprovadoEm && ` em ${new Date(d.ticket.aiPlanoAprovadoEm).toLocaleString('pt-BR')}`}
+                    </p>
+                  )}
+                  {planoStatus === 'rejeitado' && (
+                    <>
+                      <p className="text-[11px] text-rose-700 dark:text-rose-300">✗ Plano rejeitado</p>
+                      {d.ticket?.aiPlanoMotivoRejeicao && (
+                        <p className="text-[11px] text-rose-700/80 dark:text-rose-300/80 mt-1">
+                          <strong>Motivo:</strong> {d.ticket.aiPlanoMotivoRejeicao}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {d.erro && (
+                <div className="rounded p-2 border-l-2 border-l-rose-500 bg-rose-50/40 dark:bg-rose-950/20">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3 text-rose-500" /> Erro
+                  </p>
+                  <p className="text-[11px] font-mono text-rose-700 dark:text-rose-300 whitespace-pre-wrap">{d.erro}</p>
+                </div>
+              )}
+
+              {!raciocinio && !planoTexto && !d.erro && (
+                <p className="text-[11px] text-muted-foreground italic">
+                  Sem detalhes adicionais registrados pra essa decisão.
+                </p>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   )
 }

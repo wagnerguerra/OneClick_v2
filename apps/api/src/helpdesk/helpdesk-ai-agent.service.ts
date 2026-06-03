@@ -621,7 +621,9 @@ ${ticket.descricao.slice(0, 4000)}`
   }
 
   /**
-   * Histórico paginado das decisões. Inclui ticket (numero, titulo) pra UI.
+   * Histórico paginado das decisões. Inclui dados do ticket (numero, titulo,
+   * status do plano) + a decisão completa (raciocínio, plano gerado, etc) pra
+   * a UI poder expandir cada linha e mostrar "o que a IA fez nesse ticket".
    */
   async historicoDecisoes(input: {
     page?: number
@@ -644,7 +646,13 @@ ${ticket.descricao.slice(0, 4000)}`
       prisma.helpdeskAiDecision.findMany({
         where,
         include: {
-          ticket: { select: { id: true, numero: true, titulo: true } },
+          ticket: {
+            select: {
+              id: true, numero: true, titulo: true,
+              aiPlanoStatus: true, aiPlanoMotivoRejeicao: true,
+              aiPlanoAprovadoEm: true, aiScore: true, aiElegivel: true,
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
