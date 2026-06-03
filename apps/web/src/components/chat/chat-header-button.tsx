@@ -1050,7 +1050,16 @@ function ChatView({ conversa, meuId, onMessageSent }: {
   }
 
   function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
-    for (const item of Array.from(e.clipboardData?.items ?? [])) {
+    const items = Array.from(e.clipboardData?.items ?? [])
+    // Quando o user copia texto formatado de Word/Outlook/PowerPoint, o
+    // clipboard às vezes traz uma imagem rasterizada JUNTO com o texto.
+    // Se há texto puro com conteúdo, prioriza a colagem de texto e NÃO
+    // dispara upload da imagem (era esse o bug #HLP0060: texto colado
+    // virava "arquivo" no chat porque o handler só olhava a imagem).
+    const hasPlainText = items.some(it => it.kind === 'string' && (it.type === 'text/plain' || it.type === 'text/html'))
+    if (hasPlainText) return // deixa o browser colar o texto normalmente
+
+    for (const item of items) {
       if (item.kind === 'file' && item.type.startsWith('image/')) {
         e.preventDefault()
         const blob = item.getAsFile()

@@ -707,7 +707,7 @@ export default function OrcamentosPage() {
           )}
           <OrcConfigContext.Provider value={orcConfig}>
           <DndContext sensors={kanbanSensors} collisionDetection={closestCenter} onDragStart={handleKanbanDragStart} onDragMove={handleKanbanDragMove} onDragOver={handleKanbanDragOver} onDragEnd={handleKanbanDragEnd} onDragCancel={handleKanbanDragCancel}>
-            <div className="overflow-x-auto overflow-y-hidden pb-4 -mx-1 flex-1">
+            <div className="overflow-x-auto overflow-y-hidden pb-4 -mx-1 flex-1 nice-scrollbar">
               <div className="flex gap-3 px-1 h-full w-max">
                 {STATUS_ORDER.map(status => {
                   const items = orcByStatus[status] || []
