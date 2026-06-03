@@ -244,7 +244,10 @@ export function FloatingFeedbackButton() {
           // z-[60] mantém o FAB acima de Sheets/Dialogs (z-50) — o usuário
           // pode disparar 'Fale com a TI' mesmo com um modal aberto, ex.
           // pra reportar bug que descobriu no próprio modal.
-          'fixed bottom-5 right-5 z-[60] h-12 w-12 rounded-full shadow-lg',
+          // pointer-events-auto: Radix Sheet/Dialog aplica pointer-events:
+          // none no body quando aberto pra absorver cliques no overlay;
+          // sem isso o click no FAB 'atravessa' pro elemento abaixo.
+          'fixed bottom-5 right-5 z-[60] pointer-events-auto h-12 w-12 rounded-full shadow-lg',
           'flex items-center justify-center text-white',
           'bg-[var(--mod-ti,#22d3ee)] hover:scale-105 active:scale-95',
           'transition-all duration-200 ease-out',
@@ -273,8 +276,9 @@ export function FloatingFeedbackButton() {
         <div
           ref={popoverRef}
           className={cn(
-            // Popover acompanha o FAB (z-[60]) — fica acima de modais.
-            'fixed bottom-20 right-5 z-[60] w-[360px] max-w-[calc(100vw-2.5rem)]',
+            // Popover acompanha o FAB (z-[60] + pointer-events-auto) —
+            // fica acima de modais e recebe cliques normalmente.
+            'fixed bottom-20 right-5 z-[60] pointer-events-auto w-[360px] max-w-[calc(100vw-2.5rem)]',
             'rounded-lg border border-border bg-card shadow-2xl overflow-hidden',
             // Transição manual (origin no canto inferior direito = "sai do botão FAB").
             // closing=true → animation reversa (fade-out + shrink + slide-down)
