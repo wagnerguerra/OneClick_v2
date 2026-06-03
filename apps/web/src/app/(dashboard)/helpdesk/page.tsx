@@ -85,6 +85,9 @@ export default function HelpdeskPage() {
   const [items, setItems] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
   const [scope, setScope] = useState<'MEUS' | 'AREA' | 'TODOS'>('MEUS')
+  // Modo "Arquivados" — quando true, fetcha só os arquivados (lista) e o
+  // botão de cada card vira "Desarquivar" no lugar do drag.
+  const [verArquivados, setVerArquivados] = useState(false)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [filtroPrioridade, setFiltroPrioridade] = useState<HelpdeskPrioridade | ''>('')
@@ -137,6 +140,7 @@ export default function HelpdeskPage() {
           scope,
           search: debouncedSearch || undefined,
           prioridade: filtroPrioridade ? [filtroPrioridade] : undefined,
+          arquivado: verArquivados, // false=ativos | true=arquivados
           page: 1,
           limit: 200,
         })
@@ -160,7 +164,7 @@ export default function HelpdeskPage() {
     } finally {
       setLoading(false)
     }
-  }, [podeAtuar, scope, debouncedSearch, filtroPrioridade])
+  }, [podeAtuar, scope, debouncedSearch, filtroPrioridade, verArquivados])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -305,6 +309,20 @@ export default function HelpdeskPage() {
           >
             <Plus className="h-4 w-4" /> Novo Ticket
           </Button>
+          {/* Toggle arquivados — só TI (podeAtuar). Ativa modo de visualização
+              dos tickets arquivados, com possibilidade de desarquivar. */}
+          {podeAtuar && (
+            <Button
+              variant={verArquivados ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setVerArquivados(v => !v)}
+              title={verArquivados ? 'Voltar pros tickets ativos' : 'Ver tickets arquivados'}
+              className={cn('gap-1.5', verArquivados && 'bg-amber-500 hover:bg-amber-600 text-white')}
+            >
+              <Archive className="h-4 w-4" />
+              {verArquivados ? 'Saindo do arquivo' : 'Arquivados'}
+            </Button>
+          )}
           {/* Configurações — só TI (podeAtuar) */}
           {podeAtuar && (
             <Button
@@ -362,6 +380,23 @@ export default function HelpdeskPage() {
         </span>
       </div>
 
+      {/* Banner do modo arquivado — sinaliza que a visão é distinta */}
+      {verArquivados && (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 shrink-0">
+          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 text-xs">
+            <Archive className="h-3.5 w-3.5" />
+            <span>Você está vendo <strong>tickets arquivados</strong>. Eles não aparecem no kanban normal — use o botão de desarquivar pra trazer um ticket de volta.</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setVerArquivados(false)}
+            className="text-[11px] text-amber-700 dark:text-amber-300 hover:underline shrink-0"
+          >
+            Voltar pros ativos
+          </button>
+        </div>
+      )}
+
       {/* Body */}
       {loading ? (
         <Card className="flex-1 flex items-center justify-center py-16">
@@ -374,7 +409,7 @@ export default function HelpdeskPage() {
           <Inbox className="h-10 w-10 opacity-30 mb-2" />
           <p className="text-sm">Nenhum ticket encontrado</p>
         </Card>
-      ) : viewMode === 'kanban' ? (
+      ) : (viewMode === 'kanban' && !verArquivados) ? (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
           <div className="overflow-x-auto overflow-y-hidden pb-4 -mx-1 flex-1">
             <div className="flex gap-3 px-1 h-full" style={{ minWidth: `${COLUNAS.length * 240}px` }}>
@@ -417,7 +452,19 @@ export default function HelpdeskPage() {
         <Card className="flex-1 overflow-hidden flex flex-col">
           <div className="flex-1 overflow-y-auto divide-y divide-border/60">
             {items.map(t => (
-              <TicketRow key={t.id} ticket={t} onClick={() => router.push(`/helpdesk/${t.id}`)} />
+              <TicketRow
+                key={t.id}
+                ticket={t}
+                onClick={() => router.push(`/helpdesk/${t.id}`)}
+                // Em modo arquivado, oferece desarquivar in-place (sem entrar no ticket)
+                onUnarchive={verArquivados && podeAtuar ? async () => {
+                  try {
+                    await (trpc.helpdesk as any).update.mutate({ id: t.id, data: { arquivado: false } })
+                    alerts.success('Desarquivado', 'Ticket voltou pra lista ativa.')
+                    fetchData()
+                  } catch (e) { alerts.error('Erro', (e as Error).message) }
+                } : undefined}
+              />
             ))}
           </div>
         </Card>
@@ -580,7 +627,9 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
       className={cn(
         // Card escuro um pouco mais preto que o bg-card global, pra destacar sobre
         // o overlay sutil da coluna no dark.
-        'rounded-md bg-white dark:bg-[#1f242e] cursor-grab active:cursor-grabbing group overflow-hidden border border-border/50',
+        // cursor-pointer indica "clicável" (ação primária = abrir ticket).
+        // O drag continua funcionando mesmo com pointer — só muda a aparência.
+        'rounded-md bg-white dark:bg-[#1f242e] cursor-pointer group overflow-hidden border border-border/50',
         dragging ? 'shadow-lg' : 'hover:shadow-md transition-shadow',
       )}
     >
@@ -674,7 +723,7 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
   )
 }
 
-function TicketRow({ ticket, onClick }: { ticket: Ticket; onClick: () => void }) {
+function TicketRow({ ticket, onClick, onUnarchive }: { ticket: Ticket; onClick: () => void; onUnarchive?: () => void }) {
   const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
   const corPrioridade = HELPDESK_PRIORIDADE_COLORS[ticket.prioridade]
   return (
@@ -705,6 +754,17 @@ function TicketRow({ ticket, onClick }: { ticket: Ticket; onClick: () => void })
           )}
         </div>
       </div>
+      {onUnarchive && (
+        <Button
+          variant="outline" size="sm"
+          onClick={e => { e.stopPropagation(); onUnarchive() }}
+          className="h-7 gap-1 text-[11px] shrink-0"
+          title="Desarquivar ticket"
+        >
+          <Archive className="h-3 w-3 rotate-180" />
+          Desarquivar
+        </Button>
+      )}
       <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
         {new Date(ticket.createdAt).toLocaleDateString('pt-BR')}
       </span>
