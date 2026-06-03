@@ -436,10 +436,17 @@ function EmailChipsInput({ value, onChange, suggestions, placeholder }: {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
+  // Regex pragmática de e-mail (rfc 5322 simplificada). Casa "a@b.c" e variações
+  // razoáveis; rejeita strings sem @ ou sem TLD. Suficiente pra evitar lixo.
+  const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/
+
   function commitDraft(raw?: string) {
     const candidate = (raw ?? draft).trim().replace(/[,;]+$/, '')
     if (!candidate) { setDraft(''); return }
     if (emails.includes(candidate)) { setDraft(''); return }
+    // Bloqueia entradas inválidas — mantém no draft pra o user corrigir
+    // (não cria chip "abc" sem @ que depois fica difícil de remover).
+    if (!EMAIL_RE.test(candidate)) return
     onChange([...emails, candidate].join('; '))
     setDraft('')
   }
@@ -502,6 +509,10 @@ function EmailChipsInput({ value, onChange, suggestions, placeholder }: {
             {email}
             <button
               type="button"
+              // preventDefault no mousedown evita que o input perca foco e
+              // dispare onBlur antes do click — sem isso, um draft em curso
+              // virava chip junto com a remoção (chip removido reaparecia).
+              onMouseDown={(e) => e.preventDefault()}
               onClick={(e) => { e.stopPropagation(); removeAt(i) }}
               className="rounded-full hover:bg-rose-200 dark:hover:bg-rose-900/50 p-0.5"
               title="Remover"
@@ -518,9 +529,15 @@ function EmailChipsInput({ value, onChange, suggestions, placeholder }: {
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           onFocus={() => setOpen(true)}
+          // No blur, só tenta commitar — se o draft for inválido,
+          // commitDraft devolve sem limpar; o user vê o texto e pode corrigir.
           onBlur={() => { if (draft.trim()) commitDraft() }}
           placeholder={emails.length === 0 ? placeholder : ''}
-          className="flex-1 min-w-[140px] border-none bg-transparent outline-none shadow-none p-0 py-1 h-auto rounded-none focus:border-none focus:shadow-none focus:outline-none text-sm"
+          className={cn(
+            'flex-1 min-w-[140px] border-none bg-transparent outline-none shadow-none p-0 py-1 h-auto rounded-none focus:border-none focus:shadow-none focus:outline-none text-sm',
+            // Feedback visual: texto vermelho quando o draft não é um e-mail válido
+            draft.trim() && !EMAIL_RE.test(draft.trim()) && 'text-rose-600 dark:text-rose-400',
+          )}
           style={{ width: 'auto', display: 'inline-block' }}
         />
       </div>
