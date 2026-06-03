@@ -618,6 +618,119 @@ ${ticket.descricao.slice(0, 4000)}${bloocoMensagens}`
   // Execução do plano (#HLP0083)
   // ============================================================
 
+  /** Diretórios que pulamos no walk fuzzy — economiza I/O e evita lixo. */
+  private readonly WALK_IGNORE = new Set([
+    'node_modules', '.git', '.next', 'dist', 'build', '.turbo',
+    '.vercel', '.cache', 'coverage', 'tmp', '.pnpm', 'out',
+  ])
+
+  /**
+   * Walk recursivo do repo procurando arquivos cujo basename casa com
+   * `nome` (case-insensitive). Retorna paths RELATIVOS ao repoRoot.
+   * Limita profundidade pra não explodir.
+   */
+  private async procurarArquivoPorNome(repoRoot: string, nome: string, maxDepth = 8): Promise<string[]> {
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
+    const alvo = nome.toLowerCase()
+    const matches: string[] = []
+
+    const walk = async (dir: string, depth: number): Promise<void> => {
+      if (depth > maxDepth) return
+      let entries: { name: string; isDirectory: () => boolean; isFile: () => boolean }[]
+      try {
+        entries = await fs.readdir(dir, { withFileTypes: true })
+      } catch {
+        return
+      }
+      for (const ent of entries) {
+        if (this.WALK_IGNORE.has(ent.name) || ent.name.startsWith('.')) continue
+        const full = path.join(dir, ent.name)
+        if (ent.isDirectory()) {
+          await walk(full, depth + 1)
+        } else if (ent.isFile() && ent.name.toLowerCase() === alvo) {
+          matches.push(path.relative(repoRoot, full).replace(/\\/g, '/'))
+          // Para de buscar se já achou demais (evita walk completo)
+          if (matches.length >= 20) return
+        }
+      }
+    }
+
+    await walk(repoRoot, 0)
+    return matches
+  }
+
+  /**
+   * Resolve uma lista de paths planejados pela IA contra o filesystem real.
+   * Pra cada path: se existe direto, ótimo; se não, faz fuzzy por basename;
+   * se acha 1 match, considera resolvido; se acha múltiplos, marca como
+   * ambíguo (operador escolhe manualmente).
+   */
+  private async resolverPathsFuzzy(repoRoot: string, paths: string[]): Promise<Array<{
+    planejado: string
+    resolvido: string | null
+    ambiguo: boolean
+    sugestoes: string[]
+  }>> {
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
+
+    const out: Array<{ planejado: string; resolvido: string | null; ambiguo: boolean; sugestoes: string[] }> = []
+    for (const p of paths) {
+      const normalizado = p.replace(/^\.\//, '').replace(/\\/g, '/')
+      const full = path.resolve(repoRoot, normalizado)
+      // Caminho direto existe?
+      try {
+        const stat = await fs.stat(full)
+        if (stat.isFile()) {
+          out.push({ planejado: p, resolvido: normalizado, ambiguo: false, sugestoes: [] })
+          continue
+        }
+      } catch { /* não existe, tenta fuzzy */ }
+
+      // Fuzzy por basename
+      const basename = path.basename(normalizado)
+      const sugestoes = await this.procurarArquivoPorNome(repoRoot, basename)
+
+      if (sugestoes.length === 1) {
+        out.push({ planejado: p, resolvido: sugestoes[0]!, ambiguo: false, sugestoes })
+      } else if (sugestoes.length > 1) {
+        // Tenta ranking: prefere match cuja path tenha mais segmentos em comum
+        // com o path planejado (helps "perfil/page.tsx" vs "outras/page.tsx").
+        const planSegs = new Set(normalizado.split('/').filter(s => s && !s.includes('*')))
+        const ranked = sugestoes.map(s => ({
+          path: s,
+          score: s.split('/').filter(seg => planSegs.has(seg)).length,
+        })).sort((a, b) => b.score - a.score)
+        const best = ranked[0]!
+        const isUniqueBest = ranked.length === 1 || ranked[1]!.score < best.score
+        out.push({
+          planejado: p,
+          resolvido: isUniqueBest ? best.path : null,
+          ambiguo: !isUniqueBest,
+          sugestoes,
+        })
+      } else {
+        out.push({ planejado: p, resolvido: null, ambiguo: false, sugestoes: [] })
+      }
+    }
+    return out
+  }
+
+  /**
+   * Caminho do repo no servidor pra leitura do filesystem (fuzzy search +
+   * carregamento de arquivos pra contexto da IA). Prioridade:
+   *   1) env AGENT_REPO_PATH (produção: montado read-only no container)
+   *   2) cwd-baseado (dev local: cwd da api é apps/api, sobe 2 níveis)
+   */
+  private getRepoRoot(): string {
+    const path = require('node:path') as typeof import('node:path')
+    const envPath = process.env.AGENT_REPO_PATH
+    if (envPath) return envPath
+    const cwd = process.cwd()
+    return cwd.endsWith('apps/api') || cwd.endsWith('apps\\api') ? path.resolve(cwd, '../..') : cwd
+  }
+
   /**
    * Gera um prompt formatado pra colar no Claude Code CLI local.
    * Inclui contexto do ticket + plano + arquivos prováveis. O dev cola
@@ -658,12 +771,14 @@ ${ticket.descricao.slice(0, 4000)}${bloocoMensagens}`
   }
 
   /**
-   * Lê os arquivos prováveis do plano direto do filesystem do servidor pra
-   * estimar quantos tokens serão usados na execução automática. Não chama
-   * a API — só calcula tamanho × preço Sonnet.
+   * Lê os arquivos prováveis do plano (com fuzzy resolution) direto do
+   * filesystem do servidor pra estimar quantos tokens serão usados.
+   * Não chama a API — só calcula tamanho × preço Sonnet.
    */
   async estimarCustoExecucao(ticketId: string): Promise<{
     arquivosLidos: number
+    arquivosResolvidos: Array<{ planejado: string; resolvido: string }>
+    arquivosAmbiguos: Array<{ planejado: string; sugestoes: string[] }>
     arquivosNaoEncontrados: string[]
     inputCharsEstimado: number
     inputTokensEstimado: number
@@ -682,27 +797,39 @@ ${ticket.descricao.slice(0, 4000)}${bloocoMensagens}`
 
     const fs = await import('node:fs/promises')
     const path = await import('node:path')
-    const repoRoot = process.cwd().endsWith('apps/api') || process.cwd().endsWith('apps\\api')
-      ? path.resolve(process.cwd(), '../..')
-      : process.cwd()
+    const repoRoot = this.getRepoRoot()
+
+    // Resolução fuzzy dos paths planejados pela IA
+    const resolucao = await this.resolverPathsFuzzy(repoRoot, arquivos)
 
     let conteudoChars = 0
     let arquivosLidos = 0
+    const arquivosResolvidos: Array<{ planejado: string; resolvido: string }> = []
+    const arquivosAmbiguos: Array<{ planejado: string; sugestoes: string[] }> = []
     const naoEncontrados: string[] = []
-    for (const arq of arquivos) {
+
+    for (const r of resolucao) {
+      if (r.ambiguo) {
+        arquivosAmbiguos.push({ planejado: r.planejado, sugestoes: r.sugestoes.slice(0, 5) })
+        continue
+      }
+      if (!r.resolvido) {
+        naoEncontrados.push(r.planejado)
+        continue
+      }
       try {
-        const full = path.resolve(repoRoot, arq)
+        const full = path.resolve(repoRoot, r.resolvido)
         const stat = await fs.stat(full)
-        // Pula arquivos enormes (>200KB) — evita explodir o input em arquivo errado
         if (stat.size > 200_000) {
-          naoEncontrados.push(`${arq} (muito grande: ${Math.round(stat.size / 1024)}KB)`)
+          naoEncontrados.push(`${r.resolvido} (muito grande: ${Math.round(stat.size / 1024)}KB)`)
           continue
         }
         const content = await fs.readFile(full, 'utf8')
         conteudoChars += content.length
         arquivosLidos++
+        arquivosResolvidos.push({ planejado: r.planejado, resolvido: r.resolvido })
       } catch {
-        naoEncontrados.push(arq)
+        naoEncontrados.push(r.resolvido)
       }
     }
 
@@ -713,15 +840,14 @@ ${ticket.descricao.slice(0, 4000)}${bloocoMensagens}`
     const overheadPrompt = 2000 // system prompt + instruções
     const inputCharsEstimado = conteudoChars + planoChars + tituloChars + descricaoChars + overheadPrompt
     const inputTokensEstimado = Math.ceil(inputCharsEstimado / 4)
-    // Output: assumir que o agente retorna versões modificadas dos arquivos
-    // → no pior caso, 1.5× o tamanho dos arquivos lidos.
     const outputTokensEstimado = Math.ceil((conteudoChars * 1.5) / 4) + 500
 
-    // Preços Sonnet 4.6: $3/MTok in, $15/MTok out. Aplico ±40% pra faixa.
     const custoMedio = (inputTokensEstimado / 1_000_000) * this.PRICE_INPUT_USD_PER_MTOK
                      + (outputTokensEstimado / 1_000_000) * this.PRICE_OUTPUT_USD_PER_MTOK
     return {
       arquivosLidos,
+      arquivosResolvidos,
+      arquivosAmbiguos,
       arquivosNaoEncontrados: naoEncontrados,
       inputCharsEstimado,
       inputTokensEstimado,
@@ -758,27 +884,42 @@ ${ticket.descricao.slice(0, 4000)}${bloocoMensagens}`
     const meta = (ticket.aiPlanoMeta as { arquivosEnvolvidos?: string[]; riscos?: string; tempoEstimado?: string } | null) ?? {}
     const arquivos = Array.isArray(meta.arquivosEnvolvidos) ? meta.arquivosEnvolvidos : []
 
-    // Lê conteúdo atual dos arquivos prováveis pra passar como contexto
+    // Lê conteúdo atual dos arquivos prováveis pra passar como contexto.
+    // Aplica resolução fuzzy: se o path do plano não existe, busca por basename
+    // no repo. Isso evita "0 arquivos carregados" quando a IA chuta nomes.
     const fs = await import('node:fs/promises')
     const path = await import('node:path')
-    const repoRoot = process.cwd().endsWith('apps/api') || process.cwd().endsWith('apps\\api')
-      ? path.resolve(process.cwd(), '../..')
-      : process.cwd()
+    const repoRoot = this.getRepoRoot()
+    const resolucao = await this.resolverPathsFuzzy(repoRoot, arquivos)
 
     const arquivosCarregados: Array<{ path: string; conteudo: string }> = []
     const arquivosNaoEncontrados: string[] = []
-    for (const arq of arquivos) {
+    const arquivosResolvidosLog: Array<{ planejado: string; resolvido: string }> = []
+    const arquivosAmbiguos: Array<{ planejado: string; sugestoes: string[] }> = []
+
+    for (const r of resolucao) {
+      if (r.ambiguo) {
+        arquivosAmbiguos.push({ planejado: r.planejado, sugestoes: r.sugestoes.slice(0, 5) })
+        continue
+      }
+      if (!r.resolvido) {
+        arquivosNaoEncontrados.push(r.planejado)
+        continue
+      }
       try {
-        const full = path.resolve(repoRoot, arq)
+        const full = path.resolve(repoRoot, r.resolvido)
         const stat = await fs.stat(full)
         if (stat.size > 200_000) {
-          arquivosNaoEncontrados.push(`${arq} (>200KB)`)
+          arquivosNaoEncontrados.push(`${r.resolvido} (>200KB)`)
           continue
         }
         const content = await fs.readFile(full, 'utf8')
-        arquivosCarregados.push({ path: arq, conteudo: content })
+        arquivosCarregados.push({ path: r.resolvido, conteudo: content })
+        if (r.resolvido !== r.planejado) {
+          arquivosResolvidosLog.push({ planejado: r.planejado, resolvido: r.resolvido })
+        }
       } catch {
-        arquivosNaoEncontrados.push(arq)
+        arquivosNaoEncontrados.push(r.planejado)
       }
     }
 
@@ -797,6 +938,14 @@ REGRAS:
 5. Se não conseguir/souber executar com segurança, retorne arquivos_modificados=[] e explique em raciocinio.
 6. NUNCA invente caminhos. Use só os paths que vieram em arquivos_disponiveis ou que aparecerem no plano.`
 
+    // Bloco "resoluções": informa à IA que paths chutados foram remapeados
+    const resolucoesBlock = arquivosResolvidosLog.length > 0
+      ? `\n## Paths resolvidos automaticamente\nAlguns paths do plano original não existiam exatamente — o sistema buscou por basename e remapeou:\n${arquivosResolvidosLog.map(r => `- ${r.planejado} → **${r.resolvido}**`).join('\n')}`
+      : ''
+    const ambiguosBlock = arquivosAmbiguos.length > 0
+      ? `\n## Paths ambíguos (múltiplos matches — operador decide)\n${arquivosAmbiguos.map(a => `- ${a.planejado}: candidatos = ${a.sugestoes.join(', ')}`).join('\n')}\n\nInclua esses em \`arquivos_a_revisar\`.`
+      : ''
+
     const userContent = `# Ticket ${numeroFmt} — ${ticket.titulo}
 
 ## Descrição
@@ -804,12 +953,13 @@ ${descricaoTexto || '(sem descrição)'}
 
 ## Plano aprovado
 ${ticket.aiPlano}
+${resolucoesBlock}${ambiguosBlock}
 
 ## Arquivos disponíveis (conteúdo atual)
 ${arquivosCarregados.length === 0 ? '(nenhum arquivo carregado — gere apenas instruções textuais em raciocinio)' : ''}
 ${arquivosCarregados.map(a => `\n### ${a.path}\n\n\`\`\`\n${a.conteudo}\n\`\`\``).join('\n')}
 
-${arquivosNaoEncontrados.length > 0 ? `\n## Arquivos do plano que não pude carregar\n${arquivosNaoEncontrados.map(a => `- ${a}`).join('\n')}` : ''}`
+${arquivosNaoEncontrados.length > 0 ? `\n## Arquivos do plano que não pude carregar (nem por fuzzy)\n${arquivosNaoEncontrados.map(a => `- ${a}`).join('\n')}\nInclua esses em \`arquivos_a_revisar\` se forem relevantes.` : ''}`
 
     const start = Date.now()
     const resp = await client.messages.create({

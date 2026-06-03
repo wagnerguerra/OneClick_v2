@@ -180,6 +180,8 @@ export default function HelpdeskTicketDetailPage() {
   const [carregandoPrompt, setCarregandoPrompt] = useState(false)
   const [estimativa, setEstimativa] = useState<{
     arquivosLidos: number
+    arquivosResolvidos?: Array<{ planejado: string; resolvido: string }>
+    arquivosAmbiguos?: Array<{ planejado: string; sugestoes: string[] }>
     arquivosNaoEncontrados: string[]
     inputTokensEstimado: number
     outputTokensEstimado: number
@@ -1368,18 +1370,50 @@ export default function HelpdeskTicketDetailPage() {
                         </span>
                       </div>
                     </div>
-                    {estimativa.arquivosNaoEncontrados.length > 0 && (
+                    {/* Paths que foram remapeados via fuzzy — IA chutou X, encontrei Y */}
+                    {(estimativa.arquivosResolvidos?.length ?? 0) > 0 && (
+                      <div className="rounded-md border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-sky-950/30 p-2 text-[11px]">
+                        <p className="font-semibold text-sky-800 dark:text-sky-300 mb-1">
+                          <CheckCircle2 className="inline h-3 w-3 mr-1" />
+                          {estimativa.arquivosResolvidos!.length} path(s) remapeado(s) por fuzzy search:
+                        </p>
+                        <ul className="space-y-0.5 text-sky-700/90 dark:text-sky-300/90 font-mono">
+                          {estimativa.arquivosResolvidos!.map((r, i) => (
+                            <li key={i}>• <span className="line-through opacity-60">{r.planejado}</span> → <strong>{r.resolvido}</strong></li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Paths com múltiplos matches — operador decide */}
+                    {(estimativa.arquivosAmbiguos?.length ?? 0) > 0 && (
                       <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 text-[11px]">
                         <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1">
                           <AlertTriangle className="inline h-3 w-3 mr-1" />
-                          {estimativa.arquivosNaoEncontrados.length} arquivo(s) do plano não puderam ser carregados:
+                          {estimativa.arquivosAmbiguos!.length} path(s) com múltiplos candidatos:
                         </p>
-                        <ul className="space-y-0.5 text-amber-700/90 dark:text-amber-300/90 font-mono">
+                        <ul className="space-y-1 text-amber-700/90 dark:text-amber-300/90">
+                          {estimativa.arquivosAmbiguos!.map((a, i) => (
+                            <li key={i} className="font-mono">
+                              • {a.planejado}
+                              <ul className="pl-4 text-amber-700/70 dark:text-amber-300/70 text-[10px]">
+                                {a.sugestoes.map((s, j) => <li key={j}>↳ {s}</li>)}
+                              </ul>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {estimativa.arquivosNaoEncontrados.length > 0 && (
+                      <div className="rounded-md border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/30 p-2 text-[11px]">
+                        <p className="font-semibold text-rose-800 dark:text-rose-300 mb-1">
+                          <AlertTriangle className="inline h-3 w-3 mr-1" />
+                          {estimativa.arquivosNaoEncontrados.length} arquivo(s) sem match no repo:
+                        </p>
+                        <ul className="space-y-0.5 text-rose-700/90 dark:text-rose-300/90 font-mono">
                           {estimativa.arquivosNaoEncontrados.map((a, i) => <li key={i}>• {a}</li>)}
                         </ul>
-                        <p className="mt-1 text-amber-700/80 dark:text-amber-300/80">
-                          A IA vai trabalhar com o que tem — pode incluir esses arquivos em "a revisar manualmente".
-                        </p>
                       </div>
                     )}
 
