@@ -1481,7 +1481,9 @@ export default function AgendaPage() {
               <div
                 key={ev.id}
                 className="flex items-center gap-3 rounded-lg border px-3 py-2.5 hover:bg-muted/30 cursor-pointer transition-colors"
-                onClick={() => { setDayModalOpen(false); openViewEvent(ev) }}
+                // Mantém o modal do dia aberto por trás — ao fechar o detalhe
+                // do evento, o user volta pra lista do dia sem precisar reabrir.
+                onClick={() => openViewEvent(ev)}
               >
                 <div className="h-8 w-1.5 rounded-full shrink-0" style={{ backgroundColor: ev.tipo.cor }} />
                 <div className="flex-1 min-w-0">
