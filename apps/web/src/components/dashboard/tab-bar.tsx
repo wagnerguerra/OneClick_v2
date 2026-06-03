@@ -467,6 +467,10 @@ function SortableTab({
       {...attributes}
       {...listeners}
       onClick={onActivate}
+      // Middle-click (botão do scroll) fecha a aba — padrão dos browsers.
+      // onAuxClick é o evento correto pra cliques de meio/botões auxiliares;
+      // event.button === 1 confirma que foi o do meio (não direito).
+      onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); onClose(e) } }}
       onContextMenu={(e) => { e.preventDefault(); onContextMenu(e.clientX, e.clientY) }}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}

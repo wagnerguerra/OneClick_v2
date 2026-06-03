@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, BellRing, X, Info, AlertTriangle, AlertCircle, CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react'
+import { Bell, BellRing, X, Info, AlertTriangle, AlertCircle, CheckCircle2, XCircle, Clock, Loader2, Check, CheckCheck } from 'lucide-react'
 import { Button, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { useSession } from '@/lib/auth-client'
@@ -210,6 +210,38 @@ export function NotificationBell() {
     }
   }
 
+  // Marca uma notificação como lida (mantém na lista mas com visual atenuado).
+  // Otimismo: atualiza o flag local antes da resposta do backend.
+  async function handleMarcarLida(n: Notification, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (n.lida) return
+    const prev = items
+    setItems(curr => curr.map(x => x.id === n.id ? { ...x, lida: true, lidaEm: new Date().toISOString() } : x))
+    setPendentes(p => Math.max(0, p - 1))
+    try {
+      await (trpc.notification as any).marcarComoLida.mutate({ id: n.id })
+    } catch {
+      setItems(prev)
+      fetchPendentes()
+    }
+  }
+
+  // Marca TODAS as não lidas como lidas em um único call.
+  async function handleMarcarTodasLidas() {
+    const naoLidas = items.filter(x => !x.lida)
+    if (naoLidas.length === 0) return
+    const prev = items
+    const agora = new Date().toISOString()
+    setItems(curr => curr.map(x => x.lida ? x : { ...x, lida: true, lidaEm: agora }))
+    setPendentes(0)
+    try {
+      await (trpc.notification as any).marcarTodasComoLidas.mutate()
+    } catch {
+      setItems(prev)
+      fetchPendentes()
+    }
+  }
+
   return (
     <div className="relative">
       <button
@@ -248,15 +280,29 @@ export function NotificationBell() {
                 </span>
               )}
             </div>
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={animatedClose}
-              className="h-7 w-7"
-              title="Fechar"
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-1">
+              {items.some(n => !n.lida) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleMarcarTodasLidas}
+                  className="h-7 text-[11px] gap-1 px-2"
+                  title="Marcar todas como lidas"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  Marcar todas
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={animatedClose}
+                className="h-7 w-7"
+                title="Fechar"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
 
           {/* Lista — agrupada por categoria (vencidos / vencendo / outros) */}
@@ -285,13 +331,21 @@ export function NotificationBell() {
                   <li
                     key={n.id}
                     onClick={() => handleClickItem(n)}
-                    className="group/item flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40 relative"
+                    className={cn(
+                      'group/item flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40 relative',
+                      // Lidas ficam atenuadas — usuário diferencia rapidamente quais ainda exigem atenção
+                      n.lida && 'opacity-60',
+                    )}
                   >
+                    {/* Pontinho azul à esquerda nas não lidas */}
+                    {!n.lida && (
+                      <span className="absolute left-1 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-sky-500" />
+                    )}
                     <div className={cn('shrink-0 flex h-7 w-7 items-center justify-center rounded-full border', cfg.bg, cfg.border)}>
                       <Icon className={cn('h-3.5 w-3.5', cfg.color)} />
                     </div>
-                    <div className="flex-1 min-w-0 pr-6">
-                      <p className="text-[13px] leading-tight font-semibold text-foreground">
+                    <div className="flex-1 min-w-0 pr-12">
+                      <p className={cn('text-[13px] leading-tight text-foreground', n.lida ? 'font-medium' : 'font-semibold')}>
                         {n.titulo}
                       </p>
                       {n.mensagem && (
@@ -306,18 +360,32 @@ export function NotificationBell() {
                         )}
                       </div>
                     </div>
-                    {n.removivel && (
-                      <button
-                        type="button"
-                        onClick={(e) => handleExcluir(n, e)}
-                        disabled={removendo === n.id}
-                        title="Remover notificação"
-                        aria-label="Remover notificação"
-                        className="absolute top-2 right-2 inline-flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground/60 opacity-0 group-hover/item:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 transition-opacity disabled:opacity-40"
-                      >
-                        {removendo === n.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
-                      </button>
-                    )}
+                    {/* Botões de ação — aparecem no hover */}
+                    <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                      {!n.lida && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleMarcarLida(n, e)}
+                          title="Marcar como lida"
+                          aria-label="Marcar como lida"
+                          className="inline-flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {n.removivel && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleExcluir(n, e)}
+                          disabled={removendo === n.id}
+                          title="Remover notificação"
+                          aria-label="Remover notificação"
+                          className="inline-flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 transition-colors disabled:opacity-40"
+                        >
+                          {removendo === n.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                        </button>
+                      )}
+                    </div>
                   </li>
                 )
               }
