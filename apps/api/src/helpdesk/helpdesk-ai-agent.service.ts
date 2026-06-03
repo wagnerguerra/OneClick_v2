@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common'
 import Anthropic from '@anthropic-ai/sdk'
-import { marked } from 'marked'
 import { prisma } from '@saas/db'
 
 /**
@@ -554,17 +553,9 @@ ${ticket.descricao.slice(0, 4000)}${bloocoMensagens}`
       throw new Error(`Plano já está em status "${ticket.aiPlanoStatus}"`)
     }
 
-    const aiUser = await this.ensureAiUser()
-    // Render do plano como mensagem no ticket — converte o markdown da IA
-    // pra HTML que o TipTap consegue renderizar formatado (headings, listas,
-    // bold, code, etc). Mantemos o plano original em ticket.aiPlano (markdown)
-    // pra reprocessamento futuro / contexto da IA.
-    //
-    // Estilo sem background hardcoded — só borda lateral violeta. Cores de
-    // texto/fundo vêm naturalmente do tema (claro/escuro) via TipTap host.
-    const planoHtml = marked.parse(ticket.aiPlano, { async: false, gfm: true, breaks: true }) as string
-    const html = `<p><strong>📋 Plano de resolução aprovado pelo operador:</strong></p><div style="border-left:3px solid #8b5cf6;padding:6px 0 6px 12px;margin-top:6px">${planoHtml}</div>`
-
+    // Aprovação não duplica o plano como mensagem — o plano já fica visível
+    // no card "Plano de resolução — IA" do detalhe do ticket. Só atualizamos
+    // o status e registramos no log de eventos.
     await prisma.$transaction([
       prisma.helpdeskTicket.update({
         where: { id: ticketId },
@@ -573,14 +564,6 @@ ${ticket.descricao.slice(0, 4000)}${bloocoMensagens}`
           aiPlanoAprovadoPor: userId,
           aiPlanoAprovadoEm: new Date(),
           status: 'EM_ANDAMENTO',
-        },
-      }),
-      prisma.helpdeskMensagem.create({
-        data: {
-          ticketId,
-          autorId: aiUser.id,
-          conteudo: html,
-          interna: true, // nota interna — plano técnico não vai pro solicitante
         },
       }),
       prisma.helpdeskEvento.create({
