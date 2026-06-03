@@ -510,7 +510,11 @@ export default function UsuariosPage() {
                       aria-label={`Selecionar ${user.name}`}
                     />
                   </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
+                  {/* InlineEditCell já faz stopPropagation no seu próprio
+                      handler (ver inline-edit-cell.tsx). Sem stopPropagation
+                      na TableCell, o padding da célula passa o click pra row
+                      → navega pra edição (#HLP0055). */}
+                  <TableCell>
                     <InlineEditCell
                       type="select"
                       value={user.role}
@@ -524,7 +528,7 @@ export default function UsuariosPage() {
                       )}
                     />
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="hidden sm:table-cell">
                     <InlineEditCell
                       type="select"
                       value={user.profile}
@@ -538,7 +542,7 @@ export default function UsuariosPage() {
                       )}
                     />
                   </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
+                  <TableCell>
                     <div className="flex items-center gap-2 whitespace-nowrap">
                       <InlineEditCell
                         type="text"
@@ -551,7 +555,7 @@ export default function UsuariosPage() {
                       {user.isMaster && <span className="inline-block rounded-[2px] bg-amber-500 text-white px-1.5 py-0 text-[10px] font-bold">MASTER</span>}
                     </div>
                   </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground whitespace-nowrap">
                     <InlineEditCell
                       type="email"
                       value={user.email}
@@ -560,7 +564,7 @@ export default function UsuariosPage() {
                       onSave={(v) => inlineUpdate(user.id, { email: v.trim().toLowerCase() })}
                     />
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground whitespace-nowrap">
                     <InlineEditCell
                       type="select"
                       value={user.area?.id ?? 'none'}
@@ -593,7 +597,7 @@ export default function UsuariosPage() {
                       )
                     })()}
                   </TableCell>
-                  <TableCell className="hidden xl:table-cell text-sm whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="hidden xl:table-cell text-sm whitespace-nowrap">
                     {user.lastLoginAt ? (
                       <span className={loginCorClass(user.lastLoginAt)} title={new Date(user.lastLoginAt).toLocaleString('pt-BR')}>
                         {formatRelativo(user.lastLoginAt)}

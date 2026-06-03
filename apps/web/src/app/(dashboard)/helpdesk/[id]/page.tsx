@@ -198,31 +198,12 @@ export default function HelpdeskTicketDetailPage() {
       alerts.error('Aguarde', 'Aguarde o upload dos anexos terminar.')
       return
     }
-    // Ticket encerrado (CONCLUIDO/CANCELADO): pergunta se quer reabrir antes
-    // de enviar — evita que mensagens fiquem "perdidas" em ticket fechado
-    // (pedido #HLP0062). Notas internas seguem sem prompt: agente pode
-    // anotar livremente sem reativar o ticket pro solicitante.
-    const encerrado = ticket && (ticket.status === 'CONCLUIDO' || ticket.status === 'CANCELADO')
-    if (encerrado && !interna) {
-      const labelStatus = ticket.status === 'CONCLUIDO' ? 'concluído' : 'cancelado'
-      const ok = await alerts.confirm({
-        title: 'Reabrir ticket?',
-        text: `Este ticket está ${labelStatus}. Deseja reabri-lo (volta para Em andamento) e enviar sua mensagem?`,
-        confirmText: 'Reabrir e enviar',
-        icon: 'question',
-      })
-      if (!ok) return
-    }
+    // Snapshot do status ANTES de mandar — depois decidimos se pergunta
+    // sobre reabertura (#HLP0062). A mensagem é sempre registrada primeiro,
+    // independente do status, pra não perder o que o usuário escreveu.
+    const statusAntes = ticket?.status
     setEnviando(true)
     try {
-      // Reabre antes de enviar, garantindo que a mensagem fique vinculada
-      // ao ticket já no novo status (sem janela em que aparece encerrado).
-      if (encerrado && !interna) {
-        await (trpc.helpdesk as any).update.mutate({
-          id,
-          data: { status: 'EM_ANDAMENTO' },
-        })
-      }
       const msg = await (trpc.helpdesk as any).addMensagem.mutate({
         ticketId: id,
         conteudo: conteudo || '<p>(anexo)</p>',
@@ -247,6 +228,30 @@ export default function HelpdeskTicketDetailPage() {
       setNovaMsg('')
       setMsgAnexos([])
       await fetchData(true)
+      // Mensagem registrada — se o ticket estava encerrado, pergunta se quer
+      // reabrir (#HLP0062). Notas internas ficam de fora: agente pode anotar
+      // sem reativar o ticket pro solicitante.
+      const encerrado = statusAntes === 'CONCLUIDO' || statusAntes === 'CANCELADO'
+      if (encerrado && !interna) {
+        const labelStatus = statusAntes === 'CONCLUIDO' ? 'concluído' : 'cancelado'
+        const ok = await alerts.confirm({
+          title: 'Reabrir ticket?',
+          text: `Este ticket está ${labelStatus}, mas sua mensagem foi registrada. Deseja reabri-lo (voltar para Em andamento)?`,
+          confirmText: 'Reabrir',
+          icon: 'question',
+        })
+        if (ok) {
+          try {
+            await (trpc.helpdesk as any).update.mutate({
+              id,
+              data: { status: 'EM_ANDAMENTO' },
+            })
+            await fetchData(true)
+          } catch (e) {
+            alerts.error('Erro ao reabrir', (e as Error).message)
+          }
+        }
+      }
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
     } finally {

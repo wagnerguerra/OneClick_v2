@@ -197,6 +197,16 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
   }, [])
   const [cnpjCard, setCnpjCard] = useState<CnpjCardData | null>(null)
   const [cnpjCardLoading, setCnpjCardLoading] = useState(false)
+  // Sócios cadastrados (#HLP0068): entra como item da barra "Progresso do
+  // cadastro" pra PJ. Pra PF não faz sentido (sem QSA), então só somamos
+  // o check pra CNPJ.
+  const [sociosCount, setSociosCount] = useState<number | null>(null)
+  useEffect(() => {
+    if (mode !== 'edit' || !clienteId) return
+    ;(trpc.socio as any).listByCliente.query({ clienteId })
+      .then((data: Array<{ id: string }>) => setSociosCount(data?.length ?? 0))
+      .catch(() => setSociosCount(0))
+  }, [mode, clienteId])
 
   const progress = useMemo(() => {
     let filled = 0
@@ -204,8 +214,12 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
       const val = watchedValues[field]
       if (val && String(val).trim() !== '') filled++
     }
-    return { filled, total: PROGRESS_FIELDS.length, percent: Math.round((filled / PROGRESS_FIELDS.length) * 100) }
-  }, [watchedValues])
+    // Sócios entra como check extra pra PJ (tipoDocumento === 'CNPJ')
+    const isPJ = watchedValues.tipoDocumento === 'CNPJ'
+    const total = PROGRESS_FIELDS.length + (isPJ ? 1 : 0)
+    if (isPJ && sociosCount !== null && sociosCount > 0) filled++
+    return { filled, total, percent: Math.round((filled / total) * 100) }
+  }, [watchedValues, sociosCount])
 
   async function buscarCnpj() {
     const doc = watch('documento')?.replace(/\D/g, '')
@@ -694,6 +708,14 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                     <details className="mt-3">
                       <summary className="text-[11px] text-emerald-600 cursor-pointer hover:underline">Ver campos pendentes</summary>
                       <ul className="mt-2 space-y-1">
+                        {/* Sócios pendentes (#HLP0068): só pra PJ, quando ainda não cadastrou nenhum */}
+                        {watchedValues.tipoDocumento === 'CNPJ' && sociosCount === 0 && (
+                          <li className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                            <span>Sócios</span>
+                            <span className="text-[10px] text-muted-foreground/60">(legalizacao)</span>
+                          </li>
+                        )}
                         {PROGRESS_FIELDS.filter(f => { const v = watchedValues[f]; return !v || String(v).trim() === '' }).map(f => {
                           const FIELD_TAB_MAP: Record<string, { tab: string; label: string }> = {
                             razaoSocial: { tab: 'detalhes', label: 'Razao Social' },
