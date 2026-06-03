@@ -1678,18 +1678,19 @@ export class OrcamentoService {
       : {}
     const ativo = opts?.somenteAtivos !== false ? { ativo: true } : {}
     const disponivel = opts?.somenteDisponiveis ? { disponivelOrcamento: true } : {}
-    const recorrenciaFilter = opts?.tipoOrcamento === 'SERVICO_MENSAL'
-      ? { recorrenteMensal: true }
-      : opts?.tipoOrcamento === 'SERVICO_EXTRA'
-        ? { recorrenteMensal: false }
-        : {}
+    // Antes filtrávamos `recorrenteMensal: true/false` baseado no tipo do
+    // orçamento (#HLP0079) — mas isso escondia EXTRAS de orçamentos mensais e
+    // vice-versa. Caso real: usuário tinha um orçamento MENSAL e queria
+    // adicionar uma "ADESÃO COMPETE" (pontual/extra), mas o serviço não
+    // aparecia no seletor. O filtro foi removido: ambos os tipos veem todos
+    // os serviços disponíveis; o user decide o que adicionar.
 
     const [servicos, catalogos] = await Promise.all([
       prisma.servico.findMany({
         // Bloqueia serviços marcados como internos — eles têm execução exclusivamente
         // interna e não devem aparecer no catálogo de itens do orçamento.
-        where: { ...baseWhere, ...ativo, ...disponivel, ...recorrenciaFilter, ehServicoInterno: false },
-        select: { id: true, nome: true, valorPadrao: true, ativo: true, disponivelOrcamento: true, empresaId: true, categoria: true },
+        where: { ...baseWhere, ...ativo, ...disponivel, ehServicoInterno: false },
+        select: { id: true, nome: true, valorPadrao: true, ativo: true, disponivelOrcamento: true, empresaId: true, categoria: true, recorrenteMensal: true },
         orderBy: { nome: 'asc' },
       }),
       prisma.servicoCatalogo.findMany({

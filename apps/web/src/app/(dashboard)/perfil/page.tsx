@@ -124,6 +124,41 @@ const EMPTY_FORM: FormData = {
   siteUrl: '', linkedinUrl: '', githubUrl: '', instagramUrl: '', facebookUrl: '',
 }
 
+/**
+ * Converte mensagem de erro do backend numa string amigável (#HLP0082).
+ * Quando vem de validação Zod, a mensagem é JSON serializado tipo
+ *   `[ { code: "too_big", maximum: 20, path: ["ramal"] }, ... ]`
+ * Aqui parseia e devolve uma listinha em português dos campos com problema.
+ */
+function formatBackendError(raw: string): string {
+  // Tenta extrair o array JSON de dentro da mensagem (Zod adiciona prefixos).
+  const match = raw.match(/\[[\s\S]+\]/)
+  if (!match) return raw
+  try {
+    const issues = JSON.parse(match[0]) as Array<{ code: string; maximum?: number; minimum?: number; path: string[]; message?: string }>
+    if (!Array.isArray(issues) || issues.length === 0) return raw
+    const FIELD_LABELS: Record<string, string> = {
+      ramal: 'Ramal interno', telefone: 'Telefone', celular: 'Celular', whatsapp: 'WhatsApp',
+      bio: 'Bio', cep: 'CEP', logradouro: 'Logradouro', cidade: 'Cidade', uf: 'UF',
+      nacionalidade: 'Nacionalidade', naturalidade: 'Naturalidade',
+      siteUrl: 'Site', linkedinUrl: 'LinkedIn', githubUrl: 'GitHub',
+      instagramUrl: 'Instagram', facebookUrl: 'Facebook',
+      name: 'Nome', dataNascimento: 'Data de nascimento',
+    }
+    const lines = issues.map(iss => {
+      const field = iss.path?.[0] ? (FIELD_LABELS[iss.path[0]] ?? iss.path[0]) : 'Campo'
+      if (iss.code === 'too_big' && iss.maximum) return `${field}: até ${iss.maximum} caracteres`
+      if (iss.code === 'too_small' && iss.minimum) return `${field}: mínimo ${iss.minimum} caracteres`
+      if (iss.code === 'invalid_string') return `${field}: formato inválido`
+      if (iss.code === 'invalid_enum_value') return `${field}: valor inválido`
+      return `${field}: ${iss.message ?? 'inválido'}`
+    })
+    return lines.join(' · ')
+  } catch {
+    return raw
+  }
+}
+
 function formatDate(d: string | null | undefined) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -378,7 +413,9 @@ export default function MeuPerfilPage() {
       fetchProfile()
       refreshCurrentUserProfile()
     } catch (e) {
-      alerts.error('Erro', (e as Error).message)
+      // Mensagens de Zod chegam como JSON cru ("[ { code: too_big... ]") —
+      // parseia e mostra de forma amigável (#HLP0082).
+      alerts.error('Erro ao salvar', formatBackendError((e as Error).message))
     } finally { setSavingProfile(false) }
   }
 

@@ -115,7 +115,9 @@ export function createUserRouter(userService: UserService) {
         telefone: z.string().max(40).optional().nullable(),
         celular: z.string().max(40).optional().nullable(),
         whatsapp: z.string().max(40).optional().nullable(),
-        ramal: z.string().max(20).optional().nullable(),
+        // Aumentado pra 40 — usuários costumam colocar mais de um ramal
+        // separado por "/" no mesmo campo (#HLP0082).
+        ramal: z.string().max(40).optional().nullable(),
 
         // Endereço
         cep: z.string().max(10).optional().nullable(),

@@ -5,6 +5,18 @@ import { ChevronDown } from 'lucide-react'
 import { Input, cn } from '@saas/ui'
 
 /**
+ * Formata documento (CPF 11 dígitos / CNPJ 14 dígitos) com máscara padrão.
+ * Outros tamanhos retornam string sem formatação (#HLP0081).
+ */
+function formatDocumento(doc: string | null | undefined): string {
+  if (!doc) return ''
+  const d = doc.replace(/\D/g, '')
+  if (d.length === 14) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`
+  if (d.length === 11) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`
+  return doc
+}
+
+/**
  * Combobox filtravel para selecionar cliente — busca por razao social
  * ou documento (CNPJ/CPF). Usado no modal de criacao e no detalhe do
  * orcamento.
@@ -20,11 +32,18 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
   const [query, setQuery] = useState('')
   const ref = useRef<HTMLDivElement>(null)
   const selected = clientes.find(c => c.id === value)
+  // Filtro busca tanto na razão social quanto no documento — com e sem
+  // formatação. User pode digitar "07.567" ou "07567" e ambos casam.
   const q = query.trim().toLowerCase()
+  const qDigits = query.replace(/\D/g, '')
   const filtered = q
-    ? clientes.filter(c =>
-        c.razaoSocial.toLowerCase().includes(q) ||
-        (c.documento?.toLowerCase().includes(q) ?? false))
+    ? clientes.filter(c => {
+        if (c.razaoSocial.toLowerCase().includes(q)) return true
+        if (!c.documento) return false
+        const docDigits = c.documento.replace(/\D/g, '')
+        if (qDigits && docDigits.includes(qDigits)) return true
+        return false
+      })
     : clientes
 
   useEffect(() => {
@@ -53,7 +72,7 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
           <span className="flex flex-col items-start min-w-0 flex-1 truncate">
             <span className="truncate text-sm font-medium leading-tight">{selected.razaoSocial}</span>
             {selected.documento && (
-              <span className="text-[10px] text-muted-foreground font-mono leading-tight">{selected.documento}</span>
+              <span className="text-[11px] text-muted-foreground font-mono leading-tight">{formatDocumento(selected.documento)}</span>
             )}
           </span>
         ) : (
@@ -87,7 +106,7 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
               >
                 <span className="text-sm font-medium leading-tight truncate">{c.razaoSocial}</span>
                 {c.documento && (
-                  <span className="text-[10px] text-muted-foreground font-mono leading-tight">{c.documento}</span>
+                  <span className="text-[11px] text-muted-foreground font-mono leading-tight">{formatDocumento(c.documento)}</span>
                 )}
               </button>
             ))}
