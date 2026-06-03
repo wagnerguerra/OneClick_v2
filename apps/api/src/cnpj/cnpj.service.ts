@@ -283,6 +283,12 @@ export class CnpjService {
         data: { source: 'serpro', endpoint: `/consulta-cpf-df/v1/cpf/${doc}`, method: 'GET', status: res.status, duration: Date.now() - start, documento: doc, error: body.slice(0, 500) },
       }).catch(() => {})
       if (res.status === 404) throw new Error('CPF não encontrado na base do SERPRO.')
+      // 403 com 'subscription validation failed' = a credencial OAuth é válida
+      // mas o produto 'Consulta CPF' não está habilitado no plano contratado.
+      // Comum quando o tenant só assinou Consulta CNPJ no SERPRO Estaleiro.
+      if (res.status === 403 && /subscription/i.test(body)) {
+        throw new Error('SERPRO_CPF_NAO_HABILITADO: plano atual não cobre Consulta CPF. Contrate o produto "Consulta CPF" no portal estaleiro.')
+      }
       throw new Error(`Erro na consulta CPF SERPRO: HTTP ${res.status}`)
     }
 
