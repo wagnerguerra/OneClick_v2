@@ -329,6 +329,27 @@ export class CrmService {
       include: { etapa: true },
     })
     this.addEvento(oportunidade.id, userId, 'criacao', `Oportunidade "${input.titulo}" criada`)
+    // Notifica destinatários da área Comercial (#HLP0075) — comportamento da v1
+    // (Wagner + Giovana). Tira o próprio criador da lista pra não auto-notificar.
+    // Fire-and-forget: falha na notificação não bloqueia criação da oportunidade.
+    void (async () => {
+      try {
+        const userIds = await this.listarUsuariosComercial(empresaId)
+        const destinatarios = userId ? userIds.filter(id => id !== userId) : userIds
+        if (destinatarios.length === 0) return
+        const nomeCliente = input.razaoSocial?.trim() || input.titulo
+        await this.notificationService.criarParaUsers(destinatarios, {
+          titulo: 'Nova oportunidade no CRM',
+          mensagem: `${nomeCliente} · ${oportunidade.etapa?.nome ?? 'sem etapa'}`,
+          tipo: 'info',
+          link: `/crm/oportunidades/${oportunidade.id}`,
+          origem: 'crm.oportunidade.criada',
+          empresaId: empresaId || null,
+        })
+      } catch (e) {
+        console.warn('[CRM.create] notificação falhou:', (e as Error).message)
+      }
+    })()
     return oportunidade
   }
 

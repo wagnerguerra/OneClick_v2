@@ -577,6 +577,14 @@ export default function AgendaPage() {
   function openNewEvent(dateStr?: string, opts?: { horaInicio?: string; horaFim?: string; participanteIds?: string[] }) {
     setModalMode('create')
     setSelectedEvento(null)
+    // Pré-seleciona o usuário logado como participante por padrão (#HLP0048).
+    // Quem cria o evento naturalmente faz parte dele — economiza um clique.
+    // Se vier via deep-link (opts.participanteIds), respeita o que foi
+    // passado e adiciona o user atual se ainda não estiver na lista.
+    const baseParticipantes = opts?.participanteIds ?? []
+    const participanteIds = currentUserId && !baseParticipantes.includes(currentUserId)
+      ? [currentUserId, ...baseParticipantes]
+      : baseParticipantes
     setForm({
       titulo: '', descricao: '', data: dateStr || formatDate(new Date()), dataFim: '',
       horaInicio: opts?.horaInicio || '09:00',
@@ -586,7 +594,7 @@ export default function AgendaPage() {
       particular: false, editavel: true, sala: '', salaId: '', garagem: false, vagas: undefined,
       equipamentos: '', isTarefa: false,
       tipoId: tipos[0]?.id ?? '', recorrencia: 'NENHUMA', recorrenciaVezes: 2,
-      participanteIds: opts?.participanteIds ?? [],
+      participanteIds,
       participantesAvulsos: [],
     })
     setAvulsoInput('')

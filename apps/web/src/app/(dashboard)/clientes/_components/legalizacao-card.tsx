@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Shield, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, CalendarClock, Check, CheckCircle2, XCircle, AlertTriangle, FileText, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, X, MoreVertical } from 'lucide-react'
+import { Shield, ShieldCheck, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, CalendarClock, Check, CheckCircle2, XCircle, AlertTriangle, FileText, FileLock, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, X, MoreVertical } from 'lucide-react'
 import {
   Button, Input, Label, Card,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
@@ -72,6 +72,11 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   const [certidoesLoading, setCertidoesLoading] = useState(false)
   const [dteMensagens, setDteMensagens] = useState<Array<{ id: string; tipo: string | null; titulo: string | null; data_mensagem: string | null; observacao: string | null; created_at: string }>>([])
   const [dteLoading, setDteLoading] = useState(false)
+  // Certificados digitais vinculados ao cliente (#HLP0078). A sub-aba "Certificado"
+  // sumiu do detalhe do cliente quando reescrevemos o módulo — agora volta listando
+  // os certificados ativos e linkando pra /gestao-certificados pra criar/gerenciar.
+  const [certificados, setCertificados] = useState<Array<{ id: string; nome: string | null; cnpj: string | null; titular: string | null; expiraEm: string | null; emissor: string | null; status: string }>>([])
+  const [certificadosLoading, setCertificadosLoading] = useState(false)
 
   // Modal Acesso
   const [aceModalOpen, setAceModalOpen] = useState(false)
@@ -182,6 +187,17 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         .finally(() => setCertidoesLoading(false))
     }
   }, [activeTab, clienteId, certidoes.length])
+
+  // Lazy load de certificados digitais (#HLP0078)
+  useEffect(() => {
+    if (activeTab === 'certificados' && clienteId && certificados.length === 0) {
+      setCertificadosLoading(true)
+      ;(trpc.certificadoDigital as any).list.query({ clienteId, incluirArquivados: false })
+        .then((data: typeof certificados) => setCertificados(data))
+        .catch(() => {})
+        .finally(() => setCertificadosLoading(false))
+    }
+  }, [activeTab, clienteId, certificados.length])
 
   // ── Acesso CRUD ──
   function openAceModal(acesso?: typeof acessos[0]) {
@@ -300,6 +316,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
     andamentos: andamentos.length || null,
     cnaes: cnaes.length || null,
     certidoes: certidoes.length || null,
+    certificados: certificados.length || null,
     dte: dteMensagens.length || null,
   }
 
@@ -311,6 +328,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
     { id: 'andamentos', label: 'Andamentos', icon: ListChecks },
     { id: 'cnaes', label: 'CNAEs', icon: ListChecks },
     { id: 'certidoes', label: "CND's e Alvarás", icon: Shield },
+    { id: 'certificados', label: 'Certificado Digital', icon: ShieldCheck },
     { id: 'dte', label: 'DT-e', icon: FileText },
     { id: 'links', label: 'Links Rápidos', icon: Link2 },
   ]
@@ -1019,6 +1037,95 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                       })}
                     </tbody>
                   </table>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Certificado Digital (#HLP0078) */}
+          {activeTab === 'certificados' && (
+            <>
+              <div className="-m-0">
+                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+                  <div>
+                    <h4 className="text-[13px] font-semibold text-foreground">Certificado Digital</h4>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Certificados (.pfx) vinculados a este cliente. A senha é cifrada com AES-256-GCM.
+                    </p>
+                  </div>
+                  <a
+                    href={`/gestao-certificados?clienteId=${clienteId ?? ''}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button">
+                      <Plus className="h-3 w-3" /> Adicionar / Gerenciar
+                    </Button>
+                  </a>
+                </div>
+              </div>
+              <div className="p-5">
+                {certificadosLoading ? (
+                  <div className="flex items-center justify-center py-8 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando certificados...
+                  </div>
+                ) : certificados.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <ShieldCheck className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">Nenhum certificado vinculado a este cliente.</p>
+                    <p className="text-xs mt-1">
+                      Use o botão "Adicionar / Gerenciar" pra fazer upload do .pfx no módulo de certificados.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-2">
+                    {certificados.map(cert => {
+                      const exp = cert.expiraEm ? new Date(cert.expiraEm) : null
+                      const diasParaExpirar = exp ? Math.ceil((exp.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null
+                      const expColor = diasParaExpirar === null
+                        ? 'text-muted-foreground'
+                        : diasParaExpirar < 0
+                          ? 'text-rose-600 dark:text-rose-400 font-semibold'
+                          : diasParaExpirar < 30
+                            ? 'text-amber-600 dark:text-amber-400 font-semibold'
+                            : 'text-emerald-600 dark:text-emerald-400'
+                      return (
+                        <a
+                          key={cert.id}
+                          href={`/gestao-certificados?openId=${cert.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-border hover:bg-muted/30 transition-colors"
+                        >
+                          <FileLock className="h-5 w-5 text-fuchsia-600 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {cert.titular || cert.nome || cert.id}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground truncate">
+                              {cert.cnpj && <>CNPJ: <span className="font-mono">{cert.cnpj}</span> · </>}
+                              {cert.emissor && <>Emissor: {cert.emissor}</>}
+                            </p>
+                          </div>
+                          <div className={cn('text-[11px] shrink-0 text-right', expColor)}>
+                            {exp ? (
+                              <>
+                                <div>Expira: {exp.toLocaleDateString('pt-BR')}</div>
+                                <div className="text-[10px]">
+                                  {diasParaExpirar !== null && diasParaExpirar < 0
+                                    ? `${Math.abs(diasParaExpirar)} dia(s) vencido`
+                                    : diasParaExpirar !== null
+                                      ? `${diasParaExpirar} dia(s) restante(s)`
+                                      : '—'}
+                                </div>
+                              </>
+                            ) : '—'}
+                          </div>
+                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        </a>
+                      )
+                    })}
+                  </div>
                 )}
               </div>
             </>

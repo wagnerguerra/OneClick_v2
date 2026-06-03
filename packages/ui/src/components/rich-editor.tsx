@@ -107,19 +107,29 @@ export function RichEditor({ value, onChange, placeholder, className, onReady }:
   }, [editor, onReady])
 
   // Sincroniza o conteúdo do editor quando o pai muda `value` externamente
-  // (ex.: setNovaMsg('') após enviar mensagem). Evita loop comparando com
-  // o HTML atual antes de chamar setContent. emitUpdate=false evita
-  // disparar onChange em cascata.
+  // (ex.: setNovaMsg('') após enviar mensagem — #HLP0064). emitUpdate=false
+  // evita disparar onChange em cascata.
+  //
+  // ⚠️ Detalhe TipTap: quando o usuário digita e depois envia, o pai chama
+  // setNovaMsg('') → value vira '' → useEffect roda. Mas o editor mantém
+  // '<p></p>' no DOM, e a comparação `current === next` ('<p></p>' vs '')
+  // dava false e a limpeza acontecia. PORÉM se o re-render acontece em
+  // janela em que o getHTML() ainda retorna '' (editor não-montado ou em
+  // estado intermediário), o early-return evita o clear. Usamos um check
+  // dedicado de "está vazio" pelo isEmpty pra cobrir os dois casos.
   useEffect(() => {
     if (!editor) return
-    const current = editor.getHTML()
     const next = value ?? ''
-    if (current === next) return
-    // Editor TipTap considera '<p></p>' como vazio — só limpa de fato se
-    // estiver realmente sendo zerado pelo pai
     if (next === '') {
-      editor.commands.clearContent(false)
-    } else {
+      // Só zera se já não está vazio — o isEmpty do TipTap considera
+      // '<p></p>' como vazio, então não causa flicker.
+      if (!editor.isEmpty) {
+        editor.commands.clearContent(false)
+      }
+      return
+    }
+    const current = editor.getHTML()
+    if (current !== next) {
       editor.commands.setContent(next, { emitUpdate: false })
     }
   }, [value, editor])

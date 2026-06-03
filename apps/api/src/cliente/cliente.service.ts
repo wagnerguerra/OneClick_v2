@@ -110,24 +110,44 @@ export class ClienteService {
       matrizFilter = [{ id: { in: rows.map(r => r.id) } }]
     }
 
-    const searchFilter = search ? [{
-      OR: [
-        { razaoSocial: { contains: search, mode: 'insensitive' as const } },
-        { nomeFantasia: { contains: search, mode: 'insensitive' as const } },
-        { documento: { contains: search } },
-        { cidade: { contains: search, mode: 'insensitive' as const } },
-        { uf: { contains: search, mode: 'insensitive' as const } },
-        { grupo: { contains: search, mode: 'insensitive' as const } },
-        { email: { contains: search, mode: 'insensitive' as const } },
-        { telefone: { contains: search } },
-        { tipoCliente: { contains: search, mode: 'insensitive' as const } },
-        { origem: { contains: search, mode: 'insensitive' as const } },
-        { areasContratadas: { contains: search, mode: 'insensitive' as const } },
-        { idSistema: { contains: search } },
-        ...matchEnumSituacao(search),
-        ...matchEnumTributacao(search),
-      ],
-    }] : []
+    // Busca textual (#HLP0077): além de case-insensitive, ignora acentos —
+    // "são paulo" tem que casar com "Sao Paulo" e vice-versa. Prisma não
+    // expõe `unaccent`, então buscamos os IDs candidatos via raw SQL e
+    // alimentamos o where como `id: { in: [...] }`. A extensão `unaccent`
+    // do Postgres está habilitada via SQL cirúrgico (add_unaccent_extension.sql).
+    let searchIdsFilter: Prisma.ClienteWhereInput[] = []
+    if (search && search.trim()) {
+      const term = `%${search.trim()}%`
+      const ids = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+        `SELECT id FROM clientes
+         WHERE deleted_at IS NULL
+           AND (
+             unaccent(razao_social)     ILIKE unaccent($1)
+             OR unaccent(nome_fantasia) ILIKE unaccent($1)
+             OR unaccent(cidade)        ILIKE unaccent($1)
+             OR unaccent(uf)            ILIKE unaccent($1)
+             OR unaccent(grupo)         ILIKE unaccent($1)
+             OR unaccent(email)         ILIKE unaccent($1)
+             OR unaccent(tipo_cliente)  ILIKE unaccent($1)
+             OR unaccent(origem)        ILIKE unaccent($1)
+             OR unaccent(areas_contratadas) ILIKE unaccent($1)
+             OR documento  ILIKE $1
+             OR telefone   ILIKE $1
+             OR id_sistema ILIKE $1
+           )
+           ${isMaster ? '' : 'AND (empresa_id = $2 OR empresa_id IS NULL)'}`,
+        term,
+        ...(isMaster ? [] : [empresaId ?? '']),
+      )
+      // OR com matches de enum (situação/tributação) — esses ainda funcionam
+      // pelo where do Prisma porque os enums não têm acento.
+      const enumMatches = [...matchEnumSituacao(search), ...matchEnumTributacao(search)]
+      const orClauses: Prisma.ClienteWhereInput[] = [
+        { id: { in: ids.map(r => r.id) } },
+        ...enumMatches,
+      ]
+      searchIdsFilter = [{ OR: orClauses }]
+    }
 
     const where: Prisma.ClienteWhereInput = {
       deletedAt: null,
@@ -139,8 +159,8 @@ export class ClienteService {
       ...(grupo ? { grupo } : {}),
       ...(cidade ? { cidade } : {}),
       ...(uf ? { uf } : {}),
-      ...((searchFilter.length + matrizFilter.length) > 0
-        ? { AND: [...searchFilter, ...matrizFilter] as Prisma.ClienteWhereInput[] }
+      ...((searchIdsFilter.length + matrizFilter.length) > 0
+        ? { AND: [...searchIdsFilter, ...matrizFilter] as Prisma.ClienteWhereInput[] }
         : {}),
     }
 
