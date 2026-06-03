@@ -7,6 +7,8 @@ import {
   type UpdateTicketInput,
   type ListTicketInput,
   type AddMensagemInput,
+  type EditMensagemInput,
+  type DeleteMensagemInput,
   type HelpdeskPrioridade,
   type HelpdeskStatus,
 } from '@saas/types'
@@ -825,6 +827,75 @@ export class HelpdeskService {
     void this.notifyMensagem(input.ticketId, msg.id, input.interna, userId)
 
     return msg
+  }
+
+  /**
+   * Edição de mensagem (#HLP0067). Janela curta de 30min — depois disso a
+   * mensagem vira parte do histórico imutável da conversa (UX padrão
+   * de chats tipo Slack/WhatsApp).
+   *
+   * Regras:
+   *  - Só o autor da mensagem pode editar
+   *  - Janela de 30min a partir do createdAt
+   *  - Não permitido em ticket CANCELADO (já encerrado)
+   *  - Atualiza editadoEm pra UI mostrar "(editada)"
+   */
+  async editMensagem(input: EditMensagemInput, userId: string) {
+    const msg = await prisma.helpdeskMensagem.findUnique({
+      where: { id: input.id },
+      select: {
+        id: true, autorId: true, ticketId: true, createdAt: true,
+        ticket: { select: { status: true } },
+      },
+    })
+    if (!msg) throw new Error('Mensagem não encontrada')
+    if (msg.autorId !== userId) {
+      throw new Error('Só o autor pode editar a mensagem')
+    }
+    if (msg.ticket?.status === 'CANCELADO') {
+      throw new Error('Ticket cancelado — edição não permitida')
+    }
+    const idadeMs = Date.now() - new Date(msg.createdAt).getTime()
+    if (idadeMs > 30 * 60 * 1000) {
+      throw new Error('Janela de edição (30 min) expirada')
+    }
+    return prisma.helpdeskMensagem.update({
+      where: { id: input.id },
+      data: { conteudo: input.conteudo, editadoEm: new Date() },
+    })
+  }
+
+  /**
+   * Exclusão de mensagem (#HLP0067). Mesmas restrições da edição.
+   * Anexos vinculados são removidos por cascade do schema Prisma.
+   */
+  async deleteMensagem(input: DeleteMensagemInput, userId: string) {
+    const msg = await prisma.helpdeskMensagem.findUnique({
+      where: { id: input.id },
+      select: {
+        id: true, autorId: true, ticketId: true, createdAt: true,
+        ticket: { select: { status: true } },
+      },
+    })
+    if (!msg) throw new Error('Mensagem não encontrada')
+    if (msg.autorId !== userId) {
+      throw new Error('Só o autor pode excluir a mensagem')
+    }
+    if (msg.ticket?.status === 'CANCELADO') {
+      throw new Error('Ticket cancelado — exclusão não permitida')
+    }
+    const idadeMs = Date.now() - new Date(msg.createdAt).getTime()
+    if (idadeMs > 30 * 60 * 1000) {
+      throw new Error('Janela de exclusão (30 min) expirada')
+    }
+    // Remove anexos vinculados explicitamente — a FK do schema é SetNull,
+    // mas anexo sem mensagem vira órfão na thread. Deletamos junto pra
+    // manter a conversa coerente.
+    await prisma.$transaction([
+      prisma.helpdeskAnexo.deleteMany({ where: { mensagemId: input.id } }),
+      prisma.helpdeskMensagem.delete({ where: { id: input.id } }),
+    ])
+    return { ok: true }
   }
 
   private async notifyMensagem(ticketId: string, mensagemId: string, interna: boolean, autorId: string) {

@@ -513,16 +513,67 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           )}
 
           {/* Socios */}
-          {activeTab === 'socios' && (
+          {activeTab === 'socios' && (() => {
+            // Barra de progresso de participação (#HLP0068): soma dos %
+            // dos sócios deveria fechar em 100%. Se faltar/sobrar, indica
+            // QSA incompleto ou divergência — sinaliza visualmente.
+            const totalPct = socios.reduce((acc, s) => acc + (s.participacao ?? 0), 0)
+            const pctClamped = Math.min(totalPct, 100)
+            const isExato = Math.abs(totalPct - 100) < 0.01
+            const isFaltando = totalPct < 100
+            const isExcedente = totalPct > 100
+            const barColor = isExato
+              ? 'bg-emerald-500'
+              : isExcedente
+                ? 'bg-rose-500'
+                : totalPct >= 80
+                  ? 'bg-amber-500'
+                  : 'bg-rose-500'
+            const labelColor = isExato
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : isExcedente
+                ? 'text-rose-600 dark:text-rose-400'
+                : totalPct >= 80
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : 'text-rose-600 dark:text-rose-400'
+            return (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
-                  <div>
+                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
                     <h4 className="text-[13px] font-semibold text-foreground">Sócios vinculados</h4>
                     <div className="flex items-center gap-3">
                       {capitalSocial != null && <p className="text-[10px] text-muted-foreground">Capital Social: <strong>R$ {capitalSocial.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></p>}
                       {socios.length > 0 && <p className="text-[10px] text-muted-foreground">Ultima consulta: <strong>{new Date(Math.max(...socios.map(s => new Date(s.createdAt).getTime()))).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong></p>}
                     </div>
+                    {socios.length > 0 && (
+                      <div className="mt-2 max-w-[420px]">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                            Participação total
+                          </span>
+                          <span className={cn('text-[11px] font-semibold tabular-nums', labelColor)}>
+                            {totalPct.toFixed(2)}%
+                            {isFaltando && (
+                              <span className="text-muted-foreground font-normal ml-1">
+                                (faltam {(100 - totalPct).toFixed(2)}%)
+                              </span>
+                            )}
+                            {isExcedente && (
+                              <span className="text-muted-foreground font-normal ml-1">
+                                (excedeu em {(totalPct - 100).toFixed(2)}%)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={cn('h-full transition-all duration-300', barColor)}
+                            style={{ width: `${pctClamped}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                   {clienteId && (
                     <div className="flex items-center gap-1.5">
@@ -674,7 +725,8 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 )}
               </div>
             </>
-          )}
+            )
+          })()}
 
           {/* Acessos */}
           {activeTab === 'acessos' && (

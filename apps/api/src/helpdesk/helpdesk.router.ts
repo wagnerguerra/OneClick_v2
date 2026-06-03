@@ -3,7 +3,8 @@ import { TRPCError } from '@trpc/server'
 import { router, readProcedure, writeProcedure, protectedProcedure } from '../trpc/trpc.service'
 import {
   createTicketSchema, updateTicketSchema, listTicketSchema,
-  addMensagemSchema, csatSchema, HELPDESK_STATUS,
+  addMensagemSchema, editMensagemSchema, deleteMensagemSchema,
+  csatSchema, HELPDESK_STATUS,
 } from '@saas/types'
 import { prisma } from '@saas/db'
 import { HelpdeskService } from './helpdesk.service'
@@ -98,6 +99,22 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
         await helpdeskService.assertCanAccess(ctx.userId!, input.ticketId)
         return helpdeskService.listMensagens(input.ticketId)
       }),
+
+    /**
+     * Editar mensagem (#HLP0067). Restrições aplicadas no service:
+     * só o autor + dentro de 30min + ticket não cancelado.
+     */
+    editMensagem: protectedProcedure
+      .input(editMensagemSchema)
+      .mutation(({ input, ctx }) => helpdeskService.editMensagem(input, ctx.userId!)),
+
+    /**
+     * Excluir mensagem (#HLP0067). Mesmas restrições da edição.
+     * Exclui anexos vinculados via cascade do Prisma.
+     */
+    deleteMensagem: protectedProcedure
+      .input(deleteMensagemSchema)
+      .mutation(({ input, ctx }) => helpdeskService.deleteMensagem(input, ctx.userId!)),
 
     // ── CSAT ──
     responderCsat: protectedProcedure

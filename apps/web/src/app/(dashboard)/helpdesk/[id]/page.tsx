@@ -7,12 +7,14 @@ import {
   AlertTriangle, CheckCircle2, XCircle, History, Layers, FileText, UserCog,
   Eye, Star, Save, Tag, Building2, Download, ExternalLink, Image as ImageIcon,
   FileVideo, FileAudio, File as FileIcon, FileSpreadsheet,
+  MoreVertical, Pencil, Trash2,
 } from 'lucide-react'
 import {
   Button, Card, CardContent, Badge, Label, cn, RichEditor,
   Tabs, TabsTrigger, TabsContent, SlidingTabsList,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
@@ -35,6 +37,7 @@ interface Mensagem {
   conteudo: string
   interna: boolean
   createdAt: string
+  editadoEm?: string | null
   autor: { id: string; name: string; image: string | null } | null
 }
 
@@ -107,6 +110,10 @@ export default function HelpdeskTicketDetailPage() {
   const [interna, setInterna] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [msgAnexos, setMsgAnexos] = useState<AnexoStaged[]>([])
+  // Edição de mensagem (#HLP0067): janela de 30min após enviar
+  const [editingMsg, setEditingMsg] = useState<Mensagem | null>(null)
+  const [editingConteudo, setEditingConteudo] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
   const [anexoSelecionadoId, setAnexoSelecionadoId] = useState<string | null>(null)
 
   // Sidebar — edição inline
@@ -191,8 +198,31 @@ export default function HelpdeskTicketDetailPage() {
       alerts.error('Aguarde', 'Aguarde o upload dos anexos terminar.')
       return
     }
+    // Ticket encerrado (CONCLUIDO/CANCELADO): pergunta se quer reabrir antes
+    // de enviar — evita que mensagens fiquem "perdidas" em ticket fechado
+    // (pedido #HLP0062). Notas internas seguem sem prompt: agente pode
+    // anotar livremente sem reativar o ticket pro solicitante.
+    const encerrado = ticket && (ticket.status === 'CONCLUIDO' || ticket.status === 'CANCELADO')
+    if (encerrado && !interna) {
+      const labelStatus = ticket.status === 'CONCLUIDO' ? 'concluído' : 'cancelado'
+      const ok = await alerts.confirm({
+        title: 'Reabrir ticket?',
+        text: `Este ticket está ${labelStatus}. Deseja reabri-lo (volta para Em andamento) e enviar sua mensagem?`,
+        confirmText: 'Reabrir e enviar',
+        icon: 'question',
+      })
+      if (!ok) return
+    }
     setEnviando(true)
     try {
+      // Reabre antes de enviar, garantindo que a mensagem fique vinculada
+      // ao ticket já no novo status (sem janela em que aparece encerrado).
+      if (encerrado && !interna) {
+        await (trpc.helpdesk as any).update.mutate({
+          id,
+          data: { status: 'EM_ANDAMENTO' },
+        })
+      }
       const msg = await (trpc.helpdesk as any).addMensagem.mutate({
         ticketId: id,
         conteudo: conteudo || '<p>(anexo)</p>',
@@ -221,6 +251,47 @@ export default function HelpdeskTicketDetailPage() {
       alerts.error('Erro', (e as Error).message)
     } finally {
       setEnviando(false)
+    }
+  }
+
+  /** Salva edição de mensagem (#HLP0067). */
+  async function salvarEdicaoMensagem() {
+    if (!editingMsg) return
+    const limpo = editingConteudo.replace(/<[^>]+>/g, '').trim()
+    if (!limpo) {
+      alerts.error('Vazio', 'Mensagem não pode ficar vazia.')
+      return
+    }
+    setSavingEdit(true)
+    try {
+      await (trpc.helpdesk as any).editMensagem.mutate({
+        id: editingMsg.id,
+        conteudo: editingConteudo,
+      })
+      setEditingMsg(null)
+      setEditingConteudo('')
+      await fetchData(true)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  /** Exclui mensagem com confirm (#HLP0067). */
+  async function excluirMensagem(msg: Mensagem) {
+    const ok = await alerts.confirm({
+      title: 'Excluir mensagem?',
+      text: 'Esta ação não pode ser desfeita. Anexos vinculados também serão removidos.',
+      confirmText: 'Excluir',
+      icon: 'warning',
+    })
+    if (!ok) return
+    try {
+      await (trpc.helpdesk as any).deleteMensagem.mutate({ id: msg.id })
+      await fetchData(true)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
     }
   }
 
@@ -466,35 +537,76 @@ export default function HelpdeskTicketDetailPage() {
                 <Card><CardContent className="p-6 text-center text-xs text-muted-foreground">
                   Nenhuma mensagem ainda. Use o composer abaixo pra iniciar a conversa.
                 </CardContent></Card>
-              ) : ticket.mensagens.map(msg => (
-                <Card
-                  key={msg.id}
-                  className={cn(
-                    msg.interna && 'border-l-4 border-l-amber-400 bg-amber-50/40 dark:bg-amber-950/20',
-                  )}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2 text-[11px]">
-                      {msg.interna ? (
-                        <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 bg-amber-100 text-amber-800 font-semibold text-[10px]">
-                          <Lock className="h-2.5 w-2.5" /> NOTA INTERNA
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 bg-cyan-100 text-cyan-800 font-semibold text-[10px]">
-                          <MessageSquare className="h-2.5 w-2.5" /> PÚBLICA
-                        </span>
-                      )}
-                      <span className="text-muted-foreground font-medium">{msg.autor?.name || 'Externo'}</span>
-                      <span className="text-muted-foreground">·</span>
-                      <span className="text-muted-foreground">{new Date(msg.createdAt).toLocaleString('pt-BR')}</span>
-                    </div>
-                    <div
-                      className="text-sm whitespace-pre-wrap"
-                      dangerouslySetInnerHTML={{ __html: linkifyHelpdesk(msg.conteudo) }}
-                    />
-                  </CardContent>
-                </Card>
-              ))}
+              ) : ticket.mensagens.map(msg => {
+                // Janela de edição/exclusão (#HLP0067): 30min + apenas o autor
+                const idadeMs = Date.now() - new Date(msg.createdAt).getTime()
+                const podeEditar = !!currentUserId && msg.autor?.id === currentUserId
+                  && idadeMs < 30 * 60 * 1000
+                  && ticket.status !== 'CANCELADO'
+                return (
+                  <Card
+                    key={msg.id}
+                    className={cn(
+                      msg.interna && 'border-l-4 border-l-amber-400 bg-amber-50/40 dark:bg-amber-950/20',
+                    )}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2 text-[11px]">
+                        {msg.interna ? (
+                          <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 bg-amber-100 text-amber-800 font-semibold text-[10px]">
+                            <Lock className="h-2.5 w-2.5" /> NOTA INTERNA
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 bg-cyan-100 text-cyan-800 font-semibold text-[10px]">
+                            <MessageSquare className="h-2.5 w-2.5" /> PÚBLICA
+                          </span>
+                        )}
+                        <span className="text-muted-foreground font-medium">{msg.autor?.name || 'Externo'}</span>
+                        <span className="text-muted-foreground">·</span>
+                        <span className="text-muted-foreground">{new Date(msg.createdAt).toLocaleString('pt-BR')}</span>
+                        {msg.editadoEm && (
+                          <span className="text-muted-foreground italic">(editada)</span>
+                        )}
+                        {podeEditar && (
+                          <div className="ml-auto">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="p-1 rounded hover:bg-muted text-muted-foreground"
+                                  aria-label="Ações da mensagem"
+                                >
+                                  <MoreVertical className="h-3.5 w-3.5" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditingMsg(msg)
+                                    setEditingConteudo(msg.conteudo)
+                                  }}
+                                >
+                                  <Pencil className="h-3.5 w-3.5 mr-2" /> Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => excluirMensagem(msg)}
+                                  className="text-rose-600 dark:text-rose-400 focus:text-rose-600 dark:focus:text-rose-400"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        )}
+                      </div>
+                      <div
+                        className="text-sm whitespace-pre-wrap"
+                        dangerouslySetInnerHTML={{ __html: linkifyHelpdesk(msg.conteudo) }}
+                      />
+                    </CardContent>
+                  </Card>
+                )
+              })}
 
               {/* Composer */}
               <Card>
@@ -755,6 +867,40 @@ export default function HelpdeskTicketDetailPage() {
             >
               {cancelando ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
               Sim, cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edição de mensagem (#HLP0067) */}
+      <Dialog open={!!editingMsg} onOpenChange={(o) => { if (!o) { setEditingMsg(null); setEditingConteudo('') } }}>
+        <DialogContent className="sm:max-w-[640px]">
+          <DialogHeaderIcon icon={Pencil} color="sky">
+            <DialogTitle>Editar mensagem</DialogTitle>
+            <DialogDescription>
+              Você tem 30 minutos a partir do envio para editar. Após salvar, a
+              mensagem fica marcada como "(editada)".
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            <RichEditor
+              value={editingConteudo}
+              onChange={(html) => setEditingConteudo(html)}
+              placeholder="Conteúdo da mensagem"
+              className="min-h-[140px]"
+            />
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEditingMsg(null); setEditingConteudo('') }} disabled={savingEdit}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={salvarEdicaoMensagem}
+              disabled={savingEdit || !editingConteudo.replace(/<[^>]+>/g, '').trim()}
+              className="gap-1.5 bg-sky-500 hover:bg-sky-600 text-white"
+            >
+              {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>

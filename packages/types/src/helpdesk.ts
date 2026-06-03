@@ -113,6 +113,17 @@ export const addMensagemSchema = z.object({
 })
 export type AddMensagemInput = z.infer<typeof addMensagemSchema>
 
+export const editMensagemSchema = z.object({
+  id: z.string(),
+  conteudo: z.string().min(1, 'Mensagem vazia'),
+})
+export type EditMensagemInput = z.infer<typeof editMensagemSchema>
+
+export const deleteMensagemSchema = z.object({
+  id: z.string(),
+})
+export type DeleteMensagemInput = z.infer<typeof deleteMensagemSchema>
+
 export const csatSchema = z.object({
   ticketId: z.string(),
   nota: z.coerce.number().int().min(1).max(5),
