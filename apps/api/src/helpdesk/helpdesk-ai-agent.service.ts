@@ -559,8 +559,11 @@ ${ticket.descricao.slice(0, 4000)}${bloocoMensagens}`
     // pra HTML que o TipTap consegue renderizar formatado (headings, listas,
     // bold, code, etc). Mantemos o plano original em ticket.aiPlano (markdown)
     // pra reprocessamento futuro / contexto da IA.
+    //
+    // Estilo sem background hardcoded — só borda lateral violeta. Cores de
+    // texto/fundo vêm naturalmente do tema (claro/escuro) via TipTap host.
     const planoHtml = marked.parse(ticket.aiPlano, { async: false, gfm: true, breaks: true }) as string
-    const html = `<p><strong>📋 Plano de resolução aprovado pelo operador:</strong></p><div style="background:#f8fafc;padding:12px;border-radius:6px;border-left:3px solid #8b5cf6">${planoHtml}</div>`
+    const html = `<p><strong>📋 Plano de resolução aprovado pelo operador:</strong></p><div style="border-left:3px solid #8b5cf6;padding:6px 0 6px 12px;margin-top:6px">${planoHtml}</div>`
 
     await prisma.$transaction([
       prisma.helpdeskTicket.update({
