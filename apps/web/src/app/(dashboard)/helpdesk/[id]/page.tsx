@@ -173,6 +173,7 @@ export default function HelpdeskTicketDetailPage() {
   const [rejeitarMotivo, setRejeitarMotivo] = useState('')
   // Forçar processamento IA — ignora score baixo
   const [forcandoIa, setForcandoIa] = useState(false)
+  // (refs e auto-scroll do thinking declarados mais abaixo)
   // Modal "Como executar o plano" — abre ao aprovar
   const [executarOpen, setExecutarOpen] = useState(false)
   const [executarTab, setExecutarTab] = useState<'cli' | 'auto'>('cli')
@@ -190,6 +191,16 @@ export default function HelpdeskTicketDetailPage() {
   } | null>(null)
   const [estimando, setEstimando] = useState(false)
   const [executandoAuto, setExecutandoAuto] = useState(false)
+  // Stream do pensamento da IA durante execução automática
+  const [thinkingTexto, setThinkingTexto] = useState('')
+  const [statusStream, setStatusStream] = useState<string>('')
+  const thinkingScrollRef = useRef<HTMLDivElement>(null)
+  // Auto-scroll do thinking enquanto chega texto novo
+  useEffect(() => {
+    if (thinkingScrollRef.current) {
+      thinkingScrollRef.current.scrollTop = thinkingScrollRef.current.scrollHeight
+    }
+  }, [thinkingTexto])
   const [resultadoAuto, setResultadoAuto] = useState<{
     arquivosModificados: Array<{ path: string; conteudo: string; motivo: string }>
     arquivosARevisar?: string[]
@@ -434,7 +445,10 @@ export default function HelpdeskTicketDetailPage() {
     }
   }
 
-  /** Dispara execução automática via API (custo real). */
+  /**
+   * Dispara execução automática via API (custo real). Usa SSE pra
+   * receber o pensamento da IA em tempo real (#HLP0083).
+   */
   async function handleExecutarAutomatico() {
     if (!estimativa) return
     const custoMax = estimativa.custoMaxUsd.toFixed(4)
@@ -446,16 +460,52 @@ export default function HelpdeskTicketDetailPage() {
     })
     if (!ok) return
     setExecutandoAuto(true)
+    setThinkingTexto('')
+    setStatusStream('Conectando…')
     try {
-      const r = await (trpc.helpdesk as any).aiExecutarPlanoAutomatico.mutate({ ticketId: id })
-      setCustoRealAuto(r.custoUsd)
+      const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+      const url = `${apiBase}/api/helpdesk/${id}/ai-execute-stream`
+      // EventSource não suporta withCredentials por default em alguns browsers
+      // antigos, mas same-origin + Better Auth cookie funciona em todos modernos.
+      await new Promise<void>((resolve, reject) => {
+        const es = new EventSource(url, { withCredentials: true })
+        es.onmessage = (ev) => {
+          try {
+            const event = JSON.parse(ev.data)
+            if (event.type === 'thinking_delta') {
+              setThinkingTexto(t => t + event.text)
+            } else if (event.type === 'status') {
+              const map: Record<string, string> = {
+                preparando: 'Preparando…',
+                lendo_arquivos: 'Lendo arquivos do repo…',
+                chamando_ia: 'Pensando…',
+                finalizando: 'Gravando resultado…',
+              }
+              setStatusStream(map[event.stage] || event.stage)
+            } else if (event.type === 'done') {
+              setCustoRealAuto(event.custoUsd)
+              setStatusStream('Concluído')
+              es.close()
+              resolve()
+            } else if (event.type === 'error') {
+              es.close()
+              reject(new Error(event.message))
+            }
+          } catch {
+            // ignora linhas que não são JSON (comments, pings)
+          }
+        }
+        es.onerror = () => {
+          es.close()
+          reject(new Error('Conexão SSE caiu. Verifique o backend.'))
+        }
+      })
       await fetchData(true)
-      // Lê o resultado já gravado no ticket
-      // (o backend gravou em aiExecutionResult — depois do fetchData o ticket já tem)
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
     } finally {
       setExecutandoAuto(false)
+      setStatusStream('')
     }
   }
 
@@ -1463,7 +1513,24 @@ export default function HelpdeskTicketDetailPage() {
                       </div>
                     )}
 
-                    {!ticket.aiExecutionResult && (
+                    {/* Stream do pensamento da IA — só aparece enquanto executando */}
+                    {executandoAuto && (
+                      <div className="rounded-md border border-violet-300 dark:border-violet-700 bg-violet-50/30 dark:bg-violet-950/20 p-3 space-y-2">
+                        <div className="flex items-center gap-2 text-[12px]">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-600" />
+                          <span className="font-semibold text-violet-700 dark:text-violet-300">Pensamento da IA</span>
+                          <span className="ml-auto text-[10px] text-muted-foreground italic">{statusStream}</span>
+                        </div>
+                        <div
+                          ref={thinkingScrollRef}
+                          className="bg-card border border-border rounded p-2 max-h-[280px] overflow-auto text-[11px] font-mono whitespace-pre-wrap text-foreground/80"
+                        >
+                          {thinkingTexto || <span className="text-muted-foreground italic">aguardando primeiros chunks…</span>}
+                        </div>
+                      </div>
+                    )}
+
+                    {!ticket.aiExecutionResult && !executandoAuto && (
                       <div className="flex justify-end">
                         <Button
                           size="sm"
@@ -1471,8 +1538,8 @@ export default function HelpdeskTicketDetailPage() {
                           disabled={executandoAuto}
                           className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
                         >
-                          {executandoAuto ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-                          {executandoAuto ? 'Processando…' : `Processar (~US$ ${estimativa.custoMaxUsd.toFixed(4)})`}
+                          <Zap className="h-3.5 w-3.5" />
+                          Processar (~US$ {estimativa.custoMaxUsd.toFixed(4)})
                         </Button>
                       </div>
                     )}

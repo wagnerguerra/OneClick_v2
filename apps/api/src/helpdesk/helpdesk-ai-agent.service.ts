@@ -732,6 +732,96 @@ ${ticket.descricao.slice(0, 4000)}${bloocoMensagens}`
   }
 
   /**
+   * Lista paths relevantes do repo (apps/web/src, apps/api/src, packages/types/src,
+   * packages/db/prisma) que tenham nome OU pasta casando com pelo menos um dos
+   * termos. Usado quando o plano não trouxe arquivosEnvolvidos — alimenta a IA
+   * executora com uma lista de paths REAIS pra ela escolher de onde modificar.
+   *
+   * Filtra extensões .tsx, .ts, .prisma, .sql. Ignora node_modules etc.
+   * Cap em 80 paths pra não explodir o contexto.
+   */
+  private async listarArquivosRelevantes(repoRoot: string, termos: string[]): Promise<string[]> {
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
+
+    const termosLower = termos
+      .filter(t => t && t.length >= 3) // descarta palavras curtas tipo "o", "de", "do"
+      .map(t => t.toLowerCase())
+    if (termosLower.length === 0) return []
+
+    const EXTENSOES = new Set(['.tsx', '.ts', '.prisma', '.sql'])
+    const DIRS_FOCAIS = ['apps/web/src', 'apps/api/src', 'packages/types/src', 'packages/db/prisma']
+    const MAX_RESULTS = 80
+    const matches: Array<{ path: string; score: number }> = []
+
+    const walk = async (dir: string, depth: number): Promise<void> => {
+      if (matches.length >= MAX_RESULTS || depth > 10) return
+      let entries: { name: string; isDirectory: () => boolean; isFile: () => boolean }[]
+      try {
+        entries = await fs.readdir(dir, { withFileTypes: true })
+      } catch {
+        return
+      }
+      for (const ent of entries) {
+        if (this.WALK_IGNORE.has(ent.name) || ent.name.startsWith('.')) continue
+        const full = path.join(dir, ent.name)
+        if (ent.isDirectory()) {
+          await walk(full, depth + 1)
+          if (matches.length >= MAX_RESULTS) return
+        } else if (ent.isFile()) {
+          const ext = path.extname(ent.name).toLowerCase()
+          if (!EXTENSOES.has(ext)) continue
+          const rel = path.relative(repoRoot, full).replace(/\\/g, '/').toLowerCase()
+          // Pontua: nome do arquivo casa = +3, pasta casa = +1
+          let score = 0
+          const nomeLower = ent.name.toLowerCase()
+          for (const t of termosLower) {
+            if (nomeLower.includes(t)) score += 3
+            else if (rel.includes(t)) score += 1
+          }
+          if (score > 0) matches.push({ path: rel, score })
+        }
+      }
+    }
+
+    for (const focal of DIRS_FOCAIS) {
+      const full = path.join(repoRoot, focal)
+      await walk(full, 0)
+      if (matches.length >= MAX_RESULTS) break
+    }
+
+    // Ordena por score desc + path asc (paths curtos primeiro como tiebreak)
+    matches.sort((a, b) => b.score - a.score || a.path.length - b.path.length)
+    return matches.slice(0, MAX_RESULTS).map(m => m.path)
+  }
+
+  /**
+   * Extrai palavras-chave do texto pra usar no `listarArquivosRelevantes`.
+   * Stopwords PT/EN comuns, remove pontuação, mantém palavras com >=4 chars.
+   */
+  private extrairTermos(textos: string[]): string[] {
+    const STOPWORDS = new Set([
+      'para', 'porque', 'pelo', 'pela', 'pelos', 'pelas', 'sobre', 'entre', 'como',
+      'esse', 'essa', 'esses', 'essas', 'este', 'esta', 'estes', 'estas', 'isso',
+      'aqui', 'então', 'apenas', 'também', 'mesmo', 'pode', 'precisa', 'deve',
+      'fazer', 'usar', 'ficar', 'haver', 'existe', 'estar', 'sendo',
+      'with', 'this', 'that', 'from', 'have', 'will', 'should', 'using',
+    ])
+    const set = new Set<string>()
+    for (const txt of textos) {
+      if (!txt) continue
+      const palavras = txt
+        .toLowerCase()
+        .replace(/<[^>]+>/g, ' ') // strip HTML
+        .replace(/[^\p{L}\p{N}_/.-]/gu, ' ') // mantém path-safe chars
+        .split(/\s+/)
+        .filter(p => p.length >= 4 && !STOPWORDS.has(p))
+      for (const p of palavras) set.add(p)
+    }
+    return Array.from(set).slice(0, 30) // limita pra evitar walk gigante
+  }
+
+  /**
    * Gera um prompt formatado pra colar no Claude Code CLI local.
    * Inclui contexto do ticket + plano + arquivos prováveis. O dev cola
    * o prompt e executa no próprio repo. NÃO consome crédito da API.
@@ -858,6 +948,250 @@ ${ticket.descricao.slice(0, 4000)}${bloocoMensagens}`
   }
 
   /**
+   * Versão streaming da execução — gera o mesmo conteúdo do `executarPlanoAutomatico`
+   * mas usa `client.messages.stream()` com extended thinking habilitado e
+   * emite eventos via callback. Permite UI mostrar pensamento em tempo real.
+   *
+   * Eventos emitidos:
+   *   { type: 'status', stage: 'preparando' | 'lendo_arquivos' | 'chamando_ia' | 'finalizando' }
+   *   { type: 'arquivos_resolvidos', total, naoEncontrados, candidatos }
+   *   { type: 'thinking_delta', text }            (chunks do pensamento)
+   *   { type: 'tool_input_delta', partial }       (chunks do JSON da tool)
+   *   { type: 'done', custoUsd, arquivosModificados, resultado }
+   *   { type: 'error', message }
+   */
+  async executarPlanoAutomaticoStream(
+    ticketId: string,
+    onEvent: (event: { type: string; [k: string]: unknown }) => void,
+  ): Promise<void> {
+    const client = this.getClient()
+    if (!client) {
+      onEvent({ type: 'error', message: 'ANTHROPIC_API_KEY não configurada' })
+      return
+    }
+
+    onEvent({ type: 'status', stage: 'preparando' })
+
+    const ticket = await prisma.helpdeskTicket.findUnique({
+      where: { id: ticketId },
+      select: {
+        id: true, numero: true, titulo: true, descricao: true,
+        aiPlano: true, aiPlanoMeta: true, aiPlanoStatus: true,
+      },
+    })
+    if (!ticket) { onEvent({ type: 'error', message: 'Ticket não encontrado' }); return }
+    if (!ticket.aiPlano) { onEvent({ type: 'error', message: 'Ticket sem plano' }); return }
+    if (ticket.aiPlanoStatus !== 'aprovado') {
+      onEvent({ type: 'error', message: `Plano não aprovado (status: ${ticket.aiPlanoStatus})` })
+      return
+    }
+
+    const meta = (ticket.aiPlanoMeta as { arquivosEnvolvidos?: string[]; riscos?: string; tempoEstimado?: string } | null) ?? {}
+    const arquivos = Array.isArray(meta.arquivosEnvolvidos) ? meta.arquivosEnvolvidos : []
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
+    const repoRoot = this.getRepoRoot()
+
+    onEvent({ type: 'status', stage: 'lendo_arquivos' })
+    const resolucao = await this.resolverPathsFuzzy(repoRoot, arquivos)
+
+    const arquivosCarregados: Array<{ path: string; conteudo: string }> = []
+    const arquivosNaoEncontrados: string[] = []
+    const arquivosResolvidosLog: Array<{ planejado: string; resolvido: string }> = []
+    const arquivosAmbiguos: Array<{ planejado: string; sugestoes: string[] }> = []
+
+    for (const r of resolucao) {
+      if (r.ambiguo) { arquivosAmbiguos.push({ planejado: r.planejado, sugestoes: r.sugestoes.slice(0, 5) }); continue }
+      if (!r.resolvido) { arquivosNaoEncontrados.push(r.planejado); continue }
+      try {
+        const full = path.resolve(repoRoot, r.resolvido)
+        const stat = await fs.stat(full)
+        if (stat.size > 200_000) { arquivosNaoEncontrados.push(`${r.resolvido} (>200KB)`); continue }
+        const content = await fs.readFile(full, 'utf8')
+        arquivosCarregados.push({ path: r.resolvido, conteudo: content })
+        if (r.resolvido !== r.planejado) arquivosResolvidosLog.push({ planejado: r.planejado, resolvido: r.resolvido })
+      } catch { arquivosNaoEncontrados.push(r.planejado) }
+    }
+
+    const descricaoTexto = (ticket.descricao ?? '').replace(/<[^>]+>/g, '').trim()
+    let pathsCandidatos: string[] = []
+    if (arquivosCarregados.length === 0) {
+      const termos = this.extrairTermos([ticket.titulo, ticket.aiPlano ?? '', descricaoTexto])
+      pathsCandidatos = await this.listarArquivosRelevantes(repoRoot, termos)
+      for (const candidato of pathsCandidatos.slice(0, 5)) {
+        try {
+          const full = path.resolve(repoRoot, candidato)
+          const stat = await fs.stat(full)
+          if (stat.size > 200_000) continue
+          const content = await fs.readFile(full, 'utf8')
+          arquivosCarregados.push({ path: candidato, conteudo: content })
+        } catch { /* skip */ }
+      }
+    }
+
+    onEvent({
+      type: 'arquivos_resolvidos',
+      arquivosCarregados: arquivosCarregados.map(a => a.path),
+      arquivosNaoEncontrados,
+      arquivosResolvidos: arquivosResolvidosLog,
+      arquivosAmbiguos,
+      pathsCandidatos,
+    })
+
+    const numeroFmt = `#HLP${String(ticket.numero).padStart(4, '0')}`
+    const resolucoesBlock = arquivosResolvidosLog.length > 0
+      ? `\n## Paths resolvidos automaticamente\n${arquivosResolvidosLog.map(r => `- ${r.planejado} → **${r.resolvido}**`).join('\n')}`
+      : ''
+    const ambiguosBlock = arquivosAmbiguos.length > 0
+      ? `\n## Paths ambíguos\n${arquivosAmbiguos.map(a => `- ${a.planejado}: ${a.sugestoes.join(', ')}`).join('\n')}`
+      : ''
+    const candidatosBlock = pathsCandidatos.length > 0
+      ? `\n## Paths candidatos do repo\n${pathsCandidatos.map(p => `- ${p}`).join('\n')}\n\nPode incluir esses em arquivos_modificados se fizer sentido.`
+      : ''
+
+    const systemPrompt = `Você é um agente que executa planos de resolução de tickets em código TypeScript no monorepo OneClick (Next.js 15 + NestJS + tRPC + Prisma).
+
+Receberá o plano aprovado e o conteúdo atual dos arquivos prováveis. Retorne via tool \`aplicar_plano\` os arquivos modificados.
+
+REGRAS:
+1. Modifique APENAS o que o plano descreve.
+2. Mantenha estilo, formatação, imports e convenções existentes.
+3. Se algum arquivo do plano não estiver no contexto, referencie em arquivos_a_revisar.
+4. Comentários em português, código em inglês.
+5. Se não conseguir/souber executar com segurança, retorne arquivos_modificados=[] e explique em raciocinio.
+6. NUNCA invente caminhos. Use só os paths fornecidos.`
+
+    const userContent = `# Ticket ${numeroFmt} — ${ticket.titulo}
+
+## Descrição
+${descricaoTexto || '(sem descrição)'}
+
+## Plano aprovado
+${ticket.aiPlano}
+${resolucoesBlock}${ambiguosBlock}${candidatosBlock}
+
+## Arquivos disponíveis (conteúdo atual)
+${arquivosCarregados.length === 0 ? '(nenhum arquivo carregado)' : ''}
+${arquivosCarregados.map(a => `\n### ${a.path}\n\n\`\`\`\n${a.conteudo}\n\`\`\``).join('\n')}
+
+${arquivosNaoEncontrados.length > 0 ? `\n## Arquivos sem match no repo\n${arquivosNaoEncontrados.map(a => `- ${a}`).join('\n')}` : ''}`
+
+    onEvent({ type: 'status', stage: 'chamando_ia' })
+    const start = Date.now()
+
+    let resultadoFinal: Record<string, unknown> = {}
+    let tokensIn = 0
+    let tokensOut = 0
+
+    try {
+      // Stream com extended thinking. Sonnet 4.6 suporta budget_tokens.
+      const stream = client.messages.stream({
+        model: this.MODEL,
+        max_tokens: 16000,
+        thinking: { type: 'enabled', budget_tokens: 8000 },
+        system: systemPrompt,
+        tools: [{
+          name: 'aplicar_plano',
+          description: 'Aplica o plano nos arquivos. Retorna as versões modificadas.',
+          input_schema: {
+            type: 'object',
+            properties: {
+              arquivos_modificados: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    path: { type: 'string' },
+                    conteudo: { type: 'string' },
+                    motivo: { type: 'string' },
+                  },
+                  required: ['path', 'conteudo', 'motivo'],
+                },
+              },
+              arquivos_a_revisar: { type: 'array', items: { type: 'string' } },
+              resumo: { type: 'string' },
+              raciocinio: { type: 'string' },
+            },
+            required: ['arquivos_modificados', 'resumo', 'raciocinio'],
+          },
+        }],
+        tool_choice: { type: 'tool', name: 'aplicar_plano' },
+        messages: [{ role: 'user', content: userContent }],
+      })
+
+      // Escuta eventos de stream
+      stream.on('streamEvent', (event) => {
+        // Eventos do tipo content_block_delta carregam thinking_delta ou input_json_delta
+        if (event.type === 'content_block_delta') {
+          const delta = event.delta as { type: string; thinking?: string; partial_json?: string }
+          if (delta.type === 'thinking_delta' && delta.thinking) {
+            onEvent({ type: 'thinking_delta', text: delta.thinking })
+          } else if (delta.type === 'input_json_delta' && delta.partial_json) {
+            onEvent({ type: 'tool_input_delta', partial: delta.partial_json })
+          }
+        }
+      })
+
+      const finalMessage = await stream.finalMessage()
+      tokensIn = finalMessage.usage.input_tokens
+      tokensOut = finalMessage.usage.output_tokens
+
+      const toolUse = finalMessage.content.find(c => c.type === 'tool_use')
+      if (!toolUse || toolUse.type !== 'tool_use') throw new Error('Resposta sem tool_use')
+      resultadoFinal = toolUse.input as Record<string, unknown>
+    } catch (e) {
+      onEvent({ type: 'error', message: (e as Error).message })
+      return
+    }
+
+    onEvent({ type: 'status', stage: 'finalizando' })
+    const duracaoMs = Date.now() - start
+    const custoUsd = (tokensIn / 1_000_000) * this.PRICE_INPUT_USD_PER_MTOK
+                   + (tokensOut / 1_000_000) * this.PRICE_OUTPUT_USD_PER_MTOK
+
+    const arquivosModResult = (resultadoFinal.arquivos_modificados as unknown[] | undefined) ?? []
+
+    await (prisma.helpdeskTicket.update as unknown as (a: unknown) => Promise<unknown>)({
+      where: { id: ticketId },
+      data: {
+        aiExecutionResult: {
+          arquivosModificados: arquivosModResult,
+          arquivosARevisar: resultadoFinal.arquivos_a_revisar ?? [],
+          resumo: resultadoFinal.resumo ?? '',
+          raciocinio: resultadoFinal.raciocinio ?? '',
+          duracaoMs,
+          tokensInput: tokensIn,
+          tokensOutput: tokensOut,
+        },
+        aiExecutionCustoUsd: custoUsd,
+        aiExecutionEm: new Date(),
+      },
+    })
+
+    await prisma.helpdeskAiDecision.create({
+      data: {
+        ticketId,
+        modelo: this.MODEL,
+        complexidade: 'execucao',
+        decisao: resultadoFinal as object,
+        tokensInput: tokensIn,
+        tokensOutput: tokensOut,
+        custoUsd,
+        duracaoMs,
+      },
+    })
+
+    onEvent({
+      type: 'done',
+      custoUsd,
+      duracaoMs,
+      tokensInput: tokensIn,
+      tokensOutput: tokensOut,
+      arquivosModificados: Array.isArray(arquivosModResult) ? arquivosModResult.length : 0,
+    })
+  }
+
+  /**
    * Executa o plano via Claude API: passa o plano + conteúdo dos arquivos
    * envolvidos, pede pro modelo retornar versões modificadas via tool_use.
    * Grava resultado em ticket.aiExecutionResult e o custo real em
@@ -926,6 +1260,25 @@ ${ticket.descricao.slice(0, 4000)}${bloocoMensagens}`
     const numeroFmt = `#HLP${String(ticket.numero).padStart(4, '0')}`
     const descricaoTexto = (ticket.descricao ?? '').replace(/<[^>]+>/g, '').trim()
 
+    // Quando o plano não trouxe arquivos válidos (vazio ou tudo falhou no
+    // fuzzy), tenta uma busca por palavras-chave do título+plano e oferece
+    // a lista de paths candidatos PRO modelo escolher onde mexer.
+    let pathsCandidatos: string[] = []
+    if (arquivosCarregados.length === 0) {
+      const termos = this.extrairTermos([ticket.titulo, ticket.aiPlano ?? '', descricaoTexto])
+      pathsCandidatos = await this.listarArquivosRelevantes(repoRoot, termos)
+      // Lê os top-5 paths candidatos como contexto inicial (custo controlado)
+      for (const candidato of pathsCandidatos.slice(0, 5)) {
+        try {
+          const full = path.resolve(repoRoot, candidato)
+          const stat = await fs.stat(full)
+          if (stat.size > 200_000) continue
+          const content = await fs.readFile(full, 'utf8')
+          arquivosCarregados.push({ path: candidato, conteudo: content })
+        } catch { /* skip */ }
+      }
+    }
+
     const systemPrompt = `Você é um agente que executa planos de resolução de tickets em código TypeScript no monorepo OneClick (Next.js 15 + NestJS + tRPC + Prisma).
 
 Receberá o plano aprovado pelo operador e o conteúdo atual dos arquivos prováveis envolvidos. Retorne via tool \`aplicar_plano\` os arquivos modificados.
@@ -945,6 +1298,13 @@ REGRAS:
     const ambiguosBlock = arquivosAmbiguos.length > 0
       ? `\n## Paths ambíguos (múltiplos matches — operador decide)\n${arquivosAmbiguos.map(a => `- ${a.planejado}: candidatos = ${a.sugestoes.join(', ')}`).join('\n')}\n\nInclua esses em \`arquivos_a_revisar\`.`
       : ''
+    // Bloco "candidatos": quando o plano não trouxe arquivos válidos, oferecemos
+    // a lista de paths reais do repo que casam com palavras do título+plano.
+    // A IA pode escolher esses arquivos no campo arquivos_modificados (paths
+    // são reais — não há risco de invenção).
+    const candidatosBlock = pathsCandidatos.length > 0
+      ? `\n## Paths candidatos do repo (busca por palavras-chave do plano)\nO plano original NÃO veio com arquivos prováveis. O sistema buscou no repo paths cujo nome/pasta casam com palavras do título+plano. Os 5 primeiros já estão carregados acima (## Arquivos disponíveis). Lista completa:\n${pathsCandidatos.map(p => `- ${p}`).join('\n')}\n\nVocê PODE incluir esses paths em arquivos_modificados (mas só se realmente fizer sentido alterá-los pelo plano).`
+      : ''
 
     const userContent = `# Ticket ${numeroFmt} — ${ticket.titulo}
 
@@ -953,7 +1313,7 @@ ${descricaoTexto || '(sem descrição)'}
 
 ## Plano aprovado
 ${ticket.aiPlano}
-${resolucoesBlock}${ambiguosBlock}
+${resolucoesBlock}${ambiguosBlock}${candidatosBlock}
 
 ## Arquivos disponíveis (conteúdo atual)
 ${arquivosCarregados.length === 0 ? '(nenhum arquivo carregado — gere apenas instruções textuais em raciocinio)' : ''}

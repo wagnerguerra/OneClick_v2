@@ -3,12 +3,14 @@ import { HelpdeskService } from './helpdesk.service'
 import { HelpdeskScheduler } from './helpdesk.scheduler'
 import { HelpdeskInboundController } from './helpdesk-inbound.controller'
 import { HelpdeskAiAgentService } from './helpdesk-ai-agent.service'
+import { HelpdeskAiStreamController } from './helpdesk-ai-stream.controller'
 import { NotificationModule } from '../notification/notification.module'
 import { EmailModule } from '../common/email.module'
+import { AuthModule } from '../auth/auth.module'
 
 @Module({
-  imports: [NotificationModule, EmailModule],
-  controllers: [HelpdeskInboundController],
+  imports: [NotificationModule, EmailModule, AuthModule],
+  controllers: [HelpdeskInboundController, HelpdeskAiStreamController],
   providers: [HelpdeskService, HelpdeskScheduler, HelpdeskAiAgentService],
   exports: [HelpdeskService, HelpdeskAiAgentService],
 })
