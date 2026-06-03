@@ -1064,11 +1064,23 @@ export default function OrcamentoDetailPage() {
   async function handleEnviar() {
     setEnviando(true)
     try {
+      // Destinatários são opcionais (#HLP0086): sem e-mail, só muda status pra
+      // ENVIADO sem disparar notificação. Permite que o usuário marque o orçamento
+      // como enviado por canal externo (WhatsApp, telefone) sem precisar de email.
       const destinatarios = enviarDestinatarios.split(/[,;]/).map(s => s.trim()).filter(Boolean)
-      if (destinatarios.length === 0) { alerts.warning('Atenção', 'Informe ao menos um destinatário'); setEnviando(false); return }
-      const result = await (trpc.orcamento as any).enviar.mutate({ id, destinatarios, mensagem: enviarMensagem.trim() || undefined })
+      const result = await (trpc.orcamento as any).enviar.mutate({
+        id,
+        destinatarios: destinatarios.length > 0 ? destinatarios : undefined,
+        mensagem: enviarMensagem.trim() || undefined,
+      })
       setEnviarModal(false)
-      await alerts.success('Enviado', `Orçamento enviado para ${result.destinatarios.length} destinatário(s)`)
+      const qtd = Array.isArray(result.destinatarios) ? result.destinatarios.length : 0
+      await alerts.success(
+        'Enviado',
+        qtd > 0
+          ? `Orçamento enviado para ${qtd} destinatário(s)`
+          : 'Orçamento marcado como enviado (sem e-mail disparado)',
+      )
       fetchOrc(true)
     } catch (e) {
       alerts.error('Erro', (e as Error).message)

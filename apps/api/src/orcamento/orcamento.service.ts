@@ -1315,20 +1315,25 @@ export class OrcamentoService {
 
     const config = await this.getConfig(orc.empresaId || undefined)
 
-    // Definir destinatarios: lista customizada ou email do cliente + comercial
+    // Definir destinatarios: lista customizada OU fallback (cliente + emailsContatos + comercial).
+    // Operador pode forçar "sem destinatário" passando destinatarios=[] explicitamente —
+    // nesse caso só muda status pra ENVIADO sem disparar e-mail (#HLP0086).
+    // Quando destinatarios=undefined, aplica o fallback como sempre.
+    const operadorForcouVazio = Array.isArray(opcoes.destinatarios) && opcoes.destinatarios.length === 0
     const emails = new Set<string>()
-    if (opcoes.destinatarios?.length) {
-      for (const e of opcoes.destinatarios) if (e.trim()) emails.add(e.trim())
-    } else {
-      if (cliente?.email) emails.add(cliente.email)
-      if (orc.emailsContatos) {
-        for (const e of orc.emailsContatos.split(/[,;]/).map(s => s.trim()).filter(Boolean)) emails.add(e)
-      }
-      if (config.emailComercial) {
-        for (const e of config.emailComercial.split(/[,;]/).map(s => s.trim()).filter(Boolean)) emails.add(e)
+    if (!operadorForcouVazio) {
+      if (opcoes.destinatarios?.length) {
+        for (const e of opcoes.destinatarios) if (e.trim()) emails.add(e.trim())
+      } else {
+        if (cliente?.email) emails.add(cliente.email)
+        if (orc.emailsContatos) {
+          for (const e of orc.emailsContatos.split(/[,;]/).map(s => s.trim()).filter(Boolean)) emails.add(e)
+        }
+        if (config.emailComercial) {
+          for (const e of config.emailComercial.split(/[,;]/).map(s => s.trim()).filter(Boolean)) emails.add(e)
+        }
       }
     }
-    if (emails.size === 0) throw new Error('Nenhum destinatario informado')
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const linkPublico = `${baseUrl}/orcamentos/publico/${orc.token}`
@@ -1357,18 +1362,25 @@ export class OrcamentoService {
       </body></html>
     `
 
-    await this.emailService.sendMail({
-      to: [...emails],
-      subject: `Proposta Comercial #${String(orc.numero).padStart(4, '0')} - ${empresaNome}`,
-      html,
-    })
+    // Dispara e-mail só se houver destinatário. Sem destinatário, segue o
+    // resto do fluxo (status + evento + return) sem chamar o emailService.
+    if (emails.size > 0) {
+      await this.emailService.sendMail({
+        to: [...emails],
+        subject: `Proposta Comercial #${String(orc.numero).padStart(4, '0')} - ${empresaNome}`,
+        html,
+      })
+    }
 
     // Atualizar status para ENVIADO se ainda nao estiver
     if (orc.status !== 'ENVIADO') {
       await prisma.orcamento.update({ where: { id }, data: { status: 'ENVIADO' } })
     }
 
-    await this.addEvento(id, userId, 'envio', null, null, `Orcamento enviado para: ${[...emails].join(', ')}`)
+    const descricaoEvento = emails.size > 0
+      ? `Orcamento enviado para: ${[...emails].join(', ')}`
+      : 'Orcamento marcado como enviado (sem e-mail disparado)'
+    await this.addEvento(id, userId, 'envio', null, null, descricaoEvento)
 
     return { ok: true, destinatarios: [...emails], linkPublico }
   }
