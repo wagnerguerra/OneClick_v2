@@ -502,7 +502,7 @@ export default function UsuariosPage() {
             ) : (
               data.data.map((user) => {
                 return (
-                <TableRow key={user.id} className="cursor-pointer" onClick={() => router.push(`/usuarios/${user.id}`)}>
+                <TableRow key={user.id} className="cursor-pointer" onClick={() => router.push(`/usuarios/${user.id}/editar`)}>
                   <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       checked={selected.has(user.id)}

@@ -375,6 +375,18 @@ export default function AgendaPage() {
   // Drag and drop
   const [draggingEventId, setDraggingEventId] = useState<string | null>(null)
   const [dropTargetDay, setDropTargetDay] = useState<string | null>(null)
+  // Detecta tema dark pra ajustar cores dos cards de evento (#HLP0059).
+  // Cores pastel claras do tipo do evento ficam destoantes no dark; usamos
+  // versão com alpha 30% (sobre fundo escuro fica integrada) + texto claro.
+  const [isDark, setIsDark] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const update = () => setIsDark(document.documentElement.classList.contains('dark'))
+    update()
+    const observer = new MutationObserver(update)
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
 
   // Modal de detalhes do dia
   const [dayModalOpen, setDayModalOpen] = useState(false)
@@ -1305,12 +1317,22 @@ export default function AgendaPage() {
                                   )}
                                   style={{
                                     // Eventos de meses adjacentes: bg apagado + sem borda lateral colorida
-                                    // (sinal visual de "fora do mês corrente"). Igual a `isPast`, mas
-                                    // sobrescreve a borda pra não destacar.
-                                    backgroundColor: !isCurrentMonth ? '#f3f4f6' : isPast ? '#e5e7eb' : ev.tipo.cor,
-                                    color: !isCurrentMonth ? '#9ca3af' : isPast ? '#6b7280' : ev.tipo.corTexto,
+                                    // (sinal visual de "fora do mês corrente").
+                                    // No dark mode, a `ev.tipo.cor` (pastel claro) destoaria sobre o
+                                    // fundo escuro — usamos alpha 30% pra integrar visualmente + texto
+                                    // claro fixo. Borda lateral mantém a saturação total.
+                                    backgroundColor: !isCurrentMonth
+                                      ? (isDark ? '#1e2028' : '#f3f4f6')
+                                      : isPast
+                                        ? (isDark ? '#252830' : '#e5e7eb')
+                                        : (isDark ? `${ev.tipo.cor}33` : ev.tipo.cor),
+                                    color: !isCurrentMonth
+                                      ? (isDark ? '#6b7280' : '#9ca3af')
+                                      : isPast
+                                        ? (isDark ? '#9ca3af' : '#6b7280')
+                                        : (isDark ? '#e5e7eb' : ev.tipo.corTexto),
                                     borderLeft: !isCurrentMonth ? 'none' : `3px solid ${ev.tipo.corBorda}`,
-                                    paddingLeft: !isCurrentMonth ? '11px' : undefined, // compensa o `border-left: 3px` ausente
+                                    paddingLeft: !isCurrentMonth ? '11px' : undefined,
                                   }}
                                   onClick={e => { e.stopPropagation(); openViewEvent(ev) }}
                                 >
@@ -1493,7 +1515,13 @@ export default function AgendaPage() {
                     {ev.local && ` · ${ev.local}`}
                   </p>
                 </div>
-                <span className="text-[10px] px-2 py-0.5 rounded-full shrink-0" style={{ backgroundColor: ev.tipo.cor, color: ev.tipo.corTexto }}>
+                <span
+                  className="text-[10px] px-2 py-0.5 rounded-full shrink-0"
+                  style={{
+                    backgroundColor: isDark ? `${ev.tipo.cor}33` : ev.tipo.cor,
+                    color: isDark ? '#e5e7eb' : ev.tipo.corTexto,
+                  }}
+                >
                   {ev.tipo.nome}
                 </span>
               </div>
@@ -1542,6 +1570,10 @@ export default function AgendaPage() {
             {modalMode === 'view' && selectedEvento && (() => {
               const ev = selectedEvento
               const corTipo = ev.tipo.cor || '#0ea5e9'
+              // corBorda é a cor mais saturada do tipo — mesma usada na borda
+              // lateral do evento no calendário. Pills/labels do detalhe usam
+              // essa cor pra consistência visual (pedido #HLP0046).
+              const corBorda = ev.tipo.corBorda || corTipo
               const dataIni = new Date(ev.data)
               const dataFim = ev.dataFim ? new Date(ev.dataFim) : null
               const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
@@ -1566,7 +1598,7 @@ export default function AgendaPage() {
                       >
                         <div
                           className="text-center py-1 text-[10px] font-bold uppercase tracking-wider text-white"
-                          style={{ backgroundColor: corTipo }}
+                          style={{ backgroundColor: corBorda }}
                         >
                           {meses[dataIni.getUTCMonth()]}
                         </div>
@@ -1583,7 +1615,7 @@ export default function AgendaPage() {
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span
                             className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: corTipo, color: '#fff' }}
+                            style={{ backgroundColor: corBorda, color: '#fff' }}
                           >
                             {ev.tipo.nome}
                           </span>
