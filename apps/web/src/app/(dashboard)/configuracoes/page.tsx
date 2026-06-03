@@ -17,6 +17,7 @@ import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { CalendarioSection } from './_components/calendario-section'
 import { GruposObrigacaoSection } from './_components/grupos-obrigacao-section'
 import { GoogleBackupSection } from './_components/google-backup-section'
+import { HelpdeskIaSection } from './_components/helpdesk-ia-section'
 
 interface ConfigField {
   key: string; label: string; group: string; type: string
@@ -207,6 +208,8 @@ export default function ConfiguracoesPage() {
   const [hdLoading, setHdLoading] = useState(false)
   const [hdSaving, setHdSaving] = useState(false)
   const [hdDirty, setHdDirty] = useState(false)
+  // Sub-aba dentro da pill Helpdesk: 'geral' (SLA/inbound) | 'ia' (triagem IA)
+  const [hdSubtab, setHdSubtab] = useState<'geral' | 'ia'>('geral')
 
   const loadHdCfg = async () => {
     setHdLoading(true)
@@ -1288,21 +1291,49 @@ export default function ConfiguracoesPage() {
               </div>
             ) : activeGroup === HELPDESK_GROUP ? (
               /* ============================================================ */
-              /* PILL ESPECIAL: HELPDESK — SLA, auto-fechamento, inbound      */
+              /* PILL ESPECIAL: HELPDESK — Geral (SLA/inbound) + Triagem IA   */
               /* ============================================================ */
               <div className="flex flex-col h-full">
                 <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
                   <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
                     <Headphones className="h-4 w-4 text-cyan-500" />
-                    HelpDesk — SLA, auto-fechamento e inbound
+                    HelpDesk
                   </h4>
-                  <Button variant="success" size="sm" onClick={handleSaveHd} disabled={hdSaving || !hdDirty || !hdCfg}>
-                    {hdSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    {hdSaving ? 'Salvando...' : 'Salvar'}
-                  </Button>
+                  {hdSubtab === 'geral' && (
+                    <Button variant="success" size="sm" onClick={handleSaveHd} disabled={hdSaving || !hdDirty || !hdCfg}>
+                      {hdSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      {hdSaving ? 'Salvando...' : 'Salvar'}
+                    </Button>
+                  )}
                 </div>
-                <div className="flex-1 p-5 space-y-5" style={{ animation: 'fadeSlideIn 0.2s ease-out' }}>
-                  {hdLoading || !hdCfg ? (
+                {/* Sub-abas */}
+                <div className="px-5 pt-3 flex items-center gap-1 border-b border-[rgba(0,0,0,0.06)]">
+                  <button
+                    type="button"
+                    onClick={() => setHdSubtab('geral')}
+                    className={cn(
+                      'px-3 py-1.5 text-[12px] font-semibold rounded-t-md transition-colors -mb-px border-b-2',
+                      hdSubtab === 'geral' ? 'text-cyan-600 border-cyan-500' : 'text-muted-foreground border-transparent hover:text-foreground',
+                    )}
+                  >
+                    Geral
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHdSubtab('ia')}
+                    className={cn(
+                      'px-3 py-1.5 text-[12px] font-semibold rounded-t-md transition-colors -mb-px border-b-2 inline-flex items-center gap-1.5',
+                      hdSubtab === 'ia' ? 'text-cyan-600 border-cyan-500' : 'text-muted-foreground border-transparent hover:text-foreground',
+                    )}
+                  >
+                    <Bot className="h-3.5 w-3.5" />
+                    Triagem IA
+                  </button>
+                </div>
+                <div className="flex-1 p-5 space-y-5" style={{ animation: 'fadeSlideIn 0.2s ease-out' }} key={hdSubtab}>
+                  {hdSubtab === 'ia' ? (
+                    <HelpdeskIaSection />
+                  ) : hdLoading || !hdCfg ? (
                     <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando configurações…
                     </div>
