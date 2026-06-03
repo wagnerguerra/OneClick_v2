@@ -291,6 +291,19 @@ REGRAS DURAS:
         categoria: { select: { id: true, nome: true } },
         solicitante: { select: { id: true, name: true } },
         _count: { select: { anexos: true } },
+        // Últimas N mensagens (ordem desc + take) — usado no modo forçado pra
+        // dar contexto adicional à IA quando o operador clica "Processar com IA"
+        // em ticket que já teve troca de mensagens.
+        mensagens: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+          select: {
+            interna: true,
+            conteudo: true,
+            createdAt: true,
+            autor: { select: { name: true } },
+          },
+        },
       },
     })
     if (!ticket) return
@@ -365,6 +378,23 @@ REGRAS DURAS:
     const start = Date.now()
     const systemPrompt = await this.buildSystemPrompt()
 
+    // Bloco de contexto adicional — últimas mensagens do ticket (até 10, mais
+    // antigas primeiro). Cada mensagem truncada em 500 chars sem HTML.
+    // Marca [NOTA INTERNA] vs [PÚBLICA] pra IA não confundir info de bastidor
+    // com mensagem dirigida ao solicitante. Vem vazio em tickets recém-criados.
+    const stripHtml = (s: string) => s.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+    const mensagensOrdenadas = [...ticket.mensagens].reverse() // cronológica
+    const bloocoMensagens = mensagensOrdenadas.length > 0
+      ? '\n\nÚltimas mensagens (' + mensagensOrdenadas.length + ', ordem cronológica):\n' +
+        mensagensOrdenadas.map(m => {
+          const tag = m.interna ? '[NOTA INTERNA]' : '[PÚBLICA]'
+          const autor = m.autor?.name ?? '(externo)'
+          const data = new Date(m.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+          const texto = stripHtml(m.conteudo).slice(0, 500)
+          return `${tag} ${data} · ${autor}: ${texto}`
+        }).join('\n')
+      : ''
+
     const userContent = `**Ticket #HLP${String(ticket.numero).padStart(4, '0')}**
 Tipo: ${ticket.tipo}
 Prioridade: ${ticket.prioridade}
@@ -376,7 +406,7 @@ Score calculado: ${score} (breakdown chars=${breakdown.chars}, anexos=${breakdow
 Título: ${ticket.titulo}
 
 Descrição:
-${ticket.descricao.slice(0, 4000)}`
+${ticket.descricao.slice(0, 4000)}${bloocoMensagens}`
 
     try {
       const resp = await client.messages.create({
