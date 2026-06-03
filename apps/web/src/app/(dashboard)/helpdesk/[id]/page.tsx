@@ -17,6 +17,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { MarkdownView } from '@/components/ui/markdown-view'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
@@ -642,10 +643,10 @@ export default function HelpdeskTicketDetailPage() {
                   )}
                 </div>
                 <CardContent className="p-4 space-y-3">
-                  {/* Plano em markdown leve — converte **bold**, *italico*, e quebras */}
-                  <div className="text-sm whitespace-pre-wrap leading-relaxed">
-                    {ticket.aiPlano}
-                  </div>
+                  {/* Plano armazenado em markdown (vai pra IA bruto) e
+                      renderizado pro operador como HTML formatado. */}
+                  <MarkdownView source={ticket.aiPlano} />
+
 
                   {/* Metadados em grid de 3 colunas */}
                   {ticket.aiPlanoMeta && (

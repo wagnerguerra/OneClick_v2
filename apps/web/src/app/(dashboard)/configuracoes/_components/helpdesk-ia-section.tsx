@@ -6,6 +6,7 @@ import { Button, Input, Label, Badge, cn } from '@saas/ui'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { MarkdownView } from '@/components/ui/markdown-view'
 
 interface Faixa { min: number; max: number | null; pontos: number }
 interface RegrasPeso {
@@ -660,7 +661,9 @@ function DecisaoLinha({ decisao: d, aberto, planoStatus, onToggle }: {
               {planoTexto && (
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Plano gerado</p>
-                  <pre className="text-[11px] whitespace-pre-wrap font-mono bg-card border border-border rounded p-2 max-h-[280px] overflow-auto">{planoTexto}</pre>
+                  <div className="bg-card border border-border rounded p-3 max-h-[320px] overflow-auto">
+                    <MarkdownView source={planoTexto} className="text-[12px]" />
+                  </div>
                 </div>
               )}
 

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import Anthropic from '@anthropic-ai/sdk'
+import { marked } from 'marked'
 import { prisma } from '@saas/db'
 
 /**
@@ -554,9 +555,12 @@ ${ticket.descricao.slice(0, 4000)}${bloocoMensagens}`
     }
 
     const aiUser = await this.ensureAiUser()
-    // Render do plano como mensagem pública — HTML cru (markdown leve do TipTap).
-    // Mantemos formatação preservando quebras de linha como <br>.
-    const html = `<p><strong>📋 Plano de resolução aprovado pelo operador:</strong></p><pre style="white-space:pre-wrap;font-family:inherit;background:#f8fafc;padding:12px;border-radius:6px;border-left:3px solid #8b5cf6">${ticket.aiPlano.replace(/</g, '&lt;')}</pre>`
+    // Render do plano como mensagem no ticket — converte o markdown da IA
+    // pra HTML que o TipTap consegue renderizar formatado (headings, listas,
+    // bold, code, etc). Mantemos o plano original em ticket.aiPlano (markdown)
+    // pra reprocessamento futuro / contexto da IA.
+    const planoHtml = marked.parse(ticket.aiPlano, { async: false, gfm: true, breaks: true }) as string
+    const html = `<p><strong>📋 Plano de resolução aprovado pelo operador:</strong></p><div style="background:#f8fafc;padding:12px;border-radius:6px;border-left:3px solid #8b5cf6">${planoHtml}</div>`
 
     await prisma.$transaction([
       prisma.helpdeskTicket.update({
