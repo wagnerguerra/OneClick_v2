@@ -7,7 +7,7 @@ import {
   AlertTriangle, CheckCircle2, XCircle, History, Layers, FileText, UserCog,
   Eye, Star, Save, Tag, Building2, Download, ExternalLink, Image as ImageIcon,
   FileVideo, FileAudio, File as FileIcon, FileSpreadsheet,
-  MoreVertical, Pencil, Trash2,
+  MoreVertical, Pencil, Trash2, Bot, ThumbsUp, ThumbsDown,
 } from 'lucide-react'
 import {
   Button, Card, CardContent, Badge, Label, cn, RichEditor,
@@ -59,6 +59,13 @@ interface Anexo {
   autor: { id: string; name: string } | null
 }
 
+interface AiPlanoMeta {
+  arquivosEnvolvidos?: string[]
+  riscos?: string
+  tempoEstimado?: string
+  raciocinio?: string
+}
+
 interface Ticket {
   id: string
   numero: number
@@ -82,6 +89,14 @@ interface Ticket {
   mensagens: Mensagem[]
   anexos: Anexo[]
   eventos: Evento[]
+  // Triagem IA (#HLP0083)
+  aiScore?: number | null
+  aiElegivel?: boolean | null
+  aiPlano?: string | null
+  aiPlanoMeta?: AiPlanoMeta | null
+  aiPlanoStatus?: 'pendente' | 'aprovado' | 'rejeitado' | null
+  aiPlanoAprovadoEm?: string | null
+  aiPlanoMotivoRejeicao?: string | null
 }
 
 // Mesmas cores semânticas do kanban (STATUS_COR em ../page.tsx)
@@ -140,6 +155,10 @@ export default function HelpdeskTicketDetailPage() {
   // Cancelar ticket — solicitante pode cancelar o próprio enquanto aberto
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelando, setCancelando] = useState(false)
+  // Aprovar/rejeitar plano da IA (#HLP0083)
+  const [processandoPlano, setProcessandoPlano] = useState(false)
+  const [rejeitarOpen, setRejeitarOpen] = useState(false)
+  const [rejeitarMotivo, setRejeitarMotivo] = useState('')
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -297,6 +316,44 @@ export default function HelpdeskTicketDetailPage() {
       await fetchData(true)
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
+    }
+  }
+
+  /** Aprovar plano gerado pela IA (#HLP0083). Status → EM_ANDAMENTO. */
+  async function handleAprovarPlano() {
+    const ok = await alerts.confirm({
+      title: 'Aprovar plano da IA?',
+      text: 'O plano será registrado no ticket como nota interna e o status mudará pra "Em andamento". Você executará o plano manualmente.',
+      confirmText: 'Aprovar',
+      icon: 'question',
+    })
+    if (!ok) return
+    setProcessandoPlano(true)
+    try {
+      await (trpc.helpdesk as any).aiAprovarPlano.mutate({ ticketId: id })
+      await fetchData(true)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setProcessandoPlano(false)
+    }
+  }
+
+  /** Rejeitar plano gerado pela IA (#HLP0083). Status → NOVO. */
+  async function handleRejeitarPlano() {
+    setProcessandoPlano(true)
+    try {
+      await (trpc.helpdesk as any).aiRejeitarPlano.mutate({
+        ticketId: id,
+        motivo: rejeitarMotivo.trim() || undefined,
+      })
+      setRejeitarOpen(false)
+      setRejeitarMotivo('')
+      await fetchData(true)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setProcessandoPlano(false)
     }
   }
 
@@ -490,6 +547,98 @@ export default function HelpdeskTicketDetailPage() {
                     {csatEnviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Star className="h-3.5 w-3.5" />}
                     Enviar avaliação
                   </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Plano da IA (#HLP0083) — aparece em qualquer status com plano gerado */}
+            {ticket.aiPlano && (
+              <Card
+                className={cn(
+                  'border-l-4 overflow-hidden',
+                  ticket.aiPlanoStatus === 'pendente'  && 'border-l-violet-500 bg-violet-50/30 dark:bg-violet-950/20',
+                  ticket.aiPlanoStatus === 'aprovado'  && 'border-l-emerald-500',
+                  ticket.aiPlanoStatus === 'rejeitado' && 'border-l-rose-500 opacity-80',
+                )}
+              >
+                <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-2">
+                  <Bot className="h-4 w-4 text-violet-600" />
+                  <h3 className="font-semibold text-sm">Plano de resolução — IA</h3>
+                  {ticket.aiPlanoStatus === 'pendente' && (
+                    <Badge variant="outline" className="ml-auto bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/30 dark:text-violet-300">
+                      Aguardando aprovação
+                    </Badge>
+                  )}
+                  {ticket.aiPlanoStatus === 'aprovado' && (
+                    <Badge variant="outline" className="ml-auto bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300">
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Aprovado
+                    </Badge>
+                  )}
+                  {ticket.aiPlanoStatus === 'rejeitado' && (
+                    <Badge variant="outline" className="ml-auto bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/30 dark:text-rose-300">
+                      <XCircle className="h-3 w-3 mr-1" /> Rejeitado
+                    </Badge>
+                  )}
+                </div>
+                <CardContent className="p-4 space-y-3">
+                  {/* Plano em markdown leve — converte **bold**, *italico*, e quebras */}
+                  <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                    {ticket.aiPlano}
+                  </div>
+
+                  {/* Metadados em grid de 3 colunas */}
+                  {ticket.aiPlanoMeta && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-border text-[11px]">
+                      <PlanoMeta
+                        label="Arquivos prováveis"
+                        value={Array.isArray(ticket.aiPlanoMeta.arquivosEnvolvidos) && ticket.aiPlanoMeta.arquivosEnvolvidos.length > 0
+                          ? ticket.aiPlanoMeta.arquivosEnvolvidos.join(' · ')
+                          : '—'}
+                        mono
+                      />
+                      <PlanoMeta label="Riscos" value={ticket.aiPlanoMeta.riscos || '—'} />
+                      <PlanoMeta label="Tempo estimado" value={ticket.aiPlanoMeta.tempoEstimado || '—'} />
+                    </div>
+                  )}
+
+                  {/* Raciocínio da IA (colapsável) */}
+                  {ticket.aiPlanoMeta?.raciocinio && (
+                    <details className="text-[11px] text-muted-foreground">
+                      <summary className="cursor-pointer hover:text-foreground">Por que esse plano (raciocínio da IA)</summary>
+                      <p className="mt-1 pl-2 border-l-2 border-border italic">{ticket.aiPlanoMeta.raciocinio}</p>
+                    </details>
+                  )}
+
+                  {/* Motivo de rejeição (se rejeitado) */}
+                  {ticket.aiPlanoStatus === 'rejeitado' && ticket.aiPlanoMotivoRejeicao && (
+                    <div className="text-[11px] text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/30 p-2 rounded">
+                      <strong>Motivo da rejeição:</strong> {ticket.aiPlanoMotivoRejeicao}
+                    </div>
+                  )}
+
+                  {/* Ações — só aparecem se plano está pendente */}
+                  {ticket.aiPlanoStatus === 'pendente' && (
+                    <div className="flex gap-2 justify-end pt-2 border-t border-border">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setRejeitarOpen(true)}
+                        disabled={processandoPlano}
+                        className="gap-1.5 border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                      >
+                        <ThumbsDown className="h-3.5 w-3.5" /> Rejeitar
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleAprovarPlano}
+                        disabled={processandoPlano}
+                        className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
+                      >
+                        {processandoPlano ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ThumbsUp className="h-3.5 w-3.5" />}
+                        Aprovar plano
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -910,6 +1059,54 @@ export default function HelpdeskTicketDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de rejeição do plano IA (#HLP0083) */}
+      <Dialog open={rejeitarOpen} onOpenChange={(o) => { if (!o) { setRejeitarOpen(false); setRejeitarMotivo('') } }}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeaderIcon icon={ThumbsDown} color="rose">
+            <DialogTitle>Rejeitar plano da IA</DialogTitle>
+            <DialogDescription>
+              O plano será marcado como rejeitado, o ticket volta pra coluna &quot;Novo&quot; e o motivo
+              fica registrado como nota interna. Motivo é opcional, mas ajuda a refinar futuras triagens.
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            <Label className="text-[13px] font-semibold">Motivo (opcional)</Label>
+            <textarea
+              value={rejeitarMotivo}
+              onChange={e => setRejeitarMotivo(e.target.value)}
+              rows={4}
+              placeholder="Ex.: plano não considera caso X, arquivo Y está obsoleto, abordagem perigosa..."
+              className="w-full text-sm rounded-md border border-input bg-background px-3 py-2 mt-1.5"
+              maxLength={500}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">{rejeitarMotivo.length}/500</p>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setRejeitarOpen(false); setRejeitarMotivo('') }} disabled={processandoPlano}>
+              Voltar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRejeitarPlano}
+              disabled={processandoPlano}
+              className="gap-1.5"
+            >
+              {processandoPlano ? <Loader2 className="h-4 w-4 animate-spin" /> : <ThumbsDown className="h-4 w-4" />}
+              Rejeitar plano
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+function PlanoMeta({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div>
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{label}</p>
+      <p className={cn('text-[11px] text-foreground/85 break-words', mono && 'font-mono')}>{value}</p>
     </div>
   )
 }

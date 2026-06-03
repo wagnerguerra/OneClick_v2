@@ -215,6 +215,21 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
         capUsdMensal: z.number().min(0).max(10000).optional(),
         minCharsDescricao: z.number().int().min(0).max(1000).optional(),
         maxCharsDescricao: z.number().int().min(100).max(100000).optional(),
+        scoreThreshold: z.number().int().min(0).max(500).optional(),
+        regrasPeso: z.object({
+          faixasChars: z.array(z.object({
+            min: z.number().int().min(0),
+            max: z.number().int().nullable(),
+            pontos: z.number().int().min(-100).max(100),
+          })),
+          faixasAnexos: z.array(z.object({
+            min: z.number().int().min(0),
+            max: z.number().int().nullable(),
+            pontos: z.number().int().min(-100).max(100),
+          })),
+          bonusCategoria: z.number().int().min(-100).max(100),
+          pesosTipo: z.record(z.string(), z.number().int().min(-100).max(100)),
+        }).nullable().optional(),
       }))
       .mutation(async ({ input, ctx }) => {
         // Master only — alterar parâmetros que afetam custo direto
@@ -224,5 +239,45 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
         }
         return aiAgent.updateConfig(input)
       }),
+
+    // ── Aprovação/rejeição de plano gerado pela IA (#HLP0083) ───
+    /** Operador aprova o plano. Status → EM_ANDAMENTO, plano vira nota interna. */
+    aiAprovarPlano: protectedProcedure
+      .input(z.object({ ticketId: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        await helpdeskService.assertCanAccess(ctx.userId!, input.ticketId)
+        return aiAgent.aprovarPlano(input.ticketId, ctx.userId!)
+      }),
+
+    /** Operador rejeita o plano. Status volta pra NOVO, motivo registrado. */
+    aiRejeitarPlano: protectedProcedure
+      .input(z.object({ ticketId: z.string(), motivo: z.string().max(500).optional() }))
+      .mutation(async ({ input, ctx }) => {
+        await helpdeskService.assertCanAccess(ctx.userId!, input.ticketId)
+        return aiAgent.rejeitarPlano(input.ticketId, ctx.userId!, input.motivo ?? '')
+      }),
+
+    // ── Logs/estatísticas de uso (#HLP0083) ─────────────────────
+    /** Agregado mensal pra gráfico — gasto USD + contagem por mês. */
+    aiEstatisticasMensais: protectedProcedure
+      .input(z.object({ meses: z.number().int().min(1).max(24).optional() }).optional())
+      .query(({ input }) => aiAgent.estatisticasMensais(input?.meses ?? 6)),
+
+    /** Histórico paginado de decisões — usado na tabela de logs. */
+    aiHistorico: protectedProcedure
+      .input(z.object({
+        page: z.number().int().min(1).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        complexidade: z.string().optional(),
+        inicio: z.string().optional(),
+        fim: z.string().optional(),
+      }).optional())
+      .query(({ input }) => aiAgent.historicoDecisoes({
+        page: input?.page,
+        limit: input?.limit,
+        complexidade: input?.complexidade,
+        inicio: input?.inicio ? new Date(input.inicio) : undefined,
+        fim: input?.fim ? new Date(input.fim) : undefined,
+      })),
   })
 }

@@ -4339,6 +4339,21 @@ model HelpdeskTicket {
   slaAlertadoEm  DateTime? @map("sla_alertado_em")
   slaEstouradoEm DateTime? @map("sla_estourado_em")
 
+  // Triagem IA (#HLP0083 — sistema de pesos + plano de resolução)
+  // aiScore     = soma dos pontos calculados pelo HelpdeskAiAgentService.calcularScore
+  // aiElegivel  = score atingiu o scoreThreshold da config (decisão local, sem API)
+  // aiPlano*    = plano gerado pela API do Claude (markdown + metadados estruturados)
+  // Status do plano: pendente | aprovado | rejeitado. Aprovado vira mensagem no ticket;
+  // rejeitado volta status pra NOVO e o operador trata manualmente.
+  aiScore                Int?      @map("ai_score")
+  aiElegivel             Boolean?  @map("ai_elegivel")
+  aiPlano                String?   @map("ai_plano") @db.Text
+  aiPlanoMeta            Json?     @map("ai_plano_meta")
+  aiPlanoStatus          String?   @map("ai_plano_status")
+  aiPlanoAprovadoPor     String?   @map("ai_plano_aprovado_por")
+  aiPlanoAprovadoEm      DateTime? @map("ai_plano_aprovado_em")
+  aiPlanoMotivoRejeicao  String?   @map("ai_plano_motivo_rejeicao") @db.Text
+
   arquivado Boolean  @default(false)
   ativo     Boolean  @default(true)
   empresaId String?  @map("empresa_id")
@@ -4450,6 +4465,18 @@ model HelpdeskAiConfig {
   /// Fora dessa faixa o ticket é pulado (provável lixo ou exige humano).
   minCharsDescricao Int @default(20) @map("min_chars_descricao")
   maxCharsDescricao Int @default(10000) @map("max_chars_descricao")
+  /// Score mínimo pra chamar a API. Tickets abaixo disso são marcados como
+  /// não-elegíveis e NÃO consomem crédito (#HLP0083).
+  scoreThreshold Int @default(30) @map("score_threshold")
+  /// JSON com faixas e pesos editáveis pelo master. Formato:
+  /// {
+  ///   "faixasChars":  [{min, max, pontos}],
+  ///   "faixasAnexos": [{min, max, pontos}],
+  ///   "bonusCategoria": number,
+  ///   "pesosTipo": { DUVIDA, INCIDENTE, REQUISICAO, MELHORIA }
+  /// }
+  /// null → o service aplica os defaults internos (ver DEFAULT_REGRAS_PESO).
+  regrasPeso   Json?    @map("regras_peso")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
