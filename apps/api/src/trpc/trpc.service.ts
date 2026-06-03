@@ -93,6 +93,7 @@ import { createChatRouter } from '../chat/chat.router'
 import { DashboardCalendarioService } from '../dashboard-calendario/dashboard-calendario.service'
 import { createDashboardCalendarioRouter } from '../dashboard-calendario/dashboard-calendario.router'
 import { HelpdeskService } from '../helpdesk/helpdesk.service'
+import { HelpdeskAiAgentService } from '../helpdesk/helpdesk-ai-agent.service'
 import { createHelpdeskRouter } from '../helpdesk/helpdesk.router'
 import { AcessoriasService } from '../acessorias/acessorias.service'
 import { createAcessoriasRouter } from '../acessorias/acessorias.router'
@@ -442,6 +443,7 @@ export class TrpcService {
     @Inject(DashboardLayoutEventsService) private readonly dashboardLayoutEventsService: DashboardLayoutEventsService,
     @Inject(DashboardCalendarioService) private readonly dashboardCalendarioService: DashboardCalendarioService,
     @Inject(HelpdeskService) private readonly helpdeskService: HelpdeskService,
+    @Inject(HelpdeskAiAgentService) private readonly helpdeskAiAgent: HelpdeskAiAgentService,
     @Inject(AcessoriasService) private readonly acessoriasService: AcessoriasService,
     @Inject(RecorrenciaScheduler) private readonly recorrenciaScheduler: RecorrenciaScheduler,
     @Inject(NotificacaoService) private readonly notificacaoServiceTrpc: NotificacaoService,
@@ -519,7 +521,7 @@ export class TrpcService {
       presence: createPresenceRouter(),
       chat: createChatRouter(this.chatService),
       dashboardCalendario: createDashboardCalendarioRouter(this.dashboardCalendarioService),
-      helpdesk: createHelpdeskRouter(this.helpdeskService),
+      helpdesk: createHelpdeskRouter(this.helpdeskService, this.helpdeskAiAgent),
       acessorias: createAcessoriasRouter(this.acessoriasService),
       notificacao: createNotificacaoRouter(this.recorrenciaScheduler, this.notificacaoServiceTrpc),
       obrigacao: createObrigacaoRouter(this.obrigacaoService),

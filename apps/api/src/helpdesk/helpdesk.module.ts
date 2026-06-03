@@ -10,6 +10,6 @@ import { EmailModule } from '../common/email.module'
   imports: [NotificationModule, EmailModule],
   controllers: [HelpdeskInboundController],
   providers: [HelpdeskService, HelpdeskScheduler, HelpdeskAiAgentService],
-  exports: [HelpdeskService],
+  exports: [HelpdeskService, HelpdeskAiAgentService],
 })
 export class HelpdeskModule {}

@@ -116,8 +116,54 @@ Use a tool \`responder_triagem\` pra estruturar sua resposta.`
   }
 
   /**
+   * Lê (ou cria com defaults) a configuração singleton da triagem IA.
+   * Exposta via tRPC pra o master ajustar em /configuracoes/helpdesk-ia.
+   */
+  async getConfig() {
+    const existing = await prisma.helpdeskAiConfig.findFirst()
+    if (existing) return existing
+    return prisma.helpdeskAiConfig.create({ data: {} })
+  }
+
+  /**
+   * Atualiza config — só master deve chamar (router valida).
+   */
+  async updateConfig(data: { enabled?: boolean; capUsdMensal?: number; minCharsDescricao?: number; maxCharsDescricao?: number }) {
+    const patch: { enabled?: boolean; capUsdMensal?: number; minCharsDescricao?: number; maxCharsDescricao?: number } = {}
+    if (typeof data.enabled === 'boolean') patch.enabled = data.enabled
+    if (typeof data.capUsdMensal === 'number') patch.capUsdMensal = Math.max(0, data.capUsdMensal)
+    if (typeof data.minCharsDescricao === 'number') patch.minCharsDescricao = Math.max(0, Math.round(data.minCharsDescricao))
+    if (typeof data.maxCharsDescricao === 'number') patch.maxCharsDescricao = Math.max(100, Math.round(data.maxCharsDescricao))
+    const existing = await prisma.helpdeskAiConfig.findFirst()
+    if (existing) {
+      return prisma.helpdeskAiConfig.update({ where: { id: existing.id }, data: patch })
+    }
+    return prisma.helpdeskAiConfig.create({ data: patch })
+  }
+
+  /**
+   * Soma o gasto em USD da triagem IA no mês corrente. Usado pra
+   * impor o cap mensal antes de fazer nova chamada.
+   */
+  async gastoUsdMesAtual(): Promise<number> {
+    const inicioMes = new Date()
+    inicioMes.setDate(1)
+    inicioMes.setHours(0, 0, 0, 0)
+    const agg = await prisma.helpdeskAiDecision.aggregate({
+      where: { createdAt: { gte: inicioMes } },
+      _sum: { custoUsd: true },
+    })
+    return Number(agg._sum.custoUsd ?? 0)
+  }
+
+  /**
    * Processa um ticket recém-criado. Idempotente: se já foi processado
    * (existe HelpdeskAiDecision pra ele), só loga e ignora.
+   *
+   * Defesas anti-gasto:
+   *  - Switch master (config.enabled=false)  → pula
+   *  - Validação prévia (chars, tipo=MELHORIA) → pula
+   *  - Cap mensal de USD                       → pula
    */
   async processarTicket(ticketId: string): Promise<void> {
     const client = this.getClient()
@@ -148,6 +194,35 @@ Use a tool \`responder_triagem\` pra estruturar sua resposta.`
     if (ticket.status !== 'NOVO') {
       console.log(`[HelpdeskAI] Ticket ${ticketId} já saiu de NOVO — pulando`)
       return
+    }
+
+    // ── Defesas ──
+    const config = await this.getConfig()
+    if (!config.enabled) {
+      console.log('[HelpdeskAI] Triagem desabilitada via config — pulando')
+      return
+    }
+    // Descrição pode vir com HTML (RichEditor) — mede só o texto puro.
+    const descricaoTexto = (ticket.descricao ?? '').replace(/<[^>]+>/g, '').trim()
+    if (descricaoTexto.length < config.minCharsDescricao) {
+      console.log(`[HelpdeskAI] Ticket ${ticketId}: descrição muito curta (${descricaoTexto.length} chars) — pulando`)
+      return
+    }
+    if (descricaoTexto.length > config.maxCharsDescricao) {
+      console.log(`[HelpdeskAI] Ticket ${ticketId}: descrição muito longa (${descricaoTexto.length} chars) — pulando`)
+      return
+    }
+    if (ticket.tipo === 'MELHORIA') {
+      console.log(`[HelpdeskAI] Ticket ${ticketId} é MELHORIA — pulando (humano avalia roadmap)`)
+      return
+    }
+    // Cap mensal — pula se já estourou
+    if (Number(config.capUsdMensal) > 0) {
+      const gastoMes = await this.gastoUsdMesAtual()
+      if (gastoMes >= Number(config.capUsdMensal)) {
+        console.warn(`[HelpdeskAI] Cap mensal atingido (USD ${gastoMes.toFixed(4)} / ${Number(config.capUsdMensal).toFixed(2)}) — triagem pausada até virar o mês`)
+        return
+      }
     }
 
     const start = Date.now()

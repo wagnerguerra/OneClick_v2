@@ -4437,6 +4437,25 @@ model HelpdeskEvento {
   @@map("helpdesk_eventos")
 }
 
+/// Configuração singleton da triagem IA do helpdesk. Editável apenas
+/// pelo master em /configuracoes/helpdesk-ia.
+model HelpdeskAiConfig {
+  id           String   @id @default(cuid())
+  /// Master pode desligar a triagem rapidamente sem mexer no .env.
+  enabled      Boolean  @default(true)
+  /// Limite mensal de gasto em USD. Quando o consumo do mês ultrapassa,
+  /// a triagem é pulada até o início do próximo mês. 0 = sem limite.
+  capUsdMensal Decimal  @default(10) @map("cap_usd_mensal") @db.Decimal(10, 2)
+  /// Limite mínimo/máximo de caracteres da descrição pra a IA processar.
+  /// Fora dessa faixa o ticket é pulado (provável lixo ou exige humano).
+  minCharsDescricao Int @default(20) @map("min_chars_descricao")
+  maxCharsDescricao Int @default(10000) @map("max_chars_descricao")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("helpdesk_ai_config")
+}
+
 /// Auditoria das decisões da IA (Anthropic Claude) sobre cada ticket.
 /// Grava input, decisão estruturada, custo e latência pra debugging e
 /// análise de qualidade. 1 ticket pode ter N decisões se for reprocessado.

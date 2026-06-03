@@ -7,10 +7,11 @@ import {
 } from '@saas/types'
 import { prisma } from '@saas/db'
 import { HelpdeskService } from './helpdesk.service'
+import { HelpdeskAiAgentService } from './helpdesk-ai-agent.service'
 
 const MODULE = 'helpdesk'
 
-export function createHelpdeskRouter(helpdeskService: HelpdeskService) {
+export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: HelpdeskAiAgentService) {
   return router({
     // ── Catálogo de categorias ─────────────────────────────────
     listCategorias: protectedProcedure
@@ -179,6 +180,32 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService) {
           throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas a TI pode alterar configurações' })
         }
         return helpdeskService.updateConfig(input)
+      }),
+
+    // ── Triagem IA (config + stats) ──────────────────────────────
+    aiConfigGet: protectedProcedure
+      .query(async () => {
+        const [config, gastoMes] = await Promise.all([
+          aiAgent.getConfig(),
+          aiAgent.gastoUsdMesAtual(),
+        ])
+        return { ...config, gastoUsdMesAtual: gastoMes }
+      }),
+
+    aiConfigUpdate: protectedProcedure
+      .input(z.object({
+        enabled: z.boolean().optional(),
+        capUsdMensal: z.number().min(0).max(10000).optional(),
+        minCharsDescricao: z.number().int().min(0).max(1000).optional(),
+        maxCharsDescricao: z.number().int().min(100).max(100000).optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        // Master only — alterar parâmetros que afetam custo direto
+        const u = await prisma.user.findUnique({ where: { id: ctx.userId! }, select: { isMaster: true } })
+        if (!u?.isMaster) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas o master pode alterar a configuração da IA.' })
+        }
+        return aiAgent.updateConfig(input)
       }),
   })
 }
