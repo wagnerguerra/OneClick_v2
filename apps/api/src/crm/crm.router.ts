@@ -29,6 +29,11 @@ export function createCrmRouter(crmService: CrmService, importComercialService?:
       .input(z.object({ cpfCnpj: z.string().optional(), razaoSocial: z.string().optional() }))
       .query(({ input }) => crmService.checkCliente(input.cpfCnpj, input.razaoSocial)),
 
+    // ── Auto-complete por CPF (busca em Cliente PF + Socio cadastrados) ──
+    lookupPorCpf: readProcedure(MODULE)
+      .input(z.object({ cpf: z.string() }))
+      .query(({ input }) => crmService.lookupPorCpf(input.cpf)),
+
     // ── Oportunidades ──────────────────────────────────────
     list: readProcedure(MODULE)
       .input(listOportunidadeSchema)

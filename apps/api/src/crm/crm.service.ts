@@ -204,6 +204,42 @@ export class CrmService {
   }
 
   // Verificar se cliente ja existe pelo CPF/CNPJ ou razao social
+  /**
+   * Auto-complete por CPF — busca em Cliente (CPFs cadastrados) e Socio
+   * (sócios cadastrados de qualquer cliente). Retorna nome/email/telefone
+   * pra preencher o modal de oportunidade. CPF é dado pessoal protegido pela
+   * LGPD; usamos só dados internos (não consulta APIs externas como Receita).
+   */
+  async lookupPorCpf(cpf: string): Promise<{ found: boolean; nome?: string; email?: string | null; telefone?: string | null }> {
+    const doc = (cpf || '').replace(/\D/g, '')
+    if (doc.length !== 11) return { found: false }
+
+    // 1. Cliente PF cadastrado
+    const cliente = await prisma.cliente.findFirst({
+      where: { documento: { contains: doc }, tipoDocumento: 'CPF' },
+      select: { razaoSocial: true, email: true, telefone: true },
+    })
+    if (cliente) {
+      return { found: true, nome: cliente.razaoSocial, email: cliente.email, telefone: cliente.telefone }
+    }
+
+    // 2. Sócio com esse CPF (mais provável — sócios são pessoas físicas)
+    const socio = await prisma.socio.findFirst({
+      where: { cpf: { contains: doc } },
+      select: { nomeCompleto: true, email: true, celular: true, telefone: true },
+    })
+    if (socio) {
+      return {
+        found: true,
+        nome: socio.nomeCompleto,
+        email: socio.email,
+        telefone: socio.celular || socio.telefone,
+      }
+    }
+
+    return { found: false }
+  }
+
   async checkCliente(cpfCnpj?: string | null, razaoSocial?: string | null): Promise<{ exists: boolean; cliente?: { id: string; razaoSocial: string; documento: string; situacao: string; isLead: boolean } }> {
     if (cpfCnpj) {
       const doc = cpfCnpj.replace(/\D/g, '')

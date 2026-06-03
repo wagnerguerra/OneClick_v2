@@ -150,37 +150,58 @@ export default function CrmPage() {
   const [buscandoCnpj, setBuscandoCnpj] = useState(false)
 
   /**
-   * Auto-completa dados ao digitar/colar um CNPJ válido (14 dígitos):
-   * razão social, e-mail, telefone e nome do contato (primeiro sócio admin
-   * ou titular do QSA). Disparado no onBlur do campo pra não bater na
-   * Receita a cada tecla. Cada campo só é preenchido se estiver vazio
-   * — não pisa em edição manual.
+   * Auto-completa dados ao digitar/colar um documento válido.
+   *  - CNPJ (14 dígitos): consulta Receita Federal via SERPRO/BrasilAPI →
+   *    razão, email, telefone e nome do contato (primeiro sócio admin do QSA).
+   *  - CPF (11 dígitos): busca interna em Cliente PF + Sócio cadastrado →
+   *    nome (como razão), email e telefone. Não consulta APIs externas
+   *    (CPF é dado pessoal protegido pela LGPD).
+   * Cada campo só é preenchido se estiver vazio — não pisa edição manual.
    */
   async function buscarCnpjAuto(raw: string) {
     const doc = raw.replace(/\D/g, '')
-    if (doc.length !== 14) return
+    if (doc.length !== 11 && doc.length !== 14) return
     setBuscandoCnpj(true)
     try {
-      const data = await (trpc.socio as any).consultarCnpj.query({ cnpj: doc }) as {
-        razaoSocial?: string
-        email?: string | null
-        telefone?: string | null
-        qsa?: Array<{ nome: string; qualificacao?: string; codigoQualificacao?: number }>
-      }
-      // Heurística pra "nome do contato": prioriza Administrador → Titular →
-      // primeiro do QSA disponível. Códigos SERPRO: 5/49 admin, 54/65 titular.
-      const contatoCodigosPrioritarios = [49, 5, 10, 16, 54, 65]
-      const contatoSocio = data.qsa?.find(s => s.codigoQualificacao && contatoCodigosPrioritarios.includes(s.codigoQualificacao))
-        ?? data.qsa?.find(s => /administ|titular|presidente|diretor/i.test(s.qualificacao ?? ''))
-        ?? data.qsa?.[0]
+      if (doc.length === 14) {
+        const data = await (trpc.socio as any).consultarCnpj.query({ cnpj: doc }) as {
+          razaoSocial?: string
+          email?: string | null
+          telefone?: string | null
+          qsa?: Array<{ nome: string; qualificacao?: string; codigoQualificacao?: number }>
+        }
+        // Heurística pra "nome do contato": prioriza Administrador → Titular →
+        // primeiro do QSA. Códigos SERPRO: 5/49 admin, 54/65 titular.
+        const contatoCodigosPrioritarios = [49, 5, 10, 16, 54, 65]
+        const contatoSocio = data.qsa?.find(s => s.codigoQualificacao && contatoCodigosPrioritarios.includes(s.codigoQualificacao))
+          ?? data.qsa?.find(s => /administ|titular|presidente|diretor/i.test(s.qualificacao ?? ''))
+          ?? data.qsa?.[0]
 
-      setForm(f => ({
-        ...f,
-        razaoSocial: f.razaoSocial.trim() || data.razaoSocial || f.razaoSocial,
-        contatoEmail: f.contatoEmail.trim() || (data.email ?? '') || f.contatoEmail,
-        contatoTelefone: f.contatoTelefone.trim() || (data.telefone ?? '') || f.contatoTelefone,
-        contatoNome: f.contatoNome.trim() || (contatoSocio?.nome ?? '') || f.contatoNome,
-      }))
+        setForm(f => ({
+          ...f,
+          razaoSocial: f.razaoSocial.trim() || data.razaoSocial || f.razaoSocial,
+          contatoEmail: f.contatoEmail.trim() || (data.email ?? '') || f.contatoEmail,
+          contatoTelefone: f.contatoTelefone.trim() || (data.telefone ?? '') || f.contatoTelefone,
+          contatoNome: f.contatoNome.trim() || (contatoSocio?.nome ?? '') || f.contatoNome,
+        }))
+      } else {
+        // CPF — busca interna em Cliente PF + Socio
+        const data = await (trpc.crm as any).lookupPorCpf.query({ cpf: doc }) as {
+          found: boolean
+          nome?: string
+          email?: string | null
+          telefone?: string | null
+        }
+        if (data?.found) {
+          setForm(f => ({
+            ...f,
+            razaoSocial: f.razaoSocial.trim() || (data.nome ?? '') || f.razaoSocial,
+            contatoNome: f.contatoNome.trim() || (data.nome ?? '') || f.contatoNome,
+            contatoEmail: f.contatoEmail.trim() || (data.email ?? '') || f.contatoEmail,
+            contatoTelefone: f.contatoTelefone.trim() || (data.telefone ?? '') || f.contatoTelefone,
+          }))
+        }
+      }
     } catch { /* silencioso — auto-complete não bloqueia o fluxo */ }
     finally { setBuscandoCnpj(false) }
   }
@@ -905,9 +926,10 @@ export default function CrmPage() {
                     onChange={e => setForm(f => ({ ...f, cpfCnpj: masks.cpfCnpj(e.target.value) }))}
                     onBlur={e => buscarCnpjAuto(e.target.value)}
                     onPaste={e => {
-                      // Busca direto se o user colar um CNPJ completo
-                      const pasted = e.clipboardData.getData('text')
-                      if (pasted.replace(/\D/g, '').length === 14) {
+                      // Busca direto se o user colar um documento completo (CPF=11, CNPJ=14)
+                      const len = e.clipboardData.getData('text').replace(/\D/g, '').length
+                      if (len === 11 || len === 14) {
+                        const pasted = e.clipboardData.getData('text')
                         setTimeout(() => buscarCnpjAuto(pasted), 0)
                       }
                     }}
