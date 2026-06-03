@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "2captcha-ts": "^2.4.1",
+    "@anthropic-ai/sdk": "^0.100.1",
     "@casl/ability": "^6.7.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",

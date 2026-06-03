@@ -40,6 +40,7 @@ interface TicketMeu {
 //  CONCLUIDO=emerald · CANCELADO=red)
 const STATUS_BADGE: Record<HelpdeskStatus, string> = {
   NOVO: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400',
+  AGUARDANDO_AUDITORIA: 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 text-cyan-700 dark:text-cyan-400',
   EM_ANDAMENTO: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400',
   RESOLVIDO: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-400',
   CONCLUIDO: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400',

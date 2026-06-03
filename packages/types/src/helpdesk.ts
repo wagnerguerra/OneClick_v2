@@ -4,6 +4,7 @@ import { z } from 'zod'
 export const HELPDESK_STATUS = [
   'NOVO',
   'EM_ANDAMENTO',
+  'AGUARDANDO_AUDITORIA',
   'RESOLVIDO',
   'CONCLUIDO',
   'CANCELADO',
@@ -20,6 +21,7 @@ export type HelpdeskTipo = (typeof HELPDESK_TIPO)[number]
 export const HELPDESK_STATUS_LABELS: Record<HelpdeskStatus, string> = {
   NOVO: 'Novo',
   EM_ANDAMENTO: 'Em andamento',
+  AGUARDANDO_AUDITORIA: 'Aguardando auditoria',
   RESOLVIDO: 'Pendente',
   CONCLUIDO: 'Concluído',
   CANCELADO: 'Cancelado',

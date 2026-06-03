@@ -134,6 +134,9 @@ model User {
   profile         UserProfile @default(OPERADOR)
   isMaster        Boolean     @default(false) @map("is_master")
   isEmpresaMaster Boolean     @default(false) @map("is_empresa_master")
+  /// Usuário-sistema da IA (assistente automático do helpdesk). Mensagens
+  /// criadas por esse user aparecem com badge especial na UI.
+  isAi            Boolean     @default(false) @map("is_ai")
   isActive        Boolean     @default(true) @map("is_active")
   tenantId        String?     @map("tenant_id")
   empresaId       String?     @map("empresa_id")
@@ -4243,7 +4246,8 @@ model ChatConfig {
 enum HelpdeskStatus {
   NOVO
   EM_ANDAMENTO
-  RESOLVIDO // técnico declarou; janela X dias pra confirmação/CSAT
+  AGUARDANDO_AUDITORIA // IA respondeu, aguarda revisão humana antes de fechar
+  RESOLVIDO // técnico declarou; janela X dias pra confirmação/CSAT (UI exibe como "Pendente")
   CONCLUIDO // CSAT preenchido ou auto-fechado
   CANCELADO
 }
@@ -4351,6 +4355,7 @@ model HelpdeskTicket {
   anexos      HelpdeskAnexo[]
   watchers    HelpdeskWatcher[]
   eventos     HelpdeskEvento[]
+  aiDecisions HelpdeskAiDecision[]
 
   @@index([empresaId, status, arquivado])
   @@index([responsavelId])
@@ -4430,6 +4435,37 @@ model HelpdeskEvento {
 
   @@index([ticketId])
   @@map("helpdesk_eventos")
+}
+
+/// Auditoria das decisões da IA (Anthropic Claude) sobre cada ticket.
+/// Grava input, decisão estruturada, custo e latência pra debugging e
+/// análise de qualidade. 1 ticket pode ter N decisões se for reprocessado.
+model HelpdeskAiDecision {
+  id           String   @id @default(cuid())
+  ticketId     String   @map("ticket_id")
+  modelo       String // ex.: claude-sonnet-4-6
+  /// 'simples' | 'complexo' | 'erro'
+  complexidade String
+  /// JSON com a resposta estruturada do modelo (categoria, prioridade,
+  /// resposta proposta, raciocínio, deve_responder_publicamente, etc.)
+  decisao      Json?
+  /// Trecho do FAQ usado como contexto (limita 8000 chars pra economizar)
+  contextoFaq  String?  @map("contexto_faq") @db.Text
+  /// Tokens de input/output e custo estimado em USD (sonnet ~$3/MTok in, $15/MTok out)
+  tokensInput  Int?     @map("tokens_input")
+  tokensOutput Int?     @map("tokens_output")
+  custoUsd     Decimal? @map("custo_usd") @db.Decimal(10, 6)
+  /// Latência total da chamada (ms)
+  duracaoMs    Int?     @map("duracao_ms")
+  /// Mensagem de erro (se complexidade='erro')
+  erro         String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  ticket HelpdeskTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([createdAt])
+  @@map("helpdesk_ai_decisions")
 }
 
 // ============================================================

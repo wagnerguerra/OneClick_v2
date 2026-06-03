@@ -50,6 +50,7 @@ interface Ticket {
 // Colunas do kanban — ordem visual horizontal
 const COLUNAS: HelpdeskStatus[] = [
   'NOVO',
+  'AGUARDANDO_AUDITORIA',
   'EM_ANDAMENTO',
   'RESOLVIDO',
   'CONCLUIDO',
@@ -64,11 +65,12 @@ const COLUNAS: HelpdeskStatus[] = [
 //   CONCLUIDO    → verde      (sucesso, fechado)
 //   CANCELADO    → vermelho   (anulado)
 const STATUS_COR: Record<HelpdeskStatus, string> = {
-  NOVO: '#3b82f6',         // blue-500
-  EM_ANDAMENTO: '#f59e0b', // amber-500
-  RESOLVIDO: '#a855f7',    // purple-500 (= 'Pendente' na UI)
-  CONCLUIDO: '#10b981',    // emerald-500
-  CANCELADO: '#ef4444',    // red-500
+  NOVO: '#3b82f6',                 // blue-500
+  AGUARDANDO_AUDITORIA: '#06b6d4', // cyan-500 (IA respondeu, aguarda revisão)
+  EM_ANDAMENTO: '#f59e0b',         // amber-500
+  RESOLVIDO: '#a855f7',            // purple-500 (= 'Pendente' na UI)
+  CONCLUIDO: '#10b981',            // emerald-500
+  CANCELADO: '#ef4444',            // red-500
 }
 
 export default function HelpdeskPage() {

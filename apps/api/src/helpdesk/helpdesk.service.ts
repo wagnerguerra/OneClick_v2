@@ -12,6 +12,7 @@ import {
 } from '@saas/types'
 import { NotificationService } from '../notification/notification.service'
 import { EmailService } from '../common/email.service'
+import { HelpdeskAiAgentService } from './helpdesk-ai-agent.service'
 
 @Injectable()
 export class HelpdeskService {
@@ -19,6 +20,7 @@ export class HelpdeskService {
     private readonly notificationService: NotificationService,
     // Guardado pra Fase 5 (envio de e-mail em resposta pública/atribuição)
     protected readonly emailService: EmailService,
+    private readonly aiAgent: HelpdeskAiAgentService,
   ) {}
 
   // ── Helpers ────────────────────────────────────────────────────
@@ -218,6 +220,13 @@ export class HelpdeskService {
     if (!notificouAgentes) {
       await this.notificarEmailFallback(ticket.id)
     }
+
+    // Triagem IA — fire-and-forget. Não bloqueia o create (retorno em <100ms).
+    // O agente classifica simples/complexo e atualiza o ticket de forma assíncrona;
+    // o frontend recebe via SSE/refetch quando entra na coluna "Aguardando auditoria".
+    void this.aiAgent.processarTicket(ticket.id).catch(e => {
+      console.error('[Helpdesk] Triagem IA falhou:', (e as Error).message)
+    })
 
     return ticket
   }
