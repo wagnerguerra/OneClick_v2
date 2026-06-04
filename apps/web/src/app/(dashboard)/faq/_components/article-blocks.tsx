@@ -112,7 +112,7 @@ export function CascadeRow({ ordem, titulo, cor = '#8b5cf6', children }: {
     <div className="flex items-start gap-2">
       <div
         className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-        style={{ backgroundColor: `${cor}20`, color: cor }}
+        style={{ backgroundColor: `color-mix(in srgb, ${cor} 12%, transparent)`, color: cor }}
       >
         {ordem}
       </div>

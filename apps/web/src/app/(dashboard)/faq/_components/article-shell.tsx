@@ -40,18 +40,16 @@ export function ArticleShell({ modulo, moduloColor, icon: Icon, titulo, descrica
       </div>
 
       {/* Header padrão */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${moduloColor}, ${moduloColor}dd)` }}
-          >
-            <Icon className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>{titulo}</h1>
-            <p className="text-sm text-muted-foreground">{descricao}</p>
-          </div>
+      <div className="flex items-center gap-4">
+        <div
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
+          style={{ background: `linear-gradient(135deg, ${moduloColor}, color-mix(in srgb, ${moduloColor} 87%, transparent))` }}
+        >
+          <Icon className="h-6 w-6" />
+        </div>
+        <div>
+          <h1>{titulo}</h1>
+          <p className="text-sm text-muted-foreground">{descricao}</p>
         </div>
       </div>
 
