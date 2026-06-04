@@ -220,7 +220,7 @@ export function TicketDetailSheet({ ticketId, onClose, onChange }: Props) {
                   href={`/helpdesk/${ticket.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex h-7 w-7 items-center justify-center rounded-md opacity-60 transition-all hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10"
+                  className="flex h-7 w-7 items-center justify-center rounded-md opacity-60 ring-offset-background transition-all hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                   title="Abrir em nova aba"
                   aria-label="Abrir em nova aba"
                 >
