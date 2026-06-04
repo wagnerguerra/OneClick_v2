@@ -409,14 +409,23 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
   }, [meuId, conversaAtiva?.id])
 
   function showBrowserNotification(ev: { conversaId: string; mensagem: Mensagem }) {
-    if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') return
-    // Acha conversa pra pegar nome
+    if (typeof window === 'undefined') return
     const conv = conversas.find(c => c.id === ev.conversaId)
     const autor = conv?.participantes.find(p => p.id === ev.mensagem.autorId)
     const titulo = conv?.isGrupo ? `${conv.nome} · ${autor?.name ?? 'Alguém'}` : (autor?.name ?? 'Nova mensagem')
+    const corpo = ev.mensagem.conteudo.slice(0, 100)
+    // Aplicativo desktop Electron: usa notificação nativa via IPC (melhor que
+    // a do browser, integra com Action Center do Windows). Detectada via
+    // window.chatDesktop (exposto pelo preload do app desktop).
+    const desktop = (window as unknown as { chatDesktop?: { notify: (p: { titulo: string; corpo: string }) => void } }).chatDesktop
+    if (desktop?.notify) {
+      try { desktop.notify({ titulo, corpo }) } catch { /* ignora */ }
+      return
+    }
+    if (!('Notification' in window) || Notification.permission !== 'granted') return
     try {
       const n = new Notification(titulo, {
-        body: ev.mensagem.conteudo.slice(0, 100),
+        body: corpo,
         icon: '/logo.png',
         tag: ev.conversaId,
       })
@@ -429,6 +438,15 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
       }
     } catch { /* navegador pode bloquear */ }
   }
+
+  // Espelha a contagem de não lidas pro main process do Electron (tooltip do tray)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const desktop = (window as unknown as { chatDesktop?: { setUnread: (n: number) => void } }).chatDesktop
+    if (desktop?.setUnread) {
+      try { desktop.setUnread(totalUnread) } catch { /* ignora */ }
+    }
+  }, [totalUnread])
 
   // ========== Trocar status ==========
   async function trocarStatus(novo: ChatStatus) {

@@ -1,0 +1,65 @@
+{
+  "name": "oneclick-chat-desktop",
+  "version": "0.1.0",
+  "description": "OneClick Chat — Aplicativo desktop do chat interno (tray + notificações)",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "build:dir": "electron-builder --win --dir",
+    "build:patch": "npm version patch --no-git-tag-version && npm run build"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.0"
+  },
+  "build": {
+    "appId": "com.oneclick.chat.desktop",
+    "productName": "OneClick Chat",
+    "copyright": "Copyright © 2026 OneClick",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "assets/**/*"
+    ],
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://app.oneclick.central-rnc.com.br/api/chat-desktop-updates",
+        "channel": "latest"
+      }
+    ],
+    "protocols": [
+      {
+        "name": "OneClick Chat",
+        "schemes": ["oneclick-chat"]
+      }
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "signAndEditExecutable": false,
+      "artifactName": "OneClick-Chat-Setup-${version}.${ext}"
+    },
+    "forceCodeSigning": false,
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OneClick Chat",
+      "deleteAppDataOnUninstall": false,
+      "differentialPackage": true
+    },
+    "asar": true
+  }
+}
