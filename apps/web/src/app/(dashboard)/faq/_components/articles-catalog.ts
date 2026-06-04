@@ -5,6 +5,7 @@ import {
   Star, Calendar, Users, Building2, LayoutGrid, FileSpreadsheet, Layers,
   Truck, Factory, Cpu, Store, Briefcase, HardHat, Radio, GraduationCap,
   Headphones, Receipt, CalendarDays, ClipboardCheck, Database, FolderKanban,
+  FileSignature,
 } from 'lucide-react'
 
 export type FaqCategoria = 'Comercial' | 'Fiscal' | 'Operacional' | 'Cadastros e estrutura' | 'Trabalhista' | 'Templates por Segmento'
@@ -27,6 +28,17 @@ export interface FaqArtigo {
 //   2. Acrescente entrada aqui com disponivel: true
 export const FAQ_ARTIGOS: FaqArtigo[] = [
   // ─── Comercial ───────────────────────────────────────────────
+  {
+    slug: 'orcamentos',
+    titulo: 'Orçamentos: do NOVO ao FINALIZADO',
+    descricao: 'Fluxo completo da proposta comercial — criação, itens, envio ao cliente, aprovação pública, execução automática e fechamento com pesquisa NPS.',
+    modulo: 'Orçamentos',
+    moduloColor: '#fb7185',
+    icon: FileSignature,
+    categoria: 'Comercial',
+    disponivel: true,
+    tags: ['orçamento', 'proposta', 'fsm', 'aprovação', 'link público', 'kanban', 'envio', 'pesquisa nps', 'reabrir', 'paralisar'],
+  },
   {
     slug: 'processos',
     titulo: 'Fluxo de Processos: do orçamento à conclusão',
