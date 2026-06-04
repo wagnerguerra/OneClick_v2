@@ -26,6 +26,7 @@ import {
   type HelpdeskStatus, type HelpdeskPrioridade,
 } from '@saas/types'
 import { NovoTicketModal } from './_components/novo-ticket-modal'
+import { TicketDetailSheet } from './_components/ticket-detail-sheet'
 
 const MODULO_COLOR = 'var(--mod-ti, #22d3ee)'
 
@@ -101,6 +102,8 @@ export default function HelpdeskPage() {
     return (window.localStorage.getItem('helpdesk:viewMode') as 'kanban' | 'lista') || 'kanban'
   })
   const [novoOpen, setNovoOpen] = useState(false)
+  // Ticket aberto no sheet de detalhe (click esquerdo no card do kanban)
+  const [openTicketId, setOpenTicketId] = useState<string | null>(null)
 
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem('helpdesk:viewMode', viewMode)
@@ -424,7 +427,8 @@ export default function HelpdeskPage() {
                   status={status}
                   cor={STATUS_COR[status]}
                   tickets={porStatus.get(status) ?? []}
-                  onCardClick={(id) => router.push(`/helpdesk/${id}`)}
+                  onCardClick={(id) => setOpenTicketId(id)}
+                  onCardAuxClick={(id) => window.open(`/helpdesk/${id}`, '_blank', 'noopener,noreferrer')}
                   podeArquivarLote={!!podeAtuar && (status === 'CANCELADO' || status === 'CONCLUIDO')}
                   onArchiveAll={async () => {
                     const labelStatus = HELPDESK_STATUS_LABELS[status]
@@ -485,6 +489,15 @@ export default function HelpdeskPage() {
           if (podeAtuar) router.push(`/helpdesk/${id}`)
         }}
       />
+
+      {/* Sheet de detalhe — abre por click esquerdo no card. Mantém o
+          kanban visível por baixo. Botão do meio abre o detalhe completo
+          em nova aba via SortableCard.onAuxClick. */}
+      <TicketDetailSheet
+        ticketId={openTicketId}
+        onClose={() => setOpenTicketId(null)}
+        onChange={fetchData}
+      />
     </div>
   )
 }
@@ -492,11 +505,12 @@ export default function HelpdeskPage() {
 // ─────────────────────────────────────────────────────────────────
 // Coluna Kanban (droppable, contém SortableContext com cards)
 // ─────────────────────────────────────────────────────────────────
-function KanbanColumn({ status, cor, tickets, onCardClick, podeArquivarLote, onArchiveAll }: {
+function KanbanColumn({ status, cor, tickets, onCardClick, onCardAuxClick, podeArquivarLote, onArchiveAll }: {
   status: HelpdeskStatus
   cor: string
   tickets: Ticket[]
   onCardClick: (id: string) => void
+  onCardAuxClick?: (id: string) => void
   podeArquivarLote?: boolean
   onArchiveAll?: () => void
 }) {
@@ -543,7 +557,13 @@ function KanbanColumn({ status, cor, tickets, onCardClick, podeArquivarLote, onA
           {tickets.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-6 italic">Vazio</p>
           ) : tickets.map(t => (
-            <SortableCard key={t.id} ticket={t} cor={cor} onClick={() => onCardClick(t.id)} />
+            <SortableCard
+              key={t.id}
+              ticket={t}
+              cor={cor}
+              onClick={() => onCardClick(t.id)}
+              onAuxClick={onCardAuxClick ? () => onCardAuxClick(t.id) : undefined}
+            />
           ))}
         </SortableContext>
       </div>
@@ -551,7 +571,7 @@ function KanbanColumn({ status, cor, tickets, onCardClick, podeArquivarLote, onA
   )
 }
 
-function SortableCard({ ticket, cor, onClick }: { ticket: Ticket; cor: string; onClick: () => void }) {
+function SortableCard({ ticket, cor, onClick, onAuxClick }: { ticket: Ticket; cor: string; onClick: () => void; onAuxClick?: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: ticket.id })
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -559,7 +579,18 @@ function SortableCard({ ticket, cor, onClick }: { ticket: Ticket; cor: string; o
     opacity: isDragging ? 0.3 : 1,
   }
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={onClick}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      onClick={onClick}
+      // Botão do meio (scroll wheel) → abre o ticket em nova aba do navegador.
+      // onAuxClick dispara pra qualquer botão não-primário; filtro por button===1.
+      onAuxClick={onAuxClick ? (e) => { if (e.button === 1) { e.preventDefault(); onAuxClick() } } : undefined}
+      // Previne o autoscroll do botão do meio (cursor de scroll) no Chromium/Firefox
+      onMouseDown={onAuxClick ? (e) => { if (e.button === 1) e.preventDefault() } : undefined}
+    >
       <KanbanCard ticket={ticket} cor={cor} />
     </div>
   )
