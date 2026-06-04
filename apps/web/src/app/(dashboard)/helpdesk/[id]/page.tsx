@@ -229,6 +229,13 @@ export default function HelpdeskTicketDetailPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  // Título da aba do navegador reflete o ticket carregado pra facilitar identificação
+  // quando há várias abas abertas. usePageMeta no layout seta "HelpDesk · OneClick"
+  // ao entrar na rota; este effect sobrescreve assim que o ticket carrega.
+  useEffect(() => {
+    if (ticket?.titulo) document.title = `HelpDesk - ${ticket.titulo}`
+  }, [ticket?.titulo])
+
   // Auto-seleciona o primeiro anexo quando carrega ou quando o anexo selecionado
   // não existe mais (foi removido). Garante que o painel de preview nunca fica vazio
   // se há pelo menos 1 anexo.
