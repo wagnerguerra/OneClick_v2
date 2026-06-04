@@ -483,7 +483,7 @@ export class HelpdeskService {
       select: {
         status: true, responsavelId: true, prioridade: true, categoriaId: true,
         areaId: true, prazoSla: true, pausadoEm: true, totalPausadoMs: true,
-        primeiroAtendimentoEm: true,
+        primeiroAtendimentoEm: true, solicitanteId: true, titulo: true, descricao: true,
       },
     })
     if (!before) throw new Error('Ticket não encontrado')
@@ -491,8 +491,26 @@ export class HelpdeskService {
     const patch: any = {}
     const eventos: Array<{ tipo: string; descricao: string; metadata?: Record<string, unknown> }> = []
 
-    if (data.titulo !== undefined) patch.titulo = data.titulo
-    if (data.descricao !== undefined) patch.descricao = data.descricao
+    // Edição de título/descrição: só o solicitante (criador) pode alterar, e
+    // apenas se o ticket não estiver CANCELADO. Auditoria fica via evento.
+    const querMudarTitulo = data.titulo !== undefined && data.titulo !== before.titulo
+    const querMudarDescricao = data.descricao !== undefined && data.descricao !== before.descricao
+    if (querMudarTitulo || querMudarDescricao) {
+      if (before.solicitanteId !== userId) {
+        throw new Error('Só o criador do ticket pode editar o título ou a descrição')
+      }
+      if (before.status === 'CANCELADO') {
+        throw new Error('Ticket cancelado — edição não permitida')
+      }
+      if (querMudarTitulo) {
+        patch.titulo = data.titulo
+        eventos.push({ tipo: 'titulo_editado', descricao: 'Título editado pelo solicitante' })
+      }
+      if (querMudarDescricao) {
+        patch.descricao = data.descricao
+        eventos.push({ tipo: 'descricao_editada', descricao: 'Descrição inicial editada pelo solicitante' })
+      }
+    }
     if (data.tipo !== undefined) patch.tipo = data.tipo
     if (data.tags !== undefined) patch.tags = data.tags
     if (data.arquivado !== undefined) {

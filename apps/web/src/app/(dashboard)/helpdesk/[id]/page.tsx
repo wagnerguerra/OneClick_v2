@@ -11,7 +11,7 @@ import {
   Terminal, Copy, Zap, FileCheck,
 } from 'lucide-react'
 import {
-  Button, Card, CardContent, Badge, Label, cn, RichEditor,
+  Button, Card, CardContent, Badge, Label, cn, RichEditor, Input,
   Tabs, TabsTrigger, TabsContent, SlidingTabsList,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
@@ -137,11 +137,16 @@ export default function HelpdeskTicketDetailPage() {
   const [interna, setInterna] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [msgAnexos, setMsgAnexos] = useState<AnexoStaged[]>([])
-  // Edição de mensagem (#HLP0067): janela de 30min após enviar
+  // Edição de mensagem — autor pode editar enquanto ticket não estiver CANCELADO
   const [editingMsg, setEditingMsg] = useState<Mensagem | null>(null)
   const [editingConteudo, setEditingConteudo] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
   const [anexoSelecionadoId, setAnexoSelecionadoId] = useState<string | null>(null)
+  // Edição da descrição inicial (título + corpo) — só o solicitante
+  const [editingDescricao, setEditingDescricao] = useState(false)
+  const [editTitulo, setEditTitulo] = useState('')
+  const [editDescricaoConteudo, setEditDescricaoConteudo] = useState('')
+  const [savingDescricao, setSavingDescricao] = useState(false)
 
   // Sidebar — edição inline
   const [savingField, setSavingField] = useState<string | null>(null)
@@ -349,6 +354,42 @@ export default function HelpdeskTicketDetailPage() {
       alerts.error('Erro', (e as Error).message)
     } finally {
       setSavingEdit(false)
+    }
+  }
+
+  /** Abre o modal de edição da descrição inicial — pré-popula com valores atuais. */
+  function abrirEditDescricao() {
+    if (!ticket) return
+    setEditTitulo(ticket.titulo)
+    setEditDescricaoConteudo(ticket.descricao || '')
+    setEditingDescricao(true)
+  }
+
+  /** Salva a edição do título/descrição (só solicitante, ticket≠CANCELADO). */
+  async function salvarEdicaoDescricao() {
+    if (!ticket) return
+    const tituloLimpo = editTitulo.trim()
+    const descricaoLimpo = editDescricaoConteudo.replace(/<[^>]+>/g, '').trim()
+    if (!tituloLimpo) {
+      alerts.error('Vazio', 'O título não pode ficar vazio.')
+      return
+    }
+    if (!descricaoLimpo) {
+      alerts.error('Vazio', 'A descrição não pode ficar vazia.')
+      return
+    }
+    setSavingDescricao(true)
+    try {
+      await (trpc.helpdesk as any).update.mutate({
+        id: ticket.id,
+        data: { titulo: tituloLimpo, descricao: editDescricaoConteudo },
+      })
+      setEditingDescricao(false)
+      await fetchData(true)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setSavingDescricao(false)
     }
   }
 
@@ -947,6 +988,16 @@ export default function HelpdeskTicketDetailPage() {
                       <span>{new Date(ticket.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                     </p>
                   </div>
+                  {!!currentUserId && ticket.solicitante?.id === currentUserId && ticket.status !== 'CANCELADO' && (
+                    <button
+                      type="button"
+                      onClick={abrirEditDescricao}
+                      className="shrink-0 p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      title="Editar título e descrição"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
                 {/* Conteúdo da descrição */}
                 <CardContent className="px-5 py-4">
@@ -1306,8 +1357,8 @@ export default function HelpdeskTicketDetailPage() {
           <DialogHeaderIcon icon={Pencil} color="sky">
             <DialogTitle>Editar mensagem</DialogTitle>
             <DialogDescription>
-              Você tem 30 minutos a partir do envio para editar. Após salvar, a
-              mensagem fica marcada como "(editada)".
+              Após salvar, a mensagem fica marcada como &quot;(editada)&quot; e o evento é
+              registrado na timeline do ticket.
             </DialogDescription>
           </DialogHeaderIcon>
           <DialogBody>
@@ -1328,6 +1379,52 @@ export default function HelpdeskTicketDetailPage() {
               className="gap-1.5 bg-sky-500 hover:bg-sky-600 text-white"
             >
               {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edição da descrição inicial — só pro solicitante, ticket≠CANCELADO */}
+      <Dialog open={editingDescricao} onOpenChange={(o) => { if (!o) setEditingDescricao(false) }}>
+        <DialogContent className="sm:max-w-[720px]">
+          <DialogHeaderIcon icon={Pencil} color="sky">
+            <DialogTitle>Editar título e descrição</DialogTitle>
+            <DialogDescription>
+              Ajuste o título ou o corpo inicial do ticket. A alteração fica
+              registrada na timeline.
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-foreground">Título</label>
+              <Input
+                value={editTitulo}
+                onChange={(e) => setEditTitulo(e.target.value)}
+                placeholder="Resumo curto do problema"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-foreground">Descrição</label>
+              <RichEditor
+                value={editDescricaoConteudo}
+                onChange={(html) => setEditDescricaoConteudo(html)}
+                placeholder="Detalhes do problema, contexto e o que você já tentou"
+                className="min-h-[180px]"
+              />
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingDescricao(false)} disabled={savingDescricao}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={salvarEdicaoDescricao}
+              disabled={savingDescricao || !editTitulo.trim() || !editDescricaoConteudo.replace(/<[^>]+>/g, '').trim()}
+              className="gap-1.5 bg-sky-500 hover:bg-sky-600 text-white"
+            >
+              {savingDescricao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
             </Button>
           </DialogFooter>
