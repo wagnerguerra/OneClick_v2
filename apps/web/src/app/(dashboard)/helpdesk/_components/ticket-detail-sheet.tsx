@@ -146,7 +146,7 @@ export function TicketDetailSheet({ ticketId, onClose, onChange }: Props) {
 
   return (
     <Sheet open={!!ticketId} onOpenChange={(o) => { if (!o) onClose() }}>
-      <SheetContent side="right" size="xl" className="w-[75vw] max-w-[1100px]">
+      <SheetContent side="right" size="xl" className="w-[75vw] max-w-[1100px] dark:bg-[#242528]">
         {loading || !ticket ? (
           <div className="flex items-center justify-center flex-1 py-16">
             <SheetTitle className="sr-only">Carregando ticket</SheetTitle>
