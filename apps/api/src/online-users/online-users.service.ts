@@ -59,24 +59,23 @@ export class OnlineUsersService {
   }
 
   /**
-   * Lista usuários considerados "ativos" — atividade nos últimos WINDOW_MIN
-   * minutos OU com chatStatus manual definido (exceto 'invisible' que esconde
-   * mesmo se ativo). Para o chat, isso é "lista de pessoas com quem posso falar".
+   * Lista usuários considerados "ativos" — exige atividade nos últimos
+   * WINDOW_MIN minutos. O chatStatus manual apenas DECORA (ausente/dnd/online)
+   * ou ESCONDE (invisible) — nunca substitui a checagem de atividade.
+   *
+   * Histórico: a regra anterior tratava chatStatus manual como override do
+   * lastActivityAt, então quem clicava "Online" e fechava o browser via crash/
+   * sleep/kill (cenários em que beforeunload não dispara) ficava eternamente
+   * online porque o chatStatus persistia no banco sem ninguém limpar.
    */
   async getOnline() {
     const cutoff = new Date(Date.now() - this.WINDOW_MIN * 60_000)
     const users = await prisma.user.findMany({
       where: {
         isActive: true,
-        // Inclui se: ativo recentemente OU declarou status manual não-invisible.
-        // Invisible: sempre exclui (parece offline pros outros).
-        AND: [
-          { OR: [
-            { lastActivityAt: { gte: cutoff } },
-            { chatStatus: { in: ['online', 'ausente', 'dnd'] } },
-          ] },
-          { NOT: { chatStatus: 'invisible' } },
-        ],
+        lastActivityAt: { gte: cutoff },
+        // 'invisible' = aparece como offline pros outros, mesmo ativo
+        NOT: { chatStatus: 'invisible' },
       },
       select: {
         id: true,
