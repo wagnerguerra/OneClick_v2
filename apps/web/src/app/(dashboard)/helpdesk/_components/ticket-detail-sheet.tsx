@@ -21,7 +21,7 @@ import { useEffect, useState, type ComponentType } from 'react'
 import {
   Loader2, ExternalLink, MessageSquare, Lock, Send, Paperclip, AlignLeft,
   CircleDot, AlertTriangle, Tag, Clock, Users, Calendar, Building2,
-  FileText, Activity,
+  FileText, Activity, Ticket,
 } from 'lucide-react'
 import {
   Sheet, SheetContent, SheetHeader, SheetBody, SheetTitle, SheetDescription,
@@ -213,9 +213,12 @@ export function TicketDetailSheet({ ticketId, onClose, onChange }: Props) {
             {/* Header slim — ID maior à esquerda, botões do tamanho do close (do shadcn) à direita */}
             <SheetHeader className="px-5 py-2.5 border-b border-white/[0.06] dark:border-white/[0.06]">
               <div className="flex items-center justify-between gap-2 pr-12">
-                <span className="text-base font-mono font-semibold text-foreground">
-                  #HLP{String(ticket.numero).padStart(4, '0')}
-                </span>
+                <div className="flex items-center gap-2">
+                  <Ticket className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-base font-mono font-semibold text-foreground">
+                    #HLP{String(ticket.numero).padStart(4, '0')}
+                  </span>
+                </div>
                 <a
                   href={`/helpdesk/${ticket.id}`}
                   target="_blank"
