@@ -18,7 +18,14 @@ import * as path from 'node:path'
  */
 @Controller('api/chat-desktop-updates')
 export class ChatDesktopUpdatesController {
+  /**
+   * Resolve a pasta dist do chat-desktop. Em produção o source completo do
+   * repo já é montado read-only em /repo-src (ver docker-compose.yml), então
+   * tentamos isso primeiro. Em dev (cwd = apps/api) cai pro path relativo.
+   */
   private getDistPath(): string {
+    const fromRepoSrc = '/repo-src/scripts/chat-desktop/dist'
+    if (fs.existsSync(fromRepoSrc)) return fromRepoSrc
     return path.resolve(process.cwd(), '..', '..', 'scripts', 'chat-desktop', 'dist')
   }
 
