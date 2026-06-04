@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
@@ -10,6 +11,18 @@ import { signIn } from '@/lib/auth-client'
 import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
+  const searchParams = useSearchParams()
+  // Modo desktop: login disparado pelo OneClick Chat (Electron). Após sucesso,
+  // redireciona pra /desktop-handshake em vez de /dashboard — a página gera
+  // token uso único e envia pro app via deep-link oneclick-chat://
+  // Flag persiste em sessionStorage pra sobreviver ao MFA redirect (que
+  // joga pra /login/2fa sem query string).
+  const isDesktopFlow = searchParams.get('desktop') === '1'
+  if (typeof window !== 'undefined') {
+    if (isDesktopFlow) sessionStorage.setItem('oc-desktop-flow', '1')
+  }
+  const redirectAfterLogin = isDesktopFlow ? '/desktop-handshake' : '/dashboard'
+
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -28,8 +41,8 @@ export default function LoginPage() {
       // — senão Better Auth usa BETTER_AUTH_URL como base (= localhost:4000 em
       // dev), que é a porta do NestJS e não tem rota /dashboard.
       const callbackURL = typeof window !== 'undefined'
-        ? `${window.location.origin}/dashboard`
-        : '/dashboard'
+        ? `${window.location.origin}${redirectAfterLogin}`
+        : redirectAfterLogin
       await signIn.social({
         provider: 'google',
         callbackURL,
@@ -105,7 +118,7 @@ export default function LoginPage() {
       // com o cookie de sessão no jar. Com soft nav (router.push), o useSession
       // reutiliza o cache anterior "session=null" e o layout redireciona de
       // volta pra /login (tela "pisca" e o user precisa clicar 2x).
-      window.location.href = '/dashboard'
+      window.location.href = redirectAfterLogin
     } catch {
       setError('Usuário ou senha inválidos. Verifique suas credenciais e tente novamente.')
     } finally {

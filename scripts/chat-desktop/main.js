@@ -18,12 +18,14 @@
  *     pra outro deploy (dev local, staging). Default: produção.
  */
 
-const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, nativeImage, shell } = require('electron')
+const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, nativeImage, shell, session } = require('electron')
 const path = require('path')
 
 const APP_URL = process.env.ONECLICK_APP_URL || 'https://app.oneclick.central-rnc.com.br'
 const CHAT_URL = `${APP_URL}/chat-desktop`
+const LOGIN_URL = `${APP_URL}/login?desktop=1`
 const PROTOCOL = 'oneclick-chat'
+const COOKIE_NAME = 'better-auth.session_token'
 
 // ─── Single-instance lock — segunda execução do .exe só abre a janela existente ───
 const gotLock = app.requestSingleInstanceLock()
@@ -46,17 +48,64 @@ if (process.defaultApp && process.argv.length >= 2) {
 
 /**
  * Trata uma URL deep-link recebida (segunda instância ou cold start no Windows).
- * Por enquanto só faz log — a Fase 3 vai trocar isso por: extrair o token,
- * gravar cookie de sessão na BrowserWindow.session, e recarregar a janela.
+ * Formato esperado: `oneclick-chat://auth?token=<hex>`. Quando recebida:
+ *   1. Extrai o token
+ *   2. POST /api/auth/desktop-consume com o token → recebe { sessionToken, expiresAt }
+ *   3. Cria o cookie better-auth.session_token na session padrão
+ *   4. Recarrega a janela em /chat-desktop (agora autenticada)
+ *
+ * Sem token na URL ou erro no consume → só foca a janela existente.
  */
-function handleDeepLink(url) {
+async function handleDeepLink(url) {
   if (!url || !url.startsWith(`${PROTOCOL}://`)) return
-  console.log('[deep-link]', url)
-  // TODO Fase 3: parse `${PROTOCOL}://auth?token=...` e setar cookie de sessão.
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore()
     mainWindow.show()
     mainWindow.focus()
+  }
+  try {
+    const parsed = new URL(url)
+    if (parsed.host !== 'auth' && parsed.pathname !== '//auth') return
+    const token = parsed.searchParams.get('token')
+    if (!token) {
+      console.warn('[deep-link] sem token na URL:', url)
+      return
+    }
+    console.log('[deep-link] consumindo token (len=', token.length, ')')
+    const resp = await fetch(`${APP_URL}/api/auth/desktop-consume`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    })
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => '')
+      console.error('[deep-link] consume falhou:', resp.status, body)
+      return
+    }
+    const data = await resp.json()
+    const sessionToken = data?.sessionToken
+    const cookieName = data?.cookieName || COOKIE_NAME
+    const expiresAtMs = data?.expiresAt ? Date.parse(data.expiresAt) : (Date.now() + 7 * 24 * 60 * 60 * 1000)
+    if (!sessionToken) {
+      console.error('[deep-link] resposta sem sessionToken:', data)
+      return
+    }
+    const domain = new URL(APP_URL).hostname
+    await session.defaultSession.cookies.set({
+      url: APP_URL,
+      name: cookieName,
+      value: sessionToken,
+      domain,
+      path: '/',
+      secure: APP_URL.startsWith('https://'),
+      httpOnly: true,
+      sameSite: 'lax',
+      expirationDate: Math.floor(expiresAtMs / 1000),
+    })
+    console.log('[deep-link] cookie setado, recarregando janela')
+    if (mainWindow) mainWindow.loadURL(CHAT_URL).catch((e) => console.error('[reload] falhou:', e.message))
+  } catch (e) {
+    console.error('[deep-link] erro:', e.message)
   }
 }
 
@@ -96,6 +145,15 @@ function createTray() {
       click: () => {
         if (!mainWindow) createWindow()
         else { mainWindow.show(); mainWindow.focus() }
+      },
+    },
+    {
+      label: 'Logar via navegador',
+      click: () => {
+        // Abre o /login?desktop=1 no browser default. Após autenticar
+        // (incluindo OAuth Google/Microsoft que não funciona embedded),
+        // a página /desktop-handshake gera token e devolve via deep-link.
+        shell.openExternal(LOGIN_URL).catch((e) => console.error('[openExternal] falhou:', e.message))
       },
     },
     { type: 'separator' },

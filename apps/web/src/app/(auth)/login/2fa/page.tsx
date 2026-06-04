@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Button, Input, Label, Checkbox } from '@saas/ui'
 import { authClient } from '@/lib/auth-client'
 import { Shield, Loader2, AlertCircle, KeyRound } from 'lucide-react'
@@ -24,6 +25,14 @@ function detectBrowserLabel(): string {
 }
 
 export default function TwoFactorPage() {
+  const searchParams = useSearchParams()
+  // Modo desktop preservado pelo /login → 2FA → /desktop-handshake. O Better
+  // Auth redireciona pra cá sem query string, então caímos no sessionStorage
+  // que o /login setou ao detectar ?desktop=1.
+  const isDesktopFlow = searchParams.get('desktop') === '1'
+    || (typeof window !== 'undefined' && sessionStorage.getItem('oc-desktop-flow') === '1')
+  const redirectAfterVerify = isDesktopFlow ? '/desktop-handshake' : '/dashboard'
+
   const [code, setCode] = useState('')
   const [useBackup, setUseBackup] = useState(false)
   const [trustDevice, setTrustDevice] = useState(true)
@@ -60,7 +69,7 @@ export default function TwoFactorPage() {
       // Mais confiavel que router.push (evita removeChild) e que window.location (que pode ter race condition).
       const form = document.createElement('form')
       form.method = 'GET'
-      form.action = '/dashboard'
+      form.action = redirectAfterVerify
       document.body.appendChild(form)
       form.submit()
     } catch (e) {
