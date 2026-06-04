@@ -369,6 +369,23 @@ export default function HelpdeskTicketDetailPage() {
     }
   }
 
+  /** Exclui anexo individual do ticket — só o autor + ticket≠CANCELADO. */
+  async function excluirAnexo(anexo: Anexo) {
+    const ok = await alerts.confirm({
+      title: 'Excluir anexo?',
+      text: `O arquivo "${anexo.fileName}" será removido do ticket. Esta ação não pode ser desfeita.`,
+      confirmText: 'Excluir',
+      icon: 'warning',
+    })
+    if (!ok) return
+    try {
+      await (trpc.helpdesk as any).deleteAnexo.mutate({ id: anexo.id })
+      await fetchData(true)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    }
+  }
+
   /**
    * Força processamento IA do ticket ignorando o threshold de score.
    * Útil pra tickets não-elegíveis (score baixo) que o operador quer planejar
@@ -946,10 +963,10 @@ export default function HelpdeskTicketDetailPage() {
                   Nenhuma mensagem ainda. Use o composer abaixo pra iniciar a conversa.
                 </CardContent></Card>
               ) : ticket.mensagens.map(msg => {
-                // Janela de edição/exclusão (#HLP0067): 30min + apenas o autor
-                const idadeMs = Date.now() - new Date(msg.createdAt).getTime()
+                // Edição/exclusão liberadas para o autor enquanto o ticket
+                // não estiver cancelado. O campo editadoEm + evento de
+                // auditoria garantem a rastreabilidade.
                 const podeEditar = !!currentUserId && msg.autor?.id === currentUserId
-                  && idadeMs < 30 * 60 * 1000
                   && ticket.status !== 'CANCELADO'
                 return (
                   <Card
@@ -1095,6 +1112,9 @@ export default function HelpdeskTicketDetailPage() {
                 selecionadoId={anexoSelecionadoId}
                 onSelect={setAnexoSelecionadoId}
                 onUploaded={() => fetchData(true)}
+                currentUserId={currentUserId}
+                canDelete={ticket.status !== 'CANCELADO'}
+                onDelete={excluirAnexo}
               />
             </TabsContent>
 
@@ -1661,14 +1681,18 @@ function formatarBytes(b: number): string {
   return `${(b / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function AnexosViewer({ ticketId, anexos, selecionadoId, onSelect, onUploaded }: {
+function AnexosViewer({ ticketId, anexos, selecionadoId, onSelect, onUploaded, currentUserId, canDelete, onDelete }: {
   ticketId: string
   anexos: Anexo[]
   selecionadoId: string | null
   onSelect: (id: string) => void
   onUploaded: () => void
+  currentUserId?: string | null
+  canDelete: boolean
+  onDelete: (anexo: Anexo) => void | Promise<void>
 }) {
   const ativo = anexos.find(a => a.id === selecionadoId) ?? anexos[0]
+  const podeExcluirAtivo = !!(ativo && canDelete && currentUserId && ativo.autor?.id === currentUserId)
 
   return (
     <Card>
@@ -1749,6 +1773,16 @@ function AnexosViewer({ ticketId, anexos, selecionadoId, onSelect, onUploaded }:
                   >
                     <Download className="h-3 w-3" /> Baixar
                   </a>
+                  {podeExcluirAtivo && (
+                    <button
+                      type="button"
+                      onClick={() => onDelete(ativo)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                      title="Excluir anexo (só o autor)"
+                    >
+                      <Trash2 className="h-3 w-3" /> Excluir
+                    </button>
+                  )}
                 </div>
 
                 {/* Corpo do preview por tipo */}

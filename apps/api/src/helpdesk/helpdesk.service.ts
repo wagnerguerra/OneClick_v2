@@ -830,21 +830,16 @@ export class HelpdeskService {
   }
 
   /**
-   * Edição de mensagem (#HLP0067). Janela curta de 30min — depois disso a
-   * mensagem vira parte do histórico imutável da conversa (UX padrão
-   * de chats tipo Slack/WhatsApp).
-   *
-   * Regras:
-   *  - Só o autor da mensagem pode editar
-   *  - Janela de 30min a partir do createdAt
-   *  - Não permitido em ticket CANCELADO (já encerrado)
-   *  - Atualiza editadoEm pra UI mostrar "(editada)"
+   * Edição de mensagem. Só o autor pode editar suas próprias mensagens,
+   * desde que o ticket não esteja CANCELADO. O campo editadoEm é atualizado
+   * para a UI exibir "(editada)" e fica registrado um evento na timeline
+   * pra auditoria.
    */
   async editMensagem(input: EditMensagemInput, userId: string) {
     const msg = await prisma.helpdeskMensagem.findUnique({
       where: { id: input.id },
       select: {
-        id: true, autorId: true, ticketId: true, createdAt: true,
+        id: true, autorId: true, ticketId: true, interna: true,
         ticket: { select: { status: true } },
       },
     })
@@ -855,25 +850,30 @@ export class HelpdeskService {
     if (msg.ticket?.status === 'CANCELADO') {
       throw new Error('Ticket cancelado — edição não permitida')
     }
-    const idadeMs = Date.now() - new Date(msg.createdAt).getTime()
-    if (idadeMs > 30 * 60 * 1000) {
-      throw new Error('Janela de edição (30 min) expirada')
-    }
-    return prisma.helpdeskMensagem.update({
+    const atualizada = await prisma.helpdeskMensagem.update({
       where: { id: input.id },
       data: { conteudo: input.conteudo, editadoEm: new Date() },
     })
+    await this.addEvento(
+      msg.ticketId,
+      userId,
+      'mensagem_editada',
+      msg.interna ? 'Nota interna editada' : 'Mensagem pública editada',
+      { mensagemId: msg.id },
+    )
+    return atualizada
   }
 
   /**
-   * Exclusão de mensagem (#HLP0067). Mesmas restrições da edição.
-   * Anexos vinculados são removidos por cascade do schema Prisma.
+   * Exclusão de mensagem. Só o autor pode excluir, ticket não pode estar
+   * CANCELADO. Anexos vinculados à mensagem são removidos junto na mesma
+   * transação. Evento de auditoria é gravado na timeline.
    */
   async deleteMensagem(input: DeleteMensagemInput, userId: string) {
     const msg = await prisma.helpdeskMensagem.findUnique({
       where: { id: input.id },
       select: {
-        id: true, autorId: true, ticketId: true, createdAt: true,
+        id: true, autorId: true, ticketId: true, interna: true,
         ticket: { select: { status: true } },
       },
     })
@@ -884,10 +884,6 @@ export class HelpdeskService {
     if (msg.ticket?.status === 'CANCELADO') {
       throw new Error('Ticket cancelado — exclusão não permitida')
     }
-    const idadeMs = Date.now() - new Date(msg.createdAt).getTime()
-    if (idadeMs > 30 * 60 * 1000) {
-      throw new Error('Janela de exclusão (30 min) expirada')
-    }
     // Remove anexos vinculados explicitamente — a FK do schema é SetNull,
     // mas anexo sem mensagem vira órfão na thread. Deletamos junto pra
     // manter a conversa coerente.
@@ -895,6 +891,45 @@ export class HelpdeskService {
       prisma.helpdeskAnexo.deleteMany({ where: { mensagemId: input.id } }),
       prisma.helpdeskMensagem.delete({ where: { id: input.id } }),
     ])
+    await this.addEvento(
+      msg.ticketId,
+      userId,
+      'mensagem_deletada',
+      msg.interna ? 'Nota interna excluída pelo autor' : 'Mensagem pública excluída pelo autor',
+      { mensagemId: msg.id },
+    )
+    return { ok: true }
+  }
+
+  /**
+   * Exclusão de anexo individual. Só o autor pode excluir seus próprios
+   * anexos, ticket não pode estar CANCELADO. Funciona tanto pra anexos
+   * standalone (mensagemId=null) quanto pra anexos vinculados a uma
+   * mensagem específica. Evento de auditoria é gravado.
+   */
+  async deleteAnexo(input: { id: string }, userId: string) {
+    const anexo = await prisma.helpdeskAnexo.findUnique({
+      where: { id: input.id },
+      select: {
+        id: true, autorId: true, ticketId: true, fileName: true,
+        ticket: { select: { status: true } },
+      },
+    })
+    if (!anexo) throw new Error('Anexo não encontrado')
+    if (anexo.autorId !== userId) {
+      throw new Error('Só o autor pode excluir o anexo')
+    }
+    if (anexo.ticket?.status === 'CANCELADO') {
+      throw new Error('Ticket cancelado — exclusão não permitida')
+    }
+    await prisma.helpdeskAnexo.delete({ where: { id: input.id } })
+    await this.addEvento(
+      anexo.ticketId,
+      userId,
+      'anexo_deletado',
+      `Anexo excluído: ${anexo.fileName}`,
+      { anexoId: anexo.id, fileName: anexo.fileName },
+    )
     return { ok: true }
   }
 

@@ -164,6 +164,14 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
         return helpdeskService.listAnexos(input.ticketId)
       }),
 
+    /**
+     * Exclusão de anexo individual. Só o autor pode excluir, ticket não
+     * pode estar CANCELADO. Validações no service.
+     */
+    deleteAnexo: protectedProcedure
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => helpdeskService.deleteAnexo(input, ctx.userId!)),
+
     // ── Candidatos a responsável (filtrado pela área da categoria) ──
     listAgentesAtribuiveis: protectedProcedure
       .input(z.object({ ticketId: z.string() }))
