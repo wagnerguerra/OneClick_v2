@@ -210,20 +210,21 @@ export function TicketDetailSheet({ ticketId, onClose, onChange }: Props) {
           </div>
         ) : (
           <>
-            {/* Header slim com botão "página inteira" + close (do shadcn) */}
+            {/* Header slim — ID maior à esquerda, botões do tamanho do close (do shadcn) à direita */}
             <SheetHeader className="px-5 py-2.5 border-b border-white/[0.06] dark:border-white/[0.06]">
-              <div className="flex items-center justify-between gap-2 pr-10">
-                <span className="text-[11px] font-mono text-muted-foreground">
+              <div className="flex items-center justify-between gap-2 pr-12">
+                <span className="text-base font-mono font-semibold text-foreground">
                   #HLP{String(ticket.numero).padStart(4, '0')}
                 </span>
                 <a
                   href={`/helpdesk/${ticket.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-[11px] font-medium text-foreground/70 hover:text-foreground hover:bg-white/[0.06] transition-colors"
+                  className="flex h-7 w-7 items-center justify-center rounded-md opacity-60 transition-all hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10"
                   title="Abrir em nova aba"
+                  aria-label="Abrir em nova aba"
                 >
-                  <ExternalLink className="h-3 w-3" /> Página inteira
+                  <ExternalLink className="h-4 w-4" />
                 </a>
               </div>
               <SheetTitle className="sr-only">Ticket #{ticket.numero}: {ticket.titulo}</SheetTitle>
