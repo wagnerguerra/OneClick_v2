@@ -52,6 +52,9 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
       .map((group) => ({
         ...group,
         items: group.items.filter((item) => {
+          // FAQ é conteúdo de ajuda — sempre visível pra qualquer usuário,
+          // independentemente da matriz de permissões.
+          if (item.href === '/faq') return true
           const slug = item.href.replace('/', '')
           return allowedSlugs.includes(slug)
         }),
