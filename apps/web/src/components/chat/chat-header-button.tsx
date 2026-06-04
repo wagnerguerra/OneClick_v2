@@ -214,11 +214,22 @@ function avatarGradient(name: string): string {
 // Componente principal
 // ============================================================
 
-export function ChatHeaderButton() {
+interface ChatHeaderButtonProps {
+  /**
+   * Modo embed: renderiza o conteúdo do chat em fullscreen, sem o botão
+   * trigger no header e sem o Sheet wrapper. Usado pela rota /chat-desktop
+   * (aplicativo desktop Electron) — mesma UX do dropdown do header, mas
+   * sempre aberto e ocupando 100% da janela.
+   */
+  embed?: boolean
+}
+
+export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) {
   const { profile } = useCurrentUserProfile()
   const meuId = profile?.id ?? null
 
-  const [open, setOpen] = useState(false)
+  // No modo embed, o chat sempre fica aberto — não há trigger nem close.
+  const [open, setOpen] = useState(embed)
   const [conversas, setConversas] = useState<Conversa[]>([])
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
   const [conversaAtiva, setConversaAtiva] = useState<Conversa | null>(null)
@@ -232,8 +243,10 @@ export function ChatHeaderButton() {
 
   const totalUnread = useMemo(() => conversas.reduce((sum, c) => sum + c.unreadCount, 0), [conversas])
 
-  // Reset estado interno quando o sheet fecha
+  // Reset estado interno quando o sheet fecha. No modo embed o sheet nunca
+  // fecha — apenas troca de conversa/volta pra lista interna.
   function handleOpenChange(next: boolean) {
+    if (embed) return
     setOpen(next)
     if (!next) {
       setConversaAtiva(null)
@@ -486,42 +499,11 @@ export function ChatHeaderButton() {
   // Render
   // ============================================================
 
-  return (
+  // ─── Conteúdo do painel (compartilhado entre Sheet e modo embed) ───
+  const panelContent = (
     <>
-      {/* Botão do header — mesmo padrão do sino */}
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={cn(
-          'relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-muted transition-colors',
-          totalUnread > 0 && 'text-sky-600',
-        )}
-        aria-label={`${totalUnread} mensagem(ns) não lida(s)`}
-        title="Chat interno"
-      >
-        <MessageSquare className="h-4 w-4" />
-        {/* Dot de status próprio */}
-        <span
-          className={cn(
-            'absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full ring-2 ring-card transition-colors',
-            STATUS_COR[minhaPresenca],
-          )}
-          title={`Status: ${STATUS_LABEL[minhaPresenca]}`}
-        />
-        {/* Badge de unread */}
-        {totalUnread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-rose-500 text-white text-[9px] font-bold px-1 border-2 border-card">
-            {totalUnread > 99 ? '99+' : totalUnread}
-          </span>
-        )}
-      </button>
-
-      {/* Sheet lateral — mesmo padrão de "Nova Oportunidade" em /crm */}
-      <Sheet open={open} onOpenChange={handleOpenChange}>
-        <SheetContent side="right" size="xl" className="w-[80vw] max-w-[1200px] p-0 flex flex-col">
-          <SheetTitle className="sr-only">Chat interno</SheetTitle>
-
-          {novoGrupoOpen ? (
+      <SheetTitle className="sr-only">Chat interno</SheetTitle>
+      {novoGrupoOpen ? (
             <NovoGrupoView
               meuId={meuId}
               onlineUsers={onlineUsers}
@@ -635,7 +617,50 @@ export function ChatHeaderButton() {
                 </div>
               </div>
             </div>
+      )}
+    </>
+  )
+
+  // ─── Modo embed: chat fullscreen, sem trigger nem Sheet (usado pelo desktop) ───
+  if (embed) {
+    return (
+      <div className="fixed inset-0 z-0 flex flex-col bg-card">
+        {panelContent}
+      </div>
+    )
+  }
+
+  // ─── Modo normal: trigger no header + Sheet lateral ───
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={cn(
+          'relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-muted transition-colors',
+          totalUnread > 0 && 'text-sky-600',
+        )}
+        aria-label={`${totalUnread} mensagem(ns) não lida(s)`}
+        title="Chat interno"
+      >
+        <MessageSquare className="h-4 w-4" />
+        <span
+          className={cn(
+            'absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full ring-2 ring-card transition-colors',
+            STATUS_COR[minhaPresenca],
           )}
+          title={`Status: ${STATUS_LABEL[minhaPresenca]}`}
+        />
+        {totalUnread > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-rose-500 text-white text-[9px] font-bold px-1 border-2 border-card">
+            {totalUnread > 99 ? '99+' : totalUnread}
+          </span>
+        )}
+      </button>
+
+      <Sheet open={open} onOpenChange={handleOpenChange}>
+        <SheetContent side="right" size="xl" className="w-[80vw] max-w-[1200px] p-0 flex flex-col">
+          {panelContent}
         </SheetContent>
       </Sheet>
     </>
