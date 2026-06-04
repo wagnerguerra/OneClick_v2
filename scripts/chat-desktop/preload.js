@@ -1,6 +1,6 @@
 /**
- * Bridge IPC entre o renderer (página /chat-desktop) e o main process.
- * Exposto como `window.chatDesktop` no renderer.
+ * Bridge IPC entre o renderer (página /chat-desktop ou login.html local) e o
+ * main process. Exposto como `window.chatDesktop` no renderer.
  *
  * A página /chat-desktop pode checar `if (window.chatDesktop)` pra detectar
  * que está rodando dentro do Electron e ativar comportamentos extras
@@ -11,8 +11,12 @@ const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('chatDesktop', {
   /** Dispara notificação nativa do Windows. */
   notify: (payload) => ipcRenderer.invoke('chat:notify', payload),
-  /** Atualiza o tooltip/badge do tray com o número de não lidas. */
+  /** Atualiza o badge do tray com o número de mensagens não lidas. */
   setUnread: (count) => ipcRenderer.invoke('chat:set-unread', count),
+  /** Abre /login?desktop=1 no navegador padrão (fluxo OAuth + MFA via browser). */
+  openLogin: () => ipcRenderer.invoke('chat:open-login-browser'),
+  /** Carrega /login direto na janela do app (sem deep-link). */
+  openEmbeddedLogin: () => ipcRenderer.invoke('chat:open-login-embedded'),
   /** Flag pra detectar se está rodando no app desktop. */
   isDesktop: true,
 })

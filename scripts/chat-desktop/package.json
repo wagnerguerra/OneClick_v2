@@ -7,6 +7,8 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder --win --linux",
     "build:dir": "electron-builder --win --dir",
     "build:patch": "npm version patch --no-git-tag-version && npm run build"
   },
@@ -27,6 +29,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "login.html",
       "assets/**/*"
     ],
     "publish": [
@@ -48,6 +51,12 @@
       "requestedExecutionLevel": "asInvoker",
       "signAndEditExecutable": false,
       "artifactName": "OneClick-Chat-Setup-${version}.${ext}"
+    },
+    "linux": {
+      "target": [{ "target": "AppImage", "arch": ["x64"] }],
+      "icon": "assets/icon.png",
+      "category": "Network",
+      "artifactName": "OneClick-Chat-${version}.${ext}"
     },
     "forceCodeSigning": false,
     "nsis": {

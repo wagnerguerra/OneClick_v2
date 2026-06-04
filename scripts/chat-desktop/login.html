@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>OneClick Chat — Entrar</title>
+    <style>
+      :root { color-scheme: dark; }
+      html, body {
+        margin: 0; padding: 0; height: 100%;
+        background: #242528; color: #e5e7eb;
+        font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      }
+      .wrap {
+        height: 100%; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; padding: 24px; text-align: center;
+      }
+      .logo {
+        width: 64px; height: 64px; border-radius: 16px;
+        background: linear-gradient(135deg, #0ea5e9, #6366f1);
+        display: flex; align-items: center; justify-content: center;
+        margin-bottom: 20px; box-shadow: 0 8px 24px rgba(99,102,241,.3);
+      }
+      .logo svg { width: 32px; height: 32px; fill: white; }
+      h1 { margin: 0 0 6px; font-size: 18px; font-weight: 700; }
+      p { margin: 0 0 24px; color: #9ca3af; max-width: 320px; font-size: 13px; }
+      button {
+        width: 100%; max-width: 280px; height: 40px;
+        border: 0; border-radius: 8px; cursor: pointer;
+        font-weight: 600; font-size: 13px; transition: all .15s;
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      }
+      button.primary {
+        background: linear-gradient(135deg, #0ea5e9, #6366f1); color: white;
+      }
+      button.primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,.4); }
+      button.ghost {
+        background: transparent; color: #9ca3af; margin-top: 8px;
+      }
+      button.ghost:hover { color: #e5e7eb; background: rgba(255,255,255,.05); }
+      .hint {
+        margin-top: 28px; padding: 12px 14px; border-radius: 8px;
+        background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06);
+        font-size: 11px; color: #9ca3af; max-width: 320px;
+      }
+      .footer {
+        position: fixed; bottom: 12px; left: 0; right: 0;
+        text-align: center; font-size: 10px; color: #6b7280;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="logo">
+        <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+      </div>
+      <h1>OneClick Chat</h1>
+      <p>Entre com sua conta do OneClick pra começar a usar o chat interno no desktop.</p>
+
+      <button class="primary" onclick="window.chatDesktop.openLogin()">
+        🌐 &nbsp; Entrar pelo navegador
+      </button>
+
+      <button class="ghost" onclick="window.chatDesktop.openEmbeddedLogin()">
+        Entrar nesta janela
+      </button>
+
+      <div class="hint">
+        <strong>Entrar pelo navegador</strong> é recomendado se você usa login Google ou tem MFA.
+        Após autenticar, o navegador entrega a sessão pro app via deep-link.
+      </div>
+    </div>
+    <div class="footer">OneClick Chat Desktop</div>
+  </body>
+</html>

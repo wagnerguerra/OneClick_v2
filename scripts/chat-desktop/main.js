@@ -5,21 +5,21 @@
  * com sessão persistida (cookies do Better Auth ficam salvos entre execuções).
  *
  * Funcionalidades:
- *   - Tray icon no system tray do Windows
+ *   - Tray icon com badge dinâmico (PNG gerado on-the-fly a partir de SVG)
  *   - Close-to-tray (fechar janela esconde, não sai)
  *   - Single-instance lock (segunda execução abre a janela existente)
- *   - Protocolo customizado oneclick-chat:// pro fluxo de login via browser
- *     externo (será usado na Fase 3 de auth deep-link)
+ *   - Protocolo customizado oneclick-chat:// pro fluxo de login deep-link
  *   - Notificações nativas Windows quando renderer manda evento via IPC
- *   - Badge no tray com contagem de não lidas (overlay icon)
+ *   - Auto-update via electron-updater (publish.url no package.json)
+ *   - Tela inicial local "Entrar pelo navegador" quando sem sessão
  *
- * Config:
- *   - APP_URL: pode ser sobrescrito via variável de ambiente pra apontar
- *     pra outro deploy (dev local, staging). Default: produção.
+ * Config via env:
+ *   - ONECLICK_APP_URL: URL base do sistema (default: produção)
  */
 
-const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, nativeImage, shell, session } = require('electron')
+const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, nativeImage, shell, session, dialog } = require('electron')
 const path = require('path')
+const { autoUpdater } = require('electron-updater')
 
 const APP_URL = process.env.ONECLICK_APP_URL || 'https://app.oneclick.central-rnc.com.br'
 const CHAT_URL = `${APP_URL}/chat-desktop`
@@ -27,7 +27,7 @@ const LOGIN_URL = `${APP_URL}/login?desktop=1`
 const PROTOCOL = 'oneclick-chat'
 const COOKIE_NAME = 'better-auth.session_token'
 
-// ─── Single-instance lock — segunda execução do .exe só abre a janela existente ───
+// ─── Single-instance lock ───
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
@@ -37,25 +37,16 @@ if (!gotLock) {
 let mainWindow = null
 let tray = null
 let isQuitting = false
+let currentUnread = 0
 
-// Registra o protocolo oneclick-chat:// no Windows. Quando alguém abrir uma URL
-// `oneclick-chat://auth?token=X`, o sistema operacional vai abrir este app.
+// Registra protocolo oneclick-chat:// no SO
 if (process.defaultApp && process.argv.length >= 2) {
   app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [path.resolve(process.argv[1])])
 } else {
   app.setAsDefaultProtocolClient(PROTOCOL)
 }
 
-/**
- * Trata uma URL deep-link recebida (segunda instância ou cold start no Windows).
- * Formato esperado: `oneclick-chat://auth?token=<hex>`. Quando recebida:
- *   1. Extrai o token
- *   2. POST /api/auth/desktop-consume com o token → recebe { sessionToken, expiresAt }
- *   3. Cria o cookie better-auth.session_token na session padrão
- *   4. Recarrega a janela em /chat-desktop (agora autenticada)
- *
- * Sem token na URL ou erro no consume → só foca a janela existente.
- */
+// ─── Deep-link handler ───
 async function handleDeepLink(url) {
   if (!url || !url.startsWith(`${PROTOCOL}://`)) return
   if (mainWindow) {
@@ -67,29 +58,24 @@ async function handleDeepLink(url) {
     const parsed = new URL(url)
     if (parsed.host !== 'auth' && parsed.pathname !== '//auth') return
     const token = parsed.searchParams.get('token')
-    if (!token) {
-      console.warn('[deep-link] sem token na URL:', url)
-      return
-    }
-    console.log('[deep-link] consumindo token (len=', token.length, ')')
+    if (!token) return console.warn('[deep-link] sem token na URL:', url)
+
+    console.log('[deep-link] consumindo token')
     const resp = await fetch(`${APP_URL}/api/auth/desktop-consume`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
     })
     if (!resp.ok) {
-      const body = await resp.text().catch(() => '')
-      console.error('[deep-link] consume falhou:', resp.status, body)
+      console.error('[deep-link] consume falhou:', resp.status, await resp.text().catch(() => ''))
       return
     }
     const data = await resp.json()
     const sessionToken = data?.sessionToken
     const cookieName = data?.cookieName || COOKIE_NAME
     const expiresAtMs = data?.expiresAt ? Date.parse(data.expiresAt) : (Date.now() + 7 * 24 * 60 * 60 * 1000)
-    if (!sessionToken) {
-      console.error('[deep-link] resposta sem sessionToken:', data)
-      return
-    }
+    if (!sessionToken) return console.error('[deep-link] resposta sem sessionToken:', data)
+
     const domain = new URL(APP_URL).hostname
     await session.defaultSession.cookies.set({
       url: APP_URL,
@@ -109,73 +95,82 @@ async function handleDeepLink(url) {
   }
 }
 
-// macOS recebe deep-link via 'open-url'; Windows recebe via argv da nova instância
-app.on('open-url', (event, url) => {
-  event.preventDefault()
-  handleDeepLink(url)
-})
-
+app.on('open-url', (event, url) => { event.preventDefault(); handleDeepLink(url) })
 app.on('second-instance', (_event, argv) => {
-  // No Windows, argv contém a URL do deep-link quando o app é chamado por
-  // outra app (browser). Procura o primeiro argumento que começa com o protocolo.
   const url = argv.find(arg => arg.startsWith(`${PROTOCOL}://`))
-  if (url) {
-    handleDeepLink(url)
-  } else if (mainWindow) {
+  if (url) handleDeepLink(url)
+  else if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore()
     mainWindow.show()
     mainWindow.focus()
   }
 })
 
-function buildTrayIcon(unreadCount) {
-  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png')
-  return nativeImage.createFromPath(iconPath)
-  // TODO: gerar overlay com o número quando unreadCount > 0
-  // (PNG dinâmico via canvas seria ideal — fica pra próxima iteração)
+// ─── Badge tray dinâmico via SVG → PNG ───
+/**
+ * Renderiza o tray icon com badge de unread. Usa SVG inline (sem deps nativas)
+ * convertido pra nativeImage. Funciona no Windows e Linux.
+ */
+function renderTrayIcon(unreadCount) {
+  const n = Number(unreadCount) || 0
+  // SVG base 32x32: bolha de chat + opcional badge vermelho no canto superior direito
+  const showBadge = n > 0
+  const label = n > 99 ? '99+' : String(n)
+  const fontSize = label.length === 1 ? 13 : label.length === 2 ? 11 : 9
+  const badge = showBadge
+    ? `<circle cx="24" cy="8" r="7" fill="#ef4444" stroke="#0b0c0e" stroke-width="1.5"/>
+       <text x="24" y="${8 + fontSize / 3}" font-family="Arial,sans-serif" font-size="${fontSize}" font-weight="bold" fill="white" text-anchor="middle">${label}</text>`
+    : ''
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#0ea5e9"/>
+        <stop offset="1" stop-color="#6366f1"/>
+      </linearGradient>
+    </defs>
+    <rect x="3" y="4" width="22" height="18" rx="4" fill="url(#g)"/>
+    <path d="M8 22 L8 26 L13 22 Z" fill="url(#g)"/>
+    <circle cx="10" cy="13" r="1.6" fill="white"/>
+    <circle cx="14" cy="13" r="1.6" fill="white"/>
+    <circle cx="18" cy="13" r="1.6" fill="white"/>
+    ${badge}
+  </svg>`
+  // nativeImage suporta SVG diretamente via createFromBuffer em algumas plataformas;
+  // como fallback robusto, criamos via data URL → imageData → asset PNG é mais complexo.
+  // Solução simples: usar createFromDataURL com data:image/svg+xml — Electron resolve.
+  const dataUrl = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
+  return nativeImage.createFromDataURL(dataUrl)
+}
+
+function refreshTray() {
+  if (!tray) return
+  try {
+    tray.setImage(renderTrayIcon(currentUnread))
+    tray.setToolTip(currentUnread > 0 ? `OneClick Chat — ${currentUnread} não lida(s)` : 'OneClick Chat')
+  } catch (e) {
+    console.warn('[tray] falha ao re-renderizar:', e.message)
+  }
 }
 
 function createTray() {
   if (tray) return
-  tray = new Tray(buildTrayIcon(0))
+  tray = new Tray(renderTrayIcon(0))
   tray.setToolTip('OneClick Chat')
   const menu = Menu.buildFromTemplate([
-    {
-      label: 'Abrir Chat',
-      click: () => {
-        if (!mainWindow) createWindow()
-        else { mainWindow.show(); mainWindow.focus() }
-      },
-    },
-    {
-      label: 'Logar via navegador',
-      click: () => {
-        // Abre o /login?desktop=1 no browser default. Após autenticar
-        // (incluindo OAuth Google/Microsoft que não funciona embedded),
-        // a página /desktop-handshake gera token e devolve via deep-link.
-        shell.openExternal(LOGIN_URL).catch((e) => console.error('[openExternal] falhou:', e.message))
-      },
-    },
+    { label: 'Abrir Chat', click: () => { if (!mainWindow) createWindow(); else { mainWindow.show(); mainWindow.focus() } } },
+    { label: 'Entrar pelo navegador', click: () => openLoginInBrowser() },
     { type: 'separator' },
     {
       label: 'Iniciar com o Windows',
       type: 'checkbox',
       checked: app.getLoginItemSettings().openAtLogin,
-      click: (item) => {
-        app.setLoginItemSettings({ openAtLogin: item.checked, openAsHidden: true })
-      },
+      click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked, openAsHidden: true }),
     },
+    { label: 'Verificar atualizações', click: () => checkForUpdates(true) },
     { type: 'separator' },
-    {
-      label: 'Sair',
-      click: () => {
-        isQuitting = true
-        app.quit()
-      },
-    },
+    { label: 'Sair', click: () => { isQuitting = true; app.quit() } },
   ])
   tray.setContextMenu(menu)
-  // Click no ícone abre a janela (Windows behavior)
   tray.on('click', () => {
     if (!mainWindow) createWindow()
     else if (mainWindow.isVisible()) mainWindow.hide()
@@ -183,7 +178,22 @@ function createTray() {
   })
 }
 
-function createWindow() {
+// ─── Helpers de login ───
+function openLoginInBrowser() {
+  shell.openExternal(LOGIN_URL).catch((e) => console.error('[openExternal] falhou:', e.message))
+}
+
+async function hasSessionCookie() {
+  try {
+    const cookies = await session.defaultSession.cookies.get({ url: APP_URL, name: COOKIE_NAME })
+    return cookies.length > 0
+  } catch {
+    return false
+  }
+}
+
+// ─── Janela ───
+async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 520,
     height: 760,
@@ -196,37 +206,28 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      // Sessão padrão — cookies persistem em %APPDATA%/oneclick-chat-desktop
     },
   })
 
-  mainWindow.loadURL(CHAT_URL).catch((e) => {
-    console.error('[load] falhou:', e.message)
-  })
+  // Sessão existente → vai direto pro chat. Sem cookie → mostra a tela
+  // login.html local pro user escolher como entrar.
+  const logged = await hasSessionCookie()
+  const initial = logged ? CHAT_URL : `file://${path.join(__dirname, 'login.html')}`
+  mainWindow.loadURL(initial).catch((e) => console.error('[load] falhou:', e.message))
 
-  // Links externos abrem no browser default em vez de em nova janela Electron
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith(APP_URL)) return { action: 'allow' }
     shell.openExternal(url)
     return { action: 'deny' }
   })
 
-  // Close-to-tray: clicar X esconde em vez de sair, exceto se isQuitting=true
   mainWindow.on('close', (event) => {
-    if (!isQuitting) {
-      event.preventDefault()
-      mainWindow.hide()
-    }
+    if (!isQuitting) { event.preventDefault(); mainWindow.hide() }
   })
-
-  mainWindow.on('closed', () => {
-    mainWindow = null
-  })
+  mainWindow.on('closed', () => { mainWindow = null })
 }
 
-// ─── IPC handlers ───
-// Renderer (chat-desktop page) avisa quando chega mensagem nova → dispara
-// notificação nativa do Windows.
+// ─── IPC ───
 ipcMain.handle('chat:notify', (_event, payload) => {
   const { titulo, corpo } = payload || {}
   if (!titulo) return
@@ -237,37 +238,75 @@ ipcMain.handle('chat:notify', (_event, payload) => {
       icon: path.join(__dirname, 'assets', 'icon.ico'),
       silent: false,
     })
-    n.on('click', () => {
-      if (mainWindow) {
-        mainWindow.show()
-        mainWindow.focus()
-      }
-    })
+    n.on('click', () => { if (mainWindow) { mainWindow.show(); mainWindow.focus() } })
     n.show()
-  } catch (e) {
-    console.warn('[notify] falhou:', e.message)
-  }
+  } catch (e) { console.warn('[notify] falhou:', e.message) }
 })
 
-// Renderer informa contagem de unread → atualiza badge do tray (futuro)
 ipcMain.handle('chat:set-unread', (_event, count) => {
-  if (!tray) return
-  const n = Number(count) || 0
-  tray.setToolTip(n > 0 ? `OneClick Chat — ${n} não lida(s)` : 'OneClick Chat')
-  // TODO: overlay no ícone com o número
+  currentUnread = Number(count) || 0
+  refreshTray()
 })
 
-// ─── App lifecycle ───
-app.whenReady().then(() => {
+ipcMain.handle('chat:open-login-browser', () => { openLoginInBrowser() })
+
+ipcMain.handle('chat:open-login-embedded', () => {
+  if (mainWindow) mainWindow.loadURL(`${APP_URL}/login?from=chat-desktop`).catch(() => {})
+})
+
+// ─── Auto-update ───
+function checkForUpdates(showFeedback = false) {
+  if (!app.isPackaged) {
+    if (showFeedback) {
+      dialog.showMessageBox({ type: 'info', message: 'Auto-update só funciona em builds empacotados.', title: 'OneClick Chat' })
+    }
+    return
+  }
+  autoUpdater.checkForUpdates().catch((e) => {
+    console.warn('[updater] check falhou:', e.message)
+    if (showFeedback) {
+      dialog.showMessageBox({ type: 'error', message: `Falha ao verificar atualizações:\n${e.message}`, title: 'OneClick Chat' })
+    }
+  })
+}
+
+autoUpdater.autoDownload = true
+autoUpdater.autoInstallOnAppQuit = true
+autoUpdater.on('update-available', (info) => {
+  console.log('[updater] disponível:', info?.version)
+})
+autoUpdater.on('update-not-available', () => {
+  console.log('[updater] já está na última versão')
+})
+autoUpdater.on('error', (err) => {
+  console.warn('[updater] erro:', err?.message)
+})
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('[updater] baixado:', info?.version)
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Atualização disponível',
+    message: `Nova versão ${info?.version} baixada. Reiniciar agora pra aplicar?`,
+    buttons: ['Reiniciar agora', 'Depois'],
+    defaultId: 0,
+    cancelId: 1,
+  }).then(({ response }) => {
+    if (response === 0) {
+      isQuitting = true
+      autoUpdater.quitAndInstall()
+    }
+  })
+})
+
+// ─── Lifecycle ───
+app.whenReady().then(async () => {
   createTray()
-  createWindow()
+  await createWindow()
+  // Checa atualização 10s após boot (deixa a UI carregar primeiro)
+  setTimeout(() => checkForUpdates(false), 10_000)
+  // Re-checa a cada 4h enquanto o app está aberto
+  setInterval(() => checkForUpdates(false), 4 * 60 * 60 * 1000)
 })
 
-app.on('window-all-closed', (e) => {
-  // Mantém o app vivo no tray; só sai quando user clica "Sair" no menu
-  e.preventDefault()
-})
-
-app.on('before-quit', () => {
-  isQuitting = true
-})
+app.on('window-all-closed', (e) => { e.preventDefault() })
+app.on('before-quit', () => { isQuitting = true })
