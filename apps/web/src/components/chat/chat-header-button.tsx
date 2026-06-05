@@ -467,16 +467,6 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
     }
   }, [totalUnread])
 
-  // Espelha o status efetivo pro main process — usado pra desenhar a bolinha
-  // de presença no ícone do tray (verde/âmbar/vermelho/cinza).
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const desktop = (window as unknown as { chatDesktop?: { setStatus: (s: string) => void } }).chatDesktop
-    if (desktop?.setStatus) {
-      try { desktop.setStatus(minhaPresenca) } catch { /* ignora */ }
-    }
-  }, [minhaPresenca])
-
   // ========== Trocar status ==========
   async function trocarStatus(novo: ChatStatus) {
     setMeuStatus(novo)
@@ -552,6 +542,18 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
     // Sem snapshot ainda — provavelmente acabou de logar e a request tá em voo
     return 'online'
   }, [onlineUsers, meuId, meuStatus, ausenteAposMin])
+
+  // Espelha o status efetivo pro main process do Electron — usado pra desenhar
+  // a bolinha de presença no ícone do tray (verde/âmbar/vermelho/cinza).
+  // CRÍTICO: este useEffect precisa vir DEPOIS da declaração de minhaPresenca
+  // (senão TDZ "Cannot access X before initialization").
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const desktop = (window as unknown as { chatDesktop?: { setStatus: (s: string) => void } }).chatDesktop
+    if (desktop?.setStatus) {
+      try { desktop.setStatus(minhaPresenca) } catch { /* ignora */ }
+    }
+  }, [minhaPresenca])
 
   // ============================================================
   // Render
