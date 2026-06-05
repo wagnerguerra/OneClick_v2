@@ -1,18 +1,18 @@
 {
   "name": "oneclick-launcher",
-  "version": "1.2.49",
+  "version": "1.2.50",
   "description": "OneClick ERP — Launcher & Service Manager",
   "main": "main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
-    "generate-icon": "node generate-icon.js",
-    "build": "node generate-icon.js && electron-builder --win",
-    "build:dir": "node generate-icon.js && electron-builder --win --dir",
+    "generate-icon": "powershell -ExecutionPolicy Bypass -File ./generate-icon.ps1",
+    "build": "powershell -ExecutionPolicy Bypass -File ./generate-icon.ps1 && electron-builder --win",
+    "build:dir": "powershell -ExecutionPolicy Bypass -File ./generate-icon.ps1 && electron-builder --win --dir",
     "build:patch": "npm version patch --no-git-tag-version && npm run build",
     "build:minor": "npm version minor --no-git-tag-version && npm run build",
     "build:major": "npm version major --no-git-tag-version && npm run build",
-    "release": "node generate-icon.js && electron-builder --win --publish always"
+    "release": "powershell -ExecutionPolicy Bypass -File ./generate-icon.ps1 && electron-builder --win --publish always"
   },
   "dependencies": {
     "chokidar": "^4.0.3",
@@ -55,7 +55,7 @@
       ],
       "icon": "assets/icon.ico",
       "requestedExecutionLevel": "asInvoker",
-      "signAndEditExecutable": false,
+      "signAndEditExecutable": true,
       "artifactName": "OneClick-ERP-Setup-${version}.${ext}"
     },
     "forceCodeSigning": false,
