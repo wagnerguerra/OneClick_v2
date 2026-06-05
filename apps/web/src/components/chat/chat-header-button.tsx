@@ -236,6 +236,7 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
   const [novoGrupoOpen, setNovoGrupoOpen] = useState(false)
   const [searchPessoas, setSearchPessoas] = useState('')
   const [searchConversas, setSearchConversas] = useState('')
+  const [abrindoDmUserId, setAbrindoDmUserId] = useState<string | null>(null)
   // Meu status manual (null = auto)
   const [meuStatus, setMeuStatus] = useState<ChatStatus>(null)
   // Tempo (em minutos) para ficar ausente — vem da ChatConfig. Default 5min até carregar.
@@ -493,13 +494,17 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
 
   // ========== Abrir DM ==========
   async function abrirDM(outroUserId: string) {
+    if (abrindoDmUserId === outroUserId) return
+    setAbrindoDmUserId(outroUserId)
     try {
       const conv = await (trpc.chat as any).criarDM.mutate({ outroUserId })
       await loadConversas()
       const r = await (trpc.chat as any).listConversas.query() as Conversa[]
       const completa = r.find(c => c.id === conv.id)
-      if (completa) setConversaAtiva(completa)
+      setConversas(r)
+      setConversaAtiva(completa ?? (conv as Conversa))
     } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setAbrindoDmUserId(null) }
   }
 
   // ========== Filtros ==========
@@ -579,26 +584,26 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
             <div className="flex flex-col h-full">
               {/* Header global */}
               <div className={cn(
-                'shrink-0 border-b border-border/60 bg-gradient-to-r from-muted/40 to-muted/10 px-5 py-3 flex items-center justify-between',
+                'shrink-0 min-h-[60px] border-b border-border/60 bg-gradient-to-r from-muted/40 to-muted/10 px-5 py-3 flex items-center gap-4',
                 // No app desktop, os botões nativos do Windows (minimizar/
                 // maximizar/fechar) ocupam ~130px no canto superior direito da
                 // janela. Reservamos esse espaço pra não sobrepor o
                 // StatusDropdown e o botão de Configurações.
-                isRunningInDesktopApp && embed && 'pr-[140px]',
+                isRunningInDesktopApp && embed && 'pr-[150px]',
               )}>
-                <div className="flex items-center gap-3">
+                <div className="min-w-0 flex flex-1 items-center gap-3">
                   <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 flex items-center justify-center shadow-sm">
                     <MessageSquare className="h-4 w-4 text-white" />
                   </div>
-                  <div>
-                    <div className="text-sm font-bold leading-tight tracking-tight">Chat interno</div>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-bold leading-tight tracking-tight">Chat interno</div>
                     <div className="text-[11px] text-muted-foreground leading-tight flex items-center gap-1 mt-0.5">
                       <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       {totalOnline} {totalOnline === 1 ? 'pessoa online' : 'pessoas online'}
                     </div>
                   </div>
                 </div>
-                <div className="pr-12 flex items-center gap-2">
+                <div className="shrink-0 flex items-center justify-end gap-2">
                   {/* Link pra baixar o app desktop — escondido quando ja
                       esta rodando dentro do proprio app (window.chatDesktop) */}
                   {!isRunningInDesktopApp && (
@@ -653,8 +658,8 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
                       />
                     </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto overflow-x-hidden">
-                    <PessoasList pessoas={pessoasFiltradas} onClickPessoa={abrirDM} />
+                  <div className="flex-1 overflow-y-auto overflow-x-hidden nice-scrollbar chat-scrollbar">
+                    <PessoasList pessoas={pessoasFiltradas} onClickPessoa={abrirDM} abrindoUserId={abrindoDmUserId} />
                   </div>
                 </div>
 
@@ -679,7 +684,7 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
                       />
                     </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                  <div className="flex-1 overflow-y-auto overflow-x-hidden nice-scrollbar chat-scrollbar">
                     <ConversasList
                       conversas={conversasFiltradas}
                       meuId={meuId}
@@ -720,7 +725,7 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
   // ─── Modo embed: chat fullscreen, sem trigger nem Sheet (usado pelo desktop) ───
   if (embed) {
     return (
-      <div className="fixed inset-0 z-0 flex flex-col bg-card">
+      <div className="chat-desktop-shell fixed inset-0 z-0 flex flex-col bg-card">
         {panelContent}
       </div>
     )
@@ -779,10 +784,10 @@ function StatusDropdown({ statusManual, presencaAtual, onChange }: {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="inline-flex items-center gap-1.5 text-xs font-medium hover:bg-muted px-2 py-1 rounded-md transition-colors">
+        <button type="button" className="inline-flex h-8 max-w-[132px] items-center gap-1.5 rounded-md px-2 text-xs font-medium hover:bg-muted transition-colors">
           <span className={cn('h-2 w-2 rounded-full', STATUS_COR[presencaAtual])} />
-          {labelAtual}
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          <span className="min-w-0 truncate">{labelAtual}</span>
+          <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">
@@ -843,21 +848,28 @@ function Avatar({ user, presenca, size = 'md' }: {
   )
 }
 
-function PessoasList({ pessoas, onClickPessoa }: {
+function PessoasList({ pessoas, onClickPessoa, abrindoUserId }: {
   pessoas: Array<OnlineUser & { presenca: 'online' | 'ausente' | 'dnd' | 'offline' }>
   onClickPessoa: (id: string) => void
+  abrindoUserId?: string | null
 }) {
   if (pessoas.length === 0) {
     return <div className="p-6 text-center text-[11px] text-muted-foreground">Ninguém por aqui.</div>
   }
   return (
     <ul className="py-1 px-1">
-      {pessoas.map(u => (
+      {pessoas.map(u => {
+        const abrindo = abrindoUserId === u.id
+        return (
         <li key={u.id}>
           <button
             type="button"
+            disabled={abrindo}
             onClick={() => onClickPessoa(u.id)}
-            className="w-full px-2.5 py-1.5 flex items-center gap-2.5 hover:bg-muted/60 rounded-md transition-colors text-left"
+            className={cn(
+              'w-full px-2.5 py-1.5 flex items-center gap-2.5 rounded-md transition-colors text-left',
+              abrindo ? 'cursor-wait bg-muted/50 opacity-80' : 'hover:bg-muted/60',
+            )}
             title={`${u.name} · ${STATUS_LABEL[u.presenca]}`}
           >
             <Avatar user={u} presenca={u.presenca} size="sm" />
@@ -867,9 +879,11 @@ function PessoasList({ pessoas, onClickPessoa }: {
                 {STATUS_LABEL[u.presenca]}
               </div>
             </div>
+            {abrindo && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />}
           </button>
         </li>
-      ))}
+        )
+      })}
     </ul>
   )
 }
@@ -1019,6 +1033,32 @@ function ChatView({ conversa, meuId, onMessageSent }: {
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const lastTypingSentRef = useRef<number>(0)
+  const [messageScrollbar, setMessageScrollbar] = useState({ top: 12, height: 44, visible: false })
+
+  const updateMessageScrollbar = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    const { scrollTop, scrollHeight, clientHeight } = el
+    const visible = scrollHeight > clientHeight + 2
+    if (!visible) {
+      setMessageScrollbar(prev => prev.visible ? { ...prev, visible: false } : prev)
+      return
+    }
+
+    const trackPadding = 12
+    const trackHeight = Math.max(1, clientHeight - trackPadding * 2)
+    const height = Math.max(44, Math.round((clientHeight / scrollHeight) * trackHeight))
+    const maxTop = Math.max(0, trackHeight - height)
+    const maxScroll = Math.max(1, scrollHeight - clientHeight)
+    const top = trackPadding + Math.round((scrollTop / maxScroll) * maxTop)
+
+    setMessageScrollbar(prev => (
+      prev.visible === visible && prev.top === top && prev.height === height
+        ? prev
+        : { top, height, visible }
+    ))
+  }, [])
 
   // ========== Carrega últimas mensagens ==========
   const loadMensagens = useCallback(async () => {
@@ -1044,7 +1084,18 @@ function ChatView({ conversa, meuId, onMessageSent }: {
       bottomRef.current?.scrollIntoView({ behavior: prevLenRef.current === 0 ? 'auto' : 'smooth' })
     }
     prevLenRef.current = mensagens.length
-  }, [mensagens])
+    requestAnimationFrame(updateMessageScrollbar)
+  }, [mensagens, updateMessageScrollbar])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    updateMessageScrollbar()
+    const resizeObserver = new ResizeObserver(() => updateMessageScrollbar())
+    resizeObserver.observe(el)
+    return () => resizeObserver.disconnect()
+  }, [updateMessageScrollbar, conversa.id])
 
   // ========== Infinite scroll up ==========
   async function carregarMaisAntigas() {
@@ -1060,13 +1111,17 @@ function ChatView({ conversa, meuId, onMessageSent }: {
       setHasMore(data.hasMore)
       // Preserva posição de scroll após injeção no topo
       requestAnimationFrame(() => {
-        if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight - prevHeight
+        if (scrollEl) {
+          scrollEl.scrollTop = scrollEl.scrollHeight - prevHeight
+          updateMessageScrollbar()
+        }
       })
     } finally { setLoadingMais(false) }
   }
 
   function handleScroll() {
     if (!scrollRef.current) return
+    updateMessageScrollbar()
     if (scrollRef.current.scrollTop < 50 && hasMore && !loadingMais) {
       carregarMaisAntigas()
     }
@@ -1404,12 +1459,13 @@ function ChatView({ conversa, meuId, onMessageSent }: {
       </div>
 
       {/* Mensagens — wallpaper estilo WhatsApp */}
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 space-y-2 relative bg-muted/20"
-        style={{ backgroundImage: CHAT_BG_URL, backgroundRepeat: 'repeat', backgroundSize: '200px 200px' }}
-      >
+      <div className="relative flex-1 min-h-0 overflow-hidden bg-muted/20">
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="absolute inset-0 overflow-y-auto overflow-x-hidden scrollbar-none px-3 py-3 pr-9 space-y-2"
+          style={{ backgroundImage: CHAT_BG_URL, backgroundRepeat: 'repeat', backgroundSize: '200px 200px' }}
+        >
         {loadingMais && (
           <div className="text-center py-2"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground inline" /></div>
         )}
@@ -1610,7 +1666,16 @@ function ChatView({ conversa, meuId, onMessageSent }: {
             )
           })
         )}
-        <div ref={bottomRef} />
+          <div ref={bottomRef} />
+        </div>
+        {messageScrollbar.visible && (
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-[30px] border-l border-slate-500/10 bg-[#1f2532]/95">
+            <div
+              className="absolute left-1/2 w-1.5 -translate-x-1/2 rounded-full bg-slate-500/90 shadow-[0_0_0_1px_rgba(15,23,42,0.18)]"
+              style={{ top: messageScrollbar.top, height: messageScrollbar.height }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Anexos pendentes */}
@@ -1671,7 +1736,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
           </button>
           {emojiInputOpen && (
             <div ref={emojiPopupRef}
-              className="absolute bottom-full left-0 mb-2 z-30 w-[340px] max-h-[300px] overflow-y-auto bg-card border border-border rounded-lg shadow-xl p-2">
+              className="absolute bottom-full left-0 mb-2 z-30 w-[340px] max-h-[300px] overflow-y-auto nice-scrollbar chat-scrollbar bg-card border border-border rounded-lg shadow-xl p-2">
               {EMOJI_PICKER.map(cat => (
                 <div key={cat.name} className="mb-2 last:mb-0">
                   <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 px-1 sticky top-0 bg-card py-0.5">{cat.name}</div>
@@ -1760,7 +1825,7 @@ function NovoGrupoView({ meuId, onlineUsers, onCancel, onCreated }: {
         </div>
         <div className="text-[11px] text-muted-foreground">{selecionados.length} selecionado(s)</div>
       </div>
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto nice-scrollbar chat-scrollbar">
         {disponiveis.map(u => {
           const sel = selecionados.includes(u.id)
           return (

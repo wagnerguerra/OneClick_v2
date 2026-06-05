@@ -464,6 +464,92 @@
     background-color: rgba(148, 163, 184, 0.85);
   }
 
+  /* Scrollbar do chat: mais discreta no desktop/dark, sem a barra branca
+     nativa do Windows contrastando com o painel de mensagens. */
+  .chat-scrollbar {
+    scrollbar-color: rgba(100, 116, 139, 0.78) rgba(30, 35, 48, 0.92);
+    scrollbar-width: thin;
+    scrollbar-gutter: stable;
+  }
+  .chat-scrollbar::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+  }
+  .chat-scrollbar::-webkit-scrollbar-track {
+    background: rgba(30, 35, 48, 0.92);
+    border-left: 1px solid rgba(148, 163, 184, 0.08);
+    border-radius: 0;
+  }
+  .chat-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(100, 116, 139, 0.78);
+    border: 5px solid rgba(30, 35, 48, 0.92);
+    border-radius: 999px;
+    background-clip: padding-box;
+    min-height: 44px;
+  }
+  .chat-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(148, 163, 184, 0.9);
+  }
+  .chat-scrollbar::-webkit-scrollbar-thumb:active {
+    background-color: rgba(203, 213, 225, 0.95);
+  }
+  .chat-scrollbar::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
+  .chat-scrollbar::-webkit-scrollbar-corner {
+    display: none;
+    background: transparent;
+  }
+  .dark .chat-scrollbar {
+    scrollbar-color: rgba(116, 130, 151, 0.9) rgba(31, 37, 50, 0.95);
+  }
+  .dark .chat-scrollbar::-webkit-scrollbar-track {
+    background: rgba(31, 37, 50, 0.95);
+    border-left: 1px solid rgba(148, 163, 184, 0.1);
+  }
+  .dark .chat-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(116, 130, 151, 0.9);
+    border: 5px solid rgba(31, 37, 50, 0.95);
+  }
+  .dark .chat-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(160, 174, 192, 0.95);
+  }
+  .dark .chat-scrollbar::-webkit-scrollbar-thumb:active {
+    background-color: rgba(226, 232, 240, 0.9);
+  }
+
+  .chat-desktop-shell * {
+    scrollbar-color: rgba(116, 130, 151, 0.9) rgba(31, 37, 50, 0.95);
+    scrollbar-width: thin;
+  }
+  .chat-desktop-shell *::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+  }
+  .chat-desktop-shell *::-webkit-scrollbar-track {
+    background: rgba(31, 37, 50, 0.95);
+    border-left: 1px solid rgba(148, 163, 184, 0.1);
+  }
+  .chat-desktop-shell *::-webkit-scrollbar-thumb {
+    background-color: rgba(116, 130, 151, 0.9);
+    border: 5px solid rgba(31, 37, 50, 0.95);
+    border-radius: 999px;
+    background-clip: padding-box;
+    min-height: 44px;
+  }
+  .chat-desktop-shell *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(160, 174, 192, 0.95);
+  }
+  .chat-desktop-shell *::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
+
   /* Input com icone a esquerda */
   .input-with-icon { padding-left: 2.25rem !important; }
 

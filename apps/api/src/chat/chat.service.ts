@@ -91,6 +91,14 @@ export class ChatService {
       throw new Error('Não é possível abrir conversa consigo mesmo')
     }
 
+    const outro = await prisma.user.findUnique({
+      where: { id: outroUserId },
+      select: { id: true, isActive: true },
+    })
+    if (!outro?.isActive) {
+      throw new Error('Usuario indisponivel para iniciar conversa')
+    }
+
     // Busca DM existente entre os 2
     const existente = await prisma.chatConversa.findFirst({
       where: {
@@ -104,20 +112,33 @@ export class ChatService {
     if (existente) {
       // Confirma que tem só 2 participantes (race condition defensivo)
       const count = await prisma.chatParticipante.count({ where: { conversaId: existente.id } })
-      if (count === 2) return this.getConversa(existente.id, meuUserId)
+      if (count === 2) {
+        // Se a conversa foi "excluida para mim", abrir a DM pela lista de
+        // pessoas deve reexibi-la. Sem isso, listConversas() filtra hiddenAt
+        // e o frontend nao consegue selecionar a conversa retornada.
+        await prisma.chatParticipante.updateMany({
+          where: { conversaId: existente.id, usuarioId: meuUserId },
+          data: { hiddenAt: null },
+        })
+        return this.getConversa(existente.id, meuUserId)
+      }
     }
 
-    const novaConversa = await prisma.chatConversa.create({
+    const novaConversa = await prisma.$transaction(async (tx) => tx.chatConversa.create({
       data: {
         isGrupo: false,
         criadorId: meuUserId,
         participantes: {
           create: [
-            { usuarioId: meuUserId, papel: 'membro' },
+            { usuarioId: meuUserId, papel: 'membro', lastReadAt: new Date() },
             { usuarioId: outroUserId, papel: 'membro' },
           ],
         },
       },
+    }))
+    this.events.emit('conversa-criada', {
+      conversaId: novaConversa.id,
+      destinatarios: [meuUserId, outroUserId],
     })
     return this.getConversa(novaConversa.id, meuUserId)
   }
