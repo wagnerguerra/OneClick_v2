@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import {
   MessageSquare, X, Send, Loader2, ArrowLeft, Search, Users, Paperclip,
   ImagePlus, Check, CheckCheck, Edit2, Trash2, Smile, AtSign,
-  ChevronDown, MoreVertical,
+  ChevronDown, MoreVertical, MonitorDown,
 } from 'lucide-react'
 import { Button, Input, cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, Sheet, SheetContent, SheetTitle } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -242,6 +242,12 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
   const [ausenteAposMin, setAusenteAposMin] = useState(5)
 
   const totalUnread = useMemo(() => conversas.reduce((sum, c) => sum + c.unreadCount, 0), [conversas])
+
+  // Detecta se está rodando dentro do aplicativo desktop Electron (chatDesktop
+  // exposto pelo preload). Quando true, esconde o link "Baixar app desktop"
+  // pra não oferecer o app de dentro do próprio app.
+  const isRunningInDesktopApp = typeof window !== 'undefined'
+    && (window as unknown as { chatDesktop?: { isDesktop?: boolean } }).chatDesktop?.isDesktop === true
 
   // Reset estado interno quando o sheet fecha. No modo embed o sheet nunca
   // fecha — apenas troca de conversa/volta pra lista interna.
@@ -544,7 +550,21 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
                     </div>
                   </div>
                 </div>
-                <div className="pr-12">
+                <div className="pr-12 flex items-center gap-2">
+                  {/* Link pra baixar o app desktop — escondido quando ja
+                      esta rodando dentro do proprio app (window.chatDesktop) */}
+                  {!isRunningInDesktopApp && (
+                    <a
+                      href="/chat-desktop-download"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Baixar OneClick Chat Desktop"
+                      className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    >
+                      <MonitorDown className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">App desktop</span>
+                    </a>
+                  )}
                   <StatusDropdown statusManual={meuStatus} presencaAtual={minhaPresenca} onChange={trocarStatus} />
                 </div>
               </div>
