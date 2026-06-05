@@ -61,5 +61,7 @@ export default function ChatDesktopLayout({ children }: { children: React.ReactN
     )
   }
 
-  return <div className="dark min-h-screen bg-card text-foreground">{children}</div>
+  // Sem `dark` hardcoded no className — a classe é aplicada/removida no <html>
+  // pelo useEffect acima conforme a preferência do user (settings page).
+  return <div className="min-h-screen bg-card text-foreground">{children}</div>
 }
