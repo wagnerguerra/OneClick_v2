@@ -578,7 +578,14 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
           ) : (
             <div className="flex flex-col h-full">
               {/* Header global */}
-              <div className="shrink-0 border-b border-border/60 bg-gradient-to-r from-muted/40 to-muted/10 px-5 py-3 flex items-center justify-between">
+              <div className={cn(
+                'shrink-0 border-b border-border/60 bg-gradient-to-r from-muted/40 to-muted/10 px-5 py-3 flex items-center justify-between',
+                // No app desktop, os botões nativos do Windows (minimizar/
+                // maximizar/fechar) ocupam ~130px no canto superior direito da
+                // janela. Reservamos esse espaço pra não sobrepor o
+                // StatusDropdown e o botão de Configurações.
+                isRunningInDesktopApp && embed && 'pr-[140px]',
+              )}>
                 <div className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 flex items-center justify-center shadow-sm">
                     <MessageSquare className="h-4 w-4 text-white" />
