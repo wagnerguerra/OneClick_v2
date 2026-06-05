@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('chatDesktop', {
   notify: (payload) => ipcRenderer.invoke('chat:notify', payload),
   /** Atualiza o badge do tray com o número de mensagens não lidas. */
   setUnread: (count) => ipcRenderer.invoke('chat:set-unread', count),
+  /** Atualiza o dot de presença no ícone do tray (online/ausente/dnd/offline). */
+  setStatus: (status) => ipcRenderer.invoke('chat:set-status', status),
   /** Abre /login?desktop=1 no navegador padrão (fluxo OAuth + MFA via browser). */
   openLogin: () => ipcRenderer.invoke('chat:open-login-browser'),
   /** Carrega /login direto na janela do app (sem deep-link). */

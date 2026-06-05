@@ -1,7 +1,7 @@
 {
   "name": "oneclick-chat-desktop",
   "productName": "OneClick Chat",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "OneClick Chat — Aplicativo desktop do chat interno (tray + notificações)",
   "main": "main.js",
   "private": true,
@@ -60,7 +60,7 @@
       ],
       "icon": "assets/icon.ico",
       "requestedExecutionLevel": "asInvoker",
-      "signAndEditExecutable": false,
+      "signAndEditExecutable": true,
       "artifactName": "OneClick-Chat-Setup-${version}.${ext}"
     },
     "linux": {

@@ -139,47 +139,93 @@ app.on('second-instance', (_event, argv) => {
   }
 })
 
-// ─── Badge tray dinâmico via SVG → PNG ───
+// ─── Tray icon dinâmico ───
+// Estado mantido entre updates pra evitar re-render desnecessário
+let currentStatus = 'online'
+
+// Cores dos status (matches STATUS_COR do chat-header-button.tsx)
+const STATUS_DOT = {
+  online:  '#10b981', // emerald-500
+  ausente: '#f59e0b', // amber-500
+  dnd:     '#f43f5e', // rose-500
+  offline: '#737373', // neutral-500
+}
+
 /**
- * Renderiza o tray icon com badge de unread. Usa SVG inline (sem deps nativas)
- * convertido pra nativeImage. Funciona no Windows e Linux.
+ * Renderiza o tray icon = ícone real do app (OC do designer) + opcional bolinha
+ * de status no canto inferior direito + opcional badge vermelho com contador
+ * no canto superior direito.
+ *
+ * Estratégia: encoda o PNG do icon-source em base64 e compõe via SVG. Mais
+ * simples que manipular pixels e mantém a fidelidade do ícone (anti-aliasing,
+ * sombras, etc).
  */
-function renderTrayIcon(unreadCount) {
+let cachedIconBase64 = null
+function getIconBase64() {
+  if (cachedIconBase64) return cachedIconBase64
+  try {
+    const fs = require('fs')
+    const iconPath = path.join(__dirname, 'assets', 'icon.png')
+    const buf = fs.readFileSync(iconPath)
+    cachedIconBase64 = buf.toString('base64')
+    return cachedIconBase64
+  } catch (e) {
+    console.warn('[tray] icon.png não encontrado:', e.message)
+    return null
+  }
+}
+
+function renderTrayIcon(unreadCount, status) {
   const n = Number(unreadCount) || 0
-  // SVG base 32x32: bolha de chat + opcional badge vermelho no canto superior direito
+  const s = status || 'online'
+  const iconB64 = getIconBase64()
+
+  // Badge de não lidas (canto superior direito) — vermelho com contagem
   const showBadge = n > 0
   const label = n > 99 ? '99+' : String(n)
   const fontSize = label.length === 1 ? 13 : label.length === 2 ? 11 : 9
   const badge = showBadge
-    ? `<circle cx="24" cy="8" r="7" fill="#ef4444" stroke="#0b0c0e" stroke-width="1.5"/>
-       <text x="24" y="${8 + fontSize / 3}" font-family="Arial,sans-serif" font-size="${fontSize}" font-weight="bold" fill="white" text-anchor="middle">${label}</text>`
+    ? `<circle cx="25" cy="7" r="6.5" fill="#ef4444" stroke="#0b0c0e" stroke-width="1.5"/>
+       <text x="25" y="${7 + fontSize / 3}" font-family="Arial,sans-serif" font-size="${fontSize}" font-weight="bold" fill="white" text-anchor="middle">${label}</text>`
     : ''
+
+  // Dot de status (canto inferior direito) — só mostra se não há badge OU se status != online
+  // Pra não poluir, escondemos o dot quando há badge (já chama atenção suficiente).
+  const dotColor = STATUS_DOT[s] || STATUS_DOT.online
+  const dot = !showBadge
+    ? `<circle cx="25" cy="25" r="5.5" fill="${dotColor}" stroke="#0b0c0e" stroke-width="1.5"/>`
+    : ''
+
+  // SVG 32x32 = ícone do app (PNG embed via data URL) + overlay de badge/dot
+  const iconLayer = iconB64
+    ? `<image href="data:image/png;base64,${iconB64}" x="0" y="0" width="32" height="32" preserveAspectRatio="xMidYMid meet"/>`
+    : `<rect x="3" y="4" width="22" height="18" rx="4" fill="#0ea5e9"/>` // fallback se icon.png faltar
+
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-    <defs>
-      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#0ea5e9"/>
-        <stop offset="1" stop-color="#6366f1"/>
-      </linearGradient>
-    </defs>
-    <rect x="3" y="4" width="22" height="18" rx="4" fill="url(#g)"/>
-    <path d="M8 22 L8 26 L13 22 Z" fill="url(#g)"/>
-    <circle cx="10" cy="13" r="1.6" fill="white"/>
-    <circle cx="14" cy="13" r="1.6" fill="white"/>
-    <circle cx="18" cy="13" r="1.6" fill="white"/>
+    ${iconLayer}
+    ${dot}
     ${badge}
   </svg>`
-  // nativeImage suporta SVG diretamente via createFromBuffer em algumas plataformas;
-  // como fallback robusto, criamos via data URL → imageData → asset PNG é mais complexo.
-  // Solução simples: usar createFromDataURL com data:image/svg+xml — Electron resolve.
   const dataUrl = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
   return nativeImage.createFromDataURL(dataUrl)
+}
+
+const STATUS_LABEL_TRAY = {
+  online: 'Online',
+  ausente: 'Ausente',
+  dnd: 'Não perturbar',
+  offline: 'Offline',
 }
 
 function refreshTray() {
   if (!tray) return
   try {
-    tray.setImage(renderTrayIcon(currentUnread))
-    tray.setToolTip(currentUnread > 0 ? `OneClick Chat — ${currentUnread} não lida(s)` : 'OneClick Chat')
+    tray.setImage(renderTrayIcon(currentUnread, currentStatus))
+    const statusTxt = STATUS_LABEL_TRAY[currentStatus] || 'Online'
+    const tip = currentUnread > 0
+      ? `OneClick Chat — ${currentUnread} não lida(s) · ${statusTxt}`
+      : `OneClick Chat · ${statusTxt}`
+    tray.setToolTip(tip)
   } catch (e) {
     console.warn('[tray] falha ao re-renderizar:', e.message)
   }
@@ -187,7 +233,7 @@ function refreshTray() {
 
 function createTray() {
   if (tray) return
-  tray = new Tray(renderTrayIcon(0))
+  tray = new Tray(renderTrayIcon(0, 'online'))
   tray.setToolTip('OneClick Chat')
   const menu = Menu.buildFromTemplate([
     { label: 'Abrir Chat', click: () => { if (!mainWindow) createWindow(); else { mainWindow.show(); mainWindow.focus() } } },
@@ -397,6 +443,14 @@ ipcMain.handle('chat:notify', (_event, payload) => {
 ipcMain.handle('chat:set-unread', (_event, count) => {
   currentUnread = Number(count) || 0
   refreshTray()
+})
+
+ipcMain.handle('chat:set-status', (_event, status) => {
+  // Aceita 'online'|'ausente'|'dnd'|'offline'; ignora valores desconhecidos
+  if (status === 'online' || status === 'ausente' || status === 'dnd' || status === 'offline') {
+    currentStatus = status
+    refreshTray()
+  }
 })
 
 ipcMain.handle('chat:open-login-browser', () => { openLoginInBrowser() })

@@ -467,6 +467,16 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
     }
   }, [totalUnread])
 
+  // Espelha o status efetivo pro main process — usado pra desenhar a bolinha
+  // de presença no ícone do tray (verde/âmbar/vermelho/cinza).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const desktop = (window as unknown as { chatDesktop?: { setStatus: (s: string) => void } }).chatDesktop
+    if (desktop?.setStatus) {
+      try { desktop.setStatus(minhaPresenca) } catch { /* ignora */ }
+    }
+  }, [minhaPresenca])
+
   // ========== Trocar status ==========
   async function trocarStatus(novo: ChatStatus) {
     setMeuStatus(novo)
@@ -525,11 +535,22 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
     onlineUsers.filter(u => u.id !== meuId && presencaEfetiva(u, ausenteAposMin) === 'online').length,
   [onlineUsers, meuId, ausenteAposMin])
 
-  // Minha presença efetiva (pra o dot no botão do header)
+  // Minha presença efetiva (pra o dot no botão do header).
+  // - Manual local (clicado no dropdown) tem prioridade absoluta — `invisible`
+  //   aparece como offline pros outros, mas pra mim mesmo continua "online".
+  // - Sem manual: deriva do snapshot do banco (eu.chatStatus + eu.lastActivityAt).
+  // - Snapshot ainda não chegou (1ª render pós-login): assume "online" otimista —
+  //   evita o flicker "Offline → Online" que acontecia porque o setMeuStatus
+  //   só rodava DEPOIS do loadOnline retornar.
   const minhaPresenca: 'online' | 'ausente' | 'dnd' | 'offline' = useMemo(() => {
+    // Override manual local
+    if (meuStatus === 'invisible') return 'online' // pra mim, sigo "online" mesmo invisible
+    if (meuStatus === 'online' || meuStatus === 'ausente' || meuStatus === 'dnd') return meuStatus
+    // Derivado do banco
     const eu = onlineUsers.find(u => u.id === meuId)
-    if (!eu) return meuStatus === 'online' ? 'online' : 'offline'
-    return presencaEfetiva({ ...eu, chatStatus: meuStatus }, ausenteAposMin)
+    if (eu) return presencaEfetiva({ chatStatus: eu.chatStatus, lastActivityAt: eu.lastActivityAt }, ausenteAposMin)
+    // Sem snapshot ainda — provavelmente acabou de logar e a request tá em voo
+    return 'online'
   }, [onlineUsers, meuId, meuStatus, ausenteAposMin])
 
   // ============================================================
