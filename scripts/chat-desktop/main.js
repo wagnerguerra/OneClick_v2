@@ -255,7 +255,7 @@ async function logoutAndReload() {
     if (!mainWindow) createWindow()
     if (mainWindow) {
       mainWindow.show(); mainWindow.focus()
-      mainWindow.loadURL(`file://${path.join(__dirname, 'login.html')}`).catch(() => {})
+      mainWindow.loadURL(`${APP_URL}/chat-desktop/login`).catch(() => {})
     }
   }
 }
@@ -277,10 +277,10 @@ async function createWindow() {
     },
   })
 
-  // Sessão existente → vai direto pro chat. Sem cookie → mostra a tela
-  // login.html local pro user escolher como entrar.
+  // Sessão existente → vai direto pro chat. Sem cookie → carrega a tela de
+  // login do próprio chat (/chat-desktop/login — UI compact dark dedicada).
   const logged = await hasSessionCookie()
-  const initial = logged ? CHAT_URL : `file://${path.join(__dirname, 'login.html')}`
+  const initial = logged ? CHAT_URL : `${APP_URL}/chat-desktop/login`
   mainWindow.loadURL(initial).catch((e) => console.error('[load] falhou:', e.message))
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -364,7 +364,7 @@ ipcMain.handle('chat:set-unread', (_event, count) => {
 ipcMain.handle('chat:open-login-browser', () => { openLoginInBrowser() })
 
 ipcMain.handle('chat:open-login-embedded', () => {
-  if (mainWindow) mainWindow.loadURL(`${APP_URL}/login?desktop=1`).catch(() => {})
+  if (mainWindow) mainWindow.loadURL(`${APP_URL}/chat-desktop/login`).catch(() => {})
 })
 
 // ─── Auto-update ───

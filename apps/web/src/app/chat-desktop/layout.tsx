@@ -10,19 +10,25 @@
  */
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useSession } from '@/lib/auth-client'
 
 export default function ChatDesktopLayout({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = useSession()
   const router = useRouter()
+  const pathname = usePathname()
+  // Rota pública dentro do escopo /chat-desktop — não tenta redirecionar quando
+  // já está na tela de login (senão entra em loop infinito).
+  const isLoginPage = pathname === '/chat-desktop/login'
 
   useEffect(() => {
     if (isPending) return
-    // ?desktop=1 garante que após login o redirect vai pro /desktop-handshake
-    // (gera token e devolve via oneclick-chat://) em vez do /dashboard padrão
-    if (!session) router.push('/login?desktop=1')
-  }, [isPending, session, router])
+    if (isLoginPage) return
+    // /chat-desktop/login é a tela dedicada do chat (compact dark, identidade
+    // visual do app); ela mesma redireciona pro /desktop-handshake após
+    // sucesso (gera token e devolve via oneclick-chat://).
+    if (!session) router.push('/chat-desktop/login')
+  }, [isPending, session, router, isLoginPage])
 
   // Aplica o tema escolhido em /chat-desktop/settings. Salvo em localStorage
   // como 'auto' | 'dark' | 'light' (chave oc-chat:theme). Default = dark.
@@ -52,6 +58,11 @@ export default function ChatDesktopLayout({ children }: { children: React.ReactN
       if (!prev) html.classList.remove('dark')
     }
   }, [])
+
+  // Na própria tela de login, renderiza direto sem o spinner de auth check
+  if (isLoginPage) {
+    return <div className="min-h-screen bg-card text-foreground">{children}</div>
+  }
 
   if (isPending || !session) {
     return (
