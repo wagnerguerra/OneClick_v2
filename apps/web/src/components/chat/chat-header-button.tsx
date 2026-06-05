@@ -288,8 +288,16 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
   }, [meuId])
 
   useEffect(() => {
-    loadConversas()
-    loadOnline()
+    // CRÍTICO: dispara presence.ping AWAITADO antes do primeiro loadOnline.
+    // O middleware touch() do tRPC é fire-and-forget — se a query getOnline()
+    // roda em paralelo, ela é executada antes do UPDATE de lastActivityAt
+    // commitar e o user aparece "offline" no próprio dropdown logo após login.
+    // Esperar a mutation resolver garante consistência na primeira carga.
+    ;(async () => {
+      try { await (trpc.presence as any).ping.mutate() } catch { /* ignora */ }
+      loadConversas()
+      loadOnline()
+    })()
     // ChatConfig: tempo de ausência (lido 1x no mount; mudanças do master
     // refletem em F5 — sem SSE pra config porque é raro).
     ;(trpc.chat as any).configGet.query()

@@ -269,10 +269,35 @@ async function logoutAndReload() {
 }
 
 // ─── Janela ───
+// Tamanhos por rota — janela compact pra login, wide pra chat (3 colunas).
+const WIN_SIZES = {
+  login:    { width: 480,  height: 720 },
+  settings: { width: 720,  height: 760 },
+  chat:     { width: 1100, height: 760 },
+}
+
+function pickSizeFromUrl(url) {
+  if (!url) return WIN_SIZES.chat
+  if (url.includes('/chat-desktop/login')) return WIN_SIZES.login
+  if (url.includes('/chat-desktop/settings')) return WIN_SIZES.settings
+  if (url.includes('/chat-desktop')) return WIN_SIZES.chat
+  return WIN_SIZES.login // file://login.html, /login, etc
+}
+
+function applySize(target) {
+  if (!mainWindow) return
+  const [w, h] = mainWindow.getSize()
+  if (w === target.width && h === target.height) return
+  mainWindow.setSize(target.width, target.height, true)
+  mainWindow.center()
+}
+
 async function createWindow() {
+  // Tamanho inicial — usa o do login (vai redimensionar depois conforme a rota)
+  const initialSize = WIN_SIZES.login
   mainWindow = new BrowserWindow({
-    width: 520,
-    height: 760,
+    width: initialSize.width,
+    height: initialSize.height,
     minWidth: 420,
     minHeight: 560,
     backgroundColor: '#242528',
@@ -346,6 +371,11 @@ async function createWindow() {
   mainWindow.webContents.on('unresponsive', () => {
     console.warn('[renderer] unresponsive')
   })
+
+  // Redimensionamento automático conforme a rota — login fica compact,
+  // chat ocupa mais espaço (3 colunas: pessoas, conversas, mensagens).
+  mainWindow.webContents.on('did-navigate', (_e, url) => applySize(pickSizeFromUrl(url)))
+  mainWindow.webContents.on('did-navigate-in-page', (_e, url) => applySize(pickSizeFromUrl(url)))
 }
 
 // ─── IPC ───
