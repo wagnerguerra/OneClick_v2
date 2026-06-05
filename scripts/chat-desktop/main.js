@@ -194,6 +194,10 @@ function createTray() {
       },
     },
     { label: 'Entrar pelo navegador', click: () => openLoginInBrowser() },
+    {
+      label: 'Sair da conta',
+      click: () => logoutAndReload(),
+    },
     { type: 'separator' },
     {
       label: 'Iniciar com o Windows',
@@ -224,6 +228,35 @@ async function hasSessionCookie() {
     return cookies.length > 0
   } catch {
     return false
+  }
+}
+
+/**
+ * Faz logout completo: chama o endpoint /api/auth/sign-out (invalida a sessão
+ * no server), remove o cookie local e recarrega a tela inicial de login.
+ * Usado pelo item "Sair da conta" do tray menu.
+ */
+async function logoutAndReload() {
+  try {
+    // Server-side: invalida a sessão no banco (Better Auth)
+    await fetch(`${APP_URL}/api/auth/sign-out`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    }).catch(() => { /* server pode falhar — remoção local ainda procede */ })
+  } finally {
+    // Remove o cookie da BrowserSession (mesmo se o POST falhou)
+    try {
+      const cookies = await session.defaultSession.cookies.get({ url: APP_URL })
+      for (const c of cookies) {
+        await session.defaultSession.cookies.remove(APP_URL, c.name).catch(() => {})
+      }
+    } catch (e) { console.warn('[logout] limpeza de cookies falhou:', e.message) }
+    if (!mainWindow) createWindow()
+    if (mainWindow) {
+      mainWindow.show(); mainWindow.focus()
+      mainWindow.loadURL(`file://${path.join(__dirname, 'login.html')}`).catch(() => {})
+    }
   }
 }
 

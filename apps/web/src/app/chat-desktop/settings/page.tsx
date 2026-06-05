@@ -15,11 +15,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
-  ArrowLeft, Bell, Volume2, Shield, Monitor, Loader2, Check,
+  ArrowLeft, Bell, Volume2, Shield, Monitor, Loader2, Check, LogOut, User,
 } from 'lucide-react'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { signOut } from '@/lib/auth-client'
+import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
 type ChatStatus = 'online' | 'ausente' | 'dnd' | 'invisible' | null
 type ThemeMode = 'auto' | 'dark' | 'light'
@@ -60,6 +62,30 @@ export default function ChatSettingsPage() {
   // Status manual (vem do banco, vai via trpc.chat.setStatus)
   const [meuStatus, setMeuStatus] = useState<ChatStatus>(null)
   const [savingStatus, setSavingStatus] = useState(false)
+
+  const { profile } = useCurrentUserProfile()
+  const [saindo, setSaindo] = useState(false)
+
+  async function sair() {
+    const ok = await alerts.confirm({
+      title: 'Sair da conta?',
+      text: 'Você precisará entrar novamente pra usar o chat.',
+      confirmText: 'Sair',
+      icon: 'question',
+    })
+    if (!ok) return
+    setSaindo(true)
+    try {
+      await signOut()
+      // Em ambos os modos (web e Electron) a página /login?desktop=1 inicia
+      // o fluxo de novo login. O navigation guard do Electron já permite
+      // /login no whitelist.
+      window.location.href = '/login?desktop=1'
+    } catch (e) {
+      alerts.error('Erro ao sair', (e as Error).message)
+      setSaindo(false)
+    }
+  }
 
   useEffect(() => {
     setNotifSound(loadBoolPref(STORAGE_KEYS.notifSound, true))
@@ -187,12 +213,42 @@ export default function ChatSettingsPage() {
                 <ul className="list-disc list-inside mt-1.5 space-y-0.5">
                   <li>Iniciar com o Windows</li>
                   <li>Verificar atualizações</li>
-                  <li>Sair completamente</li>
+                  <li>Fechar o aplicativo completamente</li>
                 </ul>
               </div>
             </div>
           </section>
         )}
+
+        {/* Conta — info do user logado + sair */}
+        <section>
+          <SectionHeader icon={User} title="Conta" subtitle="Sessão atual no chat" />
+          <div className="rounded-lg border border-border/60 overflow-hidden bg-card">
+            {profile && (
+              <div className="px-4 py-3 border-b border-border/40 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-white text-sm font-bold flex items-center justify-center shrink-0">
+                  {(profile.name ?? '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium truncate">{profile.name || 'Usuário'}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{profile.email}</p>
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={sair}
+              disabled={saindo}
+              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-rose-500/[0.08] transition-colors text-rose-600 dark:text-rose-400 disabled:opacity-60"
+            >
+              {saindo ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <LogOut className="h-4 w-4 shrink-0" />}
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-semibold">Sair da conta</p>
+                <p className="text-[11px] opacity-70 leading-snug">Encerra a sessão. Você precisará logar de novo pra usar o chat.</p>
+              </div>
+            </button>
+          </div>
+        </section>
       </div>
     </div>
   )
