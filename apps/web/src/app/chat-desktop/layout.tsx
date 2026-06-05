@@ -24,12 +24,33 @@ export default function ChatDesktopLayout({ children }: { children: React.ReactN
     if (!session) router.push('/login?desktop=1')
   }, [isPending, session, router])
 
-  // Força dark mode visualmente — a janela Electron é dark-only.
+  // Aplica o tema escolhido em /chat-desktop/settings. Salvo em localStorage
+  // como 'auto' | 'dark' | 'light' (chave oc-chat:theme). Default = dark.
   useEffect(() => {
     const html = document.documentElement
     const prev = html.classList.contains('dark')
-    html.classList.add('dark')
-    return () => { if (!prev) html.classList.remove('dark') }
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+
+    function apply() {
+      const t = window.localStorage.getItem('oc-chat:theme') ?? 'dark'
+      const dark = t === 'dark' || (t === 'auto' && mq.matches)
+      html.classList.toggle('dark', dark)
+    }
+
+    apply()
+    // Mudança via outra aba/janela → evento 'storage'
+    window.addEventListener('storage', apply)
+    // Mudança via mesma aba (settings page dispara isso após salvar)
+    window.addEventListener('oc-chat-theme-change', apply)
+    // Sistema mudou de claro/escuro (relevante no modo 'auto')
+    mq.addEventListener('change', apply)
+
+    return () => {
+      window.removeEventListener('storage', apply)
+      window.removeEventListener('oc-chat-theme-change', apply)
+      mq.removeEventListener('change', apply)
+      if (!prev) html.classList.remove('dark')
+    }
   }, [])
 
   if (isPending || !session) {

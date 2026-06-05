@@ -158,14 +158,22 @@ export default function ChatSettingsPage() {
           </div>
         </section>
 
-        {/* Aparência — placeholder pra próxima rodada */}
+        {/* Aparência */}
         <section>
           <SectionHeader icon={Monitor} title="Aparência" subtitle="Tema da interface" />
           <div className="rounded-lg border border-border/60 overflow-hidden bg-card">
-            <ThemeRow value={theme} onChange={(v) => { setTheme(v); window.localStorage.setItem(STORAGE_KEYS.theme, v) }} />
+            <ThemeRow
+              value={theme}
+              onChange={(v) => {
+                setTheme(v)
+                window.localStorage.setItem(STORAGE_KEYS.theme, v)
+                // Notifica o layout pra reaplicar a classe `dark` no <html>
+                window.dispatchEvent(new Event('oc-chat-theme-change'))
+              }}
+            />
           </div>
           <p className="text-[11px] text-muted-foreground mt-2 px-1">
-            O app desktop hoje usa tema escuro fixo. A configuração será aplicada na próxima atualização.
+            <strong>Acompanhar sistema</strong> usa o tema do Windows (modo escuro/claro automático).
           </p>
         </section>
 
