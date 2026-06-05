@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import {
   MessageSquare, X, Send, Loader2, ArrowLeft, Search, Users, Paperclip,
   ImagePlus, Check, CheckCheck, Edit2, Trash2, Smile, AtSign,
-  ChevronDown, MoreVertical, MonitorDown,
+  ChevronDown, MoreVertical, MonitorDown, Settings as SettingsIcon,
 } from 'lucide-react'
 import { Button, Input, cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, Sheet, SheetContent, SheetTitle } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -575,6 +575,16 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
                       <span className="hidden sm:inline">App desktop</span>
                     </a>
                   )}
+                  {/* Configurações do chat — abre /chat-desktop/settings */}
+                  <a
+                    href="/chat-desktop/settings"
+                    target={embed ? undefined : '_blank'}
+                    rel={embed ? undefined : 'noopener noreferrer'}
+                    title="Configurações do chat"
+                    className="inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <SettingsIcon className="h-3.5 w-3.5" />
+                  </a>
                   <StatusDropdown statusManual={meuStatus} presencaAtual={minhaPresenca} onChange={trocarStatus} />
                 </div>
               </div>

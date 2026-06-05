@@ -42,12 +42,12 @@ const COOKIE_NAME = 'better-auth.session_token'
 function isChatScopedPath(pathname) {
   if (!pathname) return false
   const allowed = [
-    '/chat-desktop',
-    '/login',
-    '/desktop-handshake',
+    '/chat-desktop',           // o chat (e subrotas: /chat-desktop/settings)
+    '/login',                  // login e MFA
+    '/desktop-handshake',      // troca de token pra cookie de sessão
     '/forgot-password',
     '/reset-password',
-    '/api/',
+    '/api/',                   // tRPC + REST
   ]
   return allowed.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p))
 }
@@ -183,6 +183,16 @@ function createTray() {
   tray.setToolTip('OneClick Chat')
   const menu = Menu.buildFromTemplate([
     { label: 'Abrir Chat', click: () => { if (!mainWindow) createWindow(); else { mainWindow.show(); mainWindow.focus() } } },
+    {
+      label: 'Configurações',
+      click: () => {
+        if (!mainWindow) createWindow()
+        if (mainWindow) {
+          mainWindow.show(); mainWindow.focus()
+          mainWindow.loadURL(`${APP_URL}/chat-desktop/settings`).catch(() => {})
+        }
+      },
+    },
     { label: 'Entrar pelo navegador', click: () => openLoginInBrowser() },
     { type: 'separator' },
     {
