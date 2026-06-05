@@ -1,6 +1,6 @@
 {
   "name": "oneclick-chat-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "OneClick Chat — Aplicativo desktop do chat interno (tray + notificações)",
   "main": "main.js",
   "private": true,
@@ -42,18 +42,34 @@
     "protocols": [
       {
         "name": "OneClick Chat",
-        "schemes": ["oneclick-chat"]
+        "schemes": [
+          "oneclick-chat"
+        ]
       }
     ],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "assets/icon.ico",
       "requestedExecutionLevel": "asInvoker",
       "signAndEditExecutable": false,
       "artifactName": "OneClick-Chat-Setup-${version}.${ext}"
     },
     "linux": {
-      "target": [{ "target": "AppImage", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "assets/icon.png",
       "category": "Network",
       "artifactName": "OneClick-Chat-${version}.${ext}"

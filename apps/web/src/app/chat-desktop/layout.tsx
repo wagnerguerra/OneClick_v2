@@ -19,7 +19,9 @@ export default function ChatDesktopLayout({ children }: { children: React.ReactN
 
   useEffect(() => {
     if (isPending) return
-    if (!session) router.push('/login?from=chat-desktop')
+    // ?desktop=1 garante que após login o redirect vai pro /desktop-handshake
+    // (gera token e devolve via oneclick-chat://) em vez do /dashboard padrão
+    if (!session) router.push('/login?desktop=1')
   }, [isPending, session, router])
 
   // Força dark mode visualmente — a janela Electron é dark-only.

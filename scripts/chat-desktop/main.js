@@ -27,6 +27,31 @@ const LOGIN_URL = `${APP_URL}/login?desktop=1`
 const PROTOCOL = 'oneclick-chat'
 const COOKIE_NAME = 'better-auth.session_token'
 
+/**
+ * Whitelist de rotas que o app desktop pode renderizar. Qualquer outra rota
+ * (ex: /dashboard, /helpdesk, /clientes) é bloqueada e redirecionada pro
+ * /chat-desktop — mesma UX do WhatsApp Desktop, que só faz chat.
+ *
+ * Rotas permitidas:
+ *   - /chat-desktop (e subrotas) — o próprio chat
+ *   - /login (e subrotas como /login/2fa) — fluxo de autenticação
+ *   - /desktop-handshake — geração de token pro deep-link
+ *   - /forgot-password, /reset-password — recuperação de senha
+ *   - /api/* — chamadas tRPC/REST que o chat precisa fazer
+ */
+function isChatScopedPath(pathname) {
+  if (!pathname) return false
+  const allowed = [
+    '/chat-desktop',
+    '/login',
+    '/desktop-handshake',
+    '/forgot-password',
+    '/reset-password',
+    '/api/',
+  ]
+  return allowed.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p))
+}
+
 // ─── Single-instance lock ───
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
@@ -216,9 +241,44 @@ async function createWindow() {
   mainWindow.loadURL(initial).catch((e) => console.error('[load] falhou:', e.message))
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith(APP_URL)) return { action: 'allow' }
-    shell.openExternal(url)
-    return { action: 'deny' }
+    // Tudo que não é do APP_URL abre no browser default
+    if (!url.startsWith(APP_URL)) {
+      shell.openExternal(url)
+      return { action: 'deny' }
+    }
+    // URLs do sistema (ex: link de ticket clicado no chat) abrem no browser
+    // pra não trazer dashboard inteiro pra dentro do app de chat
+    const p = new URL(url).pathname
+    if (!isChatScopedPath(p)) {
+      shell.openExternal(url)
+      return { action: 'deny' }
+    }
+    return { action: 'allow' }
+  })
+
+  // Navigation guard: garante que o app SÓ navega pelas rotas relacionadas
+  // ao chat. Se algo redireciona pra /dashboard ou qualquer outra parte do
+  // sistema, cancela e força volta pra /chat-desktop.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    try {
+      // Permite about:blank e file:// (login.html local)
+      if (url.startsWith('file://') || url.startsWith('about:')) return
+      const target = new URL(url)
+      // Bloqueia navegação pra hosts externos — abre no browser default
+      if (!url.startsWith(APP_URL)) {
+        event.preventDefault()
+        shell.openExternal(url)
+        return
+      }
+      // Mesma origem: só permite as rotas do chat
+      if (!isChatScopedPath(target.pathname)) {
+        event.preventDefault()
+        console.log('[nav-guard] redirecionando', target.pathname, '→ /chat-desktop')
+        mainWindow.loadURL(CHAT_URL).catch(() => {})
+      }
+    } catch (e) {
+      console.warn('[nav-guard] erro:', e.message)
+    }
   })
 
   mainWindow.on('close', (event) => {
@@ -251,7 +311,7 @@ ipcMain.handle('chat:set-unread', (_event, count) => {
 ipcMain.handle('chat:open-login-browser', () => { openLoginInBrowser() })
 
 ipcMain.handle('chat:open-login-embedded', () => {
-  if (mainWindow) mainWindow.loadURL(`${APP_URL}/login?from=chat-desktop`).catch(() => {})
+  if (mainWindow) mainWindow.loadURL(`${APP_URL}/login?desktop=1`).catch(() => {})
 })
 
 // ─── Auto-update ───
