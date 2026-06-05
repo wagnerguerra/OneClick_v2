@@ -41,6 +41,12 @@ export default function ChatDesktopLayout({ children }: { children: React.ReactN
       const t = window.localStorage.getItem('oc-chat:theme') ?? 'dark'
       const dark = t === 'dark' || (t === 'auto' && mq.matches)
       html.classList.toggle('dark', dark)
+      // Notifica o main process do Electron pra mudar a cor da title bar
+      // (window controls do Windows: minimizar/maximizar/fechar).
+      const desktop = (window as unknown as { chatDesktop?: { setTheme: (t: string) => void } }).chatDesktop
+      if (desktop?.setTheme) {
+        try { desktop.setTheme(dark ? 'dark' : 'light') } catch { /* ignora */ }
+      }
     }
 
     apply()

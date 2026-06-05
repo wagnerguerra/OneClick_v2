@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('chatDesktop', {
   setUnread: (count) => ipcRenderer.invoke('chat:set-unread', count),
   /** Atualiza o dot de presença no ícone do tray (online/ausente/dnd/offline). */
   setStatus: (status) => ipcRenderer.invoke('chat:set-status', status),
+  /** Atualiza a cor da title bar do Windows ao trocar de tema ('dark'|'light'). */
+  setTheme: (theme) => ipcRenderer.invoke('chat:set-theme', theme),
   /** Abre /login?desktop=1 no navegador padrão (fluxo OAuth + MFA via browser). */
   openLogin: () => ipcRenderer.invoke('chat:open-login-browser'),
   /** Carrega /login direto na janela do app (sem deep-link). */

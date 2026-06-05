@@ -338,9 +338,19 @@ function applySize(target) {
   mainWindow.center()
 }
 
+// Cores da title bar overlay por tema (Windows 10/11). Estados iniciais — o
+// renderer pode atualizar via window.chatDesktop.setTheme('dark'|'light') após
+// detectar a preferência salva em /chat-desktop/settings.
+const TITLEBAR_THEMES = {
+  dark:  { color: '#242528', symbolColor: '#e5e7eb' },
+  light: { color: '#ffffff', symbolColor: '#0f172a' },
+}
+
 async function createWindow() {
   // Tamanho inicial — usa o do login (vai redimensionar depois conforme a rota)
   const initialSize = WIN_SIZES.login
+  // Title bar dark por default (app abre nessa cor antes do JS carregar)
+  const initialTitleBar = TITLEBAR_THEMES.dark
   mainWindow = new BrowserWindow({
     width: initialSize.width,
     height: initialSize.height,
@@ -349,6 +359,14 @@ async function createWindow() {
     backgroundColor: '#242528',
     autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets', 'icon.ico'),
+    // titleBarStyle: 'hidden' + titleBarOverlay = Windows desenha minimizar/
+    // maximizar/fechar com a cor que escolhemos, em vez do escuro padrão.
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: initialTitleBar.color,
+      symbolColor: initialTitleBar.symbolColor,
+      height: 32,
+    },
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -450,6 +468,20 @@ ipcMain.handle('chat:set-status', (_event, status) => {
   if (status === 'online' || status === 'ausente' || status === 'dnd' || status === 'offline') {
     currentStatus = status
     refreshTray()
+  }
+})
+
+// Atualiza a cor da title bar do Windows quando o user troca o tema na
+// settings page (light/dark/auto resolvido pra um dos dois pelo renderer).
+ipcMain.handle('chat:set-theme', (_event, theme) => {
+  const t = theme === 'light' ? TITLEBAR_THEMES.light : TITLEBAR_THEMES.dark
+  if (!mainWindow) return
+  try {
+    mainWindow.setTitleBarOverlay({ color: t.color, symbolColor: t.symbolColor, height: 32 })
+    mainWindow.setBackgroundColor(t.color)
+  } catch (e) {
+    // setTitleBarOverlay só existe em Windows 10+; ignora em outras plataformas
+    console.warn('[theme] setTitleBarOverlay falhou:', e.message)
   }
 })
 

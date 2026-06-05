@@ -1,7 +1,7 @@
 {
   "name": "oneclick-chat-desktop",
   "productName": "OneClick Chat",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "OneClick Chat — Aplicativo desktop do chat interno (tray + notificações)",
   "main": "main.js",
   "private": true,
