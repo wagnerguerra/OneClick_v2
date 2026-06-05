@@ -27,6 +27,14 @@ const LOGIN_URL = `${APP_URL}/login?desktop=1`
 const PROTOCOL = 'oneclick-chat'
 const COOKIE_NAME = 'better-auth.session_token'
 
+// ─── Identidade do app ───
+// setName: nome exibido em vários lugares (about, menu de notificação, etc).
+// setAppUserModelId: ID que o Windows usa pra agrupar a app no taskbar, jump
+//   list e notificações nativas. Sem isso, notificações aparecem como
+//   "Electron" e o pin do taskbar não funciona corretamente.
+app.setName('OneClick Chat')
+app.setAppUserModelId('com.oneclick.chat.desktop')
+
 /**
  * Whitelist de rotas que o app desktop pode renderizar. Qualquer outra rota
  * (ex: /dashboard, /helpdesk, /clientes) é bloqueada e redirecionada pro

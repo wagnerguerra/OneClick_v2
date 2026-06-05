@@ -1,15 +1,17 @@
 {
   "name": "oneclick-chat-desktop",
-  "version": "0.1.5",
+  "productName": "OneClick Chat",
+  "version": "0.1.6",
   "description": "OneClick Chat — Aplicativo desktop do chat interno (tray + notificações)",
   "main": "main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win",
-    "build:linux": "electron-builder --linux",
-    "build:all": "electron-builder --win --linux",
-    "build:dir": "electron-builder --win --dir",
+    "generate-icon": "powershell -ExecutionPolicy Bypass -File ./generate-icon.ps1",
+    "build": "npm run generate-icon && electron-builder --win",
+    "build:linux": "npm run generate-icon && electron-builder --linux",
+    "build:all": "npm run generate-icon && electron-builder --win --linux",
+    "build:dir": "npm run generate-icon && electron-builder --win --dir",
     "build:patch": "npm version patch --no-git-tag-version && npm run build"
   },
   "dependencies": {
