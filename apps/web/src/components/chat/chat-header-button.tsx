@@ -383,8 +383,16 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
               loadConversas()
               if (conversaAtiva && ev.conversaId === conversaAtiva.id) {
                 window.dispatchEvent(new CustomEvent('chat:mensagem-nova', { detail: ev }))
-              } else {
-                // Notificação browser quando painel fechado OU outra conversa
+              }
+              // Notificação nativa (app desktop) / browser: dispara quando a
+              // mensagem é de outra pessoa E a janela NÃO está em foco visível.
+              // No app desktop minimizado na bandeja, document.hidden=true e
+              // document.hasFocus()=false → sempre notifica. Quando a janela
+              // está em foco, o toast in-app abaixo já dá o aviso (sem poluir
+              // com notificação do SO). Sem este guard, a conversa ativa
+              // minimizada não notificava (bug reportado).
+              const janelaFocada = typeof document !== 'undefined' && !document.hidden && document.hasFocus()
+              if (ev.mensagem.autorId !== meuId && !janelaFocada) {
                 showBrowserNotification(ev)
               }
               // Toast in-app — SEMPRE, exceto se for a própria mensagem ou se a conversa ativa estiver visível (painel aberto)

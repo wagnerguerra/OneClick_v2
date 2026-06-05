@@ -152,62 +152,98 @@ const STATUS_DOT = {
 }
 
 /**
- * Renderiza o tray icon = ícone real do app (OC do designer) + opcional bolinha
- * de status no canto inferior direito + opcional badge vermelho com contador
+ * Renderiza o tray icon = ícone real do app (OC do designer) + bolinha de
+ * status no canto inferior direito + opcional dot vermelho de "tem não lida"
  * no canto superior direito.
  *
- * Estratégia: encoda o PNG do icon-source em base64 e compõe via SVG. Mais
- * simples que manipular pixels e mantém a fidelidade do ícone (anti-aliasing,
- * sombras, etc).
+ * IMPORTANTE: `nativeImage.createFromDataURL` NÃO rasteriza SVG no Windows
+ * (só PNG/JPEG são suportados), então a abordagem antiga via SVG resultava em
+ * tray vazio/invisível. Aqui carregamos o PNG real, lemos o buffer BGRA via
+ * toBitmap() e desenhamos os dots pixel-a-pixel — funciona em qualquer
+ * plataforma sem depender de suporte a SVG.
  */
-let cachedIconBase64 = null
-function getIconBase64() {
-  if (cachedIconBase64) return cachedIconBase64
+let baseTrayCache = null
+function getBaseTray() {
+  if (baseTrayCache) return baseTrayCache
   try {
-    const fs = require('fs')
-    const iconPath = path.join(__dirname, 'assets', 'icon.png')
-    const buf = fs.readFileSync(iconPath)
-    cachedIconBase64 = buf.toString('base64')
-    return cachedIconBase64
+    // tray-icon.png é 32x32; cai pro icon.png (256) se faltar.
+    let img = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray-icon.png'))
+    if (img.isEmpty()) img = nativeImage.createFromPath(path.join(__dirname, 'assets', 'icon.png'))
+    if (img.isEmpty()) throw new Error('nenhum PNG de tray encontrado')
+    const { width, height } = img.getSize()
+    baseTrayCache = { bmp: img.toBitmap(), width, height }
+    return baseTrayCache
   } catch (e) {
-    console.warn('[tray] icon.png não encontrado:', e.message)
+    console.warn('[tray] base não carregada:', e.message)
     return null
   }
 }
 
+function hexToRgb(hex) {
+  const h = hex.replace('#', '')
+  return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) }
+}
+
+/**
+ * Desenha um círculo preenchido (com borda escura pra contraste) num buffer
+ * BGRA. `bmp` é mutado in-place. Anti-alias simples na borda externa via alpha.
+ */
+function drawDot(bmp, width, height, cx, cy, r, hex) {
+  const { r: R, g: G, b: B } = hexToRgb(hex)
+  const border = { r: 11, g: 12, b: 14 } // #0b0c0e — anel escuro
+  const r2 = r + 1.2 // raio externo (borda)
+  for (let dy = -Math.ceil(r2); dy <= Math.ceil(r2); dy++) {
+    for (let dx = -Math.ceil(r2); dx <= Math.ceil(r2); dx++) {
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      if (dist > r2 + 0.5) continue
+      const px = cx + dx
+      const py = cy + dy
+      if (px < 0 || py < 0 || px >= width || py >= height) continue
+      const i = (py * width + px) * 4 // BGRA
+      // Núcleo = cor do status; anel externo = borda escura; transição = alpha
+      const isBorder = dist > r - 0.5
+      const cr = isBorder ? border.r : R
+      const cg = isBorder ? border.g : G
+      const cb = isBorder ? border.b : B
+      const alpha = dist > r2 - 0.5 ? Math.max(0, Math.min(1, r2 + 0.5 - dist)) : 1
+      if (alpha >= 1) {
+        bmp[i] = cb; bmp[i + 1] = cg; bmp[i + 2] = cr; bmp[i + 3] = 255
+      } else if (alpha > 0) {
+        // blend sobre o que já existe
+        const a = alpha
+        bmp[i] = Math.round(cb * a + bmp[i] * (1 - a))
+        bmp[i + 1] = Math.round(cg * a + bmp[i + 1] * (1 - a))
+        bmp[i + 2] = Math.round(cr * a + bmp[i + 2] * (1 - a))
+        bmp[i + 3] = Math.max(bmp[i + 3], Math.round(255 * a))
+      }
+    }
+  }
+}
+
 function renderTrayIcon(unreadCount, status) {
+  const base = getBaseTray()
+  if (!base) {
+    // Último recurso: PNG cru sem overlays (melhor que tray vazio).
+    try { return nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray-icon.png')) }
+    catch { return nativeImage.createEmpty() }
+  }
   const n = Number(unreadCount) || 0
   const s = status || 'online'
-  const iconB64 = getIconBase64()
+  const { width, height } = base
+  const bmp = Buffer.from(base.bmp) // cópia — não muta o cache
+  const scale = width / 32
 
-  // Badge de não lidas (canto superior direito) — vermelho com contagem
-  const showBadge = n > 0
-  const label = n > 99 ? '99+' : String(n)
-  const fontSize = label.length === 1 ? 13 : label.length === 2 ? 11 : 9
-  const badge = showBadge
-    ? `<circle cx="25" cy="7" r="6.5" fill="#ef4444" stroke="#0b0c0e" stroke-width="1.5"/>
-       <text x="25" y="${7 + fontSize / 3}" font-family="Arial,sans-serif" font-size="${fontSize}" font-weight="bold" fill="white" text-anchor="middle">${label}</text>`
-    : ''
-
-  // Dot de status (canto inferior direito) — só mostra se não há badge OU se status != online
-  // Pra não poluir, escondemos o dot quando há badge (já chama atenção suficiente).
+  // Dot de status (canto inferior direito)
   const dotColor = STATUS_DOT[s] || STATUS_DOT.online
-  const dot = !showBadge
-    ? `<circle cx="25" cy="25" r="5.5" fill="${dotColor}" stroke="#0b0c0e" stroke-width="1.5"/>`
-    : ''
+  drawDot(bmp, width, height, Math.round(25 * scale), Math.round(25 * scale), Math.max(4, Math.round(5.5 * scale)), dotColor)
 
-  // SVG 32x32 = ícone do app (PNG embed via data URL) + overlay de badge/dot
-  const iconLayer = iconB64
-    ? `<image href="data:image/png;base64,${iconB64}" x="0" y="0" width="32" height="32" preserveAspectRatio="xMidYMid meet"/>`
-    : `<rect x="3" y="4" width="22" height="18" rx="4" fill="#0ea5e9"/>` // fallback se icon.png faltar
+  // Dot vermelho de "tem não lida" (canto superior direito). O número exato
+  // fica na tooltip do tray (refreshTray) — texto em 16/32px ilegível mesmo.
+  if (n > 0) {
+    drawDot(bmp, width, height, Math.round(25 * scale), Math.round(7 * scale), Math.max(4, Math.round(6 * scale)), '#ef4444')
+  }
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-    ${iconLayer}
-    ${dot}
-    ${badge}
-  </svg>`
-  const dataUrl = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
-  return nativeImage.createFromDataURL(dataUrl)
+  return nativeImage.createFromBitmap(bmp, { width, height })
 }
 
 const STATUS_LABEL_TRAY = {
