@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from 'react'
 import { getApiUrl } from '@/lib/api-url'
-import { Download, MonitorDown, Loader2, AlertTriangle, Headphones } from 'lucide-react'
+import { Download, MonitorDown, Loader2, AlertTriangle } from 'lucide-react'
 
 interface UpdatesList {
   ok: boolean
@@ -42,8 +42,13 @@ export default function ChatDesktopDownloadPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="max-w-lg w-full text-center space-y-6 p-8 rounded-lg border border-border bg-card shadow-sm">
-        <div className="h-16 w-16 mx-auto rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500 flex items-center justify-center">
-          <Headphones className="h-8 w-8 text-white" />
+        <div className="flex justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/chat-desktop-icon.png"
+            alt="OneClick Chat"
+            className="h-20 w-20 drop-shadow-md"
+          />
         </div>
 
         <div className="space-y-1.5">
