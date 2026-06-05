@@ -17,7 +17,7 @@
  *   - ONECLICK_APP_URL: URL base do sistema (default: produção)
  */
 
-const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, nativeImage, shell, session, dialog } = require('electron')
+const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, nativeImage, shell, session, dialog, globalShortcut } = require('electron')
 const path = require('path')
 const { autoUpdater } = require('electron-updater')
 
@@ -285,6 +285,16 @@ async function createWindow() {
     if (!isQuitting) { event.preventDefault(); mainWindow.hide() }
   })
   mainWindow.on('closed', () => { mainWindow = null })
+
+  // Debug — abre DevTools se o renderer crashar. Útil pra ver erros JS
+  // que de outra forma só aparecem na "Application error" genérica do Next.
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    console.error('[renderer-crash]', details)
+    try { mainWindow.webContents.openDevTools({ mode: 'detach' }) } catch { /* ignora */ }
+  })
+  mainWindow.webContents.on('unresponsive', () => {
+    console.warn('[renderer] unresponsive')
+  })
 }
 
 // ─── IPC ───
@@ -362,10 +372,21 @@ autoUpdater.on('update-downloaded', (info) => {
 app.whenReady().then(async () => {
   createTray()
   await createWindow()
+  // Atalho global pra abrir DevTools (Ctrl+Shift+I) — útil pra debug
+  // quando o app mostra "Application error" genérica do Next.
+  globalShortcut.register('CommandOrControl+Shift+I', () => {
+    if (mainWindow && mainWindow.isFocused()) {
+      mainWindow.webContents.toggleDevTools()
+    }
+  })
   // Checa atualização 10s após boot (deixa a UI carregar primeiro)
   setTimeout(() => checkForUpdates(false), 10_000)
   // Re-checa a cada 4h enquanto o app está aberto
   setInterval(() => checkForUpdates(false), 4 * 60 * 60 * 1000)
+})
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
 })
 
 app.on('window-all-closed', (e) => { e.preventDefault() })

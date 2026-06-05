@@ -244,10 +244,15 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
   const totalUnread = useMemo(() => conversas.reduce((sum, c) => sum + c.unreadCount, 0), [conversas])
 
   // Detecta se está rodando dentro do aplicativo desktop Electron (chatDesktop
-  // exposto pelo preload). Quando true, esconde o link "Baixar app desktop"
-  // pra não oferecer o app de dentro do próprio app.
-  const isRunningInDesktopApp = typeof window !== 'undefined'
-    && (window as unknown as { chatDesktop?: { isDesktop?: boolean } }).chatDesktop?.isDesktop === true
+  // exposto pelo preload). Inicia false no SSR e no primeiro render do client
+  // pra evitar hydration mismatch — só vira true após o mount via useEffect.
+  const [isRunningInDesktopApp, setIsRunningInDesktopApp] = useState(false)
+  useEffect(() => {
+    setIsRunningInDesktopApp(
+      typeof window !== 'undefined'
+      && (window as unknown as { chatDesktop?: { isDesktop?: boolean } }).chatDesktop?.isDesktop === true,
+    )
+  }, [])
 
   // Reset estado interno quando o sheet fecha. No modo embed o sheet nunca
   // fecha — apenas troca de conversa/volta pra lista interna.
