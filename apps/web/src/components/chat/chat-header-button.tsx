@@ -529,9 +529,14 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
   // ============================================================
 
   // ─── Conteúdo do painel (compartilhado entre Sheet e modo embed) ───
+  // No modo embed (sem Sheet wrapper), <SheetTitle> não pode ser usado porque
+  // o Radix exige Dialog.Root acima — daí o "DialogTitle must be used within
+  // Dialog". Usamos h1 sr-only que cumpre o mesmo papel pra acessibilidade.
   const panelContent = (
     <>
-      <SheetTitle className="sr-only">Chat interno</SheetTitle>
+      {embed
+        ? <h1 className="sr-only">Chat interno</h1>
+        : <SheetTitle className="sr-only">Chat interno</SheetTitle>}
       {novoGrupoOpen ? (
             <NovoGrupoView
               meuId={meuId}
