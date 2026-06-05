@@ -236,12 +236,15 @@ export class ChatService {
       data: { hiddenAt: null },
     })
 
-    // Notifica outros participantes
+    // Notifica todos os participantes (INCLUSIVE o autor) — necessário pra
+    // multi-device sync: se o user manda do desktop, a aba web dele recebe
+    // o evento e atualiza em tempo real. O frontend filtra toast/notificação
+    // pra própria mensagem via msg.autorId === meuId.
     const parts = await prisma.chatParticipante.findMany({
       where: { conversaId },
       select: { usuarioId: true },
     })
-    const destinatarios = parts.map(p => p.usuarioId).filter(id => id !== autorId)
+    const destinatarios = parts.map(p => p.usuarioId)
     this.events.emit('mensagem-nova', {
       conversaId,
       mensagem: msg,
@@ -266,12 +269,13 @@ export class ChatService {
         tamanho: anexo.tamanho ?? 0,
       },
     })
-    // Avisa outros participantes pra atualizar a mensagem
+    // Inclui o autor pra multi-device sync
     const parts = await prisma.chatParticipante.findMany({
       where: { conversaId: msg.conversaId },
       select: { usuarioId: true },
     })
-    const destinatarios = parts.map(p => p.usuarioId).filter(id => id !== autorId)
+    const destinatarios = parts.map(p => p.usuarioId)
+    void autorId
     this.events.emit('anexo-adicionado', { conversaId: msg.conversaId, mensagemId, anexo: a, destinatarios })
     return a
   }
@@ -284,12 +288,12 @@ export class ChatService {
       where: { conversaId, usuarioId: meuUserId },
       data: { lastReadAt: agora },
     })
-    // Avisa autores das mensagens (no MVP basta avisar todos os outros)
+    // Inclui o próprio user pra multi-device sync (zerar badge em outras devices)
     const parts = await prisma.chatParticipante.findMany({
       where: { conversaId },
       select: { usuarioId: true },
     })
-    const destinatarios = parts.map(p => p.usuarioId).filter(id => id !== meuUserId)
+    const destinatarios = parts.map(p => p.usuarioId)
     this.events.emit('lido', { conversaId, usuarioId: meuUserId, lidoEm: agora, destinatarios })
     return { ok: true, lidoEm: agora }
   }
@@ -339,12 +343,13 @@ export class ChatService {
       data: { conteudo: texto, editedAt: new Date() },
       include: { anexos: true, reactions: { select: { id: true, usuarioId: true, emoji: true } } },
     })
-    // Notifica outros participantes
+    // Inclui o autor pra multi-device sync
     const parts = await prisma.chatParticipante.findMany({
       where: { conversaId: msg.conversaId },
       select: { usuarioId: true },
     })
-    const destinatarios = parts.map(p => p.usuarioId).filter(id => id !== autorId)
+    const destinatarios = parts.map(p => p.usuarioId)
+    void autorId
     this.events.emit('mensagem-editada', {
       conversaId: msg.conversaId,
       mensagem: atualizada,
@@ -364,11 +369,13 @@ export class ChatService {
       where: { id: mensagemId },
       data: { deletedAt: new Date() },
     })
+    // Inclui o autor pra multi-device sync
     const parts = await prisma.chatParticipante.findMany({
       where: { conversaId: msg.conversaId },
       select: { usuarioId: true },
     })
-    const destinatarios = parts.map(p => p.usuarioId).filter(id => id !== autorId)
+    const destinatarios = parts.map(p => p.usuarioId)
+    void autorId
     this.events.emit('mensagem-deletada', {
       conversaId: msg.conversaId,
       mensagemId,
