@@ -1,4 +1,4 @@
-import { ScrollView, View } from 'react-native'
+import { Alert, ScrollView, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 
@@ -55,11 +55,32 @@ function formatAntecedencia(minutosAntes: number): string {
 export default function AgendaEventoDetalhe() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
+  const utils = trpc.useUtils()
 
   // Sem transformer no client tRPC: datas chegam como string ISO.
   const eventoQuery = trpc.agenda.getById.useQuery({ id })
   // Lembretes ficam numa procedure separada (não vêm no getById).
   const lembretesQuery = trpc.agenda.lembrete.list.useQuery({ eventoId: id })
+
+  // Mutation de exclusão — ao concluir, invalida a listagem e volta pra tela anterior.
+  const deleteEvento = trpc.agenda.delete.useMutation({
+    onSuccess: () => {
+      utils.agenda.listEventos.invalidate()
+      router.back()
+    },
+  })
+
+  // Confirmação nativa antes de excluir (Cancelar / Excluir destrutivo).
+  function confirmarExclusao() {
+    Alert.alert('Excluir evento', 'Tem certeza que deseja excluir este evento?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: () => deleteEvento.mutate({ id }),
+      },
+    ])
+  }
 
   // Estado de carregamento do evento.
   if (eventoQuery.isPending) {
@@ -105,11 +126,34 @@ export default function AgendaEventoDetalhe() {
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView>
         <View className="w-full max-w-2xl mx-auto p-4 gap-4">
-          {/* Topo: voltar + badge do tipo */}
+          {/* Topo: voltar + ações (editar/excluir) — só quando o evento é editável */}
           <View className="flex-row items-center justify-between">
             <Button variant="ghost" size="sm" className="px-0" onPress={() => router.back()}>
               ‹ Voltar
             </Button>
+            {evento.editavel !== false ? (
+              <View className="flex-row items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onPress={() => router.push({ pathname: '/agenda/novo', params: { id } })}
+                >
+                  Editar
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  loading={deleteEvento.isPending}
+                  onPress={confirmarExclusao}
+                >
+                  Excluir
+                </Button>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Badge do tipo */}
+          <View className="flex-row">
             <Badge
               variant="outline"
               style={{ backgroundColor: cores.bg, borderColor: cores.border }}

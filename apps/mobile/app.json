@@ -3,6 +3,9 @@
     "name": "OneClick ERP",
     "slug": "oneclick-erp",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "oneclick",

@@ -1,4 +1,7 @@
-// Tela de CRIAR evento na Agenda (rota /agenda/novo).
+// Tela de CRIAR/EDITAR evento na Agenda (rota /agenda/novo).
+//
+// Sem `id` nos params → modo CRIAÇÃO. Com `id` → modo EDIÇÃO: busca o evento via
+// `agenda.getById` e preenche o form via `reset()`.
 //
 // Formulário enxuto (v1): título, tipo, data, dia-inteiro, horários e local +
 // descrição. Participantes, sala, recorrência e lembretes ficam pra depois.
@@ -6,10 +9,10 @@
 // Validação via react-hook-form + zod. Datas/horas trafegam como string crua
 // (yyyy-MM-dd e HH:MM) — o client tRPC não tem transformer, então nada de Date.
 
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -68,8 +71,15 @@ export default function AgendaNovoEvento() {
   const router = useRouter()
   const utils = trpc.useUtils()
 
+  // `id` opcional nos params define o modo: presente = edição, ausente = criação.
+  const { id } = useLocalSearchParams<{ id?: string }>()
+  const isEdicao = !!id
+
   // Tipos pro seletor de categoria (chips horizontais).
   const tiposQuery = trpc.agenda.listTipos.useQuery()
+
+  // Em modo edição, busca o evento pra preencher o form (enabled só se houver id).
+  const eventoQuery = trpc.agenda.getById.useQuery({ id: id as string }, { enabled: isEdicao })
 
   // Data padrão = hoje (yyyy-MM-dd local).
   const hojeISO = useMemo(() => toISODate(new Date()), [])
@@ -88,6 +98,25 @@ export default function AgendaNovoEvento() {
     },
   })
 
+  const { reset } = form
+
+  // Quando os dados do evento chegam (modo edição), preenche o form via reset().
+  // Mapeia só os campos do escopo v1; data vem como ISO, então fatiamos yyyy-MM-dd.
+  useEffect(() => {
+    const evento = eventoQuery.data
+    if (!evento) return
+    reset({
+      titulo: evento.titulo ?? '',
+      tipoId: evento.tipoId ?? '',
+      data: evento.data ? evento.data.slice(0, 10) : hojeISO,
+      diaInteiro: evento.diaInteiro ?? false,
+      horaInicio: evento.horaInicio ?? '',
+      horaFim: evento.horaFim ?? '',
+      local: evento.local ?? '',
+      descricao: evento.descricao ?? '',
+    })
+  }, [eventoQuery.data, reset, hojeISO])
+
   const create = trpc.agenda.create.useMutation({
     onSuccess: () => {
       // Invalida a listagem pra a nova entrada aparecer ao voltar.
@@ -96,13 +125,25 @@ export default function AgendaNovoEvento() {
     },
   })
 
+  const update = trpc.agenda.update.useMutation({
+    onSuccess: () => {
+      // Invalida listagem + detalhe pra refletir a edição ao voltar.
+      utils.agenda.listEventos.invalidate()
+      if (id) utils.agenda.getById.invalidate({ id })
+      router.back()
+    },
+  })
+
+  // Mutation ativa conforme o modo — usada pro loading/erro no botão e no card.
+  const mutationAtiva = isEdicao ? update : create
+
   // `errors` reativos do RHF — usados pra mostrar a mensagem abaixo de cada campo.
   const { errors } = form.formState
 
   function onSubmit(values: EventoFormValues) {
-    // Monta o input no shape exato da procedure `create`. Strings vazias viram
-    // null/undefined (o backend já normaliza, mas mantemos limpo).
-    create.mutate({
+    // Monta o payload no shape dos campos do escopo v1. Strings vazias viram
+    // null (o backend já normaliza, mas mantemos limpo).
+    const data = {
       titulo: values.titulo.trim(),
       tipoId: values.tipoId,
       data: values.data,
@@ -111,7 +152,26 @@ export default function AgendaNovoEvento() {
       horaFim: values.diaInteiro ? null : values.horaFim,
       local: values.local.trim() || null,
       descricao: values.descricao.trim() || null,
-    })
+    }
+
+    if (isEdicao && id) {
+      // Edição: update espera { id, data: {...mesmos campos do create} }.
+      update.mutate({ id, data })
+    } else {
+      // Criação: create espera os campos no nível raiz.
+      create.mutate(data)
+    }
+  }
+
+  // Em modo edição, enquanto o evento carrega mostramos só um spinner.
+  if (isEdicao && eventoQuery.isPending) {
+    return (
+      <SafeAreaView className="flex-1 bg-background">
+        <View className="flex-1 items-center justify-center p-6">
+          <Spinner />
+        </View>
+      </SafeAreaView>
+    )
   }
 
   return (
@@ -137,7 +197,9 @@ export default function AgendaNovoEvento() {
               >
                 <Text className="text-lg text-foreground">‹</Text>
               </Button>
-              <Text className="text-xl font-bold text-foreground">Novo evento</Text>
+              <Text className="text-xl font-bold text-foreground">
+                {isEdicao ? 'Editar evento' : 'Novo evento'}
+              </Text>
             </View>
 
             {/* Seletor de TIPO (chips horizontais). Controlado por Controller. */}
@@ -336,17 +398,17 @@ export default function AgendaNovoEvento() {
             </View>
 
             {/* Erro de mutation (ex.: data passada, conflito de agenda). */}
-            {create.isError ? (
+            {mutationAtiva.isError ? (
               <Card className="border-red-500/40">
                 <CardContent className="p-3">
-                  <Text className="text-red-500 text-sm">{create.error.message}</Text>
+                  <Text className="text-red-500 text-sm">{mutationAtiva.error.message}</Text>
                 </CardContent>
               </Card>
             ) : null}
 
             {/* Salvar. */}
             <Button
-              loading={create.isPending}
+              loading={mutationAtiva.isPending}
               onPress={form.handleSubmit(onSubmit)}
               className="mt-2"
             >
