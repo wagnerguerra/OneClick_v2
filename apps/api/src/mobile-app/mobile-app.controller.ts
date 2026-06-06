@@ -23,25 +23,86 @@ export class MobileAppController {
     return path.resolve(process.cwd(), '..', '..', 'scripts', 'mobile-dist')
   }
 
-  /** Info pro dashboard: o que está disponível pra Android e iOS. */
+  /** Parseia version/build do nome do arquivo (ex: OneClick-ERP-1.0.0-1.apk). */
+  private parseVersion(file: string): { version: string | null; build: number | null } {
+    const m = file.match(/-(\d+\.\d+\.\d+)-(\d+)\.apk$/i)
+    if (!m || !m[1] || !m[2]) return { version: null, build: null }
+    return { version: m[1], build: Number(m[2]) }
+  }
+
+  /** Compara duas versões semver (a vs b). Retorna >0 se a > b. */
+  private compareSemver(a: string | null, b: string | null): number {
+    if (a === b) return 0
+    if (a === null) return -1
+    if (b === null) return 1
+    const pa = a.split('.').map((n) => Number(n))
+    const pb = b.split('.').map((n) => Number(n))
+    for (let i = 0; i < 3; i++) {
+      const diff = (pa[i] ?? 0) - (pb[i] ?? 0)
+      if (diff !== 0) return diff
+    }
+    return 0
+  }
+
+  /** Info pro dashboard: histórico de versões disponíveis pra Android e iOS. */
   @Get()
   info() {
     const dir = this.getDistPath()
-    let apk: string | null = null
-    if (fs.existsSync(dir)) {
-      const files = fs.readdirSync(dir).filter((f) => f.endsWith('.apk') || f.endsWith('.aab'))
-      // Pega o mais recente por mtime.
-      apk = files
-        .map((f) => ({ f, t: fs.statSync(path.join(dir, f)).mtimeMs }))
-        .sort((a, b) => b.t - a.t)[0]?.f ?? null
+
+    interface VersionEntry {
+      url: string
+      file: string
+      version: string | null
+      build: number | null
+      sizeMb: number
+      mtime: string
     }
 
-    const androidUrl = process.env.MOBILE_ANDROID_URL || (apk ? `/api/mobile-app/${apk}` : null)
+    let versions: VersionEntry[] = []
+    if (fs.existsSync(dir)) {
+      const files = fs.readdirSync(dir).filter((f) => f.endsWith('.apk') || f.endsWith('.aab'))
+      versions = files.map((file) => {
+        const stat = fs.statSync(path.join(dir, file))
+        const { version, build } = this.parseVersion(file)
+        return {
+          url: `/api/mobile-app/${file}`,
+          file,
+          version,
+          build,
+          sizeMb: Math.round((stat.size / (1024 * 1024)) * 10) / 10,
+          mtime: stat.mtime.toISOString(),
+        }
+      })
+
+      // Ordena desc por [version semver, build, mtime].
+      versions.sort((a, b) => {
+        const v = this.compareSemver(b.version, a.version)
+        if (v !== 0) return v
+        const bld = (b.build ?? 0) - (a.build ?? 0)
+        if (bld !== 0) return bld
+        return new Date(b.mtime).getTime() - new Date(a.mtime).getTime()
+      })
+    }
+
+    const latest = versions[0] ?? null
+
+    // Compat: shape antigo de `android` = { url, file } do mais recente.
+    // Se MOBILE_ANDROID_URL setado, ele prevalece pra url do latest.
+    let latestOut: VersionEntry | null = latest
+    let android: { url: string; file: string | null } | null = null
+    if (latest) {
+      const url = process.env.MOBILE_ANDROID_URL || latest.url
+      latestOut = { ...latest, url }
+      android = { url, file: latest.file }
+    }
+
     const iosUrl = process.env.MOBILE_IOS_URL || null
 
     return {
       ok: true,
-      android: androidUrl ? { url: androidUrl, file: apk } : null,
+      android,
+      latest: latestOut,
+      versions,
       ios: iosUrl ? { url: iosUrl } : null,
     }
   }

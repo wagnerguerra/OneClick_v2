@@ -16,14 +16,40 @@ import {
   Loader2,
   AlertTriangle,
   Clock,
+  History,
 } from 'lucide-react'
 import { Button, Card } from '@saas/ui'
+
+interface VersionEntry {
+  url: string
+  file: string
+  version: string | null
+  build: number | null
+  sizeMb: number
+  mtime: string
+}
 
 interface MobileApp {
   ok: boolean
   android: { url: string; file: string | null } | null
+  latest: VersionEntry | null
+  versions: VersionEntry[]
   ios: { url: string } | null
   error?: string
+}
+
+/** Prefixa url relativa ("/api/...") com a base da API; absoluta passa direto. */
+function resolveHref(url: string): string {
+  return url.startsWith('http') ? url : `${getApiUrl()}${url}`
+}
+
+/** Formata uma data ISO em pt-BR (dd/mm/aaaa). */
+function formatData(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('pt-BR')
+  } catch {
+    return iso
+  }
 }
 
 export default function BaixarAppPage() {
@@ -49,13 +75,19 @@ export default function BaixarAppPage() {
     }
   }, [])
 
-  // android.url pode ser relativa ("/api/...") ou absoluta ("http...").
+  // Destaca a última versão; demais entram em "Versões anteriores".
+  const latest = data?.latest ?? null
+  const versions = data?.versions ?? []
+  // Fallback de compat: se latest não vier mas android sim, monta um latest mínimo.
   const android = data?.android ?? null
-  const androidHref = android
-    ? android.url.startsWith('http')
-      ? android.url
-      : `${getApiUrl()}${android.url}`
-    : null
+  const latestHref = latest
+    ? resolveHref(latest.url)
+    : android
+      ? resolveHref(android.url)
+      : null
+  const olderVersions = latest
+    ? versions.filter((v) => v.file !== latest.file)
+    : []
   const ios = data?.ios ?? null
 
   return (
@@ -110,18 +142,33 @@ export default function BaixarAppPage() {
               </div>
             </div>
 
-            {androidHref ? (
+            {latestHref ? (
               <>
+                {/* Badge da última versão */}
+                {latest && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {latest.version && (
+                      <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-[12px] font-semibold text-emerald-600 dark:text-emerald-400">
+                        v{latest.version}
+                        {latest.build != null && ` (build ${latest.build})`}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-muted-foreground">
+                      {latest.sizeMb} MB · {formatData(latest.mtime)}
+                    </span>
+                  </div>
+                )}
+
                 <Button asChild variant="success" className="w-full">
-                  <a href={androidHref} download>
+                  <a href={latestHref} download>
                     <Download className="h-4 w-4" />
                     Baixar APK
                   </a>
                 </Button>
 
-                {android?.file && (
+                {(latest?.file ?? android?.file) && (
                   <p className="text-[11px] text-muted-foreground text-center break-all">
-                    Arquivo: {android.file}
+                    Arquivo: {latest?.file ?? android?.file}
                   </p>
                 )}
 
@@ -202,6 +249,54 @@ export default function BaixarAppPage() {
             )}
           </Card>
         </div>
+      )}
+
+      {/* ---------- Versões anteriores ---------- */}
+      {!loading && !erro && olderVersions.length > 0 && (
+        <Card className="p-5 bg-card border-border">
+          <details>
+            <summary className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-foreground select-none">
+              <History className="h-4 w-4 text-muted-foreground" />
+              Versões anteriores ({olderVersions.length})
+            </summary>
+
+            <ul className="mt-4 divide-y divide-border">
+              {olderVersions.map((v) => (
+                <li
+                  key={v.file}
+                  className="flex flex-wrap items-center justify-between gap-3 py-2.5"
+                >
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="text-[13px] font-medium text-foreground">
+                      {v.version ? (
+                        <>
+                          v{v.version}
+                          {v.build != null && (
+                            <span className="text-muted-foreground font-normal">
+                              {' '}
+                              (build {v.build})
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="break-all">{v.file}</span>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {v.sizeMb} MB · {formatData(v.mtime)}
+                    </p>
+                  </div>
+                  <Button asChild variant="outline" size="sm">
+                    <a href={resolveHref(v.url)} download>
+                      <Download className="h-4 w-4" />
+                      Baixar
+                    </a>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </Card>
       )}
     </div>
   )
