@@ -9,7 +9,7 @@
 // Validação via react-hook-form + zod. Datas/horas trafegam como string crua
 // (yyyy-MM-dd e HH:MM) — o client tRPC não tem transformer, então nada de Date.
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -20,6 +20,7 @@ import { z } from 'zod'
 import { trpc } from '@/lib/trpc'
 import { toISODate } from '@/features/agenda/date'
 import { resolveTipoCores } from '@/features/agenda/color'
+import { LembretesEditor, type LembreteItem } from '@/features/agenda/lembretes-editor'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -81,6 +82,24 @@ export default function AgendaNovoEvento() {
   // Em modo edição, busca o evento pra preencher o form (enabled só se houver id).
   const eventoQuery = trpc.agenda.getById.useQuery({ id: id as string }, { enabled: isEdicao })
 
+  // Lembretes vivem em estado à parte do RHF/zod (são salvos por mutation própria).
+  const [lembretes, setLembretes] = useState<LembreteItem[]>([])
+
+  // Em modo edição, carrega os lembretes existentes do evento.
+  const lembretesQuery = trpc.agenda.lembrete.list.useQuery(
+    { eventoId: id as string },
+    { enabled: isEdicao },
+  )
+
+  // Quando os lembretes chegam (edição), popula o estado — mapeando só canal+minutos.
+  useEffect(() => {
+    const data = lembretesQuery.data
+    if (!data) return
+    setLembretes(
+      data.map((l) => ({ canal: l.canal, minutosAntes: l.minutosAntes })),
+    )
+  }, [lembretesQuery.data])
+
   // Data padrão = hoje (yyyy-MM-dd local).
   const hojeISO = useMemo(() => toISODate(new Date()), [])
 
@@ -117,8 +136,19 @@ export default function AgendaNovoEvento() {
     })
   }, [eventoQuery.data, reset, hojeISO])
 
+  // Salva o conjunto de lembretes (substitui tudo no back). Compartilhada por
+  // criação e edição — chamada via mutateAsync depois de salvar o evento.
+  const lembreteSave = trpc.agenda.lembrete.save.useMutation()
+
   const create = trpc.agenda.create.useMutation({
-    onSuccess: () => {
+    onSuccess: async (novo) => {
+      // `create` retorna um evento único OU um array (recorrência). Este form não
+      // expõe recorrência, mas normalizamos pra pegar sempre o primeiro id.
+      const eventoCriado = Array.isArray(novo) ? novo[0] : novo
+      // Se há lembretes, salva no evento recém-criado ANTES de voltar.
+      if (eventoCriado && lembretes.length) {
+        await lembreteSave.mutateAsync({ eventoId: eventoCriado.id, lembretes })
+      }
       // Invalida a listagem pra a nova entrada aparecer ao voltar.
       utils.agenda.listEventos.invalidate()
       router.back()
@@ -126,16 +156,26 @@ export default function AgendaNovoEvento() {
   })
 
   const update = trpc.agenda.update.useMutation({
-    onSuccess: () => {
-      // Invalida listagem + detalhe pra refletir a edição ao voltar.
+    onSuccess: async () => {
+      // Em edição sempre regrava o conjunto (mesmo vazio — `save` substitui tudo).
+      if (id) {
+        await lembreteSave.mutateAsync({ eventoId: id, lembretes })
+      }
+      // Invalida listagem + detalhe + lembretes pra refletir a edição ao voltar.
       utils.agenda.listEventos.invalidate()
-      if (id) utils.agenda.getById.invalidate({ id })
+      if (id) {
+        utils.agenda.getById.invalidate({ id })
+        utils.agenda.lembrete.list.invalidate({ eventoId: id })
+      }
       router.back()
     },
   })
 
   // Mutation ativa conforme o modo — usada pro loading/erro no botão e no card.
   const mutationAtiva = isEdicao ? update : create
+
+  // Loading do botão Salvar = qualquer mutation em andamento (evento ou lembretes).
+  const salvando = mutationAtiva.isPending || lembreteSave.isPending
 
   // `errors` reativos do RHF — usados pra mostrar a mensagem abaixo de cada campo.
   const { errors } = form.formState
@@ -397,18 +437,33 @@ export default function AgendaNovoEvento() {
               />
             </View>
 
-            {/* Erro de mutation (ex.: data passada, conflito de agenda). */}
-            {mutationAtiva.isError ? (
+            {/* Lembretes do evento (estado à parte do RHF). */}
+            <View className="gap-1.5">
+              <Label>Lembretes</Label>
+              {isEdicao && lembretesQuery.isPending ? (
+                <View className="h-12 justify-center">
+                  <Spinner />
+                </View>
+              ) : (
+                <LembretesEditor value={lembretes} onChange={setLembretes} />
+              )}
+            </View>
+
+            {/* Erro de mutation (ex.: data passada, conflito de agenda, falha ao
+                salvar lembretes). */}
+            {mutationAtiva.isError || lembreteSave.isError ? (
               <Card className="border-red-500/40">
                 <CardContent className="p-3">
-                  <Text className="text-red-500 text-sm">{mutationAtiva.error.message}</Text>
+                  <Text className="text-red-500 text-sm">
+                    {(mutationAtiva.error ?? lembreteSave.error)?.message}
+                  </Text>
                 </CardContent>
               </Card>
             ) : null}
 
             {/* Salvar. */}
             <Button
-              loading={mutationAtiva.isPending}
+              loading={salvando}
               onPress={form.handleSubmit(onSubmit)}
               className="mt-2"
             >
