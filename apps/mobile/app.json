@@ -2,6 +2,7 @@
   "expo": {
     "name": "OneClick ERP",
     "slug": "oneclick-erp",
+    "owner": "oneclick_v2",
     "version": "1.0.0",
     "runtimeVersion": {
       "policy": "appVersion"
@@ -54,6 +55,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "31e11c47-1d43-40dc-83fd-a4ab17985b35"
+      }
     }
   }
 }
