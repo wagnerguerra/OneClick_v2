@@ -7,13 +7,16 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { AppDrawer } from '@/components/navigation/app-drawer'
 import { useSession } from '@/lib/auth-client'
 import { usePushRegistration } from '@/lib/use-push-registration'
+import { useUpdateCheck } from '@/lib/use-update-check'
 
 // Área autenticada — navegação por menu lateral (Drawer) preparado pra blocos/
 // módulos. Guard: sem sessão volta pro login. O conteúdo do menu é o AppDrawer.
 export default function AppLayout() {
   const { data: session, isPending } = useSession()
-  // Registro de push — antes dos early returns para manter a ordem dos hooks estável.
+  // Registro de push + checagem de atualização — antes dos early returns para
+  // manter a ordem dos hooks estável.
   usePushRegistration()
+  useUpdateCheck()
   const isDark = useColorScheme() === 'dark'
 
   // NativeWind className não se aplica em screenOptions → cor (card) via hex por tema.
