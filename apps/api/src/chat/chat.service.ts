@@ -1,12 +1,14 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { ChatEventsService } from './chat-events.service'
+import { PushService } from '../push/push.service'
 
 @Injectable()
 export class ChatService {
   constructor(
     @Inject(forwardRef(() => ChatEventsService))
     private readonly events: ChatEventsService,
+    @Inject(PushService) private readonly pushService: PushService,
   ) {}
 
   // ============================================================
@@ -271,7 +273,33 @@ export class ChatService {
       mensagem: msg,
       destinatarios,
     })
+
+    // Push pro mobile dos participantes (exceto o autor). Fire-and-forget —
+    // não atrasa a resposta do envio; PushService nunca lança.
+    const outros = destinatarios.filter(id => id !== autorId)
+    if (outros.length) void this.notificarPush(conversaId, autorId, texto, outros)
+
     return msg
+  }
+
+  /** Envia push de nova mensagem aos destinatários (best-effort). */
+  private async notificarPush(conversaId: string, autorId: string, texto: string, destinatarios: string[]) {
+    try {
+      const [autor, conversa] = await Promise.all([
+        prisma.user.findUnique({ where: { id: autorId }, select: { name: true } }),
+        prisma.chatConversa.findUnique({ where: { id: conversaId }, select: { isGrupo: true, nome: true } }),
+      ])
+      const autorNome = autor?.name ?? 'Nova mensagem'
+      const titulo = conversa?.isGrupo ? `${conversa.nome || 'Grupo'} · ${autorNome}` : autorNome
+      const corpo = texto.length > 120 ? `${texto.slice(0, 117)}...` : texto
+      await Promise.all(destinatarios.map(uid => this.pushService.sendToUser(uid, {
+        title: titulo,
+        body: corpo,
+        data: { tipo: 'chat', conversaId },
+      })))
+    } catch {
+      /* best-effort */
+    }
   }
 
   /** Adiciona anexo a uma mensagem existente. */
