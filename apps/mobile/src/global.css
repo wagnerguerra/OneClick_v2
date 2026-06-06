@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Tokens semânticos de tema (espelham o apps/web) como CSS vars em triplas RGB
+ * pra funcionar com rgb(var(--x) / <alpha-value>). Claro por padrão, escuro via
+ * prefers-color-scheme — o NativeWind compila ambos e troca conforme o SO.
+ */
+:root {
+  --background: 255 255 255;
+  --foreground: 15 23 42;
+  --card: 255 255 255;
+  --card-foreground: 15 23 42;
+  --muted: 241 245 249;
+  --muted-foreground: 100 116 139;
+  --border: 226 232 240;
+  --primary: 14 165 233;
+  --primary-foreground: 255 255 255;
+
+  --font-display:
+    Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
+    Segoe UI Symbol, Noto Color Emoji;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+  --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
+  --font-serif: Georgia, 'Times New Roman', serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: 9 9 11;
+    --foreground: 248 250 252;
+    --card: 24 24 27;
+    --card-foreground: 248 250 252;
+    --muted: 39 39 42;
+    --muted-foreground: 148 163 184;
+    --border: 39 39 42;
+    --primary: 56 189 248;
+    --primary-foreground: 9 9 11;
+  }
+}
