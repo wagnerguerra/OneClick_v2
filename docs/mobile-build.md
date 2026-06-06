@@ -155,3 +155,19 @@ eas submit -p ios --profile production       # precisa de credenciais App Store 
 
 Preencha as credenciais das lojas no `submit.production` (ou siga os prompts do EAS) quando
 for de fato publicar.
+
+## Distribuição pelo dashboard (`/baixar-app`)
+
+O dashboard tem uma página de download do app (menu do usuário → "Baixar app mobile"),
+servida pelo endpoint `GET /api/mobile-app`.
+
+**Android (APK):**
+1. Gere o APK: `cd apps/mobile && eas build -p android --profile preview` (build na nuvem).
+2. Baixe o `.apk` e coloque em `scripts/mobile-dist/` (no deploy o repo é montado em
+   `/repo-src`, então o controller acha o arquivo lá). O endpoint serve o `.apk` mais recente.
+   - Alternativa sem hospedar: defina `MOBILE_ANDROID_URL` apontando pro artefato do EAS.
+
+**iOS:** não há instalador self-hosted pra devices arbitrários. Defina a env
+`MOBILE_IOS_URL` com o link do **TestFlight** (teste interno) ou da **App Store** (público).
+
+Sem APK na pasta e sem essas envs, a página mostra os cards como "em breve".

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { LogOut, User, Settings, HelpCircle, Bell, Crown, MonitorDown } from 'lucide-react'
+import { LogOut, User, Settings, HelpCircle, Bell, Crown, MonitorDown, Smartphone } from 'lucide-react'
 import {
   Avatar,
   AvatarFallback,
@@ -104,6 +104,10 @@ export function UserMenu({ name, email, role, image, isMaster }: UserMenuProps) 
         <DropdownMenuItem onClick={() => router.push('/chat-desktop-download')} className="gap-2 px-3 py-2 group">
           <MonitorDown className="h-4 w-4 text-muted-foreground group-focus:text-accent-foreground group-data-[highlighted]:text-accent-foreground" />
           App do chat (desktop)
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push('/baixar-app')} className="gap-2 px-3 py-2 group">
+          <Smartphone className="h-4 w-4 text-muted-foreground group-focus:text-accent-foreground group-data-[highlighted]:text-accent-foreground" />
+          Baixar app mobile
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
