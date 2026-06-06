@@ -90,6 +90,8 @@ import { createDashboardLayoutRouter } from '../dashboard-layout/dashboard-layou
 import { createPresenceRouter } from '../online-users/presence.router'
 import { ChatService } from '../chat/chat.service'
 import { createChatRouter } from '../chat/chat.router'
+import { PushService } from '../push/push.service'
+import { createPushRouter } from '../push/push.router'
 import { DashboardCalendarioService } from '../dashboard-calendario/dashboard-calendario.service'
 import { createDashboardCalendarioRouter } from '../dashboard-calendario/dashboard-calendario.router'
 import { HelpdeskService } from '../helpdesk/helpdesk.service'
@@ -426,6 +428,7 @@ export class TrpcService {
     @Inject(AgendaLembreteService) private readonly agendaLembreteService: AgendaLembreteService,
     @Inject(AgendaTarefaService) private readonly agendaTarefaService: AgendaTarefaService,
     @Inject(ChatService) private readonly chatService: ChatService,
+    @Inject(PushService) private readonly pushService: PushService,
     @Inject(DteService) private readonly dteService: DteService,
     @Inject(CrmService) private readonly crmService: CrmService,
     @Inject(ImportComercialService) private readonly importComercialService: ImportComercialService,
@@ -520,6 +523,7 @@ export class TrpcService {
       dashboardLayout: createDashboardLayoutRouter(this.dashboardLayoutService, this.dashboardLayoutEventsService),
       presence: createPresenceRouter(),
       chat: createChatRouter(this.chatService),
+      push: createPushRouter(this.pushService),
       dashboardCalendario: createDashboardCalendarioRouter(this.dashboardCalendarioService),
       helpdesk: createHelpdeskRouter(this.helpdeskService, this.helpdeskAiAgent),
       acessorias: createAcessoriasRouter(this.acessoriasService),

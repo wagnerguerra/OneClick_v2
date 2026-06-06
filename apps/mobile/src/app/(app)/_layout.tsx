@@ -3,10 +3,13 @@ import { Redirect, Tabs } from 'expo-router'
 import { ActivityIndicator, useColorScheme, View } from 'react-native'
 
 import { useSession } from '@/lib/auth-client'
+import { usePushRegistration } from '@/lib/use-push-registration'
 
 // Área autenticada — tabs (Agenda, Tarefas). Guard: sem sessão volta pro login.
 export default function AppLayout() {
   const { data: session, isPending } = useSession()
+  // Registro de push — antes dos early returns para manter a ordem dos hooks estável.
+  usePushRegistration()
   const colorScheme = useColorScheme()
   const isDark = colorScheme === 'dark'
 
