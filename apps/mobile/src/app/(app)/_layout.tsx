@@ -21,6 +21,7 @@ export default function AppLayout() {
     <Tabs screenOptions={{ headerShown: false }}>
       <Tabs.Screen name="agenda" options={{ title: 'Agenda' }} />
       <Tabs.Screen name="tarefas" options={{ title: 'Tarefas' }} />
+      <Tabs.Screen name="conta" options={{ title: 'Conta' }} />
     </Tabs>
   )
 }

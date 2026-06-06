@@ -183,6 +183,16 @@ export default function AgendaScreen() {
           </ScrollView>
         )}
       </View>
+
+      {/* FAB: criar novo evento. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Novo evento"
+        onPress={() => router.push('/agenda/novo')}
+        className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg active:opacity-80"
+      >
+        <Text className="text-3xl leading-none text-primary-foreground">+</Text>
+      </Pressable>
     </SafeAreaView>
   )
 }
