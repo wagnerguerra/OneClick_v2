@@ -6,7 +6,7 @@
 // tipo. Toque leva ao detalhe (/agenda/[id]).
 
 import { useMemo, useState } from 'react'
-import { Pressable, ScrollView, View } from 'react-native'
+import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 
@@ -14,6 +14,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
 import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/cn'
+import { EventoDetalhe } from '@/features/agenda/evento-detalhe'
 
 import {
   addDays,
@@ -31,12 +32,20 @@ import { useEventosDaSemana, type EventoAgenda } from '@/features/agenda/use-eve
 export default function AgendaScreen() {
   const router = useRouter()
 
+  // Layout responsivo: a partir de 900px (tablet landscape) usamos master-detail
+  // (lista à esquerda + detalhe à direita); abaixo disso, navegação por rota.
+  const { width } = useWindowDimensions()
+  const isWide = width >= 900
+
   // Hoje (capturado uma vez por render do componente — não é util puro, ok aqui).
   const hoje = useMemo(() => new Date(), [])
 
   // Estado: data de referência da semana e dia selecionado. Iniciam em hoje.
   const [referencia, setReferencia] = useState<Date>(hoje)
   const [diaSelecionado, setDiaSelecionado] = useState<Date>(hoje)
+
+  // Evento selecionado no painel direito (só relevante no modo isWide).
+  const [selecionadoId, setSelecionadoId] = useState<string | null>(null)
 
   // Os 7 dias (domingo a sábado) da semana de referência.
   const diasDaSemana = useMemo(() => eachDayOfWeek(referencia), [referencia])
@@ -59,10 +68,25 @@ export default function AgendaScreen() {
     setDiaSelecionado(addDays(diaSelecionado, deltaDias))
   }
 
-  return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top', 'left', 'right']}>
-      {/* Container centralizado e com largura máxima em telas largas/tablet. */}
-      <View className="w-full max-w-2xl mx-auto flex-1">
+  // Ação ao tocar num card: no modo largo seleciona o painel direito; senão navega.
+  function abrirEvento(eventoId: string) {
+    if (isWide) {
+      setSelecionadoId(eventoId)
+    } else {
+      router.push(`/agenda/${eventoId}`)
+    }
+  }
+
+  // Painel da lista (header de semana + faixa de dias + corpo de eventos).
+  // É reutilizado no celular (largura máxima centralizada) e no tablet (coluna fixa).
+  const painelLista = (
+    <View
+      className={cn(
+        'flex-1',
+        // Celular: centralizado com largura máxima. Tablet: coluna fixa à esquerda.
+        isWide ? 'w-[380px] border-r border-border' : 'w-full max-w-2xl mx-auto',
+      )}
+    >
         {/* Header: título com o dia selecionado por extenso + navegação de semana. */}
         <View className="flex-row items-center justify-between px-4 pt-2 pb-3">
           <View className="flex-1 pr-2">
@@ -177,14 +201,49 @@ export default function AgendaScreen() {
               <EventoCard
                 key={evento.id}
                 evento={evento}
-                onPress={() => router.push(`/agenda/${evento.id}`)}
+                // Realça o card aberto no painel direito (só ocorre no modo largo).
+                selecionado={isWide && evento.id === selecionadoId}
+                onPress={() => abrirEvento(evento.id)}
               />
             ))}
           </ScrollView>
         )}
-      </View>
+    </View>
+  )
 
-      {/* FAB: criar novo evento. */}
+  // Painel direito (só no modo largo): detalhe embutido ou estado vazio.
+  const painelDetalhe = (
+    <View className="flex-1">
+      {selecionadoId ? (
+        <EventoDetalhe
+          // Remonta ao trocar de evento (reseta queries/estado internos).
+          key={selecionadoId}
+          id={selecionadoId}
+          embutido
+          onAposExcluir={() => setSelecionadoId(null)}
+        />
+      ) : (
+        <View className="flex-1 items-center justify-center px-6">
+          <Text className="text-center text-muted-foreground">Selecione um evento</Text>
+        </View>
+      )}
+    </View>
+  )
+
+  return (
+    <SafeAreaView className="flex-1 bg-background" edges={['top', 'left', 'right']}>
+      {isWide ? (
+        // Tablet/tela larga: master-detail lado a lado.
+        <View className="flex-1 flex-row">
+          {painelLista}
+          {painelDetalhe}
+        </View>
+      ) : (
+        // Celular: apenas a lista (toque navega pra /agenda/[id]).
+        painelLista
+      )}
+
+      {/* FAB: criar novo evento (em ambos os modos). */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Novo evento"
@@ -198,7 +257,16 @@ export default function AgendaScreen() {
 }
 
 /** Card de um evento na lista do dia. Borda esquerda colorida pelo tipo. */
-function EventoCard({ evento, onPress }: { evento: EventoAgenda; onPress: () => void }) {
+function EventoCard({
+  evento,
+  onPress,
+  selecionado = false,
+}: {
+  evento: EventoAgenda
+  onPress: () => void
+  /** Realça o card quando aberto no painel direito (modo master-detail). */
+  selecionado?: boolean
+}) {
   // `tipo` pode vir ausente — resolveTipoCores trata null com fallback seguro.
   const cores = resolveTipoCores(evento.tipo)
 
@@ -211,6 +279,8 @@ function EventoCard({ evento, onPress }: { evento: EventoAgenda; onPress: () => 
     <Pressable accessibilityRole="button" onPress={onPress} className="active:opacity-80">
       <Card
         // Borda esquerda colorida via style — cor dinâmica do tipo (não dá pra Tailwind).
+        // Realce do selecionado via tokens semânticos (preserva o dark mode).
+        className={cn(selecionado && 'border-primary bg-muted/40')}
         style={{ borderLeftWidth: 4, borderLeftColor: cores.bg }}
       >
         <CardContent className="p-4 gap-1">
