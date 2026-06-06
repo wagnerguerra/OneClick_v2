@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { Pressable, ScrollView, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { MenuButton } from '@/components/navigation/menu-button'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -70,10 +71,13 @@ export default function TarefasScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'left', 'right']}>
       {/* Container centralizado e com largura máxima em telas largas/tablet. */}
       <View className="w-full max-w-2xl mx-auto flex-1">
-        {/* Cabeçalho. */}
-        <View className="px-4 pt-2 pb-3">
-          <Text className="text-xs uppercase tracking-wide text-muted-foreground">Tarefas</Text>
-          <Text className="text-xl sm:text-2xl font-bold text-foreground">Minhas tarefas</Text>
+        {/* Cabeçalho — botão de menu (abre o Drawer) à esquerda do título. */}
+        <View className="flex-row items-center px-4 pt-2 pb-3">
+          <MenuButton />
+          <View className="flex-1 pl-1">
+            <Text className="text-xs uppercase tracking-wide text-muted-foreground">Tarefas</Text>
+            <Text className="text-xl sm:text-2xl font-bold text-foreground">Minhas tarefas</Text>
+          </View>
         </View>
 
         {/* Barra de criação rápida. */}

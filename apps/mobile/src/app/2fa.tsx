@@ -1,8 +1,9 @@
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
-import { View } from 'react-native'
+import { KeyboardAvoidingView, Platform, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { BrandHeader } from '@/components/brand/brand-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -37,43 +38,65 @@ export default function TwoFactor() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <View className="flex-1 items-center justify-center p-6">
-        <View className="w-full max-w-md gap-6">
-          <View className="items-center gap-1">
-            <Text className="text-2xl font-bold text-foreground">Verificação em duas etapas</Text>
-            <Text className="text-center text-sm text-muted-foreground">
-              Digite o código do seu app autenticador
-            </Text>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        className="flex-1"
+      >
+        {/* Realce sutil no topo, atrás da marca — mesma identidade da tela de login. */}
+        <View
+          pointerEvents="none"
+          className="absolute left-0 right-0 top-0 h-72 rounded-b-[40px] bg-primary/10"
+        />
+
+        <View className="flex-1 items-center justify-center p-6">
+          <View className="w-full max-w-md gap-8">
+            {/* Cabeçalho de marca */}
+            <BrandHeader subtitle="Verificação em duas etapas" />
+
+            {/* Card central com o input do código de 6 dígitos */}
+            <Card className="rounded-2xl">
+              <CardContent className="gap-4 p-6 pt-6">
+                <View className="gap-1.5">
+                  <Label nativeID="codigoLabel">Código</Label>
+                  <Input
+                    value={codigo}
+                    onChangeText={setCodigo}
+                    placeholder="000000"
+                    keyboardType="number-pad"
+                    inputMode="numeric"
+                    maxLength={6}
+                    onSubmitEditing={verificar}
+                    returnKeyType="go"
+                    // Dígitos grandes e espaçados para leitura do código do autenticador.
+                    className="text-center text-2xl tracking-[8px]"
+                    accessibilityLabelledBy="codigoLabel"
+                    accessibilityLabel="Código de verificação"
+                  />
+                  <Text className="text-center text-xs text-muted-foreground">
+                    Digite o código do seu app autenticador
+                  </Text>
+                </View>
+
+                {/* Mensagem de erro com token semântico */}
+                {erro ? <Text className="text-sm text-destructive">{erro}</Text> : null}
+
+                <Button
+                  size="lg"
+                  className="mt-1"
+                  onPress={verificar}
+                  loading={loading}
+                  disabled={codigo.length < 6}
+                >
+                  Verificar
+                </Button>
+                <Button variant="ghost" onPress={() => router.replace('/login')}>
+                  Voltar ao login
+                </Button>
+              </CardContent>
+            </Card>
           </View>
-
-          <Card>
-            <CardContent className="gap-4 p-5">
-              <View className="gap-1.5">
-                <Label>Código</Label>
-                <Input
-                  value={codigo}
-                  onChangeText={setCodigo}
-                  placeholder="000000"
-                  keyboardType="number-pad"
-                  inputMode="numeric"
-                  maxLength={6}
-                  onSubmitEditing={verificar}
-                  returnKeyType="go"
-                />
-              </View>
-
-              {erro ? <Text className="text-sm text-red-500">{erro}</Text> : null}
-
-              <Button onPress={verificar} loading={loading} disabled={codigo.length < 6}>
-                Verificar
-              </Button>
-              <Button variant="ghost" onPress={() => router.replace('/login')}>
-                Voltar ao login
-              </Button>
-            </CardContent>
-          </Card>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }

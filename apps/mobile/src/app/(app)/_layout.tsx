@@ -1,23 +1,23 @@
-import { Ionicons } from '@expo/vector-icons'
-import { Redirect, Tabs } from 'expo-router'
+import type { ComponentProps } from 'react'
+import { Redirect } from 'expo-router'
+import { Drawer } from 'expo-router/drawer'
 import { ActivityIndicator, useColorScheme, View } from 'react-native'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 
+import { AppDrawer } from '@/components/navigation/app-drawer'
 import { useSession } from '@/lib/auth-client'
 import { usePushRegistration } from '@/lib/use-push-registration'
 
-// Área autenticada — tabs (Agenda, Tarefas). Guard: sem sessão volta pro login.
+// Área autenticada — navegação por menu lateral (Drawer) preparado pra blocos/
+// módulos. Guard: sem sessão volta pro login. O conteúdo do menu é o AppDrawer.
 export default function AppLayout() {
   const { data: session, isPending } = useSession()
   // Registro de push — antes dos early returns para manter a ordem dos hooks estável.
   usePushRegistration()
-  const colorScheme = useColorScheme()
-  const isDark = colorScheme === 'dark'
+  const isDark = useColorScheme() === 'dark'
 
-  // NativeWind className não se aplica em options do navigator → cores via hex por tema.
-  const activeColor = isDark ? '#38bdf8' : '#0ea5e9'
-  const inactiveColor = '#94a3b8'
-  const tabBarBg = isDark ? '#18181b' : '#ffffff'
-  const tabBarBorder = isDark ? '#27272a' : '#e2e8f0'
+  // NativeWind className não se aplica em screenOptions → cor (card) via hex por tema.
+  const drawerBg = isDark ? '#18181b' : '#ffffff'
 
   if (isPending) {
     return (
@@ -30,44 +30,25 @@ export default function AppLayout() {
   if (!session) return <Redirect href="/login" />
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: activeColor,
-        tabBarInactiveTintColor: inactiveColor,
-        tabBarStyle: {
-          backgroundColor: tabBarBg,
-          borderTopColor: tabBarBorder,
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="agenda"
-        options={{
-          title: 'Agenda',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={size} color={color} />
-          ),
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Drawer
+        // O props do expo-router e o do @react-navigation/drawer são
+        // estruturalmente iguais, mas nominalmente distintos (resoluções de
+        // tipo diferentes). Repassamos com cast — em runtime é o mesmo objeto.
+        drawerContent={(props) => (
+          <AppDrawer {...(props as unknown as ComponentProps<typeof AppDrawer>)} />
+        )}
+        screenOptions={{
+          headerShown: false,
+          drawerStyle: { backgroundColor: drawerBg },
+          swipeEdgeWidth: 80,
         }}
-      />
-      <Tabs.Screen
-        name="tarefas"
-        options={{
-          title: 'Tarefas',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'checkbox' : 'checkbox-outline'} size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="conta"
-        options={{
-          title: 'Conta',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
+      >
+        <Drawer.Screen name="agenda" options={{ title: 'Agenda' }} />
+        <Drawer.Screen name="tarefas" options={{ title: 'Tarefas' }} />
+        {/* Rota perfil declarada aqui; a tela será criada por outro agente. */}
+        <Drawer.Screen name="perfil" options={{ title: 'Perfil' }} />
+      </Drawer>
+    </GestureHandlerRootView>
   )
 }

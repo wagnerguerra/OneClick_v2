@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { KeyboardAvoidingView, Platform, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { BrandHeader } from '@/components/brand/brand-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -46,17 +47,22 @@ export default function Login() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
-        <View className="flex-1 items-center justify-center p-6">
-          <View className="w-full max-w-md gap-6">
-            <View className="items-center gap-1">
-              <Text className="text-2xl font-bold text-foreground">OneClick ERP</Text>
-              <Text className="text-sm text-muted-foreground">Entre na sua conta</Text>
-            </View>
+        {/* Realce sutil no topo, atrás da marca — gradiente "fake" via token bg-primary com baixa opacidade. */}
+        <View
+          pointerEvents="none"
+          className="absolute left-0 right-0 top-0 h-72 rounded-b-[40px] bg-primary/10"
+        />
 
-            <Card>
-              <CardContent className="gap-4 p-5">
+        <View className="flex-1 items-center justify-center p-6">
+          <View className="w-full max-w-md gap-8">
+            {/* Cabeçalho de marca */}
+            <BrandHeader subtitle="Entre na sua conta" />
+
+            {/* Card central com os campos de autenticação */}
+            <Card className="rounded-2xl">
+              <CardContent className="gap-4 p-6 pt-6">
                 <View className="gap-1.5">
-                  <Label>E-mail</Label>
+                  <Label nativeID="emailLabel">E-mail</Label>
                   <Input
                     value={email}
                     onChangeText={setEmail}
@@ -65,11 +71,13 @@ export default function Login() {
                     autoComplete="email"
                     keyboardType="email-address"
                     inputMode="email"
+                    accessibilityLabelledBy="emailLabel"
+                    accessibilityLabel="E-mail"
                   />
                 </View>
 
                 <View className="gap-1.5">
-                  <Label>Senha</Label>
+                  <Label nativeID="senhaLabel">Senha</Label>
                   <Input
                     value={senha}
                     onChangeText={setSenha}
@@ -78,14 +86,28 @@ export default function Login() {
                     autoCapitalize="none"
                     onSubmitEditing={entrar}
                     returnKeyType="go"
+                    accessibilityLabelledBy="senhaLabel"
+                    accessibilityLabel="Senha"
                   />
                 </View>
 
-                {erro ? <Text className="text-sm text-red-500">{erro}</Text> : null}
+                {/* Mensagem de erro com token semântico */}
+                {erro ? <Text className="text-sm text-destructive">{erro}</Text> : null}
 
-                <Button onPress={entrar} loading={loading} disabled={!email || !senha}>
+                <Button
+                  size="lg"
+                  className="mt-1"
+                  onPress={entrar}
+                  loading={loading}
+                  disabled={!email || !senha}
+                >
                   Entrar
                 </Button>
+
+                {/* Link discreto — rota de recuperação ainda não existe no mobile, então é apenas informativo. */}
+                <Text className="mt-1 text-center text-xs text-muted-foreground">
+                  Esqueci minha senha
+                </Text>
               </CardContent>
             </Card>
           </View>

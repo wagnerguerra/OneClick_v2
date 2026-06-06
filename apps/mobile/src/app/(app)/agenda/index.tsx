@@ -10,6 +10,7 @@ import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 
+import { MenuButton } from '@/components/navigation/menu-button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
 import { Text } from '@/components/ui/text'
@@ -89,7 +90,9 @@ export default function AgendaScreen() {
     >
         {/* Header: título com o dia selecionado por extenso + navegação de semana. */}
         <View className="flex-row items-center justify-between px-4 pt-2 pb-3">
-          <View className="flex-1 pr-2">
+          {/* Botão de menu — abre o Drawer. */}
+          <MenuButton />
+          <View className="flex-1 pl-1 pr-2">
             <Text className="text-xs uppercase tracking-wide text-muted-foreground">Agenda</Text>
             <Text className="text-xl sm:text-2xl font-bold text-foreground">
               {formatDiaMesExtenso(diaSelecionado)}
