@@ -11,9 +11,10 @@ import { AgendaLembreteController } from './agenda-lembrete.controller'
 import { EmailService } from '../common/email.service'
 import { NotificationModule } from '../notification/notification.module'
 import { AuthModule } from '../auth/auth.module'
+import { PushModule } from '../push/push.module'
 
 @Module({
-  imports: [NotificationModule, AuthModule],
+  imports: [NotificationModule, AuthModule, PushModule],
   controllers: [AgendaLembreteController],
   providers: [AgendaService, EmailService, AgendaGoogleService, AgendaConfigService, AgendaSalaService, AgendaDisparoService, AgendaLembreteService, AgendaLembreteEventsService, AgendaTarefaService],
   exports: [AgendaService, AgendaGoogleService, AgendaConfigService, AgendaSalaService, AgendaDisparoService, AgendaLembreteService, AgendaTarefaService],

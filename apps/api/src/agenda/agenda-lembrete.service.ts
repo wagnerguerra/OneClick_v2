@@ -5,6 +5,7 @@ import { prisma } from '@saas/db'
 import type { AgendaLembrete, AgendaLembreteCanal } from '@saas/db'
 import { EmailService } from '../common/email.service'
 import { AgendaLembreteEventsService } from './agenda-lembrete-events.service'
+import { PushService } from '../push/push.service'
 
 // Logo do sistema embarcada inline em todos e-mails (via cid:logo). Lê uma vez
 // no boot do módulo — se o arquivo não existir (dev sem assets), faz fallback
@@ -32,6 +33,7 @@ export class AgendaLembreteService implements OnModuleInit {
   constructor(
     @Inject(EmailService) private readonly emailService: EmailService,
     @Inject(AgendaLembreteEventsService) private readonly events: AgendaLembreteEventsService,
+    @Inject(PushService) private readonly pushService: PushService,
   ) {}
 
   onModuleInit() {
@@ -176,6 +178,12 @@ export class AgendaLembreteService implements OnModuleInit {
             minutosAntes: lembrete.minutosAntes,
             destinatarios: [lembrete.tarefa.criadorId],
           })
+          // Push pro criador da tarefa (mesmo gatilho do POPUP). Best-effort.
+          await this.pushService.sendToUser(lembrete.tarefa.criadorId, {
+            title: `📋 ${lembrete.tarefa.titulo}`,
+            body: lembrete.tarefa.horaPrazo ? `Prazo às ${lembrete.tarefa.horaPrazo}` : 'Tarefa pendente',
+            data: { tipo: 'agenda' },
+          })
         } else if (lembrete.canal === 'EMAIL' && lembrete.tarefa.criador.email) {
           // E-mail simplificado pra tarefa (sem template rico — não tem participantes/local/etc)
           await this.emailService.sendMail({
@@ -255,6 +263,14 @@ export class AgendaLembreteService implements OnModuleInit {
         minutosAntes: lembrete.minutosAntes,
         destinatarios,
       })
+      // Push pro app mobile (mesmos destinatários do POPUP). Best-effort.
+      const horario = lembrete.evento.diaInteiro ? 'Dia inteiro' : (lembrete.evento.horaInicio ?? '')
+      const corpo = [horario, lembrete.evento.local].filter(Boolean).join(' · ') || 'Lembrete de evento'
+      await Promise.all(destinatarios.map(uid => this.pushService.sendToUser(uid, {
+        title: lembrete.evento.titulo,
+        body: corpo,
+        data: { tipo: 'agenda', eventoId: lembrete.evento.id },
+      })))
     } else {
       // EMAIL: dispara pra cada destinatário com email cadastrado
       const users = await prisma.user.findMany({
