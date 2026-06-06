@@ -586,3 +586,31 @@ Quando um novo bug aparecer:
 1. Adicionar entrada na seção apropriada com sintoma + causa + pre-check
 2. Atualizar checklist se for um padrão recorrente (≥ 2 ocorrências)
 3. Não duplicar — preferir atualizar entrada existente
+
+---
+
+## Pendências de typecheck (backlog — NÃO bloqueiam runtime)
+
+Capturado em 2026-06-06 durante o início do app mobile. A API tem **~100 erros de
+`tsc --noEmit` pré-existentes** que NÃO impedem o boot (a build transpila sem
+checagem estrita; `curl /api/health` = 200). São independentes do app mobile —
+tratar numa rodada dedicada de saneamento de tipos. Distribuição por arquivo:
+
+- `src/dte/dte.service.ts` — 46
+- `src/crm/crm.service.ts` — 10
+- `src/servico/servico.service.ts` — 5
+- `src/cnd/cnd-municipal.service.ts` — 5
+- `src/cliente/cliente.router.ts` — 5
+- `src/cnd/cnd.router.ts` — 4
+- `src/user/user.service.ts` — 3
+- `src/cnd/alvara-funcionamento.service.ts` — 3
+- `src/certificado-digital/pfx-parser.ts` — 3
+- `src/acessorias/acessorias.service.ts` — 3 (ex: TS2322 `id` possivelmente undefined)
+- `src/contrato/contrato.service.ts` — 2
+- `src/cnd/cgu-certidao.service.ts` — 2
+- `src/certificado-digital/bulk-import-cert.service.ts` — 2
+- demais: 1 cada (tabs, socio.router, orcamento, cnpj, cnd/alvara-bombeiros,
+  cliente.service, certificado-digital.service)
+
+Reproduzir: `cd apps/api && npx tsc --noEmit`. Priorizar `dte.service.ts` (quase
+metade do total).

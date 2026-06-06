@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common'
 import { betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
-import { twoFactor } from 'better-auth/plugins'
+import { twoFactor, bearer } from 'better-auth/plugins'
+import { expo } from '@better-auth/expo'
 import { prisma } from '@saas/db'
 import { EmailService } from '../common/email.service'
 
@@ -61,6 +62,8 @@ export class AuthService {
           process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
           'http://localhost:3000',
           'http://127.0.0.1:3000',
+          // App mobile (deep-link scheme) — fluxo Better Auth Expo
+          'oneclick://',
         ]
         if (process.env.TRUSTED_ORIGINS) {
           origins.push(...process.env.TRUSTED_ORIGINS.split(','))
@@ -104,6 +107,11 @@ export class AuthService {
         twoFactor({
           issuer: 'OneClick SaaS',
         }),
+        // Suporte ao app mobile (Expo): expo() trata o scheme oneclick:// e o
+        // fluxo de cookie em SecureStore; bearer() habilita Authorization:
+        // Bearer como alternativa ao cookie pra chamadas tRPC/REST do device.
+        expo(),
+        bearer(),
       ],
     })
   }
