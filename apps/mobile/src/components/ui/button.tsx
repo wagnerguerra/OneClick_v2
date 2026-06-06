@@ -7,7 +7,7 @@ import {
 } from 'react-native'
 import { cn } from '@/lib/cn'
 
-type ButtonVariant = 'default' | 'outline' | 'ghost' | 'destructive'
+type ButtonVariant = 'default' | 'outline' | 'ghost' | 'destructive' | 'success'
 type ButtonSize = 'sm' | 'default' | 'lg'
 
 export interface ButtonProps extends Omit<PressableProps, 'children'> {
@@ -23,6 +23,7 @@ const VARIANT_CONTAINER: Record<ButtonVariant, string> = {
   outline: 'border border-border bg-transparent',
   ghost: 'bg-transparent',
   destructive: 'bg-red-600',
+  success: 'bg-success',
 }
 
 const VARIANT_TEXT: Record<ButtonVariant, string> = {
@@ -30,6 +31,7 @@ const VARIANT_TEXT: Record<ButtonVariant, string> = {
   outline: 'text-foreground',
   ghost: 'text-foreground',
   destructive: 'text-white',
+  success: 'text-success-foreground',
 }
 
 const SIZE_CONTAINER: Record<ButtonSize, string> = {
@@ -49,6 +51,7 @@ const SPINNER_COLOR: Record<ButtonVariant, string> = {
   outline: '#64748b',
   ghost: '#64748b',
   destructive: '#ffffff',
+  success: '#ffffff',
 }
 
 /** Botão primário do app — wrap de Pressable com variantes, tamanhos e estado de loading. */

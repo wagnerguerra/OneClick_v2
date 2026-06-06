@@ -1,22 +1,40 @@
 /** @type {import('tailwindcss').Config} */
 // NativeWind usa Tailwind v3 (separado do Tailwind v4 do apps/web).
-// Os tokens semânticos (bg-background, text-foreground, etc) espelham o tema
-// do web pra manter o mesmo vocabulário — definidos como CSS vars em global.css.
+// Tokens semânticos do Design System OneClick ERP (mobile) — CSS vars em global.css.
+const tok = (name) => `rgb(var(--${name}) / <alpha-value>)`
+
 module.exports = {
   content: ['./src/**/*.{js,jsx,ts,tsx}'],
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
       colors: {
-        background: 'rgb(var(--background) / <alpha-value>)',
-        foreground: 'rgb(var(--foreground) / <alpha-value>)',
-        card: 'rgb(var(--card) / <alpha-value>)',
-        'card-foreground': 'rgb(var(--card-foreground) / <alpha-value>)',
-        muted: 'rgb(var(--muted) / <alpha-value>)',
-        'muted-foreground': 'rgb(var(--muted-foreground) / <alpha-value>)',
-        border: 'rgb(var(--border) / <alpha-value>)',
-        primary: 'rgb(var(--primary) / <alpha-value>)',
-        'primary-foreground': 'rgb(var(--primary-foreground) / <alpha-value>)',
+        background: tok('background'),
+        foreground: tok('foreground'),
+        card: tok('card'),
+        'card-foreground': tok('card-foreground'),
+        elevated: tok('elevated'),
+        muted: tok('muted'),
+        'muted-foreground': tok('muted-foreground'),
+        border: tok('border'),
+        input: tok('input'),
+        ring: tok('ring'),
+        primary: tok('primary'),
+        'primary-foreground': tok('primary-foreground'),
+        secondary: tok('secondary'),
+        'secondary-foreground': tok('secondary-foreground'),
+        accent: tok('accent'),
+        'accent-foreground': tok('accent-foreground'),
+        success: tok('success'),
+        'success-foreground': tok('success-foreground'),
+        warning: tok('warning'),
+        'warning-foreground': tok('warning-foreground'),
+        destructive: tok('destructive'),
+        'destructive-foreground': tok('destructive-foreground'),
+      },
+      borderRadius: {
+        xl: '14px',
+        '2xl': '20px',
       },
     },
   },

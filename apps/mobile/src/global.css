@@ -3,20 +3,40 @@
 @tailwind utilities;
 
 /*
- * Tokens semânticos de tema (espelham o apps/web) como CSS vars em triplas RGB
- * pra funcionar com rgb(var(--x) / <alpha-value>). Claro por padrão, escuro via
- * prefers-color-scheme — o NativeWind compila ambos e troca conforme o SO.
+ * Design System OneClick ERP (mobile) — tokens semânticos como CSS vars em
+ * triplas RGB pra funcionar com rgb(var(--x) / <alpha-value>).
+ *
+ * Linguagem visual (Material 3 / "Material You" + marca sky):
+ *   - Base neutra (slate no claro, zinc no escuro), accent sky #0ea5e9.
+ *   - Elevação tonal (superfície "elevated" mais clara), borda sutil.
+ *   - Semânticas precisas: success (emerald), warning (amber), destructive (rose).
+ *   - Claro + escuro automáticos via prefers-color-scheme.
  */
 :root {
   --background: 255 255 255;
-  --foreground: 15 23 42;
+  --foreground: 15 23 42;        /* slate-900 */
   --card: 255 255 255;
   --card-foreground: 15 23 42;
-  --muted: 241 245 249;
-  --muted-foreground: 100 116 139;
-  --border: 226 232 240;
-  --primary: 14 165 233;
+  --elevated: 248 250 252;       /* slate-50 — superfície elevada (tonal) */
+  --muted: 241 245 249;          /* slate-100 */
+  --muted-foreground: 100 116 139; /* slate-500 */
+  --border: 226 232 240;         /* slate-200 */
+  --input: 226 232 240;
+  --ring: 14 165 233;
+
+  --primary: 14 165 233;         /* sky-500 — accent da marca */
   --primary-foreground: 255 255 255;
+  --secondary: 241 245 249;
+  --secondary-foreground: 15 23 42;
+  --accent: 99 102 241;          /* indigo-500 — destaque secundário */
+  --accent-foreground: 255 255 255;
+
+  --success: 16 185 129;         /* emerald-500 */
+  --success-foreground: 255 255 255;
+  --warning: 245 158 11;         /* amber-500 */
+  --warning-foreground: 23 23 23;
+  --destructive: 244 63 94;      /* rose-500 */
+  --destructive-foreground: 255 255 255;
 
   --font-display:
     Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
@@ -29,14 +49,29 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: 9 9 11;
-    --foreground: 248 250 252;
-    --card: 24 24 27;
-    --card-foreground: 248 250 252;
-    --muted: 39 39 42;
-    --muted-foreground: 148 163 184;
+    --background: 9 9 12;          /* near-black (zinc-950) */
+    --foreground: 244 244 245;     /* zinc-100 */
+    --card: 24 24 27;              /* zinc-900 */
+    --card-foreground: 244 244 245;
+    --elevated: 39 39 42;          /* zinc-800 — elevação tonal no escuro */
+    --muted: 39 39 42;             /* zinc-800 */
+    --muted-foreground: 161 161 170; /* zinc-400 */
     --border: 39 39 42;
-    --primary: 56 189 248;
-    --primary-foreground: 9 9 11;
+    --input: 39 39 42;
+    --ring: 56 189 248;
+
+    --primary: 56 189 248;         /* sky-400 */
+    --primary-foreground: 9 9 12;
+    --secondary: 39 39 42;
+    --secondary-foreground: 244 244 245;
+    --accent: 129 140 248;         /* indigo-400 */
+    --accent-foreground: 9 9 12;
+
+    --success: 52 211 153;         /* emerald-400 */
+    --success-foreground: 9 9 12;
+    --warning: 251 191 36;         /* amber-400 */
+    --warning-foreground: 23 23 23;
+    --destructive: 251 113 133;    /* rose-400 */
+    --destructive-foreground: 9 9 12;
   }
 }

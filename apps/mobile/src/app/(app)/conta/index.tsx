@@ -45,6 +45,10 @@ export default function Conta() {
           </CardContent>
         </Card>
 
+        <Button variant="outline" onPress={() => router.push('/design-system')}>
+          Design System
+        </Button>
+
         <Button variant="destructive" onPress={sair} loading={saindo}>
           Sair
         </Button>
