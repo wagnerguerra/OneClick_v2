@@ -20,7 +20,7 @@ import {
   Sparkles, Database, Plus, Search, Eye, Edit, Trash2,
   MoreVertical, Calculator, FileText, MessageSquare,
   Settings, X, Save, ListChecks, ShoppingCart, RotateCcw, Loader2,
-  ArrowLeft,
+  ArrowLeft, Smartphone, Calendar, ChevronRight, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import { useModuleColors, useRefreshModuleColors, useSetLocalModuleColor, DEFAULT_MODULE_COLORS } from '@/components/theme/module-colors'
 import { alerts } from '@/lib/alerts'
@@ -67,6 +67,7 @@ type TabKey =
   | 'tokens' | 'page-header' | 'kpis' | 'tables' | 'forms'
   | 'buttons' | 'modals' | 'detail' | 'subtabs'
   | 'faq-shells' | 'faq-blocks' | 'faq-callouts' | 'faq-links' | 'faq-starter'
+  | 'mobile-ds'
 
 interface TabDef { key: TabKey; label: string; icon: typeof Layout }
 
@@ -88,6 +89,10 @@ const TABS_FAQ: TabDef[] = [
   { key: 'faq-callouts', label: 'Callouts',       icon: Lightbulb },
   { key: 'faq-links',    label: 'Atalhos',        icon: Hash },
   { key: 'faq-starter',  label: 'Novo artigo',    icon: FileCode },
+]
+
+const TABS_APP: TabDef[] = [
+  { key: 'mobile-ds', label: 'App Mobile', icon: Smartphone },
 ]
 
 export default function DesignSystemPage() {
@@ -142,6 +147,7 @@ export default function DesignSystemPage() {
           <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
             <PillGroup label="Sistema" tabs={TABS_SISTEMA} activeTab={activeTab} onSelect={setActiveTab} />
             <PillGroup label="FAQ" tabs={TABS_FAQ} activeTab={activeTab} onSelect={setActiveTab} className="mt-4" />
+            <PillGroup label="App Mobile" tabs={TABS_APP} activeTab={activeTab} onSelect={setActiveTab} className="mt-4" />
           </div>
 
           {/* Conteúdo */}
@@ -160,6 +166,7 @@ export default function DesignSystemPage() {
             {activeTab === 'faq-callouts' && <FaqCalloutsSection />}
             {activeTab === 'faq-links'    && <FaqLinksSection />}
             {activeTab === 'faq-starter'  && <FaqStarterSection />}
+            {activeTab === 'mobile-ds'    && <MobileDesignSystemSection />}
           </div>
         </div>
       </Card>
@@ -1908,6 +1915,368 @@ function StarterStep({ n, title, children }: { n: number; title: string; childre
         <p className="text-[13px] font-semibold">{title}</p>
         <p className="text-[12px] text-muted-foreground">{children}</p>
       </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// APP MOBILE — Design System (documentação visual fiel)
+// ═══════════════════════════════════════════════════════════════
+
+/** Paleta do app mobile (Material 3 + marca sky). HEX usados diretamente
+ *  porque ESTE bloco DOCUMENTA as cores do app — não é o tema do web. */
+const MOBILE_LIGHT: { name: string; hex: string }[] = [
+  { name: 'background', hex: '#ffffff' },
+  { name: 'foreground', hex: '#0f172a' },
+  { name: 'card', hex: '#ffffff' },
+  { name: 'elevated', hex: '#f8fafc' },
+  { name: 'muted', hex: '#f1f5f9' },
+  { name: 'muted-foreground', hex: '#64748b' },
+  { name: 'border', hex: '#e2e8f0' },
+  { name: 'primary', hex: '#0ea5e9' },
+  { name: 'accent', hex: '#6366f1' },
+  { name: 'success', hex: '#10b981' },
+  { name: 'warning', hex: '#f59e0b' },
+  { name: 'destructive', hex: '#f43f5e' },
+]
+
+const MOBILE_DARK: { name: string; hex: string }[] = [
+  { name: 'background', hex: '#09090c' },
+  { name: 'foreground', hex: '#f4f4f5' },
+  { name: 'card', hex: '#18181b' },
+  { name: 'elevated', hex: '#27272a' },
+  { name: 'muted-foreground', hex: '#a1a1aa' },
+  { name: 'border', hex: '#27272a' },
+  { name: 'primary', hex: '#38bdf8' },
+  { name: 'accent', hex: '#818cf8' },
+  { name: 'success', hex: '#34d399' },
+  { name: 'warning', hex: '#fbbf24' },
+  { name: 'destructive', hex: '#fb7185' },
+]
+
+// Tokens de referência do preview (cores claras do app, p/ as amostras de componente).
+const M = {
+  primary: '#0ea5e9',
+  accent: '#6366f1',
+  success: '#10b981',
+  warning: '#f59e0b',
+  destructive: '#f43f5e',
+  card: '#ffffff',
+  elevated: '#f8fafc',
+  muted: '#f1f5f9',
+  mutedFg: '#64748b',
+  border: '#e2e8f0',
+  fg: '#0f172a',
+} as const
+
+function MobileSwatch({ name, hex }: { name: string; hex: string }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 w-[76px]">
+      <div
+        className="h-16 w-16 rounded-[14px] border border-border/40 shadow-sm shrink-0"
+        style={{ backgroundColor: hex }}
+      />
+      <div className="text-center leading-tight">
+        <p className="text-[10px] font-semibold text-foreground truncate w-[76px]" title={name}>{name}</p>
+        <p className="text-[9px] font-mono text-muted-foreground uppercase">{hex}</p>
+      </div>
+    </div>
+  )
+}
+
+/** Botão "mockado" do app — cor de fundo = hex do app, rounded-[12px]. */
+function MobileButton({
+  label, variant = 'default', size = 'default',
+}: {
+  label: string
+  variant?: 'default' | 'outline' | 'ghost' | 'destructive' | 'success'
+  size?: 'sm' | 'default' | 'lg'
+}) {
+  const h = { sm: 'h-9 text-[13px] px-3', default: 'h-11 text-sm px-4', lg: 'h-12 text-[15px] px-5' }[size]
+  const style: React.CSSProperties =
+    variant === 'default' ? { backgroundColor: M.primary, color: '#ffffff' } :
+    variant === 'destructive' ? { backgroundColor: M.destructive, color: '#ffffff' } :
+    variant === 'success' ? { backgroundColor: M.success, color: '#ffffff' } :
+    variant === 'outline' ? { backgroundColor: 'transparent', color: M.fg, border: `1px solid ${M.border}` } :
+    /* ghost */ { backgroundColor: 'transparent', color: M.primary }
+  return (
+    <button
+      type="button"
+      className={cn('inline-flex items-center justify-center rounded-[12px] font-semibold transition-opacity hover:opacity-90', h)}
+      style={style}
+    >
+      {label}
+    </button>
+  )
+}
+
+function MobileStatCard({ label, value, delta, up }: { label: string; value: string; delta: string; up: boolean }) {
+  return (
+    <div className="rounded-[16px] p-4 shadow-sm" style={{ backgroundColor: M.elevated, border: `1px solid ${M.border}` }}>
+      <div className="flex items-start justify-between gap-2">
+        <div
+          className="h-9 w-9 rounded-[12px] flex items-center justify-center shrink-0"
+          style={{ backgroundColor: `${M.primary}1a`, color: M.primary }}
+        >
+          <Calendar className="h-4 w-4" />
+        </div>
+        <span
+          className="inline-flex items-center gap-0.5 text-[11px] font-semibold"
+          style={{ color: up ? M.success : M.destructive }}
+        >
+          {up ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}{delta}
+        </span>
+      </div>
+      <p className="mt-3 text-2xl font-bold tabular-nums" style={{ color: M.fg }}>{value}</p>
+      <p className="text-[12px]" style={{ color: M.mutedFg }}>{label}</p>
+    </div>
+  )
+}
+
+function MobileBadge({ label, kind = 'default' }: {
+  label: string
+  kind?: 'default' | 'outline' | 'secondary' | 'success' | 'warning' | 'destructive'
+}) {
+  const base = 'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold'
+  let style: React.CSSProperties
+  switch (kind) {
+    case 'outline':    style = { color: M.fg, border: `1px solid ${M.border}` }; break
+    case 'secondary':  style = { backgroundColor: M.muted, color: M.mutedFg }; break
+    case 'success':    style = { backgroundColor: `${M.success}1f`, color: M.success }; break
+    case 'warning':    style = { backgroundColor: `${M.warning}24`, color: M.warning }; break
+    case 'destructive':style = { backgroundColor: `${M.destructive}1f`, color: M.destructive }; break
+    default:           style = { backgroundColor: M.primary, color: '#ffffff' }
+  }
+  return <span className={base} style={style}>{label}</span>
+}
+
+function MobileListItem({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div
+      className="flex items-center gap-3 px-4 py-3"
+      style={{ backgroundColor: M.card, borderBottom: `1px solid ${M.border}` }}
+    >
+      <div
+        className="h-10 w-10 rounded-[12px] flex items-center justify-center shrink-0"
+        style={{ backgroundColor: `${M.accent}1a`, color: M.accent }}
+      >
+        <FileText className="h-4 w-4" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-semibold truncate" style={{ color: M.fg }}>{title}</p>
+        <p className="text-[12px] truncate" style={{ color: M.mutedFg }}>{subtitle}</p>
+      </div>
+      <ChevronRight className="h-4 w-4 shrink-0" style={{ color: M.mutedFg }} />
+    </div>
+  )
+}
+
+function MobileSwitchRow({ label, on }: { label: string; on: boolean }) {
+  return (
+    <div
+      className="flex items-center justify-between px-4 py-3"
+      style={{ backgroundColor: M.card, borderBottom: `1px solid ${M.border}` }}
+    >
+      <span className="text-[14px] font-medium" style={{ color: M.fg }}>{label}</span>
+      <div
+        className="relative h-6 w-11 rounded-full transition-colors shrink-0"
+        style={{ backgroundColor: on ? M.primary : M.border }}
+      >
+        <span
+          className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all"
+          style={{ left: on ? '22px' : '2px' }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function MobileInput({ label, value, error }: { label: string; value: string; error?: string }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[13px] font-semibold" style={{ color: M.fg }}>{label}</p>
+      <div
+        className="h-11 rounded-[12px] flex items-center px-3 text-sm"
+        style={{
+          backgroundColor: M.card,
+          color: M.fg,
+          border: `1px solid ${error ? M.destructive : M.border}`,
+        }}
+      >
+        {value}
+      </div>
+      {error && <p className="text-[12px] font-medium" style={{ color: M.destructive }}>{error}</p>}
+    </div>
+  )
+}
+
+function MobileDesignSystemSection() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <div className="h-11 w-11 rounded-[14px] flex items-center justify-center text-white shadow-sm" style={{ backgroundColor: M.primary }}>
+          <Smartphone className="h-5 w-5" />
+        </div>
+        <div>
+          <h2 className="text-[15px] font-bold text-foreground">Design System — App Mobile (Android)</h2>
+          <p className="text-[12px] text-muted-foreground">Material 3 + marca sky · data-first</p>
+        </div>
+      </div>
+
+      <Callout tipo="info">
+        Este é o design system do app <strong>OneClick ERP</strong> (Android, React Native). Inspiração
+        <strong> Material 3</strong> com a marca <strong>sky</strong>. No app, ele fica em
+        <strong> Conta → Design System</strong> e renderiza igual no <strong>Android</strong> e no
+        <strong> web build</strong>. Como os componentes são React Native, este bloco é a
+        documentação visual fiel — markup web (HTML+Tailwind) espelhando os tokens do app. Os
+        <strong> HEX abaixo são os do app</strong> (não os tokens do tema web).
+      </Callout>
+
+      {/* ── Paleta ─────────────────────────────────────────── */}
+      <SubTitle>Paleta — Claro</SubTitle>
+      <div className="rounded-md border border-border bg-card p-4">
+        <div className="flex flex-wrap gap-3">
+          {MOBILE_LIGHT.map(s => <MobileSwatch key={`l-${s.name}`} name={s.name} hex={s.hex} />)}
+        </div>
+      </div>
+
+      <SubTitle>Paleta — Escuro</SubTitle>
+      <div className="rounded-md border border-border p-4" style={{ backgroundColor: '#09090c' }}>
+        <div className="flex flex-wrap gap-3">
+          {MOBILE_DARK.map(s => <MobileSwatch key={`d-${s.name}`} name={s.name} hex={s.hex} />)}
+        </div>
+      </div>
+
+      {/* ── Tipografia ─────────────────────────────────────── */}
+      <SubTitle>Tipografia</SubTitle>
+      <div className="rounded-md border border-border bg-card p-4 space-y-2.5">
+        <p className="text-3xl font-bold text-foreground leading-tight">Display — text-3xl bold</p>
+        <p className="text-2xl font-bold text-foreground leading-tight">Title — text-2xl bold</p>
+        <p className="text-lg font-semibold text-foreground">Heading — text-lg semibold</p>
+        <p className="text-base text-foreground">Body — text-base regular</p>
+        <p className="text-sm font-medium text-foreground">Label — text-sm medium</p>
+        <p className="text-xs text-muted-foreground">Caption — text-xs muted</p>
+        <div className="pt-2 border-t border-border/60">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Números tabulares</p>
+          <p className="text-2xl font-bold tabular-nums text-foreground">R$ 12.345,67</p>
+          <code className="text-[10px] text-muted-foreground">font-variant-numeric: tabular-nums · class tabular-nums</code>
+        </div>
+      </div>
+
+      {/* ── Raio & elevação ────────────────────────────────── */}
+      <SubTitle>Raio & elevação</SubTitle>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div className="rounded-md border border-border bg-card p-4 space-y-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Raio</p>
+          <div className="flex items-end gap-4">
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="h-16 w-16 rounded-[14px] border" style={{ backgroundColor: M.elevated, borderColor: M.border }} />
+              <code className="text-[10px] text-muted-foreground">rounded-[14px]</code>
+              <span className="text-[10px] text-muted-foreground/80">cards</span>
+            </div>
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="h-16 w-16 rounded-[20px] border" style={{ backgroundColor: M.elevated, borderColor: M.border }} />
+              <code className="text-[10px] text-muted-foreground">rounded-[20px]</code>
+              <span className="text-[10px] text-muted-foreground/80">sheets</span>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-md border border-border bg-card p-4 space-y-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Superfícies</p>
+          <div className="flex items-end gap-4">
+            {([['muted', M.muted], ['card', M.card], ['elevated', M.elevated]] as const).map(([n, hex]) => (
+              <div key={n} className="flex flex-col items-center gap-1.5">
+                <div className="h-16 w-16 rounded-[14px] border shadow-sm" style={{ backgroundColor: hex, borderColor: M.border }} />
+                <code className="text-[10px] text-muted-foreground">{n}</code>
+                <span className="text-[9px] font-mono text-muted-foreground/80 uppercase">{hex}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Componentes ────────────────────────────────────── */}
+      <SubTitle>Componentes</SubTitle>
+      <Note>Previews web fiéis aos componentes nativos em <code className="text-[11px]">apps/mobile/src/components/ui/*</code>.</Note>
+
+      {/* Botões */}
+      <div className="rounded-md border border-border bg-card p-4 space-y-4">
+        <p className="text-[13px] font-semibold text-foreground">Botões</p>
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Variantes</p>
+          <div className="flex flex-wrap gap-2">
+            <MobileButton label="Default" variant="default" />
+            <MobileButton label="Outline" variant="outline" />
+            <MobileButton label="Ghost" variant="ghost" />
+            <MobileButton label="Destructive" variant="destructive" />
+            <MobileButton label="Success" variant="success" />
+          </div>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Tamanhos</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <MobileButton label="sm · h-9" size="sm" />
+            <MobileButton label="default · h-11" size="default" />
+            <MobileButton label="lg · h-12" size="lg" />
+          </div>
+        </div>
+      </div>
+
+      {/* StatCard */}
+      <div className="rounded-md border border-border bg-card p-4 space-y-3">
+        <p className="text-[13px] font-semibold text-foreground">StatCard</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <MobileStatCard label="Obrigações no mês" value="1.248" delta="12%" up />
+          <MobileStatCard label="Pendências" value="37" delta="8%" up={false} />
+          <MobileStatCard label="Faturamento" value="R$ 84,2k" delta="5%" up />
+        </div>
+      </div>
+
+      {/* Badge */}
+      <div className="rounded-md border border-border bg-card p-4 space-y-3">
+        <p className="text-[13px] font-semibold text-foreground">Badge</p>
+        <div className="flex flex-wrap gap-2">
+          <MobileBadge label="Default" kind="default" />
+          <MobileBadge label="Outline" kind="outline" />
+          <MobileBadge label="Secondary" kind="secondary" />
+          <MobileBadge label="Sucesso" kind="success" />
+          <MobileBadge label="Atenção" kind="warning" />
+          <MobileBadge label="Erro" kind="destructive" />
+        </div>
+      </div>
+
+      {/* ListItem + SwitchRow */}
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div className="rounded-md border border-border bg-card p-4 space-y-3">
+          <p className="text-[13px] font-semibold text-foreground">ListItem</p>
+          <div className="rounded-[14px] overflow-hidden" style={{ border: `1px solid ${M.border}` }}>
+            <MobileListItem title="DCTFWeb — Maio/2026" subtitle="Vence em 3 dias" />
+            <MobileListItem title="eSocial — Folha" subtitle="Concluído" />
+          </div>
+        </div>
+        <div className="rounded-md border border-border bg-card p-4 space-y-3">
+          <p className="text-[13px] font-semibold text-foreground">SwitchRow</p>
+          <div className="rounded-[14px] overflow-hidden" style={{ border: `1px solid ${M.border}` }}>
+            <MobileSwitchRow label="Notificações push" on />
+            <MobileSwitchRow label="Modo escuro automático" on={false} />
+          </div>
+        </div>
+      </div>
+
+      {/* Input */}
+      <div className="rounded-md border border-border bg-card p-4 space-y-3">
+        <p className="text-[13px] font-semibold text-foreground">Input</p>
+        <div className="grid sm:grid-cols-2 gap-4 max-w-2xl">
+          <MobileInput label="CNPJ" value="12.345.678/0001-90" />
+          <MobileInput label="E-mail" value="invalido@" error="Informe um e-mail válido." />
+        </div>
+      </div>
+
+      <Callout tipo="info">
+        Arquivos: componentes em <code className="text-[11px]">apps/mobile/src/components/ui/*</code> ·
+        tela em <code className="text-[11px]">apps/mobile/src/app/design-system.tsx</code> ·
+        tokens em <code className="text-[11px]">apps/mobile/src/global.css</code>.
+      </Callout>
     </div>
   )
 }
