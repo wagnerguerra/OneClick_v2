@@ -3,7 +3,7 @@
     "name": "OneClick ERP",
     "slug": "oneclick-erp",
     "owner": "oneclick_v2",
-    "version": "1.1.2",
+    "version": "1.1.3",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -12,7 +12,6 @@
     "scheme": "oneclick",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.oneclick.erp.mobile",
       "supportsTablet": true
     },

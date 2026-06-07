@@ -1,8 +1,10 @@
-// Tela de lista do Helpdesk (rota /helpdesk) — "meus chamados".
+// Tela de lista do Helpdesk (rota /helpdesk).
 //
-// Espelha o módulo do sistema: filtro de status por chips horizontais e lista
-// dos tickets do solicitante logado. Cada ticket é um Card tocável que leva ao
-// detalhe (/helpdesk/[id]). FAB "+" cria um novo chamado (/helpdesk/novo).
+// Espelha o módulo do sistema: seletor de escopo (Meus / Área / Todos) + filtro
+// de status por chips horizontais. Usa `helpdesk.list` (mesma query da web), que
+// respeita a visibilidade/escopo do usuário — assim o app mostra tudo o que ele
+// vê no sistema, não só os tickets onde é solicitante. Cada ticket é um Card
+// tocável que leva ao detalhe (/helpdesk/[id]). FAB "+" cria um novo chamado.
 
 import { useState } from 'react'
 import { Pressable, ScrollView, View } from 'react-native'
@@ -18,6 +20,9 @@ import {
   type HelpdeskPrioridade,
 } from '@saas/types'
 
+// Escopo de listagem do helpdesk (espelha o enum `scope` de listTicketSchema).
+type HelpdeskScope = 'MEUS' | 'AREA' | 'TODOS'
+
 import { MenuButton } from '@/components/navigation/menu-button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
@@ -26,27 +31,64 @@ import { cn } from '@/lib/cn'
 import { trpc } from '@/lib/trpc'
 import { HELPDESK_STATUS_CLASSES } from '@/features/helpdesk/status-colors'
 
+// Escopos de listagem (espelham o `scope` de helpdesk.list no sistema).
+// 'MEUS' = default (sou solicitante/responsável/watcher); 'AREA' = minha área;
+// 'TODOS' = tudo que tenho permissão de ver.
+const SCOPES: ReadonlyArray<{ value: HelpdeskScope; label: string }> = [
+  { value: 'MEUS', label: 'Meus' },
+  { value: 'AREA', label: 'Área' },
+  { value: 'TODOS', label: 'Todos' },
+]
+
 export default function HelpdeskScreen() {
   const router = useRouter()
 
+  // Escopo ativo. 'MEUS' por padrão, como no sistema.
+  const [scope, setScope] = useState<HelpdeskScope>('MEUS')
   // Filtro de status ativo. `null` = "Todos" (sem filtro).
   const [filtroStatus, setFiltroStatus] = useState<HelpdeskStatus | null>(null)
 
-  // Busca os tickets do solicitante logado. `incluirHistorico` traz também os
-  // arquivados — coerente com a visão "meus chamados" do sistema.
-  const query = trpc.helpdesk.listMeus.useQuery({
+  // Busca os tickets respeitando escopo/visibilidade — mesma query da web.
+  // `arquivado: false` esconde os arquivados; o backend aplica o escopo conforme
+  // as permissões do usuário (privilegiado vê tudo, demais caem pro escopo válido).
+  const query = trpc.helpdesk.list.useQuery({
+    scope,
     status: filtroStatus ? [filtroStatus] : undefined,
-    incluirHistorico: true,
+    arquivado: false,
+    page: 1,
+    limit: 50,
   })
   const { isPending, isError, refetch } = query
+
+  // Fallback: se o usuário não tem permissão para `list` (FORBIDDEN/UNAUTHORIZED),
+  // cai para `listMeus` — assim a tela nunca quebra por falta de acesso ao escopo.
+  const semPermissao = isError && isForbidden(query.error)
+  const fallback = trpc.helpdesk.listMeus.useQuery(
+    {
+      status: filtroStatus ? [filtroStatus] : undefined,
+      incluirHistorico: false,
+    },
+    { enabled: semPermissao },
+  )
+
   // Estreita o tipo pro shape que a UI consome — o retorno inferido do tRPC é
   // profundo demais e estoura o instanciador de tipos do TS (TS2589) ao mapear.
-  const data = query.data as TicketResumo[] | undefined
+  const usandoFallback = semPermissao
+  const pagina = query.data as { data: TicketResumo[]; total: number } | undefined
+  const data = usandoFallback
+    ? (fallback.data as TicketResumo[] | undefined)
+    : (pagina?.data ?? undefined)
+  const total = usandoFallback ? (data?.length ?? 0) : (pagina?.total ?? 0)
+
+  // Carregando / erro real só contam pra fonte de dados em uso.
+  const carregando = usandoFallback ? fallback.isPending : isPending
+  const erroReal = usandoFallback ? fallback.isError : isError && !semPermissao
+  const recarregar = usandoFallback ? fallback.refetch : refetch
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'left', 'right']}>
       <View className="w-full max-w-2xl mx-auto flex-1">
-        {/* Header: botão de menu (abre o Drawer) + título. */}
+        {/* Header: botão de menu (abre o Drawer) + título + total. */}
         <View className="flex-row items-center gap-2 px-4 pt-2 pb-3">
           <MenuButton />
           <View className="flex-1 pl-1">
@@ -55,7 +97,28 @@ export default function HelpdeskScreen() {
             </Text>
             <Text className="text-xl sm:text-2xl font-bold text-foreground">Helpdesk</Text>
           </View>
+          {!carregando && !erroReal ? (
+            <Text className="text-xs text-muted-foreground">
+              {total} {total === 1 ? 'chamado' : 'chamados'}
+            </Text>
+          ) : null}
         </View>
+
+        {/* Seletor de escopo: Meus / Área / Todos. Oculto no fallback (sem permissão). */}
+        {!usandoFallback ? (
+          <View className="px-4 pb-3">
+            <View className="flex-row gap-2">
+              {SCOPES.map((s) => (
+                <ChipStatus
+                  key={s.value}
+                  ativo={scope === s.value}
+                  label={s.label}
+                  onPress={() => setScope(s.value)}
+                />
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {/* Filtro de status: chips horizontais (Todos + cada status). */}
         <View className="border-b border-border pb-3">
@@ -82,18 +145,18 @@ export default function HelpdeskScreen() {
         </View>
 
         {/* Corpo: carregamento / erro / vazio / lista. */}
-        {isPending ? (
+        {carregando ? (
           <View className="flex-1 items-center justify-center">
             <Spinner size="large" />
           </View>
-        ) : isError ? (
+        ) : erroReal ? (
           <View className="flex-1 items-center justify-center px-6 gap-3">
             <Text className="text-center text-muted-foreground">
               Não foi possível carregar os chamados.
             </Text>
             <Pressable
               accessibilityRole="button"
-              onPress={() => refetch()}
+              onPress={() => recarregar()}
               className="h-9 px-4 items-center justify-center rounded-md border border-border bg-card active:opacity-70"
             >
               <Text className="text-foreground font-medium">Tentar novamente</Text>
@@ -165,9 +228,17 @@ function ChipStatus({
   )
 }
 
-// Shape mínimo do ticket retornado por `helpdesk.listMeus` que a UI consome.
-// Derivado do retorno do service (não inferimos via tipos da API pra evitar
-// acoplamento de tipos profundos do tRPC nesta tela de lista).
+// Detecta erro de permissão (FORBIDDEN/UNAUTHORIZED) para acionar o fallback
+// pra `listMeus`. Não tipamos via TRPCClientError pra evitar acoplamento de
+// tipos profundos do tRPC nesta tela — checagem estrutural basta.
+function isForbidden(error: unknown): boolean {
+  const code = (error as { data?: { code?: string } } | null)?.data?.code
+  return code === 'FORBIDDEN' || code === 'UNAUTHORIZED'
+}
+
+// Shape mínimo do ticket que a UI consome — comum a `helpdesk.list` e
+// `helpdesk.listMeus`. Derivado do retorno dos services (não inferimos via tipos
+// da API pra evitar acoplamento de tipos profundos do tRPC / TS2589 nesta tela).
 type TicketResumo = {
   id: string
   numero: number

@@ -2,9 +2,10 @@
 //
 // Estrutura (de cima para baixo):
 //   1. Header da empresa logada (logo + nome) — trpc.empresa.getMyEmpresa.
+//      A logo SEMPRE aparece: logo da empresa → marca OneClick → inicial.
 //   2. Cartão do usuário (avatar + nome + e-mail) — useSession; toca → Perfil.
-//   3. Blocos/módulos agrupados (Geral ativo; Cadastros/Comercial/Fiscal/
-//      Qualidade desabilitados com selo "em breve") — preparado pra crescer.
+//   3. Módulos navegáveis, filtrados pelas permissões do usuário
+//      (trpc.user.getMyPermissions) — exatamente como o sistema web.
 //   4. Rodapé: Perfil e Sair.
 //
 // Visual seguindo o Design System: tokens semânticos (sem hex, exceto onde
@@ -13,6 +14,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
+import { useState } from 'react'
 import { Pressable, ScrollView, useColorScheme, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
@@ -31,6 +33,9 @@ import { authClient, useSession } from '@/lib/auth-client'
 import { cn } from '@/lib/cn'
 import { trpc } from '@/lib/trpc'
 
+// Marca OneClick — fallback que SEMPRE existe (asset embarcado no bundle).
+const ONECLICK_MARK = require('../../../assets/images/oneclick-mark.png')
+
 // Prefixa URLs relativas (ex.: "/uploads/logo.png") com a base da API.
 function resolveUrl(url: string | null | undefined): string | null {
   if (!url) return null
@@ -47,69 +52,27 @@ function iniciais(nome: string | null | undefined): string {
   return (partes[0]![0]! + partes[partes.length - 1]![0]!).toUpperCase()
 }
 
-// Definição de um item de módulo na lista do drawer.
+// Definição de um item de módulo navegável no drawer.
 type ItemModulo = {
   label: string
   icon: keyof typeof Ionicons.glyphMap
-  // Nome da rota do Drawer.Screen (só itens ativos têm).
-  route?: string
-  // Itens "em breve" ficam esmaecidos e sem ação.
-  disabled?: boolean
+  // Nome da rota do Drawer.Screen.
+  route: string
+  // Slug do módulo cuja permissão libera o item. `null` = sempre visível.
+  modulo: string | null
 }
 
-type Bloco = {
-  titulo: string
-  // Sufixo discreto ao lado do título do bloco (ex.: "em breve").
-  hint?: string
-  itens: ItemModulo[]
-}
-
-// Blocos/módulos. "Geral" é o único navegável hoje; o resto é roadmap.
-const BLOCOS: Bloco[] = [
-  {
-    titulo: 'Geral',
-    itens: [
-      { label: 'Início', icon: 'home', route: 'dashboard' },
-      { label: 'Agenda', icon: 'calendar', route: 'agenda' },
-      { label: 'Tarefas', icon: 'checkbox', route: 'tarefas' },
-      { label: 'Helpdesk', icon: 'chatbubbles', route: 'helpdesk' },
-    ],
-  },
-  {
-    titulo: 'Cadastros',
-    hint: 'em breve',
-    itens: [
-      { label: 'Clientes', icon: 'people', disabled: true },
-      { label: 'Colaboradores', icon: 'id-card', disabled: true },
-      { label: 'Fornecedores', icon: 'cube', disabled: true },
-    ],
-  },
-  {
-    titulo: 'Comercial',
-    hint: 'em breve',
-    itens: [
-      { label: 'CRM', icon: 'briefcase', disabled: true },
-      { label: 'Orçamentos', icon: 'document-text', disabled: true },
-      { label: 'Serviços', icon: 'construct', disabled: true },
-    ],
-  },
-  {
-    titulo: 'Fiscal',
-    hint: 'em breve',
-    itens: [
-      { label: 'Certidões', icon: 'shield-checkmark', disabled: true },
-      { label: 'Caixa Postal', icon: 'mail', disabled: true },
-      { label: 'DCTFWeb', icon: 'calculator', disabled: true },
-    ],
-  },
-  {
-    titulo: 'Qualidade',
-    hint: 'em breve',
-    itens: [
-      { label: 'Processos', icon: 'git-network', disabled: true },
-      { label: 'Pesquisas', icon: 'clipboard', disabled: true },
-    ],
-  },
+// Itens do menu — só os módulos implementados e navegáveis.
+// A visibilidade é decidida em runtime via `podeVer(item.modulo)`.
+//   - Início       → sempre (sem permissão)
+//   - Agenda       → módulo 'agenda'
+//   - Tarefas      → módulo 'agenda' (tarefas pertencem à agenda)
+//   - Helpdesk     → módulo 'helpdesk'
+const ITENS_MENU: ItemModulo[] = [
+  { label: 'Início', icon: 'home', route: 'dashboard', modulo: null },
+  { label: 'Agenda', icon: 'calendar', route: 'agenda', modulo: 'agenda' },
+  { label: 'Tarefas', icon: 'checkbox', route: 'tarefas', modulo: 'agenda' },
+  { label: 'Helpdesk', icon: 'chatbubbles', route: 'helpdesk', modulo: 'helpdesk' },
 ]
 
 export function AppDrawer(props: AppDrawerProps) {
@@ -124,6 +87,9 @@ export function AppDrawer(props: AppDrawerProps) {
 
   // Empresa logada (header). Pode vir null se o user não tem empresa.
   const { data: empresa } = trpc.empresa.getMyEmpresa.useQuery()
+  // Permissões do usuário — mesma fonte de verdade do sistema web.
+  const { data: perms, isLoading: permsLoading, isError: permsError } =
+    trpc.user.getMyPermissions.useQuery()
   // Usuário logado (cartão de perfil).
   const { data: session } = useSession()
   const user = session?.user
@@ -131,11 +97,36 @@ export function AppDrawer(props: AppDrawerProps) {
   // Rota atualmente em foco no Drawer — pra realçar o item correspondente.
   const rotaAtual = props.state.routeNames[props.state.index]
 
+  // Helper de permissão — espelha o `podeVer(slug)` do sistema web.
+  // Master/empresa-master enxergam tudo; demais precisam de canRead no módulo.
+  function podeVer(slug: string | null): boolean {
+    if (slug === null) return true
+    if (!perms) return false
+    if (perms.isMaster || perms.isEmpresaMaster) return true
+    return perms.permissions.some((p) => p.moduleSlug === slug && p.canRead)
+  }
+
+  // Degrade gracioso: enquanto carrega OU se a query falhar, mostramos todos os
+  // módulos (assim o menu nunca fica vazio/quebrado). Início é sempre visível.
+  const mostrarTudo = permsLoading || permsError || !perms
+  const itensVisiveis = ITENS_MENU.filter(
+    (item) => item.modulo === null || mostrarTudo || podeVer(item.modulo),
+  )
+
   // Logo da empresa: usa a versão dark quando disponível no tema escuro.
   const logo = resolveUrl(
     isDark ? empresa?.logoDarkUrl ?? empresa?.logoUrl : empresa?.logoUrl,
   )
   const nomeEmpresa = empresa?.nomeFantasia || empresa?.razaoSocial || 'Empresa'
+
+  // Estado da cascata de fallback do logo no header:
+  //   'logo'    → tenta a logo da empresa
+  //   'mark'    → marca OneClick (sempre existe)
+  //   'inicial' → bloco bg-primary com a inicial
+  // Começa em 'logo' se há URL, senão já cai na marca OneClick.
+  const [logoStage, setLogoStage] = useState<'logo' | 'mark' | 'inicial'>(
+    logo ? 'logo' : 'mark',
+  )
 
   // Avatar do usuário (Better Auth expõe user.image).
   const userImage = resolveUrl((user as { image?: string | null } | undefined)?.image)
@@ -155,12 +146,24 @@ export function AppDrawer(props: AppDrawerProps) {
       <View className="px-4 pt-2 pb-4">
         {/* ── Header da empresa ── */}
         <View className="flex-row items-center gap-3 pb-4 mb-2 border-b border-border">
-          {logo ? (
+          {/* Cascata de logo: empresa → marca OneClick → inicial. Sempre há algo. */}
+          {logo && logoStage === 'logo' ? (
             <Image
               source={{ uri: logo }}
               style={{ width: 48, height: 48, borderRadius: 12 }}
               contentFit="contain"
               transition={150}
+              // Se a logo da empresa falhar, cai pra marca OneClick.
+              onError={() => setLogoStage('mark')}
+            />
+          ) : logoStage !== 'inicial' ? (
+            <Image
+              source={ONECLICK_MARK}
+              style={{ width: 48, height: 48, borderRadius: 12 }}
+              contentFit="contain"
+              transition={150}
+              // Caso extremo (marca não carregue): cai pro bloco com inicial.
+              onError={() => setLogoStage('inicial')}
             />
           ) : (
             <View className="h-12 w-12 items-center justify-center rounded-2xl bg-primary">
@@ -213,77 +216,47 @@ export function AppDrawer(props: AppDrawerProps) {
           <Ionicons name="chevron-forward" size={18} color={iconMuted} />
         </Pressable>
 
-        {/* ── Blocos / módulos ── */}
-        <View className="mt-4 gap-4">
-          {BLOCOS.map((bloco) => (
-            <View key={bloco.titulo} className="gap-1">
-              {/* Rótulo do bloco. */}
-              <View className="flex-row items-center gap-2 px-1 pb-1">
-                <Text className="text-xs uppercase tracking-wider text-muted-foreground">
-                  {bloco.titulo}
+        {/* ── Módulos navegáveis (filtrados por permissão) ── */}
+        <View className="mt-4 gap-1">
+          {itensVisiveis.map((item) => {
+            const ativo = item.route === rotaAtual
+
+            return (
+              <Pressable
+                key={item.label}
+                accessibilityRole="button"
+                accessibilityState={{ selected: ativo }}
+                onPress={() => props.navigation.navigate(item.route)}
+                className={cn(
+                  'flex-row items-center gap-3 rounded-xl px-2 py-2.5',
+                  ativo ? 'bg-primary/10' : 'active:bg-muted',
+                )}
+              >
+                {/* Chip do ícone. */}
+                <View
+                  className={cn(
+                    'h-9 w-9 items-center justify-center rounded-lg',
+                    ativo ? 'bg-primary/15' : 'bg-muted/60',
+                  )}
+                >
+                  <Ionicons
+                    name={item.icon}
+                    size={18}
+                    color={ativo ? iconActive : iconMuted}
+                  />
+                </View>
+
+                <Text
+                  className={cn(
+                    'flex-1 font-medium',
+                    ativo ? 'text-primary' : 'text-foreground',
+                  )}
+                >
+                  {item.label}
                 </Text>
-                {bloco.hint ? (
-                  <Text className="text-[10px] text-muted-foreground/70">
-                    {bloco.hint}
-                  </Text>
-                ) : null}
-              </View>
-
-              {bloco.itens.map((item) => {
-                const ativo = !!item.route && item.route === rotaAtual
-                const desabilitado = !!item.disabled
-
-                return (
-                  <Pressable
-                    key={item.label}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: ativo, disabled: desabilitado }}
-                    disabled={desabilitado}
-                    onPress={
-                      item.route
-                        ? () => props.navigation.navigate(item.route!)
-                        : undefined
-                    }
-                    className={cn(
-                      'flex-row items-center gap-3 rounded-xl px-2 py-2.5',
-                      ativo && 'bg-primary/10',
-                      desabilitado ? 'opacity-50' : 'active:bg-muted',
-                    )}
-                  >
-                    {/* Chip do ícone. */}
-                    <View
-                      className={cn(
-                        'h-9 w-9 items-center justify-center rounded-lg',
-                        ativo ? 'bg-primary/15' : 'bg-muted/60',
-                      )}
-                    >
-                      <Ionicons
-                        name={item.icon}
-                        size={18}
-                        color={ativo ? iconActive : iconMuted}
-                      />
-                    </View>
-
-                    <Text
-                      className={cn(
-                        'flex-1 font-medium',
-                        ativo ? 'text-primary' : 'text-foreground',
-                      )}
-                    >
-                      {item.label}
-                    </Text>
-
-                    {/* Selo "em breve" nos itens desabilitados. */}
-                    {desabilitado ? (
-                      <View className="rounded bg-muted px-1.5 py-0.5">
-                        <Text className="text-[10px] text-muted-foreground">em breve</Text>
-                      </View>
-                    ) : null}
-                  </Pressable>
-                )
-              })}
-            </View>
-          ))}
+              </Pressable>
+            )
+          })}
         </View>
 
         {/* ── Rodapé: Perfil + Sair ── */}
