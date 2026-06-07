@@ -6,6 +6,15 @@ dist/
 .next/
 .turbo/
 
+# Materiais de referência (instaladores/arte) — pesados, fora do build/repo
+materiais/
+
+# Binarios de app (nao versionar; servidos via /opt/oneclick-src no deploy)
+*.apk
+*.aab
+*.exe
+*.blockmap
+
 # Environment
 .env
 .env.local

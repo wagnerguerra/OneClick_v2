@@ -1,6 +1,0 @@
-# EAS deve IGNORAR as pastas nativas geradas localmente (prebuild local no
-# Windows grava paths absolutos C:\...\.pnpm que quebram o build na nuvem Linux).
-# Sem android/ios no upload, o EAS roda `expo prebuild` limpo no servidor.
-android/
-ios/
-.gradle/
