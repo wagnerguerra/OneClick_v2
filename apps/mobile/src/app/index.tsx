@@ -16,5 +16,5 @@ export default function Index() {
     )
   }
 
-  return <Redirect href={session ? '/agenda' : '/login'} />
+  return <Redirect href={session ? '/dashboard' : '/login'} />
 }

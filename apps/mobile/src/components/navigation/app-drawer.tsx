@@ -69,8 +69,10 @@ const BLOCOS: Bloco[] = [
   {
     titulo: 'Geral',
     itens: [
+      { label: 'Início', icon: 'home', route: 'dashboard' },
       { label: 'Agenda', icon: 'calendar', route: 'agenda' },
       { label: 'Tarefas', icon: 'checkbox', route: 'tarefas' },
+      { label: 'Helpdesk', icon: 'chatbubbles', route: 'helpdesk' },
     ],
   },
   {

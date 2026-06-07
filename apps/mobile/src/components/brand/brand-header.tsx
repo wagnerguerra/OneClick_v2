@@ -26,10 +26,10 @@ export function BrandHeader({ subtitle }: BrandHeaderProps) {
         }}
       >
         <Image
-          source={require('../../../assets/images/icon.png')}
-          // Preenche o quadrado de 64px mantendo a proporção.
+          source={require('../../../assets/images/oneclick-mark.png')}
+          // Marca OneClick (logo-sm). Mantém a proporção dentro do quadrado.
           style={{ width: 64, height: 64 }}
-          contentFit="cover"
+          contentFit="contain"
           accessibilityLabel="Logo do OneClick ERP"
         />
       </View>

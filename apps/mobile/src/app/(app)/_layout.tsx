@@ -47,9 +47,10 @@ export default function AppLayout() {
           swipeEdgeWidth: 80,
         }}
       >
+        <Drawer.Screen name="dashboard" options={{ title: 'Início' }} />
         <Drawer.Screen name="agenda" options={{ title: 'Agenda' }} />
         <Drawer.Screen name="tarefas" options={{ title: 'Tarefas' }} />
-        {/* Rota perfil declarada aqui; a tela será criada por outro agente. */}
+        <Drawer.Screen name="helpdesk" options={{ title: 'Helpdesk' }} />
         <Drawer.Screen name="perfil" options={{ title: 'Perfil' }} />
       </Drawer>
     </GestureHandlerRootView>
