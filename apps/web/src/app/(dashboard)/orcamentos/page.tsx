@@ -520,6 +520,12 @@ export default function OrcamentosPage() {
 
   async function handleCreate() {
     if (!form.clienteId) { alerts.error('Cliente obrigatório', 'Selecione o cliente.'); return }
+    // E-mail do contato é obrigatório no cadastro (#HLP0089). Aceita um ou mais
+    // e-mails separados por vírgula/ponto-e-vírgula; todos precisam ser válidos.
+    const emails = (form.emailsContatos || '').split(/[,;]/).map(e => e.trim()).filter(Boolean)
+    if (emails.length === 0) { alerts.error('E-mail obrigatório', 'Informe o e-mail do contato.'); return }
+    const reEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emails.every(e => reEmail.test(e))) { alerts.error('E-mail inválido', 'Informe um e-mail válido para o contato.'); return }
     setCreating(true)
     try {
       const result = await (trpc.orcamento as any).create.mutate({
@@ -884,8 +890,8 @@ export default function OrcamentosPage() {
                 <Input className="h-9 text-sm" value={form.contatos} onChange={e => setForm({ ...form, contatos: e.target.value })} placeholder="Nome do contato" />
               </div>
               <div className="col-span-12 sm:col-span-9 space-y-1.5">
-                <Label className="text-xs font-medium">E-mail do Contato</Label>
-                <Input className="h-9 text-sm" type="email" value={form.emailsContatos} onChange={e => setForm({ ...form, emailsContatos: e.target.value })} placeholder="contato@empresa.com.br" />
+                <Label className="text-xs font-medium">E-mail do Contato <span className="text-rose-500">*</span></Label>
+                <Input className="h-9 text-sm" type="email" required value={form.emailsContatos} onChange={e => setForm({ ...form, emailsContatos: e.target.value })} placeholder="contato@empresa.com.br" />
               </div>
             </div>
 
