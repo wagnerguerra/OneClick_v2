@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Plus, Loader2, Calendar, Clock,
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
   Repeat, Lock, History, Settings, Palette, Check, Download, DoorOpen,
-  Bell, Mail, CheckSquare, Square, ListTodo,
+  Bell, Mail, CheckSquare, Square, ListTodo, Search,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card,
@@ -245,6 +245,7 @@ export default function AgendaPage() {
   // Filtros
   const [filtroTipo, setFiltroTipo] = useState<string>('')
   const [filtroParticipante, setFiltroParticipante] = useState<string>('')
+  const [filtroBusca, setFiltroBusca] = useState<string>('')
 
   // Modal de evento
   const [modalOpen, setModalOpen] = useState(false)
@@ -550,6 +551,30 @@ export default function AgendaPage() {
         e.participantes.some(p => p.usuarioId === filtroParticipante)
       )
     }
+    const termo = filtroBusca
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+    if (termo) {
+      filtered = filtered.filter(e => {
+        const texto = [
+          e.titulo,
+          e.descricao,
+          e.local,
+          e.contato,
+          e.tipo?.nome,
+          e.criador?.name,
+          ...e.participantes.map(p => p.usuario?.name ?? p.nomeAvulso),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+        return texto.includes(termo)
+      })
+    }
     for (const ev of filtered) {
       const startDate = new Date(ev.data)
       const endDate = ev.dataFim ? new Date(ev.dataFim) : startDate
@@ -568,7 +593,7 @@ export default function AgendaPage() {
       map[key]!.sort((a, b) => (a.horaInicio ?? '').localeCompare(b.horaInicio ?? ''))
     }
     return map
-  }, [eventos, filtroTipo, filtroParticipante])
+  }, [eventos, filtroTipo, filtroParticipante, filtroBusca])
 
   // ============================================================
   // Ações
@@ -1039,6 +1064,28 @@ export default function AgendaPage() {
           <Card className="p-4 space-y-3">
             <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filtros</h5>
             <div className="space-y-1.5">
+              <Label className="text-xs">Buscar</Label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={filtroBusca}
+                  onChange={e => setFiltroBusca(e.target.value)}
+                  placeholder="Buscar eventos..."
+                  className="h-8 pl-8 pr-7 text-xs"
+                />
+                {filtroBusca && (
+                  <button
+                    type="button"
+                    onClick={() => setFiltroBusca('')}
+                    aria-label="Limpar busca"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-xs">Tipo de evento</Label>
               <Select value={filtroTipo || '__all__'} onValueChange={v => setFiltroTipo(v === '__all__' ? '' : v)}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos os tipos" /></SelectTrigger>
@@ -1065,8 +1112,8 @@ export default function AgendaPage() {
                 </SelectContent>
               </Select>
             </div>
-            {(filtroTipo || filtroParticipante) && (
-              <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => { setFiltroTipo(''); setFiltroParticipante('') }}>
+            {(filtroTipo || filtroParticipante || filtroBusca) && (
+              <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => { setFiltroTipo(''); setFiltroParticipante(''); setFiltroBusca('') }}>
                 <X className="h-3 w-3 mr-1" />Limpar filtros
               </Button>
             )}
