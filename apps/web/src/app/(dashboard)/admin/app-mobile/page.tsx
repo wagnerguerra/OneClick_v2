@@ -27,6 +27,7 @@ import {
   StatusBar, LoginScreen, DashboardScreen, AgendaScreen, TarefasScreen,
   HelpdeskScreen, PerfilScreen, AppDrawer,
 } from './_components/app-screens'
+import { ChangesPanel } from './_components/changes-panel'
 
 // Cor do bloco interno/admin (violet) — chrome da página web.
 const MODULE_COLOR = '#8b5cf6'
@@ -48,6 +49,8 @@ export default function AppMobileSimuladorPage() {
   const [telaAtiva, setTelaAtiva] = useState<AppTela>('login')
   const [drawerAberto, setDrawerAberto] = useState(false)
   const [appTheme, setAppTheme] = useState<AppTheme>('light')
+  // Permissão de Helpdesk (simulada) — controla o card/atalho no Dashboard.
+  const [temHelpdesk, setTemHelpdesk] = useState(true)
 
   if (loading) {
     return <div className="p-8 text-center text-sm text-muted-foreground">Carregando…</div>
@@ -87,7 +90,7 @@ export default function AppMobileSimuladorPage() {
       case 'login':
         return <LoginScreen c={c} onEntrar={() => irPara('dashboard')} />
       case 'dashboard':
-        return <DashboardScreen c={c} onMenu={abrirMenu} onIr={irPara} />
+        return <DashboardScreen c={c} onMenu={abrirMenu} onIr={irPara} temHelpdesk={temHelpdesk} />
       case 'agenda':
         return <AgendaScreen c={c} onMenu={abrirMenu} />
       case 'tarefas':
@@ -188,6 +191,28 @@ export default function AppMobileSimuladorPage() {
               </div>
             </div>
 
+            {/* Permissões simuladas */}
+            <div className="space-y-2">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Permissões (simulação)</p>
+              <button
+                type="button"
+                onClick={() => setTemHelpdesk(v => !v)}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-border text-[12px] font-medium hover:bg-muted/60 transition-colors"
+              >
+                <span className="flex items-center gap-2 text-foreground">
+                  <MessageCircle className="h-3.5 w-3.5" /> Helpdesk
+                </span>
+                <span
+                  className={cn('w-9 h-5 rounded-full p-0.5 flex items-center transition-colors', temHelpdesk ? 'bg-violet-600' : 'bg-muted-foreground/30')}
+                >
+                  <span className={cn('h-4 w-4 rounded-full bg-white transition-transform', temHelpdesk && 'ml-auto')} />
+                </span>
+              </button>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Com a permissão, o Dashboard mostra o card e o atalho de Helpdesk; sem ela, ficam ocultos.
+              </p>
+            </div>
+
             {/* Ações rápidas */}
             <div className="space-y-2">
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Ações</p>
@@ -236,6 +261,9 @@ export default function AppMobileSimuladorPage() {
           </PhoneFrame>
         </div>
       </div>
+
+      {/* ── Painel de alterações propostas (colaboração) ── */}
+      <ChangesPanel />
     </div>
   )
 }

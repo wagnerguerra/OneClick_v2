@@ -138,17 +138,21 @@ export function LoginScreen({ c, onEntrar }: { c: AppColors; onEntrar: () => voi
 // ════════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ════════════════════════════════════════════════════════════════════
-export function DashboardScreen({ c, onMenu, onIr }: { c: AppColors; onMenu: () => void; onIr: (t: AppTela) => void }) {
+export function DashboardScreen({ c, onMenu, onIr, temHelpdesk = true }: { c: AppColors; onMenu: () => void; onIr: (t: AppTela) => void; temHelpdesk?: boolean }) {
+  // KPIs em UMA linha (cards compactos). O card de Helpdesk só aparece quando o
+  // usuário tem permissão no módulo (simulada aqui pelo toggle `temHelpdesk`).
   const kpis = [
     { label: 'Eventos hoje', valor: MOCK_EVENTOS.length, Icon: Calendar },
     { label: 'Tarefas abertas', valor: MOCK_TAREFAS.filter(t => !t.concluida).length, Icon: CheckSquare },
-    { label: 'Chamados abertos', valor: MOCK_TICKETS.filter(t => t.status !== 'CONCLUIDO').length, Icon: MessageCircle },
+    ...(temHelpdesk
+      ? [{ label: 'Chamados abertos', valor: MOCK_TICKETS.filter(t => t.status !== 'CONCLUIDO').length, Icon: MessageCircle }]
+      : []),
   ]
   const atalhos: { titulo: string; sub: string; Icon: typeof Calendar; tela: AppTela }[] = [
     { titulo: 'Agenda', sub: 'Seus eventos e compromissos', Icon: Calendar, tela: 'agenda' },
     { titulo: 'Tarefas', sub: 'Pendências e prazos', Icon: CheckSquare, tela: 'tarefas' },
-    { titulo: 'Helpdesk', sub: 'Abra e acompanhe chamados', Icon: MessageCircle, tela: 'helpdesk' },
-    { titulo: 'Perfil', sub: 'Conta e preferências', Icon: User, tela: 'perfil' },
+    ...(temHelpdesk ? [{ titulo: 'Helpdesk', sub: 'Abra e acompanhe chamados', Icon: MessageCircle, tela: 'helpdesk' as AppTela }] : []),
+    { titulo: 'Perfil', sub: 'Conta e preferências', Icon: User, tela: 'perfil' as AppTela },
   ]
   const primeiroNome = MOCK_USER.nome.split(/\s+/)[0]
 
@@ -169,16 +173,16 @@ export function DashboardScreen({ c, onMenu, onIr }: { c: AppColors; onMenu: () 
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-4 pt-3 flex flex-col gap-5">
-        {/* KPIs */}
-        <div className="flex flex-col gap-3">
+        {/* KPIs — uma linha (cards compactos) */}
+        <div className="flex gap-2">
           {kpis.map(k => (
-            <div key={k.label} className="rounded-2xl border p-4 flex flex-col gap-3" style={{ background: c.elevated, borderColor: c.border }}>
-              <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: c.primarySoft }}>
-                <k.Icon className="h-5 w-5" style={{ color: c.primary }} />
+            <div key={k.label} className="flex-1 min-w-0 rounded-2xl border p-3 flex flex-col gap-2" style={{ background: c.elevated, borderColor: c.border }}>
+              <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: c.primarySoft }}>
+                <k.Icon className="h-4 w-4" style={{ color: c.primary }} />
               </div>
               <div>
-                <p className="text-2xl font-bold leading-none tabular-nums" style={{ color: c.foreground }}>{k.valor}</p>
-                <p className="text-sm mt-1" style={{ color: c.mutedForeground }}>{k.label}</p>
+                <p className="text-xl font-bold leading-none tabular-nums" style={{ color: c.foreground }}>{k.valor}</p>
+                <p className="text-[11px] mt-1 leading-tight" style={{ color: c.mutedForeground }}>{k.label}</p>
               </div>
             </div>
           ))}
