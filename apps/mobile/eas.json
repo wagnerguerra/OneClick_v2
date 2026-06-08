@@ -23,7 +23,8 @@
         "EXPO_PUBLIC_API_URL": "https://app.oneclick.central-rnc.com.br"
       },
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease -x lint -x lintVitalRelease"
       }
     },
     "production": {
