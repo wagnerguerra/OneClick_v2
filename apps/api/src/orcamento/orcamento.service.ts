@@ -688,6 +688,50 @@ export class OrcamentoService {
     })
   }
 
+  // ── Formas de pagamento ──────────────────────────────────
+  // Lista gerenciável (opcoes_cadastro, tipo FORMA_PAGAMENTO) — espelha o
+  // "Gerenciar Formas de Pagamento" do módulo legado (tabela com_orc_ven).
+  // Inclui as globais (empresa_id NULL) e as da empresa do usuário.
+  async listFormasPagamento(empresaId?: string) {
+    return prisma.opcaoCadastro.findMany({
+      where: {
+        tipo: 'FORMA_PAGAMENTO',
+        ativo: true,
+        OR: [{ empresaId: null }, ...(empresaId ? [{ empresaId }] : [])],
+      },
+      select: { id: true, valor: true, ordem: true },
+      orderBy: [{ ordem: 'asc' }, { valor: 'asc' }],
+    })
+  }
+
+  async createFormaPagamento(valor: string, empresaId?: string) {
+    const max = await prisma.opcaoCadastro.aggregate({
+      where: { tipo: 'FORMA_PAGAMENTO' },
+      _max: { ordem: true },
+    })
+    return prisma.opcaoCadastro.create({
+      data: { tipo: 'FORMA_PAGAMENTO', valor, ordem: (max._max.ordem ?? 0) + 1, empresaId: empresaId ?? null },
+      select: { id: true, valor: true, ordem: true },
+    })
+  }
+
+  async updateFormaPagamento(id: string, valor?: string, ordem?: number, ativo?: boolean) {
+    return prisma.opcaoCadastro.update({
+      where: { id },
+      data: {
+        ...(valor !== undefined ? { valor } : {}),
+        ...(ordem !== undefined ? { ordem } : {}),
+        ...(ativo !== undefined ? { ativo } : {}),
+      },
+      select: { id: true, valor: true, ordem: true, ativo: true },
+    })
+  }
+
+  async deleteFormaPagamento(id: string) {
+    await prisma.opcaoCadastro.delete({ where: { id } })
+    return { ok: true }
+  }
+
   async listOrcamentosDoCliente(clienteId: string, excluirId?: string) {
     return prisma.orcamento.findMany({
       where: { clienteId, ...(excluirId ? { id: { not: excluirId } } : {}) },

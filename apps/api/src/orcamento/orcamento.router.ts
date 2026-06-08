@@ -114,6 +114,22 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
     listUsuarios: readProcedure(MODULE)
       .query(({ ctx }) => orcamentoService.listUsuarios(ctx.empresaId)),
 
+    // ── Formas de pagamento (lista gerenciável — espelha o legado) ──
+    listFormasPagamento: readProcedure(MODULE)
+      .query(({ ctx }) => orcamentoService.listFormasPagamento(ctx.empresaId)),
+
+    createFormaPagamento: writeProcedure(MODULE)
+      .input(z.object({ valor: z.string().min(1) }))
+      .mutation(({ input, ctx }) => orcamentoService.createFormaPagamento(input.valor, ctx.empresaId)),
+
+    updateFormaPagamento: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), valor: z.string().optional(), ordem: z.number().optional(), ativo: z.boolean().optional() }))
+      .mutation(({ input }) => orcamentoService.updateFormaPagamento(input.id, input.valor, input.ordem, input.ativo)),
+
+    deleteFormaPagamento: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => orcamentoService.deleteFormaPagamento(input.id)),
+
     // Disparo manual da rotina de notificação de atrasos (debug/test).
     // Em produção, o cron diário às 08:00 cuida disso automaticamente.
     notificarAtrasados: protectedProcedure

@@ -788,6 +788,38 @@ export default function OrcamentoDetailPage() {
     })()
   }, [])
 
+  // Formas de pagamento — lista gerenciável (espelha "Gerenciar Formas de
+  // Pagamento" do legado). O campo no form vira um <Select> dessas opções.
+  const [formasPagamento, setFormasPagamento] = useState<Array<{ id: string; valor: string; ordem: number }>>([])
+  const loadFormasPagamento = useCallback(async () => {
+    try {
+      const list = await (trpc.orcamento as any).listFormasPagamento.query()
+      setFormasPagamento(list || [])
+    } catch { /* sem permissao no modulo */ }
+  }, [])
+  useEffect(() => { loadFormasPagamento() }, [loadFormasPagamento])
+  // Modal de gerência das formas de pagamento (admin)
+  const [formasModal, setFormasModal] = useState(false)
+  const [novaForma, setNovaForma] = useState('')
+
+  const handleAddForma = async () => {
+    if (!novaForma.trim()) return
+    try {
+      await (trpc.orcamento as any).createFormaPagamento.mutate({ valor: novaForma.trim() })
+      setNovaForma('')
+      await loadFormasPagamento()
+    } catch (err) { alerts.error('Erro', (err as Error).message) }
+  }
+
+  const handleDeleteForma = async (id: string, valor: string) => {
+    const ok = await alerts.confirmDelete(valor)
+    if (!ok) return
+    try {
+      await (trpc.orcamento as any).deleteFormaPagamento.mutate({ id })
+      setFormasPagamento(prev => prev.filter(f => f.id !== id))
+    } catch (err) { alerts.error('Erro', (err as Error).message) }
+  }
+
   // ── Fetch ──
 
   const fetchOrc = useCallback(async (silent = false) => {
@@ -1997,9 +2029,32 @@ export default function OrcamentoDetailPage() {
                           <Label className="text-[13px] font-semibold text-foreground">Desconto R$</Label>
                           <Input type="number" value={formDesconto} onChange={e => setFormDesconto(e.target.value)} className="h-9 text-sm" step="0.01" min="0" placeholder="0,00" />
                         </div>
-                        <div className="col-span-12 sm:col-span-4 space-y-1.5">
-                          <Label className="text-[13px] font-semibold text-foreground">Forma de Pagamento</Label>
-                          <Input value={formPagamento} onChange={e => setFormPagamento(e.target.value)} className="h-9 text-sm" placeholder="ex: Boleto, PIX" />
+                        <div className="col-span-12 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[13px] font-semibold text-foreground">Forma de Pagamento</Label>
+                            {canManageCatalogo && (
+                              <button
+                                type="button"
+                                onClick={() => { setFormasModal(true); loadFormasPagamento() }}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                              >
+                                <Pencil className="h-3 w-3" /> Gerenciar
+                              </button>
+                            )}
+                          </div>
+                          <Select value={formPagamento || '__none__'} onValueChange={v => setFormPagamento(v === '__none__' ? '' : v)}>
+                            <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione a forma de pagamento" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">— Não informada —</SelectItem>
+                              {/* Valor histórico fora da lista atual — preservado pra não perder dados legados */}
+                              {formPagamento && !formasPagamento.some(f => f.valor === formPagamento) && (
+                                <SelectItem value={formPagamento}>{formPagamento}</SelectItem>
+                              )}
+                              {formasPagamento.map(f => (
+                                <SelectItem key={f.id} value={f.valor}>{f.valor}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                     </div>
@@ -2346,6 +2401,48 @@ export default function OrcamentoDetailPage() {
         </div>
       </div>
       </Tabs>
+
+      {/* Modal: Gerenciar Formas de Pagamento (espelha o legado) */}
+      <Dialog open={formasModal} onOpenChange={setFormasModal}>
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeaderIcon icon={DollarSign} color="emerald">
+            <DialogTitle className="text-[15px]">Formas de Pagamento</DialogTitle>
+            <DialogDescription className="text-[11px]">Gerencie as opções disponíveis no campo "Forma de Pagamento" dos orçamentos.</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-3">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Nova forma de pagamento..."
+                value={novaForma}
+                onChange={e => setNovaForma(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddForma() } }}
+                className="h-9 text-sm flex-1"
+              />
+              <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={handleAddForma} disabled={!novaForma.trim()}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            {formasPagamento.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma forma de pagamento cadastrada</p>
+            ) : (
+              <div className="space-y-1 max-h-[340px] overflow-y-auto">
+                {formasPagamento.map(f => (
+                  <div key={f.id} className="flex items-center gap-2 rounded-md border border-border px-3 py-2 group hover:bg-muted/30 transition-colors">
+                    <span className="text-sm flex-1">{f.valor}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteForma(f.id, f.valor)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Envio */}
       <Dialog open={enviarModal} onOpenChange={setEnviarModal}>
