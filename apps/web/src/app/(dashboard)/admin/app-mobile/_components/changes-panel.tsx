@@ -47,6 +47,14 @@ export const PROPOSED_CHANGES: ProposedChange[] = [
       'Aplicar uma transição suave (fade + leve slide) ao trocar de aba/tela no app, em vez da troca instantânea. Já demonstrado no protótipo: navegue entre as telas para ver.',
     status: 'proposta',
   },
+  {
+    id: 'nova-identidade-visual',
+    area: 'Identidade visual',
+    titulo: 'Nova identidade visual (azul + coral + amarelo, bottom tab bar)',
+    descricao:
+      'Aplica a nova paleta (azul vibrante primário, acentos coral e amarelo), barra de navegacao inferior, card hero com anel de progresso e estilo de cards arredondados, conforme referencia aprovada.',
+    status: 'proposta',
+  },
 ]
 
 const LS_KEY = 'oneclick.app-mobile.changes.selected'

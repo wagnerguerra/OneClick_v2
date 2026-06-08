@@ -29,8 +29,8 @@ export interface EventoMock {
 
 // Eventos do dia selecionado (faixa de dias é gerada na própria tela).
 export const MOCK_EVENTOS: EventoMock[] = [
-  { id: 'e1', titulo: 'Reunião de alinhamento fiscal', horario: '09:00 – 10:00', local: 'Sala 2', cor: '#0ea5e9' },
-  { id: 'e2', titulo: 'Entrega DCTFWeb — competência 05', horario: 'Dia inteiro', local: null, cor: '#f43f5e' },
+  { id: 'e1', titulo: 'Reunião de alinhamento fiscal', horario: '09:00 – 10:00', local: 'Sala 2', cor: '#2563eb' },
+  { id: 'e2', titulo: 'Entrega DCTFWeb — competência 05', horario: 'Dia inteiro', local: null, cor: '#f0533d' },
   { id: 'e3', titulo: 'Call com cliente Atacadão SP', horario: '14:30 – 15:30', local: 'Google Meet', cor: '#10b981' },
   { id: 'e4', titulo: 'Revisão de orçamentos pendentes', horario: '16:00 – 17:00', local: 'Sala 1', cor: '#a78bfa' },
 ]
@@ -75,9 +75,10 @@ export const STATUS_LABEL: Record<HelpdeskStatusMock, string> = {
   CONCLUIDO: 'Concluído',
 }
 
-// Classes Tailwind (literais do app — sky/cores de status) por status.
+// Classes Tailwind (literais do app — cores de status) por status.
+// ABERTO usa azul (nova primária da marca); demais mantêm semântica de status.
 export const STATUS_CLASSES: Record<HelpdeskStatusMock, { bg: string; text: string }> = {
-  ABERTO: { bg: 'bg-sky-100', text: 'text-sky-700' },
+  ABERTO: { bg: 'bg-blue-100', text: 'text-blue-700' },
   EM_ANDAMENTO: { bg: 'bg-amber-100', text: 'text-amber-700' },
   AGUARDANDO: { bg: 'bg-violet-100', text: 'text-violet-700' },
   CONCLUIDO: { bg: 'bg-emerald-100', text: 'text-emerald-700' },

@@ -25,7 +25,7 @@ import type { AppTela } from './_components/mock-data'
 import { PhoneFrame } from './_components/phone-frame'
 import {
   StatusBar, LoginScreen, DashboardScreen, AgendaScreen, TarefasScreen,
-  HelpdeskScreen, PerfilScreen, AppDrawer,
+  HelpdeskScreen, PerfilScreen, AppDrawer, BottomTabBar,
 } from './_components/app-screens'
 import { ChangesPanel } from './_components/changes-panel'
 
@@ -250,6 +250,11 @@ export default function AppMobileSimuladorPage() {
             <div key={telaAtiva} className="flex-1 flex flex-col min-h-0" style={{ animation: 'fadeSlideIn 0.28s ease-out' }}>
               {renderTela()}
             </div>
+
+            {/* Bottom tab bar — navegação principal (só nas telas autenticadas) */}
+            {!noLogin && (
+              <BottomTabBar c={c} telaAtiva={telaAtiva} onIr={irPara} />
+            )}
 
             {/* Drawer sobreposto */}
             {drawerAberto && !noLogin && (
