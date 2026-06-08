@@ -288,14 +288,17 @@ function DayAgenda({ c, isDark, onVerTudo }: { c: AppColors; isDark: boolean; on
                 <button
                   type="button"
                   onClick={onVerTudo}
-                  className="w-full text-left rounded-lg px-3 py-2 active:opacity-80"
-                  style={{ background: tintHex(ev.cor, isDark ? 0.22 : 0.12), borderLeft: `3px solid ${ev.cor}` }}
+                  className="w-full text-left rounded-xl flex items-stretch gap-2.5 pl-2.5 active:opacity-80"
+                  style={{ background: tintHex(ev.cor, isDark ? 0.20 : 0.12) }}
                 >
-                  <p className="text-[13px] font-semibold leading-snug" style={{ color: ev.cor }}>{ev.titulo}</p>
+                  {/* Barra lateral arredondada e embutida, na cor do evento */}
+                  <span className="w-[3px] my-2 rounded-full shrink-0" style={{ background: ev.cor }} />
+                  <p className="flex-1 py-2.5 pr-3 text-[13px] font-semibold leading-snug" style={{ color: ev.cor }}>{ev.titulo}</p>
                 </button>
               ) : adicionar ? (
-                <div className="rounded-lg px-3 py-2" style={{ background: c.muted, borderLeft: `3px solid ${c.mutedForeground}` }}>
-                  <p className="text-[13px] leading-snug" style={{ color: c.mutedForeground }}>Digite para adicionar um evento</p>
+                <div className="w-full rounded-xl flex items-stretch gap-2.5 pl-2.5" style={{ background: c.muted }}>
+                  <span className="w-[3px] my-2 rounded-full shrink-0" style={{ background: c.mutedForeground }} />
+                  <p className="flex-1 py-2.5 pr-3 text-[13px] leading-snug" style={{ color: c.mutedForeground }}>Digite para adicionar um evento</p>
                 </div>
               ) : null}
             </div>
