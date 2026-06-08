@@ -1145,22 +1145,9 @@ export default function CrmPage() {
 
                 {/* ── Mensagens Tab ── */}
                 {detailTab === 'mensagens' && (
-                  <div className="flex flex-col h-full">
-                    <div className="flex-1 space-y-3 mb-3 overflow-y-auto">
-                      {detail.mensagens.length === 0 && (
-                        <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma mensagem</p>
-                      )}
-                      {detail.mensagens.map(m => (
-                        <div key={m.id} className="rounded-md bg-muted/40 p-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-semibold">{m.user?.name || 'Sistema'}</span>
-                            <span className="text-[10px] text-muted-foreground">{new Date(m.createdAt).toLocaleString('pt-BR')}</span>
-                          </div>
-                          <p className="text-sm whitespace-pre-wrap">{m.mensagem}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex gap-2 shrink-0">
+                  <div className="space-y-3">
+                    {/* Campo no topo (igual às Tarefas) — evita colidir com o widget de ajuda. */}
+                    <div className="flex gap-2">
                       <Input
                         placeholder="Escreva uma mensagem..."
                         value={novaMensagem}
@@ -1171,6 +1158,20 @@ export default function CrmPage() {
                       <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={addMensagem} disabled={saving || !novaMensagem.trim()}>
                         <Send className="h-4 w-4" />
                       </Button>
+                    </div>
+                    {detail.mensagens.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma mensagem</p>
+                    )}
+                    <div className="space-y-3">
+                      {detail.mensagens.map(m => (
+                        <div key={m.id} className="rounded-md bg-muted/40 p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-semibold">{m.user?.name || 'Sistema'}</span>
+                            <span className="text-[10px] text-muted-foreground">{new Date(m.createdAt).toLocaleString('pt-BR')}</span>
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap">{m.mensagem}</p>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
