@@ -7,8 +7,8 @@
 
 import { useState } from 'react'
 import { Pressable, ScrollView, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { AppScreen } from '@/components/navigation/app-screen'
 import { MenuButton } from '@/components/navigation/menu-button'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -68,7 +68,7 @@ export default function TarefasScreen() {
   const tarefas = data ?? []
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top', 'left', 'right']}>
+    <AppScreen>
       {/* Container centralizado e com largura máxima em telas largas/tablet. */}
       <View className="w-full max-w-2xl mx-auto flex-1">
         {/* Cabeçalho — botão de menu (abre o Drawer) à esquerda do título. */}
@@ -176,7 +176,7 @@ export default function TarefasScreen() {
           </ScrollView>
         )}
       </View>
-    </SafeAreaView>
+    </AppScreen>
   )
 }
 

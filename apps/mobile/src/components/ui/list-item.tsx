@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons'
 import type { ReactNode } from 'react'
 import { Pressable, Text as RNText, View } from 'react-native'
 import { cn } from '@/lib/cn'
+import { BRAND } from '@/lib/theme-colors'
 
 export interface ListItemProps {
   /** Ícone Ionicons exibido num chip à esquerda. */
@@ -45,7 +46,7 @@ export function ListItem({
     >
       {icon ? (
         <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-          <Ionicons name={icon} size={20} color="#0ea5e9" />
+          <Ionicons name={icon} size={20} color={BRAND.primary} />
         </View>
       ) : null}
 
@@ -67,7 +68,7 @@ export function ListItem({
       ) : trailing !== undefined ? (
         trailing
       ) : (
-        <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+        <Ionicons name="chevron-forward" size={18} color={BRAND.mutedForeground} />
       )}
     </Pressable>
   )

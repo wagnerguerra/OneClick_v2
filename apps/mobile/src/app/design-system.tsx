@@ -14,6 +14,7 @@ import { SectionHeader } from '@/components/ui/section-header'
 import { Spinner } from '@/components/ui/spinner'
 import { StatCard } from '@/components/ui/stat-card'
 import { SwitchRow } from '@/components/ui/switch-row'
+import { BRAND } from '@/lib/theme-colors'
 
 /* ------------------------------------------------------------------ */
 /* Dados estáticos da vitrine (legendas de cores/swatches)            */
@@ -21,14 +22,14 @@ import { SwitchRow } from '@/components/ui/switch-row'
 
 // Cada swatch mostra a classe de fundo + um hex de legenda (claro/escuro).
 const SWATCHES: { name: string; className: string; hex: string }[] = [
-  { name: 'primary', className: 'bg-primary', hex: '#0ea5e9' },
-  { name: 'accent', className: 'bg-accent', hex: '#6366f1' },
+  { name: 'primary', className: 'bg-primary', hex: '#2563eb' },
+  { name: 'accent', className: 'bg-accent', hex: '#f0533d' },
   { name: 'success', className: 'bg-success', hex: '#10b981' },
-  { name: 'warning', className: 'bg-warning', hex: '#f59e0b' },
-  { name: 'destructive', className: 'bg-destructive', hex: '#f43f5e' },
-  { name: 'muted', className: 'bg-muted', hex: '#f1f5f9' },
+  { name: 'warning', className: 'bg-warning', hex: '#fbbf24' },
+  { name: 'destructive', className: 'bg-destructive', hex: '#f0533d' },
+  { name: 'muted', className: 'bg-muted', hex: '#f1f4f9' },
   { name: 'card', className: 'bg-card border border-border', hex: '#ffffff' },
-  { name: 'elevated', className: 'bg-elevated', hex: '#f8fafc' },
+  { name: 'elevated', className: 'bg-elevated', hex: '#ffffff' },
 ]
 
 /** Vitrine do Design System mobile — referência viva de tokens e componentes. */
@@ -55,7 +56,7 @@ export default function DesignSystem() {
               className="-ml-3 self-start"
               onPress={() => router.back()}
             >
-              <Ionicons name="chevron-back" size={18} color="#0ea5e9" />
+              <Ionicons name="chevron-back" size={18} color={BRAND.primary} />
               <RNText className="text-base font-semibold text-primary">Voltar</RNText>
             </Button>
             <View className="gap-1">
@@ -305,8 +306,8 @@ export default function DesignSystem() {
           <View className="gap-3">
             <SectionHeader title="Spinner" />
             <View className="flex-row items-center gap-6 rounded-2xl border border-border bg-card p-4">
-              <Spinner size="small" color="#0ea5e9" />
-              <Spinner size="large" color="#0ea5e9" />
+              <Spinner size="small" color={BRAND.primary} />
+              <Spinner size="large" color={BRAND.primary} />
             </View>
           </View>
         </View>

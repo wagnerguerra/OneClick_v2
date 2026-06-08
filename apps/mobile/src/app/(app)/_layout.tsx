@@ -20,7 +20,8 @@ export default function AppLayout() {
   const isDark = useColorScheme() === 'dark'
 
   // NativeWind className não se aplica em screenOptions → cor (card) via hex por tema.
-  const drawerBg = isDark ? '#18181b' : '#ffffff'
+  // Espelha o token --card da identidade nova (#1a2438 escuro / #ffffff claro).
+  const drawerBg = isDark ? '#1a2438' : '#ffffff'
 
   if (isPending) {
     return (

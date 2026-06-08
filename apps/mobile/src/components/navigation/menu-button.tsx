@@ -18,7 +18,7 @@ export function MenuButton() {
   const isDark = useColorScheme() === 'dark'
 
   // Cor do ícone via hex por tema (Ionicons não herda tokens do NativeWind).
-  const iconColor = isDark ? '#f4f4f5' : '#0f172a'
+  const iconColor = isDark ? '#e8edf7' : '#1e293b'
 
   return (
     <Pressable

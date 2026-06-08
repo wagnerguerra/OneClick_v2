@@ -7,9 +7,9 @@
 
 import { useMemo, useState } from 'react'
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 
+import { AppScreen } from '@/components/navigation/app-screen'
 import { MenuButton } from '@/components/navigation/menu-button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
@@ -234,7 +234,7 @@ export default function AgendaScreen() {
   )
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top', 'left', 'right']}>
+    <AppScreen>
       {isWide ? (
         // Tablet/tela larga: master-detail lado a lado.
         <View className="flex-1 flex-row">
@@ -246,16 +246,16 @@ export default function AgendaScreen() {
         painelLista
       )}
 
-      {/* FAB: criar novo evento (em ambos os modos). */}
+      {/* FAB: criar novo evento (em ambos os modos). Acima da bottom tab bar. */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Novo evento"
         onPress={() => router.push('/agenda/novo')}
-        className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg active:opacity-80"
+        className="absolute bottom-4 right-6 h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg active:opacity-80"
       >
         <Text className="text-3xl leading-none text-primary-foreground">+</Text>
       </Pressable>
-    </SafeAreaView>
+    </AppScreen>
   )
 }
 

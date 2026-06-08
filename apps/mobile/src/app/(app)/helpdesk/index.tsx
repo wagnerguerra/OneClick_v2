@@ -8,7 +8,6 @@
 
 import { useState } from 'react'
 import { Pressable, ScrollView, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 
 import {
@@ -23,6 +22,7 @@ import {
 // Escopo de listagem do helpdesk (espelha o enum `scope` de listTicketSchema).
 type HelpdeskScope = 'MEUS' | 'AREA' | 'TODOS'
 
+import { AppScreen } from '@/components/navigation/app-screen'
 import { MenuButton } from '@/components/navigation/menu-button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
@@ -86,7 +86,7 @@ export default function HelpdeskScreen() {
   const recarregar = usandoFallback ? fallback.refetch : refetch
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top', 'left', 'right']}>
+    <AppScreen>
       <View className="w-full max-w-2xl mx-auto flex-1">
         {/* Header: botão de menu (abre o Drawer) + título + total. */}
         <View className="flex-row items-center gap-2 px-4 pt-2 pb-3">
@@ -183,16 +183,16 @@ export default function HelpdeskScreen() {
         )}
       </View>
 
-      {/* FAB: abrir um novo chamado. */}
+      {/* FAB: abrir um novo chamado. Acima da bottom tab bar. */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Novo chamado"
         onPress={() => router.push('/helpdesk/novo')}
-        className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg active:opacity-80"
+        className="absolute bottom-4 right-6 h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg active:opacity-80"
       >
         <Text className="text-3xl leading-none text-primary-foreground">+</Text>
       </Pressable>
-    </SafeAreaView>
+    </AppScreen>
   )
 }
 

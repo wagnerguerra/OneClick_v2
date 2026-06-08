@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { Text as RNText, View } from 'react-native'
 import { cn } from '@/lib/cn'
+import { BRAND } from '@/lib/theme-colors'
 
 export interface StatCardProps {
   /** Rótulo do indicador (ex.: "Eventos hoje"). */
@@ -30,7 +31,7 @@ export function StatCard({ label, value, delta, icon, className }: StatCardProps
       <View className="flex-row items-center justify-between">
         {icon ? (
           <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-            <Ionicons name={icon} size={20} color="#0ea5e9" />
+            <Ionicons name={icon} size={20} color={BRAND.primary} />
           </View>
         ) : (
           <View />
@@ -46,7 +47,7 @@ export function StatCard({ label, value, delta, icon, className }: StatCardProps
             <Ionicons
               name={delta.up ? 'arrow-up' : 'arrow-down'}
               size={12}
-              color={delta.up ? '#10b981' : '#f43f5e'}
+              color={delta.up ? BRAND.success : BRAND.destructive}
             />
             <RNText
               className={cn(

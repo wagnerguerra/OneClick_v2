@@ -6,36 +6,40 @@
  * Design System OneClick ERP (mobile) — tokens semânticos como CSS vars em
  * triplas RGB pra funcionar com rgb(var(--x) / <alpha-value>).
  *
- * Linguagem visual (Material 3 / "Material You" + marca sky):
- *   - Base neutra (slate no claro, zinc no escuro), accent sky #0ea5e9.
- *   - Elevação tonal (superfície "elevated" mais clara), borda sutil.
- *   - Semânticas precisas: success (emerald), warning (amber), destructive (rose).
+ * IDENTIDADE NOVA (referência aprovada — app moderno):
+ *   - Primária  = azul vibrante royal/cobalt (#2563EB claro / #3B82F6 escuro).
+ *   - Acento    = coral/vermelho (#F0533D) — cards hero, headers, progresso.
+ *   - Warning   = amarelo dourado (#FBBF24) — barras secundárias, destaques.
+ *   - Fundos claros (#F6F7FB), cards #FFFFFF, texto slate, bordas suaves.
  *   - Claro + escuro automáticos via prefers-color-scheme.
+ *
+ * Os valores literais espelham apps/web/.../app-mobile/_components/app-theme.ts
+ * (identidade "nova"), que é a fonte da verdade visual do protótipo.
  */
 :root {
-  --background: 255 255 255;
-  --foreground: 15 23 42;        /* slate-900 */
+  --background: 246 247 251;     /* #f6f7fb */
+  --foreground: 30 41 59;        /* #1e293b — slate-800 */
   --card: 255 255 255;
-  --card-foreground: 15 23 42;
-  --elevated: 248 250 252;       /* slate-50 — superfície elevada (tonal) */
-  --muted: 241 245 249;          /* slate-100 */
-  --muted-foreground: 100 116 139; /* slate-500 */
-  --border: 226 232 240;         /* slate-200 */
-  --input: 226 232 240;
-  --ring: 14 165 233;
+  --card-foreground: 30 41 59;
+  --elevated: 255 255 255;       /* superfície elevada (cards de KPI) */
+  --muted: 241 244 249;          /* #f1f4f9 */
+  --muted-foreground: 100 116 139; /* #64748b — slate-500 */
+  --border: 232 235 242;         /* #e8ebf2 */
+  --input: 232 235 242;
+  --ring: 37 99 235;
 
-  --primary: 14 165 233;         /* sky-500 — accent da marca */
+  --primary: 37 99 235;          /* #2563eb — azul vibrante (marca) */
   --primary-foreground: 255 255 255;
-  --secondary: 241 245 249;
-  --secondary-foreground: 15 23 42;
-  --accent: 99 102 241;          /* indigo-500 — destaque secundário */
+  --secondary: 241 244 249;
+  --secondary-foreground: 30 41 59;
+  --accent: 240 83 61;           /* #f0533d — coral (cards hero/progresso) */
   --accent-foreground: 255 255 255;
 
   --success: 16 185 129;         /* emerald-500 */
   --success-foreground: 255 255 255;
-  --warning: 245 158 11;         /* amber-500 */
+  --warning: 251 191 36;         /* #fbbf24 — amarelo dourado */
   --warning-foreground: 23 23 23;
-  --destructive: 244 63 94;      /* rose-500 */
+  --destructive: 240 83 61;      /* #f0533d — coral (destrutivo) */
   --destructive-foreground: 255 255 255;
 
   --font-display:
@@ -49,29 +53,29 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: 9 9 12;          /* near-black (zinc-950) */
-    --foreground: 244 244 245;     /* zinc-100 */
-    --card: 24 24 27;              /* zinc-900 */
-    --card-foreground: 244 244 245;
-    --elevated: 39 39 42;          /* zinc-800 — elevação tonal no escuro */
-    --muted: 39 39 42;             /* zinc-800 */
-    --muted-foreground: 161 161 170; /* zinc-400 */
-    --border: 39 39 42;
-    --input: 39 39 42;
-    --ring: 56 189 248;
+    --background: 15 23 41;        /* #0f1729 */
+    --foreground: 232 237 247;     /* #e8edf7 */
+    --card: 26 36 56;             /* #1a2438 */
+    --card-foreground: 232 237 247;
+    --elevated: 32 44 68;          /* #202c44 — elevação tonal no escuro */
+    --muted: 34 48 74;            /* #22304a */
+    --muted-foreground: 148 163 184; /* #94a3b8 */
+    --border: 42 58 85;           /* #2a3a55 */
+    --input: 42 58 85;
+    --ring: 59 130 246;
 
-    --primary: 56 189 248;         /* sky-400 */
-    --primary-foreground: 9 9 12;
-    --secondary: 39 39 42;
-    --secondary-foreground: 244 244 245;
-    --accent: 129 140 248;         /* indigo-400 */
-    --accent-foreground: 9 9 12;
+    --primary: 59 130 246;        /* #3b82f6 — azul (claro no escuro) */
+    --primary-foreground: 10 19 38;  /* #0a1326 */
+    --secondary: 34 48 74;
+    --secondary-foreground: 232 237 247;
+    --accent: 240 83 61;          /* #f0533d — coral mantém vivacidade */
+    --accent-foreground: 255 255 255;
 
     --success: 52 211 153;         /* emerald-400 */
     --success-foreground: 9 9 12;
-    --warning: 251 191 36;         /* amber-400 */
+    --warning: 251 191 36;         /* #fbbf24 */
     --warning-foreground: 23 23 23;
-    --destructive: 251 113 133;    /* rose-400 */
-    --destructive-foreground: 9 9 12;
+    --destructive: 251 113 133;    /* #fb7185 — rose-400 */
+    --destructive-foreground: 10 19 38;
   }
 }

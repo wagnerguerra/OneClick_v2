@@ -1,5 +1,6 @@
 import { Switch, Text as RNText, View } from 'react-native'
 import { cn } from '@/lib/cn'
+import { BRAND } from '@/lib/theme-colors'
 
 export interface SwitchRowProps {
   /** Rótulo principal da opção. */
@@ -38,13 +39,13 @@ export function SwitchRow({
         ) : null}
       </View>
 
-      {/* Trilho sky no claro (#0ea5e9) e sky-400 no thumb ligado; cinza desligado. */}
+      {/* Trilho azul da marca (ligado) e cinza (desligado). */}
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: '#cbd5e1', true: '#0ea5e9' }}
-        thumbColor={value ? '#38bdf8' : '#f1f5f9'}
-        ios_backgroundColor="#cbd5e1"
+        trackColor={{ false: BRAND.switchTrackOff, true: BRAND.primary }}
+        thumbColor={value ? BRAND.primaryDark : BRAND.switchThumbOff}
+        ios_backgroundColor={BRAND.switchTrackOff}
       />
     </View>
   )

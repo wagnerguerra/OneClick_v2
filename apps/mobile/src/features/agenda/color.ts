@@ -10,8 +10,8 @@ export interface TipoCores {
   corTexto?: string | null
 }
 
-/** Cor de fundo padrão quando o tipo não define `cor`. */
-const COR_PADRAO = '#0ea5e9'
+/** Cor de fundo padrão quando o tipo não define `cor` (azul da marca). */
+const COR_PADRAO = '#2563eb'
 /** Texto claro para fundos escuros. */
 const TEXTO_CLARO = '#ffffff'
 /** Texto escuro (slate-900) para fundos claros. */

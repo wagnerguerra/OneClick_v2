@@ -32,6 +32,8 @@ import { getApiUrl } from '@/lib/api-url'
 import { authClient, useSession } from '@/lib/auth-client'
 import { cn } from '@/lib/cn'
 import { trpc } from '@/lib/trpc'
+import { usePermissions } from '@/lib/use-permissions'
+import { destructiveFor, mutedForegroundFor, primaryFor } from '@/lib/theme-colors'
 
 // Marca OneClick — fallback que SEMPRE existe (asset embarcado no bundle).
 const ONECLICK_MARK = require('../../../assets/images/oneclick-mark.png')
@@ -81,15 +83,14 @@ export function AppDrawer(props: AppDrawerProps) {
   const isDark = useColorScheme() === 'dark'
 
   // Cor literal pra ícones Ionicons (não herdam tokens do NativeWind).
-  const iconActive = isDark ? '#38bdf8' : '#0ea5e9' // primary
-  const iconMuted = isDark ? '#a1a1aa' : '#64748b' // muted-foreground
-  const iconDanger = isDark ? '#fb7185' : '#f43f5e' // destructive
+  const iconActive = primaryFor(isDark) // primary (azul)
+  const iconMuted = mutedForegroundFor(isDark) // muted-foreground
+  const iconDanger = destructiveFor(isDark) // destructive
 
   // Empresa logada (header). Pode vir null se o user não tem empresa.
   const { data: empresa } = trpc.empresa.getMyEmpresa.useQuery()
   // Permissões do usuário — mesma fonte de verdade do sistema web.
-  const { data: perms, isLoading: permsLoading, isError: permsError } =
-    trpc.user.getMyPermissions.useQuery()
+  const { podeVer, isLoading: permsLoading, isError: permsError } = usePermissions()
   // Usuário logado (cartão de perfil).
   const { data: session } = useSession()
   const user = session?.user
@@ -97,18 +98,9 @@ export function AppDrawer(props: AppDrawerProps) {
   // Rota atualmente em foco no Drawer — pra realçar o item correspondente.
   const rotaAtual = props.state.routeNames[props.state.index]
 
-  // Helper de permissão — espelha o `podeVer(slug)` do sistema web.
-  // Master/empresa-master enxergam tudo; demais precisam de canRead no módulo.
-  function podeVer(slug: string | null): boolean {
-    if (slug === null) return true
-    if (!perms) return false
-    if (perms.isMaster || perms.isEmpresaMaster) return true
-    return perms.permissions.some((p) => p.moduleSlug === slug && p.canRead)
-  }
-
   // Degrade gracioso: enquanto carrega OU se a query falhar, mostramos todos os
   // módulos (assim o menu nunca fica vazio/quebrado). Início é sempre visível.
-  const mostrarTudo = permsLoading || permsError || !perms
+  const mostrarTudo = permsLoading || permsError
   const itensVisiveis = ITENS_MENU.filter(
     (item) => item.modulo === null || mostrarTudo || podeVer(item.modulo),
   )

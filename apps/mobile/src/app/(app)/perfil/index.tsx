@@ -7,9 +7,9 @@
 
 import { useState } from 'react'
 import { Image, ScrollView, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 
+import { AppScreen } from '@/components/navigation/app-screen'
 import { MenuButton } from '@/components/navigation/menu-button'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -92,7 +92,7 @@ export default function PerfilScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top', 'left', 'right']}>
+    <AppScreen>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ alignItems: 'center', paddingBottom: 32 }}
@@ -199,6 +199,6 @@ export default function PerfilScreen() {
           </Button>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </AppScreen>
   )
 }
