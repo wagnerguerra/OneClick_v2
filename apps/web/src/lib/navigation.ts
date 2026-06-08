@@ -71,6 +71,7 @@ import {
   Workflow,
   Sparkles,
   Smartphone,
+  Info,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -226,6 +227,7 @@ export const navigation: NavGroup[] = [
       { label: "FAQ's", href: '/faq', icon: HelpCircle },
       { label: 'Design System', href: '/admin/design-system', icon: Sparkles },
       { label: 'App Mobile', href: '/admin/app-mobile', icon: Smartphone },
+      { label: 'Sobre', href: '/sobre', icon: Info },
     ],
   },
   {
