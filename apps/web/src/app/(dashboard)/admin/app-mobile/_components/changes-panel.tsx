@@ -39,6 +39,14 @@ export const PROPOSED_CHANGES: ProposedChange[] = [
       'Incluir o card "Chamados abertos" (e o atalho Helpdesk) apenas quando o usuário tem permissão no módulo Helpdesk. Use o toggle "Permissão: Helpdesk" para simular.',
     status: 'proposta',
   },
+  {
+    id: 'tabs-transicao-animada',
+    area: 'Navegação',
+    titulo: 'Animação suave na transição entre abas/telas',
+    descricao:
+      'Aplicar uma transição suave (fade + leve slide) ao trocar de aba/tela no app, em vez da troca instantânea. Já demonstrado no protótipo: navegue entre as telas para ver.',
+    status: 'proposta',
+  },
 ]
 
 const LS_KEY = 'oneclick.app-mobile.changes.selected'

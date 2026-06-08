@@ -245,8 +245,11 @@ export default function AppMobileSimuladorPage() {
             {!noLogin && <StatusBar c={c} theme={appTheme} />}
             {noLogin && <div className="h-8" />}
 
-            {/* Tela ativa */}
-            {renderTela()}
+            {/* Tela ativa — `key` por tela re-dispara a animação a cada troca,
+                simulando a transição suave de abas proposta para o app real. */}
+            <div key={telaAtiva} className="flex-1 flex flex-col min-h-0" style={{ animation: 'fadeSlideIn 0.28s ease-out' }}>
+              {renderTela()}
+            </div>
 
             {/* Drawer sobreposto */}
             {drawerAberto && !noLogin && (
