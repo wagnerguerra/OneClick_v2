@@ -15,12 +15,12 @@
 import { useState } from 'react'
 import {
   Smartphone, Lock, Home, Calendar, CheckSquare, MessageCircle, User,
-  Sun, Moon, LogIn,
+  Sun, Moon, LogIn, Palette,
 } from 'lucide-react'
 import { Card, CardContent, Badge, Button, cn } from '@saas/ui'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
-import { APP_COLORS, type AppTheme } from './_components/app-theme'
+import { APP_IDENTITIES, type AppTheme, type AppIdentidade } from './_components/app-theme'
 import type { AppTela } from './_components/mock-data'
 import { PhoneFrame } from './_components/phone-frame'
 import {
@@ -49,6 +49,8 @@ export default function AppMobileSimuladorPage() {
   const [telaAtiva, setTelaAtiva] = useState<AppTela>('login')
   const [drawerAberto, setDrawerAberto] = useState(false)
   const [appTheme, setAppTheme] = useState<AppTheme>('light')
+  // Identidade visual: 'nova' (preview) ou 'atual' (sky — fallback).
+  const [identidade, setIdentidade] = useState<AppIdentidade>('nova')
   // Permissão de Helpdesk (simulada) — controla o card/atalho no Dashboard.
   const [temHelpdesk, setTemHelpdesk] = useState(true)
 
@@ -69,7 +71,7 @@ export default function AppMobileSimuladorPage() {
     )
   }
 
-  const c = APP_COLORS[appTheme]
+  const c = APP_IDENTITIES[identidade][appTheme]
 
   // Navegação simulada.
   function irPara(tela: AppTela) {
@@ -166,6 +168,34 @@ export default function AppMobileSimuladorPage() {
                   )
                 })}
               </div>
+            </div>
+
+            {/* Seletor de identidade visual (Atual sky × Nova) */}
+            <div className="space-y-2">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                <Palette className="h-3 w-3" /> Identidade visual
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant={identidade === 'atual' ? 'default' : 'outline'}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setIdentidade('atual')}
+                >
+                  Atual
+                </Button>
+                <Button
+                  variant={identidade === 'nova' ? 'default' : 'outline'}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setIdentidade('nova')}
+                >
+                  Nova
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                <strong>Atual</strong>: identidade sky de hoje. <strong>Nova</strong>: azul + coral + amarelo (referência).
+              </p>
             </div>
 
             {/* Toggle de tema do app */}
