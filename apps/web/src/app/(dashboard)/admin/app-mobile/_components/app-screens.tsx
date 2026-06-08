@@ -252,7 +252,7 @@ export function LoginScreen({ c, onEntrar }: { c: AppColors; onEntrar: () => voi
 // ════════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ════════════════════════════════════════════════════════════════════
-export function DashboardScreen({ c, onMenu, onIr, temHelpdesk = true }: { c: AppColors; onMenu: () => void; onIr: (t: AppTela) => void; temHelpdesk?: boolean }) {
+export function DashboardScreen({ c, onMenu, onIr, temHelpdesk = true, theme = 'light' }: { c: AppColors; onMenu: () => void; onIr: (t: AppTela) => void; temHelpdesk?: boolean; theme?: AppTheme }) {
   // KPIs em UMA linha (cards compactos). O card de Helpdesk só aparece quando o
   // usuário tem permissão no módulo (simulada aqui pelo toggle `temHelpdesk`).
   const kpis = [
@@ -277,7 +277,16 @@ export function DashboardScreen({ c, onMenu, onIr, temHelpdesk = true }: { c: Ap
 
   return (
     <div className="flex-1 flex flex-col" style={{ background: c.background }}>
-      <div className="flex items-center px-4 pt-3 pb-1 gap-2">
+      {/* Logo OneClick no topo (clara/escura conforme o tema do app). */}
+      <div className="flex items-center justify-center px-4 pt-3 pb-1">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={theme === 'dark' ? '/logo-light.png' : '/logo.png'}
+          alt="OneClick"
+          className="h-7 w-auto object-contain"
+        />
+      </div>
+      <div className="flex items-center px-4 pt-2 pb-1 gap-2">
         <button
           type="button" onClick={onMenu} aria-label="Abrir menu"
           className="h-9 w-9 shrink-0 flex items-center justify-center rounded-xl active:opacity-70"

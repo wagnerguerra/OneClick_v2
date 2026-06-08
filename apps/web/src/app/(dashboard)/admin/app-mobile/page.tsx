@@ -92,7 +92,7 @@ export default function AppMobileSimuladorPage() {
       case 'login':
         return <LoginScreen c={c} onEntrar={() => irPara('dashboard')} />
       case 'dashboard':
-        return <DashboardScreen c={c} onMenu={abrirMenu} onIr={irPara} temHelpdesk={temHelpdesk} />
+        return <DashboardScreen c={c} onMenu={abrirMenu} onIr={irPara} temHelpdesk={temHelpdesk} theme={appTheme} />
       case 'agenda':
         return <AgendaScreen c={c} onMenu={abrirMenu} />
       case 'tarefas':

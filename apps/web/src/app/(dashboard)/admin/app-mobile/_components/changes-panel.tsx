@@ -48,6 +48,14 @@ export const PROPOSED_CHANGES: ProposedChange[] = [
     status: 'proposta',
   },
   {
+    id: 'dash-logo-topo',
+    area: 'Dashboard',
+    titulo: 'Logo OneClick no topo do dashboard',
+    descricao:
+      'Exibir a logomarca do sistema no topo da tela inicial, descendo os demais elementos (saudação, hero, KPIs). Logo clara/escura conforme o tema.',
+    status: 'proposta',
+  },
+  {
     id: 'nova-identidade-visual',
     area: 'Identidade visual',
     titulo: 'Nova identidade visual (azul + coral + amarelo, bottom tab bar)',
