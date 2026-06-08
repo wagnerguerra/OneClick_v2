@@ -29,7 +29,7 @@ export const PROPOSED_CHANGES: ProposedChange[] = [
     titulo: 'Cards (KPIs) em uma única linha',
     descricao:
       'No dashboard, exibir os cards de indicadores (Eventos, Tarefas, Chamados) lado a lado em uma linha, em vez de empilhados verticalmente. Já visível no protótipo.',
-    status: 'proposta',
+    status: 'processada',
   },
   {
     id: 'dash-card-helpdesk',
@@ -37,7 +37,7 @@ export const PROPOSED_CHANGES: ProposedChange[] = [
     titulo: 'Card de Helpdesk condicionado à permissão',
     descricao:
       'Incluir o card "Chamados abertos" (e o atalho Helpdesk) apenas quando o usuário tem permissão no módulo Helpdesk. Use o toggle "Permissão: Helpdesk" para simular.',
-    status: 'proposta',
+    status: 'processada',
   },
   {
     id: 'tabs-transicao-animada',
@@ -45,7 +45,7 @@ export const PROPOSED_CHANGES: ProposedChange[] = [
     titulo: 'Animação suave na transição entre abas/telas',
     descricao:
       'Aplicar uma transição suave (fade + leve slide) ao trocar de aba/tela no app, em vez da troca instantânea. Já demonstrado no protótipo: navegue entre as telas para ver.',
-    status: 'proposta',
+    status: 'processada',
   },
   {
     id: 'dash-agenda-do-dia',
@@ -53,7 +53,7 @@ export const PROPOSED_CHANGES: ProposedChange[] = [
     titulo: 'Agenda do dia no lugar de "Atalhos"',
     descricao:
       'Substituir a seção "Atalhos" por uma grade de horários do dia (faixas de 30 min), com cada evento em um bloco colorido pela cor do tipo do evento, hora atual destacada e slot "Digite para adicionar um evento".',
-    status: 'proposta',
+    status: 'processada',
   },
   {
     id: 'dash-logo-topo',
@@ -61,7 +61,7 @@ export const PROPOSED_CHANGES: ProposedChange[] = [
     titulo: 'Logo OneClick no topo do dashboard',
     descricao:
       'Exibir a logomarca do sistema no topo da tela inicial, descendo os demais elementos (saudação, hero, KPIs). Logo clara/escura conforme o tema.',
-    status: 'proposta',
+    status: 'processada',
   },
   {
     id: 'nova-identidade-visual',
@@ -69,7 +69,7 @@ export const PROPOSED_CHANGES: ProposedChange[] = [
     titulo: 'Nova identidade visual (azul + coral + amarelo, bottom tab bar)',
     descricao:
       'Aplica a nova paleta (azul vibrante primário, acentos coral e amarelo), barra de navegacao inferior, card hero com anel de progresso e estilo de cards arredondados, conforme referencia aprovada.',
-    status: 'proposta',
+    status: 'processada',
   },
 ]
 
