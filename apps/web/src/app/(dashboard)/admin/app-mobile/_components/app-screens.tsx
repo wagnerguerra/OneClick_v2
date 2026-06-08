@@ -198,51 +198,48 @@ function AppHeader({
 // ════════════════════════════════════════════════════════════════════
 export function LoginScreen({ c, onEntrar }: { c: AppColors; onEntrar: () => void }) {
   return (
-    <div className="relative flex-1 flex flex-col items-center justify-center px-6" style={{ background: c.background }}>
-      {/* Realce sutil no topo (gradiente fake via primary baixa opacidade) */}
-      <div
-        className="absolute left-0 right-0 top-0 h-56 rounded-b-[36px]"
-        style={{ background: c.primarySoft }}
-        aria-hidden
-      />
-      <div className="relative w-full max-w-[300px] flex flex-col gap-7">
-        {/* Marca */}
-        <div className="flex flex-col items-center gap-3">
-          <div
-            className="h-16 w-16 flex items-center justify-center rounded-2xl border shadow-sm text-2xl font-black"
-            style={{ background: c.card, borderColor: c.border, color: c.primary }}
-          >
-            O
-          </div>
-          <div className="text-center">
-            <p className="text-xl font-bold" style={{ color: c.foreground }}>OneClick ERP</p>
-            <p className="text-sm" style={{ color: c.mutedForeground }}>Entre na sua conta</p>
-          </div>
+    <div className="relative flex-1 flex flex-col" style={{ background: c.background }}>
+      {/* Hero do topo: imagem de fundo + logo do sistema centralizada */}
+      <div className="relative h-52 shrink-0 rounded-b-[36px] overflow-hidden flex items-center justify-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/auth-bg.jpg" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
+        {/* Overlay sutil — dá profundidade e destaca a logo sobre a imagem */}
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(15,23,42,0.12), rgba(15,23,42,0.28))' }} aria-hidden />
+        {/* Logo centralizada num cartão branco (lê bem sobre qualquer fundo) */}
+        <div className="relative rounded-2xl bg-white px-5 py-3.5 shadow-lg">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo_topo.png" alt="OneClick" className="h-9 w-auto object-contain" />
         </div>
+      </div>
 
-        {/* Card de autenticação */}
-        <div className="rounded-2xl border p-5 flex flex-col gap-4" style={{ background: c.card, borderColor: c.border }}>
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-semibold" style={{ color: c.foreground }}>E-mail</span>
-            <div className="h-9 px-3 flex items-center rounded-md border text-sm" style={{ borderColor: c.border, color: c.foreground, background: c.background }}>
-              {MOCK_USER.email}
+      {/* Conteúdo: subtítulo + card de autenticação */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6">
+        <div className="w-full max-w-[300px] flex flex-col gap-5">
+          <p className="text-center text-sm" style={{ color: c.mutedForeground }}>Entre na sua conta</p>
+
+          <div className="rounded-2xl border p-5 flex flex-col gap-4" style={{ background: c.card, borderColor: c.border }}>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[13px] font-semibold" style={{ color: c.foreground }}>E-mail</span>
+              <div className="h-9 px-3 flex items-center rounded-md border text-sm" style={{ borderColor: c.border, color: c.foreground, background: c.background }}>
+                {MOCK_USER.email}
+              </div>
             </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-semibold" style={{ color: c.foreground }}>Senha</span>
-            <div className="h-9 px-3 flex items-center rounded-md border text-sm tracking-widest" style={{ borderColor: c.border, color: c.mutedForeground, background: c.background }}>
-              ••••••••
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[13px] font-semibold" style={{ color: c.foreground }}>Senha</span>
+              <div className="h-9 px-3 flex items-center rounded-md border text-sm tracking-widest" style={{ borderColor: c.border, color: c.mutedForeground, background: c.background }}>
+                ••••••••
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={onEntrar}
+              className="mt-1 h-10 rounded-md text-sm font-semibold active:opacity-80 transition-opacity"
+              style={{ background: c.primary, color: c.primaryForeground }}
+            >
+              Entrar
+            </button>
+            <p className="text-center text-xs" style={{ color: c.mutedForeground }}>Esqueci minha senha</p>
           </div>
-          <button
-            type="button"
-            onClick={onEntrar}
-            className="mt-1 h-10 rounded-md text-sm font-semibold active:opacity-80 transition-opacity"
-            style={{ background: c.primary, color: c.primaryForeground }}
-          >
-            Entrar
-          </button>
-          <p className="text-center text-xs" style={{ color: c.mutedForeground }}>Esqueci minha senha</p>
         </div>
       </div>
     </div>
