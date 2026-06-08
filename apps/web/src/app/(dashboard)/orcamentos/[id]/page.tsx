@@ -312,12 +312,15 @@ function UserMultiPicker({ users, value, onChange, placeholder, disabled }: {
   )
 }
 
-function CatalogoCombobox({ catalogo, tipo, selectedId, onSelect, disabled }: {
+function CatalogoCombobox({ catalogo, tipo, selectedId, onSelect, disabled, currentLabel }: {
   catalogo: Array<{ id: string; nome: string; tipo: string; valorPadrao: number | string | null }>
   tipo: string
   selectedId: string
   onSelect: (id: string) => void
   disabled?: boolean
+  // Rótulo a exibir quando o valor atual não casa com nenhum item do catálogo
+  // (ex.: edição de item com descrição livre/legada) — evita esconder o texto.
+  currentLabel?: string
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -356,8 +359,8 @@ function CatalogoCombobox({ catalogo, tipo, selectedId, onSelect, disabled }: {
           disabled && 'cursor-not-allowed opacity-50',
         )}
       >
-        <span className={cn('truncate', !selected && 'text-muted-foreground', selected && 'uppercase')}>
-          {disabled ? 'Selecione um tipo primeiro' : selected ? selected.nome : 'Selecione um item'}
+        <span className={cn('truncate', !selected && !currentLabel && 'text-muted-foreground', (selected || currentLabel) && 'uppercase')}>
+          {disabled ? 'Selecione um tipo primeiro' : selected ? selected.nome : currentLabel || 'Selecione um item'}
         </span>
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
       </button>
@@ -764,6 +767,7 @@ export default function OrcamentoDetailPage() {
   const [editDescricao, setEditDescricao] = useState('')
   const [editQtde, setEditQtde] = useState('')
   const [editValor, setEditValor] = useState('')
+  const [editCatalogoId, setEditCatalogoId] = useState<string>('')
 
   // Tab 2: Desconto e Pagamento
   const [formDescontoPercent, setFormDescontoPercent] = useState('')
@@ -1277,6 +1281,17 @@ export default function OrcamentoDetailPage() {
     setEditDescricao(item.descricao)
     setEditQtde(String(item.quantidade))
     setEditValor(String(item.valorUnitario))
+    setEditCatalogoId(item.catalogoId ?? '')
+  }
+
+  // Seleção de item do catálogo na EDIÇÃO (mesma busca da inclusão — #HLP0088).
+  // Preenche descrição + valor a partir do item escolhido.
+  function handleSelecionarDescricaoEdit(catalogoId: string) {
+    const item = catalogo.find(c => c.id === catalogoId)
+    if (!item) return
+    setEditCatalogoId(catalogoId)
+    setEditDescricao(item.nome)
+    if (item.valorPadrao != null) setEditValor(String(item.valorPadrao))
   }
 
   async function handleSaveItem() {
@@ -1289,6 +1304,7 @@ export default function OrcamentoDetailPage() {
           descricao: editDescricao,
           quantidade: parseFloat(editQtde) || 1,
           valorUnitario: parseFloat(editValor) || 0,
+          catalogoId: editCatalogoId || null,
         },
       })
       setEditingItemId(null)
@@ -1958,7 +1974,7 @@ export default function OrcamentoDetailPage() {
                               <TableRow key={item.id} className="bg-sky-50/50 dark:bg-sky-900/10">
                                 <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
                                 <TableCell>
-                                  <Select value={editTipo} onValueChange={setEditTipo}>
+                                  <Select value={editTipo} onValueChange={v => { setEditTipo(v); setEditCatalogoId('') }}>
                                     <SelectTrigger className="h-7 text-[11px] w-[85px]"><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="SERVICO">Serviço</SelectItem>
@@ -1968,7 +1984,16 @@ export default function OrcamentoDetailPage() {
                                   </Select>
                                 </TableCell>
                                 <TableCell>
-                                  <Input value={editDescricao} onChange={e => setEditDescricao(e.target.value)} className="h-7 text-xs" />
+                                  {/* Busca no catálogo — mesma da inclusão (#HLP0088). currentLabel
+                                      preserva a descrição atual quando não há item de catálogo casado. */}
+                                  <CatalogoCombobox
+                                    catalogo={catalogo}
+                                    tipo={editTipo}
+                                    selectedId={editCatalogoId}
+                                    currentLabel={editDescricao}
+                                    onSelect={handleSelecionarDescricaoEdit}
+                                    disabled={!editTipo}
+                                  />
                                 </TableCell>
                                 <TableCell>
                                   <Input type="number" value={editQtde} onChange={e => setEditQtde(e.target.value)} className="h-7 w-[55px] text-xs text-center" min="1" />

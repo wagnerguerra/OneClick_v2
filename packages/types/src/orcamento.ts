@@ -58,6 +58,9 @@ export const updateOrcamentoItemSchema = z.object({
   quantidade: z.coerce.number().min(0.0001).optional(),
   valorUnitario: z.coerce.number().min(0).optional(),
   situacao: itemSituacaoSchema.optional(),
+  // Vínculo com item do catálogo — permite trocar o serviço na edição
+  // usando a mesma busca da inclusão (#HLP0088).
+  catalogoId: z.string().optional().nullable(),
 })
 
 export type CreateOrcamentoInput = z.infer<typeof createOrcamentoSchema>
