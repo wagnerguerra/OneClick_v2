@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, useRouter } from 'next/navigation'
 import {
   FileText, Loader2, Plus, Trash2, Pencil, Check, X,
@@ -325,6 +326,11 @@ function CatalogoCombobox({ catalogo, tipo, selectedId, onSelect, disabled, curr
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const ref = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  // Posição do dropdown (fixed) — calculada a partir do gatilho. Renderizado
+  // via portal pra escapar de containers com overflow (ex.: a <Table> da
+  // edição inline, que senão recorta o menu — #HLP0088).
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
 
   const opcoes = catalogo.filter(c => c.tipo === tipo)
   const filtered = query.trim()
@@ -332,17 +338,32 @@ function CatalogoCombobox({ catalogo, tipo, selectedId, onSelect, disabled, curr
     : opcoes
   const selected = opcoes.find(c => c.id === selectedId)
 
+  const atualizarPos = useCallback(() => {
+    const el = ref.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    setPos({ top: r.bottom + 4, left: r.left, width: r.width })
+  }, [])
+
   useEffect(() => {
     if (!open) return
+    atualizarPos()
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false)
-        setQuery('')
-      }
+      const t = e.target as Node
+      if (ref.current?.contains(t) || panelRef.current?.contains(t)) return
+      setOpen(false)
+      setQuery('')
     }
+    function reposiciona() { atualizarPos() }
     document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
+    window.addEventListener('scroll', reposiciona, true)
+    window.addEventListener('resize', reposiciona)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      window.removeEventListener('scroll', reposiciona, true)
+      window.removeEventListener('resize', reposiciona)
+    }
+  }, [open, atualizarPos])
 
   // Limpa busca/fecha quando o tipo muda externamente
   useEffect(() => { setQuery(''); setOpen(false) }, [tipo])
@@ -364,8 +385,12 @@ function CatalogoCombobox({ catalogo, tipo, selectedId, onSelect, disabled, curr
         </span>
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
       </button>
-      {open && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-md">
+      {open && pos && createPortal(
+        <div
+          ref={panelRef}
+          style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 70 }}
+          className="overflow-hidden rounded-md border bg-popover shadow-md"
+        >
           <div className="p-1.5 border-b bg-popover sticky top-0">
             <Input
               autoFocus
@@ -397,7 +422,8 @@ function CatalogoCombobox({ catalogo, tipo, selectedId, onSelect, disabled, curr
               </button>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
