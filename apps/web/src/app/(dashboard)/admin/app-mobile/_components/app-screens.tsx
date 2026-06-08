@@ -252,6 +252,60 @@ export function LoginScreen({ c, onEntrar }: { c: AppColors; onEntrar: () => voi
 // ════════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ════════════════════════════════════════════════════════════════════
+// ── Cor do evento (hex) → rgba com alpha (tinta de fundo do bloco) ──
+function tintHex(hex: string, alpha: number): string {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+// ── Agenda do dia (grade de horários no Dashboard) ──────────────────
+// Faixas de 30 min; cada evento vira um bloco colorido pela COR DO EVENTO
+// (cor do tipo, como no sistema). Um slot vazio exibe o atalho "Digite para
+// adicionar um evento". A hora atual fica destacada na cor primária.
+function DayAgenda({ c, isDark, onVerTudo }: { c: AppColors; isDark: boolean; onVerTudo: () => void }) {
+  const slots = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30']
+  const horaAtual = '09:30'    // slot "agora"
+  const slotAdicionar = '10:00' // slot vazio com o atalho de adicionar
+  return (
+    <div className="flex flex-col">
+      {slots.map((s, i) => {
+        const ev = MOCK_EVENTOS.find(e => e.inicio === s)
+        const agora = s === horaAtual
+        const adicionar = !ev && s === slotAdicionar
+        return (
+          <div key={s} className="flex items-stretch gap-3" style={{ borderTop: i > 0 ? `1px solid ${c.border}` : undefined }}>
+            <span
+              className="w-11 shrink-0 pt-2.5 text-[12px] tabular-nums"
+              style={{ color: agora ? c.primary : c.mutedForeground, fontWeight: agora ? 700 : 400 }}
+            >
+              {s}
+            </span>
+            <div className="flex-1 py-1.5 min-h-[42px]">
+              {ev ? (
+                <button
+                  type="button"
+                  onClick={onVerTudo}
+                  className="w-full text-left rounded-lg px-3 py-2 active:opacity-80"
+                  style={{ background: tintHex(ev.cor, isDark ? 0.22 : 0.12), borderLeft: `3px solid ${ev.cor}` }}
+                >
+                  <p className="text-[13px] font-semibold leading-snug" style={{ color: ev.cor }}>{ev.titulo}</p>
+                </button>
+              ) : adicionar ? (
+                <div className="rounded-lg px-3 py-2" style={{ background: c.muted, borderLeft: `3px solid ${c.mutedForeground}` }}>
+                  <p className="text-[13px] leading-snug" style={{ color: c.mutedForeground }}>Digite para adicionar um evento</p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function DashboardScreen({ c, onMenu, onIr, temHelpdesk = true, theme = 'light' }: { c: AppColors; onMenu: () => void; onIr: (t: AppTela) => void; temHelpdesk?: boolean; theme?: AppTheme }) {
   // KPIs em UMA linha (cards compactos). O card de Helpdesk só aparece quando o
   // usuário tem permissão no módulo (simulada aqui pelo toggle `temHelpdesk`).
@@ -261,12 +315,6 @@ export function DashboardScreen({ c, onMenu, onIr, temHelpdesk = true, theme = '
     ...(temHelpdesk
       ? [{ label: 'Chamados abertos', valor: MOCK_TICKETS.filter(t => t.status !== 'CONCLUIDO').length, Icon: MessageCircle }]
       : []),
-  ]
-  const atalhos: { titulo: string; sub: string; Icon: typeof Calendar; tela: AppTela }[] = [
-    { titulo: 'Agenda', sub: 'Seus eventos e compromissos', Icon: Calendar, tela: 'agenda' },
-    { titulo: 'Tarefas', sub: 'Pendências e prazos', Icon: CheckSquare, tela: 'tarefas' },
-    ...(temHelpdesk ? [{ titulo: 'Helpdesk', sub: 'Abra e acompanhe chamados', Icon: MessageCircle, tela: 'helpdesk' as AppTela }] : []),
-    { titulo: 'Perfil', sub: 'Conta e preferências', Icon: User, tela: 'perfil' as AppTela },
   ]
   const primeiroNome = MOCK_USER.nome.split(/\s+/)[0]
 
@@ -283,7 +331,7 @@ export function DashboardScreen({ c, onMenu, onIr, temHelpdesk = true, theme = '
         <img
           src={theme === 'dark' ? '/logo-light.png' : '/logo.png'}
           alt="OneClick"
-          className="h-7 w-auto object-contain"
+          className="h-14 w-auto object-contain"
         />
       </div>
       <div className="flex items-center px-4 pt-2 pb-1 gap-2">
@@ -338,27 +386,13 @@ export function DashboardScreen({ c, onMenu, onIr, temHelpdesk = true, theme = '
           ))}
         </div>
 
-        {/* Atalhos */}
+        {/* Agenda do dia (substitui Atalhos) */}
         <div className="flex flex-col gap-2">
-          <p className="text-[13px] font-semibold" style={{ color: c.foreground }}>Atalhos</p>
-          {atalhos.map(a => (
-            <button
-              key={a.titulo}
-              type="button"
-              onClick={() => onIr(a.tela)}
-              className="flex items-center gap-3 rounded-2xl border p-3 text-left active:opacity-80"
-              style={{ background: c.card, borderColor: c.border }}
-            >
-              <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: c.primarySoft }}>
-                <a.Icon className="h-4.5 w-4.5" style={{ color: c.primary, width: 18, height: 18 }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate" style={{ color: c.foreground }}>{a.titulo}</p>
-                <p className="text-xs truncate" style={{ color: c.mutedForeground }}>{a.sub}</p>
-              </div>
-              <ChevronRight className="h-4 w-4 shrink-0" style={{ color: c.mutedForeground }} />
-            </button>
-          ))}
+          <div className="flex items-center justify-between">
+            <p className="text-[13px] font-semibold" style={{ color: c.foreground }}>Agenda de hoje</p>
+            <button type="button" onClick={() => onIr('agenda')} className="text-[12px] font-semibold active:opacity-70" style={{ color: c.primary }}>Ver tudo</button>
+          </div>
+          <DayAgenda c={c} isDark={theme === 'dark'} onVerTudo={() => onIr('agenda')} />
         </div>
       </div>
     </div>

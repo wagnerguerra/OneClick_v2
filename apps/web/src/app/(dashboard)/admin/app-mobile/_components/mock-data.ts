@@ -22,17 +22,18 @@ export interface EventoMock {
   id: string
   titulo: string
   horario: string // "Dia inteiro" ou "09:00 – 10:30"
+  inicio: string | null // hora de início "HH:MM" (null = dia inteiro) — usado na grade do dia
   local: string | null
-  // Cor da borda esquerda do card (espelha resolveTipoCores do app).
+  // Cor do evento (cor do TIPO do evento, como no sistema — usada na borda/realce).
   cor: string
 }
 
 // Eventos do dia selecionado (faixa de dias é gerada na própria tela).
 export const MOCK_EVENTOS: EventoMock[] = [
-  { id: 'e1', titulo: 'Reunião de alinhamento fiscal', horario: '09:00 – 10:00', local: 'Sala 2', cor: '#2563eb' },
-  { id: 'e2', titulo: 'Entrega DCTFWeb — competência 05', horario: 'Dia inteiro', local: null, cor: '#f0533d' },
-  { id: 'e3', titulo: 'Call com cliente Atacadão SP', horario: '14:30 – 15:30', local: 'Google Meet', cor: '#10b981' },
-  { id: 'e4', titulo: 'Revisão de orçamentos pendentes', horario: '16:00 – 17:00', local: 'Sala 1', cor: '#a78bfa' },
+  { id: 'e1', titulo: 'Reunião de alinhamento fiscal', horario: '09:00 – 10:00', inicio: '09:00', local: 'Sala 2', cor: '#2563eb' },
+  { id: 'e2', titulo: 'Entrega DCTFWeb — competência 05', horario: 'Dia inteiro', inicio: null, local: null, cor: '#f0533d' },
+  { id: 'e3', titulo: 'Call com cliente Atacadão SP', horario: '10:30 – 11:30', inicio: '10:30', local: 'Google Meet', cor: '#10b981' },
+  { id: 'e4', titulo: 'Revisão de orçamentos pendentes', horario: '11:30 – 12:30', inicio: '11:30', local: 'Sala 1', cor: '#a78bfa' },
 ]
 
 // ── Tarefas ─────────────────────────────────────────────────────────

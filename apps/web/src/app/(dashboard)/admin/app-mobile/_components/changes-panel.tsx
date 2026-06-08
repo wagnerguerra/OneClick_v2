@@ -48,6 +48,14 @@ export const PROPOSED_CHANGES: ProposedChange[] = [
     status: 'proposta',
   },
   {
+    id: 'dash-agenda-do-dia',
+    area: 'Dashboard',
+    titulo: 'Agenda do dia no lugar de "Atalhos"',
+    descricao:
+      'Substituir a seção "Atalhos" por uma grade de horários do dia (faixas de 30 min), com cada evento em um bloco colorido pela cor do tipo do evento, hora atual destacada e slot "Digite para adicionar um evento".',
+    status: 'proposta',
+  },
+  {
     id: 'dash-logo-topo',
     area: 'Dashboard',
     titulo: 'Logo OneClick no topo do dashboard',
