@@ -1,0 +1,628 @@
+'use client'
+
+// Telas recriadas do app mobile OneClick (protótipo clicável).
+//
+// IMPORTANTE: este é um MOCK FIEL renderizado em HTML/CSS dentro da moldura de
+// celular do simulador — NÃO é o app Expo real. As cores literais (sky/azure)
+// são a IDENTIDADE da marca do app mobile, resolvidas via APP_COLORS conforme
+// o tema claro/escuro do simulador (o chrome da página web usa tokens próprios).
+//
+// Cada screen recebe `c` (paleta do app) e callbacks de navegação simulada.
+
+import {
+  Menu, Calendar, CheckSquare, MessageCircle, User, Home, LogOut,
+  ChevronRight, Plus, Bell, Globe, Contrast,
+} from 'lucide-react'
+
+import type { AppColors } from './app-theme'
+import { iniciais, type AppTheme } from './app-theme'
+import {
+  MOCK_USER, MOCK_EMPRESA, MOCK_EVENTOS, MOCK_TAREFAS, MOCK_TICKETS,
+  STATUS_LABEL, STATUS_CLASSES, type AppTela,
+} from './mock-data'
+
+// ── Barra de status fake (topo da moldura) ──────────────────────────
+export function StatusBar({ c, theme }: { c: AppColors; theme: AppTheme }) {
+  return (
+    <div
+      className="flex items-center justify-between px-6 pt-2 pb-1 text-[11px] font-semibold select-none"
+      style={{ color: c.foreground }}
+    >
+      <span className="tabular-nums">09:41</span>
+      <div className="flex items-center gap-1.5">
+        {/* Sinal */}
+        <span className="inline-flex items-end gap-[2px]" aria-hidden>
+          <span className="inline-block w-[3px] h-[4px] rounded-sm" style={{ background: c.foreground }} />
+          <span className="inline-block w-[3px] h-[6px] rounded-sm" style={{ background: c.foreground }} />
+          <span className="inline-block w-[3px] h-[8px] rounded-sm" style={{ background: c.foreground }} />
+          <span className="inline-block w-[3px] h-[10px] rounded-sm" style={{ background: theme === 'dark' ? c.mutedForeground : c.foreground }} />
+        </span>
+        <span className="text-[10px]">5G</span>
+        {/* Bateria */}
+        <span className="inline-flex items-center" aria-hidden>
+          <span className="inline-block w-[18px] h-[9px] rounded-[3px] border" style={{ borderColor: c.foreground }}>
+            <span className="block h-full w-[70%] rounded-[1px] m-[1px]" style={{ background: c.foreground }} />
+          </span>
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// ── Header do app (barra superior com hambúrguer) ───────────────────
+function AppHeader({
+  c, titulo, sobretitulo, onMenu, trailing,
+}: {
+  c: AppColors
+  titulo: string
+  sobretitulo: string
+  onMenu: () => void
+  trailing?: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center gap-2 px-4 pt-3 pb-3">
+      <button
+        type="button"
+        onClick={onMenu}
+        aria-label="Abrir menu"
+        className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg active:opacity-70"
+        style={{ background: c.muted }}
+      >
+        <Menu className="h-5 w-5" style={{ color: c.foreground }} />
+      </button>
+      <div className="flex-1 min-w-0 pl-0.5">
+        <p className="text-[10px] uppercase tracking-wide truncate" style={{ color: c.mutedForeground }}>{sobretitulo}</p>
+        <p className="text-lg font-bold truncate" style={{ color: c.foreground }}>{titulo}</p>
+      </div>
+      {trailing}
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════
+// LOGIN
+// ════════════════════════════════════════════════════════════════════
+export function LoginScreen({ c, onEntrar }: { c: AppColors; onEntrar: () => void }) {
+  return (
+    <div className="relative flex-1 flex flex-col items-center justify-center px-6" style={{ background: c.background }}>
+      {/* Realce sutil no topo (gradiente fake via primary baixa opacidade) */}
+      <div
+        className="absolute left-0 right-0 top-0 h-56 rounded-b-[36px]"
+        style={{ background: c.primarySoft }}
+        aria-hidden
+      />
+      <div className="relative w-full max-w-[300px] flex flex-col gap-7">
+        {/* Marca */}
+        <div className="flex flex-col items-center gap-3">
+          <div
+            className="h-16 w-16 flex items-center justify-center rounded-2xl border shadow-sm text-2xl font-black"
+            style={{ background: c.card, borderColor: c.border, color: c.primary }}
+          >
+            O
+          </div>
+          <div className="text-center">
+            <p className="text-xl font-bold" style={{ color: c.foreground }}>OneClick ERP</p>
+            <p className="text-sm" style={{ color: c.mutedForeground }}>Entre na sua conta</p>
+          </div>
+        </div>
+
+        {/* Card de autenticação */}
+        <div className="rounded-2xl border p-5 flex flex-col gap-4" style={{ background: c.card, borderColor: c.border }}>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-semibold" style={{ color: c.foreground }}>E-mail</span>
+            <div className="h-9 px-3 flex items-center rounded-md border text-sm" style={{ borderColor: c.border, color: c.foreground, background: c.background }}>
+              {MOCK_USER.email}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-semibold" style={{ color: c.foreground }}>Senha</span>
+            <div className="h-9 px-3 flex items-center rounded-md border text-sm tracking-widest" style={{ borderColor: c.border, color: c.mutedForeground, background: c.background }}>
+              ••••••••
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onEntrar}
+            className="mt-1 h-10 rounded-md text-sm font-semibold active:opacity-80 transition-opacity"
+            style={{ background: c.primary, color: c.primaryForeground }}
+          >
+            Entrar
+          </button>
+          <p className="text-center text-xs" style={{ color: c.mutedForeground }}>Esqueci minha senha</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ════════════════════════════════════════════════════════════════════
+export function DashboardScreen({ c, onMenu, onIr }: { c: AppColors; onMenu: () => void; onIr: (t: AppTela) => void }) {
+  const kpis = [
+    { label: 'Eventos hoje', valor: MOCK_EVENTOS.length, Icon: Calendar },
+    { label: 'Tarefas abertas', valor: MOCK_TAREFAS.filter(t => !t.concluida).length, Icon: CheckSquare },
+    { label: 'Chamados abertos', valor: MOCK_TICKETS.filter(t => t.status !== 'CONCLUIDO').length, Icon: MessageCircle },
+  ]
+  const atalhos: { titulo: string; sub: string; Icon: typeof Calendar; tela: AppTela }[] = [
+    { titulo: 'Agenda', sub: 'Seus eventos e compromissos', Icon: Calendar, tela: 'agenda' },
+    { titulo: 'Tarefas', sub: 'Pendências e prazos', Icon: CheckSquare, tela: 'tarefas' },
+    { titulo: 'Helpdesk', sub: 'Abra e acompanhe chamados', Icon: MessageCircle, tela: 'helpdesk' },
+    { titulo: 'Perfil', sub: 'Conta e preferências', Icon: User, tela: 'perfil' },
+  ]
+  const primeiroNome = MOCK_USER.nome.split(/\s+/)[0]
+
+  return (
+    <div className="flex-1 flex flex-col" style={{ background: c.background }}>
+      <div className="flex items-center px-4 pt-3 pb-1 gap-2">
+        <button
+          type="button" onClick={onMenu} aria-label="Abrir menu"
+          className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg active:opacity-70"
+          style={{ background: c.muted }}
+        >
+          <Menu className="h-5 w-5" style={{ color: c.foreground }} />
+        </button>
+        <div className="flex-1 pl-1">
+          <p className="text-[10px] uppercase tracking-wide" style={{ color: c.mutedForeground }}>Bem-vindo ao OneClick ERP</p>
+          <p className="text-xl font-bold" style={{ color: c.foreground }}>Olá, {primeiroNome}</p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 pb-4 pt-3 flex flex-col gap-5">
+        {/* KPIs */}
+        <div className="flex flex-col gap-3">
+          {kpis.map(k => (
+            <div key={k.label} className="rounded-2xl border p-4 flex flex-col gap-3" style={{ background: c.elevated, borderColor: c.border }}>
+              <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: c.primarySoft }}>
+                <k.Icon className="h-5 w-5" style={{ color: c.primary }} />
+              </div>
+              <div>
+                <p className="text-2xl font-bold leading-none tabular-nums" style={{ color: c.foreground }}>{k.valor}</p>
+                <p className="text-sm mt-1" style={{ color: c.mutedForeground }}>{k.label}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Atalhos */}
+        <div className="flex flex-col gap-2">
+          <p className="text-[13px] font-semibold" style={{ color: c.foreground }}>Atalhos</p>
+          {atalhos.map(a => (
+            <button
+              key={a.titulo}
+              type="button"
+              onClick={() => onIr(a.tela)}
+              className="flex items-center gap-3 rounded-xl border p-3 text-left active:opacity-80"
+              style={{ background: c.card, borderColor: c.border }}
+            >
+              <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: c.muted }}>
+                <a.Icon className="h-4.5 w-4.5" style={{ color: c.primary, width: 18, height: 18 }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color: c.foreground }}>{a.titulo}</p>
+                <p className="text-xs truncate" style={{ color: c.mutedForeground }}>{a.sub}</p>
+              </div>
+              <ChevronRight className="h-4 w-4 shrink-0" style={{ color: c.mutedForeground }} />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════
+// AGENDA
+// ════════════════════════════════════════════════════════════════════
+export function AgendaScreen({ c, onMenu }: { c: AppColors; onMenu: () => void }) {
+  // Faixa de 7 dias da semana (mock). "Hoje" e o dia selecionado em destaque.
+  const dias = [
+    { nome: 'dom', n: 7, hoje: false },
+    { nome: 'seg', n: 8, hoje: true },
+    { nome: 'ter', n: 9, hoje: false },
+    { nome: 'qua', n: 10, hoje: false },
+    { nome: 'qui', n: 11, hoje: false },
+    { nome: 'sex', n: 12, hoje: false },
+    { nome: 'sáb', n: 13, hoje: false },
+  ]
+  const selecionado = 8
+
+  return (
+    <div className="relative flex-1 flex flex-col" style={{ background: c.background }}>
+      <AppHeader
+        c={c} sobretitulo="Agenda" titulo="8 de junho" onMenu={onMenu}
+        trailing={
+          <div className="flex items-center gap-1.5">
+            {['‹', '›'].map((s, i) => (
+              <span key={i} className="h-8 w-8 flex items-center justify-center rounded-md border text-base" style={{ borderColor: c.border, color: c.foreground, background: c.card }}>{s}</span>
+            ))}
+          </div>
+        }
+      />
+
+      {/* Faixa horizontal de dias */}
+      <div className="border-b pb-3 px-3" style={{ borderColor: c.border }}>
+        <div className="flex gap-2 overflow-x-auto">
+          {dias.map(d => {
+            const sel = d.n === selecionado
+            return (
+              <div
+                key={d.n}
+                className="h-16 w-12 shrink-0 flex flex-col items-center justify-center rounded-xl border"
+                style={{
+                  background: sel ? c.primary : c.card,
+                  borderColor: sel ? c.primary : c.border,
+                }}
+              >
+                <span className="text-[11px] font-medium" style={{ color: sel ? c.primaryForeground : c.mutedForeground }}>{d.nome}</span>
+                <span className="text-base font-bold" style={{ color: sel ? c.primaryForeground : c.foreground }}>{d.n}</span>
+                <span className="mt-0.5 h-1 w-1 rounded-full" style={{ background: d.hoje && !sel ? c.primary : 'transparent' }} />
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Lista de eventos */}
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+        {MOCK_EVENTOS.map(ev => (
+          <div
+            key={ev.id}
+            className="rounded-xl border p-4"
+            style={{ background: c.card, borderColor: c.border, borderLeftWidth: 4, borderLeftColor: ev.cor }}
+          >
+            <p className="text-sm font-semibold" style={{ color: c.foreground }}>{ev.titulo}</p>
+            <p className="text-sm mt-0.5" style={{ color: c.mutedForeground }}>{ev.horario}</p>
+            {ev.local && <p className="text-sm" style={{ color: c.mutedForeground }}>{ev.local}</p>}
+          </div>
+        ))}
+      </div>
+
+      {/* FAB */}
+      <button
+        type="button" aria-label="Novo evento"
+        className="absolute bottom-5 right-5 h-14 w-14 rounded-full flex items-center justify-center shadow-lg active:opacity-80"
+        style={{ background: c.primary }}
+      >
+        <Plus className="h-6 w-6" style={{ color: c.primaryForeground }} />
+      </button>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════
+// TAREFAS
+// ════════════════════════════════════════════════════════════════════
+export function TarefasScreen({ c, onMenu }: { c: AppColors; onMenu: () => void }) {
+  return (
+    <div className="flex-1 flex flex-col" style={{ background: c.background }}>
+      <AppHeader c={c} sobretitulo="Tarefas" titulo="Minhas tarefas" onMenu={onMenu} />
+
+      {/* Criação rápida (estática no protótipo) */}
+      <div className="px-4 pb-3 flex flex-col gap-2">
+        <div className="h-9 px-3 flex items-center rounded-md border text-sm" style={{ borderColor: c.border, color: c.mutedForeground, background: c.card }}>
+          Nova tarefa...
+        </div>
+        <div className="flex items-end gap-2">
+          <div className="flex-1 h-9 px-3 flex items-center rounded-md border text-sm" style={{ borderColor: c.border, color: c.foreground, background: c.card }}>
+            2026-06-08
+          </div>
+          <span className="h-9 px-4 flex items-center rounded-md text-sm font-semibold" style={{ background: c.primary, color: c.primaryForeground }}>Adicionar</span>
+        </div>
+      </div>
+
+      {/* Toggle Abertas / Concluídas */}
+      <div className="flex gap-2 px-4 pb-3">
+        <span className="flex-1 h-9 flex items-center justify-center rounded-md text-sm font-semibold" style={{ background: c.primary, color: c.primaryForeground }}>Abertas</span>
+        <span className="flex-1 h-9 flex items-center justify-center rounded-md border text-sm font-medium" style={{ borderColor: c.border, color: c.mutedForeground }}>Concluídas</span>
+      </div>
+
+      {/* Lista */}
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+        {MOCK_TAREFAS.map(t => (
+          <div key={t.id} className="rounded-xl border p-4 flex items-start gap-3" style={{ background: c.card, borderColor: c.border }}>
+            <div
+              className="mt-0.5 h-6 w-6 shrink-0 flex items-center justify-center rounded-full border-2 text-[11px] font-bold"
+              style={{
+                borderColor: t.concluida ? c.primary : c.border,
+                background: t.concluida ? c.primary : 'transparent',
+                color: c.primaryForeground,
+              }}
+            >
+              {t.concluida ? '✓' : ''}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p
+                className="text-sm font-semibold"
+                style={{ color: t.concluida ? c.mutedForeground : c.foreground, textDecoration: t.concluida ? 'line-through' : 'none' }}
+              >
+                {t.titulo}
+              </p>
+              <p className="text-sm mt-0.5" style={{ color: c.mutedForeground }}>{t.prazo}</p>
+            </div>
+            {/* Selo de prioridade */}
+            {t.prioridade === 'ALTA' ? (
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-700">Alta</span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-medium border" style={{ borderColor: c.border, color: c.mutedForeground }}>
+                {t.prioridade === 'NORMAL' ? 'Normal' : 'Baixa'}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════
+// HELPDESK
+// ════════════════════════════════════════════════════════════════════
+export function HelpdeskScreen({ c, onMenu }: { c: AppColors; onMenu: () => void }) {
+  const scopes = ['Meus', 'Área', 'Todos']
+  const chips = ['Todos', 'Aberto', 'Em andamento', 'Aguardando', 'Concluído']
+
+  return (
+    <div className="relative flex-1 flex flex-col" style={{ background: c.background }}>
+      <AppHeader
+        c={c} sobretitulo="Suporte" titulo="Helpdesk" onMenu={onMenu}
+        trailing={<span className="text-xs" style={{ color: c.mutedForeground }}>{MOCK_TICKETS.length} chamados</span>}
+      />
+
+      {/* Escopo */}
+      <div className="px-4 pb-3 flex gap-2">
+        {scopes.map((s, i) => (
+          <span
+            key={s}
+            className="h-9 px-3 flex items-center justify-center rounded-full border text-sm font-medium"
+            style={{
+              background: i === 0 ? c.primary : c.card,
+              borderColor: i === 0 ? c.primary : c.border,
+              color: i === 0 ? c.primaryForeground : c.mutedForeground,
+            }}
+          >
+            {s}
+          </span>
+        ))}
+      </div>
+
+      {/* Filtro de status (chips horizontais) */}
+      <div className="border-b pb-3 px-3" style={{ borderColor: c.border }}>
+        <div className="flex gap-2 overflow-x-auto">
+          {chips.map((ch, i) => (
+            <span
+              key={ch}
+              className="h-9 px-3 shrink-0 flex items-center justify-center rounded-full border text-sm font-medium"
+              style={{
+                background: i === 0 ? c.primary : c.card,
+                borderColor: i === 0 ? c.primary : c.border,
+                color: i === 0 ? c.primaryForeground : c.mutedForeground,
+              }}
+            >
+              {ch}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Lista de tickets */}
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+        {MOCK_TICKETS.map(t => {
+          const sc = STATUS_CLASSES[t.status]
+          return (
+            <div key={t.id} className="rounded-xl border p-4 flex flex-col gap-2" style={{ background: c.card, borderColor: c.border }}>
+              <div>
+                <p className="text-xs" style={{ color: c.mutedForeground }}>#HLP{String(t.numero).padStart(4, '0')}</p>
+                <p className="text-sm font-semibold" style={{ color: c.foreground }}>{t.titulo}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${sc.bg} ${sc.text}`}>{STATUS_LABEL[t.status]}</span>
+                <span className="text-[11px] font-semibold" style={{ color: t.prioridadeCor }}>{t.prioridade}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: c.mutedForeground }}>{t.categoria}</span>
+                <span className="text-xs" style={{ color: c.mutedForeground }}>{t.data}</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* FAB */}
+      <button
+        type="button" aria-label="Novo chamado"
+        className="absolute bottom-5 right-5 h-14 w-14 rounded-full flex items-center justify-center shadow-lg active:opacity-80"
+        style={{ background: c.primary }}
+      >
+        <Plus className="h-6 w-6" style={{ color: c.primaryForeground }} />
+      </button>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════
+// PERFIL
+// ════════════════════════════════════════════════════════════════════
+export function PerfilScreen({ c, onMenu, onSair }: { c: AppColors; onMenu: () => void; onSair: () => void }) {
+  return (
+    <div className="flex-1 flex flex-col" style={{ background: c.background }}>
+      <div className="flex items-center gap-3 px-4 pt-3 pb-1">
+        <button
+          type="button" onClick={onMenu} aria-label="Abrir menu"
+          className="h-9 w-9 flex items-center justify-center rounded-lg active:opacity-70"
+          style={{ background: c.muted }}
+        >
+          <Menu className="h-5 w-5" style={{ color: c.foreground }} />
+        </button>
+        <p className="text-xl font-bold" style={{ color: c.foreground }}>Perfil</p>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+        {/* Card de identidade */}
+        <div className="rounded-2xl border p-4 flex flex-col items-center gap-3" style={{ background: c.card, borderColor: c.border }}>
+          <div className="h-16 w-16 rounded-full flex items-center justify-center text-xl font-bold" style={{ background: c.primary, color: c.primaryForeground }}>
+            {iniciais(MOCK_USER.nome)}
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <p className="text-xl font-bold" style={{ color: c.foreground }}>{MOCK_USER.nome}</p>
+            <p className="text-sm" style={{ color: c.mutedForeground }}>{MOCK_USER.email}</p>
+            <span className="mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: c.muted, color: c.foreground }}>{MOCK_USER.papel}</span>
+          </div>
+          <div className="mt-1 flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: c.mutedSoft }}>
+            <div className="h-6 w-6 rounded flex items-center justify-center text-[11px] font-black" style={{ background: c.primarySoft, color: c.primary }}>O</div>
+            <span className="text-sm font-medium" style={{ color: c.foreground }}>{MOCK_EMPRESA.nome}</span>
+          </div>
+        </div>
+
+        {/* Preferências */}
+        <div className="flex flex-col gap-2">
+          <p className="text-[13px] font-semibold" style={{ color: c.foreground }}>Preferências</p>
+          <div className="rounded-xl border p-3 flex items-center gap-3" style={{ background: c.card, borderColor: c.border }}>
+            <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: c.muted }}>
+              <Bell className="h-4 w-4" style={{ color: c.primary }} />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium" style={{ color: c.foreground }}>Notificações push</p>
+              <p className="text-xs" style={{ color: c.mutedForeground }}>Receber alertas no dispositivo</p>
+            </div>
+            {/* Switch ligado */}
+            <span className="w-9 h-5 rounded-full p-0.5 flex items-center" style={{ background: c.primary }}>
+              <span className="h-4 w-4 rounded-full bg-white ml-auto" />
+            </span>
+          </div>
+          <PerfilRow c={c} Icon={Contrast} titulo="Tema" trailing="Automático" />
+          <PerfilRow c={c} Icon={Globe} titulo="Idioma" trailing="Português" />
+        </div>
+
+        {/* Botão Sair */}
+        <button
+          type="button"
+          onClick={onSair}
+          className="mt-1 h-10 rounded-md text-sm font-semibold flex items-center justify-center gap-2 active:opacity-80"
+          style={{ background: c.destructive, color: '#ffffff' }}
+        >
+          <LogOut className="h-4 w-4" /> Sair
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function PerfilRow({ c, Icon, titulo, trailing }: { c: AppColors; Icon: typeof Globe; titulo: string; trailing: string }) {
+  return (
+    <div className="rounded-xl border p-3 flex items-center gap-3" style={{ background: c.card, borderColor: c.border }}>
+      <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: c.muted }}>
+        <Icon className="h-4 w-4" style={{ color: c.primary }} />
+      </div>
+      <p className="flex-1 text-sm font-medium" style={{ color: c.foreground }}>{titulo}</p>
+      <span className="text-sm" style={{ color: c.mutedForeground }}>{trailing}</span>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════
+// DRAWER (menu lateral sobreposto)
+// ════════════════════════════════════════════════════════════════════
+export function AppDrawer({
+  c, telaAtiva, onSelecionar, onFechar, onSair,
+}: {
+  c: AppColors
+  telaAtiva: AppTela
+  onSelecionar: (t: AppTela) => void
+  onFechar: () => void
+  onSair: () => void
+}) {
+  const itens: { label: string; Icon: typeof Home; tela: AppTela }[] = [
+    { label: 'Início', Icon: Home, tela: 'dashboard' },
+    { label: 'Agenda', Icon: Calendar, tela: 'agenda' },
+    { label: 'Tarefas', Icon: CheckSquare, tela: 'tarefas' },
+    { label: 'Helpdesk', Icon: MessageCircle, tela: 'helpdesk' },
+  ]
+
+  return (
+    <div className="absolute inset-0 z-20 flex">
+      {/* Painel do drawer */}
+      <div className="w-[78%] max-w-[280px] h-full overflow-y-auto p-4 flex flex-col" style={{ background: c.card }}>
+        {/* Header da empresa */}
+        <div className="flex items-center gap-3 pb-4 mb-2 border-b" style={{ borderColor: c.border }}>
+          <div className="h-12 w-12 rounded-2xl flex items-center justify-center text-lg font-black" style={{ background: c.primarySoft, color: c.primary }}>O</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] uppercase tracking-wide" style={{ color: c.mutedForeground }}>Empresa</p>
+            <p className="text-sm font-bold leading-tight" style={{ color: c.foreground }}>{MOCK_EMPRESA.nome}</p>
+          </div>
+        </div>
+
+        {/* Cartão do usuário */}
+        <button
+          type="button"
+          onClick={() => onSelecionar('perfil')}
+          className="flex items-center gap-3 rounded-2xl p-3 text-left active:opacity-80"
+          style={{ background: c.mutedSoft }}
+        >
+          <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: c.primary, color: c.primaryForeground }}>
+            {iniciais(MOCK_USER.nome)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate" style={{ color: c.foreground }}>{MOCK_USER.nome}</p>
+            <p className="text-xs truncate" style={{ color: c.mutedForeground }}>{MOCK_USER.email}</p>
+          </div>
+          <ChevronRight className="h-4 w-4 shrink-0" style={{ color: c.mutedForeground }} />
+        </button>
+
+        {/* Itens de menu */}
+        <div className="mt-4 flex flex-col gap-1">
+          {itens.map(it => {
+            const ativo = it.tela === telaAtiva
+            return (
+              <button
+                key={it.label}
+                type="button"
+                onClick={() => onSelecionar(it.tela)}
+                className="flex items-center gap-3 rounded-xl px-2 py-2.5 text-left active:opacity-80"
+                style={{ background: ativo ? c.primarySoft : 'transparent' }}
+              >
+                <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: ativo ? c.primarySoft : c.muted }}>
+                  <it.Icon className="h-4.5 w-4.5" style={{ color: ativo ? c.primary : c.mutedForeground, width: 18, height: 18 }} />
+                </div>
+                <span className="flex-1 text-sm font-medium" style={{ color: ativo ? c.primary : c.foreground }}>{it.label}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Rodapé: Perfil + Sair */}
+        <div className="mt-6 pt-4 border-t flex flex-col gap-1" style={{ borderColor: c.border }}>
+          <button
+            type="button"
+            onClick={() => onSelecionar('perfil')}
+            className="flex items-center gap-3 rounded-xl px-2 py-2.5 text-left active:opacity-80"
+          >
+            <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: c.muted }}>
+              <User className="h-4 w-4" style={{ color: c.mutedForeground }} />
+            </div>
+            <span className="flex-1 text-sm font-medium" style={{ color: c.foreground }}>Perfil</span>
+          </button>
+          <button
+            type="button"
+            onClick={onSair}
+            className="flex items-center gap-3 rounded-xl px-2 py-2.5 text-left active:opacity-80"
+          >
+            <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: c.destructiveSoft }}>
+              <LogOut className="h-4 w-4" style={{ color: c.destructive }} />
+            </div>
+            <span className="flex-1 text-sm font-medium" style={{ color: c.destructive }}>Sair</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Backdrop (fecha ao tocar) */}
+      <button
+        type="button"
+        aria-label="Fechar menu"
+        onClick={onFechar}
+        className="flex-1 h-full"
+        style={{ background: 'rgba(0,0,0,0.45)' }}
+      />
+    </div>
+  )
+}
