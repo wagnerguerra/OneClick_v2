@@ -2478,13 +2478,17 @@ export default function AgendaPage() {
                     independentemente de qual aba está visível (Radix Tabs desmonta o conteúdo inativo,
                     mas como nada depende do DOM montado, não há perda de dados). */}
                 <div className="flex-1 min-w-0">
-                  <Tabs defaultValue="geral" className="w-full">
+                  {/* min-h fixa a altura do conteúdo pra o modal não encolher ao trocar de aba */}
+                  <Tabs defaultValue="geral" className="w-full min-h-[60vh]">
                     <TabsList className="mb-3">
                       <TabsTrigger value="geral" className="gap-1.5 text-xs">
                         <Calendar className="h-3.5 w-3.5" />Geral
                       </TabsTrigger>
-                      <TabsTrigger value="lembretes-crm" className="gap-1.5 text-xs">
-                        <Bell className="h-3.5 w-3.5" />Lembretes e CRM
+                      <TabsTrigger value="lembretes" className="gap-1.5 text-xs">
+                        <Bell className="h-3.5 w-3.5" />Lembretes
+                      </TabsTrigger>
+                      <TabsTrigger value="vinculacoes" className="gap-1.5 text-xs">
+                        <Link2 className="h-3.5 w-3.5" />Vinculações
                       </TabsTrigger>
                     </TabsList>
 
@@ -2698,7 +2702,8 @@ export default function AgendaPage() {
                     </TabsContent>
 
                     {/* ABA: LEMBRETES E CRM */}
-                    <TabsContent value="lembretes-crm" className="mt-0 space-y-3 focus-visible:outline-none">
+                    {/* ABA: LEMBRETES */}
+                    <TabsContent value="lembretes" className="mt-0 space-y-3 focus-visible:outline-none">
                   {/* Lembretes */}
                   <div className="space-y-1.5">
                     <Label className="text-xs flex items-center gap-1.5">
@@ -2772,8 +2777,11 @@ export default function AgendaPage() {
                       Disparado pra todos os participantes. Notificação = popup do navegador + toast no app. E-mail = mensagem na caixa de entrada.
                     </p>
                   </div>
+                    </TabsContent>
 
-                  {/* Vincular card do CRM (Item 4) */}
+                    {/* ABA: VINCULAÇÕES — Card do CRM (e, no futuro, outros vínculos) */}
+                    <TabsContent value="vinculacoes" className="mt-0 space-y-3 focus-visible:outline-none">
+                  {/* Vincular card do CRM */}
                   <div className="space-y-1.5">
                     <Label className="text-xs flex items-center gap-1.5">
                       <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
