@@ -16,6 +16,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Checkbox, RichEditor,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
+  Tabs, TabsList, TabsTrigger, TabsContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -123,6 +124,22 @@ function formatarMinutosAntes(min: number): string {
 function parseDate(s: string) {
   const [y, m, d] = s.split('-').map(Number)
   return new Date(y!, m! - 1, d!)
+}
+
+/**
+ * Recebe uma hora "HH:MM" e devolve a hora + 1h, sempre garantindo que o
+ * resultado fica maior que a entrada. Faz clamp em "23:59" se passar de 24h
+ * (não vira pro dia seguinte). Usado pra ajustar o "Fim" automaticamente
+ * quando o usuário muda o "Início" do evento.
+ */
+function somarUmaHora(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number)
+  if (h == null || m == null || Number.isNaN(h) || Number.isNaN(m)) return hhmm
+  const total = h * 60 + m + 60
+  if (total >= 24 * 60) return '23:59'
+  const nh = Math.floor(total / 60)
+  const nm = total % 60
+  return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`
 }
 
 /**
@@ -1873,7 +1890,7 @@ export default function AgendaPage() {
       {/* Modal criar/editar/visualizar evento */}
       {/* ============================================================ */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-6xl">
+        <DialogContent className="max-w-7xl">
           <DialogHeaderIcon
             icon={modalMode === 'create' ? Plus : modalMode === 'edit' ? Edit2 : Calendar}
             color={modalMode === 'create' ? 'emerald' : 'sky'}
@@ -1896,7 +1913,7 @@ export default function AgendaPage() {
             </DialogDescription>
           </DialogHeaderIcon>
 
-          <DialogBody>
+          <DialogBody className="nice-scrollbar">
             {/* VIEW MODE */}
             {modalMode === 'view' && selectedEvento && (() => {
               const ev = selectedEvento
@@ -2429,11 +2446,50 @@ export default function AgendaPage() {
                       <Checkbox checked={form.particular} onCheckedChange={v => setForm(f => ({ ...f, particular: !!v }))} />
                       <Lock className="h-3 w-3 text-muted-foreground" />Particular
                     </label>
+                    {/* Notificar participantes por e-mail (opt-in — padrão DESMARCADO).
+                        Movido da coluna direita pra cá; binding continua em form.notificar. */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <label className="flex items-start gap-2 cursor-pointer text-xs">
+                          <Checkbox
+                            checked={form.notificar}
+                            onCheckedChange={v => setForm(f => ({ ...f, notificar: !!v }))}
+                            className="mt-0.5"
+                          />
+                          <span className="flex flex-col leading-tight">
+                            <span className="flex items-center gap-1.5">
+                              <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+                              Notificar por e-mail
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">Avisa os participantes</span>
+                          </span>
+                        </label>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-[220px] text-xs">
+                        Envia um e-mail aos participantes avisando sobre {modalMode === 'create' ? 'a criação' : 'a alteração'} do evento.
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
 
-                {/* COLUNA DIREITA — dados principais */}
-                <div className="flex-1 space-y-3">
+                {/* COLUNA DIREITA — dados principais, organizados em abas (Geral / Lembretes e CRM).
+                    Apenas agrupamento visual: todos os campos seguem controlados pelo mesmo `form`/handlers.
+                    O estado vive em `form`/`lembretesForm`/`oportunidadeVinc`, então o submit lê tudo
+                    independentemente de qual aba está visível (Radix Tabs desmonta o conteúdo inativo,
+                    mas como nada depende do DOM montado, não há perda de dados). */}
+                <div className="flex-1 min-w-0">
+                  <Tabs defaultValue="geral" className="w-full">
+                    <TabsList className="mb-3">
+                      <TabsTrigger value="geral" className="gap-1.5 text-xs">
+                        <Calendar className="h-3.5 w-3.5" />Geral
+                      </TabsTrigger>
+                      <TabsTrigger value="lembretes-crm" className="gap-1.5 text-xs">
+                        <Bell className="h-3.5 w-3.5" />Lembretes e CRM
+                      </TabsTrigger>
+                    </TabsList>
+
+                    {/* ABA: GERAL */}
+                    <TabsContent value="geral" className="mt-0 space-y-3 focus-visible:outline-none">
                   {/* Título */}
                   <div className="space-y-1.5">
                     <Label>Título *</Label>
@@ -2460,7 +2516,21 @@ export default function AgendaPage() {
                       <>
                         <div className="space-y-1.5">
                           <Label className="text-xs">Início</Label>
-                          <Input type="time" className="h-8 text-sm w-[100px]" value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} />
+                          <Input
+                            type="time"
+                            className="h-8 text-sm w-[100px]"
+                            value={form.horaInicio}
+                            onChange={e => {
+                              const novoInicio = e.target.value
+                              // Ao mudar o início, o fim acompanha automaticamente (+1h, clamp 23:59).
+                              // Mantém o campo Fim editável manualmente depois — só recalcula no onChange do início.
+                              setForm(f => ({
+                                ...f,
+                                horaInicio: novoInicio,
+                                horaFim: novoInicio ? somarUmaHora(novoInicio) : f.horaFim,
+                              }))
+                            }}
+                          />
                         </div>
                         <span className="pb-1.5 text-muted-foreground">—</span>
                         <div className="space-y-1.5">
@@ -2615,6 +2685,20 @@ export default function AgendaPage() {
                     </div>
                   </div>
 
+                  {/* Descrição */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Descrição</Label>
+                    <RichEditor
+                      value={form.descricao}
+                      onChange={html => setForm(f => ({ ...f, descricao: html }))}
+                      placeholder="Detalhes do evento..."
+                      className="min-h-[100px]"
+                    />
+                  </div>
+                    </TabsContent>
+
+                    {/* ABA: LEMBRETES E CRM */}
+                    <TabsContent value="lembretes-crm" className="mt-0 space-y-3 focus-visible:outline-none">
                   {/* Lembretes */}
                   <div className="space-y-1.5">
                     <Label className="text-xs flex items-center gap-1.5">
@@ -2771,35 +2855,8 @@ export default function AgendaPage() {
                       </div>
                     )}
                   </div>
-
-                  {/* Notificar participantes por e-mail (opt-in — padrão DESMARCADO) */}
-                  <label className="flex items-start gap-2 cursor-pointer rounded-md border border-border bg-muted/30 px-3 py-2">
-                    <Checkbox
-                      checked={form.notificar}
-                      onCheckedChange={v => setForm(f => ({ ...f, notificar: !!v }))}
-                      className="mt-0.5"
-                    />
-                    <span className="text-xs">
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                        Notificar participantes por e-mail
-                      </span>
-                      <span className="text-[10px] text-muted-foreground block mt-0.5">
-                        Envia um e-mail aos participantes avisando sobre {modalMode === 'create' ? 'a criação' : 'a alteração'} do evento.
-                      </span>
-                    </span>
-                  </label>
-
-                  {/* Descrição */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Descrição</Label>
-                    <RichEditor
-                      value={form.descricao}
-                      onChange={html => setForm(f => ({ ...f, descricao: html }))}
-                      placeholder="Detalhes do evento..."
-                      className="min-h-[100px]"
-                    />
-                  </div>
+                    </TabsContent>
+                  </Tabs>
                 </div>
               </div>
               )
