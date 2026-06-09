@@ -311,7 +311,7 @@ export function FloatingFeedbackButton() {
               )}
               <div className="min-w-0">
                 <div className="text-sm font-semibold text-foreground">
-                  {mode === 'menu' ? 'Fale com a TI' : mode === 'ticket' ? 'Abrir ticket' : 'Solicitar orçamento'}
+                  {mode === 'menu' ? 'Solicitar Novo' : mode === 'ticket' ? 'Abrir ticket' : 'Solicitar orçamento'}
                 </div>
                 <div className="text-[11px] text-muted-foreground">
                   {mode === 'menu'
