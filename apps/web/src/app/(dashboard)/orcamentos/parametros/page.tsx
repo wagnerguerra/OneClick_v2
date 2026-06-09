@@ -19,7 +19,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
@@ -75,13 +75,15 @@ export default function ParametrosOrcamentosPage() {
   const router = useRouter()
   // Catálogo de serviços é configuração admin do módulo. Acesso via URL direta
   // por usuário comum redireciona pra /orcamentos.
-  const { profile, loading: profileLoading } = useCurrentUserProfile()
-  const isAdmin = !!(profile?.isMaster || profile?.isEmpresaMaster)
+  // Acesso: master/empresa-master OU sub-permissão 'acessar_configuracoes' do módulo orçamentos.
+  const { isMaster, isEmpresaMaster, permissions, loading: permsLoading } = useUserPermissions()
+  const orcSubPerms = (permissions.find(p => p.moduleSlug === 'orcamentos')?.subPermissions ?? {}) as Record<string, boolean>
+  const isAdmin = isMaster || isEmpresaMaster || orcSubPerms.acessar_configuracoes === true
   useEffect(() => {
-    if (!profileLoading && profile && !isAdmin) {
+    if (!permsLoading && !isAdmin) {
       router.replace('/orcamentos')
     }
-  }, [profileLoading, profile, isAdmin, router])
+  }, [permsLoading, isAdmin, router])
 
   const [items, setItems] = useState<CatalogoItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -131,9 +133,9 @@ export default function ParametrosOrcamentosPage() {
 
   useEffect(() => {
     // Só carrega catálogo após confirmar que o user é admin
-    if (profileLoading || !isAdmin) return
+    if (permsLoading || !isAdmin) return
     fetchData()
-  }, [fetchData, profileLoading, isAdmin])
+  }, [fetchData, permsLoading, isAdmin])
 
   const filtered = useMemo(() => {
     return items.filter(i => {

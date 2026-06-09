@@ -213,6 +213,9 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'acao_arquivar', label: 'Arquivar orçamentos', group: 'Ações' },
     { key: 'change_solicitante', label: 'Alterar solicitante do orçamento', group: 'Ações' },
     { key: 'change_responsavel', label: 'Alterar responsável pelos serviços', group: 'Ações' },
+    // Acesso às telas de configuração/parâmetros do módulo (catálogo, formas de
+    // pagamento, textos, etc.). Master/EmpresaMaster sempre têm acesso.
+    { key: 'acessar_configuracoes', label: 'Acessar configurações e parâmetros de orçamentos', group: 'Configurações' },
   ],
   helpdesk: [
     // Atuação como agente (quem tem 'canRead' já abre tickets como solicitante;

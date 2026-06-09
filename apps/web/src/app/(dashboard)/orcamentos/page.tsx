@@ -230,8 +230,8 @@ export default function OrcamentosPage() {
   const orcPerm = permissions.find(p => p.moduleSlug === 'orcamentos')
   const subPerms = (orcPerm?.subPermissions ?? {}) as Record<string, boolean>
   const canViewIndicadores = isMaster || subPerms.panel_indicadores === true
-  // Configurações do módulo + catálogo são restritas a master/empresa-master
-  const canManageConfig = isMaster || isEmpresaMaster
+  // Configurações do módulo + catálogo: master/empresa-master OU sub-permissão explícita
+  const canManageConfig = isMaster || isEmpresaMaster || subPerms.acessar_configuracoes === true
   const canCadastroCompleto = isMaster || subPerms.cadastro_completo === true
   // Mover cards no kanban — só com sub-permissão explícita ou master
   const canMoverKanban = isMaster || subPerms.mover_kanban === true

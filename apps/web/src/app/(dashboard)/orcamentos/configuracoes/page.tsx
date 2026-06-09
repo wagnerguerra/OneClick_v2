@@ -8,6 +8,7 @@ import { cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
@@ -54,6 +55,14 @@ export default function OrcamentosConfiguracoesPage() {
   const [saving, setSaving] = useState(false)
   const [config, setConfig] = useState<ConfigState>(DEFAULT_CONFIG)
   const [activeTab, setActiveTab] = useState<TabKey>('prazos')
+
+  // Acesso: master/empresa-master OU sub-permissão 'acessar_configuracoes'.
+  const { isMaster, isEmpresaMaster, permissions, loading: permsLoading } = useUserPermissions()
+  const orcSubPerms = (permissions.find(p => p.moduleSlug === 'orcamentos')?.subPermissions ?? {}) as Record<string, boolean>
+  const podeConfig = isMaster || isEmpresaMaster || orcSubPerms.acessar_configuracoes === true
+  useEffect(() => {
+    if (!permsLoading && !podeConfig) router.replace('/orcamentos')
+  }, [permsLoading, podeConfig, router])
 
   useEffect(() => {
     (async () => {
