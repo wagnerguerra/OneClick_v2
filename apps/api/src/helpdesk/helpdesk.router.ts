@@ -182,6 +182,18 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
       .input(z.object({ periodoDias: z.number().int().min(7).max(365).optional() }).optional())
       .query(({ input, ctx }) => helpdeskService.getMetricas(ctx.empresaId ?? null, input?.periodoDias ?? 30)),
 
+    /**
+     * Dashboard completo de indicadores + relatórios (rota /helpdesk/indicadores).
+     * Aceita intervalo de datas (ISO). Sem intervalo → últimos 30 dias.
+     * Requer leitura de helpdesk.
+     */
+    dashboard: readProcedure(MODULE)
+      .input(z.object({
+        inicio: z.string().optional(),
+        fim: z.string().optional(),
+      }).optional())
+      .query(({ input, ctx }) => helpdeskService.getDashboard(ctx.empresaId ?? null, input)),
+
     // ── Configurações do módulo (pill /configuracoes → Helpdesk) ──
     // Config — só TI real (master/empresa-master, DIRETOR/COORDENADOR ou
     // sub-permissão helpdesk.atuar_agente). Mesma porta do probeAtuarAgente.

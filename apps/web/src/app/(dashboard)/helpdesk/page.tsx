@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Headphones, Plus, Loader2, Search, Filter, AlertTriangle, Clock, MessageSquare,
   CheckCircle2, ListChecks, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
-  Paperclip, Bot,
+  Paperclip, Bot, BarChart3,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors,
@@ -329,6 +329,18 @@ export default function HelpdeskPage() {
             >
               <Archive className="h-4 w-4" />
               {verArquivados ? 'Saindo do arquivo' : 'Arquivados'}
+            </Button>
+          )}
+          {/* Indicadores (dashboard + relatórios) — só TI (podeAtuar) */}
+          {podeAtuar && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => router.push('/helpdesk/indicadores')}
+              title="Indicadores e relatórios"
+              className="h-9 w-9"
+            >
+              <BarChart3 className="h-4 w-4" />
             </Button>
           )}
           {/* Configurações — só TI (podeAtuar) */}

@@ -1637,6 +1637,295 @@ export class HelpdeskService {
     }
   }
 
+  // ── Dashboard de indicadores + relatórios (painel TI) ─────────
+  //
+  // KPIs escolhidos a partir dos padrões de mercado (Zendesk, Freshdesk,
+  // ManageEngine, InvGate): First Response Time, Resolution Time, SLA
+  // compliance, CSAT, Reopen rate, volume criado/resolvido, backlog.
+  // Tudo filtrado por empresaId (multi-tenant) e por intervalo de datas.
+
+  async getDashboard(
+    empresaId: string | null | undefined,
+    range?: { inicio?: string | null; fim?: string | null },
+  ) {
+    const agora = new Date()
+    // Default: últimos 30 dias. fim é exclusivo no fim do dia.
+    const fim = range?.fim ? new Date(range.fim) : agora
+    fim.setHours(23, 59, 59, 999)
+    const inicio = range?.inicio
+      ? new Date(range.inicio)
+      : new Date(agora.getTime() - 30 * 24 * 60 * 60 * 1000)
+    inicio.setHours(0, 0, 0, 0)
+
+    const tenantFilter = empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}
+    const baseWhere = { ativo: true, ...tenantFilter }
+    // Janela do período: tickets CRIADOS dentro do intervalo
+    const criadosNoPeriodo = { ...baseWhere, createdAt: { gte: inicio, lte: fim } }
+    // Resolvidos dentro do intervalo (independe de quando foram criados)
+    const resolvidosNoPeriodo = {
+      ...baseWhere,
+      resolvidoEm: { gte: inicio, lte: fim },
+    }
+
+    const [
+      criados,
+      resolvidos,
+      backlogAbertos,
+      backlogAtrasados,
+    ] = await Promise.all([
+      prisma.helpdeskTicket.count({ where: criadosNoPeriodo }),
+      prisma.helpdeskTicket.count({ where: resolvidosNoPeriodo }),
+      // Backlog = tickets ainda em aberto AGORA (não-finais, não arquivados)
+      prisma.helpdeskTicket.count({
+        where: { ...baseWhere, arquivado: false, status: { in: ['NOVO', 'AGUARDANDO_AUDITORIA', 'EM_ANDAMENTO'] } },
+      }),
+      prisma.helpdeskTicket.count({
+        where: {
+          ...baseWhere,
+          arquivado: false,
+          status: { in: ['NOVO', 'AGUARDANDO_AUDITORIA', 'EM_ANDAMENTO'] },
+          prazoSla: { lt: agora },
+        },
+      }),
+    ])
+
+    // ── Distribuições (backlog atual por status; período por prioridade/tipo) ──
+    const [porStatusRaw, porPrioridadeRaw, porTipoRaw] = await Promise.all([
+      prisma.helpdeskTicket.groupBy({
+        by: ['status'],
+        where: { ...baseWhere, arquivado: false },
+        _count: { _all: true },
+      }),
+      prisma.helpdeskTicket.groupBy({
+        by: ['prioridade'],
+        where: criadosNoPeriodo,
+        _count: { _all: true },
+      }),
+      prisma.helpdeskTicket.groupBy({
+        by: ['tipo'],
+        where: criadosNoPeriodo,
+        _count: { _all: true },
+      }),
+    ])
+
+    // ── CSAT: média + distribuição de notas (1-5) ─────────────────
+    const csatTickets = await prisma.helpdeskTicket.findMany({
+      where: { ...baseWhere, csatNota: { not: null }, csatRespondidoEm: { gte: inicio, lte: fim } },
+      select: { csatNota: true },
+    })
+    const csatDist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+    let csatSoma = 0
+    for (const t of csatTickets) {
+      const n = t.csatNota ?? 0
+      if (n >= 1 && n <= 5) { csatDist[n] = (csatDist[n] ?? 0) + 1; csatSoma += n }
+    }
+    const csatMedio = csatTickets.length > 0 ? csatSoma / csatTickets.length : null
+
+    // ── Tempos (TFR / MTTR) + SLA compliance dos resolvidos no período ──
+    const fechados = await prisma.helpdeskTicket.findMany({
+      where: resolvidosNoPeriodo,
+      select: {
+        createdAt: true, primeiroAtendimentoEm: true, resolvidoEm: true,
+        prazoSla: true, slaEstouradoEm: true,
+      },
+      take: 5000,
+    })
+    let tfrSum = 0, tfrCount = 0, mttrSum = 0, mttrCount = 0
+    let slaDentro = 0, slaTotal = 0
+    for (const t of fechados) {
+      if (t.primeiroAtendimentoEm) {
+        tfrSum += t.primeiroAtendimentoEm.getTime() - t.createdAt.getTime()
+        tfrCount++
+      }
+      if (t.resolvidoEm) {
+        mttrSum += t.resolvidoEm.getTime() - t.createdAt.getTime()
+        mttrCount++
+        slaTotal++
+        // Dentro do SLA = não foi marcado como estourado E resolveu antes do prazo
+        const estourou = !!t.slaEstouradoEm || (t.prazoSla ? t.resolvidoEm.getTime() > t.prazoSla.getTime() : false)
+        if (!estourou) slaDentro++
+      }
+    }
+    const tfrHoras = tfrCount > 0 ? tfrSum / tfrCount / 3600_000 : null
+    const mttrHoras = mttrCount > 0 ? mttrSum / mttrCount / 3600_000 : null
+    const slaCumprimentoPct = slaTotal > 0 ? Math.round((slaDentro / slaTotal) * 100) : null
+
+    // ── Taxa de reabertura ────────────────────────────────────────
+    // Reabertura = evento status_alterado saindo de RESOLVIDO/CONCLUIDO de
+    // volta pra um status ativo, no período. Comparamos contra os resolvidos.
+    const eventosReabertura = await prisma.helpdeskEvento.findMany({
+      where: {
+        tipo: 'status_alterado',
+        createdAt: { gte: inicio, lte: fim },
+        OR: [
+          { descricao: { contains: 'RESOLVIDO → NOVO' } },
+          { descricao: { contains: 'RESOLVIDO → EM_ANDAMENTO' } },
+          { descricao: { contains: 'CONCLUIDO → NOVO' } },
+          { descricao: { contains: 'CONCLUIDO → EM_ANDAMENTO' } },
+        ],
+      },
+      select: { ticketId: true },
+    })
+    const ticketsReabertos = new Set(eventosReabertura.map(e => e.ticketId)).size
+    const taxaReaberturaPct = resolvidos > 0 ? Math.round((ticketsReabertos / resolvidos) * 100) : null
+
+    // ── Série temporal: criados x resolvidos por dia ──────────────
+    const [criadosRows, resolvidosRows] = await Promise.all([
+      prisma.helpdeskTicket.findMany({
+        where: criadosNoPeriodo,
+        select: { createdAt: true },
+      }),
+      prisma.helpdeskTicket.findMany({
+        where: resolvidosNoPeriodo,
+        select: { resolvidoEm: true },
+      }),
+    ])
+    // Agrupa por dia (YYYY-MM-DD). Se o intervalo > 90 dias, agrupa por mês.
+    const spanDias = Math.ceil((fim.getTime() - inicio.getTime()) / (24 * 60 * 60 * 1000))
+    const granularidade: 'dia' | 'mes' = spanDias > 92 ? 'mes' : 'dia'
+    const chave = (d: Date) =>
+      granularidade === 'mes'
+        ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const serieMap = new Map<string, { criados: number; resolvidos: number }>()
+    for (const r of criadosRows) {
+      const k = chave(r.createdAt)
+      const e = serieMap.get(k) ?? { criados: 0, resolvidos: 0 }
+      e.criados++
+      serieMap.set(k, e)
+    }
+    for (const r of resolvidosRows) {
+      if (!r.resolvidoEm) continue
+      const k = chave(r.resolvidoEm)
+      const e = serieMap.get(k) ?? { criados: 0, resolvidos: 0 }
+      e.resolvidos++
+      serieMap.set(k, e)
+    }
+    const serie = Array.from(serieMap.entries())
+      .map(([periodo, v]) => ({ periodo, ...v }))
+      .sort((a, b) => a.periodo.localeCompare(b.periodo))
+
+    // ── Relatório por categoria (volume + %) ──────────────────────
+    const porCategoria = await prisma.helpdeskTicket.groupBy({
+      by: ['categoriaId'],
+      where: criadosNoPeriodo,
+      _count: { _all: true },
+      orderBy: { _count: { categoriaId: 'desc' } },
+    })
+    const catIds = porCategoria.map(c => c.categoriaId).filter((c): c is string => !!c)
+    const catNames = catIds.length > 0
+      ? await prisma.helpdeskCategoria.findMany({ where: { id: { in: catIds } }, select: { id: true, nome: true, cor: true } })
+      : []
+    const catMap = new Map(catNames.map(c => [c.id, c]))
+
+    // ── Relatório por responsável (volume + tempo médio + SLA) ────
+    const porAgenteRaw = await prisma.helpdeskTicket.groupBy({
+      by: ['responsavelId'],
+      where: { ...resolvidosNoPeriodo, responsavelId: { not: null } },
+      _count: { _all: true },
+    })
+    const agenteIds = porAgenteRaw.map(a => a.responsavelId).filter((a): a is string => !!a)
+    const agenteRows = agenteIds.length > 0
+      ? await prisma.helpdeskTicket.findMany({
+          where: { ...resolvidosNoPeriodo, responsavelId: { in: agenteIds } },
+          select: { responsavelId: true, createdAt: true, resolvidoEm: true, prazoSla: true, slaEstouradoEm: true },
+        })
+      : []
+    const agStat = new Map<string, { total: number; mttrSum: number; mttrCount: number; slaDentro: number; slaTotal: number }>()
+    for (const r of agenteRows) {
+      if (!r.responsavelId) continue
+      const s = agStat.get(r.responsavelId) ?? { total: 0, mttrSum: 0, mttrCount: 0, slaDentro: 0, slaTotal: 0 }
+      s.total++
+      if (r.resolvidoEm) {
+        s.mttrSum += r.resolvidoEm.getTime() - r.createdAt.getTime()
+        s.mttrCount++
+        s.slaTotal++
+        const estourou = !!r.slaEstouradoEm || (r.prazoSla ? r.resolvidoEm.getTime() > r.prazoSla.getTime() : false)
+        if (!estourou) s.slaDentro++
+      }
+      agStat.set(r.responsavelId, s)
+    }
+    const agenteNames = agenteIds.length > 0
+      ? await prisma.user.findMany({ where: { id: { in: agenteIds } }, select: { id: true, name: true, image: true } })
+      : []
+    const agenteMap = new Map(agenteNames.map(a => [a.id, a]))
+    const porResponsavel = agenteIds.map(id => {
+      const s = agStat.get(id)!
+      const u = agenteMap.get(id)
+      return {
+        id,
+        name: u?.name ?? '—',
+        image: u?.image ?? null,
+        total: s.total,
+        mttrHoras: s.mttrCount > 0 ? s.mttrSum / s.mttrCount / 3600_000 : null,
+        slaPct: s.slaTotal > 0 ? Math.round((s.slaDentro / s.slaTotal) * 100) : null,
+      }
+    }).sort((a, b) => b.total - a.total)
+
+    // ── Lista: SLA estourados / mais antigos ainda abertos ────────
+    const slaEstourados = await prisma.helpdeskTicket.findMany({
+      where: {
+        ...baseWhere,
+        arquivado: false,
+        status: { in: ['NOVO', 'AGUARDANDO_AUDITORIA', 'EM_ANDAMENTO'] },
+        prazoSla: { lt: agora },
+      },
+      select: {
+        id: true, numero: true, titulo: true, prioridade: true, status: true,
+        prazoSla: true, createdAt: true,
+        responsavel: { select: { name: true } },
+        categoria: { select: { nome: true, cor: true } },
+      },
+      orderBy: { prazoSla: 'asc' },
+      take: 15,
+    })
+
+    return {
+      range: { inicio: inicio.toISOString(), fim: fim.toISOString() },
+      granularidade,
+      kpis: {
+        criados,
+        resolvidos,
+        backlogAbertos,
+        backlogAtrasados,
+        slaCumprimentoPct,
+        csatMedio,
+        csatRespostas: csatTickets.length,
+        tfrHoras,
+        mttrHoras,
+        taxaReaberturaPct,
+        ticketsReabertos,
+      },
+      porStatus: porStatusRaw.map(s => ({ status: s.status, total: s._count._all })),
+      porPrioridade: porPrioridadeRaw.map(p => ({ prioridade: p.prioridade, total: p._count._all })),
+      porTipo: porTipoRaw.map(t => ({ tipo: t.tipo, total: t._count._all })),
+      csatDist: [1, 2, 3, 4, 5].map(n => ({ nota: n, total: csatDist[n] ?? 0 })),
+      serie,
+      porCategoria: porCategoria.map(c => {
+        const cat = c.categoriaId ? catMap.get(c.categoriaId) : null
+        return {
+          id: c.categoriaId,
+          nome: cat?.nome ?? 'Sem categoria',
+          cor: cat?.cor ?? null,
+          total: c._count._all,
+          pct: criados > 0 ? Math.round((c._count._all / criados) * 100) : 0,
+        }
+      }),
+      porResponsavel,
+      slaEstourados: slaEstourados.map(t => ({
+        id: t.id,
+        numero: t.numero,
+        titulo: t.titulo,
+        prioridade: t.prioridade,
+        status: t.status,
+        prazoSla: t.prazoSla?.toISOString() ?? null,
+        createdAt: t.createdAt.toISOString(),
+        responsavel: t.responsavel?.name ?? null,
+        categoria: t.categoria ? { nome: t.categoria.nome, cor: t.categoria.cor } : null,
+      })),
+    }
+  }
+
   // ── Listar candidatos a responsável (escopo da área do ticket) ─
 
   async listAgentesAtribuiveis(ticketId: string, callerId: string) {
