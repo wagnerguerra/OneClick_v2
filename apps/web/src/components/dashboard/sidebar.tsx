@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { PanelLeftClose, PanelLeft, LayoutDashboard, X } from 'lucide-react'
 import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
@@ -84,15 +85,19 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
           {collapsed && !mobileOpen ? (
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/logo-sm.png" alt="OneClick" className="h-6 w-auto" />
+                <Link href="/dashboard" aria-label="Ir para o início">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/logo-sm.png" alt="OneClick" className="h-6 w-auto" />
+                </Link>
               </TooltipTrigger>
-              <TooltipContent side="right">OneClick</TooltipContent>
+              <TooltipContent side="right">Início</TooltipContent>
             </Tooltip>
           ) : (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={logoSrc} alt="OneClick" className="h-[24px] w-auto object-contain" />
+              <Link href="/dashboard" aria-label="Ir para o início" className="transition-opacity hover:opacity-80">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoSrc} alt="OneClick" className="h-[24px] w-auto object-contain" />
+              </Link>
               {/* Botão fechar - mobile only */}
               <button
                 onClick={onCloseMobile}

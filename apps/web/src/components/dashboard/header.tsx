@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import Link from 'next/link'
 import { Menu, Sun, Moon, Building2 } from 'lucide-react'
 import { useSession } from '@/lib/auth-client'
 import { useTheme } from '@/hooks/use-theme'
@@ -69,8 +70,8 @@ export function Header({ onOpenMobile }: HeaderProps) {
           <span className="sr-only">Abrir menu</span>
         </Button>
 
-        {/* Logo/nome da empresa ativa */}
-        <div className="flex items-center gap-2.5">
+        {/* Logo/nome da empresa ativa — clicável, leva ao início (/dashboard) */}
+        <Link href="/dashboard" title="Ir para o início" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
           {empresa?.logoUrl ? (
             <>
               {/* Logo claro (esconde no dark) */}
@@ -104,7 +105,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
               Dashboard
             </span>
           )}
-        </div>
+        </Link>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
