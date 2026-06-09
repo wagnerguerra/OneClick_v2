@@ -2252,9 +2252,13 @@ export default function AgendaPage() {
 
                           {/* Descrição da oportunidade */}
                           {op.descricao && op.descricao.trim() && (
-                            <div className="space-y-1">
+                            <div className="space-y-1.5">
                               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</span>
-                              <p className="text-[12px] text-foreground/90 whitespace-pre-wrap break-words max-h-32 overflow-y-auto nice-scrollbar pr-1">{op.descricao}</p>
+                              <div
+                                className="rounded-md border border-border bg-background/40 p-2.5 max-h-44 overflow-y-auto nice-scrollbar prose prose-sm dark:prose-invert max-w-none break-words [&_*]:text-[12px] [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:pl-4 [&_li]:my-0.5 [&_a]:text-violet-600 dark:[&_a]:text-violet-400"
+                                // eslint-disable-next-line react/no-danger
+                                dangerouslySetInnerHTML={{ __html: op.descricao }}
+                              />
                             </div>
                           )}
 
