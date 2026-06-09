@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, Plus, MoreVertical, Trash2, Pencil, Loader2,
+  Plus, MoreVertical, Trash2, Pencil, Loader2,
   Package, Tag as TagIcon, FileText, RefreshCw,
 } from 'lucide-react'
 import {
@@ -16,6 +16,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
@@ -77,7 +78,9 @@ export default function ParametrosOrcamentosPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [tipoFilter, setTipoFilter] = useState<string>('__all__')
-  const [statusFilter, setStatusFilter] = useState<string>('__all__')
+  // Default: só os itens adicionáveis aos orçamentos (disponivelOrcamento=true).
+  // O filtro permite ver os demais (todos/ativos/inativos/indisponíveis) quando preciso.
+  const [statusFilter, setStatusFilter] = useState<string>('disponiveis')
 
   // Modal create/edit
   const [editOpen, setEditOpen] = useState(false)
@@ -208,9 +211,6 @@ export default function ParametrosOrcamentosPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/orcamentos')}>
-            <ArrowLeft className="h-4 w-4" /> Voltar
-          </Button>
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
             <Package className="h-6 w-6" />
           </div>
@@ -226,6 +226,7 @@ export default function ParametrosOrcamentosPage() {
           <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={abrirNovo}>
             <Plus className="h-4 w-4" /> Novo Item
           </Button>
+          <BackButton href="/orcamentos" />
         </div>
       </div>
 
