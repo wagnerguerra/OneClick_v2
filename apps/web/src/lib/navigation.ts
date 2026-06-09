@@ -227,6 +227,7 @@ export const navigation: NavGroup[] = [
       { label: "FAQ's", href: '/faq', icon: HelpCircle },
       { label: 'Design System', href: '/admin/design-system', icon: Sparkles },
       { label: 'App Mobile', href: '/admin/app-mobile', icon: Smartphone },
+      { label: 'Modelos de E-mail', href: '/admin/email-templates', icon: Mail },
       { label: 'Sobre', href: '/sobre', icon: Info },
     ],
   },
