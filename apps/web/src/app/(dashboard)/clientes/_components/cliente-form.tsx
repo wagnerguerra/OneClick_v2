@@ -2674,7 +2674,9 @@ function useClientesPerms() {
   const canDelete = isAdmin || !!perm?.canDelete
   // Sub-permissão #7 — master/empresa-master sempre podem
   const canManageActivitiesBenefits = isAdmin || perm?.subPermissions?.['manage_activities_benefits'] === true
-  return { isAdmin, canWrite, canDelete, canManageActivitiesBenefits }
+  // Sub-permissão de arquivos — incluir/editar/excluir arquivos do cliente
+  const canManageFiles = isAdmin || perm?.subPermissions?.['manage_files'] === true
+  return { isAdmin, canWrite, canDelete, canManageActivitiesBenefits, canManageFiles }
 }
 
 const MODULE_COLOR_CLIENTES = 'var(--mod-cadastros, #10b981)'
@@ -2887,7 +2889,7 @@ function AtivBenefActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: 
 }
 
 function ArquivosSidebar({ clienteId }: { clienteId: string }) {
-  const { canWrite, canDelete } = useClientesPerms()
+  const { canManageFiles } = useClientesPerms()
   const [arquivos, setArquivos] = useState<Array<{ id: string; fileName: string; fileUrl: string; fileSize: number | null; mimeType: string | null; descricao: string | null; createdAt: string; user: { name: string } | null }>>([])
   const [loading, setLoading] = useState(true)
   // Modal de edição (#2): renomear + descrição/detalhes
@@ -2962,7 +2964,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
     <Card className="p-5">
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-sm font-semibold">Arquivos</h4>
-        {canWrite && (
+        {canManageFiles && (
           <Button type="button" variant="outline" size="sm" onClick={handleUpload}><Plus className="h-3.5 w-3.5" /> Adicionar</Button>
         )}
       </div>
@@ -2981,12 +2983,12 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
                 <span className="text-muted-foreground">{formatSize(arq.fileSize)}</span>
               </div>
               <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                {canWrite && (
+                {canManageFiles && (
                   <button type="button" onClick={() => setEditing({ id: arq.id, fileName: arq.fileName, descricao: arq.descricao || '' })} className="text-muted-foreground hover:text-foreground" title="Editar arquivo">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {canDelete && (
+                {canManageFiles && (
                   <button type="button" onClick={() => handleRemove(arq.id, arq.fileName)} className="text-destructive hover:text-destructive/80" title="Excluir arquivo">
                     <X className="h-3.5 w-3.5" />
                   </button>

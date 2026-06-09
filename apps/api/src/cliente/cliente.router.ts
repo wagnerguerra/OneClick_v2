@@ -147,7 +147,9 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.listArquivos(input.clienteId)),
 
-    addArquivo: writeProcedure(MODULE)
+    // Arquivos do cliente: incluir/editar/excluir exigem a sub-permissão
+    // 'manage_files' (master/empresa-master sempre passam).
+    addArquivo: writeSubProcedure(MODULE, 'manage_files', 'Incluir, editar e excluir arquivos do cliente')
       .input(z.object({
         clienteId: z.string(),
         fileName: z.string(),
@@ -158,12 +160,12 @@ export function createClienteRouter(
       }))
       .mutation(({ input, ctx }) => clienteService.addArquivo(input.clienteId, input, ctx.userId)),
 
-    renameArquivo: writeProcedure(MODULE)
+    renameArquivo: writeSubProcedure(MODULE, 'manage_files', 'Incluir, editar e excluir arquivos do cliente')
       .input(z.object({ arquivoId: z.string(), fileName: z.string().min(1) }))
       .mutation(({ input }) => clienteService.renameArquivo(input.arquivoId, input.fileName)),
 
     // #2 — Editar arquivo (renomear + descrição/detalhes)
-    updateArquivo: writeProcedure(MODULE)
+    updateArquivo: writeSubProcedure(MODULE, 'manage_files', 'Incluir, editar e excluir arquivos do cliente')
       .input(z.object({
         id: z.string(),
         fileName: z.string().min(1).optional(),
@@ -171,7 +173,7 @@ export function createClienteRouter(
       }))
       .mutation(({ input }) => clienteService.updateArquivo(input.id, { fileName: input.fileName, descricao: input.descricao })),
 
-    removeArquivo: deleteProcedure(MODULE)
+    removeArquivo: deleteSubProcedure(MODULE, 'manage_files', 'Incluir, editar e excluir arquivos do cliente')
       .input(z.object({ arquivoId: z.string() }))
       .mutation(({ input }) => clienteService.removeArquivo(input.arquivoId)),
 

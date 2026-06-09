@@ -169,6 +169,7 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'edit_details', label: 'Editar detalhes do cliente', group: 'Gerais' },
     { key: 'edit_financial', label: 'Alterar particularidades no financeiro', group: 'Gerais' },
     { key: 'notify_files', label: 'Notificar vencimentos de arquivos', group: 'Gerais' },
+    { key: 'manage_files', label: 'Incluir, editar e excluir arquivos do cliente', group: 'Gerais' },
     { key: 'manage_services', label: 'Gerenciar serviços contratados', group: 'Gerais' },
     { key: 'manage_responsible', label: 'Gerenciar responsáveis pelos serviços', group: 'Gerais' },
     { key: 'manage_commercial', label: 'Gerenciar aba comercial', group: 'Comercial' },
