@@ -12,7 +12,7 @@ import {
   ExternalLink, X, Loader2, Building2, Phone, MapPin, Star, Pencil, Trash2, Link2,
   CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen, HardDriveDownload,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, MoreVertical,
-  Image as ImageIcon, Activity, Percent,
+  Image as ImageIcon, Activity, Percent, ShieldCheck,
 } from 'lucide-react'
 import {
   cn, Button, Input, Label, Card, CardHeader, Checkbox, RichEditor, Badge,
@@ -2676,7 +2676,10 @@ function useClientesPerms() {
   const canManageActivitiesBenefits = isAdmin || perm?.subPermissions?.['manage_activities_benefits'] === true
   // Sub-permissão de arquivos — incluir/editar/excluir arquivos do cliente
   const canManageFiles = isAdmin || perm?.subPermissions?.['manage_files'] === true
-  return { isAdmin, canWrite, canDelete, canManageActivitiesBenefits, canManageFiles }
+  // Edição de observações de certificado: módulo gestao-certificados (writeProcedure no backend)
+  const certPerm = permissions.find((p) => p.moduleSlug === 'gestao-certificados')
+  const canEditCertificados = isAdmin || !!certPerm?.canWrite
+  return { isAdmin, canWrite, canDelete, canManageActivitiesBenefits, canManageFiles, canEditCertificados }
 }
 
 const MODULE_COLOR_CLIENTES = 'var(--mod-cadastros, #10b981)'
@@ -2888,13 +2891,23 @@ function AtivBenefActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: 
   )
 }
 
+type CertSidebarItem = {
+  id: string; titular: string | null; emissor: string | null; documento: string | null
+  emitidoEm: string | null; expiraEm: string | null; status: string | null
+  observacoes: string | null; arquivado: boolean
+}
+
 function ArquivosSidebar({ clienteId }: { clienteId: string }) {
-  const { canManageFiles } = useClientesPerms()
+  const { canManageFiles, canEditCertificados } = useClientesPerms()
   const [arquivos, setArquivos] = useState<Array<{ id: string; fileName: string; fileUrl: string; fileSize: number | null; mimeType: string | null; descricao: string | null; createdAt: string; user: { name: string } | null }>>([])
+  const [certificados, setCertificados] = useState<CertSidebarItem[]>([])
   const [loading, setLoading] = useState(true)
   // Modal de edição (#2): renomear + descrição/detalhes
   const [editing, setEditing] = useState<{ id: string; fileName: string; descricao: string } | null>(null)
   const [savingEdit, setSavingEdit] = useState(false)
+  // Modal de edição de observações do certificado
+  const [editingCert, setEditingCert] = useState<{ id: string; titular: string; emissor: string; observacoes: string } | null>(null)
+  const [savingCert, setSavingCert] = useState(false)
 
   function load() {
     trpc.cliente.listArquivos.query({ clienteId })
@@ -2902,7 +2915,36 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [clienteId])
+  function loadCertificados() {
+    // Silencioso: usuário pode não ter permissão no módulo de certificados
+    trpc.certificadoDigital.list.query({ clienteId, incluirArquivados: false })
+      .then((data: unknown) => setCertificados(data as CertSidebarItem[]))
+      .catch(() => setCertificados([]))
+  }
+
+  useEffect(() => { load(); loadCertificados() }, [clienteId])
+
+  async function handleSaveCert() {
+    if (!editingCert) return
+    setSavingCert(true)
+    try {
+      await trpc.certificadoDigital.update.mutate({
+        id: editingCert.id,
+        observacoes: editingCert.observacoes.trim() || null,
+      })
+      setEditingCert(null)
+      loadCertificados()
+      alerts.success('Certificado atualizado', 'As observações foram salvas.')
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message || 'Não foi possível salvar.')
+    } finally { setSavingCert(false) }
+  }
+
+  function formatDate(d: string | null) {
+    if (!d) return '—'
+    const dt = new Date(d)
+    return Number.isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('pt-BR')
+  }
 
   function handleUpload() {
     const input = document.createElement('input')
@@ -2968,6 +3010,55 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
           <Button type="button" variant="outline" size="sm" onClick={handleUpload}><Plus className="h-3.5 w-3.5" /> Adicionar</Button>
         )}
       </div>
+      {/* Certificados digitais — leitura + edição de observações (seção adicional) */}
+      {certificados.length > 0 && (
+        <div className="mb-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Certificados digitais</p>
+          <div className="space-y-2">
+            {certificados.map((cert) => {
+              const exp = cert.expiraEm ? new Date(cert.expiraEm) : null
+              const dias = exp && !Number.isNaN(exp.getTime())
+                ? Math.ceil((exp.getTime() - Date.now()) / 86400000)
+                : null
+              const expColor = dias === null
+                ? 'text-muted-foreground'
+                : dias < 0
+                  ? 'text-rose-600 dark:text-rose-400 font-semibold'
+                  : dias < 30
+                    ? 'text-amber-600 dark:text-amber-400 font-semibold'
+                    : 'text-muted-foreground'
+              return (
+                <div key={cert.id} className="flex items-start gap-2 text-xs group rounded-md border border-border p-2 bg-muted/30">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-fuchsia-600 dark:text-fuchsia-400 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate font-medium">{cert.titular || cert.documento || cert.id}</span>
+                      <Badge variant="outline" className="h-4 px-1 text-[9px] shrink-0">Certificado</Badge>
+                    </div>
+                    {cert.emissor && <p className="text-muted-foreground truncate" title={cert.emissor}>{cert.emissor}</p>}
+                    <p className={expColor}>
+                      Expira: {formatDate(cert.expiraEm)}
+                      {dias !== null && (dias < 0 ? ` (vencido há ${Math.abs(dias)}d)` : ` (${dias}d)`)}
+                    </p>
+                    {cert.observacoes && <p className="text-muted-foreground truncate" title={cert.observacoes}>{cert.observacoes}</p>}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {canEditCertificados && (
+                      <button type="button" onClick={() => setEditingCert({ id: cert.id, titular: cert.titular || '', emissor: cert.emissor || '', observacoes: cert.observacoes || '' })} className="text-muted-foreground hover:text-foreground" title="Editar observações">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <a href={`/gestao-certificados?openId=${cert.id}`} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground" title="Abrir na gestão de certificados">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-4"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
       ) : arquivos.length === 0 ? (
@@ -3020,6 +3111,41 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
             <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
             <Button type="button" variant="success" onClick={handleSaveEdit} disabled={savingEdit || !editing?.fileName.trim()}>
               {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de edição de observações do certificado */}
+      <Dialog open={!!editingCert} onOpenChange={(o) => { if (!o) setEditingCert(null) }}>
+        <DialogContent>
+          <DialogHeaderIcon icon={Pencil} color="sky">
+            <DialogTitle>Editar certificado</DialogTitle>
+            <DialogDescription>Titular e emissor vêm do .pfx e não são editáveis. Ajuste apenas as observações.</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Titular</Label>
+              <Input className="h-9 text-sm" value={editingCert?.titular || ''} readOnly disabled />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Emissor</Label>
+              <Input className="h-9 text-sm" value={editingCert?.emissor || ''} readOnly disabled />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Detalhes / observações</Label>
+              <textarea
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                value={editingCert?.observacoes || ''}
+                onChange={(e) => setEditingCert((s) => (s ? { ...s, observacoes: e.target.value } : s))}
+                placeholder="Anotações internas sobre este certificado..."
+              />
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditingCert(null)}>Cancelar</Button>
+            <Button type="button" variant="success" onClick={handleSaveCert} disabled={savingCert}>
+              {savingCert ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
             </Button>
           </DialogFooter>
         </DialogContent>
