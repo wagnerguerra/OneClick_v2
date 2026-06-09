@@ -128,6 +128,8 @@ export default function ClientesPage() {
   // Filtros
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [filterSituacao, setFilterSituacao] = useState('')
+  // Status (ativo/inativo/...). Vazio = padrão (backend oculta INATIVA).
+  const [filterStatus, setFilterStatus] = useState('')
   const [filterTributacao, setFilterTributacao] = useState('')
   const [filterGrupo, setFilterGrupo] = useState('')
   const [filterCidade, setFilterCidade] = useState('')
@@ -175,6 +177,7 @@ export default function ClientesPage() {
       const input = {
         page, limit, search: debouncedSearch || undefined, sortBy: sort.column, sortDir: sort.dir,
         ...(situacaoFinal ? { situacao: situacaoFinal as 'MENSAL' } : {}),
+        ...(filterStatus ? { status: filterStatus as 'ATIVA' } : {}),
         ...(filterTributacao ? { tributacao: filterTributacao as 'SIMPLES_NACIONAL' } : {}),
         ...(filterGrupo ? { grupo: filterGrupo } : {}),
         ...(filterCidade ? { cidade: filterCidade } : {}),
@@ -186,7 +189,7 @@ export default function ClientesPage() {
       setData(result)
       setSelected(new Set())
     } catch { /* silent */ } finally { setLoading(false) }
-  }, [page, limit, debouncedSearch, sort, filterSituacao, filterTributacao, filterGrupo, filterCidade, filterUf, onlyMensal, trashMode])
+  }, [page, limit, debouncedSearch, sort, filterSituacao, filterStatus, filterTributacao, filterGrupo, filterCidade, filterUf, onlyMensal, trashMode])
 
   useEffect(() => { fetchClientes() }, [fetchClientes])
 
@@ -201,7 +204,7 @@ export default function ClientesPage() {
   }
 
   function clearFilters() {
-    setFilterSituacao(''); setFilterTributacao(''); setFilterGrupo(''); setFilterCidade(''); setFilterUf('')
+    setFilterSituacao(''); setFilterStatus(''); setFilterTributacao(''); setFilterGrupo(''); setFilterCidade(''); setFilterUf('')
     setSearch(''); setPage(1)
   }
 
@@ -357,7 +360,7 @@ export default function ClientesPage() {
     return pages
   }
 
-  const hasActiveFilters = filterSituacao || filterTributacao || filterGrupo || filterCidade || filterUf || onlyMensal
+  const hasActiveFilters = filterSituacao || filterStatus || filterTributacao || filterGrupo || filterCidade || filterUf || onlyMensal
 
   return (
     <div className="space-y-6">
@@ -429,7 +432,7 @@ export default function ClientesPage() {
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 Filtros
-                {hasActiveFilters && (() => { const count = [filterSituacao, filterTributacao, filterGrupo, filterCidade, filterUf].filter(Boolean).length + (onlyMensal ? 1 : 0); return count > 0 ? <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-emerald-500">{count}</Badge> : null })()}
+                {hasActiveFilters && (() => { const count = [filterSituacao, filterStatus, filterTributacao, filterGrupo, filterCidade, filterUf].filter(Boolean).length + (onlyMensal ? 1 : 0); return count > 0 ? <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-emerald-500">{count}</Badge> : null })()}
               </div>
               <button
                 type="button"
@@ -463,6 +466,23 @@ export default function ClientesPage() {
                     <SelectContent>
                       <SelectItem value="__all__">Todas</SelectItem>
                       {Object.entries(SITUACAO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Status</label>
+                  {/* Padrão "Ativos (sem inativos)" = não envia status → backend oculta INATIVA.
+                      Selecionar "Inativos" mostra os inativos. */}
+                  <Select value={filterStatus || '__all__'} onValueChange={(v) => { setFilterStatus(v === '__all__' ? '' : v); setPage(1) }}>
+                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Ativos (sem inativos)</SelectItem>
+                      <SelectItem value="INATIVA">Inativos</SelectItem>
+                      <SelectItem value="SUSPENSA">Suspensos</SelectItem>
+                      <SelectItem value="BAIXADA">Baixados</SelectItem>
+                      <SelectItem value="INAPTA">Inaptas</SelectItem>
+                      <SelectItem value="NULA">Nulas</SelectItem>
+                      <SelectItem value="ATIVA">Somente ativos</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

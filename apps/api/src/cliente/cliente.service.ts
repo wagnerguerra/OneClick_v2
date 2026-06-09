@@ -154,7 +154,9 @@ export class ClienteService {
       ...(isLead !== undefined ? { isLead } : {}),
       ...empresaFilter(isMaster, empresaId),
       ...(situacao ? { situacao } : {}),
-      ...(status ? { status } : {}),
+      // Status: por padrão a lista OCULTA clientes INATIVA — eles só aparecem
+      // quando o usuário filtra explicitamente por um status (inclusive INATIVA).
+      ...(status ? { status } : { status: { not: 'INATIVA' } }),
       ...(tributacao ? { tributacao } : {}),
       ...(grupo ? { grupo } : {}),
       ...(cidade ? { cidade } : {}),
@@ -760,8 +762,9 @@ export class ClienteService {
       const [anoStr, mesStr] = r.mes.split('-')
       const ano = Number(anoStr)
       const mes = Number(mesStr)
-      if (out[r.indicador]) {
-        out[r.indicador].push({ ano, mes, movimentacao: r.valor })
+      const arr = out[r.indicador]
+      if (arr) {
+        arr.push({ ano, mes, movimentacao: r.valor })
       }
     }
     return { sucesso: true, periodo: { datai, dataf }, ...out, origem: 'snapshot' }
