@@ -2333,9 +2333,9 @@ export default function OrcamentoDetailPage() {
                           <div className={cn('flex items-center gap-1.5 mt-2', !right && 'flex-row-reverse')}>
                             {ev.usuario?.image ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={ev.usuario.image} alt={ev.usuario.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
+                              <img src={ev.usuario.image} alt={ev.usuario.name} className="h-10 w-10 rounded-full object-cover shrink-0" />
                             ) : ev.usuario?.name ? (
-                              <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">
+                              <span className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-[11px] font-bold text-muted-foreground shrink-0">
                                 {iniciaisNome(ev.usuario.name)}
                               </span>
                             ) : null}
