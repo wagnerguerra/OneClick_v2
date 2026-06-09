@@ -283,6 +283,8 @@ export default function AgendaPage() {
   // `editar_todos_eventos` permite editar/excluir eventos de QUALQUER usuário,
   // mesmo os marcados como editavel=false (importados do legado).
   const canEditarTodosEventos = isMaster || subPerms.editar_todos_eventos === true
+  // Acesso ao módulo CRM — gateia o botão "Abrir no CRM" no painel da oportunidade.
+  const canViewCrm = isMaster || permissions.some(p => p.moduleSlug === 'crm' && p.canRead)
   const showSettingsDropdown = canManageTipos || canImportLegado || canManageConfig
 
   const [year, setYear] = useState(() => new Date().getFullYear())
@@ -2119,24 +2121,6 @@ export default function AgendaPage() {
                       </div>
                     )}
 
-                    {/* Ações */}
-                    {(() => {
-                      const isOwner = selectedEvento.criadorId === currentUserId
-                      return (
-                        <div className="flex items-center gap-2 border-t pt-3">
-                          {(selectedEvento.editavel || isOwner || canEditarTodosEventos) && (
-                            <Button size="sm" variant="outline" onClick={() => openEditEvent(selectedEvento)} className="gap-1.5">
-                              <Edit2 className="h-3.5 w-3.5" />Editar
-                            </Button>
-                          )}
-                          {(canDeleteEventos || isOwner || canEditarTodosEventos) && (
-                            <Button size="sm" variant="destructive" onClick={() => handleDelete(selectedEvento)} className="gap-1.5">
-                              <Trash2 className="h-3.5 w-3.5" />Excluir
-                            </Button>
-                          )}
-                        </div>
-                      )
-                    })()}
                   </div>
 
                   {/* ============ COLUNA DIREITA (oportunidade do CRM) ============ */}
@@ -2271,14 +2255,16 @@ export default function AgendaPage() {
                             <span className="tabular-nums">{op._count?.arquivos ?? 0} arquivo(s)</span>
                           </div>
 
-                          {/* Abrir no CRM */}
-                          <Link
-                            href={`/crm?op=${op.id}`}
-                            className="flex items-center justify-center gap-1.5 w-full text-[12px] font-semibold text-violet-700 dark:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 rounded-lg px-3 py-2 transition-colors"
-                          >
-                            Abrir no CRM
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          </Link>
+                          {/* Abrir no CRM — só pra quem tem acesso ao módulo CRM */}
+                          {canViewCrm && (
+                            <Link
+                              href={`/crm?op=${op.id}`}
+                              className="flex items-center justify-center gap-1.5 w-full text-[12px] font-semibold text-violet-700 dark:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 rounded-lg px-3 py-2 transition-colors"
+                            >
+                              Abrir no CRM
+                              <ArrowRight className="h-3.5 w-3.5" />
+                            </Link>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -3004,6 +2990,27 @@ export default function AgendaPage() {
               <Button variant="outline" size="sm" onClick={() => setModalOpen(false)}>Cancelar</Button>
             </DialogFooter>
           )}
+          {/* Rodapé do modo VIEW — Editar/Excluir fixos no rodapé do modal */}
+          {modalMode === 'view' && selectedEvento && (() => {
+            const isOwner = selectedEvento.criadorId === currentUserId
+            const podeEditar = selectedEvento.editavel || isOwner || canEditarTodosEventos
+            const podeExcluir = canDeleteEventos || isOwner || canEditarTodosEventos
+            if (!podeEditar && !podeExcluir) return null
+            return (
+              <DialogFooter>
+                {podeEditar && (
+                  <Button size="sm" variant="outline" onClick={() => openEditEvent(selectedEvento)} className="gap-1.5">
+                    <Edit2 className="h-3.5 w-3.5" />Editar
+                  </Button>
+                )}
+                {podeExcluir && (
+                  <Button size="sm" variant="destructive" onClick={() => handleDelete(selectedEvento)} className="gap-1.5">
+                    <Trash2 className="h-3.5 w-3.5" />Excluir
+                  </Button>
+                )}
+              </DialogFooter>
+            )
+          })()}
         </DialogContent>
       </Dialog>
 
