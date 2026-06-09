@@ -189,10 +189,6 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-function formatDateTime(d: string) {
-  return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
-
 function StatusBadge({ status }: { status: string }) {
   const color = STATUS_COLORS[status] || '#94a3b8'
   const label = STATUS_LABELS[status] || status
@@ -2313,46 +2309,66 @@ export default function OrcamentoDetailPage() {
               {!orc.eventos?.length ? (
                 <div className="px-5 py-8 text-center text-xs text-muted-foreground">Nenhum evento registrado ainda</div>
               ) : (
-                <div className="max-h-[520px] overflow-y-auto px-5 py-4">
-                  <div className="relative pl-7">
-                    {/* Linha conectora vertical */}
-                    <div className="absolute left-[5px] top-1 bottom-1 w-px bg-border/60" />
-                    {orc.eventos.map(ev => {
+                <div className="max-h-[640px] overflow-y-auto px-2 sm:px-6 py-8">
+                  {/* Timeline central: espinha colorida no meio + eventos alternando
+                      lados (zig-zag), cada nó com dot/conector na cor do tipo. */}
+                  <div className="relative mx-auto w-full max-w-3xl">
+                    {orc.eventos.map((ev, i) => {
                       const meta = eventMeta(ev.tipo)
-                      return (
-                        <div key={ev.id} className="relative mb-5 last:mb-0">
-                          {/* Dot na linha */}
-                          <div
-                            className="absolute -left-[26px] top-0.5 h-3 w-3 rounded-full border-2 border-background"
-                            style={{ backgroundColor: meta.color }}
-                          />
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span
-                              className="inline-flex items-center rounded-full px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide"
-                              style={{ backgroundColor: `${meta.color}22`, color: meta.color }}
-                            >
-                              {meta.label}
-                            </span>
-                            <p className="text-xs font-medium flex-1 min-w-0">{ev.descricao}</p>
+                      const right = i % 2 === 0
+                      const isLast = i === orc.eventos.length - 1
+                      const d = new Date(ev.createdAt)
+                      const dia = String(d.getDate()).padStart(2, '0')
+                      const mm = String(d.getMonth() + 1).padStart(2, '0')
+                      const ano = d.getFullYear()
+                      const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                      const bloco = (
+                        <div className={cn('min-w-0', right ? 'text-left' : 'text-right')}>
+                          <div className={cn('flex items-baseline gap-1.5', !right && 'justify-end')} style={{ color: meta.color }}>
+                            <span className="text-2xl font-extrabold leading-none tabular-nums">{dia}/{mm}</span>
+                            <span className="text-[11px] font-semibold opacity-80 tabular-nums">{ano}</span>
                           </div>
-                          <div className="flex items-center gap-2 mt-1.5">
-                            {ev.usuario?.name ? (
-                              <span className="flex items-center gap-1.5">
-                                {ev.usuario.image ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={ev.usuario.image} alt={ev.usuario.name} className="h-5 w-5 rounded-full object-cover" />
-                                ) : (
-                                  <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">
-                                    {iniciaisNome(ev.usuario.name)}
-                                  </span>
-                                )}
-                                <span className="text-[11px] font-medium text-foreground">{ev.usuario.name}</span>
+                          <div className="text-[12px] font-bold mt-1" style={{ color: meta.color }}>{meta.label}</div>
+                          <p className="text-xs text-foreground/90 mt-1 leading-snug">{ev.descricao}</p>
+                          <div className={cn('flex items-center gap-1.5 mt-2', !right && 'flex-row-reverse')}>
+                            {ev.usuario?.image ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={ev.usuario.image} alt={ev.usuario.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
+                            ) : ev.usuario?.name ? (
+                              <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">
+                                {iniciaisNome(ev.usuario.name)}
                               </span>
-                            ) : (
-                              <span className="text-[11px] text-muted-foreground italic">Sistema</span>
-                            )}
+                            ) : null}
+                            <span className="text-[11px] font-medium text-foreground">{ev.usuario?.name ?? 'Sistema'}</span>
                             <span className="text-muted-foreground/60">·</span>
-                            <span className="text-[10px] text-muted-foreground tabular-nums">{formatDateTime(ev.createdAt)}</span>
+                            <span className="text-[10px] text-muted-foreground tabular-nums">{hora}</span>
+                          </div>
+                        </div>
+                      )
+                      return (
+                        <div key={ev.id} className="relative grid grid-cols-[1fr_24px_1fr]">
+                          {/* Coluna esquerda (eventos de índice ímpar) */}
+                          <div className={cn('relative pb-8', right ? '' : 'pr-5')}>
+                            {!right && (
+                              <>
+                                <div className="absolute right-0 top-[7px] h-[2px] w-5" style={{ backgroundColor: meta.color }} />
+                                {bloco}
+                              </>
+                            )}
+                          </div>
+                          {/* Espinha central + nó */}
+                          <div className="relative flex justify-center">
+                            <div className={cn('absolute top-0 w-[3px]', isLast ? 'h-4' : 'bottom-0')} style={{ backgroundColor: meta.color }} />
+                            <div className="absolute top-0.5 h-3.5 w-3.5 rounded-full border-2 border-background z-10" style={{ backgroundColor: meta.color }} />
+                          </div>
+                          {/* Coluna direita (eventos de índice par) */}
+                          <div className={cn('relative pb-8', right ? 'pl-5' : '')}>
+                            {right && (
+                              <>
+                                <div className="absolute left-0 top-[7px] h-[2px] w-5" style={{ backgroundColor: meta.color }} />
+                                {bloco}
+                              </>
+                            )}
                           </div>
                         </div>
                       )
