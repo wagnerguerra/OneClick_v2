@@ -161,6 +161,18 @@ export class AgendaService {
     return subs.editar_todos_eventos === true
   }
 
+  /** Pode excluir eventos de outros: MASTER ou sub-perm `delete_eventos`/`editar_todos_eventos`. */
+  private async userPodeExcluir(userId: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { isMaster: true } })
+    if (user?.isMaster) return true
+    const perm = await prisma.userPermission.findUnique({
+      where: { userId_moduleSlug: { userId, moduleSlug: 'agenda' } },
+      select: { subPermissions: true },
+    })
+    const subs = (perm?.subPermissions ?? {}) as Record<string, boolean>
+    return subs.delete_eventos === true || subs.editar_todos_eventos === true
+  }
+
   getImportProgress(): ImportProgress {
     return { ...this.importProgress }
   }
@@ -482,14 +494,13 @@ export class AgendaService {
   async update(id: string, data: UpdateEventoInput, userId: string) {
     const evento = await prisma.agendaEvento.findUniqueOrThrow({ where: { id } })
 
-    // Editavel=false vem de eventos importados do legado (SERPRO2, evemodifica='0').
-    // Regra: o criador (inclusive quem "herdou" o evento via mapeamento de email no
-    // import) sempre pode editar — alinha com o front que mostra "Editar" pro dono.
-    // Bypass: usuário com sub-perm `editar_todos_eventos` (ou MASTER) ignora a checagem.
-    if (!evento.editavel && evento.criadorId !== userId) {
+    // Permissão de edição: SÓ o criador (dono) do evento, MASTER ou quem tem a
+    // sub-permissão `editar_todos_eventos`. (`editavel` é flag do evento — legado
+    // SERPRO2 evemodifica='0' — NÃO é permissão de usuário; o dono ainda pode editar.)
+    if (evento.criadorId !== userId) {
       const podeEditarTodos = await this.userPodeEditarTodos(userId)
       if (!podeEditarTodos) {
-        throw new Error('Este evento não pode ser editado.')
+        throw new Error('Você não tem permissão para editar este evento.')
       }
     }
 
@@ -586,6 +597,13 @@ export class AgendaService {
   }
 
   async delete(id: string, userId: string, notificar = false) {
+    // Permissão de exclusão: dono do evento, MASTER, ou sub-perm `delete_eventos`
+    // / `editar_todos_eventos`. (espelha o botão "Excluir" do front)
+    const ev = await prisma.agendaEvento.findUniqueOrThrow({ where: { id }, select: { criadorId: true } })
+    if (ev.criadorId !== userId && !(await this.userPodeExcluir(userId))) {
+      throw new Error('Você não tem permissão para excluir este evento.')
+    }
+
     // Notificar antes do soft delete (opt-in — só quando marcado no diálogo de exclusão).
     if (notificar === true) {
       this.notificarParticipantes(id, 'excluido').catch((e: Error) => {

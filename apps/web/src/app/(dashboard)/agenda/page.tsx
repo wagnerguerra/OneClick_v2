@@ -2993,7 +2993,9 @@ export default function AgendaPage() {
           {/* Rodapé do modo VIEW — Editar/Excluir fixos no rodapé do modal */}
           {modalMode === 'view' && selectedEvento && (() => {
             const isOwner = selectedEvento.criadorId === currentUserId
-            const podeEditar = selectedEvento.editavel || isOwner || canEditarTodosEventos
+            // Editar: SÓ o dono do evento, master ou quem tem a sub-permissão
+            // "editar_todos_eventos". `editavel` é flag do evento (legado), NÃO permissão.
+            const podeEditar = isOwner || canEditarTodosEventos
             const podeExcluir = canDeleteEventos || isOwner || canEditarTodosEventos
             if (!podeEditar && !podeExcluir) return null
             return (
