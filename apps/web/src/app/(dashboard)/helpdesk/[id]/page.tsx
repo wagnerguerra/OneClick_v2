@@ -151,6 +151,8 @@ export default function HelpdeskTicketDetailPage() {
   // Sidebar — edição inline
   const [savingField, setSavingField] = useState<string | null>(null)
   const [agentes, setAgentes] = useState<Array<{ id: string; name: string; image: string | null; areaName: string | null }>>([])
+  // Catálogo de categorias (pra reclassificar o ticket pela sidebar).
+  const [categorias, setCategorias] = useState<Array<{ id: string; nome: string; cor: string | null; parent: { id: string; nome: string } | null }>>([])
 
   // Quem pode atuar (mover status, trocar prioridade, atribuir responsável):
   // mesma regra de /helpdesk → probeAtuarAgente. Colaborador (incluindo
@@ -256,6 +258,13 @@ export default function HelpdeskTicketDetailPage() {
       .then((data: typeof agentes) => setAgentes(data || []))
       .catch(() => setAgentes([]))
   }, [ticket])
+
+  // Carrega o catálogo de categorias uma vez (pra reclassificação).
+  useEffect(() => {
+    ;(trpc.helpdesk as any).listCategorias.query()
+      .then((data: typeof categorias) => setCategorias(data || []))
+      .catch(() => setCategorias([]))
+  }, [])
 
   async function patch(data: Record<string, unknown>, field: string) {
     setSavingField(field)
@@ -751,6 +760,58 @@ export default function HelpdeskTicketDetailPage() {
         {/* Body em 2 colunas: conteúdo + sidebar */}
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
           <div className="min-w-0 space-y-4">
+            {/* Descrição inicial — sempre o primeiro card (antes de triagem e mensagens) */}
+            <Card className="border-l-4 border-l-cyan-500/70 overflow-hidden">
+              {/* Header com avatar + autor + timestamp */}
+              <div className="px-4 py-3 bg-muted/30 border-b flex items-center gap-3">
+                {ticket.solicitante?.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={resolveAssetUrl(ticket.solicitante.image)}
+                    alt={ticket.solicitante.name}
+                    className="h-9 w-9 rounded-full object-cover shrink-0 ring-2 ring-card"
+                  />
+                ) : (
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-cyan-500 to-sky-500 text-white text-xs font-bold flex items-center justify-center shrink-0 ring-2 ring-card">
+                    {(ticket.solicitante?.name ?? '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="text-sm font-semibold truncate">
+                      {ticket.solicitante?.name ?? 'Solicitante externo'}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-cyan-700 dark:text-cyan-400 px-1.5 py-0.5 rounded bg-cyan-500/10">
+                      <FileText className="h-2.5 w-2.5" /> Descrição inicial
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {ticket.solicitante?.email && (
+                      <span className="mr-2">{ticket.solicitante.email}</span>
+                    )}
+                    <span>{new Date(ticket.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                  </p>
+                </div>
+                {!!currentUserId && ticket.solicitante?.id === currentUserId && ticket.status !== 'CANCELADO' && (
+                  <button
+                    type="button"
+                    onClick={abrirEditDescricao}
+                    className="shrink-0 p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                    title="Editar título e descrição"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              {/* Conteúdo da descrição */}
+              <CardContent className="px-5 py-4">
+                <div
+                  className="text-sm leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-cyan-600 [&_a]:underline"
+                  dangerouslySetInnerHTML={{ __html: linkifyHelpdesk(ticket.descricao) }}
+                />
+              </CardContent>
+            </Card>
+
             {/* CSAT — destacado se pendente */}
             {podeAvaliar && ticket.solicitante && (
               <Card className="border-l-4 border-l-emerald-500 bg-emerald-50/40 dark:bg-emerald-900/20">
@@ -963,58 +1024,6 @@ export default function HelpdeskTicketDetailPage() {
             )}
 
             <TabsContent value="conversa" className="space-y-3 mt-0">
-              {/* Descrição inicial */}
-              <Card className="border-l-4 border-l-cyan-500/70 overflow-hidden">
-                {/* Header com avatar + autor + timestamp */}
-                <div className="px-4 py-3 bg-muted/30 border-b flex items-center gap-3">
-                  {ticket.solicitante?.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={resolveAssetUrl(ticket.solicitante.image)}
-                      alt={ticket.solicitante.name}
-                      className="h-9 w-9 rounded-full object-cover shrink-0 ring-2 ring-card"
-                    />
-                  ) : (
-                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-cyan-500 to-sky-500 text-white text-xs font-bold flex items-center justify-center shrink-0 ring-2 ring-card">
-                      {(ticket.solicitante?.name ?? '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2 flex-wrap">
-                      <span className="text-sm font-semibold truncate">
-                        {ticket.solicitante?.name ?? 'Solicitante externo'}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-cyan-700 dark:text-cyan-400 px-1.5 py-0.5 rounded bg-cyan-500/10">
-                        <FileText className="h-2.5 w-2.5" /> Descrição inicial
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {ticket.solicitante?.email && (
-                        <span className="mr-2">{ticket.solicitante.email}</span>
-                      )}
-                      <span>{new Date(ticket.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                    </p>
-                  </div>
-                  {!!currentUserId && ticket.solicitante?.id === currentUserId && ticket.status !== 'CANCELADO' && (
-                    <button
-                      type="button"
-                      onClick={abrirEditDescricao}
-                      className="shrink-0 p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                      title="Editar título e descrição"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-                {/* Conteúdo da descrição */}
-                <CardContent className="px-5 py-4">
-                  <div
-                    className="text-sm leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-cyan-600 [&_a]:underline"
-                    dangerouslySetInnerHTML={{ __html: linkifyHelpdesk(ticket.descricao) }}
-                  />
-                </CardContent>
-              </Card>
-
               {/* Thread */}
               {ticket.mensagens.length === 0 ? (
                 <Card><CardContent className="p-6 text-center text-xs text-muted-foreground">
@@ -1279,6 +1288,29 @@ export default function HelpdeskTicketDetailPage() {
                               <span>{a.name}</span>
                               {a.areaName && <span className="text-[9px] text-muted-foreground">{a.areaName}</span>}
                             </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </SideField>
+
+                <SideField label="Categoria" icon={Tag}>
+                  {!podeAtuar ? (
+                    <p className="text-xs">{ticket.categoria ? `${ticket.categoria.parent ? ticket.categoria.parent.nome + ' › ' : ''}${ticket.categoria.nome}` : <span className="text-muted-foreground italic">—</span>}</p>
+                  ) : savingField === 'categoria' ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : (
+                    <Select
+                      value={ticket.categoria?.id ?? '__null__'}
+                      onValueChange={v => patch({ categoriaId: v === '__null__' ? null : v }, 'categoria')}
+                    >
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sem categoria" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__null__">— Sem categoria</SelectItem>
+                        {categorias.map(c => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.parent ? `${c.parent.nome} › ${c.nome}` : c.nome}
                           </SelectItem>
                         ))}
                       </SelectContent>
