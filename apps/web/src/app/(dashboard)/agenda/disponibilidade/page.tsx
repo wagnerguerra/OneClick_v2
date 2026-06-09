@@ -156,19 +156,48 @@ export default function AgendaDisponibilidadePage() {
     return map
   }, [eventos])
 
-  // Verifica se um slot [hhmm, hhmm+30min] num dia tem conflito com algum evento
-  function slotEventos(dia: Date, hhmm: string): EventoOcupacao[] {
-    const dataKey = formatDateKey(dia)
-    const slotIni = minutesFromMidnight(hhmm)
-    const slotFim = slotIni + SLOT_MINUTOS
-    const eventosNoDia = eventosPorDia[dataKey] ?? []
-    return eventosNoDia.filter(ev => {
-      const evIni = minutesFromMidnight(ev.horaInicio)
-      const evFim = minutesFromMidnight(ev.horaFim)
-      // overlap: evIni < slotFim && evFim > slotIni
-      return evIni < slotFim && evFim > slotIni
+  // Layout de cada coluna (dia): em vez de repetir o evento em cada slot de
+  // 30min, calculamos blocos mesclados (rowSpan). Cada célula vira:
+  //   'free'              → slot livre (clicável pra agendar)
+  //   'skip'              → coberto por um rowSpan acima (não renderiza <td>)
+  //   { ev, span }        → início de um bloco ocupado, abrange `span` slots
+  // Eventos sobrepostos: o que começa antes "reserva" os slots; o seguinte
+  // ocupa os slots livres restantes (mantém o comportamento de 1 evento por
+  // bloco que já existia, mas sem repetição).
+  type Cell = 'free' | 'skip' | { ev: EventoOcupacao; span: number }
+  const baseMin = HORA_INICIO * 60
+  const layouts = useMemo(() => {
+    return diasDaSemana.map(dia => {
+      const dataKey = formatDateKey(dia)
+      const evs = (eventosPorDia[dataKey] ?? []).slice()
+        .sort((a, b) => minutesFromMidnight(a.horaInicio) - minutesFromMidnight(b.horaInicio))
+      const cells: Cell[] = new Array(slots.length).fill('free')
+      const claimed: boolean[] = new Array(slots.length).fill(false)
+      for (const ev of evs) {
+        const evIni = minutesFromMidnight(ev.horaInicio)
+        const evFim = minutesFromMidnight(ev.horaFim)
+        // Faixa de slots [first, last] que o evento sobrepõe dentro do grid
+        let first = -1, last = -1
+        for (let i = 0; i < slots.length; i++) {
+          const sIni = baseMin + i * SLOT_MINUTOS
+          if (evIni < sIni + SLOT_MINUTOS && evFim > sIni) { if (first < 0) first = i; last = i }
+        }
+        if (first < 0) continue  // fora da janela 8h–18h
+        // Começa no 1º slot livre da faixa e estende enquanto houver slots livres
+        let s = first
+        while (s <= last && claimed[s]) s++
+        if (s > last) continue  // já totalmente coberto por evento anterior
+        let e = s
+        while (e + 1 <= last && !claimed[e + 1]) e++
+        for (let k = s; k <= e; k++) claimed[k] = true
+        cells[s] = { ev, span: e - s + 1 }
+      }
+      for (let i = 0; i < slots.length; i++) {
+        if (claimed[i] && cells[i] === 'free') cells[i] = 'skip'
+      }
+      return cells
     })
-  }
+  }, [diasDaSemana, eventosPorDia, slots, baseMin])
 
   // ============================ Ações ============================
   function toggleParticipante(uid: string) {
@@ -398,55 +427,60 @@ export default function AgendaDisponibilidadePage() {
                 </tr>
               </thead>
               <tbody>
-                {slots.map(slot => (
+                {slots.map((slot, si) => (
                   <tr key={slot}>
                     <td className="w-[64px] px-2 py-1 text-[11px] text-muted-foreground border-b border-r border-border bg-muted/20 text-right tabular-nums align-middle">
                       {slot}
                     </td>
                     {diasDaSemana.map((dia, di) => {
-                      const ocupacoes = slotEventos(dia, slot)
-                      const ocupado = ocupacoes.length > 0
+                      const cell = layouts[di]![si]!
+                      // Slot coberto por um rowSpan acima — não renderiza <td>.
+                      if (cell === 'skip') return null
                       const diaKey = formatDateKey(dia)
                       const isPast = diaKey < hojeKey
-                      const evPrincipal = ocupacoes[0]
+                      // Slot livre
+                      if (cell === 'free') {
+                        return (
+                          <td
+                            key={di}
+                            className={cn(
+                              'border-b border-r last:border-r-0 border-border h-[28px] transition-colors align-middle',
+                              isPast
+                                ? 'bg-muted/30 dark:bg-muted/10'
+                                : 'bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-950/40 cursor-pointer',
+                            )}
+                            onClick={() => { if (!isPast) clickSlotLivre(dia, slot) }}
+                            title={isPast ? 'Data passada' : 'Disponível — clique pra agendar'}
+                          />
+                        )
+                      }
+                      // Início de um bloco ocupado — mescla `span` slots num único <td>
+                      const ev = cell.ev
                       return (
                         <td
                           key={di}
-                          className={cn(
-                            'border-b border-r last:border-r-0 border-border h-[28px] transition-colors relative align-middle',
-                            ocupado
-                              ? 'hover:bg-muted/40 cursor-pointer'
-                              : isPast
-                                ? 'bg-muted/30 dark:bg-muted/10'
-                                : 'bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-950/40 cursor-pointer',
-                          )}
-                          // Zebrado diagonal branco/vermelho suave nos slots ocupados —
-                          // sinal visual reforçando "ocupado" além da bolinha+texto.
-                          style={ocupado ? {
+                          rowSpan={cell.span}
+                          className="border-b border-r last:border-r-0 border-border transition-colors relative align-top cursor-pointer hover:bg-muted/40"
+                          // Zebrado diagonal vermelho suave reforçando "ocupado".
+                          style={{
                             backgroundImage: 'repeating-linear-gradient(135deg, transparent 0px, transparent 6px, rgba(244,63,94,0.05) 6px, rgba(244,63,94,0.05) 12px)',
-                          } : undefined}
-                          onClick={() => {
-                            if (ocupado && evPrincipal) clickEventoOcupado(evPrincipal.id)
-                            else if (!isPast) clickSlotLivre(dia, slot)
                           }}
-                          title={
-                            ocupado
-                              ? ocupacoes.map(ev => `${ev.horaInicio}–${ev.horaFim} ${ev.titulo} (${ev.nomesOcupados.join(', ')})`).join('\n') + '\n\nClique pra ver detalhes do evento'
-                              : isPast ? 'Data passada' : 'Disponível — clique pra agendar'
-                          }
+                          onClick={() => clickEventoOcupado(ev.id)}
+                          title={`${ev.horaInicio}–${ev.horaFim} ${ev.titulo} (${ev.nomesOcupados.join(', ')})\n\nClique pra ver detalhes do evento`}
                         >
-                          {ocupado && evPrincipal && (
-                            <div className="flex items-center gap-1.5 px-1.5 min-w-0">
-                              <span
-                                className="h-2 w-2 rounded-full shrink-0"
-                                style={{ backgroundColor: evPrincipal.tipoCor }}
-                              />
-                              <span className="text-[10px] text-foreground truncate">
-                                <span className="font-semibold">{evPrincipal.nomesOcupados.join(', ')}</span>
-                                <span className="text-muted-foreground"> — {evPrincipal.titulo}</span>
+                          <div className="flex items-start gap-1.5 px-1.5 py-1 min-w-0">
+                            <span
+                              className="h-2 w-2 rounded-full shrink-0 mt-1"
+                              style={{ backgroundColor: ev.tipoCor }}
+                            />
+                            <span className="text-[10px] text-foreground leading-tight min-w-0">
+                              <span className="font-semibold">{ev.nomesOcupados.join(', ')}</span>
+                              <span className="text-muted-foreground"> — {ev.titulo}</span>
+                              <span className="block text-[9px] text-muted-foreground tabular-nums mt-0.5">
+                                {ev.horaInicio}–{ev.horaFim}
                               </span>
-                            </div>
-                          )}
+                            </span>
+                          </div>
                         </td>
                       )
                     })}

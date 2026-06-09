@@ -246,6 +246,8 @@ export default function AgendaPage() {
   const [filtroTipo, setFiltroTipo] = useState<string>('')
   const [filtroParticipante, setFiltroParticipante] = useState<string>('')
   const [filtroBusca, setFiltroBusca] = useState<string>('')
+  // Filtro de sala de reunião: '' = todas · '__any__' = qualquer sala ocupada · <id> = sala específica
+  const [filtroSala, setFiltroSala] = useState<string>('')
 
   // Modal de evento
   const [modalOpen, setModalOpen] = useState(false)
@@ -551,6 +553,17 @@ export default function AgendaPage() {
         e.participantes.some(p => p.usuarioId === filtroParticipante)
       )
     }
+    // Filtro de sala de reunião — "__any__" mostra eventos em qualquer sala
+    // (= quando há sala ocupada); um id específico filtra só aquela sala
+    // (casa pela FK salaId e, por compatibilidade, pelo nome em `sala`).
+    if (filtroSala) {
+      if (filtroSala === '__any__') {
+        filtered = filtered.filter(e => !!(e.salaId || (e.sala && e.sala.trim())))
+      } else {
+        const salaNome = salasCadastradas.find(s => s.id === filtroSala)?.nome
+        filtered = filtered.filter(e => e.salaId === filtroSala || (!!salaNome && e.sala === salaNome))
+      }
+    }
     const termo = filtroBusca
       .trim()
       .toLowerCase()
@@ -562,6 +575,7 @@ export default function AgendaPage() {
           e.titulo,
           e.descricao,
           e.local,
+          e.sala,
           e.contato,
           e.tipo?.nome,
           e.criador?.name,
@@ -593,7 +607,7 @@ export default function AgendaPage() {
       map[key]!.sort((a, b) => (a.horaInicio ?? '').localeCompare(b.horaInicio ?? ''))
     }
     return map
-  }, [eventos, filtroTipo, filtroParticipante, filtroBusca])
+  }, [eventos, filtroTipo, filtroParticipante, filtroBusca, filtroSala, salasCadastradas])
 
   // ============================================================
   // Ações
@@ -1112,8 +1126,21 @@ export default function AgendaPage() {
                 </SelectContent>
               </Select>
             </div>
-            {(filtroTipo || filtroParticipante || filtroBusca) && (
-              <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => { setFiltroTipo(''); setFiltroParticipante(''); setFiltroBusca('') }}>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Sala de reunião</Label>
+              <Select value={filtroSala || '__all__'} onValueChange={v => setFiltroSala(v === '__all__' ? '' : v)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todas" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todas as salas</SelectItem>
+                  <SelectItem value="__any__">Qualquer sala (ocupadas)</SelectItem>
+                  {salasCadastradas.filter(s => s.ativo).map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {(filtroTipo || filtroParticipante || filtroBusca || filtroSala) && (
+              <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => { setFiltroTipo(''); setFiltroParticipante(''); setFiltroBusca(''); setFiltroSala('') }}>
                 <X className="h-3 w-3 mr-1" />Limpar filtros
               </Button>
             )}
