@@ -332,9 +332,11 @@ export default function HelpdeskTicketDetailPage() {
         })
         if (ok) {
           try {
+            // Reabrir = voltar pra EM_ANDAMENTO E desarquivar — senão o ticket
+            // reabre mas continua escondido na lista de arquivados.
             await (trpc.helpdesk as any).update.mutate({
               id,
-              data: { status: 'EM_ANDAMENTO' },
+              data: { status: 'EM_ANDAMENTO', arquivado: false },
             })
             await fetchData(true)
           } catch (e) {
