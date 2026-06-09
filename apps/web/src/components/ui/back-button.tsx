@@ -68,7 +68,7 @@ export function BackButton({
 
   if (label) {
     return (
-      <Button variant="outline" size="sm" onClick={onClick} title={title} className={cn('gap-1.5', baseClass)}>
+      <Button type="button" variant="outline" size="sm" onClick={onClick} title={title} className={cn('gap-1.5', baseClass)}>
         <ArrowLeft className="h-4 w-4" />
         {label}
       </Button>
@@ -76,7 +76,7 @@ export function BackButton({
   }
 
   return (
-    <Button variant="outline" size="icon-sm" onClick={onClick} title={title} className={baseClass}>
+    <Button type="button" variant="outline" size="icon-sm" onClick={onClick} title={title} className={baseClass}>
       <ArrowLeft className="h-4 w-4" />
     </Button>
   )

@@ -549,6 +549,17 @@ export class ClienteService {
     return prisma.clienteArquivo.update({ where: { id: arquivoId }, data: { fileName } })
   }
 
+  // #2 — Editar arquivo: renomear e/ou adicionar/editar descrição (detalhes)
+  async updateArquivo(arquivoId: string, data: { fileName?: string; descricao?: string | null }) {
+    return prisma.clienteArquivo.update({
+      where: { id: arquivoId },
+      data: {
+        ...(data.fileName !== undefined ? { fileName: data.fileName } : {}),
+        ...(data.descricao !== undefined ? { descricao: data.descricao } : {}),
+      },
+    })
+  }
+
   async removeArquivo(arquivoId: string) {
     return prisma.clienteArquivo.delete({ where: { id: arquivoId } })
   }
@@ -559,6 +570,41 @@ export class ClienteService {
       orderBy: { createdAt: 'desc' },
       include: { user: { select: { id: true, name: true } } },
     })
+  }
+
+  // ============================================================
+  // ATIVIDADES E BENEFÍCIOS (#5/#6)
+  // ============================================================
+  async listAtividades(clienteId: string) {
+    return prisma.clienteAtividade.findMany({ where: { clienteId }, orderBy: { createdAt: 'asc' } })
+  }
+
+  async addAtividade(clienteId: string, valor: string) {
+    return prisma.clienteAtividade.create({ data: { clienteId, valor } })
+  }
+
+  async updateAtividade(id: string, valor: string) {
+    return prisma.clienteAtividade.update({ where: { id }, data: { valor } })
+  }
+
+  async removeAtividade(id: string) {
+    return prisma.clienteAtividade.delete({ where: { id } })
+  }
+
+  async listBeneficios(clienteId: string) {
+    return prisma.clienteBeneficio.findMany({ where: { clienteId }, orderBy: { createdAt: 'asc' } })
+  }
+
+  async addBeneficio(clienteId: string, valor: string) {
+    return prisma.clienteBeneficio.create({ data: { clienteId, valor } })
+  }
+
+  async updateBeneficio(id: string, valor: string) {
+    return prisma.clienteBeneficio.update({ where: { id }, data: { valor } })
+  }
+
+  async removeBeneficio(id: string) {
+    return prisma.clienteBeneficio.delete({ where: { id } })
   }
 
   // ============================================================

@@ -797,6 +797,8 @@ model Cliente {
   driveSyncedFiles     DriveSyncedFile[]
   danfes               Danfe[]                 @relation("ClienteDanfes")
   notasServico         NotaServicoImportada[]  @relation("ClienteNotasServico")
+  atividades           ClienteAtividade[]
+  beneficios           ClienteBeneficio[]
 
   @@map("clientes")
 }
@@ -861,6 +863,7 @@ model ClienteArquivo {
   fileUrl    String    @map("file_url")
   fileSize   Int?      @map("file_size")
   mimeType   String?   @map("mime_type")
+  descricao  String?   @db.Text
   vencimento DateTime?
   userId     String?   @map("user_id")
   createdAt  DateTime  @default(now()) @map("created_at")
@@ -869,6 +872,37 @@ model ClienteArquivo {
   user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("cliente_arquivos")
+}
+
+// Atividades do Cliente (#5) — um cliente pode ter várias atividades.
+// O `valor` referencia o catálogo OpcaoCadastro (tipo='CLIENTE_ATIVIDADE')
+// mas é persistido como texto livre pra resistir a edições no catálogo.
+model ClienteAtividade {
+  id        String   @id @default(cuid())
+  clienteId String   @map("cliente_id")
+  valor     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId])
+  @@map("cliente_atividades")
+}
+
+// Benefícios fiscais do Cliente (#6) — um cliente pode ter vários benefícios.
+// O `valor` referencia o catálogo OpcaoCadastro (tipo='CLIENTE_BENEFICIO').
+model ClienteBeneficio {
+  id        String   @id @default(cuid())
+  clienteId String   @map("cliente_id")
+  valor     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId])
+  @@map("cliente_beneficios")
 }
 
 // Contatos do Cliente

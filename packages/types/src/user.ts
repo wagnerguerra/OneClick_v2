@@ -177,6 +177,7 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'renegotiation', label: 'Colocar clientes em situação de renegociação', group: 'Comercial' },
     { key: 'manage_fiscal', label: 'Gerenciar aba fiscal', group: 'Fiscal' },
     { key: 'edit_taxation', label: 'Alterar tributação dos clientes', group: 'Fiscal' },
+    { key: 'manage_activities_benefits', label: 'Gerenciar atividades e benefícios fiscais', group: 'Fiscal' },
     { key: 'manage_registration', label: 'Gerenciar aba de registro / legalização', group: 'Registro / Legalização' },
     { key: 'manage_client_users', label: 'Gerenciar aba usuários do cliente', group: 'Usuários do Cliente' },
   ],

@@ -11,8 +11,8 @@ import {
   ListChecks, StickyNote, FileInput, MessageSquareQuote, Users, ListTodo,
   ExternalLink, X, Loader2, Building2, Phone, MapPin, Star, Pencil, Trash2, Link2,
   CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen, HardDriveDownload,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
-  Image as ImageIcon,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, MoreVertical,
+  Image as ImageIcon, Activity, Percent,
 } from 'lucide-react'
 import {
   cn, Button, Input, Label, Card, CardHeader, Checkbox, RichEditor, Badge,
@@ -42,7 +42,7 @@ import {
   createClienteSchema,
   SITUACAO_LABELS, SITUACAO_COLORS,
   STATUS_LABELS, STATUS_COLORS,
-  REGIME_LABELS, AREA_CONTRATADA_OPTIONS,
+  REGIME_LABELS,
   type CreateClienteInput,
 } from '@saas/types'
 import { taxRegimeLabels } from '@saas/types'
@@ -117,7 +117,7 @@ const PROGRESS_FIELDS = [
   'razaoSocial', 'documento', 'nomeFantasia', 'tipoCliente',
   'situacao', 'status', 'grupo', 'tributacao',
   'cep', 'logradouro', 'bairro', 'cidade', 'uf',
-  'telefone', 'email', 'areasContratadas', 'origem',
+  'telefone', 'email', 'origem',
 ] as const
 
 export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps) {
@@ -323,16 +323,6 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
     } finally { setSaving(false) }
   }
 
-  const areasValue = watch('areasContratadas') || ''
-  const selectedAreas = areasValue ? areasValue.split(';').filter(Boolean) : []
-
-  function toggleArea(value: string) {
-    const current = selectedAreas.includes(value)
-      ? selectedAreas.filter((a) => a !== value)
-      : [...selectedAreas, value]
-    setValue('areasContratadas', current.join(';'))
-  }
-
   const isEdit = mode === 'edit' && defaultValues?.code
 
   return (
@@ -469,8 +459,8 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   <Controller control={control} name="situacao" render={({ field }) => (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button type="button" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
-                          style={{ backgroundColor: SITUACAO_COLORS[field.value as keyof typeof SITUACAO_COLORS]?.bg || '#e5e5e5', color: SITUACAO_COLORS[field.value as keyof typeof SITUACAO_COLORS]?.color || '#666' }}>
+                        <button type="button" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80 ring-1 ring-black/5 dark:ring-white/10"
+                          style={{ backgroundColor: SITUACAO_COLORS[field.value as keyof typeof SITUACAO_COLORS]?.bg || 'var(--color-muted)', color: SITUACAO_COLORS[field.value as keyof typeof SITUACAO_COLORS]?.color || 'var(--color-foreground)' }}>
                           <ShoppingCart className="h-3 w-3" />
                           {SITUACAO_LABELS[field.value as keyof typeof SITUACAO_LABELS] || field.value}
                         </button>
@@ -485,8 +475,8 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   <Controller control={control} name="status" render={({ field }) => (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button type="button" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
-                          style={{ backgroundColor: STATUS_COLORS[field.value as keyof typeof STATUS_COLORS]?.bg || '#e5e5e5', color: STATUS_COLORS[field.value as keyof typeof STATUS_COLORS]?.color || '#666' }}>
+                        <button type="button" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80 ring-1 ring-black/5 dark:ring-white/10"
+                          style={{ backgroundColor: STATUS_COLORS[field.value as keyof typeof STATUS_COLORS]?.bg || 'var(--color-muted)', color: STATUS_COLORS[field.value as keyof typeof STATUS_COLORS]?.color || 'var(--color-foreground)' }}>
                           {STATUS_LABELS[field.value as keyof typeof STATUS_LABELS] || field.value}
                         </button>
                       </DropdownMenuTrigger>
@@ -750,25 +740,8 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   )}
                 </Card>
 
-                {/* Areas Contratadas (resumo rapido) */}
-                <Card className="p-5">
-                  <h4 className="text-sm font-semibold mb-3">Areas Contratadas</h4>
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {AREA_CONTRATADA_OPTIONS.map((area) => {
-                      const active = selectedAreas.includes(area.value)
-                      return (
-                        <button key={area.value} type="button" onClick={() => toggleArea(area.value)}
-                          className={cn(
-                            'inline-flex items-center rounded px-2 py-1 text-[11px] font-medium cursor-pointer transition-all',
-                            active ? area.color : 'bg-muted/50 text-muted-foreground opacity-50 hover:opacity-75',
-                          )}>
-                          {area.label} {active ? '✓' : ''}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">{selectedAreas.length} de {AREA_CONTRATADA_OPTIONS.length} areas ativas</p>
-                </Card>
+                {/* Atividades e Benefícios (#5/#6) — substitui o card de Áreas Contratadas */}
+                {clienteId && <AtividadesBeneficiosSidebar clienteId={clienteId} />}
 
                 {/* Arquivos */}
                 {clienteId && <ArquivosSidebar clienteId={clienteId} />}
@@ -2690,9 +2663,236 @@ function LogsTab({ clienteId }: { clienteId: string }) {
   )
 }
 
-function ArquivosSidebar({ clienteId }: { clienteId: string }) {
-  const [arquivos, setArquivos] = useState<Array<{ id: string; fileName: string; fileUrl: string; fileSize: number | null; mimeType: string | null; createdAt: string; user: { name: string } | null }>>([])
+/* ================================================================== */
+/* Hook de permissões do módulo clientes (canWrite/canDelete + sub)    */
+/* ================================================================== */
+function useClientesPerms() {
+  const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
+  const isAdmin = isMaster || isEmpresaMaster
+  const perm = permissions.find((p) => p.moduleSlug === 'clientes')
+  const canWrite = isAdmin || !!perm?.canWrite
+  const canDelete = isAdmin || !!perm?.canDelete
+  // Sub-permissão #7 — master/empresa-master sempre podem
+  const canManageActivitiesBenefits = isAdmin || perm?.subPermissions?.['manage_activities_benefits'] === true
+  return { isAdmin, canWrite, canDelete, canManageActivitiesBenefits }
+}
+
+const MODULE_COLOR_CLIENTES = 'var(--mod-cadastros, #10b981)'
+
+/* ================================================================== */
+/* AtividadesBeneficiosSidebar (#5/#6/#7) — substitui Áreas Contratadas */
+/* ================================================================== */
+type AtivBenefItem = { id: string; valor: string }
+type OpcaoItem = { id: string; valor: string }
+
+function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
+  const { canManageActivitiesBenefits } = useClientesPerms()
+  const [atividades, setAtividades] = useState<AtivBenefItem[]>([])
+  const [beneficios, setBeneficios] = useState<AtivBenefItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [optAtividade, setOptAtividade] = useState<OpcaoItem[]>([])
+  const [optBeneficio, setOptBeneficio] = useState<OpcaoItem[]>([])
+
+  // Modal state: { kind: 'atividade'|'beneficio', id?, valor }
+  const [modal, setModal] = useState<{ kind: 'atividade' | 'beneficio'; id?: string; valor: string } | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  function load() {
+    Promise.all([
+      trpc.cliente.listAtividades.query({ clienteId }) as Promise<AtivBenefItem[]>,
+      trpc.cliente.listBeneficios.query({ clienteId }) as Promise<AtivBenefItem[]>,
+    ])
+      .then(([a, b]) => { setAtividades(a); setBeneficios(b) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    load()
+    ;(trpc.cliente as any).listOpcoes.query({ tipo: 'CLIENTE_ATIVIDADE' }).then((d: OpcaoItem[]) => setOptAtividade(d)).catch(() => {})
+    ;(trpc.cliente as any).listOpcoes.query({ tipo: 'CLIENTE_BENEFICIO' }).then((d: OpcaoItem[]) => setOptBeneficio(d)).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clienteId])
+
+  async function handleSave() {
+    if (!modal || !modal.valor.trim()) return
+    setSaving(true)
+    try {
+      if (modal.kind === 'atividade') {
+        if (modal.id) await trpc.cliente.updateAtividade.mutate({ id: modal.id, valor: modal.valor })
+        else await trpc.cliente.addAtividade.mutate({ clienteId, valor: modal.valor })
+      } else {
+        if (modal.id) await trpc.cliente.updateBeneficio.mutate({ id: modal.id, valor: modal.valor })
+        else await trpc.cliente.addBeneficio.mutate({ clienteId, valor: modal.valor })
+      }
+      setModal(null)
+      load()
+      alerts.success('Salvo', 'Registro salvo com sucesso.')
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message || 'Não foi possível salvar.')
+    } finally { setSaving(false) }
+  }
+
+  async function handleRemove(kind: 'atividade' | 'beneficio', id: string, valor: string) {
+    const ok = await alerts.confirmDelete(valor)
+    if (!ok) return
+    try {
+      if (kind === 'atividade') await trpc.cliente.removeAtividade.mutate({ id })
+      else await trpc.cliente.removeBeneficio.mutate({ id })
+      load()
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message || 'Não foi possível excluir.')
+    }
+  }
+
+  const options = modal?.kind === 'atividade' ? optAtividade : optBeneficio
+
+  return (
+    <Card className="p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-semibold">Atividades e Benefícios</h4>
+        {canManageActivitiesBenefits && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" size="sm">
+                <Plus className="h-3.5 w-3.5" /> Adicionar <ChevronDown className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setModal({ kind: 'atividade', valor: '' })}>
+                <Activity className="h-3.5 w-3.5" /> Atividade
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setModal({ kind: 'beneficio', valor: '' })}>
+                <Percent className="h-3.5 w-3.5" /> Benefício Fiscal
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-4"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
+      ) : (
+        <div className="space-y-4">
+          {/* Atividades */}
+          <div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+              <Activity className="h-3 w-3" /> Atividades
+            </p>
+            {atividades.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nenhuma atividade.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {atividades.map((a) => (
+                  <div key={a.id} className="flex items-center gap-2 group">
+                    <Badge
+                      variant="secondary"
+                      className="text-[11px] font-medium border"
+                      style={{ borderColor: MODULE_COLOR_CLIENTES, color: MODULE_COLOR_CLIENTES, backgroundColor: 'color-mix(in srgb, var(--mod-cadastros, #10b981) 12%, transparent)' }}
+                    >
+                      {a.valor}
+                    </Badge>
+                    {canManageActivitiesBenefits && (
+                      <AtivBenefActions
+                        onEdit={() => setModal({ kind: 'atividade', id: a.id, valor: a.valor })}
+                        onDelete={() => handleRemove('atividade', a.id, a.valor)}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Benefícios */}
+          <div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+              <Percent className="h-3 w-3" /> Benefícios Fiscais
+            </p>
+            {beneficios.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nenhum benefício fiscal.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {beneficios.map((b) => (
+                  <div key={b.id} className="flex items-center gap-2 group">
+                    <Badge variant="outline" className="text-[11px] font-medium">{b.valor}</Badge>
+                    {canManageActivitiesBenefits && (
+                      <AtivBenefActions
+                        onEdit={() => setModal({ kind: 'beneficio', id: b.id, valor: b.valor })}
+                        onDelete={() => handleRemove('beneficio', b.id, b.valor)}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal incluir/editar */}
+      <Dialog open={!!modal} onOpenChange={(o) => { if (!o) setModal(null) }}>
+        <DialogContent>
+          <DialogHeaderIcon
+            icon={modal?.kind === 'beneficio' ? Percent : Activity}
+            color={modal?.id ? 'sky' : 'emerald'}
+          >
+            <DialogTitle>
+              {modal?.kind === 'beneficio'
+                ? (modal?.id ? 'Editar Benefício' : 'Novo Benefício')
+                : (modal?.id ? 'Editar atividade' : 'Nova atividade')}
+            </DialogTitle>
+            <DialogDescription>
+              {modal?.kind === 'beneficio' ? 'Selecione o benefício fiscal do cliente.' : 'Selecione a atividade do cliente.'}
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">{modal?.kind === 'beneficio' ? 'Benefício' : 'Atividade'}</Label>
+              <Select value={modal?.valor || ''} onValueChange={(v) => setModal((m) => (m ? { ...m, valor: v } : m))}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {options.map((o) => <SelectItem key={o.id} value={o.valor}>{o.valor}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setModal(null)}>Cancelar</Button>
+            <Button type="button" variant="success" onClick={handleSave} disabled={saving || !modal?.valor.trim()}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  )
+}
+
+// Dropdown de ações (⋮) reutilizado pelas linhas de atividade/benefício
+function AtivBenefActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className="ml-auto opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity">
+          <MoreVertical className="h-3.5 w-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onEdit}><Pencil className="h-3.5 w-3.5" /> Editar</DropdownMenuItem>
+        <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive"><Trash2 className="h-3.5 w-3.5" /> Excluir</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function ArquivosSidebar({ clienteId }: { clienteId: string }) {
+  const { canWrite, canDelete } = useClientesPerms()
+  const [arquivos, setArquivos] = useState<Array<{ id: string; fileName: string; fileUrl: string; fileSize: number | null; mimeType: string | null; descricao: string | null; createdAt: string; user: { name: string } | null }>>([])
+  const [loading, setLoading] = useState(true)
+  // Modal de edição (#2): renomear + descrição/detalhes
+  const [editing, setEditing] = useState<{ id: string; fileName: string; descricao: string } | null>(null)
+  const [savingEdit, setSavingEdit] = useState(false)
 
   function load() {
     trpc.cliente.listArquivos.query({ clienteId })
@@ -2734,6 +2934,23 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
     load()
   }
 
+  async function handleSaveEdit() {
+    if (!editing || !editing.fileName.trim()) return
+    setSavingEdit(true)
+    try {
+      await trpc.cliente.updateArquivo.mutate({
+        id: editing.id,
+        fileName: editing.fileName.trim(),
+        descricao: editing.descricao.trim() || null,
+      })
+      setEditing(null)
+      load()
+      alerts.success('Arquivo atualizado', 'As alterações foram salvas.')
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message || 'Não foi possível salvar.')
+    } finally { setSavingEdit(false) }
+  }
+
   function formatSize(bytes: number | null) {
     if (!bytes) return ''
     if (bytes < 1024) return `${bytes} B`
@@ -2745,7 +2962,9 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
     <Card className="p-5">
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-sm font-semibold">Arquivos</h4>
-        <Button type="button" variant="outline" size="sm" onClick={handleUpload}><Plus className="h-3.5 w-3.5" /> Adicionar</Button>
+        {canWrite && (
+          <Button type="button" variant="outline" size="sm" onClick={handleUpload}><Plus className="h-3.5 w-3.5" /> Adicionar</Button>
+        )}
       </div>
       {loading ? (
         <div className="flex justify-center py-4"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
@@ -2754,19 +2973,55 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
       ) : (
         <div className="space-y-2 max-h-[300px] overflow-y-auto scrollbar-none">
           {arquivos.map((arq) => (
-            <div key={arq.id} className="flex items-center gap-2 text-xs group">
-              <File className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <div key={arq.id} className="flex items-start gap-2 text-xs group">
+              <File className="h-3.5 w-3.5 shrink-0 text-muted-foreground mt-0.5" />
               <div className="min-w-0 flex-1">
                 <a href={arq.fileUrl} target="_blank" rel="noopener noreferrer" className="truncate block hover:text-primary font-medium">{arq.fileName}</a>
+                {arq.descricao && <p className="text-muted-foreground truncate" title={arq.descricao}>{arq.descricao}</p>}
                 <span className="text-muted-foreground">{formatSize(arq.fileSize)}</span>
               </div>
-              <button type="button" onClick={() => handleRemove(arq.id, arq.fileName)} className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 transition-opacity">
-                <X className="h-3.5 w-3.5" />
-              </button>
+              <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                {canWrite && (
+                  <button type="button" onClick={() => setEditing({ id: arq.id, fileName: arq.fileName, descricao: arq.descricao || '' })} className="text-muted-foreground hover:text-foreground" title="Editar arquivo">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                {canDelete && (
+                  <button type="button" onClick={() => handleRemove(arq.id, arq.fileName)} className="text-destructive hover:text-destructive/80" title="Excluir arquivo">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Modal de edição de arquivo (#2) */}
+      <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null) }}>
+        <DialogContent>
+          <DialogHeaderIcon icon={Pencil} color="sky">
+            <DialogTitle>Editar arquivo</DialogTitle>
+            <DialogDescription>Renomeie o arquivo e adicione detalhes.</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Nome do arquivo</Label>
+              <Input className="h-9 text-sm" value={editing?.fileName || ''} onChange={(e) => setEditing((s) => (s ? { ...s, fileName: e.target.value } : s))} placeholder="Nome do arquivo" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Detalhes / descrição</Label>
+              <Input className="h-9 text-sm" value={editing?.descricao || ''} onChange={(e) => setEditing((s) => (s ? { ...s, descricao: e.target.value } : s))} placeholder="Ex.: Contrato social, procuração..." />
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
+            <Button type="button" variant="success" onClick={handleSaveEdit} disabled={savingEdit || !editing?.fileName.trim()}>
+              {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

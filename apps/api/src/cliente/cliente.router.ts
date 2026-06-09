@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
-import { router, readProcedure, writeProcedure, deleteProcedure, protectedProcedure } from '../trpc/trpc.service'
+import { router, readProcedure, writeProcedure, deleteProcedure, protectedProcedure, writeSubProcedure, deleteSubProcedure } from '../trpc/trpc.service'
 import { createClienteSchema, updateClienteSchema, listClienteSchema } from '@saas/types'
 import { ClienteService } from './cliente.service'
 import { LegacyImportService } from './legacy-import.service'
@@ -162,9 +162,54 @@ export function createClienteRouter(
       .input(z.object({ arquivoId: z.string(), fileName: z.string().min(1) }))
       .mutation(({ input }) => clienteService.renameArquivo(input.arquivoId, input.fileName)),
 
+    // #2 — Editar arquivo (renomear + descrição/detalhes)
+    updateArquivo: writeProcedure(MODULE)
+      .input(z.object({
+        id: z.string(),
+        fileName: z.string().min(1).optional(),
+        descricao: z.string().nullable().optional(),
+      }))
+      .mutation(({ input }) => clienteService.updateArquivo(input.id, { fileName: input.fileName, descricao: input.descricao })),
+
     removeArquivo: deleteProcedure(MODULE)
       .input(z.object({ arquivoId: z.string() }))
       .mutation(({ input }) => clienteService.removeArquivo(input.arquivoId)),
+
+    // === ATIVIDADES E BENEFÍCIOS (#5/#6) ===
+    // Leitura livre (qualquer um com read no módulo). Mutações gateadas pela
+    // sub-permissão 'manage_activities_benefits' (#7) — master/empresa-master
+    // sempre passam (tratado no writeSubProcedure/deleteSubProcedure).
+    listAtividades: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => clienteService.listAtividades(input.clienteId)),
+
+    addAtividade: writeSubProcedure(MODULE, 'manage_activities_benefits', 'Gerenciar atividades e benefícios fiscais')
+      .input(z.object({ clienteId: z.string(), valor: z.string().min(1) }))
+      .mutation(({ input }) => clienteService.addAtividade(input.clienteId, input.valor)),
+
+    updateAtividade: writeSubProcedure(MODULE, 'manage_activities_benefits', 'Gerenciar atividades e benefícios fiscais')
+      .input(z.object({ id: z.string(), valor: z.string().min(1) }))
+      .mutation(({ input }) => clienteService.updateAtividade(input.id, input.valor)),
+
+    removeAtividade: deleteSubProcedure(MODULE, 'manage_activities_benefits', 'Gerenciar atividades e benefícios fiscais')
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => clienteService.removeAtividade(input.id)),
+
+    listBeneficios: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => clienteService.listBeneficios(input.clienteId)),
+
+    addBeneficio: writeSubProcedure(MODULE, 'manage_activities_benefits', 'Gerenciar atividades e benefícios fiscais')
+      .input(z.object({ clienteId: z.string(), valor: z.string().min(1) }))
+      .mutation(({ input }) => clienteService.addBeneficio(input.clienteId, input.valor)),
+
+    updateBeneficio: writeSubProcedure(MODULE, 'manage_activities_benefits', 'Gerenciar atividades e benefícios fiscais')
+      .input(z.object({ id: z.string(), valor: z.string().min(1) }))
+      .mutation(({ input }) => clienteService.updateBeneficio(input.id, input.valor)),
+
+    removeBeneficio: deleteSubProcedure(MODULE, 'manage_activities_benefits', 'Gerenciar atividades e benefícios fiscais')
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => clienteService.removeBeneficio(input.id)),
 
     // === CONTATOS ===
     listContatos: readProcedure(MODULE)
