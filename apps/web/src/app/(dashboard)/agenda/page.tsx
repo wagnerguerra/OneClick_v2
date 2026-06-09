@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Plus, Loader2, Calendar, Clock,
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
   Repeat, Lock, History, Settings, Palette, Check, Download, DoorOpen,
-  Bell, Mail, CheckSquare, Square, ListTodo, Search, Target, ArrowRight, Link2,
+  Bell, Mail, CheckSquare, Square, ListTodo, Search, Target, ArrowRight, Link2, ExternalLink,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card,
@@ -79,8 +79,13 @@ interface AgendaEvento {
     titulo: string
     valor: string | number | null
     razaoSocial: string | null
+    origem: string | null
+    previsaoFechamento: string | null
+    createdAt: string | null
+    clienteId: string | null
     etapa: { id: string; nome: string; cor: string } | null
     responsavel: { id: string; name: string } | null
+    cliente: { id: string; razaoSocial: string; documento: string } | null
   } | null
 }
 
@@ -1924,242 +1929,276 @@ export default function AgendaPage() {
               const corBorda = ev.tipo.corBorda || corTipo
               const dataIni = new Date(ev.data)
               const dataFim = ev.dataFim ? new Date(ev.dataFim) : null
-              const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-              const diasSemana = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
               const presencaDef = PRESENCA_LABELS[ev.presenca]
               const PresencaIcon = presencaDef?.icon ?? Building2
+              const op = ev.oportunidade
+              // Período / horário formatado
+              const mesmoDia = !dataFim || dataFim.toISOString().slice(0, 10) === dataIni.toISOString().slice(0, 10)
+              const dataIniStr = `${String(dataIni.getUTCDate()).padStart(2, '0')}/${String(dataIni.getUTCMonth() + 1).padStart(2, '0')}/${dataIni.getUTCFullYear()}`
+              const dataFimStr = dataFim ? `${String(dataFim.getUTCDate()).padStart(2, '0')}/${String(dataFim.getUTCMonth() + 1).padStart(2, '0')}/${dataFim.getUTCFullYear()}` : ''
+              const periodoData = mesmoDia ? dataIniStr : `${dataIniStr} → ${dataFimStr}`
+              const periodoHora = ev.diaInteiro
+                ? 'Dia inteiro'
+                : (ev.horaInicio || ev.horaFim ? `${ev.horaInicio ?? ''} — ${ev.horaFim ?? ''}` : '')
+              const fmtMoeda = (v: string | number) =>
+                Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+              const fmtData = (s: string) => {
+                const d = new Date(s)
+                return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
+              }
               return (
-                <div className="space-y-4">
-                  {/* HERO: data destacada + tipo + horário */}
-                  <div
-                    className="rounded-xl overflow-hidden border"
-                    style={{ borderColor: `${corTipo}40` }}
-                  >
-                    <div
-                      className="px-5 py-4 flex items-stretch gap-4"
-                      style={{ background: `linear-gradient(135deg, ${corTipo}18 0%, ${corTipo}08 100%)` }}
-                    >
-                      {/* Bloco da data (calendário-like) */}
-                      <div
-                        className="shrink-0 w-16 rounded-lg overflow-hidden border bg-card"
-                        style={{ borderColor: `${corTipo}30` }}
-                      >
-                        <div
-                          className="text-center py-1 text-[10px] font-bold uppercase tracking-wider text-white"
-                          style={{ backgroundColor: corBorda }}
+                <div className={cn('grid gap-5', op ? 'grid-cols-1 lg:grid-cols-[1fr_340px]' : 'grid-cols-1')}>
+                  {/* ============ COLUNA ESQUERDA (principal) ============ */}
+                  <div className="min-w-0 space-y-4">
+                    {/* Cabeçalho: título em destaque + badge do tipo + criado por */}
+                    <div className="space-y-2 pb-3 border-b border-border">
+                      <div className="flex items-start gap-2.5 flex-wrap">
+                        <span
+                          className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 mt-1"
+                          style={{ backgroundColor: corBorda, color: '#fff' }}
                         >
-                          {meses[dataIni.getUTCMonth()]}
-                        </div>
-                        <div className="text-center py-2">
-                          <div className="text-2xl font-bold leading-none tabular-nums">{dataIni.getUTCDate()}</div>
-                          <div className="text-[9px] text-muted-foreground uppercase tracking-wider mt-1">
-                            {dataIni.getUTCFullYear()}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Conteúdo lateral: badges + data extensa + horário */}
-                      <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span
-                            className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: corBorda, color: '#fff' }}
-                          >
-                            {ev.tipo.nome}
-                          </span>
-                          {ev.particular && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300">
-                              <Lock className="h-2.5 w-2.5" />Particular
-                            </span>
-                          )}
-                          {ev.recorrencia !== 'NENHUMA' && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-700 dark:text-violet-300">
-                              <Repeat className="h-2.5 w-2.5" />{RECORRENCIA_LABELS[ev.recorrencia]}
-                            </span>
-                          )}
-                          {ev.isTarefa && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                              Tarefa
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[13px] text-foreground/85 capitalize leading-tight">
-                          {diasSemana[dataIni.getUTCDay()]}
-                          {dataFim && dataFim.toISOString().slice(0, 10) !== dataIni.toISOString().slice(0, 10) && (
-                            <span className="text-muted-foreground"> → {String(dataFim.getUTCDate()).padStart(2, '0')}/{String(dataFim.getUTCMonth() + 1).padStart(2, '0')}/{dataFim.getUTCFullYear()}</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-sm font-semibold">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          {ev.diaInteiro
-                            ? <span>Dia inteiro</span>
-                            : <span className="tabular-nums">{ev.horaInicio} <span className="text-muted-foreground/70 mx-1">—</span> {ev.horaFim}</span>}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* GRID DE INFOS */}
-                  {(ev.local || ev.sala || true) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <InfoRow icon={PresencaIcon} label="Modalidade" value={presencaDef?.label ?? ev.presenca} />
-                      {ev.local && <InfoRow icon={MapPin} label="Local" value={ev.local} />}
-                      {ev.sala && <InfoRow icon={Building2} label="Sala" value={ev.sala} />}
-                      {ev.contato && <InfoRow icon={Users} label="Contato" value={ev.contato} />}
-                    </div>
-                  )}
-
-                  {/* Link da reunião */}
-                  {ev.link && (
-                    <div className="rounded-lg border border-border bg-muted/30 px-3.5 py-2.5 flex items-center gap-2.5">
-                      <div className="h-8 w-8 rounded-md bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-                        <Video className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider leading-tight">Link da reunião</div>
-                        <a
-                          href={ev.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[13px] text-sky-600 dark:text-sky-400 hover:underline truncate block leading-tight"
-                        >
-                          {ev.link}
-                        </a>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Participantes — avatares */}
-                  {ev.participantes.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                          {ev.participantes.length} participante{ev.participantes.length > 1 ? 's' : ''}
+                          {ev.tipo.nome}
                         </span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {ev.participantes.map(p => {
-                          const nome = p.usuario?.name ?? p.nomeAvulso ?? '?'
-                          const iniciais = nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-                          return (
-                            <span
-                              key={p.id}
-                              className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full bg-muted/60 border border-border/60"
-                              title={nome}
-                            >
-                              <span className="h-5 w-5 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-white text-[9px] font-bold flex items-center justify-center">
-                                {iniciais}
-                              </span>
-                              <span className="text-[12px] font-medium truncate max-w-[160px]">{nome}</span>
-                            </span>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Card do CRM vinculado — painel destacado à direita (Item 4) */}
-                  {ev.oportunidade && (
-                    <div className="sm:float-right sm:w-[300px] sm:ml-4 mb-2 rounded-lg border border-violet-500/30 bg-violet-500/5 dark:bg-violet-500/10 overflow-hidden">
-                      <div className="px-3.5 py-2 border-b border-violet-500/20 flex items-center gap-2 bg-violet-500/10">
-                        <Target className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
-                        <span className="text-[11px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider">Card do CRM</span>
-                      </div>
-                      <div className="px-3.5 py-3 space-y-2.5">
-                        <div>
-                          <p className="text-sm font-semibold leading-tight">{ev.oportunidade.titulo}</p>
-                          {ev.oportunidade.razaoSocial && (
-                            <p className="text-[12px] text-muted-foreground mt-0.5 truncate">{ev.oportunidade.razaoSocial}</p>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {ev.oportunidade.etapa && (
-                            <span
-                              className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full"
-                              style={{ backgroundColor: `${ev.oportunidade.etapa.cor}22`, color: ev.oportunidade.etapa.cor }}
-                            >
-                              {ev.oportunidade.etapa.nome}
-                            </span>
-                          )}
-                          {ev.oportunidade.valor != null && Number(ev.oportunidade.valor) > 0 && (
-                            <span className="inline-flex items-center text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
-                              {Number(ev.oportunidade.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                            </span>
-                          )}
-                        </div>
-                        {ev.oportunidade.responsavel && (
-                          <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-                            <Users className="h-3 w-3 shrink-0 opacity-70" />
-                            <span className="truncate">{ev.oportunidade.responsavel.name}</span>
-                          </div>
+                        {ev.recorrencia !== 'NENHUMA' && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-700 dark:text-violet-300 mt-1">
+                            <Repeat className="h-2.5 w-2.5" />{RECORRENCIA_LABELS[ev.recorrencia]}
+                          </span>
                         )}
-                        <Link
-                          href={`/crm?op=${ev.oportunidade.id}`}
-                          className="inline-flex items-center gap-1.5 text-[12px] font-medium text-violet-600 dark:text-violet-400 hover:underline"
-                        >
-                          <ArrowRight className="h-3.5 w-3.5" />Abrir no CRM
-                        </Link>
+                        {ev.isTarefa && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 mt-1">
+                            Tarefa
+                          </span>
+                        )}
+                      </div>
+                      <h2 className="text-xl font-bold text-foreground leading-tight break-words">{ev.titulo}</h2>
+                      <p className="text-[12px] text-muted-foreground">
+                        Criado por <span className="font-medium text-foreground/80">{ev.criador.name}</span>
+                      </p>
+                    </div>
+
+                    {/* Tabela de campos (linhas com ícone + label + valor) */}
+                    <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
+                      <FieldRow icon={Calendar} label="Período">
+                        <span className="text-foreground">{periodoData}</span>
+                        {periodoHora && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-foreground tabular-nums">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            {periodoHora}
+                          </span>
+                        )}
+                      </FieldRow>
+
+                      <FieldRow icon={PresencaIcon} label="Presença">
+                        <span className="text-foreground">{presencaDef?.label ?? ev.presenca}</span>
+                      </FieldRow>
+
+                      {(ev.local || ev.sala) && (
+                        <FieldRow icon={MapPin} label="Local / Sala">
+                          <span className="text-foreground">
+                            {[ev.sala, ev.local].filter(Boolean).join(' · ')}
+                          </span>
+                        </FieldRow>
+                      )}
+
+                      {ev.contato && (
+                        <FieldRow icon={Users} label="Contato">
+                          <span className="text-foreground">{ev.contato}</span>
+                        </FieldRow>
+                      )}
+
+                      {ev.link && (
+                        <FieldRow icon={Video} label="Link">
+                          <a
+                            href={ev.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-sky-600 dark:text-sky-400 hover:underline truncate max-w-full"
+                          >
+                            <span className="truncate">{ev.link}</span>
+                            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                          </a>
+                        </FieldRow>
+                      )}
+
+                      {ev.participantes.length > 0 && (
+                        <FieldRow icon={Users} label="Participantes" align="start">
+                          <div className="flex flex-wrap gap-1.5">
+                            {ev.participantes.slice(0, 8).map(p => {
+                              const nome = p.usuario?.name ?? p.nomeAvulso ?? '?'
+                              const iniciais = nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+                              return (
+                                <span
+                                  key={p.id}
+                                  className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full bg-muted/60 border border-border/60"
+                                  title={nome}
+                                >
+                                  {p.usuario?.image ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={resolveAssetUrl(p.usuario.image)} alt={nome} className="h-5 w-5 rounded-full object-cover shrink-0" />
+                                  ) : (
+                                    <span className="h-5 w-5 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+                                      {iniciais}
+                                    </span>
+                                  )}
+                                  <span className="text-[12px] font-medium truncate max-w-[160px] text-foreground">{nome}</span>
+                                </span>
+                              )
+                            })}
+                            {ev.participantes.length > 8 && (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-muted/60 border border-border/60 text-[12px] font-medium text-muted-foreground">
+                                +{ev.participantes.length - 8}
+                              </span>
+                            )}
+                          </div>
+                        </FieldRow>
+                      )}
+
+                      {ev.particular && (
+                        <FieldRow icon={Lock} label="Particular">
+                          <span className="text-amber-700 dark:text-amber-300">Visível apenas para criador e participantes</span>
+                        </FieldRow>
+                      )}
+                    </div>
+
+                    {/* Descrição */}
+                    {ev.descricao && (
+                      <div className="rounded-lg border-l-4 bg-muted/30 px-4 py-3" style={{ borderLeftColor: corTipo }}>
+                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Descrição</div>
+                        <div
+                          className="text-sm prose prose-sm dark:prose-invert max-w-none [&_*]:text-sm [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-sky-600"
+                          dangerouslySetInnerHTML={{ __html: ev.descricao }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Histórico */}
+                    {eventLogs.length > 0 && (
+                      <div className="border-t pt-3">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <History className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-xs font-medium text-muted-foreground">Histórico</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {eventLogs.map(log => (
+                            <div key={log.id} className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                              {log.usuario?.image ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={resolveAssetUrl(log.usuario.image)} alt={log.usuario.name} className="h-4 w-4 rounded-full object-cover shrink-0" />
+                              ) : (
+                                <span className="h-4 w-4 rounded-full bg-muted text-muted-foreground text-[7px] font-bold flex items-center justify-center shrink-0">
+                                  {(log.usuario?.name ?? '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                                </span>
+                              )}
+                              <span className="font-medium text-foreground/80 truncate">{log.usuario?.name ?? 'Sistema'}</span>
+                              <span className="capitalize">{log.acao}</span>
+                              <span className="ml-auto shrink-0">{new Date(log.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Ações */}
+                    {(() => {
+                      const isOwner = selectedEvento.criadorId === currentUserId
+                      return (
+                        <div className="flex items-center gap-2 border-t pt-3">
+                          {(selectedEvento.editavel || isOwner || canEditarTodosEventos) && (
+                            <Button size="sm" variant="outline" onClick={() => openEditEvent(selectedEvento)} className="gap-1.5">
+                              <Edit2 className="h-3.5 w-3.5" />Editar
+                            </Button>
+                          )}
+                          {(canDeleteEventos || isOwner || canEditarTodosEventos) && (
+                            <Button size="sm" variant="destructive" onClick={() => handleDelete(selectedEvento)} className="gap-1.5">
+                              <Trash2 className="h-3.5 w-3.5" />Excluir
+                            </Button>
+                          )}
+                        </div>
+                      )
+                    })()}
+                  </div>
+
+                  {/* ============ COLUNA DIREITA (oportunidade do CRM) ============ */}
+                  {op && (
+                    <div className="lg:sticky lg:top-0 self-start">
+                      <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 dark:bg-violet-500/10 overflow-hidden">
+                        <div className="px-4 py-2.5 border-b border-violet-500/20 flex items-center gap-2 bg-violet-500/10">
+                          <Target className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
+                          <span className="text-[11px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider">
+                            Detalhes da oportunidade
+                          </span>
+                        </div>
+                        <div className="px-4 py-3.5 space-y-3.5">
+                          {/* Título + cliente */}
+                          <div>
+                            <p className="text-[15px] font-semibold text-foreground leading-tight break-words">{op.titulo}</p>
+                            {(op.cliente?.razaoSocial || op.razaoSocial) && (
+                              <p className="text-[12px] text-muted-foreground mt-1 break-words">
+                                {op.cliente?.razaoSocial ?? op.razaoSocial}
+                                {op.cliente?.documento && (
+                                  <span className="text-muted-foreground/70"> · {op.cliente.documento}</span>
+                                )}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Etapa + valor */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            {op.etapa && (
+                              <span
+                                className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full"
+                                style={{ backgroundColor: `${op.etapa.cor}22`, color: op.etapa.cor }}
+                              >
+                                {op.etapa.nome}
+                              </span>
+                            )}
+                            {op.valor != null && Number(op.valor) > 0 && (
+                              <span className="inline-flex items-center text-[13px] font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                                {fmtMoeda(op.valor)}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Detalhes em mini-tabela */}
+                          <div className="space-y-2 text-[12px]">
+                            {op.responsavel && (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-muted-foreground shrink-0">Responsável</span>
+                                <span className="inline-flex items-center gap-1.5 text-foreground font-medium truncate">
+                                  <span className="h-5 w-5 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+                                    {op.responsavel.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                                  </span>
+                                  <span className="truncate">{op.responsavel.name}</span>
+                                </span>
+                              </div>
+                            )}
+                            {op.origem && (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-muted-foreground shrink-0">Origem</span>
+                                <span className="text-foreground font-medium truncate">{op.origem}</span>
+                              </div>
+                            )}
+                            {op.previsaoFechamento && (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-muted-foreground shrink-0">Previsão</span>
+                                <span className="text-foreground font-medium tabular-nums">{fmtData(op.previsaoFechamento)}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Abrir no CRM */}
+                          <Link
+                            href={`/crm?op=${op.id}`}
+                            className="flex items-center justify-center gap-1.5 w-full text-[12px] font-semibold text-violet-700 dark:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 rounded-lg px-3 py-2 transition-colors"
+                          >
+                            Abrir no CRM
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </Link>
+                        </div>
                       </div>
                     </div>
-                  )}
-
-                  {/* Descrição */}
-                  {ev.descricao && (
-                    <div className="rounded-lg border-l-4 bg-muted/30 px-4 py-3 clear-both" style={{ borderLeftColor: corTipo }}>
-                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Descrição</div>
-                      <div
-                        className="text-sm prose prose-sm dark:prose-invert max-w-none [&_*]:text-sm [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-sky-600"
-                        dangerouslySetInnerHTML={{ __html: ev.descricao }}
-                      />
-                    </div>
-                  )}
-                {/* Histórico */}
-                {eventLogs.length > 0 && (
-                  <div className="border-t pt-3 mt-3">
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <History className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs font-medium text-muted-foreground">Histórico</span>
-                    </div>
-                    <div className="space-y-1.5">
-                      {eventLogs.map(log => (
-                        <div key={log.id} className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                          {log.usuario?.image ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={resolveAssetUrl(log.usuario.image)} alt={log.usuario.name} className="h-4 w-4 rounded-full object-cover shrink-0" />
-                          ) : (
-                            <span className="h-4 w-4 rounded-full bg-muted text-muted-foreground text-[7px] font-bold flex items-center justify-center shrink-0">
-                              {(log.usuario?.name ?? '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                            </span>
-                          )}
-                          <span className="font-medium text-foreground/80 truncate">{log.usuario?.name ?? 'Sistema'}</span>
-                          <span className="capitalize">{log.acao}</span>
-                          <span className="ml-auto shrink-0">{new Date(log.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Ações */}
-                {(() => {
-                  const isOwner = selectedEvento.criadorId === currentUserId
-                  return (
-                <div className="flex items-center gap-2 border-t pt-3">
-                  {(selectedEvento.editavel || isOwner || canEditarTodosEventos) && (
-                    <Button size="sm" variant="outline" onClick={() => openEditEvent(selectedEvento)} className="gap-1.5">
-                      <Edit2 className="h-3.5 w-3.5" />Editar
-                    </Button>
-                  )}
-                  {(canDeleteEventos || isOwner || canEditarTodosEventos) && (
-                    <Button size="sm" variant="destructive" onClick={() => handleDelete(selectedEvento)} className="gap-1.5">
-                      <Trash2 className="h-3.5 w-3.5" />Excluir
-                    </Button>
                   )}
                 </div>
-                  )
-                })()}
-              </div>
               )
             })()}
 
@@ -3109,16 +3148,28 @@ export default function AgendaPage() {
 }
 
 /** Card compacto com ícone + label + valor — usado no grid da prévia de evento. */
-function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+/**
+ * Linha da tabela de campos do MODO VIEW do evento.
+ * Ícone + label (muted) à esquerda, valor à direita, divisórias sutis.
+ */
+function FieldRow({
+  icon: Icon,
+  label,
+  align = 'center',
+  children,
+}: {
+  icon: React.ElementType
+  label: string
+  align?: 'center' | 'start'
+  children: React.ReactNode
+}) {
   return (
-    <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 flex items-center gap-2.5">
-      <div className="h-8 w-8 rounded-md bg-card border border-border/60 flex items-center justify-center shrink-0">
-        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+    <div className={cn('flex gap-3 px-3.5 py-2.5 bg-muted/20', align === 'start' ? 'items-start' : 'items-center')}>
+      <div className={cn('flex items-center gap-2 shrink-0 w-[130px] text-muted-foreground', align === 'start' && 'pt-0.5')}>
+        <Icon className="h-3.5 w-3.5 shrink-0" />
+        <span className="text-[12px] font-medium">{label}</span>
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider leading-tight">{label}</div>
-        <div className="text-[13px] font-medium truncate leading-tight mt-0.5">{value}</div>
-      </div>
+      <div className="flex-1 min-w-0 text-[13px] font-medium">{children}</div>
     </div>
   )
 }

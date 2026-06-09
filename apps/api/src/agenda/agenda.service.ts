@@ -278,19 +278,32 @@ export class AgendaService {
             titulo: true,
             valor: true,
             razaoSocial: true,
+            origem: true,
+            previsaoFechamento: true,
+            createdAt: true,
+            clienteId: true,
             responsavelId: true,
             etapa: { select: { id: true, nome: true, cor: true } },
           },
         },
       },
     }).then(async (ev) => {
-      // `responsavelId` não é uma relation no schema (a oportunidade resolve o
-      // user manualmente) — então enriquecemos o nome do responsável aqui.
-      if (!ev.oportunidade?.responsavelId) return ev
-      const resp = await prisma.user
-        .findUnique({ where: { id: ev.oportunidade.responsavelId }, select: { id: true, name: true } })
-        .catch(() => null)
-      return { ...ev, oportunidade: { ...ev.oportunidade, responsavel: resp } }
+      if (!ev.oportunidade) return ev
+      // `responsavelId` e `clienteId` não são relations no schema da Oportunidade
+      // (resolvidos manualmente) — então enriquecemos responsável e cliente aqui.
+      const [resp, cliente] = await Promise.all([
+        ev.oportunidade.responsavelId
+          ? prisma.user
+              .findUnique({ where: { id: ev.oportunidade.responsavelId }, select: { id: true, name: true } })
+              .catch(() => null)
+          : Promise.resolve(null),
+        ev.oportunidade.clienteId
+          ? prisma.cliente
+              .findUnique({ where: { id: ev.oportunidade.clienteId }, select: { id: true, razaoSocial: true, documento: true } })
+              .catch(() => null)
+          : Promise.resolve(null),
+      ])
+      return { ...ev, oportunidade: { ...ev.oportunidade, responsavel: resp, cliente } }
     })
   }
 
