@@ -66,8 +66,17 @@ interface OrcamentoItem {
   valorUnitario: number
   valorTotal: number
   catalogoId?: string | null
+  catalogoTextoId?: string | null
   situacao?: string
   ordem?: number
+}
+
+interface CatalogoTexto {
+  id: string
+  titulo: string
+  descricao: string | null
+  valor: number | string | null
+  ordem: number
 }
 
 interface OrcamentoArquivo {
@@ -782,10 +791,11 @@ export default function OrcamentoDetailPage() {
   const [itemQtde, setItemQtde] = useState('1')
   const [itemValor, setItemValor] = useState('')
   const [itemCatalogoId, setItemCatalogoId] = useState<string>('')
+  const [itemTextoId, setItemTextoId] = useState<string>('')
   const [addingItem, setAddingItem] = useState(false)
 
   // Catalogo (servicos disponiveis para orcamento)
-  const [catalogo, setCatalogo] = useState<Array<{ id: string; nome: string; tipo: string; valorPadrao: number | string | null; textoPadrao: string | null }>>([])
+  const [catalogo, setCatalogo] = useState<Array<{ id: string; nome: string; tipo: string; valorPadrao: number | string | null; textoPadrao: string | null; textos?: CatalogoTexto[] }>>([])
 
   // Inline edit
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
@@ -794,6 +804,7 @@ export default function OrcamentoDetailPage() {
   const [editQtde, setEditQtde] = useState('')
   const [editValor, setEditValor] = useState('')
   const [editCatalogoId, setEditCatalogoId] = useState<string>('')
+  const [editTextoId, setEditTextoId] = useState<string>('')
 
   // Tab 2: Desconto e Pagamento
   const [formDescontoPercent, setFormDescontoPercent] = useState('')
@@ -1273,12 +1284,14 @@ export default function OrcamentoDetailPage() {
         quantidade: parseFloat(itemQtde) || 1,
         valorUnitario: parseFloat(itemValor) || 0,
         catalogoId: itemCatalogoId || undefined,
+        catalogoTextoId: itemTextoId || undefined,
       })
       setItemTipo('')
       setItemDescricao('')
       setItemQtde('1')
       setItemValor('')
       setItemCatalogoId('')
+      setItemTextoId('')
       fetchOrc(true)
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setAddingItem(false) }
@@ -1288,8 +1301,16 @@ export default function OrcamentoDetailPage() {
   function handleChangeItemTipo(tipo: string) {
     setItemTipo(tipo)
     setItemCatalogoId('')
+    setItemTextoId('')
     setItemDescricao('')
     setItemValor('')
+  }
+
+  // Helper de "captura de valor": o valor FIXO do serviço (valorPadrao) prevalece.
+  // Só quando o serviço NÃO tem valor fixo (null/0) é que o valor do texto escolhido
+  // é capturado para o valorUnitário do item.
+  function temValorFixo(valorPadrao: number | string | null | undefined): boolean {
+    return valorPadrao != null && Number(valorPadrao) > 0
   }
 
   // Selecao do item do catalogo via campo Descricao (preenche descricao + valor)
@@ -1297,8 +1318,20 @@ export default function OrcamentoDetailPage() {
     const item = catalogo.find(c => c.id === catalogoId)
     if (!item) return
     setItemCatalogoId(catalogoId)
+    setItemTextoId('')
     setItemDescricao(item.nome)
     if (item.valorPadrao != null) setItemValor(String(item.valorPadrao))
+  }
+
+  // Escolha do texto do registro (no formulário de inclusão). Captura o valor do
+  // texto SOMENTE se o serviço não tem valor fixo (regra confirmada).
+  function handleSelecionarTexto(textoId: string) {
+    setItemTextoId(textoId)
+    const item = catalogo.find(c => c.id === itemCatalogoId)
+    const texto = item?.textos?.find(t => t.id === textoId)
+    if (texto && !temValorFixo(item?.valorPadrao) && texto.valor != null) {
+      setItemValor(String(texto.valor))
+    }
   }
 
   function startEditItem(item: OrcamentoItem) {
@@ -1308,6 +1341,7 @@ export default function OrcamentoDetailPage() {
     setEditQtde(String(item.quantidade))
     setEditValor(String(item.valorUnitario))
     setEditCatalogoId(item.catalogoId ?? '')
+    setEditTextoId(item.catalogoTextoId ?? '')
   }
 
   // Seleção de item do catálogo na EDIÇÃO (mesma busca da inclusão — #HLP0088).
@@ -1316,8 +1350,19 @@ export default function OrcamentoDetailPage() {
     const item = catalogo.find(c => c.id === catalogoId)
     if (!item) return
     setEditCatalogoId(catalogoId)
+    setEditTextoId('')
     setEditDescricao(item.nome)
     if (item.valorPadrao != null) setEditValor(String(item.valorPadrao))
+  }
+
+  // Escolha do texto na EDIÇÃO — mesma regra de captura de valor.
+  function handleSelecionarTextoEdit(textoId: string) {
+    setEditTextoId(textoId)
+    const item = catalogo.find(c => c.id === editCatalogoId)
+    const texto = item?.textos?.find(t => t.id === textoId)
+    if (texto && !temValorFixo(item?.valorPadrao) && texto.valor != null) {
+      setEditValor(String(texto.valor))
+    }
   }
 
   async function handleSaveItem() {
@@ -1331,6 +1376,7 @@ export default function OrcamentoDetailPage() {
           quantidade: parseFloat(editQtde) || 1,
           valorUnitario: parseFloat(editValor) || 0,
           catalogoId: editCatalogoId || null,
+          catalogoTextoId: editTextoId || null,
         },
       })
       setEditingItemId(null)
@@ -1358,6 +1404,15 @@ export default function OrcamentoDetailPage() {
     if (!cat) {
       alerts.error('Não encontrado', 'Item do catálogo não localizado.')
       return
+    }
+    // Se o item tem um texto escolhido (catalogoTextoId), o "texto padrão" passa a
+    // ser a descrição/título DESSE texto. Senão, cai no textoPadrao legado do catálogo.
+    if (item.catalogoTextoId) {
+      const texto = cat.textos?.find(t => t.id === item.catalogoTextoId)
+      if (texto) {
+        setTextoPadraoModal({ nome: texto.titulo, texto: texto.descricao || '(Sem descrição cadastrada)' })
+        return
+      }
     }
     setTextoPadraoModal({ nome: cat.nome, texto: cat.textoPadrao || '(Sem texto padrão cadastrado)' })
   }
@@ -1959,6 +2014,24 @@ export default function OrcamentoDetailPage() {
                               <Label className="text-[13px] font-semibold text-foreground">Descrição <span className="text-rose-500">*</span></Label>
                               <CatalogoCombobox catalogo={catalogo} tipo={itemTipo} selectedId={itemCatalogoId} onSelect={handleSelecionarDescricao} disabled={!itemTipo} />
                             </div>
+                            {(() => {
+                              const cat = catalogo.find(c => c.id === itemCatalogoId)
+                              if (!cat?.textos?.length) return null
+                              return (
+                                <div className="space-y-1.5 min-w-[180px]">
+                                  <Label className="text-[13px] font-semibold text-foreground">Texto</Label>
+                                  <Select value={itemTextoId || '__none__'} onValueChange={v => handleSelecionarTexto(v === '__none__' ? '' : v)}>
+                                    <SelectTrigger className="h-9 w-[200px] text-sm"><SelectValue placeholder="Selecione o texto" /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="__none__">Nenhum</SelectItem>
+                                      {cat.textos.map(t => (
+                                        <SelectItem key={t.id} value={t.id}>{t.titulo}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )
+                            })()}
                             <div className="space-y-1.5">
                               <Label className="text-[13px] font-semibold text-foreground">Qtde</Label>
                               <Input type="number" value={itemQtde} onChange={e => setItemQtde(e.target.value)} className="h-9 w-[80px] text-sm" min="1" />
@@ -2000,7 +2073,7 @@ export default function OrcamentoDetailPage() {
                               <TableRow key={item.id} className="bg-sky-50/50 dark:bg-sky-900/10">
                                 <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
                                 <TableCell>
-                                  <Select value={editTipo} onValueChange={v => { setEditTipo(v); setEditCatalogoId('') }}>
+                                  <Select value={editTipo} onValueChange={v => { setEditTipo(v); setEditCatalogoId(''); setEditTextoId('') }}>
                                     <SelectTrigger className="h-7 text-[11px] w-[85px]"><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="SERVICO">Serviço</SelectItem>
@@ -2020,6 +2093,21 @@ export default function OrcamentoDetailPage() {
                                     onSelect={handleSelecionarDescricaoEdit}
                                     disabled={!editTipo}
                                   />
+                                  {(() => {
+                                    const cat = catalogo.find(c => c.id === editCatalogoId)
+                                    if (!cat?.textos?.length) return null
+                                    return (
+                                      <Select value={editTextoId || '__none__'} onValueChange={v => handleSelecionarTextoEdit(v === '__none__' ? '' : v)}>
+                                        <SelectTrigger className="h-7 text-[11px] mt-1"><SelectValue placeholder="Texto" /></SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="__none__">Nenhum texto</SelectItem>
+                                          {cat.textos.map(t => (
+                                            <SelectItem key={t.id} value={t.id}>{t.titulo}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    )
+                                  })()}
                                 </TableCell>
                                 <TableCell>
                                   <Input type="number" value={editQtde} onChange={e => setEditQtde(e.target.value)} className="h-7 w-[55px] text-xs text-center" min="1" />

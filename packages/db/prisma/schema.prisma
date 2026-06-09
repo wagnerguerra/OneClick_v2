@@ -2524,10 +2524,13 @@ model OrcamentoItem {
   quantidade    Decimal  @default(1) @db.Decimal(15, 4)
   valorUnitario Decimal  @map("valor_unitario") @db.Decimal(12, 2)
   catalogoId    String?  @map("catalogo_id")
+  // Texto escolhido do catálogo — vira o "texto padrão" exibido para este item
+  catalogoTextoId String? @map("catalogo_texto_id")
   situacao      String   @default("A_FAZER") // A_FAZER | FAZENDO | PENDENTE | CONCLUIDO (legado crp_orcamentos.com_orc_ser.situacao)
   createdAt     DateTime @default(now()) @map("created_at")
 
   orcamento Orcamento @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+  catalogoTexto OrcamentoCatalogoTexto? @relation(fields: [catalogoTextoId], references: [id], onDelete: SetNull)
 
   @@index([orcamentoId])
   @@map("orcamento_itens")
@@ -2597,7 +2600,31 @@ model ServicoCatalogo {
   empresaId           String?  @map("empresa_id")
   createdAt           DateTime @default(now()) @map("created_at")
 
+  // Múltiplos textos do registro (cada um com título + descrição + valor).
+  // Adicional aos campos legados textoPadrao/valorPadrao.
+  textos OrcamentoCatalogoTexto[]
+
   @@map("servicos_catalogo")
+}
+
+// Texto individual de um item do catálogo (título + descrição + valor).
+// Um registro de catálogo pode ter vários textos; ao adicionar o item num
+// orçamento o usuário escolhe qual texto vira o "texto padrão daquele item".
+model OrcamentoCatalogoTexto {
+  id         String   @id @default(cuid())
+  catalogoId String   @map("catalogo_id")
+  titulo     String
+  descricao  String?  @db.Text
+  valor      Decimal? @db.Decimal(12, 2)
+  ordem      Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  catalogo     ServicoCatalogo @relation(fields: [catalogoId], references: [id], onDelete: Cascade)
+  itensVinculados OrcamentoItem[]
+
+  @@index([catalogoId])
+  @@map("orcamento_catalogo_textos")
 }
 
 // ============================================================

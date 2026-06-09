@@ -325,6 +325,33 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => orcamentoService.deleteCatalogo(input.id)),
 
+    // ── Textos do registro do catalogo ─────────────────────
+    listCatalogoTextos: readProcedure(MODULE)
+      .input(z.object({ catalogoId: z.string() }))
+      .query(({ input }) => orcamentoService.listCatalogoTextos(input.catalogoId)),
+
+    addCatalogoTexto: writeProcedure(MODULE)
+      .input(z.object({
+        catalogoId: z.string(),
+        titulo: z.string().min(1),
+        descricao: z.string().optional(),
+        valor: z.coerce.number().optional(),
+      }))
+      .mutation(({ input }) => orcamentoService.addCatalogoTexto(input)),
+
+    updateCatalogoTexto: writeProcedure(MODULE)
+      .input(z.object({
+        id: z.string(),
+        titulo: z.string().min(1).optional(),
+        descricao: z.string().nullable().optional(),
+        valor: z.coerce.number().nullable().optional(),
+      }))
+      .mutation(({ input }) => orcamentoService.updateCatalogoTexto(input.id, input)),
+
+    removeCatalogoTexto: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => orcamentoService.removeCatalogoTexto(input.id)),
+
     // ── Estatisticas ───────────────────────────────────────
     getStats: readProcedure(MODULE)
       .query(({ ctx }) => orcamentoService.getStats(ctx.empresaId)),

@@ -1470,6 +1470,7 @@ export class OrcamentoService {
         quantidade: input.quantidade,
         valorUnitario: input.valorUnitario,
         catalogoId: input.catalogoId || null,
+        catalogoTextoId: input.catalogoTextoId || null,
         situacao: input.situacao || 'A_FAZER',
       },
     })
@@ -1752,10 +1753,12 @@ export class OrcamentoService {
       prisma.servicoCatalogo.findMany({
         where: { ...baseWhere, ...ativo, ...disponivel, tipo: { in: ['TAXA', 'DESPESA'] } },
         orderBy: [{ tipo: 'asc' }, { nome: 'asc' }],
+        include: { textos: { orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }] } },
       }),
     ])
 
     // Normaliza os Servicos para o shape do catalogo (com tipo sintético 'SERVICO')
+    // Servicos (modelo Servico) nao tem textos multiplos — só ServicoCatalogo.
     const servicosAsCatalogo = servicos.map(s => ({
       id: s.id,
       nome: s.nome,
@@ -1767,6 +1770,7 @@ export class OrcamentoService {
       empresaId: s.empresaId,
       categoria: s.categoria,
       createdAt: null as Date | null,
+      textos: [] as Array<{ id: string; titulo: string; descricao: string | null; valor: unknown; ordem: number }>,
     }))
     const catalogosNormalizados = catalogos.map(c => ({ ...c, categoria: null as string | null }))
 
@@ -1811,6 +1815,39 @@ export class OrcamentoService {
       return prisma.servicoCatalogo.delete({ where: { id } })
     }
     return prisma.servicoCatalogo.update({ where: { id }, data: { ativo: false } })
+  }
+
+  // ── Textos do registro do catalogo (titulo + descricao + valor) ──
+  // Cada item de catalogo pode ter varios textos; ao adicionar o item num
+  // orcamento o usuario escolhe qual texto vira o "texto padrao daquele item".
+
+  async listCatalogoTextos(catalogoId: string) {
+    return prisma.orcamentoCatalogoTexto.findMany({
+      where: { catalogoId },
+      orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }],
+    })
+  }
+
+  async addCatalogoTexto(data: { catalogoId: string; titulo: string; descricao?: string; valor?: number }) {
+    // ordem = proximo na sequencia
+    const count = await prisma.orcamentoCatalogoTexto.count({ where: { catalogoId: data.catalogoId } })
+    return prisma.orcamentoCatalogoTexto.create({
+      data: {
+        catalogoId: data.catalogoId,
+        titulo: data.titulo,
+        descricao: data.descricao ?? null,
+        valor: data.valor ?? null,
+        ordem: count,
+      },
+    })
+  }
+
+  async updateCatalogoTexto(id: string, data: { titulo?: string; descricao?: string | null; valor?: number | null }) {
+    return prisma.orcamentoCatalogoTexto.update({ where: { id }, data: data as any })
+  }
+
+  async removeCatalogoTexto(id: string) {
+    return prisma.orcamentoCatalogoTexto.delete({ where: { id } })
   }
 
   // ── Estatisticas ──────────────────────────────────────────

@@ -47,6 +47,15 @@ interface CatalogoItem {
   createdAt: string
 }
 
+interface CatalogoTexto {
+  id: string
+  catalogoId: string
+  titulo: string
+  descricao: string | null
+  valor: number | string | null
+  ordem: number
+}
+
 function formatCurrency(v: number | string | null | undefined): string {
   if (v == null) return '—'
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -87,6 +96,26 @@ export default function ParametrosOrcamentosPage() {
   const [editing, setEditing] = useState<CatalogoItem | null>(null)
   const [form, setForm] = useState({ nome: '', tipo: 'SERVICO', valorPadrao: '', textoPadrao: '', disponivelOrcamento: true })
   const [saving, setSaving] = useState(false)
+
+  // Textos do registro (titulo + descricao + valor) — só no modo edição (item já tem id)
+  const [textos, setTextos] = useState<CatalogoTexto[]>([])
+  const [textosLoading, setTextosLoading] = useState(false)
+  // Editor de texto (sub-modal): null = fechado; { id?: string } = abrindo p/ criar/editar
+  const [textoEdit, setTextoEdit] = useState<CatalogoTexto | null>(null)
+  const [textoForm, setTextoForm] = useState({ titulo: '', descricao: '', valor: '' })
+  const [textoSaving, setTextoSaving] = useState(false)
+
+  const loadTextos = useCallback(async (catalogoId: string) => {
+    setTextosLoading(true)
+    try {
+      const data = await (trpc.orcamento as any).listCatalogoTextos.query({ catalogoId })
+      setTextos(data || [])
+    } catch {
+      setTextos([])
+    } finally {
+      setTextosLoading(false)
+    }
+  }, [])
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -131,6 +160,7 @@ export default function ParametrosOrcamentosPage() {
   function abrirNovo() {
     setEditing(null)
     setForm({ nome: '', tipo: 'SERVICO', valorPadrao: '', textoPadrao: '', disponivelOrcamento: true })
+    setTextos([])
     setEditOpen(true)
   }
 
@@ -143,7 +173,68 @@ export default function ParametrosOrcamentosPage() {
       textoPadrao: item.textoPadrao || '',
       disponivelOrcamento: item.disponivelOrcamento,
     })
+    setTextos([])
+    // Textos só existem para itens do catálogo (ServicoCatalogo). Serviços (tipo
+    // SERVICO vindos do módulo Serviços) não têm textos múltiplos — carrega mesmo
+    // assim; a lista volta vazia e a UI orienta.
+    loadTextos(item.id)
     setEditOpen(true)
+  }
+
+  // ── Textos do registro ──
+  function abrirNovoTexto() {
+    setTextoForm({ titulo: '', descricao: '', valor: '' })
+    setTextoEdit({ id: '', catalogoId: editing?.id ?? '', titulo: '', descricao: '', valor: null, ordem: 0 })
+  }
+
+  function abrirEditarTexto(t: CatalogoTexto) {
+    setTextoForm({
+      titulo: t.titulo,
+      descricao: t.descricao || '',
+      valor: t.valor != null ? numeroParaMoeda(t.valor) : '',
+    })
+    setTextoEdit(t)
+  }
+
+  async function handleSaveTexto() {
+    if (!editing) return
+    if (!textoForm.titulo.trim()) { alerts.warning('Atenção', 'Informe o título do texto'); return }
+    setTextoSaving(true)
+    try {
+      const valor = textoForm.valor ? moedaParaNumero(textoForm.valor) : undefined
+      if (textoEdit && textoEdit.id) {
+        await (trpc.orcamento as any).updateCatalogoTexto.mutate({
+          id: textoEdit.id,
+          titulo: textoForm.titulo.trim(),
+          descricao: textoForm.descricao.trim() || null,
+          valor: valor ?? null,
+        })
+      } else {
+        await (trpc.orcamento as any).addCatalogoTexto.mutate({
+          catalogoId: editing.id,
+          titulo: textoForm.titulo.trim(),
+          descricao: textoForm.descricao.trim() || undefined,
+          valor,
+        })
+      }
+      setTextoEdit(null)
+      loadTextos(editing.id)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setTextoSaving(false)
+    }
+  }
+
+  async function handleExcluirTexto(t: CatalogoTexto) {
+    const ok = await alerts.confirm({ title: `Excluir texto "${t.titulo}"?`, text: 'Esta ação não pode ser desfeita.', confirmText: 'Excluir', icon: 'warning' })
+    if (!ok) return
+    try {
+      await (trpc.orcamento as any).removeCatalogoTexto.mutate({ id: t.id })
+      if (editing) loadTextos(editing.id)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    }
   }
 
   async function handleSave() {
@@ -170,24 +261,6 @@ export default function ParametrosOrcamentosPage() {
       alerts.error('Erro', (e as Error).message)
     } finally {
       setSaving(false)
-    }
-  }
-
-  async function toggleDisponivel(item: CatalogoItem) {
-    try {
-      await (trpc.orcamento as any).updateCatalogo.mutate({ id: item.id, disponivelOrcamento: !item.disponivelOrcamento })
-      setItems(prev => prev.map(i => i.id === item.id ? { ...i, disponivelOrcamento: !i.disponivelOrcamento } : i))
-    } catch (e) {
-      alerts.error('Erro', (e as Error).message)
-    }
-  }
-
-  async function toggleAtivo(item: CatalogoItem) {
-    try {
-      await (trpc.orcamento as any).updateCatalogo.mutate({ id: item.id, ativo: !item.ativo })
-      setItems(prev => prev.map(i => i.id === item.id ? { ...i, ativo: !i.ativo } : i))
-    } catch (e) {
-      alerts.error('Erro', (e as Error).message)
     }
   }
 
@@ -279,18 +352,16 @@ export default function ParametrosOrcamentosPage() {
               <TableHead>Nome</TableHead>
               <TableHead className="w-[140px] text-right">Valor Padrão</TableHead>
               <TableHead className="w-[80px] text-center">Usos</TableHead>
-              <TableHead className="w-[110px] text-center">Disponível</TableHead>
-              <TableHead className="w-[80px] text-center">Ativo</TableHead>
               <TableHead className="w-[50px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-10">
+              <TableRow><TableCell colSpan={5} className="text-center py-10">
                 <div className="flex items-center justify-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Carregando...</div>
               </TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+              <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
                 <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
                 Nenhum item encontrado
               </TableCell></TableRow>
@@ -308,36 +379,6 @@ export default function ParametrosOrcamentosPage() {
                 </TableCell>
                 <TableCell className="text-right text-sm">{formatCurrency(item.valorPadrao)}</TableCell>
                 <TableCell className="text-center text-xs text-muted-foreground">{item.usoCount}</TableCell>
-                <TableCell className="text-center">
-                  <button
-                    onClick={() => toggleDisponivel(item)}
-                    className={cn(
-                      'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
-                      item.disponivelOrcamento ? 'bg-rose-400' : 'bg-slate-300 dark:bg-slate-600'
-                    )}
-                    title={item.disponivelOrcamento ? 'Disponível para uso em orçamentos' : 'Indisponível'}
-                  >
-                    <span className={cn(
-                      'inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform shadow-sm',
-                      item.disponivelOrcamento ? 'translate-x-[18px]' : 'translate-x-[2px]',
-                    )} />
-                  </button>
-                </TableCell>
-                <TableCell className="text-center">
-                  <button
-                    onClick={() => toggleAtivo(item)}
-                    className={cn(
-                      'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
-                      item.ativo ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
-                    )}
-                    title={item.ativo ? 'Ativo' : 'Inativo'}
-                  >
-                    <span className={cn(
-                      'inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform shadow-sm',
-                      item.ativo ? 'translate-x-[18px]' : 'translate-x-[2px]',
-                    )} />
-                  </button>
-                </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -432,12 +473,118 @@ export default function ParametrosOrcamentosPage() {
                 <span className="text-[11px] text-muted-foreground">Quando desmarcado, este item nao aparece na lista de selecao ao adicionar itens em um orcamento. Util para inativar temporariamente sem excluir.</span>
               </label>
             </div>
+
+            {/* Textos do registro (titulo + descricao + valor) — adicionais aos campos legados */}
+            <div className="border-t border-border pt-4 -mx-5 px-5">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <Label className="text-[13px] font-semibold text-foreground">Textos do registro</Label>
+                  <p className="text-[11px] text-muted-foreground">Variações de texto (título + descrição + valor) que poderão ser escolhidas ao adicionar este item num orçamento.</p>
+                </div>
+                {editing && (
+                  <Button type="button" variant="outline" size="xs" className="gap-1 shrink-0" onClick={abrirNovoTexto}>
+                    <Plus className="h-3.5 w-3.5" /> Texto
+                  </Button>
+                )}
+              </div>
+
+              {!editing ? (
+                <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/30 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300">
+                  Salve o item primeiro para poder adicionar textos a ele.
+                </div>
+              ) : textosLoading ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground py-3"><Loader2 className="h-4 w-4 animate-spin" /> Carregando textos...</div>
+              ) : textos.length === 0 ? (
+                <div className="rounded-md border border-dashed border-border px-3 py-4 text-center text-[11px] text-muted-foreground">
+                  Nenhum texto cadastrado. Use o botão "Texto" para adicionar.
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {textos.map(t => (
+                    <div key={t.id} className="flex items-start gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] font-medium truncate">{t.titulo}</span>
+                          {t.valor != null && (
+                            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 shrink-0">{formatCurrency(t.valor)}</Badge>
+                          )}
+                        </div>
+                        {t.descricao && (
+                          <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5"
+                            dangerouslySetInnerHTML={{ __html: t.descricao }} />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <Button type="button" variant="ghost" size="icon-sm" onClick={() => abrirEditarTexto(t)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
+                        <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleExcluirTexto(t)} title="Excluir"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEditOpen(false)} disabled={saving}>Cancelar</Button>
             <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {editing ? 'Salvar' : 'Adicionar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sub-modal: editor de um texto do registro */}
+      <Dialog open={!!textoEdit} onOpenChange={open => { if (!open) setTextoEdit(null) }}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeaderIcon icon={textoEdit?.id ? Pencil : Plus} color={textoEdit?.id ? 'sky' : 'emerald'}>
+            <DialogTitle className="text-[15px]">{textoEdit?.id ? 'Editar texto' : 'Novo texto'}</DialogTitle>
+            <DialogDescription className="text-[11px]">
+              Título, descrição e valor. A descrição vira o texto padrão do item quando este texto for escolhido no orçamento.
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-4">
+            <div className="grid grid-cols-12 gap-3">
+              <div className="col-span-8">
+                <Label className="text-xs font-medium">Título <span className="text-rose-500">*</span></Label>
+                <Input
+                  value={textoForm.titulo}
+                  onChange={e => setTextoForm(f => ({ ...f, titulo: e.target.value }))}
+                  className="h-9 text-sm"
+                  placeholder="Ex.: Plano Básico"
+                />
+              </div>
+              <div className="col-span-4">
+                <Label className="text-xs font-medium">Valor</Label>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground shrink-0">R$</span>
+                  <Input
+                    value={textoForm.valor}
+                    onChange={e => setTextoForm(f => ({ ...f, valor: e.target.value }))}
+                    onBlur={e => {
+                      const n = moedaParaNumero(e.target.value)
+                      setTextoForm(f => ({ ...f, valor: n > 0 ? numeroParaMoeda(n) : '' }))
+                    }}
+                    className="h-9 text-sm"
+                    placeholder="0,00"
+                  />
+                </div>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs font-medium">Descrição</Label>
+              <RichEditor
+                value={textoForm.descricao}
+                onChange={v => setTextoForm(f => ({ ...f, descricao: v }))}
+                placeholder="Descreva este texto..."
+              />
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setTextoEdit(null)} disabled={textoSaving}>Cancelar</Button>
+            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleSaveTexto} disabled={textoSaving}>
+              {textoSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              {textoEdit?.id ? 'Salvar' : 'Adicionar'}
             </Button>
           </DialogFooter>
         </DialogContent>
