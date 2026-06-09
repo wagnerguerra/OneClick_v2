@@ -1648,11 +1648,21 @@ function KanbanCardContent({ op, etapas, onMover, onDelete, diasDesde, showMenu,
   op: Oportunidade; etapas: Etapa[]
   onMover: (id: string, etapaId: string) => void; onDelete: (id: string, titulo: string) => void; diasDesde: (d: string) => number; showMenu: boolean; declinioDias?: number
 }) {
+  // Empresa/Cliente da oportunidade: prioriza o cliente cadastrado (FK),
+  // cai pro nome avulso (razaoSocial digitada). Quando existe, vai ACIMA do título.
+  const empresaCliente = (op as any).cliente?.razaoSocial || (op as any).razaoSocial || null
   return (
     <div className="flex flex-col">
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-1 px-3 pt-2.5 pb-1">
-        <h4 className="text-[13px] font-semibold leading-tight line-clamp-2">{op.titulo}</h4>
+        <div className="min-w-0 flex-1">
+          {empresaCliente && (
+            <p className="text-[10px] font-semibold uppercase tracking-wide truncate mb-0.5" style={{ color: MODULE_COLOR }}>
+              {empresaCliente}
+            </p>
+          )}
+          <h4 className="text-[13px] font-semibold leading-tight line-clamp-2">{op.titulo}</h4>
+        </div>
         <div className="h-6 w-6 shrink-0 -mr-1 -mt-0.5">
           {showMenu && (
             <DropdownMenu>
@@ -1673,9 +1683,6 @@ function KanbanCardContent({ op, etapas, onMover, onDelete, diasDesde, showMenu,
 
       {/* ── Body ── */}
       <div className="px-3 pb-2 space-y-1.5">
-        {(op as any).razaoSocial && (
-          <p className="text-[11px] text-muted-foreground truncate">{(op as any).razaoSocial}</p>
-        )}
         <div className="flex flex-wrap items-center gap-1.5">
           {(op as any).orcamento && (
             <Link
