@@ -65,10 +65,63 @@ export class OrcamentoService {
     // Filtro de auditoria: somente orcamentos que ja foram reabertos pelo menos uma vez
     if (input.comReaberturas) where.reaberturasCount = { gt: 0 }
     if (input.search) {
-      where.OR = [
-        { id: { contains: input.search } },
-        { observacoes: { contains: input.search, mode: 'insensitive' } },
+      const term = input.search.trim()
+      const termLower = term.toLowerCase()
+      const numStr = term.replace(/[^0-9]/g, '') // dígitos: número do orçamento / CNPJ
+      // Busca abrangente — cobre tudo o que aparece no card do orçamento:
+      // número, cliente, responsável/solicitante, itens (serviços), status,
+      // contatos, e-mails, observações e texto interno.
+      const or: any[] = [
+        { id: { contains: term } },
+        { observacoes: { contains: term, mode: 'insensitive' } },
+        { textoInterno: { contains: term, mode: 'insensitive' } },
+        { contatos: { contains: term, mode: 'insensitive' } },
+        { emailsContatos: { contains: term, mode: 'insensitive' } },
+        // Descrição dos itens (serviços/taxas/despesas listados no card)
+        { itens: { some: { descricao: { contains: term, mode: 'insensitive' } } } },
       ]
+      // Número do orçamento (campo Int): aceita "42", "#0042", etc.
+      if (numStr) {
+        const n = parseInt(numStr, 10)
+        if (!Number.isNaN(n) && n > 0) or.push({ numero: n })
+      }
+      // Status (badge do card): casa pelo rótulo em PT ("aprovado", "enviado"...)
+      if (termLower.length >= 3) {
+        const STATUS_LABELS: Record<string, string> = {
+          NOVO: 'novo', A_ENVIAR: 'a enviar', ENVIADO: 'enviado', APROVADO: 'aprovado',
+          REPROVADO: 'reprovado', LIBERADO: 'liberado', FINALIZADO: 'finalizado',
+          ENCERRADO: 'encerrado', EM_REVISAO: 'em revisão', PARALISADO: 'paralisado',
+        }
+        const statusMatch = Object.entries(STATUS_LABELS)
+          .filter(([, l]) => l.includes(termLower))
+          .map(([v]) => v)
+        if (statusMatch.length > 0) or.push({ status: { in: statusMatch } })
+      }
+      // Cliente (nome / fantasia / CNPJ) — pré-busca os IDs (escopo da empresa)
+      const clienteOr: any[] = [
+        { razaoSocial: { contains: term, mode: 'insensitive' } },
+        { nomeFantasia: { contains: term, mode: 'insensitive' } },
+      ]
+      if (numStr) clienteOr.push({ documento: { contains: numStr } })
+      // Responsável / solicitante (nome) — pré-busca usuários por nome
+      const [clientes, usuarios] = await Promise.all([
+        prisma.cliente.findMany({
+          where: { ...(!isMaster && empresaId ? { empresaId } : {}), OR: clienteOr },
+          select: { id: true },
+          take: 300,
+        }).catch(() => [] as { id: string }[]),
+        prisma.user.findMany({
+          where: { name: { contains: term, mode: 'insensitive' } },
+          select: { id: true },
+          take: 300,
+        }).catch(() => [] as { id: string }[]),
+      ])
+      if (clientes.length > 0) or.push({ clienteId: { in: clientes.map(c => c.id) } })
+      if (usuarios.length > 0) {
+        const ids = usuarios.map(u => u.id)
+        or.push({ responsavelId: { in: ids } }, { solicitanteId: { in: ids } })
+      }
+      where.OR = or
     }
 
     // Escopo de listagem — espelha legado modal-prm-orcamentos.asp acesso (1-4)
@@ -2171,7 +2224,7 @@ export class OrcamentoService {
       const existing = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
         `SELECT id FROM opcoes_cadastro WHERE tipo = 'ORCAMENTO_CONFIG' AND valor LIKE '${key}=%' ${empresaId ? `AND empresa_id = '${empresaId}'` : 'AND empresa_id IS NULL'} LIMIT 1`
       ).catch(() => [])
-      if (existing.length > 0) {
+      if (existing[0]) {
         await prisma.$executeRawUnsafe(`UPDATE opcoes_cadastro SET valor = $1 WHERE id = $2`, `${key}=${value}`, existing[0].id)
       } else {
         await prisma.$executeRawUnsafe(
