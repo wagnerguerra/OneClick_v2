@@ -306,6 +306,58 @@ export class OrcamentoService {
     return orc
   }
 
+  /**
+   * Solicitação de orçamento (balão "Fale com a TI") — qualquer usuário autenticado
+   * pede um orçamento ao comercial sem precisar de permissão de escrita no módulo.
+   * Cria um orçamento NOVO, sem responsável (o comercial assume), com o usuário
+   * como solicitante. Cliente pode ser um cadastro existente OU um nome avulso
+   * (prospect ainda não cadastrado) — nesse caso vai no início do detalhamento.
+   */
+  async solicitar(
+    input: { clienteId?: string | null; clienteNome?: string | null; detalhamento: string },
+    userId?: string,
+    empresaId?: string,
+  ) {
+    const det = (input.detalhamento || '').trim()
+    const obs = input.clienteNome && !input.clienteId
+      ? `Cliente informado (não cadastrado): ${input.clienteNome.trim()}\n\n${det}`
+      : det
+    const orc = await this.create(
+      { clienteId: input.clienteId || null, observacoes: obs, solicitanteId: userId } as any,
+      userId,
+      empresaId,
+    )
+    // Solicitação chega sem responsável — fica disponível pro comercial assumir.
+    await prisma.orcamento.update({ where: { id: orc.id }, data: { responsavelId: null } }).catch(() => {})
+    await this.addEvento(orc.id, userId, 'created', null, null, 'Solicitação de orçamento (balão Fale com a TI)')
+    return { id: orc.id, numero: orc.numero }
+  }
+
+  /**
+   * Busca leve de clientes para o seletor da solicitação de orçamento.
+   * protectedProcedure (qualquer usuário logado) — retorna campos mínimos,
+   * sempre no escopo da empresa do usuário (master vê todos).
+   */
+  async buscarClientesParaSolicitacao(search: string | undefined, isMaster: boolean, empresaId?: string) {
+    const where: any = {}
+    if (!isMaster && empresaId) where.empresaId = empresaId
+    if (search && search.trim()) {
+      const term = search.trim()
+      const num = term.replace(/[^0-9]/g, '')
+      where.OR = [
+        { razaoSocial: { contains: term, mode: 'insensitive' } },
+        { nomeFantasia: { contains: term, mode: 'insensitive' } },
+        ...(num ? [{ documento: { contains: num } }] : []),
+      ]
+    }
+    return prisma.cliente.findMany({
+      where,
+      select: { id: true, razaoSocial: true, nomeFantasia: true, documento: true },
+      orderBy: { razaoSocial: 'asc' },
+      take: 20,
+    })
+  }
+
   // Status a partir dos quais o orcamento e congelado para alteracoes.
   // Para editar, usuario precisa duplicar o orcamento (status NOVO na copia).
   private static readonly STATUS_BLOQUEIA_EDICAO: ReadonlySet<string> = new Set([

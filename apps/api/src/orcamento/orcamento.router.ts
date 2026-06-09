@@ -114,6 +114,21 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
     listUsuarios: readProcedure(MODULE)
       .query(({ ctx }) => orcamentoService.listUsuarios(ctx.empresaId)),
 
+    // ── Solicitação de orçamento (balão "Fale com a TI") ──
+    // protectedProcedure: qualquer usuário autenticado pode pedir um orçamento
+    // ao comercial, mesmo sem permissão de escrita no módulo orçamentos.
+    buscarClientes: protectedProcedure
+      .input(z.object({ search: z.string().optional() }))
+      .query(({ input, ctx }) => orcamentoService.buscarClientesParaSolicitacao(input.search, ctx.isMaster ?? false, ctx.empresaId)),
+
+    solicitar: protectedProcedure
+      .input(z.object({
+        clienteId: z.string().optional().nullable(),
+        clienteNome: z.string().optional().nullable(),
+        detalhamento: z.string().min(3),
+      }))
+      .mutation(({ input, ctx }) => orcamentoService.solicitar(input, ctx.userId, ctx.empresaId)),
+
     // ── Formas de pagamento (lista gerenciável — espelha o legado) ──
     listFormasPagamento: readProcedure(MODULE)
       .query(({ ctx }) => orcamentoService.listFormasPagamento(ctx.empresaId)),
