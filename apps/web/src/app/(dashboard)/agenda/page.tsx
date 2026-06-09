@@ -1208,7 +1208,7 @@ export default function AgendaPage() {
           <Card className="p-4 space-y-3">
             <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filtros</h5>
             <div className="space-y-1.5">
-              <Label className="text-xs">Buscar</Label>
+              <Label className="text-[13px]">Buscar</Label>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -1230,7 +1230,7 @@ export default function AgendaPage() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Tipo de evento</Label>
+              <Label className="text-[13px]">Tipo de evento</Label>
               <Select value={filtroTipo || '__all__'} onValueChange={v => setFiltroTipo(v === '__all__' ? '' : v)}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos os tipos" /></SelectTrigger>
                 <SelectContent>
@@ -1247,7 +1247,7 @@ export default function AgendaPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Participantes</Label>
+              <Label className="text-[13px]">Participantes</Label>
               {/* Chips dos participantes selecionados */}
               {filtroParticipantes.length > 0 && (
                 <div className="flex flex-wrap gap-1 mb-1">
@@ -1333,7 +1333,7 @@ export default function AgendaPage() {
               })()}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Sala de reunião</Label>
+              <Label className="text-[13px]">Sala de reunião</Label>
               <Select value={filtroSala || '__all__'} onValueChange={v => setFiltroSala(v === '__all__' ? '' : v)}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todas" /></SelectTrigger>
                 <SelectContent>
@@ -2361,7 +2361,7 @@ export default function AgendaPage() {
                   {/* Modalidade (quando NÃO é reunião interna) */}
                   {!isReuniao && (
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Modalidade</Label>
+                      <Label className="text-[13px]">Modalidade</Label>
                       <Select value={form.presenca} onValueChange={v => setForm(f => ({ ...f, presenca: v }))}>
                         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -2441,7 +2441,7 @@ export default function AgendaPage() {
 
                   {/* Opções extras */}
                   <div className="space-y-2 pt-2 border-t">
-                    <Label className="text-xs font-semibold">Opções</Label>
+                    <Label className="text-xs font-semibold block mb-2.5">Opções</Label>
                     <label className="flex items-center gap-2 cursor-pointer text-xs">
                       <Checkbox checked={form.particular} onCheckedChange={v => setForm(f => ({ ...f, particular: !!v }))} />
                       <Lock className="h-3 w-3 text-muted-foreground" />Particular
@@ -2479,21 +2479,21 @@ export default function AgendaPage() {
                     mas como nada depende do DOM montado, não há perda de dados). */}
                 <div className="flex-1 min-w-0">
                   {/* min-h fixa a altura do conteúdo pra o modal não encolher ao trocar de aba */}
-                  <Tabs defaultValue="geral" className="w-full min-h-[60vh]">
-                    <TabsList className="mb-3">
-                      <TabsTrigger value="geral" className="gap-1.5 text-xs">
+                  <Tabs defaultValue="geral" className="w-full h-[62vh] flex flex-col">
+                    <TabsList className="mb-3 shrink-0">
+                      <TabsTrigger value="geral" className="gap-1.5 text-sm">
                         <Calendar className="h-3.5 w-3.5" />Geral
                       </TabsTrigger>
-                      <TabsTrigger value="lembretes" className="gap-1.5 text-xs">
+                      <TabsTrigger value="lembretes" className="gap-1.5 text-sm">
                         <Bell className="h-3.5 w-3.5" />Lembretes
                       </TabsTrigger>
-                      <TabsTrigger value="vinculacoes" className="gap-1.5 text-xs">
+                      <TabsTrigger value="vinculacoes" className="gap-1.5 text-sm">
                         <Link2 className="h-3.5 w-3.5" />Vinculações
                       </TabsTrigger>
                     </TabsList>
 
                     {/* ABA: GERAL */}
-                    <TabsContent value="geral" className="mt-0 space-y-3 focus-visible:outline-none">
+                    <TabsContent value="geral" className="mt-0 flex-1 overflow-y-auto nice-scrollbar pr-1 space-y-3 focus-visible:outline-none">
                   {/* Título */}
                   <div className="space-y-1.5">
                     <Label>Título *</Label>
@@ -2503,26 +2503,26 @@ export default function AgendaPage() {
                   {/* Data e horários */}
                   <div className="flex items-end gap-3 flex-wrap">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Data início *</Label>
+                      <Label className="text-[13px]">Data início *</Label>
                       <Input
                         type="date"
-                        className="h-8 text-sm"
+                        className="h-9 text-sm"
                         value={form.data}
                         onChange={e => setForm(f => ({ ...f, data: e.target.value }))}
                         min={modalMode === 'create' ? formatDate(new Date()) : undefined}
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Data término</Label>
-                      <Input type="date" className="h-8 text-sm" value={form.dataFim} onChange={e => setForm(f => ({ ...f, dataFim: e.target.value }))} min={form.data} />
+                      <Label className="text-[13px]">Data término</Label>
+                      <Input type="date" className="h-9 text-sm" value={form.dataFim} onChange={e => setForm(f => ({ ...f, dataFim: e.target.value }))} min={form.data} />
                     </div>
                     {!form.diaInteiro && (
                       <>
                         <div className="space-y-1.5">
-                          <Label className="text-xs">Início</Label>
+                          <Label className="text-[13px]">Início</Label>
                           <Input
                             type="time"
-                            className="h-8 text-sm w-[100px]"
+                            className="h-9 text-sm w-[110px]"
                             value={form.horaInicio}
                             onChange={e => {
                               const novoInicio = e.target.value
@@ -2538,8 +2538,8 @@ export default function AgendaPage() {
                         </div>
                         <span className="pb-1.5 text-muted-foreground">—</span>
                         <div className="space-y-1.5">
-                          <Label className="text-xs">Fim</Label>
-                          <Input type="time" className="h-8 text-sm w-[100px]" value={form.horaFim} onChange={e => setForm(f => ({ ...f, horaFim: e.target.value }))} />
+                          <Label className="text-[13px]">Fim</Label>
+                          <Input type="time" className="h-9 text-sm w-[110px]" value={form.horaFim} onChange={e => setForm(f => ({ ...f, horaFim: e.target.value }))} />
                         </div>
                       </>
                     )}
@@ -2553,12 +2553,12 @@ export default function AgendaPage() {
                   {!isReuniao && (
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Local</Label>
-                        <Input className="h-8 text-sm" value={form.local} onChange={e => setForm(f => ({ ...f, local: e.target.value }))} placeholder="Local do evento" />
+                        <Label className="text-[13px]">Local</Label>
+                        <Input className="h-9 text-sm" value={form.local} onChange={e => setForm(f => ({ ...f, local: e.target.value }))} placeholder="Local do evento" />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Sala</Label>
-                        <Input className="h-8 text-sm" value={form.sala} onChange={e => setForm(f => ({ ...f, sala: e.target.value }))} placeholder="Sala de reunião" />
+                        <Label className="text-[13px]">Sala</Label>
+                        <Input className="h-9 text-sm" value={form.sala} onChange={e => setForm(f => ({ ...f, sala: e.target.value }))} placeholder="Sala de reunião" />
                       </div>
                     </div>
                   )}
@@ -2566,28 +2566,28 @@ export default function AgendaPage() {
                   {/* Link (quando NÃO é reunião interna mas é online/híbrido) */}
                   {!isReuniao && needsLink && (
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Link da reunião</Label>
-                      <Input className="h-8 text-sm" value={form.link} onChange={e => setForm(f => ({ ...f, link: e.target.value }))} placeholder="https://meet.google.com/..." />
+                      <Label className="text-[13px]">Link da reunião</Label>
+                      <Input className="h-9 text-sm" value={form.link} onChange={e => setForm(f => ({ ...f, link: e.target.value }))} placeholder="https://meet.google.com/..." />
                     </div>
                   )}
 
                   {/* Local — só aparece quando "Outro local" foi escolhido na seção da sala */}
                   {form.sala === 'Outro' && (
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Local *</Label>
-                      <Input className="h-8 text-sm" value={form.local} onChange={e => setForm(f => ({ ...f, local: e.target.value }))} placeholder="Endereço, sala externa, etc." />
+                      <Label className="text-[13px]">Local *</Label>
+                      <Input className="h-9 text-sm" value={form.local} onChange={e => setForm(f => ({ ...f, local: e.target.value }))} placeholder="Endereço, sala externa, etc." />
                     </div>
                   )}
 
                   {/* Contato */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Contato</Label>
-                    <Input className="h-8 text-sm" value={form.contato} onChange={e => setForm(f => ({ ...f, contato: e.target.value }))} placeholder="Telefone ou e-mail de contato" />
+                    <Label className="text-[13px]">Contato</Label>
+                    <Input className="h-9 text-sm" value={form.contato} onChange={e => setForm(f => ({ ...f, contato: e.target.value }))} placeholder="Telefone ou e-mail de contato" />
                   </div>
 
                   {/* Participantes — sempre disponível ao criar/editar evento próprio */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Participantes</Label>
+                    <Label className="text-[13px]">Participantes</Label>
                     {(form.participanteIds.length > 0 || form.participantesAvulsos.length > 0) && (
                       <div className="flex flex-wrap gap-1.5 mb-1.5">
                         {form.participanteIds.map(id => {
@@ -2691,7 +2691,7 @@ export default function AgendaPage() {
 
                   {/* Descrição */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Descrição</Label>
+                    <Label className="text-[13px]">Descrição</Label>
                     <RichEditor
                       value={form.descricao}
                       onChange={html => setForm(f => ({ ...f, descricao: html }))}
@@ -2703,7 +2703,7 @@ export default function AgendaPage() {
 
                     {/* ABA: LEMBRETES E CRM */}
                     {/* ABA: LEMBRETES */}
-                    <TabsContent value="lembretes" className="mt-0 space-y-3 focus-visible:outline-none">
+                    <TabsContent value="lembretes" className="mt-0 flex-1 overflow-y-auto nice-scrollbar pr-1 space-y-3 focus-visible:outline-none">
                   {/* Lembretes */}
                   <div className="space-y-1.5">
                     <Label className="text-xs flex items-center gap-1.5">
@@ -2780,7 +2780,7 @@ export default function AgendaPage() {
                     </TabsContent>
 
                     {/* ABA: VINCULAÇÕES — Card do CRM (e, no futuro, outros vínculos) */}
-                    <TabsContent value="vinculacoes" className="mt-0 space-y-3 focus-visible:outline-none">
+                    <TabsContent value="vinculacoes" className="mt-0 flex-1 overflow-y-auto nice-scrollbar pr-1 space-y-3 focus-visible:outline-none">
                   {/* Vincular card do CRM */}
                   <div className="space-y-1.5">
                     <Label className="text-xs flex items-center gap-1.5">
@@ -2818,7 +2818,7 @@ export default function AgendaPage() {
                           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
                         </button>
                         {opBuscaOpen && (
-                          <div className="absolute bottom-full left-0 right-0 z-50 mb-1 overflow-hidden rounded-md border bg-popover shadow-md">
+                          <div className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-md">
                             <div className="p-1.5 border-b bg-popover sticky top-0">
                               <Input
                                 autoFocus
@@ -3005,25 +3005,25 @@ export default function AgendaPage() {
               </h5>
               <div className="grid grid-cols-12 gap-3">
                 <div className="col-span-12 sm:col-span-5 space-y-1.5">
-                  <Label className="text-xs">Nome *</Label>
-                  <Input value={tipoForm.nome} onChange={e => setTipoForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: Reunião Interna" className="h-8 text-sm" />
+                  <Label className="text-[13px]">Nome *</Label>
+                  <Input value={tipoForm.nome} onChange={e => setTipoForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: Reunião Interna" className="h-9 text-sm" />
                 </div>
                 <div className="col-span-4 sm:col-span-2 space-y-1.5">
-                  <Label className="text-xs">Fundo</Label>
+                  <Label className="text-[13px]">Fundo</Label>
                   <div className="flex items-center gap-1.5">
                     <input type="color" value={tipoForm.cor} onChange={e => setTipoForm(f => ({ ...f, cor: e.target.value }))} className="h-8 w-10 rounded border cursor-pointer" />
                     <span className="text-[10px] text-muted-foreground font-mono">{tipoForm.cor}</span>
                   </div>
                 </div>
                 <div className="col-span-4 sm:col-span-2 space-y-1.5">
-                  <Label className="text-xs">Borda</Label>
+                  <Label className="text-[13px]">Borda</Label>
                   <div className="flex items-center gap-1.5">
                     <input type="color" value={tipoForm.corBorda} onChange={e => setTipoForm(f => ({ ...f, corBorda: e.target.value }))} className="h-8 w-10 rounded border cursor-pointer" />
                     <span className="text-[10px] text-muted-foreground font-mono">{tipoForm.corBorda}</span>
                   </div>
                 </div>
                 <div className="col-span-4 sm:col-span-2 space-y-1.5">
-                  <Label className="text-xs">Texto</Label>
+                  <Label className="text-[13px]">Texto</Label>
                   <div className="flex items-center gap-1.5">
                     <input type="color" value={tipoForm.corTexto} onChange={e => setTipoForm(f => ({ ...f, corTexto: e.target.value }))} className="h-8 w-10 rounded border cursor-pointer" />
                     <span className="text-[10px] text-muted-foreground font-mono">{tipoForm.corTexto}</span>
@@ -3039,7 +3039,7 @@ export default function AgendaPage() {
                   {tipoEditando && (
                     <Button variant="ghost" size="sm" onClick={cancelTipoEdit} className="text-xs">Cancelar</Button>
                   )}
-                  <Button variant="success" size="sm" onClick={handleSaveTipo} disabled={tipoSaving} className="gap-1.5 text-xs">
+                  <Button variant="success" size="sm" onClick={handleSaveTipo} disabled={tipoSaving} className="gap-1.5 text-sm">
                     {tipoSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                     {tipoEditando ? 'Atualizar' : 'Criar'}
                   </Button>
