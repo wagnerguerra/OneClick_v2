@@ -44,6 +44,15 @@ export function FloatingFeedbackButton() {
   // e saída (true→false antes do unmount em 200ms).
   const [entered, setEntered] = useState(false)
   const [mode, setMode] = useState<Mode>('menu')
+  // Direção da transição entre telas: 'fwd' (menu → serviço) entra pela direita,
+  // 'back' (serviço → menu) entra pela esquerda. Usado pela animação do corpo.
+  const [dir, setDir] = useState<'fwd' | 'back'>('fwd')
+
+  /** Troca de tela com direção da animação inferida (menu = raiz). */
+  function goTo(next: Mode) {
+    setDir(next === 'menu' ? 'back' : 'fwd')
+    setMode(next)
+  }
   const [tipo, setTipo] = useState<Tipo>('INCIDENTE')
   const [texto, setTexto] = useState('')
   const [anexos, setAnexos] = useState<AnexoPendente[]>([])
@@ -301,7 +310,7 @@ export function FloatingFeedbackButton() {
               {mode !== 'menu' && (
                 <button
                   type="button"
-                  onClick={() => setMode('menu')}
+                  onClick={() => goTo('menu')}
                   className="h-6 w-6 -ml-1 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   title="Voltar"
                   aria-label="Voltar"
@@ -324,6 +333,15 @@ export function FloatingFeedbackButton() {
             </div>
           )}
 
+          {/* Corpo das telas — anima a cada troca de `mode` (key força remount).
+              Avança (fwd) entra pela direita; volta (back), pela esquerda. */}
+          <div
+            key={mode}
+            className={cn(
+              'animate-in fade-in-0 duration-200 ease-out',
+              dir === 'fwd' ? 'slide-in-from-right-5' : 'slide-in-from-left-5',
+            )}
+          >
           {/* ── Menu: escolha do serviço ── */}
           {mode === 'menu' && (
             <div className="p-3 grid grid-cols-2 gap-3">
@@ -332,14 +350,14 @@ export function FloatingFeedbackButton() {
                 title="Ticket"
                 subtitle="Erro, dúvida ou sugestão"
                 color="var(--mod-ti, #22d3ee)"
-                onClick={() => setMode('ticket')}
+                onClick={() => goTo('ticket')}
               />
               <ServiceCard
                 icon={FileText}
                 title="Orçamento"
                 subtitle="Pedir ao comercial"
                 color="var(--mod-comercial, #fb7185)"
-                onClick={() => setMode('orcamento')}
+                onClick={() => goTo('orcamento')}
               />
             </div>
           )}
@@ -493,6 +511,7 @@ export function FloatingFeedbackButton() {
               onClose={() => setOpenAnimated(false)}
             />
           )}
+          </div>
         </div>
       )}
     </>
