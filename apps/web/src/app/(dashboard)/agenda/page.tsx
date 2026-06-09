@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Plus, Loader2, Calendar, Clock,
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
   Repeat, Lock, History, Settings, Palette, Check, Download, DoorOpen,
-  Bell, Mail, CheckSquare, Square, ListTodo, Search,
+  Bell, Mail, CheckSquare, Square, ListTodo, Search, Target, ArrowRight, Link2,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card,
@@ -63,6 +63,7 @@ interface AgendaEvento {
   lote: string | null
   tipoId: string
   criadorId: string
+  oportunidadeId: string | null
   tipo: { id: string; nome: string; cor: string; corBorda: string; corTexto: string }
   criador: { id: string; name: string }
   participantes: Array<{
@@ -71,6 +72,22 @@ interface AgendaEvento {
     nomeAvulso: string | null
     usuario: { id: string; name: string } | null
   }>
+  // Presente apenas no retorno do getById (detalhe) quando o evento está vinculado a um card do CRM
+  oportunidade?: {
+    id: string
+    titulo: string
+    valor: string | number | null
+    razaoSocial: string | null
+    etapa: { id: string; nome: string; cor: string } | null
+    responsavel: { id: string; name: string } | null
+  } | null
+}
+
+interface OportunidadeBusca {
+  id: string
+  titulo: string
+  razaoSocial: string | null
+  etapa: { nome: string; cor: string } | null
 }
 
 // ============================================================
@@ -244,7 +261,23 @@ export default function AgendaPage() {
 
   // Filtros
   const [filtroTipo, setFiltroTipo] = useState<string>('')
-  const [filtroParticipante, setFiltroParticipante] = useState<string>('')
+  // Multi-seleção de participantes — casa eventos que tenham QUALQUER um dos
+  // participantes selecionados (ou cujo criador esteja entre eles).
+  const [filtroParticipantes, setFiltroParticipantes] = useState<string[]>([])
+  const [filtroPartOpen, setFiltroPartOpen] = useState(false)
+  const [filtroPartQuery, setFiltroPartQuery] = useState('')
+  const filtroPartRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!filtroPartOpen) return
+    function onClickOutside(e: MouseEvent) {
+      if (filtroPartRef.current && !filtroPartRef.current.contains(e.target as Node)) {
+        setFiltroPartOpen(false)
+        setFiltroPartQuery('')
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [filtroPartOpen])
   const [filtroBusca, setFiltroBusca] = useState<string>('')
   // Filtro de sala de reunião: '' = todas · '__any__' = qualquer sala ocupada · <id> = sala específica
   const [filtroSala, setFiltroSala] = useState<string>('')
@@ -313,8 +346,44 @@ export default function AgendaPage() {
     recorrenciaVezes: 1,
     participanteIds: [] as string[],
     participantesAvulsos: [] as string[],
+    // Opt-in de notificação por e-mail (padrão DESMARCADO) e vínculo opcional com card do CRM
+    notificar: false,
+    oportunidadeId: '' as string,
   })
   const [avulsoInput, setAvulsoInput] = useState('')
+
+  // Vínculo com card do CRM (Item 4). Guarda a oportunidade selecionada pra
+  // exibir título/cliente nos chips do form sem precisar refetch.
+  const [oportunidadeVinc, setOportunidadeVinc] = useState<OportunidadeBusca | null>(null)
+  const [opBuscaOpen, setOpBuscaOpen] = useState(false)
+  const [opBuscaQuery, setOpBuscaQuery] = useState('')
+  const [opBuscaResults, setOpBuscaResults] = useState<OportunidadeBusca[]>([])
+  const [opBuscaLoading, setOpBuscaLoading] = useState(false)
+  const opBuscaRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!opBuscaOpen) return
+    function onClickOutside(e: MouseEvent) {
+      if (opBuscaRef.current && !opBuscaRef.current.contains(e.target as Node)) {
+        setOpBuscaOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [opBuscaOpen])
+  // Debounce da busca de oportunidades
+  useEffect(() => {
+    if (!opBuscaOpen) return
+    let cancelled = false
+    setOpBuscaLoading(true)
+    const t = setTimeout(() => {
+      ;(trpc.agenda as { buscarOportunidades: { query: (i: { search?: string }) => Promise<unknown> } })
+        .buscarOportunidades.query({ search: opBuscaQuery.trim() || undefined })
+        .then(r => { if (!cancelled) setOpBuscaResults(r as OportunidadeBusca[]) })
+        .catch(() => { if (!cancelled) setOpBuscaResults([]) })
+        .finally(() => { if (!cancelled) setOpBuscaLoading(false) })
+    }, 250)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [opBuscaOpen, opBuscaQuery])
 
   // === Tarefas (entidade separada de eventos) ===
   interface Tarefa {
@@ -547,10 +616,13 @@ export default function AgendaPage() {
   const eventosPorDia = useMemo(() => {
     const map: Record<string, AgendaEvento[]> = {}
     let filtered = filtroTipo ? eventos.filter(e => e.tipoId === filtroTipo) : eventos
-    if (filtroParticipante) {
+    if (filtroParticipantes.length > 0) {
+      // Casa se o evento tem QUALQUER um dos participantes selecionados,
+      // ou se o criador é um deles.
+      const sel = new Set(filtroParticipantes)
       filtered = filtered.filter(e =>
-        e.criadorId === filtroParticipante ||
-        e.participantes.some(p => p.usuarioId === filtroParticipante)
+        sel.has(e.criadorId) ||
+        e.participantes.some(p => p.usuarioId != null && sel.has(p.usuarioId))
       )
     }
     // Filtro de sala de reunião — "__any__" mostra eventos em qualquer sala
@@ -607,7 +679,7 @@ export default function AgendaPage() {
       map[key]!.sort((a, b) => (a.horaInicio ?? '').localeCompare(b.horaInicio ?? ''))
     }
     return map
-  }, [eventos, filtroTipo, filtroParticipante, filtroBusca, filtroSala, salasCadastradas])
+  }, [eventos, filtroTipo, filtroParticipantes, filtroBusca, filtroSala, salasCadastradas])
 
   // ============================================================
   // Ações
@@ -635,9 +707,12 @@ export default function AgendaPage() {
       tipoId: tipos[0]?.id ?? '', recorrencia: 'NENHUMA', recorrenciaVezes: 2,
       participanteIds,
       participantesAvulsos: [],
+      notificar: false,
+      oportunidadeId: '',
     })
     setAvulsoInput('')
     setLembretesForm([])
+    setOportunidadeVinc(null)
     setModalOpen(true)
   }
 
@@ -649,6 +724,15 @@ export default function AgendaPage() {
     // Carregar logs
     trpc.agenda.listLogs.query({ eventoId: ev.id })
       .then((r: unknown) => setEventLogs(r as typeof eventLogs))
+      .catch(() => {})
+    // Refetch completo do evento pra trazer a oportunidade vinculada (CRM) —
+    // a listagem do calendário não inclui esse relacionamento.
+    trpc.agenda.getById.query({ id: ev.id })
+      .then((full: unknown) => {
+        const f = full as AgendaEvento
+        // Só atualiza se ainda estamos vendo o mesmo evento (evita corrida ao trocar rápido)
+        setSelectedEvento(prev => (prev && prev.id === f.id ? { ...prev, ...f } : prev))
+      })
       .catch(() => {})
   }
 
@@ -680,9 +764,25 @@ export default function AgendaPage() {
       recorrenciaVezes: 2,
       participanteIds: ev.participantes.filter(p => p.usuarioId).map(p => p.usuarioId!),
       participantesAvulsos: ev.participantes.filter(p => p.nomeAvulso).map(p => p.nomeAvulso!),
+      notificar: false,
+      oportunidadeId: ev.oportunidadeId ?? '',
     })
     setAvulsoInput('')
     setLembretesForm([])
+    // Vínculo com card do CRM: usa a oportunidade já vinda do getById (se houver),
+    // ou monta um chip mínimo a partir do oportunidadeId pra exibir enquanto edita.
+    if (ev.oportunidade) {
+      setOportunidadeVinc({
+        id: ev.oportunidade.id,
+        titulo: ev.oportunidade.titulo,
+        razaoSocial: ev.oportunidade.razaoSocial,
+        etapa: ev.oportunidade.etapa ? { nome: ev.oportunidade.etapa.nome, cor: ev.oportunidade.etapa.cor } : null,
+      })
+    } else if (ev.oportunidadeId) {
+      setOportunidadeVinc({ id: ev.oportunidadeId, titulo: 'Card vinculado', razaoSocial: null, etapa: null })
+    } else {
+      setOportunidadeVinc(null)
+    }
     trpc.agenda.lembrete.list.query({ eventoId: ev.id })
       .then((r: unknown) => {
         const arr = r as Array<{ canal: 'POPUP' | 'EMAIL'; minutosAntes: number }>
@@ -784,10 +884,12 @@ export default function AgendaPage() {
           salaId: form.salaId || undefined,
           isTarefa: form.isTarefa,
           tipoId: form.tipoId,
+          oportunidadeId: form.oportunidadeId || null,
           recorrencia: form.recorrencia as 'NENHUMA' | 'DIARIA' | 'SEMANAL' | 'MENSAL' | 'ANUAL',
           recorrenciaVezes: form.recorrencia !== 'NENHUMA' ? form.recorrenciaVezes : undefined,
           participanteIds: form.participanteIds,
           participantesAvulsos: form.participantesAvulsos,
+          notificar: form.notificar,
         })
         // Salva lembretes (pode ser lista vazia — apaga tudo)
         const novoId = (criado as { id?: string } | undefined)?.id
@@ -818,8 +920,10 @@ export default function AgendaPage() {
             salaId: form.salaId || undefined,
             isTarefa: form.isTarefa,
             tipoId: form.tipoId,
+            oportunidadeId: form.oportunidadeId || null,
             participanteIds: form.participanteIds,
             participantesAvulsos: form.participantesAvulsos,
+            notificar: form.notificar,
           },
         })
         await trpc.agenda.lembrete.save.mutate({ eventoId: selectedEvento.id, lembretes: lembretesForm })
@@ -853,6 +957,9 @@ export default function AgendaPage() {
         iconHtml: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>',
         title: 'Excluir evento recorrente',
         html: `<div style="text-align:left;font-size:14px">${eventCard}<p style="margin:0;color:#374151">O que deseja excluir?</p></div>`,
+        input: 'checkbox',
+        inputValue: 0,
+        inputPlaceholder: 'Notificar participantes por e-mail',
         showCancelButton: true,
         showDenyButton: true,
         confirmButtonText: '<span style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> Apenas este</span>',
@@ -865,12 +972,14 @@ export default function AgendaPage() {
         reverseButtons: true,
       })
       if (result.isDismissed) return
+      const notificar = !!result.value
       try {
         if (result.isDenied) {
+          // Exclusão da série inteira — não há notificação granular (deleteLote não notifica).
           await trpc.agenda.deleteLote.mutate({ lote: ev.lote })
           alerts.success('Série excluída', 'Todos os eventos da série foram removidos.')
         } else {
-          await trpc.agenda.delete.mutate({ id: ev.id })
+          await trpc.agenda.delete.mutate({ id: ev.id, notificar })
           alerts.success('Evento excluído', '')
         }
         setModalOpen(false)
@@ -882,6 +991,9 @@ export default function AgendaPage() {
         iconHtml: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>',
         title: 'Excluir evento',
         html: `<div style="text-align:left;font-size:14px">${eventCard}<p style="margin:0;color:#6b7280;font-size:13px">Esta ação não pode ser desfeita.</p></div>`,
+        input: 'checkbox',
+        inputValue: 0,
+        inputPlaceholder: 'Notificar participantes por e-mail',
         showCancelButton: true,
         confirmButtonText: '<span style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg> Excluir</span>',
         cancelButtonText: 'Cancelar',
@@ -891,8 +1003,9 @@ export default function AgendaPage() {
         reverseButtons: true,
       })
       if (!result.isConfirmed) return
+      const notificar = !!result.value
       try {
-        await trpc.agenda.delete.mutate({ id: ev.id })
+        await trpc.agenda.delete.mutate({ id: ev.id, notificar })
         alerts.success('Evento excluído', '')
         setModalOpen(false)
         setDayModalOpen(false)
@@ -1117,14 +1230,90 @@ export default function AgendaPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Participante</Label>
-              <Select value={filtroParticipante || '__all__'} onValueChange={v => setFiltroParticipante(v === '__all__' ? '' : v)}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">Todos</SelectItem>
-                  {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Participantes</Label>
+              {/* Chips dos participantes selecionados */}
+              {filtroParticipantes.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-1">
+                  {filtroParticipantes.map(id => {
+                    const u = usuarios.find(x => x.id === id)
+                    if (!u) return null
+                    return (
+                      <span key={id} className="flex items-center gap-1 text-[11px] bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 pl-1.5 pr-1 py-0.5 rounded-full">
+                        <span className="truncate max-w-[120px]">{u.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setFiltroParticipantes(arr => arr.filter(x => x !== id))}
+                          className="hover:text-red-500"
+                          aria-label={`Remover ${u.name}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
+              {/* Combobox de busca pra adicionar participantes */}
+              {(() => {
+                const disponiveis = usuarios.filter(u => !filtroParticipantes.includes(u.id))
+                const filtered = filtroPartQuery.trim()
+                  ? disponiveis.filter(u => u.name.toLowerCase().includes(filtroPartQuery.toLowerCase()))
+                  : disponiveis
+                return (
+                  <div ref={filtroPartRef} className="relative w-full">
+                    <button
+                      type="button"
+                      onClick={() => setFiltroPartOpen(o => !o)}
+                      className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                      <span className="text-muted-foreground truncate">
+                        {filtroParticipantes.length === 0 ? 'Todos os participantes' : 'Adicionar participante...'}
+                      </span>
+                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
+                    </button>
+                    {filtroPartOpen && (
+                      <div className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-md">
+                        <div className="p-1.5 border-b bg-popover sticky top-0">
+                          <Input
+                            autoFocus
+                            value={filtroPartQuery}
+                            onChange={e => setFiltroPartQuery(e.target.value)}
+                            placeholder="Buscar participante..."
+                            className="h-7 text-xs"
+                          />
+                        </div>
+                        <div className="max-h-56 overflow-y-auto py-1">
+                          {filtered.length === 0 ? (
+                            <p className="px-3 py-3 text-xs text-muted-foreground text-center">
+                              {disponiveis.length === 0 ? 'Todos já selecionados' : 'Nenhum encontrado'}
+                            </p>
+                          ) : filtered.map(u => (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => {
+                                setFiltroParticipantes(arr => [...arr, u.id])
+                                setFiltroPartQuery('')
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
+                            >
+                              {u.image ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={resolveAssetUrl(u.image)} alt={u.name} className="h-5 w-5 rounded-full object-cover shrink-0 border border-border" />
+                              ) : (
+                                <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center shrink-0 text-[8px] font-bold text-muted-foreground">
+                                  {(u.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                                </span>
+                              )}
+                              <span className="truncate">{u.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Sala de reunião</Label>
@@ -1139,8 +1328,8 @@ export default function AgendaPage() {
                 </SelectContent>
               </Select>
             </div>
-            {(filtroTipo || filtroParticipante || filtroBusca || filtroSala) && (
-              <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => { setFiltroTipo(''); setFiltroParticipante(''); setFiltroBusca(''); setFiltroSala('') }}>
+            {(filtroTipo || filtroParticipantes.length > 0 || filtroBusca || filtroSala) && (
+              <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => { setFiltroTipo(''); setFiltroParticipantes([]); setFiltroBusca(''); setFiltroSala('') }}>
                 <X className="h-3 w-3 mr-1" />Limpar filtros
               </Button>
             )}
@@ -1310,7 +1499,7 @@ export default function AgendaPage() {
             </div>
 
             {/* Grid dos dias com header sticky (mesmo container scrollable pra alinhar com a scrollbar) */}
-            <div className="overflow-y-auto flex-1">
+            <div className="overflow-y-auto flex-1 nice-scrollbar">
             {/* Header dias da semana — dentro do scroll com sticky top-0 pra ficar fixo no topo */}
             <div className="grid grid-cols-7 sticky top-0 z-10 bg-background">
               {DIAS_SEMANA.map(d => (
@@ -1581,33 +1770,87 @@ export default function AgendaPage() {
             <DialogDescription>{dayModalEvents.length} evento(s)</DialogDescription>
           </DialogHeaderIcon>
           <DialogBody className="space-y-2 max-h-[400px]">
-            {dayModalEvents.map(ev => (
-              <div
-                key={ev.id}
-                className="flex items-center gap-3 rounded-lg border px-3 py-2.5 hover:bg-muted/30 cursor-pointer transition-colors"
-                // Mantém o modal do dia aberto por trás — ao fechar o detalhe
-                // do evento, o user volta pra lista do dia sem precisar reabrir.
-                onClick={() => openViewEvent(ev)}
-              >
-                <div className="h-8 w-1.5 rounded-full shrink-0" style={{ backgroundColor: ev.tipo.cor }} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{ev.titulo}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio} — ${ev.horaFim}`}
-                    {ev.local && ` · ${ev.local}`}
-                  </p>
-                </div>
-                <span
-                  className="text-[10px] px-2 py-0.5 rounded-full shrink-0"
-                  style={{
-                    backgroundColor: isDark ? `${ev.tipo.cor}33` : ev.tipo.cor,
-                    color: isDark ? '#e5e7eb' : ev.tipo.corTexto,
-                  }}
+            {dayModalEvents.map(ev => {
+              const nomes = ev.participantes
+                .map(p => p.usuario?.name ?? p.nomeAvulso)
+                .filter(Boolean) as string[]
+              const visiveis = nomes.slice(0, 5)
+              const restante = nomes.length - visiveis.length
+              const horario = ev.diaInteiro
+                ? 'Dia inteiro'
+                : ev.horaInicio
+                  ? `${ev.horaInicio}${ev.horaFim ? ` — ${ev.horaFim}` : ''}`
+                  : 'Sem horário'
+              const localSala = ev.sala || ev.local
+              const presencaDef = PRESENCA_LABELS[ev.presenca]
+              const PresencaIcon = presencaDef?.icon ?? Building2
+              return (
+                <div
+                  key={ev.id}
+                  className="flex items-stretch gap-3 rounded-lg border border-border px-3 py-2.5 hover:bg-muted/30 cursor-pointer transition-colors"
+                  // Mantém o modal do dia aberto por trás — ao fechar o detalhe
+                  // do evento, o user volta pra lista do dia sem precisar reabrir.
+                  onClick={() => openViewEvent(ev)}
                 >
-                  {ev.tipo.nome}
-                </span>
-              </div>
-            ))}
+                  {/* Barra colorida do tipo */}
+                  <div className="w-1.5 rounded-full shrink-0 self-stretch" style={{ backgroundColor: ev.tipo.corBorda || ev.tipo.cor }} />
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    {/* Título + badge do tipo */}
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium leading-snug min-w-0 flex-1 truncate flex items-center gap-1">
+                        {ev.particular && <Lock className="inline h-3 w-3 shrink-0 text-amber-500" />}
+                        {ev.titulo}
+                      </p>
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap"
+                        style={{
+                          backgroundColor: isDark ? `${ev.tipo.cor}33` : ev.tipo.cor,
+                          color: isDark ? '#e5e7eb' : ev.tipo.corTexto,
+                        }}
+                      >
+                        {ev.tipo.nome}
+                      </span>
+                    </div>
+                    {/* Meta: horário · presença · local/sala */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 tabular-nums">
+                        <Clock className="h-3 w-3 shrink-0 opacity-70" />{horario}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <PresencaIcon className="h-3 w-3 shrink-0 opacity-70" />{presencaDef?.label ?? ev.presenca}
+                      </span>
+                      {localSala && (
+                        <span className="inline-flex items-center gap-1 min-w-0">
+                          <MapPin className="h-3 w-3 shrink-0 opacity-70" />
+                          <span className="truncate max-w-[160px]">{localSala}</span>
+                        </span>
+                      )}
+                    </div>
+                    {/* Participantes — avatares/iniciais + nomes com +N */}
+                    {nomes.length > 0 && (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Users className="h-3 w-3 shrink-0 text-muted-foreground opacity-70" />
+                        {visiveis.map((nome, i) => (
+                          <span
+                            key={`${ev.id}-p${i}`}
+                            className="inline-flex items-center gap-1 text-[10px] bg-muted/60 border border-border/60 rounded-full pl-0.5 pr-1.5 py-0.5"
+                            title={nome}
+                          >
+                            <span className="h-4 w-4 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-white text-[7px] font-bold flex items-center justify-center shrink-0">
+                              {nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                            </span>
+                            <span className="truncate max-w-[90px]">{nome}</span>
+                          </span>
+                        ))}
+                        {restante > 0 && (
+                          <span className="text-[10px] text-muted-foreground font-medium">+{restante}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </DialogBody>
           {/* Footer só quando há ação possível — pra datas passadas, oculta inteiro */}
           {dayModalDate >= formatDate(new Date()) && (
@@ -1793,9 +2036,54 @@ export default function AgendaPage() {
                     </div>
                   )}
 
+                  {/* Card do CRM vinculado — painel destacado à direita (Item 4) */}
+                  {ev.oportunidade && (
+                    <div className="sm:float-right sm:w-[300px] sm:ml-4 mb-2 rounded-lg border border-violet-500/30 bg-violet-500/5 dark:bg-violet-500/10 overflow-hidden">
+                      <div className="px-3.5 py-2 border-b border-violet-500/20 flex items-center gap-2 bg-violet-500/10">
+                        <Target className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+                        <span className="text-[11px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider">Card do CRM</span>
+                      </div>
+                      <div className="px-3.5 py-3 space-y-2.5">
+                        <div>
+                          <p className="text-sm font-semibold leading-tight">{ev.oportunidade.titulo}</p>
+                          {ev.oportunidade.razaoSocial && (
+                            <p className="text-[12px] text-muted-foreground mt-0.5 truncate">{ev.oportunidade.razaoSocial}</p>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {ev.oportunidade.etapa && (
+                            <span
+                              className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full"
+                              style={{ backgroundColor: `${ev.oportunidade.etapa.cor}22`, color: ev.oportunidade.etapa.cor }}
+                            >
+                              {ev.oportunidade.etapa.nome}
+                            </span>
+                          )}
+                          {ev.oportunidade.valor != null && Number(ev.oportunidade.valor) > 0 && (
+                            <span className="inline-flex items-center text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                              {Number(ev.oportunidade.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </span>
+                          )}
+                        </div>
+                        {ev.oportunidade.responsavel && (
+                          <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                            <Users className="h-3 w-3 shrink-0 opacity-70" />
+                            <span className="truncate">{ev.oportunidade.responsavel.name}</span>
+                          </div>
+                        )}
+                        <Link
+                          href={`/crm?op=${ev.oportunidade.id}`}
+                          className="inline-flex items-center gap-1.5 text-[12px] font-medium text-violet-600 dark:text-violet-400 hover:underline"
+                        >
+                          <ArrowRight className="h-3.5 w-3.5" />Abrir no CRM
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Descrição */}
                   {ev.descricao && (
-                    <div className="rounded-lg border-l-4 bg-muted/30 px-4 py-3" style={{ borderLeftColor: corTipo }}>
+                    <div className="rounded-lg border-l-4 bg-muted/30 px-4 py-3 clear-both" style={{ borderLeftColor: corTipo }}>
                       <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Descrição</div>
                       <div
                         className="text-sm prose prose-sm dark:prose-invert max-w-none [&_*]:text-sm [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-sky-600"
@@ -2394,6 +2682,107 @@ export default function AgendaPage() {
                       Disparado pra todos os participantes. Notificação = popup do navegador + toast no app. E-mail = mensagem na caixa de entrada.
                     </p>
                   </div>
+
+                  {/* Vincular card do CRM (Item 4) */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1.5">
+                      <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      Card do CRM (opcional)
+                    </Label>
+                    {oportunidadeVinc ? (
+                      <div className="flex items-center gap-2 rounded-md border border-violet-500/30 bg-violet-500/5 dark:bg-violet-500/10 px-2.5 py-1.5">
+                        <Target className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-medium truncate">{oportunidadeVinc.titulo}</p>
+                          {(oportunidadeVinc.razaoSocial || oportunidadeVinc.etapa) && (
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {[oportunidadeVinc.razaoSocial, oportunidadeVinc.etapa?.nome].filter(Boolean).join(' · ')}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setOportunidadeVinc(null); setForm(f => ({ ...f, oportunidadeId: '' })) }}
+                          className="text-muted-foreground hover:text-red-500 shrink-0"
+                          aria-label="Desvincular card do CRM"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div ref={opBuscaRef} className="relative w-full">
+                        <button
+                          type="button"
+                          onClick={() => { setOpBuscaOpen(o => !o); setOpBuscaQuery('') }}
+                          className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                        >
+                          <span className="text-muted-foreground truncate">Vincular a uma oportunidade...</span>
+                          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
+                        </button>
+                        {opBuscaOpen && (
+                          <div className="absolute bottom-full left-0 right-0 z-50 mb-1 overflow-hidden rounded-md border bg-popover shadow-md">
+                            <div className="p-1.5 border-b bg-popover sticky top-0">
+                              <Input
+                                autoFocus
+                                value={opBuscaQuery}
+                                onChange={e => setOpBuscaQuery(e.target.value)}
+                                placeholder="Buscar por título ou cliente..."
+                                className="h-7 text-xs"
+                              />
+                            </div>
+                            <div className="max-h-56 overflow-y-auto py-1">
+                              {opBuscaLoading ? (
+                                <p className="px-3 py-3 text-xs text-muted-foreground text-center flex items-center justify-center gap-2">
+                                  <Loader2 className="h-3 w-3 animate-spin" />Buscando...
+                                </p>
+                              ) : opBuscaResults.length === 0 ? (
+                                <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhuma oportunidade encontrada</p>
+                              ) : opBuscaResults.map(op => (
+                                <button
+                                  key={op.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setOportunidadeVinc(op)
+                                    setForm(f => ({ ...f, oportunidadeId: op.id }))
+                                    setOpBuscaOpen(false)
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
+                                >
+                                  <Target className="h-3.5 w-3.5 text-violet-500 shrink-0" />
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block truncate font-medium">{op.titulo}</span>
+                                    {(op.razaoSocial || op.etapa) && (
+                                      <span className="block truncate text-[10px] text-muted-foreground">
+                                        {[op.razaoSocial, op.etapa?.nome].filter(Boolean).join(' · ')}
+                                      </span>
+                                    )}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Notificar participantes por e-mail (opt-in — padrão DESMARCADO) */}
+                  <label className="flex items-start gap-2 cursor-pointer rounded-md border border-border bg-muted/30 px-3 py-2">
+                    <Checkbox
+                      checked={form.notificar}
+                      onCheckedChange={v => setForm(f => ({ ...f, notificar: !!v }))}
+                      className="mt-0.5"
+                    />
+                    <span className="text-xs">
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                        Notificar participantes por e-mail
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">
+                        Envia um e-mail aos participantes avisando sobre {modalMode === 'create' ? 'a criação' : 'a alteração'} do evento.
+                      </span>
+                    </span>
+                  </label>
 
                   {/* Descrição */}
                   <div className="space-y-1.5">

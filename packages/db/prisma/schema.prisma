@@ -2154,6 +2154,11 @@ model AgendaEvento {
   criador   User       @relation("EventoCriador", fields: [criadorId], references: [id])
   empresaId String?    @map("empresa_id")
 
+  // Vínculo opcional com um card do CRM (Oportunidade). onDelete: SetNull para que
+  // excluir a oportunidade apenas desvincule, sem apagar o evento da agenda.
+  oportunidadeId String?       @map("oportunidade_id")
+  oportunidade   Oportunidade? @relation("OportunidadeAgendaEventos", fields: [oportunidadeId], references: [id], onDelete: SetNull)
+
   participantes AgendaParticipante[]
   logs          AgendaLog[]
   lembretes     AgendaLembrete[]
@@ -2167,6 +2172,7 @@ model AgendaEvento {
   @@index([empresaId])
   @@index([lote])
   @@index([salaId])
+  @@index([oportunidadeId])
   @@map("agenda_eventos")
 }
 
@@ -2363,6 +2369,9 @@ model Oportunidade {
   mensagens OportunidadeMensagem[]
   arquivos  OportunidadeArquivo[]
   eventos   OportunidadeEvento[]
+
+  // Eventos da agenda vinculados a esta oportunidade (vínculo bidirecional)
+  agendaEventos AgendaEvento[] @relation("OportunidadeAgendaEventos")
 
   @@index([etapaId])
   @@index([clienteId])

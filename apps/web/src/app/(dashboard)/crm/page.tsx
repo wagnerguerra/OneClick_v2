@@ -21,7 +21,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { DndContext, closestCenter, DragOverlay, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DragOverEvent, useDroppable } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
@@ -361,6 +361,17 @@ export default function CrmPage() {
 
   // Carregamento inicial
   useEffect(() => { fetchAll() }, [fetchAll])
+
+  // Deep-link: abre o detalhe da oportunidade quando chega com `?op=<id>`
+  // (usado pelo botão "Abrir no CRM" do detalhe de um evento da agenda).
+  const searchParams = useSearchParams()
+  const opParam = searchParams.get('op')
+  useEffect(() => {
+    if (!opParam) return
+    openDetail(opParam)
+    router.replace('/crm', { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opParam])
 
   // SSE — atualizacao em tempo real quando outros usuarios fazem alteracoes
   useEffect(() => {
@@ -1509,6 +1520,46 @@ function DetailTab({ detail, etapas, clientes, onSave, onMove, saving, loadClien
           </div>
         </div>
       )}
+
+      {/* Eventos da agenda vinculados (vínculo bidirecional com a Agenda) */}
+      {(() => {
+        const agendaEventos = (detail as unknown as { agendaEventos?: Array<{
+          id: string; titulo: string; data: string; horaInicio: string | null; diaInteiro: boolean
+          tipo: { nome: string; cor: string } | null
+        }> }).agendaEventos ?? []
+        if (agendaEventos.length === 0) return null
+        return (
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5" />
+              Eventos da agenda vinculados ({agendaEventos.length})
+            </label>
+            <div className="space-y-1.5">
+              {agendaEventos.map(ev => {
+                const d = new Date(ev.data)
+                const dataFmt = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
+                const horaFmt = ev.diaInteiro ? 'Dia inteiro' : (ev.horaInicio ?? '')
+                return (
+                  <Link
+                    key={ev.id}
+                    href={`/agenda?verEvento=${ev.id}`}
+                    className="flex items-center gap-2.5 rounded-md border border-border px-2.5 py-2 hover:bg-muted/40 transition-colors"
+                  >
+                    <span className="h-7 w-1.5 rounded-full shrink-0" style={{ backgroundColor: ev.tipo?.cor || '#818cf8' }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium truncate">{ev.titulo}</p>
+                      <p className="text-[11px] text-muted-foreground tabular-nums">
+                        {dataFmt}{horaFmt && ` · ${horaFmt}`}{ev.tipo?.nome && ` · ${ev.tipo.nome}`}
+                      </p>
+                    </div>
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Descricao (editor) */}
       <div>

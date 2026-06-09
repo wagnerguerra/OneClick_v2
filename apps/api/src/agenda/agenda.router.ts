@@ -104,10 +104,13 @@ export function createAgendaRouter(
         isTarefa: z.boolean().optional(),
         tipoId: z.string(),
         empresaId: z.string().nullable().optional(),
+        oportunidadeId: z.string().nullable().optional(),
         participanteIds: z.array(z.string()).optional(),
         participantesAvulsos: z.array(z.string()).optional(),
         recorrencia: z.enum(['NENHUMA', 'DIARIA', 'SEMANAL', 'MENSAL', 'ANUAL']).optional(),
         recorrenciaVezes: z.number().nullable().optional(),
+        // Opt-in: só notifica participantes por e-mail quando marcado (default false).
+        notificar: z.boolean().optional(),
       }))
       .mutation(({ input, ctx }) => service.create(input, ctx.userId)),
 
@@ -136,15 +139,24 @@ export function createAgendaRouter(
           isTarefa: z.boolean().optional(),
           tipoId: z.string().optional(),
           empresaId: z.string().nullable().optional(),
+          oportunidadeId: z.string().nullable().optional(),
           participanteIds: z.array(z.string()).optional(),
           participantesAvulsos: z.array(z.string()).optional(),
+          // Opt-in: só notifica participantes por e-mail quando marcado (default false).
+          notificar: z.boolean().optional(),
         }),
       }))
       .mutation(({ input, ctx }) => service.update(input.id, input.data, ctx.userId)),
 
     delete: deleteProcedure(MODULE)
-      .input(z.object({ id: z.string() }))
-      .mutation(({ input, ctx }) => service.delete(input.id, ctx.userId)),
+      // notificar (opt-in, default false) decide se avisa os participantes da exclusão.
+      .input(z.object({ id: z.string(), notificar: z.boolean().optional() }))
+      .mutation(({ input, ctx }) => service.delete(input.id, ctx.userId, input.notificar ?? false)),
+
+    // === OPORTUNIDADES (CRM) — seletor leve pra vincular um evento a um card ===
+    buscarOportunidades: readProcedure(MODULE)
+      .input(z.object({ search: z.string().optional() }).optional())
+      .query(({ input, ctx }) => service.buscarOportunidades(input?.search, ctx.isMaster ?? false, ctx.empresaId)),
 
     deleteLote: deleteProcedure(MODULE)
       .input(z.object({ lote: z.string() }))

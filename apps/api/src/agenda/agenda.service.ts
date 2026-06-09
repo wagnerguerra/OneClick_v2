@@ -73,10 +73,12 @@ interface CreateEventoInput {
   isTarefa?: boolean
   tipoId: string
   empresaId?: string | null
+  oportunidadeId?: string | null
   participanteIds?: string[]
   participantesAvulsos?: string[]
   recorrencia?: 'NENHUMA' | 'DIARIA' | 'SEMANAL' | 'MENSAL' | 'ANUAL'
   recorrenciaVezes?: number | null
+  notificar?: boolean
 }
 
 interface UpdateEventoInput {
@@ -101,8 +103,10 @@ interface UpdateEventoInput {
   isTarefa?: boolean
   tipoId?: string
   empresaId?: string | null
+  oportunidadeId?: string | null
   participanteIds?: string[]
   participantesAvulsos?: string[]
+  notificar?: boolean
 }
 
 interface ListEventosParams {
@@ -267,7 +271,54 @@ export class AgendaService {
         logs: {
           orderBy: { createdAt: 'desc' },
         },
+        // Card do CRM vinculado (infos pro painel lateral do detalhe do evento)
+        oportunidade: {
+          select: {
+            id: true,
+            titulo: true,
+            valor: true,
+            razaoSocial: true,
+            responsavelId: true,
+            etapa: { select: { id: true, nome: true, cor: true } },
+          },
+        },
       },
+    }).then(async (ev) => {
+      // `responsavelId` não é uma relation no schema (a oportunidade resolve o
+      // user manualmente) — então enriquecemos o nome do responsável aqui.
+      if (!ev.oportunidade?.responsavelId) return ev
+      const resp = await prisma.user
+        .findUnique({ where: { id: ev.oportunidade.responsavelId }, select: { id: true, name: true } })
+        .catch(() => null)
+      return { ...ev, oportunidade: { ...ev.oportunidade, responsavel: resp } }
+    })
+  }
+
+  /**
+   * Seletor leve de oportunidades pra vincular um evento da agenda a um card do
+   * CRM. Filtra por empresa do usuário (a menos que MASTER) e por texto livre no
+   * título / razão social. Retorna no máximo 20 resultados.
+   */
+  async buscarOportunidades(search: string | undefined, isMaster: boolean, empresaId?: string | null) {
+    const where: Prisma.OportunidadeWhereInput = { isActive: true }
+    if (!isMaster && empresaId) where.empresaId = empresaId
+    const termo = (search ?? '').trim()
+    if (termo) {
+      where.OR = [
+        { titulo: { contains: termo, mode: 'insensitive' } },
+        { razaoSocial: { contains: termo, mode: 'insensitive' } },
+      ]
+    }
+    return prisma.oportunidade.findMany({
+      where,
+      select: {
+        id: true,
+        titulo: true,
+        razaoSocial: true,
+        etapa: { select: { nome: true, cor: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 20,
     })
   }
 
@@ -276,8 +327,8 @@ export class AgendaService {
       titulo, descricao, data, dataFim, horaInicio, horaFim, diaInteiro,
       local, contato, link, presenca, particular, editavel,
       sala, salaId, garagem, vagas, equipamentos, isTarefa,
-      tipoId, empresaId, participanteIds, participantesAvulsos,
-      recorrencia, recorrenciaVezes,
+      tipoId, empresaId, oportunidadeId, participanteIds, participantesAvulsos,
+      recorrencia, recorrenciaVezes, notificar,
     } = input
 
     // Bloqueia agendamento em data passada (só no create — editar evento antigo
@@ -350,6 +401,7 @@ export class AgendaService {
           tipoId,
           criadorId: userId,
           empresaId: empresaId || null,
+          oportunidadeId: oportunidadeId || null,
           recorrencia: rec as never,
           recorrenciaVezes: isRecurrent ? vezes : null,
           lote,
@@ -390,11 +442,14 @@ export class AgendaService {
       createdEvents.push(evento)
     }
 
-    // Notificar participantes (assíncrono, não bloqueia)
-    for (const ev of createdEvents) {
-      this.notificarParticipantes(ev.id, 'criado').catch((e: Error) => {
-        console.error(`[Agenda] Falha ao notificar participantes (criado, ev=${ev.id}):`, e.message, e.stack)
-      })
+    // Notificar participantes por e-mail (opt-in — só quando o usuário marcou no form).
+    // A auditoria (AgendaLog) é sempre gravada acima; só o e-mail é condicional.
+    if (notificar === true) {
+      for (const ev of createdEvents) {
+        this.notificarParticipantes(ev.id, 'criado').catch((e: Error) => {
+          console.error(`[Agenda] Falha ao notificar participantes (criado, ev=${ev.id}):`, e.message, e.stack)
+        })
+      }
     }
 
     return createdEvents.length === 1 ? createdEvents[0]! : createdEvents
@@ -451,6 +506,7 @@ export class AgendaService {
     if (data.isTarefa !== undefined) updateData.isTarefa = data.isTarefa
     if (data.tipoId !== undefined) updateData.tipoId = data.tipoId
     if (data.empresaId !== undefined) updateData.empresaId = data.empresaId || null
+    if (data.oportunidadeId !== undefined) updateData.oportunidadeId = data.oportunidadeId || null
 
     const updated = await prisma.agendaEvento.update({
       where: { id },
@@ -495,19 +551,23 @@ export class AgendaService {
       },
     })
 
-    // Notificar participantes
-    this.notificarParticipantes(updated.id, 'editado').catch((e: Error) => {
-      console.error(`[Agenda] Falha ao notificar participantes (editado, ev=${updated.id}):`, e.message, e.stack)
-    })
+    // Notificar participantes por e-mail (opt-in — só quando marcado no form).
+    if (data.notificar === true) {
+      this.notificarParticipantes(updated.id, 'editado').catch((e: Error) => {
+        console.error(`[Agenda] Falha ao notificar participantes (editado, ev=${updated.id}):`, e.message, e.stack)
+      })
+    }
 
     return updated
   }
 
-  async delete(id: string, userId: string) {
-    // Notificar antes do soft delete
-    this.notificarParticipantes(id, 'excluido').catch((e: Error) => {
-      console.error(`[Agenda] Falha ao notificar participantes (excluido, ev=${id}):`, e.message, e.stack)
-    })
+  async delete(id: string, userId: string, notificar = false) {
+    // Notificar antes do soft delete (opt-in — só quando marcado no diálogo de exclusão).
+    if (notificar === true) {
+      this.notificarParticipantes(id, 'excluido').catch((e: Error) => {
+        console.error(`[Agenda] Falha ao notificar participantes (excluido, ev=${id}):`, e.message, e.stack)
+      })
+    }
 
     await prisma.agendaLog.create({
       data: {

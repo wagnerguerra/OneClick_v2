@@ -181,6 +181,19 @@ export class CrmService {
         mensagens: { orderBy: { createdAt: 'desc' } },
         arquivos: { orderBy: { createdAt: 'desc' } },
         eventos: { orderBy: { createdAt: 'desc' }, take: 50 },
+        // Eventos da agenda vinculados a esta oportunidade (vínculo bidirecional)
+        agendaEventos: {
+          where: { isActive: true },
+          orderBy: [{ data: 'desc' }, { horaInicio: 'desc' }],
+          select: {
+            id: true,
+            titulo: true,
+            data: true,
+            horaInicio: true,
+            diaInteiro: true,
+            tipo: { select: { nome: true, cor: true } },
+          },
+        },
       },
     }).then(async (op) => {
       if (!op) return op
