@@ -77,15 +77,26 @@ interface AgendaEvento {
   oportunidade?: {
     id: string
     titulo: string
+    descricao: string | null
     valor: string | number | null
     razaoSocial: string | null
+    cpfCnpj: string | null
+    atividade: string | null
     origem: string | null
+    motivoPerda: string | null
     previsaoFechamento: string | null
     createdAt: string | null
+    updatedAt: string | null
     clienteId: string | null
+    contatoNome: string | null
+    contatoCargo: string | null
+    contatoTelefone: string | null
+    contatoEmail: string | null
     etapa: { id: string; nome: string; cor: string } | null
     responsavel: { id: string; name: string } | null
     cliente: { id: string; razaoSocial: string; documento: string } | null
+    tags: Array<{ tag: { id: string; nome: string; cor: string } }>
+    _count: { tarefas: number; mensagens: number; arquivos: number }
   } | null
 }
 
@@ -1824,15 +1835,25 @@ export default function AgendaPage() {
                         {ev.particular && <Lock className="inline h-3.5 w-3.5 shrink-0 text-amber-500" />}
                         {ev.titulo}
                       </p>
-                      <span
-                        className="text-[11px] px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap"
-                        style={{
-                          backgroundColor: isDark ? `${ev.tipo.cor}33` : ev.tipo.cor,
-                          color: isDark ? '#e5e7eb' : ev.tipo.corTexto,
-                        }}
-                      >
-                        {ev.tipo.nome}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {ev.oportunidadeId && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-1 rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-300"
+                            title="Vinculado a um card do CRM"
+                          >
+                            <Link2 className="h-3 w-3" />CRM
+                          </span>
+                        )}
+                        <span
+                          className="text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap"
+                          style={{
+                            backgroundColor: isDark ? `${ev.tipo.cor}33` : ev.tipo.cor,
+                            color: isDark ? '#e5e7eb' : ev.tipo.corTexto,
+                          }}
+                        >
+                          {ev.tipo.nome}
+                        </span>
+                      </div>
                     </div>
                     {/* Meta: horário · presença · local/sala */}
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted-foreground">
@@ -2184,6 +2205,66 @@ export default function AgendaPage() {
                                 <span className="text-foreground font-medium tabular-nums">{fmtData(op.previsaoFechamento)}</span>
                               </div>
                             )}
+                            {op.atividade && (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-muted-foreground shrink-0">Atividade</span>
+                                <span className="text-foreground font-medium truncate text-right">{op.atividade}</span>
+                              </div>
+                            )}
+                            {op.contatoNome && (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-muted-foreground shrink-0">Contato</span>
+                                <span className="text-foreground font-medium truncate text-right">
+                                  {op.contatoNome}{op.contatoCargo ? <span className="text-muted-foreground/70"> · {op.contatoCargo}</span> : null}
+                                </span>
+                              </div>
+                            )}
+                            {op.contatoTelefone && (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-muted-foreground shrink-0">Telefone</span>
+                                <a href={`tel:${op.contatoTelefone}`} className="text-foreground font-medium truncate hover:text-violet-600 dark:hover:text-violet-400">{op.contatoTelefone}</a>
+                              </div>
+                            )}
+                            {op.contatoEmail && (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-muted-foreground shrink-0">E-mail</span>
+                                <a href={`mailto:${op.contatoEmail}`} className="text-foreground font-medium truncate hover:text-violet-600 dark:hover:text-violet-400">{op.contatoEmail}</a>
+                              </div>
+                            )}
+                            {op.motivoPerda && (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-muted-foreground shrink-0">Motivo da perda</span>
+                                <span className="text-rose-600 dark:text-rose-400 font-medium truncate text-right">{op.motivoPerda}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Tags */}
+                          {op.tags && op.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {op.tags.map(({ tag }) => (
+                                <span key={tag.id} className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${tag.cor}22`, color: tag.cor }}>
+                                  {tag.nome}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Descrição da oportunidade */}
+                          {op.descricao && op.descricao.trim() && (
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</span>
+                              <p className="text-[12px] text-foreground/90 whitespace-pre-wrap break-words max-h-32 overflow-y-auto nice-scrollbar pr-1">{op.descricao}</p>
+                            </div>
+                          )}
+
+                          {/* Contadores do card */}
+                          <div className="flex items-center gap-3 text-[11px] text-muted-foreground border-t border-violet-500/15 pt-2.5">
+                            <span className="tabular-nums">{op._count?.tarefas ?? 0} tarefa(s)</span>
+                            <span className="text-muted-foreground/50">·</span>
+                            <span className="tabular-nums">{op._count?.mensagens ?? 0} msg</span>
+                            <span className="text-muted-foreground/50">·</span>
+                            <span className="tabular-nums">{op._count?.arquivos ?? 0} arquivo(s)</span>
                           </div>
 
                           {/* Abrir no CRM */}
