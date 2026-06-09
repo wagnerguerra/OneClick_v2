@@ -809,7 +809,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                     'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                     activeTab === tab.key
                       ? 'text-white shadow-sm'
-                      : 'text-muted-foreground hover:bg-white dark:hover:bg-white/10 hover:text-foreground'
+                      : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground'
                   )}
                   style={activeTab === tab.key ? { backgroundColor: '#10b981' } : undefined}
                 >
@@ -1401,7 +1401,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
                     'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                     activeTab === tab.key
                       ? 'text-white shadow-sm'
-                      : 'text-muted-foreground hover:bg-white dark:hover:bg-white/10 hover:text-foreground'
+                      : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground'
                   )}
                   style={activeTab === tab.key ? { backgroundColor: '#10b981' } : undefined}
                 >
@@ -2347,7 +2347,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento }: {
                     'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                     activeTab === tab.key
                       ? 'text-white shadow-sm'
-                      : 'text-muted-foreground hover:bg-white dark:hover:bg-white/10 hover:text-foreground'
+                      : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground'
                   )}
                   style={activeTab === tab.key ? { backgroundColor: '#10b981' } : undefined}
                 >
