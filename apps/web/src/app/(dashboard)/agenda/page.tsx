@@ -70,7 +70,7 @@ interface AgendaEvento {
     id: string
     usuarioId: string | null
     nomeAvulso: string | null
-    usuario: { id: string; name: string } | null
+    usuario: { id: string; name: string; image?: string | null } | null
   }>
   // Presente apenas no retorno do getById (detalhe) quando o evento está vinculado a um card do CRM
   oportunidade?: {
@@ -1759,7 +1759,7 @@ export default function AgendaPage() {
       {/* Modal resumo do dia */}
       {/* ============================================================ */}
       <Dialog open={dayModalOpen} onOpenChange={setDayModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeaderIcon icon={Calendar} color="sky">
             <DialogTitle>
               {dayModalDate && (() => {
@@ -1769,13 +1769,13 @@ export default function AgendaPage() {
             </DialogTitle>
             <DialogDescription>{dayModalEvents.length} evento(s)</DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-2 max-h-[400px]">
+          <DialogBody className="space-y-3 max-h-[min(72vh,640px)]">
             {dayModalEvents.map(ev => {
-              const nomes = ev.participantes
-                .map(p => p.usuario?.name ?? p.nomeAvulso)
-                .filter(Boolean) as string[]
-              const visiveis = nomes.slice(0, 5)
-              const restante = nomes.length - visiveis.length
+              const parts = ev.participantes
+                .map(p => ({ nome: (p.usuario?.name ?? p.nomeAvulso) ?? '', image: p.usuario?.image ?? null }))
+                .filter(p => p.nome)
+              const visiveis = parts.slice(0, 5)
+              const restante = parts.length - visiveis.length
               const horario = ev.diaInteiro
                 ? 'Dia inteiro'
                 : ev.horaInicio
@@ -1787,22 +1787,22 @@ export default function AgendaPage() {
               return (
                 <div
                   key={ev.id}
-                  className="flex items-stretch gap-3 rounded-lg border border-border px-3 py-2.5 hover:bg-muted/30 cursor-pointer transition-colors"
+                  className="flex items-stretch gap-4 rounded-lg border border-border px-4 py-3.5 hover:bg-muted/30 cursor-pointer transition-colors"
                   // Mantém o modal do dia aberto por trás — ao fechar o detalhe
                   // do evento, o user volta pra lista do dia sem precisar reabrir.
                   onClick={() => openViewEvent(ev)}
                 >
                   {/* Barra colorida do tipo */}
-                  <div className="w-1.5 rounded-full shrink-0 self-stretch" style={{ backgroundColor: ev.tipo.corBorda || ev.tipo.cor }} />
-                  <div className="flex-1 min-w-0 space-y-1.5">
+                  <div className="w-2 rounded-full shrink-0 self-stretch" style={{ backgroundColor: ev.tipo.corBorda || ev.tipo.cor }} />
+                  <div className="flex-1 min-w-0 space-y-2">
                     {/* Título + badge do tipo */}
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium leading-snug min-w-0 flex-1 truncate flex items-center gap-1">
-                        {ev.particular && <Lock className="inline h-3 w-3 shrink-0 text-amber-500" />}
+                      <p className="text-base font-semibold leading-snug min-w-0 flex-1 truncate flex items-center gap-1.5">
+                        {ev.particular && <Lock className="inline h-3.5 w-3.5 shrink-0 text-amber-500" />}
                         {ev.titulo}
                       </p>
                       <span
-                        className="text-[10px] px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap"
+                        className="text-[11px] px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap"
                         style={{
                           backgroundColor: isDark ? `${ev.tipo.cor}33` : ev.tipo.cor,
                           color: isDark ? '#e5e7eb' : ev.tipo.corTexto,
@@ -1812,38 +1812,43 @@ export default function AgendaPage() {
                       </span>
                     </div>
                     {/* Meta: horário · presença · local/sala */}
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                      <span className="inline-flex items-center gap-1 tabular-nums">
-                        <Clock className="h-3 w-3 shrink-0 opacity-70" />{horario}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5 tabular-nums">
+                        <Clock className="h-3.5 w-3.5 shrink-0 opacity-70" />{horario}
                       </span>
-                      <span className="inline-flex items-center gap-1">
-                        <PresencaIcon className="h-3 w-3 shrink-0 opacity-70" />{presencaDef?.label ?? ev.presenca}
+                      <span className="inline-flex items-center gap-1.5">
+                        <PresencaIcon className="h-3.5 w-3.5 shrink-0 opacity-70" />{presencaDef?.label ?? ev.presenca}
                       </span>
                       {localSala && (
-                        <span className="inline-flex items-center gap-1 min-w-0">
-                          <MapPin className="h-3 w-3 shrink-0 opacity-70" />
-                          <span className="truncate max-w-[160px]">{localSala}</span>
+                        <span className="inline-flex items-center gap-1.5 min-w-0">
+                          <MapPin className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                          <span className="truncate max-w-[220px]">{localSala}</span>
                         </span>
                       )}
                     </div>
-                    {/* Participantes — avatares/iniciais + nomes com +N */}
-                    {nomes.length > 0 && (
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Users className="h-3 w-3 shrink-0 text-muted-foreground opacity-70" />
-                        {visiveis.map((nome, i) => (
+                    {/* Participantes — foto (usuário do sistema) ou iniciais + nome, com +N */}
+                    {parts.length > 0 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Users className="h-4 w-4 shrink-0 text-muted-foreground opacity-70" />
+                        {visiveis.map((p, i) => (
                           <span
                             key={`${ev.id}-p${i}`}
-                            className="inline-flex items-center gap-1 text-[10px] bg-muted/60 border border-border/60 rounded-full pl-0.5 pr-1.5 py-0.5"
-                            title={nome}
+                            className="inline-flex items-center gap-1.5 text-[12px] bg-muted/60 border border-border/60 rounded-full pl-0.5 pr-2.5 py-0.5"
+                            title={p.nome}
                           >
-                            <span className="h-4 w-4 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-white text-[7px] font-bold flex items-center justify-center shrink-0">
-                              {nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                            </span>
-                            <span className="truncate max-w-[90px]">{nome}</span>
+                            {p.image ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={resolveAssetUrl(p.image)} alt={p.nome} className="h-6 w-6 rounded-full object-cover shrink-0" />
+                            ) : (
+                              <span className="h-6 w-6 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+                                {p.nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                              </span>
+                            )}
+                            <span className="truncate max-w-[140px]">{p.nome}</span>
                           </span>
                         ))}
                         {restante > 0 && (
-                          <span className="text-[10px] text-muted-foreground font-medium">+{restante}</span>
+                          <span className="text-[12px] text-muted-foreground font-medium">+{restante}</span>
                         )}
                       </div>
                     )}

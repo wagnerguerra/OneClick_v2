@@ -241,7 +241,7 @@ export class AgendaService {
         participantes: {
           where: { isActive: true },
           include: {
-            usuario: { select: { id: true, name: true } },
+            usuario: { select: { id: true, name: true, image: true } },
           },
         },
       },
@@ -265,7 +265,7 @@ export class AgendaService {
         participantes: {
           where: { isActive: true },
           include: {
-            usuario: { select: { id: true, name: true } },
+            usuario: { select: { id: true, name: true, image: true } },
           },
         },
         logs: {
