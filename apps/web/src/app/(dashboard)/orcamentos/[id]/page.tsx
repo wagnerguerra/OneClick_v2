@@ -7,7 +7,7 @@ import {
   FileText, Loader2, Plus, Trash2, Pencil, Check, X,
   Upload, DollarSign, Send, Printer, Copy as CopyIcon, ExternalLink,
   MoreVertical, Pause, Play, RotateCcw, AlertTriangle,
-  Package, History, Type, ChevronDown, CalendarCheck, ThumbsUp, ThumbsDown, CheckCircle2,
+  Package, History, Type, ChevronDown, ThumbsUp, ThumbsDown, CheckCircle2,
   Paperclip, Image as ImageIcon, Archive, MessageSquare, ClipboardCheck, Files, Shield, Lock,
 } from 'lucide-react'
 import {
@@ -92,8 +92,10 @@ interface OrcamentoEvento {
   id: string
   tipo: string
   descricao: string
+  de?: string | null
+  para?: string | null
   createdAt: string
-  usuario?: { name: string } | null
+  usuario?: { id?: string; name: string; image?: string | null } | null
 }
 
 interface OrcamentoMensagem {
@@ -161,6 +163,26 @@ interface Orcamento {
 function formatCurrency(v: number | null | undefined): string {
   if (v == null) return 'R$ 0,00'
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+// Metadados (rótulo + cor) por tipo de evento da timeline do orçamento.
+// Cores em hex puro (concatenamos +'22' pro fundo suave do chip).
+const EVENT_META: Record<string, { label: string; color: string }> = {
+  created:       { label: 'Criação',     color: '#10b981' },
+  status_change: { label: 'Status',      color: '#fb7185' },
+  envio:         { label: 'Envio',       color: '#3b82f6' },
+  notificacao:   { label: 'Notificação', color: '#06b6d4' },
+  reabertura:    { label: 'Reabertura',  color: '#f59e0b' },
+  paralizacao:   { label: 'Paralisação', color: '#ef4444' },
+  retomada:      { label: 'Retomada',    color: '#10b981' },
+  edicao:        { label: 'Edição',      color: '#64748b' },
+  edicao_data:   { label: 'Data',        color: '#64748b' },
+}
+function eventMeta(tipo: string): { label: string; color: string } {
+  return EVENT_META[tipo] ?? { label: 'Evento', color: '#fb7185' }
+}
+function iniciaisNome(nome: string): string {
+  return (nome || '?').split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase()
 }
 
 function formatDate(d: string) {
@@ -2226,75 +2248,118 @@ export default function OrcamentoDetailPage() {
 
           {/* === TAB: TIMELINE === */}
           <TabsContent value="timeline" className="mt-0">
-          {/* Timeline de Eventos — espelha legado crp_orcamentos/details.asp:1719 */}
+          {/* Timeline de Eventos — feed vertical alimentado por TODOS os eventos
+              do orçamento (orc.eventos), com ator (quem moveu) + data/hora. */}
           <Card>
             <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
               <History className="h-4 w-4" style={{ color: MODULE_COLOR }} />
               <h3 className="text-sm font-semibold flex-1">Timeline de Eventos</h3>
+              {orc.eventos?.length ? (
+                <Badge variant="secondary" className="text-[10px]">{orc.eventos.length}</Badge>
+              ) : null}
             </CardHeader>
-            <CardContent className="p-5">
-              <div className="space-y-4 [&>*+*]:border-t [&>*+*]:border-dashed [&>*+*]:border-border/60 [&>*+*]:pt-4">
-                <TimelineItem titulo="Orçamento Cadastrado" data={orc.createdAt}>
-                  {(orc.status === 'NOVO' || orc.status === 'A_ENVIAR') && (orc.itens?.length ?? 0) > 0 && canEnviar && (
-                    <Button size="xs" variant="outline" className="gap-1" onClick={abrirEnvio}>
-                      <Send className="h-3 w-3" /> Enviar
-                    </Button>
-                  )}
-                </TimelineItem>
 
-                {orc.dtEnviado && (
-                  <TimelineItem titulo="Orçamento Enviado" data={orc.dtEnviado}>
-                    {orc.status === 'ENVIADO' && canAprovar && (
-                      <div className="flex flex-wrap gap-1.5">
-                        <Button size="xs" variant="success" className="gap-1" onClick={() => handleStatusAction('APROVADO', 'Orcamento aprovado')}>
-                          <ThumbsUp className="h-3 w-3" /> Aprovar
-                        </Button>
-                        <Button size="xs" variant="destructive" className="gap-1" onClick={() => handleStatusAction('ENCERRADO', 'Orcamento reprovado')}>
-                          <ThumbsDown className="h-3 w-3" /> Reprovar
-                        </Button>
-                      </div>
-                    )}
-                  </TimelineItem>
-                )}
+            {/* Barra de ações contextuais (avança o status conforme permissões) */}
+            {(() => {
+              const acoes: React.ReactNode[] = []
+              if ((orc.status === 'NOVO' || orc.status === 'A_ENVIAR') && (orc.itens?.length ?? 0) > 0 && canEnviar) {
+                acoes.push(
+                  <Button key="enviar" size="xs" variant="outline" className="gap-1" onClick={abrirEnvio}>
+                    <Send className="h-3 w-3" /> Enviar
+                  </Button>,
+                )
+              }
+              if (orc.status === 'ENVIADO' && canAprovar) {
+                acoes.push(
+                  <Button key="aprovar" size="xs" variant="success" className="gap-1" onClick={() => handleStatusAction('APROVADO', 'Orcamento aprovado')}>
+                    <ThumbsUp className="h-3 w-3" /> Aprovar
+                  </Button>,
+                  <Button key="reprovar" size="xs" variant="destructive" className="gap-1" onClick={() => handleStatusAction('ENCERRADO', 'Orcamento reprovado')}>
+                    <ThumbsDown className="h-3 w-3" /> Reprovar
+                  </Button>,
+                )
+              }
+              if (orc.status === 'APROVADO' && canLiberar) {
+                acoes.push(
+                  <Button key="liberar" size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('LIBERADO', 'Orcamento liberado')}>
+                    <DollarSign className="h-3 w-3" /> Liberar
+                  </Button>,
+                )
+              }
+              if (orc.status === 'LIBERADO' && canEncerrar) {
+                acoes.push(
+                  <Button key="finalizar" size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('FINALIZADO', 'Orcamento finalizado')}>
+                    <CheckCircle2 className="h-3 w-3" /> Finalizar
+                  </Button>,
+                )
+              }
+              if (orc.status === 'FINALIZADO' && canEncerrar) {
+                acoes.push(
+                  <Button key="encerrar" size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('ENCERRADO', 'Orcamento encerrado')}>
+                    <CheckCircle2 className="h-3 w-3" /> Encerrar
+                  </Button>,
+                )
+              }
+              if (acoes.length === 0) return null
+              return (
+                <div className="px-5 py-3 border-b border-border/60 bg-muted/20 flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] text-muted-foreground mr-1">Próxima ação:</span>
+                  {acoes}
+                </div>
+              )
+            })()}
 
-                {orc.dtCancelado && (
-                  <TimelineItem titulo="Orçamento Reprovado" data={orc.dtCancelado} variant="danger" />
-                )}
-
-                {orc.dtAprovado && (
-                  <TimelineItem titulo="Orçamento Aprovado" data={orc.dtAprovado} variant="success">
-                    {orc.status === 'APROVADO' && canLiberar && (
-                      <Button size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('LIBERADO', 'Orcamento liberado')}>
-                        <DollarSign className="h-3 w-3" /> Liberar
-                      </Button>
-                    )}
-                  </TimelineItem>
-                )}
-
-                {orc.dtLiberado && (
-                  <TimelineItem titulo="Orçamento Liberado" data={orc.dtLiberado} variant="success">
-                    {orc.status === 'LIBERADO' && canEncerrar && (
-                      <Button size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('FINALIZADO', 'Orcamento finalizado')}>
-                        <CheckCircle2 className="h-3 w-3" /> Finalizar
-                      </Button>
-                    )}
-                  </TimelineItem>
-                )}
-
-                {orc.dtFinalizado && (
-                  <TimelineItem titulo="Orçamento Finalizado" data={orc.dtFinalizado}>
-                    {orc.status === 'FINALIZADO' && canEncerrar && (
-                      <Button size="xs" variant="outline" className="gap-1" onClick={() => handleStatusAction('ENCERRADO', 'Orcamento encerrado')}>
-                        <CheckCircle2 className="h-3 w-3" /> Encerrar
-                      </Button>
-                    )}
-                  </TimelineItem>
-                )}
-
-                {orc.dtEncerrado && (
-                  <TimelineItem titulo="Orçamento Encerrado" data={orc.dtEncerrado} />
-                )}
-              </div>
+            <CardContent className="p-0">
+              {!orc.eventos?.length ? (
+                <div className="px-5 py-8 text-center text-xs text-muted-foreground">Nenhum evento registrado ainda</div>
+              ) : (
+                <div className="max-h-[520px] overflow-y-auto px-5 py-4">
+                  <div className="relative pl-7">
+                    {/* Linha conectora vertical */}
+                    <div className="absolute left-[5px] top-1 bottom-1 w-px bg-border/60" />
+                    {orc.eventos.map(ev => {
+                      const meta = eventMeta(ev.tipo)
+                      return (
+                        <div key={ev.id} className="relative mb-5 last:mb-0">
+                          {/* Dot na linha */}
+                          <div
+                            className="absolute -left-[26px] top-0.5 h-3 w-3 rounded-full border-2 border-background"
+                            style={{ backgroundColor: meta.color }}
+                          />
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className="inline-flex items-center rounded-full px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide"
+                              style={{ backgroundColor: `${meta.color}22`, color: meta.color }}
+                            >
+                              {meta.label}
+                            </span>
+                            <p className="text-xs font-medium flex-1 min-w-0">{ev.descricao}</p>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            {ev.usuario?.name ? (
+                              <span className="flex items-center gap-1.5">
+                                {ev.usuario.image ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={ev.usuario.image} alt={ev.usuario.name} className="h-5 w-5 rounded-full object-cover" />
+                                ) : (
+                                  <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">
+                                    {iniciaisNome(ev.usuario.name)}
+                                  </span>
+                                )}
+                                <span className="text-[11px] font-medium text-foreground">{ev.usuario.name}</span>
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground italic">Sistema</span>
+                            )}
+                            <span className="text-muted-foreground/60">·</span>
+                            <span className="text-[10px] text-muted-foreground tabular-nums">{formatDateTime(ev.createdAt)}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
           </TabsContent>
@@ -2339,45 +2404,6 @@ export default function OrcamentoDetailPage() {
                 </CardContent>
               </Card>
             )}
-
-            <Card>
-              <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
-                <History className="h-4 w-4" style={{ color: MODULE_COLOR }} />
-                <h3 className="text-sm font-semibold flex-1">Histórico de eventos</h3>
-              </CardHeader>
-              <CardContent className="p-0">
-                {!orc.eventos?.length ? (
-                  <div className="px-5 py-6 text-center text-xs text-muted-foreground">Nenhum evento registrado</div>
-                ) : (
-                  <div className="max-h-[400px] overflow-y-auto">
-                    <div className="relative pl-8 pr-5 py-3">
-                      <div className="absolute left-[18px] top-0 bottom-0 w-px bg-border/60" />
-                      {orc.eventos.map(ev => {
-                        const isReabertura = ev.tipo === 'reabertura'
-                        const dotColor = isReabertura ? '#f59e0b' : MODULE_COLOR
-                        return (
-                          <div key={ev.id} className="relative mb-4 last:mb-0">
-                            <div className="absolute -left-[14px] top-1 h-2.5 w-2.5 rounded-full border-2 border-background" style={{ backgroundColor: dotColor }} />
-                            <div className="flex items-start gap-2">
-                              {isReabertura && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1.5 py-0 text-[9px] font-bold uppercase shrink-0 mt-0.5">
-                                  <RotateCcw className="h-2.5 w-2.5" /> Reabertura
-                                </span>
-                              )}
-                              <p className={cn('text-xs flex-1', isReabertura ? 'text-amber-800 dark:text-amber-200 font-medium' : 'font-medium')}>{ev.descricao}</p>
-                            </div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[10px] text-muted-foreground">{formatDateTime(ev.createdAt)}</span>
-                              {ev.usuario?.name && <span className="text-[10px] text-muted-foreground">- {ev.usuario.name}</span>}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* === TAB: MENSAGENS === */}
@@ -2785,41 +2811,6 @@ export default function OrcamentoDetailPage() {
 // ============================================================
 // DataItem — exibe uma data do workflow (clicavel para editar)
 // ============================================================
-
-function TimelineItem({ titulo, data, variant = 'default', children }: {
-  titulo: string
-  data: string | null | undefined
-  variant?: 'default' | 'success' | 'danger'
-  children?: React.ReactNode
-}) {
-  const colorBg = variant === 'success'
-    ? 'bg-emerald-100 dark:bg-emerald-900/30'
-    : variant === 'danger'
-    ? 'bg-red-100 dark:bg-red-900/30'
-    : 'bg-muted'
-  const colorIcon = variant === 'success'
-    ? 'text-emerald-700 dark:text-emerald-400'
-    : variant === 'danger'
-    ? 'text-red-700 dark:text-red-400'
-    : 'text-muted-foreground'
-  const dataFmt = data ? new Date(data).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
-  return (
-    <div className="flex gap-3">
-      <div className="shrink-0">
-        <div className={cn('h-7 w-7 rounded-full flex items-center justify-center', colorBg)}>
-          <CalendarCheck className={cn('h-3.5 w-3.5', colorIcon)} />
-        </div>
-      </div>
-      <div className="flex-1 min-w-0">
-        <h6 className="text-[13px] font-medium leading-tight">{titulo}</h6>
-        <p className="text-[11px] text-muted-foreground mt-0.5">
-          Em <strong>{dataFmt}</strong>
-        </p>
-        {children && <div className="mt-2">{children}</div>}
-      </div>
-    </div>
-  )
-}
 
 // ============================================================
 // MensagemItem — bloco visual de uma mensagem postada

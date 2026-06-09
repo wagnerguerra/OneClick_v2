@@ -207,11 +207,13 @@ export class OrcamentoService {
         }).catch(() => null)
       : null
 
-    // Enriquecer solicitante, responsavel e autores das mensagens (nome + avatar)
+    // Enriquecer solicitante, responsavel, autores das mensagens e atores dos
+    // eventos (nome + avatar) — a timeline precisa de "quem movimentou".
     const userIds = [
       orc.solicitanteId,
       orc.responsavelId,
       ...orc.mensagens.map(m => m.userId),
+      ...orc.eventos.map(e => e.userId),
     ].filter(Boolean) as string[]
     const users = userIds.length > 0
       ? await prisma.user.findMany({
@@ -230,7 +232,13 @@ export class OrcamentoService {
       usuario: m.userId ? userMap.get(m.userId) || null : null,
     }))
 
-    return { ...orc, mensagens, cliente, empresa, solicitante, responsavel }
+    // Eventos da timeline com o ator (quem moveu) anexado
+    const eventos = orc.eventos.map(e => ({
+      ...e,
+      usuario: e.userId ? userMap.get(e.userId) || null : null,
+    }))
+
+    return { ...orc, mensagens, eventos, cliente, empresa, solicitante, responsavel }
   }
 
   async getByToken(token: string) {
