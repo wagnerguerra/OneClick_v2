@@ -1099,7 +1099,7 @@ export default function AgendaPage() {
 
   return (
     <TooltipProvider delayDuration={250}>
-    <div className="space-y-3 flex flex-col" style={{ height: 'calc(100vh - 6rem)' }}>
+    <div className="space-y-3">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
         <div className="flex items-center gap-4">
@@ -1181,7 +1181,7 @@ export default function AgendaPage() {
         </div>
       </div>
 
-      <div className="flex gap-4 flex-1 min-h-0">
+      <div className="flex gap-4 items-start">
         {/* ============================================================ */}
         {/* PAINEL ESQUERDO — ações, filtros, eventos de hoje */}
         {/* ============================================================ */}
@@ -1482,7 +1482,7 @@ export default function AgendaPage() {
             </Select>
           </div>
 
-          <Card className="flex-1 flex flex-col min-h-0">
+          <Card className="flex flex-col">
             {/* Navegação mês — esq: ícone + "Agenda de <mês> de <ano>" · dir: Hoje + setas */}
             <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
               <div className="flex items-center gap-2 min-w-0">
@@ -1498,17 +1498,18 @@ export default function AgendaPage() {
               </div>
             </div>
 
-            {/* Grid dos dias com header sticky (mesmo container scrollable pra alinhar com a scrollbar) */}
-            <div className="overflow-y-auto flex-1 nice-scrollbar">
-            {/* Header dias da semana — dentro do scroll com sticky top-0 pra ficar fixo no topo */}
-            <div className="grid grid-cols-7 sticky top-0 z-10 bg-background">
+            {/* Grid dos dias — sem scroll interno: o calendário cresce conforme as
+                semanas e a rolagem fica por conta da página (scrollbar externa). */}
+            <div>
+            {/* Header dias da semana */}
+            <div className="grid grid-cols-7 bg-background">
               {DIAS_SEMANA.map(d => (
                 <div key={d} className="border-b border-r last:border-r-0 px-2 py-1.5 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/30">
                   {d}
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7" style={{ gridTemplateRows: `repeat(${Math.ceil(totalCells / 7)}, minmax(140px, 1fr))` }}>
+            <div className="grid grid-cols-7" style={{ gridTemplateRows: `repeat(${Math.ceil(totalCells / 7)}, minmax(140px, auto))` }}>
               {Array.from({ length: totalCells }, (_, i) => {
                 // Data real da célula (pode ser do mês anterior, atual ou próximo)
                 const cellDate = new Date(year, month, 1 - firstDay + i)
