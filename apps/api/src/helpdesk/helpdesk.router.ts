@@ -165,8 +165,9 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
       }),
 
     /**
-     * Exclusão de anexo individual. Só o autor pode excluir, ticket não
-     * pode estar CANCELADO. Validações no service.
+     * Exclusão de anexo individual. Agente da TI (canAtuarAgente) ou o
+     * solicitante (criador) do ticket podem excluir; ticket não pode estar
+     * CANCELADO. Validações no service.
      */
     deleteAnexo: protectedProcedure
       .input(z.object({ id: z.string() }))

@@ -491,22 +491,41 @@ export class HelpdeskService {
     const patch: any = {}
     const eventos: Array<{ tipo: string; descricao: string; metadata?: Record<string, unknown> }> = []
 
-    // Edição de título/descrição: só o solicitante (criador) pode alterar, e
-    // apenas se o ticket não estiver CANCELADO. Auditoria fica via evento.
+    // Edição de título/descrição. Critérios distintos:
+    //  - Título: pode ser editado pelo solicitante (criador) OU por quem atua
+    //    como agente da TI (canAtuarAgente: master/empresa-master, DIRETOR/
+    //    COORDENADOR, sub-permissão helpdesk.atuar_agente ou área de TI).
+    //  - Descrição: continua restrita ao solicitante (criador).
+    // Em ambos os casos o ticket não pode estar CANCELADO. Auditoria via evento.
     const querMudarTitulo = data.titulo !== undefined && data.titulo !== before.titulo
     const querMudarDescricao = data.descricao !== undefined && data.descricao !== before.descricao
     if (querMudarTitulo || querMudarDescricao) {
-      if (before.solicitanteId !== userId) {
-        throw new Error('Só o criador do ticket pode editar o título ou a descrição')
-      }
+      const ehSolicitante = before.solicitanteId === userId
+      // Resolve agente só quando necessário (edição de título por não-solicitante)
+      const ehAgente = querMudarTitulo && !ehSolicitante
+        ? await this.canAtuarAgente(userId)
+        : false
+
       if (before.status === 'CANCELADO') {
         throw new Error('Ticket cancelado — edição não permitida')
       }
+
       if (querMudarTitulo) {
+        if (!ehSolicitante && !ehAgente) {
+          throw new Error('Só o criador do ticket ou um agente da TI pode editar o título')
+        }
         patch.titulo = data.titulo
-        eventos.push({ tipo: 'titulo_editado', descricao: 'Título editado pelo solicitante' })
+        eventos.push({
+          tipo: 'titulo_editado',
+          descricao: `Título alterado de "${before.titulo}" para "${data.titulo}"`,
+          metadata: { de: before.titulo, para: data.titulo, porAgente: !ehSolicitante },
+        })
       }
+
       if (querMudarDescricao) {
+        if (!ehSolicitante) {
+          throw new Error('Só o criador do ticket pode editar a descrição')
+        }
         patch.descricao = data.descricao
         eventos.push({ tipo: 'descricao_editada', descricao: 'Descrição inicial editada pelo solicitante' })
       }
@@ -920,22 +939,26 @@ export class HelpdeskService {
   }
 
   /**
-   * Exclusão de anexo individual. Só o autor pode excluir seus próprios
-   * anexos, ticket não pode estar CANCELADO. Funciona tanto pra anexos
-   * standalone (mensagemId=null) quanto pra anexos vinculados a uma
-   * mensagem específica. Evento de auditoria é gravado.
+   * Exclusão de anexo individual. Podem excluir: agentes da TI
+   * (canAtuarAgente — master/empresa-master, DIRETOR/COORDENADOR, sub-perm
+   * helpdesk.atuar_agente, área de TI) OU o solicitante (criador) do ticket.
+   * Ticket não pode estar CANCELADO. Funciona tanto pra anexos standalone
+   * (mensagemId=null) quanto pra anexos vinculados a uma mensagem específica.
+   * Evento de auditoria é gravado.
    */
   async deleteAnexo(input: { id: string }, userId: string) {
     const anexo = await prisma.helpdeskAnexo.findUnique({
       where: { id: input.id },
       select: {
         id: true, autorId: true, ticketId: true, fileName: true,
-        ticket: { select: { status: true } },
+        ticket: { select: { status: true, solicitanteId: true } },
       },
     })
     if (!anexo) throw new Error('Anexo não encontrado')
-    if (anexo.autorId !== userId) {
-      throw new Error('Só o autor pode excluir o anexo')
+    const isAgente = await this.canAtuarAgente(userId)
+    const isCriador = anexo.ticket?.solicitanteId === userId
+    if (!isAgente && !isCriador) {
+      throw new Error('Sem permissão para excluir o anexo')
     }
     if (anexo.ticket?.status === 'CANCELADO') {
       throw new Error('Ticket cancelado — exclusão não permitida')

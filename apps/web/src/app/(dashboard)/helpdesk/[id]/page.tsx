@@ -147,6 +147,10 @@ export default function HelpdeskTicketDetailPage() {
   const [editTitulo, setEditTitulo] = useState('')
   const [editDescricaoConteudo, setEditDescricaoConteudo] = useState('')
   const [savingDescricao, setSavingDescricao] = useState(false)
+  // Edição inline do título no header (agente da TI / podeAtuar)
+  const [editingTituloInline, setEditingTituloInline] = useState(false)
+  const [tituloInlineValue, setTituloInlineValue] = useState('')
+  const [savingTituloInline, setSavingTituloInline] = useState(false)
 
   // Sidebar — edição inline
   const [savingField, setSavingField] = useState<string | null>(null)
@@ -411,6 +415,49 @@ export default function HelpdeskTicketDetailPage() {
     }
   }
 
+  /** Abre a edição inline do título no header (só agente da TI / podeAtuar). */
+  function abrirEditTituloInline() {
+    if (!ticket) return
+    setTituloInlineValue(ticket.titulo)
+    setEditingTituloInline(true)
+  }
+
+  /** Cancela a edição inline do título (Esc / blur sem salvar). */
+  function cancelarEditTituloInline() {
+    setEditingTituloInline(false)
+    setTituloInlineValue('')
+  }
+
+  /**
+   * Salva o título via inline edit (Enter/blur). Valida não-vazio e mín. 3 chars.
+   * Sem alteração efetiva → só fecha. Backend gateia agente/master + audita.
+   */
+  async function salvarTituloInline() {
+    if (!ticket) return
+    const novo = tituloInlineValue.trim()
+    if (novo === ticket.titulo) {
+      cancelarEditTituloInline()
+      return
+    }
+    if (novo.length < 3) {
+      alerts.error('Título inválido', 'O título precisa ter pelo menos 3 caracteres.')
+      return
+    }
+    setSavingTituloInline(true)
+    try {
+      await (trpc.helpdesk as any).update.mutate({
+        id: ticket.id,
+        data: { titulo: novo },
+      })
+      setEditingTituloInline(false)
+      await fetchData(true)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setSavingTituloInline(false)
+    }
+  }
+
   /** Exclui mensagem com confirm (#HLP0067). */
   async function excluirMensagem(msg: Mensagem) {
     const ok = await alerts.confirm({
@@ -428,7 +475,7 @@ export default function HelpdeskTicketDetailPage() {
     }
   }
 
-  /** Exclui anexo individual do ticket — só o autor + ticket≠CANCELADO. */
+  /** Exclui anexo individual do ticket — agente da TI ou solicitante (criador) + ticket≠CANCELADO. */
   async function excluirAnexo(anexo: Anexo) {
     const ok = await alerts.confirm({
       title: 'Excluir anexo?',
@@ -698,7 +745,40 @@ export default function HelpdeskTicketDetailPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-[11px] font-mono text-muted-foreground tabular-nums">{ticketNum}</p>
-                  <h1 className="text-xl font-semibold truncate">{ticket.titulo}</h1>
+                  {editingTituloInline ? (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <input
+                        autoFocus
+                        value={tituloInlineValue}
+                        onChange={(e) => setTituloInlineValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { e.preventDefault(); void salvarTituloInline() }
+                          if (e.key === 'Escape') { e.preventDefault(); cancelarEditTituloInline() }
+                        }}
+                        onBlur={() => { if (!savingTituloInline) void salvarTituloInline() }}
+                        disabled={savingTituloInline}
+                        maxLength={200}
+                        className="h-9 text-sm w-full max-w-md rounded-md border border-border bg-background px-2.5 font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+                        placeholder="Título do ticket"
+                      />
+                      {savingTituloInline && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />}
+                    </div>
+                  ) : (
+                    <div className="group flex items-center gap-1.5 min-w-0">
+                      <h1 className="text-xl font-semibold truncate">{ticket.titulo}</h1>
+                      {podeAtuar && (
+                        <button
+                          type="button"
+                          onClick={abrirEditTituloInline}
+                          className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted/60 hover:text-foreground group-hover:opacity-100 focus:opacity-100"
+                          title="Editar título"
+                          aria-label="Editar título do ticket"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <p className="text-sm text-muted-foreground mt-0.5">
                     {HELPDESK_TIPO_LABELS[ticket.tipo]}
                     {ticket.categoria && ` · ${ticket.categoria.parent ? `${ticket.categoria.parent.nome} › ` : ''}${ticket.categoria.nome}`}
@@ -1181,8 +1261,8 @@ export default function HelpdeskTicketDetailPage() {
                 selecionadoId={anexoSelecionadoId}
                 onSelect={setAnexoSelecionadoId}
                 onUploaded={() => fetchData(true)}
-                currentUserId={currentUserId}
                 canDelete={ticket.status !== 'CANCELADO'}
+                podeExcluir={podeAtuar || isSolicitante}
                 onDelete={excluirAnexo}
               />
             </TabsContent>
@@ -1819,18 +1899,19 @@ function formatarBytes(b: number): string {
   return `${(b / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function AnexosViewer({ ticketId, anexos, selecionadoId, onSelect, onUploaded, currentUserId, canDelete, onDelete }: {
+function AnexosViewer({ ticketId, anexos, selecionadoId, onSelect, onUploaded, canDelete, podeExcluir, onDelete }: {
   ticketId: string
   anexos: Anexo[]
   selecionadoId: string | null
   onSelect: (id: string) => void
   onUploaded: () => void
-  currentUserId?: string | null
   canDelete: boolean
+  // Pode excluir anexos: agente da TI OU criador (solicitante) do ticket.
+  podeExcluir: boolean
   onDelete: (anexo: Anexo) => void | Promise<void>
 }) {
   const ativo = anexos.find(a => a.id === selecionadoId) ?? anexos[0]
-  const podeExcluirAtivo = !!(ativo && canDelete && currentUserId && ativo.autor?.id === currentUserId)
+  const podeExcluirAtivo = !!(ativo && canDelete && podeExcluir)
 
   return (
     <Card>
@@ -1916,7 +1997,7 @@ function AnexosViewer({ ticketId, anexos, selecionadoId, onSelect, onUploaded, c
                       type="button"
                       onClick={() => onDelete(ativo)}
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-                      title="Excluir anexo (só o autor)"
+                      title="Excluir anexo"
                     >
                       <Trash2 className="h-3 w-3" /> Excluir
                     </button>
