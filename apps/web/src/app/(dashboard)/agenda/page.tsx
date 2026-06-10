@@ -8,7 +8,7 @@ import {
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
   Repeat, Lock, History, Settings, Palette, Check, Download, DoorOpen,
   Bell, Mail, CheckSquare, Square, ListTodo, Search, Target, ArrowRight, Link2, ExternalLink,
-  StickyNote, Paperclip, Send, Upload, FileText,
+  StickyNote, Paperclip, Send, Upload,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card,
@@ -412,8 +412,8 @@ export default function AgendaPage() {
   // Edição inline de anotação (id em edição + texto temporário).
   const [editandoAnotacaoId, setEditandoAnotacaoId] = useState<string | null>(null)
   const [editandoAnotacaoTexto, setEditandoAnotacaoTexto] = useState('')
-  // Aba ativa na PRÉVIA (modo view): Detalhes / Anotações / Anexos / Descrição.
-  const [viewTab, setViewTab] = useState<'detalhes' | 'anotacoes' | 'anexos' | 'descricao'>('detalhes')
+  // Aba ativa na PRÉVIA (modo view): Detalhes / Anotações / Anexos.
+  const [viewTab, setViewTab] = useState<'detalhes' | 'anotacoes' | 'anexos'>('detalhes')
 
   const carregarAnotacoesAnexos = useCallback(async (eventoId: string) => {
     try {
@@ -2215,13 +2215,12 @@ export default function AgendaPage() {
                       </p>
                     </div>
 
-                    {/* Abas da prévia: Detalhes / Anotações / Anexos / Descrição */}
-                    <div className="flex items-center gap-1 border-b border-border -mb-1">
+                    {/* Abas da prévia: Detalhes / Anotações / Anexos */}
+                    <div className="flex items-center gap-1 border-b border-border">
                       {[
                         { value: 'detalhes', label: 'Detalhes', icon: Calendar },
                         { value: 'anotacoes', label: `Anotações${eventoAnotacoes.length ? ` (${eventoAnotacoes.length})` : ''}`, icon: StickyNote },
                         { value: 'anexos', label: `Anexos${eventoAnexos.length ? ` (${eventoAnexos.length})` : ''}`, icon: Paperclip },
-                        { value: 'descricao', label: 'Descrição', icon: FileText },
                       ].map(t => (
                         <button
                           key={t.value}
@@ -2236,8 +2235,8 @@ export default function AgendaPage() {
                       ))}
                     </div>
 
-                    {/* ABA: DETALHES — tabela de campos */}
-                    {viewTab === 'detalhes' && (<div className="space-y-4">
+                    {/* ABA: DETALHES — tabela de campos + descrição do evento */}
+                    {viewTab === 'detalhes' && (<div className="space-y-4 pt-3">
                     <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
                       <FieldRow icon={Calendar} label="Período">
                         <span className="text-foreground">{periodoData}</span>
@@ -2320,27 +2319,24 @@ export default function AgendaPage() {
                         </FieldRow>
                       )}
                     </div>
-                    </div>)}
 
-                    {/* ABA: ANOTAÇÕES */}
-                    {viewTab === 'anotacoes' && <div className="space-y-3">{renderAnotacoesSection()}</div>}
-
-                    {/* ABA: ANEXOS */}
-                    {viewTab === 'anexos' && <div className="space-y-3">{renderAnexosSection()}</div>}
-
-                    {/* ABA: DESCRIÇÃO — texto do evento */}
-                    {viewTab === 'descricao' && (
-                      ev.descricao ? (
+                      {/* Descrição do evento — abaixo dos detalhes (não é aba) */}
+                      {ev.descricao && (
                         <div className="rounded-lg border-l-4 bg-muted/30 px-4 py-3" style={{ borderLeftColor: corTipo }}>
+                          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Descrição</div>
                           <div
                             className="text-sm prose prose-sm dark:prose-invert max-w-none [&_*]:text-sm [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-sky-600"
                             dangerouslySetInnerHTML={{ __html: ev.descricao }}
                           />
                         </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground text-center py-8 italic">Este evento não tem descrição.</p>
-                      )
-                    )}
+                      )}
+                    </div>)}
+
+                    {/* ABA: ANOTAÇÕES */}
+                    {viewTab === 'anotacoes' && <div className="space-y-3 pt-3">{renderAnotacoesSection()}</div>}
+
+                    {/* ABA: ANEXOS */}
+                    {viewTab === 'anexos' && <div className="space-y-3 pt-3">{renderAnexosSection()}</div>}
 
                   </div>
 
