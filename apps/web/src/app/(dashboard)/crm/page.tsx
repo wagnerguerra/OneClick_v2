@@ -1624,7 +1624,7 @@ function KanbanCard({ op, isDraggingAny, etapas, onOpenDetail, onMover, onDelete
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}
-      className={cn('rounded-sm bg-white dark:bg-card cursor-grab active:cursor-grabbing group touch-none overflow-hidden', isDragging ? 'border border-transparent opacity-30' : 'border border-border/50', !isDragging && !isDraggingAny && 'hover:shadow-md transition-shadow')}
+      className={cn('rounded-sm bg-white dark:bg-card cursor-pointer active:cursor-grabbing group touch-none overflow-hidden', isDragging ? 'border border-transparent opacity-30' : 'border border-border/50', !isDragging && !isDraggingAny && 'hover:shadow-md transition-shadow')}
       onClick={() => { if (!isDraggingAny) onOpenDetail(op.id) }}
     >
       <div className="flex">
