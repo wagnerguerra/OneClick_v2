@@ -1329,7 +1329,14 @@ function ChatView({ conversa, meuId, onMessageSent }: {
           anexosCriados.push(criado)
         } catch { /* anexo falhou, mas mensagem já foi */ }
       }
-      setMensagens(prev => [...prev, { ...msg, anexos: anexosCriados, reactions: [] }])
+      // Dedup: o eco do SSE (chat:mensagem-nova) pode chegar ANTES desta linha
+      // — pro próprio remetente o backend também emite o evento. Se a mensagem
+      // já entrou pelo SSE, só mescla os anexos em vez de duplicar.
+      setMensagens(prev => prev.some(m => m.id === msg.id)
+        ? prev.map(m => m.id === msg.id
+            ? { ...m, ...msg, anexos: anexosCriados.length ? anexosCriados : m.anexos, reactions: m.reactions ?? [] }
+            : m)
+        : [...prev, { ...msg, anexos: anexosCriados, reactions: [] }])
       setTexto('')
       setAnexosPendentes([])
       setMentionState(null)
