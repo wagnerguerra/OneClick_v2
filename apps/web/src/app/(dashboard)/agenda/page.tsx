@@ -412,8 +412,8 @@ export default function AgendaPage() {
   // Edição inline de anotação (id em edição + texto temporário).
   const [editandoAnotacaoId, setEditandoAnotacaoId] = useState<string | null>(null)
   const [editandoAnotacaoTexto, setEditandoAnotacaoTexto] = useState('')
-  // Aba ativa na PRÉVIA (modo view): Detalhes / Anotações / Anexos.
-  const [viewTab, setViewTab] = useState<'detalhes' | 'anotacoes' | 'anexos'>('detalhes')
+  // Aba ativa na PRÉVIA (modo view): Detalhes / Anotações / Anexos / Histórico.
+  const [viewTab, setViewTab] = useState<'detalhes' | 'anotacoes' | 'anexos' | 'historico'>('detalhes')
 
   const carregarAnotacoesAnexos = useCallback(async (eventoId: string) => {
     try {
@@ -2221,6 +2221,7 @@ export default function AgendaPage() {
                         { value: 'detalhes', label: 'Detalhes', icon: Calendar },
                         { value: 'anotacoes', label: `Anotações${eventoAnotacoes.length ? ` (${eventoAnotacoes.length})` : ''}`, icon: StickyNote },
                         { value: 'anexos', label: `Anexos${eventoAnexos.length ? ` (${eventoAnexos.length})` : ''}`, icon: Paperclip },
+                        { value: 'historico', label: `Histórico${eventLogs.length ? ` (${eventLogs.length})` : ''}`, icon: History },
                       ].map(t => (
                         <button
                           key={t.value}
@@ -2337,6 +2338,33 @@ export default function AgendaPage() {
 
                     {/* ABA: ANEXOS */}
                     {viewTab === 'anexos' && <div className="space-y-3 pt-3">{renderAnexosSection()}</div>}
+
+                    {/* ABA: HISTÓRICO */}
+                    {viewTab === 'historico' && (
+                      <div className="pt-3">
+                        {eventLogs.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-8 italic">Sem histórico</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {eventLogs.map(log => (
+                              <div key={log.id} className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                {log.usuario?.image ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={resolveAssetUrl(log.usuario.image)} alt={log.usuario.name} className="h-4 w-4 rounded-full object-cover shrink-0" />
+                                ) : (
+                                  <span className="h-4 w-4 rounded-full bg-muted text-muted-foreground text-[7px] font-bold flex items-center justify-center shrink-0">
+                                    {(log.usuario?.name ?? '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                                  </span>
+                                )}
+                                <span className="font-medium text-foreground/80 truncate">{log.usuario?.name ?? 'Sistema'}</span>
+                                <span className="capitalize">{log.acao}</span>
+                                <span className="ml-auto shrink-0">{new Date(log.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                   </div>
 
