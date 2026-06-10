@@ -2133,7 +2133,7 @@ export default function AgendaPage() {
       {/* Modal criar/editar/visualizar evento */}
       {/* ============================================================ */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-7xl">
+        <DialogContent className="max-w-7xl" hideClose={modalMode === 'view'}>
           <DialogHeaderIcon
             icon={modalMode === 'create' ? Plus : modalMode === 'edit' ? Edit2 : Calendar}
             color={modalMode === 'create' ? 'emerald' : 'sky'}

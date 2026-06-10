@@ -25,9 +25,9 @@
  *   </DialogHeaderIcon>
  */
 
-import { DialogHeader } from '@saas/ui'
+import { DialogHeader, DialogClose } from '@saas/ui'
 import { cn } from '@saas/ui'
-import type { LucideIcon } from 'lucide-react'
+import { X, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 type IconColor =
@@ -90,9 +90,10 @@ export function DialogHeaderIcon({ icon: Icon, color = 'sky', className, srOnly,
   if (bgImage) {
     return (
       <DialogHeader className={cn('relative overflow-hidden border-b-0 bg-slate-900', className)}>
-        {/* Imagem de fundo com transparência — deixa o tom escuro aparecer por baixo */}
+        {/* Imagem de fundo. Transparência (deixa o tom escuro aparecer) só no
+            modo escuro; no claro a capa aparece cheia. */}
         <div
-          className="absolute inset-0 opacity-45"
+          className="absolute inset-0 opacity-100 dark:opacity-45"
           style={{ backgroundImage: `url(${bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
           aria-hidden
         />
@@ -105,6 +106,12 @@ export function DialogHeaderIcon({ icon: Icon, color = 'sky', className, srOnly,
           <div className="flex-1 min-w-0">
             {children}
           </div>
+          {/* Botão fechar próprio (maior, centralizado com o ícone). O X global
+              do DialogContent deve ser ocultado via `hideClose` quando se usa bgImage. */}
+          <DialogClose className="shrink-0 flex h-9 w-9 items-center justify-center rounded-md text-white/80 transition-colors hover:text-white hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40">
+            <X className="h-5 w-5" />
+            <span className="sr-only">Fechar</span>
+          </DialogClose>
         </div>
       </DialogHeader>
     )
