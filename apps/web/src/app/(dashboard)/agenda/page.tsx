@@ -2825,8 +2825,8 @@ export default function AgendaPage() {
                 <div className="flex-1 min-w-0">
                   {/* min-h fixa a altura do conteúdo pra o modal não encolher ao trocar de aba */}
                   {/* Abas verticais (pills laterais) — padrão de /configuracoes */}
-                  <Tabs defaultValue="geral" orientation="vertical" className="w-full h-[62vh] flex gap-0 overflow-hidden">
-                    <TabsList className="flex flex-col items-stretch justify-start gap-1 w-[180px] shrink-0 h-full bg-muted/40 border-b-0 border-r border-border rounded-none p-3 overflow-y-auto nice-scrollbar">
+                  <Tabs defaultValue="geral" className="w-full h-[62vh] flex flex-col overflow-hidden">
+                    <TabsList className="flex items-center justify-start gap-1 shrink-0 h-auto p-0 bg-transparent border-b border-border rounded-none overflow-x-auto nice-scrollbar">
                       {[
                         { value: 'geral', label: 'Geral', icon: Calendar },
                         { value: 'lembretes', label: 'Lembretes', icon: Bell },
@@ -2837,14 +2837,14 @@ export default function AgendaPage() {
                         <TabsTrigger
                           key={t.value}
                           value={t.value}
-                          className="w-full justify-start gap-2 px-3 py-2 rounded text-xs font-medium text-muted-foreground transition-all hover:bg-white hover:text-foreground dark:hover:bg-white/5 data-[state=active]:bg-sky-500 data-[state=active]:text-white data-[state=active]:shadow-sm"
+                          className="gap-1.5 px-3 py-2 text-sm font-medium whitespace-nowrap rounded-none border-b-2 -mb-px border-transparent text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-sky-500 data-[state=active]:text-sky-600 dark:data-[state=active]:text-sky-400"
                         >
                           <t.icon className="h-3.5 w-3.5 shrink-0" />{t.label}
                         </TabsTrigger>
                       ))}
                     </TabsList>
 
-                    <div className="flex-1 min-w-0 h-full flex flex-col pl-4 overflow-hidden">
+                    <div className="flex-1 min-h-0 flex flex-col pt-3 overflow-hidden">
 
                     {/* ABA: GERAL */}
                     <TabsContent value="geral" className="mt-0 flex-1 overflow-y-auto nice-scrollbar pr-1 space-y-3 focus-visible:outline-none">
