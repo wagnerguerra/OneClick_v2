@@ -1459,17 +1459,18 @@ export default function AgendaPage() {
         {/* ============================================================ */}
         {/* PAINEL ESQUERDO — ações, filtros, eventos de hoje (retrátil) */}
         {/* ============================================================ */}
+        <div className={cn('hidden xl:block shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out', filtrosOpen ? 'w-[280px]' : 'w-9')}>
         {filtrosOpen ? (
-        <div className="hidden xl:block w-[280px] shrink-0 space-y-3">
-          <div className="flex justify-end -mb-1">
-            <button onClick={() => setFiltrosOpen(false)} title="Recolher painel" className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-          </div>
+        <div className="w-[280px] space-y-3">
 
           {/* Filtros */}
           <Card className="p-4 space-y-3">
-            <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filtros</h5>
+            <div className="flex items-center justify-between">
+              <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filtros</h5>
+              <button onClick={() => setFiltrosOpen(false)} title="Recolher painel" className="-mr-1 h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-[13px]">Buscar</Label>
               <div className="relative">
@@ -1663,13 +1664,14 @@ export default function AgendaPage() {
 
         </div>
         ) : (
-          <div className="hidden xl:flex shrink-0 w-9 flex-col items-center pt-1">
-            <button onClick={() => setFiltrosOpen(true)} title="Expandir filtros" className="h-9 w-9 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground">
+          <div className="w-9 flex flex-col items-center pt-1">
+            <button onClick={() => setFiltrosOpen(true)} title="Expandir filtros" className="h-9 w-9 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
               <ChevronRight className="h-4 w-4" />
             </button>
             <span className="mt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground [writing-mode:vertical-rl] rotate-180 select-none">Filtros</span>
           </div>
         )}
+        </div>
 
         {/* ============================================================ */}
         {/* CALENDÁRIO — painel principal */}
