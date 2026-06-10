@@ -2163,6 +2163,11 @@ model AgendaEvento {
   logs          AgendaLog[]
   lembretes     AgendaLembrete[]
 
+  // Anotações/anexos PRÓPRIOS do evento — usados só quando o evento NÃO tem
+  // vínculo com card do CRM. Ao vincular, são migrados pra oportunidade (merge).
+  anotacoes AgendaEventoAnotacao[]
+  anexos    AgendaEventoAnexo[]
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -2273,6 +2278,39 @@ model AgendaLembrete {
   @@index([eventoId])
   @@index([minutosAntes])
   @@map("agenda_lembretes")
+}
+
+/// Anotação própria de um evento da agenda (quando o evento NÃO está vinculado
+/// a um card do CRM). Ao vincular uma oportunidade, estas anotações são migradas
+/// para `oportunidade_mensagens` (merge) e o evento passa a operar sobre a opp.
+model AgendaEventoAnotacao {
+  id        String       @id @default(cuid())
+  eventoId  String       @map("evento_id")
+  evento    AgendaEvento @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  userId    String?      @map("user_id")
+  texto     String       @db.Text
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  @@index([eventoId])
+  @@map("agenda_evento_anotacoes")
+}
+
+/// Anexo próprio de um evento da agenda (mesma lógica da AgendaEventoAnotacao):
+/// usado só quando não há vínculo com CRM; ao vincular, migra pra
+/// `oportunidade_arquivos`.
+model AgendaEventoAnexo {
+  id        String       @id @default(cuid())
+  eventoId  String       @map("evento_id")
+  evento    AgendaEvento @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  fileName  String       @map("file_name")
+  fileUrl   String       @map("file_url")
+  fileSize  Int?         @map("file_size")
+  mimeType  String?      @map("mime_type")
+  userId    String?      @map("user_id")
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  @@index([eventoId])
+  @@map("agenda_evento_anexos")
 }
 
 // ============================================================

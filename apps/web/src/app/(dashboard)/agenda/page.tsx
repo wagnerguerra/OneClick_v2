@@ -8,6 +8,7 @@ import {
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
   Repeat, Lock, History, Settings, Palette, Check, Download, DoorOpen,
   Bell, Mail, CheckSquare, Square, ListTodo, Search, Target, ArrowRight, Link2, ExternalLink,
+  StickyNote, Paperclip, Send, Upload,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card,
@@ -22,7 +23,7 @@ import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { trpc } from '@/lib/trpc'
-import { resolveAssetUrl } from '@/lib/api-url'
+import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
 import { TarefaModal } from './_components/tarefa-modal'
 import { alerts } from '@/lib/alerts'
 import Swal from 'sweetalert2'
@@ -395,6 +396,73 @@ export default function AgendaPage() {
   const [opBuscaResults, setOpBuscaResults] = useState<OportunidadeBusca[]>([])
   const [opBuscaLoading, setOpBuscaLoading] = useState(false)
   const opBuscaRef = useRef<HTMLDivElement>(null)
+
+  // ── Anotações & Anexos do evento (abas) ──────────────────────────────────
+  // Gravam no evento OU na oportunidade vinculada (merge) — backend decide.
+  type EventoAnotacao = { id: string; texto: string; user: { id: string; name: string; image: string | null } | null; createdAt: string }
+  type EventoAnexo = { id: string; fileName: string; fileUrl: string; fileSize: number | null; mimeType: string | null; user: { id: string; name: string; image: string | null } | null; createdAt: string }
+  const [eventoAnotacoes, setEventoAnotacoes] = useState<EventoAnotacao[]>([])
+  const [eventoAnexos, setEventoAnexos] = useState<EventoAnexo[]>([])
+  const [eventoVinculado, setEventoVinculado] = useState(false)
+  const [novaAnotacao, setNovaAnotacao] = useState('')
+  const [uploadingAnexo, setUploadingAnexo] = useState(false)
+  const anexoInputRef = useRef<HTMLInputElement>(null)
+
+  const carregarAnotacoesAnexos = useCallback(async (eventoId: string) => {
+    try {
+      const [a, x] = await Promise.all([
+        (trpc.agenda as any).listAnotacoes.query({ eventoId }),
+        (trpc.agenda as any).listAnexos.query({ eventoId }),
+      ])
+      setEventoAnotacoes(a.anotacoes ?? [])
+      setEventoAnexos(x.anexos ?? [])
+      setEventoVinculado(!!a.vinculado)
+    } catch { /* silencioso */ }
+  }, [])
+
+  async function addAnotacaoEvento() {
+    const id = selectedEvento?.id
+    if (!id || !novaAnotacao.trim()) return
+    try {
+      await (trpc.agenda as any).addAnotacao.mutate({ eventoId: id, texto: novaAnotacao.trim() })
+      setNovaAnotacao('')
+      await carregarAnotacoesAnexos(id)
+    } catch (e) { alert((e as Error).message) }
+  }
+  async function removeAnotacaoEvento(anotacaoId: string) {
+    const id = selectedEvento?.id
+    if (!id) return
+    await (trpc.agenda as any).deleteAnotacao.mutate({ eventoId: id, anotacaoId }).catch(() => {})
+    await carregarAnotacoesAnexos(id)
+  }
+  async function uploadAnexosEvento(files: FileList | File[]) {
+    const id = selectedEvento?.id
+    if (!id) return
+    setUploadingAnexo(true)
+    try {
+      const apiUrl = getApiUrl()
+      for (const file of Array.from(files)) {
+        const fd = new FormData()
+        fd.append('file', file)
+        const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: fd, credentials: 'include' })
+        if (!res.ok) continue
+        const data = await res.json()
+        const fileUrl = data.url || `${apiUrl}/api/upload/${data.filename}`
+        await (trpc.agenda as any).addAnexo.mutate({
+          eventoId: id, fileName: file.name, fileUrl, fileSize: file.size, mimeType: file.type || undefined,
+        })
+      }
+      await carregarAnotacoesAnexos(id)
+    } catch (e) { alert((e as Error).message) }
+    finally { setUploadingAnexo(false) }
+  }
+  async function removeAnexoEvento(anexoId: string) {
+    const id = selectedEvento?.id
+    if (!id) return
+    await (trpc.agenda as any).removeAnexo.mutate({ eventoId: id, anexoId }).catch(() => {})
+    await carregarAnotacoesAnexos(id)
+  }
+
   useEffect(() => {
     if (!opBuscaOpen) return
     function onClickOutside(e: MouseEvent) {
@@ -748,6 +816,8 @@ export default function AgendaPage() {
     setAvulsoInput('')
     setLembretesForm([])
     setOportunidadeVinc(null)
+    // Evento novo ainda não existe — sem anotações/anexos até salvar.
+    setEventoAnotacoes([]); setEventoAnexos([]); setEventoVinculado(false); setNovaAnotacao('')
     setModalOpen(true)
   }
 
@@ -824,6 +894,9 @@ export default function AgendaPage() {
         setLembretesForm(arr.map(l => ({ canal: l.canal, minutosAntes: l.minutosAntes })))
       })
       .catch(() => {})
+    // Anotações/anexos do evento (do próprio evento ou da oportunidade vinculada).
+    setNovaAnotacao('')
+    void carregarAnotacoesAnexos(ev.id)
     setModalOpen(true)
   }
 
@@ -2600,6 +2673,12 @@ export default function AgendaPage() {
                       <TabsTrigger value="vinculacoes" className="gap-1.5 text-sm">
                         <Link2 className="h-3.5 w-3.5" />Vinculações
                       </TabsTrigger>
+                      <TabsTrigger value="anotacoes" className="gap-1.5 text-sm">
+                        <StickyNote className="h-3.5 w-3.5" />Anotações{eventoAnotacoes.length > 0 ? ` (${eventoAnotacoes.length})` : ''}
+                      </TabsTrigger>
+                      <TabsTrigger value="anexos" className="gap-1.5 text-sm">
+                        <Paperclip className="h-3.5 w-3.5" />Anexos{eventoAnexos.length > 0 ? ` (${eventoAnexos.length})` : ''}
+                      </TabsTrigger>
                     </TabsList>
 
                     {/* ABA: GERAL */}
@@ -2973,6 +3052,100 @@ export default function AgendaPage() {
                       </div>
                     )}
                   </div>
+                    </TabsContent>
+
+                    {/* ABA: ANOTAÇÕES */}
+                    <TabsContent value="anotacoes" className="mt-0 flex-1 overflow-y-auto nice-scrollbar pr-1 space-y-3 focus-visible:outline-none">
+                      {modalMode === 'create' || !selectedEvento?.id ? (
+                        <p className="text-xs text-muted-foreground text-center py-10 italic">
+                          Salve o evento para adicionar anotações.
+                        </p>
+                      ) : (
+                        <>
+                          {eventoVinculado && (
+                            <div className="flex items-start gap-2 rounded-md border border-sky-200 dark:border-sky-900/50 bg-sky-50/60 dark:bg-sky-950/30 px-3 py-2 text-[11px] text-sky-700 dark:text-sky-300">
+                              <Link2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                              <span>Este evento está vinculado a um card do CRM — as anotações são compartilhadas com a oportunidade.</span>
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Escreva uma anotação..."
+                              value={novaAnotacao}
+                              onChange={e => setNovaAnotacao(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addAnotacaoEvento() } }}
+                              className="h-9 text-sm flex-1"
+                            />
+                            <Button size="sm" className="bg-sky-500 hover:bg-sky-600 text-white" onClick={addAnotacaoEvento} disabled={!novaAnotacao.trim()}>
+                              <Send className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          {eventoAnotacoes.length === 0 && (
+                            <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma anotação</p>
+                          )}
+                          <div className="space-y-2">
+                            {eventoAnotacoes.map(a => (
+                              <div key={a.id} className="group rounded-md bg-muted/40 p-3">
+                                <div className="flex items-center justify-between mb-1 gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    {a.user?.image
+                                      ? <img src={resolveAssetUrl(a.user.image)} alt={a.user.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
+                                      : <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">{(a.user?.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}</span>}
+                                    <span className="text-xs font-semibold truncate">{a.user?.name || 'Sistema'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="text-[10px] text-muted-foreground">{new Date(a.createdAt).toLocaleString('pt-BR')}</span>
+                                    <button onClick={() => removeAnotacaoEvento(a.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive" title="Excluir anotação">
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <p className="text-sm whitespace-pre-wrap break-words">{a.texto}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </TabsContent>
+
+                    {/* ABA: ANEXOS */}
+                    <TabsContent value="anexos" className="mt-0 flex-1 overflow-y-auto nice-scrollbar pr-1 space-y-3 focus-visible:outline-none">
+                      {modalMode === 'create' || !selectedEvento?.id ? (
+                        <p className="text-xs text-muted-foreground text-center py-10 italic">
+                          Salve o evento para anexar arquivos.
+                        </p>
+                      ) : (
+                        <>
+                          {eventoVinculado && (
+                            <div className="flex items-start gap-2 rounded-md border border-sky-200 dark:border-sky-900/50 bg-sky-50/60 dark:bg-sky-950/30 px-3 py-2 text-[11px] text-sky-700 dark:text-sky-300">
+                              <Link2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                              <span>Este evento está vinculado a um card do CRM — os anexos são compartilhados com a oportunidade.</span>
+                            </div>
+                          )}
+                          <input ref={anexoInputRef} type="file" multiple className="hidden" onChange={e => { if (e.target.files?.length) uploadAnexosEvento(e.target.files); e.target.value = '' }} />
+                          <Button size="sm" variant="outline" className="w-full gap-1.5" onClick={() => anexoInputRef.current?.click()} disabled={uploadingAnexo}>
+                            {uploadingAnexo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                            {uploadingAnexo ? 'Enviando...' : 'Anexar arquivo'}
+                          </Button>
+                          {eventoAnexos.length === 0 && (
+                            <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhum anexo</p>
+                          )}
+                          <div className="space-y-1.5">
+                            {eventoAnexos.map(x => (
+                              <div key={x.id} className="group flex items-center gap-2 rounded-md bg-muted/40 px-3 py-2">
+                                <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <a href={resolveAssetUrl(x.fileUrl)} target="_blank" rel="noopener noreferrer" className="text-sm truncate flex-1 hover:underline" title={x.fileName}>
+                                  {x.fileName}
+                                </a>
+                                {x.fileSize != null && <span className="text-[10px] text-muted-foreground shrink-0">{(x.fileSize / 1024).toFixed(0)} KB</span>}
+                                <button onClick={() => removeAnexoEvento(x.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0" title="Remover anexo">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
                     </TabsContent>
                   </Tabs>
                 </div>

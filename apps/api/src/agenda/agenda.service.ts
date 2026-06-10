@@ -311,22 +311,26 @@ export class AgendaService {
         },
       },
     }).then(async (ev) => {
-      if (!ev.oportunidade) return ev
+      // Anotações e anexos do evento (resolvidos do evento OU da oportunidade
+      // vinculada — ver listAnotacoes/listAnexos). Carregados junto pra o modal.
+      const [anot, anex] = await Promise.all([this.listAnotacoes(ev.id), this.listAnexos(ev.id)])
+      const base = { ...ev, anotacoes: anot.anotacoes, anexos: anex.anexos }
+      if (!base.oportunidade) return base
       // `responsavelId` e `clienteId` não são relations no schema da Oportunidade
       // (resolvidos manualmente) — então enriquecemos responsável e cliente aqui.
       const [resp, cliente] = await Promise.all([
-        ev.oportunidade.responsavelId
+        base.oportunidade.responsavelId
           ? prisma.user
-              .findUnique({ where: { id: ev.oportunidade.responsavelId }, select: { id: true, name: true } })
+              .findUnique({ where: { id: base.oportunidade.responsavelId }, select: { id: true, name: true } })
               .catch(() => null)
           : Promise.resolve(null),
-        ev.oportunidade.clienteId
+        base.oportunidade.clienteId
           ? prisma.cliente
-              .findUnique({ where: { id: ev.oportunidade.clienteId }, select: { id: true, razaoSocial: true, documento: true } })
+              .findUnique({ where: { id: base.oportunidade.clienteId }, select: { id: true, razaoSocial: true, documento: true } })
               .catch(() => null)
           : Promise.resolve(null),
       ])
-      return { ...ev, oportunidade: { ...ev.oportunidade, responsavel: resp, cliente } }
+      return { ...base, oportunidade: { ...base.oportunidade, responsavel: resp, cliente } }
     })
   }
 
@@ -356,6 +360,130 @@ export class AgendaService {
       orderBy: { updatedAt: 'desc' },
       take: 20,
     })
+  }
+
+  // ===== Anotações & Anexos do evento ========================================
+  // Regra: quando o evento NÃO tem card do CRM vinculado, gravam/leem nas tabelas
+  // próprias (agenda_evento_anotacoes / agenda_evento_anexos). Quando TEM vínculo,
+  // operam sobre a oportunidade (oportunidade_mensagens / oportunidade_arquivos),
+  // ficando "mesclados" ao card. A migração na hora de vincular é feita no update().
+
+  private async resolveUserNames(ids: (string | null | undefined)[]) {
+    const uniq = [...new Set(ids.filter(Boolean))] as string[]
+    if (!uniq.length) return new Map<string, { id: string; name: string; image: string | null }>()
+    const users = await prisma.user
+      .findMany({ where: { id: { in: uniq } }, select: { id: true, name: true, image: true } })
+      .catch(() => [] as { id: string; name: string; image: string | null }[])
+    return new Map(users.map((u) => [u.id, u]))
+  }
+
+  private async eventoOportunidadeId(eventoId: string): Promise<string | null> {
+    const ev = await prisma.agendaEvento.findUniqueOrThrow({ where: { id: eventoId }, select: { oportunidadeId: true } })
+    return ev.oportunidadeId
+  }
+
+  /** Move anotações/anexos próprios do evento para a oportunidade (merge no vínculo). */
+  private async migrarAnotacoesAnexosParaOportunidade(eventoId: string, oportunidadeId: string) {
+    const [anotacoes, anexos] = await Promise.all([
+      prisma.agendaEventoAnotacao.findMany({ where: { eventoId } }),
+      prisma.agendaEventoAnexo.findMany({ where: { eventoId } }),
+    ])
+    if (anotacoes.length) {
+      await prisma.oportunidadeMensagem.createMany({
+        data: anotacoes.map((a) => ({ oportunidadeId, userId: a.userId, mensagem: a.texto, createdAt: a.createdAt })),
+      })
+      await prisma.agendaEventoAnotacao.deleteMany({ where: { eventoId } })
+    }
+    if (anexos.length) {
+      await prisma.oportunidadeArquivo.createMany({
+        data: anexos.map((a) => ({
+          oportunidadeId, fileName: a.fileName, fileUrl: a.fileUrl,
+          fileSize: a.fileSize, mimeType: a.mimeType, userId: a.userId, createdAt: a.createdAt,
+        })),
+      })
+      await prisma.agendaEventoAnexo.deleteMany({ where: { eventoId } })
+    }
+    return { anotacoes: anotacoes.length, anexos: anexos.length }
+  }
+
+  async listAnotacoes(eventoId: string) {
+    const oppId = await this.eventoOportunidadeId(eventoId)
+    if (oppId) {
+      const rows = await prisma.oportunidadeMensagem.findMany({ where: { oportunidadeId: oppId }, orderBy: { createdAt: 'desc' } })
+      const users = await this.resolveUserNames(rows.map((r) => r.userId))
+      return {
+        vinculado: true,
+        anotacoes: rows.map((r) => ({ id: r.id, texto: r.mensagem, userId: r.userId, user: r.userId ? users.get(r.userId) ?? null : null, createdAt: r.createdAt })),
+      }
+    }
+    const rows = await prisma.agendaEventoAnotacao.findMany({ where: { eventoId }, orderBy: { createdAt: 'desc' } })
+    const users = await this.resolveUserNames(rows.map((r) => r.userId))
+    return {
+      vinculado: false,
+      anotacoes: rows.map((r) => ({ id: r.id, texto: r.texto, userId: r.userId, user: r.userId ? users.get(r.userId) ?? null : null, createdAt: r.createdAt })),
+    }
+  }
+
+  async addAnotacao(eventoId: string, userId: string, texto: string) {
+    const t = (texto ?? '').trim()
+    if (!t) throw new Error('A anotação não pode ser vazia.')
+    const oppId = await this.eventoOportunidadeId(eventoId)
+    if (oppId) {
+      const r = await prisma.oportunidadeMensagem.create({ data: { oportunidadeId: oppId, userId, mensagem: t } })
+      await prisma.oportunidadeEvento
+        .create({ data: { oportunidadeId: oppId, userId, tipo: 'mensagem', descricao: 'Nova anotação adicionada (via agenda)' } })
+        .catch(() => null)
+      return r
+    }
+    return prisma.agendaEventoAnotacao.create({ data: { eventoId, userId, texto: t } })
+  }
+
+  async deleteAnotacao(eventoId: string, anotacaoId: string, _userId: string) {
+    const oppId = await this.eventoOportunidadeId(eventoId)
+    if (oppId) await prisma.oportunidadeMensagem.deleteMany({ where: { id: anotacaoId, oportunidadeId: oppId } })
+    else await prisma.agendaEventoAnotacao.deleteMany({ where: { id: anotacaoId, eventoId } })
+    return { ok: true }
+  }
+
+  async listAnexos(eventoId: string) {
+    const oppId = await this.eventoOportunidadeId(eventoId)
+    if (oppId) {
+      const rows = await prisma.oportunidadeArquivo.findMany({ where: { oportunidadeId: oppId }, orderBy: { createdAt: 'desc' } })
+      const users = await this.resolveUserNames(rows.map((r) => r.userId))
+      return {
+        vinculado: true,
+        anexos: rows.map((r) => ({ id: r.id, fileName: r.fileName, fileUrl: r.fileUrl, fileSize: r.fileSize, mimeType: r.mimeType, userId: r.userId, user: r.userId ? users.get(r.userId) ?? null : null, createdAt: r.createdAt })),
+      }
+    }
+    const rows = await prisma.agendaEventoAnexo.findMany({ where: { eventoId }, orderBy: { createdAt: 'desc' } })
+    const users = await this.resolveUserNames(rows.map((r) => r.userId))
+    return {
+      vinculado: false,
+      anexos: rows.map((r) => ({ id: r.id, fileName: r.fileName, fileUrl: r.fileUrl, fileSize: r.fileSize, mimeType: r.mimeType, userId: r.userId, user: r.userId ? users.get(r.userId) ?? null : null, createdAt: r.createdAt })),
+    }
+  }
+
+  async addAnexo(eventoId: string, data: { fileName: string; fileUrl: string; fileSize?: number | null; mimeType?: string | null }, userId: string) {
+    const oppId = await this.eventoOportunidadeId(eventoId)
+    if (oppId) {
+      const r = await prisma.oportunidadeArquivo.create({
+        data: { oportunidadeId: oppId, fileName: data.fileName, fileUrl: data.fileUrl, fileSize: data.fileSize ?? null, mimeType: data.mimeType ?? null, userId: userId || null },
+      })
+      await prisma.oportunidadeEvento
+        .create({ data: { oportunidadeId: oppId, userId, tipo: 'arquivo', descricao: `Arquivo anexado (via agenda): "${data.fileName}"` } })
+        .catch(() => null)
+      return r
+    }
+    return prisma.agendaEventoAnexo.create({
+      data: { eventoId, fileName: data.fileName, fileUrl: data.fileUrl, fileSize: data.fileSize ?? null, mimeType: data.mimeType ?? null, userId: userId || null },
+    })
+  }
+
+  async removeAnexo(eventoId: string, anexoId: string, _userId: string) {
+    const oppId = await this.eventoOportunidadeId(eventoId)
+    if (oppId) await prisma.oportunidadeArquivo.deleteMany({ where: { id: anexoId, oportunidadeId: oppId } })
+    else await prisma.agendaEventoAnexo.deleteMany({ where: { id: anexoId, eventoId } })
+    return { ok: true }
   }
 
   async create(input: CreateEventoInput, userId: string) {
@@ -573,6 +701,32 @@ export class AgendaService {
             eventoId: id,
             nomeAvulso: nome,
           })),
+        })
+      }
+    }
+
+    // Transição de vínculo com o CRM: ao VINCULAR (ou trocar de card), as
+    // anotações/anexos PRÓPRIOS do evento são migrados pra oportunidade (merge).
+    // Ao DESVINCULAR, os dados permanecem na oportunidade (decisão do produto) —
+    // só registramos no histórico (agenda_logs).
+    if (data.oportunidadeId !== undefined) {
+      const oldOpp = evento.oportunidadeId
+      const newOpp = data.oportunidadeId || null
+      if (newOpp && newOpp !== oldOpp) {
+        const mig = await this.migrarAnotacoesAnexosParaOportunidade(id, newOpp)
+        await prisma.agendaLog.create({
+          data: {
+            eventoId: id, usuarioId: userId, acao: 'vinculo_crm',
+            detalhes: `Vinculado a um card do CRM. ${mig.anotacoes} anotação(ões) e ${mig.anexos} anexo(s) migrados para a oportunidade.`,
+          },
+        })
+      } else if (!newOpp && oldOpp) {
+        const opp = await prisma.oportunidade.findUnique({ where: { id: oldOpp }, select: { titulo: true } }).catch(() => null)
+        await prisma.agendaLog.create({
+          data: {
+            eventoId: id, usuarioId: userId, acao: 'desvinculo_crm',
+            detalhes: `Desvinculado do card do CRM${opp ? ` "${opp.titulo}"` : ''}. Anotações e anexos permanecem na oportunidade.`,
+          },
         })
       }
     }

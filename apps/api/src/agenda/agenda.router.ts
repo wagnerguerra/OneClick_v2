@@ -158,6 +158,36 @@ export function createAgendaRouter(
       .input(z.object({ search: z.string().optional() }).optional())
       .query(({ input, ctx }) => service.buscarOportunidades(input?.search, ctx.isMaster ?? false, ctx.empresaId)),
 
+    // === ANOTAÇÕES & ANEXOS DO EVENTO ===
+    // Gravam no evento OU na oportunidade vinculada (merge) — ver agenda.service.
+    listAnotacoes: readProcedure(MODULE)
+      .input(z.object({ eventoId: z.string() }))
+      .query(({ input }) => service.listAnotacoes(input.eventoId)),
+    addAnotacao: writeProcedure(MODULE)
+      .input(z.object({ eventoId: z.string(), texto: z.string().min(1) }))
+      .mutation(({ input, ctx }) => service.addAnotacao(input.eventoId, ctx.userId, input.texto)),
+    deleteAnotacao: deleteProcedure(MODULE)
+      .input(z.object({ eventoId: z.string(), anotacaoId: z.string() }))
+      .mutation(({ input, ctx }) => service.deleteAnotacao(input.eventoId, input.anotacaoId, ctx.userId)),
+
+    listAnexos: readProcedure(MODULE)
+      .input(z.object({ eventoId: z.string() }))
+      .query(({ input }) => service.listAnexos(input.eventoId)),
+    addAnexo: writeProcedure(MODULE)
+      .input(z.object({
+        eventoId: z.string(),
+        fileName: z.string(),
+        fileUrl: z.string(),
+        fileSize: z.number().optional(),
+        mimeType: z.string().optional(),
+      }))
+      .mutation(({ input, ctx }) => service.addAnexo(input.eventoId, {
+        fileName: input.fileName, fileUrl: input.fileUrl, fileSize: input.fileSize, mimeType: input.mimeType,
+      }, ctx.userId)),
+    removeAnexo: deleteProcedure(MODULE)
+      .input(z.object({ eventoId: z.string(), anexoId: z.string() }))
+      .mutation(({ input, ctx }) => service.removeAnexo(input.eventoId, input.anexoId, ctx.userId)),
+
     deleteLote: deleteProcedure(MODULE)
       .input(z.object({ lote: z.string() }))
       .mutation(({ input, ctx }) => service.deleteLote(input.lote, ctx.userId)),
