@@ -8,7 +8,7 @@ import {
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
   Repeat, Lock, History, Settings, Palette, Check, Download, DoorOpen,
   Bell, Mail, CheckSquare, Square, ListTodo, Search, Target, ArrowRight, Link2, ExternalLink,
-  StickyNote, Paperclip, Send, Upload,
+  StickyNote, Paperclip, Send, Upload, FileText,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card,
@@ -412,6 +412,8 @@ export default function AgendaPage() {
   // Edição inline de anotação (id em edição + texto temporário).
   const [editandoAnotacaoId, setEditandoAnotacaoId] = useState<string | null>(null)
   const [editandoAnotacaoTexto, setEditandoAnotacaoTexto] = useState('')
+  // Aba ativa na PRÉVIA (modo view): Detalhes / Anotações / Anexos / Descrição.
+  const [viewTab, setViewTab] = useState<'detalhes' | 'anotacoes' | 'anexos' | 'descricao'>('detalhes')
 
   const carregarAnotacoesAnexos = useCallback(async (eventoId: string) => {
     try {
@@ -962,6 +964,7 @@ export default function AgendaPage() {
     setEventLogs([])
     setModalOpen(true)
     // Anotações/anexos (do evento ou da oportunidade vinculada) — também na prévia.
+    setViewTab('detalhes')
     setNovaAnotacao(''); setEditandoAnotacaoId(null); setEditandoAnotacaoTexto('')
     setEventoAnotacoes([]); setEventoAnexos([]); setEventoVinculado(false)
     void carregarAnotacoesAnexos(ev.id)
@@ -2212,7 +2215,29 @@ export default function AgendaPage() {
                       </p>
                     </div>
 
-                    {/* Tabela de campos (linhas com ícone + label + valor) */}
+                    {/* Abas da prévia: Detalhes / Anotações / Anexos / Descrição */}
+                    <div className="flex items-center gap-1 border-b border-border -mb-1">
+                      {[
+                        { value: 'detalhes', label: 'Detalhes', icon: Calendar },
+                        { value: 'anotacoes', label: `Anotações${eventoAnotacoes.length ? ` (${eventoAnotacoes.length})` : ''}`, icon: StickyNote },
+                        { value: 'anexos', label: `Anexos${eventoAnexos.length ? ` (${eventoAnexos.length})` : ''}`, icon: Paperclip },
+                        { value: 'descricao', label: 'Descrição', icon: FileText },
+                      ].map(t => (
+                        <button
+                          key={t.value}
+                          onClick={() => setViewTab(t.value as typeof viewTab)}
+                          className={cn(
+                            'px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5',
+                            viewTab === t.value ? 'border-sky-500 text-sky-600 dark:text-sky-400' : 'border-transparent text-muted-foreground hover:text-foreground'
+                          )}
+                        >
+                          <t.icon className="h-3.5 w-3.5 shrink-0" />{t.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* ABA: DETALHES — tabela de campos */}
+                    {viewTab === 'detalhes' && (<div className="space-y-4">
                     <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
                       <FieldRow icon={Calendar} label="Período">
                         <span className="text-foreground">{periodoData}</span>
@@ -2295,43 +2320,26 @@ export default function AgendaPage() {
                         </FieldRow>
                       )}
                     </div>
+                    </div>)}
 
-                    {/* Descrição */}
-                    {ev.descricao && (
-                      <div className="rounded-lg border-l-4 bg-muted/30 px-4 py-3" style={{ borderLeftColor: corTipo }}>
-                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Descrição</div>
-                        <div
-                          className="text-sm prose prose-sm dark:prose-invert max-w-none [&_*]:text-sm [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-sky-600"
-                          dangerouslySetInnerHTML={{ __html: ev.descricao }}
-                        />
-                      </div>
-                    )}
+                    {/* ABA: ANOTAÇÕES */}
+                    {viewTab === 'anotacoes' && <div className="space-y-3">{renderAnotacoesSection()}</div>}
 
-                    {/* Histórico */}
-                    {eventLogs.length > 0 && (
-                      <div className="border-t pt-3">
-                        <div className="flex items-center gap-1.5 mb-2">
-                          <History className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-xs font-medium text-muted-foreground">Histórico</span>
+                    {/* ABA: ANEXOS */}
+                    {viewTab === 'anexos' && <div className="space-y-3">{renderAnexosSection()}</div>}
+
+                    {/* ABA: DESCRIÇÃO — texto do evento */}
+                    {viewTab === 'descricao' && (
+                      ev.descricao ? (
+                        <div className="rounded-lg border-l-4 bg-muted/30 px-4 py-3" style={{ borderLeftColor: corTipo }}>
+                          <div
+                            className="text-sm prose prose-sm dark:prose-invert max-w-none [&_*]:text-sm [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-sky-600"
+                            dangerouslySetInnerHTML={{ __html: ev.descricao }}
+                          />
                         </div>
-                        <div className="space-y-1.5">
-                          {eventLogs.map(log => (
-                            <div key={log.id} className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                              {log.usuario?.image ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={resolveAssetUrl(log.usuario.image)} alt={log.usuario.name} className="h-4 w-4 rounded-full object-cover shrink-0" />
-                              ) : (
-                                <span className="h-4 w-4 rounded-full bg-muted text-muted-foreground text-[7px] font-bold flex items-center justify-center shrink-0">
-                                  {(log.usuario?.name ?? '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                                </span>
-                              )}
-                              <span className="font-medium text-foreground/80 truncate">{log.usuario?.name ?? 'Sistema'}</span>
-                              <span className="capitalize">{log.acao}</span>
-                              <span className="ml-auto shrink-0">{new Date(log.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground text-center py-8 italic">Este evento não tem descrição.</p>
+                      )
                     )}
 
                   </div>
@@ -2484,22 +2492,6 @@ export default function AgendaPage() {
                   )}
                 </div>
 
-                {/* ===== Anotações & Anexos (full width, abaixo dos detalhes) ===== */}
-                {/* Disponíveis também na prévia — qualquer usuário pode adicionar. */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-4 border-t border-border">
-                  <div className="space-y-3 min-w-0">
-                    <h4 className="text-[13px] font-semibold flex items-center gap-1.5">
-                      <StickyNote className="h-3.5 w-3.5 text-sky-500" />Anotações{eventoAnotacoes.length > 0 ? ` (${eventoAnotacoes.length})` : ''}
-                    </h4>
-                    {renderAnotacoesSection()}
-                  </div>
-                  <div className="space-y-3 min-w-0">
-                    <h4 className="text-[13px] font-semibold flex items-center gap-1.5">
-                      <Paperclip className="h-3.5 w-3.5 text-sky-500" />Anexos{eventoAnexos.length > 0 ? ` (${eventoAnexos.length})` : ''}
-                    </h4>
-                    {renderAnexosSection()}
-                  </div>
-                </div>
                 </div>
               )
             })()}
