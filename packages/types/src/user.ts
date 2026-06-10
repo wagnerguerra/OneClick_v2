@@ -156,6 +156,7 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'manage_participantes', label: 'Adicionar/remover participantes', group: 'Eventos' },
     { key: 'editar_todos_eventos', label: 'Editar todos os eventos (mesmo de outros usuários)', group: 'Eventos' },
     { key: 'delete_eventos', label: 'Excluir eventos', group: 'Eventos' },
+    { key: 'alterar_tipo_evento', label: 'Alterar o tipo do evento direto na prévia', group: 'Eventos' },
     { key: 'gerenciar_anotacoes_anexos', label: 'Editar/excluir anotações e anexos de outros usuários', group: 'Anotações & Anexos' },
   ],
   caixapostal: [

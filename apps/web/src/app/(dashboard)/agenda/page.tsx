@@ -286,6 +286,8 @@ export default function AgendaPage() {
   const canEditarTodosEventos = isMaster || subPerms.editar_todos_eventos === true
   // Editar/excluir anotações e anexos de OUTROS usuários (o dono sempre pode no próprio).
   const canGerenciarAnotacoesAnexos = isMaster || subPerms.gerenciar_anotacoes_anexos === true
+  // Alterar o tipo do evento direto na prévia (clicando no badge).
+  const canAlterarTipo = isMaster || subPerms.alterar_tipo_evento === true
   // Acesso ao módulo CRM — gateia o botão "Abrir no CRM" no painel da oportunidade.
   const canViewCrm = isMaster || permissions.some(p => p.moduleSlug === 'crm' && p.canRead)
   const showSettingsDropdown = canManageTipos || canImportLegado || canManageConfig
@@ -460,6 +462,22 @@ export default function AgendaPage() {
   // Pode mexer (editar/excluir) num registro: dono OU master/sub-perm.
   const podeGerenciarRegistro = (recordUserId: string | null | undefined) =>
     (!!recordUserId && recordUserId === currentUserId) || canGerenciarAnotacoesAnexos
+
+  // Troca o tipo do evento pela prévia (gate no backend: master/sub-perm).
+  async function alterarTipoEvento(tipoId: string) {
+    const id = selectedEvento?.id
+    if (!id || !tipoId) return
+    try {
+      await (trpc.agenda as any).alterarTipo.mutate({ eventoId: id, tipoId })
+      // Atualiza o evento visto (badge/cores), o histórico e o calendário.
+      const [full] = await Promise.all([
+        trpc.agenda.getById.query({ id }) as Promise<AgendaEvento>,
+        trpc.agenda.listLogs.query({ eventoId: id }).then((r: unknown) => setEventLogs(r as typeof eventLogs)).catch(() => {}),
+        fetchEventos(),
+      ])
+      setSelectedEvento(prev => (prev && prev.id === full.id ? { ...prev, ...full } : prev))
+    } catch (e) { alert((e as Error).message) }
+  }
 
   // Render compartilhado entre a aba (modo edição) e a prévia (modo view).
   const renderAnotacoesSection = () => (
@@ -2193,12 +2211,36 @@ export default function AgendaPage() {
                     {/* Cabeçalho: título em destaque + badge do tipo + criado por */}
                     <div className="space-y-2 pb-3 border-b border-border">
                       <div className="flex items-start gap-2.5 flex-wrap">
-                        <span
-                          className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 mt-1"
-                          style={{ backgroundColor: corBorda, color: '#fff' }}
-                        >
-                          {ev.tipo.nome}
-                        </span>
+                        {canAlterarTipo ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 mt-1 cursor-pointer transition hover:brightness-110 focus:outline-none"
+                                style={{ backgroundColor: corBorda, color: '#fff' }}
+                                title="Alterar tipo do evento"
+                              >
+                                {ev.tipo.nome}
+                                <ChevronDown className="h-3 w-3" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto nice-scrollbar">
+                              {tipos.map(t => (
+                                <DropdownMenuItem key={t.id} onClick={() => alterarTipoEvento(t.id)} className="gap-2 text-xs">
+                                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.corBorda || t.cor }} />
+                                  <span className="flex-1">{t.nome}</span>
+                                  {t.id === ev.tipoId && <Check className="h-3.5 w-3.5 text-sky-500" />}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <span
+                            className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 mt-1"
+                            style={{ backgroundColor: corBorda, color: '#fff' }}
+                          >
+                            {ev.tipo.nome}
+                          </span>
+                        )}
                         {ev.recorrencia !== 'NENHUMA' && (
                           <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-700 dark:text-violet-300 mt-1">
                             <Repeat className="h-2.5 w-2.5" />{RECORRENCIA_LABELS[ev.recorrencia]}

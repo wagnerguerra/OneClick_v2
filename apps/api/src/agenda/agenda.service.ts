@@ -195,6 +195,38 @@ export class AgendaService {
     return this.userPodeGerenciarAnotacaoAnexo(userId)
   }
 
+  /** Pode alterar o TIPO do evento direto na prévia: MASTER ou sub-perm `alterar_tipo_evento`. */
+  private async userPodeAlterarTipo(userId: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { isMaster: true } })
+    if (user?.isMaster) return true
+    const perm = await prisma.userPermission.findUnique({
+      where: { userId_moduleSlug: { userId, moduleSlug: 'agenda' } },
+      select: { subPermissions: true },
+    })
+    const subs = (perm?.subPermissions ?? {}) as Record<string, boolean>
+    return subs.alterar_tipo_evento === true
+  }
+
+  /** Troca o tipo do evento (gate próprio: master/sub-perm) e registra no histórico. */
+  async alterarTipo(eventoId: string, tipoId: string, userId: string) {
+    if (!(await this.userPodeAlterarTipo(userId))) {
+      throw new Error('Você não tem permissão para alterar o tipo do evento.')
+    }
+    const evento = await prisma.agendaEvento.findUniqueOrThrow({ where: { id: eventoId }, select: { tipoId: true } })
+    const [tipoNovo, tipoAnterior] = await Promise.all([
+      prisma.agendaTipo.findUniqueOrThrow({ where: { id: tipoId }, select: { nome: true } }),
+      prisma.agendaTipo.findUnique({ where: { id: evento.tipoId }, select: { nome: true } }).catch(() => null),
+    ])
+    const updated = await prisma.agendaEvento.update({ where: { id: eventoId }, data: { tipoId } })
+    await prisma.agendaLog.create({
+      data: {
+        eventoId, usuarioId: userId, acao: 'tipo_alterado',
+        detalhes: `Tipo alterado${tipoAnterior ? ` de "${tipoAnterior.nome}"` : ''} para "${tipoNovo.nome}".`,
+      },
+    }).catch(() => null)
+    return updated
+  }
+
   getImportProgress(): ImportProgress {
     return { ...this.importProgress }
   }

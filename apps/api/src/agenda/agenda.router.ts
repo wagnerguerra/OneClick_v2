@@ -193,6 +193,11 @@ export function createAgendaRouter(
       .input(z.object({ eventoId: z.string(), anexoId: z.string() }))
       .mutation(({ input, ctx }) => service.removeAnexo(input.eventoId, input.anexoId, ctx.userId)),
 
+    // Alterar tipo do evento direto na prévia (gate próprio: master/sub-perm).
+    alterarTipo: readProcedure(MODULE)
+      .input(z.object({ eventoId: z.string(), tipoId: z.string() }))
+      .mutation(({ input, ctx }) => service.alterarTipo(input.eventoId, input.tipoId, ctx.userId)),
+
     deleteLote: deleteProcedure(MODULE)
       .input(z.object({ lote: z.string() }))
       .mutation(({ input, ctx }) => service.deleteLote(input.lote, ctx.userId)),
