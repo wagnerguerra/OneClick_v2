@@ -196,14 +196,15 @@ export default function RelatoriosAgendaPage() {
                 {/* Por tipo */}
                 <Card><CardContent className="p-0">
                   <h3 className="text-[13px] font-semibold px-4 py-3 border-b border-border">Por tipo de evento</h3>
+                  <div className="max-h-[420px] overflow-y-auto nice-scrollbar">
                   <table className="w-full text-sm">
-                    <thead><tr className="text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/40">
+                    <thead className="sticky top-0 z-10 bg-card"><tr className="text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/40">
                       <th className="text-left font-semibold px-4 py-2">Tipo</th>
                       <th className="text-right font-semibold px-4 py-2 w-20">Qtd.</th>
                       <th className="text-right font-semibold px-4 py-2 w-28">Tempo</th>
                     </tr></thead>
                     <tbody className="divide-y divide-border">
-                      {data.porTipo.map(t => (
+                      {[...data.porTipo].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map(t => (
                         <tr key={t.tipoId} className="hover:bg-muted/30">
                           <td className="px-4 py-2"><span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.corBorda || t.cor }} />{t.nome}</span></td>
                           <td className="px-4 py-2 text-right tabular-nums font-medium">{t.quantidade}</td>
@@ -212,19 +213,21 @@ export default function RelatoriosAgendaPage() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </CardContent></Card>
 
                 {/* Por usuário */}
                 <Card><CardContent className="p-0">
                   <h3 className="text-[13px] font-semibold px-4 py-3 border-b border-border">Por usuário</h3>
+                  <div className="max-h-[420px] overflow-y-auto nice-scrollbar">
                   <table className="w-full text-sm">
-                    <thead><tr className="text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/40">
+                    <thead className="sticky top-0 z-10 bg-card"><tr className="text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/40">
                       <th className="text-left font-semibold px-4 py-2">Usuário</th>
                       <th className="text-right font-semibold px-4 py-2 w-20">Qtd.</th>
                       <th className="text-right font-semibold px-4 py-2 w-28">Tempo</th>
                     </tr></thead>
                     <tbody className="divide-y divide-border">
-                      {data.porUsuario.map(u => (
+                      {[...data.porUsuario].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map(u => (
                         <tr key={u.usuarioId} className="hover:bg-muted/30">
                           <td className="px-4 py-2">
                             <span className="inline-flex items-center gap-2 min-w-0">
@@ -240,6 +243,7 @@ export default function RelatoriosAgendaPage() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </CardContent></Card>
               </div>
 
