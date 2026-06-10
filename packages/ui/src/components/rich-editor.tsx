@@ -210,11 +210,11 @@ export function RichEditor({ value, onChange, placeholder, className, onReady }:
         .rich-editor-root ul { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
         .rich-editor-root ol { list-style: decimal; padding-left: 1.5rem; margin: 0.5rem 0; }
         .rich-editor-root li > p { margin: 0; }
-        .rich-editor-root blockquote { border-left: 3px solid hsl(var(--border)); padding-left: 0.75rem; color: hsl(var(--muted-foreground)); margin: 0.5rem 0; }
+        .rich-editor-root blockquote { border-left: 3px solid var(--color-border); padding-left: 0.75rem; color: var(--color-muted-foreground); margin: 0.5rem 0; }
         .rich-editor-root h1 { font-size: 1.5em; font-weight: 700; margin: 0.6em 0 0.3em; }
         .rich-editor-root h2 { font-size: 1.25em; font-weight: 600; margin: 0.5em 0 0.3em; }
         .rich-editor-root h3 { font-size: 1.1em; font-weight: 600; margin: 0.4em 0 0.2em; }
-        .rich-editor-root hr { border: 0; border-top: 1px solid hsl(var(--border)); margin: 0.75rem 0; }
+        .rich-editor-root hr { border: 0; border-top: 1px solid var(--color-border); margin: 0.75rem 0; }
       ` }} />
       {/* Toolbar */}
       <div className="flex items-center gap-0.5 border-b border-border/40 px-1.5 py-1 flex-wrap">
