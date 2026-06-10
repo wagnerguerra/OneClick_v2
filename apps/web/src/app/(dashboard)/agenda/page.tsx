@@ -1392,7 +1392,7 @@ export default function AgendaPage() {
                         {/* Linha superior: data (esq) | horário com ícone (dir) */}
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ev.tipo.cor }} />
+                            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ev.tipo.corBorda || ev.tipo.cor }} />
                             <span className="text-[11px] text-muted-foreground">{dataHoje}</span>
                           </div>
                           <div className="flex items-center gap-1 text-[11px] text-sky-600 dark:text-sky-400 shrink-0">
@@ -1667,7 +1667,7 @@ export default function AgendaPage() {
                                       <div className="px-3 py-2 flex items-start gap-2 border-b border-background/20">
                                         <span
                                           className="h-2.5 w-2.5 rounded-full shrink-0 mt-1"
-                                          style={{ backgroundColor: ev.tipo.cor }}
+                                          style={{ backgroundColor: ev.tipo.corBorda || ev.tipo.cor }}
                                         />
                                         <div className="min-w-0">
                                           <p className="font-semibold leading-tight">{ev.titulo}</p>
