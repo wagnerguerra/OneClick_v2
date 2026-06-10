@@ -866,13 +866,6 @@ export default function AgendaPage() {
     return map
   }, [tarefas])
 
-  // Minhas tarefas pendentes (sidebar widget) — apenas do user logado, não concluídas
-  const minhasTarefasPendentes = useMemo(() => {
-    return tarefas
-      .filter(t => !t.concluida && t.criadorId === currentUserId)
-      .sort((a, b) => new Date(a.prazo).getTime() - new Date(b.prazo).getTime())
-  }, [tarefas, currentUserId])
-
   const eventosPorDia = useMemo(() => {
     const map: Record<string, AgendaEvento[]> = {}
     let filtered = filtroTipo ? eventos.filter(e => e.tipoId === filtroTipo) : eventos
@@ -1658,87 +1651,6 @@ export default function AgendaPage() {
             )}
           </div>
 
-          {/* Minhas tarefas pendentes */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                <ListTodo className="h-3.5 w-3.5 text-muted-foreground" />
-                Minhas tarefas
-              </h3>
-              <Link href="/agenda/tarefas" className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline">
-                Ver todas
-              </Link>
-            </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              {minhasTarefasPendentes.length === 0
-                ? 'Nenhuma pendente — bom trabalho!'
-                : `${minhasTarefasPendentes.length} pendente${minhasTarefasPendentes.length > 1 ? 's' : ''}`}
-            </p>
-            {minhasTarefasPendentes.length > 0 && (
-              <div className="space-y-1.5 max-h-[360px] overflow-y-auto scrollbar-none pr-1">
-                {minhasTarefasPendentes.slice(0, 10).map(t => {
-                  const d = new Date(t.prazo)
-                  const hoje = new Date()
-                  const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
-                  const prazoDate = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
-                  const diffDias = Math.floor((prazoDate.getTime() - inicioHoje.getTime()) / 86400000)
-                  const corStatus = diffDias < 0 ? 'rose' : diffDias === 0 ? 'amber' : 'sky'
-                  const labelStatus = diffDias < 0
-                    ? `Atrasada ${Math.abs(diffDias)}d`
-                    : diffDias === 0
-                      ? 'Hoje'
-                      : diffDias === 1
-                        ? 'Amanhã'
-                        : `${diffDias}d`
-                  return (
-                    <div
-                      key={t.id}
-                      className="group/tk flex items-start gap-2 p-2 rounded border border-border/60 hover:bg-muted/40 cursor-pointer transition-colors"
-                      onClick={() => { setTarefaEditando(t); setTarefaModalOpen(true) }}
-                    >
-                      <button
-                        type="button"
-                        onClick={e => { e.stopPropagation(); toggleTarefaConcluida(t) }}
-                        className="shrink-0 mt-0.5"
-                        title="Concluir"
-                      >
-                        <Square className="h-3.5 w-3.5 text-muted-foreground group-hover/tk:text-sky-500" />
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-medium truncate leading-tight">{t.titulo}</p>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <span className={cn(
-                            'inline-block text-[9px] font-bold uppercase tracking-wider px-1 py-0.5 rounded',
-                            corStatus === 'rose' && 'bg-rose-500/15 text-rose-700 dark:text-rose-400',
-                            corStatus === 'amber' && 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
-                            corStatus === 'sky' && 'bg-sky-500/15 text-sky-700 dark:text-sky-400',
-                          )}>
-                            {labelStatus}
-                          </span>
-                          {t.horaPrazo && (
-                            <span className="text-[10px] text-muted-foreground tabular-nums">{t.horaPrazo}</span>
-                          )}
-                          {t.prioridade === 'ALTA' && (
-                            <span className="inline-flex items-center text-[9px] font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-orange-500/15 text-orange-700 dark:text-orange-400">
-                              Alta
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-                {minhasTarefasPendentes.length > 10 && (
-                  <Link
-                    href="/agenda/tarefas"
-                    className="block text-center text-[11px] text-sky-600 dark:text-sky-400 hover:underline py-1"
-                  >
-                    +{minhasTarefasPendentes.length - 10} mais
-                  </Link>
-                )}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* ============================================================ */}
