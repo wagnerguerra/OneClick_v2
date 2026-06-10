@@ -12,6 +12,7 @@ import { RouteProgress } from '@/components/dashboard/route-progress'
 import { TabBar } from '@/components/dashboard/tab-bar'
 import { ApiHealthMonitor } from '@/components/dashboard/api-health-monitor'
 import { FloatingFeedbackButton } from '@/components/dashboard/floating-feedback-button'
+import { TarefasRail } from '@/components/dashboard/tarefas-rail'
 import { ChatToastListener } from '@/components/chat/chat-toast-listener'
 import { TabsProvider } from '@/lib/tabs-store'
 import { useSyncRouteTab } from '@/hooks/use-sync-route-tab'
@@ -52,13 +53,17 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
         )}
       >
         <Header onOpenMobile={openMobile} />
-        <TabBar />
-        <main className="p-4 sm:p-6">
-          <PageTransition>{children}</PageTransition>
-        </main>
+        {/* lg:mr-11 reserva a faixa do rail de tarefas (direita) */}
+        <div className="lg:mr-11">
+          <TabBar />
+          <main className="p-4 sm:p-6">
+            <PageTransition>{children}</PageTransition>
+          </main>
+        </div>
       </div>
       <ApiHealthMonitor />
       <FloatingFeedbackButton />
+      <TarefasRail />
       <ChatToastListener />
     </div>
   )

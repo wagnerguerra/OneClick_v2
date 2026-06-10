@@ -263,7 +263,7 @@ export function FloatingFeedbackButton() {
           // pointer-events-auto: Radix Sheet/Dialog aplica pointer-events:
           // none no body quando aberto pra absorver cliques no overlay;
           // sem isso o click no FAB 'atravessa' pro elemento abaixo.
-          'fixed bottom-5 right-5 z-[60] pointer-events-auto h-12 w-12 rounded-full shadow-lg',
+          'fixed bottom-5 right-5 lg:right-16 z-[60] pointer-events-auto h-12 w-12 rounded-full shadow-lg',
           'flex items-center justify-center text-white',
           'bg-[var(--mod-ti,#22d3ee)] hover:scale-105 active:scale-95',
           'transition-all duration-200 ease-out',
@@ -294,7 +294,7 @@ export function FloatingFeedbackButton() {
           className={cn(
             // Popover acompanha o FAB (z-[60] + pointer-events-auto) —
             // fica acima de modais e recebe cliques normalmente.
-            'fixed bottom-20 right-5 z-[60] pointer-events-auto w-[360px] max-w-[calc(100vw-2.5rem)]',
+            'fixed bottom-20 right-5 lg:right-16 z-[60] pointer-events-auto w-[360px] max-w-[calc(100vw-2.5rem)]',
             'rounded-lg border border-border bg-card shadow-2xl overflow-hidden',
             // Transição manual (origin no canto inferior direito = "sai do botão FAB").
             'origin-bottom-right transition-all duration-200 ease-out',
