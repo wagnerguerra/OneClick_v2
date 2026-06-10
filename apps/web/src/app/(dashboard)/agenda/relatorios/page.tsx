@@ -22,7 +22,8 @@ import { resolveAssetUrl } from '@/lib/api-url'
 
 const MOD = 'var(--mod-administrativo, #38bdf8)'
 
-interface PorTipo { tipoId: string; nome: string; cor: string; corBorda: string; quantidade: number; totalMinutos: number }
+interface UserChip { usuarioId: string; nome: string; image: string | null; quantidade: number }
+interface PorTipo { tipoId: string; nome: string; cor: string; corBorda: string; quantidade: number; totalMinutos: number; usuarios: UserChip[] }
 interface TipoChip { tipoId: string; nome: string; cor: string; quantidade: number }
 interface PorUsuario { usuarioId: string; nome: string; image: string | null; quantidade: number; totalMinutos: number; tipos: TipoChip[] }
 interface Relatorio { totais: { quantidade: number; totalMinutos: number }; porTipo: PorTipo[]; porUsuario: PorUsuario[] }
@@ -278,7 +279,31 @@ export default function RelatoriosAgendaPage() {
                     <tbody className="divide-y divide-border">
                       {sortRows(data.porTipo, sortTipo).map(t => (
                         <tr key={t.tipoId} className="hover:bg-muted/30 cursor-pointer" onClick={() => abrirDrillTipo(t)} title="Ver eventos">
-                          <td className="px-4 py-2"><span className="flex items-center gap-2 min-w-0"><span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.corBorda || t.cor }} /><span className="truncate">{t.nome}</span></span></td>
+                          <td className="px-4 py-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.corBorda || t.cor }} />
+                              <span className="truncate">{t.nome}</span>
+                              {t.usuarios.length > 0 && (
+                                <div className="flex items-center gap-1 shrink-0 ml-1">
+                                  {t.usuarios.slice(0, 8).map(u => (
+                                    <span
+                                      key={u.usuarioId}
+                                      title={`${u.nome}: ${u.quantidade}`}
+                                      className="inline-flex items-center gap-1 h-[18px] pl-0.5 pr-1.5 rounded-full bg-muted text-[10px] font-semibold text-foreground/80"
+                                    >
+                                      {u.image
+                                        ? <img src={resolveAssetUrl(u.image)} alt={u.nome} className="h-3.5 w-3.5 rounded-full object-cover" />
+                                        : <span className="h-3.5 w-3.5 rounded-full bg-background flex items-center justify-center text-[6px] font-bold">{u.nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}</span>}
+                                      {u.quantidade}
+                                    </span>
+                                  ))}
+                                  {t.usuarios.length > 8 && (
+                                    <span className="text-[10px] text-muted-foreground" title={`+${t.usuarios.length - 8} usuários`}>+{t.usuarios.length - 8}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-2 text-right tabular-nums font-medium whitespace-nowrap">{t.quantidade}</td>
                           <td className="px-4 py-2 text-right tabular-nums text-muted-foreground whitespace-nowrap">{fmtHoras(t.totalMinutos)}</td>
                         </tr>

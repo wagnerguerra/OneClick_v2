@@ -298,8 +298,8 @@ export class AgendaService {
     }
 
     const usuarioFiltro = input.usuarioId || null
-    const porTipoMap = new Map<string, { tipoId: string; nome: string; cor: string; corBorda: string; quantidade: number; totalMinutos: number }>()
     type TipoChip = { tipoId: string; nome: string; cor: string; quantidade: number }
+    const porTipoMap = new Map<string, { tipoId: string; nome: string; cor: string; corBorda: string; quantidade: number; totalMinutos: number; usuarios: Map<string, number> }>()
     const porUsuarioMap = new Map<string, { quantidade: number; totalMinutos: number; tipos: Map<string, TipoChip> }>()
     let totalQtd = 0, totalMin = 0
 
@@ -310,12 +310,15 @@ export class AgendaService {
       totalQtd++; totalMin += mins
 
       const k = ev.tipo.id
-      const t = porTipoMap.get(k) ?? { tipoId: k, nome: ev.tipo.nome, cor: ev.tipo.cor, corBorda: ev.tipo.corBorda, quantidade: 0, totalMinutos: 0 }
+      const t = porTipoMap.get(k) ?? { tipoId: k, nome: ev.tipo.nome, cor: ev.tipo.cor, corBorda: ev.tipo.corBorda, quantidade: 0, totalMinutos: 0, usuarios: new Map<string, number>() }
       t.quantidade++; t.totalMinutos += mins
       porTipoMap.set(k, t)
 
       const alvo = usuarioFiltro ? [usuarioFiltro] : participantes
       for (const uid of alvo) {
+        // por tipo → breakdown por usuário
+        t.usuarios.set(uid, (t.usuarios.get(uid) ?? 0) + 1)
+        // por usuário → breakdown por tipo
         const u = porUsuarioMap.get(uid) ?? { quantidade: 0, totalMinutos: 0, tipos: new Map<string, TipoChip>() }
         u.quantidade++; u.totalMinutos += mins
         const tc = u.tipos.get(k) ?? { tipoId: k, nome: ev.tipo.nome, cor: ev.tipo.corBorda || ev.tipo.cor, quantidade: 0 }
@@ -341,7 +344,14 @@ export class AgendaService {
       })
       .sort((a, b) => b.totalMinutos - a.totalMinutos || b.quantidade - a.quantidade)
 
-    const porTipo = [...porTipoMap.values()].sort((a, b) => b.quantidade - a.quantidade)
+    const porTipo = [...porTipoMap.values()]
+      .map(t => ({
+        tipoId: t.tipoId, nome: t.nome, cor: t.cor, corBorda: t.corBorda, quantidade: t.quantidade, totalMinutos: t.totalMinutos,
+        usuarios: [...t.usuarios.entries()]
+          .map(([uid, q]) => ({ usuarioId: uid, nome: users.get(uid)?.name ?? 'Desconhecido', image: users.get(uid)?.image ?? null, quantidade: q }))
+          .sort((a, b) => b.quantidade - a.quantidade),
+      }))
+      .sort((a, b) => b.quantidade - a.quantidade)
 
     return { totais: { quantidade: totalQtd, totalMinutos: totalMin }, porTipo, porUsuario }
   }
