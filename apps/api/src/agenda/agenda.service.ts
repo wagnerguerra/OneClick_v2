@@ -242,6 +242,102 @@ export class AgendaService {
     return prisma.agendaEvento.findUniqueOrThrow({ where: { id: eventoId } })
   }
 
+  /** Pode acessar os relatórios da agenda: MASTER ou sub-perm `ver_relatorios`. */
+  private async userPodeVerRelatorios(userId: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { isMaster: true } })
+    if (user?.isMaster) return true
+    const perm = await prisma.userPermission.findUnique({
+      where: { userId_moduleSlug: { userId, moduleSlug: 'agenda' } },
+      select: { subPermissions: true },
+    })
+    const subs = (perm?.subPermissions ?? {}) as Record<string, boolean>
+    return subs.ver_relatorios === true
+  }
+
+  /**
+   * Relatório agregado dos eventos num período. Como os TIPOS são dinâmicos
+   * (Reunião, Curso, Visita ao cliente, etc.), agregamos genericamente:
+   *  - porTipo: quantidade + tempo total por tipo de evento
+   *  - porUsuario: quantidade + tempo total por usuário (participante)
+   * Filtros opcionais: usuarioId (só eventos do usuário) e tipoId (só do tipo).
+   * Tempo = horaFim - horaInicio (eventos de dia inteiro contam na quantidade,
+   * mas com 0 min de duração).
+   */
+  async relatorio(
+    input: { dataInicio: string; dataFim: string; usuarioId?: string; tipoId?: string },
+    userId: string,
+    isMaster: boolean,
+    empresaId?: string | null,
+  ) {
+    if (!(await this.userPodeVerRelatorios(userId))) {
+      throw new Error('Você não tem permissão para acessar os relatórios da agenda.')
+    }
+    const inicio = new Date(`${input.dataInicio}T00:00:00.000Z`)
+    const fim = new Date(`${input.dataFim}T23:59:59.999Z`)
+    const where: Prisma.AgendaEventoWhereInput = { isActive: true, data: { gte: inicio, lte: fim } }
+    if (!isMaster && empresaId) where.empresaId = empresaId
+    if (input.tipoId) where.tipoId = input.tipoId
+
+    const eventos = await prisma.agendaEvento.findMany({
+      where,
+      select: {
+        id: true, diaInteiro: true, horaInicio: true, horaFim: true,
+        tipo: { select: { id: true, nome: true, cor: true, corBorda: true } },
+        participantes: { where: { isActive: true, usuarioId: { not: null } }, select: { usuarioId: true } },
+      },
+    })
+
+    const toMin = (s: string) => {
+      const [h, m] = s.split(':')
+      return (Number(h) || 0) * 60 + (Number(m) || 0)
+    }
+    const minutosDe = (ev: { diaInteiro: boolean; horaInicio: string | null; horaFim: string | null }) => {
+      if (ev.diaInteiro || !ev.horaInicio || !ev.horaFim) return 0
+      const mins = toMin(ev.horaFim) - toMin(ev.horaInicio)
+      return mins > 0 ? mins : 0
+    }
+
+    const usuarioFiltro = input.usuarioId || null
+    const porTipoMap = new Map<string, { tipoId: string; nome: string; cor: string; corBorda: string; quantidade: number; totalMinutos: number }>()
+    const porUsuarioMap = new Map<string, { quantidade: number; totalMinutos: number }>()
+    let totalQtd = 0, totalMin = 0
+
+    for (const ev of eventos) {
+      const participantes = ev.participantes.map(p => p.usuarioId!).filter(Boolean)
+      if (usuarioFiltro && !participantes.includes(usuarioFiltro)) continue
+      const mins = minutosDe(ev)
+      totalQtd++; totalMin += mins
+
+      const k = ev.tipo.id
+      const t = porTipoMap.get(k) ?? { tipoId: k, nome: ev.tipo.nome, cor: ev.tipo.cor, corBorda: ev.tipo.corBorda, quantidade: 0, totalMinutos: 0 }
+      t.quantidade++; t.totalMinutos += mins
+      porTipoMap.set(k, t)
+
+      const alvo = usuarioFiltro ? [usuarioFiltro] : participantes
+      for (const uid of alvo) {
+        const u = porUsuarioMap.get(uid) ?? { quantidade: 0, totalMinutos: 0 }
+        u.quantidade++; u.totalMinutos += mins
+        porUsuarioMap.set(uid, u)
+      }
+    }
+
+    const userIds = [...porUsuarioMap.keys()]
+    const users = await this.resolveUserNames(userIds)
+    const porUsuario = userIds
+      .map(uid => ({
+        usuarioId: uid,
+        nome: users.get(uid)?.name ?? 'Desconhecido',
+        image: users.get(uid)?.image ?? null,
+        quantidade: porUsuarioMap.get(uid)!.quantidade,
+        totalMinutos: porUsuarioMap.get(uid)!.totalMinutos,
+      }))
+      .sort((a, b) => b.totalMinutos - a.totalMinutos || b.quantidade - a.quantidade)
+
+    const porTipo = [...porTipoMap.values()].sort((a, b) => b.quantidade - a.quantidade)
+
+    return { totais: { quantidade: totalQtd, totalMinutos: totalMin }, porTipo, porUsuario }
+  }
+
   getImportProgress(): ImportProgress {
     return { ...this.importProgress }
   }

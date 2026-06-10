@@ -8,7 +8,7 @@ import {
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
   Repeat, Lock, History, Settings, Palette, Check, Download, DoorOpen,
   Bell, Mail, CheckSquare, Square, ListTodo, Search, Target, ArrowRight, Link2, ExternalLink,
-  StickyNote, Paperclip, Send, Upload,
+  StickyNote, Paperclip, Send, Upload, FileBarChart,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card,
@@ -288,6 +288,8 @@ export default function AgendaPage() {
   const canGerenciarAnotacoesAnexos = isMaster || subPerms.gerenciar_anotacoes_anexos === true
   // Alterar o tipo do evento direto na prévia (clicando no badge).
   const canAlterarTipo = isMaster || subPerms.alterar_tipo_evento === true
+  // Acessar a área de relatórios da agenda.
+  const canVerRelatorios = isMaster || subPerms.ver_relatorios === true
   // Acesso ao módulo CRM — gateia o botão "Abrir no CRM" no painel da oportunidade.
   const canViewCrm = isMaster || permissions.some(p => p.moduleSlug === 'crm' && p.canRead)
   const showSettingsDropdown = canManageTipos || canImportLegado || canManageConfig
@@ -1399,6 +1401,13 @@ export default function AgendaPage() {
             <Users className="h-4 w-4" /> Verificar disponibilidade
           </Link>
         </Button>
+        {canVerRelatorios && (
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <Link href="/agenda/relatorios">
+              <FileBarChart className="h-4 w-4" /> Relatórios
+            </Link>
+          </Button>
+        )}
         {showSettingsDropdown && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

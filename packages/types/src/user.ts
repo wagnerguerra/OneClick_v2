@@ -158,6 +158,7 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'delete_eventos', label: 'Excluir eventos', group: 'Eventos' },
     { key: 'alterar_tipo_evento', label: 'Alterar o tipo do evento direto na prévia', group: 'Eventos' },
     { key: 'gerenciar_anotacoes_anexos', label: 'Editar/excluir anotações e anexos de outros usuários', group: 'Anotações & Anexos' },
+    { key: 'ver_relatorios', label: 'Acessar relatórios da agenda', group: 'Relatórios' },
   ],
   caixapostal: [
     { key: 'bulk_actions', label: 'Consulta em lote e ações em massa', group: 'Ações' },

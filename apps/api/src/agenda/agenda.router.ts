@@ -198,6 +198,16 @@ export function createAgendaRouter(
       .input(z.object({ eventoId: z.string(), tipoId: z.string() }))
       .mutation(({ input, ctx }) => service.alterarTipo(input.eventoId, input.tipoId, ctx.userId)),
 
+    // Relatórios da agenda (gate próprio: master/sub-perm `ver_relatorios`).
+    relatorio: readProcedure(MODULE)
+      .input(z.object({
+        dataInicio: z.string(),
+        dataFim: z.string(),
+        usuarioId: z.string().optional(),
+        tipoId: z.string().optional(),
+      }))
+      .query(({ input, ctx }) => service.relatorio(input, ctx.userId, ctx.isMaster ?? false, ctx.empresaId)),
+
     deleteLote: deleteProcedure(MODULE)
       .input(z.object({ lote: z.string() }))
       .mutation(({ input, ctx }) => service.deleteLote(input.lote, ctx.userId)),
