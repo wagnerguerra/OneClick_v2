@@ -7,7 +7,8 @@ dist/
 .turbo/
 
 # Materiais de referência (instaladores/arte) — pesados, fora do build/repo
-materiais/
+# Ancorado na raiz: NÃO ignora assets servidos em apps/web/public/materiais/
+/materiais/
 
 # Binarios de app (nao versionar; servidos via /opt/oneclick-src no deploy)
 *.apk

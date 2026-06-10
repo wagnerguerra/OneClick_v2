@@ -2137,6 +2137,7 @@ export default function AgendaPage() {
           <DialogHeaderIcon
             icon={modalMode === 'create' ? Plus : modalMode === 'edit' ? Edit2 : Calendar}
             color={modalMode === 'create' ? 'emerald' : 'sky'}
+            bgImage={modalMode === 'view' ? '/materiais/bg_calendar.jpg' : undefined}
           >
             <DialogTitle>
               {modalMode === 'create'

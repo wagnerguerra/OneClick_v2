@@ -69,15 +69,40 @@ interface Props {
    * skeletons ou modais cujo título não deve aparecer visualmente.
    */
   srOnly?: boolean
+  /**
+   * URL de imagem de fundo pro header (capa). Quando setada, o header vira uma
+   * faixa com a imagem em `cover` + gradiente escuro por cima pra legibilidade,
+   * com ícone em vidro e textos em branco. Ex.: `/materiais/bg_calendar.jpg`.
+   */
+  bgImage?: string
   /** Filhos: tipicamente <DialogTitle> + <DialogDescription>. */
   children: ReactNode
 }
 
-export function DialogHeaderIcon({ icon: Icon, color = 'sky', className, srOnly, children }: Props) {
+export function DialogHeaderIcon({ icon: Icon, color = 'sky', className, srOnly, bgImage, children }: Props) {
   if (srOnly) {
     return (
       <DialogHeader className={cn('sr-only', className)}>
         {children}
+      </DialogHeader>
+    )
+  }
+  if (bgImage) {
+    return (
+      <DialogHeader
+        className={cn('relative overflow-hidden border-b-0 bg-transparent', className)}
+        style={{ backgroundImage: `url(${bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+      >
+        {/* Gradiente escuro por cima da imagem — garante contraste dos textos */}
+        <div className="absolute inset-0 bg-gradient-to-br from-black/75 via-black/55 to-black/40" aria-hidden />
+        <div className="relative flex items-start gap-3 [&_h2]:text-white [&_p]:text-white/85">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white backdrop-blur-sm ring-1 ring-white/20">
+            <Icon className="h-6 w-6" />
+          </div>
+          <div className="flex-1 min-w-0">
+            {children}
+          </div>
+        </div>
       </DialogHeader>
     )
   }
