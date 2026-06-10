@@ -89,14 +89,17 @@ export function DialogHeaderIcon({ icon: Icon, color = 'sky', className, srOnly,
   }
   if (bgImage) {
     return (
-      <DialogHeader
-        className={cn('relative overflow-hidden border-b-0 bg-transparent', className)}
-        style={{ backgroundImage: `url(${bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
-      >
-        {/* Gradiente escuro por cima da imagem — garante contraste dos textos */}
-        <div className="absolute inset-0 bg-gradient-to-br from-black/75 via-black/55 to-black/40" aria-hidden />
-        <div className="relative flex items-start gap-3 [&_h2]:text-white [&_p]:text-white/85">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white backdrop-blur-sm ring-1 ring-white/20">
+      <DialogHeader className={cn('relative overflow-hidden border-b-0 bg-slate-900', className)}>
+        {/* Imagem de fundo com transparência — deixa o tom escuro aparecer por baixo */}
+        <div
+          className="absolute inset-0 opacity-45"
+          style={{ backgroundImage: `url(${bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+          aria-hidden
+        />
+        {/* Gradiente sutil pra reforçar o contraste dos textos à esquerda */}
+        <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/25" aria-hidden />
+        <div className="relative flex items-center gap-3 [&_h2]:text-white [&_p]:text-white/85">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white backdrop-blur-sm ring-1 ring-white/25">
             <Icon className="h-6 w-6" />
           </div>
           <div className="flex-1 min-w-0">
