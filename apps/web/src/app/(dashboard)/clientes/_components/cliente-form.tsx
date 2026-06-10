@@ -2908,6 +2908,9 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
   // Modal de edição de observações do certificado
   const [editingCert, setEditingCert] = useState<{ id: string; titular: string; emissor: string; observacoes: string } | null>(null)
   const [savingCert, setSavingCert] = useState(false)
+  // Modal de cadastro de certificado quando um .pfx/.p12 é solto no card de Arquivos.
+  const [certUpload, setCertUpload] = useState<{ file: File; senha: string; confirmar: string; observacoes: string } | null>(null)
+  const [savingCertUpload, setSavingCertUpload] = useState(false)
 
   function load() {
     trpc.cliente.listArquivos.query({ clienteId })
@@ -2946,14 +2949,21 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
     return Number.isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('pt-BR')
   }
 
+  const isPfx = (f: File) => /\.(pfx|p12)$/i.test(f.name)
+
   function handleUpload() {
     const input = document.createElement('input')
     input.type = 'file'
     input.multiple = true
     input.onchange = async (e) => {
-      const files = (e.target as HTMLInputElement).files
-      if (!files) return
-      for (const file of Array.from(files)) {
+      const files = Array.from((e.target as HTMLInputElement).files ?? [])
+      if (!files.length) return
+      // Certificados (.pfx/.p12) NÃO viram arquivo genérico: abrem o modal de
+      // cadastro de certificado digital. Os demais arquivos seguem o upload normal.
+      const certs = files.filter(isPfx)
+      const outros = files.filter(f => !isPfx(f))
+
+      for (const file of outros) {
         const formData = new FormData()
         formData.append('file', file)
         try {
@@ -2965,10 +2975,46 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
           })
         } catch { /* skip */ }
       }
-      load()
-      alerts.success('Upload concluído', 'Arquivos enviados com sucesso.')
+      if (outros.length) { load(); alerts.success('Upload concluído', `${outros.length} arquivo(s) enviado(s).`) }
+
+      if (certs.length) {
+        if (!canEditCertificados) {
+          alerts.error('Sem permissão', 'O arquivo é um certificado digital (.pfx). Você não tem permissão para cadastrá-lo — peça a um responsável pela legalização.')
+        } else {
+          // Cadastra um certificado por vez (o modal pede a senha e extrai os dados).
+          setCertUpload({ file: certs[0]!, senha: '', confirmar: '', observacoes: '' })
+        }
+      }
     }
     input.click()
+  }
+
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  async function submitCertUpload() {
+    if (!certUpload) return
+    if (!certUpload.senha) return alerts.error('Senha obrigatória', 'Informe a senha do certificado (.pfx).')
+    if (certUpload.senha !== certUpload.confirmar) return alerts.error('Senhas não conferem', 'A confirmação está diferente da senha.')
+    setSavingCertUpload(true)
+    try {
+      const pfxBase64 = await fileToBase64(certUpload.file)
+      await trpc.certificadoDigital.create.mutate({
+        pfxBase64, senha: certUpload.senha, clienteId,
+        observacoes: certUpload.observacoes.trim() || null,
+      })
+      setCertUpload(null)
+      loadCertificados()
+      alerts.success('Certificado cadastrado', 'O .pfx foi registrado como certificado digital e vinculado ao cliente. Ele aparece aqui e na aba Certificado Digital.')
+    } catch (e) {
+      alerts.error('Erro ao cadastrar certificado', (e as Error).message || 'Verifique se a senha do .pfx está correta.')
+    } finally { setSavingCertUpload(false) }
   }
 
   async function handleRemove(id: string, name: string) {
@@ -3146,6 +3192,50 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
             <Button type="button" variant="outline" onClick={() => setEditingCert(null)}>Cancelar</Button>
             <Button type="button" variant="success" onClick={handleSaveCert} disabled={savingCert}>
               {savingCert ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: .pfx solto no card de Arquivos → cadastrar como certificado digital */}
+      <Dialog open={!!certUpload} onOpenChange={(o) => { if (!o && !savingCertUpload) setCertUpload(null) }}>
+        <DialogContent>
+          <DialogHeaderIcon icon={ShieldCheck} color="amber">
+            <DialogTitle>Cadastrar certificado digital</DialogTitle>
+            <DialogDescription>O arquivo é um certificado (.pfx). Informe a senha — o sistema extrai titular, validade e emissor automaticamente.</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-4">
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
+              <ShieldCheck className="h-4 w-4 text-amber-500 shrink-0" />
+              <span className="truncate font-medium">{certUpload?.file.name}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[13px] font-semibold">Senha *</Label>
+                <Input type="password" className="h-9 text-sm" value={certUpload?.senha || ''} onChange={(e) => setCertUpload((s) => (s ? { ...s, senha: e.target.value } : s))} placeholder="Senha do .pfx" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[13px] font-semibold">Confirmar senha *</Label>
+                <Input type="password" className="h-9 text-sm" value={certUpload?.confirmar || ''} onChange={(e) => setCertUpload((s) => (s ? { ...s, confirmar: e.target.value } : s))} placeholder="Repita a senha" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Observações</Label>
+              <textarea
+                className="flex min-h-[70px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={certUpload?.observacoes || ''}
+                onChange={(e) => setCertUpload((s) => (s ? { ...s, observacoes: e.target.value } : s))}
+                placeholder="Notas sobre este certificado..."
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              🔒 A senha é cifrada com AES-256-GCM. O certificado fica vinculado a este cliente e aparece também na aba <b>Legalização → Certificado Digital</b>.
+            </p>
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setCertUpload(null)} disabled={savingCertUpload}>Cancelar</Button>
+            <Button type="button" variant="success" onClick={submitCertUpload} disabled={savingCertUpload || !certUpload?.senha}>
+              {savingCertUpload ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Cadastrar certificado
             </Button>
           </DialogFooter>
         </DialogContent>
