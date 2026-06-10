@@ -179,8 +179,8 @@ export default function RelatoriosAgendaPage() {
                       <XAxis dataKey="nome" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={60} />
                       <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                       <Tooltip
-                        cursor={{ fill: 'hsl(var(--muted) / 0.4)' }}
-                        contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' }}
+                        cursor={{ fill: 'rgba(148, 163, 184, 0.15)' }}
+                        contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', color: 'hsl(var(--foreground))' }}
                       />
                       <Bar dataKey="quantidade" radius={[4, 4, 0, 0]}>
                         <LabelList dataKey="quantidade" position="top" className="fill-foreground" fontSize={11} />
