@@ -8,7 +8,6 @@ import {
 } from 'lucide-react'
 import {
   Button, Input, Card, Badge, cn,
-  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -38,28 +37,21 @@ export default function TarefasPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filtro, setFiltro] = useState<Filtro>('pendentes')
-  // Master entra direto em "todas" pra visão global; usuário comum só vê as próprias.
-  // O default é "minhas" até o profile carregar — useEffect abaixo promove pra "todas" assim que detectar isMaster.
-  const [escopo, setEscopo] = useState<'minhas' | 'todas'>('minhas')
-  useEffect(() => {
-    if (isMaster) setEscopo('todas')
-  }, [isMaster])
   const [modalOpen, setModalOpen] = useState(false)
   const [tarefaEditando, setTarefaEditando] = useState<Tarefa | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const r = await (trpc.agenda.tarefa as any).list.query({
-        todasDoTenant: escopo === 'todas',
-      })
+      // Sempre apenas as tarefas do próprio usuário (inclusive master).
+      const r = await (trpc.agenda.tarefa as any).list.query({})
       setTarefas(r as Tarefa[])
     } catch (e) {
       console.error('[Tarefas] load:', (e as Error).message)
     } finally {
       setLoading(false)
     }
-  }, [escopo])
+  }, [])
 
   useEffect(() => { load() }, [load])
 
@@ -186,13 +178,6 @@ export default function TarefasPage() {
             )
           })}
           <div className="ml-auto flex items-center gap-2">
-            <Select value={escopo} onValueChange={v => setEscopo(v as 'minhas' | 'todas')}>
-              <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="minhas">Minhas tarefas</SelectItem>
-                <SelectItem value="todas">Todas (admin)</SelectItem>
-              </SelectContent>
-            </Select>
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
