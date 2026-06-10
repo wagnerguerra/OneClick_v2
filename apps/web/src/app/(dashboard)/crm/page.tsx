@@ -876,7 +876,7 @@ export default function CrmPage() {
       ) : (
         /* ── Visao Kanban ── */
         <DndContext sensors={kanbanSensors} collisionDetection={closestCenter} onDragStart={handleKanbanDragStart} onDragMove={handleKanbanDragMove} onDragOver={handleKanbanDragOver} onDragEnd={handleKanbanDragEnd} onDragCancel={handleKanbanDragCancel}>
-        <div className="overflow-x-auto pb-4 -mx-1 flex-1">
+        <div className="overflow-x-auto nice-scrollbar pb-4 -mx-1 flex-1">
           <div className="flex gap-3 px-1 h-full" style={{ minWidth: etapas.length > 0 ? `${etapas.length * 220}px` : undefined, width: '100%' }}>
             {etapas.map(etapa => {
               const ops = opsByEtapa[etapa.id] || []
@@ -1602,7 +1602,7 @@ function KanbanColumn({ etapa, ops, isOver, activeCardId, etapas, onOpenDetail, 
         <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 shrink-0">{ops.length}</Badge>
       </div>
       <SortableContext items={ops.map(o => o.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 p-2 space-y-2 overflow-y-auto min-h-[120px]">
+        <div className="flex-1 p-2 space-y-2 overflow-y-auto nice-scrollbar min-h-[120px]">
           {ops.length === 0 && <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma oportunidade</p>}
           {ops.map(op => (
             <KanbanCard key={op.id} op={op} isDraggingAny={!!activeCardId} etapas={etapas} onOpenDetail={onOpenDetail} onMover={onMover} onDelete={onDelete} diasDesde={diasDesde} declinioDias={declinioDias} />
