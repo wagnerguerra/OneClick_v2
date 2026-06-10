@@ -250,9 +250,9 @@ export default function RelatoriosAgendaPage() {
                     <tbody className="divide-y divide-border">
                       {sortRows(data.porTipo, sortTipo).map(t => (
                         <tr key={t.tipoId} className="hover:bg-muted/30">
-                          <td className="px-4 py-2"><span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.corBorda || t.cor }} />{t.nome}</span></td>
-                          <td className="px-4 py-2 text-right tabular-nums font-medium">{t.quantidade}</td>
-                          <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{fmtHoras(t.totalMinutos)}</td>
+                          <td className="px-4 py-2"><span className="flex items-center gap-2 min-w-0"><span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.corBorda || t.cor }} /><span className="truncate">{t.nome}</span></span></td>
+                          <td className="px-4 py-2 text-right tabular-nums font-medium whitespace-nowrap">{t.quantidade}</td>
+                          <td className="px-4 py-2 text-right tabular-nums text-muted-foreground whitespace-nowrap">{fmtHoras(t.totalMinutos)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -281,8 +281,8 @@ export default function RelatoriosAgendaPage() {
                               <span className="truncate">{u.nome}</span>
                             </span>
                           </td>
-                          <td className="px-4 py-2 text-right tabular-nums font-medium">{u.quantidade}</td>
-                          <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{fmtHoras(u.totalMinutos)}</td>
+                          <td className="px-4 py-2 text-right tabular-nums font-medium whitespace-nowrap">{u.quantidade}</td>
+                          <td className="px-4 py-2 text-right tabular-nums text-muted-foreground whitespace-nowrap">{fmtHoras(u.totalMinutos)}</td>
                         </tr>
                       ))}
                     </tbody>
