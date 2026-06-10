@@ -207,24 +207,39 @@ export class AgendaService {
     return subs.alterar_tipo_evento === true
   }
 
-  /** Troca o tipo do evento (gate próprio: master/sub-perm) e registra no histórico. */
+  /**
+   * Troca o tipo do evento (gate próprio: master/sub-perm) e registra no histórico.
+   * Se o evento faz parte de uma RECORRÊNCIA (mesmo `lote`), aplica o novo tipo a
+   * TODA a série — não só à instância clicada.
+   */
   async alterarTipo(eventoId: string, tipoId: string, userId: string) {
     if (!(await this.userPodeAlterarTipo(userId))) {
       throw new Error('Você não tem permissão para alterar o tipo do evento.')
     }
-    const evento = await prisma.agendaEvento.findUniqueOrThrow({ where: { id: eventoId }, select: { tipoId: true } })
+    const evento = await prisma.agendaEvento.findUniqueOrThrow({ where: { id: eventoId }, select: { tipoId: true, lote: true } })
     const [tipoNovo, tipoAnterior] = await Promise.all([
       prisma.agendaTipo.findUniqueOrThrow({ where: { id: tipoId }, select: { nome: true } }),
       prisma.agendaTipo.findUnique({ where: { id: evento.tipoId }, select: { nome: true } }).catch(() => null),
     ])
-    const updated = await prisma.agendaEvento.update({ where: { id: eventoId }, data: { tipoId } })
+
+    let afetados = 1
+    if (evento.lote) {
+      // Recorrência: atualiza todas as instâncias da série (mesmo lote).
+      const res = await prisma.agendaEvento.updateMany({ where: { lote: evento.lote }, data: { tipoId } })
+      afetados = res.count
+    } else {
+      await prisma.agendaEvento.update({ where: { id: eventoId }, data: { tipoId } })
+    }
+
     await prisma.agendaLog.create({
       data: {
         eventoId, usuarioId: userId, acao: 'tipo_alterado',
-        detalhes: `Tipo alterado${tipoAnterior ? ` de "${tipoAnterior.nome}"` : ''} para "${tipoNovo.nome}".`,
+        detalhes: `Tipo alterado${tipoAnterior ? ` de "${tipoAnterior.nome}"` : ''} para "${tipoNovo.nome}"`
+          + (evento.lote ? ` em ${afetados} evento(s) da recorrência.` : '.'),
       },
     }).catch(() => null)
-    return updated
+
+    return prisma.agendaEvento.findUniqueOrThrow({ where: { id: eventoId } })
   }
 
   getImportProgress(): ImportProgress {
