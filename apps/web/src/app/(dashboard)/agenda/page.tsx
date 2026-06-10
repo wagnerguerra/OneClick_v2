@@ -21,7 +21,6 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
 import { TarefaModal } from './_components/tarefa-modal'
@@ -1366,7 +1365,8 @@ export default function AgendaPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
         <div className="flex items-center gap-4">
-          <PageHeaderIcon module="administrativo" icon={Calendar} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/materiais/icon_calendar.png" alt="Agenda" className="h-12 w-12 rounded-[4px] object-cover shadow-md shrink-0" />
           <div>
             <h1>Agenda Corporativa</h1>
             <p className="text-sm text-muted-foreground">Gerencie eventos, reuniões e compromissos</p>
