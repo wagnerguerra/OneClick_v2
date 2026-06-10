@@ -299,7 +299,8 @@ export class AgendaService {
 
     const usuarioFiltro = input.usuarioId || null
     const porTipoMap = new Map<string, { tipoId: string; nome: string; cor: string; corBorda: string; quantidade: number; totalMinutos: number }>()
-    const porUsuarioMap = new Map<string, { quantidade: number; totalMinutos: number }>()
+    type TipoChip = { tipoId: string; nome: string; cor: string; quantidade: number }
+    const porUsuarioMap = new Map<string, { quantidade: number; totalMinutos: number; tipos: Map<string, TipoChip> }>()
     let totalQtd = 0, totalMin = 0
 
     for (const ev of eventos) {
@@ -315,8 +316,11 @@ export class AgendaService {
 
       const alvo = usuarioFiltro ? [usuarioFiltro] : participantes
       for (const uid of alvo) {
-        const u = porUsuarioMap.get(uid) ?? { quantidade: 0, totalMinutos: 0 }
+        const u = porUsuarioMap.get(uid) ?? { quantidade: 0, totalMinutos: 0, tipos: new Map<string, TipoChip>() }
         u.quantidade++; u.totalMinutos += mins
+        const tc = u.tipos.get(k) ?? { tipoId: k, nome: ev.tipo.nome, cor: ev.tipo.corBorda || ev.tipo.cor, quantidade: 0 }
+        tc.quantidade++
+        u.tipos.set(k, tc)
         porUsuarioMap.set(uid, u)
       }
     }
@@ -324,13 +328,17 @@ export class AgendaService {
     const userIds = [...porUsuarioMap.keys()]
     const users = await this.resolveUserNames(userIds)
     const porUsuario = userIds
-      .map(uid => ({
-        usuarioId: uid,
-        nome: users.get(uid)?.name ?? 'Desconhecido',
-        image: users.get(uid)?.image ?? null,
-        quantidade: porUsuarioMap.get(uid)!.quantidade,
-        totalMinutos: porUsuarioMap.get(uid)!.totalMinutos,
-      }))
+      .map(uid => {
+        const u = porUsuarioMap.get(uid)!
+        return {
+          usuarioId: uid,
+          nome: users.get(uid)?.name ?? 'Desconhecido',
+          image: users.get(uid)?.image ?? null,
+          quantidade: u.quantidade,
+          totalMinutos: u.totalMinutos,
+          tipos: [...u.tipos.values()].sort((a, b) => b.quantidade - a.quantidade),
+        }
+      })
       .sort((a, b) => b.totalMinutos - a.totalMinutos || b.quantidade - a.quantidade)
 
     const porTipo = [...porTipoMap.values()].sort((a, b) => b.quantidade - a.quantidade)

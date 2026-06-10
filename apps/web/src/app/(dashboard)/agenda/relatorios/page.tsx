@@ -23,7 +23,8 @@ import { resolveAssetUrl } from '@/lib/api-url'
 const MOD = 'var(--mod-administrativo, #38bdf8)'
 
 interface PorTipo { tipoId: string; nome: string; cor: string; corBorda: string; quantidade: number; totalMinutos: number }
-interface PorUsuario { usuarioId: string; nome: string; image: string | null; quantidade: number; totalMinutos: number }
+interface TipoChip { tipoId: string; nome: string; cor: string; quantidade: number }
+interface PorUsuario { usuarioId: string; nome: string; image: string | null; quantidade: number; totalMinutos: number; tipos: TipoChip[] }
 interface Relatorio { totais: { quantidade: number; totalMinutos: number }; porTipo: PorTipo[]; porUsuario: PorUsuario[] }
 interface Usuario { id: string; name: string; image: string | null }
 interface Tipo { id: string; nome: string; cor: string; corBorda: string }
@@ -301,12 +302,29 @@ export default function RelatoriosAgendaPage() {
                       {sortRows(data.porUsuario, sortUser).map(u => (
                         <tr key={u.usuarioId} className="hover:bg-muted/30 cursor-pointer" onClick={() => abrirDrillUsuario(u)} title="Ver eventos">
                           <td className="px-4 py-2">
-                            <span className="inline-flex items-center gap-2 min-w-0">
+                            <div className="flex items-center gap-2 min-w-0">
                               {u.image
                                 ? <img src={resolveAssetUrl(u.image)} alt={u.nome} className="h-6 w-6 rounded-full object-cover shrink-0" />
                                 : <span className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground shrink-0">{u.nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}</span>}
                               <span className="truncate">{u.nome}</span>
-                            </span>
+                              {u.tipos.length > 0 && (
+                                <div className="flex items-center gap-1 shrink-0 ml-1">
+                                  {u.tipos.slice(0, 8).map(tc => (
+                                    <span
+                                      key={tc.tipoId}
+                                      title={`${tc.nome}: ${tc.quantidade}`}
+                                      className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-white text-[10px] font-bold leading-none"
+                                      style={{ backgroundColor: tc.cor }}
+                                    >
+                                      {tc.quantidade}
+                                    </span>
+                                  ))}
+                                  {u.tipos.length > 8 && (
+                                    <span className="text-[10px] text-muted-foreground" title={`+${u.tipos.length - 8} tipos`}>+{u.tipos.length - 8}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-2 text-right tabular-nums font-medium whitespace-nowrap">{u.quantidade}</td>
                           <td className="px-4 py-2 text-right tabular-nums text-muted-foreground whitespace-nowrap">{fmtHoras(u.totalMinutos)}</td>
