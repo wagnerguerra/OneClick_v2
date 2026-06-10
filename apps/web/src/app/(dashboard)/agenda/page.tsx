@@ -2662,24 +2662,27 @@ export default function AgendaPage() {
                     mas como nada depende do DOM montado, não há perda de dados). */}
                 <div className="flex-1 min-w-0">
                   {/* min-h fixa a altura do conteúdo pra o modal não encolher ao trocar de aba */}
-                  <Tabs defaultValue="geral" className="w-full h-[62vh] flex flex-col">
-                    <TabsList className="mb-3 shrink-0">
-                      <TabsTrigger value="geral" className="gap-1.5 text-sm">
-                        <Calendar className="h-3.5 w-3.5" />Geral
-                      </TabsTrigger>
-                      <TabsTrigger value="lembretes" className="gap-1.5 text-sm">
-                        <Bell className="h-3.5 w-3.5" />Lembretes
-                      </TabsTrigger>
-                      <TabsTrigger value="vinculacoes" className="gap-1.5 text-sm">
-                        <Link2 className="h-3.5 w-3.5" />Vinculações
-                      </TabsTrigger>
-                      <TabsTrigger value="anotacoes" className="gap-1.5 text-sm">
-                        <StickyNote className="h-3.5 w-3.5" />Anotações{eventoAnotacoes.length > 0 ? ` (${eventoAnotacoes.length})` : ''}
-                      </TabsTrigger>
-                      <TabsTrigger value="anexos" className="gap-1.5 text-sm">
-                        <Paperclip className="h-3.5 w-3.5" />Anexos{eventoAnexos.length > 0 ? ` (${eventoAnexos.length})` : ''}
-                      </TabsTrigger>
+                  {/* Abas verticais (pills laterais) — padrão de /configuracoes */}
+                  <Tabs defaultValue="geral" orientation="vertical" className="w-full h-[62vh] flex gap-0 overflow-hidden">
+                    <TabsList className="flex flex-col items-stretch justify-start gap-1 w-[180px] shrink-0 h-full bg-muted/40 border-b-0 border-r border-border rounded-none p-3 overflow-y-auto nice-scrollbar">
+                      {[
+                        { value: 'geral', label: 'Geral', icon: Calendar },
+                        { value: 'lembretes', label: 'Lembretes', icon: Bell },
+                        { value: 'vinculacoes', label: 'Vinculações', icon: Link2 },
+                        { value: 'anotacoes', label: `Anotações${eventoAnotacoes.length > 0 ? ` (${eventoAnotacoes.length})` : ''}`, icon: StickyNote },
+                        { value: 'anexos', label: `Anexos${eventoAnexos.length > 0 ? ` (${eventoAnexos.length})` : ''}`, icon: Paperclip },
+                      ].map(t => (
+                        <TabsTrigger
+                          key={t.value}
+                          value={t.value}
+                          className="w-full justify-start gap-2 px-3 py-2 rounded text-xs font-medium text-muted-foreground transition-all hover:bg-white hover:text-foreground dark:hover:bg-white/5 data-[state=active]:bg-sky-500 data-[state=active]:text-white data-[state=active]:shadow-sm"
+                        >
+                          <t.icon className="h-3.5 w-3.5 shrink-0" />{t.label}
+                        </TabsTrigger>
+                      ))}
                     </TabsList>
+
+                    <div className="flex-1 min-w-0 h-full flex flex-col pl-4 overflow-hidden">
 
                     {/* ABA: GERAL */}
                     <TabsContent value="geral" className="mt-0 flex-1 overflow-y-auto nice-scrollbar pr-1 space-y-3 focus-visible:outline-none">
@@ -3147,6 +3150,7 @@ export default function AgendaPage() {
                         </>
                       )}
                     </TabsContent>
+                    </div>
                   </Tabs>
                 </div>
               </div>
