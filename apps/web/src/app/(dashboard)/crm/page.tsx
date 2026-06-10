@@ -1090,7 +1090,7 @@ export default function CrmPage() {
                 {([
                   { key: 'detalhes' as const, label: 'Detalhes', icon: Target },
                   { key: 'tarefas' as const, label: `Tarefas (${detail.tarefas.length})`, icon: CheckSquare },
-                  { key: 'mensagens' as const, label: `Mensagens (${detail.mensagens.length})`, icon: MessageSquare },
+                  { key: 'mensagens' as const, label: `Anotações (${detail.mensagens.length})`, icon: MessageSquare },
                   { key: 'arquivos' as const, label: `Arquivos (${detail.arquivos.length})`, icon: Paperclip },
                   { key: 'historico' as const, label: 'Historico', icon: History },
                 ]).map(tab => (
@@ -1160,7 +1160,7 @@ export default function CrmPage() {
                     {/* Campo no topo (igual às Tarefas) — evita colidir com o widget de ajuda. */}
                     <div className="flex gap-2">
                       <Input
-                        placeholder="Escreva uma mensagem..."
+                        placeholder="Escreva uma anotação..."
                         value={novaMensagem}
                         onChange={e => setNovaMensagem(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && !e.shiftKey && addMensagem()}
@@ -1171,7 +1171,7 @@ export default function CrmPage() {
                       </Button>
                     </div>
                     {detail.mensagens.length === 0 && (
-                      <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma mensagem</p>
+                      <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma anotação</p>
                     )}
                     <div className="space-y-3">
                       {detail.mensagens.map(m => (
@@ -1784,7 +1784,7 @@ function KanbanCardContent({ op, etapas, onMover, onDelete, diasDesde, showMenu,
             </span>
           )}
           {(op._count?.mensagens ?? 0) > 0 && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title="Mensagens">
+            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title="Anotações">
               <MessageSquare className="h-3 w-3" /> {op._count!.mensagens}
             </span>
           )}
