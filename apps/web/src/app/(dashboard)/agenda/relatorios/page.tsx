@@ -4,12 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, Clock, Users, FileBarChart, Loader2, CalendarDays, Lock,
-  ChevronUp, ChevronDown, ChevronsUpDown,
+  ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, MapPin,
 } from 'lucide-react'
 import {
   Button, Card, CardContent, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, LabelList,
 } from 'recharts'
@@ -25,6 +27,11 @@ interface PorUsuario { usuarioId: string; nome: string; image: string | null; qu
 interface Relatorio { totais: { quantidade: number; totalMinutos: number }; porTipo: PorTipo[]; porUsuario: PorUsuario[] }
 interface Usuario { id: string; name: string; image: string | null }
 interface Tipo { id: string; nome: string; cor: string; corBorda: string }
+interface EventoDrill {
+  id: string; titulo: string; data: string; horaInicio: string | null; horaFim: string | null
+  diaInteiro: boolean; local: string | null; tipoNome: string; tipoCor: string; minutos: number; participantes: number
+}
+interface DrillResult { data: EventoDrill[]; total: number; page: number; limit: number; totalPages: number }
 
 function fmtHoras(min: number): string {
   if (!min) return '—'
@@ -102,6 +109,26 @@ export default function RelatoriosAgendaPage() {
   const [loading, setLoading] = useState(false)
   const [sortTipo, setSortTipo] = useState<SortState>({ key: 'nome', dir: 'asc' })
   const [sortUser, setSortUser] = useState<SortState>({ key: 'nome', dir: 'asc' })
+
+  // Drill-down: clicar numa linha abre modal com os eventos daquela dimensão.
+  const [drill, setDrill] = useState<{ label: string; tipoId?: string; usuarioId?: string } | null>(null)
+  const [drillPage, setDrillPage] = useState(1)
+  const [drillData, setDrillData] = useState<DrillResult | null>(null)
+  const [drillLoading, setDrillLoading] = useState(false)
+
+  useEffect(() => {
+    if (!drill) return
+    setDrillLoading(true)
+    ;(trpc.agenda as any).relatorioEventos.query({
+      dataInicio, dataFim, tipoId: drill.tipoId, usuarioId: drill.usuarioId, page: drillPage, limit: 10,
+    })
+      .then((r: DrillResult) => setDrillData(r))
+      .catch(() => setDrillData(null))
+      .finally(() => setDrillLoading(false))
+  }, [drill, drillPage, dataInicio, dataFim])
+
+  const abrirDrillTipo = (t: PorTipo) => { setDrillData(null); setDrillPage(1); setDrill({ label: `Tipo: ${t.nome}`, tipoId: t.tipoId, usuarioId: usuarioId || undefined }) }
+  const abrirDrillUsuario = (u: PorUsuario) => { setDrillData(null); setDrillPage(1); setDrill({ label: `Usuário: ${u.nome}`, usuarioId: u.usuarioId, tipoId: tipoId || undefined }) }
 
   useEffect(() => {
     if (!canVer) return
@@ -249,7 +276,7 @@ export default function RelatoriosAgendaPage() {
                     </tr></thead>
                     <tbody className="divide-y divide-border">
                       {sortRows(data.porTipo, sortTipo).map(t => (
-                        <tr key={t.tipoId} className="hover:bg-muted/30">
+                        <tr key={t.tipoId} className="hover:bg-muted/30 cursor-pointer" onClick={() => abrirDrillTipo(t)} title="Ver eventos">
                           <td className="px-4 py-2"><span className="flex items-center gap-2 min-w-0"><span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.corBorda || t.cor }} /><span className="truncate">{t.nome}</span></span></td>
                           <td className="px-4 py-2 text-right tabular-nums font-medium whitespace-nowrap">{t.quantidade}</td>
                           <td className="px-4 py-2 text-right tabular-nums text-muted-foreground whitespace-nowrap">{fmtHoras(t.totalMinutos)}</td>
@@ -272,7 +299,7 @@ export default function RelatoriosAgendaPage() {
                     </tr></thead>
                     <tbody className="divide-y divide-border">
                       {sortRows(data.porUsuario, sortUser).map(u => (
-                        <tr key={u.usuarioId} className="hover:bg-muted/30">
+                        <tr key={u.usuarioId} className="hover:bg-muted/30 cursor-pointer" onClick={() => abrirDrillUsuario(u)} title="Ver eventos">
                           <td className="px-4 py-2">
                             <span className="inline-flex items-center gap-2 min-w-0">
                               {u.image
@@ -298,6 +325,52 @@ export default function RelatoriosAgendaPage() {
           )}
         </>
       )}
+
+      {/* Modal drill-down: eventos da linha clicada (paginado) */}
+      <Dialog open={!!drill} onOpenChange={o => { if (!o) setDrill(null) }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeaderIcon icon={CalendarDays} color="sky">
+            <DialogTitle>Eventos relacionados</DialogTitle>
+            <DialogDescription>
+              {drill?.label}{drillData ? ` · ${drillData.total} evento(s) no período` : ''}
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="nice-scrollbar space-y-2 max-h-[60vh]">
+            {drillLoading ? (
+              <div className="flex justify-center py-10 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>
+            ) : !drillData || drillData.data.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-10 italic">Nenhum evento.</p>
+            ) : drillData.data.map(ev => {
+              const d = new Date(ev.data)
+              const dataStr = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
+              const hora = ev.diaInteiro ? 'Dia inteiro' : (ev.horaInicio ? `${ev.horaInicio}${ev.horaFim ? `—${ev.horaFim}` : ''}` : 'Sem horário')
+              return (
+                <div key={ev.id} className="rounded-md border border-border bg-muted/20 px-3 py-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium leading-snug">{ev.titulo}</p>
+                    <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 text-white" style={{ backgroundColor: ev.tipoCor }}>{ev.tipoNome}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[11px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" />{dataStr}</span>
+                    <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{hora}{ev.minutos > 0 ? ` · ${fmtHoras(ev.minutos)}` : ''}</span>
+                    {ev.local && <span className="inline-flex items-center gap-1 min-w-0"><MapPin className="h-3 w-3 shrink-0" /><span className="truncate">{ev.local}</span></span>}
+                    {ev.participantes > 0 && <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" />{ev.participantes}</span>}
+                  </div>
+                </div>
+              )
+            })}
+          </DialogBody>
+          {drillData && drillData.totalPages > 1 && (
+            <DialogFooter className="sm:justify-between sm:items-center">
+              <span className="text-xs text-muted-foreground">Página {drillData.page} de {drillData.totalPages} · {drillData.total} eventos</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="gap-1" disabled={drillPage <= 1 || drillLoading} onClick={() => setDrillPage(p => Math.max(1, p - 1))}><ChevronLeft className="h-4 w-4" /> Anterior</Button>
+                <Button variant="outline" size="sm" className="gap-1" disabled={drillPage >= drillData.totalPages || drillLoading} onClick={() => setDrillPage(p => p + 1)}>Próxima <ChevronRight className="h-4 w-4" /></Button>
+              </div>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -208,6 +208,18 @@ export function createAgendaRouter(
       }))
       .query(({ input, ctx }) => service.relatorio(input, ctx.userId, ctx.isMaster ?? false, ctx.empresaId)),
 
+    // Drill-down: eventos por trás de uma linha do relatório (paginado).
+    relatorioEventos: readProcedure(MODULE)
+      .input(z.object({
+        dataInicio: z.string(),
+        dataFim: z.string(),
+        tipoId: z.string().optional(),
+        usuarioId: z.string().optional(),
+        page: z.number().optional(),
+        limit: z.number().optional(),
+      }))
+      .query(({ input, ctx }) => service.relatorioEventos(input, ctx.userId, ctx.isMaster ?? false, ctx.empresaId)),
+
     deleteLote: deleteProcedure(MODULE)
       .input(z.object({ lote: z.string() }))
       .mutation(({ input, ctx }) => service.deleteLote(input.lote, ctx.userId)),

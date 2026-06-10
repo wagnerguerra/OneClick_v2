@@ -338,6 +338,63 @@ export class AgendaService {
     return { totais: { quantidade: totalQtd, totalMinutos: totalMin }, porTipo, porUsuario }
   }
 
+  /**
+   * Lista paginada dos eventos por trás de uma linha do relatório (drill-down).
+   * Filtra por período + tipoId e/ou usuarioId (participante). Usado quando o
+   * usuário clica numa linha "Por tipo" ou "Por usuário".
+   */
+  async relatorioEventos(
+    input: { dataInicio: string; dataFim: string; tipoId?: string; usuarioId?: string; page?: number; limit?: number },
+    userId: string,
+    isMaster: boolean,
+    empresaId?: string | null,
+  ) {
+    if (!(await this.userPodeVerRelatorios(userId))) {
+      throw new Error('Você não tem permissão para acessar os relatórios da agenda.')
+    }
+    const page = Math.max(1, input.page ?? 1)
+    const limit = Math.min(50, Math.max(1, input.limit ?? 10))
+    const inicio = new Date(`${input.dataInicio}T00:00:00.000Z`)
+    const fim = new Date(`${input.dataFim}T23:59:59.999Z`)
+    const where: Prisma.AgendaEventoWhereInput = { isActive: true, data: { gte: inicio, lte: fim } }
+    if (!isMaster && empresaId) where.empresaId = empresaId
+    if (input.tipoId) where.tipoId = input.tipoId
+    if (input.usuarioId) where.participantes = { some: { usuarioId: input.usuarioId, isActive: true } }
+
+    const [total, eventos] = await Promise.all([
+      prisma.agendaEvento.count({ where }),
+      prisma.agendaEvento.findMany({
+        where,
+        orderBy: [{ data: 'desc' }, { horaInicio: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          id: true, titulo: true, data: true, horaInicio: true, horaFim: true, diaInteiro: true,
+          local: true, sala: true,
+          tipo: { select: { nome: true, cor: true, corBorda: true } },
+          _count: { select: { participantes: true } },
+        },
+      }),
+    ])
+
+    const toMin = (s: string) => { const [h, m] = s.split(':'); return (Number(h) || 0) * 60 + (Number(m) || 0) }
+    const data = eventos.map(e => ({
+      id: e.id,
+      titulo: e.titulo,
+      data: e.data,
+      horaInicio: e.horaInicio,
+      horaFim: e.horaFim,
+      diaInteiro: e.diaInteiro,
+      local: e.sala || e.local || null,
+      tipoNome: e.tipo.nome,
+      tipoCor: e.tipo.corBorda || e.tipo.cor,
+      minutos: (e.diaInteiro || !e.horaInicio || !e.horaFim) ? 0 : Math.max(0, toMin(e.horaFim) - toMin(e.horaInicio)),
+      participantes: e._count.participantes,
+    }))
+
+    return { data, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) }
+  }
+
   getImportProgress(): ImportProgress {
     return { ...this.importProgress }
   }
