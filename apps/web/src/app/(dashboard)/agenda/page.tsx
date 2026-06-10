@@ -1805,7 +1805,7 @@ export default function AgendaPage() {
             </DialogTitle>
             <DialogDescription>{dayModalEvents.length} evento(s)</DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-3 max-h-[min(72vh,640px)]">
+          <DialogBody className="space-y-3 max-h-[min(72vh,640px)] nice-scrollbar">
             {dayModalEvents.map(ev => {
               const parts = ev.participantes
                 .map(p => ({ nome: (p.usuario?.name ?? p.nomeAvulso) ?? '', image: p.usuario?.image ?? null }))
