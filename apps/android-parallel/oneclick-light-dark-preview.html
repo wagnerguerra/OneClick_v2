@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OneClick Android - Claro e Escuro</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #050505;
+      color: #fff;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .page {
+      max-width: 1340px;
+      margin: 0 auto;
+      padding: 30px 24px 54px;
+    }
+    .headline {
+      margin-bottom: 38px;
+      text-align: center;
+    }
+    .headline h1 {
+      font-size: 32px;
+      font-weight: 950;
+      letter-spacing: 12px;
+      line-height: 1.12;
+      margin: 0 0 10px;
+      text-transform: uppercase;
+    }
+    .headline p {
+      color: #aeb8c8;
+      font-size: 15px;
+      margin: 0;
+    }
+    .grid {
+      display: grid;
+      gap: 44px;
+      grid-template-columns: repeat(2, minmax(360px, 1fr));
+    }
+    .variant {
+      display: grid;
+      gap: 18px;
+      justify-items: center;
+    }
+    .variant h2 {
+      font-size: 18px;
+      letter-spacing: 4px;
+      margin: 0;
+      text-transform: uppercase;
+    }
+    .phones {
+      display: grid;
+      gap: 26px;
+      grid-template-columns: repeat(3, 220px);
+      justify-content: center;
+    }
+    .phone {
+      background: var(--shell);
+      border-radius: 31px;
+      padding: 8px;
+      position: relative;
+    }
+    .screen {
+      background: var(--screen);
+      border-radius: 24px;
+      color: var(--text);
+      height: 455px;
+      overflow: hidden;
+      position: relative;
+    }
+    .notch {
+      background: var(--shell);
+      border-radius: 0 0 12px 12px;
+      height: 20px;
+      left: 50%;
+      position: absolute;
+      top: 0;
+      transform: translateX(-50%);
+      width: 88px;
+      z-index: 10;
+    }
+    .status {
+      align-items: center;
+      color: #fff;
+      display: flex;
+      font-size: 8px;
+      font-weight: 900;
+      justify-content: space-between;
+      left: 17px;
+      position: absolute;
+      right: 17px;
+      top: 13px;
+      z-index: 12;
+    }
+    .status.dark-text { color: var(--text); }
+    .head {
+      background: var(--head);
+      color: #fff;
+      min-height: 118px;
+      padding: 42px 17px 15px;
+      position: relative;
+    }
+    .head::after {
+      background-image:
+        radial-gradient(circle at 22px 18px, rgba(255,255,255,.12) 0 1px, transparent 2px),
+        radial-gradient(circle at 80px 45px, rgba(255,255,255,.08) 0 1px, transparent 2px),
+        radial-gradient(circle at 160px 25px, rgba(255,255,255,.10) 0 1px, transparent 2px);
+      bottom: 0;
+      content: "";
+      left: 0;
+      pointer-events: none;
+      position: absolute;
+      right: 0;
+      top: 0;
+    }
+    .head-inner { position: relative; z-index: 1; }
+    .head-title {
+      font-size: 15px;
+      font-weight: 950;
+      line-height: 1.16;
+      margin: 0 0 12px;
+    }
+    .toolbar {
+      align-items: center;
+      display: grid;
+      gap: 9px;
+      grid-template-columns: 31px 1fr 31px;
+    }
+    .circle {
+      align-items: center;
+      background: #fff;
+      border-radius: 999px;
+      color: var(--blue);
+      display: flex;
+      font-size: 11px;
+      font-weight: 950;
+      height: 31px;
+      justify-content: center;
+      width: 31px;
+    }
+    .pill {
+      align-items: center;
+      background: var(--blue);
+      border-radius: 999px;
+      color: #fff;
+      display: flex;
+      font-size: 8px;
+      font-weight: 900;
+      height: 31px;
+      justify-content: center;
+      padding: 0 10px;
+    }
+    .body {
+      height: 285px;
+      overflow: hidden;
+      padding: 15px 15px 0;
+    }
+    .section { margin-bottom: 15px; }
+    .section h3 {
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1;
+      margin: 0 0 3px;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 8px;
+      font-weight: 750;
+    }
+    .cards {
+      display: flex;
+      gap: 11px;
+      margin-top: 10px;
+      overflow: hidden;
+      width: 320px;
+    }
+    .deal {
+      background: var(--card);
+      border-radius: 9px;
+      flex: 0 0 86px;
+      min-height: 90px;
+      padding: 10px 9px 8px;
+    }
+    .deal-top {
+      align-items: flex-start;
+      display: flex;
+      justify-content: space-between;
+    }
+    .deal h4 {
+      color: var(--text);
+      font-size: 8px;
+      line-height: 1.12;
+      margin: 0;
+    }
+    .deal small {
+      color: var(--text-soft);
+      display: block;
+      font-size: 7px;
+      margin-top: 2px;
+    }
+    .star {
+      color: #fbbf24;
+      font-size: 7px;
+      font-weight: 950;
+    }
+    .mark {
+      align-items: center;
+      color: var(--mark);
+      display: flex;
+      font-size: 22px;
+      height: 35px;
+      justify-content: center;
+    }
+    .deal-actions {
+      align-items: center;
+      display: flex;
+      gap: 6px;
+      justify-content: space-between;
+    }
+    .mini {
+      background: var(--mini);
+      border-radius: 999px;
+      color: var(--blue);
+      font-size: 7px;
+      font-weight: 900;
+      padding: 5px 8px;
+    }
+    .price {
+      background: var(--blue);
+      border-radius: 999px;
+      color: #fff;
+      font-size: 7px;
+      font-weight: 950;
+      padding: 5px 8px;
+    }
+    .nav {
+      align-items: center;
+      background: var(--screen);
+      bottom: 0;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      height: 49px;
+      left: 0;
+      padding: 0 25px 12px;
+      position: absolute;
+      right: 0;
+    }
+    .nav span {
+      color: var(--nav);
+      font-size: 15px;
+      font-weight: 950;
+      text-align: center;
+    }
+    .nav .active { color: var(--blue); }
+    .home {
+      background: var(--home);
+      border-radius: 999px;
+      bottom: 10px;
+      height: 3px;
+      left: 50%;
+      position: absolute;
+      transform: translateX(-50%);
+      width: 76px;
+    }
+    .login-body {
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+      height: 337px;
+      justify-content: center;
+      padding: 0 18px 34px;
+    }
+    .brand-title {
+      color: #fff;
+      font-size: 22px;
+      font-weight: 950;
+      line-height: 1.05;
+      margin: 0;
+    }
+    .brand-sub {
+      color: rgba(255,255,255,.78);
+      font-size: 9px;
+      margin-top: 5px;
+    }
+    .login-card {
+      background: var(--screen);
+      border-radius: 12px;
+      padding: 13px;
+    }
+    .field {
+      margin-bottom: 10px;
+    }
+    .field label {
+      color: var(--text);
+      display: block;
+      font-size: 8px;
+      font-weight: 900;
+      margin-bottom: 5px;
+    }
+    .input {
+      align-items: center;
+      background: var(--card);
+      border-radius: 9px;
+      color: var(--muted);
+      display: flex;
+      font-size: 9px;
+      height: 34px;
+      padding: 0 10px;
+    }
+    .button {
+      align-items: center;
+      background: var(--blue);
+      border-radius: 999px;
+      color: #fff;
+      display: flex;
+      font-size: 9px;
+      font-weight: 950;
+      height: 34px;
+      justify-content: center;
+      margin-top: 4px;
+    }
+    .detail-head {
+      background: var(--head);
+      color: #fff;
+      height: 118px;
+      padding: 42px 17px 14px;
+    }
+    .detail-row {
+      align-items: flex-start;
+      display: flex;
+      justify-content: space-between;
+    }
+    .back-title {
+      display: flex;
+      gap: 6px;
+    }
+    .back {
+      font-size: 18px;
+      font-weight: 950;
+      line-height: 13px;
+    }
+    .detail-title h3 {
+      color: #fff;
+      font-size: 15px;
+      line-height: 1;
+      margin: 0 0 5px;
+    }
+    .detail-title span {
+      display: block;
+      font-size: 8px;
+      opacity: .88;
+    }
+    .detail-actions {
+      display: flex;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 950;
+    }
+    .tag-line {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      margin-top: 13px;
+    }
+    .tag {
+      background: var(--blue);
+      border-radius: 999px;
+      color: #fff;
+      font-size: 8px;
+      font-weight: 950;
+      padding: 6px 10px;
+    }
+    .expires { font-size: 8px; }
+    .included {
+      display: grid;
+      gap: 13px;
+      grid-template-columns: repeat(4, 1fr);
+      margin: 10px 0 16px;
+    }
+    .included-item { text-align: center; }
+    .included-icon {
+      align-items: center;
+      background: var(--blue);
+      border: 3px double #fff;
+      border-radius: 999px;
+      box-shadow: 0 0 0 2px var(--blue);
+      color: #fff;
+      display: flex;
+      font-size: 12px;
+      font-weight: 950;
+      height: 33px;
+      justify-content: center;
+      margin: 0 auto 7px;
+      width: 33px;
+    }
+    .included-item span {
+      color: var(--text);
+      display: block;
+      font-size: 7px;
+      font-weight: 900;
+    }
+    .review {
+      background: var(--card);
+      border-radius: 9px;
+      padding: 11px;
+    }
+    .review-top {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .review strong {
+      color: var(--text);
+      display: block;
+      font-size: 8px;
+    }
+    .review p {
+      color: var(--text-soft);
+      font-size: 8px;
+      font-weight: 750;
+      line-height: 1.42;
+      margin: 0;
+    }
+    .light {
+      --shell: #fff;
+      --screen: #fff;
+      --head: #20376f;
+      --blue: #3775f6;
+      --text: #121826;
+      --text-soft: #596579;
+      --muted: #a5adbc;
+      --card: #eaf0fa;
+      --mini: #fff;
+      --mark: #8490a4;
+      --nav: #b3bed2;
+      --home: #c5cfdd;
+    }
+    .dark {
+      --shell: #e7edf8;
+      --screen: #0f172a;
+      --head: #172e66;
+      --blue: #4f8cff;
+      --text: #f8fafc;
+      --text-soft: #c7d2e2;
+      --muted: #7e8ba1;
+      --card: #1e293b;
+      --mini: #0f172a;
+      --mark: #697995;
+      --nav: #68758c;
+      --home: #64748b;
+    }
+    @media (max-width: 1180px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 760px) {
+      .page { padding: 22px 14px 38px; }
+      .headline h1 { font-size: 22px; letter-spacing: 6px; }
+      .phones { grid-template-columns: 1fr; }
+      .phone { width: 220px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="headline">
+      <h1>OneClick Android</h1>
+      <p>Aplicacao do estilo de referencia ao MVP: login, dashboard e agenda.</p>
+    </header>
+
+    <section class="grid">
+      <article class="variant light">
+        <h2>Modo claro</h2>
+        <div class="phones">
+          <div class="phone">
+            <div class="screen">
+              <div class="notch"></div>
+              <div class="status"><span>9:45</span><span>▮▮▮ ◦ ▭</span></div>
+              <header class="head">
+                <div class="head-inner">
+                  <h1 class="brand-title">OneClick ERP</h1>
+                  <div class="brand-sub">Entre para acessar sua rotina</div>
+                </div>
+              </header>
+              <div class="login-body">
+                <div class="login-card">
+                  <div class="field"><label>E-mail</label><div class="input">voce@empresa.com</div></div>
+                  <div class="field"><label>Senha</label><div class="input">********</div></div>
+                  <div class="button">Entrar</div>
+                </div>
+              </div>
+              <div class="home"></div>
+            </div>
+          </div>
+
+          <div class="phone">
+            <div class="screen">
+              <div class="notch"></div>
+              <div class="status"><span>9:45</span><span>▮▮▮ ◦ ▭</span></div>
+              <header class="head">
+                <div class="head-inner">
+                  <h1 class="head-title">O que voce quer acompanhar?</h1>
+                  <div class="toolbar"><div class="circle">▦</div><div class="pill">Selecionar modulo ˅</div><div class="circle">⌕</div></div>
+                </div>
+              </header>
+              <div class="body">
+                <section class="section">
+                  <h3>Resumo do Dia</h3><div class="sub">Ordenado por prioridade ˅</div>
+                  <div class="cards">
+                    <div class="deal"><div class="deal-top"><div><h4>Agenda</h4><small>Hoje</small></div><div class="star">★ 3</div></div><div class="mark">▲</div><div class="deal-actions"><span class="mini">Abrir</span><span class="price">09:00</span></div></div>
+                    <div class="deal"><div class="deal-top"><div><h4>Tarefas</h4><small>Abertas</small></div><div class="star">★ 8</div></div><div class="mark">▲</div><div class="deal-actions"><span class="mini">Abrir</span><span class="price">2 hoje</span></div></div>
+                    <div class="deal"><div class="deal-top"><div><h4>Helpdesk</h4><small>Chamados</small></div><div class="star">★ 2</div></div><div class="mark">▲</div><div class="deal-actions"><span class="mini">Abrir</span><span class="price">TI</span></div></div>
+                  </div>
+                </section>
+                <section class="section">
+                  <h3>Proximos Eventos</h3><div class="sub">Ordenado por horario ˅</div>
+                  <div class="cards">
+                    <div class="deal"><div class="deal-top"><div><h4>Reuniao fiscal</h4><small>Sala Contabil</small></div><div class="star">★ 09</div></div><div class="mark">▲</div><div class="deal-actions"><span class="mini">Ver</span><span class="price">1h</span></div></div>
+                    <div class="deal"><div class="deal-top"><div><h4>Cliente online</h4><small>Google Meet</small></div><div class="star">★ 14</div></div><div class="mark">▲</div><div class="deal-actions"><span class="mini">Ver</span><span class="price">14:00</span></div></div>
+                  </div>
+                </section>
+              </div>
+              <nav class="nav"><span class="active">⌂</span><span>◉</span><span>♥</span><span>⚙</span></nav>
+              <div class="home"></div>
+            </div>
+          </div>
+
+          <div class="phone">
+            <div class="screen">
+              <div class="notch"></div>
+              <div class="status"><span>9:45</span><span>▮▮▮ ◦ ▭</span></div>
+              <header class="detail-head">
+                <div class="detail-row">
+                  <div class="back-title"><div class="back">‹</div><div class="detail-title"><h3>Agenda</h3><span>Segunda, 08 de junho</span></div></div>
+                  <div class="detail-actions"><span>♥</span><span>⋮</span></div>
+                </div>
+                <div class="tag-line"><span class="tag">3 eventos</span><span class="expires">Proximo em: 58 min</span></div>
+              </header>
+              <div class="body">
+                <section class="section">
+                  <h3>Filtros</h3><div class="sub">Toque nos icones para filtrar.</div>
+                  <div class="included"><div class="included-item"><div class="included-icon">↗</div><span>Eventos</span></div><div class="included-item"><div class="included-icon">☑</div><span>Tarefas</span></div><div class="included-item"><div class="included-icon">☏</div><span>Chamados</span></div><div class="included-item"><div class="included-icon">◆</div><span>Prazos</span></div></div>
+                </section>
+                <section class="section">
+                  <h3>Prioridade</h3><div class="sub">Ordenado por vencimento ˅</div>
+                  <div class="review"><div class="review-top"><div><strong>Reuniao fiscal mensal</strong><span class="star">★★★★★</span></div><div class="sub">09:00</div></div><p>Alinhamento de prazos, tarefas abertas e pendencias da semana com a equipe contabil.</p></div>
+                </section>
+              </div>
+              <nav class="nav"><span>⌂</span><span class="active">◉</span><span>♥</span><span>⚙</span></nav>
+              <div class="home"></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="variant dark">
+        <h2>Modo escuro</h2>
+        <div class="phones">
+          <div class="phone">
+            <div class="screen">
+              <div class="notch"></div>
+              <div class="status"><span>9:45</span><span>▮▮▮ ◦ ▭</span></div>
+              <header class="head">
+                <div class="head-inner"><h1 class="brand-title">OneClick ERP</h1><div class="brand-sub">Entre para acessar sua rotina</div></div>
+              </header>
+              <div class="login-body">
+                <div class="login-card">
+                  <div class="field"><label>E-mail</label><div class="input">voce@empresa.com</div></div>
+                  <div class="field"><label>Senha</label><div class="input">********</div></div>
+                  <div class="button">Entrar</div>
+                </div>
+              </div>
+              <div class="home"></div>
+            </div>
+          </div>
+
+          <div class="phone">
+            <div class="screen">
+              <div class="notch"></div>
+              <div class="status"><span>9:45</span><span>▮▮▮ ◦ ▭</span></div>
+              <header class="head">
+                <div class="head-inner">
+                  <h1 class="head-title">O que voce quer acompanhar?</h1>
+                  <div class="toolbar"><div class="circle">▦</div><div class="pill">Selecionar modulo ˅</div><div class="circle">⌕</div></div>
+                </div>
+              </header>
+              <div class="body">
+                <section class="section">
+                  <h3>Resumo do Dia</h3><div class="sub">Ordenado por prioridade ˅</div>
+                  <div class="cards">
+                    <div class="deal"><div class="deal-top"><div><h4>Agenda</h4><small>Hoje</small></div><div class="star">★ 3</div></div><div class="mark">▲</div><div class="deal-actions"><span class="mini">Abrir</span><span class="price">09:00</span></div></div>
+                    <div class="deal"><div class="deal-top"><div><h4>Tarefas</h4><small>Abertas</small></div><div class="star">★ 8</div></div><div class="mark">▲</div><div class="deal-actions"><span class="mini">Abrir</span><span class="price">2 hoje</span></div></div>
+                    <div class="deal"><div class="deal-top"><div><h4>Helpdesk</h4><small>Chamados</small></div><div class="star">★ 2</div></div><div class="mark">▲</div><div class="deal-actions"><span class="mini">Abrir</span><span class="price">TI</span></div></div>
+                  </div>
+                </section>
+                <section class="section">
+                  <h3>Proximos Eventos</h3><div class="sub">Ordenado por horario ˅</div>
+                  <div class="cards">
+                    <div class="deal"><div class="deal-top"><div><h4>Reuniao fiscal</h4><small>Sala Contabil</small></div><div class="star">★ 09</div></div><div class="mark">▲</div><div class="deal-actions"><span class="mini">Ver</span><span class="price">1h</span></div></div>
+                    <div class="deal"><div class="deal-top"><div><h4>Cliente online</h4><small>Google Meet</small></div><div class="star">★ 14</div></div><div class="mark">▲</div><div class="deal-actions"><span class="mini">Ver</span><span class="price">14:00</span></div></div>
+                  </div>
+                </section>
+              </div>
+              <nav class="nav"><span class="active">⌂</span><span>◉</span><span>♥</span><span>⚙</span></nav>
+              <div class="home"></div>
+            </div>
+          </div>
+
+          <div class="phone">
+            <div class="screen">
+              <div class="notch"></div>
+              <div class="status"><span>9:45</span><span>▮▮▮ ◦ ▭</span></div>
+              <header class="detail-head">
+                <div class="detail-row"><div class="back-title"><div class="back">‹</div><div class="detail-title"><h3>Agenda</h3><span>Segunda, 08 de junho</span></div></div><div class="detail-actions"><span>♥</span><span>⋮</span></div></div>
+                <div class="tag-line"><span class="tag">3 eventos</span><span class="expires">Proximo em: 58 min</span></div>
+              </header>
+              <div class="body">
+                <section class="section">
+                  <h3>Filtros</h3><div class="sub">Toque nos icones para filtrar.</div>
+                  <div class="included"><div class="included-item"><div class="included-icon">↗</div><span>Eventos</span></div><div class="included-item"><div class="included-icon">☑</div><span>Tarefas</span></div><div class="included-item"><div class="included-icon">☏</div><span>Chamados</span></div><div class="included-item"><div class="included-icon">◆</div><span>Prazos</span></div></div>
+                </section>
+                <section class="section">
+                  <h3>Prioridade</h3><div class="sub">Ordenado por vencimento ˅</div>
+                  <div class="review"><div class="review-top"><div><strong>Reuniao fiscal mensal</strong><span class="star">★★★★★</span></div><div class="sub">09:00</div></div><p>Alinhamento de prazos, tarefas abertas e pendencias da semana com a equipe contabil.</p></div>
+                </section>
+              </div>
+              <nav class="nav"><span>⌂</span><span class="active">◉</span><span>♥</span><span>⚙</span></nav>
+              <div class="home"></div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

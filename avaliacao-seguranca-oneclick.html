@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Avaliacao Geral e Segurança - OneClick Code</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: #172033;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 11.5pt;
+      line-height: 1.45;
+      background: #ffffff;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      line-height: 1.2;
+      color: #0f172a;
+    }
+
+    h1 {
+      font-size: 24pt;
+      letter-spacing: 0;
+      margin-bottom: 7mm;
+    }
+
+    h2 {
+      font-size: 15pt;
+      margin: 10mm 0 3mm;
+      padding-bottom: 2mm;
+      border-bottom: 1px solid #d8dee8;
+    }
+
+    h3 {
+      font-size: 12.5pt;
+      margin: 5mm 0 1.5mm;
+    }
+
+    p {
+      margin: 0 0 3.5mm;
+    }
+
+    ul {
+      margin: 0 0 3.5mm 5mm;
+      padding: 0;
+    }
+
+    li {
+      margin: 0 0 2.3mm;
+    }
+
+    code {
+      padding: 0.4mm 1mm;
+      border-radius: 3px;
+      background: #eef2f7;
+      color: #0f172a;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 10pt;
+    }
+
+    .meta {
+      margin-bottom: 8mm;
+      padding: 4mm;
+      border: 1px solid #d8dee8;
+      border-radius: 6px;
+      background: #f8fafc;
+      color: #475569;
+      font-size: 10.5pt;
+    }
+
+    .summary {
+      padding: 4mm;
+      border-left: 4px solid #2563eb;
+      background: #eff6ff;
+      margin-bottom: 6mm;
+    }
+
+    .finding {
+      break-inside: avoid;
+      margin-bottom: 5mm;
+    }
+
+    .severity {
+      display: inline-block;
+      min-width: 20mm;
+      padding: 1mm 2mm;
+      border-radius: 4px;
+      font-size: 9pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #ffffff;
+      text-align: center;
+    }
+
+    .critical { background: #b91c1c; }
+    .high { background: #c2410c; }
+    .medium { background: #a16207; }
+    .info { background: #2563eb; }
+
+    .path {
+      color: #334155;
+      font-size: 10pt;
+      margin-top: 1mm;
+    }
+
+    .priority-list li {
+      margin-bottom: 3mm;
+    }
+
+    .footer-note {
+      margin-top: 10mm;
+      color: #64748b;
+      font-size: 9.5pt;
+      border-top: 1px solid #d8dee8;
+      padding-top: 3mm;
+    }
+  </style>
+</head>
+<body>
+  <h1>Avaliação Geral e Segurança - OneClick Code</h1>
+
+  <div class="meta">
+    <p><strong>Data da avaliação:</strong> 05/06/2026</p>
+    <p><strong>Escopo:</strong> revisão estática e somente-leitura do workspace local em <code>OneClick_Code</code>.</p>
+    <p><strong>Observação:</strong> este relatório não substitui teste de invasão, revisão completa de código ou validação em ambiente de produção.</p>
+  </div>
+
+  <div class="summary">
+    <p>O projeto é um monorepo PNPM/Turbo com API NestJS/tRPC, web Next.js, Prisma/Postgres, Better Auth, módulos fiscais, certificados digitais, integrações Google/Stripe/SCI e aplicativos Electron.</p>
+    <p>A arquitetura tem boas bases, mas há riscos relevantes em rotas REST fora da camada tRPC, artefatos sensíveis no repositório/workspace, dependências vulneráveis e lacunas de autorização horizontal por empresa/tenant.</p>
+  </div>
+
+  <h2>Achados Críticos</h2>
+
+  <div class="finding">
+    <h3><span class="severity critical">Crítico</span> Download de backup sem autenticação aparente</h3>
+    <p>A rota <code>/api/backup/download/:filename</code> é registrada diretamente no Express em <code>apps/api/src/main.ts</code> e não valida sessão, permissão ou escopo do usuário.</p>
+    <p><strong>Impacto:</strong> se a API estiver exposta e o nome de um arquivo for descoberto, um atacante pode baixar backups contendo dados sensíveis.</p>
+    <p><strong>Recomendação:</strong> proteger a rota com autenticação, autorização de administrador, auditoria, tokens temporários e armazenamento fora do diretório da aplicação.</p>
+    <p class="path">Referência: <code>apps/api/src/main.ts:64</code></p>
+  </div>
+
+  <div class="finding">
+    <h3><span class="severity critical">Crítico</span> Documentos fiscais expostos por endpoints REST</h3>
+    <p>Vários controllers REST servem PDFs/XMLs sem autenticação local visível: CND, Sitfis, NFS-e e parte dos downloads DANFE.</p>
+    <p><strong>Impacto:</strong> vazamento de documentos fiscais, XMLs, PDFs e dados de clientes se IDs forem descobertos por logs, links, histórico do navegador ou enumeração.</p>
+    <p><strong>Recomendação:</strong> aplicar guard central em todos os controllers REST e checar ownership por <code>empresaId</code>, <code>clienteId</code> e permissões do módulo.</p>
+    <p class="path">Referências: <code>cnd.controller.ts</code>, <code>sitfis.controller.ts</code>, <code>nfse-dist.controller.ts</code>, <code>danfe.controller.ts</code></p>
+  </div>
+
+  <div class="finding">
+    <h3><span class="severity critical">Crítico</span> Uploads sem autenticação e sem validação forte de conteúdo</h3>
+    <p>O controller <code>/api/upload</code> permite upload genérico e upload de certificados sem autenticação aparente. Também serve arquivos por <code>/api/upload/:filename</code>.</p>
+    <p><strong>Impacto:</strong> abuso de armazenamento, exposição indevida de anexos, upload de arquivos maliciosos com extensão permitida e possível mistura de arquivos entre usuários ou empresas.</p>
+    <p><strong>Recomendação:</strong> exigir sessão, validar MIME e assinatura real do arquivo, criar escopo por empresa/usuário, restringir tipos permitidos por caso de uso e considerar varredura antivírus.</p>
+    <p class="path">Referência: <code>apps/api/src/upload/upload.controller.ts</code></p>
+  </div>
+
+  <div class="finding">
+    <h3><span class="severity critical">Crítico</span> Segredos, dumps e certificado no workspace/repositório</h3>
+    <p>Foram encontrados artefatos sensíveis no workspace e alguns versionados: <code>certs/certificado.pfx</code>, <code>database-2026-04-11T19-17-47.sql</code>, <code>database-dump-2026-04-13.sql</code>, além de <code>.env</code>, backup de <code>.env</code>, dump de deploy e executável.</p>
+    <p><strong>Impacto:</strong> vazamento de dados pessoais/fiscais, credenciais, chaves e certificados digitais.</p>
+    <p><strong>Recomendação:</strong> remover do histórico Git quando aplicável, rotacionar chaves/senhas/certificados, armazenar dumps em cofre ou storage privado e reforçar <code>.gitignore</code>.</p>
+  </div>
+
+  <h2>Autorização e Multiempresa</h2>
+
+  <div class="finding">
+    <h3><span class="severity high">Alto</span> Risco de autorização horizontal por empresa/tenant</h3>
+    <p>A camada tRPC possui <code>readProcedure</code>, <code>writeProcedure</code> e <code>deleteProcedure</code>, mas alguns services aceitam IDs e <code>empresaId</code> vindos do input. É necessário confirmar se todas as operações validam que o recurso pertence à empresa/tenant do usuário.</p>
+    <p><strong>Impacto:</strong> usuário com permissão em um módulo pode conseguir alterar ou consultar dados de outra empresa caso conheça IDs ou envie <code>empresaId</code> indevido.</p>
+    <p><strong>Recomendação:</strong> padronizar checagem de ownership nos services e criar testes de autorização horizontal para cada módulo crítico.</p>
+    <p class="path">Referências: <code>apps/api/src/user/user.router.ts</code>, <code>apps/api/src/user/user.service.ts</code></p>
+  </div>
+
+  <div class="finding">
+    <h3><span class="severity high">Alto</span> Header <code>x-tenant-id</code> aceito diretamente</h3>
+    <p>O middleware de tenant aceita <code>x-tenant-id</code> vindo do cliente. O tRPC prioriza o tenant da sessão quando ela existe, mas rotas fora desse fluxo devem ser revisadas.</p>
+    <p><strong>Recomendação:</strong> aceitar tenant apenas derivado da sessão/domínio confiável, ou validar explicitamente se o usuário pertence ao tenant informado.</p>
+    <p class="path">Referência: <code>apps/api/src/tenant/tenant.middleware.ts</code></p>
+  </div>
+
+  <h2>Dependências</h2>
+
+  <p>Foi executado <code>pnpm audit --prod</code>. Resultado: <strong>30 vulnerabilidades</strong>, sendo <strong>12 high</strong>, <strong>16 moderate</strong> e <strong>2 low</strong>.</p>
+
+  <ul>
+    <li><strong>Next.js:</strong> múltiplas vulnerabilidades em <code>apps/web</code>, incluindo DoS, SSRF e bypass em App Router. O audit aponta correções em versões <code>&gt;=15.5.16</code> e <code>&gt;=15.5.18</code>.</li>
+    <li><strong>xlsx 0.18.5:</strong> prototype pollution e ReDoS. O audit não indica versão corrigida no pacote atual, o que sugere troca de biblioteca ou mitigação.</li>
+    <li><strong>better-auth &gt; kysely:</strong> vulnerabilidade high em <code>kysely</code>, corrigida em <code>&gt;=0.28.17</code>.</li>
+    <li><strong>Transitivas via Puppeteer:</strong> achados em <code>basic-ftp</code>, <code>ip-address</code>, <code>ws</code> e outros pacotes transitivos.</li>
+  </ul>
+
+  <h2>Pontos de Melhoria</h2>
+
+  <ul>
+    <li>O build do Next ignora erros de TypeScript e ESLint em produção, em <code>apps/web/next.config.ts</code>. Isso pode permitir que bugs importantes cheguem ao deploy.</li>
+    <li>CORS aceita origens LAN e qualquer origem em ambiente não produtivo. Em produção, usar allowlist estrita e revisar <code>TRUSTED_ORIGINS</code>.</li>
+    <li><code>docker-compose.yml</code> usa credenciais padrão <code>postgres/postgres</code> e expõe Postgres/Redis no host. Adequado para desenvolvimento, inadequado para produção.</li>
+    <li>Há renderização de HTML com <code>dangerouslySetInnerHTML</code> em páginas públicas. O conteúdo deve ser sanitizado antes de persistir ou renderizar.</li>
+    <li>Endpoints de atualização de apps Electron servem executáveis sem autenticação. Se forem públicos, garantir HTTPS, assinatura de artefatos, integridade e controle de origem.</li>
+  </ul>
+
+  <h2>Prioridade Recomendada</h2>
+
+  <ol class="priority-list">
+    <li>Proteger todos os controllers REST com autenticação e autorização, começando por backup, upload e documentos fiscais.</li>
+    <li>Remover do Git/workspace os artefatos sensíveis e rotacionar credenciais, chaves, senhas e certificados afetados.</li>
+    <li>Revisar autorização horizontal por <code>empresaId</code>, <code>tenantId</code>, <code>clienteId</code> e ownership nos services.</li>
+    <li>Atualizar dependências críticas, especialmente Next.js, better-auth/kysely e substituir ou mitigar <code>xlsx</code>.</li>
+    <li>Reativar falha de build para TypeScript/ESLint antes de tratar o deploy como estável.</li>
+  </ol>
+
+  <div class="footer-note">
+    <p>Relatório gerado a partir de revisão estática local. Nenhum arquivo de código-fonte foi alterado durante a avaliação original.</p>
+  </div>
+</body>
+</html>

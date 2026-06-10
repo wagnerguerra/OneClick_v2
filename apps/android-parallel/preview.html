@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OneClick Android Paralelo - Preview</title>
+  <style>
+    :root {
+      --bg: #eef4f8;
+      --panel: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --primary: #0f8bff;
+      --primary-dark: #0369c9;
+      --soft: #dff3ff;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    .title {
+      margin-bottom: 22px;
+    }
+
+    .title small {
+      color: var(--primary-dark);
+      display: block;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: 30px;
+      line-height: 1.1;
+      margin: 5px 0 6px;
+    }
+
+    .title p {
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .grid {
+      display: grid;
+      gap: 22px;
+      grid-template-columns: repeat(4, minmax(230px, 1fr));
+    }
+
+    .phone {
+      background: #0b1220;
+      border-radius: 34px;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, .18);
+      padding: 10px;
+    }
+
+    .screen {
+      background: #f8fafc;
+      border-radius: 26px;
+      height: 640px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .screen::before {
+      background: #0b1220;
+      border-radius: 0 0 12px 12px;
+      content: "";
+      height: 18px;
+      left: 50%;
+      position: absolute;
+      top: 0;
+      transform: translateX(-50%);
+      width: 84px;
+      z-index: 10;
+    }
+
+    .login-accent {
+      background: var(--soft);
+      border-radius: 0 0 36px 36px;
+      height: 245px;
+      left: 0;
+      position: absolute;
+      right: 0;
+      top: 0;
+    }
+
+    .login-content {
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+      height: 100%;
+      justify-content: center;
+      padding: 24px;
+      position: relative;
+    }
+
+    .brand small,
+    .kicker {
+      color: var(--primary-dark);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 32px;
+      font-weight: 950;
+      letter-spacing: 0;
+      margin-top: 2px;
+    }
+
+    .brand span,
+    .subtitle,
+    .muted {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .form {
+      display: grid;
+      gap: 14px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .input {
+      align-items: center;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: #94a3b8;
+      display: flex;
+      height: 46px;
+      padding: 0 12px;
+    }
+
+    .button {
+      align-items: center;
+      background: var(--primary);
+      border-radius: 10px;
+      color: white;
+      display: flex;
+      font-size: 14px;
+      font-weight: 900;
+      height: 46px;
+      justify-content: center;
+    }
+
+    .app-content {
+      height: calc(100% - 60px);
+      overflow: hidden;
+      padding: 24px 18px 0;
+    }
+
+    .bottom-tabs {
+      align-items: center;
+      background: white;
+      border-top: 1px solid var(--line);
+      bottom: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      height: 60px;
+      left: 0;
+      position: absolute;
+      right: 0;
+    }
+
+    .tab {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .tab.active { color: var(--primary); }
+
+    .app-header {
+      margin: 8px 0 18px;
+    }
+
+    .app-header h2 {
+      font-size: 28px;
+      line-height: 1.08;
+      margin: 4px 0;
+    }
+
+    .stats {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .stat {
+      min-height: 118px;
+    }
+
+    .icon {
+      align-items: center;
+      background: #e0f2fe;
+      border-radius: 10px;
+      color: var(--primary);
+      display: flex;
+      font-weight: 900;
+      height: 36px;
+      justify-content: center;
+      margin-bottom: 8px;
+      width: 36px;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 950;
+    }
+
+    .panel {
+      margin-top: 14px;
+    }
+
+    .panel h3 {
+      margin: 0 0 6px;
+    }
+
+    .agenda-top {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      margin: 8px 0 10px;
+    }
+
+    .agenda-top h2 {
+      font-size: 23px;
+      margin: 4px 0 0;
+      text-transform: capitalize;
+    }
+
+    .plus {
+      align-items: center;
+      background: var(--primary);
+      border-radius: 12px;
+      color: white;
+      display: flex;
+      font-size: 26px;
+      font-weight: 500;
+      height: 44px;
+      justify-content: center;
+      width: 44px;
+    }
+
+    .week-nav {
+      align-items: center;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 36px 1fr 36px;
+      margin-bottom: 14px;
+    }
+
+    .nav-button {
+      align-items: center;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      display: flex;
+      height: 36px;
+      justify-content: center;
+    }
+
+    .week-range {
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .days {
+      display: grid;
+      gap: 7px;
+      grid-template-columns: repeat(7, 1fr);
+      margin-bottom: 14px;
+    }
+
+    .day {
+      align-items: center;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      height: 58px;
+      justify-content: center;
+    }
+
+    .day.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .day small {
+      color: inherit;
+      font-size: 9px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .day strong {
+      font-size: 16px;
+    }
+
+    .event {
+      border-left: 5px solid var(--primary);
+      margin-bottom: 10px;
+    }
+
+    .event h3 {
+      font-size: 15px;
+      margin: 0 0 4px;
+    }
+
+    .event p {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 3px 0;
+    }
+
+    .detail-title {
+      border-top: 5px solid var(--primary);
+      margin-top: 8px;
+    }
+
+    .detail-title h2 {
+      font-size: 24px;
+      margin: 8px 0 4px;
+    }
+
+    .detail-row {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 34px 1fr;
+      margin-bottom: 14px;
+    }
+
+    .detail-row .icon {
+      height: 34px;
+      margin: 0;
+      width: 34px;
+    }
+
+    .detail-row small {
+      color: var(--muted);
+      display: block;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .detail-row span {
+      color: var(--text);
+      display: block;
+      font-size: 14px;
+      line-height: 1.35;
+      margin-top: 2px;
+    }
+
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: repeat(2, minmax(260px, 1fr)); }
+    }
+
+    @media (max-width: 650px) {
+      .page { padding: 16px; }
+      .grid { grid-template-columns: 1fr; }
+      .phone { margin: 0 auto; max-width: 340px; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="title">
+      <small>Preview visual</small>
+      <h1>OneClick Android Paralelo</h1>
+      <p>Prévia estática do MVP: login, dashboard, agenda e detalhe do evento.</p>
+    </section>
+
+    <section class="grid">
+      <article class="phone">
+        <div class="screen">
+          <div class="login-accent"></div>
+          <div class="login-content">
+            <div class="brand">
+              <small>OneClick</small>
+              <strong>ERP Android</strong>
+              <span>Entre para acessar sua agenda</span>
+            </div>
+            <div class="card form">
+              <div>
+                <label>E-mail</label>
+                <div class="input">voce@empresa.com</div>
+              </div>
+              <div>
+                <label>Senha</label>
+                <div class="input">********</div>
+              </div>
+              <div class="button">Entrar</div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="phone">
+        <div class="screen">
+          <div class="app-content">
+            <header class="app-header">
+              <div class="kicker">OneClick ERP</div>
+              <h2>Ola, Wagner</h2>
+              <div class="subtitle">Resumo rapido para hoje.</div>
+            </header>
+            <div class="stats">
+              <div class="card stat">
+                <div class="icon">C</div>
+                <div class="stat-value">3</div>
+                <div class="muted">Eventos hoje</div>
+              </div>
+              <div class="card stat">
+                <div class="icon">T</div>
+                <div class="stat-value">8</div>
+                <div class="muted">Tarefas abertas</div>
+              </div>
+            </div>
+            <div class="card panel">
+              <h3>Agenda</h3>
+              <p class="muted">Consulta semanal, detalhe do evento e criacao simples de compromissos.</p>
+            </div>
+          </div>
+          <nav class="bottom-tabs">
+            <div class="tab active">Inicio</div>
+            <div class="tab">Agenda</div>
+          </nav>
+        </div>
+      </article>
+
+      <article class="phone">
+        <div class="screen">
+          <div class="app-content">
+            <div class="agenda-top">
+              <div>
+                <div class="kicker">Agenda</div>
+                <h2>segunda, 08 de junho</h2>
+              </div>
+              <div class="plus">+</div>
+            </div>
+            <div class="week-nav">
+              <div class="nav-button">&lt;</div>
+              <div class="week-range">2026-06-07 a 2026-06-13</div>
+              <div class="nav-button">&gt;</div>
+            </div>
+            <div class="days">
+              <div class="day"><small>dom</small><strong>7</strong></div>
+              <div class="day active"><small>seg</small><strong>8</strong></div>
+              <div class="day"><small>ter</small><strong>9</strong></div>
+              <div class="day"><small>qua</small><strong>10</strong></div>
+              <div class="day"><small>qui</small><strong>11</strong></div>
+              <div class="day"><small>sex</small><strong>12</strong></div>
+              <div class="day"><small>sab</small><strong>13</strong></div>
+            </div>
+            <div class="card event">
+              <h3>Reuniao fiscal mensal</h3>
+              <p>09:00 - 10:00</p>
+              <p>Sala Contabil</p>
+            </div>
+            <div class="card event" style="border-left-color:#16a34a">
+              <h3>Entrega de obrigacoes</h3>
+              <p>Dia inteiro</p>
+              <p>Agenda corporativa</p>
+            </div>
+          </div>
+          <nav class="bottom-tabs">
+            <div class="tab">Inicio</div>
+            <div class="tab active">Agenda</div>
+          </nav>
+        </div>
+      </article>
+
+      <article class="phone">
+        <div class="screen">
+          <div class="app-content">
+            <div class="week-nav" style="margin-top:8px">
+              <div class="nav-button">&lt;</div>
+              <div class="week-range" style="color:var(--text);font-weight:900">Detalhe</div>
+              <div></div>
+            </div>
+            <div class="card detail-title">
+              <h2>Reuniao fiscal mensal</h2>
+              <div class="kicker">Reuniao</div>
+            </div>
+            <div class="card panel">
+              <div class="detail-row">
+                <div class="icon">D</div>
+                <div><small>Data</small><span>08 de junho de 2026</span></div>
+              </div>
+              <div class="detail-row">
+                <div class="icon">H</div>
+                <div><small>Horario</small><span>09:00 - 10:00</span></div>
+              </div>
+              <div class="detail-row">
+                <div class="icon">L</div>
+                <div><small>Local</small><span>Sala Contabil</span></div>
+              </div>
+              <div class="detail-row">
+                <div class="icon">N</div>
+                <div><small>Descricao</small><span>Alinhamento de prazos e pendencias da semana.</span></div>
+              </div>
+            </div>
+          </div>
+          <nav class="bottom-tabs">
+            <div class="tab">Inicio</div>
+            <div class="tab active">Agenda</div>
+          </nav>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

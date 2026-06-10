@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "OneClick Android Paralelo",
+    "slug": "oneclick-android-parallel",
+    "version": "0.1.0",
+    "newArchEnabled": false,
+    "orientation": "portrait",
+    "scheme": "oneclickparallel",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "com.oneclick.erp.parallel"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
+}

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OneClick Android Paralelo - Modelos de Operacao</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #eef2f6;
+      color: #111827;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .page { max-width: 1420px; margin: 0 auto; padding: 28px; }
+    .intro { margin-bottom: 24px; max-width: 920px; }
+    .intro small { color: #175cd3; display: block; font-size: 12px; font-weight: 900; text-transform: uppercase; }
+    h1 { font-size: 32px; line-height: 1.08; margin: 6px 0 8px; }
+    .intro p { color: #667085; line-height: 1.45; margin: 0; }
+    .grid { display: grid; gap: 28px; grid-template-columns: repeat(3, minmax(280px, 1fr)); }
+    .model { display: grid; gap: 12px; }
+    .model h2 { font-size: 17px; line-height: 1.2; margin: 0 0 4px; }
+    .model > p { color: #667085; font-size: 13px; line-height: 1.35; margin: 0; min-height: 54px; }
+    .phone { background: #101828; border-radius: 34px; box-shadow: 0 18px 48px rgba(16,24,40,.18); padding: 10px; width: 100%; }
+    .screen { border-radius: 26px; height: 700px; overflow: hidden; position: relative; }
+    .screen::before { background: #101828; border-radius: 0 0 12px 12px; content: ""; height: 18px; left: 50%; position: absolute; top: 0; transform: translateX(-50%); width: 84px; z-index: 20; }
+    .content { height: 100%; overflow: hidden; padding: 24px 18px; position: relative; }
+    .kicker { font-size: 11px; font-weight: 900; text-transform: uppercase; }
+    .muted { color: var(--muted); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+    .row { align-items: center; display: flex; justify-content: space-between; gap: 12px; }
+    .title h3 { color: var(--text); font-size: 25px; line-height: 1.08; margin: 4px 0 3px; }
+    .title p { color: var(--muted); font-size: 13px; margin: 0; }
+    .icon-btn, .avatar, .pill-icon {
+      align-items: center; display: flex; font-weight: 900; justify-content: center;
+    }
+    .icon-btn { background: var(--soft); border: 1px solid var(--line); border-radius: 12px; color: var(--accent); height: 42px; width: 42px; }
+    .avatar { background: var(--soft); border-radius: 13px; color: var(--accent); height: 42px; width: 42px; }
+    .stats { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; margin: 16px 0; }
+    .stat strong { color: var(--text); display: block; font-size: 27px; line-height: 1; }
+    .stat span, .event p, .task p, .day small { color: var(--muted); font-size: 12px; }
+    .pill-icon { background: var(--soft); border-radius: 9px; color: var(--accent); height: 32px; margin-bottom: 8px; width: 32px; }
+    .section { align-items: center; display: flex; justify-content: space-between; margin: 14px 0 9px; }
+    .section strong { color: var(--text); font-size: 15px; }
+    .section span { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .week { display: grid; gap: 7px; grid-template-columns: repeat(7, 1fr); }
+    .day { align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; height: 58px; justify-content: center; }
+    .day strong { color: var(--text); font-size: 16px; }
+    .day.active { background: var(--accent); border-color: var(--accent); }
+    .day.active strong, .day.active small { color: #fff; }
+    .event { border-left: 5px solid var(--accent); display: grid; gap: 3px; margin-bottom: 10px; }
+    .event h4, .task h4 { color: var(--text); font-size: 14px; line-height: 1.25; margin: 0; }
+    .event p, .task p { line-height: 1.35; margin: 2px 0; }
+    .task { align-items: center; display: grid; gap: 10px; grid-template-columns: 34px 1fr auto; margin-bottom: 9px; }
+    .task .pill-icon { margin: 0; }
+    .bottom-bar { align-items: center; background: var(--bar); border-top: 1px solid var(--line); bottom: 0; display: grid; height: 64px; left: 0; position: absolute; right: 0; }
+    .bottom-3 { grid-template-columns: repeat(3, 1fr); }
+    .bottom-4 { grid-template-columns: repeat(4, 1fr); }
+    .tab { color: var(--muted); font-size: 11px; font-weight: 850; text-align: center; }
+    .tab.active { color: var(--accent); }
+    .top-tabs { background: var(--soft); border-radius: 13px; display: grid; gap: 4px; grid-template-columns: repeat(3, 1fr); margin: 14px 0; padding: 4px; }
+    .top-tabs span { border-radius: 10px; color: var(--muted); font-size: 12px; font-weight: 850; padding: 9px 0; text-align: center; }
+    .top-tabs .active { background: var(--card); color: var(--accent); }
+    .fab { align-items: center; background: var(--accent); border-radius: 18px; bottom: 78px; box-shadow: 0 12px 26px rgba(0,0,0,.16); color: #fff; display: flex; font-size: 30px; height: 58px; justify-content: center; position: absolute; right: 20px; width: 58px; }
+    .drawer { background: var(--drawer); border-right: 1px solid var(--line); bottom: 0; left: 0; padding: 34px 12px 12px; position: absolute; top: 0; width: 86px; z-index: 4; }
+    .drawer .mini { align-items: center; border-radius: 13px; color: var(--muted); display: flex; font-size: 11px; font-weight: 850; height: 56px; justify-content: center; margin-bottom: 8px; text-align: center; }
+    .drawer .mini.active { background: var(--soft); color: var(--accent); }
+    .drawer-content { padding-left: 86px; }
+    .rail { background: var(--bar); border-top: 1px solid var(--line); bottom: 0; display: flex; gap: 10px; left: 0; overflow: hidden; padding: 10px 14px; position: absolute; right: 0; }
+    .rail span { background: var(--soft); border-radius: 999px; color: var(--accent); flex: 1; font-size: 12px; font-weight: 850; padding: 12px 0; text-align: center; }
+    .rail span:not(.active) { background: transparent; color: var(--muted); }
+    .searchbar { align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 999px; color: var(--muted); display: flex; font-size: 13px; height: 44px; margin: 14px 0; padding: 0 14px; }
+    .timeline { border-left: 2px solid var(--line); margin-left: 10px; padding-left: 15px; }
+    .timeline .event { position: relative; }
+    .timeline .event::before { background: var(--accent); border: 3px solid var(--bg); border-radius: 50%; content: ""; height: 12px; left: -28px; position: absolute; top: 18px; width: 12px; }
+    .split { display: grid; gap: 10px; grid-template-columns: 1fr; }
+    .compact-list .event { border-left-width: 0; border-radius: var(--radius); display: block; padding-left: 14px; position: relative; }
+    .compact-list .event::before { background: var(--accent); border-radius: 999px; content: ""; height: calc(100% - 20px); left: 0; position: absolute; top: 10px; width: 4px; }
+
+    .a { --bg:#f7fafc; --card:#fff; --bar:#fff; --drawer:#fff; --text:#102033; --muted:#667085; --line:#dbe4ee; --accent:#0f8bff; --soft:#dff1ff; --radius:14px; }
+    .b { --bg:#111827; --card:#1f2937; --bar:#172033; --drawer:#172033; --text:#f8fafc; --muted:#a7b4c7; --line:#334155; --accent:#38bdf8; --soft:#0f3d5d; --radius:14px; }
+    .c { --bg:#f6faf8; --card:#fff; --bar:#fff; --drawer:#fff; --text:#10231c; --muted:#66756e; --line:#d7ebe2; --accent:#059669; --soft:#dcfce7; --radius:18px; }
+    .d { --bg:#f5f6f8; --card:#fff; --bar:#fff; --drawer:#fff; --text:#1c2430; --muted:#667085; --line:#d8dde5; --accent:#40566f; --soft:#e6ecf2; --radius:10px; }
+    .e { --bg:#fff7ed; --card:#fff; --bar:#fffaf2; --drawer:#fffaf2; --text:#23180f; --muted:#7a6a5c; --line:#f0dfc9; --accent:#c2410c; --soft:#ffedd5; --radius:16px; }
+    .f { --bg:#f7f7fb; --card:#fff; --bar:#fff; --drawer:#fff; --text:#17151f; --muted:#6c6875; --line:#dedbe7; --accent:#6f45c9; --soft:#eee8ff; --radius:22px; }
+    .screen { background: var(--bg); color: var(--text); }
+
+    @media (max-width: 1120px) { .grid { grid-template-columns: repeat(2, minmax(280px, 1fr)); } }
+    @media (max-width: 700px) { .page { padding: 16px; } .grid { grid-template-columns: 1fr; } .phone { margin: 0 auto; max-width: 360px; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="intro">
+      <small>Arquitetura visual</small>
+      <h1>Modelos completos de operacao para o app Android</h1>
+      <p>Agora as variacoes mudam tema, hierarquia, menu, barras, fluxo de uso e prioridade da tela inicial. Cada mock usa a mesma base funcional: login, dashboard e agenda.</p>
+    </section>
+
+    <section class="grid">
+      <article class="model">
+        <div>
+          <h2>1. Dashboard + Bottom Tabs</h2>
+          <p>Modelo classico: inicio com KPIs, agenda como aba principal e botao flutuante para criar evento.</p>
+        </div>
+        <div class="phone"><div class="screen a">
+          <div class="content" style="padding-bottom:82px">
+            <div class="row title"><div><div class="kicker">OneClick ERP</div><h3>Ola, Wagner</h3><p>Resumo rapido para hoje.</p></div><div class="avatar">W</div></div>
+            <div class="stats"><div class="card stat"><div class="pill-icon">EV</div><strong>3</strong><span>Eventos hoje</span></div><div class="card stat"><div class="pill-icon">TA</div><strong>8</strong><span>Tarefas abertas</span></div></div>
+            <div class="section"><strong>Agenda de hoje</strong><span>Ver semana</span></div>
+            <div class="card event"><h4>Reuniao fiscal mensal</h4><p>09:00 - 10:00 · Sala Contabil</p></div>
+            <div class="card event" style="border-left-color:#16a34a"><h4>Entrega de obrigacoes</h4><p>Dia inteiro · Agenda corporativa</p></div>
+            <div class="section"><strong>Atalhos</strong><span>2 pendencias</span></div>
+            <div class="task card"><div class="pill-icon">PZ</div><div><h4>Prazos proximos</h4><p>Obrigacoes e tarefas abertas</p></div><span class="muted">12</span></div>
+          </div>
+          <div class="fab">+</div>
+          <nav class="bottom-bar bottom-4"><span class="tab active">Inicio</span><span class="tab">Agenda</span><span class="tab">Tarefas</span><span class="tab">Perfil</span></nav>
+        </div></div>
+      </article>
+
+      <article class="model">
+        <div>
+          <h2>2. Agenda First + Top Tabs</h2>
+          <p>Abre direto na agenda. O topo alterna Hoje, Semana e Mes; ideal se agenda for a rotina principal.</p>
+        </div>
+        <div class="phone"><div class="screen c">
+          <div class="content">
+            <div class="row title"><div><div class="kicker">Agenda</div><h3>Segunda, 08 jun</h3><p>3 eventos no dia.</p></div><div class="icon-btn">+</div></div>
+            <div class="top-tabs"><span class="active">Hoje</span><span>Semana</span><span>Mes</span></div>
+            <div class="week"><div class="day"><small>D</small><strong>7</strong></div><div class="day active"><small>S</small><strong>8</strong></div><div class="day"><small>T</small><strong>9</strong></div><div class="day"><small>Q</small><strong>10</strong></div><div class="day"><small>Q</small><strong>11</strong></div><div class="day"><small>S</small><strong>12</strong></div><div class="day"><small>S</small><strong>13</strong></div></div>
+            <div class="section"><strong>Linha do tempo</strong><span>Agora 08:30</span></div>
+            <div class="timeline">
+              <div class="card event"><h4>Reuniao fiscal mensal</h4><p>09:00 - 10:00 · Sala Contabil</p></div>
+              <div class="card event" style="border-left-color:#0ea5e9"><h4>Reuniao com cliente</h4><p>14:00 - 14:45 · Online</p></div>
+              <div class="card event" style="border-left-color:#059669"><h4>Fechamento de pendencias</h4><p>16:30 · Equipe contabil</p></div>
+            </div>
+          </div>
+          <nav class="bottom-bar bottom-3"><span class="tab">Painel</span><span class="tab active">Agenda</span><span class="tab">Conta</span></nav>
+        </div></div>
+      </article>
+
+      <article class="model">
+        <div>
+          <h2>3. Menu Lateral Compacto</h2>
+          <p>Mini drawer sempre visivel. Bom quando o app crescer para helpdesk, tarefas e outros modulos.</p>
+        </div>
+        <div class="phone"><div class="screen d">
+          <aside class="drawer"><div class="mini active">Inicio</div><div class="mini">Agenda</div><div class="mini">Tarefas</div><div class="mini">Perfil</div></aside>
+          <div class="content drawer-content">
+            <div class="row title"><div><div class="kicker">Painel</div><h3>Operacao</h3><p>Visao compacta por modulo.</p></div></div>
+            <div class="stats" style="grid-template-columns:1fr"><div class="card stat"><div class="pill-icon">HO</div><strong>3</strong><span>Compromissos hoje</span></div></div>
+            <div class="section"><strong>Prioridade</strong><span>Agora</span></div>
+            <div class="compact-list">
+              <div class="card event"><h4>Reuniao fiscal mensal</h4><p>09:00 · Sala Contabil</p></div>
+              <div class="card event"><h4>Validar acesso mobile</h4><p>Tarefa aberta · TI</p></div>
+              <div class="card event"><h4>Entrega de obrigacoes</h4><p>Dia inteiro</p></div>
+            </div>
+          </div>
+        </div></div>
+      </article>
+
+      <article class="model">
+        <div>
+          <h2>4. Comando Superior + Busca</h2>
+          <p>Menu fica no topo, com busca global. Mais rapido para localizar clientes, eventos e tarefas.</p>
+        </div>
+        <div class="phone"><div class="screen e">
+          <div class="content" style="padding-bottom:72px">
+            <div class="row"><div class="icon-btn">☰</div><div class="kicker">OneClick ERP</div><div class="avatar">W</div></div>
+            <div class="searchbar">Buscar evento, cliente ou tarefa</div>
+            <div class="row title"><div><h3>Hoje</h3><p>08 de junho · segunda-feira</p></div><div class="icon-btn">+</div></div>
+            <div class="stats"><div class="card stat"><div class="pill-icon">09</div><strong>1h</strong><span>Proximo evento</span></div><div class="card stat"><div class="pill-icon">PZ</div><strong>8</strong><span>Pendencias</span></div></div>
+            <div class="section"><strong>Agenda</strong><span>3 itens</span></div>
+            <div class="task card"><div class="pill-icon">09</div><div><h4>Reuniao fiscal mensal</h4><p>Sala Contabil</p></div><span class="muted">10:00</span></div>
+            <div class="task card"><div class="pill-icon">14</div><div><h4>Reuniao com cliente</h4><p>Online</p></div><span class="muted">14:45</span></div>
+          </div>
+          <div class="rail"><span class="active">Hoje</span><span>Agenda</span><span>Tarefas</span></div>
+        </div></div>
+      </article>
+
+      <article class="model">
+        <div>
+          <h2>5. Dark Pro + Cartoes Grandes</h2>
+          <p>Cards grandes e menu inferior reduzido. Melhor para leitura rapida e uso em campo.</p>
+        </div>
+        <div class="phone"><div class="screen b">
+          <div class="content" style="padding-bottom:82px">
+            <div class="row title"><div><div class="kicker">Modo foco</div><h3>Agenda ativa</h3><p>Priorize o proximo compromisso.</p></div><div class="avatar">W</div></div>
+            <div class="card" style="margin:16px 0;padding:18px">
+              <div class="kicker">Proximo evento</div>
+              <h3 style="color:var(--text);font-size:24px;line-height:1.08;margin:7px 0">Reuniao fiscal mensal</h3>
+              <p class="muted" style="font-size:14px;margin:0">09:00 - 10:00 · Sala Contabil</p>
+            </div>
+            <div class="stats"><div class="card stat"><div class="pill-icon">EV</div><strong>3</strong><span>Hoje</span></div><div class="card stat"><div class="pill-icon">TA</div><strong>8</strong><span>Abertas</span></div></div>
+            <div class="section"><strong>Depois</strong><span>2 eventos</span></div>
+            <div class="card event"><h4>Reuniao com cliente</h4><p>14:00 - 14:45 · Online</p></div>
+          </div>
+          <nav class="bottom-bar bottom-3"><span class="tab active">Foco</span><span class="tab">Agenda</span><span class="tab">Mais</span></nav>
+        </div></div>
+      </article>
+
+      <article class="model">
+        <div>
+          <h2>6. Home Modular + Menu “Mais”</h2>
+          <p>Tela inicial por blocos reorganizaveis. Abas fixas ficam poucas, e outros modulos entram em Mais.</p>
+        </div>
+        <div class="phone"><div class="screen f">
+          <div class="content" style="padding-bottom:82px">
+            <div class="row title"><div><div class="kicker">Inicio</div><h3>Central OneClick</h3><p>Blocos do dia e atalhos.</p></div><div class="icon-btn">⚙</div></div>
+            <div class="split">
+              <div class="card"><div class="row"><div><div class="kicker">Agenda</div><h3 style="font-size:21px;margin:4px 0;color:var(--text)">3 eventos</h3><p class="muted">Proximo as 09:00</p></div><div class="pill-icon">→</div></div></div>
+              <div class="card"><div class="row"><div><div class="kicker">Tarefas</div><h3 style="font-size:21px;margin:4px 0;color:var(--text)">8 abertas</h3><p class="muted">2 vencem hoje</p></div><div class="pill-icon">→</div></div></div>
+            </div>
+            <div class="section"><strong>Atalhos</strong><span>Editar</span></div>
+            <div class="stats"><div class="card stat"><div class="pill-icon">HD</div><strong>2</strong><span>Chamados</span></div><div class="card stat"><div class="pill-icon">PF</div><strong>OK</strong><span>Perfil</span></div></div>
+            <div class="section"><strong>Hoje</strong><span>Ver tudo</span></div>
+            <div class="task card"><div class="pill-icon">09</div><div><h4>Reuniao fiscal mensal</h4><p>Sala Contabil</p></div><span class="muted">1h</span></div>
+          </div>
+          <nav class="bottom-bar bottom-4"><span class="tab active">Inicio</span><span class="tab">Agenda</span><span class="tab">Criar</span><span class="tab">Mais</span></nav>
+        </div></div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

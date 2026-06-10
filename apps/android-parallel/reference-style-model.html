@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OneClick Android - Modelo Referencia Azul</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #050505;
+      color: #121826;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 24px 48px;
+    }
+    .hero-title {
+      color: #fff;
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: 16px;
+      margin: 0 0 74px;
+      text-align: center;
+    }
+    .phones {
+      display: grid;
+      gap: 84px;
+      grid-template-columns: repeat(2, 390px);
+      justify-content: center;
+    }
+    .phone {
+      background: #fff;
+      border-radius: 42px;
+      padding: 13px;
+      position: relative;
+    }
+    .phone::before {
+      background: #fff;
+      border-radius: 8px 0 0 8px;
+      content: "";
+      height: 36px;
+      left: -4px;
+      position: absolute;
+      top: 130px;
+      width: 5px;
+    }
+    .phone::after {
+      background: #fff;
+      border-radius: 0 8px 8px 0;
+      content: "";
+      height: 74px;
+      position: absolute;
+      right: -4px;
+      top: 184px;
+      width: 5px;
+    }
+    .screen {
+      background: #fff;
+      border-radius: 32px;
+      height: 760px;
+      overflow: hidden;
+      position: relative;
+    }
+    .notch {
+      background: #fff;
+      border-radius: 0 0 18px 18px;
+      height: 30px;
+      left: 50%;
+      position: absolute;
+      top: 0;
+      transform: translateX(-50%);
+      width: 145px;
+      z-index: 5;
+    }
+    .status {
+      align-items: center;
+      color: #fff;
+      display: flex;
+      font-size: 12px;
+      font-weight: 800;
+      justify-content: space-between;
+      left: 28px;
+      position: absolute;
+      right: 28px;
+      top: 18px;
+      z-index: 6;
+    }
+    .signal {
+      align-items: center;
+      display: flex;
+      gap: 5px;
+    }
+    .battery {
+      border: 2px solid #fff;
+      border-radius: 4px;
+      height: 10px;
+      width: 20px;
+    }
+    .blue-head {
+      background: #20376f;
+      color: #fff;
+      height: 172px;
+      padding: 62px 28px 24px;
+      position: relative;
+    }
+    .blue-head::after {
+      background-image:
+        radial-gradient(circle at 24px 22px, rgba(255,255,255,.09) 0 2px, transparent 3px),
+        radial-gradient(circle at 120px 64px, rgba(255,255,255,.07) 0 2px, transparent 3px),
+        radial-gradient(circle at 250px 34px, rgba(255,255,255,.08) 0 2px, transparent 3px);
+      bottom: 0;
+      content: "";
+      left: 0;
+      opacity: .8;
+      position: absolute;
+      right: 0;
+      top: 0;
+    }
+    .head-content {
+      position: relative;
+      z-index: 1;
+    }
+    .head-title {
+      font-size: 21px;
+      font-weight: 900;
+      line-height: 1.18;
+      margin: 0 0 20px;
+    }
+    .toolbar {
+      align-items: center;
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 44px 1fr 44px;
+    }
+    .circle {
+      align-items: center;
+      background: #fff;
+      border-radius: 50%;
+      color: #3775f6;
+      display: flex;
+      font-size: 17px;
+      font-weight: 900;
+      height: 44px;
+      justify-content: center;
+      width: 44px;
+    }
+    .pill {
+      align-items: center;
+      background: #3775f6;
+      border-radius: 999px;
+      color: #fff;
+      display: flex;
+      font-size: 12px;
+      font-weight: 850;
+      height: 44px;
+      justify-content: center;
+      padding: 0 16px;
+    }
+    .body {
+      height: 510px;
+      overflow: hidden;
+      padding: 24px 24px 0;
+    }
+    .section {
+      margin-bottom: 22px;
+    }
+    .section-head {
+      align-items: baseline;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    h2 {
+      font-size: 22px;
+      line-height: 1;
+      margin: 0 0 5px;
+    }
+    .sub {
+      color: #a5adbc;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .horizontal {
+      display: flex;
+      gap: 18px;
+      overflow: hidden;
+      width: 520px;
+    }
+    .deal {
+      background: #eaf0fa;
+      border-radius: 12px;
+      flex: 0 0 142px;
+      min-height: 145px;
+      padding: 16px 14px 12px;
+    }
+    .deal-top {
+      align-items: flex-start;
+      display: flex;
+      justify-content: space-between;
+    }
+    .deal h3 {
+      font-size: 13px;
+      line-height: 1.2;
+      margin: 0;
+    }
+    .deal small {
+      color: #1a2438;
+      display: block;
+      font-size: 11px;
+      margin-top: 3px;
+    }
+    .star {
+      color: #fbbf24;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .image-mark {
+      align-items: center;
+      color: #8490a4;
+      display: flex;
+      font-size: 35px;
+      height: 62px;
+      justify-content: center;
+    }
+    .deal-actions {
+      align-items: center;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+    }
+    .mini-btn {
+      background: #fff;
+      border-radius: 999px;
+      color: #3775f6;
+      font-size: 11px;
+      font-weight: 850;
+      padding: 8px 14px;
+    }
+    .price {
+      background: #3775f6;
+      border-radius: 999px;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 900;
+      padding: 8px 14px;
+    }
+    .large-card {
+      background: #eaf0fa;
+      border-radius: 12px;
+      flex: 0 0 142px;
+      height: 142px;
+      margin-bottom: 10px;
+    }
+    .destination-meta {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      width: 142px;
+    }
+    .destination-meta strong {
+      display: block;
+      font-size: 12px;
+    }
+    .destination-meta span {
+      color: #a5adbc;
+      display: block;
+      font-size: 11px;
+      margin-top: 2px;
+    }
+    .bottom-nav {
+      align-items: center;
+      background: #fff;
+      bottom: 0;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      height: 82px;
+      left: 0;
+      padding: 0 42px 18px;
+      position: absolute;
+      right: 0;
+    }
+    .nav-item {
+      color: #b3bed2;
+      font-size: 22px;
+      font-weight: 900;
+      text-align: center;
+    }
+    .nav-item.active {
+      color: #3775f6;
+    }
+    .home-indicator {
+      background: #c5cfdd;
+      border-radius: 999px;
+      bottom: 18px;
+      height: 5px;
+      left: 50%;
+      position: absolute;
+      transform: translateX(-50%);
+      width: 126px;
+    }
+    .detail-head {
+      background: #20376f;
+      color: #fff;
+      height: 172px;
+      padding: 62px 28px 24px;
+    }
+    .detail-row {
+      align-items: flex-start;
+      display: flex;
+      justify-content: space-between;
+    }
+    .back-title {
+      display: flex;
+      gap: 10px;
+    }
+    .back {
+      font-size: 26px;
+      line-height: 21px;
+    }
+    .detail-title h1 {
+      font-size: 22px;
+      line-height: 1;
+      margin: 0 0 7px;
+    }
+    .detail-title span {
+      display: block;
+      font-size: 12px;
+      opacity: .9;
+    }
+    .detail-actions {
+      display: flex;
+      gap: 14px;
+      font-size: 22px;
+      font-weight: 900;
+    }
+    .tag-line {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      margin-top: 18px;
+    }
+    .tag {
+      background: #3775f6;
+      border-radius: 999px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      padding: 9px 16px;
+    }
+    .expires {
+      font-size: 12px;
+    }
+    .included {
+      display: grid;
+      gap: 22px;
+      grid-template-columns: repeat(4, 1fr);
+      margin: 12px 0 18px;
+    }
+    .included-item {
+      text-align: center;
+    }
+    .included-icon {
+      align-items: center;
+      background: #3775f6;
+      border: 4px double #fff;
+      box-shadow: 0 0 0 2px #3775f6;
+      border-radius: 50%;
+      color: #fff;
+      display: flex;
+      font-size: 20px;
+      font-weight: 900;
+      height: 48px;
+      justify-content: center;
+      margin: 0 auto 9px;
+      width: 48px;
+    }
+    .included-item span {
+      display: block;
+      font-size: 11px;
+      font-weight: 850;
+    }
+    .rating-row {
+      align-items: flex-end;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .rating {
+      color: #fbbf24;
+      font-size: 24px;
+      font-weight: 950;
+    }
+    .review {
+      background: #eaf0fa;
+      border-radius: 12px;
+      color: #28344a;
+      padding: 16px;
+    }
+    .review-top {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .review strong {
+      display: block;
+      font-size: 12px;
+    }
+    .review p {
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.45;
+      margin: 0;
+    }
+    .gallery {
+      display: flex;
+      gap: 18px;
+      overflow: hidden;
+    }
+    .gallery .large-card {
+      flex-basis: 142px;
+      height: 105px;
+    }
+    @media (max-width: 920px) {
+      .hero-title { font-size: 24px; letter-spacing: 8px; margin-bottom: 32px; }
+      .phones { grid-template-columns: 1fr; gap: 36px; }
+      .phone { margin: 0 auto; max-width: 390px; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1 class="hero-title">ONECLICK APP MODEL</h1>
+    <section class="phones">
+      <article class="phone">
+        <div class="screen">
+          <div class="notch"></div>
+          <div class="status"><span>9:45</span><span class="signal">▮▮▮ ◦ <span class="battery"></span></span></div>
+          <header class="blue-head">
+            <div class="head-content">
+              <h1 class="head-title">O que voce quer acompanhar?</h1>
+              <div class="toolbar">
+                <div class="circle">▦</div>
+                <div class="pill">Selecionar modulo ˅</div>
+                <div class="circle">⌕</div>
+              </div>
+            </div>
+          </header>
+          <div class="body">
+            <section class="section">
+              <div class="section-head">
+                <div><h2>Resumo do Dia</h2><div class="sub">Ordenado por prioridade ˅</div></div>
+              </div>
+              <div class="horizontal">
+                <div class="deal">
+                  <div class="deal-top"><div><h3>Agenda</h3><small>Hoje</small></div><div class="star">★ 3</div></div>
+                  <div class="image-mark">▲</div>
+                  <div class="deal-actions"><span class="mini-btn">Abrir</span><span class="price">09:00</span></div>
+                </div>
+                <div class="deal">
+                  <div class="deal-top"><div><h3>Tarefas</h3><small>Abertas</small></div><div class="star">★ 8</div></div>
+                  <div class="image-mark">▲</div>
+                  <div class="deal-actions"><span class="mini-btn">Abrir</span><span class="price">2 hoje</span></div>
+                </div>
+                <div class="deal">
+                  <div class="deal-top"><div><h3>Helpdesk</h3><small>Chamados</small></div><div class="star">★ 2</div></div>
+                  <div class="image-mark">▲</div>
+                  <div class="deal-actions"><span class="mini-btn">Abrir</span><span class="price">TI</span></div>
+                </div>
+              </div>
+            </section>
+            <section class="section">
+              <div class="section-head">
+                <div><h2>Proximos Eventos</h2><div class="sub">Ordenado por horario ˅</div></div>
+              </div>
+              <div class="horizontal">
+                <div>
+                  <div class="large-card image-mark">▲</div>
+                  <div class="destination-meta"><div><strong>Reuniao fiscal</strong><span>Sala Contabil</span></div><div class="star">★ 09</div></div>
+                </div>
+                <div>
+                  <div class="large-card image-mark">▲</div>
+                  <div class="destination-meta"><div><strong>Cliente online</strong><span>Google Meet</span></div><div class="star">★ 14</div></div>
+                </div>
+                <div>
+                  <div class="large-card image-mark">▲</div>
+                  <div class="destination-meta"><div><strong>Pendencias</strong><span>Fiscal</span></div><div class="star">★ 16</div></div>
+                </div>
+              </div>
+            </section>
+          </div>
+          <nav class="bottom-nav">
+            <div class="nav-item active">⌂</div>
+            <div class="nav-item">◉</div>
+            <div class="nav-item">♥</div>
+            <div class="nav-item">⚙</div>
+          </nav>
+          <div class="home-indicator"></div>
+        </div>
+      </article>
+
+      <article class="phone">
+        <div class="screen">
+          <div class="notch"></div>
+          <div class="status"><span>9:45</span><span class="signal">▮▮▮ ◦ <span class="battery"></span></span></div>
+          <header class="detail-head">
+            <div class="detail-row">
+              <div class="back-title">
+                <div class="back">‹</div>
+                <div class="detail-title"><h1>Agenda</h1><span>Segunda, 08 de junho</span></div>
+              </div>
+              <div class="detail-actions"><span>♥</span><span>⋮</span></div>
+            </div>
+            <div class="tag-line"><span class="tag">3 eventos</span><span class="expires">Proximo em: 58 min</span></div>
+          </header>
+          <div class="body">
+            <section class="section">
+              <h2>Incluido</h2>
+              <div class="sub">Toque nos icones para filtrar.</div>
+              <div class="included">
+                <div class="included-item"><div class="included-icon">↗</div><span>Eventos</span></div>
+                <div class="included-item"><div class="included-icon">☑</div><span>Tarefas</span></div>
+                <div class="included-item"><div class="included-icon">☏</div><span>Chamados</span></div>
+                <div class="included-item"><div class="included-icon">◆</div><span>Prazos</span></div>
+              </div>
+            </section>
+            <section class="section">
+              <div class="rating-row">
+                <div><h2>Prioridade</h2><div class="sub">Ordenado por vencimento ˅</div></div>
+                <div><div class="rating">★ 4.6</div><div class="sub">429 itens</div></div>
+              </div>
+              <div class="review">
+                <div class="review-top"><div><strong>Reuniao fiscal mensal</strong><span class="star">★★★★★</span></div><div class="sub">09:00</div></div>
+                <p>Alinhamento de prazos, tarefas abertas e pendencias da semana com a equipe contabil.</p>
+              </div>
+            </section>
+            <section class="section">
+              <h2>Galeria</h2>
+              <div class="sub">Modulos recentes ˅</div>
+              <div class="gallery">
+                <div class="large-card image-mark">▲</div>
+                <div class="large-card image-mark">▲</div>
+                <div class="large-card image-mark">▲</div>
+              </div>
+            </section>
+          </div>
+          <nav class="bottom-nav">
+            <div class="nav-item active">⌂</div>
+            <div class="nav-item">◉</div>
+            <div class="nav-item">♥</div>
+            <div class="nav-item">⚙</div>
+          </nav>
+          <div class="home-indicator"></div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

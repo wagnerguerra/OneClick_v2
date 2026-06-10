@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OneClick Android Paralelo - Modelos Visuais</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #f4f6f8;
+      color: #172033;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    .intro {
+      margin-bottom: 22px;
+    }
+
+    .intro small {
+      color: #265f9f;
+      display: block;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: 31px;
+      line-height: 1.1;
+      margin: 5px 0 8px;
+    }
+
+    .intro p {
+      color: #667085;
+      margin: 0;
+      max-width: 760px;
+    }
+
+    .models {
+      display: grid;
+      gap: 24px;
+      grid-template-columns: repeat(4, minmax(240px, 1fr));
+    }
+
+    .model {
+      display: grid;
+      gap: 12px;
+    }
+
+    .model-title {
+      min-height: 64px;
+    }
+
+    .model-title h2 {
+      font-size: 17px;
+      line-height: 1.2;
+      margin: 0 0 5px;
+    }
+
+    .model-title p {
+      color: #667085;
+      font-size: 13px;
+      line-height: 1.35;
+      margin: 0;
+    }
+
+    .phone {
+      background: #101828;
+      border-radius: 34px;
+      box-shadow: 0 18px 45px rgba(16, 24, 40, .16);
+      padding: 10px;
+    }
+
+    .screen {
+      border-radius: 26px;
+      height: 650px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .screen::before {
+      background: #101828;
+      border-radius: 0 0 12px 12px;
+      content: "";
+      height: 18px;
+      left: 50%;
+      position: absolute;
+      top: 0;
+      transform: translateX(-50%);
+      width: 82px;
+      z-index: 10;
+    }
+
+    .content {
+      height: calc(100% - 62px);
+      overflow: hidden;
+      padding: 24px 18px 0;
+    }
+
+    .tabs {
+      align-items: center;
+      bottom: 0;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      height: 62px;
+      left: 0;
+      position: absolute;
+      right: 0;
+    }
+
+    .tab {
+      font-size: 11px;
+      font-weight: 850;
+      text-align: center;
+    }
+
+    .top {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      margin: 8px 0 16px;
+    }
+
+    .kicker {
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .top h3 {
+      font-size: 23px;
+      line-height: 1.08;
+      margin: 4px 0 0;
+      text-transform: capitalize;
+    }
+
+    .avatar {
+      align-items: center;
+      border-radius: 14px;
+      display: flex;
+      font-weight: 950;
+      height: 44px;
+      justify-content: center;
+      width: 44px;
+    }
+
+    .stats {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1fr 1fr;
+      margin-bottom: 12px;
+    }
+
+    .card {
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .stat-icon {
+      align-items: center;
+      border-radius: 10px;
+      display: flex;
+      font-size: 13px;
+      font-weight: 950;
+      height: 34px;
+      justify-content: center;
+      margin-bottom: 8px;
+      width: 34px;
+    }
+
+    .value {
+      font-size: 26px;
+      font-weight: 950;
+      line-height: 1;
+    }
+
+    .label {
+      font-size: 12px;
+      line-height: 1.25;
+      margin-top: 5px;
+    }
+
+    .section-title {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      margin: 12px 0 8px;
+    }
+
+    .section-title strong {
+      font-size: 15px;
+    }
+
+    .week {
+      display: grid;
+      gap: 7px;
+      grid-template-columns: repeat(7, 1fr);
+      margin-bottom: 12px;
+    }
+
+    .day {
+      align-items: center;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      height: 56px;
+      justify-content: center;
+    }
+
+    .day small {
+      font-size: 9px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .day strong {
+      font-size: 15px;
+    }
+
+    .event {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 5px 1fr;
+      margin-bottom: 10px;
+      padding: 0;
+    }
+
+    .event-bar {
+      border-radius: 14px 0 0 14px;
+    }
+
+    .event-body {
+      padding: 13px 13px 13px 8px;
+    }
+
+    .event h4 {
+      font-size: 14px;
+      line-height: 1.25;
+      margin: 0 0 4px;
+    }
+
+    .event p {
+      font-size: 12px;
+      line-height: 1.35;
+      margin: 2px 0;
+    }
+
+    .quick {
+      display: grid;
+      gap: 8px;
+    }
+
+    .quick-row {
+      align-items: center;
+      border-radius: 12px;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 34px 1fr auto;
+      padding: 10px;
+    }
+
+    .quick-row span:first-child {
+      align-items: center;
+      border-radius: 9px;
+      display: flex;
+      font-size: 12px;
+      font-weight: 900;
+      height: 34px;
+      justify-content: center;
+      width: 34px;
+    }
+
+    .quick-row strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.2;
+    }
+
+    .quick-row small {
+      display: block;
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    .theme-light .screen { background: #f7fafc; color: #102033; }
+    .theme-light .card,
+    .theme-light .day,
+    .theme-light .quick-row { background: #fff; border: 1px solid #dbe4ee; }
+    .theme-light .tabs { background: #fff; border-top: 1px solid #dbe4ee; }
+    .theme-light .kicker,
+    .theme-light .active,
+    .theme-light .tab.active { color: #0875d1; }
+    .theme-light .avatar,
+    .theme-light .stat-icon,
+    .theme-light .quick-row span:first-child { background: #dff1ff; color: #0875d1; }
+    .theme-light .label,
+    .theme-light .event p,
+    .theme-light .quick-row small,
+    .theme-light .tab { color: #667085; }
+    .theme-light .day.active { background: #0f8bff; border-color: #0f8bff; color: #fff; }
+    .theme-light .event-bar { background: #0f8bff; }
+
+    .theme-dark .screen { background: #111827; color: #f8fafc; }
+    .theme-dark .card,
+    .theme-dark .day,
+    .theme-dark .quick-row { background: #1f2937; border: 1px solid #334155; }
+    .theme-dark .tabs { background: #172033; border-top: 1px solid #334155; }
+    .theme-dark .kicker,
+    .theme-dark .active,
+    .theme-dark .tab.active { color: #38bdf8; }
+    .theme-dark .avatar,
+    .theme-dark .stat-icon,
+    .theme-dark .quick-row span:first-child { background: #0f3d5d; color: #7dd3fc; }
+    .theme-dark .label,
+    .theme-dark .event p,
+    .theme-dark .quick-row small,
+    .theme-dark .tab { color: #a7b4c7; }
+    .theme-dark .day.active { background: #0284c7; border-color: #0284c7; color: #fff; }
+    .theme-dark .event-bar { background: #38bdf8; }
+
+    .theme-green .screen { background: #f4faf7; color: #10231c; }
+    .theme-green .card,
+    .theme-green .day,
+    .theme-green .quick-row { background: #fff; border: 1px solid #d7ebe2; }
+    .theme-green .tabs { background: #fff; border-top: 1px solid #d7ebe2; }
+    .theme-green .kicker,
+    .theme-green .active,
+    .theme-green .tab.active { color: #047857; }
+    .theme-green .avatar,
+    .theme-green .stat-icon,
+    .theme-green .quick-row span:first-child { background: #dcfce7; color: #047857; }
+    .theme-green .label,
+    .theme-green .event p,
+    .theme-green .quick-row small,
+    .theme-green .tab { color: #66756e; }
+    .theme-green .day.active { background: #059669; border-color: #059669; color: #fff; }
+    .theme-green .event-bar { background: #10b981; }
+
+    .theme-steel .screen { background: #f5f6f8; color: #1c2430; }
+    .theme-steel .card,
+    .theme-steel .day,
+    .theme-steel .quick-row { background: #ffffff; border: 1px solid #d8dde5; }
+    .theme-steel .tabs { background: #ffffff; border-top: 1px solid #d8dde5; }
+    .theme-steel .kicker,
+    .theme-steel .active,
+    .theme-steel .tab.active { color: #40566f; }
+    .theme-steel .avatar,
+    .theme-steel .stat-icon,
+    .theme-steel .quick-row span:first-child { background: #e6ecf2; color: #40566f; }
+    .theme-steel .label,
+    .theme-steel .event p,
+    .theme-steel .quick-row small,
+    .theme-steel .tab { color: #667085; }
+    .theme-steel .day.active { background: #40566f; border-color: #40566f; color: #fff; }
+    .theme-steel .event-bar { background: #5c718a; }
+
+    @media (max-width: 1120px) {
+      .models { grid-template-columns: repeat(2, minmax(260px, 1fr)); }
+    }
+
+    @media (max-width: 640px) {
+      .page { padding: 16px; }
+      .models { grid-template-columns: 1fr; }
+      .phone { margin: 0 auto; max-width: 340px; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="intro">
+      <small>Comparativo visual</small>
+      <h1>Modelos de tema para o Android paralelo</h1>
+      <p>Quatro direcoes visuais usando a mesma tela-base: dashboard com indicadores, semana da agenda e proximos compromissos.</p>
+    </section>
+
+    <section class="models">
+      <article class="model theme-light">
+        <div class="model-title">
+          <h2>Modelo 1 - Claro operacional</h2>
+          <p>Mais proximo do ERP atual: limpo, direto e facil de escanear.</p>
+        </div>
+        <div class="phone">
+          <div class="screen">
+            <div class="content">
+              <div class="top">
+                <div>
+                  <div class="kicker">OneClick ERP</div>
+                  <h3>Ola, Wagner</h3>
+                </div>
+                <div class="avatar">W</div>
+              </div>
+              <div class="stats">
+                <div class="card">
+                  <div class="stat-icon">EV</div>
+                  <div class="value">3</div>
+                  <div class="label">Eventos hoje</div>
+                </div>
+                <div class="card">
+                  <div class="stat-icon">TA</div>
+                  <div class="value">8</div>
+                  <div class="label">Tarefas abertas</div>
+                </div>
+              </div>
+              <div class="section-title">
+                <strong>Semana</strong><span class="label">08 jun</span>
+              </div>
+              <div class="week">
+                <div class="day"><small>D</small><strong>7</strong></div>
+                <div class="day active"><small>S</small><strong>8</strong></div>
+                <div class="day"><small>T</small><strong>9</strong></div>
+                <div class="day"><small>Q</small><strong>10</strong></div>
+                <div class="day"><small>Q</small><strong>11</strong></div>
+                <div class="day"><small>S</small><strong>12</strong></div>
+                <div class="day"><small>S</small><strong>13</strong></div>
+              </div>
+              <div class="card event">
+                <div class="event-bar"></div>
+                <div class="event-body"><h4>Reuniao fiscal mensal</h4><p>09:00 - 10:00</p><p>Sala Contabil</p></div>
+              </div>
+              <div class="card event">
+                <div class="event-bar" style="background:#16a34a"></div>
+                <div class="event-body"><h4>Entrega de obrigacoes</h4><p>Dia inteiro</p><p>Agenda corporativa</p></div>
+              </div>
+            </div>
+            <nav class="tabs"><div class="tab active">Inicio</div><div class="tab active">Agenda</div><div class="tab">Perfil</div></nav>
+          </div>
+        </div>
+      </article>
+
+      <article class="model theme-dark">
+        <div class="model-title">
+          <h2>Modelo 2 - Escuro foco</h2>
+          <p>Bom para uso prolongado e tela de plantao; contraste alto.</p>
+        </div>
+        <div class="phone">
+          <div class="screen">
+            <div class="content">
+              <div class="top">
+                <div>
+                  <div class="kicker">OneClick ERP</div>
+                  <h3>Ola, Wagner</h3>
+                </div>
+                <div class="avatar">W</div>
+              </div>
+              <div class="stats">
+                <div class="card"><div class="stat-icon">EV</div><div class="value">3</div><div class="label">Eventos hoje</div></div>
+                <div class="card"><div class="stat-icon">TA</div><div class="value">8</div><div class="label">Tarefas abertas</div></div>
+              </div>
+              <div class="section-title"><strong>Semana</strong><span class="label">08 jun</span></div>
+              <div class="week">
+                <div class="day"><small>D</small><strong>7</strong></div><div class="day active"><small>S</small><strong>8</strong></div><div class="day"><small>T</small><strong>9</strong></div><div class="day"><small>Q</small><strong>10</strong></div><div class="day"><small>Q</small><strong>11</strong></div><div class="day"><small>S</small><strong>12</strong></div><div class="day"><small>S</small><strong>13</strong></div>
+              </div>
+              <div class="quick">
+                <div class="quick-row"><span>09</span><div><strong>Reuniao fiscal mensal</strong><small>Sala Contabil</small></div><small>10:00</small></div>
+                <div class="quick-row"><span>TI</span><div><strong>Validar acesso mobile</strong><small>Tarefa aberta</small></div><small>Hoje</small></div>
+                <div class="quick-row"><span>OK</span><div><strong>Fechamento de pendencias</strong><small>Equipe contabil</small></div><small>16:30</small></div>
+              </div>
+            </div>
+            <nav class="tabs"><div class="tab active">Inicio</div><div class="tab active">Agenda</div><div class="tab">Perfil</div></nav>
+          </div>
+        </div>
+      </article>
+
+      <article class="model theme-green">
+        <div class="model-title">
+          <h2>Modelo 3 - Verde produtividade</h2>
+          <p>Mais leve e positivo para agenda, prazos e rotina de escritorio.</p>
+        </div>
+        <div class="phone">
+          <div class="screen">
+            <div class="content">
+              <div class="top">
+                <div>
+                  <div class="kicker">OneClick ERP</div>
+                  <h3>Agenda do dia</h3>
+                </div>
+                <div class="avatar">+</div>
+              </div>
+              <div class="stats">
+                <div class="card"><div class="stat-icon">EV</div><div class="value">3</div><div class="label">Eventos hoje</div></div>
+                <div class="card"><div class="stat-icon">OK</div><div class="value">2</div><div class="label">Concluidos</div></div>
+              </div>
+              <div class="section-title"><strong>Semana</strong><span class="label">08 jun</span></div>
+              <div class="week">
+                <div class="day"><small>D</small><strong>7</strong></div><div class="day active"><small>S</small><strong>8</strong></div><div class="day"><small>T</small><strong>9</strong></div><div class="day"><small>Q</small><strong>10</strong></div><div class="day"><small>Q</small><strong>11</strong></div><div class="day"><small>S</small><strong>12</strong></div><div class="day"><small>S</small><strong>13</strong></div>
+              </div>
+              <div class="card event">
+                <div class="event-bar"></div>
+                <div class="event-body"><h4>Entrega de obrigacoes</h4><p>Dia inteiro</p><p>Agenda corporativa</p></div>
+              </div>
+              <div class="card event">
+                <div class="event-bar" style="background:#0ea5e9"></div>
+                <div class="event-body"><h4>Reuniao com cliente</h4><p>14:00 - 14:45</p><p>Online</p></div>
+              </div>
+            </div>
+            <nav class="tabs"><div class="tab">Inicio</div><div class="tab active">Agenda</div><div class="tab">Perfil</div></nav>
+          </div>
+        </div>
+      </article>
+
+      <article class="model theme-steel">
+        <div class="model-title">
+          <h2>Modelo 4 - Executivo neutro</h2>
+          <p>Visual sobrio, menos colorido, adequado para uso corporativo amplo.</p>
+        </div>
+        <div class="phone">
+          <div class="screen">
+            <div class="content">
+              <div class="top">
+                <div>
+                  <div class="kicker">OneClick ERP</div>
+                  <h3>Painel</h3>
+                </div>
+                <div class="avatar">W</div>
+              </div>
+              <div class="stats">
+                <div class="card"><div class="stat-icon">EV</div><div class="value">3</div><div class="label">Eventos hoje</div></div>
+                <div class="card"><div class="stat-icon">TA</div><div class="value">8</div><div class="label">Tarefas abertas</div></div>
+              </div>
+              <div class="section-title"><strong>Proximos</strong><span class="label">Atualizado agora</span></div>
+              <div class="quick">
+                <div class="quick-row"><span>09</span><div><strong>Reuniao fiscal mensal</strong><small>Sala Contabil</small></div><small>1h</small></div>
+                <div class="quick-row"><span>11</span><div><strong>Analise de pendencias</strong><small>Fiscal</small></div><small>2h</small></div>
+                <div class="quick-row"><span>16</span><div><strong>Follow-up interno</strong><small>Administrativo</small></div><small>Hoje</small></div>
+              </div>
+              <div class="section-title"><strong>Semana</strong><span class="label">08 jun</span></div>
+              <div class="week">
+                <div class="day"><small>D</small><strong>7</strong></div><div class="day active"><small>S</small><strong>8</strong></div><div class="day"><small>T</small><strong>9</strong></div><div class="day"><small>Q</small><strong>10</strong></div><div class="day"><small>Q</small><strong>11</strong></div><div class="day"><small>S</small><strong>12</strong></div><div class="day"><small>S</small><strong>13</strong></div>
+              </div>
+            </div>
+            <nav class="tabs"><div class="tab active">Inicio</div><div class="tab">Agenda</div><div class="tab">Perfil</div></nav>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
