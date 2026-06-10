@@ -1467,8 +1467,8 @@ export default function AgendaPage() {
           <Card className="p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filtros</h5>
-              <button onClick={() => setFiltrosOpen(false)} title="Recolher painel" className="-mr-1 h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-                <ChevronLeft className="h-4 w-4" />
+              <button onClick={() => setFiltrosOpen(false)} title="Recolher painel" className="-mr-1 h-6 w-6 flex items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground shadow-sm transition-colors">
+                <ChevronLeft className="h-3.5 w-3.5" />
               </button>
             </div>
             <div className="space-y-1.5">
@@ -1665,8 +1665,8 @@ export default function AgendaPage() {
         </div>
         ) : (
           <div className="w-9 flex flex-col items-center pt-1">
-            <button onClick={() => setFiltrosOpen(true)} title="Expandir filtros" className="h-9 w-9 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-              <ChevronRight className="h-4 w-4" />
+            <button onClick={() => setFiltrosOpen(true)} title="Expandir filtros" className="h-7 w-7 flex items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground shadow-sm transition-colors">
+              <ChevronRight className="h-3.5 w-3.5" />
             </button>
             <span className="mt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground [writing-mode:vertical-rl] rotate-180 select-none">Filtros</span>
           </div>
