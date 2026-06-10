@@ -1366,7 +1366,7 @@ export default function AgendaPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
         <div className="flex items-center gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/materiais/icon_calendar.png" alt="Agenda" className="h-12 w-12 rounded-[4px] object-cover shadow-md shrink-0" />
+          <img src="/materiais/icon_calendar.png" alt="Agenda" className="h-12 w-12 object-contain shrink-0" />
           <div>
             <h1>Agenda Corporativa</h1>
             <p className="text-sm text-muted-foreground">Gerencie eventos, reuniões e compromissos</p>
