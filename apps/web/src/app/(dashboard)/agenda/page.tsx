@@ -2205,11 +2205,11 @@ export default function AgendaPage() {
               }
               return (
                 <div className="space-y-5">
-                <div className={cn('grid gap-5', op ? 'grid-cols-1 lg:grid-cols-[1fr_340px]' : 'grid-cols-1')}>
+                <div className={cn('grid gap-5 lg:h-[62vh]', op ? 'grid-cols-1 lg:grid-cols-[1fr_340px]' : 'grid-cols-1')}>
                   {/* ============ COLUNA ESQUERDA (principal) ============ */}
-                  <div className="min-w-0 space-y-4">
+                  <div className="min-w-0 flex flex-col lg:min-h-0">
                     {/* Cabeçalho: título em destaque + badge do tipo + criado por */}
-                    <div className="space-y-2 pb-3 border-b border-border">
+                    <div className="space-y-2 pb-3 border-b border-border shrink-0">
                       <div className="flex items-start gap-2.5 flex-wrap">
                         {canAlterarTipo ? (
                           <DropdownMenu>
@@ -2259,7 +2259,7 @@ export default function AgendaPage() {
                     </div>
 
                     {/* Abas da prévia: Detalhes / Anotações / Anexos */}
-                    <div className="flex items-center gap-1 border-b border-border">
+                    <div className="flex items-center gap-1 border-b border-border shrink-0 mt-4">
                       {[
                         { value: 'detalhes', label: 'Detalhes', icon: Calendar },
                         { value: 'anotacoes', label: `Anotações${eventoAnotacoes.length ? ` (${eventoAnotacoes.length})` : ''}`, icon: StickyNote },
@@ -2278,6 +2278,9 @@ export default function AgendaPage() {
                         </button>
                       ))}
                     </div>
+
+                    {/* Conteúdo das abas — scroll interno pra manter a altura fixa do modal */}
+                    <div className="flex-1 lg:min-h-0 lg:overflow-y-auto nice-scrollbar pr-1">
 
                     {/* ABA: DETALHES — tabela de campos + descrição do evento */}
                     {viewTab === 'detalhes' && (<div className="space-y-4 pt-3">
@@ -2408,12 +2411,13 @@ export default function AgendaPage() {
                         )}
                       </div>
                     )}
+                    </div>
 
                   </div>
 
                   {/* ============ COLUNA DIREITA (oportunidade do CRM) ============ */}
                   {op && (
-                    <div className="lg:sticky lg:top-0 self-start">
+                    <div className="lg:min-h-0 lg:overflow-y-auto nice-scrollbar self-start lg:self-stretch">
                       <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 dark:bg-violet-500/10 overflow-hidden">
                         <div className="px-4 py-2.5 border-b border-violet-500/20 flex items-center gap-2 bg-violet-500/10">
                           <Target className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
