@@ -284,6 +284,8 @@ export default function AgendaPage() {
   // `editar_todos_eventos` permite editar/excluir eventos de QUALQUER usuário,
   // mesmo os marcados como editavel=false (importados do legado).
   const canEditarTodosEventos = isMaster || subPerms.editar_todos_eventos === true
+  // Editar/excluir anotações e anexos de OUTROS usuários (o dono sempre pode no próprio).
+  const canGerenciarAnotacoesAnexos = isMaster || subPerms.gerenciar_anotacoes_anexos === true
   // Acesso ao módulo CRM — gateia o botão "Abrir no CRM" no painel da oportunidade.
   const canViewCrm = isMaster || permissions.some(p => p.moduleSlug === 'crm' && p.canRead)
   const showSettingsDropdown = canManageTipos || canImportLegado || canManageConfig
@@ -407,6 +409,9 @@ export default function AgendaPage() {
   const [novaAnotacao, setNovaAnotacao] = useState('')
   const [uploadingAnexo, setUploadingAnexo] = useState(false)
   const anexoInputRef = useRef<HTMLInputElement>(null)
+  // Edição inline de anotação (id em edição + texto temporário).
+  const [editandoAnotacaoId, setEditandoAnotacaoId] = useState<string | null>(null)
+  const [editandoAnotacaoTexto, setEditandoAnotacaoTexto] = useState('')
 
   const carregarAnotacoesAnexos = useCallback(async (eventoId: string) => {
     try {
@@ -432,9 +437,139 @@ export default function AgendaPage() {
   async function removeAnotacaoEvento(anotacaoId: string) {
     const id = selectedEvento?.id
     if (!id) return
-    await (trpc.agenda as any).deleteAnotacao.mutate({ eventoId: id, anotacaoId }).catch(() => {})
-    await carregarAnotacoesAnexos(id)
+    try {
+      await (trpc.agenda as any).deleteAnotacao.mutate({ eventoId: id, anotacaoId })
+      await carregarAnotacoesAnexos(id)
+    } catch (e) { alert((e as Error).message) }
   }
+  function iniciarEdicaoAnotacao(anotacaoId: string, texto: string) {
+    setEditandoAnotacaoId(anotacaoId)
+    setEditandoAnotacaoTexto(texto)
+  }
+  async function salvarEdicaoAnotacao() {
+    const id = selectedEvento?.id
+    if (!id || !editandoAnotacaoId || !editandoAnotacaoTexto.trim()) return
+    try {
+      await (trpc.agenda as any).editarAnotacao.mutate({ eventoId: id, anotacaoId: editandoAnotacaoId, texto: editandoAnotacaoTexto.trim() })
+      setEditandoAnotacaoId(null); setEditandoAnotacaoTexto('')
+      await carregarAnotacoesAnexos(id)
+    } catch (e) { alert((e as Error).message) }
+  }
+  // Pode mexer (editar/excluir) num registro: dono OU master/sub-perm.
+  const podeGerenciarRegistro = (recordUserId: string | null | undefined) =>
+    (!!recordUserId && recordUserId === currentUserId) || canGerenciarAnotacoesAnexos
+
+  // Render compartilhado entre a aba (modo edição) e a prévia (modo view).
+  const renderAnotacoesSection = () => (
+    <>
+      {eventoVinculado && (
+        <div className="flex items-start gap-2 rounded-md border border-sky-200 dark:border-sky-900/50 bg-sky-50/60 dark:bg-sky-950/30 px-3 py-2 text-[11px] text-sky-700 dark:text-sky-300">
+          <Link2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          <span>Este evento está vinculado a um card do CRM — as anotações são compartilhadas com a oportunidade.</span>
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Input
+          placeholder="Escreva uma anotação..."
+          value={novaAnotacao}
+          onChange={e => setNovaAnotacao(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addAnotacaoEvento() } }}
+          className="h-9 text-sm flex-1"
+        />
+        <Button size="sm" className="bg-sky-500 hover:bg-sky-600 text-white" onClick={addAnotacaoEvento} disabled={!novaAnotacao.trim()}>
+          <Send className="h-4 w-4" />
+        </Button>
+      </div>
+      {eventoAnotacoes.length === 0 && (
+        <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma anotação</p>
+      )}
+      <div className="space-y-2">
+        {eventoAnotacoes.map(a => {
+          const podeMexer = podeGerenciarRegistro(a.userId)
+          const editando = editandoAnotacaoId === a.id
+          return (
+            <div key={a.id} className="group rounded-md bg-muted/40 p-3">
+              <div className="flex items-center justify-between mb-1 gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {a.user?.image
+                    ? <img src={resolveAssetUrl(a.user.image)} alt={a.user.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
+                    : <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">{(a.user?.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}</span>}
+                  <span className="text-xs font-semibold truncate">{a.user?.name || 'Sistema'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-[10px] text-muted-foreground">{new Date(a.createdAt).toLocaleString('pt-BR')}</span>
+                  {podeMexer && !editando && (
+                    <>
+                      <button onClick={() => iniciarEdicaoAnotacao(a.id, a.texto)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-sky-600" title="Editar anotação">
+                        <Edit2 className="h-3 w-3" />
+                      </button>
+                      <button onClick={() => removeAnotacaoEvento(a.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive" title="Excluir anotação">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+              {editando ? (
+                <div className="space-y-1.5">
+                  <textarea
+                    value={editandoAnotacaoTexto}
+                    onChange={e => setEditandoAnotacaoTexto(e.target.value)}
+                    rows={2}
+                    className="w-full text-sm rounded-md border border-border bg-background px-2 py-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
+                  />
+                  <div className="flex justify-end gap-1.5">
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setEditandoAnotacaoId(null); setEditandoAnotacaoTexto('') }}>Cancelar</Button>
+                    <Button size="sm" className="h-7 text-xs bg-sky-500 hover:bg-sky-600 text-white" onClick={salvarEdicaoAnotacao} disabled={!editandoAnotacaoTexto.trim()}>Salvar</Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm whitespace-pre-wrap break-words">{a.texto}</p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </>
+  )
+
+  const renderAnexosSection = () => (
+    <>
+      {eventoVinculado && (
+        <div className="flex items-start gap-2 rounded-md border border-sky-200 dark:border-sky-900/50 bg-sky-50/60 dark:bg-sky-950/30 px-3 py-2 text-[11px] text-sky-700 dark:text-sky-300">
+          <Link2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          <span>Este evento está vinculado a um card do CRM — os anexos são compartilhados com a oportunidade.</span>
+        </div>
+      )}
+      <input ref={anexoInputRef} type="file" multiple className="hidden" onChange={e => { if (e.target.files?.length) uploadAnexosEvento(e.target.files); e.target.value = '' }} />
+      <Button size="sm" variant="outline" className="w-full gap-1.5" onClick={() => anexoInputRef.current?.click()} disabled={uploadingAnexo}>
+        {uploadingAnexo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+        {uploadingAnexo ? 'Enviando...' : 'Anexar arquivo'}
+      </Button>
+      {eventoAnexos.length === 0 && (
+        <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhum anexo</p>
+      )}
+      <div className="space-y-1.5">
+        {eventoAnexos.map(x => {
+          const podeMexer = podeGerenciarRegistro(x.userId)
+          return (
+            <div key={x.id} className="group flex items-center gap-2 rounded-md bg-muted/40 px-3 py-2">
+              <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
+              <a href={resolveAssetUrl(x.fileUrl)} target="_blank" rel="noopener noreferrer" className="text-sm truncate flex-1 hover:underline" title={x.fileName}>
+                {x.fileName}
+              </a>
+              {x.fileSize != null && <span className="text-[10px] text-muted-foreground shrink-0">{(x.fileSize / 1024).toFixed(0)} KB</span>}
+              {podeMexer && (
+                <button onClick={() => removeAnexoEvento(x.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0" title="Remover anexo">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </>
+  )
   async function uploadAnexosEvento(files: FileList | File[]) {
     const id = selectedEvento?.id
     if (!id) return
@@ -826,6 +961,10 @@ export default function AgendaPage() {
     setSelectedEvento(ev)
     setEventLogs([])
     setModalOpen(true)
+    // Anotações/anexos (do evento ou da oportunidade vinculada) — também na prévia.
+    setNovaAnotacao(''); setEditandoAnotacaoId(null); setEditandoAnotacaoTexto('')
+    setEventoAnotacoes([]); setEventoAnexos([]); setEventoVinculado(false)
+    void carregarAnotacoesAnexos(ev.id)
     // Carregar logs
     trpc.agenda.listLogs.query({ eventoId: ev.id })
       .then((r: unknown) => setEventLogs(r as typeof eventLogs))
@@ -2043,6 +2182,7 @@ export default function AgendaPage() {
                 return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
               }
               return (
+                <div className="space-y-5">
                 <div className={cn('grid gap-5', op ? 'grid-cols-1 lg:grid-cols-[1fr_340px]' : 'grid-cols-1')}>
                   {/* ============ COLUNA ESQUERDA (principal) ============ */}
                   <div className="min-w-0 space-y-4">
@@ -2342,6 +2482,24 @@ export default function AgendaPage() {
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* ===== Anotações & Anexos (full width, abaixo dos detalhes) ===== */}
+                {/* Disponíveis também na prévia — qualquer usuário pode adicionar. */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-4 border-t border-border">
+                  <div className="space-y-3 min-w-0">
+                    <h4 className="text-[13px] font-semibold flex items-center gap-1.5">
+                      <StickyNote className="h-3.5 w-3.5 text-sky-500" />Anotações{eventoAnotacoes.length > 0 ? ` (${eventoAnotacoes.length})` : ''}
+                    </h4>
+                    {renderAnotacoesSection()}
+                  </div>
+                  <div className="space-y-3 min-w-0">
+                    <h4 className="text-[13px] font-semibold flex items-center gap-1.5">
+                      <Paperclip className="h-3.5 w-3.5 text-sky-500" />Anexos{eventoAnexos.length > 0 ? ` (${eventoAnexos.length})` : ''}
+                    </h4>
+                    {renderAnexosSection()}
+                  </div>
+                </div>
                 </div>
               )
             })()}
@@ -3063,52 +3221,7 @@ export default function AgendaPage() {
                         <p className="text-xs text-muted-foreground text-center py-10 italic">
                           Salve o evento para adicionar anotações.
                         </p>
-                      ) : (
-                        <>
-                          {eventoVinculado && (
-                            <div className="flex items-start gap-2 rounded-md border border-sky-200 dark:border-sky-900/50 bg-sky-50/60 dark:bg-sky-950/30 px-3 py-2 text-[11px] text-sky-700 dark:text-sky-300">
-                              <Link2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                              <span>Este evento está vinculado a um card do CRM — as anotações são compartilhadas com a oportunidade.</span>
-                            </div>
-                          )}
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder="Escreva uma anotação..."
-                              value={novaAnotacao}
-                              onChange={e => setNovaAnotacao(e.target.value)}
-                              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addAnotacaoEvento() } }}
-                              className="h-9 text-sm flex-1"
-                            />
-                            <Button size="sm" className="bg-sky-500 hover:bg-sky-600 text-white" onClick={addAnotacaoEvento} disabled={!novaAnotacao.trim()}>
-                              <Send className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          {eventoAnotacoes.length === 0 && (
-                            <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma anotação</p>
-                          )}
-                          <div className="space-y-2">
-                            {eventoAnotacoes.map(a => (
-                              <div key={a.id} className="group rounded-md bg-muted/40 p-3">
-                                <div className="flex items-center justify-between mb-1 gap-2">
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    {a.user?.image
-                                      ? <img src={resolveAssetUrl(a.user.image)} alt={a.user.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
-                                      : <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">{(a.user?.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}</span>}
-                                    <span className="text-xs font-semibold truncate">{a.user?.name || 'Sistema'}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1.5 shrink-0">
-                                    <span className="text-[10px] text-muted-foreground">{new Date(a.createdAt).toLocaleString('pt-BR')}</span>
-                                    <button onClick={() => removeAnotacaoEvento(a.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive" title="Excluir anotação">
-                                      <Trash2 className="h-3 w-3" />
-                                    </button>
-                                  </div>
-                                </div>
-                                <p className="text-sm whitespace-pre-wrap break-words">{a.texto}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
+                      ) : renderAnotacoesSection()}
                     </TabsContent>
 
                     {/* ABA: ANEXOS */}
@@ -3117,38 +3230,7 @@ export default function AgendaPage() {
                         <p className="text-xs text-muted-foreground text-center py-10 italic">
                           Salve o evento para anexar arquivos.
                         </p>
-                      ) : (
-                        <>
-                          {eventoVinculado && (
-                            <div className="flex items-start gap-2 rounded-md border border-sky-200 dark:border-sky-900/50 bg-sky-50/60 dark:bg-sky-950/30 px-3 py-2 text-[11px] text-sky-700 dark:text-sky-300">
-                              <Link2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                              <span>Este evento está vinculado a um card do CRM — os anexos são compartilhados com a oportunidade.</span>
-                            </div>
-                          )}
-                          <input ref={anexoInputRef} type="file" multiple className="hidden" onChange={e => { if (e.target.files?.length) uploadAnexosEvento(e.target.files); e.target.value = '' }} />
-                          <Button size="sm" variant="outline" className="w-full gap-1.5" onClick={() => anexoInputRef.current?.click()} disabled={uploadingAnexo}>
-                            {uploadingAnexo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                            {uploadingAnexo ? 'Enviando...' : 'Anexar arquivo'}
-                          </Button>
-                          {eventoAnexos.length === 0 && (
-                            <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhum anexo</p>
-                          )}
-                          <div className="space-y-1.5">
-                            {eventoAnexos.map(x => (
-                              <div key={x.id} className="group flex items-center gap-2 rounded-md bg-muted/40 px-3 py-2">
-                                <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
-                                <a href={resolveAssetUrl(x.fileUrl)} target="_blank" rel="noopener noreferrer" className="text-sm truncate flex-1 hover:underline" title={x.fileName}>
-                                  {x.fileName}
-                                </a>
-                                {x.fileSize != null && <span className="text-[10px] text-muted-foreground shrink-0">{(x.fileSize / 1024).toFixed(0)} KB</span>}
-                                <button onClick={() => removeAnexoEvento(x.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0" title="Remover anexo">
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
+                      ) : renderAnexosSection()}
                     </TabsContent>
                     </div>
                   </Tabs>

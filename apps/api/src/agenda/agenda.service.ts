@@ -173,6 +173,28 @@ export class AgendaService {
     return subs.delete_eventos === true || subs.editar_todos_eventos === true
   }
 
+  /**
+   * Pode editar/excluir anotações e anexos de QUALQUER usuário: MASTER ou
+   * sub-perm `gerenciar_anotacoes_anexos`. (O dono do registro sempre pode
+   * mexer no próprio — checado por registro em `podeGerenciarRegistro`.)
+   */
+  private async userPodeGerenciarAnotacaoAnexo(userId: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { isMaster: true } })
+    if (user?.isMaster) return true
+    const perm = await prisma.userPermission.findUnique({
+      where: { userId_moduleSlug: { userId, moduleSlug: 'agenda' } },
+      select: { subPermissions: true },
+    })
+    const subs = (perm?.subPermissions ?? {}) as Record<string, boolean>
+    return subs.gerenciar_anotacoes_anexos === true
+  }
+
+  /** Dono do registro OU master/sub-perm. `ownerId` = userId que criou a anotação/anexo. */
+  private async podeGerenciarRegistro(userId: string, ownerId: string | null | undefined): Promise<boolean> {
+    if (ownerId && ownerId === userId) return true
+    return this.userPodeGerenciarAnotacaoAnexo(userId)
+  }
+
   getImportProgress(): ImportProgress {
     return { ...this.importProgress }
   }
@@ -438,10 +460,35 @@ export class AgendaService {
     return prisma.agendaEventoAnotacao.create({ data: { eventoId, userId, texto: t } })
   }
 
-  async deleteAnotacao(eventoId: string, anotacaoId: string, _userId: string) {
+  async editarAnotacao(eventoId: string, anotacaoId: string, texto: string, userId: string) {
+    const t = (texto ?? '').trim()
+    if (!t) throw new Error('A anotação não pode ser vazia.')
     const oppId = await this.eventoOportunidadeId(eventoId)
-    if (oppId) await prisma.oportunidadeMensagem.deleteMany({ where: { id: anotacaoId, oportunidadeId: oppId } })
-    else await prisma.agendaEventoAnotacao.deleteMany({ where: { id: anotacaoId, eventoId } })
+    if (oppId) {
+      const rec = await prisma.oportunidadeMensagem.findUnique({ where: { id: anotacaoId }, select: { userId: true, oportunidadeId: true } })
+      if (!rec || rec.oportunidadeId !== oppId) throw new Error('Anotação não encontrada.')
+      if (!(await this.podeGerenciarRegistro(userId, rec.userId))) throw new Error('Você não tem permissão para editar esta anotação.')
+      return prisma.oportunidadeMensagem.update({ where: { id: anotacaoId }, data: { mensagem: t } })
+    }
+    const rec = await prisma.agendaEventoAnotacao.findUnique({ where: { id: anotacaoId }, select: { userId: true, eventoId: true } })
+    if (!rec || rec.eventoId !== eventoId) throw new Error('Anotação não encontrada.')
+    if (!(await this.podeGerenciarRegistro(userId, rec.userId))) throw new Error('Você não tem permissão para editar esta anotação.')
+    return prisma.agendaEventoAnotacao.update({ where: { id: anotacaoId }, data: { texto: t } })
+  }
+
+  async deleteAnotacao(eventoId: string, anotacaoId: string, userId: string) {
+    const oppId = await this.eventoOportunidadeId(eventoId)
+    if (oppId) {
+      const rec = await prisma.oportunidadeMensagem.findUnique({ where: { id: anotacaoId }, select: { userId: true, oportunidadeId: true } })
+      if (!rec || rec.oportunidadeId !== oppId) return { ok: true }
+      if (!(await this.podeGerenciarRegistro(userId, rec.userId))) throw new Error('Você não tem permissão para excluir esta anotação.')
+      await prisma.oportunidadeMensagem.delete({ where: { id: anotacaoId } })
+    } else {
+      const rec = await prisma.agendaEventoAnotacao.findUnique({ where: { id: anotacaoId }, select: { userId: true, eventoId: true } })
+      if (!rec || rec.eventoId !== eventoId) return { ok: true }
+      if (!(await this.podeGerenciarRegistro(userId, rec.userId))) throw new Error('Você não tem permissão para excluir esta anotação.')
+      await prisma.agendaEventoAnotacao.delete({ where: { id: anotacaoId } })
+    }
     return { ok: true }
   }
 
@@ -479,10 +526,19 @@ export class AgendaService {
     })
   }
 
-  async removeAnexo(eventoId: string, anexoId: string, _userId: string) {
+  async removeAnexo(eventoId: string, anexoId: string, userId: string) {
     const oppId = await this.eventoOportunidadeId(eventoId)
-    if (oppId) await prisma.oportunidadeArquivo.deleteMany({ where: { id: anexoId, oportunidadeId: oppId } })
-    else await prisma.agendaEventoAnexo.deleteMany({ where: { id: anexoId, eventoId } })
+    if (oppId) {
+      const rec = await prisma.oportunidadeArquivo.findUnique({ where: { id: anexoId }, select: { userId: true, oportunidadeId: true } })
+      if (!rec || rec.oportunidadeId !== oppId) return { ok: true }
+      if (!(await this.podeGerenciarRegistro(userId, rec.userId))) throw new Error('Você não tem permissão para remover este anexo.')
+      await prisma.oportunidadeArquivo.delete({ where: { id: anexoId } })
+    } else {
+      const rec = await prisma.agendaEventoAnexo.findUnique({ where: { id: anexoId }, select: { userId: true, eventoId: true } })
+      if (!rec || rec.eventoId !== eventoId) return { ok: true }
+      if (!(await this.podeGerenciarRegistro(userId, rec.userId))) throw new Error('Você não tem permissão para remover este anexo.')
+      await prisma.agendaEventoAnexo.delete({ where: { id: anexoId } })
+    }
     return { ok: true }
   }
 

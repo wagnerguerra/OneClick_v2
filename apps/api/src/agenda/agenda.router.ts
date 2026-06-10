@@ -160,20 +160,25 @@ export function createAgendaRouter(
 
     // === ANOTAÇÕES & ANEXOS DO EVENTO ===
     // Gravam no evento OU na oportunidade vinculada (merge) — ver agenda.service.
+    // Qualquer usuário com LEITURA da agenda pode adicionar (mesmo não sendo dono
+    // do evento). Editar/excluir é gateado por dono/master/sub-perm no service.
     listAnotacoes: readProcedure(MODULE)
       .input(z.object({ eventoId: z.string() }))
       .query(({ input }) => service.listAnotacoes(input.eventoId)),
-    addAnotacao: writeProcedure(MODULE)
+    addAnotacao: readProcedure(MODULE)
       .input(z.object({ eventoId: z.string(), texto: z.string().min(1) }))
       .mutation(({ input, ctx }) => service.addAnotacao(input.eventoId, ctx.userId, input.texto)),
-    deleteAnotacao: deleteProcedure(MODULE)
+    editarAnotacao: readProcedure(MODULE)
+      .input(z.object({ eventoId: z.string(), anotacaoId: z.string(), texto: z.string().min(1) }))
+      .mutation(({ input, ctx }) => service.editarAnotacao(input.eventoId, input.anotacaoId, input.texto, ctx.userId)),
+    deleteAnotacao: readProcedure(MODULE)
       .input(z.object({ eventoId: z.string(), anotacaoId: z.string() }))
       .mutation(({ input, ctx }) => service.deleteAnotacao(input.eventoId, input.anotacaoId, ctx.userId)),
 
     listAnexos: readProcedure(MODULE)
       .input(z.object({ eventoId: z.string() }))
       .query(({ input }) => service.listAnexos(input.eventoId)),
-    addAnexo: writeProcedure(MODULE)
+    addAnexo: readProcedure(MODULE)
       .input(z.object({
         eventoId: z.string(),
         fileName: z.string(),
@@ -184,7 +189,7 @@ export function createAgendaRouter(
       .mutation(({ input, ctx }) => service.addAnexo(input.eventoId, {
         fileName: input.fileName, fileUrl: input.fileUrl, fileSize: input.fileSize, mimeType: input.mimeType,
       }, ctx.userId)),
-    removeAnexo: deleteProcedure(MODULE)
+    removeAnexo: readProcedure(MODULE)
       .input(z.object({ eventoId: z.string(), anexoId: z.string() }))
       .mutation(({ input, ctx }) => service.removeAnexo(input.eventoId, input.anexoId, ctx.userId)),
 
