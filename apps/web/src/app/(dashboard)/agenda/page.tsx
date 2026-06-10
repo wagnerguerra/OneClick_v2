@@ -322,6 +322,10 @@ export default function AgendaPage() {
   const [filtroBusca, setFiltroBusca] = useState<string>('')
   // Filtro de sala de reunião: '' = todas · '__any__' = qualquer sala ocupada · <id> = sala específica
   const [filtroSala, setFiltroSala] = useState<string>('')
+  // Painel lateral (filtros + eventos de hoje) retrátil — ganha espaço no calendário.
+  const [filtrosOpen, setFiltrosOpen] = useState(true)
+  useEffect(() => { if (typeof window !== 'undefined' && localStorage.getItem('agenda-filtros-open') === '0') setFiltrosOpen(false) }, [])
+  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('agenda-filtros-open', filtrosOpen ? '1' : '0') }, [filtrosOpen])
 
   // Modal de evento
   const [modalOpen, setModalOpen] = useState(false)
@@ -1453,9 +1457,15 @@ export default function AgendaPage() {
 
       <div className="flex gap-4 items-start">
         {/* ============================================================ */}
-        {/* PAINEL ESQUERDO — ações, filtros, eventos de hoje */}
+        {/* PAINEL ESQUERDO — ações, filtros, eventos de hoje (retrátil) */}
         {/* ============================================================ */}
+        {filtrosOpen ? (
         <div className="hidden xl:block w-[280px] shrink-0 space-y-3">
+          <div className="flex justify-end -mb-1">
+            <button onClick={() => setFiltrosOpen(false)} title="Recolher painel" className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </div>
 
           {/* Filtros */}
           <Card className="p-4 space-y-3">
@@ -1652,6 +1662,14 @@ export default function AgendaPage() {
           </div>
 
         </div>
+        ) : (
+          <div className="hidden xl:flex shrink-0 w-9 flex-col items-center pt-1">
+            <button onClick={() => setFiltrosOpen(true)} title="Expandir filtros" className="h-9 w-9 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <span className="mt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground [writing-mode:vertical-rl] rotate-180 select-none">Filtros</span>
+          </div>
+        )}
 
         {/* ============================================================ */}
         {/* CALENDÁRIO — painel principal */}
