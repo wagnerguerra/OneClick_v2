@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  ArrowLeft, Calendar, Clock, Users, FileBarChart, Loader2, CalendarDays, Lock,
+  ArrowLeft, Clock, Users, FileBarChart, Loader2, CalendarDays, Lock,
+  ChevronUp, ChevronDown, ChevronsUpDown,
 } from 'lucide-react'
 import {
   Button, Card, CardContent, cn,
@@ -42,6 +43,47 @@ function ultimoDiaMes(d: Date) {
   return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`
 }
 
+type SortKey = 'nome' | 'quantidade' | 'totalMinutos'
+type SortState = { key: SortKey; dir: 'asc' | 'desc' }
+
+function sortRows<T extends { nome: string; quantidade: number; totalMinutos: number }>(rows: T[], s: SortState): T[] {
+  const mult = s.dir === 'asc' ? 1 : -1
+  return [...rows].sort((a, b) => {
+    if (s.key === 'nome') return a.nome.localeCompare(b.nome, 'pt-BR') * mult
+    return (a[s.key] - b[s.key]) * mult
+  })
+}
+
+/** Cabeçalho de coluna clicável (ordena asc/desc, com indicador). */
+function SortableTh({ label, colKey, sort, setSort, align = 'left', className }: {
+  label: string
+  colKey: SortKey
+  sort: SortState
+  setSort: (s: SortState) => void
+  align?: 'left' | 'right'
+  className?: string
+}) {
+  const active = sort.key === colKey
+  const onClick = () => setSort(
+    active
+      ? { key: colKey, dir: sort.dir === 'asc' ? 'desc' : 'asc' }
+      : { key: colKey, dir: colKey === 'nome' ? 'asc' : 'desc' },
+  )
+  return (
+    <th
+      onClick={onClick}
+      className={cn('font-semibold px-4 py-2 cursor-pointer select-none hover:text-foreground transition-colors', align === 'right' ? 'text-right' : 'text-left', className)}
+    >
+      <span className={cn('inline-flex items-center gap-1', align === 'right' && 'flex-row-reverse')}>
+        {label}
+        {active
+          ? (sort.dir === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)
+          : <ChevronsUpDown className="h-3 w-3 opacity-30" />}
+      </span>
+    </th>
+  )
+}
+
 export default function RelatoriosAgendaPage() {
   const { isMaster, permissions, loading: permsLoading } = useUserPermissions()
   const agendaPerm = permissions.find(p => p.moduleSlug === 'agenda')
@@ -58,6 +100,8 @@ export default function RelatoriosAgendaPage() {
   const [tipos, setTipos] = useState<Tipo[]>([])
   const [data, setData] = useState<Relatorio | null>(null)
   const [loading, setLoading] = useState(false)
+  const [sortTipo, setSortTipo] = useState<SortState>({ key: 'nome', dir: 'asc' })
+  const [sortUser, setSortUser] = useState<SortState>({ key: 'nome', dir: 'asc' })
 
   useEffect(() => {
     if (!canVer) return
@@ -199,12 +243,12 @@ export default function RelatoriosAgendaPage() {
                   <div className="max-h-[420px] overflow-y-auto nice-scrollbar">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 z-10 bg-card"><tr className="text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/40">
-                      <th className="text-left font-semibold px-4 py-2">Tipo</th>
-                      <th className="text-right font-semibold px-4 py-2 w-20">Qtd.</th>
-                      <th className="text-right font-semibold px-4 py-2 w-28">Tempo</th>
+                      <SortableTh label="Tipo" colKey="nome" sort={sortTipo} setSort={setSortTipo} />
+                      <SortableTh label="Qtd." colKey="quantidade" sort={sortTipo} setSort={setSortTipo} align="right" className="w-20" />
+                      <SortableTh label="Tempo" colKey="totalMinutos" sort={sortTipo} setSort={setSortTipo} align="right" className="w-28" />
                     </tr></thead>
                     <tbody className="divide-y divide-border">
-                      {[...data.porTipo].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map(t => (
+                      {sortRows(data.porTipo, sortTipo).map(t => (
                         <tr key={t.tipoId} className="hover:bg-muted/30">
                           <td className="px-4 py-2"><span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.corBorda || t.cor }} />{t.nome}</span></td>
                           <td className="px-4 py-2 text-right tabular-nums font-medium">{t.quantidade}</td>
@@ -222,12 +266,12 @@ export default function RelatoriosAgendaPage() {
                   <div className="max-h-[420px] overflow-y-auto nice-scrollbar">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 z-10 bg-card"><tr className="text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/40">
-                      <th className="text-left font-semibold px-4 py-2">Usuário</th>
-                      <th className="text-right font-semibold px-4 py-2 w-20">Qtd.</th>
-                      <th className="text-right font-semibold px-4 py-2 w-28">Tempo</th>
+                      <SortableTh label="Usuário" colKey="nome" sort={sortUser} setSort={setSortUser} />
+                      <SortableTh label="Qtd." colKey="quantidade" sort={sortUser} setSort={setSortUser} align="right" className="w-20" />
+                      <SortableTh label="Tempo" colKey="totalMinutos" sort={sortUser} setSort={setSortUser} align="right" className="w-28" />
                     </tr></thead>
                     <tbody className="divide-y divide-border">
-                      {[...data.porUsuario].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map(u => (
+                      {sortRows(data.porUsuario, sortUser).map(u => (
                         <tr key={u.usuarioId} className="hover:bg-muted/30">
                           <td className="px-4 py-2">
                             <span className="inline-flex items-center gap-2 min-w-0">
