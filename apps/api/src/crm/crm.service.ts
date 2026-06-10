@@ -111,7 +111,7 @@ export class CrmService {
         where,
         include: {
           etapa: { select: { id: true, nome: true, cor: true, probabilidade: true, ehGanho: true, ehPerda: true } },
-          _count: { select: { tarefas: true, mensagens: true, arquivos: true } },
+          _count: { select: { tarefas: true, mensagens: true, arquivos: true, agendaEventos: true } },
         },
         orderBy: { updatedAt: 'desc' },
         skip: ((input.page || 1) - 1) * (input.limit || 50),
@@ -135,7 +135,7 @@ export class CrmService {
       include: {
         etapa: { select: { id: true, nome: true, cor: true, probabilidade: true, ehGanho: true, ehPerda: true } },
         tags: { include: { tag: true } },
-        _count: { select: { tarefas: true, mensagens: true, arquivos: true } },
+        _count: { select: { tarefas: true, mensagens: true, arquivos: true, agendaEventos: true } },
       },
       orderBy: [{ ordem: 'asc' }, { updatedAt: 'desc' }],
     }).then(async (ops) => {

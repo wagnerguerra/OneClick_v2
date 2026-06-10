@@ -34,7 +34,7 @@ import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
 interface Etapa { id: string; nome: string; ordem: number; cor: string; probabilidade: number; ehGanho: boolean; ehPerda: boolean; slaDias: number | null; _count: { oportunidades: number } }
 
-interface Oportunidade { id: string; titulo: string; descricao: string | null; valor: number | null; origem: string | null; previsaoFechamento: string | null; createdAt: string; updatedAt: string; etapaId: string; clienteId: string | null; responsavelId: string | null; etapa: Etapa; cliente?: { id: string; razaoSocial: string } | null; responsavel?: { id: string; name: string } | null; _count?: { tarefas: number; mensagens: number; arquivos: number } }
+interface Oportunidade { id: string; titulo: string; descricao: string | null; valor: number | null; origem: string | null; previsaoFechamento: string | null; createdAt: string; updatedAt: string; etapaId: string; clienteId: string | null; responsavelId: string | null; etapa: Etapa; cliente?: { id: string; razaoSocial: string } | null; responsavel?: { id: string; name: string } | null; _count?: { tarefas: number; mensagens: number; arquivos: number; agendaEventos?: number } }
 
 interface OportunidadeDetail extends Oportunidade { tarefas: Tarefa[]; mensagens: Mensagem[]; arquivos: Arquivo[]; eventos: Evento[] }
 
@@ -1714,7 +1714,16 @@ function KanbanCardContent({ op, etapas, onMover, onDelete, diasDesde, showMenu,
           )}
           <h4 className="text-[13px] font-semibold leading-tight line-clamp-2">{op.titulo}</h4>
         </div>
-        <div className="h-6 w-6 shrink-0 -mr-1 -mt-0.5">
+        <div className="flex items-center gap-0.5 shrink-0 -mr-1 -mt-0.5">
+          {(op._count?.agendaEventos ?? 0) > 0 && (
+            <span
+              className="inline-flex items-center justify-center h-5 w-5 rounded-md text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30 shrink-0"
+              title={`${op._count!.agendaEventos} evento(s) de agenda vinculado(s)`}
+            >
+              <Calendar className="h-3 w-3" />
+            </span>
+          )}
+          <div className="h-6 w-6">
           {showMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
@@ -1729,6 +1738,7 @@ function KanbanCardContent({ op, etapas, onMover, onDelete, diasDesde, showMenu,
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          </div>
         </div>
       </div>
 
