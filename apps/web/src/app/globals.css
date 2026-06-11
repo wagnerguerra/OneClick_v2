@@ -600,15 +600,23 @@
   .dark [role="combobox"],
   .dark button[role="combobox"] {
     color: #e5e5e5;
-    background-color: #1a1d27;
-    border-color: #2d3040;
+    /* Campo levemente elevado em relação ao fundo (slate), com borda sutil. */
+    background-color: #262a33;
+    border-color: #363b47;
   }
 
+  /* Foco neutro (sem azul/glow) — claro: borda cinza um pouco mais definida. */
   input:focus, textarea:focus, select:focus,
   [role="combobox"]:focus, button[role="combobox"]:focus {
-    border-color: #5ea3cb;
+    border-color: #9ca3af;
     outline: 0;
-    box-shadow: 0 0 0 0 rgba(94, 163, 203, .25);
+    box-shadow: none;
+  }
+  /* Foco no escuro: o fundo clareia (elevação) + borda sutilmente mais clara. */
+  .dark input:focus, .dark textarea:focus, .dark select:focus,
+  .dark [role="combobox"]:focus, .dark button[role="combobox"]:focus {
+    background-color: #2e323d;
+    border-color: #4b5263;
   }
 
   input::placeholder, textarea::placeholder {

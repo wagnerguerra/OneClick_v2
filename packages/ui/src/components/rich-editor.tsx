@@ -220,7 +220,7 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
   }
 
   return (
-    <div className={cn('rich-editor-root rounded-[2px] border border-input bg-card transition-colors duration-200 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary', className)}>
+    <div className={cn('rich-editor-root rounded-[2px] border border-input bg-white dark:bg-[#262a33] transition-colors duration-200 focus-within:border-[#9ca3af] dark:focus-within:border-[#4b5263]', className)}>
       {/* CSS escopado por `.rich-editor-root` — garante marker visível em listas
           mesmo sem @tailwindcss/typography (o `prose` aplicado no editor é só
           uma classe sem efeito quando o plugin não está instalado).
@@ -451,7 +451,7 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
             // continua refletindo o conteúdo atual do template.
             onChange?.(e.target.value)
           }}
-          className="w-full min-h-[250px] resize-y bg-card px-3 py-2 text-xs font-mono focus:outline-none"
+          className="w-full min-h-[250px] resize-y bg-transparent px-3 py-2 text-xs font-mono focus:outline-none"
           style={maxH !== 'none' ? { maxHeight: maxH } : undefined}
           spellCheck={false}
         />
