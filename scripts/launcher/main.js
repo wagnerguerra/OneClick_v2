@@ -7,7 +7,7 @@
 
 const {
   app, BrowserWindow, Tray, Menu, nativeImage, shell, dialog,
-  Notification, ipcMain,
+  Notification, ipcMain, clipboard,
 } = require('electron');
 const { spawn, execSync, spawnSync } = require('child_process');
 const path = require('path');
@@ -63,6 +63,15 @@ let mainWindow = null;
 let tray = null;
 let projectRoot = null;
 let isQuitting = false;
+const updaterState = {
+  feedUrl: null,
+  status: 'idle',
+  lastCheckAt: null,
+  lastAvailableVersion: null,
+  lastDownloadedVersion: null,
+  lastError: null,
+  lastProgress: null,
+};
 
 // ══════════════════════════════════════════════════════════════
 // Settings persistence
@@ -263,6 +272,30 @@ function checkPort(port) {
     socket.on('error', () => { socket.destroy(); resolve(false); });
     socket.connect(port, '127.0.0.1');
   });
+}
+
+async function checkHttpHealth(url, timeoutMs = 2500) {
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { method: 'GET', signal: controller.signal });
+    return {
+      ok: res.ok,
+      status: res.status,
+      ms: Date.now() - startedAt,
+      url,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e?.name === 'AbortError' ? 'timeout' : (e?.message || String(e)),
+      ms: Date.now() - startedAt,
+      url,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function killProcessOnPort(port) {
@@ -499,10 +532,18 @@ async function getFullStatus() {
   const status = {};
   for (const [id, svc] of Object.entries(services)) {
     const running = await checkPort(svc.port);
+    let health = null;
+    if (id === 'api' && running) {
+      health = await checkHttpHealth(`http://127.0.0.1:${API_PORT}/api/launcher-updates`, 2500);
+    } else if (id === 'web' && running) {
+      health = await checkHttpHealth(`http://127.0.0.1:${WEB_PORT}`, 2500);
+    }
     status[id] = {
       name: svc.name,
       port: svc.port,
       running,
+      healthy: health ? health.ok : running,
+      health,
       managed: svc.managed !== false,
       hasProcess: !!svc.process,
       color: svc.color,
@@ -654,9 +695,122 @@ function getSciStatus() {
 // build.publish. Cada release sobe um `latest.yml` + `.exe` no host.
 // Em dev (não-empacotado), o módulo nem é carregado.
 function broadcastUpdate(payload) {
+  updaterState.status = payload.kind || updaterState.status;
+  if (payload.kind === 'checking') {
+    updaterState.lastCheckAt = new Date().toISOString();
+    updaterState.lastError = null;
+  } else if (payload.kind === 'available') {
+    updaterState.lastAvailableVersion = payload.version || null;
+  } else if (payload.kind === 'progress') {
+    updaterState.lastProgress = {
+      percent: payload.percent,
+      transferred: payload.transferred,
+      total: payload.total,
+      at: new Date().toISOString(),
+    };
+  } else if (payload.kind === 'downloaded') {
+    updaterState.lastDownloadedVersion = payload.version || null;
+  } else if (payload.kind === 'error') {
+    updaterState.lastError = payload.message || 'Erro desconhecido';
+  }
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('update-event', payload);
   }
+}
+
+function getUpdaterFeedUrl() {
+  if (updaterState.feedUrl) return updaterState.feedUrl;
+  try {
+    const updateConfigPath = path.join(process.resourcesPath || '', 'app-update.yml');
+    if (fs.existsSync(updateConfigPath)) {
+      const content = fs.readFileSync(updateConfigPath, 'utf8');
+      const match = content.match(/^url:\s*(.+)$/m);
+      if (match) {
+        updaterState.feedUrl = match[1].trim();
+        return updaterState.feedUrl;
+      }
+    }
+  } catch {}
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+    updaterState.feedUrl = pkg?.build?.publish?.[0]?.url || null;
+    return updaterState.feedUrl;
+  } catch {}
+  return null;
+}
+
+async function getDiagnostics() {
+  const [status, apiHealth, webHealth, updateFeedHealth] = await Promise.all([
+    getFullStatus(),
+    checkHttpHealth(`http://127.0.0.1:${API_PORT}/api/launcher-updates`, 2500),
+    checkHttpHealth(`http://127.0.0.1:${WEB_PORT}`, 2500),
+    getUpdaterFeedUrl()
+      ? checkHttpHealth(`${getUpdaterFeedUrl().replace(/\/$/, '')}/latest.yml`, 3500)
+      : Promise.resolve({ ok: false, error: 'Feed de update nao configurado' }),
+  ]);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    app: {
+      name: app.getName(),
+      version: app.getVersion(),
+      isPackaged: app.isPackaged,
+      execPath: process.execPath,
+      resourcesPath: process.resourcesPath,
+      userData: app.getPath('userData'),
+    },
+    project: {
+      root: projectRoot,
+      valid: !!projectRoot && isProjectRoot(projectRoot),
+    },
+    updater: {
+      ...updaterState,
+      feedUrl: getUpdaterFeedUrl(),
+      feedHealth: updateFeedHealth,
+    },
+    health: {
+      api: apiHealth,
+      web: webHealth,
+    },
+    services: status,
+  };
+}
+
+function formatDiagnostics(d) {
+  const lines = [];
+  lines.push('OneClick ERP - Diagnostico do Launcher');
+  lines.push(`Gerado em: ${d.generatedAt}`);
+  lines.push('');
+  lines.push('[Aplicativo]');
+  lines.push(`Nome: ${d.app.name}`);
+  lines.push(`Versao: ${d.app.version}`);
+  lines.push(`Empacotado: ${d.app.isPackaged ? 'sim' : 'nao'}`);
+  lines.push(`Executavel: ${d.app.execPath}`);
+  lines.push(`UserData: ${d.app.userData}`);
+  lines.push('');
+  lines.push('[Projeto]');
+  lines.push(`Raiz: ${d.project.root || '-'}`);
+  lines.push(`Valido: ${d.project.valid ? 'sim' : 'nao'}`);
+  lines.push('');
+  lines.push('[Updater]');
+  lines.push(`Feed: ${d.updater.feedUrl || '-'}`);
+  lines.push(`Status: ${d.updater.status}`);
+  lines.push(`Ultima checagem: ${d.updater.lastCheckAt || '-'}`);
+  lines.push(`Versao disponivel: ${d.updater.lastAvailableVersion || '-'}`);
+  lines.push(`Versao baixada: ${d.updater.lastDownloadedVersion || '-'}`);
+  lines.push(`Ultimo erro: ${d.updater.lastError || '-'}`);
+  lines.push(`Feed health: ${d.updater.feedHealth.ok ? 'OK' : 'FALHA'} ${d.updater.feedHealth.status || d.updater.feedHealth.error || ''}`);
+  lines.push('');
+  lines.push('[Health HTTP]');
+  lines.push(`API: ${d.health.api.ok ? 'OK' : 'FALHA'} ${d.health.api.status || d.health.api.error || ''} (${d.health.api.ms}ms)`);
+  lines.push(`Web: ${d.health.web.ok ? 'OK' : 'FALHA'} ${d.health.web.status || d.health.web.error || ''} (${d.health.web.ms}ms)`);
+  lines.push('');
+  lines.push('[Servicos]');
+  for (const [id, svc] of Object.entries(d.services)) {
+    const health = svc.health ? `, health=${svc.health.ok ? 'OK' : 'FALHA'} ${svc.health.status || svc.health.error || ''}` : '';
+    lines.push(`${id}: porta=${svc.port}, running=${svc.running ? 'sim' : 'nao'}, managed=${svc.managed ? 'sim' : 'nao'}${health}`);
+  }
+  return lines.join('\n');
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1897,9 +2051,30 @@ function registerIpcHandlers() {
     if (!autoUpdater || !app.isPackaged) {
       return { ok: false, error: 'Auto-update só funciona no app empacotado.' };
     }
+    if (updaterState.lastDownloadedVersion) {
+      return {
+        ok: true,
+        version: updaterState.lastDownloadedVersion,
+        downloaded: true,
+        status: updaterState.status,
+      };
+    }
+    if (updaterState.status === 'available' || updaterState.status === 'progress') {
+      return {
+        ok: true,
+        version: updaterState.lastAvailableVersion,
+        downloading: true,
+        status: updaterState.status,
+      };
+    }
     try {
       const result = await autoUpdater.checkForUpdates();
-      return { ok: true, version: result?.updateInfo?.version ?? null };
+      const version = result?.updateInfo?.version ?? null;
+      return {
+        ok: true,
+        version: version && version !== app.getVersion() ? version : null,
+        currentVersion: app.getVersion(),
+      };
     } catch (e) {
       return { ok: false, error: e?.message || String(e) };
     }
@@ -1917,6 +2092,15 @@ function registerIpcHandlers() {
   }));
 
   // ── Browse folder dialog ──
+  ipcMain.handle('get-diagnostics', async () => getDiagnostics());
+
+  ipcMain.handle('copy-diagnostics', async () => {
+    const diagnostics = await getDiagnostics();
+    const text = formatDiagnostics(diagnostics);
+    clipboard.writeText(text);
+    return { ok: true, text };
+  });
+
   ipcMain.handle('browse-folder', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openDirectory'],
