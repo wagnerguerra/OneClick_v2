@@ -9,7 +9,7 @@ import TextAlign from '@tiptap/extension-text-align'
 import { TextStyle } from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough,
   List, ListOrdered, Quote, Link as LinkIcon, RemoveFormatting, ImageIcon,
@@ -47,9 +47,19 @@ interface RichEditorProps {
   /** Callback chamado quando o editor está pronto — expõe a instância pra que
    *  o pai possa executar comandos (ex: inserir tag dinâmica no cursor). */
   onReady?: (editor: Editor) => void
+  /** Altura máxima da área de conteúdo antes de rolar verticalmente. Aceita
+   *  número (px) ou string CSS. Default 420px — mantém o toolbar à mão quando
+   *  o texto é longo. Passe `0`/undefined-equivalente via string 'none' p/ ilimitado. */
+  maxHeight?: number | string
 }
 
-export function RichEditor({ value, onChange, placeholder, className, onReady }: RichEditorProps) {
+export function RichEditor({ value, onChange, placeholder, className, onReady, maxHeight = 420 }: RichEditorProps) {
+  // Último HTML que ESTE editor emitiu via onChange. Usado pra distinguir um
+  // eco do próprio onChange (não deve re-setar o conteúdo) de uma mudança
+  // externa de `value` (deve sincronizar). Sem isso, o setContent de eco
+  // reposiciona o cursor pro fim enquanto o usuário digita (#bug "pula p/ fim").
+  const lastEmittedRef = useRef<string>(value ?? '')
+  const maxH = typeof maxHeight === 'number' ? `${maxHeight}px` : maxHeight
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -96,7 +106,9 @@ export function RichEditor({ value, onChange, placeholder, className, onReady }:
       },
     },
     onUpdate: ({ editor }) => {
-      onChange?.(editor.getHTML())
+      const html = editor.getHTML()
+      lastEmittedRef.current = html
+      onChange?.(html)
     },
   })
 
@@ -120,17 +132,24 @@ export function RichEditor({ value, onChange, placeholder, className, onReady }:
   useEffect(() => {
     if (!editor) return
     const next = value ?? ''
+    // 🔑 Se o `value` que chegou é exatamente o que NÓS acabamos de emitir,
+    // é só o eco do nosso onChange voltando pelo pai — NÃO re-setar o conteúdo
+    // (senão o setContent move o cursor pro fim no meio da digitação).
+    if (next === lastEmittedRef.current) return
     if (next === '') {
       // Só zera se já não está vazio — o isEmpty do TipTap considera
       // '<p></p>' como vazio, então não causa flicker.
       if (!editor.isEmpty) {
         editor.commands.clearContent(false)
       }
+      lastEmittedRef.current = ''
       return
     }
     const current = editor.getHTML()
     if (current !== next) {
+      // Mudança genuinamente externa (ex.: carregar template, trocar registro).
       editor.commands.setContent(next, { emitUpdate: false })
+      lastEmittedRef.current = next
     }
   }, [value, editor])
 
@@ -433,10 +452,18 @@ export function RichEditor({ value, onChange, placeholder, className, onReady }:
             onChange?.(e.target.value)
           }}
           className="w-full min-h-[250px] resize-y bg-card px-3 py-2 text-xs font-mono focus:outline-none"
+          style={maxH !== 'none' ? { maxHeight: maxH } : undefined}
           spellCheck={false}
         />
       ) : (
-        <EditorContent editor={editor} />
+        // Container rolável — quando o texto cresce além de `maxHeight`, o
+        // conteúdo rola internamente e o toolbar continua visível/à mão.
+        <div
+          className="overflow-y-auto nice-scrollbar"
+          style={maxH !== 'none' ? { maxHeight: maxH } : undefined}
+        >
+          <EditorContent editor={editor} />
+        </div>
       )}
 
       {/* Placeholder visual quando vazio */}

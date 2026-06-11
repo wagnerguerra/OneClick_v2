@@ -323,9 +323,34 @@ export default function ImprimirOrcamentoPage() {
         }
         .quote-doc .descricao-content p { margin: 0 0 8px; }
         .quote-doc .descricao-content p:last-child { margin-bottom: 0; }
-        .quote-doc .descricao-content ul, .quote-doc .descricao-content ol { margin: 8px 0; padding-left: 20px; }
-        .quote-doc .descricao-content strong { font-weight: 600; }
+        .quote-doc .descricao-content ul, .quote-doc .descricao-content ol { margin: 8px 0; padding-left: 24px; }
+        .quote-doc .descricao-content ul { list-style: disc; }
+        .quote-doc .descricao-content ol { list-style: decimal; }
+        .quote-doc .descricao-content li { margin: 2px 0; }
+        .quote-doc .descricao-content li > p { margin: 0; }
+        .quote-doc .descricao-content strong { font-weight: 700; }
         .quote-doc .descricao-content em { font-style: italic; }
+        /* Títulos: replicam EXATAMENTE as proporções do editor (.rich-editor-root)
+           — usam em (relativo aos 13px do doc) pra impressão casar com a tela.
+           Mais específico que a regra genérica ".quote-doc h1,h2,h3" (que achata),
+           então estas vencem por especificidade. */
+        .quote-doc .descricao-content h1 { font-size: 1.5em; font-weight: 700; margin: 0.6em 0 0.3em; line-height: 1.25; }
+        .quote-doc .descricao-content h2 { font-size: 1.25em; font-weight: 600; margin: 0.5em 0 0.3em; line-height: 1.3; }
+        .quote-doc .descricao-content h3 { font-size: 1.1em; font-weight: 600; margin: 0.4em 0 0.2em; line-height: 1.3; }
+        .quote-doc .descricao-content hr { border: 0; border-top: 1px solid #d1d5db; margin: 0.75rem 0; }
+        .quote-doc .descricao-content blockquote {
+          border-left: 3px solid #d1d5db;
+          padding-left: 0.75rem;
+          color: #6b7280;
+          margin: 0.5rem 0;
+        }
+        /* Marca-texto (Highlight do TipTap) — preserva o fundo colorido no PDF */
+        .quote-doc .descricao-content mark {
+          padding: 0 1px;
+          border-radius: 2px;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
         .quote-doc .descricao-vazia {
           font-style: italic;
           color: #9ca3af;
