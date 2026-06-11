@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react'
 import { Platform } from 'react-native'
 
 import { pedirPermissaoEObterToken, registrarCanalAndroid } from '@/lib/push'
+import { getPushEnabled } from '@/lib/push-preference'
 import { trpc } from '@/lib/trpc'
 
 export function usePushRegistration(): void {
@@ -22,8 +23,12 @@ export function usePushRegistration(): void {
   useEffect(() => {
     let ativo = true
 
-    // Registro inicial: canal Android → permissão/token → backend (Redis).
+    // Registro inicial: respeita a preferência do usuário (Perfil → push).
+    // Se desativado explicitamente, não registra. Caso contrário: canal Android
+    // → permissão/token → backend (Redis).
     void (async () => {
+      const habilitado = await getPushEnabled()
+      if (!ativo || !habilitado) return
       await registrarCanalAndroid()
       const token = await pedirPermissaoEObterToken()
       if (ativo && token) {

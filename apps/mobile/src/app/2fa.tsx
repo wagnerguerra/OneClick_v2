@@ -28,7 +28,7 @@ export default function TwoFactor() {
         setErro(error.message ?? 'Código inválido.')
         return
       }
-      router.replace('/agenda')
+      router.replace('/dashboard')
     } catch {
       setErro('Falha de conexão. Tente de novo.')
     } finally {

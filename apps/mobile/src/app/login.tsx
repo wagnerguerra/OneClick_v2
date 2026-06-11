@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
-import { KeyboardAvoidingView, Platform, View } from 'react-native'
+import { KeyboardAvoidingView, Platform, Pressable, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { BrandHeader } from '@/components/brand/brand-header'
@@ -33,7 +33,7 @@ export default function Login() {
         router.push('/2fa')
         return
       }
-      router.replace('/agenda')
+      router.replace('/dashboard')
     } catch {
       setErro('Falha de conexão. Verifique a rede e tente de novo.')
     } finally {
@@ -104,10 +104,16 @@ export default function Login() {
                   Entrar
                 </Button>
 
-                {/* Link discreto — rota de recuperação ainda não existe no mobile, então é apenas informativo. */}
-                <Text className="mt-1 text-center text-xs text-muted-foreground">
-                  Esqueci minha senha
-                </Text>
+                {/* Link para a recuperação de senha. */}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push('/forgot-password' as never)}
+                  className="mt-1 self-center active:opacity-70"
+                >
+                  <Text className="text-center text-xs font-medium text-primary">
+                    Esqueci minha senha
+                  </Text>
+                </Pressable>
               </CardContent>
             </Card>
           </View>

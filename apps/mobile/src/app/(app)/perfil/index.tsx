@@ -21,6 +21,7 @@ import { Text } from '@/components/ui/text'
 import { getApiUrl } from '@/lib/api-url'
 import { authClient, useSession } from '@/lib/auth-client'
 import { trpc } from '@/lib/trpc'
+import { usePushToggle } from '@/lib/use-push-toggle'
 
 // Rótulos amigáveis pros papéis (role) do Better Auth (additionalField).
 const ROLE_LABELS: Record<string, string> = {
@@ -61,8 +62,9 @@ export default function PerfilScreen() {
   // A empresa é complementar: não trava a tela enquanto carrega.
   const { data: empresa } = trpc.empresa.getMyEmpresa.useQuery()
 
-  // Preferências locais (só visual por enquanto — sem backend).
-  const [pushEnabled, setPushEnabled] = useState(true)
+  // Toggle real de notificações push (registra/baixa o token no backend e
+  // persiste a preferência no SecureStore).
+  const { enabled: pushEnabled, loading: pushLoading, toggle: togglePush } = usePushToggle()
 
   // Estado do logout (loading no botão).
   const [signingOut, setSigningOut] = useState(false)
@@ -162,29 +164,28 @@ export default function PerfilScreen() {
             <SectionHeader title="Preferências" />
             <SwitchRow
               label="Notificações push"
-              description="Receber alertas no dispositivo"
+              description={pushLoading ? 'Atualizando…' : 'Receber alertas no dispositivo'}
               value={pushEnabled}
-              onValueChange={setPushEnabled}
+              onValueChange={togglePush}
             />
-            {/* onPress noop (preferências ainda sem backend). */}
-            <ListItem icon="contrast-outline" title="Tema" trailing="Automático" onPress={() => {}} />
-            <ListItem icon="language-outline" title="Idioma" trailing="Português" onPress={() => {}} />
+            {/* Sem onPress: linhas de leitura do estado atual (ainda sem backend
+                de troca de tema/idioma). Não são pressionáveis → sem atalho morto. */}
+            <ListItem icon="contrast-outline" title="Tema" trailing="Automático" />
+            <ListItem icon="language-outline" title="Idioma" trailing="Português" />
           </View>
 
-          {/* Seção: Conta (ações em breve). */}
+          {/* Seção: Conta — navega para as telas próprias (chevron padrão). */}
           <View className="gap-2">
             <SectionHeader title="Conta" />
             <ListItem
               icon="person-circle-outline"
               title="Editar perfil"
-              subtitle="Em breve"
-              onPress={() => {}}
+              onPress={() => router.push('/perfil/editar' as never)}
             />
             <ListItem
               icon="shield-checkmark-outline"
               title="Segurança / MFA"
-              subtitle="Em breve"
-              onPress={() => {}}
+              onPress={() => router.push('/perfil/seguranca' as never)}
             />
           </View>
 

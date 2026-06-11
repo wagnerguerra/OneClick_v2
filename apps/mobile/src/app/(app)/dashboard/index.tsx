@@ -212,7 +212,7 @@ export default function DashboardScreen() {
               loading={eventosQuery.isPending}
               isDark={isDark}
               agora={agora}
-              onVerEvento={() => router.push('/agenda')}
+              onVerEvento={(id) => router.push(`/agenda/${id}`)}
               onAdicionar={() => router.push('/agenda/novo')}
             />
           </View>
