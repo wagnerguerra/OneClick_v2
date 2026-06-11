@@ -1,4 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Inject } from '@nestjs/common'
+import { schedulersAtivos } from '../common/scheduler-guard'
 import { CronJob } from 'cron'
 import { prisma } from '@saas/db'
 import { CndService } from './cnd.service'
