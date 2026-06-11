@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Settings2, Loader2, Save, Clock, Hash, Mail, FileText } from 'lucide-react'
-import { Button, Card, Input, RichEditor } from '@saas/ui'
+import { Settings2, Loader2, Save, Clock, Hash, Mail, FileText, Users, Bell } from 'lucide-react'
+import { Button, Card, Input, RichEditor, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
@@ -40,13 +40,14 @@ const DEFAULT_CONFIG: ConfigState = {
   textoApresentacao: '',
 }
 
-type TabKey = 'prazos' | 'numeracao' | 'emails' | 'textos'
+type TabKey = 'prazos' | 'numeracao' | 'emails' | 'textos' | 'areas'
 
 const TABS: Array<{ key: TabKey; label: string; icon: typeof Clock }> = [
   { key: 'prazos', label: 'Prazos do workflow', icon: Clock },
   { key: 'numeracao', label: 'Numeração', icon: Hash },
   { key: 'emails', label: 'Notificações', icon: Mail },
   { key: 'textos', label: 'Textos padrão', icon: FileText },
+  { key: 'areas', label: 'Áreas (detalhamento)', icon: Users },
 ]
 
 export default function OrcamentosConfiguracoesPage() {
@@ -123,10 +124,12 @@ export default function OrcamentosConfiguracoesPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Salvar
-          </Button>
+          {activeTab !== 'areas' && (
+            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Salvar
+            </Button>
+          )}
           <BackButton href="/orcamentos" />
         </div>
       </div>
@@ -271,11 +274,167 @@ export default function OrcamentosConfiguracoesPage() {
                   </div>
                 </div>
               )}
+
+              {activeTab === 'areas' && <AreasConfigTab />}
             </div>
           </div>
         </div>
       </Card>
 
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Aba "Áreas (detalhamento)" — quais áreas ficam disponíveis pra seleção em
+// novos orçamentos, substituto de cada uma, canais de notificação e prazo.
+// ────────────────────────────────────────────────────────────────────
+interface AreaDisp { id: string; nome: string; leaderId: string | null; leaderNome: string | null }
+interface AreaHabil { areaId: string; nome: string; leaderId: string | null; leaderNome: string | null; substitutoId: string | null }
+
+function AreasConfigTab() {
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [disp, setDisp] = useState<AreaDisp[]>([])
+  const [usuarios, setUsuarios] = useState<Array<{ id: string; name: string }>>([])
+  // areaId -> substitutoId (presença na Map = habilitada)
+  const [sel, setSel] = useState<Map<string, string | null>>(new Map())
+  const [prazoDias, setPrazoDias] = useState(2)
+  const [prazoUteis, setPrazoUteis] = useState(true)
+  const [canais, setCanais] = useState({ sino: true, email: true, push: false })
+  const [avisarComercial, setAvisarComercial] = useState(true)
+  const [areaComercialId, setAreaComercialId] = useState<string>('')
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [cfg, users] = await Promise.all([
+          (trpc.orcamento as any).getConfigAreas.query(),
+          (trpc.orcamento as any).listUsuarios.query().catch(() => []),
+        ])
+        setDisp(cfg.areasDisponiveis)
+        setUsuarios(users as Array<{ id: string; name: string }>)
+        setPrazoDias(cfg.config.prazoRespostaDias)
+        setPrazoUteis(cfg.config.prazoEmDiasUteis)
+        setCanais({ sino: cfg.config.canais?.sino ?? true, email: cfg.config.canais?.email ?? true, push: cfg.config.canais?.push ?? false })
+        setAvisarComercial(cfg.config.avisarComercialAtraso)
+        setAreaComercialId(cfg.config.areaComercialId ?? '')
+        const m = new Map<string, string | null>()
+        for (const h of cfg.habilitadas as AreaHabil[]) m.set(h.areaId, h.substitutoId)
+        setSel(m)
+      } catch { /* sem permissão / erro */ }
+      finally { setLoading(false) }
+    })()
+  }, [])
+
+  function toggle(areaId: string) {
+    setSel(prev => { const m = new Map(prev); if (m.has(areaId)) m.delete(areaId); else m.set(areaId, null); return m })
+  }
+  function setSubstituto(areaId: string, uid: string | null) {
+    setSel(prev => { const m = new Map(prev); m.set(areaId, uid); return m })
+  }
+
+  async function salvar() {
+    setSaving(true)
+    try {
+      await (trpc.orcamento as any).saveConfigAreas.mutate({
+        config: { prazoRespostaDias: prazoDias, prazoEmDiasUteis: prazoUteis, canais, avisarComercialAtraso: avisarComercial, areaComercialId: areaComercialId || null },
+        areas: [...sel.entries()].map(([areaId, substitutoId]) => ({ areaId, substitutoId })),
+      })
+      alerts.success('Configuração salva', 'Áreas e prazos de detalhamento atualizados.')
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setSaving(false) }
+  }
+
+  if (loading) return <div className="flex justify-center py-10 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>
+
+  return (
+    <div className="space-y-5">
+      {/* Prazo + canais */}
+      <div className="grid grid-cols-12 gap-3">
+        <div className="col-span-12 sm:col-span-4 space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground block">Prazo para detalhar</label>
+          <div className="flex items-center gap-2">
+            <Input type="number" min={1} value={prazoDias} onChange={e => setPrazoDias(parseInt(e.target.value) || 1)} className="h-9 text-sm w-20" />
+            <Select value={prazoUteis ? 'uteis' : 'corridos'} onValueChange={v => setPrazoUteis(v === 'uteis')}>
+              <SelectTrigger className="h-9 text-sm flex-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="uteis">dias úteis</SelectItem>
+                <SelectItem value="corridos">dias corridos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="col-span-12 sm:col-span-8 space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground block flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" />Canais de notificação</label>
+          <div className="flex items-center gap-4 h-9">
+            {([['sino', 'Sino'], ['email', 'E-mail'], ['push', 'Push (em breve)']] as const).map(([k, label]) => (
+              <label key={k} className={cn('flex items-center gap-1.5 text-sm', k === 'push' && 'opacity-50')}>
+                <input type="checkbox" disabled={k === 'push'} checked={(canais as any)[k]} onChange={e => setCanais(c => ({ ...c, [k]: e.target.checked }))} className="h-4 w-4 rounded border-border" />
+                {label}
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Atraso → comercial */}
+      <div className="grid grid-cols-12 gap-3 items-end">
+        <div className="col-span-12 sm:col-span-5">
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={avisarComercial} onChange={e => setAvisarComercial(e.target.checked)} className="h-4 w-4 rounded border-border" />
+            Avisar o comercial quando uma área atrasar
+          </label>
+        </div>
+        <div className="col-span-12 sm:col-span-7 space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground block">Área Comercial (recebe os avisos de atraso)</label>
+          <Select value={areaComercialId || 'none'} onValueChange={v => setAreaComercialId(v === 'none' ? '' : v)}>
+            <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione a área comercial" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">— (avisa o solicitante)</SelectItem>
+              {disp.map(a => <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Lista de áreas habilitáveis */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-muted-foreground block">Áreas disponíveis para seleção em novos orçamentos</label>
+        <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
+          {disp.length === 0 && <p className="text-sm text-muted-foreground italic px-4 py-6 text-center">Nenhuma área cadastrada. Cadastre em Cadastros → Áreas.</p>}
+          {disp.map(a => {
+            const on = sel.has(a.id)
+            return (
+              <div key={a.id} className="flex flex-col sm:flex-row sm:items-center gap-2 px-4 py-2.5 hover:bg-muted/30">
+                <label className="flex items-center gap-2 flex-1 cursor-pointer min-w-0">
+                  <input type="checkbox" checked={on} onChange={() => toggle(a.id)} className="h-4 w-4 rounded border-border shrink-0" />
+                  <span className="text-sm font-medium truncate">{a.nome}</span>
+                  <span className="text-[11px] text-muted-foreground shrink-0">{a.leaderNome ? `líder: ${a.leaderNome}` : 'sem líder'}</span>
+                </label>
+                {on && (
+                  <div className="sm:w-[260px] shrink-0">
+                    <Select value={sel.get(a.id) || 'none'} onValueChange={v => setSubstituto(a.id, v === 'none' ? null : v)}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Substituto / contato" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{a.leaderNome ? 'Sem substituto' : 'Definir contato…'}</SelectItem>
+                        {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        <p className="text-[11px] text-muted-foreground">Áreas sem líder precisam de um contato indicado (substituto) para receber as notificações.</p>
+      </div>
+
+      <div className="flex justify-end pt-2">
+        <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={salvar} disabled={saving}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar áreas
+        </Button>
+      </div>
     </div>
   )
 }

@@ -322,7 +322,7 @@ export class OrcamentoService {
    * (prospect ainda não cadastrado) — nesse caso vai no início do detalhamento.
    */
   async solicitar(
-    input: { clienteId?: string | null; clienteNome?: string | null; detalhamento: string },
+    input: { clienteId?: string | null; clienteNome?: string | null; detalhamento: string; areaIds?: string[] },
     userId?: string,
     empresaId?: string,
   ) {
@@ -337,7 +337,13 @@ export class OrcamentoService {
     )
     // Solicitação chega sem responsável — fica disponível pro comercial assumir.
     await prisma.orcamento.update({ where: { id: orc.id }, data: { responsavelId: null } }).catch(() => {})
-    await this.addEvento(orc.id, userId, 'created', null, null, 'Solicitação de orçamento (balão Fale com a TI)')
+    await this.addEvento(orc.id, userId, 'created', null, null, 'Solicitação de orçamento (balão Solicitar Novo)')
+    // Vincula áreas selecionadas + notifica os responsáveis por detalhar.
+    if (input.areaIds?.length) {
+      await this.vincularAreas(orc.id, input.areaIds, userId, empresaId).catch((e: Error) => {
+        console.error('[Orcamento] Falha ao vincular áreas na solicitação:', e.message)
+      })
+    }
     return { id: orc.id, numero: orc.numero }
   }
 
@@ -364,6 +370,218 @@ export class OrcamentoService {
       orderBy: { razaoSocial: 'asc' },
       take: 20,
     })
+  }
+
+  // ===================================================================
+  // ORÇAMENTO MULTIÁREA — detalhamento por área (config + vínculo + prazos)
+  // ===================================================================
+
+  private async ensureOrcamentoConfig(empresaId?: string | null) {
+    let cfg = await prisma.orcamentoConfig.findFirst({ where: { empresaId: empresaId ?? null } })
+    if (!cfg) cfg = await prisma.orcamentoConfig.create({ data: { empresaId: empresaId ?? null, canais: { sino: true, email: true, push: false } } })
+    return cfg
+  }
+
+  /** Calcula prazo a partir de `base`, em dias corridos ou úteis. */
+  private calcularPrazo(base: Date, dias: number, uteis: boolean): Date {
+    const d = new Date(base)
+    if (!uteis) { d.setDate(d.getDate() + dias); return d }
+    let restantes = Math.max(0, dias)
+    while (restantes > 0) { d.setDate(d.getDate() + 1); const dow = d.getDay(); if (dow !== 0 && dow !== 6) restantes-- }
+    return d
+  }
+
+  /** UserIds do comercial (área comercial: líder + membros). Vazio se não config. */
+  private async resolverComercial(areaComercialId: string | null | undefined): Promise<string[]> {
+    if (!areaComercialId) return []
+    const [area, membros] = await Promise.all([
+      prisma.area.findUnique({ where: { id: areaComercialId }, select: { leaderId: true } }),
+      prisma.user.findMany({ where: { areaId: areaComercialId, isActive: true }, select: { id: true } }),
+    ])
+    return [...new Set([...(area?.leaderId ? [area.leaderId] : []), ...membros.map(m => m.id)])]
+  }
+
+  /** Config + áreas habilitadas (nomes resolvidos) + áreas disponíveis pra UI de config. */
+  async getConfigAreas(empresaId?: string | null) {
+    const cfg = await this.ensureOrcamentoConfig(empresaId)
+    const habil = await prisma.orcamentoAreaHabilitada.findMany({ where: { empresaId: empresaId ?? null }, orderBy: { ordem: 'asc' } })
+    const areas = await prisma.area.findMany({
+      where: { isActive: true, ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}) },
+      select: { id: true, name: true, leaderId: true }, orderBy: { name: 'asc' },
+    })
+    const leaderIds = areas.map(a => a.leaderId).filter(Boolean) as string[]
+    const subIds = habil.map(h => h.substitutoId).filter(Boolean) as string[]
+    const users = await prisma.user.findMany({ where: { id: { in: [...new Set([...leaderIds, ...subIds])] } }, select: { id: true, name: true } })
+    const uName = new Map(users.map(u => [u.id, u.name]))
+    const areaMap = new Map(areas.map(a => [a.id, a]))
+    return {
+      config: {
+        prazoRespostaDias: cfg.prazoRespostaDias,
+        prazoEmDiasUteis: cfg.prazoEmDiasUteis,
+        canais: (cfg.canais as any) ?? { sino: true, email: true, push: false },
+        avisarComercialAtraso: cfg.avisarComercialAtraso,
+        areaComercialId: cfg.areaComercialId,
+      },
+      areasDisponiveis: areas.map(a => ({ id: a.id, nome: a.name, leaderId: a.leaderId, leaderNome: a.leaderId ? uName.get(a.leaderId) ?? null : null })),
+      habilitadas: habil.map(h => {
+        const a = areaMap.get(h.areaId)
+        return { areaId: h.areaId, nome: a?.name ?? '(área removida)', ordem: h.ordem, leaderId: a?.leaderId ?? null, leaderNome: a?.leaderId ? uName.get(a.leaderId) ?? null : null, substitutoId: h.substitutoId, substitutoNome: h.substitutoId ? uName.get(h.substitutoId) ?? null : null }
+      }),
+    }
+  }
+
+  /** Salva config + substitui o conjunto de áreas habilitadas. */
+  async saveConfigAreas(input: {
+    config: { prazoRespostaDias: number; prazoEmDiasUteis: boolean; canais: { sino: boolean; email: boolean; push: boolean }; avisarComercialAtraso: boolean; areaComercialId?: string | null }
+    areas: Array<{ areaId: string; substitutoId?: string | null }>
+  }, empresaId?: string | null) {
+    const cfg = await this.ensureOrcamentoConfig(empresaId)
+    await prisma.orcamentoConfig.update({ where: { id: cfg.id }, data: {
+      prazoRespostaDias: input.config.prazoRespostaDias,
+      prazoEmDiasUteis: input.config.prazoEmDiasUteis,
+      canais: input.config.canais,
+      avisarComercialAtraso: input.config.avisarComercialAtraso,
+      areaComercialId: input.config.areaComercialId ?? null,
+    } })
+    await prisma.orcamentoAreaHabilitada.deleteMany({ where: { empresaId: empresaId ?? null } })
+    if (input.areas.length) {
+      await prisma.orcamentoAreaHabilitada.createMany({
+        data: input.areas.map((a, i) => ({ empresaId: empresaId ?? null, areaId: a.areaId, substitutoId: a.substitutoId ?? null, ordem: i })),
+      })
+    }
+    return { ok: true }
+  }
+
+  /** Áreas selecionáveis (pills) em novos orçamentos. */
+  async listAreasSelecionaveis(empresaId?: string | null) {
+    const habil = await prisma.orcamentoAreaHabilitada.findMany({ where: { empresaId: empresaId ?? null, ativo: true }, orderBy: { ordem: 'asc' } })
+    if (!habil.length) return []
+    const areas = await prisma.area.findMany({ where: { id: { in: habil.map(h => h.areaId) }, isActive: true }, select: { id: true, name: true } })
+    const map = new Map(areas.map(a => [a.id, a.name]))
+    return habil.filter(h => map.has(h.areaId)).map(h => ({ areaId: h.areaId, nome: map.get(h.areaId)! }))
+  }
+
+  /** Vincula áreas a um orçamento (cria OrcamentoArea + notifica líder/substituto). */
+  async vincularAreas(orcamentoId: string, areaIds: string[], _userId?: string, empresaId?: string | null) {
+    if (!areaIds?.length) return
+    const cfg = await this.ensureOrcamentoConfig(empresaId)
+    const [habil, areas, orc] = await Promise.all([
+      prisma.orcamentoAreaHabilitada.findMany({ where: { areaId: { in: areaIds } } }),
+      prisma.area.findMany({ where: { id: { in: areaIds } }, select: { id: true, name: true, leaderId: true } }),
+      prisma.orcamento.findUnique({ where: { id: orcamentoId }, select: { numero: true } }),
+    ])
+    const subByArea = new Map(habil.map(h => [h.areaId, h.substitutoId]))
+    const prazo = this.calcularPrazo(new Date(), cfg.prazoRespostaDias, cfg.prazoEmDiasUteis)
+    for (const a of areas) {
+      const exists = await prisma.orcamentoArea.findUnique({ where: { orcamentoId_areaId: { orcamentoId, areaId: a.id } } }).catch(() => null)
+      if (exists) continue
+      const oa = await prisma.orcamentoArea.create({ data: {
+        orcamentoId, areaId: a.id, responsavelId: a.leaderId ?? null, substitutoId: subByArea.get(a.id) ?? null,
+        prazoOriginal: prazo, prazo,
+      } })
+      await this.notificarAreaPendente(oa.id, a.id, a.name, a.leaderId ?? null, subByArea.get(a.id) ?? null, oa.prazo, orc?.numero ?? 0, cfg).catch(() => {})
+    }
+  }
+
+  /** Notifica (sino + e-mail) os responsáveis por detalhar uma área. */
+  private async notificarAreaPendente(oaId: string, _areaId: string, areaNome: string, leaderId: string | null, substitutoId: string | null, prazo: Date, numero: number, cfg: { canais: unknown; areaComercialId: string | null }) {
+    const canais = (cfg.canais as any) ?? { sino: true, email: true }
+    let destinatarios = [leaderId, substitutoId].filter(Boolean) as string[]
+    if (!destinatarios.length) destinatarios = await this.resolverComercial(cfg.areaComercialId) // sem líder/substituto → comercial
+    destinatarios = [...new Set(destinatarios)]
+    if (!destinatarios.length) return
+    const link = `/orcamentos/${(await prisma.orcamentoArea.findUnique({ where: { id: oaId }, select: { orcamentoId: true } }))?.orcamentoId ?? ''}`
+    const titulo = `Detalhe a área ${areaNome} no orçamento #${numero}`
+    const prazoStr = prazo.toLocaleDateString('pt-BR')
+    const mensagem = `Você foi indicado para detalhar a parte de ${areaNome}. Prazo: ${prazoStr}.`
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+    for (const uid of destinatarios) {
+      if (canais.sino !== false) await this.notificationService.criar({ userId: uid, titulo, mensagem, tipo: 'warning', link, origem: 'orcamento' }).catch(() => {})
+      if (canais.email) {
+        const u = await prisma.user.findUnique({ where: { id: uid }, select: { email: true, name: true } }).catch(() => null)
+        if (u?.email) this.emailService.sendMail({ to: u.email, subject: titulo, html: `<p>Olá, ${u.name ?? ''}.</p><p>${mensagem}</p><p><a href="${appUrl}${link}">Abrir orçamento</a></p>` }).catch(() => {})
+      }
+    }
+    await prisma.orcamentoArea.update({ where: { id: oaId }, data: { notificadoEm: new Date() } })
+  }
+
+  async listAreasDoOrcamento(orcamentoId: string) {
+    const rows = await prisma.orcamentoArea.findMany({ where: { orcamentoId }, orderBy: { createdAt: 'asc' } })
+    if (!rows.length) return []
+    const areaIds = [...new Set(rows.map(r => r.areaId))]
+    const userIds = [...new Set(rows.flatMap(r => [r.responsavelId, r.substitutoId, r.respondidoPor]).filter(Boolean) as string[])]
+    const [areas, users] = await Promise.all([
+      prisma.area.findMany({ where: { id: { in: areaIds } }, select: { id: true, name: true } }),
+      prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, image: true } }),
+    ])
+    const aMap = new Map(areas.map(a => [a.id, a.name]))
+    const uMap = new Map(users.map(u => [u.id, u]))
+    return rows.map(r => ({
+      id: r.id, areaId: r.areaId, areaNome: aMap.get(r.areaId) ?? '(área)', status: r.status,
+      prazo: r.prazo, prazoOriginal: r.prazoOriginal, prorrogado: r.prorrogado, prorrogadoEm: r.prorrogadoEm,
+      justificativaProrrogacao: r.justificativaProrrogacao, detalhe: r.detalhe, valor: r.valor,
+      responsavel: r.responsavelId ? uMap.get(r.responsavelId) ?? null : null,
+      substituto: r.substitutoId ? uMap.get(r.substitutoId) ?? null : null,
+      respondidoPor: r.respondidoPor ? uMap.get(r.respondidoPor) ?? null : null,
+      respondidoEm: r.respondidoEm,
+    }))
+  }
+
+  private async podeGerenciarArea(userId: string, oa: { areaId: string; responsavelId: string | null; substitutoId: string | null }): Promise<boolean> {
+    if (oa.responsavelId === userId || oa.substitutoId === userId) return true
+    const u = await prisma.user.findUnique({ where: { id: userId }, select: { isMaster: true, isEmpresaMaster: true, areaId: true } })
+    if (u?.isMaster || u?.isEmpresaMaster) return true
+    return u?.areaId === oa.areaId // membro da área
+  }
+
+  async detalharArea(id: string, data: { detalhe: string; valor?: number | null }, userId: string) {
+    const oa = await prisma.orcamentoArea.findUniqueOrThrow({ where: { id } })
+    if (!(await this.podeGerenciarArea(userId, oa))) throw new Error('Você não tem permissão para detalhar esta área.')
+    const updated = await prisma.orcamentoArea.update({ where: { id }, data: {
+      detalhe: data.detalhe, valor: data.valor ?? null, status: 'DETALHADO', respondidoPor: userId, respondidoEm: new Date(), notificadoAtrasoEm: null,
+    } })
+    await this.addEvento(oa.orcamentoId, userId, 'updated', null, null, `Detalhamento da área registrado`).catch(() => {})
+    return updated
+  }
+
+  async prorrogarArea(id: string, data: { dias: number; justificativa: string }, userId: string) {
+    const oa = await prisma.orcamentoArea.findUniqueOrThrow({ where: { id } })
+    if (!(await this.podeGerenciarArea(userId, oa))) throw new Error('Você não tem permissão para prorrogar esta área.')
+    if (oa.prorrogado) throw new Error('Esta área já foi prorrogada uma vez — não é possível prorrogar de novo.')
+    if (!data.justificativa?.trim()) throw new Error('Informe uma justificativa para a prorrogação.')
+    const novoPrazo = this.calcularPrazo(oa.prazo > new Date() ? oa.prazo : new Date(), Math.max(1, data.dias), false)
+    return prisma.orcamentoArea.update({ where: { id }, data: {
+      prazo: novoPrazo, prorrogado: true, prorrogadoEm: new Date(), justificativaProrrogacao: data.justificativa.trim(),
+      status: oa.status === 'ATRASADO' ? 'PENDENTE' : oa.status, notificadoAtrasoEm: null,
+    } })
+  }
+
+  /** Chamado pelo scheduler: marca áreas vencidas como ATRASADO e avisa o comercial. */
+  async verificarAtrasosAreas() {
+    const agora = new Date()
+    const vencidas = await prisma.orcamentoArea.findMany({ where: { status: 'PENDENTE', prazo: { lt: agora }, notificadoAtrasoEm: null } })
+    for (const oa of vencidas) {
+      await prisma.orcamentoArea.update({ where: { id: oa.id }, data: { status: 'ATRASADO', notificadoAtrasoEm: agora } })
+      const orc = await prisma.orcamento.findUnique({ where: { id: oa.orcamentoId }, select: { numero: true, empresaId: true, solicitanteId: true } })
+      const cfg = await this.ensureOrcamentoConfig(orc?.empresaId)
+      if (!cfg.avisarComercialAtraso) continue
+      let dest = await this.resolverComercial(cfg.areaComercialId)
+      if (!dest.length && orc?.solicitanteId) dest = [orc.solicitanteId]
+      if (!dest.length) continue
+      const area = await prisma.area.findUnique({ where: { id: oa.areaId }, select: { name: true } })
+      const titulo = `Área ${area?.name ?? ''} em atraso no orçamento #${orc?.numero ?? ''}`
+      const link = `/orcamentos/${oa.orcamentoId}`
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+      const canais = (cfg.canais as any) ?? { sino: true, email: true }
+      for (const uid of [...new Set(dest)]) {
+        if (canais.sino !== false) await this.notificationService.criar({ userId: uid, titulo, mensagem: 'O prazo de detalhamento desta área venceu.', tipo: 'error', link, origem: 'orcamento' }).catch(() => {})
+        if (canais.email) {
+          const u = await prisma.user.findUnique({ where: { id: uid }, select: { email: true, name: true } }).catch(() => null)
+          if (u?.email) this.emailService.sendMail({ to: u.email, subject: titulo, html: `<p>${titulo}.</p><p><a href="${appUrl}${link}">Abrir orçamento</a></p>` }).catch(() => {})
+        }
+      }
+    }
+    return { processados: vencidas.length }
   }
 
   // Status a partir dos quais o orcamento e congelado para alteracoes.

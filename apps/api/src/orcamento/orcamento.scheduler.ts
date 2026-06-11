@@ -35,5 +35,12 @@ export class OrcamentoScheduler implements OnModuleInit, OnModuleDestroy {
     } catch (e) {
       console.error('[OrcamentoScheduler] Erro:', (e as Error).message)
     }
+    // Áreas com detalhamento em atraso → marca ATRASADO e avisa o comercial.
+    try {
+      const r = await this.orcamentoService.verificarAtrasosAreas()
+      if (r.processados > 0) console.log(`[OrcamentoScheduler] Áreas em atraso processadas=${r.processados}`)
+    } catch (e) {
+      console.error('[OrcamentoScheduler] Erro (atrasos de área):', (e as Error).message)
+    }
   }
 }

@@ -563,6 +563,14 @@ function OrcamentoRequestForm({
   const [detalhamento, setDetalhamento] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [criado, setCriado] = useState<{ numero: number; id: string } | null>(null)
+  // Áreas envolvidas — pills (cada área marcada notifica o líder pra detalhar a parte dela).
+  const [areasDisp, setAreasDisp] = useState<Array<{ areaId: string; nome: string }>>([])
+  const [areasSel, setAreasSel] = useState<string[]>([])
+  useEffect(() => {
+    (trpc.orcamento as any).listAreasSelecionaveis.query()
+      .then((d: Array<{ areaId: string; nome: string }>) => setAreasDisp(d))
+      .catch(() => setAreasDisp([]))
+  }, [])
 
   // Busca de clientes (debounced) — só dispara enquanto não há cliente escolhido.
   useEffect(() => {
@@ -613,6 +621,7 @@ function OrcamentoRequestForm({
         clienteId: clienteSel?.id ?? null,
         clienteNome: clienteSel ? null : nome,
         detalhamento: det,
+        areaIds: areasSel,
       }) as { id: string; numero: number }
       setCriado({ numero: res.numero, id: res.id })
     } catch (e) {
@@ -702,6 +711,33 @@ function OrcamentoRequestForm({
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
           />
         </div>
+
+        {/* Áreas envolvidas (pills) — marca quem precisa detalhar a parte dela */}
+        {areasDisp.length > 0 && (
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-semibold text-foreground">Áreas envolvidas</label>
+            <div className="flex flex-wrap gap-1.5">
+              {areasDisp.map((a) => {
+                const sel = areasSel.includes(a.areaId)
+                return (
+                  <button
+                    key={a.areaId}
+                    type="button"
+                    onClick={() => setAreasSel((s) => (sel ? s.filter((x) => x !== a.areaId) : [...s, a.areaId]))}
+                    className={cn(
+                      'px-2.5 h-7 rounded-full text-xs font-medium border transition-colors',
+                      sel ? 'border-transparent text-white' : 'border-border text-muted-foreground hover:bg-muted',
+                    )}
+                    style={sel ? { background: accent } : undefined}
+                  >
+                    {a.nome}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground">Cada área marcada notifica o líder responsável para detalhar a parte dele.</p>
+          </div>
+        )}
       </div>
 
       {/* Footer */}

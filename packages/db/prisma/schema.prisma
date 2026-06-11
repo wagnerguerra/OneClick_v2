@@ -2636,6 +2636,69 @@ model OrcamentoEvento {
   @@map("orcamento_eventos")
 }
 
+/// Config do módulo de orçamentos (singleton por empresa) — detalhamento por área.
+model OrcamentoConfig {
+  id                    String   @id @default(cuid())
+  empresaId             String?  @unique @map("empresa_id")
+  prazoRespostaDias     Int      @default(2) @map("prazo_resposta_dias")
+  prazoEmDiasUteis      Boolean  @default(true) @map("prazo_em_dias_uteis")
+  // Canais habilitados: { sino: bool, email: bool, push: bool } (push = futuro)
+  canais                Json?
+  avisarComercialAtraso Boolean  @default(true) @map("avisar_comercial_atraso")
+  // Área Comercial avisada em atrasos (FK escalar — resolvido manualmente).
+  areaComercialId       String?  @map("area_comercial_id")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("orcamento_config")
+}
+
+/// Áreas disponíveis pra seleção em novos orçamentos + substituto/contato.
+/// (FKs escalares pra Area/User — resolvidas manualmente no service.)
+model OrcamentoAreaHabilitada {
+  id           String   @id @default(cuid())
+  empresaId    String?  @map("empresa_id")
+  areaId       String   @map("area_id")
+  substitutoId String?  @map("substituto_id")
+  ordem        Int      @default(0)
+  ativo        Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([empresaId, areaId])
+  @@index([areaId])
+  @@map("orcamento_areas_habilitadas")
+}
+
+/// Vínculo de uma área a um orçamento — onde o líder/substituto detalha a parte
+/// dele. status: PENDENTE | DETALHADO | ATRASADO | DISPENSADO.
+model OrcamentoArea {
+  id                       String    @id @default(cuid())
+  orcamentoId              String    @map("orcamento_id")
+  areaId                   String    @map("area_id")
+  responsavelId            String?   @map("responsavel_id") // líder no momento do vínculo
+  substitutoId             String?   @map("substituto_id")
+  status                   String    @default("PENDENTE")
+  prazoOriginal            DateTime  @map("prazo_original")
+  prazo                    DateTime
+  prorrogado               Boolean   @default(false)
+  prorrogadoEm             DateTime? @map("prorrogado_em")
+  justificativaProrrogacao String?   @map("justificativa_prorrogacao") @db.Text
+  detalhe                  String?   @db.Text
+  valor                    Decimal?  @db.Decimal(12, 2)
+  respondidoPor            String?   @map("respondido_por")
+  respondidoEm             DateTime? @map("respondido_em")
+  notificadoEm             DateTime? @map("notificado_em")
+  notificadoAtrasoEm       DateTime? @map("notificado_atraso_em")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  @@unique([orcamentoId, areaId])
+  @@index([orcamentoId])
+  @@index([status])
+  @@map("orcamento_areas")
+}
+
 model ServicoCatalogo {
   id                  String   @id @default(cuid())
   nome                String

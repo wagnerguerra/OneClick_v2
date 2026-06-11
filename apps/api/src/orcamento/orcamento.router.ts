@@ -126,8 +126,41 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         clienteId: z.string().optional().nullable(),
         clienteNome: z.string().optional().nullable(),
         detalhamento: z.string().min(3),
+        areaIds: z.array(z.string()).optional(),
       }))
       .mutation(({ input, ctx }) => orcamentoService.solicitar(input, ctx.userId, ctx.empresaId)),
+
+    // ── Multiárea: pills, config, detalhamento por área ──
+    listAreasSelecionaveis: protectedProcedure
+      .query(({ ctx }) => orcamentoService.listAreasSelecionaveis(ctx.empresaId)),
+
+    getConfigAreas: readProcedure(MODULE)
+      .query(({ ctx }) => orcamentoService.getConfigAreas(ctx.empresaId)),
+    saveConfigAreas: writeSubProcedure(MODULE, 'acessar_configuracoes', 'Editar configurações de orçamentos')
+      .input(z.object({
+        config: z.object({
+          prazoRespostaDias: z.number().int().min(1).max(60),
+          prazoEmDiasUteis: z.boolean(),
+          canais: z.object({ sino: z.boolean(), email: z.boolean(), push: z.boolean() }),
+          avisarComercialAtraso: z.boolean(),
+          areaComercialId: z.string().nullable().optional(),
+        }),
+        areas: z.array(z.object({ areaId: z.string(), substitutoId: z.string().nullable().optional() })),
+      }))
+      .mutation(({ input, ctx }) => orcamentoService.saveConfigAreas(input, ctx.empresaId)),
+
+    listAreasDoOrcamento: protectedProcedure
+      .input(z.object({ orcamentoId: z.string() }))
+      .query(({ input }) => orcamentoService.listAreasDoOrcamento(input.orcamentoId)),
+    vincularAreas: writeProcedure(MODULE)
+      .input(z.object({ orcamentoId: z.string(), areaIds: z.array(z.string()) }))
+      .mutation(({ input, ctx }) => orcamentoService.vincularAreas(input.orcamentoId, input.areaIds, ctx.userId, ctx.empresaId)),
+    detalharArea: protectedProcedure
+      .input(z.object({ id: z.string(), detalhe: z.string().min(1), valor: z.number().nullable().optional() }))
+      .mutation(({ input, ctx }) => orcamentoService.detalharArea(input.id, { detalhe: input.detalhe, valor: input.valor }, ctx.userId)),
+    prorrogarArea: protectedProcedure
+      .input(z.object({ id: z.string(), dias: z.number().int().min(1).max(60), justificativa: z.string().min(3) }))
+      .mutation(({ input, ctx }) => orcamentoService.prorrogarArea(input.id, { dias: input.dias, justificativa: input.justificativa }, ctx.userId)),
 
     // ── Formas de pagamento (lista gerenciável — espelha o legado) ──
     listFormasPagamento: readProcedure(MODULE)
