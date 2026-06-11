@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   Bug, Lightbulb, MessageSquare, X, Send, Loader2, Check, ExternalLink,
   ImagePlus, Paperclip, Plus, ChevronLeft, LifeBuoy, FileText, Search, Building2,
+  CalendarPlus, Clock, Users,
 } from 'lucide-react'
 import { Button, cn, RichEditor } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -19,7 +20,7 @@ import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
  */
 
 type Tipo = 'INCIDENTE' | 'MELHORIA' | 'DUVIDA'
-type Mode = 'menu' | 'ticket' | 'orcamento'
+type Mode = 'menu' | 'ticket' | 'orcamento' | 'evento'
 
 const TIPOS: Array<{ valor: Tipo; label: string; icon: typeof Bug; cor: string }> = [
   { valor: 'INCIDENTE', label: 'Erro',     icon: Bug,         cor: '#dc2626' },
@@ -245,7 +246,7 @@ export function FloatingFeedbackButton() {
   }
 
   // Cor do header/ícones por serviço selecionado
-  const accent = mode === 'orcamento' ? 'var(--mod-comercial, #fb7185)' : 'var(--mod-ti, #22d3ee)'
+  const accent = mode === 'orcamento' ? 'var(--mod-comercial, #fb7185)' : mode === 'evento' ? 'var(--mod-administrativo, #38bdf8)' : 'var(--mod-ti, #22d3ee)'
 
   return (
     <>
@@ -320,14 +321,16 @@ export function FloatingFeedbackButton() {
               )}
               <div className="min-w-0">
                 <div className="text-sm font-semibold text-foreground">
-                  {mode === 'menu' ? 'Solicitar Novo' : mode === 'ticket' ? 'Abrir ticket' : 'Solicitar orçamento'}
+                  {mode === 'menu' ? 'Criar Novo' : mode === 'ticket' ? 'Abrir ticket' : mode === 'evento' ? 'Novo evento' : 'Solicitar orçamento'}
                 </div>
                 <div className="text-[11px] text-muted-foreground">
                   {mode === 'menu'
                     ? 'O que você precisa hoje?'
                     : mode === 'ticket'
                       ? 'Criamos um ticket no Helpdesk pra você'
-                      : 'Enviamos sua solicitação ao comercial'}
+                      : mode === 'evento'
+                        ? 'Adiciona um evento na agenda corporativa'
+                        : 'Enviamos sua solicitação ao comercial'}
                 </div>
               </div>
             </div>
@@ -344,7 +347,7 @@ export function FloatingFeedbackButton() {
           >
           {/* ── Menu: escolha do serviço ── */}
           {mode === 'menu' && (
-            <div className="p-3 grid grid-cols-2 gap-3">
+            <div className="p-3 grid grid-cols-3 gap-2.5">
               <ServiceCard
                 icon={LifeBuoy}
                 title="Ticket"
@@ -358,6 +361,13 @@ export function FloatingFeedbackButton() {
                 subtitle="Pedir ao comercial"
                 color="var(--mod-comercial, #fb7185)"
                 onClick={() => goTo('orcamento')}
+              />
+              <ServiceCard
+                icon={CalendarPlus}
+                title="Evento"
+                subtitle="Agendar na agenda"
+                color="var(--mod-administrativo, #38bdf8)"
+                onClick={() => goTo('evento')}
               />
             </div>
           )}
@@ -506,6 +516,15 @@ export function FloatingFeedbackButton() {
           {/* ── Orçamento (solicitação ao comercial) ── */}
           {mode === 'orcamento' && (
             <OrcamentoRequestForm
+              accent={accent}
+              onCancel={() => setOpenAnimated(false)}
+              onClose={() => setOpenAnimated(false)}
+            />
+          )}
+
+          {/* ── Evento (cria direto na agenda corporativa) ── */}
+          {mode === 'evento' && (
+            <EventoRequestForm
               accent={accent}
               onCancel={() => setOpenAnimated(false)}
               onClose={() => setOpenAnimated(false)}
@@ -833,6 +852,160 @@ function OrcamentoRequestForm({
         >
           {enviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
           Solicitar
+        </Button>
+      </div>
+    </>
+  )
+}
+
+/** Formulário rápido de criação de evento na agenda corporativa. */
+function EventoRequestForm({
+  accent, onCancel, onClose,
+}: {
+  accent: string; onCancel: () => void; onClose: () => void
+}) {
+  const hojeStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
+  const [titulo, setTitulo] = useState('')
+  const [tipos, setTipos] = useState<Array<{ id: string; nome: string; cor: string }>>([])
+  const [tipoId, setTipoId] = useState('')
+  const [data, setData] = useState(hojeStr)
+  const [diaInteiro, setDiaInteiro] = useState(false)
+  const [horaInicio, setHoraInicio] = useState('09:00')
+  const [horaFim, setHoraFim] = useState('10:00')
+  const [descricao, setDescricao] = useState('')
+  const [usuarios, setUsuarios] = useState<Array<{ id: string; name: string }>>([])
+  const [buscaUser, setBuscaUser] = useState('')
+  const [participantes, setParticipantes] = useState<Array<{ id: string; name: string }>>([])
+  const [userDropdown, setUserDropdown] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const [criado, setCriado] = useState<{ id: string; titulo: string } | null>(null)
+
+  useEffect(() => {
+    (trpc.agenda as any).listTipos.query().then((d: Array<{ id: string; nome: string; cor: string }>) => { setTipos(d); if (d[0]) setTipoId(d[0].id) }).catch(() => setTipos([]))
+    ;(trpc.agenda as any).listUsuarios.query().then((d: Array<{ id: string; name: string }>) => setUsuarios(d)).catch(() => setUsuarios([]))
+  }, [])
+
+  const usuariosFiltrados = buscaUser.trim()
+    ? usuarios.filter(u => u.name.toLowerCase().includes(buscaUser.trim().toLowerCase()) && !participantes.some(p => p.id === u.id)).slice(0, 6)
+    : []
+
+  async function handleCriar() {
+    if (titulo.trim().length < 1) return alerts.error('Informe o título', 'Dê um nome ao evento.')
+    if (!tipoId) return alerts.error('Selecione o tipo', 'Escolha o tipo do evento.')
+    if (!data) return alerts.error('Informe a data', 'Selecione a data do evento.')
+    setEnviando(true)
+    try {
+      const res = await (trpc.agenda as any).create.mutate({
+        titulo: titulo.trim(),
+        tipoId,
+        data,
+        diaInteiro,
+        horaInicio: diaInteiro ? null : horaInicio,
+        horaFim: diaInteiro ? null : horaFim,
+        descricao: descricao.trim() || null,
+        participanteIds: participantes.map(p => p.id),
+      }) as { id: string }
+      setCriado({ id: res.id, titulo: titulo.trim() })
+    } catch (e) {
+      alerts.error('Erro ao criar evento', (e as Error).message)
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  if (criado) {
+    return (
+      <SuccessState
+        titulo="Evento criado"
+        subtitulo={`"${criado.titulo}" foi adicionado à agenda.`}
+        href="/agenda"
+        ctaLabel="Ver na agenda"
+        color={accent}
+        onClose={onClose}
+      />
+    )
+  }
+
+  return (
+    <>
+      <div className="px-4 py-3 space-y-3">
+        {/* Título */}
+        <div className="space-y-1.5">
+          <label className="text-[13px] font-semibold text-foreground">Título</label>
+          <input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Nome do evento" className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+        </div>
+
+        {/* Tipo + Data */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-semibold text-foreground">Tipo</label>
+            <select value={tipoId} onChange={e => setTipoId(e.target.value)} className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+              {tipos.length === 0 && <option value="">—</option>}
+              {tipos.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-semibold text-foreground">Data</label>
+            <input type="date" value={data} onChange={e => setData(e.target.value)} className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+          </div>
+        </div>
+
+        {/* Horário / dia inteiro */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-[13px] font-semibold text-foreground flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />Horário</label>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+              <input type="checkbox" checked={diaInteiro} onChange={e => setDiaInteiro(e.target.checked)} className="h-3.5 w-3.5 rounded border-border" /> Dia inteiro
+            </label>
+          </div>
+          {!diaInteiro && (
+            <div className="flex items-center gap-2">
+              <input type="time" value={horaInicio} onChange={e => { setHoraInicio(e.target.value); if (e.target.value >= horaFim) { const [h, m] = e.target.value.split(':'); setHoraFim(`${String((Number(h) + 1) % 24).padStart(2, '0')}:${m}`) } }} className="h-9 rounded-md border border-border bg-background px-2 text-sm flex-1" />
+              <span className="text-muted-foreground text-sm">—</span>
+              <input type="time" value={horaFim} onChange={e => setHoraFim(e.target.value)} className="h-9 rounded-md border border-border bg-background px-2 text-sm flex-1" />
+            </div>
+          )}
+        </div>
+
+        {/* Participantes */}
+        <div className="space-y-1.5">
+          <label className="text-[13px] font-semibold text-foreground flex items-center gap-1.5"><Users className="h-3.5 w-3.5" />Participantes</label>
+          {participantes.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {participantes.map(p => (
+                <span key={p.id} className="inline-flex items-center gap-1 pl-2 pr-1 h-6 rounded-full bg-muted text-xs">
+                  {p.name}
+                  <button type="button" onClick={() => setParticipantes(s => s.filter(x => x.id !== p.id))} className="h-4 w-4 rounded-full flex items-center justify-center hover:bg-rose-500 hover:text-white"><X className="h-2.5 w-2.5" /></button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <input value={buscaUser} onChange={e => { setBuscaUser(e.target.value); setUserDropdown(true) }} onFocus={() => setUserDropdown(true)} placeholder="Adicionar participante..." className="w-full h-9 rounded-md border border-border bg-background pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            {userDropdown && usuariosFiltrados.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full max-h-40 overflow-auto rounded-md border border-border bg-popover shadow-lg">
+                {usuariosFiltrados.map(u => (
+                  <button key={u.id} type="button" onClick={() => { setParticipantes(s => [...s, u]); setBuscaUser(''); setUserDropdown(false) }} className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted">{u.name}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Descrição */}
+        <div className="space-y-1.5">
+          <label className="text-[13px] font-semibold text-foreground">Descrição</label>
+          <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={3} placeholder="Detalhes do evento (opcional)..." className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="px-4 py-3 border-t border-border bg-muted/30 flex items-center justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={onCancel} disabled={enviando}>Cancelar</Button>
+        <Button size="sm" onClick={handleCriar} disabled={enviando || !titulo.trim() || !tipoId} className="gap-1.5 text-white" style={{ background: accent }}>
+          {enviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarPlus className="h-3.5 w-3.5" />}
+          Criar evento
         </Button>
       </div>
     </>
