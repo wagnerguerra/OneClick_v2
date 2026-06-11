@@ -128,6 +128,9 @@ export default function CrmPage() {
   const [novaTagCor, setNovaTagCor] = useState('#94a3b8')
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  // Mantém o termo atual acessível ao fetchAll (usado tb. pelos refreshes via SSE)
+  const searchRef = useRef('')
   const [viewMode, setViewMode] = useState<'kanban' | 'tabela'>(() => {
     if (typeof window !== 'undefined') return (localStorage.getItem('crm-view-mode') as 'kanban' | 'tabela') || 'kanban'
     return 'kanban'
@@ -338,7 +341,7 @@ export default function CrmPage() {
     try {
       const [et, kanban, st, tg, opAtiv, opOrig, cfg] = await Promise.all([
         (trpc.crm as any).listEtapas.query(),
-        (trpc.crm as any).listKanban.query(),
+        (trpc.crm as any).listKanban.query({ search: searchRef.current || undefined }),
         (trpc.crm as any).getStats.query(),
         (trpc.crm as any).listTags.query().catch(() => []),
         (trpc.cliente as any).listOpcoes.query({ tipo: 'ATIVIDADE' }).catch(() => []),
@@ -359,8 +362,31 @@ export default function CrmPage() {
     }
   }, [])
 
+  // Recarrega apenas o kanban (busca server-side) sem mexer no resto da tela
+  const reloadKanban = useCallback(async () => {
+    try {
+      const kanban = await (trpc.crm as any).listKanban.query({ search: searchRef.current || undefined })
+      setOportunidades(kanban)
+    } catch { /* mantém os dados atuais em caso de falha */ }
+  }, [])
+
   // Carregamento inicial
   useEffect(() => { fetchAll() }, [fetchAll])
+
+  // Debounce do termo de busca (350ms) — espelha o módulo de orçamentos
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 350)
+    return () => clearTimeout(t)
+  }, [search])
+
+  // Quando o termo "assenta", refaz a busca no servidor (pula o 1º render — o
+  // carregamento inicial já trouxe tudo).
+  const didMountSearch = useRef(false)
+  useEffect(() => {
+    searchRef.current = debouncedSearch
+    if (!didMountSearch.current) { didMountSearch.current = true; return }
+    reloadKanban()
+  }, [debouncedSearch, reloadKanban])
 
   // Deep-link: abre o detalhe da oportunidade quando chega com `?op=<id>`
   // (usado pelo botão "Abrir no CRM" do detalhe de um evento da agenda).
@@ -403,14 +429,9 @@ export default function CrmPage() {
   }, [fetchAll, activeCardId])
 
   // ── Computed ──
-  const filteredOps = useMemo(() => {
-    if (!search.trim()) return oportunidades
-    const q = search.toLowerCase()
-    return oportunidades.filter(o =>
-      o.titulo.toLowerCase().includes(q) ||
-      o.cliente?.razaoSocial?.toLowerCase().includes(q)
-    )
-  }, [oportunidades, search])
+  // A busca é feita no servidor (listKanban com `search`), então aqui só
+  // repassamos as oportunidades já filtradas.
+  const filteredOps = oportunidades
 
   const opsByEtapa = useMemo(() => {
     const map: Record<string, Oportunidade[]> = {}

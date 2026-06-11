@@ -123,12 +123,58 @@ export class CrmService {
     return { data, total, page: input.page || 1, limit: input.limit || 50, totalPages: Math.ceil(total / (input.limit || 50)) }
   }
 
-  async listKanban(isMaster: boolean, empresaId?: string) {
+  async listKanban(isMaster: boolean, empresaId?: string, search?: string) {
     // Limpar declinios vencidos silenciosamente
     this.limparDecliniosVencidos(empresaId).catch(() => {})
 
     const where: any = { isActive: true }
     if (!isMaster && empresaId) where.empresaId = empresaId
+
+    // Busca abrangente — cobre tudo o que aparece no card da oportunidade:
+    // título, descrição, dados do lead (razão social/CNPJ), contato
+    // (nome/cargo/telefone/e-mail), origem/atividade, o cliente vinculado
+    // (razão social/fantasia/documento) e o responsável (nome).
+    if (search && search.trim()) {
+      const term = search.trim()
+      const numStr = term.replace(/[^0-9]/g, '') // dígitos: CNPJ/telefone
+      const or: any[] = [
+        { titulo: { contains: term, mode: 'insensitive' } },
+        { descricao: { contains: term, mode: 'insensitive' } },
+        { razaoSocial: { contains: term, mode: 'insensitive' } },
+        { cpfCnpj: { contains: term, mode: 'insensitive' } },
+        { contatoNome: { contains: term, mode: 'insensitive' } },
+        { contatoCargo: { contains: term, mode: 'insensitive' } },
+        { contatoTelefone: { contains: term, mode: 'insensitive' } },
+        { contatoEmail: { contains: term, mode: 'insensitive' } },
+        { origem: { contains: term, mode: 'insensitive' } },
+        { atividade: { contains: term, mode: 'insensitive' } },
+      ]
+      if (numStr) {
+        or.push({ cpfCnpj: { contains: numStr } })
+        or.push({ contatoTelefone: { contains: numStr } })
+      }
+      // Cliente vinculado (nome / fantasia / CNPJ) — pré-busca os IDs no escopo
+      const clienteOr: any[] = [
+        { razaoSocial: { contains: term, mode: 'insensitive' } },
+        { nomeFantasia: { contains: term, mode: 'insensitive' } },
+      ]
+      if (numStr) clienteOr.push({ documento: { contains: numStr } })
+      const [clientes, usuarios] = await Promise.all([
+        prisma.cliente.findMany({
+          where: { ...(!isMaster && empresaId ? { empresaId } : {}), OR: clienteOr },
+          select: { id: true },
+          take: 300,
+        }).catch(() => [] as { id: string }[]),
+        prisma.user.findMany({
+          where: { name: { contains: term, mode: 'insensitive' } },
+          select: { id: true },
+          take: 300,
+        }).catch(() => [] as { id: string }[]),
+      ])
+      if (clientes.length > 0) or.push({ clienteId: { in: clientes.map(c => c.id) } })
+      if (usuarios.length > 0) or.push({ responsavelId: { in: usuarios.map(u => u.id) } })
+      where.OR = or
+    }
 
     return prisma.oportunidade.findMany({
       where,
