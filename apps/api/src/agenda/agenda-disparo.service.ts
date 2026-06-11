@@ -42,6 +42,13 @@ export class AgendaDisparoService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
+    // SÓ dispara em produção (a VPS). Em dev/local o SMTP é o mesmo de produção,
+    // então uma API local rodando mandaria a "Agenda do dia" REAL pra todos os
+    // destinatários. Gateado por NODE_ENV (prod seta NODE_ENV=production no Docker).
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[AgendaDisparo] Scheduler DESATIVADO fora de produção (NODE_ENV=${process.env.NODE_ENV ?? 'undefined'}) — só a VPS envia a agenda do dia.`)
+      return
+    }
     // Checa a cada 60s se está na hora de disparar (granularidade de minuto).
     // Não usa cron lib pra evitar dependência extra.
     setInterval(() => {
@@ -116,11 +123,16 @@ export class AgendaDisparoService implements OnModuleInit {
     // restart.
     if (horaAtualBr < cfg.horario) return
 
-    console.log(`[AgendaDisparo] Disparando agenda do dia ${dataHojeBrKey} (BR ${horaAtualBr}, configurado ${cfg.horario}) pra ${destinatarios.length} destinatário(s)`)
-    await prisma.agendaDisparoConfig.update({
-      where: { id: cfg.id },
+    // Reivindicação ATÔMICA do disparo do dia: o updateMany só afeta a linha se
+    // `ultimoDisparoEm` ainda for o valor lido (ou null). Se outra instância já
+    // reivindicou (corrida), count=0 e esta instância NÃO envia. Evita duplicar
+    // mesmo com múltiplas instâncias.
+    const claim = await prisma.agendaDisparoConfig.updateMany({
+      where: { id: cfg.id, ultimoDisparoEm: cfg.ultimoDisparoEm },
       data: { ultimoDisparoEm: agoraUtc },
     })
+    if (claim.count === 0) return
+    console.log(`[AgendaDisparo] Disparando agenda do dia ${dataHojeBrKey} (BR ${horaAtualBr}, configurado ${cfg.horario}) pra ${destinatarios.length} destinatário(s)`)
     await this.enviarAgendaDiaParaTodos(dataHojeBrKey, destinatarios, 'auto', null)
   }
 
