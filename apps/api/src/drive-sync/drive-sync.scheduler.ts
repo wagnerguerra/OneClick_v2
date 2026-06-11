@@ -1,4 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Inject } from '@nestjs/common'
+import { schedulersAtivos } from '../common/scheduler-guard'
 import { CronJob } from 'cron'
 import { DriveSyncService } from './drive-sync.service'
 
@@ -22,6 +23,7 @@ export class DriveSyncScheduler implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
+    if (!schedulersAtivos()) { console.log('[Scheduler] desativado fora de produção (apenas a VPS executa)'); return }
     if (process.env.GOOGLE_DRIVE_SYNC_ENABLED !== 'true') {
       console.log('[DriveSync Scheduler] Desabilitado (GOOGLE_DRIVE_SYNC_ENABLED != true)')
       return

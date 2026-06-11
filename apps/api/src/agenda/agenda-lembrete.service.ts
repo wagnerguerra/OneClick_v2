@@ -1,4 +1,5 @@
 import { Injectable, Inject, OnModuleInit } from '@nestjs/common'
+import { schedulersAtivos } from '../common/scheduler-guard'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { prisma } from '@saas/db'
@@ -37,6 +38,7 @@ export class AgendaLembreteService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
+    if (!schedulersAtivos()) { console.log('[Scheduler] desativado fora de produção (apenas a VPS executa)'); return }
     setInterval(() => {
       this.tick().catch(e => console.error('[AgendaLembrete] tick falhou:', e))
       this.tickTarefas().catch(e => console.error('[AgendaLembrete] tickTarefas falhou:', e))

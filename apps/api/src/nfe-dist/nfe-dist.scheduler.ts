@@ -20,6 +20,7 @@
  */
 
 import {
+import { schedulersAtivos } from '../common/scheduler-guard'
   Inject,
   Injectable,
   OnModuleDestroy,
@@ -61,6 +62,7 @@ export class NfeDistScheduler implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    if (!schedulersAtivos()) { console.log('[Scheduler] desativado fora de produção (apenas a VPS executa)'); return }
     // Poll manual SEMPRE roda — usuário pode disparar sync via UI mesmo sem cron diário.
     this.manualPollTimer = setInterval(() => {
       void this.processarSyncRequests()

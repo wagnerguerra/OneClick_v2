@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
+import { schedulersAtivos } from '../common/scheduler-guard'
 import { CronJob } from 'cron'
 import { prisma } from '@saas/db'
 import { NotificacaoService } from './notificacao.service'
@@ -22,6 +23,7 @@ export class PrazoProximoScheduler implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly notificacao: NotificacaoService) {}
 
   onModuleInit() {
+    if (!schedulersAtivos()) { console.log('[Scheduler] desativado fora de produção (apenas a VPS executa)'); return }
     this.job = new CronJob('17 * * * *', () => { void this.executar() })
     this.job.start()
     this.logger.log('PrazoProximoScheduler iniciado — cron 17 * * * *')

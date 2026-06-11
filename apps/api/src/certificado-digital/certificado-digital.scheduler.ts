@@ -1,4 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
+import { schedulersAtivos } from '../common/scheduler-guard'
 import { CronJob } from 'cron'
 import { CertificadoDigitalService } from './certificado-digital.service'
 
@@ -16,6 +17,7 @@ export class CertificadoDigitalScheduler implements OnModuleInit, OnModuleDestro
   constructor(private readonly service: CertificadoDigitalService) {}
 
   onModuleInit() {
+    if (!schedulersAtivos()) { console.log('[Scheduler] desativado fora de produção (apenas a VPS executa)'); return }
     // Roda diariamente às 06:00 (horário do servidor)
     this.job = new CronJob('0 6 * * *', () => this.executar())
     this.job.start()

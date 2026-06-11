@@ -1,4 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
+import { schedulersAtivos } from '../common/scheduler-guard'
 import { CronJob } from 'cron'
 import { ServicoService } from './servico.service'
 
@@ -16,6 +17,7 @@ export class ServicoScheduler implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly servicoService: ServicoService) {}
 
   onModuleInit() {
+    if (!schedulersAtivos()) { console.log('[Scheduler] desativado fora de produção (apenas a VPS executa)'); return }
     // A cada hora no minuto 5
     this.job = new CronJob('5 * * * *', () => this.executar())
     this.job.start()

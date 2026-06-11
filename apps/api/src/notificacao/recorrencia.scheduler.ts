@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Inject, forwardRef } from '@nestjs/common'
+import { schedulersAtivos } from '../common/scheduler-guard'
 import { CronJob } from 'cron'
 import { prisma } from '@saas/db'
 import { ServicoService } from '../servico/servico.service'
@@ -37,6 +38,7 @@ export class RecorrenciaScheduler implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
+    if (!schedulersAtivos()) { console.log('[Scheduler] desativado fora de produção (apenas a VPS executa)'); return }
     // Diariamente às 6h. Pode forçar manualmente via método executar().
     this.job = new CronJob('0 6 * * *', () => { void this.executar() })
     this.job.start()

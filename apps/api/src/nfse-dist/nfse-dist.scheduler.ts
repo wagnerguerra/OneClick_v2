@@ -20,6 +20,7 @@
  */
 
 import {
+import { schedulersAtivos } from '../common/scheduler-guard'
   Inject,
   Injectable,
   OnModuleDestroy,
@@ -60,6 +61,7 @@ export class NfseDistScheduler implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    if (!schedulersAtivos()) { console.log('[Scheduler] desativado fora de produção (apenas a VPS executa)'); return }
     this.manualPollTimer = setInterval(() => {
       void this.processarSyncRequests()
     }, MANUAL_POLL_INTERVAL_MS)

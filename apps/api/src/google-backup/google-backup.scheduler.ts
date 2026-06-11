@@ -9,6 +9,7 @@
  */
 
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common'
+import { schedulersAtivos } from '../common/scheduler-guard'
 import { CronJob } from 'cron'
 import { prisma } from '@saas/db'
 import { GoogleBackupService } from './google-backup.service'
@@ -31,6 +32,7 @@ export class GoogleBackupScheduler implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly service: GoogleBackupService) {}
 
   onModuleInit() {
+    if (!schedulersAtivos()) { console.log('[Scheduler] desativado fora de produção (apenas a VPS executa)'); return }
     this.job = new CronJob(
       CRON_EXPRESSION,
       () => { void this.executar() },

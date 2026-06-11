@@ -77,6 +77,7 @@ export class CaixaPostalSchedulerService implements OnModuleInit, OnModuleDestro
   ) {}
 
   async onModuleInit() {
+    if (!schedulersAtivos()) { console.log('[Scheduler] desativado fora de produção (apenas a VPS executa)'); return }
     try {
       const config = await this.getConfig()
       if (config.enabled) {

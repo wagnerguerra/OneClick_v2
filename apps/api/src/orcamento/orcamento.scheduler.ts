@@ -1,4 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Inject, forwardRef } from '@nestjs/common'
+import { schedulersAtivos } from '../common/scheduler-guard'
 import { CronJob } from 'cron'
 import { OrcamentoService } from './orcamento.service'
 
@@ -18,6 +19,7 @@ export class OrcamentoScheduler implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
+    if (!schedulersAtivos()) { console.log('[Scheduler] desativado fora de produção (apenas a VPS executa)'); return }
     // Roda diariamente às 08:00 (horário do servidor)
     this.job = new CronJob('0 8 * * *', () => this.executar())
     this.job.start()
