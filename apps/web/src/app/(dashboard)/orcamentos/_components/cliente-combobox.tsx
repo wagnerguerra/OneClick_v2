@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Plus, Loader2 } from 'lucide-react'
 import { Input, cn } from '@saas/ui'
 
 /**
@@ -21,15 +21,19 @@ function formatDocumento(doc: string | null | undefined): string {
  * ou documento (CNPJ/CPF). Usado no modal de criacao e no detalhe do
  * orcamento.
  */
-export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabled }: {
+export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabled, onCreate }: {
   clientes: Array<{ id: string; razaoSocial: string; documento?: string | null }>
   value: string
   onSelect: (id: string) => void
   placeholder?: string
   disabled?: boolean
+  /** Quando informado, mostra "Cadastrar '<nome>'" se a busca não casar com
+   *  nenhum cliente. Deve criar o cliente e retornar o id (ou null se falhar). */
+  onCreate?: (nome: string) => Promise<string | null>
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [creating, setCreating] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const selected = clientes.find(c => c.id === value)
   // Filtro busca tanto na razão social quanto no documento — com e sem
@@ -56,6 +60,23 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
+
+  // Mostra o atalho de cadastro quando há texto digitado, há onCreate e o termo
+  // não bate exatamente com a razão social de um cliente já listado.
+  const nomeNovo = query.trim()
+  const existeExato = clientes.some(c => c.razaoSocial.trim().toLowerCase() === nomeNovo.toLowerCase())
+  const podeCadastrar = !!onCreate && nomeNovo.length >= 2 && !existeExato
+
+  async function handleCreate() {
+    if (!onCreate || creating) return
+    setCreating(true)
+    try {
+      const id = await onCreate(nomeNovo)
+      if (id) { onSelect(id); setOpen(false); setQuery('') }
+    } finally {
+      setCreating(false)
+    }
+  }
 
   return (
     <div ref={ref} className="relative w-full">
@@ -93,7 +114,7 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
           </div>
           <div className="max-h-64 overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhum cliente encontrado</p>
+              !podeCadastrar && <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhum cliente encontrado</p>
             ) : filtered.map(c => (
               <button
                 key={c.id}
@@ -110,6 +131,20 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
                 )}
               </button>
             ))}
+            {/* Atalho: cadastrar o nome digitado como novo cliente (lead/prospect) */}
+            {podeCadastrar && (
+              <button
+                type="button"
+                onClick={handleCreate}
+                disabled={creating}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 border-t mt-1 text-foreground disabled:opacity-60"
+              >
+                {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> : <Plus className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
+                <span className="truncate">
+                  Cadastrar <span className="font-semibold">“{nomeNovo}”</span> como novo cliente
+                </span>
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -321,6 +321,38 @@ export class OrcamentoService {
    * como solicitante. Cliente pode ser um cadastro existente OU um nome avulso
    * (prospect ainda não cadastrado) — nesse caso vai no início do detalhamento.
    */
+  /**
+   * Encontra um cliente pela razão social (escopo da empresa) ou cria um novo
+   * como lead/prospect — mesmo comportamento do CRM (crm.service.ts create()).
+   * Usado pelo balão "Solicitar orçamento" e pela edição de cliente no detalhe
+   * do orçamento. Retorna o cliente, ou null se a criação falhar.
+   */
+  async encontrarOuCriarClientePorNome(
+    nome: string,
+    empresaId?: string,
+  ): Promise<{ id: string; razaoSocial: string; documento: string } | null> {
+    const nomeTrim = (nome || '').trim()
+    if (!nomeTrim) return null
+    const existente = await prisma.cliente.findFirst({
+      where: { razaoSocial: { equals: nomeTrim, mode: 'insensitive' }, ...(empresaId ? { empresaId } : {}) },
+      select: { id: true, razaoSocial: true, documento: true },
+    }).catch(() => null)
+    if (existente) return existente
+    return prisma.cliente.create({
+      data: {
+        razaoSocial: nomeTrim,
+        documento: '',
+        tipoDocumento: 'CNPJ',
+        isLead: true,
+        situacao: 'PROSPECT',
+        status: 'ATIVA',
+        origem: 'Cadastro via orçamento',
+        empresaId: empresaId || null,
+      },
+      select: { id: true, razaoSocial: true, documento: true },
+    }).catch((e: Error) => { console.error('[Orcamento] Falha ao cadastrar cliente:', e.message); return null })
+  }
+
   async solicitar(
     input: {
       clienteId?: string | null; clienteNome?: string | null; detalhamento: string; areaIds?: string[]
@@ -333,36 +365,15 @@ export class OrcamentoService {
     const det = (input.detalhamento || '').trim()
 
     // Cliente digitado mas não selecionado → vincula a um existente (mesma razão
-    // social) ou CRIA um novo como lead/prospect — mesmo comportamento do CRM
-    // (crm.service.ts create()). Antes só guardava o nome no texto.
+    // social) ou CRIA um novo como lead/prospect — mesmo comportamento do CRM.
+    // Antes só guardava o nome no texto.
     let clienteId = input.clienteId || null
     let obs = det
     if (!clienteId && input.clienteNome?.trim()) {
-      const nome = input.clienteNome.trim()
-      const existente = await prisma.cliente.findFirst({
-        where: { razaoSocial: { equals: nome, mode: 'insensitive' }, ...(empresaId ? { empresaId } : {}) },
-        select: { id: true },
-      }).catch(() => null)
-      if (existente) {
-        clienteId = existente.id
-      } else {
-        const novo = await prisma.cliente.create({
-          data: {
-            razaoSocial: nome,
-            documento: '',
-            tipoDocumento: 'CNPJ',
-            isLead: true,
-            situacao: 'PROSPECT',
-            status: 'ATIVA',
-            origem: 'Solicitação de orçamento',
-            empresaId: empresaId || null,
-          },
-          select: { id: true },
-        }).catch((e: Error) => { console.error('[Orcamento] Falha ao cadastrar cliente da solicitação:', e.message); return null })
-        if (novo) clienteId = novo.id
-      }
+      const c = await this.encontrarOuCriarClientePorNome(input.clienteNome, empresaId)
+      if (c) clienteId = c.id
       // Se não conseguiu vincular/criar, ao menos registra o nome no texto.
-      if (!clienteId) obs = `<p><b>Cliente informado:</b> ${nome}</p>${det}`
+      else obs = `<p><b>Cliente informado:</b> ${input.clienteNome.trim()}</p>${det}`
     }
 
     const orc = await this.create(

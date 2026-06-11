@@ -121,6 +121,13 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ search: z.string().optional() }))
       .query(({ input, ctx }) => orcamentoService.buscarClientesParaSolicitacao(input.search, ctx.isMaster ?? false, ctx.empresaId)),
 
+    // Cadastra (ou reaproveita) um cliente como lead/prospect a partir de um
+    // nome digitado — usado na edição de cliente no detalhe do orçamento.
+    // writeProcedure: só quem pode editar orçamentos cria cliente por aqui.
+    criarClienteRapido: writeProcedure(MODULE)
+      .input(z.object({ nome: z.string().min(2) }))
+      .mutation(({ input, ctx }) => orcamentoService.encontrarOuCriarClientePorNome(input.nome, ctx.empresaId)),
+
     solicitar: protectedProcedure
       .input(z.object({
         clienteId: z.string().optional().nullable(),

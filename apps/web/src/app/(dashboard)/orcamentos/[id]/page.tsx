@@ -1968,7 +1968,24 @@ export default function OrcamentoDetailPage() {
                         {/* Linha 1: Cliente (8) + Validade (4) — identifica o "quê" e o prazo */}
                         <div className="col-span-12 sm:col-span-8 space-y-1.5">
                           <Label className="text-[13px] font-semibold text-foreground">Cliente <span className="text-rose-500">*</span></Label>
-                          <ClienteCombobox clientes={clientes} value={formClienteId} onSelect={(id) => setFormClienteId(id)} placeholder="Selecione um cliente" />
+                          <ClienteCombobox
+                            clientes={clientes}
+                            value={formClienteId}
+                            onSelect={(id) => setFormClienteId(id)}
+                            placeholder="Selecione um cliente"
+                            onCreate={async (nome) => {
+                              try {
+                                const novo = await (trpc.orcamento as any).criarClienteRapido.mutate({ nome }) as { id: string; razaoSocial: string; documento?: string | null } | null
+                                if (!novo) { alerts.error('Erro', 'Não foi possível cadastrar o cliente.'); return null }
+                                // Insere na lista (sem duplicar) e seleciona.
+                                setClientes(prev => prev.some(c => c.id === novo.id) ? prev : [...prev, { id: novo.id, razaoSocial: novo.razaoSocial, documento: novo.documento ?? null }])
+                                return novo.id
+                              } catch (e) {
+                                alerts.error('Erro ao cadastrar cliente', (e as Error).message)
+                                return null
+                              }
+                            }}
+                          />
                         </div>
                         <div className="col-span-12 sm:col-span-4 space-y-1.5">
                           <Label className="text-[13px] font-semibold text-foreground">Validade</Label>
