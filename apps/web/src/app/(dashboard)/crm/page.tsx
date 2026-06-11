@@ -749,9 +749,8 @@ export default function CrmPage() {
       {/* ── Header ── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <Target className="h-6 w-6" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/materiais/icon_crm.png" alt="CRM" className="h-12 w-12 object-contain shrink-0" />
           <div>
             <h1>CRM — Oportunidades</h1>
             <p className="text-sm text-muted-foreground">Gerencie oportunidades de negocio</p>
