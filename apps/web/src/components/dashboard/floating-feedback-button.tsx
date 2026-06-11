@@ -351,21 +351,18 @@ export function FloatingFeedbackButton() {
               <ServiceCard
                 icon={LifeBuoy}
                 title="Ticket"
-                subtitle="Erro, dúvida ou sugestão"
                 color="var(--mod-ti, #22d3ee)"
                 onClick={() => goTo('ticket')}
               />
               <ServiceCard
                 icon={FileText}
                 title="Orçamento"
-                subtitle="Pedir ao comercial"
                 color="var(--mod-comercial, #fb7185)"
                 onClick={() => goTo('orcamento')}
               />
               <ServiceCard
                 icon={CalendarPlus}
                 title="Evento"
-                subtitle="Agendar na agenda"
                 color="var(--mod-administrativo, #38bdf8)"
                 onClick={() => goTo('evento')}
               />
@@ -539,9 +536,9 @@ export function FloatingFeedbackButton() {
 
 /** Cartão de serviço no menu inicial. */
 function ServiceCard({
-  icon: Icon, title, subtitle, color, onClick,
+  icon: Icon, title, color, onClick,
 }: {
-  icon: typeof Bug; title: string; subtitle: string; color: string; onClick: () => void
+  icon: typeof Bug; title: string; color: string; onClick: () => void
 }) {
   return (
     <button
@@ -558,10 +555,7 @@ function ServiceCard({
       >
         <Icon className="h-5 w-5" />
       </span>
-      <div>
-        <div className="text-sm font-semibold text-foreground">{title}</div>
-        <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">{subtitle}</div>
-      </div>
+      <div className="text-sm font-semibold text-foreground">{title}</div>
     </button>
   )
 }
