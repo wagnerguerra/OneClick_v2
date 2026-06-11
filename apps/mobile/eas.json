@@ -8,7 +8,10 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.0.58:4000"
+        "EXPO_PUBLIC_API_URL": "http://192.168.0.58:4000",
+        "npm_config_virtual_store_dir": "node_modules/.pnpm",
+        "npm_config_virtual_store_dir_max_length": "120",
+        "npm_config_frozen_lockfile": "false"
       },
       "android": {
         "buildType": "apk"
@@ -20,7 +23,10 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://app.oneclick.central-rnc.com.br"
+        "EXPO_PUBLIC_API_URL": "https://app.oneclick.central-rnc.com.br",
+        "npm_config_virtual_store_dir": "node_modules/.pnpm",
+        "npm_config_virtual_store_dir_max_length": "120",
+        "npm_config_frozen_lockfile": "false"
       },
       "android": {
         "buildType": "apk",
@@ -30,7 +36,10 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://app.oneclick.central-rnc.com.br"
+        "EXPO_PUBLIC_API_URL": "https://app.oneclick.central-rnc.com.br",
+        "npm_config_virtual_store_dir": "node_modules/.pnpm",
+        "npm_config_virtual_store_dir_max_length": "120",
+        "npm_config_frozen_lockfile": "false"
       },
       "android": {
         "buildType": "app-bundle"
