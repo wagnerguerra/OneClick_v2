@@ -838,13 +838,20 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                   {errors.razaoSocial && <p className="text-xs text-destructive">{errors.razaoSocial.message}</p>}
                 </div>
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
-                  <Label>CNPJ</Label>
+                  <Label>CNPJ / CPF</Label>
                   <div className="flex" style={{ borderRadius: '0.25rem' }}>
                     <Controller control={control} name="documento" render={({ field }) => (
                       <Input
-                        placeholder={tipoDocumento === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
-                        value={tipoDocumento === 'CPF' ? masks.cpf(field.value || '') : masks.cnpj(field.value || '')}
-                        onChange={(e) => field.onChange(tipoDocumento === 'CPF' ? masks.cpf(e.target.value) : masks.cnpj(e.target.value))}
+                        placeholder="CNPJ ou CPF (opcional)"
+                        // Máscara combinada: ≤11 dígitos formata como CPF, acima como CNPJ.
+                        value={masks.cpfCnpj(field.value || '')}
+                        onChange={(e) => {
+                          const masked = masks.cpfCnpj(e.target.value)
+                          field.onChange(masked)
+                          // Auto-detecta o tipo pelo nº de dígitos (>11 = CNPJ).
+                          const d = masked.replace(/\D/g, '')
+                          setValue('tipoDocumento', d.length > 11 ? 'CNPJ' : 'CPF', { shouldDirty: true })
+                        }}
                         className="rounded-r-none border-r-0"
                       />
                     )} />

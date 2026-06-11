@@ -97,7 +97,15 @@ export const createClienteSchema = z.object({
   // Identificação
   razaoSocial: z.coerce.string().min(2, 'Razão Social é obrigatória'),
   nomeFantasia: z.coerce.string().optional().or(z.literal('')),
-  documento: z.coerce.string().min(11, 'Documento é obrigatório'),
+  // Documento OPCIONAL — aceita CPF (11 díg.) ou CNPJ (14 díg.). Vazio é
+  // permitido (ex.: prospect/lead sem documento ainda).
+  documento: z.coerce.string()
+    .refine(
+      (v) => { const d = (v ?? '').replace(/\D/g, ''); return d.length === 0 || d.length === 11 || d.length === 14 },
+      'Informe um CPF (11 dígitos) ou CNPJ (14 dígitos)',
+    )
+    .optional()
+    .or(z.literal('')),
   tipoDocumento: z.enum(['CNPJ', 'CPF']).default('CNPJ'),
   tipoCliente: z.coerce.string().optional().or(z.literal('')),
 

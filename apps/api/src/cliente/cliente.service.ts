@@ -300,7 +300,8 @@ export class ClienteService {
         data: {
           razaoSocial: input.razaoSocial,
           nomeFantasia: input.nomeFantasia || null,
-          documento: input.documento,
+          // Documento opcional — armazena só dígitos; vazio é permitido.
+          documento: (input.documento || '').replace(/\D/g, ''),
           tipoDocumento: (input.tipoDocumento || 'CNPJ') as never,
           tipoCliente: input.tipoCliente || null,
           idSistema: input.idSistema || null,
@@ -356,6 +357,10 @@ export class ClienteService {
         if (value === undefined) continue
         if (key === 'dataEntrada' || key === 'dataSaida') {
           data[key] = parseOptionalDate(value as string)
+        } else if (key === 'documento') {
+          // documento é coluna não-nulável: armazena só dígitos, vazio vira ''
+          // (nunca null, senão o update quebra).
+          data[key] = typeof value === 'string' ? value.replace(/\D/g, '') : value
         } else {
           data[key] = typeof value === 'string' && value === '' ? null : value
         }

@@ -739,7 +739,7 @@ function OrcamentoRequestForm({
                 </div>
               )}
               <p className="mt-1 text-[10px] text-muted-foreground">
-                Cliente não cadastrado? Digite o nome — o comercial cuida do cadastro.
+                Cliente não cadastrado? Digite o nome — cadastramos automaticamente como prospect.
               </p>
             </div>
           )}

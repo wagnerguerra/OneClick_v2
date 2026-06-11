@@ -331,11 +331,42 @@ export class OrcamentoService {
   ) {
     // `detalhamento` agora vem como HTML (RichEditor). Mantém como observações.
     const det = (input.detalhamento || '').trim()
-    const obs = input.clienteNome && !input.clienteId
-      ? `<p><b>Cliente informado (não cadastrado):</b> ${input.clienteNome.trim()}</p>${det}`
-      : det
+
+    // Cliente digitado mas não selecionado → vincula a um existente (mesma razão
+    // social) ou CRIA um novo como lead/prospect — mesmo comportamento do CRM
+    // (crm.service.ts create()). Antes só guardava o nome no texto.
+    let clienteId = input.clienteId || null
+    let obs = det
+    if (!clienteId && input.clienteNome?.trim()) {
+      const nome = input.clienteNome.trim()
+      const existente = await prisma.cliente.findFirst({
+        where: { razaoSocial: { equals: nome, mode: 'insensitive' }, ...(empresaId ? { empresaId } : {}) },
+        select: { id: true },
+      }).catch(() => null)
+      if (existente) {
+        clienteId = existente.id
+      } else {
+        const novo = await prisma.cliente.create({
+          data: {
+            razaoSocial: nome,
+            documento: '',
+            tipoDocumento: 'CNPJ',
+            isLead: true,
+            situacao: 'PROSPECT',
+            status: 'ATIVA',
+            origem: 'Solicitação de orçamento',
+            empresaId: empresaId || null,
+          },
+          select: { id: true },
+        }).catch((e: Error) => { console.error('[Orcamento] Falha ao cadastrar cliente da solicitação:', e.message); return null })
+        if (novo) clienteId = novo.id
+      }
+      // Se não conseguiu vincular/criar, ao menos registra o nome no texto.
+      if (!clienteId) obs = `<p><b>Cliente informado:</b> ${nome}</p>${det}`
+    }
+
     const orc = await this.create(
-      { clienteId: input.clienteId || null, observacoes: obs, solicitanteId: userId } as any,
+      { clienteId, observacoes: obs, solicitanteId: userId } as any,
       userId,
       empresaId,
     )
