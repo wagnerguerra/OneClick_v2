@@ -174,6 +174,13 @@ export const listClienteSchema = paginationSchema.extend({
   grupo: z.string().optional(),
   cidade: z.string().optional(),
   uf: z.string().optional(),
+  // Novos filtros (paridade com a tela de clientes)
+  numero: z.string().optional(),         // busca pelo nº (code) do cliente
+  tipoCliente: z.string().optional(),    // Tipo de Cliente
+  atividade: z.string().optional(),      // possui atividade com este valor
+  areaContratada: z.string().optional(), // possui área contratada (nome)
+  // Benefício: '__com__' (qualquer), '__sem__' (nenhum) ou um valor específico
+  comBeneficio: z.string().optional(),
   isLead: z.boolean().optional(),
   /**
    * Quando true (default), lista apenas matrizes (CNPJ com ordem 0001).

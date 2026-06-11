@@ -82,7 +82,7 @@ export class ClienteService {
   // Listagem (ativos)
   // ============================================================
   async list(input: ListClienteInput, isMaster?: boolean, empresaId?: string) {
-    const { page, limit, search, sortBy, sortDir, situacao, status, tributacao, grupo, cidade, uf, isLead, agruparMatriz } = input
+    const { page, limit, search, sortBy, sortDir, situacao, status, tributacao, grupo, cidade, uf, isLead, agruparMatriz, numero, tipoCliente, atividade, areaContratada, comBeneficio } = input
     const { skip, take } = getPrismaSkipTake(page, limit)
 
     // Filtro de matriz quando agruparMatriz=true: oculta filiais (CNPJ ordem
@@ -161,6 +161,17 @@ export class ClienteService {
       ...(grupo ? { grupo } : {}),
       ...(cidade ? { cidade } : {}),
       ...(uf ? { uf } : {}),
+      // Nº do cliente (campo numérico `code`) — só aplica se for um inteiro válido
+      ...((() => { const n = parseInt((numero ?? '').replace(/\D/g, ''), 10); return Number.isInteger(n) && (numero ?? '').trim() !== '' ? { code: n } : {} })()),
+      ...(tipoCliente ? { tipoCliente } : {}),
+      // Atividade: cliente que possui uma atividade com esse valor
+      ...(atividade ? { atividades: { some: { valor: atividade } } } : {}),
+      // Área contratada (pelo nome da área no relacionamento de serviços)
+      ...(areaContratada ? { servicosContratados: { some: { contratado: true, area: { name: areaContratada } } } } : {}),
+      // Benefício: qualquer / nenhum / valor específico
+      ...(comBeneficio === '__com__' ? { beneficios: { some: {} } }
+        : comBeneficio === '__sem__' ? { beneficios: { none: {} } }
+        : comBeneficio ? { beneficios: { some: { valor: comBeneficio } } } : {}),
       ...((searchIdsFilter.length + matrizFilter.length) > 0
         ? { AND: [...searchIdsFilter, ...matrizFilter] as Prisma.ClienteWhereInput[] }
         : {}),
@@ -523,15 +534,23 @@ export class ClienteService {
   // ============================================================
   async getFilterOptions(isMaster?: boolean, empresaId?: string) {
     const base = { deletedAt: null, ...empresaFilter(isMaster, empresaId) }
-    const [grupos, cidades, estados] = await Promise.all([
+    const [grupos, cidades, estados, tipos, atividades, beneficios, areas] = await Promise.all([
       prisma.cliente.findMany({ where: { ...base, grupo: { not: null } }, select: { grupo: true }, distinct: ['grupo'], orderBy: { grupo: 'asc' } }),
       prisma.cliente.findMany({ where: { ...base, cidade: { not: null } }, select: { cidade: true }, distinct: ['cidade'], orderBy: { cidade: 'asc' } }),
       prisma.cliente.findMany({ where: { ...base, uf: { not: null } }, select: { uf: true }, distinct: ['uf'], orderBy: { uf: 'asc' } }),
+      prisma.cliente.findMany({ where: { ...base, tipoCliente: { not: null } }, select: { tipoCliente: true }, distinct: ['tipoCliente'], orderBy: { tipoCliente: 'asc' } }),
+      prisma.clienteAtividade.findMany({ where: { cliente: base }, select: { valor: true }, distinct: ['valor'], orderBy: { valor: 'asc' } }),
+      prisma.clienteBeneficio.findMany({ where: { cliente: base }, select: { valor: true }, distinct: ['valor'], orderBy: { valor: 'asc' } }),
+      prisma.area.findMany({ where: isMaster ? {} : { OR: [{ empresaId }, { empresaId: null }] }, select: { name: true }, distinct: ['name'], orderBy: { name: 'asc' } }),
     ])
     return {
       grupos: grupos.map(g => g.grupo).filter(Boolean),
       cidades: cidades.map(c => c.cidade).filter(Boolean),
       estados: estados.map(e => e.uf).filter(Boolean),
+      tipos: tipos.map(t => t.tipoCliente).filter(Boolean),
+      atividades: atividades.map(a => a.valor).filter(Boolean),
+      beneficios: beneficios.map(b => b.valor).filter(Boolean),
+      areas: areas.map(a => a.name).filter(Boolean),
     }
   }
 

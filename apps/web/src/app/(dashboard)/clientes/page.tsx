@@ -134,7 +134,14 @@ export default function ClientesPage() {
   const [filterGrupo, setFilterGrupo] = useState('')
   const [filterCidade, setFilterCidade] = useState('')
   const [filterUf, setFilterUf] = useState('')
-  const [filterOptions, setFilterOptions] = useState<{ grupos: string[]; cidades: string[]; estados: string[] }>({ grupos: [], cidades: [], estados: [] })
+  // Novos filtros
+  const [filterNumero, setFilterNumero] = useState('')
+  const [filterTipo, setFilterTipo] = useState('')
+  const [filterAtividade, setFilterAtividade] = useState('')
+  const [filterArea, setFilterArea] = useState('')
+  const [filterBeneficio, setFilterBeneficio] = useState('')
+  const [debouncedNumero, setDebouncedNumero] = useState('')
+  const [filterOptions, setFilterOptions] = useState<{ grupos: string[]; cidades: string[]; estados: string[]; tipos: string[]; atividades: string[]; beneficios: string[]; areas: string[] }>({ grupos: [], cidades: [], estados: [], tipos: [], atividades: [], beneficios: [], areas: [] })
 
   // Filtro persistente: somente mensais
   const [onlyMensal, setOnlyMensal] = useState(() => {
@@ -165,6 +172,12 @@ export default function ClientesPage() {
     return () => clearTimeout(timer)
   }, [search])
 
+  // Campo "Número" (texto) — debounce próprio pra não refazer a query a cada tecla
+  useEffect(() => {
+    const timer = setTimeout(() => { setDebouncedNumero(filterNumero); setPage(1) }, 400)
+    return () => clearTimeout(timer)
+  }, [filterNumero])
+
   // Carregar opções de filtro
   useEffect(() => {
     trpc.cliente.getFilterOptions.query().then(setFilterOptions).catch(() => {})
@@ -182,6 +195,11 @@ export default function ClientesPage() {
         ...(filterGrupo ? { grupo: filterGrupo } : {}),
         ...(filterCidade ? { cidade: filterCidade } : {}),
         ...(filterUf ? { uf: filterUf } : {}),
+        ...(debouncedNumero.trim() ? { numero: debouncedNumero.trim() } : {}),
+        ...(filterTipo ? { tipoCliente: filterTipo } : {}),
+        ...(filterAtividade ? { atividade: filterAtividade } : {}),
+        ...(filterArea ? { areaContratada: filterArea } : {}),
+        ...(filterBeneficio ? { comBeneficio: filterBeneficio } : {}),
       }
       const result = trashMode
         ? await trpc.cliente.listTrash.query(input)
@@ -189,7 +207,7 @@ export default function ClientesPage() {
       setData(result)
       setSelected(new Set())
     } catch { /* silent */ } finally { setLoading(false) }
-  }, [page, limit, debouncedSearch, sort, filterSituacao, filterStatus, filterTributacao, filterGrupo, filterCidade, filterUf, onlyMensal, trashMode])
+  }, [page, limit, debouncedSearch, sort, filterSituacao, filterStatus, filterTributacao, filterGrupo, filterCidade, filterUf, debouncedNumero, filterTipo, filterAtividade, filterArea, filterBeneficio, onlyMensal, trashMode])
 
   useEffect(() => { fetchClientes() }, [fetchClientes])
 
@@ -205,6 +223,7 @@ export default function ClientesPage() {
 
   function clearFilters() {
     setFilterSituacao(''); setFilterStatus(''); setFilterTributacao(''); setFilterGrupo(''); setFilterCidade(''); setFilterUf('')
+    setFilterNumero(''); setFilterTipo(''); setFilterAtividade(''); setFilterArea(''); setFilterBeneficio('')
     setSearch(''); setPage(1)
   }
 
@@ -360,7 +379,7 @@ export default function ClientesPage() {
     return pages
   }
 
-  const hasActiveFilters = filterSituacao || filterStatus || filterTributacao || filterGrupo || filterCidade || filterUf || onlyMensal
+  const hasActiveFilters = filterSituacao || filterStatus || filterTributacao || filterGrupo || filterCidade || filterUf || filterNumero || filterTipo || filterAtividade || filterArea || filterBeneficio || onlyMensal
 
   return (
     <div className="space-y-6">
@@ -432,7 +451,7 @@ export default function ClientesPage() {
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 Filtros
-                {hasActiveFilters && (() => { const count = [filterSituacao, filterStatus, filterTributacao, filterGrupo, filterCidade, filterUf].filter(Boolean).length + (onlyMensal ? 1 : 0); return count > 0 ? <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-emerald-500">{count}</Badge> : null })()}
+                {hasActiveFilters && (() => { const count = [filterSituacao, filterStatus, filterTributacao, filterGrupo, filterCidade, filterUf, filterNumero, filterTipo, filterAtividade, filterArea, filterBeneficio].filter(Boolean).length + (onlyMensal ? 1 : 0); return count > 0 ? <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-emerald-500">{count}</Badge> : null })()}
               </div>
               <button
                 type="button"
@@ -458,48 +477,16 @@ export default function ClientesPage() {
           </div>
           {filtersOpen && (
             <div className="px-4 py-3 border-t border-border/40">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                {/* Linha 1: Número · Grupo · Atividade · Município · Estado · Tributação */}
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Situação</label>
-                  <Select value={onlyMensal ? 'MENSAL' : (filterSituacao || '__all__')} onValueChange={(v) => { setFilterSituacao(v === '__all__' ? '' : v); setPage(1) }} disabled={onlyMensal}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__all__">Todas</SelectItem>
-                      {Object.entries(SITUACAO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <label className="text-xs font-medium text-muted-foreground">Número</label>
+                  <Input value={filterNumero} onChange={(e) => setFilterNumero(e.target.value.replace(/\D/g, ''))} placeholder="Nº do cliente" inputMode="numeric" className="h-8 text-xs bg-card" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Status</label>
-                  {/* Padrão "Ativos (sem inativos)" = não envia status → backend oculta INATIVA.
-                      Selecionar "Inativos" mostra os inativos. */}
-                  <Select value={filterStatus || '__all__'} onValueChange={(v) => { setFilterStatus(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__all__">Ativos (sem inativos)</SelectItem>
-                      <SelectItem value="INATIVA">Inativos</SelectItem>
-                      <SelectItem value="SUSPENSA">Suspensos</SelectItem>
-                      <SelectItem value="BAIXADA">Baixados</SelectItem>
-                      <SelectItem value="INAPTA">Inaptas</SelectItem>
-                      <SelectItem value="NULA">Nulas</SelectItem>
-                      <SelectItem value="ATIVA">Somente ativos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Tributação</label>
-                  <Select value={filterTributacao || '__all__'} onValueChange={(v) => { setFilterTributacao(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__all__">Todas</SelectItem>
-                      {Object.entries(TRIBUTACAO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Grupo</label>
+                  <label className="text-xs font-medium text-muted-foreground">Grupo Empresarial</label>
                   <Select value={filterGrupo || '__all__'} onValueChange={(v) => { setFilterGrupo(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todos</SelectItem>
                       {filterOptions.grupos.map((g) => <SelectItem key={g} value={g!}>{g}</SelectItem>)}
@@ -507,9 +494,19 @@ export default function ClientesPage() {
                   </Select>
                 </div>
                 <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Atividade</label>
+                  <Select value={filterAtividade || '__all__'} onValueChange={(v) => { setFilterAtividade(v === '__all__' ? '' : v); setPage(1) }}>
+                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Todas</SelectItem>
+                      {filterOptions.atividades.map((a) => <SelectItem key={a} value={a!}>{a}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Município</label>
                   <Select value={filterCidade || '__all__'} onValueChange={(v) => { setFilterCidade(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todos</SelectItem>
                       {filterOptions.cidades.map((c) => <SelectItem key={c} value={c!}>{c}</SelectItem>)}
@@ -519,10 +516,76 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Estado</label>
                   <Select value={filterUf || '__all__'} onValueChange={(v) => { setFilterUf(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todos</SelectItem>
                       {filterOptions.estados.map((e) => <SelectItem key={e} value={e!}>{e}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Tributação</label>
+                  <Select value={filterTributacao || '__all__'} onValueChange={(v) => { setFilterTributacao(v === '__all__' ? '' : v); setPage(1) }}>
+                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Todas</SelectItem>
+                      {Object.entries(TRIBUTACAO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Linha 2: Áreas Contratadas · Tipo de Cliente · Situação · Cliente com Benefício · Cliente Ativo/Inativo */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Áreas Contratadas</label>
+                  <Select value={filterArea || '__all__'} onValueChange={(v) => { setFilterArea(v === '__all__' ? '' : v); setPage(1) }}>
+                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Todas</SelectItem>
+                      {filterOptions.areas.map((a) => <SelectItem key={a} value={a!}>{a}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Tipo de Cliente</label>
+                  <Select value={filterTipo || '__all__'} onValueChange={(v) => { setFilterTipo(v === '__all__' ? '' : v); setPage(1) }}>
+                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Todos</SelectItem>
+                      {filterOptions.tipos.map((t) => <SelectItem key={t} value={t!}>{t}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Situação</label>
+                  <Select value={onlyMensal ? 'MENSAL' : (filterSituacao || '__all__')} onValueChange={(v) => { setFilterSituacao(v === '__all__' ? '' : v); setPage(1) }} disabled={onlyMensal}>
+                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Todas</SelectItem>
+                      {Object.entries(SITUACAO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Cliente com Benefício</label>
+                  <Select value={filterBeneficio || '__all__'} onValueChange={(v) => { setFilterBeneficio(v === '__all__' ? '' : v); setPage(1) }}>
+                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Todos</SelectItem>
+                      <SelectItem value="__com__">Com benefício (qualquer)</SelectItem>
+                      <SelectItem value="__sem__">Sem benefício</SelectItem>
+                      {filterOptions.beneficios.map((b) => <SelectItem key={b} value={b!}>{b}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Cliente Ativo / Inativo</label>
+                  {/* Padrão (vazio) já oculta INATIVA no backend; "Inativo" mostra só inativos. */}
+                  <Select value={filterStatus || '__all__'} onValueChange={(v) => { setFilterStatus(v === '__all__' ? '' : v); setPage(1) }}>
+                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Todos (ativos)</SelectItem>
+                      <SelectItem value="ATIVA">Ativo</SelectItem>
+                      <SelectItem value="INATIVA">Inativo</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
