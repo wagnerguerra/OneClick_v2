@@ -897,7 +897,7 @@ export default function CrmPage() {
         /* ── Visao Kanban ── */
         <DndContext sensors={kanbanSensors} collisionDetection={closestCenter} onDragStart={handleKanbanDragStart} onDragMove={handleKanbanDragMove} onDragOver={handleKanbanDragOver} onDragEnd={handleKanbanDragEnd} onDragCancel={handleKanbanDragCancel}>
         <div className="overflow-x-auto nice-scrollbar pb-4 -mx-1 flex-1">
-          <div className="flex gap-3 px-1 h-full" style={{ minWidth: etapas.length > 0 ? `${etapas.length * 220}px` : undefined, width: '100%' }}>
+          <div className="flex gap-3 px-1 h-full" style={{ minWidth: etapas.length > 0 ? `${etapas.length * 240}px` : undefined, width: '100%' }}>
             {etapas.map(etapa => {
               const ops = opsByEtapa[etapa.id] || []
               return <KanbanColumn key={etapa.id} etapa={etapa} ops={ops} isOver={overColumnId === etapa.id} activeCardId={activeCardId} etapas={etapas} onOpenDetail={openDetail} onMover={moverPara} onDelete={handleDelete} diasDesde={diasDesde} declinioDias={declinioDias} />
@@ -1613,13 +1613,28 @@ function KanbanColumn({ etapa, ops, isOver, activeCardId, etapas, onOpenDetail, 
 }) {
   const { setNodeRef } = useDroppable({ id: etapa.id })
   return (
-    <div ref={setNodeRef} className={cn('flex-1 min-w-[180px] flex flex-col border border-border/40 overflow-hidden transition-colors duration-200 rounded', isOver && 'crm-column-over')}>
-      <div className="px-3 py-2.5 border-b flex items-center justify-between" style={{ backgroundColor: `${etapa.cor}12` }}>
+    <div
+      ref={setNodeRef}
+      className={cn(
+        // Mesma chrome das colunas do Helpdesk: sem borda, overlay sutil sobre o
+        // fundo do dashboard (light: sombra leve / dark: clareia o cinza base).
+        'flex-1 min-w-[240px] flex flex-col overflow-hidden rounded-lg transition-colors bg-black/[0.04] dark:bg-white/[0.04]',
+        isOver && 'ring-2 ring-offset-1',
+      )}
+      style={isOver ? { boxShadow: `0 0 0 2px ${etapa.cor}55` } : undefined}
+    >
+      {/* Header sem bg colorido nem border-b — só o dot da cor + nome + pill */}
+      <div className="px-3 py-2.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: etapa.cor }} />
           <span className="text-sm font-semibold truncate">{etapa.nome}</span>
+          <span
+            className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold text-white shrink-0"
+            style={{ backgroundColor: etapa.cor }}
+          >
+            {ops.length}
+          </span>
         </div>
-        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 shrink-0">{ops.length}</Badge>
       </div>
       <SortableContext items={ops.map(o => o.id)} strategy={verticalListSortingStrategy}>
         <div className="flex-1 p-2 space-y-2 overflow-y-auto nice-scrollbar min-h-[120px]">
