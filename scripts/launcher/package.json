@@ -1,6 +1,6 @@
 {
   "name": "oneclick-launcher",
-  "version": "1.2.50",
+  "version": "1.2.52",
   "description": "OneClick ERP — Launcher & Service Manager",
   "main": "main.js",
   "private": true,
@@ -12,6 +12,7 @@
     "build:patch": "npm version patch --no-git-tag-version && npm run build",
     "build:minor": "npm version minor --no-git-tag-version && npm run build",
     "build:major": "npm version major --no-git-tag-version && npm run build",
+    "restore:pre-redesign": "powershell -ExecutionPolicy Bypass -Command \"Copy-Item -LiteralPath .\\index.backup-before-redesign.html -Destination .\\index.html -Force\"",
     "release": "powershell -ExecutionPolicy Bypass -File ./generate-icon.ps1 && electron-builder --win --publish always"
   },
   "dependencies": {

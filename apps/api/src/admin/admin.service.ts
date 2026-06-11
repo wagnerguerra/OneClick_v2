@@ -665,11 +665,11 @@ if exist "%ROOT%database.sql" (
 echo.
 
 echo ═══════════════════════════════════════════════════════════
-echo  [ETAPA 11/12] Configurando Service Manager...
+echo  [ETAPA 11/12] Configurando Launcher / Service Manager...
 echo ═══════════════════════════════════════════════════════════
-cd /d "%ROOT%OneClick_Code\\scripts\\service-manager"
+cd /d "%ROOT%OneClick_Code\\scripts\\launcher"
 if not exist "node_modules" (
-  echo  Instalando dependencias do Service Manager...
+  echo  Instalando dependencias do Launcher...
   call npm install
 )
 echo  OK
@@ -679,23 +679,22 @@ echo.
 echo ═══════════════════════════════════════════════════════════
 echo  [ETAPA 12/12] Iniciando o sistema...
 echo ═══════════════════════════════════════════════════════════
-echo  Iniciando Service Manager na porta 9000...
-start "OneClick SM" cmd /c "cd /d \\"%ROOT%OneClick_Code\\scripts\\service-manager\\" && node server.js"
+echo  Iniciando Launcher / Service Manager...
+start "OneClick Launcher" cmd /c "cd /d \\"%ROOT%OneClick_Code\\scripts\\launcher\\" && npm start"
 timeout /t 3 /nobreak >nul
 
-echo  Abrindo Service Manager no navegador...
-start "" "http://localhost:9000"
+echo  Launcher iniciado.
 
 echo.
 echo  ╔══════════════════════════════════════════════════════════╗
 echo  ║              INSTALACAO CONCLUIDA!                      ║
 echo  ╠══════════════════════════════════════════════════════════╣
 echo  ║                                                        ║
-echo  ║  O Service Manager foi aberto no navegador.            ║
+echo  ║  O Launcher / Service Manager foi iniciado.             ║
 echo  ║  Clique em "Iniciar Todos" para subir API e Web.       ║
 echo  ║                                                        ║
 echo  ║  URLs do sistema:                                      ║
-echo  ║    Service Manager: http://localhost:9000               ║
+echo  ║    Launcher:        aplicativo desktop                  ║
 echo  ║    Frontend:        http://localhost:3000               ║
 echo  ║    API:             http://localhost:4000               ║
 echo  ║                                                        ║
@@ -732,9 +731,8 @@ Gerado em: ${new Date().toLocaleString('pt-BR')}
    - Instalar dependencias do projeto (pnpm install)
    - Configurar Prisma e sincronizar o schema
    - Restaurar o dump do banco de dados
-   - Iniciar o Service Manager
-   - Abrir o sistema no navegador
-4. No Service Manager (http://localhost:9000), clique "Iniciar Todos"
+   - Iniciar o Launcher / Service Manager
+4. No Launcher / Service Manager, clique "Iniciar Todos"
 5. Acesse http://localhost:3000
 
 ## Instalacao manual (se o script falhar)
@@ -767,13 +765,13 @@ Gerado em: ${new Date().toLocaleString('pt-BR')}
    docker exec -i saas-postgres psql -U postgres -d saas_erp < database.sql
 
 7. Iniciar o sistema:
-   Opcao A: cd scripts/service-manager && npm install && node server.js (depois abra localhost:9000)
+   Opcao A: cd scripts/launcher && npm install && npm start
    Opcao B: pnpm dev
 
 ## URLs do sistema
 - Frontend:        http://localhost:3000
 - API:             http://localhost:4000
-- Service Manager: http://localhost:9000
+- Launcher / Service Manager: aplicativo desktop
 
 ## Estrutura do projeto
 OneClick_Code/
@@ -782,7 +780,7 @@ OneClick_Code/
   packages/db/     - Prisma schema + client
   packages/types/  - Schemas Zod compartilhados
   packages/ui/     - Componentes shadcn/ui
-  scripts/         - Service Manager
+  scripts/launcher - Launcher / Service Manager
   uploads/         - Arquivos enviados pelos usuarios
 `
       archive.append(readmeRestore, { name: 'README.md' })
