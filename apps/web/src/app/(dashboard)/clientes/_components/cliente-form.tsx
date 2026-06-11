@@ -18,7 +18,7 @@ import {
   cn, Button, Input, Label, Card, CardHeader, Checkbox, RichEditor, Badge,
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  Tabs, TabsList, TabsTrigger, TabsContent, SlidingTabsList,
+  Tabs, TabsTrigger, TabsContent, SlidingTabsList,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
@@ -562,25 +562,10 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
 
         {error && <div className={cn('rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive', isEdit && 'mx-4 sm:mx-6 mt-4')}>{error}</div>}
 
-        {/* No modo create, TabsList aparece aqui (sem o wrapper de capa) */}
-        {!isEdit && (
-          <div className="overflow-x-auto">
-            <TabsList className="min-w-max">
-              <TabsTrigger value="detalhes">Detalhes</TabsTrigger>
-              <TabsTrigger value="comercial">Comercial</TabsTrigger>
-              <TabsTrigger value="fiscal">Fiscal</TabsTrigger>
-              <TabsTrigger value="contabil">Contábil</TabsTrigger>
-              <TabsTrigger value="legalizacao">Legalização</TabsTrigger>
-              <TabsTrigger value="obrigacoes">Obrigações</TabsTrigger>
-              <TabsTrigger value="servicos">Serviços</TabsTrigger>
-              <TabsTrigger value="particularidades">Particularidades</TabsTrigger>
-              <TabsTrigger value="protocolos">Protocolos</TabsTrigger>
-              <TabsTrigger value="reclamacoes">Reclamações</TabsTrigger>
-              <TabsTrigger value="usuarios">Usuários</TabsTrigger>
-              <TabsTrigger value="logs">Log&apos;s</TabsTrigger>
-            </TabsList>
-          </div>
-        )}
+        {/* No cadastro de novo cliente NÃO mostramos as abas de topo — a aba
+            "Detalhes" (Dados Gerais) já reúne tudo o que é necessário p/ criar.
+            As demais abas (Comercial, Fiscal, Contábil, etc.) só fazem sentido
+            na edição de um cliente já salvo, então aparecem só no modo edição. */}
 
           {/* Layout 2 colunas */}
           <div className={cn('mt-5', isEdit ? 'grid gap-5 lg:grid-cols-[1fr_320px]' : '')}>
