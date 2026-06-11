@@ -6,7 +6,7 @@ import {
   Bug, Lightbulb, MessageSquare, X, Send, Loader2, Check, ExternalLink,
   ImagePlus, Paperclip, Plus, ChevronLeft, LifeBuoy, FileText, Search, Building2,
 } from 'lucide-react'
-import { Button, cn } from '@saas/ui'
+import { Button, cn, RichEditor } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -572,6 +572,29 @@ function OrcamentoRequestForm({
       .catch(() => setAreasDisp([]))
   }, [])
 
+  // Anexos (múltiplos, drag-and-drop) — mesmo padrão do balão de ticket.
+  const [anexos, setAnexos] = useState<AnexoPendente[]>([])
+  const [dragOver, setDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function uploadAnexo(file: File): Promise<void> {
+    const placeholderId = crypto.randomUUID()
+    setAnexos(prev => [...prev, { id: placeholderId, fileName: file.name, fileUrl: '', mimeType: file.type || 'application/octet-stream', tamanho: file.size, uploading: true }])
+    try {
+      const fd = new FormData()
+      fd.append('file', file, file.name)
+      const res = await fetch(`${getApiUrl()}/api/upload`, { method: 'POST', credentials: 'include', body: fd })
+      if (!res.ok) throw new Error(`Upload falhou (HTTP ${res.status})`)
+      const data = await res.json() as { url: string }
+      setAnexos(prev => prev.map(a => a.id === placeholderId ? { ...a, fileUrl: data.url, uploading: false } : a))
+    } catch (e) {
+      setAnexos(prev => prev.filter(a => a.id !== placeholderId))
+      alerts.error('Erro ao anexar', (e as Error).message)
+    }
+  }
+  function addFiles(files: FileList | File[]) { for (const f of Array.from(files)) void uploadAnexo(f) }
+  function removerAnexo(id: string) { setAnexos(prev => prev.filter(a => a.id !== id)) }
+
   // Busca de clientes (debounced) — só dispara enquanto não há cliente escolhido.
   useEffect(() => {
     if (clienteSel) return
@@ -604,6 +627,9 @@ function OrcamentoRequestForm({
     setResultados([])
   }
 
+  // RichEditor entrega HTML — valida o texto puro (evita aceitar "<p></p>" vazio).
+  const detTexto = detalhamento.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim()
+
   async function handleEnviar() {
     const det = detalhamento.trim()
     const nome = busca.trim()
@@ -611,17 +637,23 @@ function OrcamentoRequestForm({
       alerts.error('Informe o cliente', 'Selecione um cliente cadastrado ou digite o nome.')
       return
     }
-    if (det.length < 3) {
+    if (detTexto.length < 3) {
       alerts.error('Detalhe a solicitação', 'Descreva o que o comercial precisa orçar.')
+      return
+    }
+    if (anexos.some(a => a.uploading)) {
+      alerts.error('Aguarde', 'Ainda enviando anexo(s)...')
       return
     }
     setEnviando(true)
     try {
+      const anexosProntos = anexos.filter(a => !a.uploading && a.fileUrl)
       const res = await trpc.orcamento.solicitar.mutate({
         clienteId: clienteSel?.id ?? null,
         clienteNome: clienteSel ? null : nome,
         detalhamento: det,
         areaIds: areasSel,
+        anexos: anexosProntos.map(a => ({ fileName: a.fileName, fileUrl: a.fileUrl, fileSize: a.tamanho, mimeType: a.mimeType })),
       }) as { id: string; numero: number }
       setCriado({ numero: res.numero, id: res.id })
     } catch (e) {
@@ -700,16 +732,63 @@ function OrcamentoRequestForm({
           )}
         </div>
 
-        {/* Detalhamento */}
+        {/* Detalhamento (RichEditor — aceita formatação HTML) */}
         <div className="space-y-1.5">
           <label className="text-[13px] font-semibold text-foreground">Detalhamento</label>
-          <textarea
+          <RichEditor
             value={detalhamento}
-            onChange={(e) => setDetalhamento(e.target.value)}
-            rows={5}
+            onChange={setDetalhamento}
             placeholder="Quais serviços/itens orçar, contexto, prazo desejado..."
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
           />
+        </div>
+
+        {/* Anexos (múltiplos, drag-and-drop) */}
+        <div className="space-y-1.5">
+          <label className="text-[13px] font-semibold text-foreground">Anexos</label>
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files) }}
+            onClick={() => fileInputRef.current?.click()}
+            className={cn(
+              'rounded-md border border-dashed px-3 py-3 text-center cursor-pointer transition-colors',
+              dragOver ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40',
+            )}
+          >
+            <ImagePlus className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
+            <p className="text-[11px] text-muted-foreground">Arraste arquivos aqui ou clique para anexar</p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => { if (e.target.files?.length) addFiles(e.target.files); e.target.value = '' }}
+            />
+          </div>
+          {anexos.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {anexos.map(a => (
+                <div key={a.id} className="relative h-16 w-16 rounded-md border border-border bg-muted/40 overflow-hidden group/anx" title={a.fileName}>
+                  {a.uploading ? (
+                    <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+                  ) : a.mimeType.startsWith('image/') ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={resolveAssetUrl(a.fileUrl)} alt={a.fileName} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground p-1">
+                      <Paperclip className="h-5 w-5" />
+                      <span className="text-[8px] truncate w-full text-center mt-0.5">{a.fileName.split('.').pop()?.toUpperCase()}</span>
+                    </div>
+                  )}
+                  {!a.uploading && (
+                    <button type="button" onClick={() => removerAnexo(a.id)} className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover/anx:opacity-100 transition-opacity" title="Remover">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Áreas envolvidas (pills) — marca quem precisa detalhar a parte dela */}
@@ -748,7 +827,7 @@ function OrcamentoRequestForm({
         <Button
           size="sm"
           onClick={handleEnviar}
-          disabled={enviando || detalhamento.trim().length < 3 || (!clienteSel && !busca.trim())}
+          disabled={enviando || detTexto.length < 3 || (!clienteSel && !busca.trim()) || anexos.some(a => a.uploading)}
           className="gap-1.5 text-white"
           style={{ background: accent }}
         >

@@ -322,13 +322,17 @@ export class OrcamentoService {
    * (prospect ainda não cadastrado) — nesse caso vai no início do detalhamento.
    */
   async solicitar(
-    input: { clienteId?: string | null; clienteNome?: string | null; detalhamento: string; areaIds?: string[] },
+    input: {
+      clienteId?: string | null; clienteNome?: string | null; detalhamento: string; areaIds?: string[]
+      anexos?: Array<{ fileName: string; fileUrl: string; fileSize?: number; mimeType?: string }>
+    },
     userId?: string,
     empresaId?: string,
   ) {
+    // `detalhamento` agora vem como HTML (RichEditor). Mantém como observações.
     const det = (input.detalhamento || '').trim()
     const obs = input.clienteNome && !input.clienteId
-      ? `Cliente informado (não cadastrado): ${input.clienteNome.trim()}\n\n${det}`
+      ? `<p><b>Cliente informado (não cadastrado):</b> ${input.clienteNome.trim()}</p>${det}`
       : det
     const orc = await this.create(
       { clienteId: input.clienteId || null, observacoes: obs, solicitanteId: userId } as any,
@@ -338,6 +342,15 @@ export class OrcamentoService {
     // Solicitação chega sem responsável — fica disponível pro comercial assumir.
     await prisma.orcamento.update({ where: { id: orc.id }, data: { responsavelId: null } }).catch(() => {})
     await this.addEvento(orc.id, userId, 'created', null, null, 'Solicitação de orçamento (balão Solicitar Novo)')
+    // Anexos enviados no balão → vira OrcamentoArquivo.
+    if (input.anexos?.length) {
+      await prisma.orcamentoArquivo.createMany({
+        data: input.anexos.map(a => ({
+          orcamentoId: orc.id, fileName: a.fileName, fileUrl: a.fileUrl,
+          fileSize: a.fileSize ?? null, mimeType: a.mimeType ?? null, userId: userId ?? null,
+        })),
+      }).catch((e: Error) => console.error('[Orcamento] Falha ao anexar arquivos na solicitação:', e.message))
+    }
     // Vincula áreas selecionadas + notifica os responsáveis por detalhar.
     if (input.areaIds?.length) {
       await this.vincularAreas(orc.id, input.areaIds, userId, empresaId).catch((e: Error) => {

@@ -127,6 +127,12 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         clienteNome: z.string().optional().nullable(),
         detalhamento: z.string().min(3),
         areaIds: z.array(z.string()).optional(),
+        anexos: z.array(z.object({
+          fileName: z.string(),
+          fileUrl: z.string(),
+          fileSize: z.number().optional(),
+          mimeType: z.string().optional(),
+        })).optional(),
       }))
       .mutation(({ input, ctx }) => orcamentoService.solicitar(input, ctx.userId, ctx.empresaId)),
 
