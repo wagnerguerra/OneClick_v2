@@ -7,7 +7,7 @@ import {
   Plus, Pencil, Trash2, Search, Filter, Settings2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
-  Handshake, MoreVertical, FileUp, FileDown, Plug,
+  MoreVertical, FileUp, FileDown, Plug,
   ChevronDown, RotateCcw, Archive, X, Database, Loader2, Sparkles, UserCog,
   Building2, ExternalLink,
   Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
@@ -387,9 +387,8 @@ export default function ClientesPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-emerald-500 text-white shadow-md">
-            <Handshake className="h-6 w-6" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/materiais/icon_clients.png" alt="Clientes" className="h-12 w-12 object-contain shrink-0" />
           <div>
             <h1>{trashMode ? 'Lixeira — Clientes' : 'Clientes'}</h1>
             <p className="text-sm text-muted-foreground">
