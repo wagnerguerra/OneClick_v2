@@ -10,6 +10,8 @@ import {
   Handshake, MoreVertical, FileUp, FileDown, Plug,
   ChevronDown, RotateCcw, Archive, X, Database, Loader2, Sparkles, UserCog,
   Building2, ExternalLink,
+  Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
+  type LucideIcon,
 } from 'lucide-react'
 import {
   Button, Input, Badge,
@@ -324,41 +326,40 @@ export default function ClientesPage() {
     return tipo === 'CPF' ? masks.cpf(doc) : masks.cnpj(doc)
   }
 
-  const AREA_BADGE_MAP: Record<string, { label: string; bg: string; text: string }> = {
-    contabil: { label: 'CTB', bg: '#059669', text: '#fff' },
-    contábil: { label: 'CTB', bg: '#059669', text: '#fff' },
-    fiscal: { label: 'FSC', bg: '#0284c7', text: '#fff' },
-    trabalhista: { label: 'TRB', bg: '#d97706', text: '#fff' },
-    societario: { label: 'SOC', bg: '#7c3aed', text: '#fff' },
-    societário: { label: 'SOC', bg: '#7c3aed', text: '#fff' },
-    legalizacao: { label: 'LEG', bg: '#e11d48', text: '#fff' },
-    legalização: { label: 'LEG', bg: '#e11d48', text: '#fff' },
-    administrativo: { label: 'ADM', bg: '#475569', text: '#fff' },
-    financeiro: { label: 'FIN', bg: '#0891b2', text: '#fff' },
-    pessoal: { label: 'PES', bg: '#ea580c', text: '#fff' },
-    dp: { label: 'DP', bg: '#ea580c', text: '#fff' },
+  // Identidade visual dos badges de área: cor base + ícone (chave normalizada
+  // sem acento). Pílula com fundo suave tintado, texto/borda na cor, rótulo = nome.
+  const AREA_BADGE_MAP: Record<string, { color: string; Icon: LucideIcon }> = {
+    contabil: { color: '#0284c7', Icon: Calculator },
+    fiscal: { color: '#475569', Icon: FileText },
+    trabalhista: { color: '#16a34a', Icon: Users },
+    societario: { color: '#7c3aed', Icon: Briefcase },
+    legalizacao: { color: '#e11d48', Icon: Building2 },
+    administrativo: { color: '#64748b', Icon: ClipboardList },
+    financeiro: { color: '#0891b2', Icon: Wallet },
+    pessoal: { color: '#ea580c', Icon: UserCog },
+    dp: { color: '#ea580c', Icon: UserCog },
   }
 
   function renderAreas(areas: string | null) {
     if (!areas) return <span className="text-muted-foreground">—</span>
     return (
-      <div className="flex flex-wrap gap-[3px] mt-0.5">
+      <div className="flex flex-wrap gap-1 mt-0.5">
         {areas.split(';').map((area) => {
           const trimmed = area.trim()
           if (!trimmed) return null
           const key = trimmed.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          const badge = AREA_BADGE_MAP[trimmed.toLowerCase()] || AREA_BADGE_MAP[key]
-          const bg = badge?.bg || '#6b7280'
-          const text = badge?.text || '#fff'
-          const label = badge?.label || trimmed.slice(0, 3).toUpperCase()
+          const conf = AREA_BADGE_MAP[key]
+          const color = conf?.color || '#6b7280'
+          const Icon = conf?.Icon || Tag
           return (
             <span
               key={trimmed}
               title={trimmed}
-              className="inline-flex items-center justify-center rounded-[3px] px-[5px] py-[1px] text-[9px] font-bold leading-tight tracking-wider"
-              style={{ backgroundColor: bg, color: text }}
+              className="inline-flex items-center gap-1 rounded-[4px] border px-1.5 py-[1px] text-[9px] font-semibold uppercase leading-tight tracking-wide"
+              style={{ backgroundColor: `${color}14`, color, borderColor: `${color}40` }}
             >
-              {label}
+              <Icon className="h-2.5 w-2.5 shrink-0" style={{ color }} />
+              {trimmed}
             </span>
           )
         })}
