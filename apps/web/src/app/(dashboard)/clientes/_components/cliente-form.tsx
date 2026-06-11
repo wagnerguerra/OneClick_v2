@@ -9,7 +9,7 @@ import {
   FileText, ShoppingCart, Receipt, ClipboardList, Plus, Send,
   Briefcase, FileBarChart, History, File, Calculator, Shield,
   ListChecks, StickyNote, FileInput, MessageSquareQuote, Users, ListTodo,
-  ExternalLink, X, Loader2, Building2, Phone, MapPin, Star, Pencil, Trash2, Link2,
+  ExternalLink, X, Loader2, Building2, Phone, Star, Pencil, Trash2, Link2,
   CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen, HardDriveDownload,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, MoreVertical,
   Image as ImageIcon, Activity, Percent, ShieldCheck,
@@ -596,6 +596,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   watchedValues={watchedValues} tipoDocumento={tipoDocumento}
                   buscarCnpj={buscarCnpj} buscarCep={buscarCep}
                   consultarCartaoCnpj={consultarCartaoCnpj} cnpjCard={cnpjCard} cnpjCardLoading={cnpjCardLoading} setCnpjCard={setCnpjCard}
+                  opcoesOrigem={opcoesOrigem}
                 />
               </TabsContent>
 
@@ -762,7 +763,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
 /* ================================================================== */
 /* DetalhesCard — pills laterais (padrão igual ComercialCard)         */
 /* ================================================================== */
-function DetalhesCard({ register, control, watch, errors, setValue, clienteId, watchedValues, tipoDocumento, buscarCnpj, buscarCep, consultarCartaoCnpj, cnpjCard, cnpjCardLoading, setCnpjCard }: {
+function DetalhesCard({ register, control, watch, errors, setValue, clienteId, watchedValues, tipoDocumento, buscarCnpj, buscarCep, consultarCartaoCnpj, cnpjCard, cnpjCardLoading, setCnpjCard, opcoesOrigem }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
@@ -777,13 +778,16 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   cnpjCard: CnpjCardData | null
   cnpjCardLoading: boolean
   setCnpjCard: (v: CnpjCardData | null) => void
+  opcoesOrigem: Array<{ id: string; valor: string }>
 }) {
   const [activeTab, setActiveTab] = useState('dados')
 
+  // "Dados Gerais" reúne todos os campos essenciais (igual ao cadastro do
+  // OneClick v1, modal-add.asp): identificação, situação/regime/origem/grupo,
+  // inscrições, datas, contato, endereço (+mapa) e observações — tudo numa tela.
   const tabs = [
     { key: 'dados', label: 'Dados Gerais', icon: Building2 },
     { key: 'contato', label: 'Contatos', icon: Phone },
-    { key: 'endereco', label: 'Endereço', icon: MapPin },
     { key: 'integracoes', label: 'Integrações', icon: Link2 },
   ]
 
@@ -824,18 +828,24 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
         {/* Conteúdo */}
         <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
 
-          {/* ---- SUB-TAB: DADOS GERAIS ---- */}
+          {/* ---- SUB-TAB: DADOS GERAIS (tela única — igual ao v1) ---- */}
           {activeTab === 'dados' && (
             <div className="-m-5">
               <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
                 <h4 className="text-[13px] font-semibold text-foreground">Dados Gerais</h4>
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
-                {/* Razão Social (8) + CNPJ (4) */}
-                <div className="col-span-12 md:col-span-8 space-y-1.5">
-                  <Label>Razão Social<RequiredMark /></Label>
-                  <Input placeholder="Razão Social / Nome" {...register('razaoSocial')} />
-                  {errors.razaoSocial && <p className="text-xs text-destructive">{errors.razaoSocial.message}</p>}
+                {/* Linha 1: Tipo (2) + CNPJ/CPF (4) + Razão Social (6) */}
+                <div className="col-span-12 md:col-span-2 space-y-1.5">
+                  <Label>Tipo<RequiredMark /></Label>
+                  <Controller control={control} name="tipoCliente" render={({ field }) => (
+                    <Select value={field.value || 'A DEFINIR'} onValueChange={field.onChange}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {TIPO_CLIENTE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )} />
                 </div>
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
                   <Label>CNPJ / CPF</Label>
@@ -864,67 +874,112 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                   </div>
                   {errors.documento && <p className="text-xs text-destructive">{errors.documento.message}</p>}
                 </div>
+                <div className="col-span-12 md:col-span-6 space-y-1.5">
+                  <Label className="text-info">Razão Social<RequiredMark /></Label>
+                  <Input placeholder="Razão Social / Nome" {...register('razaoSocial')} />
+                  {errors.razaoSocial && <p className="text-xs text-destructive">{errors.razaoSocial.message}</p>}
+                </div>
 
-                {/* Nome Fantasia (9) + Tipo (3) */}
-                <div className="col-span-12 md:col-span-9 space-y-1.5">
+                {/* Linha 2: Nome Fantasia (6) + Situação (3) + Regime (3) */}
+                <div className="col-span-12 md:col-span-6 space-y-1.5">
                   <Label>Nome Fantasia</Label>
                   <Input placeholder="Nome Fantasia" {...register('nomeFantasia')} />
                 </div>
                 <div className="col-span-12 md:col-span-3 space-y-1.5">
-                  <Label>Tipo<RequiredMark /></Label>
-                  <Controller control={control} name="tipoCliente" render={({ field }) => (
-                    <Select value={field.value || 'A DEFINIR'} onValueChange={field.onChange}>
+                  <Label>Situação<RequiredMark /></Label>
+                  <Controller control={control} name="situacao" render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{Object.entries(SITUACAO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+                    </Select>
+                  )} />
+                </div>
+                <div className="col-span-12 md:col-span-3 space-y-1.5">
+                  <Label>Regime</Label>
+                  <Controller control={control} name="regime" render={({ field }) => (
+                    <Select value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? undefined : v)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                       <SelectContent>
-                        {TIPO_CLIENTE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                        <SelectItem value="__none__">Não informado</SelectItem>
+                        {Object.entries(REGIME_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   )} />
                 </div>
-              </div>
-            </div>
-          )}
 
-          {/* ---- SUB-TAB: CONTATOS ---- */}
-          {activeTab === 'contato' && (
-            <ContatosTab clienteId={clienteId} />
-          )}
+                {/* Linha 3: Origem (4) + Grupo (5) + Data de Início (3) */}
+                <div className="col-span-12 md:col-span-4 space-y-1.5">
+                  <Label>Origem</Label>
+                  <Controller control={control} name="origem" render={({ field }) => (
+                    <Select value={field.value || ''} onValueChange={field.onChange}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>{opcoesOrigem.map((o) => <SelectItem key={o.id} value={o.valor}>{o.valor}</SelectItem>)}</SelectContent>
+                    </Select>
+                  )} />
+                </div>
+                <div className="col-span-12 md:col-span-5 space-y-1.5">
+                  <Label>Grupo Empresarial</Label>
+                  <Input placeholder="Ex: EMPRESA ÚNICA" {...register('grupo')} />
+                </div>
+                <div className="col-span-12 md:col-span-3 space-y-1.5">
+                  <Label>Data de Início</Label>
+                  <Input type="date" {...register('dataEntrada')} />
+                </div>
 
-          {/* ---- SUB-TAB: ENDEREÇO ---- */}
-          {activeTab === 'endereco' && (
-            <div className="-m-5">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
-                <h4 className="text-[13px] font-semibold text-foreground">Dados do Endereço</h4>
-              </div>
-              <div className="p-5 grid grid-cols-12 gap-3">
+                {/* Linha 4: Inscrição Estadual (6) + Inscrição Municipal (6) */}
+                <div className="col-span-12 md:col-span-6 space-y-1.5">
+                  <Label>Inscrição Estadual</Label>
+                  <Input placeholder="IE" {...register('inscricaoEstadual')} />
+                </div>
+                <div className="col-span-12 md:col-span-6 space-y-1.5">
+                  <Label>Inscrição Municipal</Label>
+                  <Input placeholder="IM" {...register('inscricaoMunicipal')} />
+                </div>
+
+                {/* Linha 5: Telefones (6) + E-Mails (6) */}
+                <div className="col-span-12 md:col-span-6 space-y-1.5">
+                  <Label className="text-info">Telefones</Label>
+                  <Input placeholder="(00) 00000-0000" {...register('telefone')} />
+                </div>
+                <div className="col-span-12 md:col-span-6 space-y-1.5">
+                  <Label className="text-info">E-Mails</Label>
+                  <Input placeholder="email@dominio.com" {...register('email')} />
+                </div>
+
+                {/* Subtítulo Endereço */}
+                <div className="col-span-12 -mx-5 mt-1">
+                  <div className="px-5 py-2 border-t border-[rgba(0,0,0,0.08)]">
+                    <h4 className="text-[13px] font-semibold text-foreground">Endereço</h4>
+                  </div>
+                </div>
                 <div className="col-span-12 md:col-span-2 space-y-1.5">
-                  <Label>CEP</Label>
+                  <Label className="text-info">CEP</Label>
                   <Input placeholder="00000-000" {...register('cep')}
                     onChange={(e) => { e.target.value = masks.cep(e.target.value); register('cep').onChange(e) }}
                     onBlur={buscarCep} />
                 </div>
                 <div className="col-span-12 md:col-span-8 space-y-1.5">
-                  <Label>Endereço</Label>
+                  <Label className="text-info">Endereço</Label>
                   <Input placeholder="Rua / Avenida" {...register('logradouro')} />
                 </div>
                 <div className="col-span-12 md:col-span-2 space-y-1.5">
                   <Label>Número</Label>
                   <Input placeholder="Nº" {...register('numero')} />
                 </div>
-                <div className="col-span-12 md:col-span-4 space-y-1.5">
-                  <Label>Bairro</Label>
+                <div className="col-span-12 md:col-span-5 space-y-1.5">
+                  <Label className="text-info">Bairro</Label>
                   <Input placeholder="Bairro" {...register('bairro')} />
                 </div>
-                <div className="col-span-12 md:col-span-6 space-y-1.5">
-                  <Label>Cidade</Label>
+                <div className="col-span-12 md:col-span-5 space-y-1.5">
+                  <Label className="text-info">Cidade</Label>
                   <Input placeholder="Cidade" {...register('cidade')} />
                 </div>
                 <div className="col-span-12 md:col-span-2 space-y-1.5">
-                  <Label>Estado</Label>
+                  <Label className="text-info">Estado</Label>
                   <Input placeholder="ES" maxLength={2} {...register('uf')} />
                 </div>
                 <div className="col-span-12 space-y-1.5">
-                  <Label>Complemento</Label>
+                  <Label className="text-info">Complemento</Label>
                   <Input placeholder="Apto / Sala / Bloco..." {...register('complemento')} />
                 </div>
 
@@ -944,9 +999,32 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                     cep={watchedValues.cep}
                   />
                 </div>
+
+                {/* Subtítulo Observações */}
+                <div className="col-span-12 -mx-5 mt-1">
+                  <div className="px-5 py-2 border-t border-[rgba(0,0,0,0.08)]">
+                    <h4 className="text-[13px] font-semibold text-foreground">Observações</h4>
+                  </div>
+                </div>
+                <div className="col-span-12">
+                  <Controller control={control} name="observacoes" render={({ field }) => (
+                    <RichEditor
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      placeholder="Informações relevantes sobre o cliente..."
+                    />
+                  )} />
+                </div>
               </div>
             </div>
           )}
+
+          {/* ---- SUB-TAB: CONTATOS ---- */}
+          {activeTab === 'contato' && (
+            <ContatosTab clienteId={clienteId} />
+          )}
+
+          {/* (Endereço/Observações migrados para a aba "Dados Gerais" — igual v1) */}
 
           {/* ---- SUB-TAB: INTEGRAÇÕES ---- */}
           {activeTab === 'integracoes' && (
