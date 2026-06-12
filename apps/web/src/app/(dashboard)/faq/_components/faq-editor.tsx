@@ -7,6 +7,7 @@ import {
   Button, Input, Label, RichEditor, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { PageHeader } from '@/components/page-header'
 import { CATEGORIA_ORDEM } from './articles-catalog'
 import { iconByName, FAQ_ICON_NAMES, resolveFaqIcon } from './faq-icons'
 
@@ -51,24 +52,23 @@ export function FaqEditor({ titulo, value, onChange, onSave, saving, slugTravado
   const HeaderIcon = resolveFaqIcon(value.icon)
 
   return (
-    <div className="space-y-5 pb-12 max-w-3xl">
-      {/* Breadcrumb + ações */}
-      <div className="flex items-center justify-between gap-2">
-        <Button variant="ghost" size="sm" className="h-7 px-2 -ml-2 gap-1.5 text-xs" asChild>
-          <Link href="/faq"><ArrowLeft className="h-3.5 w-3.5" /> FAQ&apos;s</Link>
-        </Button>
-        <Button variant="success" size="sm" onClick={onSave} disabled={saving || !value.titulo.trim() || !value.slug.trim()}>
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
-        </Button>
-      </div>
-
-      <div className="flex items-center gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-          style={{ background: `linear-gradient(135deg, ${value.moduloColor}, color-mix(in srgb, ${value.moduloColor} 87%, transparent))` }}>
-          <HeaderIcon className="h-6 w-6" />
-        </div>
-        <h1>{titulo}</h1>
-      </div>
+    <div className="space-y-5 pb-12">
+      {/* Header padrão do sistema (PageHeader) — back no breadcrumb + Salvar à direita */}
+      <PageHeader
+        color={value.moduloColor}
+        icon={HeaderIcon}
+        title={titulo}
+        breadcrumb={(
+          <Button variant="ghost" size="sm" className="h-7 px-2 -ml-2 gap-1.5 text-xs" asChild>
+            <Link href="/faq"><ArrowLeft className="h-3.5 w-3.5" /> FAQ&apos;s</Link>
+          </Button>
+        )}
+        actions={(
+          <Button variant="success" size="sm" onClick={onSave} disabled={saving || !value.titulo.trim() || !value.slug.trim()}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
+          </Button>
+        )}
+      />
 
       {/* Metadados */}
       <div className="grid grid-cols-12 gap-3">

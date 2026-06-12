@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { cn } from '@saas/ui'
+import { cn, Card, CardContent } from '@saas/ui'
 
 /**
  * Índice lateral (TOC) do artigo. Varre os títulos (h2/h3) dentro de
@@ -65,27 +65,29 @@ export function FaqToc({ cor, className }: { cor: string; className?: string }) 
   }
 
   return (
-    <nav className={className}>
-      <style dangerouslySetInnerHTML={{ __html: '[data-faq-body] h2,[data-faq-body] h3{scroll-margin-top:5rem}' }} />
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 px-1">Nesta página</p>
-      <div className="space-y-0.5">
-        {items.map(it => (
-          <button
-            key={it.id}
-            type="button"
-            onClick={() => go(it.id)}
-            title={it.text}
-            className={cn(
-              'block w-full text-left rounded-md px-2.5 py-1.5 text-xs transition-colors truncate',
-              it.level === 3 && 'pl-4 text-[11px]',
-              active === it.id ? 'font-semibold text-white' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-            )}
-            style={active === it.id ? { backgroundColor: cor } : undefined}
-          >
-            {it.text}
-          </button>
-        ))}
-      </div>
-    </nav>
+    <Card className={className}>
+      <CardContent className="p-2.5">
+        <style dangerouslySetInnerHTML={{ __html: '[data-faq-body] h2,[data-faq-body] h3{scroll-margin-top:5rem}' }} />
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 px-1">Nesta página</p>
+        <nav className="space-y-0.5 max-h-[calc(100vh-9rem)] overflow-y-auto nice-scrollbar">
+          {items.map(it => (
+            <button
+              key={it.id}
+              type="button"
+              onClick={() => go(it.id)}
+              title={it.text}
+              className={cn(
+                'block w-full text-left rounded-md px-2.5 py-1.5 text-xs transition-colors truncate',
+                it.level === 3 && 'pl-4 text-[11px]',
+                active === it.id ? 'font-semibold text-white' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              )}
+              style={active === it.id ? { backgroundColor: cor } : undefined}
+            >
+              {it.text}
+            </button>
+          ))}
+        </nav>
+      </CardContent>
+    </Card>
   )
 }

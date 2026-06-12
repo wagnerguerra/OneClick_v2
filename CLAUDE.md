@@ -123,8 +123,17 @@ src/[modulo]/
 ### Coluna "Ações" em tabelas
 Sempre dropdown `⋮` (`MoreVertical`) — nunca botões inline.
 
-### Header de páginas de detalhe
-Wrapper bleed-edge com capa + gradiente do módulo + `TabsList` em pills centralizadas com ícones temáticos.
+### Header de páginas de detalhe — componente `PageHeader` (PADRÃO FIXO)
+**SEMPRE** use `<PageHeader>` (`apps/web/src/components/page-header.tsx`) para o cabeçalho de páginas de detalhe/módulo. **Nunca recrie a capa na mão.** Ele já entrega o wrapper bleed-edge (sangra com `-mx/-mt`) + capa em gradiente da cor do módulo + ícone (lucide via `icon` OU imagem de `/materiais` via `iconImg`) + título/subtítulo + `breadcrumb` + `actions` (botões à direita) + `children` (abas/pills abaixo).
+
+```tsx
+import { PageHeader } from '@/components/page-header'
+<PageHeader color={MODULE_COLOR} icon={Icon} title="Título" subtitle="..."
+  breadcrumb={<>...</>} actions={<Button>...</Button>}>
+  {/* abas/pills opcionais */}
+</PageHeader>
+```
+Para abas, use `SlidingTabsList` dentro de `children`. Ícone do módulo via imagem: `iconImg="/materiais/icon_x.png"` (copiar de `materiais/` p/ `apps/web/public/materiais/`). Páginas antigas com capa inline devem migrar pra esse componente quando tocadas.
 
 ---
 

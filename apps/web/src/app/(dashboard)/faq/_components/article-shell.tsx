@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@saas/ui'
 import type { ComponentType, ReactNode } from 'react'
+import { PageHeader } from '@/components/page-header'
 import { FaqToc } from './faq-toc'
 
 export const FAQ_COLOR = '#0891b2' // cyan-600 (cor da seção FAQ)
@@ -27,37 +28,27 @@ export function ArticleShell({ modulo, moduloColor, icon: Icon, titulo, descrica
   const router = useRouter()
   return (
     <div className="space-y-6 pb-12">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Button
-          variant="ghost" size="sm"
-          className="h-7 px-2 -ml-2 gap-1.5 text-xs"
-          onClick={() => router.push('/faq')}
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />FAQ&apos;s
-        </Button>
-        <span>/</span>
-        <span className="font-medium" style={{ color: FAQ_COLOR }}>{modulo}</span>
-      </div>
-
-      {/* Header padrão */}
-      <div className="flex items-center gap-4">
-        <div
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-          style={{ background: `linear-gradient(135deg, ${moduloColor}, color-mix(in srgb, ${moduloColor} 87%, transparent))` }}
-        >
-          <Icon className="h-6 w-6" />
-        </div>
-        <div>
-          <h1>{titulo}</h1>
-          <p className="text-sm text-muted-foreground">{descricao}</p>
-        </div>
-      </div>
+      {/* Header padrão do sistema (PageHeader) */}
+      <PageHeader
+        color={moduloColor}
+        icon={Icon}
+        title={titulo}
+        subtitle={descricao}
+        breadcrumb={(
+          <>
+            <Button variant="ghost" size="sm" className="h-7 px-2 -ml-2 gap-1.5 text-xs" onClick={() => router.push('/faq')}>
+              <ArrowLeft className="h-3.5 w-3.5" />FAQ&apos;s
+            </Button>
+            <span>/</span>
+            <span className="font-medium" style={{ color: moduloColor }}>{modulo}</span>
+          </>
+        )}
+      />
 
       {/* 2 colunas: índice lateral (TOC) sticky à esquerda + corpo do artigo.
           `data-faq-body` é a âncora usada pelo TOC e pela captura de HTML na
           edição (artigos de sistema). Em telas estreitas o TOC fica oculto. */}
-      <div className="lg:grid lg:grid-cols-[210px_minmax(0,1fr)] lg:gap-8 lg:items-start">
+      <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-8 lg:items-start">
         <FaqToc cor={moduloColor} className="hidden lg:block lg:sticky lg:top-4 self-start" />
         <div data-faq-body className="space-y-6 min-w-0">{children}</div>
       </div>
