@@ -842,7 +842,11 @@ export default function HelpdeskTicketDetailPage() {
         {/* Body em 2 colunas: conteúdo + sidebar */}
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
           <div className="min-w-0 space-y-4">
-            {/* Descrição inicial — sempre o primeiro card (antes de triagem e mensagens) */}
+            {/* Aba CONVERSAÇÃO — reúne descrição inicial, triagem/plano IA, CSAT e
+                as mensagens. Antes esses cards ficavam FORA das abas e apareciam
+                em todas (impressão de abas "misturadas"). Agora são só desta aba. */}
+            <TabsContent value="conversa" className="space-y-4 mt-0">
+            {/* Descrição inicial — primeiro card da conversa */}
             <Card className="border-l-4 border-l-cyan-500/70 overflow-hidden">
               {/* Header com avatar + autor + timestamp */}
               <div className="px-4 py-3 bg-muted/30 border-b flex items-center gap-3">
@@ -1105,8 +1109,8 @@ export default function HelpdeskTicketDetailPage() {
               </Card>
             )}
 
-            <TabsContent value="conversa" className="space-y-3 mt-0">
-              {/* Thread */}
+            {/* Thread de mensagens (continua dentro da aba Conversação aberta acima) */}
+            <div className="space-y-3">
               {ticket.mensagens.length === 0 ? (
                 <Card><CardContent className="p-6 text-center text-xs text-muted-foreground">
                   Nenhuma mensagem ainda. Use o composer abaixo pra iniciar a conversa.
@@ -1232,6 +1236,7 @@ export default function HelpdeskTicketDetailPage() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
             </TabsContent>
 
             <TabsContent value="visao" className="mt-0">
