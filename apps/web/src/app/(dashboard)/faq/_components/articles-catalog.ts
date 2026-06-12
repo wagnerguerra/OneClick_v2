@@ -40,6 +40,17 @@ export const FAQ_ARTIGOS: FaqArtigo[] = [
     tags: ['orçamento', 'proposta', 'fsm', 'aprovação', 'link público', 'kanban', 'envio', 'pesquisa nps', 'reabrir', 'paralisar'],
   },
   {
+    slug: 'orcamentos-notificacoes-email',
+    titulo: 'Orçamentos: notificações por e-mail e sino',
+    descricao: 'Quem é avisado, por qual canal e em qual passo do orçamento — áreas, envio ao cliente, aprovação, liberação, finalização e atrasos — e o que cada configuração controla.',
+    modulo: 'Orçamentos',
+    moduloColor: '#fb7185',
+    icon: Mail,
+    categoria: 'Comercial',
+    disponivel: true,
+    tags: ['orçamento', 'notificação', 'e-mail', 'sino', 'comercial', 'financeiro', 'áreas', 'atraso', 'sla', 'configuração'],
+  },
+  {
     slug: 'processos',
     titulo: 'Fluxo de Processos: do orçamento à conclusão',
     descricao: 'Como configurar templates encadeados, aprovar orçamentos que disparam processos automáticos e gerenciar pendências.',
