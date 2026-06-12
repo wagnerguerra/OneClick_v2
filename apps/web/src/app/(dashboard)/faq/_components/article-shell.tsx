@@ -53,7 +53,9 @@ export function ArticleShell({ modulo, moduloColor, icon: Icon, titulo, descrica
         </div>
       </div>
 
-      {children}
+      {/* Corpo do artigo — `data-faq-body` é a âncora usada pelo índice lateral
+          (TOC) e pela captura de HTML na edição (artigos de sistema). */}
+      <div data-faq-body className="space-y-6">{children}</div>
     </div>
   )
 }
