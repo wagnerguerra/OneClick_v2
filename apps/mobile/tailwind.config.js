@@ -1,10 +1,15 @@
 /** @type {import('tailwindcss').Config} */
 // NativeWind usa Tailwind v3 (separado do Tailwind v4 do apps/web).
 // Tokens semânticos do Design System OneClick ERP (mobile) — CSS vars em global.css.
+const path = require('path')
 const tok = (name) => `rgb(var(--${name}) / <alpha-value>)`
 
 module.exports = {
-  content: ['./src/**/*.{js,jsx,ts,tsx}'],
+  // Caminho ABSOLUTO (ancorado ao config) — o Tailwind resolve `content` relativo
+  // contra o cwd do processo. No dev o Metro roda em apps/mobile, mas no build
+  // release o Gradle bundla com cwd=apps/mobile/android → `./src` não existiria e
+  // TODAS as classes seriam purgadas (app sem estilo no APK). __dirname evita isso.
+  content: [path.join(__dirname, 'src/**/*.{js,jsx,ts,tsx}')],
   presets: [require('nativewind/preset')],
   theme: {
     extend: {

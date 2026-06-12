@@ -1,3 +1,5 @@
+/* cache-bump: 2026-06-12 — força reprocessar o Tailwind no build de release
+   (content ancorado por __dirname no tailwind.config.js). */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
