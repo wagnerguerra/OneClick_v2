@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@saas/ui'
 import type { ComponentType, ReactNode } from 'react'
+import { FaqToc } from './faq-toc'
 
 export const FAQ_COLOR = '#0891b2' // cyan-600 (cor da seção FAQ)
 
@@ -53,9 +54,13 @@ export function ArticleShell({ modulo, moduloColor, icon: Icon, titulo, descrica
         </div>
       </div>
 
-      {/* Corpo do artigo — `data-faq-body` é a âncora usada pelo índice lateral
-          (TOC) e pela captura de HTML na edição (artigos de sistema). */}
-      <div data-faq-body className="space-y-6">{children}</div>
+      {/* 2 colunas: índice lateral (TOC) sticky à esquerda + corpo do artigo.
+          `data-faq-body` é a âncora usada pelo TOC e pela captura de HTML na
+          edição (artigos de sistema). Em telas estreitas o TOC fica oculto. */}
+      <div className="lg:grid lg:grid-cols-[210px_minmax(0,1fr)] lg:gap-8 lg:items-start">
+        <FaqToc cor={moduloColor} className="hidden lg:block lg:sticky lg:top-4 self-start" />
+        <div data-faq-body className="space-y-6 min-w-0">{children}</div>
+      </div>
     </div>
   )
 }
