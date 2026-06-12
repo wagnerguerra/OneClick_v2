@@ -1579,9 +1579,12 @@ function registerIpcHandlers() {
       const remoteShort = gitOutput(['rev-parse', '--short', `origin/${localBranch}`])
 
       // Commits locais ainda não pushed
-      const pendingPush = gitOutput(['log', `origin/${localBranch}..HEAD`, '--oneline'])
+      const pendingPush = gitOutput(['log', `origin/${localBranch}..HEAD`, '--format=%H%x09%h%x09%s'])
         .split('\n').filter(Boolean)
-        .map(l => { const i = l.indexOf(' '); return { sha: l.slice(0, i), msg: l.slice(i + 1) } })
+        .map(l => {
+          const [sha, short, ...msgParts] = l.split('\t')
+          return { sha, short, msg: msgParts.join('\t') }
+        })
 
       // SHA da VPS via SSH
       const sshArgs = sshCmd(cfg)
@@ -1594,9 +1597,12 @@ function registerIpcHandlers() {
       let pendingDeploy = []
       let schemaChanged = false
       if (vpsReachable && vpsSha !== remoteSha) {
-        pendingDeploy = gitOutput(['log', `${vpsSha}..${remoteSha}`, '--oneline'])
+        pendingDeploy = gitOutput(['log', `${vpsSha}..${remoteSha}`, '--format=%H%x09%h%x09%s'])
           .split('\n').filter(Boolean)
-          .map(l => { const i = l.indexOf(' '); return { sha: l.slice(0, i), msg: l.slice(i + 1) } })
+          .map(l => {
+            const [sha, short, ...msgParts] = l.split('\t')
+            return { sha, short, msg: msgParts.join('\t') }
+          })
 
         // Schema mudou entre VPS e remote?
         const diffFiles = gitOutput(['diff', '--name-only', vpsSha, remoteSha])
@@ -1722,6 +1728,11 @@ function registerIpcHandlers() {
     })
   }
 
+  function gitExitCode(args, cwd) {
+    const r = spawnSync('git', args, { cwd: cwd || projectRoot, encoding: 'utf8', windowsHide: true })
+    return r.status ?? 1
+  }
+
   function deployCheckAbort(step, progress) {
     if (!deployAbortRequested) return
     const err = new Error('Deploy abortado pelo usuário')
@@ -1784,6 +1795,10 @@ function registerIpcHandlers() {
       deployEmit(1, 'init', `· VPS: ${cfg.SSH_HOST}`, 'info')
 
       const commitMessage = (payload && payload.commitMessage) ? String(payload.commitMessage).trim() : ''
+      let targetSha = (payload && payload.targetSha) ? String(payload.targetSha).trim() : ''
+      if (targetSha && !/^[0-9a-f]{7,40}$/i.test(targetSha)) {
+        return { ok: false, error: 'Commit selecionado invalido.' }
+      }
 
       // ─── Stage 0: git commit (se houver dirty + mensagem) ───
       deployCheckAbort('commit', 1)
@@ -1827,6 +1842,7 @@ function registerIpcHandlers() {
           return { ok: false, error: 'git commit falhou: ' + msg.slice(0, 200) }
         }
         deployEmit(4, 'commit', `✓ Commit criado: "${commitMessage.slice(0, 60)}"`, 'ok')
+        targetSha = gitOutput(['rev-parse', 'HEAD'])
       }
 
       // ─── Stage 1: git push ─────────────────────────
@@ -1834,8 +1850,16 @@ function registerIpcHandlers() {
       deployCheckAbort('push', 5)
       deployCurrentStep = 'push'
       const localBranch = gitOutput(['rev-parse', '--abbrev-ref', 'HEAD'])
+      const remoteShaBeforePush = gitOutput(['rev-parse', `origin/${localBranch}`])
+      if (!targetSha) targetSha = gitOutput(['rev-parse', 'HEAD'])
+      if (gitExitCode(['merge-base', '--is-ancestor', targetSha, 'HEAD']) !== 0) {
+        return { ok: false, error: 'Commit selecionado nao pertence ao historico local.' }
+      }
       // Timeout 60s — se Git Credential Manager pedir popup, mata em 60s ao invés de travar.
-      const pushResult = await gitExec(['push', 'origin', localBranch], (line) => deployEmit(7, 'push', line, 'info'), 60000)
+      const targetAlreadyRemote = remoteShaBeforePush && gitExitCode(['merge-base', '--is-ancestor', targetSha, remoteShaBeforePush]) === 0
+      const pushResult = targetAlreadyRemote
+        ? { code: 0, stdout: 'Commit alvo ja esta no GitHub (push skip)' }
+        : await gitExec(['push', 'origin', `${targetSha}:refs/heads/${localBranch}`], (line) => deployEmit(7, 'push', line, 'info'), 60000)
       deployCheckAbort('push', 10)
       if (pushResult.code !== 0) {
         const msg = pushResult.stderr || pushResult.stdout || pushResult.error || 'git push falhou'
@@ -1844,13 +1868,13 @@ function registerIpcHandlers() {
         deployRunning = false
         return { ok: false, error: 'git push falhou: ' + msg.slice(0, 200) + extra }
       }
-      deployEmit(10, 'push', `✓ Push OK (${localBranch})`, 'ok')
+      deployEmit(10, 'push', `✓ Push OK (${targetSha.slice(0, 7)})`, 'ok')
 
       // ─── Stage 2: SSH git pull ─────────────────────
       deployEmit(15, 'pull', '→ git pull na VPS...', 'info')
       deployCheckAbort('pull', 15)
       deployCurrentStep = 'pull'
-      const pull = await sshExec(cfg, 'cd /opt/oneclick-src && git pull --ff-only 2>&1', (line) => deployEmit(20, 'pull', line, 'info'))
+      const pull = await sshExec(cfg, `cd /opt/oneclick-src && git fetch origin ${localBranch} 2>&1 && git merge --ff-only ${targetSha} 2>&1`, (line) => deployEmit(20, 'pull', line, 'info'))
       if (pull.code !== 0) {
         deployEmit(25, 'pull', `✗ ${(pull.stderr || pull.stdout || '').slice(0, 300)}`, 'err')
         deployRunning = false

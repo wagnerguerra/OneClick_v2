@@ -1096,6 +1096,32 @@
       font-size: 10px;
       color: #f59e0b;
     }
+    .deploy-target-row {
+      display: grid;
+      grid-template-columns: 18px auto 1fr;
+      gap: 8px;
+      align-items: center;
+      padding: 4px 2px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .deploy-target-row:hover {
+      background: rgba(14,165,233,0.08);
+    }
+    .deploy-target-row input {
+      margin: 0;
+      accent-color: var(--sky);
+    }
+    .deploy-target-sha {
+      color: #10b981;
+      font-weight: 700;
+    }
+    .deploy-target-msg {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     @keyframes deploy-progress-sheen {
       0% { transform: translateX(-100%); }
       55%, 100% { transform: translateX(100%); }
@@ -3380,12 +3406,54 @@
         el.innerHTML = '<div style="color:var(--text-muted);padding:4px;">(nenhum)</div>'
         return
       }
-      for (const c of commits) {
-        const line = document.createElement('div')
-        line.style.padding = '2px 0'
-        line.innerHTML = `<span style="color:#10b981;">${c.sha}</span> ${c.msg}`
-        el.appendChild(line)
+      const ordered = [...commits].reverse()
+      for (const c of ordered) {
+        const label = document.createElement('label')
+        label.className = 'deploy-target-row'
+        label.title = 'Publicar ate este commit'
+        const short = c.short || String(c.sha || '').slice(0, 7)
+        label.innerHTML = `
+          <input class="deploy-target-radio" type="radio" name="deployTargetSha" value="${c.sha}" data-short="${short}">
+          <span class="deploy-target-sha">${short}</span>
+          <span class="deploy-target-msg">${c.msg}</span>
+        `
+        const input = label.querySelector('input')
+        input.checked = deployState.targetSha === c.sha
+        input.addEventListener('change', () => {
+          deployState.targetSha = c.sha
+          deployState.targetShort = short
+          deployUpdateSelectionHint()
+        })
+        el.appendChild(label)
       }
+    }
+
+    function deployCommitQueue(status) {
+      return [
+        ...[...(status.pendingDeploy || [])].reverse(),
+        ...[...(status.pendingPush || [])].reverse(),
+      ]
+    }
+
+    function deploySelectedCommits(status) {
+      const queue = deployCommitQueue(status)
+      if (queue.length === 0) return []
+      const targetSha = deployState.targetSha || queue[queue.length - 1].sha
+      const idx = queue.findIndex(c => c.sha === targetSha)
+      return idx >= 0 ? queue.slice(0, idx + 1) : queue
+    }
+
+    function deployUpdateSelectionHint() {
+      const status = deployState.status
+      const hint = document.getElementById('deployActionHint')
+      if (!status || !hint || deployState.running) return
+      const selected = deploySelectedCommits(status)
+      const hasDirty = (status.localDirty || 0) > 0
+      const parts = []
+      if (hasDirty) parts.push(`1 commit novo (${status.localDirty} arquivos)`)
+      if (selected.length) parts.push(`${selected.length} commit(s) selecionado(s)`)
+      hint.textContent = parts.length ? parts.join(' + ') : 'Sem mudanças pra publicar'
+      hint.style.color = parts.length ? 'var(--text-muted)' : '#16a34a'
     }
 
     async function deployRefreshStatus() {
@@ -3446,6 +3514,15 @@
         // Commits pendentes
         const hasPush = (r.pendingPush || []).length > 0
         const hasDeploy = (r.pendingDeploy || []).length > 0
+        const queue = deployCommitQueue(r)
+        if (queue.length === 0) {
+          deployState.targetSha = null
+          deployState.targetShort = null
+        } else if (!deployState.targetSha || !queue.some(c => c.sha === deployState.targetSha)) {
+          const last = queue[queue.length - 1]
+          deployState.targetSha = last.sha
+          deployState.targetShort = last.short || String(last.sha).slice(0, 7)
+        }
         document.getElementById('deployPendingPushBox').style.display = hasPush ? '' : 'none'
         document.getElementById('deployPendingDeployBox').style.display = hasDeploy ? '' : 'none'
         if (hasPush) {
@@ -3485,8 +3562,7 @@
           if (hasDirty) parts.push(`1 commit novo (${r.localDirty} arquivos)`)
           if (r.pendingPush?.length) parts.push(`${r.pendingPush.length} push`)
           if (r.pendingDeploy?.length) parts.push(`${r.pendingDeploy.length} deploy`)
-          hint.textContent = parts.join(' + ')
-          hint.style.color = 'var(--text-muted)'
+          deployUpdateSelectionHint()
         } else {
           btn.disabled = true
           btn.style.opacity = '0.4'
@@ -3621,14 +3697,15 @@
       }
 
       // Sem dirty: vai direto pro confirm tradicional
-      const totalCommits = (s.pendingPush?.length || 0) + (s.pendingDeploy?.length || 0)
-      const commitList = [...(s.pendingPush || []), ...(s.pendingDeploy || [])]
-        .map(c => `  • ${c.sha} ${c.msg}`).join('\n')
+      const selectedCommits = deploySelectedCommits(s)
+      const totalCommits = selectedCommits.length
+      const commitList = selectedCommits
+        .map(c => `  • ${(c.short || c.sha.slice(0, 7))} ${c.msg}`).join('\n')
       const schemaWarn = s.schemaChanged ? '\n\n⚠ Schema.prisma MUDOU — db push --accept-data-loss será executado!' : ''
       const ok = confirm(`Publicar ${totalCommits} commit(s):\n\n${commitList}${schemaWarn}\n\nConfirmar?`)
       if (!ok) return
 
-      await deployRunPipeline(null)
+      await deployRunPipeline(null, { targetSha: deployState.targetSha })
     }
 
     function deployCommitCancel() {
@@ -3645,10 +3722,10 @@
       const schemaWarn = s?.schemaChanged ? '\n\n⚠ Schema.prisma MUDOU — db push --accept-data-loss será executado!' : ''
       if (schemaWarn && !confirm(`Confirma o deploy?${schemaWarn}`)) return
       document.getElementById('deployCommitModal').style.display = 'none'
-      await deployRunPipeline(msg)
+      await deployRunPipeline(msg, { targetSha: deployState.targetSha })
     }
 
-    async function deployRunPipeline(commitMessage) {
+    async function deployRunPipeline(commitMessage, options = {}) {
       deployState.running = true
       document.getElementById('deployPublicarBtn').disabled = true
       document.getElementById('deployPublicarBtn').style.opacity = '0.4'
@@ -3708,7 +3785,10 @@
       })
 
       try {
-        const payload = commitMessage ? { commitMessage } : undefined
+        const payload = {
+          ...(commitMessage ? { commitMessage } : {}),
+          ...(options.targetSha ? { targetSha: options.targetSha } : {}),
+        }
         const r = await window.api.deployExecute(payload)
         if (r.ok) {
           // Marca o último step ativo (restart) como OK — o backend emite o
