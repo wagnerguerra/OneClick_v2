@@ -1,3 +1,7 @@
 packages:
   - "apps/*"
+  # Excluído temporariamente: está em Expo SDK 56 (Metro 0.84) e conflitava com o
+  # apps/mobile (SDK 52, Metro 0.81), shadowando o metro no build. Reincluir quando
+  # for alinhado/retomado.
+  - "!apps/android-parallel"
   - "packages/*"
