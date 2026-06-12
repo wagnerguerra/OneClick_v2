@@ -101,23 +101,36 @@ export class HelpdeskAiAgentService {
    * Lista os slugs dos módulos cobertos pelo FAQ — usados como referência
    * no system prompt pra que o modelo conheça os tópicos do produto.
    */
-  private faqSlugsCache: string[] | null = null
+  private faqCodeSlugsCache: string[] | null = null
+  /**
+   * Slugs dos artigos do FAQ. Fonte dupla:
+   *  - código: arquivos em apps/web/.../faq/_articles/<slug>.tsx (os 44 originais)
+   *  - banco: tabela faq_artigos (artigos criados/editados pelo master)
+   * (Antes lia subpastas de faq/, mas os artigos saíram pra _articles/.)
+   */
   private async listarFaqSlugs(): Promise<string[]> {
-    if (this.faqSlugsCache) return this.faqSlugsCache
-    try {
-      const fs = await import('node:fs/promises')
-      const path = await import('node:path')
-      const faqDir = path.resolve(process.cwd(), 'apps/web/src/app/(dashboard)/faq')
-      const entries = await fs.readdir(faqDir, { withFileTypes: true })
-      this.faqSlugsCache = entries
-        .filter(e => e.isDirectory() && !e.name.startsWith('_') && !e.name.startsWith('.'))
-        .map(e => e.name)
-        .sort()
-      return this.faqSlugsCache
-    } catch {
-      this.faqSlugsCache = []
-      return []
+    // Slugs de código (filesystem) — cacheados, são estáticos no build.
+    if (!this.faqCodeSlugsCache) {
+      try {
+        const fs = await import('node:fs/promises')
+        const path = await import('node:path')
+        const artDir = path.resolve(process.cwd(), 'apps/web/src/app/(dashboard)/faq/_articles')
+        const files = await fs.readdir(artDir)
+        this.faqCodeSlugsCache = files
+          .filter(f => f.endsWith('.tsx'))
+          .map(f => f.replace(/\.tsx$/, ''))
+      } catch {
+        this.faqCodeSlugsCache = []
+      }
     }
+    // Slugs do banco (publicados) — consultado a cada chamada (barato).
+    let dbSlugs: string[] = []
+    try {
+      const rows = await prisma.faqArtigo.findMany({ where: { publicado: true }, select: { slug: true } })
+      dbSlugs = rows.map(r => r.slug)
+    } catch { /* tabela pode não existir ainda */ }
+
+    return [...new Set([...(this.faqCodeSlugsCache ?? []), ...dbSlugs])].sort()
   }
 
   /**
