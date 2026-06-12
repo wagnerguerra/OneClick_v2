@@ -361,7 +361,8 @@ export class OrcamentoService {
     userId?: string,
     empresaId?: string,
   ) {
-    // `detalhamento` agora vem como HTML (RichEditor). Mantém como observações.
+    // `detalhamento` vem como HTML (RichEditor) e alimenta o "Texto Interno"
+    // do orçamento (aba Textos no detalhe).
     const det = (input.detalhamento || '').trim()
 
     // Cliente digitado mas não selecionado → vincula a um existente (mesma razão
@@ -377,7 +378,7 @@ export class OrcamentoService {
     }
 
     const orc = await this.create(
-      { clienteId, observacoes: obs, solicitanteId: userId } as any,
+      { clienteId, textoInterno: obs, solicitanteId: userId } as any,
       userId,
       empresaId,
     )
