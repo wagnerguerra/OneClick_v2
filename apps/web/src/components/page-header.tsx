@@ -22,6 +22,7 @@ export function PageHeader({
   breadcrumb,
   actions,
   children,
+  bleed = true,
 }: {
   /** Cor do módulo (hex ou var CSS) — usada na capa e no ícone. */
   color: string
@@ -37,10 +38,13 @@ export function PageHeader({
   actions?: ReactNode
   /** Conteúdo extra dentro da capa, abaixo do título (ex.: abas/pills). */
   children?: ReactNode
+  /** Sangra até as bordas do `<main>` (-mx/-mt). Desligue quando o pai já
+   *  controla a borda (ex.: layout de altura fixa que rola só o miolo). */
+  bleed?: boolean
 }) {
   return (
     <div
-      className="relative -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 overflow-hidden border-b border-border"
+      className={`relative overflow-hidden border-b border-border${bleed ? ' -mx-4 sm:-mx-6 -mt-4 sm:-mt-6' : ''}`}
       style={{ backgroundColor: `color-mix(in srgb, ${color} 9%, transparent)` }}
     >
       {/* Gradiente decorativo da cor do módulo (direita) */}

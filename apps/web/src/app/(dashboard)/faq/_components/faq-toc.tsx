@@ -43,7 +43,8 @@ export function FaqToc({ cor, className }: { cor: string; className?: string }) 
             .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
           if (vis[0]) setActive((vis[0].target as HTMLElement).id)
         },
-        { rootMargin: '-80px 0px -70% 0px' },
+        // root = o próprio miolo rolável (data-faq-body), já que é ele que rola.
+        { root: body, rootMargin: '0px 0px -75% 0px' },
       )
       hs.forEach(h => { if (h.id) io!.observe(h) })
     }
@@ -67,9 +68,9 @@ export function FaqToc({ cor, className }: { cor: string; className?: string }) 
   return (
     <Card className={className}>
       <CardContent className="p-2.5">
-        <style dangerouslySetInnerHTML={{ __html: '[data-faq-body] h2,[data-faq-body] h3{scroll-margin-top:5rem}' }} />
+        <style dangerouslySetInnerHTML={{ __html: '[data-faq-body] h2,[data-faq-body] h3{scroll-margin-top:1rem}' }} />
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 px-1">Nesta página</p>
-        <nav className="space-y-0.5 max-h-[calc(100vh-9rem)] overflow-y-auto nice-scrollbar">
+        <nav className="space-y-0.5">
           {items.map(it => (
             <button
               key={it.id}
