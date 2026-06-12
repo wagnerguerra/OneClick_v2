@@ -55,13 +55,16 @@ export default function Login() {
 
         <View className="flex-1 items-center justify-center p-6">
           <View className="w-full max-w-md gap-8">
-            {/* PROBE temporário — isolar quais utilitários renderizam.
-                vermelho: h-[60px] (px arbitrário, sem --spacing)
-                verde:    h-20 (calc(var(--spacing)*20))
-                azul:     inline height:60 (controle) */}
-            <View className="h-[60px] bg-red-500" />
-            <View className="h-20 bg-green-500" />
-            <View style={{ height: 60, backgroundColor: 'blue' }} />
+            {/* PROBE 3 — CardContent com filhos (sizing por conteúdo).
+                3 caixas dentro de CardContent(gap-4 p-6). Se aparecerem espaçadas
+                com padding → CardContent ok. Se colapsarem → é o nesting/gap. */}
+            <Card>
+              <CardContent className="gap-4 p-6">
+                <View className="h-12 bg-orange-400" />
+                <View className="h-12 bg-pink-400" />
+                <View className="h-12 bg-yellow-400" />
+              </CardContent>
+            </Card>
             {/* Cabeçalho de marca */}
             <BrandHeader subtitle="Entre na sua conta" />
 
