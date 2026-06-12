@@ -354,7 +354,7 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
-      overflow: hidden;
+      overflow: visible;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
       transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s;
     }
@@ -401,6 +401,10 @@
       line-height: 1.1;
     }
     .deploy-step .step-detail {
+      position: absolute;
+      top: calc(100% + 5px);
+      left: 0;
+      right: 0;
       font-size: 10px;
       color: var(--text-muted);
       margin-top: 2px;
@@ -412,6 +416,7 @@
       -webkit-box-orient: vertical;
       overflow: hidden;
       word-break: break-word;
+      padding: 0 2px;
     }
     .deploy-step .step-detail:empty {
       display: none;
@@ -1023,6 +1028,7 @@
       grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 6px;
       margin-top: 8px;
+      margin-bottom: 28px;
     }
     .deploy-log-toggle-row {
       display: flex;
@@ -1518,7 +1524,7 @@
         </div>
 
         <!-- Status cards -->
-        <div class="card" id="deployStatusCard" style="padding:16px;margin-bottom:12px;">
+        <div class="card" id="deployStatusCard" style="padding:12px;margin-bottom:8px;">
           <div id="deployStatusLoading" style="text-align:center;padding:30px;color:var(--text-muted);font-size:12px;">
             Carregando status...
           </div>
@@ -1548,7 +1554,7 @@
               </div>
             </div>
 
-            <div id="deploySynced" style="display:none;padding:10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:6px;color:#16a34a;font-size:12px;">
+            <div id="deploySynced" style="display:none;padding:8px 10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:6px;color:#16a34a;font-size:12px;">
               ✅ Tudo sincronizado — local, GitHub e VPS no mesmo commit.
             </div>
 
@@ -1574,7 +1580,7 @@
         </div>
 
         <!-- Ação -->
-        <div class="card" style="padding:16px;margin-bottom:12px;">
+        <div class="card" style="padding:12px;margin-bottom:10px;">
           <div style="display:flex;gap:10px;align-items:center;">
             <button onclick="deployPublicar()" id="deployPublicarBtn" disabled
                     style="background:var(--accent,#3b82f6);color:white;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;opacity:0.4;">
