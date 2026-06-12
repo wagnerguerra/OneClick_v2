@@ -1,83 +1,80 @@
-/* cache-bump: 2026-06-12 — força reprocessar o Tailwind no build de release
-   (content ancorado por __dirname no tailwind.config.js). */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /*
- * Design System OneClick ERP (mobile) — tokens semânticos como CSS vars em
- * triplas RGB pra funcionar com rgb(var(--x) / <alpha-value>).
+ * Design System OneClick ERP (mobile) — NativeWind v5 + Tailwind v4 (CSS-first).
  *
- * IDENTIDADE NOVA (referência aprovada — app moderno):
- *   - Primária  = azul vibrante royal/cobalt (#2563EB claro / #3B82F6 escuro).
- *   - Acento    = coral/vermelho (#F0533D) — cards hero, headers, progresso.
- *   - Warning   = amarelo dourado (#FBBF24) — barras secundárias, destaques.
- *   - Fundos claros (#F6F7FB), cards #FFFFFF, texto slate, bordas suaves.
- *   - Claro + escuro automáticos via prefers-color-scheme.
- *
- * Os valores literais espelham apps/web/.../app-mobile/_components/app-theme.ts
- * (identidade "nova"), que é a fonte da verdade visual do protótipo.
+ * Tokens semânticos definidos em @theme (geram utilitários bg-/text-/border-…).
+ * Identidade nova: primária azul royal (#2563EB claro / #3B82F6 escuro), acento
+ * coral (#F0533D), warning dourado (#FBBF24). Claro/escuro via prefers-color-scheme.
  */
-:root {
-  --background: 246 247 251;     /* #f6f7fb */
-  --foreground: 30 41 59;        /* #1e293b — slate-800 */
-  --card: 255 255 255;
-  --card-foreground: 30 41 59;
-  --elevated: 255 255 255;       /* superfície elevada (cards de KPI) */
-  --muted: 241 244 249;          /* #f1f4f9 */
-  --muted-foreground: 100 116 139; /* #64748b — slate-500 */
-  --border: 232 235 242;         /* #e8ebf2 */
-  --input: 232 235 242;
-  --ring: 37 99 235;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+@import "nativewind/theme";
 
-  --primary: 37 99 235;          /* #2563eb — azul vibrante (marca) */
-  --primary-foreground: 255 255 255;
-  --secondary: 241 244 249;
-  --secondary-foreground: 30 41 59;
-  --accent: 240 83 61;           /* #f0533d — coral (cards hero/progresso) */
-  --accent-foreground: 255 255 255;
+/* Fontes do código-fonte a varrer (relativo a este arquivo, em src/). */
+@source "./**/*.{js,jsx,ts,tsx}";
 
-  --success: 16 185 129;         /* emerald-500 */
-  --success-foreground: 255 255 255;
-  --warning: 251 191 36;         /* #fbbf24 — amarelo dourado */
-  --warning-foreground: 23 23 23;
-  --destructive: 240 83 61;      /* #f0533d — coral (destrutivo) */
-  --destructive-foreground: 255 255 255;
+/* Tokens claros (padrão). */
+@theme {
+  /* Base de espaçamento em px concreto (Tailwind default 0.25rem = 4px). Definir
+     aqui (arquivo principal) garante que o react-native-css faça a inlining do
+     calc(var(--spacing) * N) de gap/padding/height — senão o layout colapsa. */
+  --spacing: 4px;
 
-  --font-display:
-    Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
-    Segoe UI Symbol, Noto Color Emoji;
-  --font-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
-  --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
-  --font-serif: Georgia, 'Times New Roman', serif;
+  --color-background: rgb(246 247 251);     /* #f6f7fb */
+  --color-foreground: rgb(30 41 59);        /* slate-800 */
+  --color-card: rgb(255 255 255);
+  --color-card-foreground: rgb(30 41 59);
+  --color-elevated: rgb(255 255 255);
+  --color-muted: rgb(241 244 249);
+  --color-muted-foreground: rgb(100 116 139); /* slate-500 */
+  --color-border: rgb(232 235 242);
+  --color-input: rgb(232 235 242);
+  --color-ring: rgb(37 99 235);
+
+  --color-primary: rgb(37 99 235);          /* #2563eb */
+  --color-primary-foreground: rgb(255 255 255);
+  --color-secondary: rgb(241 244 249);
+  --color-secondary-foreground: rgb(30 41 59);
+  --color-accent: rgb(240 83 61);           /* coral */
+  --color-accent-foreground: rgb(255 255 255);
+
+  --color-success: rgb(16 185 129);
+  --color-success-foreground: rgb(255 255 255);
+  --color-warning: rgb(251 191 36);
+  --color-warning-foreground: rgb(23 23 23);
+  --color-destructive: rgb(240 83 61);
+  --color-destructive-foreground: rgb(255 255 255);
+
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
 }
 
+/* Override dos tokens no tema escuro. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: 15 23 41;        /* #0f1729 */
-    --foreground: 232 237 247;     /* #e8edf7 */
-    --card: 26 36 56;             /* #1a2438 */
-    --card-foreground: 232 237 247;
-    --elevated: 32 44 68;          /* #202c44 — elevação tonal no escuro */
-    --muted: 34 48 74;            /* #22304a */
-    --muted-foreground: 148 163 184; /* #94a3b8 */
-    --border: 42 58 85;           /* #2a3a55 */
-    --input: 42 58 85;
-    --ring: 59 130 246;
+    --color-background: rgb(15 23 41);        /* #0f1729 */
+    --color-foreground: rgb(232 237 247);
+    --color-card: rgb(26 36 56);             /* #1a2438 */
+    --color-card-foreground: rgb(232 237 247);
+    --color-elevated: rgb(32 44 68);
+    --color-muted: rgb(34 48 74);
+    --color-muted-foreground: rgb(148 163 184);
+    --color-border: rgb(42 58 85);
+    --color-input: rgb(42 58 85);
+    --color-ring: rgb(59 130 246);
 
-    --primary: 59 130 246;        /* #3b82f6 — azul (claro no escuro) */
-    --primary-foreground: 10 19 38;  /* #0a1326 */
-    --secondary: 34 48 74;
-    --secondary-foreground: 232 237 247;
-    --accent: 240 83 61;          /* #f0533d — coral mantém vivacidade */
-    --accent-foreground: 255 255 255;
+    --color-primary: rgb(59 130 246);        /* #3b82f6 */
+    --color-primary-foreground: rgb(10 19 38);
+    --color-secondary: rgb(34 48 74);
+    --color-secondary-foreground: rgb(232 237 247);
+    --color-accent: rgb(240 83 61);
+    --color-accent-foreground: rgb(255 255 255);
 
-    --success: 52 211 153;         /* emerald-400 */
-    --success-foreground: 9 9 12;
-    --warning: 251 191 36;         /* #fbbf24 */
-    --warning-foreground: 23 23 23;
-    --destructive: 251 113 133;    /* #fb7185 — rose-400 */
-    --destructive-foreground: 10 19 38;
+    --color-success: rgb(52 211 153);
+    --color-success-foreground: rgb(9 9 12);
+    --color-warning: rgb(251 191 36);
+    --color-warning-foreground: rgb(23 23 23);
+    --color-destructive: rgb(251 113 133);   /* rose-400 */
+    --color-destructive-foreground: rgb(10 19 38);
   }
 }

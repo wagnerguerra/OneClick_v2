@@ -28,6 +28,9 @@
       "prisma",
       "sharp",
       "libxmljs2"
-    ]
+    ],
+    "overrides": {
+      "lightningcss": "1.30.1"
+    }
   }
 }

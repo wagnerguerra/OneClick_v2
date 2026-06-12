@@ -1647,6 +1647,7 @@ function registerIpcHandlers() {
     return new Promise((resolve) => {
       const args = [...sshCmd(cfg), remoteCmd]
       const proc = spawn('ssh', args, { windowsHide: true })
+      deployTrackProcess(proc, 'ssh')
       let stdoutBuf = ''
       let stderrBuf = ''
       proc.stdout.on('data', (d) => {
@@ -1675,6 +1676,7 @@ function registerIpcHandlers() {
         GCM_INTERACTIVE: 'Never',
       }
       const proc = spawn('git', args, { cwd: projectRoot, windowsHide: true, env })
+      deployTrackProcess(proc, 'git')
       let stdoutBuf = ''
       let stderrBuf = ''
       let killed = false
@@ -1704,6 +1706,30 @@ function registerIpcHandlers() {
   }
 
   let deployRunning = false
+  let deployAbortRequested = false
+  let deployCurrentProc = null
+  let deployCurrentProcKind = null
+  let deployCurrentStep = null
+
+  function deployTrackProcess(proc, kind) {
+    deployCurrentProc = proc
+    deployCurrentProcKind = kind
+    proc.once('close', () => {
+      if (deployCurrentProc === proc) {
+        deployCurrentProc = null
+        deployCurrentProcKind = null
+      }
+    })
+  }
+
+  function deployCheckAbort(step, progress) {
+    if (!deployAbortRequested) return
+    const err = new Error('Deploy abortado pelo usuário')
+    err.code = 'DEPLOY_ABORTED'
+    err.step = step || deployCurrentStep || 'deploy'
+    err.progress = typeof progress === 'number' ? progress : undefined
+    throw err
+  }
 
   ipcMain.handle('deploy:read-debug-log', async () => {
     try {
@@ -1720,8 +1746,20 @@ function registerIpcHandlers() {
   ipcMain.handle('deploy:reset-flag', async () => {
     const wasRunning = deployRunning
     deployRunning = false
+    deployAbortRequested = false
     deployDebugLog(`⟲ deployRunning resetado manualmente (era ${wasRunning})`)
     return { ok: true, wasRunning }
+  })
+
+  ipcMain.handle('deploy:abort', async () => {
+    if (!deployRunning) return { ok: false, error: 'Nenhum deploy em andamento.' }
+    deployAbortRequested = true
+    deployEmit(null, deployCurrentStep || 'abort', 'Abort solicitado. O deploy sera interrompido no proximo ponto seguro.', 'warn')
+    if (deployCurrentProc && deployCurrentProcKind === 'git') {
+      try { deployCurrentProc.kill('SIGKILL') } catch {}
+      return { ok: true, mode: 'local-kill', message: 'Processo local interrompido. Finalizando abort seguro...' }
+    }
+    return { ok: true, mode: 'safe-wait', message: 'Abort solicitado. Aguardando a etapa atual terminar com seguranca...' }
   })
 
   ipcMain.handle('deploy:execute', async (_e, payload) => {
@@ -1732,6 +1770,8 @@ function registerIpcHandlers() {
       return { ok: false, error: 'Já existe um deploy em andamento. (Se você acha que travou, use o botão "Reset" no painel.)' }
     }
     deployRunning = true
+    deployAbortRequested = false
+    deployCurrentStep = 'init'
     // Emit inicial — prova ao renderer que o handler foi chamado.
     deployEmit(1, 'init', `→ Iniciando deploy (payload=${payload ? 'com mensagem' : 'sem mensagem'})`, 'info')
     try {
@@ -1746,6 +1786,8 @@ function registerIpcHandlers() {
       const commitMessage = (payload && payload.commitMessage) ? String(payload.commitMessage).trim() : ''
 
       // ─── Stage 0: git commit (se houver dirty + mensagem) ───
+      deployCheckAbort('commit', 1)
+      deployCurrentStep = 'commit'
       const statusOut = gitOutput(['status', '--porcelain'])
       const dirtyAll = statusOut.split('\n').filter(Boolean).map(l => ({
         status: l.slice(0, 2).trim(),
@@ -1767,6 +1809,7 @@ function registerIpcHandlers() {
         // mas é mais seguro fazer sequencial pra preservar ordem e debugar.
         for (const d of dirtyRelevant) {
           const addRes = await gitExec(['add', '--', d.path], null, 10000)
+          deployCheckAbort('commit', 3)
           if (addRes.code !== 0) {
             const msg = addRes.stderr || addRes.error || 'git add falhou'
             deployEmit(3, 'commit', `✗ git add "${d.path}": ${msg.slice(0, 200)}`, 'err')
@@ -1776,6 +1819,7 @@ function registerIpcHandlers() {
           deployEmit(3, 'commit', `  + ${d.path}`, 'info')
         }
         const commitRes = await gitExec(['commit', '-m', commitMessage], null, 30000)
+        deployCheckAbort('commit', 4)
         if (commitRes.code !== 0) {
           const msg = commitRes.stderr || commitRes.stdout || commitRes.error || 'git commit falhou'
           deployEmit(4, 'commit', `✗ ${msg.slice(0, 300)}`, 'err')
@@ -1787,9 +1831,12 @@ function registerIpcHandlers() {
 
       // ─── Stage 1: git push ─────────────────────────
       deployEmit(5, 'push', '→ Pushing pro GitHub...', 'info')
+      deployCheckAbort('push', 5)
+      deployCurrentStep = 'push'
       const localBranch = gitOutput(['rev-parse', '--abbrev-ref', 'HEAD'])
       // Timeout 60s — se Git Credential Manager pedir popup, mata em 60s ao invés de travar.
       const pushResult = await gitExec(['push', 'origin', localBranch], (line) => deployEmit(7, 'push', line, 'info'), 60000)
+      deployCheckAbort('push', 10)
       if (pushResult.code !== 0) {
         const msg = pushResult.stderr || pushResult.stdout || pushResult.error || 'git push falhou'
         const extra = pushResult.timedOut ? ' [timeout 60s — provavelmente faltando credencial: rode `git push` no terminal pra autenticar]' : ''
@@ -1801,6 +1848,8 @@ function registerIpcHandlers() {
 
       // ─── Stage 2: SSH git pull ─────────────────────
       deployEmit(15, 'pull', '→ git pull na VPS...', 'info')
+      deployCheckAbort('pull', 15)
+      deployCurrentStep = 'pull'
       const pull = await sshExec(cfg, 'cd /opt/oneclick-src && git pull --ff-only 2>&1', (line) => deployEmit(20, 'pull', line, 'info'))
       if (pull.code !== 0) {
         deployEmit(25, 'pull', `✗ ${(pull.stderr || pull.stdout || '').slice(0, 300)}`, 'err')
@@ -1815,6 +1864,8 @@ function registerIpcHandlers() {
       // for depois, o db push acaba rodando com schema antigo e tabelas novas
       // não são criadas.
       deployEmit(30, 'build-api', '→ Building oneclick-api...', 'info')
+      deployCheckAbort('build-api', 30)
+      deployCurrentStep = 'build-api'
       const buildApi = await sshExec(cfg, 'cd /opt/oneclick && docker compose build api 2>&1', (line) => {
         if (!/^\s*$/.test(line) && !/exporting layers|exporting manifest|extracting|building cache/i.test(line)) {
           deployEmit(45, 'build-api', line, 'info')
@@ -1829,6 +1880,8 @@ function registerIpcHandlers() {
 
       // ─── Stage 4: Schema (se mudou) ────────────────
       // Roda APÓS o build api, usando a imagem recém-buildada (com schema novo).
+      deployCheckAbort('schema', 55)
+      deployCurrentStep = 'schema'
       const diffFiles = await sshExec(cfg, 'cd /opt/oneclick-src && git diff --name-only HEAD@{1} HEAD 2>/dev/null')
       const schemaChanged = (diffFiles.stdout || '').split('\n').some(f => f === 'packages/db/prisma/schema.prisma')
       if (schemaChanged) {
@@ -1851,6 +1904,8 @@ function registerIpcHandlers() {
       // Usado pra coisas que `prisma db push` não cobre: seeds, ALTER manuais,
       // dados de configuração inicial (ex: salas padrão da agenda).
       deployEmit(66, 'sql', '→ Verificando SQLs cirúrgicos...', 'info')
+      deployCheckAbort('sql', 66)
+      deployCurrentStep = 'sql'
       const listSql = await sshExec(cfg, 'ls /opt/oneclick-src/packages/db/prisma/sql/*.sql 2>/dev/null | sort')
       const sqlFiles = (listSql.stdout || '').trim().split('\n').filter(Boolean)
       if (sqlFiles.length === 0) {
@@ -1871,6 +1926,7 @@ function registerIpcHandlers() {
               }
             },
           )
+          deployCheckAbort('sql', 68)
           if (sqlExec.code !== 0) {
             deployEmit(68, 'sql', `✗ ${fname} falhou (code ${sqlExec.code})`, 'err')
             sqlFailed = true
@@ -1886,6 +1942,8 @@ function registerIpcHandlers() {
 
       // ─── Stage 5: Build Web ────────────────────────
       deployEmit(70, 'build-web', '→ Building oneclick-web...', 'info')
+      deployCheckAbort('build-web', 70)
+      deployCurrentStep = 'build-web'
       const buildWeb = await sshExec(cfg, 'cd /opt/oneclick && docker compose build web 2>&1', (line) => {
         if (!/^\s*$/.test(line) && !/exporting layers|exporting manifest|extracting|building cache/i.test(line)) {
           deployEmit(78, 'build-web', line, 'info')
@@ -1900,6 +1958,8 @@ function registerIpcHandlers() {
 
       // ─── Stage 6: Restart + Health check ───────────
       deployEmit(90, 'restart', '→ Restart containers + health check...', 'info')
+      deployCheckAbort('restart', 90)
+      deployCurrentStep = 'restart'
       const up = await sshExec(cfg, 'cd /opt/oneclick && docker compose up -d --force-recreate api web 2>&1 && sleep 12 && curl -s -o /dev/null -w "API:%{http_code}\\n" http://127.0.0.1:4100/api/health', (line) => deployEmit(95, 'restart', line, 'info'))
       if (up.code !== 0 || !/(API:200|API:204)/.test(up.stdout || '')) {
         deployEmit(98, 'restart', `✗ Restart ou health falhou`, 'err')
@@ -1914,6 +1974,10 @@ function registerIpcHandlers() {
       return { ok: false, error: e.message }
     } finally {
       deployRunning = false
+      deployAbortRequested = false
+      deployCurrentProc = null
+      deployCurrentProcKind = null
+      deployCurrentStep = null
     }
   })
 
@@ -2076,6 +2140,10 @@ function registerIpcHandlers() {
         currentVersion: app.getVersion(),
       };
     } catch (e) {
+      if (e.code === 'DEPLOY_ABORTED') {
+        deployEmit(e.progress ?? null, e.step || deployCurrentStep || 'abort', 'Deploy abortado com seguranca pelo usuario.', 'warn')
+        return { ok: false, aborted: true, error: 'Deploy abortado pelo usuario.' }
+      }
       return { ok: false, error: e?.message || String(e) };
     }
   });
