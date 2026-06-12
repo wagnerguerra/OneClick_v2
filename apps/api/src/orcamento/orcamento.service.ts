@@ -311,7 +311,56 @@ export class OrcamentoService {
       await this.recalcularTotais(orc.id)
     }
     this.emitEvent('kanban', { orcamentoId: orc.id, empresaId: orc.empresaId, actorUserId: userId })
+    // Notifica os e-mails de "Notificar novos orçamentos para" (config emailNovo).
+    // Vale p/ TODO orçamento criado de fato (form manual + balão "Solicitar"),
+    // mas NÃO p/ duplicação (que usa prisma.orcamento.create direto).
+    void this.notificarNovoOrcamento(orc.id, userId, empresaId)
     return orc
+  }
+
+  /**
+   * Envia e-mail aos destinatários de "Notificar novos orçamentos para"
+   * (config `emailNovo`) sempre que um orçamento é criado. Fire-and-forget —
+   * falha de e-mail não quebra a criação.
+   */
+  private async notificarNovoOrcamento(orcId: string, userId?: string, empresaId?: string) {
+    try {
+      const config = await this.getConfig(empresaId)
+      const dest = this.parseEmails(config.emailNovo)
+      if (!dest.length) return
+      const orc = await prisma.orcamento.findUnique({ where: { id: orcId } })
+      if (!orc) return
+      const [empresa, cliente, user] = await Promise.all([
+        orc.empresaId ? prisma.empresa.findUnique({ where: { id: orc.empresaId }, select: { razaoSocial: true, nomeFantasia: true, logoUrl: true } }).catch(() => null) : null,
+        orc.clienteId ? prisma.cliente.findUnique({ where: { id: orc.clienteId }, select: { razaoSocial: true } }).catch(() => null) : null,
+        userId ? prisma.user.findUnique({ where: { id: userId }, select: { name: true } }).catch(() => null) : null,
+      ])
+      const empresaNome = empresa?.nomeFantasia || empresa?.razaoSocial || 'Empresa'
+      const clienteNome = cliente?.razaoSocial || 'Cliente não informado'
+      const numero = `#${String(orc.numero).padStart(4, '0')}`
+      const autor = user?.name || 'um colaborador'
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const link = `${baseUrl}/orcamentos/${orcId}`
+      const html = this.buildEmailLayout({
+        empresaNome,
+        logoUrl: empresa?.logoUrl,
+        preheader: `Novo orçamento ${numero} criado por ${autor}.`,
+        heroAccent: '#fb7185',
+        heroTitle: 'Novo orçamento',
+        heroSubtitle: `${numero} · ${clienteNome}`,
+        bodyHtml: `
+          <p>Um novo orçamento foi criado por <strong>${autor}</strong>.</p>
+          <p><strong>Cliente:</strong> ${clienteNome}</p>
+          ${orc.textoInterno ? `<div style="background:#f8fafc;border-left:3px solid #fb7185;padding:12px 16px;margin:14px 0;border-radius:4px;font-size:13px;">${orc.textoInterno}</div>` : ''}
+        `,
+        ctaLabel: 'Abrir orçamento',
+        ctaUrl: link,
+      })
+      await this.emailService.sendMail({ to: [...new Set(dest)], subject: `Novo orçamento ${numero} · ${clienteNome}`, html })
+      await this.addEvento(orcId, userId, 'notificacao', null, null, `Notificação de novo orçamento para ${dest.length} destinatário(s): ${dest.join(', ')}`)
+    } catch (e) {
+      console.warn('[Orcamento] Falha ao notificar novo orçamento:', (e as Error).message)
+    }
   }
 
   /**

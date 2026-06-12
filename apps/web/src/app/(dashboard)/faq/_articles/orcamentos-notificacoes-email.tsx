@@ -38,8 +38,8 @@ export default function FaqOrcamentosNotificacoesEmailPage() {
           <DefRow termo="Aba Textos" texto="Texto de apresentação que entra no corpo do e-mail enviado ao cliente." />
           <DefRow termo="Aba Áreas" texto={<>Canais (sino/e-mail) das notificações de área, prazo de detalhamento, áreas habilitadas + substitutos, e o aviso de atraso ao comercial (<strong>Avisar comercial</strong> + <strong>Área comercial</strong>).</>} />
         </div>
-        <Callout tipo="aviso">
-          O campo <strong>“Notificar novos orçamentos para” (e-mail)</strong> existe na tela, mas hoje <strong>não dispara nenhum e-mail</strong> ao criar um orçamento novo — preencher esse campo não tem efeito (ver “O que ainda não notifica”).
+        <Callout tipo="dica">
+          O campo <strong>“Notificar novos orçamentos para” (e-mail)</strong> dispara um e-mail para os endereços listados <strong>sempre que um orçamento é criado</strong> — tanto pelo balão “Solicitar/Criar Novo” quanto pelo formulário de novo orçamento. (Duplicação NÃO dispara.)
         </Callout>
       </Section>
 
@@ -110,10 +110,6 @@ export default function FaqOrcamentosNotificacoesEmailPage() {
       {/* ── Lacunas ── */}
       <Section icon={AlertTriangle} titulo="O que ainda NÃO notifica (revisar)" cor={FAQ_COLOR}>
         <div className="space-y-3">
-          <CasoPratico
-            titulo="Orçamento novo não dispara e-mail"
-            descricao={<>Criar um orçamento (status NOVO) e a transição NOVO → A_ENVIAR são <strong>silenciosos</strong>. O campo “Notificar novos orçamentos para” não está conectado a nenhum envio.</>}
-          />
           <CasoPratico
             titulo="Área concluída não avisa o comercial"
             descricao={<>Quando uma área detalha sua parte (ou quando <strong>todas</strong> as áreas concluem), ninguém é avisado — o comercial precisa acompanhar manualmente.</>}
