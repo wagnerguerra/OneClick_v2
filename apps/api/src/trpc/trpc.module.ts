@@ -24,6 +24,7 @@ import { AgendaModule } from '../agenda/agenda.module'
 import { DteModule } from '../dte/dte.module'
 import { CrmModule } from '../crm/crm.module'
 import { OrcamentoModule } from '../orcamento/orcamento.module'
+import { FaqModule } from '../faq/faq.module'
 import { ServicoModule } from '../servico/servico.module'
 import { ProcessoModule } from '../processo/processo.module'
 import { PesquisaModule } from '../pesquisa/pesquisa.module'
@@ -58,7 +59,7 @@ import { ChatModule } from '../chat/chat.module'
 import { PushModule } from '../push/push.module'
 
 @Module({
-  imports: [AreaModule, EmpresaModule, UserModule, CargoModule, OnboardingModule, ClienteModule, AdminModule, AuthModule, StripeModule, ColaboradorModule, FornecedorModule, SocioModule, CnpjModule, SitfisModule, CaixaPostalModule, CndModule, DctfwebModule, BiModule, FolhaModule, AgendaModule, DteModule, CrmModule, OrcamentoModule, ServicoModule, ProcessoModule, PesquisaModule, ContratoModule, NotificationModule, TabsModule, CertificadoDigitalModule, DashboardLayoutModule, PermissionsEventsModule, NotificationsEventsModule, DashboardCalendarioModule, HelpdeskModule, AcessoriasModule, NotificacaoModule, ObrigacaoModule, FeriadoModule, GrupoObrigacaoModule, ProjetoModule, MinhasObrigacoesModule, AtivoModule, ClientErrorModule, ThemeModule, DanfeModule, DriveSyncModule, NfeDistModule, NfseDistModule, AgendamentoModule, GoogleBackupModule, SignatureModule, OnlineUsersModule, ChatModule, PushModule],
+  imports: [AreaModule, EmpresaModule, UserModule, CargoModule, OnboardingModule, ClienteModule, AdminModule, AuthModule, StripeModule, ColaboradorModule, FornecedorModule, SocioModule, CnpjModule, SitfisModule, CaixaPostalModule, CndModule, DctfwebModule, BiModule, FolhaModule, AgendaModule, DteModule, CrmModule, OrcamentoModule, FaqModule, ServicoModule, ProcessoModule, PesquisaModule, ContratoModule, NotificationModule, TabsModule, CertificadoDigitalModule, DashboardLayoutModule, PermissionsEventsModule, NotificationsEventsModule, DashboardCalendarioModule, HelpdeskModule, AcessoriasModule, NotificacaoModule, ObrigacaoModule, FeriadoModule, GrupoObrigacaoModule, ProjetoModule, MinhasObrigacoesModule, AtivoModule, ClientErrorModule, ThemeModule, DanfeModule, DriveSyncModule, NfeDistModule, NfseDistModule, AgendamentoModule, GoogleBackupModule, SignatureModule, OnlineUsersModule, ChatModule, PushModule],
   providers: [TrpcService],
   controllers: [TrpcController],
   exports: [TrpcService],

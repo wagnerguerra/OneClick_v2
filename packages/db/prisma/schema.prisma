@@ -5550,3 +5550,29 @@ model ProjetoTarefaEvento {
   @@index([tarefaId, createdAt(sort: Desc)])
   @@map("projetos_tarefas_eventos")
 }
+
+/// Artigos do FAQ editáveis pelo master. Quando há linha com um `slug`, ela
+/// SOBRESCREVE o artigo de código (componente em faq/_articles/<slug>.tsx).
+/// `conteudoHtml` é o corpo editado no RichEditor. `icon` é o nome do ícone
+/// lucide (mapeado pra componente no front). Global (sem empresaId nesta fase).
+model FaqArtigo {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  titulo        String
+  descricao     String
+  modulo        String
+  moduloColor   String   @map("modulo_color")
+  icon          String   @default("HelpCircle")
+  categoria     String
+  tags          String[] @default([])
+  conteudoHtml  String   @default("") @map("conteudo_html") @db.Text
+  publicado     Boolean  @default(true)
+  ordem         Int      @default(0)
+  origemSistema Boolean  @default(false) @map("origem_sistema")
+  criadoPor     String?  @map("criado_por")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([categoria])
+  @@map("faq_artigos")
+}
