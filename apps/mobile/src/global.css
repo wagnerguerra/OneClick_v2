@@ -1,76 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /*
- * Design System OneClick ERP (mobile) — NativeWind v5 + Tailwind v4 (CSS-first).
- *
- * Tokens semânticos definidos em @theme (geram utilitários bg-/text-/border-…).
- * Identidade nova: primária azul royal (#2563EB claro / #3B82F6 escuro), acento
- * coral (#F0533D), warning dourado (#FBBF24). Claro/escuro via prefers-color-scheme.
+ * Design System OneClick ERP (mobile) — NativeWind v4 (Tailwind v3).
+ * Tokens semânticos como CSS vars em triplas RGB (rgb(var(--x) / <alpha-value>)).
+ * Identidade: primária azul royal (#2563EB claro / #3B82F6 escuro), acento coral
+ * (#F0533D), warning dourado (#FBBF24). Claro/escuro via prefers-color-scheme.
  */
-/* Sem preflight.css (reset de browser): no React Native ele só atrapalha o layout.
-   theme.css (tokens) + utilities.css (classes) + nativewind/theme (engine RN). */
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css";
-@import "nativewind/theme";
+:root {
+  --background: 246 247 251;     /* #f6f7fb */
+  --foreground: 30 41 59;        /* slate-800 */
+  --card: 255 255 255;
+  --card-foreground: 30 41 59;
+  --elevated: 255 255 255;
+  --muted: 241 244 249;
+  --muted-foreground: 100 116 139; /* slate-500 */
+  --border: 232 235 242;
+  --input: 232 235 242;
+  --ring: 37 99 235;
 
-/* Fontes do código-fonte a varrer (relativo a este arquivo, em src/). */
-@source "./**/*.{js,jsx,ts,tsx}";
+  --primary: 37 99 235;          /* #2563eb */
+  --primary-foreground: 255 255 255;
+  --secondary: 241 244 249;
+  --secondary-foreground: 30 41 59;
+  --accent: 240 83 61;           /* coral */
+  --accent-foreground: 255 255 255;
 
-/* Tokens claros (padrão). */
-@theme {
-  --color-background: rgb(246 247 251);     /* #f6f7fb */
-  --color-foreground: rgb(30 41 59);        /* slate-800 */
-  --color-card: rgb(255 255 255);
-  --color-card-foreground: rgb(30 41 59);
-  --color-elevated: rgb(255 255 255);
-  --color-muted: rgb(241 244 249);
-  --color-muted-foreground: rgb(100 116 139); /* slate-500 */
-  --color-border: rgb(232 235 242);
-  --color-input: rgb(232 235 242);
-  --color-ring: rgb(37 99 235);
-
-  --color-primary: rgb(37 99 235);          /* #2563eb */
-  --color-primary-foreground: rgb(255 255 255);
-  --color-secondary: rgb(241 244 249);
-  --color-secondary-foreground: rgb(30 41 59);
-  --color-accent: rgb(240 83 61);           /* coral */
-  --color-accent-foreground: rgb(255 255 255);
-
-  --color-success: rgb(16 185 129);
-  --color-success-foreground: rgb(255 255 255);
-  --color-warning: rgb(251 191 36);
-  --color-warning-foreground: rgb(23 23 23);
-  --color-destructive: rgb(240 83 61);
-  --color-destructive-foreground: rgb(255 255 255);
-
-  --radius-xl: 14px;
-  --radius-2xl: 20px;
+  --success: 16 185 129;
+  --success-foreground: 255 255 255;
+  --warning: 251 191 36;         /* #fbbf24 */
+  --warning-foreground: 23 23 23;
+  --destructive: 240 83 61;
+  --destructive-foreground: 255 255 255;
 }
 
-/* Override dos tokens no tema escuro. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-background: rgb(15 23 41);        /* #0f1729 */
-    --color-foreground: rgb(232 237 247);
-    --color-card: rgb(26 36 56);             /* #1a2438 */
-    --color-card-foreground: rgb(232 237 247);
-    --color-elevated: rgb(32 44 68);
-    --color-muted: rgb(34 48 74);
-    --color-muted-foreground: rgb(148 163 184);
-    --color-border: rgb(42 58 85);
-    --color-input: rgb(42 58 85);
-    --color-ring: rgb(59 130 246);
+    --background: 15 23 41;        /* #0f1729 */
+    --foreground: 232 237 247;
+    --card: 26 36 56;             /* #1a2438 */
+    --card-foreground: 232 237 247;
+    --elevated: 32 44 68;
+    --muted: 34 48 74;
+    --muted-foreground: 148 163 184;
+    --border: 42 58 85;
+    --input: 42 58 85;
+    --ring: 59 130 246;
 
-    --color-primary: rgb(59 130 246);        /* #3b82f6 */
-    --color-primary-foreground: rgb(10 19 38);
-    --color-secondary: rgb(34 48 74);
-    --color-secondary-foreground: rgb(232 237 247);
-    --color-accent: rgb(240 83 61);
-    --color-accent-foreground: rgb(255 255 255);
+    --primary: 59 130 246;        /* #3b82f6 */
+    --primary-foreground: 10 19 38;
+    --secondary: 34 48 74;
+    --secondary-foreground: 232 237 247;
+    --accent: 240 83 61;
+    --accent-foreground: 255 255 255;
 
-    --color-success: rgb(52 211 153);
-    --color-success-foreground: rgb(9 9 12);
-    --color-warning: rgb(251 191 36);
-    --color-warning-foreground: rgb(23 23 23);
-    --color-destructive: rgb(251 113 133);   /* rose-400 */
-    --color-destructive-foreground: rgb(10 19 38);
+    --success: 52 211 153;
+    --success-foreground: 9 9 12;
+    --warning: 251 191 36;
+    --warning-foreground: 23 23 23;
+    --destructive: 251 113 133;   /* rose-400 */
+    --destructive-foreground: 10 19 38;
   }
 }

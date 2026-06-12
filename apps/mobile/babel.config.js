@@ -1,11 +1,12 @@
-// Babel — Expo SDK 56 + NativeWind v5.
-// O v5 NÃO usa `jsxImportSource` nem o preset `nativewind/babel`: a interop de
-// `className` passou a ser feita por reescrita de imports no Metro (withNativeWind).
-// O babel-preset-expo já injeta o plugin do react-native-worklets/reanimated e
-// respeita o experimento `reactCompiler` do app.json.
+// Babel — Expo SDK 52 + NativeWind v4.
+// jsxImportSource: 'nativewind' habilita className nos componentes RN; o preset
+// babel-preset-expo já injeta o plugin do react-native-reanimated.
 module.exports = function (api) {
   api.cache(true)
   return {
-    presets: ['babel-preset-expo'],
+    presets: [
+      ['babel-preset-expo', { jsxImportSource: 'nativewind' }],
+      'nativewind/babel',
+    ],
   }
 }

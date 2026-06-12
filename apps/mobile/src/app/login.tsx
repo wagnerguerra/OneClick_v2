@@ -55,21 +55,6 @@ export default function Login() {
 
         <View className="flex-1 items-center justify-center p-6">
           <View className="w-full max-w-md gap-8">
-            {/* PROBE 5 — isolar a causa do colapso de altura.
-                C: aninhado SEM border (testa se `border` v4 quebra o sizing)
-                D: aninhado COM border + flex flex-col explícito */}
-            <View className="rounded-xl bg-card">
-              <View className="gap-4 p-6">
-                <View className="h-10 bg-lime-400" />
-                <View className="h-10 bg-cyan-400" />
-              </View>
-            </View>
-            <View className="rounded-xl border border-border bg-card">
-              <View className="flex flex-col gap-4 p-6">
-                <View className="h-10 bg-orange-400" />
-                <View className="h-10 bg-pink-400" />
-              </View>
-            </View>
             {/* Cabeçalho de marca */}
             <BrandHeader subtitle="Entre na sua conta" />
 

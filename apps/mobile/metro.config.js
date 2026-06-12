@@ -1,10 +1,4 @@
-// Metro config — Expo SDK 56 + NativeWind v5 + monorepo pnpm.
-//
-// withNativeWind SEM `input`: no v5 o CSS é descoberto pelo import (src/global.css)
-// e processado via @tailwindcss/postcss. Mantemos o setup de monorepo:
-//   - watchFolders: raiz do workspace (observa packages/* e apps/*)
-//   - nodeModulesPaths: node_modules local + da raiz
-// Não desabilitar hierarchicalLookup (pnpm co-localiza deps em .pnpm).
+// Metro config — Expo SDK 52 + NativeWind v4 + monorepo pnpm.
 const { getDefaultConfig } = require('expo/metro-config')
 const { withNativeWind } = require('nativewind/metro')
 const path = require('path')
@@ -20,4 +14,4 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ]
 
-module.exports = withNativeWind(config)
+module.exports = withNativeWind(config, { input: './src/global.css' })
