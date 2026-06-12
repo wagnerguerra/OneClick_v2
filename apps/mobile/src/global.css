@@ -5,8 +5,9 @@
  * Identidade nova: primária azul royal (#2563EB claro / #3B82F6 escuro), acento
  * coral (#F0533D), warning dourado (#FBBF24). Claro/escuro via prefers-color-scheme.
  */
+/* Sem preflight.css (reset de browser): no React Native ele só atrapalha o layout.
+   theme.css (tokens) + utilities.css (classes) + nativewind/theme (engine RN). */
 @import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css";
 @import "nativewind/theme";
 
@@ -15,11 +16,6 @@
 
 /* Tokens claros (padrão). */
 @theme {
-  /* Base de espaçamento em px concreto (Tailwind default 0.25rem = 4px). Definir
-     aqui (arquivo principal) garante que o react-native-css faça a inlining do
-     calc(var(--spacing) * N) de gap/padding/height — senão o layout colapsa. */
-  --spacing: 4px;
-
   --color-background: rgb(246 247 251);     /* #f6f7fb */
   --color-foreground: rgb(30 41 59);        /* slate-800 */
   --color-card: rgb(255 255 255);
