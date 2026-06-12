@@ -29,3 +29,11 @@ export function resolveFaqIcon(name?: string | null): ComponentType<{ className?
 
 /** Nomes disponíveis no seletor de ícone do editor. */
 export const FAQ_ICON_NAMES = Object.keys(iconByName)
+
+/** Reverso: dado um componente de ícone (ex.: do catálogo de código), devolve
+ *  o nome registrado — fallback 'HelpCircle'. Usado ao pré-carregar a edição
+ *  de um artigo de sistema no editor. */
+export function faqIconName(comp: ComponentType<{ className?: string }>): string {
+  for (const [name, c] of Object.entries(iconByName)) if (c === comp) return name
+  return 'HelpCircle'
+}
