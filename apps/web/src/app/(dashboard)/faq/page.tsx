@@ -42,6 +42,9 @@ export default function FaqHubPage() {
   const { profile } = useCurrentUserProfile()
   const isMaster = !!(profile?.isMaster || profile?.isEmpresaMaster)
   const router = useRouter()
+  // Header padronizado com /materiais/icon_faq.png; se a imagem não existir,
+  // cai no ícone atual (HelpCircle) — some o fallback assim que ela for colocada.
+  const [iconErro, setIconErro] = useState(false)
 
   const carregar = useCallback(async () => {
     try {
@@ -115,12 +118,17 @@ export default function FaqHubPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <HelpCircle className="h-6 w-6" />
-          </div>
+          {iconErro ? (
+            <div
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
+              style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
+            >
+              <HelpCircle className="h-6 w-6" />
+            </div>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/materiais/icon_faq.png" alt="FAQ" className="h-12 w-12 object-contain shrink-0" onError={() => setIconErro(true)} />
+          )}
           <div>
             <h1>FAQ&apos;s</h1>
             <p className="text-sm text-muted-foreground">
