@@ -42,7 +42,7 @@ export default function FaqHubPage() {
   const { profile } = useCurrentUserProfile()
   const isMaster = !!(profile?.isMaster || profile?.isEmpresaMaster)
   const router = useRouter()
-  // Header padronizado com /materiais/icon_faq.png; se a imagem não existir,
+  // Header padronizado com /materiais/icon_faqs.png; se a imagem não existir,
   // cai no ícone atual (HelpCircle) — some o fallback assim que ela for colocada.
   const [iconErro, setIconErro] = useState(false)
 
@@ -127,7 +127,7 @@ export default function FaqHubPage() {
             </div>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src="/materiais/icon_faq.png" alt="FAQ" className="h-12 w-12 object-contain shrink-0" onError={() => setIconErro(true)} />
+            <img src="/materiais/icon_faqs.png" alt="FAQ" className="h-12 w-12 object-contain shrink-0" onError={() => setIconErro(true)} />
           )}
           <div>
             <h1>FAQ&apos;s</h1>
