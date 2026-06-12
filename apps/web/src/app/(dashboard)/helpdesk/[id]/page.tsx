@@ -41,6 +41,7 @@ interface Mensagem {
   createdAt: string
   editadoEm?: string | null
   autor: { id: string; name: string; image: string | null } | null
+  anexos?: Anexo[]
 }
 
 interface Evento {
@@ -1181,6 +1182,34 @@ export default function HelpdeskTicketDetailPage() {
                         className="text-sm whitespace-pre-wrap"
                         dangerouslySetInnerHTML={{ __html: linkifyHelpdesk(msg.conteudo) }}
                       />
+                      {/* Anexos vinculados a esta mensagem (mensagemId) */}
+                      {!!msg.anexos?.length && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {msg.anexos.map(a => {
+                            const url = resolveAssetUrl(a.fileUrl)
+                            const isImg = (a.mimeType || '').startsWith('image/')
+                            return isImg ? (
+                              <a key={a.id} href={url} target="_blank" rel="noreferrer" title={a.fileName} className="block shrink-0">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={url} alt={a.fileName} className="h-20 w-20 rounded-md border border-border object-cover" />
+                              </a>
+                            ) : (
+                              <a
+                                key={a.id}
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                download
+                                title={a.fileName}
+                                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs hover:bg-muted transition-colors max-w-[220px]"
+                              >
+                                <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                <span className="truncate">{a.fileName}</span>
+                              </a>
+                            )
+                          })}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )
