@@ -604,7 +604,7 @@ echo.
 echo ═══════════════════════════════════════════════════════════
 echo  [ETAPA 8/12] Instalando dependencias do projeto...
 echo ═══════════════════════════════════════════════════════════
-cd /d "%ROOT%OneClick_Code"
+cd /d "D:\\oc"
 if not exist "node_modules" (
   echo  Executando pnpm install (pode demorar alguns minutos)...
   call pnpm install
@@ -644,7 +644,7 @@ call pnpm --filter @saas/db db:generate
 echo  Sincronizando schema com o banco...
 cd packages\\db
 call npx prisma db push --accept-data-loss 2>nul || call npx prisma db push
-cd /d "%ROOT%OneClick_Code"
+cd /d "D:\\oc"
 echo.
 
 echo ═══════════════════════════════════════════════════════════
@@ -667,20 +667,20 @@ echo.
 echo ═══════════════════════════════════════════════════════════
 echo  [ETAPA 11/12] Configurando Launcher / Service Manager...
 echo ═══════════════════════════════════════════════════════════
-cd /d "%ROOT%OneClick_Code\\scripts\\launcher"
+cd /d "D:\\oc\\scripts\\launcher"
 if not exist "node_modules" (
   echo  Instalando dependencias do Launcher...
   call npm install
 )
 echo  OK
-cd /d "%ROOT%OneClick_Code"
+cd /d "D:\\oc"
 echo.
 
 echo ═══════════════════════════════════════════════════════════
 echo  [ETAPA 12/12] Iniciando o sistema...
 echo ═══════════════════════════════════════════════════════════
 echo  Iniciando Launcher / Service Manager...
-start "OneClick Launcher" cmd /c "cd /d \\"%ROOT%OneClick_Code\\scripts\\launcher\\" && npm start"
+start "OneClick SM" cmd /c "cd /d \\"D:\\oc\\scripts\\launcher\\" && npm start"
 timeout /t 3 /nobreak >nul
 
 echo  Launcher iniciado.
@@ -718,7 +718,7 @@ Gerado em: ${new Date().toLocaleString('pt-BR')}
 ## Conteudo do backup
 - install.bat     - Instalador automatico (execute como Administrador)
 - database.sql    - Dump completo do banco de dados PostgreSQL
-- OneClick_Code/  - Codigo-fonte completo do projeto (monorepo)
+- oc/             - Codigo-fonte completo do projeto (monorepo)
 - README.md       - Este arquivo
 - .env            - Variaveis de ambiente (se incluido no backup)
 
@@ -751,7 +751,7 @@ Gerado em: ${new Date().toLocaleString('pt-BR')}
    docker run -d --name saas-redis -p 6379:6379 --restart unless-stopped redis:7-alpine
 
 3. Instalar dependencias:
-   cd OneClick_Code
+   cd D:\\oc
    pnpm install
 
 4. Configurar .env:
@@ -765,7 +765,7 @@ Gerado em: ${new Date().toLocaleString('pt-BR')}
    docker exec -i saas-postgres psql -U postgres -d saas_erp < database.sql
 
 7. Iniciar o sistema:
-   Opcao A: cd scripts/launcher && npm install && npm start
+   Opcao A: cd D:\\oc\\scripts\\launcher && npm install && npm start
    Opcao B: pnpm dev
 
 ## URLs do sistema
@@ -774,12 +774,12 @@ Gerado em: ${new Date().toLocaleString('pt-BR')}
 - Launcher / Service Manager: aplicativo desktop
 
 ## Estrutura do projeto
-OneClick_Code/
+oc/
   apps/web/        - Frontend (Next.js 15)
   apps/api/        - Backend (NestJS + tRPC)
   packages/db/     - Prisma schema + client
-  packages/types/  - Schemas Zod compartilhados
-  packages/ui/     - Componentes shadcn/ui
+    packages/types/  - Schemas Zod compartilhados
+    packages/ui/     - Componentes shadcn/ui
   scripts/launcher - Launcher / Service Manager
   uploads/         - Arquivos enviados pelos usuarios
 `
@@ -801,7 +801,7 @@ OneClick_Code/
           ...(!options.includeEnv ? ['**/.env'] : []),
         ],
         dot: true,
-      }, { prefix: 'OneClick_Code' })
+      }, { prefix: 'oc' })
 
       archive.finalize()
     })

@@ -58,6 +58,7 @@ const API_PORT = 4000;
 const WEB_PORT = 3000;
 const PG_PORT = 5432;
 const REDIS_PORT = 6379;
+const DEFAULT_PROJECT_ROOT = 'D:\\oc';
 
 let mainWindow = null;
 let tray = null;
@@ -90,8 +91,8 @@ function loadSettings() {
     }
   } catch {}
   return {
-    claudeDir: '',
-    projectDir: '',
+    claudeDir: DEFAULT_PROJECT_ROOT,
+    projectDir: DEFAULT_PROJECT_ROOT,
     autoStart: false,
     autoStartServices: false,
   };
@@ -194,19 +195,15 @@ function findProjectRoot() {
   }
 
   startDirs.push(
+    DEFAULT_PROJECT_ROOT,
     path.resolve(__dirname, '..', '..'),
     path.resolve(__dirname, '..'),
   );
   startDirs.push(process.cwd());
 
-  // 3. Caminhos comuns por usuÃ¡rio (Desktop / Documents / Projetos)
-  const homeDir = app.getPath('home');
+  // 3. Caminhos comuns por usuário (Desktop / Documents / Projetos)
   startDirs.push(
-    path.join(homeDir, 'Desktop', 'PROJETOS', 'OneClick_Code'),
-    path.join(homeDir, 'Desktop', 'OneClick_Code'),
-    path.join(homeDir, 'Documents', 'OneClick_Code'),
-    path.join(homeDir, 'Projetos', 'OneClick_Code'),
-    path.join(homeDir, 'OneClick_Code'),
+    'D:\\oc',
   );
 
   const checked = new Set();
