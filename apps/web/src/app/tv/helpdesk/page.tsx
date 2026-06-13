@@ -13,6 +13,7 @@ import {
   HELPDESK_STATUS_FINAIS,
   type HelpdeskStatus, type HelpdeskPrioridade,
 } from '@saas/types'
+import { resolveAssetUrl } from '@/lib/api-url'
 import { useHelpdeskData } from '@/hooks/use-helpdesk-data'
 import { TvKiosk, Metric, Panel, LegendList, AXIS, type TvSlide } from '@/components/tv/kiosk'
 
@@ -196,7 +197,17 @@ export default function HelpdeskTvPage() {
             <div className="flex-1 flex flex-col justify-around mt-[0.5vw]">
               {porResponsavel.slice(0, 8).map((a) => (
                 <div key={a.id} className="grid grid-cols-[1fr_14vw_14vw_12vw] gap-x-[1.5vw] items-center text-[1.5vw] py-[0.4vw] border-b border-white/[0.04]">
-                  <span className="text-white/90 truncate">{a.name}</span>
+                  <span className="text-white/90 truncate flex items-center gap-[0.8vw]">
+                    {a.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={resolveAssetUrl(a.image)} alt="" className="h-[2.4vw] w-[2.4vw] rounded-full object-cover shrink-0 ring-1 ring-white/15" />
+                    ) : (
+                      <span className="h-[2.4vw] w-[2.4vw] rounded-full shrink-0 flex items-center justify-center text-[1.1vw] font-bold text-white" style={{ background: ACCENT }}>
+                        {(a.name || '?').trim().charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                    <span className="truncate">{a.name}</span>
+                  </span>
                   <span className="text-center font-bold tabular-nums" style={{ color: ACCENT }}>{a.total}</span>
                   <span className="text-center tabular-nums text-white/70">{fmtHoras(a.mttrHoras)}</span>
                   <span className="text-right font-semibold tabular-nums" style={{ color: a.slaPct == null ? '#fff' : a.slaPct >= 90 ? '#10b981' : a.slaPct >= 70 ? '#fbbf24' : '#ef4444' }}>
