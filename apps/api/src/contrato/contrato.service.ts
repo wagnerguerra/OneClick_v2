@@ -1797,4 +1797,121 @@ export class ContratoService {
       assinaturas: ass.contrato.assinaturas,
     }
   }
+
+  // ── Relatorio consolidado (Painel de Gestao a Vista) ───────
+  /**
+   * Agregados da carteira de contratos para o painel comercial:
+   * MRR (honorario recorrente da carteira ativa), contagem por status,
+   * contratos a vencer (30/60 dias) e evolucao novos x encerrados (6 meses).
+   */
+  async reportComercial(empresaId?: string) {
+    const baseWhere: any = {}
+    if (empresaId) baseWhere.empresaId = empresaId
+
+    const now = new Date()
+    const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+    const in60 = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
+    // Inicio do mes 5 meses atras (janela de 6 meses, mes atual incluso)
+    const inicioJanela = new Date(now.getFullYear(), now.getMonth() - 5, 1)
+
+    const [mrrAgg, porStatusRaw, aVencerRows, criados, encerrados] = await Promise.all([
+      // MRR = honorario mensal somado da carteira ativa (VIGENTE + ASSINADO)
+      (prisma as any).contrato.aggregate({
+        where: { ...baseWhere, status: { in: ['VIGENTE', 'ASSINADO'] } },
+        _sum: { honorarioMensal: true },
+      }),
+      (prisma as any).contrato.groupBy({
+        by: ['status'],
+        where: baseWhere,
+        _count: { _all: true },
+        _sum: { honorarioMensal: true },
+      }),
+      // A vencer: vigentes/assinados com dataFim nos proximos 60 dias
+      (prisma as any).contrato.findMany({
+        where: {
+          ...baseWhere,
+          status: { in: ['VIGENTE', 'ASSINADO'] },
+          dataFim: { not: null, lte: in60 },
+        },
+        orderBy: { dataFim: 'asc' },
+        take: 20,
+        select: {
+          id: true,
+          numero: true,
+          dataFim: true,
+          honorarioMensal: true,
+          cliente: { select: { id: true, razaoSocial: true } },
+        },
+      }),
+      (prisma as any).contrato.findMany({
+        where: { ...baseWhere, createdAt: { gte: inicioJanela } },
+        select: { createdAt: true },
+      }),
+      (prisma as any).contrato.findMany({
+        where: { ...baseWhere, encerradoEm: { not: null, gte: inicioJanela } },
+        select: { encerradoEm: true },
+      }),
+    ])
+
+    // Contagem por status -> mapa
+    const porStatus: Record<string, number> = {}
+    let totalContratos = 0
+    for (const r of porStatusRaw as Array<{ status: string; _count: { _all: number } }>) {
+      porStatus[r.status] = r._count._all
+      totalContratos += r._count._all
+    }
+
+    // A vencer: classifica em <=30d e <=60d
+    const aVencer = (aVencerRows as Array<any>).map((c) => ({
+      id: c.id,
+      numero: c.numero,
+      cliente: c.cliente?.razaoSocial ?? '—',
+      dataFim: c.dataFim,
+      honorarioMensal: Number(c.honorarioMensal ?? 0),
+      diasRestantes: c.dataFim ? Math.ceil((new Date(c.dataFim).getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null,
+    }))
+    const aVencer30 = aVencer.filter((c) => c.dataFim && new Date(c.dataFim) <= in30).length
+    const aVencer60 = aVencer.length
+
+    // Evolucao mensal (6 buckets)
+    const buckets: Array<{ mes: string; novos: number; encerrados: number }> = []
+    const idxByKey: Record<string, number> = {}
+    const mesesLabel = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const key = `${d.getFullYear()}-${d.getMonth()}`
+      idxByKey[key] = buckets.length
+      buckets.push({ mes: `${mesesLabel[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`, novos: 0, encerrados: 0 })
+    }
+    for (const c of criados as Array<{ createdAt: Date }>) {
+      const d = new Date(c.createdAt)
+      const idx = idxByKey[`${d.getFullYear()}-${d.getMonth()}`]
+      if (idx !== undefined) buckets[idx].novos++
+    }
+    for (const c of encerrados as Array<{ encerradoEm: Date }>) {
+      const d = new Date(c.encerradoEm)
+      const idx = idxByKey[`${d.getFullYear()}-${d.getMonth()}`]
+      if (idx !== undefined) buckets[idx].encerrados++
+    }
+
+    return {
+      mrr: Number(mrrAgg._sum.honorarioMensal ?? 0),
+      totalContratos,
+      vigentes: porStatus['VIGENTE'] ?? 0,
+      assinados: porStatus['ASSINADO'] ?? 0,
+      aguardandoAssinatura: porStatus['AGUARDANDO_ASSINATURA'] ?? 0,
+      rascunhos: porStatus['RASCUNHO'] ?? 0,
+      encerrados: porStatus['ENCERRADO'] ?? 0,
+      cancelados: porStatus['CANCELADO'] ?? 0,
+      aVencer30,
+      aVencer60,
+      porStatus: (porStatusRaw as Array<any>).map((r) => ({
+        status: r.status,
+        count: r._count._all,
+        valor: Number(r._sum?.honorarioMensal ?? 0),
+      })),
+      aVencer,
+      evolucaoMensal: buckets,
+    }
+  }
 }

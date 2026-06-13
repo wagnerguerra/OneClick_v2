@@ -1,4 +1,5 @@
 import {
+  Gauge,
   LayoutGrid,
   Users,
   Building2,
@@ -113,6 +114,7 @@ export const navigation: NavGroup[] = [
     label: 'Comercial',
     icon: Store,
     items: [
+      { label: 'Painel Comercial', href: '/comercial', icon: Gauge },
       { label: 'CRM', href: '/crm', icon: Target },
       {
         label: 'Contratos',

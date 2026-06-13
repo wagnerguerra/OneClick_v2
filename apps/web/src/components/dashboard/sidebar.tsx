@@ -56,6 +56,11 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
           // FAQ é conteúdo de ajuda — sempre visível pra qualquer usuário,
           // independentemente da matriz de permissões.
           if (item.href === '/faq') return true
+          // Painel Comercial consolida CRM/Orçamentos/Contratos — visível a quem
+          // tem leitura em qualquer um deles (os dados em si são gateados no backend).
+          if (item.href === '/comercial') {
+            return ['crm', 'orcamentos', 'contratos'].some((s) => allowedSlugs.includes(s))
+          }
           const slug = item.href.replace('/', '')
           return allowedSlugs.includes(slug)
         }),

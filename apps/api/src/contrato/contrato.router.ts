@@ -90,6 +90,10 @@ export function createContratoRouter(svc: ContratoService) {
       .input(z.object({ status: z.string().optional(), clienteId: z.string().optional() }).optional())
       .query(({ input, ctx }) => svc.listContratos({ ...input, empresaId: ctx.empresaId })),
 
+    // Relatorio consolidado p/ o Painel de Gestao a Vista (comercial)
+    reportComercial: readProcedure(MODULE)
+      .query(({ ctx }) => svc.reportComercial(ctx.empresaId)),
+
     getContrato: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .query(({ input }) => svc.getContrato(input.id)),
