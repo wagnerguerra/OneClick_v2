@@ -2720,7 +2720,7 @@
           updateInstallBtn.style.display = 'inline-flex';
           if (manualCheckRequested) {
             manualCheckRequested = false;
-            const shouldInstall = window.confirm(`A atualizacao ${event.version} foi baixada. Reiniciar e instalar agora?`);
+            const shouldInstall = window.confirm(`A atualização ${event.version} foi baixada. Reiniciar e instalar agora?`);
             if (shouldInstall) installUpdate(true);
           }
           break;
@@ -2737,7 +2737,7 @@
 
     async function installUpdate(skipConfirm = false) {
       if (!skipConfirm) {
-        const shouldInstall = window.confirm('O Service Manager sera fechado e reaberto para aplicar a atualizacao. Continuar?');
+        const shouldInstall = window.confirm('O Service Manager será fechado e reaberto para aplicar a atualização. Continuar?');
         if (!shouldInstall) return;
       }
       await api.installUpdate();
@@ -2747,30 +2747,30 @@
     async function manualCheckUpdate() {
       try {
         manualCheckRequested = true;
-        showToast('Atualizacao', 'Verificando...');
+        showToast('Atualização', 'Verificando...');
         const result = await api.checkForUpdate();
         if (!result.ok) {
           manualCheckRequested = false;
-          showToast('Atualizacao', result.error || 'Falha ao verificar.');
+          showToast('Atualização', result.error || 'Falha ao verificar.');
         } else if (result.downloaded && result.version) {
           manualCheckRequested = false;
           updateBanner.classList.add('visible');
-          updateMessage.innerHTML = `<strong>Versao ${result.version} pronta!</strong> Clique para reiniciar e instalar.`;
+          updateMessage.innerHTML = `<strong>Versão ${result.version} pronta!</strong> Clique para reiniciar e instalar.`;
           updateProgress.style.display = 'none';
           updateInstallBtn.style.display = 'inline-flex';
-          const shouldInstall = window.confirm(`A atualizacao ${result.version} ja foi baixada. Reiniciar e instalar agora?`);
+          const shouldInstall = window.confirm(`A atualização ${result.version} já foi baixada. Reiniciar e instalar agora?`);
           if (shouldInstall) installUpdate(true);
         } else if (result.downloading && result.version) {
-          showToast('Atualizacao', `Versao ${result.version} encontrada. Baixando...`);
+          showToast('Atualização', `Versão ${result.version} encontrada. Baixando...`);
         } else if (!result.version) {
           manualCheckRequested = false;
-          showToast('Atualizacao', 'Voce esta na versao mais recente.');
+          showToast('Atualização', 'Você está na versão mais recente.');
         } else {
-          showToast('Atualizacao', `Versao ${result.version} encontrada. Baixando...`);
+          showToast('Atualização', `Versão ${result.version} encontrada. Baixando...`);
         }
       } catch (e) {
         manualCheckRequested = false;
-        showToast('Atualizacao', e.message || 'Falha ao verificar atualizacao.');
+        showToast('Atualização', e.message || 'Falha ao verificar atualização.');
       }
     }
 
@@ -3873,7 +3873,7 @@
 
     async function deployAbort() {
       if (!deployState.running) return
-      if (!confirm('Abortar o deploy?\n\nA etapa atual sera finalizada ou interrompida apenas se for seguro. As proximas etapas nao serao executadas.')) return
+      if (!confirm('Abortar o deploy?\n\nA etapa atual será finalizada ou interrompida apenas se for seguro. As próximas etapas não serão executadas.')) return
       const btn = document.getElementById('deployAbortBtn')
       if (btn) {
         btn.disabled = true

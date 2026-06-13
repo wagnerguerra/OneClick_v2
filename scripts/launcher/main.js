@@ -1,8 +1,8 @@
 ﻿/**
- * OneClick ERP â€” Launcher com GUI integrada
+ * OneClick ERP — Launcher com GUI integrada
  *
- * AplicaÃ§Ã£o Electron com dashboard visual completo para gerenciar
- * todos os serviÃ§os do OneClick ERP (Docker, API, Web, etc.)
+ * Aplicação Electron com dashboard visual completo para gerenciar
+ * todos os serviços do OneClick ERP (Docker, API, Web, etc.)
  */
 
 const {
@@ -15,7 +15,7 @@ const fs = require('fs');
 const net = require('net');
 const os = require('os');
 
-// Auto-updater â€” only required when packaged (dev runs sem o mÃ³dulo)
+// Auto-updater — only required when packaged (dev runs sem o módulo)
 let autoUpdater = null;
 try {
   autoUpdater = require('electron-updater').autoUpdater;
@@ -23,8 +23,8 @@ try {
   autoUpdater = null;
 }
 
-// NFe Watcher â€” monitora pastas locais e envia XMLs pra API.
-// Lazy require â€” se chokidar/form-data nÃ£o carregar, o launcher continua sem o watcher.
+// NFe Watcher — monitora pastas locais e envia XMLs pra API.
+// Lazy require — se chokidar/form-data não carregar, o launcher continua sem o watcher.
 let NfeWatcher = null;
 let nfeWatcher = null;
 function loadNfeWatcherModule() {
@@ -33,26 +33,26 @@ function loadNfeWatcherModule() {
     NfeWatcher = require('./nfe-watcher.js').NfeWatcher;
     return NfeWatcher;
   } catch (e) {
-    console.error('[NfeWatcher] Falha ao carregar mÃ³dulo:', e.message);
+    console.error('[NfeWatcher] Falha ao carregar módulo:', e.message);
     return null;
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// InstÃ¢ncia Ãºnica
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
+// Instância única
+// ══════════════════════════════════════════════════════════════
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   dialog.showErrorBox(
     'OneClick ERP',
-    'O launcher jÃ¡ estÃ¡ em execuÃ§Ã£o.\nVerifique a bandeja do sistema (system tray).',
+    'O launcher já está em execução.\nVerifique a bandeja do sistema (system tray).',
   );
   app.quit();
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // Constantes e estado
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 const SM_PORT = 9000;
 const API_PORT = 4000;
 const WEB_PORT = 3000;
@@ -74,9 +74,9 @@ const updaterState = {
   lastProgress: null,
 };
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // Settings persistence
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // Use userData folder (writable even when packaged inside .asar)
 // e.g. C:\Users\wagner\AppData\Roaming\OneClick ERP\launcher-settings.json
 function getSettingsPath() {
@@ -111,7 +111,7 @@ function saveSettings(settings) {
   }
 }
 
-// DefiniÃ§Ã£o dos serviÃ§os (equivalente ao server.js)
+// Definição dos serviços (equivalente ao server.js)
 const services = {
   api: {
     name: 'API (NestJS)',
@@ -155,14 +155,14 @@ const services = {
 
 const MAX_LOGS = 500;
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // Encontrar raiz do projeto
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// EstratÃ©gia (em ordem):
-//  1. settings.projectDir (escolhido pelo usuÃ¡rio em sessÃµes anteriores)
-//  2. VizinhanÃ§a do .exe (portable em pasta do projeto / dev local)
-//  3. Caminhos comuns no Desktop/Documents do usuÃ¡rio
-//  4. Dialog interativo pra usuÃ¡rio escolher manualmente
+// ══════════════════════════════════════════════════════════════
+// Estratégia (em ordem):
+//  1. settings.projectDir (escolhido pelo usuário em sessões anteriores)
+//  2. Vizinhança do .exe (portable em pasta do projeto / dev local)
+//  3. Caminhos comuns no Desktop/Documents do usuário
+//  4. Dialog interativo pra usuário escolher manualmente
 function findProjectRoot() {
   // 1. Setting persistido
   const settings = loadSettings();
@@ -170,7 +170,7 @@ function findProjectRoot() {
     return settings.projectDir;
   }
 
-  // 2. VizinhanÃ§a do exe / __dirname
+  // 2. Vizinhança do exe / __dirname
   const startDirs = [];
 
   if (process.env.PORTABLE_EXECUTABLE_DIR) {
@@ -232,12 +232,12 @@ function isProjectRoot(dir) {
   }
 }
 
-// DiÃ¡logo pro usuÃ¡rio escolher manualmente a pasta do projeto.
-// Retorna o path validado ou null se cancelou/invÃ¡lido.
+// Diálogo pro usuário escolher manualmente a pasta do projeto.
+// Retorna o path validado ou null se cancelou/inválido.
 async function promptForProjectRoot() {
   const result = await dialog.showOpenDialog({
     title: 'Selecione a pasta do projeto OneClick',
-    message: 'Aponte para a raiz do repositÃ³rio OneClick_Code (a pasta que contÃ©m package.json com "name": "oneclick-code").',
+    message: 'Aponte para a raiz do repositório OneClick_Code (a pasta que contém package.json com "name": "oneclick-code").',
     properties: ['openDirectory'],
     buttonLabel: 'Usar esta pasta',
   });
@@ -245,21 +245,21 @@ async function promptForProjectRoot() {
   const chosen = result.filePaths[0];
   if (!isProjectRoot(chosen)) {
     dialog.showErrorBox(
-      'Pasta invÃ¡lida',
-      `A pasta escolhida nÃ£o parece ser a raiz do projeto OneClick_Code.\n\nVerifique se ela contÃ©m um package.json com "name": "oneclick-code".\n\nEscolhida: ${chosen}`,
+      'Pasta inválida',
+      `A pasta escolhida não parece ser a raiz do projeto OneClick_Code.\n\nVerifique se ela contém um package.json com "name": "oneclick-code".\n\nEscolhida: ${chosen}`,
     );
     return null;
   }
-  // Persiste para sessÃµes futuras
+  // Persiste para sessões futuras
   const settings = loadSettings();
   settings.projectDir = chosen;
   saveSettings(settings);
   return chosen;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// UtilitÃ¡rios de rede
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
+// Utilitários de rede
+// ══════════════════════════════════════════════════════════════
 function checkPort(port) {
   return new Promise((resolve) => {
     const socket = new net.Socket();
@@ -330,10 +330,10 @@ async function ensureApiForUpdater() {
   if (await checkPort(API_PORT)) return { ok: true, started: false };
 
   const startResult = await startService('api');
-  if (!startResult.ok && startResult.error !== 'JÃ¡ estÃ¡ rodando') {
+  if (!startResult.ok && startResult.error !== 'Já está rodando') {
     return {
       ok: false,
-      error: `API nÃ£o estÃ¡ ouvindo na porta ${API_PORT} e nÃ£o foi possÃ­vel iniciÃ¡-la: ${startResult.error}`,
+      error: `API não está ouvindo na porta ${API_PORT} e não foi possível iniciá-la: ${startResult.error}`,
     };
   }
 
@@ -341,16 +341,16 @@ async function ensureApiForUpdater() {
   if (!ready) {
     return {
       ok: false,
-      error: `API iniciada, mas a porta ${API_PORT} nÃ£o respondeu a tempo. Verifique o log da API.`,
+      error: `API iniciada, mas a porta ${API_PORT} não respondeu a tempo. Verifique o log da API.`,
     };
   }
 
   return { ok: true, started: true };
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // Log management
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 function addLog(serviceId, text, type = 'stdout') {
   const svc = services[serviceId];
   if (!svc || !svc.logs) return;
@@ -367,32 +367,32 @@ function addLog(serviceId, text, type = 'stdout') {
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // Service management
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 async function startService(id) {
   const svc = services[id];
-  if (!svc || svc.managed === false) return { ok: false, error: 'ServiÃ§o nÃ£o gerenciÃ¡vel' };
-  if (svc.process) return { ok: false, error: 'JÃ¡ estÃ¡ rodando' };
+  if (!svc || svc.managed === false) return { ok: false, error: 'Serviço não gerenciável' };
+  if (svc.process) return { ok: false, error: 'Já está rodando' };
 
   addLog(id, `Iniciando ${svc.name}...`, 'system');
 
-  // Limpa porta antes de iniciar â€” evita EADDRINUSE quando uma instÃ¢ncia zumbi
-  // ficou rodando apÃ³s reload/crash do launcher (Windows nÃ£o derruba o processo
+  // Limpa porta antes de iniciar — evita EADDRINUSE quando uma instância zumbi
+  // ficou rodando após reload/crash do launcher (Windows não derruba o processo
   // filho quando o pai sai por SIGTERM brusco).
   if (svc.port) {
     const portInUse = await checkPort(svc.port);
     if (portInUse) {
-      addLog(id, `âš  Porta ${svc.port} ocupada â€” matando processo zumbi antes de iniciar...`, 'system');
+      addLog(id, `⚠ Porta ${svc.port} ocupada — matando processo zumbi antes de iniciar...`, 'system');
       killProcessOnPort(svc.port);
       // Aguarda a porta liberar (Windows demora alguns ms pra refletir taskkill)
       await sleep(1500);
       const stillUsed = await checkPort(svc.port);
       if (stillUsed) {
-        addLog(id, `âœ— Falha ao liberar porta ${svc.port}. Mate manualmente o processo e tente de novo.`, 'error');
+        addLog(id, `✗ Falha ao liberar porta ${svc.port}. Mate manualmente o processo e tente de novo.`, 'error');
         return { ok: false, error: `Porta ${svc.port} ainda ocupada` };
       }
-      addLog(id, `âœ“ Porta ${svc.port} liberada`, 'system');
+      addLog(id, `✓ Porta ${svc.port} liberada`, 'system');
     }
   }
 
@@ -410,7 +410,7 @@ async function startService(id) {
   child.stderr.on('data', (data) => addLog(id, data, 'stderr'));
 
   child.on('close', (code) => {
-    addLog(id, `Processo encerrado (cÃ³digo ${code})`, 'system');
+    addLog(id, `Processo encerrado (código ${code})`, 'system');
     svc.process = null;
     broadcastStatus();
   });
@@ -427,7 +427,7 @@ async function startService(id) {
 
 function stopService(id) {
   const svc = services[id];
-  if (!svc || svc.managed === false) return { ok: false, error: 'ServiÃ§o nÃ£o gerenciÃ¡vel' };
+  if (!svc || svc.managed === false) return { ok: false, error: 'Serviço não gerenciável' };
 
   addLog(id, `Parando ${svc.name}...`, 'system');
 
@@ -456,7 +456,7 @@ async function restartService(id) {
 async function startAllServices() {
   const results = {};
   for (const id of Object.keys(services)) {
-    // Serial pra nÃ£o congestionar killProcessOnPort em paralelo (cada um abre netstat)
+    // Serial pra não congestionar killProcessOnPort em paralelo (cada um abre netstat)
     if (services[id].managed !== false) results[id] = await startService(id);
   }
   return results;
@@ -470,9 +470,9 @@ function stopAllServices() {
   return results;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // Docker
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 function isDockerRunning() {
   try {
     execSync('docker info', { timeout: 8000, stdio: 'ignore', windowsHide: true });
@@ -503,9 +503,9 @@ function sleep(ms) {
 
 async function startDockerContainers() {
   if (!isDockerRunning()) {
-    sendNotification('Docker', 'Docker Desktop nÃ£o estÃ¡ rodando. Tentando iniciar...');
+    sendNotification('Docker', 'Docker Desktop não está rodando. Tentando iniciar...');
     if (!startDockerDesktop()) {
-      sendNotification('Docker', 'NÃ£o foi possÃ­vel encontrar o Docker Desktop.');
+      sendNotification('Docker', 'Não foi possível encontrar o Docker Desktop.');
       return false;
     }
     for (let i = 0; i < 30; i++) {
@@ -513,7 +513,7 @@ async function startDockerContainers() {
       if (isDockerRunning()) break;
     }
     if (!isDockerRunning()) {
-      sendNotification('Docker', 'Docker Desktop nÃ£o iniciou a tempo.');
+      sendNotification('Docker', 'Docker Desktop não iniciou a tempo.');
       return false;
     }
   }
@@ -553,9 +553,9 @@ function stopDockerContainers() {
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // Status broadcasting
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 async function getFullStatus() {
   const status = {};
   for (const [id, svc] of Object.entries(services)) {
@@ -590,16 +590,16 @@ async function broadcastStatus() {
 
 function sendNotification(title, body) {
   if (Notification.isSupported()) {
-    new Notification({ title: `OneClick ERP â€” ${title}`, body }).show();
+    new Notification({ title: `OneClick ERP — ${title}`, body }).show();
   }
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('notification', { title, body });
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // Active Users (PostgreSQL)
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 async function getActiveUsers() {
   let pool;
   try {
@@ -634,7 +634,7 @@ async function getActiveUsers() {
 
 /**
  * Lista clientes ATIVA do OneClick pra alimentar rotinas RPA no SCI
- * (geraÃ§Ã£o de RazÃ£o, Balancete, etc.). Filtra por situaÃ§Ã£o (default MENSAL).
+ * (geração de Razão, Balancete, etc.). Filtra por situação (default MENSAL).
  *
  * Retorno: [{ cnpj, razaoSocial, situacao }, ...]
  */
@@ -651,7 +651,7 @@ async function getClientesParaRazao({ situacao = 'MENSAL' } = {}) {
       max: 2,
       connectionTimeoutMillis: 5000,
     });
-    // situacao='*' = todos os ATIVA, independente de situaÃ§Ã£o comercial
+    // situacao='*' = todos os ATIVA, independente de situação comercial
     const params = [];
     let situacaoClause = '';
     if (situacao && situacao !== '*') {
@@ -659,7 +659,7 @@ async function getClientesParaRazao({ situacao = 'MENSAL' } = {}) {
       params.push(lista);
       situacaoClause = ' AND situacao::text = ANY($1::text[])';
     }
-    // Deduplica por CNPJ limpo, filtra invÃ¡lidos (precisa ter 14 dÃ­gitos)
+    // Deduplica por CNPJ limpo, filtra inválidos (precisa ter 14 dígitos)
     const sql = `
       WITH limpos AS (
         SELECT REGEXP_REPLACE(documento, '[^0-9]', '', 'g') AS cnpj_limpo,
@@ -675,7 +675,7 @@ async function getClientesParaRazao({ situacao = 'MENSAL' } = {}) {
        ORDER BY cnpj_limpo, razao_social
     `;
     const result = await pool.query(sql, params);
-    // Re-ordena por razao_social pra exibiÃ§Ã£o
+    // Re-ordena por razao_social pra exibição
     const rows = result.rows
       .map((r) => ({ cnpj: r.cnpj, razaoSocial: r.razao_social, situacao: r.situacao }))
       .sort((a, b) => a.razaoSocial.localeCompare(b.razaoSocial, 'pt-BR'));
@@ -687,9 +687,9 @@ async function getClientesParaRazao({ situacao = 'MENSAL' } = {}) {
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // SCI (Firebird) Status
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 function getSciStatus() {
   try {
     const sciScript = path.join(projectRoot, 'apps', 'api', 'src', 'cliente', 'sci_id_sistema.py');
@@ -716,12 +716,12 @@ function getSciStatus() {
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // Auto-updater (electron-updater)
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // O `provider: 'generic'` aponta pra URL configurada em package.json
 // build.publish. Cada release sobe um `latest.yml` + `.exe` no host.
-// Em dev (nÃ£o-empacotado), o mÃ³dulo nem Ã© carregado.
+// Em dev (não-empacotado), o módulo nem é carregado.
 function broadcastUpdate(payload) {
   updaterState.status = payload.kind || updaterState.status;
   if (payload.kind === 'checking') {
@@ -774,7 +774,7 @@ async function getDiagnostics() {
     checkHttpHealth(`http://127.0.0.1:${WEB_PORT}`, 2500),
     getUpdaterFeedUrl()
       ? checkHttpHealth(`${getUpdaterFeedUrl().replace(/\/$/, '')}/latest.yml`, 3500)
-      : Promise.resolve({ ok: false, error: 'Feed de update nao configurado' }),
+      : Promise.resolve({ ok: false, error: 'Feed de update não configurado' }),
   ]);
 
   return {
@@ -811,21 +811,21 @@ function formatDiagnostics(d) {
   lines.push('');
   lines.push('[Aplicativo]');
   lines.push(`Nome: ${d.app.name}`);
-  lines.push(`Versao: ${d.app.version}`);
-  lines.push(`Empacotado: ${d.app.isPackaged ? 'sim' : 'nao'}`);
+  lines.push(`Versão: ${d.app.version}`);
+  lines.push(`Empacotado: ${d.app.isPackaged ? 'sim' : 'não'}`);
   lines.push(`Executavel: ${d.app.execPath}`);
   lines.push(`UserData: ${d.app.userData}`);
   lines.push('');
   lines.push('[Projeto]');
   lines.push(`Raiz: ${d.project.root || '-'}`);
-  lines.push(`Valido: ${d.project.valid ? 'sim' : 'nao'}`);
+  lines.push(`Válido: ${d.project.valid ? 'sim' : 'não'}`);
   lines.push('');
   lines.push('[Updater]');
   lines.push(`Feed: ${d.updater.feedUrl || '-'}`);
   lines.push(`Status: ${d.updater.status}`);
   lines.push(`Ultima checagem: ${d.updater.lastCheckAt || '-'}`);
-  lines.push(`Versao disponivel: ${d.updater.lastAvailableVersion || '-'}`);
-  lines.push(`Versao baixada: ${d.updater.lastDownloadedVersion || '-'}`);
+  lines.push(`Versão disponível: ${d.updater.lastAvailableVersion || '-'}`);
+  lines.push(`Versão baixada: ${d.updater.lastDownloadedVersion || '-'}`);
   lines.push(`Ultimo erro: ${d.updater.lastError || '-'}`);
   lines.push(`Feed health: ${d.updater.feedHealth.ok ? 'OK' : 'FALHA'} ${d.updater.feedHealth.status || d.updater.feedHealth.error || ''}`);
   lines.push('');
@@ -836,23 +836,23 @@ function formatDiagnostics(d) {
   lines.push('[Servicos]');
   for (const [id, svc] of Object.entries(d.services)) {
     const health = svc.health ? `, health=${svc.health.ok ? 'OK' : 'FALHA'} ${svc.health.status || svc.health.error || ''}` : '';
-    lines.push(`${id}: porta=${svc.port}, running=${svc.running ? 'sim' : 'nao'}, managed=${svc.managed ? 'sim' : 'nao'}${health}`);
+    lines.push(`${id}: porta=${svc.port}, running=${svc.running ? 'sim' : 'não'}, managed=${svc.managed ? 'sim' : 'não'}${health}`);
   }
   return lines.join('\n');
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// HTTP server local â€” bridge entre OneClick web e o launcher
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// Roda em 127.0.0.1:9099 (sÃ³ localhost, sem expor pra fora) e aceita
+// ══════════════════════════════════════════════════════════════
+// HTTP server local — bridge entre OneClick web e o launcher
+// ══════════════════════════════════════════════════════════════
+// Roda em 127.0.0.1:9099 (só localhost, sem expor pra fora) e aceita
 // comandos da web pra disparar programas locais (ex: SCI UNICO.EXE).
 //
 // CORS: permite qualquer origin RFC1918 (rede local) + localhost. Em prod
 // estrita, restringir ao NEXT_PUBLIC_APP_URL configurado.
 //
 // Endpoints:
-//   GET  /health                       â€” sonda
-//   POST /sci/abrir { args?: string[] } â€” abre UNICO.EXE com args opcionais
+//   GET  /health                       — sonda
+//   POST /sci/abrir { args?: string[] } — abre UNICO.EXE com args opcionais
 //
 const LOCAL_HTTP_PORT = 9099;
 const SCI_UNICO_DEFAULT = '\\\\192.168.0.2\\s\\SCI\\modulos\\UNICO.EXE';
@@ -895,7 +895,7 @@ function abrirSci(args) {
   const exePath = settings.sciUnicoPath || SCI_UNICO_DEFAULT;
   const cliArgs = Array.isArray(args) ? args.filter((a) => typeof a === 'string') : [];
   try {
-    // detached + unref pra nÃ£o amarrar o exec ao processo do launcher
+    // detached + unref pra não amarrar o exec ao processo do launcher
     const child = spawn(exePath, cliArgs, { detached: true, stdio: 'ignore', windowsHide: false });
     child.unref();
     console.log('[SCI] disparado:', exePath, cliArgs);
@@ -908,7 +908,7 @@ function abrirSci(args) {
 
 /**
  * Resolve o caminho de um script empacotado (.py ou .au3).
- * Em dev fica em scripts/launcher/. Em produÃ§Ã£o, electron-builder copia
+ * Em dev fica em scripts/launcher/. Em produção, electron-builder copia
  * pra resources/ via "extraResources".
  */
 function getResourcePath(fileName) {
@@ -920,7 +920,7 @@ function getResourcePath(fileName) {
 }
 
 /**
- * Descobre onde estÃ¡ o AutoIt3.exe instalado.
+ * Descobre onde está o AutoIt3.exe instalado.
  * Procura nos paths default (32-bit e 64-bit) + no PATH.
  */
 function findAutoItPath() {
@@ -936,18 +936,18 @@ function findAutoItPath() {
 }
 
 /**
- * Dispara o auto-login no SCI usando AutoIt (script .au3 com identificaÃ§Ã£o
- * estÃ¡vel de controles Delphi: TEdit/TPanel por classe e instance).
- * Bem mais robusto que coords/proporÃ§Ãµes.
+ * Dispara o auto-login no SCI usando AutoIt (script .au3 com identificação
+ * estável de controles Delphi: TEdit/TPanel por classe e instance).
+ * Bem mais robusto que coords/proporções.
  *
  * Requer: AutoIt instalado em C:\Program Files (x86)\AutoIt3\
  */
 async function loginSci(usuario, senha) {
   if (!usuario || !senha) {
-    return { ok: false, error: 'UsuÃ¡rio e senha sÃ£o obrigatÃ³rios.' };
+    return { ok: false, error: 'Usuário e senha são obrigatórios.' };
   }
 
-  // 1. Abre UNICO.EXE (idempotente â€” se jÃ¡ estiver rodando, dÃ¡ NOOP)
+  // 1. Abre UNICO.EXE (idempotente — se já estiver rodando, dá NOOP)
   const settings = loadSettings();
   const exePath = settings.sciUnicoPath || SCI_UNICO_DEFAULT;
   try {
@@ -965,13 +965,13 @@ async function loginSci(usuario, senha) {
   if (!autoitPath) {
     return {
       ok: false,
-      error: 'AutoIt nÃ£o encontrado. Instale em https://www.autoitscript.com/site/autoit/downloads/',
+      error: 'AutoIt não encontrado. Instale em https://www.autoitscript.com/site/autoit/downloads/',
     };
   }
 
   const scriptPath = getResourcePath('sci-login.au3');
   if (!fs.existsSync(scriptPath)) {
-    return { ok: false, error: `Script sci-login.au3 nÃ£o encontrado em ${scriptPath}` };
+    return { ok: false, error: `Script sci-login.au3 não encontrado em ${scriptPath}` };
   }
 
   return new Promise((resolve) => {
@@ -993,7 +993,7 @@ async function loginSci(usuario, senha) {
       } else if (code === 2) {
         resolve({ ok: false, error: 'Uso incorreto do script (usuario/senha faltando).' });
       } else if (code === 4) {
-        resolve({ ok: false, error: 'Janela do Ãšnico nÃ£o apareceu em 30s. SCI abriu corretamente?' });
+        resolve({ ok: false, error: 'Janela do Único não apareceu em 30s. SCI abriu corretamente?' });
       } else {
         resolve({ ok: false, error: stderr.trim() || `Script falhou (code ${code}). Veja log em ${logPath}` });
       }
@@ -1002,7 +1002,7 @@ async function loginSci(usuario, senha) {
 }
 
 function salvarCredenciaisSci(usuario, senha) {
-  if (!usuario || !senha) return { ok: false, error: 'UsuÃ¡rio e senha sÃ£o obrigatÃ³rios.' };
+  if (!usuario || !senha) return { ok: false, error: 'Usuário e senha são obrigatórios.' };
   const settings = loadSettings();
   settings.sciCredentials = { usuario, senha };
   saveSettings(settings);
@@ -1073,7 +1073,7 @@ function initLocalHttpServer() {
 
     if (req.method === 'POST' && url === '/sci/login') {
       const body = await readJsonBody(req);
-      // Prioriza credenciais do body; senÃ£o usa as salvas no settings
+      // Prioriza credenciais do body; senão usa as salvas no settings
       const salvas = getCredenciaisSci();
       const usuario = body.usuario || (salvas && salvas.usuario);
       const senha = body.senha || (salvas && salvas.senha);
@@ -1090,7 +1090,7 @@ function initLocalHttpServer() {
       return;
     }
 
-    // Lista de clientes ativos pra rotinas RPA (RazÃ£o, Balancete, etc.)
+    // Lista de clientes ativos pra rotinas RPA (Razão, Balancete, etc.)
     if (req.method === 'GET' && url.startsWith('/sci/clientes-para-razao')) {
       const u = new URL(req.url, 'http://localhost');
       const situacao = u.searchParams.get('situacao') || 'MENSAL';
@@ -1112,7 +1112,7 @@ function initLocalHttpServer() {
   server.on('error', (e) => {
     console.error(`[HTTP local] falha ao iniciar :${LOCAL_HTTP_PORT}:`, e.message);
   });
-  // SÃ³ localhost (nÃ£o expÃµe na LAN â€” seguranÃ§a)
+  // Só localhost (não expõe na LAN — segurança)
   server.listen(LOCAL_HTTP_PORT, '127.0.0.1', () => {
     console.log(`[HTTP local] escutando em http://127.0.0.1:${LOCAL_HTTP_PORT}`);
   });
@@ -1144,7 +1144,7 @@ function initAutoUpdater() {
 
   autoUpdater.on('update-available', (info) => {
     broadcastUpdate({ kind: 'available', version: info.version, releaseNotes: info.releaseNotes });
-    sendNotification('AtualizaÃ§Ã£o disponÃ­vel', `VersÃ£o ${info.version} serÃ¡ baixada em segundo plano.`);
+    sendNotification('Atualização disponível', `Versão ${info.version} será baixada em segundo plano.`);
   });
 
   autoUpdater.on('update-not-available', () => {
@@ -1162,14 +1162,14 @@ function initAutoUpdater() {
 
   autoUpdater.on('update-downloaded', (info) => {
     broadcastUpdate({ kind: 'downloaded', version: info.version });
-    sendNotification('AtualizaÃ§Ã£o pronta', `VersÃ£o ${info.version} serÃ¡ aplicada ao reiniciar.`);
+    sendNotification('Atualização pronta', `Versão ${info.version} será aplicada ao reiniciar.`);
   });
 
   autoUpdater.on('error', (err) => {
     broadcastUpdate({ kind: 'error', message: err?.message || String(err) });
   });
 
-  // Primeira checagem apÃ³s 10s pra nÃ£o competir com boot
+  // Primeira checagem após 10s pra não competir com boot
   setTimeout(() => {
     checkForUpdatesWhenApiIsReady();
   }, 10_000);
@@ -1180,9 +1180,9 @@ function initAutoUpdater() {
   }, 6 * 60 * 60 * 1000);
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // IPC Handlers
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 function registerIpcHandlers() {
   ipcMain.handle('get-status', () => getFullStatus());
   ipcMain.handle('start-service', (_e, id) => startService(id));
@@ -1191,18 +1191,18 @@ function registerIpcHandlers() {
   ipcMain.handle('start-all', () => startAllServices());
   ipcMain.handle('stop-all', () => stopAllServices());
 
-  // â”€â”€ NFe Watcher â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── NFe Watcher ─────────────────────────────────
   ipcMain.handle('nfe-watcher:status', () => {
     if (!nfeWatcher) return { running: false, watchers: [] };
     return { running: nfeWatcher.running, watchers: nfeWatcher.getStatus() };
   });
   ipcMain.handle('nfe-watcher:refresh', async () => {
-    if (!nfeWatcher) return { ok: false, error: 'Watcher nÃ£o iniciado' };
+    if (!nfeWatcher) return { ok: false, error: 'Watcher não iniciado' };
     await nfeWatcher.refreshConfig();
     return { ok: true };
   });
   ipcMain.handle('nfe-watcher:start', async () => {
-    if (!nfeWatcher) return { ok: false, error: 'Watcher nÃ£o inicializado (verifique LAUNCHER_DAEMON_SECRET)' };
+    if (!nfeWatcher) return { ok: false, error: 'Watcher não inicializado (verifique LAUNCHER_DAEMON_SECRET)' };
     if (!nfeWatcher.running) await nfeWatcher.start();
     return { ok: true };
   });
@@ -1225,11 +1225,11 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle('start-everything', async () => {
-    sendNotification('OneClick ERP', 'Iniciando todos os serviÃ§os...');
+    sendNotification('OneClick ERP', 'Iniciando todos os serviços...');
     await startDockerContainers();
     await sleep(3000);
     startAllServices();
-    sendNotification('OneClick ERP', 'Todos os serviÃ§os iniciados!');
+    sendNotification('OneClick ERP', 'Todos os serviços iniciados!');
     setTimeout(broadcastStatus, 5000);
     return { ok: true };
   });
@@ -1238,7 +1238,7 @@ function registerIpcHandlers() {
     stopAllServices();
     await sleep(1000);
     stopDockerContainers();
-    sendNotification('OneClick ERP', 'Todos os serviÃ§os parados.');
+    sendNotification('OneClick ERP', 'Todos os serviços parados.');
     setTimeout(broadcastStatus, 2000);
     return { ok: true };
   });
@@ -1271,27 +1271,27 @@ function registerIpcHandlers() {
   ipcMain.handle('get-active-users', () => getActiveUsers());
   ipcMain.handle('get-sci-status', () => getSciStatus());
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // BI Sync: HTTP request da main process (nÃ£o do renderer).
-  // NecessÃ¡rio porque o Chromium do Electron NÃƒO permite setar `Origin` em
-  // fetch do renderer (security feature) â€” Better Auth da VPS rejeita
+  // ════════════════════════════════════════════════════════
+  // BI Sync: HTTP request da main process (não do renderer).
+  // Necessário porque o Chromium do Electron NÃO permite setar `Origin` em
+  // fetch do renderer (security feature) — Better Auth da VPS rejeita
   // requests sem Origin (MISSING_OR_NULL_ORIGIN). Node fetch tem controle
-  // total dos headers, entÃ£o fazemos aqui e retornamos pro renderer.
+  // total dos headers, então fazemos aqui e retornamos pro renderer.
   //
-  // MantÃ©m um cookie jar simples (em memÃ³ria) com a session do Better Auth.
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  const biSyncCookies = new Map() // baseUrl â†’ "cookieStr"
+  // Mantém um cookie jar simples (em memória) com a session do Better Auth.
+  // ════════════════════════════════════════════════════════
+  const biSyncCookies = new Map() // baseUrl → "cookieStr"
   ipcMain.handle('bi-sync-request', async (_e, payload) => {
     try {
       const { baseUrl, path, method = 'GET', body } = payload || {}
-      if (!baseUrl || !path) return { ok: false, error: 'baseUrl e path obrigatÃ³rios' }
+      if (!baseUrl || !path) return { ok: false, error: 'baseUrl e path obrigatórios' }
       const url = `${baseUrl}${path}`
       const headers = {
         'Origin': baseUrl,
         'User-Agent': 'OneClick-Launcher/1.0',
       }
       if (body !== undefined) headers['Content-Type'] = 'application/json'
-      // Envia cookie session (se jÃ¡ logado)
+      // Envia cookie session (se já logado)
       const cookieStr = biSyncCookies.get(baseUrl)
       if (cookieStr) headers['Cookie'] = cookieStr
 
@@ -1300,10 +1300,10 @@ function registerIpcHandlers() {
         headers,
         body: body !== undefined ? JSON.stringify(body) : undefined,
       })
-      // Captura set-cookie pra prÃ³ximos requests (login)
+      // Captura set-cookie pra próximos requests (login)
       const setCookie = resp.headers.getSetCookie ? resp.headers.getSetCookie() : []
       if (setCookie.length > 0) {
-        // Append Ã  string existente (cookie jar simples â€” funciona pra session_token)
+        // Append à string existente (cookie jar simples — funciona pra session_token)
         const existing = biSyncCookies.get(baseUrl) || ''
         const newCookies = setCookie.map(c => c.split(';')[0]).join('; ')
         biSyncCookies.set(baseUrl, existing ? `${existing}; ${newCookies}` : newCookies)
@@ -1323,12 +1323,12 @@ function registerIpcHandlers() {
     return { ok: true }
   })
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // BI Sync SSE â€” main process abre stream HTTP pra
+  // ════════════════════════════════════════════════════════
+  // BI Sync SSE — main process abre stream HTTP pra
   // `/api/bi-sync/eventos`, parsea eventos e envia pro renderer.
-  // (EventSource em Electron renderer nÃ£o envia cookies cross-origin
-  // de forma confiÃ¡vel â€” fazemos manualmente com node fetch.)
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // (EventSource em Electron renderer não envia cookies cross-origin
+  // de forma confiável — fazemos manualmente com node fetch.)
+  // ════════════════════════════════════════════════════════
   let biSyncStreamCtrl = null
   function biSyncStreamStop() {
     if (biSyncStreamCtrl) {
@@ -1339,7 +1339,7 @@ function registerIpcHandlers() {
   async function biSyncStreamStart(baseUrl) {
     biSyncStreamStop()
     const cookieStr = biSyncCookies.get(baseUrl) || ''
-    if (!cookieStr) return // nÃ£o autenticado
+    if (!cookieStr) return // não autenticado
     biSyncStreamCtrl = new AbortController()
     const url = `${baseUrl}/api/bi-sync/eventos`
     try {
@@ -1367,7 +1367,7 @@ function registerIpcHandlers() {
         const { done, value } = await reader.read()
         if (done) break
         buffer += decoder.decode(value, { stream: true })
-        // SSE: eventos separados por blank line. Linhas comeÃ§am com "data: ..."
+        // SSE: eventos separados por blank line. Linhas começam com "data: ..."
         const events = buffer.split('\n\n')
         buffer = events.pop() || ''
         for (const ev of events) {
@@ -1398,15 +1398,15 @@ function registerIpcHandlers() {
     return { ok: true }
   })
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // CONTRATOS SYNC â€” Launcher escuta SSE da VPS, recebe pedidos de
+  // ════════════════════════════════════════════════════════
+  // CONTRATOS SYNC — Launcher escuta SSE da VPS, recebe pedidos de
   // consulta SCI, executa sci_metrics.py local e devolve via callback.
   //
-  // Reaproveita biSyncCookies (mesma sessÃ£o Better Auth â€” o user jÃ¡ se
-  // logou no BI Sync). O stream Ã© independente do BI Sync e roda em
+  // Reaproveita biSyncCookies (mesma sessão Better Auth — o user já se
+  // logou no BI Sync). O stream é independente do BI Sync e roda em
   // paralelo. Quando a VPS publica evento `contrato-erp-request`, o
   // launcher executa, posta callback, e a VPS resolve a Promise do tRPC.
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════
   let contratoSyncStreamCtrl = null
   function contratoSyncStreamStop() {
     if (contratoSyncStreamCtrl) {
@@ -1436,13 +1436,13 @@ function registerIpcHandlers() {
     try {
       return JSON.parse(stdout)
     } catch (e) {
-      throw new Error(`JSON invÃ¡lido: ${e.message}`)
+      throw new Error(`JSON inválido: ${e.message}`)
     }
   }
 
   async function postarContratoCallback(baseUrl, requestId, body) {
     const cookieStr = biSyncCookies.get(baseUrl) || ''
-    if (!cookieStr) throw new Error('Sem cookie â€” nÃ£o autenticado')
+    if (!cookieStr) throw new Error('Sem cookie — não autenticado')
     const url = `${baseUrl}/api/contratos-sync/callback/${encodeURIComponent(requestId)}`
     const resp = await fetch(url, {
       method: 'POST',
@@ -1461,19 +1461,19 @@ function registerIpcHandlers() {
   async function processarContratoErpRequest(baseUrl, event) {
     const { requestId, payload } = event
     if (!requestId || !payload) return
-    console.log(`[ContratoSync] Recebido pedido ${requestId} â€” cnpj=${payload.cnpj}, perÃ­odo=${payload.datai}..${payload.dataf}`)
+    console.log(`[ContratoSync] Recebido pedido ${requestId} — cnpj=${payload.cnpj}, período=${payload.datai}..${payload.dataf}`)
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('contrato-sync-event', { type: 'request-started', requestId, payload })
     }
     try {
       const dados = await executarSciMetricsLocal(payload)
       await postarContratoCallback(baseUrl, requestId, { dados })
-      console.log(`[ContratoSync] âœ“ ${requestId} concluÃ­do`)
+      console.log(`[ContratoSync] ✓ ${requestId} concluído`)
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('contrato-sync-event', { type: 'request-completed', requestId })
       }
     } catch (e) {
-      console.warn(`[ContratoSync] âœ— ${requestId}: ${e.message}`)
+      console.warn(`[ContratoSync] ✗ ${requestId}: ${e.message}`)
       try { await postarContratoCallback(baseUrl, requestId, { erro: e.message }) } catch {}
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('contrato-sync-event', { type: 'request-failed', requestId, erro: e.message })
@@ -1520,7 +1520,7 @@ function registerIpcHandlers() {
           try {
             const json = JSON.parse(dataLine.slice(5).trim())
             if (json.type === 'contrato-erp-request') {
-              // Dispatcha em background â€” nÃ£o bloqueia o reader do SSE
+              // Dispatcha em background — não bloqueia o reader do SSE
               processarContratoErpRequest(baseUrl, json).catch(() => {})
             } else if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send('contrato-sync-event', json)
@@ -1546,16 +1546,16 @@ function registerIpcHandlers() {
     return { ok: true }
   })
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // DEPLOY â€” painel "Publicar ImplementaÃ§Ãµes"
-  // LÃª .deploy.local (SSH host/key/user) e orquestra:
-  //   1. git push local  â†’  10%
-  //   2. ssh git pull    â†’  25%
-  //   3. ssh prisma db push (se schema mudou)  â†’  40%
-  //   4. ssh docker build api  â†’  65%
-  //   5. ssh docker build web  â†’  85%
-  //   6. ssh docker up -d + health check  â†’  100%
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════
+  // DEPLOY — painel "Publicar Implementações"
+  // Lê .deploy.local (SSH host/key/user) e orquestra:
+  //   1. git push local  →  10%
+  //   2. ssh git pull    →  25%
+  //   3. ssh prisma db push (se schema mudou)  →  40%
+  //   4. ssh docker build api  →  65%
+  //   5. ssh docker build web  →  85%
+  //   6. ssh docker up -d + health check  →  100%
+  // ════════════════════════════════════════════════════════
   function readDeployConfig() {
     try {
       const file = path.join(projectRoot, '.deploy.local')
@@ -1583,8 +1583,8 @@ function registerIpcHandlers() {
 
   function gitOutput(args, cwd) {
     const r = spawnSync('git', args, { cwd: cwd || projectRoot, encoding: 'utf8', windowsHide: true })
-    // ATENÃ‡ÃƒO: NÃƒO usar .trim() â€” o porcelain do git status comeÃ§a com whitespace
-    // significativo (" M path" tem espaÃ§o no Ã­ndice 0). Trim cortaria esse espaÃ§o e
+    // ATENÇÃO: NÃO usar .trim() — o porcelain do git status começa com whitespace
+    // significativo (" M path" tem espaço no índice 0). Trim cortaria esse espaço e
     // deslocaria o slice(3) que extrai o path, virando "apps/..." em "pps/...".
     // Removemos APENAS \r\n no final.
     return (r.stdout || '').replace(/\r?\n+$/, '')
@@ -1593,7 +1593,7 @@ function registerIpcHandlers() {
   ipcMain.handle('deploy:status', async () => {
     try {
       const cfg = readDeployConfig()
-      if (!cfg || !cfg.SSH_HOST) return { ok: false, error: '.deploy.local nÃ£o configurado (SSH_HOST faltando)' }
+      if (!cfg || !cfg.SSH_HOST) return { ok: false, error: '.deploy.local não configurado (SSH_HOST faltando)' }
 
       // Local
       const localBranch = gitOutput(['rev-parse', '--abbrev-ref', 'HEAD'])
@@ -1604,11 +1604,11 @@ function registerIpcHandlers() {
         status: l.slice(0, 2).trim(),
         path: l.slice(3),
       }))
-      // Ignora arquivos nÃ£o-rastreados Ã³bvios (backups de .env, tmp, etc)
-      // que nÃ£o vÃ£o ser commitados de qualquer jeito
+      // Ignora arquivos não-rastreados óbvios (backups de .env, tmp, etc)
+      // que não vão ser commitados de qualquer jeito
       const dirtyRelevant = dirtyFiles.filter(d => {
         if (d.status === '??') {
-          // Untracked â€” sÃ³ conta se nÃ£o bate com padrÃµes de ignore comum
+          // Untracked — só conta se não bate com padrões de ignore comum
           if (d.path.endsWith('.bak') || d.path.includes('.env.bak.') || d.path.includes('/tmp/')) return false
         }
         return true
@@ -1620,7 +1620,7 @@ function registerIpcHandlers() {
       const remoteSha = gitOutput(['rev-parse', `origin/${localBranch}`])
       const remoteShort = gitOutput(['rev-parse', '--short', `origin/${localBranch}`])
 
-      // Commits locais ainda nÃ£o pushed
+      // Commits locais ainda não pushed
       const pendingPush = gitOutput(['log', `origin/${localBranch}..HEAD`, '--format=%H%x09%h%x09%s'])
         .split('\n').filter(Boolean)
         .map(l => {
@@ -1654,11 +1654,11 @@ function registerIpcHandlers() {
       return {
         ok: true,
         localBranch, localSha, localShort, localDirty,
-        dirtyFiles: dirtyRelevant.slice(0, 30), // limita pra nÃ£o inflar payload
+        dirtyFiles: dirtyRelevant.slice(0, 30), // limita pra não inflar payload
         remoteSha, remoteShort,
         vpsSha, vpsShort, vpsReachable,
-        pendingPush,           // commits locais ainda nÃ£o no remote
-        pendingDeploy,         // commits no remote ainda nÃ£o na VPS
+        pendingPush,           // commits locais ainda não no remote
+        pendingDeploy,         // commits no remote ainda não na VPS
         schemaChanged,
         synced: vpsReachable && vpsSha === localSha && pendingPush.length === 0 && localDirty === 0,
       }
@@ -1667,8 +1667,8 @@ function registerIpcHandlers() {
     }
   })
 
-  // Log de debug em arquivo â€” toda atividade do deploy Ã© gravada aqui pra diagnÃ³stico
-  // mesmo quando o renderer nÃ£o recebe os eventos IPC.
+  // Log de debug em arquivo — toda atividade do deploy é gravada aqui pra diagnóstico
+  // mesmo quando o renderer não recebe os eventos IPC.
   const deployDebugLogPath = path.join(app.getPath('userData'), 'deploy-debug.log')
   function deployDebugLog(msg) {
     try {
@@ -1682,12 +1682,12 @@ function registerIpcHandlers() {
     try {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('deploy:event', { progress, step, log, level: level || 'info', timestamp: Date.now() })
-        deployDebugLog(`  â†³ webContents.send OK`)
+        deployDebugLog(`  ↳ webContents.send OK`)
       } else {
-        deployDebugLog(`  â†³ SKIPPED (mainWindow=${!!mainWindow}, destroyed=${mainWindow ? mainWindow.isDestroyed() : 'n/a'})`)
+        deployDebugLog(`  ↳ SKIPPED (mainWindow=${!!mainWindow}, destroyed=${mainWindow ? mainWindow.isDestroyed() : 'n/a'})`)
       }
     } catch (e) {
-      deployDebugLog(`  â†³ ERROR: ${e.message}`)
+      deployDebugLog(`  ↳ ERROR: ${e.message}`)
     }
   }
 
@@ -1713,8 +1713,8 @@ function registerIpcHandlers() {
     })
   }
 
-  // Async git executor â€” nÃ£o bloqueia event loop (eventos IPC fluem em tempo real).
-  // GIT_TERMINAL_PROMPT=0 + GCM_INTERACTIVE=Never â†’ falha imediato se faltar credencial
+  // Async git executor — não bloqueia event loop (eventos IPC fluem em tempo real).
+  // GIT_TERMINAL_PROMPT=0 + GCM_INTERACTIVE=Never → falha imediato se faltar credencial
   // (em vez de travar esperando popup).
   function gitExec(args, onLine, timeoutMs) {
     return new Promise((resolve) => {
@@ -1777,7 +1777,7 @@ function registerIpcHandlers() {
 
   function deployCheckAbort(step, progress) {
     if (!deployAbortRequested) return
-    const err = new Error('Deploy abortado pelo usuÃ¡rio')
+    const err = new Error('Deploy abortado pelo usuário')
     err.code = 'DEPLOY_ABORTED'
     err.step = step || deployCurrentStep || 'deploy'
     err.progress = typeof progress === 'number' ? progress : undefined
@@ -1786,7 +1786,7 @@ function registerIpcHandlers() {
 
   ipcMain.handle('deploy:read-debug-log', async () => {
     try {
-      if (!fs.existsSync(deployDebugLogPath)) return { ok: true, content: '(arquivo vazio â€” nenhum deploy registrado)' }
+      if (!fs.existsSync(deployDebugLogPath)) return { ok: true, content: '(arquivo vazio — nenhum deploy registrado)' }
       const all = fs.readFileSync(deployDebugLogPath, 'utf8')
       const lines = all.split('\n')
       const tail = lines.slice(-200).join('\n')
@@ -1800,14 +1800,14 @@ function registerIpcHandlers() {
     const wasRunning = deployRunning
     deployRunning = false
     deployAbortRequested = false
-    deployDebugLog(`âŸ² deployRunning resetado manualmente (era ${wasRunning})`)
+    deployDebugLog(`⟲ deployRunning resetado manualmente (era ${wasRunning})`)
     return { ok: true, wasRunning }
   })
 
   ipcMain.handle('deploy:abort', async () => {
     if (!deployRunning) return { ok: false, error: 'Nenhum deploy em andamento.' }
     deployAbortRequested = true
-    deployEmit(null, deployCurrentStep || 'abort', 'Abort solicitado. O deploy sera interrompido no proximo ponto seguro.', 'warn')
+    deployEmit(null, deployCurrentStep || 'abort', 'Abort solicitado. O deploy será interrompido no próximo ponto seguro.', 'warn')
     if (deployCurrentProc && deployCurrentProcKind === 'git') {
       try { deployCurrentProc.kill('SIGKILL') } catch {}
       return { ok: true, mode: 'local-kill', message: 'Processo local interrompido. Finalizando abort seguro...' }
@@ -1816,25 +1816,25 @@ function registerIpcHandlers() {
   })
 
   ipcMain.handle('deploy:execute', async (_e, payload) => {
-    deployDebugLog(`â•”â•â•â• deploy:execute INVOKED â€” payload=${JSON.stringify(payload || null).slice(0, 300)}`)
-    deployDebugLog(`â•‘ deployRunning=${deployRunning}, mainWindow=${!!mainWindow}, projectRoot=${projectRoot}`)
+    deployDebugLog(`╔═══ deploy:execute INVOKED — payload=${JSON.stringify(payload || null).slice(0, 300)}`)
+    deployDebugLog(`║ deployRunning=${deployRunning}, mainWindow=${!!mainWindow}, projectRoot=${projectRoot}`)
     if (deployRunning) {
-      deployDebugLog(`â•‘ âœ— JÃ HÃ DEPLOY EM ANDAMENTO â€” retornando imediatamente`)
-      return { ok: false, error: 'JÃ¡ existe um deploy em andamento. (Se vocÃª acha que travou, use o botÃ£o "Reset" no painel.)' }
+      deployDebugLog(`║ ✗ JÁ HÁ DEPLOY EM ANDAMENTO — retornando imediatamente`)
+      return { ok: false, error: 'Já existe um deploy em andamento. (Se você acha que travou, use o botão "Reset" no painel.)' }
     }
     deployRunning = true
     deployAbortRequested = false
     deployCurrentStep = 'init'
-    // Emit inicial â€” prova ao renderer que o handler foi chamado.
-    deployEmit(1, 'init', `â†’ Iniciando deploy (payload=${payload ? 'com mensagem' : 'sem mensagem'})`, 'info')
+    // Emit inicial — prova ao renderer que o handler foi chamado.
+    deployEmit(1, 'init', `→ Iniciando deploy (payload=${payload ? 'com mensagem' : 'sem mensagem'})`, 'info')
     try {
       const cfg = readDeployConfig()
       if (!cfg || !cfg.SSH_HOST) {
         deployRunning = false
-        deployEmit(1, 'init', 'âœ— .deploy.local nÃ£o configurado', 'err')
-        return { ok: false, error: '.deploy.local nÃ£o configurado' }
+        deployEmit(1, 'init', '✗ .deploy.local não configurado', 'err')
+        return { ok: false, error: '.deploy.local não configurado' }
       }
-      deployEmit(1, 'init', `Â· VPS: ${cfg.SSH_HOST}`, 'info')
+      deployEmit(1, 'init', `· VPS: ${cfg.SSH_HOST}`, 'info')
 
       const commitMessage = (payload && payload.commitMessage) ? String(payload.commitMessage).trim() : ''
       let targetSha = (payload && payload.targetSha) ? String(payload.targetSha).trim() : ''
@@ -1842,7 +1842,7 @@ function registerIpcHandlers() {
         return { ok: false, error: 'Commit selecionado invalido.' }
       }
 
-      // â”€â”€â”€ Stage 0: git commit (se houver dirty + mensagem) â”€â”€â”€
+      // ─── Stage 0: git commit (se houver dirty + mensagem) ───
       deployCheckAbort('commit', 1)
       deployCurrentStep = 'commit'
       const statusOut = gitOutput(['status', '--porcelain'])
@@ -1859,17 +1859,17 @@ function registerIpcHandlers() {
       if (dirtyRelevant.length > 0) {
         if (!commitMessage) {
           deployRunning = false
-          return { ok: false, error: `${dirtyRelevant.length} arquivo(s) sem commit. ForneÃ§a uma mensagem de commit.`, needsCommitMessage: true }
+          return { ok: false, error: `${dirtyRelevant.length} arquivo(s) sem commit. Forneça uma mensagem de commit.`, needsCommitMessage: true }
         }
-        deployEmit(2, 'commit', `â†’ Commitando ${dirtyRelevant.length} arquivo(s)...`, 'info')
-        // git add: sÃ³ os relevantes (preserva ignorados Ã³bvios). Async em paralelo seria possÃ­vel,
-        // mas Ã© mais seguro fazer sequencial pra preservar ordem e debugar.
+        deployEmit(2, 'commit', `→ Commitando ${dirtyRelevant.length} arquivo(s)...`, 'info')
+        // git add: só os relevantes (preserva ignorados óbvios). Async em paralelo seria possível,
+        // mas é mais seguro fazer sequencial pra preservar ordem e debugar.
         for (const d of dirtyRelevant) {
           const addRes = await gitExec(['add', '--', d.path], null, 10000)
           deployCheckAbort('commit', 3)
           if (addRes.code !== 0) {
             const msg = addRes.stderr || addRes.error || 'git add falhou'
-            deployEmit(3, 'commit', `âœ— git add "${d.path}": ${msg.slice(0, 200)}`, 'err')
+            deployEmit(3, 'commit', `✗ git add "${d.path}": ${msg.slice(0, 200)}`, 'err')
             deployRunning = false
             return { ok: false, error: `git add falhou em ${d.path}: ${msg.slice(0, 200)}` }
           }
@@ -1879,25 +1879,25 @@ function registerIpcHandlers() {
         deployCheckAbort('commit', 4)
         if (commitRes.code !== 0) {
           const msg = commitRes.stderr || commitRes.stdout || commitRes.error || 'git commit falhou'
-          deployEmit(4, 'commit', `âœ— ${msg.slice(0, 300)}`, 'err')
+          deployEmit(4, 'commit', `✗ ${msg.slice(0, 300)}`, 'err')
           deployRunning = false
           return { ok: false, error: 'git commit falhou: ' + msg.slice(0, 200) }
         }
-        deployEmit(4, 'commit', `âœ“ Commit criado: "${commitMessage.slice(0, 60)}"`, 'ok')
+        deployEmit(4, 'commit', `✓ Commit criado: "${commitMessage.slice(0, 60)}"`, 'ok')
         targetSha = gitOutput(['rev-parse', 'HEAD'])
       }
 
-      // â”€â”€â”€ Stage 1: git push â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-      deployEmit(5, 'push', 'â†’ Pushing pro GitHub...', 'info')
+      // ─── Stage 1: git push ─────────────────────────
+      deployEmit(5, 'push', '→ Pushing pro GitHub...', 'info')
       deployCheckAbort('push', 5)
       deployCurrentStep = 'push'
       const localBranch = gitOutput(['rev-parse', '--abbrev-ref', 'HEAD'])
       const remoteShaBeforePush = gitOutput(['rev-parse', `origin/${localBranch}`])
       if (!targetSha) targetSha = gitOutput(['rev-parse', 'HEAD'])
       if (gitExitCode(['merge-base', '--is-ancestor', targetSha, 'HEAD']) !== 0) {
-        return { ok: false, error: 'Commit selecionado nao pertence ao historico local.' }
+        return { ok: false, error: 'Commit selecionado não pertence ao histórico local.' }
       }
-      // Timeout 60s â€” se Git Credential Manager pedir popup, mata em 60s ao invÃ©s de travar.
+      // Timeout 60s — se Git Credential Manager pedir popup, mata em 60s ao invés de travar.
       const targetAlreadyRemote = remoteShaBeforePush && gitExitCode(['merge-base', '--is-ancestor', targetSha, remoteShaBeforePush]) === 0
       const pushResult = targetAlreadyRemote
         ? { code: 0, stdout: 'Commit alvo ja esta no GitHub (push skip)' }
@@ -1905,31 +1905,31 @@ function registerIpcHandlers() {
       deployCheckAbort('push', 10)
       if (pushResult.code !== 0) {
         const msg = pushResult.stderr || pushResult.stdout || pushResult.error || 'git push falhou'
-        const extra = pushResult.timedOut ? ' [timeout 60s â€” provavelmente faltando credencial: rode `git push` no terminal pra autenticar]' : ''
-        deployEmit(10, 'push', `âœ— ${msg.slice(0, 300)}${extra}`, 'err')
+        const extra = pushResult.timedOut ? ' [timeout 60s — provavelmente faltando credencial: rode `git push` no terminal pra autenticar]' : ''
+        deployEmit(10, 'push', `✗ ${msg.slice(0, 300)}${extra}`, 'err')
         deployRunning = false
         return { ok: false, error: 'git push falhou: ' + msg.slice(0, 200) + extra }
       }
-      deployEmit(10, 'push', `âœ“ Push OK (${targetSha.slice(0, 7)})`, 'ok')
+      deployEmit(10, 'push', `✓ Push OK (${targetSha.slice(0, 7)})`, 'ok')
 
-      // â”€â”€â”€ Stage 2: SSH git pull â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-      deployEmit(15, 'pull', 'â†’ git pull na VPS...', 'info')
+      // ─── Stage 2: SSH git pull ─────────────────────
+      deployEmit(15, 'pull', '→ git pull na VPS...', 'info')
       deployCheckAbort('pull', 15)
       deployCurrentStep = 'pull'
       const pull = await sshExec(cfg, `cd /opt/oneclick-src && git fetch origin ${localBranch} 2>&1 && git merge --ff-only ${targetSha} 2>&1`, (line) => deployEmit(20, 'pull', line, 'info'))
       if (pull.code !== 0) {
-        deployEmit(25, 'pull', `âœ— ${(pull.stderr || pull.stdout || '').slice(0, 300)}`, 'err')
+        deployEmit(25, 'pull', `✗ ${(pull.stderr || pull.stdout || '').slice(0, 300)}`, 'err')
         deployRunning = false
         return { ok: false, error: 'git pull falhou na VPS' }
       }
-      deployEmit(25, 'pull', 'âœ“ Pull OK', 'ok')
+      deployEmit(25, 'pull', '✓ Pull OK', 'ok')
 
-      // â”€â”€â”€ Stage 3: Build API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ─── Stage 3: Build API ────────────────────────
       // IMPORTANTE: build api PRECEDE o db push porque o `prisma db push` usa
-      // a imagem `oneclick-api:latest` (que contÃ©m o schema.prisma). Se o build
+      // a imagem `oneclick-api:latest` (que contém o schema.prisma). Se o build
       // for depois, o db push acaba rodando com schema antigo e tabelas novas
-      // nÃ£o sÃ£o criadas.
-      deployEmit(30, 'build-api', 'â†’ Building oneclick-api...', 'info')
+      // não são criadas.
+      deployEmit(30, 'build-api', '→ Building oneclick-api...', 'info')
       deployCheckAbort('build-api', 30)
       deployCurrentStep = 'build-api'
       const buildApi = await sshExec(cfg, 'cd /opt/oneclick && docker compose build api 2>&1', (line) => {
@@ -1938,50 +1938,50 @@ function registerIpcHandlers() {
         }
       })
       if (buildApi.code !== 0) {
-        deployEmit(50, 'build-api', `âœ— Build api falhou`, 'err')
+        deployEmit(50, 'build-api', `✗ Build api falhou`, 'err')
         deployRunning = false
         return { ok: false, error: 'build api falhou' }
       }
-      deployEmit(50, 'build-api', 'âœ“ Build api OK', 'ok')
+      deployEmit(50, 'build-api', '✓ Build api OK', 'ok')
 
-      // â”€â”€â”€ Stage 4: Schema (se mudou) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-      // Roda APÃ“S o build api, usando a imagem recÃ©m-buildada (com schema novo).
+      // ─── Stage 4: Schema (se mudou) ────────────────
+      // Roda APÓS o build api, usando a imagem recém-buildada (com schema novo).
       deployCheckAbort('schema', 55)
       deployCurrentStep = 'schema'
       const diffFiles = await sshExec(cfg, 'cd /opt/oneclick-src && git diff --name-only HEAD@{1} HEAD 2>/dev/null')
       const schemaChanged = (diffFiles.stdout || '').split('\n').some(f => f === 'packages/db/prisma/schema.prisma')
       if (schemaChanged) {
-        deployEmit(55, 'schema', 'â†’ Schema mudou â€” aplicando prisma db push (imagem recÃ©m-buildada)...', 'warn')
+        deployEmit(55, 'schema', '→ Schema mudou — aplicando prisma db push (imagem recém-buildada)...', 'warn')
         const dbpush = await sshExec(cfg, 'docker run --rm --network n8n_default --env-file /opt/oneclick/.env oneclick-api:latest sh -c "cd /app/packages/db && npx prisma db push --accept-data-loss --skip-generate" 2>&1', (line) => deployEmit(60, 'schema', line, 'info'))
         if (dbpush.code !== 0) {
-          deployEmit(65, 'schema', `âœ— db push falhou`, 'err')
+          deployEmit(65, 'schema', `✗ db push falhou`, 'err')
           deployRunning = false
           return { ok: false, error: 'prisma db push falhou' }
         }
-        deployEmit(65, 'schema', 'âœ“ Schema aplicado', 'ok')
+        deployEmit(65, 'schema', '✓ Schema aplicado', 'ok')
       } else {
-        deployEmit(65, 'schema', 'Â· Sem mudanÃ§a de schema (skip)', 'info')
+        deployEmit(65, 'schema', '· Sem mudança de schema (skip)', 'info')
       }
 
-      // â”€â”€â”€ Stage 4.5: SQLs cirÃºrgicos (sempre) â”€â”€â”€â”€â”€â”€â”€â”€
-      // Aplica os arquivos `packages/db/prisma/sql/*.sql` em ordem alfabÃ©tica via
+      // ─── Stage 4.5: SQLs cirúrgicos (sempre) ────────
+      // Aplica os arquivos `packages/db/prisma/sql/*.sql` em ordem alfabética via
       // psql no container. Devem ser idempotentes (IF NOT EXISTS / NOT EXISTS na
-      // INSERT etc) â€” assim podem rodar a cada deploy sem causar duplicaÃ§Ã£o.
-      // Usado pra coisas que `prisma db push` nÃ£o cobre: seeds, ALTER manuais,
-      // dados de configuraÃ§Ã£o inicial (ex: salas padrÃ£o da agenda).
-      deployEmit(66, 'sql', 'â†’ Verificando SQLs cirÃºrgicos...', 'info')
+      // INSERT etc) — assim podem rodar a cada deploy sem causar duplicação.
+      // Usado pra coisas que `prisma db push` não cobre: seeds, ALTER manuais,
+      // dados de configuração inicial (ex: salas padrão da agenda).
+      deployEmit(66, 'sql', '→ Verificando SQLs cirúrgicos...', 'info')
       deployCheckAbort('sql', 66)
       deployCurrentStep = 'sql'
       const listSql = await sshExec(cfg, 'ls /opt/oneclick-src/packages/db/prisma/sql/*.sql 2>/dev/null | sort')
       const sqlFiles = (listSql.stdout || '').trim().split('\n').filter(Boolean)
       if (sqlFiles.length === 0) {
-        deployEmit(67, 'sql', 'Â· Nenhum SQL cirÃºrgico encontrado (skip)', 'info')
+        deployEmit(67, 'sql', '· Nenhum SQL cirúrgico encontrado (skip)', 'info')
       } else {
-        deployEmit(66, 'sql', `â†’ ${sqlFiles.length} arquivo(s) SQL a aplicar`, 'info')
+        deployEmit(66, 'sql', `→ ${sqlFiles.length} arquivo(s) SQL a aplicar`, 'info')
         let sqlFailed = false
         for (const sqlFile of sqlFiles) {
           const fname = sqlFile.split('/').pop()
-          deployEmit(67, 'sql', `  â†’ ${fname}`, 'info')
+          deployEmit(67, 'sql', `  → ${fname}`, 'info')
           const sqlExec = await sshExec(
             cfg,
             `cat ${sqlFile} | docker exec -i n8n-postgres-1 psql -U oneclick -d oneclick -v ON_ERROR_STOP=1 2>&1`,
@@ -1994,20 +1994,20 @@ function registerIpcHandlers() {
           )
           deployCheckAbort('sql', 68)
           if (sqlExec.code !== 0) {
-            deployEmit(68, 'sql', `âœ— ${fname} falhou (code ${sqlExec.code})`, 'err')
+            deployEmit(68, 'sql', `✗ ${fname} falhou (code ${sqlExec.code})`, 'err')
             sqlFailed = true
             break
           }
         }
         if (sqlFailed) {
           deployRunning = false
-          return { ok: false, error: 'SQL cirÃºrgico falhou' }
+          return { ok: false, error: 'SQL cirúrgico falhou' }
         }
-        deployEmit(68, 'sql', `âœ“ ${sqlFiles.length} SQL(s) aplicado(s)`, 'ok')
+        deployEmit(68, 'sql', `✓ ${sqlFiles.length} SQL(s) aplicado(s)`, 'ok')
       }
 
-      // â”€â”€â”€ Stage 5: Build Web â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-      deployEmit(70, 'build-web', 'â†’ Building oneclick-web...', 'info')
+      // ─── Stage 5: Build Web ────────────────────────
+      deployEmit(70, 'build-web', '→ Building oneclick-web...', 'info')
       deployCheckAbort('build-web', 70)
       deployCurrentStep = 'build-web'
       const buildWeb = await sshExec(cfg, 'cd /opt/oneclick && docker compose build web 2>&1', (line) => {
@@ -2016,27 +2016,27 @@ function registerIpcHandlers() {
         }
       })
       if (buildWeb.code !== 0) {
-        deployEmit(85, 'build-web', `âœ— Build web falhou`, 'err')
+        deployEmit(85, 'build-web', `✗ Build web falhou`, 'err')
         deployRunning = false
         return { ok: false, error: 'build web falhou' }
       }
-      deployEmit(85, 'build-web', 'âœ“ Build web OK', 'ok')
+      deployEmit(85, 'build-web', '✓ Build web OK', 'ok')
 
-      // â”€â”€â”€ Stage 6: Restart + Health check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-      deployEmit(90, 'restart', 'â†’ Restart containers + health check...', 'info')
+      // ─── Stage 6: Restart + Health check ───────────
+      deployEmit(90, 'restart', '→ Restart containers + health check...', 'info')
       deployCheckAbort('restart', 90)
       deployCurrentStep = 'restart'
       const up = await sshExec(cfg, 'cd /opt/oneclick && docker compose up -d --force-recreate api web 2>&1 && sleep 12 && curl -s -o /dev/null -w "API:%{http_code}\\n" http://127.0.0.1:4100/api/health', (line) => deployEmit(95, 'restart', line, 'info'))
       if (up.code !== 0 || !/(API:200|API:204)/.test(up.stdout || '')) {
-        deployEmit(98, 'restart', `âœ— Restart ou health falhou`, 'err')
+        deployEmit(98, 'restart', `✗ Restart ou health falhou`, 'err')
         deployRunning = false
         return { ok: false, error: 'restart ou health check falhou' }
       }
-      deployEmit(100, 'done', 'âœ… Deploy concluÃ­do com sucesso!', 'ok')
+      deployEmit(100, 'done', '✅ Deploy concluído com sucesso!', 'ok')
 
       return { ok: true }
     } catch (e) {
-      deployEmit(100, 'error', `âœ— ExceÃ§Ã£o: ${e.message}`, 'err')
+      deployEmit(100, 'error', `✗ Exceção: ${e.message}`, 'err')
       return { ok: false, error: e.message }
     } finally {
       deployRunning = false
@@ -2047,15 +2047,15 @@ function registerIpcHandlers() {
     }
   })
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════
   // BI Sync: executa sci_balancete.py local e retorna linhas
   // pro renderer enviar pra VPS via fetch.
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════
   ipcMain.handle('bi-sync-fetch-sci', async (_e, payload) => {
     try {
       const { prcodemp, dataIni, dataFim, ref } = payload || {}
       if (!prcodemp || !dataIni || !dataFim || !ref) {
-        return { sucesso: false, erro: 'ParÃ¢metros obrigatÃ³rios: prcodemp, dataIni, dataFim, ref' }
+        return { sucesso: false, erro: 'Parâmetros obrigatórios: prcodemp, dataIni, dataFim, ref' }
       }
       const sciScript = path.join(projectRoot, 'apps', 'api', 'src', 'cliente', 'sci_balancete.py')
       const result = spawnSync(
@@ -2079,7 +2079,7 @@ function registerIpcHandlers() {
           ? { sucesso: false, erro: parsed.erro || 'SCI retornou sucesso=false' }
           : { sucesso: true, dados: parsed.dados || [], total: (parsed.dados || []).length }
       } catch (e) {
-        return { sucesso: false, erro: `JSON invÃ¡lido: ${e.message}` }
+        return { sucesso: false, erro: `JSON inválido: ${e.message}` }
       }
     } catch (e) {
       return { sucesso: false, erro: e.message }
@@ -2098,7 +2098,7 @@ function registerIpcHandlers() {
     if (mainWindow) mainWindow.hide();
   });
 
-  // â”€â”€ Settings â”€â”€
+  // ── Settings ──
   ipcMain.handle('get-settings', () => {
     const settings = loadSettings();
     // Sync autoStart with actual login item state
@@ -2116,14 +2116,14 @@ function registerIpcHandlers() {
     return result;
   });
 
-  // â”€â”€ Claude Code launcher â”€â”€
-  // Em Electron empacotado (sem console), `spawn('powershell.exe', â€¦, { detached, stdio:'ignore' })`
-  // nÃ£o abre janela â€” o filho herda o "sem console" do parent. SoluÃ§Ã£o: `cmd /c start ""` forÃ§a
-  // criaÃ§Ã£o de nova janela de console visÃ­vel.
+  // ── Claude Code launcher ──
+  // Em Electron empacotado (sem console), `spawn('powershell.exe', …, { detached, stdio:'ignore' })`
+  // não abre janela — o filho herda o "sem console" do parent. Solução: `cmd /c start ""` força
+  // criação de nova janela de console visível.
   //
-  // NOTA: NÃƒO usar wt.exe direto â€” ele interpreta `;` como separador de tabs (gerou mÃºltiplas
-  // abas de erro nas versÃµes 1.2.42/1.2.43). E NÃƒO depender de Start-Process via PowerShell
-  // hidden â€” pode morrer antes do filho spawnar (versÃ£o 1.2.44 "abre toast mas nÃ£o abre janela").
+  // NOTA: NÃO usar wt.exe direto — ele interpreta `;` como separador de tabs (gerou múltiplas
+  // abas de erro nas versões 1.2.42/1.2.43). E NÃO depender de Start-Process via PowerShell
+  // hidden — pode morrer antes do filho spawnar (versão 1.2.44 "abre toast mas não abre janela").
   ipcMain.handle('launch-claude', (_e, dir) => {
     const logFile = path.join(app.getPath('userData'), 'claude-launcher.log');
     const log = (msg) => {
@@ -2133,12 +2133,12 @@ function registerIpcHandlers() {
       const targetDir = dir || loadSettings().claudeDir || projectRoot;
       log(`launch-claude: targetDir=${targetDir}`);
       if (!fs.existsSync(targetDir)) {
-        log(`targetDir nÃ£o existe`);
-        return { ok: false, error: `DiretÃ³rio nÃ£o existe: ${targetDir}`, logFile };
+        log(`targetDir não existe`);
+        return { ok: false, error: `Diretório não existe: ${targetDir}`, logFile };
       }
 
-      // Script .ps1 temporÃ¡rio â€” zero nesting de aspas no command line.
-      // NÃƒO validamos `where claude` aqui porque o PATH do Electron pode dar falso negativo.
+      // Script .ps1 temporário — zero nesting de aspas no command line.
+      // NÃO validamos `where claude` aqui porque o PATH do Electron pode dar falso negativo.
       // Se faltar, o erro aparece dentro da janela do PowerShell (try/catch abaixo).
       const safeDirSq = String(targetDir).replace(/'/g, "''");
       const tmpPath = path.join(os.tmpdir(), `oneclick-claude-${Date.now()}.ps1`);
@@ -2152,9 +2152,9 @@ function registerIpcHandlers() {
       log(`script: ${tmpPath}`);
 
       // cmd /c start "" /D <dir> powershell.exe -NoExit -File <tmpPath>
-      // - "" = tÃ­tulo obrigatÃ³rio quando algum arg parece path quoted
+      // - "" = título obrigatório quando algum arg parece path quoted
       // - /D = working directory pro start
-      // - -File aceita path; Node quota se tiver espaÃ§o
+      // - -File aceita path; Node quota se tiver espaço
       const args = [
         '/c', 'start', '""', '/D', targetDir,
         'powershell.exe', '-NoExit', '-ExecutionPolicy', 'Bypass', '-File', tmpPath,
@@ -2164,7 +2164,7 @@ function registerIpcHandlers() {
       const child = spawn('cmd.exe', args, {
         detached: true,
         stdio: 'ignore',
-        windowsHide: true, // esconde cmd intermediÃ¡rio; start cria a janela visÃ­vel
+        windowsHide: true, // esconde cmd intermediário; start cria a janela visível
       });
       child.on('error', (err) => log(`spawn error: ${err.message}`));
       child.unref();
@@ -2176,10 +2176,10 @@ function registerIpcHandlers() {
     }
   });
 
-  // â”€â”€ Auto-update â”€â”€
+  // ── Auto-update ──
   ipcMain.handle('check-for-update', async () => {
     if (!autoUpdater || !app.isPackaged) {
-      return { ok: false, error: 'Auto-update sÃ³ funciona no app empacotado.' };
+      return { ok: false, error: 'Auto-update só funciona no app empacotado.' };
     }
     if (updaterState.lastDownloadedVersion) {
       return {
@@ -2218,7 +2218,7 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle('install-update', () => {
-    if (!autoUpdater || !app.isPackaged) return { ok: false, error: 'Sem updater disponÃ­vel' };
+    if (!autoUpdater || !app.isPackaged) return { ok: false, error: 'Sem updater disponível' };
     setImmediate(() => autoUpdater.quitAndInstall(false, true));
     return { ok: true };
   });
@@ -2228,7 +2228,7 @@ function registerIpcHandlers() {
     name: app.getName(),
   }));
 
-  // â”€â”€ Browse folder dialog â”€â”€
+  // ── Browse folder dialog ──
   ipcMain.handle('get-diagnostics', async () => getDiagnostics());
 
   ipcMain.handle('copy-diagnostics', async () => {
@@ -2247,7 +2247,7 @@ function registerIpcHandlers() {
     return { canceled: false, path: result.filePaths[0] };
   });
 
-  // â”€â”€ Project root management â”€â”€
+  // ── Project root management ──
   ipcMain.handle('get-project-root', () => ({
     path: projectRoot,
     valid: !!projectRoot && isProjectRoot(projectRoot),
@@ -2256,7 +2256,7 @@ function registerIpcHandlers() {
   ipcMain.handle('set-project-root', async (_e, newPath) => {
     if (!newPath) return { ok: false, error: 'Caminho vazio.' };
     if (!isProjectRoot(newPath)) {
-      return { ok: false, error: 'Esta pasta nÃ£o Ã© a raiz do OneClick_Code (nÃ£o tem package.json com "name": "oneclick-code").' };
+      return { ok: false, error: 'Esta pasta não é a raiz do OneClick_Code (não tem package.json com "name": "oneclick-code").' };
     }
     const settings = loadSettings();
     settings.projectDir = newPath;
@@ -2268,9 +2268,9 @@ function registerIpcHandlers() {
   });
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // Tray
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 function loadTrayIcon() {
   const candidates = [
     path.join(__dirname, 'assets', 'tray-icon.png'),
@@ -2360,7 +2360,7 @@ function updateTrayMenu(status) {
   const autoStart = app.getLoginItemSettings().openAtLogin;
 
   const menu = Menu.buildFromTemplate([
-    { label: 'OneClick ERP â€” Service Manager', enabled: false, icon: loadTrayIcon() },
+    { label: 'OneClick ERP — Service Manager', enabled: false, icon: loadTrayIcon() },
     { label: `   ${statusLine}`, enabled: false },
     { type: 'separator' },
     {
@@ -2392,7 +2392,7 @@ function updateTrayMenu(status) {
     {
       label: nfeWatcher
         ? (nfeWatcher.running ? 'NFe Watcher: PARAR (ativo)' : 'NFe Watcher: INICIAR (parado)')
-        : 'NFe Watcher: indisponivel',
+        : 'NFe Watcher: indisponível',
       enabled: !!nfeWatcher,
       click: async () => {
         if (!nfeWatcher) return;
@@ -2424,7 +2424,7 @@ function updateTrayMenu(status) {
     },
     { type: 'separator' },
     {
-      label: 'Sair (manter serviÃ§os)',
+      label: 'Sair (manter serviços)',
       click: () => {
         isQuitting = true;
         if (tray) tray.destroy();
@@ -2447,9 +2447,9 @@ function updateTrayMenu(status) {
   tray.setContextMenu(menu);
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // Main Window
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -2481,9 +2481,9 @@ function createMainWindow() {
   });
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 // Boot
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════
 app.on('window-all-closed', (e) => {
   e.preventDefault();
 });
@@ -2498,9 +2498,9 @@ app.on('second-instance', () => {
 app.whenReady().then(async () => {
   projectRoot = findProjectRoot();
 
-  // Se a busca automÃ¡tica falhou (instalador em Program Files, primeira execuÃ§Ã£o),
-  // abre o diÃ¡logo pro usuÃ¡rio apontar manualmente. O caminho Ã© salvo em settings
-  // e usado em todas as sessÃµes seguintes.
+  // Se a busca automática falhou (instalador em Program Files, primeira execução),
+  // abre o diálogo pro usuário apontar manualmente. O caminho é salvo em settings
+  // e usado em todas as sessões seguintes.
   if (!projectRoot) {
     const picked = await promptForProjectRoot();
     if (picked) {
@@ -2514,9 +2514,9 @@ app.whenReady().then(async () => {
       ].join('\n');
       dialog.showErrorBox(
         'OneClick ERP',
-        'ConfiguraÃ§Ã£o obrigatÃ³ria cancelada.\n\n'
-        + 'O Service Manager precisa saber onde estÃ¡ o projeto OneClick_Code para gerenciar os serviÃ§os.\n\n'
-        + 'Abra novamente o app e selecione a pasta do projeto (ou ajuste em ConfiguraÃ§Ãµes depois de uma execuÃ§Ã£o em modo dev).\n\n'
+        'Configuração obrigatória cancelada.\n\n'
+        + 'O Service Manager precisa saber onde está o projeto OneClick_Code para gerenciar os serviços.\n\n'
+        + 'Abra novamente o app e selecione a pasta do projeto (ou ajuste em Configurações depois de uma execução em modo dev).\n\n'
         + debugInfo,
       );
       app.quit();
@@ -2528,7 +2528,7 @@ app.whenReady().then(async () => {
   services.api.cwd = path.join(projectRoot, 'apps', 'api');
   services.web.cwd = path.join(projectRoot, 'apps', 'web');
 
-  // Persiste o projectRoot resolvido (se foi via auto-detect, salva pra prÃ³xima sessÃ£o)
+  // Persiste o projectRoot resolvido (se foi via auto-detect, salva pra próxima sessão)
   const settings = loadSettings();
   if (settings.projectDir !== projectRoot) {
     settings.projectDir = projectRoot;
@@ -2541,8 +2541,8 @@ app.whenReady().then(async () => {
   createTray();
   createMainWindow();
 
-  // Inicia o NFe Watcher (monitora pastas locais dos clientes) â€” em try total,
-  // qualquer erro aqui NÃƒO pode travar o Launcher.
+  // Inicia o NFe Watcher (monitora pastas locais dos clientes) — em try total,
+  // qualquer erro aqui NÃO pode travar o Launcher.
   setTimeout(() => {
     try {
       const NfeWatcherClass = loadNfeWatcherModule();
@@ -2555,7 +2555,7 @@ app.whenReady().then(async () => {
       const match = envContent.match(/^LAUNCHER_DAEMON_SECRET=(.+)$/m);
       const secret = match ? match[1].trim() : null;
       if (!secret) {
-        console.log('[NfeWatcher] LAUNCHER_DAEMON_SECRET ausente â€” watcher desligado');
+        console.log('[NfeWatcher] LAUNCHER_DAEMON_SECRET ausente — watcher desligado');
         return;
       }
 
@@ -2568,11 +2568,11 @@ app.whenReady().then(async () => {
           }
         },
       });
-      // Auto-start desabilitado por padrÃ£o â€” user precisa disparar via IPC
+      // Auto-start desabilitado por padrão — user precisa disparar via IPC
       // (`nfe-watcher:start`) ou via UI futura. Isso evita travamentos durante boot.
-      console.log('[NfeWatcher] Inicializado (parado). Dispare manualmente pra comeÃ§ar a monitorar.');
+      console.log('[NfeWatcher] Inicializado (parado). Dispare manualmente pra começar a monitorar.');
     } catch (e) {
-      console.error('[NfeWatcher] Erro fatal â€” ignorado:', e.message);
+      console.error('[NfeWatcher] Erro fatal — ignorado:', e.message);
     }
   }, 0);
 
@@ -2588,7 +2588,7 @@ app.whenReady().then(async () => {
 
   // Auto-start all services if configured
   if (settings.autoStartServices) {
-    sendNotification('OneClick ERP', 'Iniciando todos os serviÃ§os automaticamente...');
+    sendNotification('OneClick ERP', 'Iniciando todos os serviços automaticamente...');
     await sleep(2000);
     startAllServices();
   }
