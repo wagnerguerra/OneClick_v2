@@ -29,4 +29,21 @@ config.resolver.unstable_enablePackageExports = true
 config.server = config.server || {}
 config.server.unstable_serverRoot = projectRoot
 
+// React DUPLICADO (causa de "Cannot read property 'useContext' of null" no boot):
+// monorepo com web (React 19) + mobile (React 18.3.1) e node-linker=hoisted faz o
+// react-native (içado p/ a raiz) resolver o react da RAIZ (19), enquanto o app usa
+// o 18.3.1 aninhado em apps/mobile/node_modules → DUAS cópias de React → o
+// dispatcher de hooks quebra. Forçamos TODO react/react-dom (e subpaths como
+// react/jsx-runtime) p/ a cópia 18.3.1 do mobile, independente do hoisting.
+const reactNm = path.resolve(projectRoot, 'node_modules')
+const baseResolveRequest = config.resolver.resolveRequest
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (/^react($|\/)/.test(moduleName) || /^react-dom($|\/)/.test(moduleName)) {
+    try {
+      return { type: 'sourceFile', filePath: require.resolve(moduleName, { paths: [reactNm] }) }
+    } catch {}
+  }
+  return (baseResolveRequest ?? context.resolveRequest)(context, moduleName, platform)
+}
+
 module.exports = withNativeWind(config, { input: './src/global.css' })
