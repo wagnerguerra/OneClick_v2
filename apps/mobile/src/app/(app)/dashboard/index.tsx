@@ -24,7 +24,6 @@ import { MenuButton } from '@/components/navigation/menu-button'
 import { Spinner } from '@/components/ui/spinner'
 import { StatCard } from '@/components/ui/stat-card'
 import { Text } from '@/components/ui/text'
-import { cn } from '@/lib/cn'
 import { useSession } from '@/lib/auth-client'
 import { usePermissions } from '@/lib/use-permissions'
 import { trpc } from '@/lib/trpc'
@@ -211,7 +210,6 @@ export default function DashboardScreen() {
               eventos={eventosHoje}
               loading={eventosQuery.isPending}
               isDark={isDark}
-              agora={agora}
               onVerEvento={(id) => router.push(`/agenda/${id}`)}
               onAdicionar={() => router.push('/agenda/novo')}
             />
@@ -349,49 +347,32 @@ function ArcoSemi({
 }
 
 /**
- * Grade de horários do dia (faixas de 30 min, 09:00→12:30). Cada evento com
- * `horaInicio` casando um slot vira um bloco colorido pela cor do TIPO (mesma
- * resolução da tela Agenda). A hora atual é destacada em azul; o primeiro slot
- * livre exibe o atalho "Toque para adicionar um evento".
+ * Lista os eventos de HOJE (todos, em qualquer horário) — não mais uma grade
+ * fixa de 09:00→12:30, que escondia eventos antes/depois da janela, dia-inteiro
+ * ou em horário quebrado. Ordena dia-inteiro primeiro, depois por horaInicio.
+ * Cada item é um bloco colorido pela cor do TIPO (mesma resolução da Agenda) com
+ * o horário; sem eventos, mostra o atalho de adicionar. Tocar abre a Agenda.
  */
 function DayAgenda({
   eventos,
   loading,
   isDark,
-  agora,
   onVerEvento,
   onAdicionar,
 }: {
   eventos: EventoAgenda[]
   loading: boolean
   isDark: boolean
-  agora: Date
   onVerEvento: (id: string) => void
   onAdicionar: () => void
 }) {
-  // Faixas fixas de 30 min cobrindo o miolo do expediente.
-  const slots = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30']
-
-  // Slot "agora": arredonda a hora local pra baixo no múltiplo de 30 min.
-  const slotAgora = useMemo(() => {
-    const h = agora.getHours()
-    const m = agora.getMinutes() < 30 ? '00' : '30'
-    return `${String(h).padStart(2, '0')}:${m}`
-  }, [agora])
-
-  // Mapa slot → evento (primeiro evento cujo horaInicio cai no slot).
-  const porSlot = useMemo(() => {
-    const mapa = new Map<string, EventoAgenda>()
-    for (const ev of eventos) {
-      if (ev.diaInteiro || !ev.horaInicio) continue
-      const chave = ev.horaInicio.slice(0, 5)
-      if (!mapa.has(chave)) mapa.set(chave, ev)
-    }
-    return mapa
+  // Ordena: dia-inteiro primeiro, depois por horaInicio crescente.
+  const ordenados = useMemo(() => {
+    return [...eventos].sort((a, b) => {
+      if (a.diaInteiro !== b.diaInteiro) return a.diaInteiro ? -1 : 1
+      return (a.horaInicio ?? '').localeCompare(b.horaInicio ?? '')
+    })
   }, [eventos])
-
-  // Primeiro slot vago (sem evento) recebe o atalho de adicionar.
-  const slotAdicionar = slots.find((s) => !porSlot.has(s)) ?? null
 
   if (loading) {
     return (
@@ -401,53 +382,41 @@ function DayAgenda({
     )
   }
 
-  return (
-    <View>
-      {slots.map((s, i) => {
-        const ev = porSlot.get(s)
-        const ehAgora = s === slotAgora
-        const ehAdicionar = !ev && s === slotAdicionar
-        return (
-          <View
-            key={s}
-            className={cn('flex-row items-stretch gap-3', i > 0 && 'border-t border-border')}
-          >
-            <Text
-              className={cn(
-                'w-11 pt-2.5 text-[12px]',
-                ehAgora ? 'font-bold text-primary' : 'text-muted-foreground',
-              )}
-              style={{ fontVariant: ['tabular-nums'] }}
-            >
-              {s}
-            </Text>
+  if (ordenados.length === 0) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Adicionar um evento"
+        onPress={onAdicionar}
+        className="flex-row items-center gap-2.5 rounded-xl bg-muted p-3 active:opacity-80"
+      >
+        <View className="my-0.5 w-[3px] self-stretch rounded-full bg-muted-foreground" />
+        <Text className="flex-1 text-[13px] text-muted-foreground">
+          Nenhum evento hoje. Toque para adicionar.
+        </Text>
+      </Pressable>
+    )
+  }
 
-            <View className="flex-1 min-h-[42px] py-1.5 justify-center">
-              {ev ? (
-                <EventoSlot ev={ev} isDark={isDark} onPress={() => onVerEvento(ev.id)} />
-              ) : ehAdicionar ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Adicionar um evento"
-                  onPress={onAdicionar}
-                  className="flex-row items-stretch gap-2.5 rounded-xl bg-muted pl-2.5 active:opacity-80"
-                >
-                  <View className="my-2 w-[3px] rounded-full bg-muted-foreground" />
-                  <Text className="flex-1 py-2.5 pr-3 text-[13px] text-muted-foreground">
-                    Toque para adicionar um evento
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          </View>
-        )
-      })}
+  return (
+    <View className="gap-1.5">
+      {ordenados.map((ev) => (
+        <EventoLinha key={ev.id} ev={ev} isDark={isDark} onPress={() => onVerEvento(ev.id)} />
+      ))}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Adicionar um evento"
+        onPress={onAdicionar}
+        className="flex-row items-center gap-2 rounded-xl bg-muted px-3 py-2 active:opacity-80"
+      >
+        <Text className="text-[13px] text-muted-foreground">+ Adicionar um evento</Text>
+      </Pressable>
     </View>
   )
 }
 
-/** Bloco de um evento na grade do dia — tinta de fundo + barra na cor do tipo. */
-function EventoSlot({
+/** Bloco de um evento na lista do dia — tinta de fundo + barra na cor do tipo + horário. */
+function EventoLinha({
   ev,
   isDark,
   onPress,
@@ -457,6 +426,9 @@ function EventoSlot({
   onPress: () => void
 }) {
   const cores = resolveTipoCores(ev.tipo)
+  const horario = ev.diaInteiro
+    ? 'Dia inteiro'
+    : [ev.horaInicio?.slice(0, 5), ev.horaFim?.slice(0, 5)].filter(Boolean).join(' – ')
   return (
     <Pressable
       accessibilityRole="button"
@@ -465,13 +437,19 @@ function EventoSlot({
       style={{ backgroundColor: tintHex(cores.bg, isDark ? 0.2 : 0.12) }}
     >
       <View className="my-2 w-[3px] rounded-full" style={{ backgroundColor: cores.bg }} />
-      <Text
-        className="flex-1 py-2.5 pr-3 text-[13px] font-semibold"
-        numberOfLines={2}
-        style={{ color: cores.bg }}
-      >
-        {ev.titulo}
-      </Text>
+      <View className="flex-1 py-2 pr-3">
+        <Text className="text-[13px] font-semibold" numberOfLines={2} style={{ color: cores.bg }}>
+          {ev.titulo}
+        </Text>
+        {horario ? (
+          <Text
+            className="mt-0.5 text-[11px] text-muted-foreground"
+            style={{ fontVariant: ['tabular-nums'] }}
+          >
+            {horario}
+          </Text>
+        ) : null}
+      </View>
     </Pressable>
   )
 }
