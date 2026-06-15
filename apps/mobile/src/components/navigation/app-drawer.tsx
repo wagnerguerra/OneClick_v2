@@ -28,7 +28,7 @@ type AppDrawerProps = {
 }
 
 import { Text } from '@/components/ui/text'
-import { getApiUrl } from '@/lib/api-url'
+import { resolveAssetUrl } from '@/lib/api-url'
 import { authClient, useSession } from '@/lib/auth-client'
 import { cn } from '@/lib/cn'
 import { trpc } from '@/lib/trpc'
@@ -38,11 +38,10 @@ import { destructiveFor, mutedForegroundFor, primaryFor } from '@/lib/theme-colo
 // Marca OneClick — fallback que SEMPRE existe (asset embarcado no bundle).
 const ONECLICK_MARK = require('../../../assets/images/oneclick-mark.png')
 
-// Prefixa URLs relativas (ex.: "/uploads/logo.png") com a base da API.
+// Resolve assets (logo/avatar) — relativas viram absolutas e hosts de dev
+// (localhost/LAN) são reescritos pra base atual. Ver lib/api-url.
 function resolveUrl(url: string | null | undefined): string | null {
-  if (!url) return null
-  if (url.startsWith('http://') || url.startsWith('https://')) return url
-  return `${getApiUrl()}${url.startsWith('/') ? '' : '/'}${url}`
+  return resolveAssetUrl(url)
 }
 
 // Iniciais a partir de um nome (até 2 letras) — fallback de avatar/logo.
@@ -168,7 +167,7 @@ export function AppDrawer(props: AppDrawerProps) {
             <Text className="text-[11px] uppercase tracking-wide text-muted-foreground">
               Empresa
             </Text>
-            <Text className="font-bold text-foreground" numberOfLines={2}>
+            <Text className="font-bold text-foreground" numberOfLines={1} ellipsizeMode="tail">
               {nomeEmpresa}
             </Text>
           </View>

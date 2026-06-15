@@ -18,7 +18,7 @@ import { ListItem } from '@/components/ui/list-item'
 import { SectionHeader } from '@/components/ui/section-header'
 import { SwitchRow } from '@/components/ui/switch-row'
 import { Text } from '@/components/ui/text'
-import { getApiUrl } from '@/lib/api-url'
+import { resolveAssetUrl } from '@/lib/api-url'
 import { authClient, useSession } from '@/lib/auth-client'
 import { trpc } from '@/lib/trpc'
 import { usePushToggle } from '@/lib/use-push-toggle'
@@ -48,11 +48,9 @@ function getInitials(name?: string | null): string {
   return (first + last).toUpperCase()
 }
 
-/** Prefixa URLs relativas (ex.: /uploads/...) com a base da API. */
+/** Resolve assets (avatar/logo) — relativas e hosts de dev (localhost/LAN). */
 function resolveAsset(url?: string | null): string | null {
-  if (!url) return null
-  if (/^https?:\/\//i.test(url)) return url
-  return `${getApiUrl()}${url.startsWith('/') ? '' : '/'}${url}`
+  return resolveAssetUrl(url)
 }
 
 export default function PerfilScreen() {

@@ -27,6 +27,7 @@ import { Text } from '@/components/ui/text'
 import { useSession } from '@/lib/auth-client'
 import { usePermissions } from '@/lib/use-permissions'
 import { trpc } from '@/lib/trpc'
+import { resolveAssetUrl } from '@/lib/api-url'
 
 import { toISODate } from '@/features/agenda/date'
 import { resolveTipoCores } from '@/features/agenda/color'
@@ -61,7 +62,7 @@ export default function DashboardScreen() {
 
   // Primeiro nome do usuário logado (quando disponível) para a saudação.
   const primeiroNome = session?.user?.name?.trim().split(/\s+/)[0] ?? ''
-  const userImage = (session?.user as { image?: string | null } | undefined)?.image ?? null
+  const userImage = resolveAssetUrl((session?.user as { image?: string | null } | undefined)?.image)
 
   // Agora (capturado uma vez por render) — saudação + hora atual da grade.
   const agora = useMemo(() => new Date(), [])
