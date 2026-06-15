@@ -11,6 +11,7 @@ import {
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { resolveAssetUrl } from '@/lib/api-url'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { TarefaModal } from '../_components/tarefa-modal'
 
@@ -26,6 +27,7 @@ interface Tarefa {
   criadorId: string
   criador?: { id: string; name: string; image: string | null }
   lembretes?: Array<{ canal: 'POPUP' | 'EMAIL'; minutosAntes: number }>
+  membros?: Array<{ usuarioId: string; name: string; image: string | null; ciente: boolean }>
 }
 
 type Filtro = 'todas' | 'pendentes' | 'hoje' | 'atrasadas' | 'concluidas'
@@ -55,9 +57,12 @@ export default function TarefasPage() {
 
   useEffect(() => { load() }, [load])
 
+  // Alterna a CIÊNCIA do usuário atual (não o estado geral). A tarefa só fica
+  // concluída quando todos os membros dão ciência (calculado no backend).
   async function toggleConcluida(t: Tarefa) {
+    const minha = (t.membros ?? []).find(m => m.usuarioId === profile?.id)?.ciente ?? t.concluida
     try {
-      await (trpc.agenda.tarefa as any).toggleConcluida.mutate({ id: t.id, concluida: !t.concluida })
+      await (trpc.agenda.tarefa as any).darCiencia.mutate({ id: t.id, ciente: !minha })
       load()
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
@@ -132,7 +137,7 @@ export default function TarefasPage() {
           <div>
             <h1>Tarefas</h1>
             <p className="text-sm text-muted-foreground">
-              Lembretes pessoais com prazo, sem participantes nem conflito de horário.
+              Tarefas com prazo e participantes — concluídas quando todos os membros dão ciência.
             </p>
           </div>
         </div>
@@ -213,6 +218,10 @@ export default function TarefasPage() {
               const atrasada = !t.concluida && diffDias < 0
               const hojeFlag = !t.concluida && diffDias === 0
               const dataFmt = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
+              const membros = t.membros ?? []
+              const minhaCiencia = membros.find(m => m.usuarioId === profile?.id)?.ciente ?? t.concluida
+              const cientes = membros.filter(m => m.ciente).length
+              const multi = membros.length > 1
               return (
                 <div
                   key={t.id}
@@ -225,9 +234,9 @@ export default function TarefasPage() {
                     type="button"
                     onClick={() => toggleConcluida(t)}
                     className="shrink-0 mt-0.5"
-                    title={t.concluida ? 'Desmarcar' : 'Concluir'}
+                    title={minhaCiencia ? 'Remover minha ciência' : 'Dar ciência (concluir minha parte)'}
                   >
-                    {t.concluida
+                    {minhaCiencia
                       ? <CheckSquare className="h-5 w-5 text-emerald-600" />
                       : <Square className="h-5 w-5 text-muted-foreground hover:text-sky-500" />}
                   </button>
@@ -267,6 +276,19 @@ export default function TarefasPage() {
                             {t.criador.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
                           </span>
                           {t.criador.name}
+                        </span>
+                      )}
+                      {multi && (
+                        <span className="inline-flex items-center gap-1.5 text-muted-foreground" title="Membros e ciência">
+                          <span className="flex -space-x-1.5">
+                            {membros.slice(0, 5).map(m => (
+                              <span key={m.usuarioId} title={`${m.name} · ${m.ciente ? 'ciente' : 'pendente'}`}
+                                className={cn('h-4 w-4 rounded-full ring-1 bg-muted flex items-center justify-center text-[8px] font-bold uppercase overflow-hidden', m.ciente ? 'ring-emerald-500' : 'ring-border opacity-50')}>
+                                {m.image ? <img src={resolveAssetUrl(m.image)} alt="" className="h-full w-full object-cover" /> : (m.name?.[0] ?? '?')}
+                              </span>
+                            ))}
+                          </span>
+                          <span className={cn(cientes === membros.length ? 'text-emerald-600 dark:text-emerald-400 font-medium' : '')}>{cientes}/{membros.length} cientes</span>
                         </span>
                       )}
                     </div>

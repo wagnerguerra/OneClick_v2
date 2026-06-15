@@ -251,6 +251,7 @@ model User {
   eventoCriados          AgendaEvento[]          @relation("EventoCriador")
   eventoParticipacoes    AgendaParticipante[]    @relation("EventoParticipante")
   tarefasCriadas         AgendaTarefa[]          @relation("TarefaCriador")
+  tarefaParticipacoes    AgendaTarefaParticipante[] @relation("TarefaParticipante")
   helpdeskSolicitados    HelpdeskTicket[]        @relation("HelpdeskTicketSolicitante")
   helpdeskResponsavel    HelpdeskTicket[]        @relation("HelpdeskTicketResponsavel")
   helpdeskMensagens      HelpdeskMensagem[]
@@ -2237,6 +2238,7 @@ model AgendaTarefa {
   empresaId      String?   @map("empresa_id")
 
   lembretes      AgendaTarefaLembrete[]
+  participantes  AgendaTarefaParticipante[]
 
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
@@ -2245,6 +2247,23 @@ model AgendaTarefa {
   @@index([prazo])
   @@index([empresaId])
   @@map("agenda_tarefas")
+}
+
+/// Membro de uma tarefa (criador + participantes). Cada membro dá CIÊNCIA da
+/// finalização (cienteEm). Quando todos os membros estão cientes, a tarefa é
+/// considerada concluída (AgendaTarefa.concluida — recalculado no service).
+model AgendaTarefaParticipante {
+  id        String       @id @default(cuid())
+  tarefaId  String       @map("tarefa_id")
+  tarefa    AgendaTarefa @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
+  usuarioId String       @map("usuario_id")
+  usuario   User         @relation("TarefaParticipante", fields: [usuarioId], references: [id])
+  cienteEm  DateTime?    @map("ciente_em")
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  @@unique([tarefaId, usuarioId])
+  @@index([usuarioId])
+  @@map("agenda_tarefa_participantes")
 }
 
 /// Lembrete pra uma tarefa — mesma semântica do AgendaLembrete mas pra

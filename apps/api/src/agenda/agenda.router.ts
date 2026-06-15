@@ -391,6 +391,7 @@ export function createAgendaRouter(
           prazo: z.string(),                                          // yyyy-MM-dd
           horaPrazo: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
           prioridade: z.enum(['BAIXA', 'NORMAL', 'ALTA']).optional(),
+          participantes: z.array(z.string()).optional(),              // ids de usuários (membros)
         }))
         .mutation(({ input, ctx }) => tarefaService.create({ ...input, empresaId: ctx.empresaId }, ctx.userId)),
       update: writeProcedure(MODULE)
@@ -402,12 +403,18 @@ export function createAgendaRouter(
             prazo: z.string().optional(),
             horaPrazo: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
             prioridade: z.enum(['BAIXA', 'NORMAL', 'ALTA']).optional(),
+            participantes: z.array(z.string()).optional(),
           }),
         }))
         .mutation(({ input }) => tarefaService.update(input.id, input.data)),
+      // "Concluir" = o usuário atual dá ciência da finalização. A tarefa só
+      // fica concluída quando TODOS os membros derem ciência (recalc no service).
       toggleConcluida: writeProcedure(MODULE)
         .input(z.object({ id: z.string(), concluida: z.boolean() }))
-        .mutation(({ input }) => tarefaService.toggleConcluida(input.id, input.concluida)),
+        .mutation(({ input, ctx }) => tarefaService.darCiencia(input.id, ctx.userId, input.concluida)),
+      darCiencia: writeProcedure(MODULE)
+        .input(z.object({ id: z.string(), ciente: z.boolean() }))
+        .mutation(({ input, ctx }) => tarefaService.darCiencia(input.id, ctx.userId, input.ciente)),
       delete: deleteProcedure(MODULE)
         .input(z.object({ id: z.string() }))
         .mutation(({ input }) => tarefaService.delete(input.id)),

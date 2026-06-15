@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react'
 import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  Checkbox, RichEditor, Badge, cn,
+  RichEditor, cn,
 } from '@saas/ui'
-import { Plus, Edit2, Loader2, X, Bell, Mail, CheckSquare } from 'lucide-react'
+import { Plus, Edit2, Loader2, X, Bell, Mail, CheckSquare, Users } from 'lucide-react'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { resolveAssetUrl } from '@/lib/api-url'
 
 type LembreteForm = { canal: 'POPUP' | 'EMAIL'; minutosAntes: number }
 
@@ -17,16 +18,18 @@ interface TarefaExistente {
   id: string
   titulo: string
   descricao: string | null
-  prazo: string                                  // ISO
+  prazo: string
   horaPrazo: string | null
   prioridade: 'BAIXA' | 'NORMAL' | 'ALTA'
   lembretes?: Array<{ canal: 'POPUP' | 'EMAIL'; minutosAntes: number }>
+  criador?: { id: string } | null
+  membros?: Array<{ usuarioId: string }>
 }
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  tarefa?: TarefaExistente | null              // null/undefined = criar; preenchido = editar
+  tarefa?: TarefaExistente | null
   onSaved: () => void
 }
 
@@ -56,12 +59,15 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved }: Props) {
     prioridade: 'NORMAL' as 'BAIXA' | 'NORMAL' | 'ALTA',
   })
   const [lembretes, setLembretes] = useState<LembreteForm[]>([])
+  const [participantes, setParticipantes] = useState<string[]>([])  // ids (sem o criador)
+  const [usuarios, setUsuarios] = useState<Array<{ id: string; name: string; image: string | null }>>([])
   const [novoLembreteAntes, setNovoLembreteAntes] = useState('30')
   const [novoLembreteCanal, setNovoLembreteCanal] = useState<'POPUP' | 'EMAIL'>('POPUP')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!open) return
+    ;(trpc.agenda as any).listUsuarios.query().then((u: any[]) => setUsuarios(u ?? [])).catch(() => {})
     if (tarefa) {
       setForm({
         titulo: tarefa.titulo,
@@ -71,23 +77,19 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved }: Props) {
         prioridade: tarefa.prioridade,
       })
       setLembretes(tarefa.lembretes?.map(l => ({ canal: l.canal, minutosAntes: l.minutosAntes })) ?? [])
+      const criadorId = tarefa.criador?.id
+      setParticipantes((tarefa.membros ?? []).map(m => m.usuarioId).filter(id => id !== criadorId))
     } else {
-      setForm({
-        titulo: '',
-        descricao: '',
-        prazo: new Date().toISOString().slice(0, 10),
-        horaPrazo: '',
-        prioridade: 'NORMAL',
-      })
+      setForm({ titulo: '', descricao: '', prazo: new Date().toISOString().slice(0, 10), horaPrazo: '', prioridade: 'NORMAL' })
       setLembretes([])
+      setParticipantes([])
     }
   }, [open, tarefa])
 
+  const disponiveis = usuarios.filter(u => !participantes.includes(u.id) && u.id !== tarefa?.criador?.id)
+
   async function handleSave() {
-    if (!form.titulo.trim()) {
-      alerts.error('Erro', 'Título é obrigatório.')
-      return
-    }
+    if (!form.titulo.trim()) { alerts.error('Erro', 'Título é obrigatório.'); return }
     setSaving(true)
     try {
       let tarefaId: string
@@ -97,6 +99,7 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved }: Props) {
         prazo: form.prazo,
         horaPrazo: form.horaPrazo || null,
         prioridade: form.prioridade,
+        participantes,
       }
       if (isEdit && tarefa) {
         await (trpc.agenda.tarefa as any).update.mutate({ id: tarefa.id, data: payload })
@@ -105,7 +108,6 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved }: Props) {
         const criada = await (trpc.agenda.tarefa as any).create.mutate(payload) as { id: string }
         tarefaId = criada.id
       }
-      // Sync lembretes (mesmo que vazio — apaga todos)
       await (trpc.agenda.tarefa.lembrete as any).save.mutate({ tarefaId, lembretes })
         .catch((e: Error) => console.error('[Tarefa] save lembretes:', e.message))
       alerts.success(isEdit ? 'Tarefa atualizada' : 'Tarefa criada', '')
@@ -124,41 +126,25 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved }: Props) {
         <DialogHeaderIcon icon={isEdit ? Edit2 : Plus} color={isEdit ? 'sky' : 'emerald'}>
           <DialogTitle>{isEdit ? 'Editar tarefa' : 'Nova tarefa'}</DialogTitle>
           <DialogDescription>
-            {isEdit ? 'Atualize os dados da tarefa.' : 'Crie uma tarefa simples com prazo. Sem participantes, sem conflito de horário.'}
+            {isEdit ? 'Atualize os dados da tarefa.' : 'Crie uma tarefa com prazo e participantes. Cada participante dá ciência da conclusão.'}
           </DialogDescription>
         </DialogHeaderIcon>
         <DialogBody className="space-y-4">
           {/* Título */}
           <div className="space-y-1.5">
             <Label className="text-[13px] font-semibold">Título *</Label>
-            <Input
-              className="h-9 text-sm"
-              value={form.titulo}
-              onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
-              placeholder="O que precisa ser feito?"
-              autoFocus
-            />
+            <Input className="h-9 text-sm" value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} placeholder="O que precisa ser feito?" autoFocus />
           </div>
 
           {/* Prazo + Hora + Prioridade */}
           <div className="grid grid-cols-12 gap-3">
             <div className="col-span-5 space-y-1.5">
               <Label className="text-[13px] font-semibold">Prazo *</Label>
-              <Input
-                type="date"
-                className="h-9 text-sm"
-                value={form.prazo}
-                onChange={e => setForm(f => ({ ...f, prazo: e.target.value }))}
-              />
+              <Input type="date" className="h-9 text-sm" value={form.prazo} onChange={e => setForm(f => ({ ...f, prazo: e.target.value }))} />
             </div>
             <div className="col-span-3 space-y-1.5">
-              <Label className="text-[13px] font-semibold">Hora <span className="text-[10px] font-normal text-muted-foreground">(opcional)</span></Label>
-              <Input
-                type="time"
-                className="h-9 text-sm"
-                value={form.horaPrazo}
-                onChange={e => setForm(f => ({ ...f, horaPrazo: e.target.value }))}
-              />
+              <Label className="text-[13px] font-semibold">Hora <span className="text-[10px] font-normal text-muted-foreground">(opc.)</span></Label>
+              <Input type="time" className="h-9 text-sm" value={form.horaPrazo} onChange={e => setForm(f => ({ ...f, horaPrazo: e.target.value }))} />
             </div>
             <div className="col-span-4 space-y-1.5">
               <Label className="text-[13px] font-semibold">Prioridade</Label>
@@ -173,42 +159,56 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved }: Props) {
             </div>
           </div>
 
+          {/* Participantes */}
+          <div className="space-y-1.5">
+            <Label className="text-[13px] font-semibold flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-muted-foreground" /> Participantes
+              <span className="text-[10px] font-normal text-muted-foreground ml-1">(além de você; todos dão ciência da conclusão)</span>
+            </Label>
+            {participantes.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-1.5">
+                {participantes.map(id => {
+                  const u = usuarios.find(x => x.id === id)
+                  return (
+                    <span key={id} className="flex items-center gap-1.5 text-[11px] pl-1 pr-2 py-0.5 rounded-full bg-muted">
+                      {u?.image ? <img src={resolveAssetUrl(u.image)} alt="" className="h-4 w-4 rounded-full object-cover" /> : <span className="h-4 w-4 rounded-full bg-emerald-500 text-white text-[8px] flex items-center justify-center">{(u?.name ?? '?')[0]}</span>}
+                      {u?.name ?? id}
+                      <button type="button" onClick={() => setParticipantes(arr => arr.filter(x => x !== id))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
+                    </span>
+                  )
+                })}
+              </div>
+            )}
+            <Select value="" onValueChange={(v) => { if (v) setParticipantes(arr => [...arr, v]) }}>
+              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Adicionar participante…" /></SelectTrigger>
+              <SelectContent>
+                {disponiveis.length === 0
+                  ? <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhum usuário disponível</div>
+                  : disponiveis.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Descrição */}
           <div className="space-y-1.5">
             <Label className="text-[13px] font-semibold">Descrição</Label>
-            <RichEditor
-              value={form.descricao}
-              onChange={html => setForm(f => ({ ...f, descricao: html }))}
-              placeholder="Detalhes da tarefa (opcional)..."
-              className="min-h-[80px]"
-            />
+            <RichEditor value={form.descricao} onChange={html => setForm(f => ({ ...f, descricao: html }))} placeholder="Detalhes da tarefa (opcional)..." className="min-h-[80px]" />
           </div>
 
           {/* Lembretes */}
           <div className="space-y-1.5">
             <Label className="text-[13px] font-semibold flex items-center gap-1.5">
-              <Bell className="h-3.5 w-3.5 text-muted-foreground" />
-              Lembretes
+              <Bell className="h-3.5 w-3.5 text-muted-foreground" /> Lembretes
               <span className="text-[10px] font-normal text-muted-foreground ml-auto">{lembretes.length}/10</span>
             </Label>
             {lembretes.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-1.5">
                 {lembretes.map((l, idx) => (
-                  <span key={idx} className={cn(
-                    'flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full',
-                    l.canal === 'EMAIL'
-                      ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400'
-                      : 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400',
-                  )}>
+                  <span key={idx} className={cn('flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full',
+                    l.canal === 'EMAIL' ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400' : 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400')}>
                     {l.canal === 'EMAIL' ? <Mail className="h-3 w-3" /> : <Bell className="h-3 w-3" />}
                     {formatarMinutosAntes(l.minutosAntes)}
-                    <button
-                      type="button"
-                      onClick={() => setLembretes(arr => arr.filter((_, i) => i !== idx))}
-                      className="hover:text-red-500"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
+                    <button type="button" onClick={() => setLembretes(arr => arr.filter((_, i) => i !== idx))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
                   </span>
                 ))}
               </div>
@@ -216,9 +216,7 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved }: Props) {
             <div className="flex gap-2">
               <Select value={novoLembreteAntes} onValueChange={setNovoLembreteAntes}>
                 <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {PRESETS_LEMBRETE.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{PRESETS_LEMBRETE.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
               </Select>
               <Select value={novoLembreteCanal} onValueChange={v => setNovoLembreteCanal(v as 'POPUP' | 'EMAIL')}>
                 <SelectTrigger className="h-8 text-xs w-[130px]"><SelectValue /></SelectTrigger>
@@ -227,19 +225,13 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved }: Props) {
                   <SelectItem value="EMAIL">E-mail</SelectItem>
                 </SelectContent>
               </Select>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs"
-                disabled={lembretes.length >= 10}
+              <Button type="button" variant="outline" size="sm" className="h-8 text-xs" disabled={lembretes.length >= 10}
                 onClick={() => {
                   const min = parseInt(novoLembreteAntes, 10)
                   if (!Number.isFinite(min) || min < 1) return
                   if (lembretes.some(l => l.canal === novoLembreteCanal && l.minutosAntes === min)) return
                   setLembretes(arr => [...arr, { canal: novoLembreteCanal, minutosAntes: min }])
-                }}
-              >
+                }}>
                 <Plus className="h-3 w-3 mr-1" />Adicionar
               </Button>
             </div>
