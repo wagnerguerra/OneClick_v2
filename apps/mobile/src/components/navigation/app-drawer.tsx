@@ -15,7 +15,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Pressable, ScrollView, useColorScheme, View } from 'react-native'
+import { Pressable, ScrollView, View } from 'react-native'
+import { useColorScheme } from 'nativewind'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 // SDK 56: o expo-router vendoriza o react-navigation; importar
@@ -79,7 +80,7 @@ const ITENS_MENU: ItemModulo[] = [
 export function AppDrawer(props: AppDrawerProps) {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const isDark = useColorScheme() === 'dark'
+  const isDark = useColorScheme().colorScheme === 'dark'
 
   // Cor literal pra ícones Ionicons (não herdam tokens do NativeWind).
   const iconActive = primaryFor(isDark) // primary (azul)

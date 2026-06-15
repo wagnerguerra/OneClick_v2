@@ -11,7 +11,8 @@
 
 import { Ionicons } from '@expo/vector-icons'
 import { usePathname, useRouter } from 'expo-router'
-import { Pressable, useColorScheme, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { useColorScheme } from 'nativewind'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { Text } from '@/components/ui/text'
@@ -41,7 +42,7 @@ export function BottomTabBar() {
   const router = useRouter()
   const pathname = usePathname()
   const insets = useSafeAreaInsets()
-  const isDark = useColorScheme() === 'dark'
+  const isDark = useColorScheme().colorScheme === 'dark'
   const { podeVer } = usePermissions()
 
   const corAtiva = primaryFor(isDark)

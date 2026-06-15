@@ -1,7 +1,8 @@
 import type { ComponentProps } from 'react'
 import { Redirect } from 'expo-router'
 import { Drawer } from 'expo-router/drawer'
-import { ActivityIndicator, useColorScheme, View } from 'react-native'
+import { ActivityIndicator, View } from 'react-native'
+import { useColorScheme } from 'nativewind'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 
 import { AppDrawer } from '@/components/navigation/app-drawer'
@@ -17,7 +18,7 @@ export default function AppLayout() {
   // manter a ordem dos hooks estável.
   usePushRegistration()
   useUpdateCheck()
-  const isDark = useColorScheme() === 'dark'
+  const isDark = useColorScheme().colorScheme === 'dark'
 
   // NativeWind className não se aplica em screenOptions → cor (card) via hex por tema.
   // Espelha o token --card da identidade nova (#1a2438 escuro / #ffffff claro).

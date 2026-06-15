@@ -13,7 +13,8 @@
 // Pressable/View/Text (RN). Dados reais via tRPC (sem mocks).
 
 import { useMemo } from 'react'
-import { Pressable, ScrollView, useColorScheme, View } from 'react-native'
+import { Pressable, ScrollView, View } from 'react-native'
+import { useColorScheme } from 'nativewind'
 import { useRouter } from 'expo-router'
 import { Image } from 'expo-image'
 
@@ -56,7 +57,7 @@ function saudacao(d: Date): string {
 
 export default function DashboardScreen() {
   const router = useRouter()
-  const isDark = useColorScheme() === 'dark'
+  const isDark = useColorScheme().colorScheme === 'dark'
   const { data: session } = useSession()
   const { podeVer } = usePermissions()
 

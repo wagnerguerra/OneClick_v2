@@ -6,7 +6,7 @@
 // de tema (sem hex hardcoded, exceto cores de ícone/Image que o RN exige).
 
 import { useState } from 'react'
-import { Image, ScrollView, View } from 'react-native'
+import { Alert, Image, ScrollView, View } from 'react-native'
 import { useRouter } from 'expo-router'
 
 import { AppScreen } from '@/components/navigation/app-screen'
@@ -19,6 +19,8 @@ import { SectionHeader } from '@/components/ui/section-header'
 import { SwitchRow } from '@/components/ui/switch-row'
 import { Text } from '@/components/ui/text'
 import { resolveAssetUrl } from '@/lib/api-url'
+import { useThemePref } from '@/lib/use-theme'
+import { THEME_LABELS, type ThemePref } from '@/lib/theme-preference'
 import { authClient, useSession } from '@/lib/auth-client'
 import { trpc } from '@/lib/trpc'
 import { usePushToggle } from '@/lib/use-push-toggle'
@@ -63,6 +65,20 @@ export default function PerfilScreen() {
   // Toggle real de notificações push (registra/baixa o token no backend e
   // persiste a preferência no SecureStore).
   const { enabled: pushEnabled, loading: pushLoading, toggle: togglePush } = usePushToggle()
+
+  // Preferência de tema (Automático/Claro/Escuro) — persistida e aplicada na hora.
+  const { pref: temaPref, setPref: setTema } = useThemePref()
+
+  // Seletor de tema (diálogo nativo com as 3 opções).
+  function escolherTema() {
+    const opcao = (p: ThemePref) => ({ text: THEME_LABELS[p], onPress: () => setTema(p) })
+    Alert.alert('Tema', 'Como o app deve exibir as cores?', [
+      opcao('system'),
+      opcao('light'),
+      opcao('dark'),
+      { text: 'Cancelar', style: 'cancel' as const },
+    ])
+  }
 
   // Estado do logout (loading no botão).
   const [signingOut, setSigningOut] = useState(false)
@@ -166,9 +182,14 @@ export default function PerfilScreen() {
               value={pushEnabled}
               onValueChange={togglePush}
             />
-            {/* Sem onPress: linhas de leitura do estado atual (ainda sem backend
-                de troca de tema/idioma). Não são pressionáveis → sem atalho morto. */}
-            <ListItem icon="contrast-outline" title="Tema" trailing="Automático" />
+            {/* Tema: abre o seletor (Automático/Claro/Escuro) e aplica na hora. */}
+            <ListItem
+              icon="contrast-outline"
+              title="Tema"
+              trailing={THEME_LABELS[temaPref]}
+              onPress={escolherTema}
+            />
+            {/* Idioma ainda sem troca → linha de leitura (sem onPress). */}
             <ListItem icon="language-outline" title="Idioma" trailing="Português" />
           </View>
 
