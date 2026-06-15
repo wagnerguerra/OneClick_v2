@@ -5576,3 +5576,61 @@ model FaqArtigo {
   @@index([categoria])
   @@map("faq_artigos")
 }
+
+// ── Painéis de Gestão à Vista (TV) — builder dinâmico ──────────────
+// Painel → Folhas (slides) → Blocos. Os blocos referenciam métricas de um
+// catálogo curado no backend (apps/api/src/painel-tv/metric-catalog.ts).
+// Acesso a dados via SQL raw no service (sem depender de `prisma generate`
+// local); estes models existem p/ o build de produção gerar o client + docs.
+
+model TvPainel {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  nome        String
+  accent      String   @default("#22d3ee")
+  icon        String?
+  ativo       Boolean  @default(true)
+  slideMs     Int      @default(18000) @map("slide_ms")
+  periodoDias Int      @default(30) @map("periodo_dias")
+  ordem       Int      @default(0)
+  empresaId   String?  @map("empresa_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  folhas TvFolha[]
+
+  @@index([empresaId])
+  @@map("tv_painel")
+}
+
+model TvFolha {
+  id        String   @id @default(cuid())
+  painelId  String   @map("painel_id")
+  titulo    String
+  ordem     Int      @default(0)
+  cols      Int      @default(12)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  painel TvPainel  @relation(fields: [painelId], references: [id], onDelete: Cascade)
+  blocos TvBloco[]
+
+  @@index([painelId])
+  @@map("tv_folha")
+}
+
+model TvBloco {
+  id        String   @id @default(cuid())
+  folhaId   String   @map("folha_id")
+  ordem     Int      @default(0)
+  visual    String // kpi | donut | bar | line | table | list
+  metricId  String   @map("metric_id")
+  config    Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  folha TvFolha @relation(fields: [folhaId], references: [id], onDelete: Cascade)
+
+  @@index([folhaId])
+  @@map("tv_bloco")
+}

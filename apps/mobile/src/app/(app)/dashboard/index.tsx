@@ -79,13 +79,20 @@ export default function DashboardScreen() {
   // Total de tarefas (pra derivar o progresso do "plano de hoje").
   const tarefasTodasQuery = trpc.agenda.tarefa.list.useQuery({})
 
-  // Meus chamados — filtramos depois pelos que ainda não estão em status final.
-  const chamadosQuery = trpc.helpdesk.listMeus.useQuery({})
+  // Chamados relevantes — escopo MEUS (sou solicitante, responsável OU watcher),
+  // não só os que abri. Um atendente costuma ter 0 chamados próprios mas vários
+  // atribuídos; o listMeus (só solicitante) zerava o card. Mesmo escopo da tela.
+  const chamadosQuery = trpc.helpdesk.list.useQuery({
+    scope: 'MEUS',
+    arquivado: false,
+    page: 1,
+    limit: 100,
+  })
 
-  // Conta apenas tickets cujo status NÃO é final (CONCLUIDO/CANCELADO).
-  // Estreitamos o tipo para { status } antes de filtrar — o tipo inferido pelo
-  // tRPC é profundo demais e dispara TS2589 (instanciação recursiva) no filter.
-  const chamados = (chamadosQuery.data ?? []) as Array<{ status: HelpdeskStatus }>
+  // helpdesk.list retorna { data, total } paginado. Estreitamos o tipo (o inferido
+  // pelo tRPC é profundo demais e dispara TS2589 no filter) e contamos os abertos.
+  const chamados =
+    (chamadosQuery.data as { data?: Array<{ status: HelpdeskStatus }> } | undefined)?.data ?? []
   const chamadosAbertos = chamados.filter(
     (ticket) => !HELPDESK_STATUS_FINAIS.includes(ticket.status),
   ).length

@@ -99,6 +99,8 @@ import { createDashboardCalendarioRouter } from '../dashboard-calendario/dashboa
 import { HelpdeskService } from '../helpdesk/helpdesk.service'
 import { HelpdeskAiAgentService } from '../helpdesk/helpdesk-ai-agent.service'
 import { createHelpdeskRouter } from '../helpdesk/helpdesk.router'
+import { PainelTvService } from '../painel-tv/painel-tv.service'
+import { createPainelTvRouter } from '../painel-tv/painel-tv.router'
 import { AcessoriasService } from '../acessorias/acessorias.service'
 import { createAcessoriasRouter } from '../acessorias/acessorias.router'
 import { RecorrenciaScheduler } from '../notificacao/recorrencia.scheduler'
@@ -450,6 +452,7 @@ export class TrpcService {
     @Inject(DashboardCalendarioService) private readonly dashboardCalendarioService: DashboardCalendarioService,
     @Inject(HelpdeskService) private readonly helpdeskService: HelpdeskService,
     @Inject(HelpdeskAiAgentService) private readonly helpdeskAiAgent: HelpdeskAiAgentService,
+    @Inject(PainelTvService) private readonly painelTvService: PainelTvService,
     @Inject(AcessoriasService) private readonly acessoriasService: AcessoriasService,
     @Inject(RecorrenciaScheduler) private readonly recorrenciaScheduler: RecorrenciaScheduler,
     @Inject(NotificacaoService) private readonly notificacaoServiceTrpc: NotificacaoService,
@@ -530,6 +533,7 @@ export class TrpcService {
       push: createPushRouter(this.pushService),
       dashboardCalendario: createDashboardCalendarioRouter(this.dashboardCalendarioService),
       helpdesk: createHelpdeskRouter(this.helpdeskService, this.helpdeskAiAgent),
+      painelTv: createPainelTvRouter(this.painelTvService),
       acessorias: createAcessoriasRouter(this.acessoriasService),
       notificacao: createNotificacaoRouter(this.recorrenciaScheduler, this.notificacaoServiceTrpc),
       obrigacao: createObrigacaoRouter(this.obrigacaoService),
