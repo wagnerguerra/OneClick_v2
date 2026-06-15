@@ -234,24 +234,27 @@ export default function PainelEditorPage() {
                   {painel.folhas.map((f: any) => (
                     <div key={f.id}>
                       <SortableFolha folha={f} expanded={activeFolha === f.id} onToggle={() => setActiveFolha((cur) => cur === f.id ? null : f.id)} onRename={() => renomearFolha(f)} onDelete={() => excluirFolha(f)} />
-                      {activeFolha === f.id && (
-                        <div className="mt-1.5 mb-2 ml-3 pl-3 border-l-2 space-y-1.5" style={{ borderColor: accent }}>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Blocos desta folha</span>
-                            <Button size="sm" variant="outline" onClick={abrirNovoBloco} disabled={!catalogo.length}><Plus className="h-4 w-4 mr-1" /> Bloco</Button>
+                      {/* Accordion animado: grid 0fr↔1fr anima a altura nos dois sentidos */}
+                      <div className="grid transition-[grid-template-rows] duration-300 ease-out" style={{ gridTemplateRows: activeFolha === f.id ? '1fr' : '0fr' }}>
+                        <div className="overflow-hidden">
+                          <div className={`mt-1.5 mb-2 ml-3 pl-3 border-l-2 space-y-1.5 transition-opacity duration-200 ${activeFolha === f.id ? 'opacity-100' : 'opacity-0'}`} style={{ borderColor: accent }}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Blocos desta folha</span>
+                              <Button size="sm" variant="outline" onClick={abrirNovoBloco} disabled={!catalogo.length}><Plus className="h-4 w-4 mr-1" /> Bloco</Button>
+                            </div>
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragBlocos}>
+                              <SortableContext items={f.blocos.map((b: any) => b.id)} strategy={verticalListSortingStrategy}>
+                                <div className="space-y-1.5">
+                                  {f.blocos.map((b: any) => (
+                                    <SortableBloco key={b.id} bloco={b} label={b.config?.label ?? metricById[b.metricId]?.label ?? (b.metricId === '__custom__' ? 'Personalizada' : b.metricId)} onEdit={() => abrirEditarBloco(b)} onDuplicate={() => duplicarBloco(b)} onDelete={() => excluirBloco(b)} />
+                                  ))}
+                                  {f.blocos.length === 0 && <p className="text-xs text-muted-foreground py-2">Folha vazia. Adicione blocos do catálogo.</p>}
+                                </div>
+                              </SortableContext>
+                            </DndContext>
                           </div>
-                          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragBlocos}>
-                            <SortableContext items={f.blocos.map((b: any) => b.id)} strategy={verticalListSortingStrategy}>
-                              <div className="space-y-1.5">
-                                {f.blocos.map((b: any) => (
-                                  <SortableBloco key={b.id} bloco={b} label={b.config?.label ?? metricById[b.metricId]?.label ?? (b.metricId === '__custom__' ? 'Personalizada' : b.metricId)} onEdit={() => abrirEditarBloco(b)} onDuplicate={() => duplicarBloco(b)} onDelete={() => excluirBloco(b)} />
-                                ))}
-                                {f.blocos.length === 0 && <p className="text-xs text-muted-foreground py-2">Folha vazia. Adicione blocos do catálogo.</p>}
-                              </div>
-                            </SortableContext>
-                          </DndContext>
                         </div>
-                      )}
+                      </div>
                     </div>
                   ))}
                   {painel.folhas.length === 0 && <p className="text-xs text-muted-foreground py-2">Nenhuma folha. Adicione a primeira.</p>}
