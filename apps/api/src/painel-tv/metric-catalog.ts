@@ -29,6 +29,7 @@ export interface MetricDef {
   kind: MetricKind
   source: SourceName
   visuals: string[] // visuais permitidos p/ este kind
+  comparavel?: boolean // métrica de FLUXO (faz sentido comparar c/ período anterior)
   extract: (src: any) => any
 }
 
@@ -197,9 +198,19 @@ export const METRIC_CATALOG: MetricDef[] = [
     extract: (s) => ({ items: (s?.csatDist ?? []).map((x: any) => ({ name: `${x.nota}★`, value: x.total, color: CSAT_COR[x.nota] ?? '#94a3b8' })) }) },
 ]
 
+// Métricas de FLUXO (contadas/medidas dentro de um período) — únicas onde
+// comparar com o período anterior faz sentido. Estoque/agora (backlog, MRR,
+// vigentes) não tem "anterior" sem snapshots históricos.
+const COMPARAVEL_IDS = new Set<string>([
+  'helpdesk.criados', 'helpdesk.resolvidos', 'helpdesk.sla', 'helpdesk.csat',
+  'helpdesk.mttr', 'helpdesk.tfr', 'helpdesk.reabertura',
+  'comercial.oportunidades', 'comercial.pipeline', 'comercial.conversao',
+])
+METRIC_CATALOG.forEach((m) => { if (COMPARAVEL_IDS.has(m.id)) m.comparavel = true })
+
 export const METRIC_BY_ID: Record<string, MetricDef> = Object.fromEntries(METRIC_CATALOG.map((m) => [m.id, m]))
 
 /** Catálogo enxuto p/ a UI do builder (sem as funções extract). */
 export function catalogForUi() {
-  return METRIC_CATALOG.map(({ id, label, modulo, kind, visuals }) => ({ id, label, modulo, kind, visuals }))
+  return METRIC_CATALOG.map(({ id, label, modulo, kind, visuals, comparavel }) => ({ id, label, modulo, kind, visuals, comparavel: !!comparavel }))
 }

@@ -13,6 +13,7 @@ export interface ResolveCtx {
   userId?: string
   isMaster?: boolean
   periodoDias?: number
+  janela?: { inicio: Date; fim: Date }
 }
 
 function safe<T>(p: Promise<T>): Promise<T | null> {
@@ -96,49 +97,75 @@ export class PainelTvService {
 
     const painelPeriodo = painel.periodoDias ?? 30
     const blocos: any[] = painel.folhas.flatMap((f: any) => f.blocos)
+    const now = new Date()
+    const DAY = 86400000
+    const COMPARABLE_KINDS = ['number', 'currency', 'percent', 'duration', 'rating']
+    const isComparavel = (b: any, def: any) =>
+      !!b.config?.comparar && !!def?.comparavel && COMPARABLE_KINDS.includes(def.kind)
 
-    // Cada bloco pode ter período próprio (config.periodoDias). Agrupamos os
-    // builds por (source, período) pra calcular cada combinação uma só vez.
-    const combos = new Map<string, { source: SourceName; periodo: number }>()
+    // Combos a calcular: janela ATUAL (cur) por (source, período) e janela
+    // ANTERIOR (prev) só onde algum bloco pede comparação.
+    const cur = new Map<string, { source: SourceName; periodo: number }>()
+    const prev = new Map<string, { source: SourceName; periodo: number }>()
     for (const b of blocos) {
       const def = METRIC_BY_ID[b.metricId]
       if (!def) continue
       const periodo = Number(b.config?.periodoDias) || painelPeriodo
-      combos.set(`${def.source}|${periodo}`, { source: def.source, periodo })
+      cur.set(`${def.source}|${periodo}`, { source: def.source, periodo })
+      if (isComparavel(b, def)) prev.set(`${def.source}|${periodo}`, { source: def.source, periodo })
     }
 
     const results: Record<string, any> = {}
-    await Promise.all([...combos.values()].map(async (c) => {
-      results[`${c.source}|${c.periodo}`] = await this.buildSource(c.source, { ...ctx, periodoDias: c.periodo })
-    }))
+    await Promise.all([
+      ...[...cur.values()].map(async (c) => {
+        const janela = { inicio: new Date(now.getTime() - c.periodo * DAY), fim: now }
+        results[`cur|${c.source}|${c.periodo}`] = await this.buildSource(c.source, { ...ctx, periodoDias: c.periodo, janela })
+      }),
+      ...[...prev.values()].map(async (c) => {
+        const janela = { inicio: new Date(now.getTime() - 2 * c.periodo * DAY), fim: new Date(now.getTime() - c.periodo * DAY) }
+        results[`prev|${c.source}|${c.periodo}`] = await this.buildSource(c.source, { ...ctx, periodoDias: c.periodo, janela })
+      }),
+    ])
 
-    // Resolve POR BLOCO (não por métrica): blocos iguais com período/limite
-    // diferentes produzem dados diferentes. Chaveado por bloco.id.
+    // Resolve POR BLOCO (chave bloco.id): mesmo metric com período/limite/comparar
+    // diferentes gera dados diferentes.
     const data: Record<string, any> = {}
     for (const b of blocos) {
       const def = METRIC_BY_ID[b.metricId]
       if (!def) { data[b.id] = null; continue }
       const periodo = Number(b.config?.periodoDias) || painelPeriodo
-      const src = results[`${def.source}|${periodo}`]
       let ex: any
-      try { ex = def.extract(src) ?? {} } catch { ex = {} }
-      // Top-N / limite (listas e distribuições). Default p/ tabela = 9.
+      try { ex = def.extract(results[`cur|${def.source}|${periodo}`]) ?? {} } catch { ex = {} }
       const limite = Number(b.config?.limite) || (def.kind === 'table' ? 9 : 0)
       if (limite > 0) {
         if (Array.isArray(ex.items)) ex.items = ex.items.slice(0, limite)
         if (Array.isArray(ex.rows)) ex.rows = ex.rows.slice(0, limite)
       }
-      data[b.id] = { kind: def.kind, label: def.label, ...ex }
+      const payload: any = { kind: def.kind, label: def.label, ...ex }
+      if (isComparavel(b, def)) {
+        let prevEx: any
+        try { prevEx = def.extract(results[`prev|${def.source}|${periodo}`]) ?? {} } catch { prevEx = {} }
+        const atual = Number(ex.value)
+        const anterior = Number(prevEx.value)
+        if (Number.isFinite(atual) && Number.isFinite(anterior)) {
+          payload.comparacao = { anterior, variacaoPct: anterior !== 0 ? Math.round(((atual - anterior) / Math.abs(anterior)) * 100) : null }
+        }
+      }
+      data[b.id] = payload
     }
     return { data, periodoDias: painelPeriodo }
   }
 
   private async buildSource(name: SourceName, ctx: ResolveCtx): Promise<any> {
+    const dias = ctx.periodoDias ?? 30
+    const fim = ctx.janela?.fim ?? new Date()
+    const inicio = ctx.janela?.inicio ?? new Date(fim.getTime() - dias * 86400000)
+    const diasJanela = Math.max(1, Math.round((fim.getTime() - inicio.getTime()) / 86400000))
     if (name === 'comercial') {
       const [crmStats, crmFunil, crmDesempenho, orcStats, orcDash, contratos] = await Promise.all([
         safe(this.crm.getStats(ctx.isMaster ?? false, ctx.empresaId ?? undefined)),
-        safe(this.crm.reportFunil(ctx.empresaId ?? undefined, ctx.periodoDias)),
-        safe(this.crm.reportDesempenho(ctx.empresaId ?? undefined, ctx.periodoDias)),
+        safe(this.crm.reportFunil(ctx.empresaId ?? undefined, diasJanela, fim)),
+        safe(this.crm.reportDesempenho(ctx.empresaId ?? undefined, diasJanela)),
         safe(this.orcamento.getStats(ctx.empresaId ?? undefined)),
         safe(ctx.userId ? this.orcamento.getDashboardStats(ctx.userId, ctx.empresaId ?? undefined) : Promise.resolve(null)),
         safe(this.contrato.reportComercial(ctx.empresaId ?? undefined)),
@@ -146,10 +173,7 @@ export class PainelTvService {
       return { crmStats, crmFunil, crmDesempenho: crmDesempenho ?? [], orcStats, orcDash, contratos }
     }
     if (name === 'helpdesk') {
-      const dias = ctx.periodoDias ?? 30
-      const inicio = new Date(Date.now() - (dias - 1) * 24 * 60 * 60 * 1000).toISOString()
-      const fim = new Date().toISOString()
-      return safe(this.helpdesk.getDashboard(ctx.empresaId ?? null, { inicio, fim }))
+      return safe(this.helpdesk.getDashboard(ctx.empresaId ?? null, { inicio: inicio.toISOString(), fim: fim.toISOString() }))
     }
     return null
   }

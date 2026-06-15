@@ -51,6 +51,7 @@ export function BlocoView({ bloco, data }: { bloco: any; data: Record<string, an
       return (
         <div className="rounded-[1.4vw] border border-white/10 bg-white/[0.035] p-[1.6vw] h-full flex flex-col justify-center">
           <Metric label={label} value={fmtKpi(d)} sub={d.sub} color={color} size={bloco.config?.size ?? 'lg'} />
+          {d.comparacao && <ComparacaoBadge variacaoPct={d.comparacao.variacaoPct} />}
         </div>
       )
 
@@ -219,6 +220,19 @@ function SeriesLegend({ series }: { series: any[] }) {
 
 function Empty() {
   return <div className="flex items-center justify-center h-full text-white/35 text-[1vw]">Sem dados no período</div>
+}
+
+function ComparacaoBadge({ variacaoPct }: { variacaoPct: number | null }) {
+  if (variacaoPct == null) {
+    return <div className="text-[0.9vw] mt-[0.5vw] text-white/40">— vs período anterior</div>
+  }
+  const cor = variacaoPct > 0 ? '#34d399' : variacaoPct < 0 ? '#f87171' : '#94a3b8'
+  const seta = variacaoPct > 0 ? '▲' : variacaoPct < 0 ? '▼' : '—'
+  return (
+    <div className="text-[1vw] mt-[0.5vw] font-bold" style={{ color: cor }}>
+      {seta} {Math.abs(variacaoPct)}% <span className="text-white/40 font-normal text-[0.85vw]">vs período anterior</span>
+    </div>
+  )
 }
 
 // ── Grid de uma folha ─────────────────────────────────────────────

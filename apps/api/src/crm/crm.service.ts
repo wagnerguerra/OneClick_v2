@@ -700,10 +700,15 @@ export class CrmService {
 
   // ── Relatorios ─────────────────────────────────────────────
 
-  async reportFunil(empresaId?: string, dias?: number) {
+  async reportFunil(empresaId?: string, dias?: number, fimRef?: Date) {
     const where: any = {}
     if (empresaId) where.empresaId = empresaId
-    if (dias) where.createdAt = { gte: new Date(Date.now() - dias * 86400000) }
+    if (dias) {
+      // Janela: [fimRef - dias, fimRef]. Sem fimRef o limite superior é "agora"
+      // (comportamento original). fimRef habilita comparar períodos anteriores.
+      const fim = fimRef ?? new Date()
+      where.createdAt = { gte: new Date(fim.getTime() - dias * 86400000), lte: fim }
+    }
 
     const etapas = await prisma.crmEtapa.findMany({
       where: empresaId ? { empresaId } : {},

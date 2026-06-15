@@ -42,7 +42,7 @@ export default function PainelEditorPage() {
 
   // Modal de bloco
   const [blocoModal, setBlocoModal] = useState<{ open: boolean; editId?: string }>({ open: false })
-  const [blocoForm, setBlocoForm] = useState({ metricId: '', visual: '', label: '', colSpan: 6, rowSpan: 1, size: 'lg', color: '', periodoDias: 0, limite: 0 })
+  const [blocoForm, setBlocoForm] = useState({ metricId: '', visual: '', label: '', colSpan: 6, rowSpan: 1, size: 'lg', color: '', periodoDias: 0, limite: 0, comparar: false })
 
   const load = useCallback(async () => {
     try {
@@ -107,12 +107,12 @@ export default function PainelEditorPage() {
   // ── Blocos ──
   const abrirNovoBloco = () => {
     const first = catalogo[0]
-    setBlocoForm({ metricId: first?.id ?? '', visual: first?.visuals?.[0] ?? 'kpi', label: '', colSpan: 6, rowSpan: 1, size: 'lg', color: '', periodoDias: 0, limite: 0 })
+    setBlocoForm({ metricId: first?.id ?? '', visual: first?.visuals?.[0] ?? 'kpi', label: '', colSpan: 6, rowSpan: 1, size: 'lg', color: '', periodoDias: 0, limite: 0, comparar: false })
     setBlocoModal({ open: true })
   }
   const abrirEditarBloco = (b: any) => {
     const c = b.config ?? {}
-    setBlocoForm({ metricId: b.metricId, visual: b.visual, label: c.label ?? '', colSpan: c.colSpan ?? 6, rowSpan: c.rowSpan ?? 1, size: c.size ?? 'lg', color: c.color ?? '', periodoDias: c.periodoDias ?? 0, limite: c.limite ?? 0 })
+    setBlocoForm({ metricId: b.metricId, visual: b.visual, label: c.label ?? '', colSpan: c.colSpan ?? 6, rowSpan: c.rowSpan ?? 1, size: c.size ?? 'lg', color: c.color ?? '', periodoDias: c.periodoDias ?? 0, limite: c.limite ?? 0, comparar: !!c.comparar })
     setBlocoModal({ open: true, editId: b.id })
   }
   const salvarBloco = async () => {
@@ -123,6 +123,7 @@ export default function PainelEditorPage() {
     if (blocoForm.color.trim()) config.color = blocoForm.color.trim()
     if (blocoForm.periodoDias > 0) config.periodoDias = blocoForm.periodoDias
     if (blocoForm.limite > 0) config.limite = blocoForm.limite
+    if (blocoForm.visual === 'kpi' && blocoForm.comparar && metricSel?.comparavel) config.comparar = true
     try {
       if (blocoModal.editId) {
         await (trpc.painelTv as any).updateBloco.mutate({ id: blocoModal.editId, data: { metricId: blocoForm.metricId, visual: blocoForm.visual, config } })
@@ -310,6 +311,12 @@ export default function PainelEditorPage() {
               <label className="text-[13px] font-semibold">Rótulo (opcional)</label>
               <input className={inputCls} placeholder={metricSel?.label ?? ''} value={blocoForm.label} onChange={(e) => setBlocoForm((f) => ({ ...f, label: e.target.value }))} />
             </div>
+            {blocoForm.visual === 'kpi' && metricSel?.comparavel && (
+              <label className="flex items-center gap-2 text-sm cursor-pointer rounded-lg border border-border bg-muted/30 px-3 py-2">
+                <input type="checkbox" checked={blocoForm.comparar} onChange={(e) => setBlocoForm((f) => ({ ...f, comparar: e.target.checked }))} />
+                Comparar com o período anterior (mostra variação %)
+              </label>
+            )}
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBlocoModal({ open: false })}>Cancelar</Button>
