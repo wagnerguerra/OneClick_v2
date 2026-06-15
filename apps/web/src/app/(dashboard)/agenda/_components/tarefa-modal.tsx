@@ -49,6 +49,8 @@ const PRESETS_LEMBRETE: Array<{ value: string; label: string }> = [
   { value: '2880', label: '2 dias antes' },
 ]
 
+const norm = (s: string) => (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
 export function TarefaModal({ open, onOpenChange, tarefa, onSaved }: Props) {
   const isEdit = !!tarefa
   const [form, setForm] = useState({
@@ -61,12 +63,15 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved }: Props) {
   const [lembretes, setLembretes] = useState<LembreteForm[]>([])
   const [participantes, setParticipantes] = useState<string[]>([])  // ids (sem o criador)
   const [usuarios, setUsuarios] = useState<Array<{ id: string; name: string; image: string | null }>>([])
+  const [buscaPart, setBuscaPart] = useState('')
+  const [partAberto, setPartAberto] = useState(false)
   const [novoLembreteAntes, setNovoLembreteAntes] = useState('30')
   const [novoLembreteCanal, setNovoLembreteCanal] = useState<'POPUP' | 'EMAIL'>('POPUP')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!open) return
+    setBuscaPart(''); setPartAberto(false)
     ;(trpc.agenda as any).listUsuarios.query().then((u: any[]) => setUsuarios(u ?? [])).catch(() => {})
     if (tarefa) {
       setForm({
@@ -86,7 +91,9 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved }: Props) {
     }
   }, [open, tarefa])
 
-  const disponiveis = usuarios.filter(u => !participantes.includes(u.id) && u.id !== tarefa?.criador?.id)
+  const disponiveis = usuarios
+    .filter(u => !participantes.includes(u.id) && u.id !== tarefa?.criador?.id)
+    .filter(u => !buscaPart.trim() || norm(u.name).includes(norm(buscaPart)))
 
   async function handleSave() {
     if (!form.titulo.trim()) { alerts.error('Erro', 'Título é obrigatório.'); return }
@@ -179,14 +186,36 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved }: Props) {
                 })}
               </div>
             )}
-            <Select value="" onValueChange={(v) => { if (v) setParticipantes(arr => [...arr, v]) }}>
-              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Adicionar participante…" /></SelectTrigger>
-              <SelectContent>
-                {disponiveis.length === 0
-                  ? <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhum usuário disponível</div>
-                  : disponiveis.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            {/* Busca + lista filtrada (combobox próprio: o @saas/ui não tem) */}
+            <div className="relative">
+              <Input
+                className="h-9 text-sm"
+                placeholder="Buscar e adicionar participante…"
+                value={buscaPart}
+                onChange={e => { setBuscaPart(e.target.value); setPartAberto(true) }}
+                onFocus={() => setPartAberto(true)}
+                onBlur={() => setTimeout(() => setPartAberto(false), 150)}
+              />
+              {partAberto && (
+                <div className="absolute z-50 left-0 right-0 mt-1 max-h-52 overflow-y-auto rounded-md border border-border bg-popover shadow-md">
+                  {disponiveis.length === 0
+                    ? <div className="px-3 py-2 text-xs text-muted-foreground">{buscaPart.trim() ? 'Nenhum usuário encontrado' : 'Nenhum usuário disponível'}</div>
+                    : disponiveis.slice(0, 50).map(u => (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onMouseDown={(e) => { e.preventDefault(); setParticipantes(arr => [...arr, u.id]); setBuscaPart('') }}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-muted"
+                        >
+                          {u.image
+                            ? <img src={resolveAssetUrl(u.image)} alt="" className="h-5 w-5 rounded-full object-cover" />
+                            : <span className="h-5 w-5 rounded-full bg-emerald-500 text-white text-[9px] flex items-center justify-center">{(u.name ?? '?')[0]}</span>}
+                          <span className="truncate">{u.name}</span>
+                        </button>
+                      ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Descrição */}
