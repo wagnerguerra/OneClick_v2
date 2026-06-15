@@ -95,16 +95,24 @@ export class ClienteService {
     let matrizFilter: Prisma.ClienteWhereInput[] = []
     if (agruparMatriz) {
       const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
-        `SELECT id FROM clientes
-         WHERE deleted_at IS NULL
+        `SELECT c.id FROM clientes c
+         WHERE c.deleted_at IS NULL
            AND (
-             tipo_documento <> 'CNPJ'
-             OR documento IS NULL
-             OR documento = ''
-             OR length(documento) <> 14
-             OR substring(documento, 9, 4) = '0001'
+             c.tipo_documento <> 'CNPJ'
+             OR c.documento IS NULL
+             OR c.documento = ''
+             OR length(c.documento) <> 14
+             OR substring(c.documento, 9, 4) = '0001'
+             -- Filial ÓRFÃ: ordem != 0001 mas sem matriz (0001) cadastrada na
+             -- mesma base/escopo. Senão ficaria invisível (não tem onde aninhar).
+             OR substring(c.documento, 1, 8) NOT IN (
+               SELECT substring(documento, 1, 8) FROM clientes
+               WHERE deleted_at IS NULL AND tipo_documento = 'CNPJ'
+                 AND length(documento) = 14 AND substring(documento, 9, 4) = '0001'
+                 ${isMaster ? '' : 'AND empresa_id = $1'}
+             )
            )
-           ${isMaster ? '' : 'AND empresa_id = $1'}`,
+           ${isMaster ? '' : 'AND c.empresa_id = $1'}`,
         ...(isMaster ? [] : [empresaId ?? '']),
       )
       matrizFilter = [{ id: { in: rows.map(r => r.id) } }]
