@@ -73,7 +73,11 @@ ${values};
     leg_total, nossa_base, m_cnpj, m_cnpj_razao, leg_sem_match;
 END $$;
 `;
-  const out = path.join(__dirname, '..', 'packages', 'db', 'prisma', 'sql', '_tmp_match_dtini.sql');
+  // NÃO escrever em packages/db/prisma/sql — essa pasta é aplicada em TODO deploy
+  // (SQLs cirúrgicos). Imports de dados pontuais vão pra scripts/out (fora do deploy).
+  const outDir = path.join(__dirname, 'out');
+  fs.mkdirSync(outDir, { recursive: true });
+  const out = path.join(outDir, '_tmp_match_dtini.sql');
   fs.writeFileSync(out, sql, 'utf8');
 
   // ---- SQL de importação REAL (keyed por CNPJ; preenche só onde está vazio) ----
@@ -96,7 +100,7 @@ UPDATE clientes c
    AND c.data_entrada IS NULL;
 COMMIT;
 `;
-  const impOut = path.join(__dirname, '..', 'packages', 'db', 'prisma', 'sql', 'import_dtini_v1.sql');
+  const impOut = path.join(outDir, 'import_dtini_v1.sql');
   fs.writeFileSync(impOut, importSql, 'utf8');
   console.log('legado ativos-com-data (doc válido):', clean.length);
   console.log('diagnóstico:', out);

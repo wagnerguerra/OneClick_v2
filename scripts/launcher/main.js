@@ -1824,13 +1824,20 @@ function registerIpcHandlers() {
     }
   }
 
-  function sshExec(cfg, remoteCmd, onLine) {
+  // timeoutMs (opcional): se o comando SSH estalar (ex: psql preso em lock), mata em
+  // vez de pendurar o deploy pra sempre. Sem timeoutMs = sem corte (builds longos).
+  function sshExec(cfg, remoteCmd, onLine, timeoutMs) {
     return new Promise((resolve) => {
       const args = [...sshCmd(cfg), remoteCmd]
       const proc = spawn('ssh', args, { windowsHide: true })
       deployTrackProcess(proc, 'ssh')
       let stdoutBuf = ''
       let stderrBuf = ''
+      let timedOut = false
+      const timer = timeoutMs ? setTimeout(() => {
+        timedOut = true
+        try { proc.kill('SIGKILL') } catch {}
+      }, timeoutMs) : null
       proc.stdout.on('data', (d) => {
         const s = d.toString()
         stdoutBuf += s
@@ -1841,8 +1848,14 @@ function registerIpcHandlers() {
         stderrBuf += s
         if (onLine) s.split(/\r?\n/).filter(Boolean).forEach(l => onLine(l))
       })
-      proc.on('close', (code) => resolve({ code, stdout: stdoutBuf, stderr: stderrBuf }))
-      proc.on('error', (err) => resolve({ code: 1, error: err.message, stdout: stdoutBuf, stderr: stderrBuf }))
+      proc.on('close', (code) => {
+        if (timer) clearTimeout(timer)
+        resolve({ code: timedOut ? 124 : code, stdout: stdoutBuf, stderr: stderrBuf, timedOut })
+      })
+      proc.on('error', (err) => {
+        if (timer) clearTimeout(timer)
+        resolve({ code: 1, error: err.message, stdout: stdoutBuf, stderr: stderrBuf, timedOut })
+      })
     })
   }
 
@@ -2105,7 +2118,7 @@ function registerIpcHandlers() {
       deployEmit(66, 'sql', '→ Verificando SQLs cirúrgicos...', 'info')
       deployCheckAbort('sql', 66)
       deployCurrentStep = 'sql'
-      const listSql = await sshExec(cfg, 'ls /opt/oneclick-src/packages/db/prisma/sql/*.sql 2>/dev/null | sort')
+      const listSql = await sshExec(cfg, 'ls /opt/oneclick-src/packages/db/prisma/sql/*.sql 2>/dev/null | sort', null, 30000)
       const sqlFiles = (listSql.stdout || '').trim().split('\n').filter(Boolean)
       if (sqlFiles.length === 0) {
         deployEmit(67, 'sql', '· Nenhum SQL cirúrgico encontrado (skip)', 'info')
@@ -2115,19 +2128,23 @@ function registerIpcHandlers() {
         for (const sqlFile of sqlFiles) {
           const fname = sqlFile.split('/').pop()
           deployEmit(67, 'sql', `  → ${fname}`, 'info')
+          // statement_timeout server-side (120s): se um statement ficar preso em lock,
+          // o psql aborta sozinho em vez de pendurar. + timeout no SSH (130s) como rede.
           const sqlExec = await sshExec(
             cfg,
-            `cat ${sqlFile} | docker exec -i n8n-postgres-1 psql -U oneclick -d oneclick -v ON_ERROR_STOP=1 2>&1`,
+            `( echo "SET statement_timeout='120s';"; cat ${sqlFile} ) | docker exec -i n8n-postgres-1 psql -U oneclick -d oneclick -v ON_ERROR_STOP=1 2>&1`,
             (line) => {
               // Filtra NOTICE/INFO ruidosos do psql
               if (!/^NOTICE:|^INFO:|^DO$|^SET$|^BEGIN$|^COMMIT$|^$/.test(line)) {
                 deployEmit(67, 'sql', `    ${line}`, 'info')
               }
             },
+            130000,
           )
           deployCheckAbort('sql', 68)
           if (sqlExec.code !== 0) {
-            deployEmit(68, 'sql', `✗ ${fname} falhou (code ${sqlExec.code})`, 'err')
+            const motivo = sqlExec.timedOut ? 'timeout 130s (preso em lock?)' : `code ${sqlExec.code}`
+            deployEmit(68, 'sql', `✗ ${fname} falhou (${motivo})`, 'err')
             sqlFailed = true
             break
           }
