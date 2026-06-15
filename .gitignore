@@ -3,6 +3,10 @@
 # dependencies
 node_modules/
 
+# APKs/AABs de distribuição (vão pra VPS via scp, não pro git)
+scripts/mobile-dist/*.apk
+scripts/mobile-dist/*.aab
+
 # Expo
 .expo/
 dist/
