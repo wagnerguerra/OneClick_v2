@@ -28,6 +28,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { useBeneficioFiscalPerms } from '@/hooks/use-beneficio-fiscal'
 import { ServicosCard } from './servicos-card'
 import { ParticularidadesCard } from './particularidades-card'
 import { LegalizacaoCard } from './legalizacao-card'
@@ -2759,33 +2760,56 @@ const MODULE_COLOR_CLIENTES = 'var(--mod-cadastros, #10b981)'
 /* ================================================================== */
 type AtivBenefItem = { id: string; valor: string }
 type OpcaoItem = { id: string; valor: string }
+type BFStatus = 'NO_PRAZO' | 'VENCENDO' | 'VENCIDO' | 'SEM_DATA'
+type BFItem = {
+  id: string; catalogoId: string; beneficioNome: string; dataVencimento: string | null
+  portaria: string | null; processo: string | null; obs: string | null
+  orcamentoId: string | null; orcamentoNumero: number | null; status: BFStatus
+}
+const BF_STATUS_COR: Record<BFStatus, string> = { NO_PRAZO: '#16a34a', VENCENDO: '#d97706', VENCIDO: '#dc2626', SEM_DATA: '#6b7280' }
+function bfFmtData(d: string | null): string {
+  if (!d) return 'Sem data'
+  const dt = new Date(d); return isNaN(dt.getTime()) ? 'Sem data' : dt.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+}
 
 function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
   const { canManageActivitiesBenefits } = useClientesPerms()
+  const bfPerms = useBeneficioFiscalPerms()
   const [atividades, setAtividades] = useState<AtivBenefItem[]>([])
-  const [beneficios, setBeneficios] = useState<AtivBenefItem[]>([])
+  // Benefícios agora vêm do módulo estruturado Benefícios Fiscais (catálogo + vencimento).
+  const [beneficios, setBeneficios] = useState<BFItem[]>([])
+  const [catBenef, setCatBenef] = useState<{ id: string; nome: string; ativo: boolean }[]>([])
   const [loading, setLoading] = useState(true)
   const [optAtividade, setOptAtividade] = useState<OpcaoItem[]>([])
-  const [optBeneficio, setOptBeneficio] = useState<OpcaoItem[]>([])
 
-  // Modal state: { kind: 'atividade'|'beneficio', id?, valor }
-  const [modal, setModal] = useState<{ kind: 'atividade' | 'beneficio'; id?: string; valor: string } | null>(null)
+  // Modal de atividade (texto livre — inalterado)
+  const [modal, setModal] = useState<{ kind: 'atividade'; id?: string; valor: string } | null>(null)
   const [saving, setSaving] = useState(false)
+  // Modal de benefício (estruturado)
+  const [modalBenef, setModalBenef] = useState<null | { id?: string; catalogoId: string; dataVencimento: string; portaria: string; processo: string; obs: string }>(null)
+  const [savingBenef, setSavingBenef] = useState(false)
+
+  function loadBenef() {
+    if (!bfPerms.canRead) { setBeneficios([]); return }
+    ;(trpc as any).beneficioFiscal.list.query({ clienteId }).then((b: BFItem[]) => setBeneficios(b)).catch(() => {})
+  }
 
   function load() {
     Promise.all([
       trpc.cliente.listAtividades.query({ clienteId }) as Promise<AtivBenefItem[]>,
-      trpc.cliente.listBeneficios.query({ clienteId }) as Promise<AtivBenefItem[]>,
     ])
-      .then(([a, b]) => { setAtividades(a); setBeneficios(b) })
+      .then(([a]) => { setAtividades(a) })
       .catch(() => {})
       .finally(() => setLoading(false))
+    loadBenef()
   }
 
   useEffect(() => {
     load()
     ;(trpc.cliente as any).listOpcoes.query({ tipo: 'CLIENTE_ATIVIDADE' }).then((d: OpcaoItem[]) => setOptAtividade(d)).catch(() => {})
-    ;(trpc.cliente as any).listOpcoes.query({ tipo: 'CLIENTE_BENEFICIO' }).then((d: OpcaoItem[]) => setOptBeneficio(d)).catch(() => {})
+    if (bfPerms.canRead) {
+      ;(trpc as any).beneficioFiscal.listCatalogo.query().then((c: { id: string; nome: string; ativo: boolean }[]) => setCatBenef(c)).catch(() => {})
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clienteId])
 
@@ -2793,13 +2817,8 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
     if (!modal || !modal.valor.trim()) return
     setSaving(true)
     try {
-      if (modal.kind === 'atividade') {
-        if (modal.id) await trpc.cliente.updateAtividade.mutate({ id: modal.id, valor: modal.valor })
-        else await trpc.cliente.addAtividade.mutate({ clienteId, valor: modal.valor })
-      } else {
-        if (modal.id) await trpc.cliente.updateBeneficio.mutate({ id: modal.id, valor: modal.valor })
-        else await trpc.cliente.addBeneficio.mutate({ clienteId, valor: modal.valor })
-      }
+      if (modal.id) await trpc.cliente.updateAtividade.mutate({ id: modal.id, valor: modal.valor })
+      else await trpc.cliente.addAtividade.mutate({ clienteId, valor: modal.valor })
       setModal(null)
       load()
       alerts.success('Salvo', 'Registro salvo com sucesso.')
@@ -2808,25 +2827,55 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
     } finally { setSaving(false) }
   }
 
-  async function handleRemove(kind: 'atividade' | 'beneficio', id: string, valor: string) {
+  async function handleRemove(id: string, valor: string) {
     const ok = await alerts.confirmDelete(valor)
     if (!ok) return
     try {
-      if (kind === 'atividade') await trpc.cliente.removeAtividade.mutate({ id })
-      else await trpc.cliente.removeBeneficio.mutate({ id })
+      await trpc.cliente.removeAtividade.mutate({ id })
       load()
     } catch (e) {
       alerts.error('Erro', (e as Error).message || 'Não foi possível excluir.')
     }
   }
 
-  const options = modal?.kind === 'atividade' ? optAtividade : optBeneficio
+  async function handleSaveBenef() {
+    if (!modalBenef || !modalBenef.catalogoId) return
+    setSavingBenef(true)
+    try {
+      const payload = {
+        dataVencimento: modalBenef.dataVencimento || null,
+        portaria: modalBenef.portaria || null,
+        processo: modalBenef.processo || null,
+        obs: modalBenef.obs || null,
+      }
+      if (modalBenef.id) await (trpc as any).beneficioFiscal.update.mutate({ id: modalBenef.id, ...payload })
+      else await (trpc as any).beneficioFiscal.create.mutate({ clienteId, catalogoId: modalBenef.catalogoId, ...payload })
+      setModalBenef(null)
+      loadBenef()
+      alerts.success('Salvo', 'Benefício salvo com sucesso.')
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message || 'Não foi possível salvar.')
+    } finally { setSavingBenef(false) }
+  }
+
+  async function handleRemoveBenef(b: BFItem) {
+    const ok = await alerts.confirmDelete(b.beneficioNome)
+    if (!ok) return
+    try {
+      await (trpc as any).beneficioFiscal.remove.mutate({ id: b.id })
+      loadBenef()
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message || 'Não foi possível excluir.')
+    }
+  }
+
+  const options = optAtividade
 
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-sm font-semibold">Atividades e Benefícios</h4>
-        {canManageActivitiesBenefits && (
+        {(canManageActivitiesBenefits || bfPerms.canWrite) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button type="button" variant="outline" size="sm">
@@ -2834,12 +2883,16 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setModal({ kind: 'atividade', valor: '' })}>
-                <Activity className="h-3.5 w-3.5" /> Atividade
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setModal({ kind: 'beneficio', valor: '' })}>
-                <Percent className="h-3.5 w-3.5" /> Benefício Fiscal
-              </DropdownMenuItem>
+              {canManageActivitiesBenefits && (
+                <DropdownMenuItem onClick={() => setModal({ kind: 'atividade', valor: '' })}>
+                  <Activity className="h-3.5 w-3.5" /> Atividade
+                </DropdownMenuItem>
+              )}
+              {bfPerms.canWrite && (
+                <DropdownMenuItem onClick={() => setModalBenef({ catalogoId: '', dataVencimento: '', portaria: '', processo: '', obs: '' })}>
+                  <Percent className="h-3.5 w-3.5" /> Benefício Fiscal
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
@@ -2870,7 +2923,7 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
                     {canManageActivitiesBenefits && (
                       <AtivBenefActions
                         onEdit={() => setModal({ kind: 'atividade', id: a.id, valor: a.valor })}
-                        onDelete={() => handleRemove('atividade', a.id, a.valor)}
+                        onDelete={() => handleRemove(a.id, a.valor)}
                       />
                     )}
                   </div>
@@ -2879,7 +2932,8 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
             )}
           </div>
 
-          {/* Benefícios */}
+          {/* Benefícios Fiscais (estruturado — módulo Benefícios Fiscais / bloco Legalização) */}
+          {bfPerms.canRead && (
           <div>
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
               <Percent className="h-3 w-3" /> Benefícios Fiscais
@@ -2887,14 +2941,29 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
             {beneficios.length === 0 ? (
               <p className="text-xs text-muted-foreground">Nenhum benefício fiscal.</p>
             ) : (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {beneficios.map((b) => (
-                  <div key={b.id} className="flex items-center gap-2 group">
-                    <Badge variant="outline" className="text-[11px] font-medium">{b.valor}</Badge>
-                    {canManageActivitiesBenefits && (
+                  <div key={b.id} className="flex items-start gap-2 group">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant="outline" className="text-[11px] font-medium">{b.beneficioNome}</Badge>
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ color: BF_STATUS_COR[b.status], backgroundColor: BF_STATUS_COR[b.status] + '18' }}>
+                          {bfFmtData(b.dataVencimento)}
+                        </span>
+                        {b.orcamentoId && (
+                          <a href={`/orcamentos/${b.orcamentoId}`} className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5">
+                            Orç. #{b.orcamentoNumero}<ExternalLink className="h-2.5 w-2.5" />
+                          </a>
+                        )}
+                      </div>
+                      {(b.portaria || b.processo) && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{[b.portaria, b.processo].filter(Boolean).join(' · ')}</p>
+                      )}
+                    </div>
+                    {(bfPerms.canWrite || bfPerms.canDelete) && (
                       <AtivBenefActions
-                        onEdit={() => setModal({ kind: 'beneficio', id: b.id, valor: b.valor })}
-                        onDelete={() => handleRemove('beneficio', b.id, b.valor)}
+                        onEdit={() => setModalBenef({ id: b.id, catalogoId: b.catalogoId, dataVencimento: b.dataVencimento ? new Date(b.dataVencimento).toISOString().slice(0, 10) : '', portaria: b.portaria ?? '', processo: b.processo ?? '', obs: b.obs ?? '' })}
+                        onDelete={() => handleRemoveBenef(b)}
                       />
                     )}
                   </div>
@@ -2902,28 +2971,20 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
               </div>
             )}
           </div>
+          )}
         </div>
       )}
 
-      {/* Modal incluir/editar */}
+      {/* Modal incluir/editar atividade (texto livre) */}
       <Dialog open={!!modal} onOpenChange={(o) => { if (!o) setModal(null) }}>
         <DialogContent>
-          <DialogHeaderIcon
-            icon={modal?.kind === 'beneficio' ? Percent : Activity}
-            color={modal?.id ? 'sky' : 'emerald'}
-          >
-            <DialogTitle>
-              {modal?.kind === 'beneficio'
-                ? (modal?.id ? 'Editar Benefício' : 'Novo Benefício')
-                : (modal?.id ? 'Editar atividade' : 'Nova atividade')}
-            </DialogTitle>
-            <DialogDescription>
-              {modal?.kind === 'beneficio' ? 'Selecione o benefício fiscal do cliente.' : 'Selecione a atividade do cliente.'}
-            </DialogDescription>
+          <DialogHeaderIcon icon={Activity} color={modal?.id ? 'sky' : 'emerald'}>
+            <DialogTitle>{modal?.id ? 'Editar atividade' : 'Nova atividade'}</DialogTitle>
+            <DialogDescription>Selecione a atividade do cliente.</DialogDescription>
           </DialogHeaderIcon>
           <DialogBody>
             <div className="space-y-1.5">
-              <Label className="text-[13px] font-semibold">{modal?.kind === 'beneficio' ? 'Benefício' : 'Atividade'}</Label>
+              <Label className="text-[13px] font-semibold">Atividade</Label>
               <Select value={modal?.valor || ''} onValueChange={(v) => setModal((m) => (m ? { ...m, valor: v } : m))}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
@@ -2936,6 +2997,51 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
             <Button type="button" variant="outline" onClick={() => setModal(null)}>Cancelar</Button>
             <Button type="button" variant="success" onClick={handleSave} disabled={saving || !modal?.valor.trim()}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal incluir/editar benefício fiscal (estruturado) */}
+      <Dialog open={!!modalBenef} onOpenChange={(o) => { if (!o) setModalBenef(null) }}>
+        <DialogContent>
+          <DialogHeaderIcon icon={Percent} color={modalBenef?.id ? 'sky' : 'emerald'}>
+            <DialogTitle>{modalBenef?.id ? 'Editar benefício' : 'Novo benefício'}</DialogTitle>
+            <DialogDescription>Benefício fiscal do cliente, vencimento e referências legais.</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Benefício *</Label>
+              <Select value={modalBenef?.catalogoId || ''} onValueChange={(v) => setModalBenef((m) => (m ? { ...m, catalogoId: v } : m))} disabled={!!modalBenef?.id}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione o benefício" /></SelectTrigger>
+                <SelectContent>
+                  {catBenef.filter((c) => c.ativo).map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[13px] font-semibold">Vencimento</Label>
+                <Input type="date" className="h-9 text-sm" value={modalBenef?.dataVencimento ?? ''} onChange={(e) => setModalBenef((m) => (m ? { ...m, dataVencimento: e.target.value } : m))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[13px] font-semibold">Portaria</Label>
+                <Input className="h-9 text-sm" value={modalBenef?.portaria ?? ''} onChange={(e) => setModalBenef((m) => (m ? { ...m, portaria: e.target.value } : m))} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Processo</Label>
+              <Input className="h-9 text-sm" value={modalBenef?.processo ?? ''} onChange={(e) => setModalBenef((m) => (m ? { ...m, processo: e.target.value } : m))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Observações</Label>
+              <Input className="h-9 text-sm" value={modalBenef?.obs ?? ''} onChange={(e) => setModalBenef((m) => (m ? { ...m, obs: e.target.value } : m))} />
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setModalBenef(null)}>Cancelar</Button>
+            <Button type="button" variant="success" onClick={handleSaveBenef} disabled={savingBenef || !modalBenef?.catalogoId}>
+              {savingBenef ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
             </Button>
           </DialogFooter>
         </DialogContent>
