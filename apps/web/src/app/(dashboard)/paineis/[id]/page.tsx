@@ -271,7 +271,14 @@ export default function PainelEditorPage() {
             <Button size="icon-sm" variant="ghost" onClick={() => setPreviewKey((k) => k + 1)} title="Atualizar preview"><RefreshCw className="h-3.5 w-3.5" /></Button>
           </div>
           <div className="relative w-full rounded-lg overflow-hidden border border-border bg-black" style={{ aspectRatio: '16 / 9' }}>
-            <iframe key={previewKey} src={`/tv/${painel.slug}`} className="absolute inset-0 w-full h-full" title="preview" />
+            {/* Desmonta o iframe enquanto o modal de bloco está aberto: o iframe
+                rotativo dispara eventos de foco que faziam o Radix Dialog fechar
+                instantaneamente (abre e some). */}
+            {blocoModal.open ? (
+              <div className="absolute inset-0 flex items-center justify-center text-white/45 text-sm">Preview pausado durante a edição…</div>
+            ) : (
+              <iframe key={previewKey} src={`/tv/${painel.slug}`} className="absolute inset-0 w-full h-full" title="preview" />
+            )}
           </div>
           <p className="text-[11px] text-muted-foreground mt-2 px-1">Reflete o que está salvo. Após editar, clique em atualizar.</p>
         </Card>
@@ -279,7 +286,11 @@ export default function PainelEditorPage() {
 
       {/* Modal de bloco */}
       <Dialog open={blocoModal.open} onOpenChange={(o) => setBlocoModal({ open: o, editId: o ? blocoModal.editId : undefined })}>
-        <DialogContent>
+        <DialogContent
+          onInteractOutside={(e) => e.preventDefault()}
+          onFocusOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
           <DialogHeaderIcon icon={LayoutGrid} color={accent} title={blocoModal.editId ? 'Editar bloco' : 'Adicionar bloco'} description="Escolha a métrica do catálogo e como exibir." />
           <DialogBody className="space-y-4">
             <div className="space-y-1.5">
