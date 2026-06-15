@@ -18,6 +18,7 @@ export function createPainelTvRouter(svc: PainelTvService) {
   return router({
     // ── Catálogo de métricas (builder) ──
     catalogo: masterProcedure.query(() => svc.catalogo()),
+    entidades: masterProcedure.query(() => svc.entidades()),
 
     // ── Leitura ──
     list: masterProcedure.query(() => svc.list()),

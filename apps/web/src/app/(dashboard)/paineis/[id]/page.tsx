@@ -34,6 +34,7 @@ export default function PainelEditorPage() {
 
   const [painel, setPainel] = useState<any>(null)
   const [catalogo, setCatalogo] = useState<any[]>([])
+  const [entidades, setEntidades] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeFolha, setActiveFolha] = useState<string | null>(null)
   const [meta, setMeta] = useState<any>(null)
@@ -42,16 +43,19 @@ export default function PainelEditorPage() {
 
   // Modal de bloco
   const [blocoModal, setBlocoModal] = useState<{ open: boolean; editId?: string }>({ open: false })
-  const [blocoForm, setBlocoForm] = useState({ metricId: '', visual: '', label: '', colSpan: 6, rowSpan: 1, size: 'lg', color: '', periodoDias: 0, limite: 0, comparar: false })
+  const customVazio = { entidade: 'clientes', agregacao: 'count', campo: '', groupBy: '', formato: 'number', usarPeriodo: false, filtros: [] as any[] }
+  const [blocoForm, setBlocoForm] = useState({ metricId: '', visual: '', label: '', colSpan: 6, rowSpan: 1, size: 'lg', color: '', periodoDias: 0, limite: 0, comparar: false, custom: { ...customVazio } })
 
   const load = useCallback(async () => {
     try {
-      const [p, cat] = await Promise.all([
+      const [p, cat, ents] = await Promise.all([
         (trpc.painelTv as any).getById.query({ id }),
         (trpc.painelTv as any).catalogo.query(),
+        (trpc.painelTv as any).entidades.query().catch(() => []),
       ])
       setPainel(p)
       setCatalogo(cat ?? [])
+      setEntidades(ents ?? [])
       setMeta({ nome: p?.nome ?? '', slug: p?.slug ?? '', accent: p?.accent ?? '#22d3ee', slideMs: p?.slideMs ?? 18000, periodoDias: p?.periodoDias ?? 30, ativo: p?.ativo ?? true })
       setActiveFolha((cur) => cur ?? p?.folhas?.[0]?.id ?? null)
       setPreviewKey((k) => k + 1)
@@ -107,28 +111,50 @@ export default function PainelEditorPage() {
   // ── Blocos ──
   const abrirNovoBloco = () => {
     const first = catalogo[0]
-    setBlocoForm({ metricId: first?.id ?? '', visual: first?.visuals?.[0] ?? 'kpi', label: '', colSpan: 6, rowSpan: 1, size: 'lg', color: '', periodoDias: 0, limite: 0, comparar: false })
+    setBlocoForm({ metricId: first?.id ?? '', visual: first?.visuals?.[0] ?? 'kpi', label: '', colSpan: 6, rowSpan: 1, size: 'lg', color: '', periodoDias: 0, limite: 0, comparar: false, custom: { ...customVazio } })
     setBlocoModal({ open: true })
   }
   const abrirEditarBloco = (b: any) => {
     const c = b.config ?? {}
-    setBlocoForm({ metricId: b.metricId, visual: b.visual, label: c.label ?? '', colSpan: c.colSpan ?? 6, rowSpan: c.rowSpan ?? 1, size: c.size ?? 'lg', color: c.color ?? '', periodoDias: c.periodoDias ?? 0, limite: c.limite ?? 0, comparar: !!c.comparar })
+    setBlocoForm({ metricId: b.metricId, visual: b.visual, label: c.label ?? '', colSpan: c.colSpan ?? 6, rowSpan: c.rowSpan ?? 1, size: c.size ?? 'lg', color: c.color ?? '', periodoDias: c.periodoDias ?? 0, limite: c.limite ?? 0, comparar: !!c.comparar, custom: { ...customVazio, ...(c.custom ?? {}) } })
     setBlocoModal({ open: true, editId: b.id })
   }
   const salvarBloco = async () => {
+    const isCustom = blocoForm.metricId === '__custom__'
+    const cstm = blocoForm.custom
+    const grouped = isCustom && !!cstm.groupBy
+    // Visual efetivo: custom agrupado -> donut/bar; custom valor -> kpi.
+    const visual = isCustom ? (grouped ? (['donut', 'bar'].includes(blocoForm.visual) ? blocoForm.visual : 'donut') : 'kpi') : blocoForm.visual
+    const ehKpi = visual === 'kpi'
+
     const config: any = { colSpan: blocoForm.colSpan }
     if (blocoForm.label.trim()) config.label = blocoForm.label.trim()
     if (blocoForm.rowSpan > 1) config.rowSpan = blocoForm.rowSpan
-    if (blocoForm.visual === 'kpi' && blocoForm.size && blocoForm.size !== 'lg') config.size = blocoForm.size
+    if (ehKpi && blocoForm.size && blocoForm.size !== 'lg') config.size = blocoForm.size
     if (blocoForm.color.trim()) config.color = blocoForm.color.trim()
     if (blocoForm.periodoDias > 0) config.periodoDias = blocoForm.periodoDias
     if (blocoForm.limite > 0) config.limite = blocoForm.limite
-    if (blocoForm.visual === 'kpi' && blocoForm.comparar && metricSel?.comparavel) config.comparar = true
+    const podeComparar = ehKpi && blocoForm.comparar && (isCustom ? cstm.usarPeriodo : !!metricSel?.comparavel)
+    if (podeComparar) config.comparar = true
+
+    if (isCustom) {
+      if (!cstm.entidade) { alerts.error('Métrica personalizada', 'Escolha a entidade.'); return }
+      if (cstm.agregacao !== 'count' && !cstm.campo) { alerts.error('Métrica personalizada', 'Escolha o campo da agregação.'); return }
+      config.custom = {
+        entidade: cstm.entidade,
+        agregacao: cstm.agregacao,
+        ...(cstm.agregacao !== 'count' && cstm.campo ? { campo: cstm.campo } : {}),
+        ...(cstm.groupBy ? { groupBy: cstm.groupBy } : {}),
+        ...(!grouped ? { formato: cstm.formato } : {}),
+        usarPeriodo: !!cstm.usarPeriodo,
+        filtros: (cstm.filtros ?? []).filter((f: any) => f.campo && f.op),
+      }
+    }
     try {
       if (blocoModal.editId) {
-        await (trpc.painelTv as any).updateBloco.mutate({ id: blocoModal.editId, data: { metricId: blocoForm.metricId, visual: blocoForm.visual, config } })
+        await (trpc.painelTv as any).updateBloco.mutate({ id: blocoModal.editId, data: { metricId: blocoForm.metricId, visual, config } })
       } else {
-        await (trpc.painelTv as any).createBloco.mutate({ folhaId: activeFolha, metricId: blocoForm.metricId, visual: blocoForm.visual, config })
+        await (trpc.painelTv as any).createBloco.mutate({ folhaId: activeFolha, metricId: blocoForm.metricId, visual, config })
       }
       setBlocoModal({ open: false }); load()
     } catch (e: any) { alerts.error('Erro', e?.message ?? 'Não foi possível salvar o bloco.') }
@@ -154,6 +180,9 @@ export default function PainelEditorPage() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
   const metricSel = metricById[blocoForm.metricId]
+  const isCustom = blocoForm.metricId === '__custom__'
+  const customEnt = entidades.find((e) => e.id === blocoForm.custom.entidade)
+  const setCustom = (patch: any) => setBlocoForm((f) => ({ ...f, custom: { ...f.custom, ...patch } }))
 
   if (!isMaster) return <Card className="p-8 text-center text-sm text-muted-foreground">Acesso restrito ao master.</Card>
   if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-indigo-500" /></div>
@@ -225,7 +254,7 @@ export default function PainelEditorPage() {
                 <SortableContext items={folhaAtual.blocos.map((b: any) => b.id)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-1.5">
                     {folhaAtual.blocos.map((b: any) => (
-                      <SortableBloco key={b.id} bloco={b} label={b.config?.label ?? metricById[b.metricId]?.label ?? b.metricId} onEdit={() => abrirEditarBloco(b)} onDuplicate={() => duplicarBloco(b)} onDelete={() => excluirBloco(b)} />
+                      <SortableBloco key={b.id} bloco={b} label={b.config?.label ?? metricById[b.metricId]?.label ?? (b.metricId === '__custom__' ? 'Personalizada' : b.metricId)} onEdit={() => abrirEditarBloco(b)} onDuplicate={() => duplicarBloco(b)} onDelete={() => excluirBloco(b)} />
                     ))}
                     {folhaAtual.blocos.length === 0 && <p className="text-xs text-muted-foreground py-2">Folha vazia. Adicione blocos do catálogo.</p>}
                   </div>
@@ -255,7 +284,10 @@ export default function PainelEditorPage() {
           <DialogBody className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-[13px] font-semibold">Métrica</label>
-              <select className={inputCls} value={blocoForm.metricId} onChange={(e) => { const m = metricById[e.target.value]; setBlocoForm((f) => ({ ...f, metricId: e.target.value, visual: m?.visuals?.includes(f.visual) ? f.visual : (m?.visuals?.[0] ?? 'kpi') })) }}>
+              <select className={inputCls} value={blocoForm.metricId} onChange={(e) => { const v = e.target.value; const m = metricById[v]; setBlocoForm((f) => ({ ...f, metricId: v, visual: v === '__custom__' ? 'kpi' : (m?.visuals?.includes(f.visual) ? f.visual : (m?.visuals?.[0] ?? 'kpi')) })) }}>
+                <optgroup label="✨ Personalizada">
+                  <option value="__custom__">Métrica personalizada (montar do zero)</option>
+                </optgroup>
                 {['comercial', 'helpdesk'].map((mod) => (
                   <optgroup key={mod} label={mod === 'comercial' ? 'Comercial' : 'Helpdesk / TI'}>
                     {catalogo.filter((m) => m.modulo === mod).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
@@ -263,11 +295,84 @@ export default function PainelEditorPage() {
                 ))}
               </select>
             </div>
+
+            {isCustom && (
+              <div className="space-y-3 rounded-lg border border-indigo-300/40 bg-indigo-50/40 dark:bg-indigo-950/15 p-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-semibold">Entidade</label>
+                    <select className={inputCls} value={blocoForm.custom.entidade} onChange={(e) => setCustom({ entidade: e.target.value, campo: '', groupBy: '', filtros: [] })}>
+                      {entidades.map((en) => <option key={en.id} value={en.id}>{en.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-semibold">Cálculo</label>
+                    <select className={inputCls} value={blocoForm.custom.agregacao} onChange={(e) => setCustom({ agregacao: e.target.value })}>
+                      <option value="count">Contagem (qtd)</option>
+                      <option value="sum">Soma</option>
+                      <option value="avg">Média</option>
+                      <option value="min">Mínimo</option>
+                      <option value="max">Máximo</option>
+                    </select>
+                  </div>
+                </div>
+                {blocoForm.custom.agregacao !== 'count' && (
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-semibold">Campo (numérico)</label>
+                    <select className={inputCls} value={blocoForm.custom.campo} onChange={(e) => setCustom({ campo: e.target.value })}>
+                      <option value="">— escolha —</option>
+                      {(customEnt?.campos ?? []).filter((c: any) => c.tipo === 'number').map((c: any) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                    </select>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-semibold">Agrupar por</label>
+                    <select className={inputCls} value={blocoForm.custom.groupBy} onChange={(e) => { const g = e.target.value; setCustom({ groupBy: g }); setBlocoForm((f) => ({ ...f, visual: g ? (['donut', 'bar'].includes(f.visual) ? f.visual : 'donut') : 'kpi' })) }}>
+                      <option value="">— nenhum (KPI único) —</option>
+                      {(customEnt?.campos ?? []).filter((c: any) => c.tipo !== 'date' && c.tipo !== 'number').map((c: any) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                    </select>
+                  </div>
+                  {!blocoForm.custom.groupBy && (
+                    <div className="space-y-1.5">
+                      <label className="text-[13px] font-semibold">Formato</label>
+                      <select className={inputCls} value={blocoForm.custom.formato} onChange={(e) => setCustom({ formato: e.target.value })}>
+                        <option value="number">Número</option>
+                        <option value="currency">Moeda (R$)</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={blocoForm.custom.usarPeriodo} onChange={(e) => setCustom({ usarPeriodo: e.target.checked })} />
+                  Filtrar pela data ({(customEnt?.campos ?? []).find((c: any) => c.tipo === 'date')?.label ?? 'data'}) no período do bloco/painel
+                </label>
+                {/* Filtros */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[13px] font-semibold">Filtros</label>
+                    <Button type="button" size="sm" variant="outline" onClick={() => setCustom({ filtros: [...blocoForm.custom.filtros, { campo: customEnt?.campos?.[0]?.id ?? '', op: 'eq', valor: '' }] })}><Plus className="h-3.5 w-3.5 mr-1" /> Filtro</Button>
+                  </div>
+                  {blocoForm.custom.filtros.map((flt: any, i: number) => (
+                    <div key={i} className="grid grid-cols-[1fr_auto_1fr_auto] gap-1.5 items-center">
+                      <select className={inputCls} value={flt.campo} onChange={(e) => setCustom({ filtros: blocoForm.custom.filtros.map((x: any, j: number) => j === i ? { ...x, campo: e.target.value } : x) })}>
+                        {(customEnt?.campos ?? []).map((c: any) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                      </select>
+                      <select className={`${inputCls} w-[5rem]`} value={flt.op} onChange={(e) => setCustom({ filtros: blocoForm.custom.filtros.map((x: any, j: number) => j === i ? { ...x, op: e.target.value } : x) })}>
+                        <option value="eq">=</option><option value="ne">≠</option><option value="gt">&gt;</option><option value="lt">&lt;</option><option value="gte">≥</option><option value="lte">≤</option><option value="contains">contém</option>
+                      </select>
+                      <input className={inputCls} value={flt.valor} placeholder="valor" onChange={(e) => setCustom({ filtros: blocoForm.custom.filtros.map((x: any, j: number) => j === i ? { ...x, valor: e.target.value } : x) })} />
+                      <button onClick={() => setCustom({ filtros: blocoForm.custom.filtros.filter((_: any, j: number) => j !== i) })} className="p-1 text-muted-foreground hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <label className="text-[13px] font-semibold">Visual</label>
                 <select className={inputCls} value={blocoForm.visual} onChange={(e) => setBlocoForm((f) => ({ ...f, visual: e.target.value }))}>
-                  {(metricSel?.visuals ?? ['kpi']).map((v: string) => <option key={v} value={v}>{VISUAL_LABEL[v] ?? v}</option>)}
+                  {(isCustom ? (blocoForm.custom.groupBy ? ['donut', 'bar'] : ['kpi']) : (metricSel?.visuals ?? ['kpi'])).map((v: string) => <option key={v} value={v}>{VISUAL_LABEL[v] ?? v}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -311,7 +416,7 @@ export default function PainelEditorPage() {
               <label className="text-[13px] font-semibold">Rótulo (opcional)</label>
               <input className={inputCls} placeholder={metricSel?.label ?? ''} value={blocoForm.label} onChange={(e) => setBlocoForm((f) => ({ ...f, label: e.target.value }))} />
             </div>
-            {blocoForm.visual === 'kpi' && metricSel?.comparavel && (
+            {blocoForm.visual === 'kpi' && (isCustom ? blocoForm.custom.usarPeriodo : metricSel?.comparavel) && (
               <label className="flex items-center gap-2 text-sm cursor-pointer rounded-lg border border-border bg-muted/30 px-3 py-2">
                 <input type="checkbox" checked={blocoForm.comparar} onChange={(e) => setBlocoForm((f) => ({ ...f, comparar: e.target.checked }))} />
                 Comparar com o período anterior (mostra variação %)

@@ -7,6 +7,7 @@ import { OrcamentoService } from '../orcamento/orcamento.service'
 import { ContratoService } from '../contrato/contrato.service'
 import { HelpdeskService } from '../helpdesk/helpdesk.service'
 import { METRIC_BY_ID, catalogForUi, type SourceName } from './metric-catalog'
+import { buildCustomQuery, entidadesForUi, type CustomDef } from './custom-metric'
 
 export interface ResolveCtx {
   empresaId?: string | null
@@ -47,6 +48,22 @@ export class PainelTvService {
   // ── Catálogo (p/ a UI do builder) ───────────────────────────────
   catalogo() {
     return catalogForUi()
+  }
+
+  // Entidades + campos permitidos p/ a métrica personalizada (builder).
+  entidades() {
+    return entidadesForUi()
+  }
+
+  private async runCustom(def: CustomDef, ctx: ResolveCtx, janela: { inicio: Date; fim: Date }) {
+    const q = buildCustomQuery(def, {
+      empresaId: ctx.empresaId, isMaster: ctx.isMaster,
+      janela: def.usarPeriodo ? janela : undefined,
+    })
+    if (!q) return null
+    const rows = await prisma.$queryRawUnsafe<any[]>(q.sql, ...q.params).catch(() => [])
+    if (q.grouped) return { items: (rows ?? []).map((r) => ({ name: r.name ?? '—', value: Number(r.value) || 0 })) }
+    return { value: Number(rows?.[0]?.value ?? 0) }
   }
 
   // ── Leitura ─────────────────────────────────────────────────────
@@ -131,6 +148,30 @@ export class PainelTvService {
     // diferentes gera dados diferentes.
     const data: Record<string, any> = {}
     for (const b of blocos) {
+      // Métrica personalizada (builder): query própria, fora do catálogo.
+      if (b.metricId === '__custom__') {
+        const cdef: CustomDef | undefined = b.config?.custom
+        if (!cdef) { data[b.id] = null; continue }
+        const periodo = Number(b.config?.periodoDias) || painelPeriodo
+        const janela = { inicio: new Date(now.getTime() - periodo * DAY), fim: now }
+        const r = await this.runCustom(cdef, ctx, janela)
+        const grouped = !!cdef.groupBy
+        const ex: any = r ?? (grouped ? { items: [] } : { value: 0 })
+        const limite = Number(b.config?.limite) || 0
+        if (limite > 0 && Array.isArray(ex.items)) ex.items = ex.items.slice(0, limite)
+        const kind = grouped ? 'distribution' : (cdef.formato === 'currency' ? 'currency' : 'number')
+        const payload: any = { kind, label: b.config?.label ?? 'Personalizada', ...ex }
+        if (!grouped && b.config?.comparar && cdef.usarPeriodo) {
+          const jprev = { inicio: new Date(now.getTime() - 2 * periodo * DAY), fim: new Date(now.getTime() - periodo * DAY) }
+          const rp = await this.runCustom(cdef, ctx, jprev)
+          const atual = Number(ex.value); const anterior = Number(rp?.value)
+          if (Number.isFinite(atual) && Number.isFinite(anterior)) {
+            payload.comparacao = { anterior, variacaoPct: anterior !== 0 ? Math.round(((atual - anterior) / Math.abs(anterior)) * 100) : null }
+          }
+        }
+        data[b.id] = payload
+        continue
+      }
       const def = METRIC_BY_ID[b.metricId]
       if (!def) { data[b.id] = null; continue }
       const periodo = Number(b.config?.periodoDias) || painelPeriodo
