@@ -458,7 +458,10 @@ export class OrcamentoService {
    * sempre no escopo da empresa do usuário (master vê todos).
    */
   async buscarClientesParaSolicitacao(search: string | undefined, isMaster: boolean, empresaId?: string) {
-    const where: any = {}
+    // Alinha com a lista de clientes: não oferece clientes INATIVA nem
+    // soft-deletados pra abrir orçamento (era o que trazia a duplicata inativa
+    // que some do cadastro).
+    const where: any = { deletedAt: null, status: { not: 'INATIVA' } }
     if (!isMaster && empresaId) where.empresaId = empresaId
     if (search && search.trim()) {
       const term = search.trim()
