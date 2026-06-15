@@ -216,7 +216,6 @@ export default function DashboardScreen() {
             <DayAgenda
               eventos={eventosHoje}
               loading={eventosQuery.isPending}
-              isDark={isDark}
               onVerEvento={(id) => router.push(`/agenda/${id}`)}
               onAdicionar={() => router.push('/agenda/novo')}
             />
@@ -363,13 +362,11 @@ function ArcoSemi({
 function DayAgenda({
   eventos,
   loading,
-  isDark,
   onVerEvento,
   onAdicionar,
 }: {
   eventos: EventoAgenda[]
   loading: boolean
-  isDark: boolean
   onVerEvento: (id: string) => void
   onAdicionar: () => void
 }) {
@@ -408,7 +405,7 @@ function DayAgenda({
   return (
     <View className="gap-1.5">
       {ordenados.map((ev) => (
-        <EventoLinha key={ev.id} ev={ev} isDark={isDark} onPress={() => onVerEvento(ev.id)} />
+        <EventoLinha key={ev.id} ev={ev} onPress={() => onVerEvento(ev.id)} />
       ))}
       <Pressable
         accessibilityRole="button"
@@ -422,14 +419,17 @@ function DayAgenda({
   )
 }
 
-/** Bloco de um evento na lista do dia — tinta de fundo + barra na cor do tipo + horário. */
+/**
+ * Bloco de um evento na lista do dia. Card NEUTRO (token semântico bg-muted/40 +
+ * border — funciona em claro/escuro) com uma BARRA na cor do TIPO do evento na
+ * lateral e título em `text-foreground` (alto contraste). Antes o título era
+ * pintado com a própria cor do tipo sobre uma tinta clara → ficava ilegível.
+ */
 function EventoLinha({
   ev,
-  isDark,
   onPress,
 }: {
   ev: EventoAgenda
-  isDark: boolean
   onPress: () => void
 }) {
   const cores = resolveTipoCores(ev.tipo)
@@ -440,17 +440,17 @@ function EventoLinha({
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      className="flex-row items-stretch gap-2.5 rounded-xl pl-2.5 active:opacity-80"
-      style={{ backgroundColor: tintHex(cores.bg, isDark ? 0.2 : 0.12) }}
+      className="flex-row items-stretch overflow-hidden rounded-xl border border-border bg-muted/40 active:opacity-80"
     >
-      <View className="my-2 w-[3px] rounded-full" style={{ backgroundColor: cores.bg }} />
-      <View className="flex-1 py-2 pr-3">
-        <Text className="text-[13px] font-semibold" numberOfLines={2} style={{ color: cores.bg }}>
+      {/* Barra na cor do TIPO do evento — único uso de cor dinâmica. */}
+      <View className="w-1.5 self-stretch" style={{ backgroundColor: cores.bg }} />
+      <View className="flex-1 px-3 py-2.5">
+        <Text className="text-[13px] font-semibold text-foreground" numberOfLines={2}>
           {ev.titulo}
         </Text>
         {horario ? (
           <Text
-            className="mt-0.5 text-[11px] text-muted-foreground"
+            className="mt-0.5 text-[12px] text-muted-foreground"
             style={{ fontVariant: ['tabular-nums'] }}
           >
             {horario}
@@ -459,17 +459,6 @@ function EventoLinha({
       </View>
     </Pressable>
   )
-}
-
-/** Converte um hex (#rrggbb ou #rgb) em rgba com o alpha dado (tinta de fundo). */
-function tintHex(hex: string, alpha: number): string {
-  const h = hex.replace('#', '')
-  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
-  const r = parseInt(full.slice(0, 2), 16)
-  const g = parseInt(full.slice(2, 4), 16)
-  const b = parseInt(full.slice(4, 6), 16)
-  if ([r, g, b].some((n) => Number.isNaN(n))) return `rgba(37,99,235,${alpha})`
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
 /**
