@@ -76,10 +76,10 @@ export default function DashboardScreen() {
     dataFim: hoje,
   })
 
-  // Tarefas em aberto do usuário.
+  // Tarefas em aberto do usuário (KPI "Tarefas").
   const tarefasQuery = trpc.agenda.tarefa.list.useQuery({ apenasAbertas: true })
-  // Total de tarefas (pra derivar o progresso do "plano de hoje").
-  const tarefasTodasQuery = trpc.agenda.tarefa.list.useQuery({})
+  // Tarefas com PRAZO HOJE (pro "Plano de hoje" — a API filtra por prazo).
+  const tarefasHojeQuery = trpc.agenda.tarefa.list.useQuery({ dataInicio: hoje, dataFim: hoje })
 
   // Chamados relevantes — escopo MEUS (sou solicitante, responsável OU watcher),
   // não só os que abri. Um atendente costuma ter 0 chamados próprios mas vários
@@ -110,11 +110,52 @@ export default function DashboardScreen() {
     })) as EventoAgenda[]
   }, [eventosQuery.data])
 
-  // ── Progresso do "plano de hoje" (derivado das tarefas) ──────────
-  const totalTarefas = tarefasTodasQuery.data?.length ?? 0
+  // KPI "Tarefas": abertas do usuário.
   const tarefasAbertas = tarefasQuery.data?.length ?? 0
-  const feitas = Math.max(0, totalTarefas - tarefasAbertas)
-  const progresso = totalTarefas > 0 ? feitas / totalTarefas : 0
+
+  // ── "Plano de hoje" = tarefas (prazo hoje) + eventos de hoje + chamados (só TI) ──
+  // Tarefa: feita = concluída. Estreitamos o tipo (o inferido pelo tRPC é profundo).
+  const tarefasHoje = (tarefasHojeQuery.data ?? []) as Array<{ concluida: boolean }>
+  const tarefasHojeFeitas = tarefasHoje.filter((t) => t.concluida).length
+  // Evento: feito = já encerrou (horaFim passou). Dia-inteiro não encerra durante o dia.
+  const horaAgora = `${String(agora.getHours()).padStart(2, '0')}:${String(
+    agora.getMinutes(),
+  ).padStart(2, '0')}`
+  const eventosFeitos = eventosHoje.filter(
+    (ev) => !ev.diaInteiro && !!ev.horaFim && ev.horaFim.slice(0, 5) <= horaAgora,
+  ).length
+  // Chamados abertos atribuídos (pendentes) — só p/ usuário de TI (mesmo gate do KPI).
+  const chamadosPlano = temHelpdesk ? chamadosAbertos : 0
+
+  const planoTotal = tarefasHoje.length + eventosHoje.length + chamadosPlano
+  const planoFeitos = tarefasHojeFeitas + eventosFeitos
+  const planoVazio = planoTotal === 0
+  const progresso = planoVazio ? 1 : planoFeitos / planoTotal
+
+  const planoLoading =
+    eventosQuery.isPending || tarefasHojeQuery.isPending || (temHelpdesk && chamadosQuery.isPending)
+
+  // Subtexto: o que ainda falta hoje (só os grupos com pendência).
+  const restam: string[] = []
+  const restTarefas = tarefasHoje.length - tarefasHojeFeitas
+  const restEventos = eventosHoje.length - eventosFeitos
+  if (restTarefas > 0) restam.push(`${restTarefas} ${restTarefas === 1 ? 'tarefa' : 'tarefas'}`)
+  if (restEventos > 0) restam.push(`${restEventos} ${restEventos === 1 ? 'evento' : 'eventos'}`)
+  if (chamadosPlano > 0)
+    restam.push(`${chamadosPlano} ${chamadosPlano === 1 ? 'chamado' : 'chamados'}`)
+
+  const planoTitulo = planoLoading
+    ? 'Resumindo seu dia…'
+    : planoVazio
+      ? 'Nada pendente hoje'
+      : `${planoFeitos} de ${planoTotal} concluídos`
+  const planoSubtexto = planoLoading
+    ? ' '
+    : restam.length > 0
+      ? `Faltam ${restam.join(' · ')}`
+      : planoVazio
+        ? 'Dia livre! Aproveite 🎉'
+        : 'Tudo concluído por hoje! 🎉'
 
   return (
     <AppScreen>
@@ -161,21 +202,29 @@ export default function DashboardScreen() {
             )}
           </View>
 
-          {/* ── Card HERO coral com anel de progresso ── */}
-          <View className="flex-row items-center gap-4 rounded-3xl bg-accent p-5">
+          {/* ── Card HERO: plano do dia (eventos + tarefas + chamados se TI) ── */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Ver a agenda do dia"
+            onPress={() => router.push('/agenda')}
+            className="flex-row items-center gap-4 rounded-3xl bg-accent p-5 active:opacity-90"
+          >
             <View className="flex-1">
               <Text className="text-[11px] font-semibold uppercase tracking-wide text-accent-foreground/80">
                 Plano de hoje
               </Text>
               <Text className="mt-0.5 text-lg font-bold leading-tight text-accent-foreground">
-                {feitas} de {totalTarefas} concluídas
+                {planoTitulo}
               </Text>
-              <Text className="mt-1 text-[12px] text-accent-foreground/85">
-                Continue assim, falta pouco!
+              <Text
+                className="mt-1 text-[12px] text-accent-foreground/85"
+                numberOfLines={2}
+              >
+                {planoSubtexto}
               </Text>
             </View>
-            <ProgressRing progress={progresso} />
-          </View>
+            <ProgressRing progress={planoLoading ? 0 : progresso} />
+          </Pressable>
 
           {/* ── KPIs em UMA linha (cards compactos lado a lado) ── */}
           <View className="flex-row gap-2">
