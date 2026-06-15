@@ -899,8 +899,9 @@ export default function HelpdeskTicketDetailPage() {
               </CardContent>
             </Card>
 
-            {/* CSAT — destacado se pendente */}
-            {podeAvaliar && ticket.solicitante && (
+            {/* CSAT — SÓ pro solicitante, no estado RESOLVIDO (rotulado "Pendente"), até responder.
+                A avaliação é o que conclui o ticket. Agentes/TI não avaliam (ver aviso passivo abaixo). */}
+            {podeAvaliar && isSolicitante && (
               <Card className="border-l-4 border-l-emerald-500 bg-emerald-50/40 dark:bg-emerald-900/20">
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center gap-2">
@@ -941,6 +942,16 @@ export default function HelpdeskTicketDetailPage() {
                     {csatEnviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Star className="h-3.5 w-3.5" />}
                     Enviar avaliação
                   </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Aviso passivo pros agentes/TI: o ticket aguarda a avaliação do solicitante pra concluir. */}
+            {podeAvaliar && !isSolicitante && ticket.solicitante && (
+              <Card className="border-l-4 border-l-amber-400 bg-amber-50/40 dark:bg-amber-900/20">
+                <CardContent className="p-4 flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4 text-amber-500 shrink-0" />
+                  Aguardando a avaliação de <span className="font-medium text-foreground">{ticket.solicitante.name}</span> para concluir o ticket (auto-fecha em 3 dias úteis com nota neutra).
                 </CardContent>
               </Card>
             )}
