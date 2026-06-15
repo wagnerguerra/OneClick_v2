@@ -13,6 +13,12 @@ SSH_USER=root
 SSH_PORT=22
 SSH_KEY_PATH=/c/Users/wagner/.ssh/oneclick_deploy
 
+# Raízes remotas usadas pelo Service Manager.
+# Core/API/Web usa /opt/oneclick-src por padrão.
+# Para habilitar deploy do D:\app, configure o repositório remoto na VPS:
+# APP_REMOTE_DIR=/opt/oneclick-app-src
+# APP_BRANCH=app-mobile
+
 # Opção B — senha (menos seguro, mas funcional):
 # Deixe SSH_KEY_PATH vazio e preencha SSH_PASSWORD.
 # Vou usar `sshpass` ou prompt interativo.

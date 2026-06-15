@@ -1723,77 +1723,122 @@ function registerIpcHandlers() {
     return (r.stdout || '').replace(/\r?\n+$/, '')
   }
 
-  ipcMain.handle('deploy:status', async () => {
-    try {
-      const cfg = readDeployConfig()
-      if (!cfg || !cfg.SSH_HOST) return { ok: false, error: '.deploy.local não configurado (SSH_HOST faltando)' }
+  function gitStatusForDeployProject(def, cfg) {
+    const cwd = def.cwd
+    if (!cwd || !fs.existsSync(cwd)) {
+      return { id: def.id, label: def.label, ok: false, configured: false, error: `Pasta não encontrada: ${cwd || '-'}` }
+    }
+    if (gitExitCode(['rev-parse', '--is-inside-work-tree'], cwd) !== 0) {
+      return { id: def.id, label: def.label, ok: false, configured: false, error: 'Pasta ainda não é um repositório Git.' }
+    }
 
-      // Local
-      const localBranch = gitOutput(['rev-parse', '--abbrev-ref', 'HEAD'])
-      const localSha = gitOutput(['rev-parse', 'HEAD'])
-      const localShort = gitOutput(['rev-parse', '--short', 'HEAD'])
-      const localStatus = gitOutput(['status', '--porcelain'])
-      const dirtyFiles = localStatus.split('\n').filter(Boolean).map(l => ({
-        status: l.slice(0, 2).trim(),
-        path: l.slice(3),
-      }))
-      // Ignora arquivos não-rastreados óbvios (backups de .env, tmp, etc)
-      // que não vão ser commitados de qualquer jeito
-      const dirtyRelevant = dirtyFiles.filter(d => {
-        if (d.status === '??') {
-          // Untracked — só conta se não bate com padrões de ignore comum
-          if (d.path.endsWith('.bak') || d.path.includes('.env.bak.') || d.path.includes('/tmp/')) return false
-        }
-        return true
+    const localBranch = gitOutput(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
+    const deployBranch = def.branch || localBranch
+    const localSha = gitOutput(['rev-parse', 'HEAD'], cwd)
+    const localShort = gitOutput(['rev-parse', '--short', 'HEAD'], cwd)
+    const localStatus = gitOutput(['status', '--porcelain'], cwd)
+    const dirtyFiles = localStatus.split('\n').filter(Boolean).map(l => ({
+      status: l.slice(0, 2).trim(),
+      path: l.slice(3),
+    }))
+    const dirtyRelevant = dirtyFiles.filter(d => {
+      if (d.status === '??') {
+        if (d.path.endsWith('.bak') || d.path.includes('.env.bak.') || d.path.includes('/tmp/')) return false
+        if (def.id === 'app' && d.path.replace(/\\/g, '/').startsWith('scripts/mobile-dist/')) return false
+      }
+      return true
+    })
+
+    const remoteUrl = gitOutput(['remote', 'get-url', 'origin'], cwd)
+    const hasRemote = gitExitCode(['remote', 'get-url', 'origin'], cwd) === 0 && !!remoteUrl
+    const remoteDir = def.remoteDir
+    if (!hasRemote) {
+      return {
+        id: def.id, label: def.label, kind: def.kind, cwd, localBranch, deployBranch, localSha, localShort,
+        localDirty: dirtyRelevant.length, dirtyFiles: dirtyRelevant.slice(0, 30),
+        configured: false, deployable: false, remoteConfigured: false, vpsConfigured: !!remoteDir,
+        error: 'origin não configurado neste repositório.',
+        pendingPush: [], pendingDeploy: [], synced: false,
+      }
+    }
+
+    spawnSync('git', ['fetch', '--quiet'], { cwd, timeout: 15000, windowsHide: true })
+    const hasRemoteBranch = gitExitCode(['rev-parse', '--verify', `origin/${deployBranch}`], cwd) === 0
+    const remoteSha = hasRemoteBranch ? gitOutput(['rev-parse', `origin/${deployBranch}`], cwd) : ''
+    const remoteShort = hasRemoteBranch ? gitOutput(['rev-parse', '--short', `origin/${deployBranch}`], cwd) : ''
+    const pendingPushRange = hasRemoteBranch ? `origin/${deployBranch}..HEAD` : 'HEAD'
+    const pendingPush = gitOutput(['log', pendingPushRange, '--format=%H%x09%h%x09%s'], cwd)
+      .split('\n').filter(Boolean)
+      .map(l => {
+        const [sha, short, ...msgParts] = l.split('\t')
+        return { sha, short, msg: msgParts.join('\t') }
       })
-      const localDirty = dirtyRelevant.length
 
-      // Fetch silencioso pra atualizar refs do remote
-      spawnSync('git', ['fetch', '--quiet'], { cwd: projectRoot, timeout: 15000, windowsHide: true })
-      const remoteSha = gitOutput(['rev-parse', `origin/${localBranch}`])
-      const remoteShort = gitOutput(['rev-parse', '--short', `origin/${localBranch}`])
-
-      // Commits locais ainda não pushed
-      const pendingPush = gitOutput(['log', `origin/${localBranch}..HEAD`, '--format=%H%x09%h%x09%s'])
-        .split('\n').filter(Boolean)
-        .map(l => {
-          const [sha, short, ...msgParts] = l.split('\t')
-          return { sha, short, msg: msgParts.join('\t') }
-        })
-
-      // SHA da VPS via SSH
+    let vpsSha = ''
+    let vpsShort = ''
+    let vpsReachable = false
+    let pendingDeploy = []
+    let schemaChanged = false
+    if (cfg && cfg.SSH_HOST && remoteDir) {
       const sshArgs = sshCmd(cfg)
-      const vpsResult = spawnSync('ssh', [...sshArgs, 'cd /opt/oneclick-src && git rev-parse HEAD 2>/dev/null'], { encoding: 'utf8', timeout: 15000, windowsHide: true })
-      const vpsSha = (vpsResult.stdout || '').trim()
-      const vpsShort = vpsSha.slice(0, 7)
-      const vpsReachable = vpsResult.status === 0 && vpsSha.length > 0
-
-      // Commits remote vs VPS
-      let pendingDeploy = []
-      let schemaChanged = false
-      if (vpsReachable && vpsSha !== remoteSha) {
-        pendingDeploy = gitOutput(['log', `${vpsSha}..${remoteSha}`, '--format=%H%x09%h%x09%s'])
+      const vpsResult = spawnSync('ssh', [...sshArgs, `cd ${remoteDir} && git rev-parse HEAD 2>/dev/null`], { encoding: 'utf8', timeout: 15000, windowsHide: true })
+      vpsSha = (vpsResult.stdout || '').trim()
+      vpsShort = vpsSha.slice(0, 7)
+      vpsReachable = vpsResult.status === 0 && vpsSha.length > 0
+      if (vpsReachable && hasRemoteBranch && vpsSha !== remoteSha) {
+        pendingDeploy = gitOutput(['log', `${vpsSha}..${remoteSha}`, '--format=%H%x09%h%x09%s'], cwd)
           .split('\n').filter(Boolean)
           .map(l => {
             const [sha, short, ...msgParts] = l.split('\t')
             return { sha, short, msg: msgParts.join('\t') }
           })
-
-        // Schema mudou entre VPS e remote?
-        const diffFiles = gitOutput(['diff', '--name-only', vpsSha, remoteSha])
-        schemaChanged = diffFiles.split('\n').some(f => f === 'packages/db/prisma/schema.prisma')
+        const diffFiles = gitOutput(['diff', '--name-only', vpsSha, remoteSha], cwd)
+        schemaChanged = def.id === 'core' && diffFiles.split('\n').some(f => f === 'packages/db/prisma/schema.prisma')
       }
+    }
 
+    return {
+      id: def.id, label: def.label, kind: def.kind, cwd, localBranch, deployBranch, localSha, localShort,
+      localDirty: dirtyRelevant.length, dirtyFiles: dirtyRelevant.slice(0, 30),
+      remoteSha, remoteShort, remoteUrl,
+      vpsSha, vpsShort, vpsReachable,
+      configured: true,
+      deployable: hasRemote && !!remoteDir,
+      remoteConfigured: hasRemote,
+      vpsConfigured: !!remoteDir,
+      pendingPush, pendingDeploy, schemaChanged,
+      synced: vpsReachable && vpsSha === localSha && hasRemoteBranch && pendingPush.length === 0 && dirtyRelevant.length === 0,
+      error: !remoteDir ? 'Caminho remoto da VPS não configurado.' : null,
+      remoteBranchMissing: !hasRemoteBranch,
+    }
+  }
+
+  function deployProjectDefs(cfg) {
+    return [
+      { id: 'core', label: 'Core/API/Web', kind: 'core', cwd: projectRoot, remoteDir: cfg?.CORE_REMOTE_DIR || cfg?.REMOTE_DIR || '/opt/oneclick-src' },
+      { id: 'app', label: 'App Mobile', kind: 'app', cwd: appProjectRoot, remoteDir: cfg?.APP_REMOTE_DIR || '', branch: cfg?.APP_BRANCH || 'app-mobile' },
+    ]
+  }
+
+  function shellQuote(s) {
+    return `'${String(s).replace(/'/g, `'\\''`)}'`
+  }
+
+  ipcMain.handle('deploy:status', async () => {
+    try {
+      const cfg = readDeployConfig()
+      if (!cfg || !cfg.SSH_HOST) return { ok: false, error: '.deploy.local não configurado (SSH_HOST faltando)' }
+
+      const projects = deployProjectDefs(cfg).map(def => gitStatusForDeployProject(def, cfg))
+      const core = projects.find(p => p.id === 'core') || projects[0]
       return {
         ok: true,
-        localBranch, localSha, localShort, localDirty,
-        dirtyFiles: dirtyRelevant.slice(0, 30), // limita pra não inflar payload
-        remoteSha, remoteShort,
-        vpsSha, vpsShort, vpsReachable,
-        pendingPush,           // commits locais ainda não no remote
-        pendingDeploy,         // commits no remote ainda não na VPS
-        schemaChanged,
-        synced: vpsReachable && vpsSha === localSha && pendingPush.length === 0 && localDirty === 0,
+        projects,
+        ...core,
+        localDirty: core.localDirty || 0,
+        dirtyFiles: core.dirtyFiles || [],
+        pendingPush: core.pendingPush || [],
+        pendingDeploy: core.pendingDeploy || [],
       }
     } catch (e) {
       return { ok: false, error: e.message }
@@ -1862,14 +1907,14 @@ function registerIpcHandlers() {
   // Async git executor — não bloqueia event loop (eventos IPC fluem em tempo real).
   // GIT_TERMINAL_PROMPT=0 + GCM_INTERACTIVE=Never → falha imediato se faltar credencial
   // (em vez de travar esperando popup).
-  function gitExec(args, onLine, timeoutMs) {
+  function gitExec(args, onLine, timeoutMs, cwd = projectRoot) {
     return new Promise((resolve) => {
       const env = {
         ...process.env,
         GIT_TERMINAL_PROMPT: '0',
         GCM_INTERACTIVE: 'Never',
       }
-      const proc = spawn('git', args, { cwd: projectRoot, windowsHide: true, env })
+      const proc = spawn('git', args, { cwd, windowsHide: true, env })
       deployTrackProcess(proc, 'git')
       let stdoutBuf = ''
       let stderrBuf = ''
@@ -1982,12 +2027,30 @@ function registerIpcHandlers() {
       }
       deployEmit(1, 'init', `· VPS: ${cfg.SSH_HOST}`, 'info')
 
+      const requestedTargets = Array.isArray(payload?.targets) && payload.targets.length ? payload.targets : ['core']
+      const knownTargets = new Set(['core', 'app'])
+      const targets = requestedTargets.filter(t => knownTargets.has(t))
+      if (!targets.length) return { ok: false, error: 'Nenhum alvo de deploy selecionado.' }
+      const appRequested = targets.includes('app')
+      if (appRequested) {
+        const appStatus = gitStatusForDeployProject(deployProjectDefs(cfg).find(p => p.id === 'app'), cfg)
+        if (!appStatus.deployable) {
+          deployRunning = false
+          deployEmit(1, 'init', `✗ App Mobile não configurado para deploy: ${appStatus.error || 'configuração incompleta'}`, 'err')
+          return {
+            ok: false,
+            error: `App Mobile não configurado para deploy. Configure origin em D:\\app e APP_REMOTE_DIR no .deploy.local. Detalhe: ${appStatus.error || 'configuração incompleta'}`,
+          }
+        }
+      }
       const commitMessage = (payload && payload.commitMessage) ? String(payload.commitMessage).trim() : ''
-      let targetSha = (payload && payload.targetSha) ? String(payload.targetSha).trim() : ''
+      const targetShas = (payload && payload.targetShas && typeof payload.targetShas === 'object') ? payload.targetShas : {}
+      let targetSha = targetShas.core ? String(targetShas.core).trim() : ((payload && payload.targetSha) ? String(payload.targetSha).trim() : '')
       if (targetSha && !/^[0-9a-f]{7,40}$/i.test(targetSha)) {
         return { ok: false, error: 'Commit selecionado invalido.' }
       }
 
+      if (targets.includes('core')) {
       // ─── Stage 0: git commit (se houver dirty + mensagem) ───
       deployCheckAbort('commit', 1)
       deployCurrentStep = 'commit'
@@ -2181,6 +2244,70 @@ function registerIpcHandlers() {
         deployEmit(98, 'restart', `✗ Restart ou health falhou`, 'err')
         deployRunning = false
         return { ok: false, error: 'restart ou health check falhou' }
+      }
+      } else {
+        deployEmit(90, 'restart', '· Core/API/Web não selecionado (skip)', 'info')
+      }
+
+      if (appRequested) {
+        deployEmit(96, 'pull', '→ Deploy App Mobile...', 'info')
+        deployCheckAbort('app', 96)
+        deployCurrentStep = 'pull'
+        const appDef = deployProjectDefs(cfg).find(p => p.id === 'app')
+        const appCwd = appDef.cwd
+        const appBranch = appDef.branch || gitOutput(['rev-parse', '--abbrev-ref', 'HEAD'], appCwd)
+        const appDirty = gitOutput(['status', '--porcelain'], appCwd).split('\n').filter(Boolean).map(l => ({
+          status: l.slice(0, 2).trim(),
+          path: l.slice(3),
+        })).filter(d => !(d.status === '??' && (d.path.endsWith('.bak') || d.path.includes('/tmp/') || d.path.replace(/\\/g, '/').startsWith('scripts/mobile-dist/'))))
+        if (appDirty.length > 0) {
+          if (!commitMessage) {
+            deployRunning = false
+            return { ok: false, error: `${appDirty.length} arquivo(s) sem commit no App Mobile. Forneça uma mensagem de commit.` }
+          }
+          deployEmit(96, 'pull', `→ Commitando App Mobile (${appDirty.length} arquivo(s))...`, 'info')
+          for (const d of appDirty) {
+            const addRes = await gitExec(['add', '--', d.path], null, 10000, appCwd)
+            if (addRes.code !== 0) {
+              deployRunning = false
+              return { ok: false, error: `git add falhou no App Mobile: ${d.path}` }
+            }
+          }
+          const appCommit = await gitExec(['commit', '-m', commitMessage], null, 30000, appCwd)
+          if (appCommit.code !== 0) {
+            deployRunning = false
+            return { ok: false, error: 'git commit falhou no App Mobile: ' + (appCommit.stderr || appCommit.stdout || '').slice(0, 200) }
+          }
+        }
+        const requestedAppSha = targetShas.app ? String(targetShas.app).trim() : ''
+        if (requestedAppSha && !/^[0-9a-f]{7,40}$/i.test(requestedAppSha)) {
+          deployRunning = false
+          return { ok: false, error: 'Commit selecionado do App Mobile invalido.' }
+        }
+        const appTargetSha = requestedAppSha || gitOutput(['rev-parse', 'HEAD'], appCwd)
+        if (gitExitCode(['merge-base', '--is-ancestor', appTargetSha, 'HEAD'], appCwd) !== 0) {
+          deployRunning = false
+          return { ok: false, error: 'Commit selecionado do App Mobile não pertence ao histórico local.' }
+        }
+        const appPush = await gitExec(['push', 'origin', `${appTargetSha}:refs/heads/${appBranch}`], (line) => deployEmit(97, 'push', `[app] ${line}`, 'info'), 60000, appCwd)
+        if (appPush.code !== 0) {
+          deployRunning = false
+          return { ok: false, error: 'git push falhou no App Mobile: ' + (appPush.stderr || appPush.stdout || appPush.error || '').slice(0, 200) }
+        }
+        const appRemoteUrl = gitOutput(['remote', 'get-url', 'origin'], appCwd)
+        const appRemoteDirQ = shellQuote(appDef.remoteDir)
+        const appRemoteUrlQ = shellQuote(appRemoteUrl)
+        const appBranchQ = shellQuote(appBranch)
+        const appPullCmd = [
+          `if [ -e ${appRemoteDirQ} ] && [ ! -d ${appRemoteDirQ}/.git ]; then echo "Diretório ${appDef.remoteDir} existe, mas não é um repositório Git"; exit 1; fi`,
+          `if [ ! -d ${appRemoteDirQ}/.git ]; then git clone --branch ${appBranchQ} --single-branch ${appRemoteUrlQ} ${appRemoteDirQ}; else cd ${appRemoteDirQ} && git fetch origin ${appBranchQ} 2>&1 && git merge --ff-only ${appTargetSha} 2>&1; fi`,
+        ].join(' && ')
+        const appPull = await sshExec(cfg, appPullCmd, (line) => deployEmit(98, 'pull', `[app] ${line}`, 'info'))
+        if (appPull.code !== 0) {
+          deployRunning = false
+          return { ok: false, error: 'git pull falhou no App Mobile na VPS' }
+        }
+        deployEmit(99, 'pull', '✓ App Mobile atualizado', 'ok')
       }
       deployEmit(100, 'done', '✅ Deploy concluído com sucesso!', 'ok')
 

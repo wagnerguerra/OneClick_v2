@@ -635,6 +635,30 @@
     .settings-input:focus { border-color: var(--green); }
     .settings-input::placeholder { color: var(--text-muted); }
     .settings-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .settings-tabs {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      margin: -6px 0 18px; padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .settings-tab {
+      display: inline-flex; align-items: center; gap: 8px;
+      min-height: 36px; padding: 0 14px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: transparent;
+      color: var(--text-secondary); font-size: 12px; font-weight: 700;
+      cursor: pointer; transition: var(--transition);
+    }
+    .settings-tab:hover {
+      color: var(--text-primary); background: var(--bg-card-hover);
+      border-color: rgba(14, 165, 233, 0.35);
+    }
+    .settings-tab.active {
+      color: var(--sky); background: rgba(14, 165, 233, 0.12);
+      border-color: rgba(14, 165, 233, 0.42);
+      box-shadow: inset 0 -2px 0 var(--sky);
+    }
+    .settings-tab-icon { font-size: 14px; line-height: 1; }
+    .settings-tab-panel { display: none; }
+    .settings-tab-panel.active { display: block; }
 
     .ports-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
     .port-item {
@@ -1141,6 +1165,53 @@
       margin: 0;
       accent-color: var(--sky);
     }
+    .deploy-project-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .deploy-project-card {
+      display: grid;
+      grid-template-columns: 18px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: var(--bg-surface);
+    }
+    .deploy-project-card.is-selected {
+      border-color: rgba(14,165,233,0.55);
+      background: rgba(14,165,233,0.08);
+    }
+    .deploy-project-card.is-disabled {
+      opacity: 0.6;
+    }
+    .deploy-project-card input {
+      accent-color: var(--sky);
+    }
+    .deploy-project-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .deploy-project-detail {
+      margin-top: 2px;
+      font-size: 11px;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .deploy-project-badge {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--sky);
+      border: 1px solid rgba(14,165,233,0.35);
+      border-radius: 4px;
+      padding: 3px 6px;
+    }
     .deploy-target-sha {
       color: #10b981;
       font-weight: 700;
@@ -1587,6 +1658,8 @@
           </div>
         </div>
 
+        <div id="deployProjectsBox" class="deploy-project-grid"></div>
+
         <!-- Status cards -->
         <div class="card" id="deployStatusCard" style="padding:12px;margin-bottom:8px;">
           <div id="deployStatusLoading" style="text-align:center;padding:30px;color:var(--text-muted);font-size:12px;">
@@ -1910,6 +1983,20 @@
           </div>
         </div>
 
+        <div class="settings-tabs" role="tablist" aria-label="Seções de configurações">
+          <button class="settings-tab active" type="button" data-settings-tab="general" role="tab" aria-selected="true">
+            <span class="settings-tab-icon">&#9881;</span> Geral
+          </button>
+          <button class="settings-tab" type="button" data-settings-tab="projects" role="tab" aria-selected="false">
+            <span class="settings-tab-icon">&#128193;</span> Projetos e ferramentas
+          </button>
+          <button class="settings-tab" type="button" data-settings-tab="diagnostics" role="tab" aria-selected="false">
+            <span class="settings-tab-icon">&#128202;</span> Diagnóstico
+          </button>
+        </div>
+
+        <div class="settings-tab-panel active" data-settings-panel="general">
+
         <!-- Inicialização -->
         <div class="settings-section">
           <div class="settings-section-title">
@@ -1955,6 +2042,10 @@
           </div>
         </div>
 
+        </div>
+
+        <div class="settings-tab-panel" data-settings-panel="diagnostics">
+
         <div class="settings-section">
           <div class="settings-section-title">
             <span style="color:var(--sky);font-size:18px;">&#128202;</span> Diagnóstico operacional
@@ -1997,6 +2088,10 @@
             <button class="btn" onclick="copyDiagnostics()">Copiar diagnóstico</button>
           </div>
         </div>
+
+        </div>
+
+        <div class="settings-tab-panel" data-settings-panel="projects">
 
         <!-- Diretórios dos projetos -->
         <div class="settings-section">
@@ -2041,6 +2136,10 @@
           </div>
         </div>
 
+        </div>
+
+        <div class="settings-tab-panel" data-settings-panel="diagnostics">
+
         <!-- Portas de referência -->
         <div class="settings-section">
           <div class="settings-section-title">
@@ -2052,6 +2151,8 @@
             <div class="port-item" style="border-left:3px solid #336791"><span class="port-label">PostgreSQL</span><span class="port-value">:5432</span></div>
             <div class="port-item" style="border-left:3px solid #dc382d"><span class="port-label">Redis</span><span class="port-value">:6379</span></div>
           </div>
+        </div>
+
         </div>
 
         <div style="margin-top:16px;">
@@ -2135,6 +2236,23 @@
           if (typeof biSyncLoadClientes === 'function') biSyncLoadClientes()
         }
         if (target === 'settings' && typeof refreshDiagnostics === 'function') {
+          refreshDiagnostics();
+        }
+      });
+    });
+
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.settingsTab;
+        document.querySelectorAll('.settings-tab').forEach(t => {
+          const active = t === tab;
+          t.classList.toggle('active', active);
+          t.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        document.querySelectorAll('.settings-tab-panel').forEach(panel => {
+          panel.classList.toggle('active', panel.dataset.settingsPanel === target);
+        });
+        if (target === 'diagnostics' && typeof refreshDiagnostics === 'function') {
           refreshDiagnostics();
         }
       });
@@ -3456,7 +3574,7 @@
 
   <!-- ════════ Deploy ════════ -->
   <script>
-    let deployState = { status: null, running: false, selectedCommitShas: [], selectionInitialized: false }
+    let deployState = { status: null, running: false, selectedCommitShas: [], selectionInitialized: false, selectedProjects: ['core'], targetShas: {} }
 
     function deploySetBadge(text, status) {
       const b = document.getElementById('navDeployBadge')
@@ -3478,53 +3596,125 @@
       log.scrollTop = log.scrollHeight
     }
 
-    function deploySetTargetFromSelection(status) {
-      const queue = deployCommitQueue(status)
-      if (queue.length === 0) {
-        deployState.targetSha = null
-        deployState.targetShort = null
-        return
-      }
+    function deployProjectActionCount(p) {
+      return (p.pendingPush?.length || 0) + (p.pendingDeploy?.length || 0) + ((p.localDirty || 0) > 0 ? 1 : 0)
+    }
 
+    function deployRenderProjects(status) {
+      const box = document.getElementById('deployProjectsBox')
+      if (!box) return
+      const projects = status.projects || [{ ...status, id: 'core', label: 'Core/API/Web', deployable: true }]
+      const validSelected = new Set(deployState.selectedProjects || [])
+      if (!validSelected.size) validSelected.add('core')
+      box.innerHTML = ''
+      for (const p of projects) {
+        const enabled = p.id === 'core' || !!p.deployable
+        const selected = enabled && validSelected.has(p.id)
+        const total = deployProjectActionCount(p)
+        const card = document.createElement('label')
+        card.className = 'deploy-project-card' + (selected ? ' is-selected' : '') + (!enabled ? ' is-disabled' : '')
+        const statusText = p.error || (p.synced ? 'Sincronizado' : `${total} pendente(s)`)
+        card.title = p.cwd || ''
+        card.innerHTML = `
+          <input type="checkbox" value="${p.id}" ${selected ? 'checked' : ''} ${enabled ? '' : 'disabled'}>
+          <div style="min-width:0;">
+            <div class="deploy-project-title">${p.label || p.id}</div>
+            <div class="deploy-project-detail">${p.cwd || '-'} · ${statusText}</div>
+          </div>
+          <span class="deploy-project-badge">${enabled ? (selected ? 'selecionado' : 'opcional') : 'configurar'}</span>
+        `
+        const input = card.querySelector('input')
+        input.addEventListener('change', () => {
+          const set = new Set(deployState.selectedProjects || [])
+          if (input.checked) set.add(p.id)
+          else set.delete(p.id)
+          deployState.selectedProjects = [...set]
+          deployRenderProjects(deployState.status)
+          deployRenderAllCommitLists(deployState.status)
+          deployUpdateSelectionHint()
+        })
+        box.appendChild(card)
+      }
+      deployState.selectedProjects = projects.filter(p => validSelected.has(p.id) && (p.id === 'core' || p.deployable)).map(p => p.id)
+      if (!deployState.selectedProjects.length && projects.some(p => p.id === 'core')) deployState.selectedProjects = ['core']
+    }
+
+    function deployCommitKey(c) {
+      return `${c.projectId || 'core'}:${c.sha}`
+    }
+
+    function deployVisibleProjects(status) {
+      const projects = status.projects || [{ ...status, id: 'core', label: 'Core/API/Web' }]
+      const selectedProjects = new Set(deployState.selectedProjects || ['core'])
+      return projects.filter(p => selectedProjects.has(p.id))
+    }
+
+    function deployProjectQueue(project) {
+      return [
+        ...[...(project.pendingDeploy || [])].reverse(),
+        ...[...(project.pendingPush || [])].reverse(),
+      ].map(c => ({
+        ...c,
+        projectId: project.id || 'core',
+        projectLabel: project.label || project.id || 'Core/API/Web',
+      }))
+    }
+
+    function deployCommitQueue(status, projectId) {
+      return deployVisibleProjects(status)
+        .filter(p => !projectId || p.id === projectId)
+        .flatMap(deployProjectQueue)
+    }
+
+    function deploySetTargetFromSelection(status, projectId) {
+      const queue = deployCommitQueue(status, projectId)
       const selected = new Set(deployState.selectedCommitShas || [])
       let lastSelectedIdx = -1
       queue.forEach((c, idx) => {
-        if (selected.has(c.sha)) lastSelectedIdx = idx
+        if (selected.has(deployCommitKey(c))) lastSelectedIdx = idx
       })
 
       if (lastSelectedIdx < 0) {
-        deployState.targetSha = null
-        deployState.targetShort = null
-        deployState.selectedCommitShas = []
+        if (projectId) delete deployState.targetShas[projectId]
+        if (!projectId || projectId === 'core') {
+          deployState.targetSha = null
+          deployState.targetShort = null
+        }
         return
       }
 
       const target = queue[lastSelectedIdx]
-      const required = queue.slice(0, lastSelectedIdx + 1).map(c => c.sha)
-      deployState.targetSha = target.sha
-      deployState.targetShort = target.short || String(target.sha).slice(0, 7)
-      deployState.selectedCommitShas = required
+      deployState.targetShas[target.projectId] = target.sha
+      if (target.projectId === 'core') {
+        deployState.targetSha = target.sha
+        deployState.targetShort = target.short || String(target.sha).slice(0, 7)
+      }
     }
 
     function deploySelectThrough(status, sha) {
-      const queue = deployCommitQueue(status)
+      const found = deployCommitQueue(status).find(c => c.sha === sha)
+      const queue = deployCommitQueue(status, found?.projectId)
       const idx = queue.findIndex(c => c.sha === sha)
       if (idx < 0) return
-      const selected = queue.slice(0, idx + 1).map(c => c.sha)
-      const target = queue[idx]
-      deployState.selectedCommitShas = selected
+      const selected = new Set(deployState.selectedCommitShas || [])
+      queue.forEach(c => selected.delete(deployCommitKey(c)))
+      queue.slice(0, idx + 1).forEach(c => selected.add(deployCommitKey(c)))
+      deployState.selectedCommitShas = [...selected]
       deployState.selectionInitialized = true
-      deployState.targetSha = target.sha
-      deployState.targetShort = target.short || String(target.sha).slice(0, 7)
+      deploySetTargetFromSelection(status, found?.projectId)
     }
 
     function deployClearFrom(status, sha) {
-      const queue = deployCommitQueue(status)
+      const found = deployCommitQueue(status).find(c => c.sha === sha)
+      const queue = deployCommitQueue(status, found?.projectId)
       const idx = queue.findIndex(c => c.sha === sha)
       if (idx < 0) return
-      deployState.selectedCommitShas = queue.slice(0, idx).map(c => c.sha)
+      const selected = new Set(deployState.selectedCommitShas || [])
+      queue.forEach(c => selected.delete(deployCommitKey(c)))
+      queue.slice(0, idx).forEach(c => selected.add(deployCommitKey(c)))
+      deployState.selectedCommitShas = [...selected]
       deployState.selectionInitialized = true
-      deploySetTargetFromSelection(status)
+      deploySetTargetFromSelection(status, found?.projectId)
     }
 
     function deployRenderCommitList(elId, commits) {
@@ -3536,12 +3726,20 @@
       }
       const selected = new Set(deployState.selectedCommitShas || [])
       const ordered = [...commits].reverse()
+      let lastProject = ''
       for (const c of ordered) {
+        if ((c.projectLabel || '') !== lastProject) {
+          lastProject = c.projectLabel || ''
+          const group = document.createElement('div')
+          group.style.cssText = 'font-size:11px;font-weight:800;color:var(--sky);text-transform:uppercase;letter-spacing:0.5px;padding:8px 4px 4px;'
+          group.textContent = lastProject || 'Core/API/Web'
+          el.appendChild(group)
+        }
         const label = document.createElement('label')
         label.className = 'deploy-target-row'
         label.title = 'Selecionar este commit e os anteriores necessários'
         const short = c.short || String(c.sha || '').slice(0, 7)
-        const isSelected = selected.has(c.sha)
+        const isSelected = selected.has(deployCommitKey(c))
         if (isSelected) label.classList.add('is-selected')
         label.innerHTML = `
           <input class="deploy-target-check" type="checkbox" value="${c.sha}" data-short="${short}">
@@ -3565,25 +3763,22 @@
 
     function deployRenderAllCommitLists(status) {
       if (!status) return
-      if ((status.pendingPush || []).length) deployRenderCommitList('deployPendingPushList', status.pendingPush)
-      if ((status.pendingDeploy || []).length) deployRenderCommitList('deployPendingDeployList', status.pendingDeploy)
-    }
-
-    function deployCommitQueue(status) {
-      return [
-        ...[...(status.pendingDeploy || [])].reverse(),
-        ...[...(status.pendingPush || [])].reverse(),
-      ]
+      const push = []
+      const deploy = []
+      for (const p of deployVisibleProjects(status)) {
+        push.push(...(p.pendingPush || []).map(c => ({ ...c, projectId: p.id, projectLabel: p.label })))
+        deploy.push(...(p.pendingDeploy || []).map(c => ({ ...c, projectId: p.id, projectLabel: p.label })))
+      }
+      deployRenderCommitList('deployPendingPushList', push)
+      deployRenderCommitList('deployPendingDeployList', deploy)
     }
 
     function deploySelectedCommits(status) {
       const queue = deployCommitQueue(status)
       if (queue.length === 0) return []
-      deploySetTargetFromSelection(status)
-      const targetSha = deployState.targetSha
-      if (!targetSha) return []
-      const idx = queue.findIndex(c => c.sha === targetSha)
-      return idx >= 0 ? queue.slice(0, idx + 1) : []
+      deployVisibleProjects(status).forEach(p => deploySetTargetFromSelection(status, p.id))
+      const selected = new Set(deployState.selectedCommitShas || [])
+      return queue.filter(c => selected.has(deployCommitKey(c)))
     }
 
     function deployUpdateSelectionHint() {
@@ -3595,6 +3790,9 @@
       const parts = []
       if (hasDirty) parts.push(`1 commit novo (${status.localDirty} arquivos)`)
       if (selected.length) parts.push(`${selected.length} commit(s) selecionado(s)`)
+      const selectedProjects = (status.projects || []).filter(p => (deployState.selectedProjects || []).includes(p.id))
+      const extraProjects = selectedProjects.filter(p => p.id !== 'core')
+      if (extraProjects.length) parts.push(`${extraProjects.length} projeto(s) extra`)
       hint.textContent = parts.length ? parts.join(' + ') : 'Sem mudanças pra publicar'
       hint.style.color = parts.length ? 'var(--text-muted)' : '#16a34a'
     }
@@ -3619,6 +3817,7 @@
           return
         }
         deployState.status = r
+        deployRenderProjects(r)
 
         // Local
         document.getElementById('deployLocalBranch').textContent = r.localBranch
@@ -3655,32 +3854,36 @@
         }
 
         // Commits pendentes
-        const hasPush = (r.pendingPush || []).length > 0
-        const hasDeploy = (r.pendingDeploy || []).length > 0
+        const visibleProjects = deployVisibleProjects(r)
+        const visiblePush = visibleProjects.flatMap(p => (p.pendingPush || []).map(c => ({ ...c, projectId: p.id, projectLabel: p.label })))
+        const visibleDeploy = visibleProjects.flatMap(p => (p.pendingDeploy || []).map(c => ({ ...c, projectId: p.id, projectLabel: p.label })))
+        const hasPush = visiblePush.length > 0
+        const hasDeploy = visibleDeploy.length > 0
         const queue = deployCommitQueue(r)
         if (queue.length === 0) {
           deployState.targetSha = null
           deployState.targetShort = null
+          deployState.targetShas = {}
           deployState.selectedCommitShas = []
           deployState.selectionInitialized = false
         } else {
-          const validShas = new Set(queue.map(c => c.sha))
-          deployState.selectedCommitShas = (deployState.selectedCommitShas || []).filter(sha => validShas.has(sha))
+          const validKeys = new Set(queue.map(deployCommitKey))
+          deployState.selectedCommitShas = (deployState.selectedCommitShas || []).filter(key => validKeys.has(key))
           if (!deployState.selectionInitialized) {
-            deployState.selectedCommitShas = queue.map(c => c.sha)
+            deployState.selectedCommitShas = queue.map(deployCommitKey)
             deployState.selectionInitialized = true
           }
-          deploySetTargetFromSelection(r)
+          visibleProjects.forEach(p => deploySetTargetFromSelection(r, p.id))
         }
         document.getElementById('deployPendingPushBox').style.display = hasPush ? '' : 'none'
         document.getElementById('deployPendingDeployBox').style.display = hasDeploy ? '' : 'none'
         if (hasPush) {
-          document.getElementById('deployPendingPushCount').textContent = r.pendingPush.length
-          deployRenderCommitList('deployPendingPushList', r.pendingPush)
+          document.getElementById('deployPendingPushCount').textContent = visiblePush.length
+          deployRenderCommitList('deployPendingPushList', visiblePush)
         }
         if (hasDeploy) {
-          document.getElementById('deployPendingDeployCount').textContent = r.pendingDeploy.length
-          deployRenderCommitList('deployPendingDeployList', r.pendingDeploy)
+          document.getElementById('deployPendingDeployCount').textContent = visibleDeploy.length
+          deployRenderCommitList('deployPendingDeployList', visibleDeploy)
         }
         document.getElementById('deploySchemaWarn').style.display = r.schemaChanged ? '' : 'none'
 
@@ -3690,14 +3893,16 @@
           deploySetBadge('synced', 'ok')
         } else {
           document.getElementById('deploySynced').style.display = 'none'
-          const totalPend = (r.pendingPush?.length || 0) + (r.pendingDeploy?.length || 0) + ((r.localDirty || 0) > 0 ? 1 : 0)
+          const totalPend = visibleProjects.reduce((sum, p) => sum + deployProjectActionCount(p), 0)
           deploySetBadge(`${totalPend} pendente(s)`, 'err')
         }
 
         // Botão Publicar — habilita se houver QUALQUER pendência (dirty, push ou deploy).
         // Se houver dirty, o fluxo abre o modal de commit antes de publicar.
         const selectedCommits = deploySelectedCommits(r)
-        const hasPending = selectedCommits.length > 0
+        const selectedProjectStatuses = (r.projects || []).filter(p => (deployState.selectedProjects || []).includes(p.id))
+        const extraProjectPending = selectedProjectStatuses.some(p => p.id !== 'core' && deployProjectActionCount(p) > 0)
+        const hasPending = selectedCommits.length > 0 || extraProjectPending
         const hasDirty = (r.localDirty || 0) > 0
         if (deployState.running) {
           btn.disabled = true
@@ -3710,6 +3915,7 @@
           const parts = []
           if (hasDirty) parts.push(`1 commit novo (${r.localDirty} arquivos)`)
           if (selectedCommits.length) parts.push(`${selectedCommits.length} commit(s) selecionado(s)`)
+          if (extraProjectPending) parts.push('deploy extra selecionado')
           deployUpdateSelectionHint()
         } else {
           btn.disabled = true
@@ -3846,14 +4052,18 @@
 
       // Sem dirty: vai direto pro confirm tradicional
       const selectedCommits = deploySelectedCommits(s)
+      const selectedProjects = deployState.selectedProjects || ['core']
       const totalCommits = selectedCommits.length
       const commitList = selectedCommits
-        .map(c => `  • ${(c.short || c.sha.slice(0, 7))} ${c.msg}`).join('\n')
+        .map(c => `  • [${c.projectLabel || c.projectId || 'Core/API/Web'}] ${(c.short || c.sha.slice(0, 7))} ${c.msg}`).join('\n')
+      const projectList = (s.projects || [{ id: 'core', label: 'Core/API/Web' }])
+        .filter(p => selectedProjects.includes(p.id))
+        .map(p => `  • ${p.label || p.id}`).join('\n')
       const schemaWarn = s.schemaChanged ? '\n\n⚠ Schema.prisma MUDOU — db push --accept-data-loss será executado!' : ''
-      const ok = confirm(`Publicar ${totalCommits} commit(s):\n\n${commitList}${schemaWarn}\n\nConfirmar?`)
+      const ok = confirm(`Publicar nos projetos:\n\n${projectList}\n\nCommits selecionados (${totalCommits}):\n\n${commitList || '  • nenhum commit selecionado'}${schemaWarn}\n\nConfirmar?`)
       if (!ok) return
 
-      await deployRunPipeline(null, { targetSha: deployState.targetSha })
+      await deployRunPipeline(null, { targetSha: deployState.targetSha, targetShas: deployState.targetShas, targets: selectedProjects })
     }
 
     function deployCommitCancel() {
@@ -3870,7 +4080,7 @@
       const schemaWarn = s?.schemaChanged ? '\n\n⚠ Schema.prisma MUDOU — db push --accept-data-loss será executado!' : ''
       if (schemaWarn && !confirm(`Confirma o deploy?${schemaWarn}`)) return
       document.getElementById('deployCommitModal').style.display = 'none'
-      await deployRunPipeline(msg, { targetSha: deployState.targetSha })
+      await deployRunPipeline(msg, { targetSha: deployState.targetSha, targetShas: deployState.targetShas, targets: deployState.selectedProjects || ['core'] })
     }
 
     async function deployRunPipeline(commitMessage, options = {}) {
@@ -3936,6 +4146,8 @@
         const payload = {
           ...(commitMessage ? { commitMessage } : {}),
           ...(options.targetSha ? { targetSha: options.targetSha } : {}),
+          ...(options.targetShas ? { targetShas: options.targetShas } : {}),
+          ...(options.targets ? { targets: options.targets } : {}),
         }
         const r = await window.api.deployExecute(payload)
         if (r.ok) {
