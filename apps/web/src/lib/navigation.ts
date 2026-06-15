@@ -238,6 +238,7 @@ export const navigation: NavGroup[] = [
     icon: Settings,
     items: [
       { label: 'Configurações Gerais', href: '/configuracoes', icon: Settings },
+      { label: 'Painéis de TV', href: '/paineis', icon: Monitor },
       { label: 'Centro de Agendamentos', href: '/configuracoes/agendamentos', icon: CalendarClock },
       { label: 'Chat Interno', href: '/configuracoes/chat', icon: MessageSquare },
       { label: 'Certificado Digital', href: '/configuracoes/certificado', icon: BadgeCheck },
