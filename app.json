@@ -3,7 +3,7 @@
     "name": "OneClick ERP",
     "slug": "oneclick-erp",
     "owner": "oneclick_v2",
-    "version": "1.2.10",
+    "version": "1.2.11",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.oneclick.erp.mobile",
-      "versionCode": 11,
+      "versionCode": 12,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

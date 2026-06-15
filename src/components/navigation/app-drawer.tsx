@@ -75,6 +75,7 @@ const ITENS_MENU: ItemModulo[] = [
   { label: 'Agenda', icon: 'calendar', route: 'agenda', modulo: 'agenda' },
   { label: 'Tarefas', icon: 'checkbox', route: 'tarefas', modulo: 'agenda' },
   { label: 'Helpdesk', icon: 'chatbubbles', route: 'helpdesk', modulo: 'helpdesk' },
+  { label: 'Configurações', icon: 'settings-outline', route: 'configuracoes', modulo: null },
 ]
 
 export function AppDrawer(props: AppDrawerProps) {

@@ -43,30 +43,23 @@ export function usePushToggle(): PushToggle {
   async function toggle(next: boolean): Promise<void> {
     if (loading) return
     setLoading(true)
-    // Otimista: reflete na UI imediatamente.
+    // A PREFERÊNCIA manda: reflete na UI e persiste imediatamente. O registro do
+    // token é best-effort — NÃO reverte o switch se falhar (ex.: emulador sem FCM
+    // ou permissão ainda não concedida). O token é tentado de novo no próximo boot.
     setEnabled(next)
+    void setPushEnabled(next)
     try {
       if (next) {
         await registrarCanalAndroid()
         const token = await pedirPermissaoEObterToken()
-        if (token) {
-          await registrar.mutateAsync({ token, platform: Platform.OS })
-          await setPushEnabled(true)
-        } else {
-          // Permissão negada ou emulador (sem push): reverte para desligado.
-          setEnabled(false)
-          await setPushEnabled(false)
-        }
+        if (token) await registrar.mutateAsync({ token, platform: Platform.OS }).catch(() => {})
       } else {
-        await setPushEnabled(false)
-        // Remove o token atual do backend (se conseguirmos obtê-lo).
+        // Remove o token atual do backend (se já tivermos um, sem forçar prompt).
         const token = await pedirPermissaoEObterToken()
         if (token) await desregistrar.mutateAsync({ token }).catch(() => {})
       }
     } catch {
-      // Falha de rede/registro: reverte o estado e a preferência.
-      setEnabled(!next)
-      await setPushEnabled(!next)
+      // Registro é best-effort; a preferência (já salva) permanece.
     } finally {
       setLoading(false)
     }
