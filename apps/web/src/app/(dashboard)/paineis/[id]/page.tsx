@@ -3,13 +3,18 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  Monitor, ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown, Loader2, Save,
-  LayoutGrid, RefreshCw, ExternalLink, Pencil,
+  Monitor, ArrowLeft, Plus, Trash2, Loader2, Save,
+  LayoutGrid, RefreshCw, ExternalLink, Pencil, Copy, GripVertical,
 } from 'lucide-react'
 import {
   Button, Input, Card, Badge,
   Dialog, DialogContent, DialogBody, DialogFooter,
 } from '@saas/ui'
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -87,12 +92,16 @@ export default function PainelEditorPage() {
     await (trpc.painelTv as any).deleteFolha.mutate({ id: folha.id })
     setActiveFolha(null); load()
   }
-  const moverFolha = async (idx: number, dir: -1 | 1) => {
+  const onDragFolhas = async (e: DragEndEvent) => {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
     const ids = painel.folhas.map((f: any) => f.id)
-    const j = idx + dir
-    if (j < 0 || j >= ids.length) return
-    ;[ids[idx], ids[j]] = [ids[j], ids[idx]]
-    await (trpc.painelTv as any).reorderFolhas.mutate({ ids }); load()
+    const from = ids.indexOf(active.id as string); const to = ids.indexOf(over.id as string)
+    if (from < 0 || to < 0) return
+    const novo = arrayMove(ids, from, to)
+    // Atualização otimista p/ a UI não "pular" antes do refetch
+    setPainel((p: any) => ({ ...p, folhas: arrayMove(p.folhas, from, to) }))
+    await (trpc.painelTv as any).reorderFolhas.mutate({ ids: novo }); load()
   }
 
   // ── Blocos ──
@@ -121,14 +130,22 @@ export default function PainelEditorPage() {
     if (!(await alerts.confirm({ title: 'Remover bloco?', text: metricById[b.metricId]?.label ?? b.metricId, icon: 'warning' }))) return
     await (trpc.painelTv as any).deleteBloco.mutate({ id: b.id }); load()
   }
-  const moverBloco = async (idx: number, dir: -1 | 1) => {
+  const onDragBlocos = async (e: DragEndEvent) => {
+    const { active, over } = e
+    if (!over || active.id === over.id || !folhaAtual) return
     const ids = folhaAtual.blocos.map((b: any) => b.id)
-    const j = idx + dir
-    if (j < 0 || j >= ids.length) return
-    ;[ids[idx], ids[j]] = [ids[j], ids[idx]]
-    await (trpc.painelTv as any).reorderBlocos.mutate({ ids }); load()
+    const from = ids.indexOf(active.id as string); const to = ids.indexOf(over.id as string)
+    if (from < 0 || to < 0) return
+    const novo = arrayMove(ids, from, to)
+    setPainel((p: any) => ({ ...p, folhas: p.folhas.map((f: any) => f.id === folhaAtual.id ? { ...f, blocos: arrayMove(f.blocos, from, to) } : f) }))
+    await (trpc.painelTv as any).reorderBlocos.mutate({ ids: novo }); load()
+  }
+  const duplicarBloco = async (b: any) => {
+    await (trpc.painelTv as any).createBloco.mutate({ folhaId: activeFolha, metricId: b.metricId, visual: b.visual, config: b.config })
+    load()
   }
 
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
   const metricSel = metricById[blocoForm.metricId]
 
   if (!isMaster) return <Card className="p-8 text-center text-sm text-muted-foreground">Acesso restrito ao master.</Card>
@@ -178,21 +195,16 @@ export default function PainelEditorPage() {
               <h3 className="text-sm font-semibold flex items-center gap-1.5"><LayoutGrid className="h-4 w-4" style={{ color: accent }} /> Folhas (slides)</h3>
               <Button size="sm" variant="outline" onClick={addFolha}><Plus className="h-4 w-4 mr-1" /> Folha</Button>
             </div>
-            <div className="space-y-1.5">
-              {painel.folhas.map((f: any, idx: number) => (
-                <div key={f.id} className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer ${activeFolha === f.id ? 'border-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20' : 'border-border'}`} onClick={() => setActiveFolha(f.id)}>
-                  <span className="text-sm flex-1 truncate">{f.titulo}</span>
-                  <Badge variant="secondary" className="text-[10px]">{f.blocos.length} blocos</Badge>
-                  <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => moverFolha(idx, -1)} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={idx === 0}><ChevronUp className="h-3.5 w-3.5" /></button>
-                    <button onClick={() => moverFolha(idx, 1)} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={idx === painel.folhas.length - 1}><ChevronDown className="h-3.5 w-3.5" /></button>
-                    <button onClick={() => renomearFolha(f)} className="p-1 text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
-                    <button onClick={() => excluirFolha(f)} className="p-1 text-muted-foreground hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
-                  </div>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragFolhas}>
+              <SortableContext items={painel.folhas.map((f: any) => f.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-1.5">
+                  {painel.folhas.map((f: any) => (
+                    <SortableFolha key={f.id} folha={f} active={activeFolha === f.id} onSelect={() => setActiveFolha(f.id)} onRename={() => renomearFolha(f)} onDelete={() => excluirFolha(f)} />
+                  ))}
+                  {painel.folhas.length === 0 && <p className="text-xs text-muted-foreground py-2">Nenhuma folha. Adicione a primeira.</p>}
                 </div>
-              ))}
-              {painel.folhas.length === 0 && <p className="text-xs text-muted-foreground py-2">Nenhuma folha. Adicione a primeira.</p>}
-            </div>
+              </SortableContext>
+            </DndContext>
           </Card>
 
           {/* Blocos da folha ativa */}
@@ -202,22 +214,16 @@ export default function PainelEditorPage() {
                 <h3 className="text-sm font-semibold truncate">Blocos · {folhaAtual.titulo}</h3>
                 <Button size="sm" variant="outline" onClick={abrirNovoBloco} disabled={!catalogo.length}><Plus className="h-4 w-4 mr-1" /> Bloco</Button>
               </div>
-              <div className="space-y-1.5">
-                {folhaAtual.blocos.map((b: any, idx: number) => (
-                  <div key={b.id} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
-                    <Badge variant="secondary" className="text-[10px] shrink-0">{VISUAL_LABEL[b.visual] ?? b.visual}</Badge>
-                    <span className="text-sm flex-1 truncate">{b.config?.label ?? metricById[b.metricId]?.label ?? b.metricId}</span>
-                    <span className="text-[10px] text-muted-foreground shrink-0">{b.config?.colSpan ?? 6}/12</span>
-                    <div className="flex items-center gap-0.5">
-                      <button onClick={() => moverBloco(idx, -1)} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={idx === 0}><ChevronUp className="h-3.5 w-3.5" /></button>
-                      <button onClick={() => moverBloco(idx, 1)} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={idx === folhaAtual.blocos.length - 1}><ChevronDown className="h-3.5 w-3.5" /></button>
-                      <button onClick={() => abrirEditarBloco(b)} className="p-1 text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
-                      <button onClick={() => excluirBloco(b)} className="p-1 text-muted-foreground hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
-                    </div>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragBlocos}>
+                <SortableContext items={folhaAtual.blocos.map((b: any) => b.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-1.5">
+                    {folhaAtual.blocos.map((b: any) => (
+                      <SortableBloco key={b.id} bloco={b} label={b.config?.label ?? metricById[b.metricId]?.label ?? b.metricId} onEdit={() => abrirEditarBloco(b)} onDuplicate={() => duplicarBloco(b)} onDelete={() => excluirBloco(b)} />
+                    ))}
+                    {folhaAtual.blocos.length === 0 && <p className="text-xs text-muted-foreground py-2">Folha vazia. Adicione blocos do catálogo.</p>}
                   </div>
-                ))}
-                {folhaAtual.blocos.length === 0 && <p className="text-xs text-muted-foreground py-2">Folha vazia. Adicione blocos do catálogo.</p>}
-              </div>
+                </SortableContext>
+              </DndContext>
             </Card>
           )}
         </div>
@@ -273,6 +279,36 @@ export default function PainelEditorPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+function SortableFolha({ folha, active, onSelect, onRename, onDelete }: { folha: any; active: boolean; onSelect: () => void; onRename: () => void; onDelete: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: folha.id })
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
+  return (
+    <div ref={setNodeRef} style={style} className={`flex items-center gap-1.5 rounded-lg border px-2 py-2 ${active ? 'border-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20' : 'border-border'}`}>
+      <button className="cursor-grab touch-none p-1 text-muted-foreground hover:text-foreground" {...attributes} {...listeners} title="Arrastar"><GripVertical className="h-4 w-4" /></button>
+      <button className="text-sm flex-1 truncate text-left" onClick={onSelect}>{folha.titulo}</button>
+      <Badge variant="secondary" className="text-[10px]">{folha.blocos.length} blocos</Badge>
+      <button onClick={onRename} className="p-1 text-muted-foreground hover:text-foreground" title="Renomear"><Pencil className="h-3.5 w-3.5" /></button>
+      <button onClick={onDelete} className="p-1 text-muted-foreground hover:text-red-500" title="Excluir"><Trash2 className="h-3.5 w-3.5" /></button>
+    </div>
+  )
+}
+
+function SortableBloco({ bloco, label, onEdit, onDuplicate, onDelete }: { bloco: any; label: string; onEdit: () => void; onDuplicate: () => void; onDelete: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: bloco.id })
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-1.5 rounded-lg border border-border px-2 py-2">
+      <button className="cursor-grab touch-none p-1 text-muted-foreground hover:text-foreground" {...attributes} {...listeners} title="Arrastar"><GripVertical className="h-4 w-4" /></button>
+      <Badge variant="secondary" className="text-[10px] shrink-0">{VISUAL_LABEL[bloco.visual] ?? bloco.visual}</Badge>
+      <span className="text-sm flex-1 truncate">{label}</span>
+      <span className="text-[10px] text-muted-foreground shrink-0">{bloco.config?.colSpan ?? 6}/12</span>
+      <button onClick={onEdit} className="p-1 text-muted-foreground hover:text-foreground" title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
+      <button onClick={onDuplicate} className="p-1 text-muted-foreground hover:text-foreground" title="Duplicar"><Copy className="h-3.5 w-3.5" /></button>
+      <button onClick={onDelete} className="p-1 text-muted-foreground hover:text-red-500" title="Excluir"><Trash2 className="h-3.5 w-3.5" /></button>
     </div>
   )
 }

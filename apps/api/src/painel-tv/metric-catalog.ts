@@ -14,7 +14,7 @@
 
 import {
   HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE_LABELS, HELPDESK_PRIORIDADE_COLORS,
-  HELPDESK_STATUS_FINAIS,
+  HELPDESK_STATUS_FINAIS, HELPDESK_TIPO_LABELS,
 } from '@saas/types'
 
 export type MetricKind =
@@ -37,6 +37,7 @@ const STATUS_HD: Record<string, string> = {
   NOVO: '#3b82f6', AGUARDANDO_AUDITORIA: '#06b6d4', EM_ANDAMENTO: '#f59e0b',
   RESOLVIDO: '#a855f7', CONCLUIDO: '#10b981', CANCELADO: '#ef4444',
 }
+const CSAT_COR: Record<number, string> = { 1: '#ef4444', 2: '#f59e0b', 3: '#eab308', 4: '#84cc16', 5: '#10b981' }
 const ORC_STATUS_LABEL: Record<string, string> = {
   NOVO: 'Novo', A_ENVIAR: 'A enviar', ENVIADO: 'Enviado', APROVADO: 'Aprovado',
   LIBERADO: 'Liberado', FINALIZADO: 'Finalizado', ENCERRADO: 'Encerrado',
@@ -178,6 +179,22 @@ export const METRIC_CATALOG: MetricDef[] = [
       ],
       rows: (s?.slaEstourados ?? []).slice(0, 8),
     }) },
+
+  // ── COMERCIAL (extras) ─────────────────────────────────────────
+  { id: 'comercial.contratosTotal', label: 'Total de contratos', modulo: 'comercial', kind: 'number', source: 'comercial', visuals: KPI,
+    extract: (s) => ({ value: s?.contratos?.totalContratos ?? 0 }) },
+  { id: 'comercial.orcValorTotal', label: 'Valor total de orçamentos', modulo: 'comercial', kind: 'currency', source: 'comercial', visuals: KPI,
+    extract: (s) => ({ value: s?.orcStats?.valorTotal ?? 0 }) },
+
+  // ── HELPDESK (extras) ──────────────────────────────────────────
+  { id: 'helpdesk.tfr', label: 'Tempo até 1ª resposta (TFR)', modulo: 'helpdesk', kind: 'duration', source: 'helpdesk', visuals: KPI,
+    extract: (s) => ({ value: s?.kpis?.tfrHoras ?? null }) },
+  { id: 'helpdesk.reabertura', label: 'Taxa de reabertura', modulo: 'helpdesk', kind: 'percent', source: 'helpdesk', visuals: KPI,
+    extract: (s) => ({ value: s?.kpis?.taxaReaberturaPct ?? null }) },
+  { id: 'helpdesk.porTipo', label: 'Tickets por tipo', modulo: 'helpdesk', kind: 'distribution', source: 'helpdesk', visuals: DIST,
+    extract: (s) => ({ items: (s?.porTipo ?? []).filter((x: any) => (x.total ?? 0) > 0).map((x: any, i: number) => ({ name: HELPDESK_TIPO_LABELS[x.tipo] ?? x.tipo, value: x.total, color: PALETTE[i % PALETTE.length] })) }) },
+  { id: 'helpdesk.csatDist', label: 'Distribuição de CSAT (1–5)', modulo: 'helpdesk', kind: 'distribution', source: 'helpdesk', visuals: DIST,
+    extract: (s) => ({ items: (s?.csatDist ?? []).map((x: any) => ({ name: `${x.nota}★`, value: x.total, color: CSAT_COR[x.nota] ?? '#94a3b8' })) }) },
 ]
 
 export const METRIC_BY_ID: Record<string, MetricDef> = Object.fromEntries(METRIC_CATALOG.map((m) => [m.id, m]))
