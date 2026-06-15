@@ -1132,6 +1132,11 @@
     .deploy-target-row:hover {
       background: rgba(14,165,233,0.08);
     }
+    .deploy-target-row.is-selected {
+      background: rgba(14,165,233,0.12);
+      border-left: 2px solid var(--sky);
+      padding-left: 6px;
+    }
     .deploy-target-row input {
       margin: 0;
       accent-color: var(--sky);
@@ -3410,7 +3415,7 @@
 
   <!-- ════════ Deploy ════════ -->
   <script>
-    let deployState = { status: null, running: false }
+    let deployState = { status: null, running: false, selectedCommitShas: [], selectionInitialized: false }
 
     function deploySetBadge(text, status) {
       const b = document.getElementById('navDeployBadge')
@@ -3432,6 +3437,55 @@
       log.scrollTop = log.scrollHeight
     }
 
+    function deploySetTargetFromSelection(status) {
+      const queue = deployCommitQueue(status)
+      if (queue.length === 0) {
+        deployState.targetSha = null
+        deployState.targetShort = null
+        return
+      }
+
+      const selected = new Set(deployState.selectedCommitShas || [])
+      let lastSelectedIdx = -1
+      queue.forEach((c, idx) => {
+        if (selected.has(c.sha)) lastSelectedIdx = idx
+      })
+
+      if (lastSelectedIdx < 0) {
+        deployState.targetSha = null
+        deployState.targetShort = null
+        deployState.selectedCommitShas = []
+        return
+      }
+
+      const target = queue[lastSelectedIdx]
+      const required = queue.slice(0, lastSelectedIdx + 1).map(c => c.sha)
+      deployState.targetSha = target.sha
+      deployState.targetShort = target.short || String(target.sha).slice(0, 7)
+      deployState.selectedCommitShas = required
+    }
+
+    function deploySelectThrough(status, sha) {
+      const queue = deployCommitQueue(status)
+      const idx = queue.findIndex(c => c.sha === sha)
+      if (idx < 0) return
+      const selected = queue.slice(0, idx + 1).map(c => c.sha)
+      const target = queue[idx]
+      deployState.selectedCommitShas = selected
+      deployState.selectionInitialized = true
+      deployState.targetSha = target.sha
+      deployState.targetShort = target.short || String(target.sha).slice(0, 7)
+    }
+
+    function deployClearFrom(status, sha) {
+      const queue = deployCommitQueue(status)
+      const idx = queue.findIndex(c => c.sha === sha)
+      if (idx < 0) return
+      deployState.selectedCommitShas = queue.slice(0, idx).map(c => c.sha)
+      deployState.selectionInitialized = true
+      deploySetTargetFromSelection(status)
+    }
+
     function deployRenderCommitList(elId, commits) {
       const el = document.getElementById(elId)
       el.innerHTML = ''
@@ -3439,26 +3493,39 @@
         el.innerHTML = '<div style="color:var(--text-muted);padding:4px;">(nenhum)</div>'
         return
       }
+      const selected = new Set(deployState.selectedCommitShas || [])
       const ordered = [...commits].reverse()
       for (const c of ordered) {
         const label = document.createElement('label')
         label.className = 'deploy-target-row'
-        label.title = 'Publicar ate este commit'
+        label.title = 'Selecionar este commit e os anteriores necessários'
         const short = c.short || String(c.sha || '').slice(0, 7)
+        const isSelected = selected.has(c.sha)
+        if (isSelected) label.classList.add('is-selected')
         label.innerHTML = `
-          <input class="deploy-target-radio" type="radio" name="deployTargetSha" value="${c.sha}" data-short="${short}">
+          <input class="deploy-target-check" type="checkbox" value="${c.sha}" data-short="${short}">
           <span class="deploy-target-sha">${short}</span>
           <span class="deploy-target-msg">${c.msg}</span>
         `
         const input = label.querySelector('input')
-        input.checked = deployState.targetSha === c.sha
+        input.checked = isSelected
         input.addEventListener('change', () => {
-          deployState.targetSha = c.sha
-          deployState.targetShort = short
+          if (input.checked) {
+            deploySelectThrough(deployState.status, c.sha)
+          } else {
+            deployClearFrom(deployState.status, c.sha)
+          }
+          deployRenderAllCommitLists(deployState.status)
           deployUpdateSelectionHint()
         })
         el.appendChild(label)
       }
+    }
+
+    function deployRenderAllCommitLists(status) {
+      if (!status) return
+      if ((status.pendingPush || []).length) deployRenderCommitList('deployPendingPushList', status.pendingPush)
+      if ((status.pendingDeploy || []).length) deployRenderCommitList('deployPendingDeployList', status.pendingDeploy)
     }
 
     function deployCommitQueue(status) {
@@ -3471,9 +3538,11 @@
     function deploySelectedCommits(status) {
       const queue = deployCommitQueue(status)
       if (queue.length === 0) return []
-      const targetSha = deployState.targetSha || queue[queue.length - 1].sha
+      deploySetTargetFromSelection(status)
+      const targetSha = deployState.targetSha
+      if (!targetSha) return []
       const idx = queue.findIndex(c => c.sha === targetSha)
-      return idx >= 0 ? queue.slice(0, idx + 1) : queue
+      return idx >= 0 ? queue.slice(0, idx + 1) : []
     }
 
     function deployUpdateSelectionHint() {
@@ -3551,10 +3620,16 @@
         if (queue.length === 0) {
           deployState.targetSha = null
           deployState.targetShort = null
-        } else if (!deployState.targetSha || !queue.some(c => c.sha === deployState.targetSha)) {
-          const last = queue[queue.length - 1]
-          deployState.targetSha = last.sha
-          deployState.targetShort = last.short || String(last.sha).slice(0, 7)
+          deployState.selectedCommitShas = []
+          deployState.selectionInitialized = false
+        } else {
+          const validShas = new Set(queue.map(c => c.sha))
+          deployState.selectedCommitShas = (deployState.selectedCommitShas || []).filter(sha => validShas.has(sha))
+          if (!deployState.selectionInitialized) {
+            deployState.selectedCommitShas = queue.map(c => c.sha)
+            deployState.selectionInitialized = true
+          }
+          deploySetTargetFromSelection(r)
         }
         document.getElementById('deployPendingPushBox').style.display = hasPush ? '' : 'none'
         document.getElementById('deployPendingDeployBox').style.display = hasDeploy ? '' : 'none'
@@ -3580,9 +3655,9 @@
 
         // Botão Publicar — habilita se houver QUALQUER pendência (dirty, push ou deploy).
         // Se houver dirty, o fluxo abre o modal de commit antes de publicar.
-        const hasPending = hasPush || hasDeploy
+        const selectedCommits = deploySelectedCommits(r)
+        const hasPending = selectedCommits.length > 0
         const hasDirty = (r.localDirty || 0) > 0
-        const totalAcoes = (r.pendingPush?.length || 0) + (r.pendingDeploy?.length || 0) + (hasDirty ? 1 : 0)
         if (deployState.running) {
           btn.disabled = true
           btn.style.opacity = '0.4'
@@ -3593,8 +3668,7 @@
           btn.style.opacity = '1'
           const parts = []
           if (hasDirty) parts.push(`1 commit novo (${r.localDirty} arquivos)`)
-          if (r.pendingPush?.length) parts.push(`${r.pendingPush.length} push`)
-          if (r.pendingDeploy?.length) parts.push(`${r.pendingDeploy.length} deploy`)
+          if (selectedCommits.length) parts.push(`${selectedCommits.length} commit(s) selecionado(s)`)
           deployUpdateSelectionHint()
         } else {
           btn.disabled = true
