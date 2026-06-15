@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import {
   Monitor, ArrowLeft, Plus, Trash2, Loader2, Save,
   LayoutGrid, RefreshCw, ExternalLink, Pencil, Copy, GripVertical, X,
+  ChevronDown, ChevronRight,
 } from 'lucide-react'
 import { Button, Card, Badge } from '@saas/ui'
 import {
@@ -221,43 +222,43 @@ export default function PainelEditorPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Editor de folhas/blocos */}
         <div className="space-y-4">
-          {/* Folhas */}
+          {/* Folhas + blocos (accordion: clicar na folha expande os blocos dela) */}
           <Card className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold flex items-center gap-1.5"><LayoutGrid className="h-4 w-4" style={{ color: accent }} /> Folhas (slides)</h3>
+              <h3 className="text-sm font-semibold flex items-center gap-1.5"><LayoutGrid className="h-4 w-4" style={{ color: accent }} /> Folhas e blocos</h3>
               <Button size="sm" variant="outline" onClick={addFolha}><Plus className="h-4 w-4 mr-1" /> Folha</Button>
             </div>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragFolhas}>
               <SortableContext items={painel.folhas.map((f: any) => f.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-1.5">
                   {painel.folhas.map((f: any) => (
-                    <SortableFolha key={f.id} folha={f} active={activeFolha === f.id} onSelect={() => setActiveFolha(f.id)} onRename={() => renomearFolha(f)} onDelete={() => excluirFolha(f)} />
+                    <div key={f.id}>
+                      <SortableFolha folha={f} expanded={activeFolha === f.id} onToggle={() => setActiveFolha((cur) => cur === f.id ? null : f.id)} onRename={() => renomearFolha(f)} onDelete={() => excluirFolha(f)} />
+                      {activeFolha === f.id && (
+                        <div className="mt-1.5 mb-2 ml-3 pl-3 border-l-2 space-y-1.5" style={{ borderColor: accent }}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Blocos desta folha</span>
+                            <Button size="sm" variant="outline" onClick={abrirNovoBloco} disabled={!catalogo.length}><Plus className="h-4 w-4 mr-1" /> Bloco</Button>
+                          </div>
+                          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragBlocos}>
+                            <SortableContext items={f.blocos.map((b: any) => b.id)} strategy={verticalListSortingStrategy}>
+                              <div className="space-y-1.5">
+                                {f.blocos.map((b: any) => (
+                                  <SortableBloco key={b.id} bloco={b} label={b.config?.label ?? metricById[b.metricId]?.label ?? (b.metricId === '__custom__' ? 'Personalizada' : b.metricId)} onEdit={() => abrirEditarBloco(b)} onDuplicate={() => duplicarBloco(b)} onDelete={() => excluirBloco(b)} />
+                                ))}
+                                {f.blocos.length === 0 && <p className="text-xs text-muted-foreground py-2">Folha vazia. Adicione blocos do catálogo.</p>}
+                              </div>
+                            </SortableContext>
+                          </DndContext>
+                        </div>
+                      )}
+                    </div>
                   ))}
                   {painel.folhas.length === 0 && <p className="text-xs text-muted-foreground py-2">Nenhuma folha. Adicione a primeira.</p>}
                 </div>
               </SortableContext>
             </DndContext>
           </Card>
-
-          {/* Blocos da folha ativa */}
-          {folhaAtual && (
-            <Card className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold truncate">Blocos · {folhaAtual.titulo}</h3>
-                <Button size="sm" variant="outline" onClick={abrirNovoBloco} disabled={!catalogo.length}><Plus className="h-4 w-4 mr-1" /> Bloco</Button>
-              </div>
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragBlocos}>
-                <SortableContext items={folhaAtual.blocos.map((b: any) => b.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-1.5">
-                    {folhaAtual.blocos.map((b: any) => (
-                      <SortableBloco key={b.id} bloco={b} label={b.config?.label ?? metricById[b.metricId]?.label ?? (b.metricId === '__custom__' ? 'Personalizada' : b.metricId)} onEdit={() => abrirEditarBloco(b)} onDuplicate={() => duplicarBloco(b)} onDelete={() => excluirBloco(b)} />
-                    ))}
-                    {folhaAtual.blocos.length === 0 && <p className="text-xs text-muted-foreground py-2">Folha vazia. Adicione blocos do catálogo.</p>}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            </Card>
-          )}
         </div>
 
         {/* Preview ao vivo */}
@@ -446,13 +447,16 @@ export default function PainelEditorPage() {
   )
 }
 
-function SortableFolha({ folha, active, onSelect, onRename, onDelete }: { folha: any; active: boolean; onSelect: () => void; onRename: () => void; onDelete: () => void }) {
+function SortableFolha({ folha, expanded, onToggle, onRename, onDelete }: { folha: any; expanded: boolean; onToggle: () => void; onRename: () => void; onDelete: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: folha.id })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
   return (
-    <div ref={setNodeRef} style={style} className={`flex items-center gap-1.5 rounded-lg border px-2 py-2 ${active ? 'border-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20' : 'border-border'}`}>
+    <div ref={setNodeRef} style={style} className={`flex items-center gap-1.5 rounded-lg border px-2 py-2 ${expanded ? 'border-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20' : 'border-border'}`}>
       <button className="cursor-grab touch-none p-1 text-muted-foreground hover:text-foreground" {...attributes} {...listeners} title="Arrastar"><GripVertical className="h-4 w-4" /></button>
-      <button className="text-sm flex-1 truncate text-left" onClick={onSelect}>{folha.titulo}</button>
+      <button className="flex items-center gap-1.5 text-sm flex-1 truncate text-left" onClick={onToggle} title={expanded ? 'Recolher' : 'Abrir blocos'}>
+        {expanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+        <span className="truncate">{folha.titulo}</span>
+      </button>
       <Badge variant="secondary" className="text-[10px]">{folha.blocos.length} blocos</Badge>
       <button onClick={onRename} className="p-1 text-muted-foreground hover:text-foreground" title="Renomear"><Pencil className="h-3.5 w-3.5" /></button>
       <button onClick={onDelete} className="p-1 text-muted-foreground hover:text-red-500" title="Excluir"><Trash2 className="h-3.5 w-3.5" /></button>
