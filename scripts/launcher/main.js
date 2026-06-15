@@ -59,10 +59,12 @@ const WEB_PORT = 3000;
 const PG_PORT = 5432;
 const REDIS_PORT = 6379;
 const DEFAULT_PROJECT_ROOT = 'D:\\oc';
+const DEFAULT_APP_ROOT = 'D:\\app';
 
 let mainWindow = null;
 let tray = null;
 let projectRoot = null;
+let appProjectRoot = null;
 let isQuitting = false;
 const updaterState = {
   feedUrl: null,
@@ -74,6 +76,10 @@ const updaterState = {
   lastProgress: null,
 };
 
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.oneclick.erp.launcher');
+}
+
 // ══════════════════════════════════════════════════════════════
 // Settings persistence
 // ══════════════════════════════════════════════════════════════
@@ -84,31 +90,101 @@ function getSettingsPath() {
 }
 
 function loadSettings() {
-  try {
-    const filePath = getSettingsPath();
-    if (fs.existsSync(filePath)) {
-      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    }
-  } catch {}
-  return {
+  const defaults = {
     claudeDir: DEFAULT_PROJECT_ROOT,
     projectDir: DEFAULT_PROJECT_ROOT,
+    appProjectDir: DEFAULT_APP_ROOT,
+    projectDirs: {
+      core: DEFAULT_PROJECT_ROOT,
+      app: DEFAULT_APP_ROOT,
+    },
+    activeProjectKey: 'core',
     autoStart: false,
     autoStartServices: false,
   };
+  try {
+    const filePath = getSettingsPath();
+    if (fs.existsSync(filePath)) {
+      return normalizeSettings(JSON.parse(fs.readFileSync(filePath, 'utf8')), defaults);
+    }
+  } catch {}
+  return normalizeSettings({}, defaults);
+}
+
+function normalizeSettings(settings, defaults = null) {
+  const base = defaults || {
+    claudeDir: DEFAULT_PROJECT_ROOT,
+    projectDir: DEFAULT_PROJECT_ROOT,
+    appProjectDir: DEFAULT_APP_ROOT,
+    projectDirs: { core: DEFAULT_PROJECT_ROOT, app: DEFAULT_APP_ROOT },
+    activeProjectKey: 'core',
+    autoStart: false,
+    autoStartServices: false,
+  };
+  const merged = { ...base, ...(settings || {}) };
+  merged.projectDirs = {
+    ...(base.projectDirs || {}),
+    ...((settings && settings.projectDirs) || {}),
+  };
+  if (settings && settings.projectDir && !settings.projectDirs?.core) merged.projectDirs.core = settings.projectDir;
+  if (settings && settings.appProjectDir && !settings.projectDirs?.app) merged.projectDirs.app = settings.appProjectDir;
+  merged.projectDir = merged.projectDirs.core || DEFAULT_PROJECT_ROOT;
+  merged.appProjectDir = merged.projectDirs.app || DEFAULT_APP_ROOT;
+  if (!merged.claudeDir) merged.claudeDir = merged.projectDir;
+  if (!merged.activeProjectKey || !merged.projectDirs[merged.activeProjectKey]) merged.activeProjectKey = 'core';
+  return merged;
 }
 
 function saveSettings(settings) {
   try {
+    const current = fs.existsSync(getSettingsPath())
+      ? normalizeSettings(JSON.parse(fs.readFileSync(getSettingsPath(), 'utf8')))
+      : loadSettings();
+    const normalized = normalizeSettings({ ...current, ...(settings || {}) });
     const filePath = getSettingsPath();
     // Ensure directory exists
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf8');
+    fs.writeFileSync(filePath, JSON.stringify(normalized, null, 2), 'utf8');
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message };
   }
+}
+
+function getAutoStartInfo() {
+  const settings = loadSettings();
+  let loginItem = {};
+  try {
+    loginItem = app.getLoginItemSettings();
+  } catch {}
+  return {
+    desired: !!settings.autoStart,
+    openAtLogin: !!loginItem.openAtLogin,
+    wasOpenedAtLogin: !!loginItem.wasOpenedAtLogin,
+    executableWillLaunchAtLogin: !!loginItem.executableWillLaunchAtLogin,
+  };
+}
+
+function setAutoStartPreference(enabled) {
+  const desired = !!enabled;
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: desired,
+      path: process.execPath,
+      args: desired ? ['--hidden'] : [],
+    });
+  } catch (e) {
+    const settings = loadSettings();
+    settings.autoStart = desired;
+    saveSettings(settings);
+    return { ok: false, error: e.message, ...getAutoStartInfo() };
+  }
+
+  const settings = loadSettings();
+  settings.autoStart = desired;
+  saveSettings(settings);
+  return { ok: true, ...getAutoStartInfo() };
 }
 
 // Definição dos serviços (equivalente ao server.js)
@@ -134,6 +210,17 @@ const services = {
     logs: [],
     color: '#6ada7d',
     icon: 'globe',
+  },
+  mobile: {
+    name: 'App Mobile (Expo)',
+    port: 8081,
+    command: process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
+    args: ['start'],
+    cwd: null,
+    process: null,
+    logs: [],
+    color: '#8b5cf6',
+    icon: 'smartphone',
   },
   postgres: {
     name: 'PostgreSQL',
@@ -220,6 +307,20 @@ function findProjectRoot() {
   return null;
 }
 
+function findAppProjectRoot() {
+  const settings = loadSettings();
+  const candidates = [
+    settings.projectDirs?.app,
+    settings.appProjectDir,
+    DEFAULT_APP_ROOT,
+    path.join(settings.projectDirs?.core || settings.projectDir || DEFAULT_PROJECT_ROOT, 'apps', 'mobile'),
+  ];
+  for (const dir of candidates) {
+    if (isAppProjectRoot(dir)) return path.resolve(dir);
+  }
+  return null;
+}
+
 function isProjectRoot(dir) {
   try {
     if (!dir) return false;
@@ -230,6 +331,26 @@ function isProjectRoot(dir) {
   } catch {
     return false;
   }
+}
+
+function isAppProjectRoot(dir) {
+  try {
+    if (!dir) return false;
+    const pkgPath = path.join(dir, 'package.json');
+    if (!fs.existsSync(pkgPath)) return false;
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    return pkg.name === 'oneclick-mobile' || Boolean(pkg.dependencies?.expo || pkg.dependencies?.['expo-router']);
+  } catch {
+    return false;
+  }
+}
+
+function applyProjectRoots(coreRoot, appRoot) {
+  projectRoot = coreRoot ? path.resolve(coreRoot) : null;
+  appProjectRoot = appRoot ? path.resolve(appRoot) : null;
+  services.api.cwd = projectRoot ? path.join(projectRoot, 'apps', 'api') : null;
+  services.web.cwd = projectRoot ? path.join(projectRoot, 'apps', 'web') : null;
+  services.mobile.cwd = appProjectRoot || null;
 }
 
 // Diálogo pro usuário escolher manualmente a pasta do projeto.
@@ -374,6 +495,7 @@ async function startService(id) {
   const svc = services[id];
   if (!svc || svc.managed === false) return { ok: false, error: 'Serviço não gerenciável' };
   if (svc.process) return { ok: false, error: 'Já está rodando' };
+  if (!svc.cwd || !fs.existsSync(svc.cwd)) return { ok: false, error: `Diretório do serviço não configurado: ${svc.cwd || '-'}` };
 
   addLog(id, `Iniciando ${svc.name}...`, 'system');
 
@@ -502,6 +624,10 @@ function sleep(ms) {
 }
 
 async function startDockerContainers() {
+  if (!projectRoot || !isProjectRoot(projectRoot)) {
+    sendNotification('Docker', 'Raiz principal do projeto não configurada.');
+    return false;
+  }
   if (!isDockerRunning()) {
     sendNotification('Docker', 'Docker Desktop não está rodando. Tentando iniciar...');
     if (!startDockerDesktop()) {
@@ -544,6 +670,7 @@ async function startDockerContainers() {
 }
 
 function stopDockerContainers() {
+  if (!projectRoot || !isProjectRoot(projectRoot)) return;
   try {
     execSync('docker compose stop', { cwd: projectRoot, timeout: 15000, stdio: 'ignore', windowsHide: true });
   } catch {
@@ -574,6 +701,7 @@ async function getFullStatus() {
       health,
       managed: svc.managed !== false,
       hasProcess: !!svc.process,
+      cwd: svc.cwd || null,
       color: svc.color,
       icon: svc.icon,
     };
@@ -590,7 +718,8 @@ async function broadcastStatus() {
 
 function sendNotification(title, body) {
   if (Notification.isSupported()) {
-    new Notification({ title: `OneClick ERP — ${title}`, body }).show();
+    const notificationBody = title && title !== 'OneClick ERP' ? `${title}: ${body}` : body;
+    new Notification({ title: 'OneClick ERP', body: notificationBody }).show();
   }
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('notification', { title, body });
@@ -790,6 +919,8 @@ async function getDiagnostics() {
     project: {
       root: projectRoot,
       valid: !!projectRoot && isProjectRoot(projectRoot),
+      appRoot: appProjectRoot,
+      appValid: !!appProjectRoot && isAppProjectRoot(appProjectRoot),
     },
     updater: {
       ...updaterState,
@@ -817,8 +948,10 @@ function formatDiagnostics(d) {
   lines.push(`UserData: ${d.app.userData}`);
   lines.push('');
   lines.push('[Projeto]');
-  lines.push(`Raiz: ${d.project.root || '-'}`);
-  lines.push(`Válido: ${d.project.valid ? 'sim' : 'não'}`);
+  lines.push(`Core/API/Web: ${d.project.root || '-'}`);
+  lines.push(`Core válido: ${d.project.valid ? 'sim' : 'não'}`);
+  lines.push(`App Mobile: ${d.project.appRoot || '-'}`);
+  lines.push(`App válido: ${d.project.appValid ? 'sim' : 'não'}`);
   lines.push('');
   lines.push('[Updater]');
   lines.push(`Feed: ${d.updater.feedUrl || '-'}`);
@@ -2101,19 +2234,19 @@ function registerIpcHandlers() {
   // ── Settings ──
   ipcMain.handle('get-settings', () => {
     const settings = loadSettings();
-    // Sync autoStart with actual login item state
-    settings.autoStart = app.getLoginItemSettings().openAtLogin;
+    settings.autoStartInfo = getAutoStartInfo();
     return settings;
   });
   ipcMain.handle('save-settings', (_e, newSettings) => {
-    // Update Windows startup (login item)
-    app.setLoginItemSettings({
-      openAtLogin: !!newSettings.autoStart,
-      path: process.execPath,
-      args: newSettings.autoStart ? ['--hidden'] : [],
+    const autoStartResult = setAutoStartPreference(!!newSettings.autoStart);
+    const result = saveSettings({
+      ...newSettings,
+      autoStart: !!newSettings.autoStart,
     });
-    const result = saveSettings(newSettings);
-    return result;
+    return {
+      ...result,
+      autoStart: autoStartResult,
+    };
   });
 
   // ── Claude Code launcher ──
@@ -2247,25 +2380,56 @@ function registerIpcHandlers() {
     return { canceled: false, path: result.filePaths[0] };
   });
 
-  // ── Project root management ──
+  // ── Project roots management ──
   ipcMain.handle('get-project-root', () => ({
     path: projectRoot,
     valid: !!projectRoot && isProjectRoot(projectRoot),
+    appPath: appProjectRoot,
+    appValid: !!appProjectRoot && isAppProjectRoot(appProjectRoot),
+    roots: {
+      core: { path: projectRoot, valid: !!projectRoot && isProjectRoot(projectRoot), label: 'Core/API/Web' },
+      app: { path: appProjectRoot, valid: !!appProjectRoot && isAppProjectRoot(appProjectRoot), label: 'App Mobile' },
+    },
   }));
 
   ipcMain.handle('set-project-root', async (_e, newPath) => {
     if (!newPath) return { ok: false, error: 'Caminho vazio.' };
-    if (!isProjectRoot(newPath)) {
-      return { ok: false, error: 'Esta pasta não é a raiz do OneClick_Code (não tem package.json com "name": "oneclick-code").' };
-    }
-    const settings = loadSettings();
-    settings.projectDir = newPath;
-    saveSettings(settings);
-    projectRoot = newPath;
-    services.api.cwd = path.join(newPath, 'apps', 'api');
-    services.web.cwd = path.join(newPath, 'apps', 'web');
-    return { ok: true, path: newPath };
+    return setProjectRoots({ core: newPath });
   });
+
+  ipcMain.handle('set-project-roots', async (_e, roots) => setProjectRoots(roots || {}));
+}
+
+function setProjectRoots(roots) {
+  const settings = loadSettings();
+  const nextCore = roots.core !== undefined ? String(roots.core || '').trim() : (projectRoot || settings.projectDirs.core);
+  const nextApp = roots.app !== undefined ? String(roots.app || '').trim() : (appProjectRoot || settings.projectDirs.app);
+
+  if (nextCore && !isProjectRoot(nextCore)) {
+    return { ok: false, error: 'A pasta Core/API/Web precisa ter package.json com "name": "oneclick-code".' };
+  }
+  if (nextApp && !isAppProjectRoot(nextApp)) {
+    return { ok: false, error: 'A pasta App Mobile precisa ser um projeto Expo/oneclick-mobile válido.' };
+  }
+
+  settings.projectDirs = {
+    ...(settings.projectDirs || {}),
+    ...(nextCore ? { core: nextCore } : {}),
+    ...(nextApp ? { app: nextApp } : {}),
+  };
+  settings.projectDir = settings.projectDirs.core;
+  settings.appProjectDir = settings.projectDirs.app;
+  saveSettings(settings);
+  applyProjectRoots(settings.projectDirs.core, settings.projectDirs.app);
+  return {
+    ok: true,
+    path: projectRoot,
+    appPath: appProjectRoot,
+    roots: {
+      core: { path: projectRoot, valid: !!projectRoot && isProjectRoot(projectRoot) },
+      app: { path: appProjectRoot, valid: !!appProjectRoot && isAppProjectRoot(appProjectRoot) },
+    },
+  };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2357,7 +2521,7 @@ function updateTrayMenu(status) {
 
   tray.setToolTip(`OneClick ERP\n${statusLine}`);
 
-  const autoStart = app.getLoginItemSettings().openAtLogin;
+  const autoStart = getAutoStartInfo().desired;
 
   const menu = Menu.buildFromTemplate([
     { label: 'OneClick ERP — Service Manager', enabled: false, icon: loadTrayIcon() },
@@ -2411,15 +2575,7 @@ function updateTrayMenu(status) {
       type: 'checkbox',
       checked: autoStart,
       click: (item) => {
-        app.setLoginItemSettings({
-          openAtLogin: item.checked,
-          path: process.execPath,
-          args: item.checked ? ['--hidden'] : [],
-        });
-        // Sync with settings file
-        const s = loadSettings();
-        s.autoStart = item.checked;
-        saveSettings(s);
+        setAutoStartPreference(item.checked);
       },
     },
     { type: 'separator' },
@@ -2496,7 +2652,9 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(async () => {
-  projectRoot = findProjectRoot();
+  const detectedCoreRoot = findProjectRoot();
+  const detectedAppRoot = findAppProjectRoot();
+  applyProjectRoots(detectedCoreRoot, detectedAppRoot);
 
   // Se a busca automática falhou (instalador em Program Files, primeira execução),
   // abre o diálogo pro usuário apontar manualmente. O caminho é salvo em settings
@@ -2504,7 +2662,7 @@ app.whenReady().then(async () => {
   if (!projectRoot) {
     const picked = await promptForProjectRoot();
     if (picked) {
-      projectRoot = picked;
+      applyProjectRoots(picked, appProjectRoot || findAppProjectRoot());
     } else {
       const debugInfo = [
         `execPath: ${process.execPath}`,
@@ -2524,14 +2682,17 @@ app.whenReady().then(async () => {
     }
   }
 
-  // Set service CWD
-  services.api.cwd = path.join(projectRoot, 'apps', 'api');
-  services.web.cwd = path.join(projectRoot, 'apps', 'web');
-
-  // Persiste o projectRoot resolvido (se foi via auto-detect, salva pra próxima sessão)
+  // Persiste as raízes resolvidas (se foi via auto-detect, salva pra próxima sessão)
   const settings = loadSettings();
-  if (settings.projectDir !== projectRoot) {
-    settings.projectDir = projectRoot;
+  const nextProjectDirs = {
+    ...(settings.projectDirs || {}),
+    ...(projectRoot ? { core: projectRoot } : {}),
+    ...(appProjectRoot ? { app: appProjectRoot } : {}),
+  };
+  if (settings.projectDirs?.core !== nextProjectDirs.core || settings.projectDirs?.app !== nextProjectDirs.app) {
+    settings.projectDirs = nextProjectDirs;
+    settings.projectDir = nextProjectDirs.core;
+    settings.appProjectDir = nextProjectDirs.app;
     saveSettings(settings);
   }
 

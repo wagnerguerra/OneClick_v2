@@ -1923,6 +1923,7 @@
             <div>
               <div class="settings-label" style="margin-bottom:0;">Iniciar com o Windows</div>
               <div class="settings-hint" style="margin-top:2px;">O Service Manager abre automaticamente ao ligar o computador (minimizado na bandeja)</div>
+              <div class="settings-hint" id="settingAutoStartStatus" style="margin-top:3px;"></div>
             </div>
           </div>
           <div class="settings-row" style="display:flex;align-items:center;gap:14px;margin-top:12px;">
@@ -1997,18 +1998,26 @@
           </div>
         </div>
 
-        <!-- Diretório do projeto -->
+        <!-- Diretórios dos projetos -->
         <div class="settings-section">
           <div class="settings-section-title">
-            <span style="color:var(--sky);font-size:18px;">&#128193;</span> Diretório do projeto
+            <span style="color:var(--sky);font-size:18px;">&#128193;</span> Diretórios dos projetos
           </div>
           <div class="settings-row">
-            <label class="settings-label">Pasta do OneClick_Code</label>
+            <label class="settings-label">Core/API/Web</label>
             <div class="settings-input-group">
               <input type="text" class="settings-input" id="settingProjectDir" placeholder="Ex: D:\oc" />
               <button class="btn btn-sm" onclick="browseProjectDir()">Procurar...</button>
             </div>
-            <div class="settings-hint">Pasta raiz do repositório (precisa ter package.json com "name": "oneclick-code"). É daqui que API e Web são iniciadas.</div>
+            <div class="settings-hint">Pasta raiz do projeto principal (package.json com "name": "oneclick-code"). É daqui que API, Web, Docker e Deploy são executados.</div>
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">App Mobile</label>
+            <div class="settings-input-group">
+              <input type="text" class="settings-input" id="settingAppProjectDir" placeholder="Ex: D:\app" />
+              <button class="btn btn-sm" onclick="browseAppProjectDir()">Procurar...</button>
+            </div>
+            <div class="settings-hint">Pasta independente do app Expo/oneclick-mobile. É daqui que o serviço App Mobile é iniciado.</div>
           </div>
         </div>
 
@@ -2163,6 +2172,7 @@
     const iconMap = {
       api:              svgIcon('<rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="18" r="1" fill="currentColor"/>', '#5ea3cb'),
       web:              svgIcon('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>', '#6ada7d'),
+      mobile:           svgIcon('<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/><path d="M9 6h6"/>', '#8b5cf6'),
       postgres:         svgIcon('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v6c0 1.66-4 3-9 3s-9-1.34-9-3V5"/><path d="M21 11v6c0 1.66-4 3-9 3s-9-1.34-9-3v-6"/>', '#336791'),
       redis:            svgIcon('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>', '#dc382d'),
     };
@@ -2196,6 +2206,7 @@
       const statusText = running ? (healthy ? 'Online' : 'Health') : 'Offline';
       const statusColor = running ? (healthy ? 'var(--green)' : 'var(--yellow)') : 'var(--red)';
       const healthMeta = svc.health ? `<span title="${escapeHtml(svc.health.url || '')}">HTTP ${svc.health.ok ? (svc.health.status || 'OK') : (svc.health.error || 'falha')} · ${svc.health.ms}ms</span>` : '';
+      const cwdMeta = svc.cwd ? `<span title="${escapeHtml(svc.cwd)}">${escapeHtml(svc.cwd)}</span>` : '';
       const actions = renderCardActions(id, svc);
       return `<div class="service-card ${running ? 'running' : ''}" data-service="${id}">
         <div class="card-top">
@@ -2212,6 +2223,7 @@
             Porta ${svc.port}
           </span>
           ${healthMeta}
+          ${cwdMeta}
         </div>
         <div class="card-actions" data-service-actions="${id}">${actions}</div>
       </div>`;
@@ -2438,7 +2450,10 @@
         setDiag('diagWeb', webHealth.ok, webHealth.value, webHealth.detail);
         setDiag('diagUpdateFeed', feedHealth.ok, feedHealth.value, (d.updater && d.updater.feedUrl) || feedHealth.detail);
         setDiag('diagUpdater', !(d.updater && d.updater.lastError), (d.updater && d.updater.status) || 'idle', (d.updater && d.updater.lastError) || `Disponível: ${(d.updater && d.updater.lastAvailableVersion) || '-'}`);
-        setDiag('diagProject', d.project && d.project.valid, d.project && d.project.valid ? 'OK' : 'Inválido', (d.project && d.project.root) || '-');
+        const coreOk = d.project && d.project.valid;
+        const appOk = d.project && d.project.appValid;
+        const projectDetail = `Core: ${(d.project && d.project.root) || '-'} | App: ${(d.project && d.project.appRoot) || '-'}`;
+        setDiag('diagProject', coreOk && appOk, coreOk && appOk ? 'OK' : 'Verificar', projectDetail);
 
         const gen = document.getElementById('diagGenerated');
         if (gen) {
@@ -2601,11 +2616,26 @@
       document.getElementById('settingClaudeDir').value = settings.claudeDir || '';
       document.getElementById('settingAutoStart').checked = !!settings.autoStart;
       document.getElementById('settingAutoStartServices').checked = !!settings.autoStartServices;
+      const autoStartStatus = document.getElementById('settingAutoStartStatus');
+      if (autoStartStatus) {
+        const info = settings.autoStartInfo || {};
+        if (settings.autoStart && info.openAtLogin === false) {
+          autoStartStatus.textContent = 'Preferência salva. O Windows pode confirmar a entrada de inicialização após reiniciar o Service Manager.';
+          autoStartStatus.style.color = '#f59e0b';
+        } else if (settings.autoStart) {
+          autoStartStatus.textContent = 'Ativo nas configurações do Windows.';
+          autoStartStatus.style.color = '#16a34a';
+        } else {
+          autoStartStatus.textContent = '';
+        }
+      }
 
       // Project root vem de fonte separada (pode ter sido auto-detectado)
       try {
         const proj = await api.getProjectRoot();
         document.getElementById('settingProjectDir').value = proj.path || '';
+        const appInput = document.getElementById('settingAppProjectDir');
+        if (appInput) appInput.value = proj.appPath || proj.roots?.app?.path || '';
       } catch {}
 
       // Versão do app
@@ -2617,17 +2647,22 @@
     }
 
     async function saveAllSettings() {
-      // ProjectDir é validado e setado separado (precisa ser raiz válida)
+      // ProjectDirs são validados e setados separado (cada pasta tem estrutura própria)
       const newProjectDir = document.getElementById('settingProjectDir').value.trim();
-      if (newProjectDir) {
-        const projResult = await api.setProjectRoot(newProjectDir);
+      const newAppProjectDir = document.getElementById('settingAppProjectDir')?.value.trim() || '';
+      if (newProjectDir || newAppProjectDir) {
+        const projResult = api.setProjectRoots
+          ? await api.setProjectRoots({ core: newProjectDir, app: newAppProjectDir })
+          : await api.setProjectRoot(newProjectDir);
         if (!projResult.ok) {
-          showToast('Erro', projResult.error || 'Caminho do projeto inválido');
+          showToast('Erro', projResult.error || 'Caminho de projeto inválido');
           return;
         }
       }
 
+      const currentSettings = await api.getSettings();
       const settings = {
+        ...currentSettings,
         claudeDir: document.getElementById('settingClaudeDir').value.trim(),
         autoStart: document.getElementById('settingAutoStart').checked,
         autoStartServices: document.getElementById('settingAutoStartServices').checked,
@@ -2635,6 +2670,7 @@
       const result = await api.saveSettings(settings);
       if (result.ok) {
         showToast('Configurações', 'Configurações salvas com sucesso!');
+        await loadSettingsUI();
       } else {
         showToast('Erro', result.error || 'Falha ao salvar configurações');
       }
@@ -2648,6 +2684,11 @@
     async function browseProjectDir() {
       const result = await api.browseFolder();
       if (!result.canceled) document.getElementById('settingProjectDir').value = result.path;
+    }
+
+    async function browseAppProjectDir() {
+      const result = await api.browseFolder();
+      if (!result.canceled) document.getElementById('settingAppProjectDir').value = result.path;
     }
 
     async function launchClaude() {

@@ -90,6 +90,7 @@ contextBridge.exposeInMainWorld('api', {
   // Project root
   getProjectRoot: () => ipcRenderer.invoke('get-project-root'),
   setProjectRoot: (path) => ipcRenderer.invoke('set-project-root', path),
+  setProjectRoots: (roots) => ipcRenderer.invoke('set-project-roots', roots),
 
   // Auto-update
   checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
