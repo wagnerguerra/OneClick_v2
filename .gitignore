@@ -95,3 +95,6 @@ scripts/launcher/razao-frames/
 
 # Tmp / diagnósticos
 packages/db/tmp/
+
+# Imports/artefatos one-shot gerados (dados) — fora do versionamento e do deploy
+scripts/out/
