@@ -800,6 +800,7 @@ model Cliente {
   notasServico         NotaServicoImportada[]  @relation("ClienteNotasServico")
   atividades           ClienteAtividade[]
   beneficios           ClienteBeneficio[]
+  beneficiosFiscais    BeneficioFiscalCliente[]
 
   @@map("clientes")
 }
@@ -904,6 +905,58 @@ model ClienteBeneficio {
 
   @@index([clienteId])
   @@map("cliente_beneficios")
+}
+
+// ============================================================
+// Benefícios Fiscais (port do v1 `crp_beneficios`) — bloco Legalização.
+// Catálogo de benefícios/incentivos fiscais + vínculo cliente↔benefício com
+// vencimento/portaria/processo e o orçamento gerado a partir dele.
+// ============================================================
+
+// Catálogo de benefícios fiscais (porta `cad_cli_beneficios`).
+model BeneficioFiscalCatalogo {
+  id                     String   @id @default(cuid())
+  nome                   String
+  // Serviço do catálogo usado pra gerar o orçamento automático a partir do benefício.
+  servicoId              String?  @map("servico_id")
+  // Dias de antecedência do vencimento pra marcar como "Vencendo" (default 30).
+  notificaVencimentoDias Int?     @map("notifica_vencimento_dias")
+  obs                    String?  @db.Text
+  ativo                  Boolean  @default(true)
+  empresaId              String?  @map("empresa_id")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  servico  Servico?                 @relation("ServicoBeneficioCatalogo", fields: [servicoId], references: [id], onDelete: SetNull)
+  clientes BeneficioFiscalCliente[]
+
+  @@index([empresaId, ativo])
+  @@map("beneficio_fiscal_catalogo")
+}
+
+// Vínculo cliente↔benefício (porta `cad_cli_bnf`). Substitui na UI o texto-livre
+// de ClienteBeneficio. orcamentoId é id-only (sem FK — segue padrão de Orcamento.clienteId).
+model BeneficioFiscalCliente {
+  id             String    @id @default(cuid())
+  clienteId      String    @map("cliente_id")
+  catalogoId     String    @map("catalogo_id")
+  orcamentoId    String?   @map("orcamento_id")
+  dataVencimento DateTime? @map("data_vencimento") @db.Date
+  portaria       String?
+  processo       String?
+  obs            String?   @db.Text
+  ativo          Boolean   @default(true)
+  empresaId      String?   @map("empresa_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  cliente  Cliente                 @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  catalogo BeneficioFiscalCatalogo @relation(fields: [catalogoId], references: [id], onDelete: Restrict)
+
+  @@unique([clienteId, catalogoId])
+  @@index([empresaId, ativo])
+  @@index([clienteId])
+  @@map("beneficio_fiscal_cliente")
 }
 
 // Contatos do Cliente
@@ -2995,6 +3048,7 @@ model Servico {
   etapas               ServicoEtapa[]
   execucoes            ServicoExecucao[]
   orcamentos           Orcamento[]               @relation("OrcamentoServicoTemplate")
+  beneficiosCatalogo   BeneficioFiscalCatalogo[] @relation("ServicoBeneficioCatalogo")
   clausulas            ServicoClausula[]
   contratoServicos     ContratoServico[]
   processosRaiz        Processo[]                @relation("ProcessoRaiz")

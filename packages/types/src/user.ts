@@ -54,11 +54,11 @@ export const MODULE_SLUGS = [
   // Administrativo
   'agenda', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma',
   // Legalização
-  'certificados', 'gestao-certificados', 'processos', 'quadro-societario',
+  'beneficios-fiscais', 'certificados', 'gestao-certificados', 'processos', 'quadro-societario',
   // Trabalhista
   'banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento',
   // Fiscal
-  'beneficios-fiscais', 'caixapostal', 'certidoes-cnd', 'dctfweb', 'dte',
+  'caixapostal', 'certidoes-cnd', 'dctfweb', 'dte',
   'obrigacoes-servicos', 'situacao-fiscal',
 
   // Contábil
@@ -126,9 +126,9 @@ export const MODULE_GROUPS = {
   'Cadastros': ['areas', 'cargos', 'clientes', 'colaboradores', 'empresas', 'fornecedores', 'grupos-empresariais', 'obrigacoes', 'obrigacoes-fixas', 'obrigacoes-demanda', 'servicos', 'socios', 'usuarios'],
   'Comercial': ['crm', 'clausulas', 'comercial', 'contratos', 'contrato-templates', 'custeio-clientes', 'graficos-contrato-erp', 'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios'],
   'Administrativo': ['agenda', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma'],
-  'Legalização': ['certificados', 'gestao-certificados', 'processos', 'quadro-societario'],
+  'Legalização': ['beneficios-fiscais', 'certificados', 'gestao-certificados', 'processos', 'quadro-societario'],
   'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento'],
-  'Fiscal': ['beneficios-fiscais', 'caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal'],
+  'Fiscal': ['caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal'],
   'Contábil': ['bi-categorias-balancete', 'bi-faturamento'],
   'TI': ['ativos', 'helpdesk', 'projetos'],
   'Qualidade': ['qualidade', 'aquisicoes', 'analise-contexto', 'capacitacoes', 'documentos-internos', 'documentos-externos', 'tabelas-registros', 'elogios', 'melhorias', 'nao-conformidades', 'reclamacoes', 'reunioes', 'sugestoes'],
@@ -159,6 +159,11 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'alterar_tipo_evento', label: 'Alterar o tipo do evento direto na prévia', group: 'Eventos' },
     { key: 'gerenciar_anotacoes_anexos', label: 'Editar/excluir anotações e anexos de outros usuários', group: 'Anotações & Anexos' },
     { key: 'ver_relatorios', label: 'Acessar relatórios da agenda', group: 'Relatórios' },
+  ],
+  'beneficios-fiscais': [
+    { key: 'manage_catalogo', label: 'Gerenciar catálogo de benefícios', group: 'Catálogo' },
+    { key: 'gerar_orcamento', label: 'Gerar orçamento a partir do benefício', group: 'Operações' },
+    { key: 'delete_beneficios', label: 'Excluir vínculos de benefício', group: 'Operações' },
   ],
   caixapostal: [
     { key: 'bulk_actions', label: 'Consulta em lote e ações em massa', group: 'Ações' },

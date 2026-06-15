@@ -157,6 +157,7 @@ export const navigation: NavGroup[] = [
     label: 'Legalização',
     icon: Scale,
     items: [
+      { label: 'Benefícios Fiscais', href: '/beneficios-fiscais', icon: DollarSign },
       { label: 'Certificados Digitais', href: '/gestao-certificados', icon: BadgeCheck },
       { label: 'Certidões e Alvarás', href: '/certidoes-cnd', icon: FileOutput },
       { label: 'Quadro Societário', href: '/quadro-societario', icon: UsersRound },
@@ -177,7 +178,6 @@ export const navigation: NavGroup[] = [
     label: 'Fiscal',
     icon: Shield,
     items: [
-      { label: 'Benefícios Fiscais', href: '/beneficios-fiscais', icon: DollarSign },
       { label: 'Caixa Postal e-CAC', href: '/caixapostal', icon: Mail },
       { label: 'DANFE (NFe → PDF)', href: '/danfe', icon: FileSpreadsheet },
       { label: 'DT-e ES', href: '/dte', icon: MailWarning },
