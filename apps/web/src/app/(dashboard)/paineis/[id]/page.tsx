@@ -4,18 +4,14 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   Monitor, ArrowLeft, Plus, Trash2, Loader2, Save,
-  LayoutGrid, RefreshCw, ExternalLink, Pencil, Copy, GripVertical,
+  LayoutGrid, RefreshCw, ExternalLink, Pencil, Copy, GripVertical, X,
 } from 'lucide-react'
-import {
-  Button, Input, Card, Badge,
-  Dialog, DialogContent, DialogBody, DialogFooter,
-} from '@saas/ui'
+import { Button, Card, Badge } from '@saas/ui'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent,
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
@@ -284,15 +280,20 @@ export default function PainelEditorPage() {
         </Card>
       </div>
 
-      {/* Modal de bloco */}
-      <Dialog open={blocoModal.open} onOpenChange={(o) => setBlocoModal({ open: o, editId: o ? blocoModal.editId : undefined })}>
-        <DialogContent
-          onInteractOutside={(e) => e.preventDefault()}
-          onFocusOutside={(e) => e.preventDefault()}
-          onPointerDownOutside={(e) => e.preventDefault()}
-        >
-          <DialogHeaderIcon icon={LayoutGrid} color={accent} title={blocoModal.editId ? 'Editar bloco' : 'Adicionar bloco'} description="Escolha a métrica do catálogo e como exibir." />
-          <DialogBody className="space-y-4">
+      {/* Modal de bloco — overlay próprio (sem Radix Dialog, que não renderizava
+          de forma confiável nesta tela). Controlado por blocoModal.open. */}
+      {blocoModal.open && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setBlocoModal({ open: false }) }}>
+          <div className="w-full max-w-lg max-h-[90vh] flex flex-col rounded-lg border border-border bg-card shadow-2xl overflow-hidden">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+              <span className="flex h-9 w-9 items-center justify-center rounded-md text-white shrink-0" style={{ background: accent }}><LayoutGrid className="h-5 w-5" /></span>
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold leading-none">{blocoModal.editId ? 'Editar bloco' : 'Adicionar bloco'}</h3>
+                <p className="text-sm text-muted-foreground mt-1">Escolha a métrica do catálogo e como exibir.</p>
+              </div>
+              <button onClick={() => setBlocoModal({ open: false })} className="ml-auto p-1.5 rounded-md text-muted-foreground hover:bg-muted shrink-0"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="p-4 space-y-4 overflow-y-auto">
             <div className="space-y-1.5">
               <label className="text-[13px] font-semibold">Métrica</label>
               <select className={inputCls} value={blocoForm.metricId} onChange={(e) => { const v = e.target.value; const m = metricById[v]; setBlocoForm((f) => ({ ...f, metricId: v, visual: v === '__custom__' ? 'kpi' : (m?.visuals?.includes(f.visual) ? f.visual : (m?.visuals?.[0] ?? 'kpi')) })) }}>
@@ -433,13 +434,14 @@ export default function PainelEditorPage() {
                 Comparar com o período anterior (mostra variação %)
               </label>
             )}
-          </DialogBody>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBlocoModal({ open: false })}>Cancelar</Button>
-            <Button onClick={salvarBloco} style={{ backgroundColor: accent }} className="text-white">{blocoModal.editId ? 'Salvar' : 'Adicionar'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
+              <Button variant="outline" onClick={() => setBlocoModal({ open: false })}>Cancelar</Button>
+              <Button onClick={salvarBloco} style={{ backgroundColor: accent }} className="text-white">{blocoModal.editId ? 'Salvar' : 'Adicionar'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
