@@ -38,7 +38,7 @@ function fmtKpi(d: any): string {
 // ── Bloco individual ──────────────────────────────────────────────
 export function BlocoView({ bloco, data }: { bloco: any; data: Record<string, any> }) {
   const accent = useAccent()
-  const d = data?.[bloco.metricId]
+  const d = data?.[bloco.id] ?? data?.[bloco.metricId] // fallback p/ compat
   const label = bloco.config?.label ?? d?.label ?? ''
   const color = bloco.config?.color || accent
 

@@ -42,7 +42,7 @@ export default function PainelEditorPage() {
 
   // Modal de bloco
   const [blocoModal, setBlocoModal] = useState<{ open: boolean; editId?: string }>({ open: false })
-  const [blocoForm, setBlocoForm] = useState({ metricId: '', visual: '', label: '', colSpan: 6 })
+  const [blocoForm, setBlocoForm] = useState({ metricId: '', visual: '', label: '', colSpan: 6, rowSpan: 1, size: 'lg', color: '', periodoDias: 0, limite: 0 })
 
   const load = useCallback(async () => {
     try {
@@ -107,16 +107,22 @@ export default function PainelEditorPage() {
   // ── Blocos ──
   const abrirNovoBloco = () => {
     const first = catalogo[0]
-    setBlocoForm({ metricId: first?.id ?? '', visual: first?.visuals?.[0] ?? 'kpi', label: '', colSpan: 6 })
+    setBlocoForm({ metricId: first?.id ?? '', visual: first?.visuals?.[0] ?? 'kpi', label: '', colSpan: 6, rowSpan: 1, size: 'lg', color: '', periodoDias: 0, limite: 0 })
     setBlocoModal({ open: true })
   }
   const abrirEditarBloco = (b: any) => {
-    setBlocoForm({ metricId: b.metricId, visual: b.visual, label: b.config?.label ?? '', colSpan: b.config?.colSpan ?? 6 })
+    const c = b.config ?? {}
+    setBlocoForm({ metricId: b.metricId, visual: b.visual, label: c.label ?? '', colSpan: c.colSpan ?? 6, rowSpan: c.rowSpan ?? 1, size: c.size ?? 'lg', color: c.color ?? '', periodoDias: c.periodoDias ?? 0, limite: c.limite ?? 0 })
     setBlocoModal({ open: true, editId: b.id })
   }
   const salvarBloco = async () => {
     const config: any = { colSpan: blocoForm.colSpan }
     if (blocoForm.label.trim()) config.label = blocoForm.label.trim()
+    if (blocoForm.rowSpan > 1) config.rowSpan = blocoForm.rowSpan
+    if (blocoForm.visual === 'kpi' && blocoForm.size && blocoForm.size !== 'lg') config.size = blocoForm.size
+    if (blocoForm.color.trim()) config.color = blocoForm.color.trim()
+    if (blocoForm.periodoDias > 0) config.periodoDias = blocoForm.periodoDias
+    if (blocoForm.limite > 0) config.limite = blocoForm.limite
     try {
       if (blocoModal.editId) {
         await (trpc.painelTv as any).updateBloco.mutate({ id: blocoModal.editId, data: { metricId: blocoForm.metricId, visual: blocoForm.visual, config } })
@@ -256,7 +262,7 @@ export default function PainelEditorPage() {
                 ))}
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <label className="text-[13px] font-semibold">Visual</label>
                 <select className={inputCls} value={blocoForm.visual} onChange={(e) => setBlocoForm((f) => ({ ...f, visual: e.target.value }))}>
@@ -264,8 +270,40 @@ export default function PainelEditorPage() {
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[13px] font-semibold">Largura (de 12)</label>
+                <label className="text-[13px] font-semibold">Largura (1–12)</label>
                 <input type="number" min={1} max={12} className={inputCls} value={blocoForm.colSpan} onChange={(e) => setBlocoForm((f) => ({ ...f, colSpan: Math.min(12, Math.max(1, Number(e.target.value) || 6)) }))} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold">Altura (linhas)</label>
+                <input type="number" min={1} max={4} className={inputCls} value={blocoForm.rowSpan} onChange={(e) => setBlocoForm((f) => ({ ...f, rowSpan: Math.min(4, Math.max(1, Number(e.target.value) || 1)) }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {blocoForm.visual === 'kpi' ? (
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-semibold">Tamanho da fonte</label>
+                  <select className={inputCls} value={blocoForm.size} onChange={(e) => setBlocoForm((f) => ({ ...f, size: e.target.value }))}>
+                    <option value="md">Normal</option>
+                    <option value="lg">Grande</option>
+                    <option value="hero">Gigante</option>
+                  </select>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-semibold">Limite (top-N)</label>
+                  <input type="number" min={0} max={50} className={inputCls} value={blocoForm.limite} placeholder="auto" onChange={(e) => setBlocoForm((f) => ({ ...f, limite: Math.max(0, Number(e.target.value) || 0) }))} />
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold">Cor (opcional)</label>
+                <div className="flex gap-1.5">
+                  <input type="color" value={blocoForm.color || accent} onChange={(e) => setBlocoForm((f) => ({ ...f, color: e.target.value }))} className="h-9 w-10 rounded border border-border bg-transparent cursor-pointer" />
+                  <input className={`${inputCls} font-mono`} value={blocoForm.color} placeholder="accent" onChange={(e) => setBlocoForm((f) => ({ ...f, color: e.target.value }))} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold">Período (dias)</label>
+                <input type="number" min={0} max={365} className={inputCls} value={blocoForm.periodoDias} placeholder="herda" onChange={(e) => setBlocoForm((f) => ({ ...f, periodoDias: Math.max(0, Number(e.target.value) || 0) }))} />
               </div>
             </div>
             <div className="space-y-1.5">

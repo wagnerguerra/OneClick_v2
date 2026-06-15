@@ -94,27 +94,43 @@ export class PainelTvService {
     const painel = await this.getBySlug(slug)
     if (!painel) throw new TRPCError({ code: 'NOT_FOUND', message: 'Painel não encontrado' })
 
-    const metricIds = Array.from(new Set(
-      painel.folhas.flatMap((f: any) => f.blocos.map((b: any) => b.metricId)),
-    ))
-    const sources = Array.from(new Set(
-      metricIds.map((id) => METRIC_BY_ID[id]?.source).filter(Boolean) as SourceName[],
-    ))
-    const sctx: ResolveCtx = { ...ctx, periodoDias: painel.periodoDias ?? 30 }
+    const painelPeriodo = painel.periodoDias ?? 30
+    const blocos: any[] = painel.folhas.flatMap((f: any) => f.blocos)
 
-    const sourceResults: Record<string, any> = {}
-    await Promise.all(sources.map(async (s) => { sourceResults[s] = await this.buildSource(s, sctx) }))
-
-    const data: Record<string, any> = {}
-    for (const id of metricIds) {
-      const def = METRIC_BY_ID[id]
-      if (!def) { data[id] = null; continue }
-      // Inclui kind+label no payload pra o renderer formatar sem depender do
-      // catálogo (que é master-only e indisponível p/ a conta logada na TV).
-      try { data[id] = { kind: def.kind, label: def.label, ...(def.extract(sourceResults[def.source]) ?? {}) } }
-      catch { data[id] = { kind: def.kind, label: def.label } }
+    // Cada bloco pode ter período próprio (config.periodoDias). Agrupamos os
+    // builds por (source, período) pra calcular cada combinação uma só vez.
+    const combos = new Map<string, { source: SourceName; periodo: number }>()
+    for (const b of blocos) {
+      const def = METRIC_BY_ID[b.metricId]
+      if (!def) continue
+      const periodo = Number(b.config?.periodoDias) || painelPeriodo
+      combos.set(`${def.source}|${periodo}`, { source: def.source, periodo })
     }
-    return { data, periodoDias: sctx.periodoDias }
+
+    const results: Record<string, any> = {}
+    await Promise.all([...combos.values()].map(async (c) => {
+      results[`${c.source}|${c.periodo}`] = await this.buildSource(c.source, { ...ctx, periodoDias: c.periodo })
+    }))
+
+    // Resolve POR BLOCO (não por métrica): blocos iguais com período/limite
+    // diferentes produzem dados diferentes. Chaveado por bloco.id.
+    const data: Record<string, any> = {}
+    for (const b of blocos) {
+      const def = METRIC_BY_ID[b.metricId]
+      if (!def) { data[b.id] = null; continue }
+      const periodo = Number(b.config?.periodoDias) || painelPeriodo
+      const src = results[`${def.source}|${periodo}`]
+      let ex: any
+      try { ex = def.extract(src) ?? {} } catch { ex = {} }
+      // Top-N / limite (listas e distribuições). Default p/ tabela = 9.
+      const limite = Number(b.config?.limite) || (def.kind === 'table' ? 9 : 0)
+      if (limite > 0) {
+        if (Array.isArray(ex.items)) ex.items = ex.items.slice(0, limite)
+        if (Array.isArray(ex.rows)) ex.rows = ex.rows.slice(0, limite)
+      }
+      data[b.id] = { kind: def.kind, label: def.label, ...ex }
+    }
+    return { data, periodoDias: painelPeriodo }
   }
 
   private async buildSource(name: SourceName, ctx: ResolveCtx): Promise<any> {

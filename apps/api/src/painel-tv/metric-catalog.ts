@@ -112,7 +112,7 @@ export const METRIC_CATALOG: MetricDef[] = [
         { key: 'ganhos', label: 'Ganhos', align: 'center' },
         { key: 'valorGanho', label: 'Valor ganho', align: 'right', kind: 'currency' },
       ],
-      rows: (s?.crmDesempenho ?? []).slice(0, 9).map((r: any) => ({ name: r.nome, image: r.image, total: r.total, ganhos: r.ganhos, valorGanho: r.valorGanho })),
+      rows: (s?.crmDesempenho ?? []).map((r: any) => ({ name: r.nome, image: r.image, total: r.total, ganhos: r.ganhos, valorGanho: r.valorGanho })),
     }) },
   { id: 'comercial.aVencer', label: 'Contratos a vencer (lista)', modulo: 'comercial', kind: 'table', source: 'comercial', visuals: TABLE,
     extract: (s) => ({
@@ -122,7 +122,7 @@ export const METRIC_CATALOG: MetricDef[] = [
         { key: 'dataFim', label: 'Vence em', align: 'center', kind: 'date' },
         { key: 'honorarioMensal', label: 'Honorário', align: 'right', kind: 'currency' },
       ],
-      rows: (s?.contratos?.aVencer ?? []).slice(0, 9),
+      rows: (s?.contratos?.aVencer ?? []),
     }) },
 
   // ── HELPDESK ───────────────────────────────────────────────────
@@ -156,7 +156,7 @@ export const METRIC_CATALOG: MetricDef[] = [
         { key: 'total', label: 'Total', align: 'center' },
         { key: 'pct', label: '%', align: 'right', kind: 'percent' },
       ],
-      rows: (s?.porCategoria ?? []).slice(0, 9),
+      rows: (s?.porCategoria ?? []),
     }) },
   { id: 'helpdesk.porAgente', label: 'Desempenho por agente', modulo: 'helpdesk', kind: 'table', source: 'helpdesk', visuals: TABLE,
     extract: (s) => ({
@@ -166,7 +166,7 @@ export const METRIC_CATALOG: MetricDef[] = [
         { key: 'mttrHoras', label: 'Tempo médio', align: 'center', kind: 'duration' },
         { key: 'slaPct', label: 'SLA', align: 'right', kind: 'percent' },
       ],
-      rows: (s?.porResponsavel ?? []).slice(0, 8),
+      rows: (s?.porResponsavel ?? []),
     }) },
   { id: 'helpdesk.slaEstourados', label: 'SLA estourado (lista)', modulo: 'helpdesk', kind: 'table', source: 'helpdesk', visuals: TABLE,
     extract: (s) => ({
@@ -177,7 +177,7 @@ export const METRIC_CATALOG: MetricDef[] = [
         { key: 'responsavel', label: 'Responsável' },
         { key: 'prazoSla', label: 'Venceu em', align: 'right', kind: 'date' },
       ],
-      rows: (s?.slaEstourados ?? []).slice(0, 8),
+      rows: (s?.slaEstourados ?? []),
     }) },
 
   // ── COMERCIAL (extras) ─────────────────────────────────────────
