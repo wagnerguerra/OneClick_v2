@@ -169,7 +169,11 @@ export default function DashboardScreen() {
           <View className="items-center pt-1">
             <Image
               source={isDark ? LOGO_TOPO_DARK : LOGO_TOPO}
-              style={{ width: 150, height: 44 }}
+              // Os dois wordmarks têm proporções bem diferentes (claro 146×60
+              // compacto, escuro 187×32 largo). Com uma caixa única, o `contain`
+              // encolhia o claro (limitado pela altura). Damos a cada tema uma
+              // caixa na SUA proporção, com a mesma largura visual (~150).
+              style={isDark ? { width: 150, height: 26 } : { width: 150, height: 62 }}
               contentFit="contain"
               transition={150}
             />
@@ -443,7 +447,7 @@ function DayAgenda({
         accessibilityRole="button"
         accessibilityLabel="Adicionar um evento"
         onPress={onAdicionar}
-        className="flex-row items-center gap-2.5 rounded-xl bg-muted p-3 active:opacity-80"
+        className="flex-row items-center gap-2.5 rounded-md bg-muted p-3 active:opacity-80"
       >
         <View className="my-0.5 w-[3px] self-stretch rounded-full bg-muted-foreground" />
         <Text className="flex-1 text-[13px] text-muted-foreground">
@@ -462,7 +466,7 @@ function DayAgenda({
         accessibilityRole="button"
         accessibilityLabel="Adicionar um evento"
         onPress={onAdicionar}
-        className="flex-row items-center gap-2 rounded-xl bg-muted px-3 py-2 active:opacity-80"
+        className="flex-row items-center gap-2 rounded-md bg-muted px-3 py-2 active:opacity-80"
       >
         <Text className="text-[13px] text-muted-foreground">+ Adicionar um evento</Text>
       </Pressable>
@@ -491,7 +495,7 @@ function EventoLinha({
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      className="flex-row items-stretch overflow-hidden rounded-xl border border-border bg-muted/40 active:opacity-80"
+      className="flex-row items-stretch overflow-hidden rounded-md border border-border bg-elevated active:opacity-80"
     >
       {/* Barra na cor do TIPO do evento — único uso de cor dinâmica. */}
       <View className="w-1.5 self-stretch" style={{ backgroundColor: cores.bg }} />
