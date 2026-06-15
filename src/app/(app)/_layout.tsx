@@ -1,0 +1,60 @@
+import type { ComponentProps } from 'react'
+import { Redirect } from 'expo-router'
+import { Drawer } from 'expo-router/drawer'
+import { ActivityIndicator, View } from 'react-native'
+import { useColorScheme } from 'nativewind'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
+
+import { AppDrawer } from '@/components/navigation/app-drawer'
+import { useSession } from '@/lib/auth-client'
+import { usePushRegistration } from '@/lib/use-push-registration'
+import { useUpdateCheck } from '@/lib/use-update-check'
+
+// Área autenticada — navegação por menu lateral (Drawer) preparado pra blocos/
+// módulos. Guard: sem sessão volta pro login. O conteúdo do menu é o AppDrawer.
+export default function AppLayout() {
+  const { data: session, isPending } = useSession()
+  // Registro de push + checagem de atualização — antes dos early returns para
+  // manter a ordem dos hooks estável.
+  usePushRegistration()
+  useUpdateCheck()
+  const isDark = useColorScheme().colorScheme === 'dark'
+
+  // NativeWind className não se aplica em screenOptions → cor (card) via hex por tema.
+  // Espelha o token --card da identidade nova (#1a2438 escuro / #ffffff claro).
+  const drawerBg = isDark ? '#1a2438' : '#ffffff'
+
+  if (isPending) {
+    return (
+      <View className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator />
+      </View>
+    )
+  }
+
+  if (!session) return <Redirect href="/login" />
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Drawer
+        // O props do expo-router e o do @react-navigation/drawer são
+        // estruturalmente iguais, mas nominalmente distintos (resoluções de
+        // tipo diferentes). Repassamos com cast — em runtime é o mesmo objeto.
+        drawerContent={(props) => (
+          <AppDrawer {...(props as unknown as ComponentProps<typeof AppDrawer>)} />
+        )}
+        screenOptions={{
+          headerShown: false,
+          drawerStyle: { backgroundColor: drawerBg },
+          swipeEdgeWidth: 80,
+        }}
+      >
+        <Drawer.Screen name="dashboard" options={{ title: 'Início' }} />
+        <Drawer.Screen name="agenda" options={{ title: 'Agenda' }} />
+        <Drawer.Screen name="tarefas" options={{ title: 'Tarefas' }} />
+        <Drawer.Screen name="helpdesk" options={{ title: 'Helpdesk' }} />
+        <Drawer.Screen name="perfil" options={{ title: 'Perfil' }} />
+      </Drawer>
+    </GestureHandlerRootView>
+  )
+}
