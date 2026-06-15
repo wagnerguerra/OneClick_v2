@@ -144,14 +144,16 @@ export function createAgendaRouter(
           participantesAvulsos: z.array(z.string()).optional(),
           // Opt-in: só notifica participantes por e-mail quando marcado (default false).
           notificar: z.boolean().optional(),
+          // Opt-in: avisa TODOS os usuários do tenant (sino + e-mail) sobre a alteração.
+          notificarTodosTenant: z.boolean().optional(),
         }),
       }))
       .mutation(({ input, ctx }) => service.update(input.id, input.data, ctx.userId)),
 
     delete: deleteProcedure(MODULE)
-      // notificar (opt-in, default false) decide se avisa os participantes da exclusão.
-      .input(z.object({ id: z.string(), notificar: z.boolean().optional() }))
-      .mutation(({ input, ctx }) => service.delete(input.id, ctx.userId, input.notificar ?? false)),
+      // notificar (opt-in) avisa os participantes; notificarTodosTenant avisa a empresa toda.
+      .input(z.object({ id: z.string(), notificar: z.boolean().optional(), notificarTodosTenant: z.boolean().optional() }))
+      .mutation(({ input, ctx }) => service.delete(input.id, ctx.userId, input.notificar ?? false, input.notificarTodosTenant ?? false)),
 
     // === OPORTUNIDADES (CRM) — seletor leve pra vincular um evento a um card ===
     buscarOportunidades: readProcedure(MODULE)

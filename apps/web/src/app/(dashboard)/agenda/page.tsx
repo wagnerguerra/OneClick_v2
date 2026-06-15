@@ -393,6 +393,7 @@ export default function AgendaPage() {
     participantesAvulsos: [] as string[],
     // Opt-in de notificação por e-mail (padrão DESMARCADO) e vínculo opcional com card do CRM
     notificar: false,
+    notificarTodosTenant: false,
     oportunidadeId: '' as string,
   })
   const [avulsoInput, setAvulsoInput] = useState('')
@@ -964,6 +965,7 @@ export default function AgendaPage() {
       participanteIds,
       participantesAvulsos: [],
       notificar: false,
+      notificarTodosTenant: false,
       oportunidadeId: '',
     })
     setAvulsoInput('')
@@ -1028,6 +1030,7 @@ export default function AgendaPage() {
       participanteIds: ev.participantes.filter(p => p.usuarioId).map(p => p.usuarioId!),
       participantesAvulsos: ev.participantes.filter(p => p.nomeAvulso).map(p => p.nomeAvulso!),
       notificar: false,
+      notificarTodosTenant: false,
       oportunidadeId: ev.oportunidadeId ?? '',
     })
     setAvulsoInput('')
@@ -1190,6 +1193,7 @@ export default function AgendaPage() {
             participanteIds: form.participanteIds,
             participantesAvulsos: form.participantesAvulsos,
             notificar: form.notificar,
+            notificarTodosTenant: form.notificarTodosTenant,
           },
         })
         await trpc.agenda.lembrete.save.mutate({ eventoId: selectedEvento.id, lembretes: lembretesForm })
@@ -1218,14 +1222,30 @@ export default function AgendaPage() {
       </div>
     `
 
+    // Dois checkboxes de notificação (participantes / empresa toda) — HTML custom
+    // porque o `input:'checkbox'` nativo do Swal só suporta um.
+    const notifChecksHtml = `
+      <div style="text-align:left;margin-top:14px;padding-top:12px;border-top:1px solid #f3f4f6;display:flex;flex-direction:column;gap:10px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer">
+          <input type="checkbox" id="chk-notif-part" style="width:15px;height:15px;cursor:pointer;accent-color:#ef4444" />
+          ✉️ Notificar participantes por e-mail
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer">
+          <input type="checkbox" id="chk-notif-tenant" style="width:15px;height:15px;cursor:pointer;accent-color:#ef4444" />
+          📢 Notificar todos da empresa <span style="font-size:11px;color:#9ca3af">(sino + e-mail)</span>
+        </label>
+      </div>`
+    const notifPreConfirm = () => ({
+      notificar: (document.getElementById('chk-notif-part') as HTMLInputElement | null)?.checked ?? false,
+      notificarTodosTenant: (document.getElementById('chk-notif-tenant') as HTMLInputElement | null)?.checked ?? false,
+    })
+
     if (ev.lote && ev.recorrencia !== 'NENHUMA') {
       const result = await Swal.fire({
         iconHtml: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>',
         title: 'Excluir evento recorrente',
-        html: `<div style="text-align:left;font-size:14px">${eventCard}<p style="margin:0;color:#374151">O que deseja excluir?</p></div>`,
-        input: 'checkbox',
-        inputValue: 0,
-        inputPlaceholder: 'Notificar participantes por e-mail',
+        html: `<div style="text-align:left;font-size:14px">${eventCard}<p style="margin:0;color:#374151">O que deseja excluir?</p>${notifChecksHtml}</div>`,
+        preConfirm: notifPreConfirm,
         showCancelButton: true,
         showDenyButton: true,
         confirmButtonText: '<span style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> Apenas este</span>',
@@ -1238,14 +1258,14 @@ export default function AgendaPage() {
         reverseButtons: true,
       })
       if (result.isDismissed) return
-      const notificar = !!result.value
+      const notif = (result.value as { notificar?: boolean; notificarTodosTenant?: boolean } | undefined) ?? {}
       try {
         if (result.isDenied) {
           // Exclusão da série inteira — não há notificação granular (deleteLote não notifica).
           await trpc.agenda.deleteLote.mutate({ lote: ev.lote })
           alerts.success('Série excluída', 'Todos os eventos da série foram removidos.')
         } else {
-          await trpc.agenda.delete.mutate({ id: ev.id, notificar })
+          await trpc.agenda.delete.mutate({ id: ev.id, notificar: !!notif.notificar, notificarTodosTenant: !!notif.notificarTodosTenant })
           alerts.success('Evento excluído', '')
         }
         setModalOpen(false)
@@ -1256,10 +1276,8 @@ export default function AgendaPage() {
       const result = await Swal.fire({
         iconHtml: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>',
         title: 'Excluir evento',
-        html: `<div style="text-align:left;font-size:14px">${eventCard}<p style="margin:0;color:#6b7280;font-size:13px">Esta ação não pode ser desfeita.</p></div>`,
-        input: 'checkbox',
-        inputValue: 0,
-        inputPlaceholder: 'Notificar participantes por e-mail',
+        html: `<div style="text-align:left;font-size:14px">${eventCard}<p style="margin:0;color:#6b7280;font-size:13px">Esta ação não pode ser desfeita.</p>${notifChecksHtml}</div>`,
+        preConfirm: notifPreConfirm,
         showCancelButton: true,
         confirmButtonText: '<span style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg> Excluir</span>',
         cancelButtonText: 'Cancelar',
@@ -1269,9 +1287,9 @@ export default function AgendaPage() {
         reverseButtons: true,
       })
       if (!result.isConfirmed) return
-      const notificar = !!result.value
+      const notif = (result.value as { notificar?: boolean; notificarTodosTenant?: boolean } | undefined) ?? {}
       try {
-        await trpc.agenda.delete.mutate({ id: ev.id, notificar })
+        await trpc.agenda.delete.mutate({ id: ev.id, notificar: !!notif.notificar, notificarTodosTenant: !!notif.notificarTodosTenant })
         alerts.success('Evento excluído', '')
         setModalOpen(false)
         setDayModalOpen(false)
@@ -2814,6 +2832,30 @@ export default function AgendaPage() {
                         Envia um e-mail aos participantes avisando sobre {modalMode === 'create' ? 'a criação' : 'a alteração'} do evento.
                       </TooltipContent>
                     </Tooltip>
+                    {/* Notificar TODA a empresa (sino + e-mail) — opt-in, só na edição. */}
+                    {modalMode === 'edit' && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <label className="flex items-start gap-2 cursor-pointer text-xs">
+                            <Checkbox
+                              checked={form.notificarTodosTenant}
+                              onCheckedChange={v => setForm(f => ({ ...f, notificarTodosTenant: !!v }))}
+                              className="mt-0.5"
+                            />
+                            <span className="flex flex-col leading-tight">
+                              <span className="flex items-center gap-1.5">
+                                <Users className="h-3 w-3 text-muted-foreground shrink-0" />
+                                Notificar toda a empresa
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">Sino + e-mail a todos do tenant</span>
+                            </span>
+                          </label>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-[220px] text-xs">
+                          Avisa todos os usuários da sua empresa (notificação no sino e e-mail) sobre a alteração do evento.
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </div>
                 </div>
 

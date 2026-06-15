@@ -107,6 +107,7 @@ interface UpdateEventoInput {
   participanteIds?: string[]
   participantesAvulsos?: string[]
   notificar?: boolean
+  notificarTodosTenant?: boolean
 }
 
 interface ListEventosParams {
@@ -1016,17 +1017,17 @@ export class AgendaService {
       },
     })
 
-    // Notificar participantes por e-mail (opt-in — só quando marcado no form).
-    if (data.notificar === true) {
-      this.notificarParticipantes(updated.id, 'editado').catch((e: Error) => {
-        console.error(`[Agenda] Falha ao notificar participantes (editado, ev=${updated.id}):`, e.message, e.stack)
+    // Notificar (opt-in). notificar = participantes; notificarTodosTenant = empresa toda.
+    if (data.notificar === true || data.notificarTodosTenant === true) {
+      this.notificarParticipantes(updated.id, 'editado', data.notificarTodosTenant === true).catch((e: Error) => {
+        console.error(`[Agenda] Falha ao notificar (editado, ev=${updated.id}):`, e.message, e.stack)
       })
     }
 
     return updated
   }
 
-  async delete(id: string, userId: string, notificar = false) {
+  async delete(id: string, userId: string, notificar = false, notificarTodosTenant = false) {
     // Permissão de exclusão: dono do evento, MASTER, ou sub-perm `delete_eventos`
     // / `editar_todos_eventos`. (espelha o botão "Excluir" do front)
     const ev = await prisma.agendaEvento.findUniqueOrThrow({ where: { id }, select: { criadorId: true } })
@@ -1034,10 +1035,10 @@ export class AgendaService {
       throw new Error('Você não tem permissão para excluir este evento.')
     }
 
-    // Notificar antes do soft delete (opt-in — só quando marcado no diálogo de exclusão).
-    if (notificar === true) {
-      this.notificarParticipantes(id, 'excluido').catch((e: Error) => {
-        console.error(`[Agenda] Falha ao notificar participantes (excluido, ev=${id}):`, e.message, e.stack)
+    // Notificar antes do soft delete (opt-in). notificar = participantes; notificarTodosTenant = empresa toda.
+    if (notificar === true || notificarTodosTenant === true) {
+      this.notificarParticipantes(id, 'excluido', notificarTodosTenant === true).catch((e: Error) => {
+        console.error(`[Agenda] Falha ao notificar (excluido, ev=${id}):`, e.message, e.stack)
       })
     }
 
@@ -1635,9 +1636,9 @@ export class AgendaService {
   // NOTIFICAÇÃO POR EMAIL
   // ============================================================
 
-  async notificarParticipantes(eventoId: string, acao: 'criado' | 'editado' | 'excluido') {
+  async notificarParticipantes(eventoId: string, acao: 'criado' | 'editado' | 'excluido', notificarTodosTenant = false) {
     try {
-      console.log(`[Agenda.notif] Início — evento=${eventoId} acao=${acao}`)
+      console.log(`[Agenda.notif] Início — evento=${eventoId} acao=${acao} todosTenant=${notificarTodosTenant}`)
       const evento = await prisma.agendaEvento.findUnique({
         where: { id: eventoId },
         include: {
@@ -1670,7 +1671,9 @@ export class AgendaService {
       // Eventos pessoais não viram broadcast — só notificam se tiverem
       // participantes nominais explícitos (e nesse caso só esses).
       const podeBroadcast = !evento.particular && !(evento.isTarefa && semParticipantes)
-      const ehParaTodos = podeBroadcast && (ehComemorativa || semParticipantes)
+      // notificarTodosTenant (opt-in explícito do usuário) força o broadcast pra empresa
+      // toda, independente de ser particular/tarefa/ter participantes.
+      const ehParaTodos = notificarTodosTenant || (podeBroadcast && (ehComemorativa || semParticipantes))
 
       // Se o criador se incluiu explicitamente como participante, ele recebe
       // a notificação (foi opção dele se considerar participante).
@@ -1705,7 +1708,7 @@ export class AgendaService {
         const horaDisp = evento.diaInteiro ? 'dia inteiro' : evento.horaInicio ?? ''
         const prefixoTitulo = ehComemorativa
           ? '🎉 '
-          : semParticipantes
+          : (semParticipantes || notificarTodosTenant)
             ? '📢 '
             : ''
         const tituloN = acao === 'criado'
@@ -1713,8 +1716,11 @@ export class AgendaService {
           : acao === 'editado'
             ? `${prefixoTitulo}Evento atualizado: ${evento.titulo}`
             : `${prefixoTitulo}Evento cancelado: ${evento.titulo}`
+        const motivoBroadcast = notificarTodosTenant
+          ? ''
+          : ehParaTodos ? ' aberto a todos' : ' que você estava participando'
         const mensagemN = acao === 'excluido'
-          ? `${evento.criador.name} cancelou um evento ${ehParaTodos ? 'aberto a todos' : 'que você estava participando'}.`
+          ? `${evento.criador.name} cancelou um evento${motivoBroadcast}.`
           : `${dataDispBR}${horaDisp ? ` às ${horaDisp}` : ''}${evento.local ? ` · ${evento.local}` : ''}`
         const tipoN: 'info' | 'success' | 'warning' = acao === 'criado'
           ? (ehComemorativa ? 'success' : 'info')
@@ -1751,13 +1757,29 @@ export class AgendaService {
         })
       }
 
-      // Email continua restrito aos participantes nominais — evento "para todos"
-      // não dispara email global pra evitar spam. Sino global cobre esse caso.
-      if (evento.participantes.length === 0) return
-
-      const emails = evento.participantes
-        .map(p => p.usuario?.email)
-        .filter((e): e is string => !!e)
+      // Destinatários do e-mail:
+      //  • notificarTodosTenant → TODOS os usuários ativos da empresa (opt-in explícito).
+      //  • caso contrário → só participantes nominais (broadcast "para todos" só vai no sino,
+      //    pra não spammar e-mail sem o usuário ter pedido).
+      let emails: string[]
+      if (notificarTodosTenant) {
+        const usersEmpresa = await prisma.user.findMany({
+          where: {
+            isActive: true,
+            ...(evento.criador.empresaId ? { empresaId: evento.criador.empresaId } : {}),
+          },
+          select: { id: true, email: true },
+        })
+        emails = usersEmpresa
+          .filter(u => criadorEhParticipante || u.id !== evento.criador.id)
+          .map(u => u.email)
+          .filter((e): e is string => !!e)
+      } else {
+        if (evento.participantes.length === 0) return
+        emails = evento.participantes
+          .map(p => p.usuario?.email)
+          .filter((e): e is string => !!e)
+      }
       if (emails.length === 0) return
 
       // Buscar logo da empresa do criador
