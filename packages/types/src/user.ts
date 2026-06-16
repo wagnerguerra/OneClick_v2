@@ -48,7 +48,7 @@ export const MODULE_SLUGS = [
   'fornecedores', 'grupos-empresariais', 'obrigacoes', 'obrigacoes-fixas', 'obrigacoes-demanda',
   'servicos', 'socios', 'usuarios',
   // Comercial
-  'crm', 'clausulas', 'comercial', 'contratos', 'contrato-templates',
+  'crm', 'whatsapp', 'clausulas', 'comercial', 'contratos', 'contrato-templates',
   'custeio-clientes', 'graficos-contrato-erp',
   'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios',
   // Administrativo
@@ -84,7 +84,7 @@ export const MODULE_LABELS: Record<string, string> = {
   'obrigacoes-fixas': 'Obrigações Fixas', 'obrigacoes-demanda': 'Obrigações Sob Demanda',
   servicos: 'Serviços', socios: 'Sócios', usuarios: 'Usuários',
   // Comercial
-  crm: 'CRM',
+  crm: 'CRM', whatsapp: 'WhatsApp',
   clausulas: 'Cláusulas', comercial: 'Comercial', contratos: 'Contratos',
   'contrato-templates': 'Modelos de Contrato',
   'custeio-clientes': 'Custeio por Cliente',
@@ -124,7 +124,7 @@ export const MODULE_LABELS: Record<string, string> = {
 
 export const MODULE_GROUPS = {
   'Cadastros': ['areas', 'cargos', 'clientes', 'colaboradores', 'empresas', 'fornecedores', 'grupos-empresariais', 'obrigacoes', 'obrigacoes-fixas', 'obrigacoes-demanda', 'servicos', 'socios', 'usuarios'],
-  'Comercial': ['crm', 'clausulas', 'comercial', 'contratos', 'contrato-templates', 'custeio-clientes', 'graficos-contrato-erp', 'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios'],
+  'Comercial': ['crm', 'whatsapp', 'clausulas', 'comercial', 'contratos', 'contrato-templates', 'custeio-clientes', 'graficos-contrato-erp', 'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios'],
   'Administrativo': ['agenda', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma'],
   'Legalização': ['beneficios-fiscais', 'certificados', 'gestao-certificados', 'processos', 'quadro-societario'],
   'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento'],
@@ -164,6 +164,17 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'manage_catalogo', label: 'Gerenciar catálogo de benefícios', group: 'Catálogo' },
     { key: 'gerar_orcamento', label: 'Gerar orçamento a partir do benefício', group: 'Operações' },
     { key: 'delete_beneficios', label: 'Excluir vínculos de benefício', group: 'Operações' },
+  ],
+  whatsapp: [
+    { key: 'atender', label: 'Atender (assumir e responder conversas)', group: 'Atendimento' },
+    { key: 'ver_todas', label: 'Ver todas as filas/setores (não só os meus)', group: 'Escopo' },
+    { key: 'transferir', label: 'Transferir conversa entre setores/atendentes', group: 'Atendimento' },
+    { key: 'enviar_template', label: 'Iniciar conversa proativa (templates)', group: 'Atendimento' },
+    { key: 'gerenciar_setores', label: 'Gerenciar setores e horários de atendimento', group: 'Administração' },
+    { key: 'gerenciar_respostas_rapidas', label: 'Gerenciar respostas rápidas', group: 'Administração' },
+    { key: 'gerenciar_templates', label: 'Gerenciar templates de mensagem', group: 'Administração' },
+    { key: 'gerenciar_bot', label: 'Ligar/desligar o bot e a IA', group: 'Administração' },
+    { key: 'relatorios', label: 'Acessar relatórios de atendimento', group: 'Administração' },
   ],
   caixapostal: [
     { key: 'bulk_actions', label: 'Consulta em lote e ações em massa', group: 'Ações' },

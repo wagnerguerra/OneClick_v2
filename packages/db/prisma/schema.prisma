@@ -1566,6 +1566,152 @@ model Nota {
 }
 
 // ============================================================
+// WhatsApp (módulo estilo Digisac — Comercial). Multi-tenant.
+// IDs de relação (clienteId/numeroId/etc) como escalares — service usa raw SQL.
+// ============================================================
+model WhatsappNumero {
+  id            String   @id @default(cuid())
+  phoneNumberId String   @map("phone_number_id") // Meta Cloud phone_number_id
+  wabaId        String?  @map("waba_id")
+  displayName   String?  @map("display_name")
+  numero        String?  // E.164 (exibição)
+  ativo         Boolean  @default(true)
+  empresaId     String?  @map("empresa_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([empresaId, ativo])
+  @@map("whatsapp_numeros")
+}
+
+model WhatsappSetor {
+  id              String   @id @default(cuid())
+  nome            String
+  cor             String   @default("#22c55e")
+  // JSON: horário de atendimento por dia da semana
+  horario         Json?
+  msgForaHorario  String?  @map("msg_fora_horario") @db.Text
+  botAtivo        Boolean  @default(true) @map("bot_ativo")
+  ativo           Boolean  @default(true)
+  ordem           Int      @default(0)
+  empresaId       String?  @map("empresa_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([empresaId, ativo])
+  @@map("whatsapp_setores")
+}
+
+model WhatsappSetorAgente {
+  id        String   @id @default(cuid())
+  setorId   String   @map("setor_id")
+  usuarioId String   @map("usuario_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([setorId, usuarioId])
+  @@index([usuarioId])
+  @@map("whatsapp_setor_agentes")
+}
+
+model WhatsappContato {
+  id        String   @id @default(cuid())
+  waId      String   @map("wa_id") // wa_id da Meta (número sem +)
+  telefone  String?  // E.164
+  nome      String?
+  fotoUrl   String?  @map("foto_url")
+  clienteId String?  @map("cliente_id") // vínculo opcional ao Cliente do CRM
+  tags      String[] @default([])
+  bloqueado Boolean  @default(false)
+  empresaId String?  @map("empresa_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([empresaId, waId])
+  @@index([clienteId])
+  @@map("whatsapp_contatos")
+}
+
+enum WhatsappConversaStatus {
+  ABERTA
+  PENDENTE
+  RESOLVIDA
+  FECHADA
+}
+
+model WhatsappConversa {
+  id                String                 @id @default(cuid())
+  contatoId         String                 @map("contato_id")
+  numeroId          String?                @map("numero_id")
+  setorId           String?                @map("setor_id")
+  responsavelId     String?                @map("responsavel_id")
+  status            WhatsappConversaStatus @default(ABERTA)
+  naFila            Boolean                @default(true) @map("na_fila")
+  botPausado        Boolean                @default(false) @map("bot_pausado")
+  naoLidas          Int                    @default(0) @map("nao_lidas")
+  ultimaMensagemEm  DateTime?              @map("ultima_mensagem_em")
+  // Janela de serviço de 24h da Meta — fora dela só template
+  janela24hExpiraEm DateTime?              @map("janela_24h_expira_em")
+  empresaId         String?                @map("empresa_id")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+
+  @@index([empresaId, status, ultimaMensagemEm])
+  @@index([setorId])
+  @@index([responsavelId])
+  @@index([contatoId])
+  @@map("whatsapp_conversas")
+}
+
+model WhatsappMensagem {
+  id          String   @id @default(cuid())
+  conversaId  String   @map("conversa_id")
+  direcao     String // IN | OUT
+  // autor: usuário (agente) ou 'bot' ou null (contato)
+  autorId     String?  @map("autor_id")
+  porBot      Boolean  @default(false) @map("por_bot")
+  tipo        String   @default("texto") // texto | imagem | audio | video | documento | template
+  conteudo    String?  @db.Text
+  midiaUrl    String?  @map("midia_url")
+  waMessageId String?  @map("wa_message_id")
+  status      String   @default("enviado") // enviado | entregue | lido | erro | recebido
+  interna     Boolean  @default(false) // nota privada (não envia ao WhatsApp)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([conversaId, createdAt])
+  @@index([waMessageId])
+  @@map("whatsapp_mensagens")
+}
+
+model WhatsappTemplate {
+  id        String   @id @default(cuid())
+  nome      String
+  categoria String   @default("utility")
+  idioma    String   @default("pt_BR")
+  corpo     String   @db.Text
+  status    String   @default("PENDENTE") // aprovado pela Meta etc
+  empresaId String?  @map("empresa_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([empresaId])
+  @@map("whatsapp_templates")
+}
+
+model WhatsappRespostaRapida {
+  id        String   @id @default(cuid())
+  titulo    String
+  atalho    String? // ex.: /ola
+  conteudo  String   @db.Text
+  setorId   String?  @map("setor_id") // null = global
+  empresaId String?  @map("empresa_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([empresaId])
+  @@map("whatsapp_respostas_rapidas")
+}
+
+// ============================================================
 // Sistema de Abas (Chrome-like)
 // ============================================================
 // Cada usuário tem uma lista persistente de abas abertas. Pinadas

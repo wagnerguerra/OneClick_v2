@@ -37,6 +37,7 @@ const SECRET_KEYS = new Set([
   'S3_ACCESS_KEY', 'S3_SECRET_KEY',
   'LEADS_API_KEY', 'CRM_EXTERNO_API_KEY',
   'TWILIO_AUTH_TOKEN',
+  'WHATSAPP_ACCESS_TOKEN', 'WHATSAPP_APP_SECRET',
   'CAPTCHA_2CAPTCHA_API_KEY', 'CAPTCHA_FREECAPTCHA_API_KEY',
   'OPENAI_API_KEY',
   'GOOGLE_CLIENT_SECRET',
@@ -102,11 +103,18 @@ const CONFIG_FIELDS: ConfigField[] = [
   { key: 'OMIE_APP_SECRET_LL', label: 'App Secret (L&L)', group: 'Omie ERP', type: 'password', secret: true },
   { key: 'OMIE_SYNC_ENABLED', label: 'Sync Habilitado', group: 'Omie ERP', type: 'text', default: '0' },
 
-  // WhatsApp
-  { key: 'WHATSAPP_API_TYPE', label: 'Tipo API', group: 'WhatsApp (Twilio)', type: 'text', default: 'twilio' },
-  { key: 'TWILIO_ACCOUNT_SID', label: 'Account SID', group: 'WhatsApp (Twilio)', type: 'text' },
-  { key: 'TWILIO_AUTH_TOKEN', label: 'Auth Token', group: 'WhatsApp (Twilio)', type: 'password', secret: true },
-  { key: 'TWILIO_WHATSAPP_FROM', label: 'Numero WhatsApp', group: 'WhatsApp (Twilio)', type: 'text', placeholder: '+5527999078863' },
+  // WhatsApp — Meta Cloud API (oficial, direto)
+  { key: 'WHATSAPP_API_TYPE', label: 'Tipo API', group: 'WhatsApp', type: 'text', default: 'meta_cloud', help: 'meta_cloud (oficial) | twilio (legado)' },
+  { key: 'WHATSAPP_PHONE_NUMBER_ID', label: 'Phone Number ID', group: 'WhatsApp', type: 'text', help: 'ID do número no Meta Cloud (não é o telefone)' },
+  { key: 'WHATSAPP_WABA_ID', label: 'WABA ID', group: 'WhatsApp', type: 'text', help: 'ID da WhatsApp Business Account' },
+  { key: 'WHATSAPP_ACCESS_TOKEN', label: 'Access Token (permanente)', group: 'WhatsApp', type: 'password', secret: true, help: 'Token do System User (longa duração)' },
+  { key: 'WHATSAPP_VERIFY_TOKEN', label: 'Verify Token (webhook)', group: 'WhatsApp', type: 'text', help: 'String que você define e cadastra na Meta para validar o webhook' },
+  { key: 'WHATSAPP_APP_SECRET', label: 'App Secret', group: 'WhatsApp', type: 'password', secret: true, help: 'Secret do app Meta — usado para validar a assinatura do webhook' },
+  { key: 'WHATSAPP_BOT_ATIVO', label: 'Bot/IA ativo', group: 'WhatsApp', type: 'text', default: '0', help: '1 = bot/IA responde automaticamente; 0 = só atendimento humano' },
+  // WhatsApp — Twilio (legado, opcional)
+  { key: 'TWILIO_ACCOUNT_SID', label: 'Account SID (Twilio)', group: 'WhatsApp', type: 'text' },
+  { key: 'TWILIO_AUTH_TOKEN', label: 'Auth Token (Twilio)', group: 'WhatsApp', type: 'password', secret: true },
+  { key: 'TWILIO_WHATSAPP_FROM', label: 'Numero WhatsApp (Twilio)', group: 'WhatsApp', type: 'text', placeholder: '+5527999078863' },
 
   // Captcha Providers
   { key: 'CAPTCHA_2CAPTCHA_API_KEY', label: 'API Key (2Captcha)', group: 'Captcha', type: 'password', secret: true, help: 'Chave da API do 2captcha.com — usado para resolver hCaptcha, reCAPTCHA e captchas de imagem' },

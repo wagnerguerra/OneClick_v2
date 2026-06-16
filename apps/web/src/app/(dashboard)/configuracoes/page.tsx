@@ -40,7 +40,7 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
   'SERPRO': Key,
   'Servidor': Server,
   'Stripe': CreditCard,
-  'WhatsApp (Twilio)': MessageSquare,
+  'WhatsApp': MessageSquare,
   'Captcha': Bot,
   'Abas': Bookmark,
   'Notificações': Bell,
