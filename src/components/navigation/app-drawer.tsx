@@ -64,22 +64,85 @@ type ItemModulo = {
   modulo: string | null
 }
 
-// Itens do menu — só os módulos implementados e navegáveis.
-// A visibilidade é decidida em runtime via `podeVer(item.modulo)`.
-//   - Início       → sempre (sem permissão)
-//   - Agenda       → módulo 'agenda'
-//   - Tarefas      → módulo 'agenda' (tarefas pertencem à agenda)
-//   - Helpdesk     → módulo 'helpdesk'
-const ITENS_MENU: ItemModulo[] = [
-  { label: 'Início', icon: 'home', route: 'dashboard', modulo: null },
-  { label: 'Agenda', icon: 'calendar', route: 'agenda', modulo: 'agenda' },
-  { label: 'Tarefas', icon: 'checkbox', route: 'tarefas', modulo: 'agenda' },
-  { label: 'Helpdesk', icon: 'chatbubbles', route: 'helpdesk', modulo: 'helpdesk' },
-  // Cadastros — cada item só aparece pra quem tem acesso ao módulo correspondente.
-  { label: 'Usuários', icon: 'people', route: 'usuarios', modulo: 'usuarios' },
-  { label: 'Serviços', icon: 'briefcase', route: 'servicos', modulo: 'servicos' },
-  { label: 'Configurações', icon: 'settings-outline', route: 'configuracoes', modulo: null },
+// Um bloco do menu — espelha os grupos da sidebar do sistema web (MODULE_GROUPS).
+type BlocoMenu = {
+  titulo: string
+  itens: ItemModulo[]
+}
+
+// Início e Configurações ficam FORA dos blocos (topo e rodapé), como no web.
+const ITEM_INICIO: ItemModulo = { label: 'Início', icon: 'home', route: 'dashboard', modulo: null }
+const ITEM_CONFIG: ItemModulo = {
+  label: 'Configurações',
+  icon: 'settings-outline',
+  route: 'configuracoes',
+  modulo: null,
+}
+
+// Blocos navegáveis agrupados igual à sidebar do sistema (ordem dos grupos do web:
+// Cadastros → … → Administrativo → … → TI). Cada item só aparece pra quem tem o
+// módulo (podeVer); um bloco só é renderizado se tiver ≥1 item visível.
+const BLOCOS: BlocoMenu[] = [
+  {
+    titulo: 'Cadastros',
+    itens: [
+      { label: 'Usuários', icon: 'people', route: 'usuarios', modulo: 'usuarios' },
+      { label: 'Serviços', icon: 'briefcase', route: 'servicos', modulo: 'servicos' },
+    ],
+  },
+  {
+    titulo: 'Administrativo',
+    itens: [
+      { label: 'Agenda', icon: 'calendar', route: 'agenda', modulo: 'agenda' },
+      { label: 'Tarefas', icon: 'checkbox', route: 'tarefas', modulo: 'agenda' },
+      { label: 'Meus serviços', icon: 'clipboard', route: 'meus-servicos', modulo: 'meus-servicos' },
+    ],
+  },
+  {
+    titulo: 'TI',
+    itens: [{ label: 'Helpdesk', icon: 'chatbubbles', route: 'helpdesk', modulo: 'helpdesk' }],
+  },
 ]
+
+// Linha de item navegável do drawer (chip de ícone + label, realce quando ativo).
+// Extraído pra reuso entre Início, os blocos agrupados e Configurações.
+function ItemLink({
+  item,
+  ativo,
+  onPress,
+  iconActive,
+  iconMuted,
+}: {
+  item: ItemModulo
+  ativo: boolean
+  onPress: () => void
+  iconActive: string
+  iconMuted: string
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: ativo }}
+      onPress={onPress}
+      className={cn(
+        'flex-row items-center gap-3 rounded-xl px-2 py-2.5',
+        ativo ? 'bg-primary/10' : 'active:bg-muted',
+      )}
+    >
+      <View
+        className={cn(
+          'h-9 w-9 items-center justify-center rounded-lg',
+          ativo ? 'bg-primary/15' : 'bg-muted/60',
+        )}
+      >
+        <Ionicons name={item.icon} size={18} color={ativo ? iconActive : iconMuted} />
+      </View>
+      <Text className={cn('flex-1 font-medium', ativo ? 'text-primary' : 'text-foreground')}>
+        {item.label}
+      </Text>
+    </Pressable>
+  )
+}
 
 export function AppDrawer(props: AppDrawerProps) {
   const router = useRouter()
@@ -103,11 +166,17 @@ export function AppDrawer(props: AppDrawerProps) {
   const rotaAtual = props.state.routeNames[props.state.index]
 
   // Degrade gracioso: enquanto carrega OU se a query falhar, mostramos todos os
-  // módulos (assim o menu nunca fica vazio/quebrado). Início é sempre visível.
+  // módulos (assim o menu nunca fica vazio/quebrado). Itens sem módulo (null)
+  // são sempre visíveis.
   const mostrarTudo = permsLoading || permsError
-  const itensVisiveis = ITENS_MENU.filter(
-    (item) => item.modulo === null || mostrarTudo || podeVer(item.modulo),
-  )
+  const podeMostrar = (modulo: string | null) =>
+    modulo === null || mostrarTudo || podeVer(modulo)
+
+  // Blocos com os itens filtrados por permissão; blocos vazios são descartados.
+  const blocosVisiveis = BLOCOS.map((bloco) => ({
+    titulo: bloco.titulo,
+    itens: bloco.itens.filter((item) => podeMostrar(item.modulo)),
+  })).filter((bloco) => bloco.itens.length > 0)
 
   // Logo da empresa: usa a versão dark quando disponível no tema escuro.
   const logo = resolveUrl(
@@ -218,47 +287,45 @@ export function AppDrawer(props: AppDrawerProps) {
           <Ionicons name="chevron-forward" size={18} color={iconMuted} />
         </Pressable>
 
-        {/* ── Módulos navegáveis (filtrados por permissão) ── */}
+        {/* ── Início (fora dos blocos, no topo) ── */}
         <View className="mt-4 gap-1">
-          {itensVisiveis.map((item) => {
-            const ativo = item.route === rotaAtual
+          <ItemLink
+            item={ITEM_INICIO}
+            ativo={ITEM_INICIO.route === rotaAtual}
+            onPress={() => props.navigation.navigate(ITEM_INICIO.route)}
+            iconActive={iconActive}
+            iconMuted={iconMuted}
+          />
+        </View>
 
-            return (
-              <Pressable
+        {/* ── Blocos agrupados (igual à sidebar do sistema), gated por permissão ── */}
+        {blocosVisiveis.map((bloco) => (
+          <View key={bloco.titulo} className="mt-3 gap-1">
+            <Text className="px-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {bloco.titulo}
+            </Text>
+            {bloco.itens.map((item) => (
+              <ItemLink
                 key={item.label}
-                accessibilityRole="button"
-                accessibilityState={{ selected: ativo }}
+                item={item}
+                ativo={item.route === rotaAtual}
                 onPress={() => props.navigation.navigate(item.route)}
-                className={cn(
-                  'flex-row items-center gap-3 rounded-xl px-2 py-2.5',
-                  ativo ? 'bg-primary/10' : 'active:bg-muted',
-                )}
-              >
-                {/* Chip do ícone. */}
-                <View
-                  className={cn(
-                    'h-9 w-9 items-center justify-center rounded-lg',
-                    ativo ? 'bg-primary/15' : 'bg-muted/60',
-                  )}
-                >
-                  <Ionicons
-                    name={item.icon}
-                    size={18}
-                    color={ativo ? iconActive : iconMuted}
-                  />
-                </View>
+                iconActive={iconActive}
+                iconMuted={iconMuted}
+              />
+            ))}
+          </View>
+        ))}
 
-                <Text
-                  className={cn(
-                    'flex-1 font-medium',
-                    ativo ? 'text-primary' : 'text-foreground',
-                  )}
-                >
-                  {item.label}
-                </Text>
-              </Pressable>
-            )
-          })}
+        {/* ── Configurações (app-level, fora dos blocos) ── */}
+        <View className="mt-3 gap-1">
+          <ItemLink
+            item={ITEM_CONFIG}
+            ativo={ITEM_CONFIG.route === rotaAtual}
+            onPress={() => props.navigation.navigate(ITEM_CONFIG.route)}
+            iconActive={iconActive}
+            iconMuted={iconMuted}
+          />
         </View>
 
         {/* ── Rodapé: Perfil + Sair ── */}
