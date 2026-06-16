@@ -71,6 +71,14 @@ function numeroParaMoeda(n: number | string | null | undefined): string {
   return Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+// Máscara monetária ao vivo: interpreta os dígitos digitados como centavos
+// e formata em pt-BR (ex.: "123456" → "1.234,56").
+function mascaraMoeda(input: string): string {
+  const digits = (input || '').replace(/\D/g, '')
+  if (!digits) return ''
+  return numeroParaMoeda(Number(digits) / 100)
+}
+
 export default function ParametrosOrcamentosPage() {
   const router = useRouter()
   // Catálogo de serviços é configuração admin do módulo. Acesso via URL direta
@@ -458,13 +466,9 @@ export default function ParametrosOrcamentosPage() {
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-muted-foreground shrink-0">R$</span>
                   <Input
-                    inputMode="decimal"
+                    inputMode="numeric"
                     value={form.valorPadrao}
-                    onChange={e => setForm(f => ({ ...f, valorPadrao: e.target.value.replace(/[^\d.,]/g, '') }))}
-                    onBlur={e => {
-                      const n = moedaParaNumero(e.target.value)
-                      setForm(f => ({ ...f, valorPadrao: n > 0 ? numeroParaMoeda(n) : '' }))
-                    }}
+                    onChange={e => setForm(f => ({ ...f, valorPadrao: mascaraMoeda(e.target.value) }))}
                     className="h-9 text-sm"
                     placeholder="0,00"
                   />
@@ -581,13 +585,9 @@ export default function ParametrosOrcamentosPage() {
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-muted-foreground shrink-0">R$</span>
                   <Input
-                    inputMode="decimal"
+                    inputMode="numeric"
                     value={textoForm.valor}
-                    onChange={e => setTextoForm(f => ({ ...f, valor: e.target.value.replace(/[^\d.,]/g, '') }))}
-                    onBlur={e => {
-                      const n = moedaParaNumero(e.target.value)
-                      setTextoForm(f => ({ ...f, valor: n > 0 ? numeroParaMoeda(n) : '' }))
-                    }}
+                    onChange={e => setTextoForm(f => ({ ...f, valor: mascaraMoeda(e.target.value) }))}
                     className="h-9 text-sm"
                     placeholder="0,00"
                   />
