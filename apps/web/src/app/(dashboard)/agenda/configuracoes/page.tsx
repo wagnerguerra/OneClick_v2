@@ -167,7 +167,9 @@ export default function AgendaConfiguracoesPage() {
   async function atualizarPreview() {
     setLoadingPreview(true)
     // Prévia AO VIVO: manda o estado atual do editor (inclui logo/textos/grupos ainda não salvos).
-    try { const r = await (trpc.agenda as any).modeloEmail.preview.query({ template: tpl ?? undefined, grupos }); setPreviewHtml(r.html) }
+    // A logo vai ABSOLUTA pro iframe da prévia conseguir carregar (no srcDoc não há base URL).
+    const tplPreview = tpl ? { ...tpl, logoUrl: tpl.logoUrl ? resolveAssetUrl(tpl.logoUrl) : '' } : undefined
+    try { const r = await (trpc.agenda as any).modeloEmail.preview.query({ template: tplPreview, grupos }); setPreviewHtml(r.html) }
     catch { setPreviewHtml('<p style="padding:16px;font-family:sans-serif;color:#ef4444">Falha ao gerar prévia.</p>') }
     finally { setLoadingPreview(false) }
   }
@@ -1068,11 +1070,12 @@ export default function AgendaConfiguracoesPage() {
                           </div>
                         </div>
                       ))}
-                      <div className="grid grid-cols-2 gap-2 pt-1">
-                        <div className="space-y-1"><Label className="text-[11px]">Nome do grupo de particulares</Label><Input className="h-8 text-xs" value={tpl.nomeGrupoParticulares} onChange={e => setTplField('nomeGrupoParticulares', e.target.value)} /></div>
-                        <div className="space-y-1"><Label className="text-[11px]">Nome do grupo "Outros"</Label><Input className="h-8 text-xs" value={tpl.nomeGrupoOutros} onChange={e => setTplField('nomeGrupoOutros', e.target.value)} /></div>
+                      <div className="rounded-md border border-dashed border-border p-2.5 space-y-2">
+                        <label className="flex items-center gap-2 text-xs cursor-pointer"><Checkbox checked={tpl.mostrarOutros} onCheckedChange={v => setTplField('mostrarOutros', !!v)} /> Mostrar um grupo catch-all com os eventos de tipos não atribuídos a nenhum grupo acima</label>
+                        {tpl.mostrarOutros && (
+                          <div className="space-y-1"><Label className="text-[11px]">Nome do grupo catch-all</Label><Input className="h-8 text-xs" value={tpl.nomeGrupoOutros} onChange={e => setTplField('nomeGrupoOutros', e.target.value)} placeholder="Outros" /></div>
+                        )}
                       </div>
-                      <label className="flex items-center gap-2 text-xs cursor-pointer"><Checkbox checked={tpl.mostrarOutros} onCheckedChange={v => setTplField('mostrarOutros', !!v)} /> Mostrar o grupo "Outros" (eventos de tipos não atribuídos)</label>
                     </div>
 
                     <div className="flex items-center gap-2 pt-1">

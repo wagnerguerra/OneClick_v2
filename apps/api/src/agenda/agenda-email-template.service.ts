@@ -172,22 +172,21 @@ export class AgendaEmailTemplateService {
     eventos: any[],
     ctx: { usuarioNome: string; dataDisplay: string; diaSemana: string; temLogo: boolean },
   ): string {
-    const particulares = eventos.filter(e => e.particular)
-    const resto = eventos.filter(e => !e.particular)
-
+    // Distribui TODOS os eventos visíveis estritamente pelos grupos definidos
+    // (pela atribuição de tipos). O que não cair em nenhum grupo vai pro catch-all
+    // "Outros" (quando habilitado). Nenhum agrupamento fixo de "particulares".
     const usados = new Set<string>()
     const secoesGrupos = grupos
       .map(g => {
-        const items = resto.filter(e => !usados.has(e.id) && (g.tiposIds || []).includes(e.tipoId))
+        const items = eventos.filter(e => !usados.has(e.id) && (g.tiposIds || []).includes(e.tipoId))
         items.forEach(e => usados.add(e.id))
         return { nome: g.nome, cor: g.cor, icone: g.icone || '📅', items }
       })
       .filter(s => s.items.length > 0)
 
-    const outros = resto.filter(e => !usados.has(e.id))
+    const outros = eventos.filter(e => !usados.has(e.id))
     const secoes: Array<{ nome: string; cor: string; icone: string; items: any[] }> = [...secoesGrupos]
-    if (particulares.length > 0) secoes.push({ nome: template.nomeGrupoParticulares, cor: template.corParticulares, icone: '🌟', items: particulares })
-    if (template.mostrarOutros && outros.length > 0) secoes.push({ nome: template.nomeGrupoOutros, cor: template.accent, icone: '📌', items: outros })
+    if (template.mostrarOutros && outros.length > 0) secoes.push({ nome: template.nomeGrupoOutros || 'Outros', cor: template.accent, icone: '📌', items: outros })
 
     const globalVars = {
       usuario: { name: ctx.usuarioNome },
@@ -280,7 +279,7 @@ export class AgendaEmailTemplateService {
 
     // Logomarca do topo: usa a enviada no template (URL absoluta); senão a logo
     // padrão embarcada (cid:logo) quando disponível.
-    const base = (process.env.API_URL || process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+    const base = (process.env.API_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_API_URL || 'https://app.oneclick.central-rnc.com.br').replace(/\/$/, '')
     const logoSrc = template.logoUrl
       ? (template.logoUrl.startsWith('http') ? template.logoUrl : `${base}${template.logoUrl}`)
       : (ctx.temLogo ? 'cid:logo' : '')
