@@ -136,21 +136,23 @@ export function NotesRail() {
                 className="w-full bg-transparent px-3 py-2 text-sm resize-none focus:outline-none placeholder:text-muted-foreground/60"
               />
               {comporAberto && (
-                <div className="flex items-center justify-between gap-2 px-2 pb-2">
-                  <div className="flex items-center gap-1">
+                <div className="px-2 pb-2 space-y-2">
+                  {/* Cores (linha própria — cabem sem cortar) */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {COR_KEYS.map(c => (
                       <button
                         key={c}
                         type="button"
                         title={CORES[c].label}
                         onClick={() => setNovaCor(c)}
-                        className={cn('h-5 w-5 rounded-full border border-black/10 flex items-center justify-center', CORES[c].bg, novaCor === c && 'ring-2 ring-offset-1 ring-amber-500')}
+                        className={cn('h-6 w-6 rounded-full border border-black/10 flex items-center justify-center shrink-0', CORES[c].bg, novaCor === c && 'ring-2 ring-offset-1 ring-amber-500')}
                       >
-                        <span className={cn('h-2.5 w-2.5 rounded-full', CORES[c].dot)} />
+                        <span className={cn('h-3 w-3 rounded-full', CORES[c].dot)} />
                       </button>
                     ))}
                   </div>
-                  <div className="flex items-center gap-1">
+                  {/* Ações */}
+                  <div className="flex items-center justify-end gap-2">
                     <Button variant="ghost" size="sm" onClick={() => { setComporAberto(false); setNovoTitulo(''); setNovoConteudo(''); setNovaCor('default') }}>Cancelar</Button>
                     <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white" onClick={criar} disabled={salvando || (!novoTitulo.trim() && !novoConteudo.trim())}>
                       {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Adicionar
