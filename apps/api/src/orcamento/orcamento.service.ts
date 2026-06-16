@@ -155,7 +155,9 @@ export class OrcamentoService {
           // Preview dos 2 primeiros itens para exibicao nos cards do kanban
           itens: { take: 2, select: { id: true, descricao: true, tipo: true }, orderBy: { createdAt: 'asc' } },
         },
-        orderBy: [{ ordem: 'asc' }, { createdAt: 'desc' }],
+        orderBy: input.sortKey
+          ? [{ [input.sortKey]: input.sortDir ?? 'asc' } as any, { createdAt: 'desc' }]
+          : [{ ordem: 'asc' }, { createdAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),

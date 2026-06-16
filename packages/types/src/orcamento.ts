@@ -38,6 +38,9 @@ export const listOrcamentoSchema = paginationSchema.extend({
   comReaberturas: z.boolean().optional(),
   // Escopo de listagem (espelha legado: 1=proprios, 2=financeiro, 3=area, 4=todos)
   scope: z.enum(['proprios', 'financeiro', 'area', 'todos']).optional(),
+  // Ordenação clicável (modo tabela) — campos diretos do orçamento.
+  sortKey: z.enum(['numero', 'status', 'totalGeral', 'createdAt']).optional(),
+  sortDir: z.enum(['asc', 'desc']).optional(),
 })
 
 export const itemSituacaoSchema = z.enum(['A_FAZER', 'FAZENDO', 'PENDENTE', 'CONCLUIDO'])

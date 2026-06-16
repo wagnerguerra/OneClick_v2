@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, createContext, useContext } f
 import { useRouter } from 'next/navigation'
 import {
   FileText, CircleDollarSign, Loader2, Plus, MoreVertical, Copy, Archive, Trash2,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
   Clock, LayoutGrid, List, Eye, Settings2, Package, BarChart3,
   MessageSquare, Paperclip, RotateCcw,
 } from 'lucide-react'
@@ -266,6 +266,14 @@ export default function OrcamentosPage() {
   })
   const [loading, setLoading] = useState(true)
 
+  // Ordenação clicável (modo tabela) — campos diretos do orçamento (server-side)
+  type OrcSortKey = 'numero' | 'status' | 'totalGeral' | 'createdAt'
+  const [sort, setSort] = useState<{ key: OrcSortKey; dir: 'asc' | 'desc' } | null>(null)
+  const toggleSort = (key: OrcSortKey) => {
+    setSort(s => (s?.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }))
+    setPage(1)
+  }
+
   // Colunas recolhidas (kanban) — persistido no localStorage
   const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(() => {
     if (typeof window !== 'undefined') {
@@ -446,6 +454,7 @@ export default function OrcamentosPage() {
       const input: Record<string, unknown> = { page, limit: viewMode === 'kanban' ? 100 : limit, search: debouncedSearch || undefined, arquivado, scope: listScope }
       if (statusFilter) input.status = statusFilter
       if (comReaberturas) input.comReaberturas = true
+      if (viewMode === 'tabela' && sort) { input.sortKey = sort.key; input.sortDir = sort.dir }
       const result = await (trpc.orcamento as any).list.query(input)
       setOrcamentos(result.data)
       setTotal(result.total)
@@ -466,7 +475,7 @@ export default function OrcamentosPage() {
     } finally {
       if (!silent) setLoading(false)
     }
-  }, [page, limit, debouncedSearch, statusFilter, arquivado, comReaberturas, viewMode, listScope])
+  }, [page, limit, debouncedSearch, statusFilter, arquivado, comReaberturas, viewMode, listScope, sort])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -799,12 +808,12 @@ export default function OrcamentosPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[70px]">#</TableHead>
-                <TableHead className="w-[100px]">Status</TableHead>
+                <SortHead label="#" sortKey="numero" sort={sort} onSort={toggleSort} className="w-[70px]" />
+                <SortHead label="Status" sortKey="status" sort={sort} onSort={toggleSort} className="w-[100px]" />
                 <TableHead>Cliente</TableHead>
-                <TableHead className="w-[130px] text-right">Valor Total</TableHead>
+                <SortHead label="Valor Total" sortKey="totalGeral" sort={sort} onSort={toggleSort} className="w-[130px]" align="right" />
                 <TableHead className="w-[60px] text-center">Itens</TableHead>
-                <TableHead className="w-[110px]">Criado em</TableHead>
+                <SortHead label="Criado em" sortKey="createdAt" sort={sort} onSort={toggleSort} className="w-[110px]" />
                 <TableHead className="w-[50px] text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -976,6 +985,33 @@ export default function OrcamentosPage() {
       </Dialog>
     </div>
     </TooltipProvider>
+  )
+}
+
+// Cabeçalho de coluna ordenável (modo tabela) — clica pra ordenar; seta indica direção.
+function SortHead({ label, sortKey, sort, onSort, className, align = 'left' }: {
+  label: string
+  sortKey: 'numero' | 'status' | 'totalGeral' | 'createdAt'
+  sort: { key: string; dir: 'asc' | 'desc' } | null
+  onSort: (k: 'numero' | 'status' | 'totalGeral' | 'createdAt') => void
+  className?: string
+  align?: 'left' | 'right' | 'center'
+}) {
+  const active = sort?.key === sortKey
+  const justify = align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start'
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn('inline-flex items-center gap-1 select-none hover:text-foreground w-full', justify, active && 'text-foreground font-semibold')}
+      >
+        {label}
+        {active
+          ? (sort!.dir === 'asc' ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />)
+          : <ChevronsUpDown className="h-3.5 w-3.5 opacity-40" />}
+      </button>
+    </TableHead>
   )
 }
 
