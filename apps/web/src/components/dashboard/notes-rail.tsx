@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { StickyNote, X, Plus, Loader2, Pin, PinOff, Trash2, Check, Palette } from 'lucide-react'
+import { Lightbulb, X, Plus, Loader2, Pin, PinOff, Trash2, Check, Palette } from 'lucide-react'
 import { Button, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 
@@ -91,7 +91,7 @@ export function NotesRail() {
           open ? 'bg-amber-500 text-white' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
         )}
       >
-        <StickyNote className="h-5 w-5" />
+        <Lightbulb className="h-5 w-5" />
         {!open && notas.length > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-0.5 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">{notas.length}</span>
         )}
@@ -100,13 +100,13 @@ export function NotesRail() {
       {/* Painel */}
       {open && (
         <div
-          className="hidden lg:flex fixed top-14 right-0 bottom-0 z-40 w-[380px] bg-muted/30 dark:bg-background border-l border-border shadow-xl flex-col"
+          className="hidden lg:flex fixed top-14 right-0 bottom-0 z-40 w-[380px] bg-muted border-l border-border shadow-xl flex-col"
           style={{ animation: 'fadeSlideIn 0.2s ease-out' }}
         >
           {/* Header */}
           <div className="h-12 px-4 flex items-center justify-between border-b border-border bg-card shrink-0">
             <div className="flex items-center gap-2">
-              <StickyNote className="h-4 w-4 text-amber-500" />
+              <Lightbulb className="h-4 w-4 text-amber-500" />
               <span className="text-sm font-semibold">Notas rápidas</span>
               {notas.length > 0 && <span className="text-[11px] text-muted-foreground">({notas.length})</span>}
             </div>
