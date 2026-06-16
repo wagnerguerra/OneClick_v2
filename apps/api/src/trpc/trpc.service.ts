@@ -72,6 +72,9 @@ import { BeneficioFiscalService } from '../beneficio-fiscal/beneficio-fiscal.ser
 import { createBeneficioFiscalRouter } from '../beneficio-fiscal/beneficio-fiscal.router'
 import { NotaService } from '../nota/nota.service'
 import { createNotaRouter } from '../nota/nota.router'
+import { WhatsappService } from '../whatsapp/whatsapp.service'
+import { WhatsappCloudService } from '../whatsapp/whatsapp-cloud.service'
+import { createWhatsappRouter } from '../whatsapp/whatsapp.router'
 import { FaqService } from '../faq/faq.service'
 import { createFaqRouter } from '../faq/faq.router'
 import { ServicoService } from '../servico/servico.service'
@@ -443,6 +446,8 @@ export class TrpcService {
     @Inject(OrcamentoService) private readonly orcamentoService: OrcamentoService,
     @Inject(BeneficioFiscalService) private readonly beneficioFiscalService: BeneficioFiscalService,
     @Inject(NotaService) private readonly notaService: NotaService,
+    @Inject(WhatsappService) private readonly whatsappService: WhatsappService,
+    @Inject(WhatsappCloudService) private readonly whatsappCloudService: WhatsappCloudService,
     @Inject(FaqService) private readonly faqService: FaqService,
     @Inject(ServicoService) private readonly servicoService: ServicoService,
     @Inject(ProcessoService) private readonly processoService: ProcessoService,
@@ -527,6 +532,7 @@ export class TrpcService {
       orcamento: createOrcamentoRouter(this.orcamentoService),
       beneficioFiscal: createBeneficioFiscalRouter(this.beneficioFiscalService),
       nota: createNotaRouter(this.notaService),
+      whatsapp: createWhatsappRouter(this.whatsappService, this.whatsappCloudService),
       faq: createFaqRouter(this.faqService),
       servico: createServicoRouter(this.servicoService),
       processo: createProcessoRouter(this.processoService),
