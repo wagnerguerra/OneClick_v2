@@ -216,6 +216,16 @@ export class BeneficioFiscalService {
     return { id }
   }
 
+  /** Exclusão em massa de vínculos. Retorna quantos foram excluídos. */
+  async removeMany(ids: string[]) {
+    if (!ids || ids.length === 0) return { ok: 0, falhou: 0 }
+    const placeholders = ids.map((_, i) => `$${i + 1}`).join(',')
+    const affected = await prisma.$executeRawUnsafe(
+      `DELETE FROM beneficio_fiscal_cliente WHERE id IN (${placeholders})`, ...ids)
+    const ok = Number(affected) || 0
+    return { ok, falhou: ids.length - ok }
+  }
+
   // ============================================================
   // Auto-orçamento (porta orc-auto-criar / orc-auto-criar-massa)
   // ============================================================

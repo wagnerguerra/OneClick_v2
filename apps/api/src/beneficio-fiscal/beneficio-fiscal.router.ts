@@ -64,6 +64,10 @@ export function createBeneficioFiscalRouter(service: BeneficioFiscalService) {
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => service.removeVinculo(input.id)),
 
+    removeMany: deleteSubProcedure(MODULE, 'delete_beneficios', 'Excluir vínculos de benefício')
+      .input(z.object({ ids: z.array(z.string()).min(1) }))
+      .mutation(({ input }) => service.removeMany(input.ids)),
+
     // ── Auto-orçamento ──
     gerarOrcamento: writeSubProcedure(MODULE, 'gerar_orcamento', 'Gerar orçamento a partir do benefício')
       .input(z.object({ id: z.string() }))

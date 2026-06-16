@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-  Percent, Loader2, Plus, MoreVertical, Edit2, Trash2, FileText, Settings2,
-  CheckCircle2, Clock, AlertTriangle, MinusCircle, Receipt, ExternalLink, X,
+  Percent, Loader2, Plus, MoreVertical, Edit2, Trash2, Settings2,
+  CheckCircle2, Clock, AlertTriangle, MinusCircle, Receipt, ExternalLink,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, Label, cn, Checkbox, Textarea,
@@ -82,6 +82,7 @@ export default function BeneficiosFiscaisPage() {
   const [busca, setBusca] = useState('')
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
   const [orcando, setOrcando] = useState(false)
+  const [excluindoLote, setExcluindoLote] = useState(false)
 
   // Modais
   const [vincModal, setVincModal] = useState<null | Partial<Vinculo> & { _new?: boolean }>(null)
@@ -105,14 +106,23 @@ export default function BeneficiosFiscaisPage() {
     trpcBF().servicoOpcoes.query().then(setServicos).catch(() => {})
   }, [])
 
-  const visiveis = useMemo(
-    () => (filtroStatus ? vinculos.filter(v => v.status === filtroStatus) : vinculos),
-    [vinculos, filtroStatus],
-  )
+  // Cliente é a coluna principal — ordenação alfabética padrão.
+  const visiveis = useMemo(() => {
+    const base = filtroStatus ? vinculos.filter(v => v.status === filtroStatus) : vinculos
+    return [...base].sort((a, b) => a.clienteNome.localeCompare(b.clienteNome, 'pt-BR', { sensitivity: 'base' }))
+  }, [vinculos, filtroStatus])
   const catalogoAtivo = useMemo(() => catalogo.filter(c => c.ativo), [catalogo])
 
+  const podeSelecionar = canGerarOrcamento || canDelete
   function toggleSel(id: string) {
     setSelecionados(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+  function toggleSelTodos() {
+    setSelecionados(prev => {
+      const ids = visiveis.map(v => v.id)
+      const todos = ids.length > 0 && ids.every(id => prev.has(id))
+      return todos ? new Set() : new Set(ids)
+    })
   }
   const selSemOrcamento = visiveis.filter(v => selecionados.has(v.id) && !v.orcamentoId)
 
@@ -172,6 +182,21 @@ export default function BeneficiosFiscaisPage() {
     finally { setOrcando(false) }
   }
 
+  async function handleExcluirMassa() {
+    if (selecionados.size === 0) return
+    const total = selecionados.size
+    const ok = await alerts.confirm('Excluir em massa', `Excluir ${total} vínculo(s) de benefício selecionado(s)? Esta ação é irreversível.`)
+    if (!ok) return
+    setExcluindoLote(true)
+    try {
+      const r = await trpcBF().removeMany.mutate({ ids: Array.from(selecionados) })
+      setSelecionados(new Set())
+      loadDados()
+      alerts.success('Excluídos', `${r.ok} vínculo(s) excluído(s)${r.falhou ? `, ${r.falhou} falhou(aram)` : ''}.`)
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setExcluindoLote(false) }
+  }
+
   return (
     <div className="space-y-5">
       {/* Header — padrão de /gestao-certificados (Legalização) */}
@@ -202,52 +227,74 @@ export default function BeneficiosFiscaisPage() {
         </div>
       </div>
 
-      {/* Cards de status (clicáveis = filtro) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {(['NO_PRAZO', 'VENCENDO', 'VENCIDO', 'SEM_DATA'] as Status[]).map(s => {
-          const cfg = STATUS_CFG[s]; const Icon = cfg.icon
-          const ativo = filtroStatus === s
+      {/* Filtros (pílulas) + busca — padrão /gestao-certificados */}
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
+        {([
+          { key: null as Status | null, label: 'Todos', count: dash.TOTAL, color: '#94a3b8', icon: Percent },
+          ...(['NO_PRAZO', 'VENCENDO', 'VENCIDO', 'SEM_DATA'] as Status[]).map(s => ({
+            key: s as Status | null, label: STATUS_CFG[s].label, count: dash[s], color: STATUS_CFG[s].color, icon: STATUS_CFG[s].icon,
+          })),
+        ]).map(f => {
+          const Icon = f.icon
+          const active = filtroStatus === f.key
           return (
             <button
-              key={s}
-              onClick={() => setFiltroStatus(ativo ? null : s)}
-              className={cn('text-left rounded-xl border p-4 transition-all hover:shadow-sm', ativo && 'ring-2 ring-offset-1')}
-              style={{ borderColor: cfg.color + '40', backgroundColor: cfg.bg, ...(ativo ? { boxShadow: `0 0 0 2px ${cfg.color}` } : {}) }}
+              key={f.label}
+              type="button"
+              onClick={() => setFiltroStatus(f.key)}
+              className={cn(
+                'inline-flex items-center gap-2 h-8 px-3 rounded-md border text-xs font-medium transition-colors',
+                active ? 'border-foreground/20' : 'border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+              )}
+              style={active ? { borderColor: f.color, backgroundColor: `${f.color}10`, color: f.color } : undefined}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold" style={{ color: cfg.color }}>{dash[s]}</span>
-                <Icon className="h-5 w-5" style={{ color: cfg.color }} />
-              </div>
-              <p className="text-xs font-medium mt-1" style={{ color: cfg.color }}>{cfg.label}</p>
+              <Icon className="h-3.5 w-3.5" style={!active ? { color: f.color } : undefined} />
+              <span>{f.label}</span>
+              <Badge
+                variant="secondary"
+                className="text-[10px] px-1.5 py-0 h-4 ml-0.5 tabular-nums"
+                style={active ? { backgroundColor: `${f.color}20`, color: f.color } : undefined}
+              >
+                {f.count}
+              </Badge>
             </button>
           )
         })}
-      </div>
-
-      {/* Filtros + ações em massa */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          placeholder="Buscar por cliente ou benefício..."
-          value={busca}
-          onChange={e => setBusca(e.target.value)}
-          className="h-9 max-w-xs"
-        />
-        {filtroStatus && (
-          <Button variant="ghost" size="sm" onClick={() => setFiltroStatus(null)}>
-            <X className="h-3.5 w-3.5" /> {STATUS_CFG[filtroStatus].label}
-          </Button>
-        )}
-        <div className="flex-1" />
-        {canGerarOrcamento && selSemOrcamento.length > 0 && (
-          <Button size="sm" onClick={gerarMassa} disabled={orcando}>
-            {orcando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Receipt className="h-4 w-4" />}
-            Orçar selecionados ({selSemOrcamento.length})
-          </Button>
-        )}
+        <div className="ml-auto">
+          <Input
+            placeholder="Buscar por cliente ou benefício..."
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            className="h-8 w-[280px] text-xs"
+          />
+        </div>
       </div>
 
       {/* Tabela */}
       <Card className="overflow-hidden">
+        {/* Barra de ações em massa — aparece quando há seleção */}
+        {podeSelecionar && selecionados.size > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2 bg-fuchsia-50 dark:bg-fuchsia-950/20 border-b border-fuchsia-200 dark:border-fuchsia-900">
+            <div className="text-sm font-medium">{selecionados.size} selecionado(s)</div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setSelecionados(new Set())} disabled={orcando || excluindoLote}>
+                Limpar seleção
+              </Button>
+              {canGerarOrcamento && selSemOrcamento.length > 0 && (
+                <Button size="sm" onClick={gerarMassa} disabled={orcando || excluindoLote} className="gap-1.5">
+                  {orcando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Receipt className="h-3.5 w-3.5" />}
+                  Orçar ({selSemOrcamento.length})
+                </Button>
+              )}
+              {canDelete && (
+                <Button variant="destructive" size="sm" onClick={handleExcluirMassa} disabled={orcando || excluindoLote} className="gap-1.5">
+                  {excluindoLote ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  {excluindoLote ? 'Excluindo...' : `Excluir ${selecionados.size}`}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
         ) : visiveis.length === 0 ? (
@@ -255,36 +302,51 @@ export default function BeneficiosFiscaisPage() {
         ) : (
           <Table>
             <TableHeader>
-              <TableRow>
-                {canGerarOrcamento && <TableHead className="w-8" />}
+              <TableRow className="whitespace-nowrap">
+                {podeSelecionar && (
+                  <TableHead className="w-[44px]">
+                    <Checkbox
+                      checked={visiveis.length > 0 && visiveis.every(v => selecionados.has(v.id))}
+                      onCheckedChange={toggleSelTodos}
+                      aria-label="Selecionar todos"
+                    />
+                  </TableHead>
+                )}
                 <TableHead>Cliente</TableHead>
                 <TableHead>Benefício</TableHead>
                 <TableHead>Vencimento</TableHead>
                 <TableHead>Portaria / Processo</TableHead>
                 <TableHead>Orçamento</TableHead>
-                <TableHead className="w-10" />
+                <TableHead className="w-[44px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {visiveis.map(v => {
                 const cfg = STATUS_CFG[v.status]
                 return (
-                  <TableRow key={v.id} className={cn(!v.ativo && 'opacity-50')}>
-                    {canGerarOrcamento && (
+                  <TableRow
+                    key={v.id}
+                    className={cn(
+                      'whitespace-nowrap',
+                      !v.ativo && 'opacity-50',
+                      selecionados.has(v.id) && 'bg-fuchsia-50/50 dark:bg-fuchsia-950/10',
+                    )}
+                  >
+                    {podeSelecionar && (
                       <TableCell>
-                        {!v.orcamentoId && (
-                          <Checkbox checked={selecionados.has(v.id)} onCheckedChange={() => toggleSel(v.id)} />
-                        )}
+                        <Checkbox
+                          checked={selecionados.has(v.id)}
+                          onCheckedChange={() => toggleSel(v.id)}
+                          aria-label={`Selecionar ${v.clienteNome}`}
+                        />
                       </TableCell>
                     )}
-                    <TableCell className="font-medium">{v.clienteNome}</TableCell>
-                    <TableCell>{v.beneficioNome}</TableCell>
+                    <TableCell className="font-semibold text-sm max-w-[280px] truncate">{v.clienteNome}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{v.beneficioNome}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <Badge variant="outline" className="text-[11px] gap-1 border" style={{ color: cfg.color, borderColor: cfg.color + '55', backgroundColor: cfg.bg }}>
-                          {fmtDateBR(v.dataVencimento)}
-                        </Badge>
-                      </div>
+                      <Badge variant="outline" className="text-[11px] border" style={{ color: cfg.color, borderColor: cfg.color + '55', backgroundColor: cfg.bg }}>
+                        {fmtDateBR(v.dataVencimento)}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {[v.portaria, v.processo].filter(Boolean).join(' · ') || '—'}
