@@ -455,9 +455,10 @@ export default function BeneficiosFiscaisPage() {
       {/* Modal vínculo */}
       <Dialog open={!!vincModal} onOpenChange={o => !o && setVincModal(null)}>
         <DialogContent className="max-w-lg">
-          <DialogHeaderIcon icon={Percent} color={MODULE_COLOR} />
-          <DialogTitle>{vincModal?._new ? 'Novo benefício do cliente' : 'Editar benefício'}</DialogTitle>
-          <DialogDescription>Vincule um benefício fiscal do catálogo a um cliente.</DialogDescription>
+          <DialogHeaderIcon icon={Percent} color="fuchsia">
+            <DialogTitle>{vincModal?._new ? 'Novo benefício do cliente' : 'Editar benefício'}</DialogTitle>
+            <DialogDescription>Vincule um benefício fiscal do catálogo a um cliente.</DialogDescription>
+          </DialogHeaderIcon>
           <DialogBody className="space-y-4">
             {vincModal?._new && (
               <div className="space-y-1.5">
@@ -581,9 +582,10 @@ function CatalogoModal({ open, onClose, catalogo, servicos, onChanged }: {
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-2xl">
-        <DialogHeaderIcon icon={Settings2} color={MODULE_COLOR} />
-        <DialogTitle>Catálogo de benefícios</DialogTitle>
-        <DialogDescription>Benefícios disponíveis e o serviço usado para gerar orçamento.</DialogDescription>
+        <DialogHeaderIcon icon={Settings2} color="fuchsia">
+          <DialogTitle>Catálogo de benefícios</DialogTitle>
+          <DialogDescription>Benefícios disponíveis e o serviço usado para gerar orçamento.</DialogDescription>
+        </DialogHeaderIcon>
         <DialogBody className="space-y-3">
           <div className="flex justify-end">
             <Button size="sm" variant="outline" onClick={() => setEdit({ _new: true, ativo: true, notificaVencimentoDias: 30 })}>
