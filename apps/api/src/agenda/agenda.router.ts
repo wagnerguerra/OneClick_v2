@@ -340,6 +340,43 @@ export function createAgendaRouter(
         .mutation(({ input, ctx }) => disparoService.reenviar(input.logId, ctx.userId)),
     }),
 
+    // === MODELO DE E-MAIL CONFIGURÁVEL (paralelo ao HTML atual) ===
+    modeloEmail: router({
+      get: readSubProcedure(MODULE, 'manage_config', 'Ver o modelo de e-mail da agenda')
+        .query(() => disparoService.getEmailTemplate()),
+      save: writeSubProcedure(MODULE, 'manage_config', 'Editar o modelo de e-mail da agenda')
+        .input(z.object({
+          ativo: z.boolean().optional(),
+          assunto: z.string().optional(),
+          accent: z.string().optional(),
+          headerHtml: z.string().optional(),
+          introHtml: z.string().optional(),
+          footerHtml: z.string().optional(),
+          eventoLinhaHtml: z.string().optional(),
+          semEventosHtml: z.string().optional(),
+          mostrarOutros: z.boolean().optional(),
+          nomeGrupoOutros: z.string().optional(),
+          nomeGrupoParticulares: z.string().optional(),
+          corParticulares: z.string().optional(),
+        }))
+        .mutation(({ input }) => disparoService.saveEmailTemplate(input)),
+      saveGrupos: writeSubProcedure(MODULE, 'manage_config', 'Editar grupos do modelo de e-mail da agenda')
+        .input(z.object({
+          grupos: z.array(z.object({
+            nome: z.string().min(1),
+            cor: z.string(),
+            incluiParticulares: z.boolean(),
+            tiposIds: z.array(z.string()),
+          })),
+        }))
+        .mutation(({ input }) => disparoService.saveEmailGrupos(input.grupos)),
+      preview: readSubProcedure(MODULE, 'manage_config', 'Pré-visualizar o modelo de e-mail da agenda')
+        .input(z.object({ data: z.string().optional() }).optional())
+        .query(({ input, ctx }) => disparoService.previewEmailModelo(ctx.userId!, input?.data)),
+      enviarTeste: writeSubProcedure(MODULE, 'manage_config', 'Enviar teste do modelo de e-mail da agenda')
+        .mutation(({ ctx }) => disparoService.enviarTesteModelo(ctx.userId!)),
+    }),
+
     // === GOOGLE CALENDAR ===
     google: router({
       getAuthUrl: readProcedure(MODULE)

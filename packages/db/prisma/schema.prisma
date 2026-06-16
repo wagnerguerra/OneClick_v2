@@ -2300,6 +2300,48 @@ model AgendaDisparoLog {
   @@map("agenda_disparo_logs")
 }
 
+/// Modelo configurável do e-mail diário da agenda (roda em PARALELO ao HTML
+/// hardcoded; só é usado no disparo quando `ativo=true`). Singleton por empresa.
+model AgendaEmailTemplate {
+  id                     String   @id @default(cuid())
+  empresaId              String?  @map("empresa_id")
+  ativo                  Boolean  @default(false) // interruptor: usar este modelo no disparo
+  assunto                String   @default("Agenda do dia · {{dataDisplay}}")
+  accent                 String   @default("#38bdf8")
+  headerHtml             String   @default("") @map("header_html") @db.Text
+  introHtml              String   @default("") @map("intro_html") @db.Text
+  footerHtml             String   @default("") @map("footer_html") @db.Text
+  eventoLinhaHtml        String   @default("") @map("evento_linha_html") @db.Text
+  semEventosHtml         String   @default("") @map("sem_eventos_html") @db.Text
+  mostrarOutros          Boolean  @default(true) @map("mostrar_outros")
+  nomeGrupoOutros        String   @default("Outros") @map("nome_grupo_outros")
+  nomeGrupoParticulares  String   @default("Compromissos pessoais") @map("nome_grupo_particulares")
+  corParticulares        String   @default("#a855f7") @map("cor_particulares")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  grupos AgendaEmailGrupo[]
+
+  @@map("agenda_email_template")
+}
+
+/// Grupos configuráveis do e-mail da agenda — eventos caem aqui por tipo (tiposIds)
+/// ou por serem particulares (incluiParticulares). O que sobra vai pro "Outros".
+model AgendaEmailGrupo {
+  id                String   @id @default(cuid())
+  templateId        String   @map("template_id")
+  nome              String
+  cor               String   @default("#38bdf8")
+  ordem             Int      @default(0)
+  incluiParticulares Boolean @default(false) @map("inclui_particulares")
+  tiposIds          String[] @default([]) @map("tipos_ids")
+
+  template AgendaEmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@map("agenda_email_grupos")
+}
+
 /// Cadastro de salas de reunião — usado pra detectar conflito de uso da mesma sala
 /// no mesmo período. O AgendaEvento.salaId aponta pra cá; o campo legado `sala`
 /// (string) é mantido pra eventos importados do SERPRO2.

@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import { prisma } from '@saas/db'
 import type { AgendaDisparoConfig } from '@saas/db'
 import { EmailService } from '../common/email.service'
+import { AgendaEmailTemplateService } from './agenda-email-template.service'
 
 // Logo embarcada inline (cid:logo) — mesmo asset usado nos e-mails de lembrete.
 const LOGO_PATH = path.resolve(process.cwd(), 'assets', 'email-logo.png')
@@ -39,7 +40,12 @@ export class AgendaDisparoService implements OnModuleInit {
   }
   constructor(
     @Inject(EmailService) private readonly emailService: EmailService,
+    @Inject(AgendaEmailTemplateService) private readonly templateService: AgendaEmailTemplateService,
   ) {}
+
+  private diaSemanaExt(d: Date): string {
+    return ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'][d.getUTCDay()]
+  }
 
   onModuleInit() {
     // SÓ dispara em produção (a VPS). Em dev/local o SMTP é o mesmo de produção,
@@ -301,22 +307,83 @@ export class AgendaDisparoService implements OnModuleInit {
       return
     }
 
-    // Segmenta corporativos vs pessoais
-    const isPessoal = (ev: typeof visiveis[number]) =>
-      ev.particular || ev.tipo.nome.toLowerCase().includes('pessoal')
-
-    const corporativos = visiveis.filter(ev => !isPessoal(ev))
-    const pessoais = visiveis.filter(ev => isPessoal(ev))
-
-    const html = this.gerarHtmlEmail(dataYyyyMmDd, corporativos, pessoais, user.name, !!LOGO_BUFFER)
     const dataDisplay = this.formatDataBr(eventDate)
+    const diaSemana = this.diaSemanaExt(eventDate)
+
+    // Modelo configurável (PARALELO): só usa quando `ativo`; senão mantém o HTML atual (fallback).
+    const tpl = await this.templateService.getTemplate(null).catch(() => null)
+    let html: string
+    let subject = `Agenda do dia · ${dataDisplay}`
+    if (tpl?.template.ativo) {
+      html = this.templateService.render(tpl.template, tpl.grupos, visiveis, { usuarioNome: user.name, dataDisplay, diaSemana, temLogo: !!LOGO_BUFFER })
+      const s = this.templateService.renderAssunto(tpl.template, { dataDisplay, diaSemana })
+      if (s) subject = s
+    } else {
+      const isPessoal = (ev: typeof visiveis[number]) =>
+        ev.particular || ev.tipo.nome.toLowerCase().includes('pessoal')
+      const corporativos = visiveis.filter(ev => !isPessoal(ev))
+      const pessoais = visiveis.filter(ev => isPessoal(ev))
+      html = this.gerarHtmlEmail(dataYyyyMmDd, corporativos, pessoais, user.name, !!LOGO_BUFFER)
+    }
 
     await this.emailService.sendMail({
       to: user.email,
-      subject: `Agenda do dia · ${dataDisplay}`,
+      subject,
       html,
       attachments: LOGO_BUFFER ? [{ filename: 'logo.png', content: LOGO_BUFFER, cid: 'logo' }] : undefined,
     })
+  }
+
+  // ============================================================
+  // Modelo de e-mail configurável — delegação + preview/teste
+  // ============================================================
+  getEmailTemplate() { return this.templateService.getTemplate(null) }
+  saveEmailTemplate(patch: Record<string, unknown>) { return this.templateService.saveTemplate(null, patch) }
+  saveEmailGrupos(grupos: Array<{ nome: string; cor: string; incluiParticulares: boolean; tiposIds: string[] }>) {
+    return this.templateService.saveGrupos(null, grupos.map((g, i) => ({ ...g, ordem: i })))
+  }
+
+  /** Renderiza o modelo configurável com os eventos do dia (ou exemplo) — pro preview no painel. */
+  async previewEmailModelo(userId: string, dataYyyyMmDd?: string): Promise<{ html: string; assunto: string }> {
+    const { template, grupos } = await this.templateService.getTemplate(null)
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } })
+    const dia = dataYyyyMmDd || this.formatDateKey(this.getNowBrasilia())
+    const eventDate = new Date(dia)
+    const eventos = await prisma.agendaEvento.findMany({
+      where: { isActive: true, data: eventDate },
+      include: { tipo: true, criador: { select: { id: true, name: true } }, salaRef: { select: { nome: true } } },
+      orderBy: [{ diaInteiro: 'desc' }, { horaInicio: 'asc' }],
+    })
+    const visiveis = eventos.filter(ev => !ev.particular || ev.criadorId === userId)
+    const dataDisplay = this.formatDataBr(eventDate)
+    const diaSemana = this.diaSemanaExt(eventDate)
+    const html = this.templateService.render(template, grupos, visiveis, { usuarioNome: user?.name ?? 'Você', dataDisplay, diaSemana, temLogo: false })
+    return { html, assunto: this.templateService.renderAssunto(template, { dataDisplay, diaSemana }) }
+  }
+
+  /** Envia um teste do modelo configurável pro próprio usuário (independe do `ativo`). */
+  async enviarTesteModelo(userId: string): Promise<{ ok: boolean }> {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } })
+    if (!user?.email) throw new Error('Seu usuário não tem e-mail cadastrado')
+    const { template, grupos } = await this.templateService.getTemplate(null)
+    const dia = this.formatDateKey(this.getNowBrasilia())
+    const eventDate = new Date(dia)
+    const eventos = await prisma.agendaEvento.findMany({
+      where: { isActive: true, data: eventDate },
+      include: { tipo: true, criador: { select: { id: true, name: true } }, salaRef: { select: { nome: true } } },
+      orderBy: [{ diaInteiro: 'desc' }, { horaInicio: 'asc' }],
+    })
+    const visiveis = eventos.filter(ev => !ev.particular || ev.criadorId === userId)
+    const dataDisplay = this.formatDataBr(eventDate)
+    const diaSemana = this.diaSemanaExt(eventDate)
+    const html = this.templateService.render(template, grupos, visiveis, { usuarioNome: user.name, dataDisplay, diaSemana, temLogo: !!LOGO_BUFFER })
+    await this.emailService.sendMail({
+      to: user.email,
+      subject: `[TESTE] ${this.templateService.renderAssunto(template, { dataDisplay, diaSemana })}`,
+      html,
+      attachments: LOGO_BUFFER ? [{ filename: 'logo.png', content: LOGO_BUFFER, cid: 'logo' }] : undefined,
+    })
+    return { ok: true }
   }
 
   // ============================================================
