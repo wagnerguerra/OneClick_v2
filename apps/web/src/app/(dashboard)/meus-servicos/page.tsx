@@ -719,7 +719,7 @@ export default function MeusServicosPage() {
       else cols.em_andamento!.items.push(e)
     }
     return [cols.em_andamento!, cols.atrasados!, cols.pausados!, cols.concluidos!, cols.cancelados!]
-  }, [execucoes])
+  }, [execFiltradas])
 
   // Lista de filtros (chips) — mantém função de filtragem mas no padrão visual CRM/Orçamentos:
   // barra horizontal de chips em vez de KPIs em cards grandes.
@@ -853,28 +853,30 @@ export default function MeusServicosPage() {
       ) : viewMode === 'kanban' ? (
         // Kanban no padrão CRM/Orçamentos — overflow-x-auto + flex-1 ocupa altura disponível
         <div className="overflow-x-auto overflow-y-hidden pb-4 -mx-1 flex-1">
-          <div className="flex gap-3 px-1 h-full" style={{ minWidth: `${colunasKanban.length * 220}px` }}>
+          <div className="flex gap-3 px-1 h-full" style={{ minWidth: `${colunasKanban.length * 240}px` }}>
             {colunasKanban.map(col => (
               <div
                 key={col.key}
-                className="flex-1 min-w-[220px] flex flex-col border border-border/40 overflow-hidden rounded"
+                className="flex-1 min-w-[240px] flex flex-col overflow-hidden rounded-lg transition-colors bg-black/[0.04] dark:bg-white/[0.04]"
               >
-                {/* Header da coluna — fundo tintado com a cor + bolinha + label + contador */}
-                <div
-                  className="px-3 py-2.5 border-b flex items-center justify-between"
-                  style={{ backgroundColor: `${col.cor}12` }}
-                >
+                {/* Header — padrão /helpdesk: sem bg/border, dot + título + pill colorida */}
+                <div className="px-3 py-2.5 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: col.cor }} />
                     <span className="text-sm font-semibold truncate">{col.titulo}</span>
+                    <span
+                      className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold text-white shrink-0"
+                      style={{ backgroundColor: col.cor }}
+                    >
+                      {col.items.length}
+                    </span>
                   </div>
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 shrink-0">{col.items.length}</Badge>
                 </div>
 
                 {/* Body da coluna */}
-                <div className="flex-1 p-2 space-y-2 overflow-y-auto min-h-[120px]">
+                <div className="flex-1 p-2 space-y-2 overflow-y-auto nice-scrollbar min-h-[120px]">
                   {col.items.length === 0 && (
-                    <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhum serviço</p>
+                    <p className="text-xs text-muted-foreground text-center py-6 italic">Vazio</p>
                   )}
                   {col.items.map(exec => {
                     const totalPassos = exec.passos.length
