@@ -13,7 +13,6 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Switch,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { PageHeader } from '@/components/page-header'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useTabLabel } from '@/hooks/use-tab-label'
@@ -175,26 +174,33 @@ export default function BeneficiosFiscaisPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        color={MODULE_COLOR}
-        icon={Percent}
-        title="Benefícios Fiscais"
-        subtitle="Gestão dos incentivos fiscais dos clientes, vencimentos e geração de orçamentos"
-        actions={
-          <div className="flex items-center gap-2">
-            {canManageCatalogo && (
-              <Button variant="outline" size="sm" onClick={() => setCatModalOpen(true)}>
-                <Settings2 className="h-4 w-4" /> Catálogo
-              </Button>
-            )}
-            {canWrite && (
-              <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} onClick={() => setVincModal({ _new: true })}>
-                <Plus className="h-4 w-4" /> Novo benefício
-              </Button>
-            )}
+      {/* Header — padrão de /gestao-certificados (Legalização) */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
+        <div className="flex items-center gap-4">
+          <div
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
+            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
+          >
+            <Percent className="h-6 w-6" />
           </div>
-        }
-      />
+          <div>
+            <h1>Benefícios Fiscais</h1>
+            <p className="text-sm text-muted-foreground">Gestão dos incentivos fiscais dos clientes, vencimentos e geração de orçamentos</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {canManageCatalogo && (
+            <Button variant="outline" size="sm" onClick={() => setCatModalOpen(true)} className="gap-1.5">
+              <Settings2 className="h-4 w-4" /> Catálogo
+            </Button>
+          )}
+          {canWrite && (
+            <Button size="sm" onClick={() => setVincModal({ _new: true })} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
+              <Plus className="h-4 w-4" /> Novo benefício
+            </Button>
+          )}
+        </div>
+      </div>
 
       {/* Cards de status (clicáveis = filtro) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
