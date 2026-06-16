@@ -37,6 +37,8 @@ interface Vinculo {
   clienteNome: string
   clienteDocumento: string | null
   beneficioNome: string
+  servicoNome: string | null
+  catalogoServicoId: string | null
   orcamentoNumero: number | null
   orcamentoStatus: string | null
   status: Status
@@ -67,6 +69,14 @@ function fmtDateBR(d: string | null): string {
 }
 
 const trpcBF = () => (trpc as any).beneficioFiscal
+
+// Elegível p/ orçamento automático: vencendo/vencido, com serviço vinculado e sem orçamento.
+function elegivelParaOrcar(v: Vinculo) {
+  return !v.orcamentoId && !!v.servicoNome && (v.status === 'VENCENDO' || v.status === 'VENCIDO')
+}
+function escHtml(s: string) {
+  return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] || c))
+}
 
 export default function BeneficiosFiscaisPage() {
   useTabLabel('Benefícios Fiscais')
@@ -148,7 +158,7 @@ export default function BeneficiosFiscaisPage() {
       return todos ? new Set() : new Set(ids)
     })
   }
-  const selSemOrcamento = visiveis.filter(v => selecionados.has(v.id) && !v.orcamentoId)
+  const selElegiveis = visiveis.filter(v => selecionados.has(v.id) && elegivelParaOrcar(v))
 
   async function salvarVinculo() {
     if (!vincModal) return
@@ -183,28 +193,43 @@ export default function BeneficiosFiscaisPage() {
     catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
-  async function gerarOrcamento(v: Vinculo) {
-    try {
-      const r = await trpcBF().gerarOrcamento.mutate({ id: v.id })
-      alerts.success('Orçamento gerado', `Orçamento #${r.numero} criado.`)
-      loadDados()
-    } catch (e) { alerts.error('Erro', (e as Error).message) }
-  }
-
-  async function gerarMassa() {
-    if (selSemOrcamento.length === 0) return
-    const ok = await alerts.confirm('Orçar em massa', `Gerar orçamento para ${selSemOrcamento.length} benefício(s) selecionado(s)?`)
-    if (!ok) return
+  async function confirmarEGerar(itens: Vinculo[], limparSelecao = false) {
+    const elegiveis = itens.filter(elegivelParaOrcar)
+    if (elegiveis.length === 0) {
+      await alerts.custom({
+        title: 'Nenhum item elegível',
+        icon: 'info',
+        html: 'Para gerar orçamento, o benefício precisa estar <strong>vencendo ou vencido</strong> e ter um <strong>serviço vinculado</strong> no catálogo.',
+        showCancelButton: false,
+        confirmButtonText: 'Entendi',
+      })
+      return
+    }
+    const linhas = elegiveis.map(v =>
+      `<li style="margin-bottom:4px"><strong>${escHtml(v.clienteNome)}</strong> — <em>${escHtml(v.beneficioNome)}</em> <span style="color:#9ca3af">(${escHtml(v.servicoNome!)})</span></li>`,
+    ).join('')
+    const res = await alerts.custom({
+      title: 'Gerar orçamentos automáticos?',
+      icon: 'question',
+      html: `<ol style="text-align:left;margin:0 auto;max-width:360px;padding-left:1.4em;font-size:14px;line-height:1.45">${linhas}</ol>`
+        + `<p style="margin-top:14px;font-size:13px;color:#6b7280">Será criado um orçamento para cada item elegível (vencendo/vencido e com serviço vinculado).</p>`,
+      confirmButtonText: 'Sim, gerar',
+      cancelButtonText: 'Cancelar',
+    })
+    if (!res.isConfirmed) return
     setOrcando(true)
     try {
-      const r = await trpcBF().gerarOrcamentoMassa.mutate({ ids: selSemOrcamento.map(v => v.id) })
-      setSelecionados(new Set())
+      const r = await trpcBF().gerarOrcamentoMassa.mutate({ ids: elegiveis.map(v => v.id) })
+      if (limparSelecao) setSelecionados(new Set())
       loadDados()
-      const puladosMsg = r.pulados.length ? ` ${r.pulados.length} pulado(s).` : ''
-      alerts.success('Orçamentos gerados', `${r.gerados} gerado(s).${puladosMsg}`)
+      const pul = r.pulados.length ? ` ${r.pulados.length} pulado(s).` : ''
+      alerts.success('Orçamentos gerados', `${r.gerados} gerado(s).${pul}`)
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setOrcando(false) }
   }
+
+  const gerarOrcamento = (v: Vinculo) => confirmarEGerar([v])
+  const gerarMassa = () => confirmarEGerar(selElegiveis, true)
 
   async function handleExcluirMassa() {
     if (selecionados.size === 0) return
@@ -304,10 +329,10 @@ export default function BeneficiosFiscaisPage() {
               <Button variant="ghost" size="sm" onClick={() => setSelecionados(new Set())} disabled={orcando || excluindoLote}>
                 Limpar seleção
               </Button>
-              {canGerarOrcamento && selSemOrcamento.length > 0 && (
+              {canGerarOrcamento && selElegiveis.length > 0 && (
                 <Button size="sm" onClick={gerarMassa} disabled={orcando || excluindoLote} className="gap-1.5">
                   {orcando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Receipt className="h-3.5 w-3.5" />}
-                  Orçar ({selSemOrcamento.length})
+                  Orçar ({selElegiveis.length})
                 </Button>
               )}
               {canDelete && (
@@ -393,7 +418,7 @@ export default function BeneficiosFiscaisPage() {
                               <Edit2 className="h-3.5 w-3.5" /> Editar
                             </DropdownMenuItem>
                           )}
-                          {canGerarOrcamento && !v.orcamentoId && (
+                          {canGerarOrcamento && elegivelParaOrcar(v) && (
                             <DropdownMenuItem onClick={() => gerarOrcamento(v)}>
                               <Receipt className="h-3.5 w-3.5" /> Gerar orçamento
                             </DropdownMenuItem>

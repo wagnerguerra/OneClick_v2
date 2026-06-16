@@ -142,10 +142,12 @@ export class BeneficioFiscalService {
               v.portaria, v.processo, v.obs, v.ativo,
               cl.razao_social AS "clienteNome", cl.documento AS "clienteDocumento",
               cat.nome AS "beneficioNome", cat.notifica_vencimento_dias AS "notificaVencimentoDias",
+              cat.servico_id AS "catalogoServicoId", s.nome AS "servicoNome",
               o.numero AS "orcamentoNumero", o.status AS "orcamentoStatus"
          FROM beneficio_fiscal_cliente v
          JOIN clientes cl ON cl.id = v.cliente_id
          JOIN beneficio_fiscal_catalogo cat ON cat.id = v.catalogo_id
+         LEFT JOIN servicos s ON s.id = cat.servico_id
          LEFT JOIN orcamentos o ON o.id = v.orcamento_id
         WHERE ($1::text IS NULL OR v.empresa_id = $1)
           ${filtros.incluirInativos ? '' : 'AND v.ativo = true'}
