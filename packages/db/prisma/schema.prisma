@@ -1547,6 +1547,24 @@ model Notification {
   @@map("notifications")
 }
 
+// Notas rápidas pessoais (estilo Google Keep) — por usuário. Painel global no dashboard.
+model Nota {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  titulo    String?
+  conteudo  String   @default("") @db.Text
+  // Cor do card: default | amarelo | verde | azul | rosa | roxo | laranja | cinza
+  cor       String   @default("default")
+  fixado    Boolean  @default(false)
+  arquivado Boolean  @default(false)
+  ordem     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, arquivado, fixado])
+  @@map("notas")
+}
+
 // ============================================================
 // Sistema de Abas (Chrome-like)
 // ============================================================

@@ -13,6 +13,7 @@ import { TabBar } from '@/components/dashboard/tab-bar'
 import { ApiHealthMonitor } from '@/components/dashboard/api-health-monitor'
 import { FloatingFeedbackButton } from '@/components/dashboard/floating-feedback-button'
 import { TarefasRail } from '@/components/dashboard/tarefas-rail'
+import { NotesRail } from '@/components/dashboard/notes-rail'
 import { ChatToastListener } from '@/components/chat/chat-toast-listener'
 import { TabsProvider } from '@/lib/tabs-store'
 import { useSyncRouteTab } from '@/hooks/use-sync-route-tab'
@@ -64,6 +65,7 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
       <ApiHealthMonitor />
       <FloatingFeedbackButton />
       <TarefasRail />
+      <NotesRail />
       <ChatToastListener />
     </div>
   )

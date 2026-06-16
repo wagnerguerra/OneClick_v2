@@ -70,6 +70,8 @@ import { OrcamentoService } from '../orcamento/orcamento.service'
 import { createOrcamentoRouter } from '../orcamento/orcamento.router'
 import { BeneficioFiscalService } from '../beneficio-fiscal/beneficio-fiscal.service'
 import { createBeneficioFiscalRouter } from '../beneficio-fiscal/beneficio-fiscal.router'
+import { NotaService } from '../nota/nota.service'
+import { createNotaRouter } from '../nota/nota.router'
 import { FaqService } from '../faq/faq.service'
 import { createFaqRouter } from '../faq/faq.router'
 import { ServicoService } from '../servico/servico.service'
@@ -440,6 +442,7 @@ export class TrpcService {
     @Inject(ImportComercialService) private readonly importComercialService: ImportComercialService,
     @Inject(OrcamentoService) private readonly orcamentoService: OrcamentoService,
     @Inject(BeneficioFiscalService) private readonly beneficioFiscalService: BeneficioFiscalService,
+    @Inject(NotaService) private readonly notaService: NotaService,
     @Inject(FaqService) private readonly faqService: FaqService,
     @Inject(ServicoService) private readonly servicoService: ServicoService,
     @Inject(ProcessoService) private readonly processoService: ProcessoService,
@@ -523,6 +526,7 @@ export class TrpcService {
       crm: createCrmRouter(this.crmService, this.importComercialService),
       orcamento: createOrcamentoRouter(this.orcamentoService),
       beneficioFiscal: createBeneficioFiscalRouter(this.beneficioFiscalService),
+      nota: createNotaRouter(this.notaService),
       faq: createFaqRouter(this.faqService),
       servico: createServicoRouter(this.servicoService),
       processo: createProcessoRouter(this.processoService),
