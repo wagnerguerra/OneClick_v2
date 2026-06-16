@@ -2333,6 +2333,7 @@ model AgendaEmailGrupo {
   templateId        String   @map("template_id")
   nome              String
   cor               String   @default("#38bdf8")
+  icone             String   @default("")
   ordem             Int      @default(0)
   incluiParticulares Boolean @default(false) @map("inclui_particulares")
   tiposIds          String[] @default([]) @map("tipos_ids")

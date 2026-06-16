@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS agenda_email_grupos (
 CREATE INDEX IF NOT EXISTS agenda_email_grupos_template_idx ON agenda_email_grupos (template_id);
 
 ALTER TABLE agenda_email_template ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT '';
+ALTER TABLE agenda_email_grupos ADD COLUMN IF NOT EXISTS icone text NOT NULL DEFAULT '';
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agenda_email_grupos_template_id_fkey') THEN

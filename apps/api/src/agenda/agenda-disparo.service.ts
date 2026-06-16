@@ -339,19 +339,33 @@ export class AgendaDisparoService implements OnModuleInit {
   // ============================================================
   getEmailTemplate() { return this.templateService.getTemplate(null) }
   saveEmailTemplate(patch: Record<string, unknown>) { return this.templateService.saveTemplate(null, patch) }
-  saveEmailGrupos(grupos: Array<{ nome: string; cor: string; incluiParticulares: boolean; tiposIds: string[] }>) {
-    return this.templateService.saveGrupos(null, grupos.map((g, i) => ({ ...g, ordem: i })))
+  saveEmailGrupos(grupos: Array<{ nome: string; cor: string; icone?: string; incluiParticulares: boolean; tiposIds: string[] }>) {
+    return this.templateService.saveGrupos(null, grupos.map((g, i) => ({ icone: '', ...g, ordem: i })))
   }
 
-  /** Renderiza o modelo configurável com os eventos do dia (ou exemplo) — pro preview no painel. */
-  async previewEmailModelo(userId: string, dataYyyyMmDd?: string): Promise<{ html: string; assunto: string }> {
-    const { template, grupos } = await this.templateService.getTemplate(null)
+  /** Renderiza o modelo configurável com os eventos do dia (ou exemplo) — pro preview no painel.
+   *  Aceita `override` (template+grupos do editor) pra prévia AO VIVO do estado não-salvo. */
+  async previewEmailModelo(
+    userId: string,
+    dataYyyyMmDd?: string,
+    override?: { template?: Record<string, unknown>; grupos?: Array<Record<string, unknown>> },
+  ): Promise<{ html: string; assunto: string }> {
+    const saved = await this.templateService.getTemplate(null)
+    const template = override?.template ? { ...saved.template, ...override.template } as typeof saved.template : saved.template
+    const grupos = override?.grupos
+      ? override.grupos.map((g, i) => ({ id: `tmp-${i}`, ordem: i, nome: '', cor: '#38bdf8', icone: '', incluiParticulares: false, tiposIds: [], ...g })) as typeof saved.grupos
+      : saved.grupos
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } })
     const dia = dataYyyyMmDd || this.formatDateKey(this.getNowBrasilia())
     const eventDate = new Date(dia)
     const eventos = await prisma.agendaEvento.findMany({
       where: { isActive: true, data: eventDate },
-      include: { tipo: true, criador: { select: { id: true, name: true } }, salaRef: { select: { nome: true } } },
+      include: {
+        tipo: true,
+        criador: { select: { id: true, name: true } },
+        salaRef: { select: { nome: true } },
+        participantes: { where: { isActive: true }, include: { usuario: { select: { id: true, name: true } } } },
+      },
       orderBy: [{ diaInteiro: 'desc' }, { horaInicio: 'asc' }],
     })
     const visiveis = eventos.filter(ev => !ev.particular || ev.criadorId === userId)
@@ -370,7 +384,12 @@ export class AgendaDisparoService implements OnModuleInit {
     const eventDate = new Date(dia)
     const eventos = await prisma.agendaEvento.findMany({
       where: { isActive: true, data: eventDate },
-      include: { tipo: true, criador: { select: { id: true, name: true } }, salaRef: { select: { nome: true } } },
+      include: {
+        tipo: true,
+        criador: { select: { id: true, name: true } },
+        salaRef: { select: { nome: true } },
+        participantes: { where: { isActive: true }, include: { usuario: { select: { id: true, name: true } } } },
+      },
       orderBy: [{ diaInteiro: 'desc' }, { horaInicio: 'asc' }],
     })
     const visiveis = eventos.filter(ev => !ev.particular || ev.criadorId === userId)

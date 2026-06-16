@@ -365,14 +365,20 @@ export function createAgendaRouter(
           grupos: z.array(z.object({
             nome: z.string().min(1),
             cor: z.string(),
+            icone: z.string().optional(),
             incluiParticulares: z.boolean(),
             tiposIds: z.array(z.string()),
           })),
         }))
         .mutation(({ input }) => disparoService.saveEmailGrupos(input.grupos)),
       preview: readSubProcedure(MODULE, 'manage_config', 'Pré-visualizar o modelo de e-mail da agenda')
-        .input(z.object({ data: z.string().optional() }).optional())
-        .query(({ input, ctx }) => disparoService.previewEmailModelo(ctx.userId!, input?.data)),
+        .input(z.object({
+          data: z.string().optional(),
+          // Override AO VIVO do estado não-salvo do editor (template + grupos):
+          template: z.record(z.any()).optional(),
+          grupos: z.array(z.record(z.any())).optional(),
+        }).optional())
+        .query(({ input, ctx }) => disparoService.previewEmailModelo(ctx.userId!, input?.data, { template: input?.template, grupos: input?.grupos })),
       enviarTeste: writeSubProcedure(MODULE, 'manage_config', 'Enviar teste do modelo de e-mail da agenda')
         .mutation(({ ctx }) => disparoService.enviarTesteModelo(ctx.userId!)),
     }),

@@ -128,7 +128,7 @@ export default function AgendaConfiguracoesPage() {
     headerHtml: string; introHtml: string; footerHtml: string; eventoLinhaHtml: string; semEventosHtml: string
     mostrarOutros: boolean; nomeGrupoOutros: string; nomeGrupoParticulares: string; corParticulares: string
   }
-  type EmailGrp = { nome: string; cor: string; incluiParticulares: boolean; tiposIds: string[] }
+  type EmailGrp = { nome: string; cor: string; icone: string; incluiParticulares: boolean; tiposIds: string[] }
   const [tpl, setTpl] = useState<EmailTpl | null>(null)
   const [grupos, setGrupos] = useState<EmailGrp[]>([])
   const [tiposModelo, setTiposModelo] = useState<Array<{ id: string; nome: string; cor: string }>>([])
@@ -160,13 +160,14 @@ export default function AgendaConfiguracoesPage() {
         (trpc.agenda as any).modeloEmail.get.query(),
         (trpc.agenda as any).listTipos.query().catch(() => []),
       ])
-      setTpl(r.template); setGrupos(r.grupos || []); setTiposModelo(tps || [])
+      setTpl(r.template); setGrupos((r.grupos || []).map((g: EmailGrp) => ({ icone: '', ...g }))); setTiposModelo(tps || [])
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setLoadingTpl(false) }
   }
   async function atualizarPreview() {
     setLoadingPreview(true)
-    try { const r = await (trpc.agenda as any).modeloEmail.preview.query({}); setPreviewHtml(r.html) }
+    // Prévia AO VIVO: manda o estado atual do editor (inclui logo/textos/grupos ainda não salvos).
+    try { const r = await (trpc.agenda as any).modeloEmail.preview.query({ template: tpl ?? undefined, grupos }); setPreviewHtml(r.html) }
     catch { setPreviewHtml('<p style="padding:16px;font-family:sans-serif;color:#ef4444">Falha ao gerar prévia.</p>') }
     finally { setLoadingPreview(false) }
   }
@@ -188,9 +189,16 @@ export default function AgendaConfiguracoesPage() {
     finally { setEnviandoTesteModelo(false) }
   }
   useEffect(() => {
-    if (activeTab === 'modelo' && !tpl && !loadingTpl) { carregarModelo().then(() => atualizarPreview()) }
+    if (activeTab === 'modelo' && !tpl && !loadingTpl) { carregarModelo() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
+  // Prévia ao vivo com debounce ao editar (logo, textos, cores, grupos…)
+  useEffect(() => {
+    if (activeTab !== 'modelo' || !tpl) return
+    const t = setTimeout(() => { atualizarPreview() }, 500)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, tpl, grupos])
 
   // Combobox filtrável de destinatários
   const [destSearchOpen, setDestSearchOpen] = useState(false)
@@ -1002,12 +1010,13 @@ export default function AgendaConfiguracoesPage() {
                     </div>
 
                     <div className="rounded-md border border-border bg-muted/30 p-2.5">
-                      <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">Variáveis (clique para copiar)</p>
+                      <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">Variáveis do cabeçalho / introdução / rodapé (clique para copiar)</p>
                       <div className="flex flex-wrap gap-1">
-                        {['{{usuario.name}}', '{{dataDisplay}}', '{{diaSemana}}', '{{totalEventos}}', '{{evento.titulo}}', '{{evento.horario}}', '{{evento.local}}', '{{evento.localSuffix}}', '{{evento.tipoNome}}', '{{evento.tipoCor}}', '{{evento.criador}}', '{{evento.presenca}}', '{{evento.link}}'].map(v => (
+                        {['{{usuario.name}}', '{{dataDisplay}}', '{{diaSemana}}', '{{totalEventos}}'].map(v => (
                           <button key={v} type="button" onClick={() => { navigator.clipboard?.writeText(v); alerts.success('Copiado', v) }} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-card border border-border hover:bg-muted">{v}</button>
                         ))}
                       </div>
+                      <p className="text-[11px] text-muted-foreground mt-2">Os eventos são exibidos automaticamente em blocos, agrupados pelos grupos abaixo.</p>
                     </div>
 
                     {/* Campos de texto — RichEditor (visual + modo HTML, como nos demais campos de descrição) */}
@@ -1017,17 +1026,6 @@ export default function AgendaConfiguracoesPage() {
                         <RichEditor value={(tpl as Record<string, string>)[k] ?? ''} onChange={v => setTplField(k as keyof EmailTpl, v)} placeholder="Use a barra de formatação ou o modo HTML (&lt;/&gt;)…" />
                       </div>
                     ))}
-
-                    {/* Linha do evento — template HTML estrutural (linha de tabela), com {{evento.*}} */}
-                    <div className="space-y-1.5">
-                      <Label className="text-[13px] font-semibold">Linha do evento <span className="text-[11px] font-normal text-muted-foreground">(HTML estrutural — use {'{{evento.*}}'})</span></Label>
-                      <textarea
-                        value={tpl.eventoLinhaHtml}
-                        onChange={e => setTplField('eventoLinhaHtml', e.target.value)}
-                        rows={6}
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs font-mono resize-y focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      />
-                    </div>
 
                     {([['footerHtml', 'Rodapé'], ['semEventosHtml', 'Mensagem quando não há eventos']] as const).map(([k, label]) => (
                       <div key={k} className="space-y-1.5">
@@ -1040,29 +1038,33 @@ export default function AgendaConfiguracoesPage() {
                     <div className="space-y-2 border-t border-border pt-3">
                       <div className="flex items-center justify-between">
                         <Label className="text-[13px] font-semibold">Grupos (por tipo de evento)</Label>
-                        <Button type="button" size="sm" variant="outline" className="gap-1" onClick={() => setGrupos(g => [...g, { nome: 'Novo grupo', cor: tpl.accent, incluiParticulares: false, tiposIds: [] }])}><Plus className="h-3.5 w-3.5" /> Grupo</Button>
+                        <Button type="button" size="sm" variant="outline" className="gap-1" onClick={() => setGrupos(g => [...g, { nome: 'Novo grupo', cor: tpl.accent, icone: '📅', incluiParticulares: false, tiposIds: [] }])}><Plus className="h-3.5 w-3.5" /> Grupo</Button>
                       </div>
                       {grupos.length === 0 && <p className="text-xs text-muted-foreground italic">Sem grupos personalizados — eventos não-particulares caem em "{tpl.nomeGrupoOutros}" e os particulares em "{tpl.nomeGrupoParticulares}".</p>}
                       {grupos.map((g, idx) => (
                         <div key={idx} className="rounded-md border border-border p-2.5 space-y-2">
                           <div className="flex items-center gap-2">
+                            <Input className="h-8 w-12 text-center text-base shrink-0 px-0" maxLength={2} placeholder="📅" value={g.icone} onChange={e => setGrupos(gs => gs.map((x, i) => i === idx ? { ...x, icone: e.target.value } : x))} title="Ícone do grupo (emoji)" />
                             <Input className="h-8 text-sm flex-1" value={g.nome} onChange={e => setGrupos(gs => gs.map((x, i) => i === idx ? { ...x, nome: e.target.value } : x))} />
-                            <Input type="color" className="h-8 w-10 p-1 shrink-0" value={g.cor} onChange={e => setGrupos(gs => gs.map((x, i) => i === idx ? { ...x, cor: e.target.value } : x))} />
+                            <Input type="color" className="h-8 w-10 p-1 shrink-0" value={g.cor} onChange={e => setGrupos(gs => gs.map((x, i) => i === idx ? { ...x, cor: e.target.value } : x))} title="Cor do grupo" />
                             <button type="button" onClick={() => setGrupos(gs => gs.filter((_, i) => i !== idx))} className="h-8 w-8 shrink-0 flex items-center justify-center rounded text-destructive hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5" /></button>
                           </div>
-                          <div className="flex flex-wrap gap-1">
-                            {tiposModelo.map(t => {
-                              const on = g.tiposIds.includes(t.id)
-                              return (
-                                <button key={t.id} type="button"
-                                  onClick={() => setGrupos(gs => gs.map((x, i) => i === idx ? { ...x, tiposIds: on ? x.tiposIds.filter(id => id !== t.id) : [...x.tiposIds, t.id] } : x))}
-                                  className={cn('text-[10px] px-1.5 py-0.5 rounded border transition-colors', on ? 'text-white' : 'text-muted-foreground bg-card')}
-                                  style={on ? { backgroundColor: t.cor, borderColor: t.cor } : { borderColor: t.cor + '80' }}>
-                                  {t.nome}
-                                </button>
-                              )
-                            })}
-                            {tiposModelo.length === 0 && <span className="text-[10px] text-muted-foreground italic">Nenhum tipo cadastrado.</span>}
+                          <div className="space-y-1">
+                            <p className="text-[11px] font-medium text-muted-foreground">Tipos de evento deste grupo:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {tiposModelo.map(t => {
+                                const on = g.tiposIds.includes(t.id)
+                                return (
+                                  <button key={t.id} type="button"
+                                    onClick={() => setGrupos(gs => gs.map((x, i) => i === idx ? { ...x, tiposIds: on ? x.tiposIds.filter(id => id !== t.id) : [...x.tiposIds, t.id] } : x))}
+                                    className={cn('text-[10px] px-1.5 py-0.5 rounded border transition-colors', on ? 'text-white' : 'text-muted-foreground bg-card')}
+                                    style={on ? { backgroundColor: t.cor, borderColor: t.cor } : { borderColor: t.cor + '80' }}>
+                                    {t.nome}
+                                  </button>
+                                )
+                              })}
+                              {tiposModelo.length === 0 && <span className="text-[10px] text-muted-foreground italic">Nenhum tipo cadastrado.</span>}
+                            </div>
                           </div>
                         </div>
                       ))}
