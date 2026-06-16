@@ -10,11 +10,13 @@ import { useLocalSearchParams } from 'expo-router'
 import { EventoDetalhe } from '@/features/agenda/evento-detalhe'
 
 export default function AgendaEventoDetalheScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>()
+  // `origem` (opcional) diz de onde o usuário veio — usado pelo "Voltar" do
+  // detalhe pra retornar ao lugar certo (ex.: 'dashboard').
+  const { id, origem } = useLocalSearchParams<{ id: string; origem?: string }>()
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <EventoDetalhe id={id} />
+      <EventoDetalhe id={id} origem={origem} />
     </SafeAreaView>
   )
 }

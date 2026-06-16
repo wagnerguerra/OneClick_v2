@@ -34,6 +34,7 @@ import { resolveAssetUrl } from '@/lib/api-url'
 
 import { toISODate } from '@/features/agenda/date'
 import { resolveTipoCores, withAlpha } from '@/features/agenda/color'
+import { useEventoPermissoes } from '@/features/agenda/use-evento-permissoes'
 import type { EventoAgenda } from '@/features/agenda/use-eventos'
 
 // Logo OneClick do topo. Versão colorida (clara) e versão branca (pra fundo escuro).
@@ -63,10 +64,6 @@ export default function DashboardScreen() {
   const { data: session } = useSession()
   const { podeVer } = usePermissions()
   const utils = trpc.useUtils()
-
-  // Id do usuário logado — habilita o swipe (editar/excluir) só nos eventos que
-  // ele mesmo criou.
-  const userId = (session?.user as { id?: string } | undefined)?.id
 
   // Exclusão de evento via swipe → confirma e invalida a listagem do dia.
   const deleteEvento = trpc.agenda.delete.useMutation({
@@ -290,9 +287,11 @@ export default function DashboardScreen() {
             <DayAgenda
               eventos={eventosHoje}
               loading={eventosQuery.isPending}
-              userId={userId}
               isDark={isDark}
-              onVerEvento={(id) => router.push(`/agenda/${id}`)}
+              // origem=dashboard → o "Voltar" do detalhe retorna pro dashboard
+              // (e não pra um /agenda/novo que tenha ficado na stack da agenda).
+              // href em string (a forma de objeto resolvia pra /agenda, a lista).
+              onVerEvento={(id) => router.push(`/agenda/${id}?origem=dashboard`)}
               onEditar={(id) => router.push({ pathname: '/agenda/novo', params: { id } })}
               onExcluir={confirmarExclusao}
               onAdicionar={() => router.push('/agenda/novo')}
@@ -440,7 +439,6 @@ function ArcoSemi({
 function DayAgenda({
   eventos,
   loading,
-  userId,
   isDark,
   onVerEvento,
   onEditar,
@@ -449,7 +447,6 @@ function DayAgenda({
 }: {
   eventos: EventoAgenda[]
   loading: boolean
-  userId: string | undefined
   isDark: boolean
   onVerEvento: (id: string) => void
   onEditar: (id: string) => void
@@ -495,10 +492,6 @@ function DayAgenda({
           key={ev.id}
           ev={ev}
           isDark={isDark}
-          // Só o criador do evento (e se editável) pode arrastar p/ editar/excluir.
-          podeEditar={
-            !!userId && (ev as { criadorId?: string }).criadorId === userId && ev.editavel !== false
-          }
           onPress={() => onVerEvento(ev.id)}
           onEditar={() => onEditar(ev.id)}
           onExcluir={() => onExcluir(ev.id, ev.titulo)}
@@ -522,24 +515,23 @@ function DayAgenda({
  * então funciona em claro E escuro: pálido no claro, escuro sutil no dark) que
  * contrasta com a barra. Título em `text-foreground` (alto contraste).
  *
- * Se o usuário logado criou o evento (`podeEditar`), o card desliza para a
- * esquerda (estilo Gmail) revelando as ações Editar e Excluir.
+ * Se o usuário pode editar e/ou excluir (master, criador ou sub-permissão), o
+ * card desliza para a esquerda (estilo Gmail) revelando as ações disponíveis.
  */
 function EventoLinha({
   ev,
   isDark,
-  podeEditar,
   onPress,
   onEditar,
   onExcluir,
 }: {
   ev: EventoAgenda
   isDark: boolean
-  podeEditar: boolean
   onPress: () => void
   onEditar: () => void
   onExcluir: () => void
 }) {
+  const { canEdit, canDelete } = useEventoPermissoes((ev as { criadorId?: string }).criadorId)
   const cores = resolveTipoCores(ev.tipo)
   const horario = ev.diaInteiro
     ? 'Dia inteiro'
@@ -577,15 +569,19 @@ function EventoLinha({
     </Pressable>
   )
 
-  // Sem permissão de editar: card simples (sem gesto).
-  if (!podeEditar) return card
+  // Sem permissão de editar nem excluir: card simples (sem gesto).
+  if (!canEdit && !canDelete) return card
+
+  // Largura total das ações reveladas (cada botão = 64px) — usada pra animar a
+  // entrada dos botões proporcional ao arrasto.
+  const acoesLargura = (canEdit ? 64 : 0) + (canDelete ? 64 : 0)
 
   // Ações reveladas ao arrastar p/ a esquerda. `progress` (0→1) controla um
   // deslize suave dos botões entrando, dando o efeito Gmail.
   function renderRightActions(progress: Animated.AnimatedInterpolation<number>) {
     const translateX = progress.interpolate({
       inputRange: [0, 1],
-      outputRange: [128, 0],
+      outputRange: [acoesLargura, 0],
       extrapolate: 'clamp',
     })
     return (
@@ -593,30 +589,34 @@ function EventoLinha({
         style={{ flexDirection: 'row', transform: [{ translateX }] }}
         className="overflow-hidden rounded-md"
       >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Editar evento"
-          onPress={() => {
-            swipeRef.current?.close()
-            onEditar()
-          }}
-          className="w-16 items-center justify-center bg-primary active:opacity-80"
-        >
-          <Ionicons name="create-outline" size={20} color="#ffffff" />
-          <Text className="mt-0.5 text-[11px] font-semibold text-white">Editar</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Excluir evento"
-          onPress={() => {
-            swipeRef.current?.close()
-            onExcluir()
-          }}
-          className="w-16 items-center justify-center bg-destructive active:opacity-80"
-        >
-          <Ionicons name="trash-outline" size={20} color="#ffffff" />
-          <Text className="mt-0.5 text-[11px] font-semibold text-white">Excluir</Text>
-        </Pressable>
+        {canEdit ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Editar evento"
+            onPress={() => {
+              swipeRef.current?.close()
+              onEditar()
+            }}
+            className="w-16 items-center justify-center bg-primary active:opacity-80"
+          >
+            <Ionicons name="create-outline" size={20} color="#ffffff" />
+            <Text className="mt-0.5 text-[11px] font-semibold text-white">Editar</Text>
+          </Pressable>
+        ) : null}
+        {canDelete ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Excluir evento"
+            onPress={() => {
+              swipeRef.current?.close()
+              onExcluir()
+            }}
+            className="w-16 items-center justify-center bg-destructive active:opacity-80"
+          >
+            <Ionicons name="trash-outline" size={20} color="#ffffff" />
+            <Text className="mt-0.5 text-[11px] font-semibold text-white">Excluir</Text>
+          </Pressable>
+        ) : null}
       </Animated.View>
     )
   }

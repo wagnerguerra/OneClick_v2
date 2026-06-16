@@ -165,11 +165,17 @@ export function AppDrawer(props: AppDrawerProps) {
               </Text>
             </View>
           )}
-          <View className="flex-1">
-            <Text className="text-[11px] uppercase tracking-wide text-muted-foreground">
+          <View className="flex-1 min-w-0">
+            <Text className="text-[10px] uppercase tracking-wide text-muted-foreground">
               Empresa
             </Text>
-            <Text className="font-bold text-foreground" numberOfLines={1} ellipsizeMode="tail">
+            {/* Fonte menor + ellipsis: mantém o cabeçalho do drawer compacto mesmo
+                com nomes longos (ex.: "CENTRAL SOLUCOES EMPRESARIAIS"). */}
+            <Text
+              className="text-[13px] font-bold text-foreground"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {nomeEmpresa}
             </Text>
           </View>

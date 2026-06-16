@@ -12,6 +12,11 @@ import { trpc } from '@/lib/trpc'
 export interface UsePermissionsResult {
   /** true se o usuário pode ver o módulo de `slug` (`null` = sempre visível). */
   podeVer: (slug: string | null) => boolean
+  /**
+   * true se o usuário tem a sub-permissão `key` no módulo `slug`. Master sempre
+   * retorna true. Espelha o `subPermissions` (JSON) por módulo do sistema web.
+   */
+  temSubPermissao: (slug: string, key: string) => boolean
   /** Master global ou master da empresa. */
   isMaster: boolean
   /** Ainda carregando as permissões. */
@@ -32,5 +37,13 @@ export function usePermissions(): UsePermissionsResult {
     return perms.permissions.some((p) => p.moduleSlug === slug && p.canRead)
   }
 
-  return { podeVer, isMaster, isLoading, isError }
+  function temSubPermissao(slug: string, key: string): boolean {
+    if (!perms) return false
+    if (perms.isMaster || perms.isEmpresaMaster) return true
+    const mod = perms.permissions.find((p) => p.moduleSlug === slug)
+    const subs = (mod?.subPermissions ?? {}) as Record<string, boolean>
+    return subs[key] === true
+  }
+
+  return { podeVer, temSubPermissao, isMaster, isLoading, isError }
 }

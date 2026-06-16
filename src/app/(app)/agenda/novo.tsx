@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, View } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Controller, useForm } from 'react-hook-form'
@@ -21,6 +22,7 @@ import { trpc } from '@/lib/trpc'
 import { toISODate } from '@/features/agenda/date'
 import { resolveTipoCores } from '@/features/agenda/color'
 import { LembretesEditor, type LembreteItem } from '@/features/agenda/lembretes-editor'
+import { ParticipantesPicker } from '@/features/agenda/participantes-picker'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,6 +30,9 @@ import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
 import { Text } from '@/components/ui/text'
 import { Card, CardContent } from '@/components/ui/card'
+import { DateField, TimeField } from '@/components/ui/native-pickers'
+import { HtmlEditor } from '@/components/ui/html-editor'
+import { cn } from '@/lib/cn'
 
 // ── Validação ──────────────────────────────────────────────────────────────
 // Regex de hora HH:MM (00:00 a 23:59) e de data yyyy-MM-dd.
@@ -47,6 +52,11 @@ const eventoFormSchema = z
     horaFim: z.string(),
     local: z.string(),
     descricao: z.string(),
+    // Reunião / modalidade (espelha a agenda do sistema)
+    presenca: z.enum(['PRESENCIAL', 'ONLINE', 'HIBRIDO']),
+    link: z.string(),
+    contato: z.string(),
+    participanteIds: z.array(z.string()),
   })
   .superRefine((val, ctx) => {
     if (val.diaInteiro) return
@@ -114,6 +124,10 @@ export default function AgendaNovoEvento() {
       horaFim: '',
       local: '',
       descricao: '',
+      presenca: 'PRESENCIAL',
+      link: '',
+      contato: '',
+      participanteIds: [],
     },
   })
 
@@ -133,6 +147,13 @@ export default function AgendaNovoEvento() {
       horaFim: evento.horaFim ?? '',
       local: evento.local ?? '',
       descricao: evento.descricao ?? '',
+      presenca: (evento.presenca as 'PRESENCIAL' | 'ONLINE' | 'HIBRIDO' | null) ?? 'PRESENCIAL',
+      link: evento.link ?? '',
+      contato: evento.contato ?? '',
+      // Participantes que são usuários do sistema (ignora avulsos no v1).
+      participanteIds: (evento.participantes ?? [])
+        .map((p) => p.usuarioId)
+        .filter((id): id is string => !!id),
     })
   }, [eventoQuery.data, reset, hojeISO])
 
@@ -180,6 +201,12 @@ export default function AgendaNovoEvento() {
   // `errors` reativos do RHF — usados pra mostrar a mensagem abaixo de cada campo.
   const { errors } = form.formState
 
+  // Detecção de "reunião" pelo NOME do tipo (igual à agenda web) — revela os
+  // campos de modalidade/link. Participantes ficam disponíveis sempre.
+  const tipoSelecionado = (tiposQuery.data ?? []).find((t) => t.id === form.watch('tipoId'))
+  const isReuniao = /reuni|treinamento interno/i.test(tipoSelecionado?.nome ?? '')
+  const precisaLink = form.watch('presenca') === 'ONLINE' || form.watch('presenca') === 'HIBRIDO'
+
   function onSubmit(values: EventoFormValues) {
     // Monta o payload no shape dos campos do escopo v1. Strings vazias viram
     // null (o backend já normaliza, mas mantemos limpo).
@@ -192,6 +219,11 @@ export default function AgendaNovoEvento() {
       horaFim: values.diaInteiro ? null : values.horaFim,
       local: values.local.trim() || null,
       descricao: values.descricao.trim() || null,
+      // Modalidade + reunião (paridade com a agenda do sistema).
+      presenca: values.presenca,
+      link: values.link.trim() || null,
+      contato: values.contato.trim() || null,
+      participanteIds: values.participanteIds,
     }
 
     if (isEdicao && id) {
@@ -339,14 +371,7 @@ export default function AgendaNovoEvento() {
                     control={form.control}
                     name="horaInicio"
                     render={({ field }) => (
-                      <Input
-                        value={field.value}
-                        onChangeText={field.onChange}
-                        onBlur={field.onBlur}
-                        placeholder="09:00"
-                        keyboardType="numbers-and-punctuation"
-                        maxLength={5}
-                      />
+                      <TimeField value={field.value} onChange={field.onChange} />
                     )}
                   />
                   {errors.horaInicio ? (
@@ -360,14 +385,7 @@ export default function AgendaNovoEvento() {
                     control={form.control}
                     name="horaFim"
                     render={({ field }) => (
-                      <Input
-                        value={field.value}
-                        onChangeText={field.onChange}
-                        onBlur={field.onBlur}
-                        placeholder="10:00"
-                        keyboardType="numbers-and-punctuation"
-                        maxLength={5}
-                      />
+                      <TimeField value={field.value} onChange={field.onChange} />
                     )}
                   />
                   {errors.horaFim ? (
@@ -377,21 +395,14 @@ export default function AgendaNovoEvento() {
               </View>
             ) : null}
 
-            {/* Data. */}
+            {/* Data — abre o calendário nativo. */}
             <View className="gap-1.5">
               <Label>Data</Label>
               <Controller
                 control={form.control}
                 name="data"
                 render={({ field }) => (
-                  <Input
-                    value={field.value}
-                    onChangeText={field.onChange}
-                    onBlur={field.onBlur}
-                    placeholder="aaaa-mm-dd"
-                    keyboardType="numbers-and-punctuation"
-                    maxLength={10}
-                  />
+                  <DateField value={field.value} onChange={field.onChange} />
                 )}
               />
               {errors.data ? (
@@ -416,22 +427,122 @@ export default function AgendaNovoEvento() {
               />
             </View>
 
-            {/* Descrição (multiline). */}
+            {/* Reunião: modalidade (presença) + link + contato — só pra tipos de
+                reunião, espelhando a agenda do sistema. */}
+            {isReuniao ? (
+              <View className="gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                <Text className="text-[13px] font-semibold text-foreground">
+                  Configurações da reunião
+                </Text>
+
+                {/* Modalidade (segmentado). */}
+                <View className="gap-1.5">
+                  <Label>Modalidade</Label>
+                  <Controller
+                    control={form.control}
+                    name="presenca"
+                    render={({ field }) => (
+                      <View className="flex-row gap-2">
+                        {([
+                          { v: 'PRESENCIAL', l: 'Presencial', icon: 'business-outline' },
+                          { v: 'ONLINE', l: 'Online', icon: 'videocam-outline' },
+                          { v: 'HIBRIDO', l: 'Híbrido', icon: 'desktop-outline' },
+                        ] as const).map((opt) => {
+                          const ativo = field.value === opt.v
+                          return (
+                            <Pressable
+                              key={opt.v}
+                              accessibilityRole="button"
+                              accessibilityState={{ selected: ativo }}
+                              onPress={() => field.onChange(opt.v)}
+                              className={cn(
+                                'flex-1 h-9 flex-row items-center justify-center gap-1.5 rounded-md border active:opacity-80',
+                                ativo ? 'border-primary bg-primary/15' : 'border-border bg-card',
+                              )}
+                            >
+                              <Ionicons
+                                name={opt.icon}
+                                size={15}
+                                color={ativo ? '#2563eb' : '#94a3b8'}
+                              />
+                              <Text
+                                className={cn(
+                                  'text-xs font-medium',
+                                  ativo ? 'text-primary' : 'text-muted-foreground',
+                                )}
+                              >
+                                {opt.l}
+                              </Text>
+                            </Pressable>
+                          )
+                        })}
+                      </View>
+                    )}
+                  />
+                </View>
+
+                {/* Link da reunião — quando Online/Híbrido. */}
+                {precisaLink ? (
+                  <View className="gap-1.5">
+                    <Label>Link da reunião</Label>
+                    <Controller
+                      control={form.control}
+                      name="link"
+                      render={({ field }) => (
+                        <Input
+                          value={field.value}
+                          onChangeText={field.onChange}
+                          onBlur={field.onBlur}
+                          placeholder="https://meet.google.com/…"
+                          autoCapitalize="none"
+                          keyboardType="url"
+                        />
+                      )}
+                    />
+                  </View>
+                ) : null}
+
+                {/* Contato. */}
+                <View className="gap-1.5">
+                  <Label>Contato</Label>
+                  <Controller
+                    control={form.control}
+                    name="contato"
+                    render={({ field }) => (
+                      <Input
+                        value={field.value}
+                        onChangeText={field.onChange}
+                        onBlur={field.onBlur}
+                        placeholder="Responsável / telefone"
+                      />
+                    )}
+                  />
+                </View>
+              </View>
+            ) : null}
+
+            {/* Participantes (usuários do sistema). */}
+            <View className="gap-1.5">
+              <Label>Participantes</Label>
+              <Controller
+                control={form.control}
+                name="participanteIds"
+                render={({ field }) => (
+                  <ParticipantesPicker value={field.value} onChange={field.onChange} />
+                )}
+              />
+            </View>
+
+            {/* Descrição — editor rich text (salva HTML, igual à agenda web). */}
             <View className="gap-1.5">
               <Label>Descrição</Label>
               <Controller
                 control={form.control}
                 name="descricao"
                 render={({ field }) => (
-                  <Input
-                    value={field.value}
-                    onChangeText={field.onChange}
-                    onBlur={field.onBlur}
-                    placeholder="Detalhes do evento…"
-                    multiline
-                    numberOfLines={4}
-                    className="h-24 py-2"
-                    style={{ textAlignVertical: 'top' }}
+                  <HtmlEditor
+                    initialValue={isEdicao ? (eventoQuery.data?.descricao ?? '') : ''}
+                    onChange={field.onChange}
                   />
                 )}
               />
