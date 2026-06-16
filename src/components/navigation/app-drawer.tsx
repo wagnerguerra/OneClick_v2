@@ -75,8 +75,9 @@ const ITENS_MENU: ItemModulo[] = [
   { label: 'Agenda', icon: 'calendar', route: 'agenda', modulo: 'agenda' },
   { label: 'Tarefas', icon: 'checkbox', route: 'tarefas', modulo: 'agenda' },
   { label: 'Helpdesk', icon: 'chatbubbles', route: 'helpdesk', modulo: 'helpdesk' },
-  // Cadastros — só aparece pra quem tem acesso ao módulo (podeVer('usuarios')).
+  // Cadastros — cada item só aparece pra quem tem acesso ao módulo correspondente.
   { label: 'Usuários', icon: 'people', route: 'usuarios', modulo: 'usuarios' },
+  { label: 'Serviços', icon: 'briefcase', route: 'servicos', modulo: 'servicos' },
   { label: 'Configurações', icon: 'settings-outline', route: 'configuracoes', modulo: null },
 ]
 
