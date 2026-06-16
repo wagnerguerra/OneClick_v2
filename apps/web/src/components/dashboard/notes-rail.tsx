@@ -123,7 +123,7 @@ export function NotesRail() {
                   value={novoTitulo}
                   onChange={e => setNovoTitulo(e.target.value)}
                   placeholder="Título"
-                  className="w-full bg-transparent px-3 pt-2.5 pb-1 text-sm font-medium focus:outline-none placeholder:text-muted-foreground/60"
+                  className="w-full bg-transparent px-3.5 pt-3 pb-2.5 text-sm font-semibold focus:outline-none placeholder:text-muted-foreground/60 border-b border-border/60"
                 />
               )}
               <textarea
@@ -132,11 +132,11 @@ export function NotesRail() {
                 onChange={e => setNovoConteudo(e.target.value)}
                 onFocus={() => setComporAberto(true)}
                 placeholder="Criar uma nota…"
-                rows={comporAberto ? 3 : 1}
-                className="w-full bg-transparent px-3 py-2 text-sm resize-none focus:outline-none placeholder:text-muted-foreground/60"
+                rows={comporAberto ? 4 : 1}
+                className="w-full bg-transparent px-3.5 py-3 text-sm leading-relaxed resize-none focus:outline-none placeholder:text-muted-foreground/60"
               />
               {comporAberto && (
-                <div className="px-2 pb-2 space-y-2">
+                <div className="px-3 py-2.5 space-y-2.5 border-t border-border/60">
                   {/* Cores (linha própria — cabem sem cortar) */}
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {COR_KEYS.map(c => (
