@@ -2378,7 +2378,7 @@ export class ServicoService {
       where.OR = [{ empresaId: filters.empresaId }, { empresaId: null }]
     }
 
-    return prisma.servicoExecucao.findMany({
+    const execs = await prisma.servicoExecucao.findMany({
       where,
       include: {
         servico: { select: { id: true, nome: true } },
@@ -2387,6 +2387,14 @@ export class ServicoService {
       },
       orderBy: { iniciadoEm: 'desc' },
     })
+    // Anexa o orçamento vinculado (numero) — orcamentoId é scalar, sem relação Prisma.
+    const orcIds = Array.from(new Set(execs.map(e => e.orcamentoId).filter((x): x is string => !!x)))
+    const orcMap = new Map<string, { id: string; numero: number }>()
+    if (orcIds.length > 0) {
+      const orcs = await prisma.orcamento.findMany({ where: { id: { in: orcIds } }, select: { id: true, numero: true } })
+      for (const o of orcs) orcMap.set(o.id, o)
+    }
+    return execs.map(e => ({ ...e, orcamento: e.orcamentoId ? orcMap.get(e.orcamentoId) ?? null : null }))
   }
 
   async getExecucao(id: string) {

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } fr
 import { createPortal } from 'react-dom'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import {
-  ListChecks, Loader2, Clock, CheckCircle2, AlertTriangle, Play, Pause,
+  ListChecks, Loader2, Clock, CheckCircle2, AlertTriangle, Play, Pause, Receipt,
   Calendar, Filter, ChevronRight, Plus, ChevronDown,
   MessageSquare, Paperclip, LayoutGrid, List, Archive, Settings2,
   UserCog, X, Search, HelpCircle,
@@ -47,6 +47,7 @@ interface ExecucaoMinha {
     perguntaMulti?: boolean
   }
   cliente?: { id: string; razaoSocial: string } | null
+  orcamento?: { id: string; numero: number } | null
   arquivado: boolean
   passos: Array<{
     id: string
@@ -885,9 +886,14 @@ export default function MeusServicosPage() {
 
                             {/* Body */}
                             <div className="px-3 pb-2 space-y-1.5">
-                              {exec.cliente && (
-                                <p className="text-[11px] text-muted-foreground truncate">
-                                  {exec.cliente.razaoSocial}
+                              {(exec.cliente || exec.orcamento) && (
+                                <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5">
+                                  {exec.cliente && <span className="truncate">{exec.cliente.razaoSocial}</span>}
+                                  {exec.orcamento && (
+                                    <a href={`/orcamentos/${exec.orcamento.id}`} onClick={e => e.stopPropagation()} title="Abrir orçamento vinculado" className="shrink-0 inline-flex items-center gap-0.5 text-primary hover:underline font-medium">
+                                      <Receipt className="h-3 w-3" />#{exec.orcamento.numero}
+                                    </a>
+                                  )}
                                 </p>
                               )}
                               <div className="flex flex-wrap items-center gap-1.5">
@@ -1172,6 +1178,16 @@ export default function MeusServicosPage() {
                         </span>
                       </div>
                       <p className="text-sm font-semibold truncate">{exec.servico.nome}</p>
+                      {(exec.cliente || exec.orcamento) && (
+                        <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5 mb-0.5">
+                          {exec.cliente && <span className="truncate">{exec.cliente.razaoSocial}</span>}
+                          {exec.orcamento && (
+                            <a href={`/orcamentos/${exec.orcamento.id}`} onClick={e => e.stopPropagation()} title="Abrir orçamento vinculado" className="shrink-0 inline-flex items-center gap-0.5 text-primary hover:underline font-medium">
+                              <Receipt className="h-3 w-3" />#{exec.orcamento.numero}
+                            </a>
+                          )}
+                        </p>
+                      )}
                       {/* Passo atual — exibido apenas quando há próximo a executar */}
                       {atual && exec.status === 'EM_ANDAMENTO' && (
                         <div
