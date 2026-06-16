@@ -441,6 +441,7 @@ export default function MeusServicosPage() {
   // pausados, concluídos, cancelados). A janela de "concluídos visíveis" é
   // controlada pela config `meus_servicos.concluidos_dias_exibicao` no backend.
   const [filter, setFilter] = useState<FilterKind>('todos')
+  const [busca, setBusca] = useState('')
   // Modo de exibição — lista (vertical, denso) vs kanban (colunas por status).
   // Persiste no localStorage para respeitar a preferência do usuário entre sessões.
   const [viewMode, setViewMode] = useState<'lista' | 'kanban'>(() => {
@@ -686,6 +687,18 @@ export default function MeusServicosPage() {
     return { emAndamento, atrasados, concluidos, concluidosHoje }
   }, [statsAll])
 
+  // Busca textual — filtra por serviço, cliente, nº do orçamento e responsável
+  // (sem acento, case-insensitive). Alimenta tanto o kanban quanto a lista.
+  const execFiltradas = useMemo(() => {
+    const q = busca.trim().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    if (!q) return execucoes
+    return execucoes.filter(e => {
+      const alvo = `${e.servico?.nome ?? ''} ${e.cliente?.razaoSocial ?? ''} ${e.orcamento ? '#' + e.orcamento.numero : ''} ${e.responsavelUsuario?.name ?? ''}`
+        .normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+      return alvo.includes(q)
+    })
+  }, [execucoes, busca])
+
   // Agrupamento em colunas para o modo Kanban — uma execução pertence a UMA coluna.
   // Ordem de precedência: cancelado > concluído > pausado > atrasado > em andamento.
   type KanbanCol = { key: string; titulo: string; cor: string; items: ExecucaoMinha[] }
@@ -698,7 +711,7 @@ export default function MeusServicosPage() {
       concluidos: { key: 'concluidos', titulo: 'Concluídos', cor: '#10b981', items: [] },
       cancelados: { key: 'cancelados', titulo: 'Cancelados', cor: '#94a3b8', items: [] },
     }
-    for (const e of execucoes) {
+    for (const e of execFiltradas) {
       if (e.status === 'CANCELADO') cols.cancelados!.items.push(e)
       else if (e.status === 'CONCLUIDO') cols.concluidos!.items.push(e)
       else if (e.pausado) cols.pausados!.items.push(e)
@@ -734,6 +747,16 @@ export default function MeusServicosPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {/* Busca — padrão CRM/Orçamentos/Helpdesk (cliente, serviço, nº orçamento, responsável) */}
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              placeholder="Buscar cliente, serviço, #orçamento..."
+              className="h-8 w-[260px] pl-7 text-xs"
+            />
+          </div>
           {/* Toggle Kanban/Lista — padrão CRM */}
           <div className="flex items-center border rounded-[2px] overflow-hidden">
             <button
@@ -811,7 +834,7 @@ export default function MeusServicosPage() {
           )
         })}
         <span className="ml-auto text-xs text-muted-foreground">
-          {execucoes.length} {execucoes.length === 1 ? 'resultado' : 'resultados'}
+          {execFiltradas.length} {execFiltradas.length === 1 ? 'resultado' : 'resultados'}
         </span>
       </div>
 
@@ -822,10 +845,10 @@ export default function MeusServicosPage() {
             <Loader2 className="h-4 w-4 animate-spin" /> Carregando seus serviços...
           </div>
         </Card>
-      ) : execucoes.length === 0 ? (
+      ) : execFiltradas.length === 0 ? (
         <Card className="flex-1 flex flex-col items-center justify-center py-16 text-muted-foreground">
           <ListChecks className="h-10 w-10 opacity-30 mb-2" />
-          <p className="text-sm">Nenhum serviço encontrado neste filtro</p>
+          <p className="text-sm">{busca.trim() ? 'Nenhum serviço encontrado para a busca' : 'Nenhum serviço encontrado neste filtro'}</p>
         </Card>
       ) : viewMode === 'kanban' ? (
         // Kanban no padrão CRM/Orçamentos — overflow-x-auto + flex-1 ocupa altura disponível
@@ -1018,7 +1041,7 @@ export default function MeusServicosPage() {
         // Lista — Card limpo com scroll interno (filtros e header já estão acima)
         <Card className="flex-1 overflow-hidden flex flex-col">
           <div className="flex-1 overflow-y-auto divide-y divide-border/60">
-            {execucoes.map(exec => {
+            {execFiltradas.map(exec => {
               // ── PERGUNTA — card destacado em laranja pra responder no lugar ──
               if (exec.status === 'AGUARDANDO_RESPOSTA' && exec.servico.tipo === 'PERGUNTA') {
                 const sv = exec.servico
