@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Percent, Loader2, Plus, MoreVertical, Edit2, Trash2, Settings2,
-  CheckCircle2, Clock, AlertTriangle, MinusCircle, Receipt, ExternalLink,
-  ChevronUp, ChevronDown, ChevronsUpDown,
+  CheckCircle2, Clock, AlertTriangle, MinusCircle, Receipt,
+  ChevronUp, ChevronDown, ChevronsUpDown, GitBranch,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, Label, cn, Checkbox, Textarea,
@@ -41,6 +41,7 @@ interface Vinculo {
   catalogoServicoId: string | null
   orcamentoNumero: number | null
   orcamentoStatus: string | null
+  processoId: string | null
   status: Status
 }
 interface CatalogoItem {
@@ -364,8 +365,6 @@ export default function BeneficiosFiscaisPage() {
                 <SortableHead label="Cliente" sortKey="cliente" sort={sort} onSort={toggleSort} />
                 <SortableHead label="Benefício" sortKey="beneficio" sort={sort} onSort={toggleSort} />
                 <SortableHead label="Vencimento" sortKey="vencimento" sort={sort} onSort={toggleSort} />
-                <TableHead>Portaria / Processo</TableHead>
-                <TableHead>Orçamento</TableHead>
                 <TableHead className="w-[44px]" />
               </TableRow>
             </TableHeader>
@@ -390,22 +389,36 @@ export default function BeneficiosFiscaisPage() {
                         />
                       </TableCell>
                     )}
-                    <TableCell className="font-semibold text-sm max-w-[280px] truncate">{v.clienteNome}</TableCell>
+                    <TableCell className="max-w-[420px]">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {v.orcamentoId && (
+                          <a
+                            href={v.processoId ? `/processos/${v.processoId}` : `/orcamentos/${v.orcamentoId}`}
+                            title={v.processoId ? 'Abrir processo de liberação do benefício' : 'Abrir orçamento'}
+                            className={cn(
+                              'shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold border hover:opacity-80',
+                              v.processoId
+                                ? 'border-violet-300 text-violet-700 bg-violet-50 dark:bg-violet-900/30 dark:text-violet-300'
+                                : 'border-sky-300 text-sky-700 bg-sky-50 dark:bg-sky-900/30 dark:text-sky-300',
+                            )}
+                          >
+                            {v.processoId ? <GitBranch className="h-3 w-3" /> : <Receipt className="h-3 w-3" />}
+                            #{v.orcamentoNumero}
+                          </a>
+                        )}
+                        <span className="font-semibold text-sm truncate">{v.clienteNome}</span>
+                      </div>
+                      {[v.portaria, v.processo].filter(Boolean).length > 0 && (
+                        <div className="text-[11px] text-muted-foreground truncate mt-0.5">
+                          {[v.portaria, v.processo].filter(Boolean).join(' · ')}
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{v.beneficioNome}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-[11px] border" style={{ color: cfg.color, borderColor: cfg.color + '55', backgroundColor: cfg.bg }}>
                         {fmtDateBR(v.dataVencimento)}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {[v.portaria, v.processo].filter(Boolean).join(' · ') || '—'}
-                    </TableCell>
-                    <TableCell>
-                      {v.orcamentoId
-                        ? <a href={`/orcamentos/${v.orcamentoId}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                            #{v.orcamentoNumero} <ExternalLink className="h-3 w-3" />
-                          </a>
-                        : <span className="text-xs text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
