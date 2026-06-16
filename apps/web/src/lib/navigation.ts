@@ -116,6 +116,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Painel Comercial', href: '/comercial', icon: Gauge },
       { label: 'CRM', href: '/crm', icon: Target },
+      { label: 'WhatsApp', href: '/whatsapp', icon: MessageSquare },
       {
         label: 'Contratos',
         href: '/contratos',
