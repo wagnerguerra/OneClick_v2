@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Percent, Loader2, Plus, MoreVertical, Edit2, Trash2, Settings2,
   CheckCircle2, Clock, AlertTriangle, MinusCircle, Receipt, ExternalLink,
+  ChevronUp, ChevronDown, ChevronsUpDown,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, Label, cn, Checkbox, Textarea,
@@ -80,6 +81,11 @@ export default function BeneficiosFiscaisPage() {
 
   const [filtroStatus, setFiltroStatus] = useState<Status | null>(null)
   const [busca, setBusca] = useState('')
+  type SortKey = 'cliente' | 'beneficio' | 'vencimento' | 'status'
+  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'cliente', dir: 'asc' })
+  function toggleSort(key: SortKey) {
+    setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' })
+  }
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
   const [orcando, setOrcando] = useState(false)
   const [excluindoLote, setExcluindoLote] = useState(false)
@@ -106,11 +112,29 @@ export default function BeneficiosFiscaisPage() {
     trpcBF().servicoOpcoes.query().then(setServicos).catch(() => {})
   }, [])
 
-  // Cliente é a coluna principal — ordenação alfabética padrão.
+  // Ordenação clicável por coluna (Cliente é o padrão, alfabético asc).
   const visiveis = useMemo(() => {
     const base = filtroStatus ? vinculos.filter(v => v.status === filtroStatus) : vinculos
-    return [...base].sort((a, b) => a.clienteNome.localeCompare(b.clienteNome, 'pt-BR', { sensitivity: 'base' }))
-  }, [vinculos, filtroStatus])
+    const dir = sort.dir === 'asc' ? 1 : -1
+    const STATUS_ORDEM: Record<string, number> = { VENCIDO: 0, VENCENDO: 1, NO_PRAZO: 2, SEM_DATA: 3 }
+    const cmp = (a: Vinculo, b: Vinculo): number => {
+      switch (sort.key) {
+        case 'beneficio': return a.beneficioNome.localeCompare(b.beneficioNome, 'pt-BR', { sensitivity: 'base' })
+        case 'status': return (STATUS_ORDEM[a.status] ?? 9) - (STATUS_ORDEM[b.status] ?? 9)
+        case 'vencimento': {
+          const ta = a.dataVencimento ? new Date(a.dataVencimento).getTime() : Infinity
+          const tb = b.dataVencimento ? new Date(b.dataVencimento).getTime() : Infinity
+          return ta - tb
+        }
+        default: return a.clienteNome.localeCompare(b.clienteNome, 'pt-BR', { sensitivity: 'base' })
+      }
+    }
+    return [...base].sort((a, b) => {
+      const r = cmp(a, b) * dir
+      // desempate estável por cliente
+      return r !== 0 ? r : a.clienteNome.localeCompare(b.clienteNome, 'pt-BR', { sensitivity: 'base' })
+    })
+  }, [vinculos, filtroStatus, sort])
   const catalogoAtivo = useMemo(() => catalogo.filter(c => c.ativo), [catalogo])
 
   const podeSelecionar = canGerarOrcamento || canDelete
@@ -312,9 +336,9 @@ export default function BeneficiosFiscaisPage() {
                     />
                   </TableHead>
                 )}
-                <TableHead>Cliente</TableHead>
-                <TableHead>Benefício</TableHead>
-                <TableHead>Vencimento</TableHead>
+                <SortableHead label="Cliente" sortKey="cliente" sort={sort} onSort={toggleSort} />
+                <SortableHead label="Benefício" sortKey="beneficio" sort={sort} onSort={toggleSort} />
+                <SortableHead label="Vencimento" sortKey="vencimento" sort={sort} onSort={toggleSort} />
                 <TableHead>Portaria / Processo</TableHead>
                 <TableHead>Orçamento</TableHead>
                 <TableHead className="w-[44px]" />
@@ -458,6 +482,30 @@ export default function BeneficiosFiscaisPage() {
         onChanged={() => trpcBF().listCatalogo.query({ incluirInativos: true }).then(setCatalogo).catch(() => {})}
       />
     </div>
+  )
+}
+
+/* Cabeçalho de coluna ordenável (clica pra ordenar; seta indica direção). */
+function SortableHead({ label, sortKey, sort, onSort }: {
+  label: string
+  sortKey: 'cliente' | 'beneficio' | 'vencimento' | 'status'
+  sort: { key: string; dir: 'asc' | 'desc' }
+  onSort: (k: 'cliente' | 'beneficio' | 'vencimento' | 'status') => void
+}) {
+  const active = sort.key === sortKey
+  return (
+    <TableHead>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn('inline-flex items-center gap-1 select-none hover:text-foreground', active && 'text-foreground font-semibold')}
+      >
+        {label}
+        {active
+          ? (sort.dir === 'asc' ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />)
+          : <ChevronsUpDown className="h-3.5 w-3.5 opacity-40" />}
+      </button>
+    </TableHead>
   )
 }
 
