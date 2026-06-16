@@ -3692,9 +3692,17 @@ export class ServicoService {
       })
       for (const u of users) respMap.set(u.id, u)
     }
+    // Anexa o orçamento vinculado (numero) — orcamentoId é scalar, sem relação Prisma.
+    const orcIds = Array.from(new Set(execs.map(e => e.orcamentoId).filter((x): x is string => !!x)))
+    const orcMap = new Map<string, { id: string; numero: number }>()
+    if (orcIds.length > 0) {
+      const orcs = await prisma.orcamento.findMany({ where: { id: { in: orcIds } }, select: { id: true, numero: true } })
+      for (const o of orcs) orcMap.set(o.id, o)
+    }
     return execs.map(e => ({
       ...e,
       responsavelUsuario: e.responsavelId ? respMap.get(e.responsavelId) ?? null : null,
+      orcamento: e.orcamentoId ? orcMap.get(e.orcamentoId) ?? null : null,
     }))
   }
 
