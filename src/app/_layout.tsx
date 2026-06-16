@@ -5,6 +5,7 @@ import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect } from 'react'
 import { useColorScheme } from 'nativewind'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 import { Providers } from '@/lib/providers'
@@ -22,13 +23,17 @@ export default function RootLayout() {
   }, [])
 
   return (
-    <Providers>
-      <SafeAreaProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack screenOptions={{ headerShown: false }} />
-          <StatusBar style="auto" />
-        </ThemeProvider>
-      </SafeAreaProvider>
-    </Providers>
+    // GestureHandlerRootView é obrigatório p/ os gestos (ex.: swipe nos cards de
+    // evento do dashboard) funcionarem — o expo-router não o injeta sozinho.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Providers>
+        <SafeAreaProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <Stack screenOptions={{ headerShown: false }} />
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </SafeAreaProvider>
+      </Providers>
+    </GestureHandlerRootView>
   )
 }

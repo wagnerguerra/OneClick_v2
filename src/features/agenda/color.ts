@@ -72,6 +72,22 @@ export function contrastText(hex: string): '#ffffff' | '#0f172a' {
 }
 
 /**
+ * Converte um hex (`#rrggbb`/`#rgb`) numa string `rgba(r,g,b,alpha)`.
+ * Útil pra derivar um FUNDO bem leve na cor do tipo: como o alpha compõe sobre
+ * o que está atrás, o MESMO valor funciona nos dois temas — sobre um card claro
+ * vira um tom pálido; sobre um fundo escuro vira um tom escuro sutil. Se o hex
+ * for inválido, devolve ele mesmo (degrade gracioso).
+ */
+export function withAlpha(hex: string, alpha: number): string {
+  const norm = normalizeHex(hex)
+  if (norm === null) return hex
+  const r = parseInt(norm.slice(1, 3), 16)
+  const g = parseInt(norm.slice(3, 5), 16)
+  const b = parseInt(norm.slice(5, 7), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+/**
  * Resolve o trio final de cores a partir das cores cruas do tipo, com fallbacks:
  * - bg:     `cor` ou COR_PADRAO.
  * - border: `corBorda` ou uma versão mais escura do bg (~75%).

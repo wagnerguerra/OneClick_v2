@@ -12,8 +12,10 @@
 // Segue o Design System: tokens semânticos (preserva dark mode), expo-image,
 // Pressable/View/Text (RN). Dados reais via tRPC (sem mocks).
 
-import { useMemo } from 'react'
-import { Pressable, ScrollView, View } from 'react-native'
+import { useMemo, useRef } from 'react'
+import { Alert, Animated, Pressable, ScrollView, View } from 'react-native'
+import { Swipeable } from 'react-native-gesture-handler'
+import { Ionicons } from '@expo/vector-icons'
 import { useColorScheme } from 'nativewind'
 import { useRouter } from 'expo-router'
 import { Image } from 'expo-image'
@@ -31,7 +33,7 @@ import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
 
 import { toISODate } from '@/features/agenda/date'
-import { resolveTipoCores } from '@/features/agenda/color'
+import { resolveTipoCores, withAlpha } from '@/features/agenda/color'
 import type { EventoAgenda } from '@/features/agenda/use-eventos'
 
 // Logo OneClick do topo. Versão colorida (clara) e versão branca (pra fundo escuro).
@@ -60,6 +62,23 @@ export default function DashboardScreen() {
   const isDark = useColorScheme().colorScheme === 'dark'
   const { data: session } = useSession()
   const { podeVer } = usePermissions()
+  const utils = trpc.useUtils()
+
+  // Id do usuário logado — habilita o swipe (editar/excluir) só nos eventos que
+  // ele mesmo criou.
+  const userId = (session?.user as { id?: string } | undefined)?.id
+
+  // Exclusão de evento via swipe → confirma e invalida a listagem do dia.
+  const deleteEvento = trpc.agenda.delete.useMutation({
+    onSuccess: () => utils.agenda.listEventos.invalidate(),
+  })
+
+  function confirmarExclusao(id: string, titulo: string) {
+    Alert.alert('Excluir evento', `Excluir "${titulo}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Excluir', style: 'destructive', onPress: () => deleteEvento.mutate({ id }) },
+    ])
+  }
 
   // Primeiro nome do usuário logado (quando disponível) para a saudação.
   const primeiroNome = session?.user?.name?.trim().split(/\s+/)[0] ?? ''
@@ -271,7 +290,11 @@ export default function DashboardScreen() {
             <DayAgenda
               eventos={eventosHoje}
               loading={eventosQuery.isPending}
+              userId={userId}
+              isDark={isDark}
               onVerEvento={(id) => router.push(`/agenda/${id}`)}
+              onEditar={(id) => router.push({ pathname: '/agenda/novo', params: { id } })}
+              onExcluir={confirmarExclusao}
               onAdicionar={() => router.push('/agenda/novo')}
             />
           </View>
@@ -417,12 +440,20 @@ function ArcoSemi({
 function DayAgenda({
   eventos,
   loading,
+  userId,
+  isDark,
   onVerEvento,
+  onEditar,
+  onExcluir,
   onAdicionar,
 }: {
   eventos: EventoAgenda[]
   loading: boolean
+  userId: string | undefined
+  isDark: boolean
   onVerEvento: (id: string) => void
+  onEditar: (id: string) => void
+  onExcluir: (id: string, titulo: string) => void
   onAdicionar: () => void
 }) {
   // Ordena: dia-inteiro primeiro, depois por horaInicio crescente.
@@ -460,7 +491,18 @@ function DayAgenda({
   return (
     <View className="gap-1.5">
       {ordenados.map((ev) => (
-        <EventoLinha key={ev.id} ev={ev} onPress={() => onVerEvento(ev.id)} />
+        <EventoLinha
+          key={ev.id}
+          ev={ev}
+          isDark={isDark}
+          // Só o criador do evento (e se editável) pode arrastar p/ editar/excluir.
+          podeEditar={
+            !!userId && (ev as { criadorId?: string }).criadorId === userId && ev.editavel !== false
+          }
+          onPress={() => onVerEvento(ev.id)}
+          onEditar={() => onEditar(ev.id)}
+          onExcluir={() => onExcluir(ev.id, ev.titulo)}
+        />
       ))}
       <Pressable
         accessibilityRole="button"
@@ -475,29 +517,49 @@ function DayAgenda({
 }
 
 /**
- * Bloco de um evento na lista do dia. Card NEUTRO (token semântico bg-muted/40 +
- * border — funciona em claro/escuro) com uma BARRA na cor do TIPO do evento na
- * lateral e título em `text-foreground` (alto contraste). Antes o título era
- * pintado com a própria cor do tipo sobre uma tinta clara → ficava ilegível.
+ * Bloco de um evento na lista do dia. A BARRA lateral marca a cor do TIPO e o
+ * FUNDO recebe um tom bem leve dessa mesma cor (via alpha — compõe sobre o card,
+ * então funciona em claro E escuro: pálido no claro, escuro sutil no dark) que
+ * contrasta com a barra. Título em `text-foreground` (alto contraste).
+ *
+ * Se o usuário logado criou o evento (`podeEditar`), o card desliza para a
+ * esquerda (estilo Gmail) revelando as ações Editar e Excluir.
  */
 function EventoLinha({
   ev,
+  isDark,
+  podeEditar,
   onPress,
+  onEditar,
+  onExcluir,
 }: {
   ev: EventoAgenda
+  isDark: boolean
+  podeEditar: boolean
   onPress: () => void
+  onEditar: () => void
+  onExcluir: () => void
 }) {
   const cores = resolveTipoCores(ev.tipo)
   const horario = ev.diaInteiro
     ? 'Dia inteiro'
     : [ev.horaInicio?.slice(0, 5), ev.horaFim?.slice(0, 5)].filter(Boolean).join(' – ')
-  return (
+
+  // Fundo = cor do tipo com alpha baixo (um pouco mais forte no escuro p/ ler).
+  const fundo = withAlpha(cores.bg, isDark ? 0.22 : 0.1)
+  const borda = withAlpha(cores.bg, isDark ? 0.45 : 0.28)
+
+  // Ref pro Swipeable — usada pra fechar o card depois de tocar numa ação.
+  const swipeRef = useRef<Swipeable>(null)
+
+  const card = (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      className="flex-row items-stretch overflow-hidden rounded-md border border-border bg-elevated active:opacity-80"
+      className="flex-row items-stretch overflow-hidden rounded-md border active:opacity-80"
+      style={{ backgroundColor: fundo, borderColor: borda }}
     >
-      {/* Barra na cor do TIPO do evento — único uso de cor dinâmica. */}
+      {/* Barra na cor do TIPO do evento. */}
       <View className="w-1.5 self-stretch" style={{ backgroundColor: cores.bg }} />
       <View className="flex-1 px-3 py-2.5">
         <Text className="text-[13px] font-semibold text-foreground" numberOfLines={2}>
@@ -513,6 +575,63 @@ function EventoLinha({
         ) : null}
       </View>
     </Pressable>
+  )
+
+  // Sem permissão de editar: card simples (sem gesto).
+  if (!podeEditar) return card
+
+  // Ações reveladas ao arrastar p/ a esquerda. `progress` (0→1) controla um
+  // deslize suave dos botões entrando, dando o efeito Gmail.
+  function renderRightActions(progress: Animated.AnimatedInterpolation<number>) {
+    const translateX = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [128, 0],
+      extrapolate: 'clamp',
+    })
+    return (
+      <Animated.View
+        style={{ flexDirection: 'row', transform: [{ translateX }] }}
+        className="overflow-hidden rounded-md"
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Editar evento"
+          onPress={() => {
+            swipeRef.current?.close()
+            onEditar()
+          }}
+          className="w-16 items-center justify-center bg-primary active:opacity-80"
+        >
+          <Ionicons name="create-outline" size={20} color="#ffffff" />
+          <Text className="mt-0.5 text-[11px] font-semibold text-white">Editar</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Excluir evento"
+          onPress={() => {
+            swipeRef.current?.close()
+            onExcluir()
+          }}
+          className="w-16 items-center justify-center bg-destructive active:opacity-80"
+        >
+          <Ionicons name="trash-outline" size={20} color="#ffffff" />
+          <Text className="mt-0.5 text-[11px] font-semibold text-white">Excluir</Text>
+        </Pressable>
+      </Animated.View>
+    )
+  }
+
+  return (
+    <Swipeable
+      ref={swipeRef}
+      friction={2}
+      rightThreshold={40}
+      overshootRight={false}
+      renderRightActions={renderRightActions}
+      containerStyle={{ borderRadius: 6 }}
+    >
+      {card}
+    </Swipeable>
   )
 }
 
