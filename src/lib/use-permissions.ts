@@ -17,6 +17,11 @@ export interface UsePermissionsResult {
    * retorna true. Espelha o `subPermissions` (JSON) por módulo do sistema web.
    */
   temSubPermissao: (slug: string, key: string) => boolean
+  /**
+   * true se o usuário pode executar a ação (`read`/`write`/`delete`) no módulo
+   * `slug`. Master sempre true. Espelha canRead/canWrite/canDelete do sistema.
+   */
+  podeAcao: (slug: string, acao: 'read' | 'write' | 'delete') => boolean
   /** Master global ou master da empresa. */
   isMaster: boolean
   /** Ainda carregando as permissões. */
@@ -45,5 +50,13 @@ export function usePermissions(): UsePermissionsResult {
     return subs[key] === true
   }
 
-  return { podeVer, temSubPermissao, isMaster, isLoading, isError }
+  function podeAcao(slug: string, acao: 'read' | 'write' | 'delete'): boolean {
+    if (!perms) return false
+    if (perms.isMaster || perms.isEmpresaMaster) return true
+    const mod = perms.permissions.find((p) => p.moduleSlug === slug)
+    if (!mod) return false
+    return acao === 'read' ? mod.canRead : acao === 'write' ? mod.canWrite : mod.canDelete
+  }
+
+  return { podeVer, temSubPermissao, podeAcao, isMaster, isLoading, isError }
 }
