@@ -12,6 +12,7 @@ export interface EmailTemplate {
   ativo: boolean
   assunto: string
   accent: string
+  logoUrl: string
   headerHtml: string
   introHtml: string
   footerHtml: string
@@ -51,6 +52,7 @@ function tplDefaults(): Omit<EmailTemplate, 'id' | 'empresaId'> {
     ativo: false,
     assunto: 'Agenda do dia · {{dataDisplay}}',
     accent: '#38bdf8',
+    logoUrl: '',
     headerHtml: DEFAULT_HEADER,
     introHtml: DEFAULT_INTRO,
     footerHtml: DEFAULT_FOOTER,
@@ -76,7 +78,7 @@ export class AgendaEmailTemplateService {
   // ── CRUD ──
   async getTemplate(empresaId?: string | null): Promise<{ template: EmailTemplate; grupos: EmailGrupo[] }> {
     const rows = (await prisma.$queryRawUnsafe(
-      `SELECT id, empresa_id AS "empresaId", ativo, assunto, accent,
+      `SELECT id, empresa_id AS "empresaId", ativo, assunto, accent, logo_url AS "logoUrl",
               header_html AS "headerHtml", intro_html AS "introHtml", footer_html AS "footerHtml",
               evento_linha_html AS "eventoLinhaHtml", sem_eventos_html AS "semEventosHtml",
               mostrar_outros AS "mostrarOutros", nome_grupo_outros AS "nomeGrupoOutros",
@@ -88,10 +90,10 @@ export class AgendaEmailTemplateService {
     if (!template) {
       const id = randomUUID(); const d = tplDefaults()
       await prisma.$executeRawUnsafe(
-        `INSERT INTO agenda_email_template (id, empresa_id, ativo, assunto, accent, header_html, intro_html, footer_html, evento_linha_html, sem_eventos_html, mostrar_outros, nome_grupo_outros, nome_grupo_particulares, cor_particulares, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, now(), now())`,
+        `INSERT INTO agenda_email_template (id, empresa_id, ativo, assunto, accent, header_html, intro_html, footer_html, evento_linha_html, sem_eventos_html, mostrar_outros, nome_grupo_outros, nome_grupo_particulares, cor_particulares, logo_url, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, now(), now())`,
         id, empresaId ?? null, d.ativo, d.assunto, d.accent, d.headerHtml, d.introHtml, d.footerHtml,
-        d.eventoLinhaHtml, d.semEventosHtml, d.mostrarOutros, d.nomeGrupoOutros, d.nomeGrupoParticulares, d.corParticulares,
+        d.eventoLinhaHtml, d.semEventosHtml, d.mostrarOutros, d.nomeGrupoOutros, d.nomeGrupoParticulares, d.corParticulares, d.logoUrl,
       )
       template = { id, empresaId: empresaId ?? null, ...d }
     }
@@ -110,12 +112,14 @@ export class AgendaEmailTemplateService {
          evento_linha_html = COALESCE($8, evento_linha_html), sem_eventos_html = COALESCE($9, sem_eventos_html),
          mostrar_outros = COALESCE($10, mostrar_outros), nome_grupo_outros = COALESCE($11, nome_grupo_outros),
          nome_grupo_particulares = COALESCE($12, nome_grupo_particulares), cor_particulares = COALESCE($13, cor_particulares),
+         logo_url = COALESCE($14, logo_url),
          updated_at = now()
        WHERE id = $1`,
       template.id, patch.ativo ?? null, patch.assunto ?? null, patch.accent ?? null,
       patch.headerHtml ?? null, patch.introHtml ?? null, patch.footerHtml ?? null,
       patch.eventoLinhaHtml ?? null, patch.semEventosHtml ?? null, patch.mostrarOutros ?? null,
       patch.nomeGrupoOutros ?? null, patch.nomeGrupoParticulares ?? null, patch.corParticulares ?? null,
+      patch.logoUrl ?? null,
     )
     return { id: template.id }
   }
@@ -206,13 +210,21 @@ export class AgendaEmailTemplateService {
     const intro = interpolate(template.introHtml, globalVars)
     const footer = interpolate(template.footerHtml, globalVars)
 
+    // Logomarca do topo: usa a enviada no template (URL absoluta); senão a logo
+    // padrão embarcada (cid:logo) quando disponível.
+    const base = (process.env.API_URL || process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+    const logoSrc = template.logoUrl
+      ? (template.logoUrl.startsWith('http') ? template.logoUrl : `${base}${template.logoUrl}`)
+      : (ctx.temLogo ? 'cid:logo' : '')
+    const logoHtml = logoSrc ? `<div style="text-align:center;padding:4px 0 14px"><img src="${logoSrc}" alt="logo" style="max-height:48px;max-width:220px" /></div>` : ''
+
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Roboto,Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 0"><tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06)">
   <tr><td style="height:4px;background:${template.accent}"></td></tr>
   <tr><td style="padding:24px 28px">
-    ${ctx.temLogo ? '<img src="cid:logo" alt="logo" style="max-height:36px;margin-bottom:12px" />' : ''}
+    ${logoHtml}
     ${header}
     ${intro}
     ${corpoSecoes}

@@ -4,16 +4,17 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, Calendar, Plus, Edit2, Trash2, MoreVertical, Loader2, Settings, DoorOpen,
-  Mail, Send, X, ChevronDown, Search, RefreshCw, Check, FileText, Eye,
+  Mail, Send, X, ChevronDown, Search, RefreshCw, Check, FileText, Eye, Upload,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card, CardHeader, Badge,
+  Button, Input, Label, Card, CardHeader, Badge, RichEditor,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { trpc } from '@/lib/trpc'
@@ -123,7 +124,7 @@ export default function AgendaConfiguracoesPage() {
 
   // ── Modelo de e-mail configurável ──
   type EmailTpl = {
-    id: string; ativo: boolean; assunto: string; accent: string
+    id: string; ativo: boolean; assunto: string; accent: string; logoUrl: string
     headerHtml: string; introHtml: string; footerHtml: string; eventoLinhaHtml: string; semEventosHtml: string
     mostrarOutros: boolean; nomeGrupoOutros: string; nomeGrupoParticulares: string; corParticulares: string
   }
@@ -136,7 +137,21 @@ export default function AgendaConfiguracoesPage() {
   const [previewHtml, setPreviewHtml] = useState('')
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [enviandoTesteModelo, setEnviandoTesteModelo] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
   const setTplField = (k: keyof EmailTpl, v: unknown) => setTpl(t => (t ? { ...t, [k]: v } as EmailTpl : t))
+  async function onUploadLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingLogo(true)
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const res = await fetch(`${getApiUrl()}/api/upload`, { method: 'POST', body: fd, credentials: 'include' })
+      if (!res.ok) throw new Error('Falha no upload da imagem')
+      const { url } = await res.json()
+      setTplField('logoUrl', url)
+    } catch (err) { alerts.error('Erro', (err as Error).message) }
+    finally { setUploadingLogo(false); e.target.value = '' }
+  }
 
   async function carregarModelo() {
     setLoadingTpl(true)
@@ -963,6 +978,29 @@ export default function AgendaConfiguracoesPage() {
                       <div className="space-y-1.5"><Label className="text-[13px] font-semibold">Cor de destaque</Label><Input type="color" className="h-9 w-full p-1" value={tpl.accent} onChange={e => setTplField('accent', e.target.value)} /></div>
                     </div>
 
+                    {/* Logomarca do topo */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[13px] font-semibold">Logomarca do topo</Label>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {tpl.logoUrl ? (
+                          <>
+                            <img src={resolveAssetUrl(tpl.logoUrl)} alt="logomarca" className="h-12 max-w-[180px] object-contain rounded border border-border bg-white p-1" />
+                            <label className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border text-xs cursor-pointer hover:bg-muted/40">
+                              <input type="file" accept="image/*" className="hidden" onChange={onUploadLogo} />
+                              {uploadingLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Trocar
+                            </label>
+                            <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={() => setTplField('logoUrl', '')}>Remover</Button>
+                          </>
+                        ) : (
+                          <label className="inline-flex items-center gap-2 h-9 px-4 rounded-md border border-dashed border-border text-xs text-muted-foreground cursor-pointer hover:bg-muted/40">
+                            <input type="file" accept="image/*" className="hidden" onChange={onUploadLogo} />
+                            {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Enviar logomarca
+                          </label>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">Exibida centralizada no topo do e-mail, antes do cabeçalho.</p>
+                    </div>
+
                     <div className="rounded-md border border-border bg-muted/30 p-2.5">
                       <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">Variáveis (clique para copiar)</p>
                       <div className="flex flex-wrap gap-1">
@@ -972,15 +1010,29 @@ export default function AgendaConfiguracoesPage() {
                       </div>
                     </div>
 
-                    {([['headerHtml', 'Cabeçalho'], ['introHtml', 'Introdução'], ['eventoLinhaHtml', 'Linha do evento (HTML — use as variáveis {{evento.*}})'], ['footerHtml', 'Rodapé'], ['semEventosHtml', 'Mensagem quando não há eventos']] as const).map(([k, label]) => (
+                    {/* Campos de texto — RichEditor (visual + modo HTML, como nos demais campos de descrição) */}
+                    {([['headerHtml', 'Cabeçalho'], ['introHtml', 'Introdução']] as const).map(([k, label]) => (
                       <div key={k} className="space-y-1.5">
                         <Label className="text-[13px] font-semibold">{label}</Label>
-                        <textarea
-                          value={(tpl as Record<string, string>)[k] ?? ''}
-                          onChange={e => setTplField(k as keyof EmailTpl, e.target.value)}
-                          rows={k === 'eventoLinhaHtml' ? 6 : 3}
-                          className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs font-mono resize-y focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        />
+                        <RichEditor value={(tpl as Record<string, string>)[k] ?? ''} onChange={v => setTplField(k as keyof EmailTpl, v)} placeholder="Use a barra de formatação ou o modo HTML (&lt;/&gt;)…" />
+                      </div>
+                    ))}
+
+                    {/* Linha do evento — template HTML estrutural (linha de tabela), com {{evento.*}} */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[13px] font-semibold">Linha do evento <span className="text-[11px] font-normal text-muted-foreground">(HTML estrutural — use {'{{evento.*}}'})</span></Label>
+                      <textarea
+                        value={tpl.eventoLinhaHtml}
+                        onChange={e => setTplField('eventoLinhaHtml', e.target.value)}
+                        rows={6}
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs font-mono resize-y focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      />
+                    </div>
+
+                    {([['footerHtml', 'Rodapé'], ['semEventosHtml', 'Mensagem quando não há eventos']] as const).map(([k, label]) => (
+                      <div key={k} className="space-y-1.5">
+                        <Label className="text-[13px] font-semibold">{label}</Label>
+                        <RichEditor value={(tpl as Record<string, string>)[k] ?? ''} onChange={v => setTplField(k as keyof EmailTpl, v)} placeholder="Use a barra de formatação ou o modo HTML (&lt;/&gt;)…" />
                       </div>
                     ))}
 
