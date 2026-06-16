@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, Calendar, Plus, Edit2, Trash2, MoreVertical, Loader2, Settings, DoorOpen,
-  Mail, Send, X, ChevronDown, Search, RefreshCw, Check,
+  Mail, Send, X, ChevronDown, Search, RefreshCw, Check, FileText, Eye,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card, CardHeader, Badge,
@@ -84,7 +84,7 @@ export default function AgendaConfiguracoesPage() {
   }, [permsLoading, canAccess, router])
 
   // ================== Estado ==================
-  const [activeTab, setActiveTab] = useState<'regras' | 'salas' | 'disparo'>('regras')
+  const [activeTab, setActiveTab] = useState<'regras' | 'salas' | 'disparo' | 'modelo'>('regras')
   const [config, setConfig] = useState<AgendaConfig | null>(null)
   const [savingConfig, setSavingConfig] = useState(false)
 
@@ -120,6 +120,62 @@ export default function AgendaConfiguracoesPage() {
   const [loadingLogs, setLoadingLogs] = useState(false)
   const [reenviandoId, setReenviandoId] = useState<string | null>(null)
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null)
+
+  // ── Modelo de e-mail configurável ──
+  type EmailTpl = {
+    id: string; ativo: boolean; assunto: string; accent: string
+    headerHtml: string; introHtml: string; footerHtml: string; eventoLinhaHtml: string; semEventosHtml: string
+    mostrarOutros: boolean; nomeGrupoOutros: string; nomeGrupoParticulares: string; corParticulares: string
+  }
+  type EmailGrp = { nome: string; cor: string; incluiParticulares: boolean; tiposIds: string[] }
+  const [tpl, setTpl] = useState<EmailTpl | null>(null)
+  const [grupos, setGrupos] = useState<EmailGrp[]>([])
+  const [tiposModelo, setTiposModelo] = useState<Array<{ id: string; nome: string; cor: string }>>([])
+  const [loadingTpl, setLoadingTpl] = useState(false)
+  const [savingTpl, setSavingTpl] = useState(false)
+  const [previewHtml, setPreviewHtml] = useState('')
+  const [loadingPreview, setLoadingPreview] = useState(false)
+  const [enviandoTesteModelo, setEnviandoTesteModelo] = useState(false)
+  const setTplField = (k: keyof EmailTpl, v: unknown) => setTpl(t => (t ? { ...t, [k]: v } as EmailTpl : t))
+
+  async function carregarModelo() {
+    setLoadingTpl(true)
+    try {
+      const [r, tps] = await Promise.all([
+        (trpc.agenda as any).modeloEmail.get.query(),
+        (trpc.agenda as any).listTipos.query().catch(() => []),
+      ])
+      setTpl(r.template); setGrupos(r.grupos || []); setTiposModelo(tps || [])
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setLoadingTpl(false) }
+  }
+  async function atualizarPreview() {
+    setLoadingPreview(true)
+    try { const r = await (trpc.agenda as any).modeloEmail.preview.query({}); setPreviewHtml(r.html) }
+    catch { setPreviewHtml('<p style="padding:16px;font-family:sans-serif;color:#ef4444">Falha ao gerar prévia.</p>') }
+    finally { setLoadingPreview(false) }
+  }
+  async function salvarModelo(opts?: { silent?: boolean }) {
+    if (!tpl) return
+    setSavingTpl(true)
+    try {
+      await (trpc.agenda as any).modeloEmail.save.mutate(tpl)
+      await (trpc.agenda as any).modeloEmail.saveGrupos.mutate({ grupos })
+      await atualizarPreview()
+      if (!opts?.silent) alerts.success('Salvo', 'Modelo de e-mail atualizado.')
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setSavingTpl(false) }
+  }
+  async function enviarTesteModelo() {
+    setEnviandoTesteModelo(true)
+    try { await salvarModelo({ silent: true }); await (trpc.agenda as any).modeloEmail.enviarTeste.mutate(); alerts.success('Enviado', 'E-mail de teste enviado pra você.') }
+    catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setEnviandoTesteModelo(false) }
+  }
+  useEffect(() => {
+    if (activeTab === 'modelo' && !tpl && !loadingTpl) { carregarModelo().then(() => atualizarPreview()) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab])
 
   // Combobox filtrável de destinatários
   const [destSearchOpen, setDestSearchOpen] = useState(false)
@@ -358,6 +414,7 @@ export default function AgendaConfiguracoesPage() {
                 { key: 'regras',  label: 'Regras de conflito', icon: Calendar },
                 { key: 'salas',   label: 'Salas',              icon: DoorOpen },
                 { key: 'disparo', label: 'Disparo automático', icon: Mail },
+                { key: 'modelo',  label: 'Modelo de e-mail',   icon: FileText },
               ] as const).map(tab => {
                 const Icon = tab.icon
                 const active = activeTab === tab.key
@@ -878,6 +935,108 @@ export default function AgendaConfiguracoesPage() {
                       })}
                     </div>
                   )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ---- SUB-TAB: MODELO DE E-MAIL ---- */}
+            {activeTab === 'modelo' && !tpl && (
+              <div className="flex justify-center py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>
+            )}
+            {activeTab === 'modelo' && tpl && (
+              <div className="space-y-5">
+                {/* Aviso paralelo + toggle ativo */}
+                <label className={cn('flex items-start gap-3 rounded-md border p-3 cursor-pointer', tpl.ativo ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20' : 'border-amber-300 bg-amber-50 dark:bg-amber-900/20')}>
+                  <Checkbox checked={tpl.ativo} onCheckedChange={v => setTplField('ativo', !!v)} className="mt-0.5" />
+                  <div className="text-xs">
+                    <p className="font-semibold">Usar este modelo no disparo automático</p>
+                    <p className="text-muted-foreground">{tpl.ativo ? 'Ativo: o disparo diário usa este modelo.' : 'Desativado: o disparo diário segue enviando o e-mail padrão atual. Ative só quando estiver satisfeito.'}</p>
+                  </div>
+                </label>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {/* Editor */}
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="col-span-2 space-y-1.5"><Label className="text-[13px] font-semibold">Assunto</Label><Input className="h-9 text-sm" value={tpl.assunto} onChange={e => setTplField('assunto', e.target.value)} /></div>
+                      <div className="space-y-1.5"><Label className="text-[13px] font-semibold">Cor de destaque</Label><Input type="color" className="h-9 w-full p-1" value={tpl.accent} onChange={e => setTplField('accent', e.target.value)} /></div>
+                    </div>
+
+                    <div className="rounded-md border border-border bg-muted/30 p-2.5">
+                      <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">Variáveis (clique para copiar)</p>
+                      <div className="flex flex-wrap gap-1">
+                        {['{{usuario.name}}', '{{dataDisplay}}', '{{diaSemana}}', '{{totalEventos}}', '{{evento.titulo}}', '{{evento.horario}}', '{{evento.local}}', '{{evento.localSuffix}}', '{{evento.tipoNome}}', '{{evento.tipoCor}}', '{{evento.criador}}', '{{evento.presenca}}', '{{evento.link}}'].map(v => (
+                          <button key={v} type="button" onClick={() => { navigator.clipboard?.writeText(v); alerts.success('Copiado', v) }} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-card border border-border hover:bg-muted">{v}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {([['headerHtml', 'Cabeçalho'], ['introHtml', 'Introdução'], ['eventoLinhaHtml', 'Linha do evento (HTML — use as variáveis {{evento.*}})'], ['footerHtml', 'Rodapé'], ['semEventosHtml', 'Mensagem quando não há eventos']] as const).map(([k, label]) => (
+                      <div key={k} className="space-y-1.5">
+                        <Label className="text-[13px] font-semibold">{label}</Label>
+                        <textarea
+                          value={(tpl as Record<string, string>)[k] ?? ''}
+                          onChange={e => setTplField(k as keyof EmailTpl, e.target.value)}
+                          rows={k === 'eventoLinhaHtml' ? 6 : 3}
+                          className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs font-mono resize-y focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                      </div>
+                    ))}
+
+                    {/* Grupos por tipo */}
+                    <div className="space-y-2 border-t border-border pt-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[13px] font-semibold">Grupos (por tipo de evento)</Label>
+                        <Button type="button" size="sm" variant="outline" className="gap-1" onClick={() => setGrupos(g => [...g, { nome: 'Novo grupo', cor: tpl.accent, incluiParticulares: false, tiposIds: [] }])}><Plus className="h-3.5 w-3.5" /> Grupo</Button>
+                      </div>
+                      {grupos.length === 0 && <p className="text-xs text-muted-foreground italic">Sem grupos personalizados — eventos não-particulares caem em "{tpl.nomeGrupoOutros}" e os particulares em "{tpl.nomeGrupoParticulares}".</p>}
+                      {grupos.map((g, idx) => (
+                        <div key={idx} className="rounded-md border border-border p-2.5 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Input className="h-8 text-sm flex-1" value={g.nome} onChange={e => setGrupos(gs => gs.map((x, i) => i === idx ? { ...x, nome: e.target.value } : x))} />
+                            <Input type="color" className="h-8 w-10 p-1 shrink-0" value={g.cor} onChange={e => setGrupos(gs => gs.map((x, i) => i === idx ? { ...x, cor: e.target.value } : x))} />
+                            <button type="button" onClick={() => setGrupos(gs => gs.filter((_, i) => i !== idx))} className="h-8 w-8 shrink-0 flex items-center justify-center rounded text-destructive hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5" /></button>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {tiposModelo.map(t => {
+                              const on = g.tiposIds.includes(t.id)
+                              return (
+                                <button key={t.id} type="button"
+                                  onClick={() => setGrupos(gs => gs.map((x, i) => i === idx ? { ...x, tiposIds: on ? x.tiposIds.filter(id => id !== t.id) : [...x.tiposIds, t.id] } : x))}
+                                  className={cn('text-[10px] px-1.5 py-0.5 rounded border transition-colors', on ? 'text-white' : 'text-muted-foreground bg-card')}
+                                  style={on ? { backgroundColor: t.cor, borderColor: t.cor } : { borderColor: t.cor + '80' }}>
+                                  {t.nome}
+                                </button>
+                              )
+                            })}
+                            {tiposModelo.length === 0 && <span className="text-[10px] text-muted-foreground italic">Nenhum tipo cadastrado.</span>}
+                          </div>
+                        </div>
+                      ))}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <div className="space-y-1"><Label className="text-[11px]">Nome do grupo de particulares</Label><Input className="h-8 text-xs" value={tpl.nomeGrupoParticulares} onChange={e => setTplField('nomeGrupoParticulares', e.target.value)} /></div>
+                        <div className="space-y-1"><Label className="text-[11px]">Nome do grupo "Outros"</Label><Input className="h-8 text-xs" value={tpl.nomeGrupoOutros} onChange={e => setTplField('nomeGrupoOutros', e.target.value)} /></div>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer"><Checkbox checked={tpl.mostrarOutros} onCheckedChange={v => setTplField('mostrarOutros', !!v)} /> Mostrar o grupo "Outros" (eventos de tipos não atribuídos)</label>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button onClick={() => salvarModelo()} disabled={savingTpl} style={{ backgroundColor: 'var(--mod-administrativo, #38bdf8)' }} className="text-white gap-1.5">{savingTpl ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Salvar</Button>
+                      <Button variant="outline" onClick={enviarTesteModelo} disabled={enviandoTesteModelo} className="gap-1.5">{enviandoTesteModelo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Enviar teste pra mim</Button>
+                    </div>
+                  </div>
+
+                  {/* Prévia */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[13px] font-semibold flex items-center gap-1.5"><Eye className="h-4 w-4" /> Prévia</Label>
+                      <Button variant="ghost" size="sm" onClick={atualizarPreview} disabled={loadingPreview} className="gap-1"><RefreshCw className={cn('h-3.5 w-3.5', loadingPreview && 'animate-spin')} /> Atualizar</Button>
+                    </div>
+                    <div className="rounded-md border border-border overflow-hidden bg-white" style={{ height: '640px' }}>
+                      <iframe title="Prévia do e-mail" srcDoc={previewHtml} className="w-full h-full border-0" />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Prévia com os eventos de hoje (os seus, respeitando privacidade). Salvar atualiza a prévia.</p>
                   </div>
                 </div>
               </div>
