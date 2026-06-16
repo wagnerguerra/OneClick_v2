@@ -290,7 +290,7 @@ export default function ParametrosOrcamentosPage() {
             <Package className="h-6 w-6" />
           </div>
           <div>
-            <h1>Parametros de Orcamentos</h1>
+            <h1>Catálogo de Serviços</h1>
             <p className="text-sm text-muted-foreground">Catálogo de serviços, taxas e despesas disponíveis para uso em orçamentos</p>
           </div>
         </div>
@@ -305,12 +305,39 @@ export default function ParametrosOrcamentosPage() {
         </div>
       </div>
 
-      {/* Stats compactas */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatBox label="Total" value={stats.total} color="#64748b" icon={Package} />
-        <StatBox label="Ativos" value={stats.ativos} color="#10b981" icon={TagIcon} />
-        <StatBox label="Disponíveis" value={stats.disponiveis} color={MODULE_COLOR} icon={FileText} />
-        <StatBox label="Indisponíveis" value={stats.indisponiveis} color="#94a3b8" icon={FileText} />
+      {/* Indicadores (pílulas-filtro) — padrão /gestao-certificados */}
+      <div className="flex flex-wrap items-center gap-2">
+        {[
+          { key: '__all__', label: 'Total', count: stats.total, color: '#64748b', icon: Package },
+          { key: 'ativos', label: 'Ativos', count: stats.ativos, color: '#10b981', icon: TagIcon },
+          { key: 'disponiveis', label: 'Disponíveis', count: stats.disponiveis, color: MODULE_COLOR, icon: FileText },
+          { key: 'indisponiveis', label: 'Indisponíveis', count: stats.indisponiveis, color: '#94a3b8', icon: FileText },
+        ].map(f => {
+          const Icon = f.icon
+          const active = statusFilter === f.key
+          return (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setStatusFilter(f.key)}
+              className={cn(
+                'inline-flex items-center gap-2 h-8 px-3 rounded-md border text-xs font-medium transition-colors',
+                active ? 'border-foreground/20' : 'border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+              )}
+              style={active ? { borderColor: f.color, backgroundColor: `${f.color}10`, color: f.color } : undefined}
+            >
+              <Icon className="h-3.5 w-3.5" style={!active ? { color: f.color } : undefined} />
+              <span>{f.label}</span>
+              <Badge
+                variant="secondary"
+                className="text-[10px] px-1.5 py-0 h-4 ml-0.5 tabular-nums"
+                style={active ? { backgroundColor: `${f.color}20`, color: f.color } : undefined}
+              >
+                {f.count}
+              </Badge>
+            </button>
+          )
+        })}
       </div>
 
       {/* Filtros + Tabela */}
@@ -324,16 +351,6 @@ export default function ParametrosOrcamentosPage() {
                 <SelectItem value="SERVICO">Serviço</SelectItem>
                 <SelectItem value="TAXA">Taxa</SelectItem>
                 <SelectItem value="DESPESA">Despesa</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-8 w-[160px] text-xs bg-card"><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Todos</SelectItem>
-                <SelectItem value="ativos">Apenas ativos</SelectItem>
-                <SelectItem value="inativos">Apenas inativos</SelectItem>
-                <SelectItem value="disponiveis">Disponíveis nos orçamentos</SelectItem>
-                <SelectItem value="indisponiveis">Indisponíveis</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -403,8 +420,10 @@ export default function ParametrosOrcamentosPage() {
       </Card>
 
       {/* Modal de criacao/edicao */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-[640px]">
+      {/* modal={!textoEdit}: quando o sub-modal de texto abre, este vira não-modal
+          (sem inert/focus-trap) — senão os campos do sub-modal não aceitam digitação. */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen} modal={!textoEdit}>
+        <DialogContent className="sm:max-w-[860px]">
           <DialogHeaderIcon icon={editing ? Pencil : Plus} color={editing ? 'sky' : 'emerald'}>
             <DialogTitle className="text-[15px]">{editing ? 'Editar item do catálogo' : 'Novo item do catálogo'}</DialogTitle>
             <DialogDescription className="text-[11px]">
@@ -439,8 +458,9 @@ export default function ParametrosOrcamentosPage() {
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-muted-foreground shrink-0">R$</span>
                   <Input
+                    inputMode="decimal"
                     value={form.valorPadrao}
-                    onChange={e => setForm(f => ({ ...f, valorPadrao: e.target.value }))}
+                    onChange={e => setForm(f => ({ ...f, valorPadrao: e.target.value.replace(/[^\d.,]/g, '') }))}
                     onBlur={e => {
                       const n = moedaParaNumero(e.target.value)
                       setForm(f => ({ ...f, valorPadrao: n > 0 ? numeroParaMoeda(n) : '' }))
@@ -561,8 +581,9 @@ export default function ParametrosOrcamentosPage() {
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-muted-foreground shrink-0">R$</span>
                   <Input
+                    inputMode="decimal"
                     value={textoForm.valor}
-                    onChange={e => setTextoForm(f => ({ ...f, valor: e.target.value }))}
+                    onChange={e => setTextoForm(f => ({ ...f, valor: e.target.value.replace(/[^\d.,]/g, '') }))}
                     onBlur={e => {
                       const n = moedaParaNumero(e.target.value)
                       setTextoForm(f => ({ ...f, valor: n > 0 ? numeroParaMoeda(n) : '' }))
@@ -592,19 +613,5 @@ export default function ParametrosOrcamentosPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
-}
-
-function StatBox({ label, value, color, icon: Icon }: { label: string; value: number; color: string; icon: React.ElementType }) {
-  return (
-    <Card className="p-3 flex items-center gap-3">
-      <div className="h-9 w-9 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}18` }}>
-        <Icon className="h-4 w-4" style={{ color }} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className="text-lg font-bold leading-tight">{value}</p>
-      </div>
-    </Card>
   )
 }
