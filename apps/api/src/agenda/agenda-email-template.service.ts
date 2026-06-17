@@ -233,8 +233,9 @@ export class AgendaEmailTemplateService {
     const secoes: Array<{ nome: string; cor: string; icone: string; items: any[] }> = [...secoesGrupos]
     if (template.mostrarOutros && outros.length > 0) secoes.push({ nome: template.nomeGrupoOutros || 'Outros', cor: template.accent, icone: '📌', items: outros })
 
-    // Base absoluta (logo/marca d'água) e partes da data derivadas do dataDisplay (dd/mm/aaaa).
-    const base = (process.env.API_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_API_URL || 'https://app.oneclick.central-rnc.com.br').replace(/\/$/, '')
+    // Base da API (uploads /api/upload) e base do app web (assets estáticos: marca d'água SVG).
+    const base = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.oneclick.central-rnc.com.br').replace(/\/$/, '')
+    const appBase = (process.env.NEXT_PUBLIC_APP_URL || process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://app.oneclick.central-rnc.com.br').replace(/\/$/, '')
     const MESES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ']
     const [diaNum = '', mmStr = '', anoNum = ''] = (ctx.dataDisplay || '').split('/')
     const mesAbrev = MESES[(parseInt(mmStr, 10) || 1) - 1] || ''
@@ -249,7 +250,7 @@ export class AgendaEmailTemplateService {
       diaNum,
       mesAbrev,
       anoNum,
-      assetBg: `${base}/email-bg-agenda.svg`,
+      assetBg: `${appBase}/email-bg-agenda.svg`,
       accent: template.accent,
       totalEventos: eventos.length,
     }
@@ -395,9 +396,10 @@ export class AgendaEmailTemplateService {
     const logoSrc = template.logoUrl
       ? (template.logoUrl.startsWith('http') ? template.logoUrl : `${base}${template.logoUrl}`)
       : (ctx.temLogo ? 'cid:logo' : '')
-    // Faixa branca da logo no topo (acima do hero), bleed-to-edge.
+    // Faixa branca da logo no topo (acima do hero), bleed-to-edge. Logo no tamanho
+    // original (sem altura/largura fixas); max-width:100% só pra não estourar o corpo.
     const logoBar = logoSrc
-      ? `<tr><td align="center" style="padding:20px 28px;background:#ffffff;text-align:center"><img src="${logoSrc}" alt="logo" style="max-height:52px;max-width:240px;display:block;margin:0 auto" /></td></tr>`
+      ? `<tr><td align="center" style="padding:20px 28px;background:#ffffff;text-align:center"><img src="${logoSrc}" alt="logo" style="max-width:100%;height:auto;display:block;margin:0 auto;border:0" /></td></tr>`
       : ''
 
     // Largura máxima do corpo (px), configurável — clamp defensivo.
@@ -407,7 +409,6 @@ export class AgendaEmailTemplateService {
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 0"><tr><td align="center" style="padding:0 12px">
 <table width="${larguraMax}" cellpadding="0" cellspacing="0" style="max-width:${larguraMax}px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06)">
-  <tr><td style="height:4px;background:${template.accent}"></td></tr>
   ${logoBar}
   <tr><td style="padding:0">${header}</td></tr>
   <tr><td style="padding:22px 28px 26px">
