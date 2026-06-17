@@ -80,9 +80,14 @@ const DEFAULT_CARD_ELEMENTOS: CardElemento[] = [
   { key: 'data', visivel: false },
   { key: 'contato', visivel: false },
   { key: 'descricao', visivel: false },
+  // Logística (reunião interna): desligados por padrão — disponíveis pra inclusão.
+  { key: 'sala', visivel: false },
+  { key: 'equipamentos', visivel: false },
+  { key: 'garagem', visivel: false },
+  { key: 'preparacao', visivel: false },
 ]
 // inline = flui na mesma linha quando vizinhos; block = ocupa a própria linha.
-const CARD_EL_INLINE = new Set(['categoria', 'modalidade', 'local', 'data'])
+const CARD_EL_INLINE = new Set(['categoria', 'modalidade', 'local', 'data', 'sala', 'garagem'])
 
 function tplDefaults(): Omit<EmailTemplate, 'id' | 'empresaId'> {
   return {
@@ -294,6 +299,21 @@ export class AgendaEmailTemplateService {
       const contatoHtml = ev.contato
         ? `<div class="em-meta" style="margin-top:8px;font-size:11px;color:#64748b"><strong style="color:#475569">📇 Contato:</strong> ${esc(ev.contato)}</div>` : ''
 
+      // ── Logística (reunião interna): sala, equipamentos, garagem, preparação ──
+      const salaNome = ev.salaRef?.nome || ev.sala || ''
+      const vagasTxt = ev.vagas ? ` · ${ev.vagas} vaga${ev.vagas > 1 ? 's' : ''}` : ''
+      const salaHtml = salaNome ? `<span class="em-meta" style="font-size:11px;color:#64748b">🚪 ${esc(salaNome)}</span>` : ''
+      const equipamentosHtml = ev.equipamentos
+        ? `<div class="em-meta" style="margin-top:8px;font-size:11px;color:#64748b"><strong style="color:#475569">🧰 Equipamentos:</strong> ${esc(ev.equipamentos)}</div>` : ''
+      const garagemHtml = ev.garagem
+        ? `<span class="em-meta" style="font-size:11px;color:#64748b">🚗 Garagem reservada${esc(vagasTxt)}</span>` : ''
+      const prepItens: string[] = []
+      if (ev.salaRef || ev.sala) prepItens.push('Arrumar sala')
+      if (ev.equipamentos) prepItens.push('Disponibilizar equipamentos')
+      if (ev.garagem) prepItens.push('Reservar garagem')
+      const preparacaoHtml = prepItens.length > 0
+        ? `<div class="em-meta" style="margin-top:8px;font-size:11px;color:#64748b"><strong style="color:#475569">📋 Preparação:</strong> ${prepItens.join(' · ')}</div>` : ''
+
       return {
         cor,
         frags: {
@@ -307,6 +327,10 @@ export class AgendaEmailTemplateService {
           criador: criadorHtml,
           descricao: descricaoHtml,
           contato: contatoHtml,
+          sala: salaHtml,
+          equipamentos: equipamentosHtml,
+          garagem: garagemHtml,
+          preparacao: preparacaoHtml,
         } as Record<string, string>,
       }
     }
@@ -329,8 +353,11 @@ export class AgendaEmailTemplateService {
           tipoNome: esc(ev.tipo?.nome ?? ''), tipoCor: cor, criador: esc(ev.criador?.name ?? ''),
           descricao: ev.descricao ? String(ev.descricao) : '',
           participantes: nomes.map(esc).join(', '),
+          // logística (reunião interna):
+          equipamentos: esc(ev.equipamentos ?? ''), garagem: ev.garagem ? 'Sim' : '', vagas: ev.vagas ? String(ev.vagas) : '',
           // convenções prontas (HTML) pra não precisar montar na mão:
           pillCategoria: frags.categoria, participantesHtml: frags.participantes, linkHtml: frags.link, criadorHtml: frags.criador,
+          equipamentosHtml: frags.equipamentos, garagemHtml: frags.garagem, salaHtml: frags.sala, preparacaoHtml: frags.preparacao,
         },
       }
     }

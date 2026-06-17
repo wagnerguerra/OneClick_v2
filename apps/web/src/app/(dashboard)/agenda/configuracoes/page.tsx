@@ -41,12 +41,17 @@ const CARD_EL_LABELS: Record<string, { label: string; hint: string }> = {
   criador:       { label: 'Agendado por', hint: 'Quem criou o evento' },
   contato:       { label: 'Contato', hint: 'Contato informado no evento' },
   descricao:     { label: 'Descrição', hint: 'Texto/observações do evento' },
+  sala:          { label: 'Sala', hint: 'Sala reservada (reunião interna)' },
+  equipamentos:  { label: 'Equipamentos', hint: 'Equipamentos solicitados' },
+  garagem:       { label: 'Garagem', hint: 'Reserva de garagem + vagas' },
+  preparacao:    { label: 'Preparação', hint: 'Checklist: arrumar sala · equipamentos · garagem' },
 }
 const DEFAULT_CARD_ELS: CardEl[] = [
   { key: 'titulo', visivel: true }, { key: 'categoria', visivel: true }, { key: 'modalidade', visivel: true },
   { key: 'local', visivel: true }, { key: 'link', visivel: true }, { key: 'participantes', visivel: true },
   { key: 'criador', visivel: true }, { key: 'data', visivel: false }, { key: 'contato', visivel: false },
   { key: 'descricao', visivel: false },
+  { key: 'sala', visivel: false }, { key: 'equipamentos', visivel: false }, { key: 'garagem', visivel: false }, { key: 'preparacao', visivel: false },
 ]
 
 // Linha arrastável de um elemento do card (dnd-kit).
@@ -1272,7 +1277,7 @@ export default function AgendaConfiguracoesPage() {
                           <div className="rounded-md border border-border bg-muted/30 p-2.5">
                             <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">Variáveis do card (clique para copiar)</p>
                             <div className="flex flex-wrap gap-1">
-                              {['{{evento.titulo}}', '{{evento.horario}}', '{{evento.horaInicio}}', '{{evento.horaFim}}', '{{evento.data}}', '{{evento.tipoNome}}', '{{evento.tipoCor}}', '{{evento.modalidade}}', '{{evento.local}}', '{{evento.contato}}', '{{evento.link}}', '{{evento.criador}}', '{{evento.descricao}}', '{{evento.participantes}}', '{{evento.pillCategoria}}', '{{evento.participantesHtml}}', '{{evento.linkHtml}}', '{{evento.criadorHtml}}'].map(v => (
+                              {['{{evento.titulo}}', '{{evento.horario}}', '{{evento.horaInicio}}', '{{evento.horaFim}}', '{{evento.data}}', '{{evento.tipoNome}}', '{{evento.tipoCor}}', '{{evento.modalidade}}', '{{evento.local}}', '{{evento.sala}}', '{{evento.equipamentos}}', '{{evento.garagem}}', '{{evento.vagas}}', '{{evento.contato}}', '{{evento.link}}', '{{evento.criador}}', '{{evento.descricao}}', '{{evento.participantes}}', '{{evento.pillCategoria}}', '{{evento.participantesHtml}}', '{{evento.linkHtml}}', '{{evento.criadorHtml}}', '{{evento.salaHtml}}', '{{evento.equipamentosHtml}}', '{{evento.garagemHtml}}', '{{evento.preparacaoHtml}}'].map(v => (
                                 <button key={v} type="button" onClick={() => { navigator.clipboard?.writeText(v); alerts.success('Copiado', v) }} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-card border border-border hover:bg-muted">{v}</button>
                               ))}
                             </div>
