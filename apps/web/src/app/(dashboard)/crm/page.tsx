@@ -6,7 +6,7 @@ import {
   Target, Search, Loader2, Plus, MoreVertical, ArrowRight,
   CheckCircle2, Clock, TrendingUp, Calendar,
   CheckSquare, MessageSquare, Trash2, Send, X, LayoutGrid, List,
-  Download, FileText, Settings2, GripVertical, Save, Paperclip, UploadCloud, File, History, Archive, SlidersHorizontal, Tag, Layers,
+  Download, FileText, Settings2, GripVertical, Save, Paperclip, UploadCloud, File, History, Archive, SlidersHorizontal, Tag, Layers, Sparkles,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, RichEditor,
@@ -15,6 +15,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Sheet, SheetContent, SheetHeader, SheetBody, SheetTitle, SheetDescription,
+  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -1431,6 +1432,45 @@ function DetailTab({ detail, etapas, clientes, onSave, onMove, saving, loadClien
     setDirty(false)
   }, [detail])
 
+  // Auto-preenchimento por CPF/CNPJ no editor (mesma lógica do form de criação).
+  const [buscandoCnpjEdit, setBuscandoCnpjEdit] = useState(false)
+  async function autoPreencher() {
+    const doc = cpfCnpj.replace(/\D/g, '')
+    if (doc.length !== 11 && doc.length !== 14) { alerts.error('CPF/CNPJ inválido', 'Informe um CPF (11) ou CNPJ (14) válido.'); return }
+    setBuscandoCnpjEdit(true)
+    try {
+      if (doc.length === 14) {
+        const data = await (trpc.socio as any).consultarCnpj.query({ cnpj: doc }) as {
+          razaoSocial?: string; nomeFantasia?: string | null; email?: string | null; telefone?: string | null
+          atividadePrincipal?: string | null; cnaePrincipalCodigo?: string | null
+          qsa?: Array<{ nome: string; qualificacao?: string; codigoQualificacao?: number }>
+        }
+        const prioritarios = [49, 5, 10, 16, 54, 65]
+        const contato = data.qsa?.find(s => s.codigoQualificacao && prioritarios.includes(s.codigoQualificacao))
+          ?? data.qsa?.find(s => /administ|titular|presidente|diretor/i.test(s.qualificacao ?? '')) ?? data.qsa?.[0]
+        if (data.razaoSocial) setRazaoSocial(data.razaoSocial)
+        if (data.nomeFantasia) setNomeFantasia(data.nomeFantasia)
+        if (data.cnaePrincipalCodigo) setCnaeCodigo(data.cnaePrincipalCodigo)
+        if (data.atividadePrincipal) setCnaeDescricao(data.atividadePrincipal)
+        if (data.email) setContatoEmail(data.email)
+        if (data.telefone) setContatoTelefone(data.telefone)
+        if (contato?.nome) setContatoNome(contato.nome)
+        markDirty()
+      } else {
+        const data = await (trpc.crm as any).lookupPorCpf.query({ cpf: doc }) as { found: boolean; nome?: string; email?: string | null; telefone?: string | null }
+        if (data?.found) {
+          if (data.nome) { setRazaoSocial(data.nome); setContatoNome(data.nome) }
+          if (data.email) setContatoEmail(data.email)
+          if (data.telefone) setContatoTelefone(data.telefone)
+          markDirty()
+        } else {
+          alerts.info('Nada encontrado', 'Nenhum dado localizado para este CPF.')
+        }
+      }
+    } catch (e) { alerts.error('Falha na consulta', (e as Error).message) }
+    finally { setBuscandoCnpjEdit(false) }
+  }
+
   const handleSave = () => {
     onSave({
       titulo: titulo.trim(),
@@ -1493,7 +1533,19 @@ function DetailTab({ detail, etapas, clientes, onSave, onMove, saving, loadClien
       <div className="grid grid-cols-12 gap-3">
         <div className="col-span-3">
           <label className="text-xs font-medium text-muted-foreground mb-1 block">CPF / CNPJ</label>
-          <Input value={cpfCnpj} onChange={e => { setCpfCnpj(e.target.value); markDirty() }} className="h-9 text-sm" />
+          <div className="flex items-center gap-1.5">
+            <Input value={cpfCnpj} onChange={e => { setCpfCnpj(e.target.value); markDirty() }} className="h-9 text-sm" />
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button type="button" variant="outline" size="icon-sm" className="h-9 w-9 shrink-0" onClick={autoPreencher} disabled={buscandoCnpjEdit} aria-label="Auto Preencher">
+                    {buscandoCnpjEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Auto Preencher</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
         <div className="col-span-9">
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Empresa / Cliente *</label>
