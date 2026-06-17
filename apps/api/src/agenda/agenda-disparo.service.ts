@@ -320,8 +320,13 @@ export class AgendaDisparoService implements OnModuleInit {
     const tpl = await this.templateService.getTemplate(null).catch(() => null)
     let html: string
     let subject = `Agenda do dia · ${dataDisplay}`
+    // Só anexa a logo embutida (cid:logo) quando o HTML realmente a usa — ou seja,
+    // no modelo configurável SEM logo enviada, ou no template legado. Com logo
+    // própria (logoUrl), o render usa a URL e o anexo não deve ir (vira "1 anexo").
+    let usaCidLogo = false
     if (tpl?.template.ativo) {
       html = this.templateService.render(tpl.template, tpl.grupos, visiveis, { usuarioNome: user.name, dataDisplay, diaSemana, temLogo: !!LOGO_BUFFER, saudacao: this.saudacaoAgora() })
+      usaCidLogo = !tpl.template.logoUrl && !!LOGO_BUFFER
       const s = this.templateService.renderAssunto(tpl.template, { dataDisplay, diaSemana })
       if (s) subject = s
     } else {
@@ -330,13 +335,14 @@ export class AgendaDisparoService implements OnModuleInit {
       const corporativos = visiveis.filter(ev => !isPessoal(ev))
       const pessoais = visiveis.filter(ev => isPessoal(ev))
       html = this.gerarHtmlEmail(dataYyyyMmDd, corporativos, pessoais, user.name, !!LOGO_BUFFER)
+      usaCidLogo = !!LOGO_BUFFER
     }
 
     await this.emailService.sendMail({
       to: user.email,
       subject,
       html,
-      attachments: LOGO_BUFFER ? [{ filename: 'logo.png', content: LOGO_BUFFER, cid: 'logo' }] : undefined,
+      attachments: usaCidLogo ? [{ filename: 'logo.png', content: LOGO_BUFFER!, cid: 'logo' }] : undefined,
     })
   }
 
@@ -404,11 +410,12 @@ export class AgendaDisparoService implements OnModuleInit {
     const dataDisplay = this.formatDataBr(eventDate)
     const diaSemana = this.diaSemanaExt(eventDate)
     const html = this.templateService.render(template, grupos, visiveis, { usuarioNome: user.name, dataDisplay, diaSemana, temLogo: !!LOGO_BUFFER, saudacao: this.saudacaoAgora() })
+    const usaCidLogo = !template.logoUrl && !!LOGO_BUFFER
     await this.emailService.sendMail({
       to: user.email,
       subject: `[TESTE] ${this.templateService.renderAssunto(template, { dataDisplay, diaSemana })}`,
       html,
-      attachments: LOGO_BUFFER ? [{ filename: 'logo.png', content: LOGO_BUFFER, cid: 'logo' }] : undefined,
+      attachments: usaCidLogo ? [{ filename: 'logo.png', content: LOGO_BUFFER!, cid: 'logo' }] : undefined,
     })
     return { ok: true }
   }

@@ -237,9 +237,11 @@ export class AgendaEmailTemplateService {
     const secoes: Array<{ nome: string; cor: string; icone: string; items: any[] }> = [...secoesGrupos]
     if (template.mostrarOutros && outros.length > 0) secoes.push({ nome: template.nomeGrupoOutros || 'Outros', cor: template.accent, icone: '📌', items: outros })
 
-    // Base da API (uploads /api/upload) e base do app web (assets estáticos: marca d'água SVG).
-    const base = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.oneclick.central-rnc.com.br').replace(/\/$/, '')
-    const appBase = (process.env.NEXT_PUBLIC_APP_URL || process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://app.oneclick.central-rnc.com.br').replace(/\/$/, '')
+    // Bases PÚBLICAS (alcançáveis pelo proxy de imagens do cliente de e-mail).
+    // Importante: NÃO usar API_URL primeiro — na VPS ele é interno (ex.: oneclick-api:4000)
+    // e a logo quebra no e-mail. NEXT_PUBLIC_* é o domínio público (Nginx proxia /api).
+    const base = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.API_URL || 'https://app.oneclick.central-rnc.com.br').replace(/\/$/, '')
+    const appBase = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'https://app.oneclick.central-rnc.com.br').replace(/\/$/, '')
     const MESES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ']
     const [diaNum = '', mmStr = '', anoNum = ''] = (ctx.dataDisplay || '').split('/')
     const mesAbrev = MESES[(parseInt(mmStr, 10) || 1) - 1] || ''
