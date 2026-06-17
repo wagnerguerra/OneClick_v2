@@ -75,19 +75,17 @@ const DEFAULT_CARD_ELEMENTOS: CardElemento[] = [
   { key: 'modalidade', visivel: true },
   { key: 'local', visivel: true },
   { key: 'link', visivel: true },
-  { key: 'participantes', visivel: true },
-  { key: 'criador', visivel: true },
   { key: 'data', visivel: false },
   { key: 'contato', visivel: false },
   { key: 'descricao', visivel: false },
-  // Logística (reunião interna): desligados por padrão — disponíveis pra inclusão.
-  { key: 'sala', visivel: false },
-  { key: 'equipamentos', visivel: false },
-  { key: 'garagem', visivel: false },
-  { key: 'preparacao', visivel: false },
+  { key: 'participantes', visivel: true },
+  // Seção de logística (reunião interna): desligada por padrão, disponível pra inclusão.
+  { key: 'logistica', visivel: false },
+  // "Agendado por" sempre por último (forçado no render).
+  { key: 'criador', visivel: true },
 ]
 // inline = flui na mesma linha quando vizinhos; block = ocupa a própria linha.
-const CARD_EL_INLINE = new Set(['categoria', 'modalidade', 'local', 'data', 'sala', 'garagem'])
+const CARD_EL_INLINE = new Set(['categoria', 'modalidade', 'local', 'data'])
 
 function tplDefaults(): Omit<EmailTemplate, 'id' | 'empresaId'> {
   return {
@@ -314,6 +312,19 @@ export class AgendaEmailTemplateService {
       const preparacaoHtml = prepItens.length > 0
         ? `<div class="em-meta" style="margin-top:8px;font-size:11px;color:#64748b"><strong style="color:#475569">📋 Preparação:</strong> ${prepItens.join(' · ')}</div>` : ''
 
+      // Seção "Logística" — agrupa sala/equipamentos/garagem/preparação numa caixa
+      // rotulada (mesmo padrão visual da seção de participantes).
+      const logItens: string[] = []
+      if (salaNome) logItens.push(`<div class="em-meta" style="font-size:11px;color:#64748b;margin:3px 0">🚪 <strong style="color:#475569">Sala:</strong> ${esc(salaNome)}</div>`)
+      if (ev.equipamentos) logItens.push(`<div class="em-meta" style="font-size:11px;color:#64748b;margin:3px 0">🧰 <strong style="color:#475569">Equipamentos:</strong> ${esc(ev.equipamentos)}</div>`)
+      if (ev.garagem) logItens.push(`<div class="em-meta" style="font-size:11px;color:#64748b;margin:3px 0">🚗 <strong style="color:#475569">Garagem reservada</strong>${esc(vagasTxt)}</div>`)
+      if (prepItens.length) logItens.push(`<div class="em-meta" style="font-size:11px;color:#64748b;margin:3px 0">📋 <strong style="color:#475569">Preparação:</strong> ${prepItens.join(' · ')}</div>`)
+      const logisticaHtml = logItens.length > 0
+        ? `<div class="em-evlabelwrap" style="margin-top:12px;padding-top:10px;border-top:1px dashed #e2e8f0">
+             <div class="em-evlabel" style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">🧰 Logística</div>
+             ${logItens.join('')}
+           </div>` : ''
+
       return {
         cor,
         frags: {
@@ -331,6 +342,7 @@ export class AgendaEmailTemplateService {
           equipamentos: equipamentosHtml,
           garagem: garagemHtml,
           preparacao: preparacaoHtml,
+          logistica: logisticaHtml,
         } as Record<string, string>,
       }
     }
@@ -357,7 +369,7 @@ export class AgendaEmailTemplateService {
           equipamentos: esc(ev.equipamentos ?? ''), garagem: ev.garagem ? 'Sim' : '', vagas: ev.vagas ? String(ev.vagas) : '',
           // convenções prontas (HTML) pra não precisar montar na mão:
           pillCategoria: frags.categoria, participantesHtml: frags.participantes, linkHtml: frags.link, criadorHtml: frags.criador,
-          equipamentosHtml: frags.equipamentos, garagemHtml: frags.garagem, salaHtml: frags.sala, preparacaoHtml: frags.preparacao,
+          equipamentosHtml: frags.equipamentos, garagemHtml: frags.garagem, salaHtml: frags.sala, preparacaoHtml: frags.preparacao, logisticaHtml: frags.logistica,
         },
       }
     }
@@ -374,14 +386,17 @@ export class AgendaEmailTemplateService {
       const partes: string[] = []
       let inlineBuf: string[] = []
       const flush = () => { if (inlineBuf.length) { partes.push(`<div style="margin-bottom:4px">${inlineBuf.join(' &nbsp; ')}</div>`); inlineBuf = [] } }
+      let criadorPart = ''
       for (const el of elementos) {
         if (!el.visivel) continue
+        if (el.key === 'criador') { criadorPart = frags.criador; continue } // "Agendado por" sempre por último
         const html = frags[el.key]
         if (!html) continue
         if (CARD_EL_INLINE.has(el.key)) inlineBuf.push(html)
         else { flush(); partes.push(html) }
       }
       flush()
+      if (criadorPart) partes.push(criadorPart)
 
       return `
 <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 14px">
