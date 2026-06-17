@@ -28,6 +28,44 @@ const EMOJI_OPCOES =['📅', '💼', '🏢', '🌟', '📌', '📞', '🤝', '�
 
 type GrupoModelo = { uid: string; nome: string; cor: string; icone: string; incluiParticulares: boolean; tiposIds: string[] }
 
+// ── Builder do card de evento: catálogo de elementos (ordem + visibilidade). ──
+type CardEl = { key: string; visivel: boolean }
+const CARD_EL_LABELS: Record<string, { label: string; hint: string }> = {
+  titulo:        { label: 'Título', hint: 'Nome do evento' },
+  categoria:     { label: 'Categoria', hint: 'Pill colorida do tipo' },
+  modalidade:    { label: 'Modalidade', hint: 'Presencial / Online / Híbrido' },
+  local:         { label: 'Local', hint: 'Sala ou local informado' },
+  data:          { label: 'Data', hint: 'dd/mm/aaaa do evento' },
+  link:          { label: 'Link', hint: 'Link da reunião/online' },
+  participantes: { label: 'Participantes', hint: 'Chips com os nomes' },
+  criador:       { label: 'Agendado por', hint: 'Quem criou o evento' },
+  contato:       { label: 'Contato', hint: 'Contato informado no evento' },
+  descricao:     { label: 'Descrição', hint: 'Texto/observações do evento' },
+}
+const DEFAULT_CARD_ELS: CardEl[] = [
+  { key: 'titulo', visivel: true }, { key: 'categoria', visivel: true }, { key: 'modalidade', visivel: true },
+  { key: 'local', visivel: true }, { key: 'link', visivel: true }, { key: 'participantes', visivel: true },
+  { key: 'criador', visivel: true }, { key: 'data', visivel: false }, { key: 'contato', visivel: false },
+  { key: 'descricao', visivel: false },
+]
+
+// Linha arrastável de um elemento do card (dnd-kit).
+function SortableCardElRow({ el, onToggle }: { el: CardEl; onToggle: (v: boolean) => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: el.key })
+  const meta = CARD_EL_LABELS[el.key] || { label: el.key, hint: '' }
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1, zIndex: isDragging ? 10 : undefined }
+  return (
+    <div ref={setNodeRef} style={style} className={cn('flex items-center gap-2 rounded-md border px-2 py-1.5', el.visivel ? 'border-border bg-card' : 'border-dashed border-border bg-muted/30')}>
+      <button type="button" {...attributes} {...listeners} className="h-7 w-5 shrink-0 flex items-center justify-center rounded text-muted-foreground hover:bg-muted cursor-grab active:cursor-grabbing touch-none" title="Arrastar para reordenar"><GripVertical className="h-4 w-4" /></button>
+      <div className="flex-1 min-w-0">
+        <p className={cn('text-[13px] font-medium leading-tight', !el.visivel && 'text-muted-foreground')}>{meta.label}</p>
+        <p className="text-[11px] text-muted-foreground leading-tight truncate">{meta.hint}</p>
+      </div>
+      <Checkbox checked={el.visivel} onCheckedChange={v => onToggle(!!v)} title={el.visivel ? 'Visível' : 'Oculto'} />
+    </div>
+  )
+}
+
 // Card de grupo arrastável (dnd-kit sortable) — usado no editor do modelo de e-mail.
 function SortableGrupoCard({ grupo, tiposModelo, tiposEmOutrosGrupos, onPatch, onRemove }: {
   grupo: GrupoModelo
@@ -194,10 +232,12 @@ export default function AgendaConfiguracoesPage() {
   type EmailTpl = {
     id: string; ativo: boolean; assunto: string; accent: string; larguraMax: number; logoUrl: string
     headerHtml: string; introHtml: string; footerHtml: string; eventoLinhaHtml: string; semEventosHtml: string
+    cardModo: 'builder' | 'html'; cardElementos: string
     mostrarOutros: boolean; nomeGrupoOutros: string; nomeGrupoParticulares: string; corParticulares: string
   }
   type EmailGrp = GrupoModelo
   const [tpl, setTpl] = useState<EmailTpl | null>(null)
+  const [cardEls, setCardEls] = useState<CardEl[]>(DEFAULT_CARD_ELS)
   const [grupos, setGrupos] = useState<EmailGrp[]>([])
   const [tiposModelo, setTiposModelo] = useState<Array<{ id: string; nome: string; cor: string }>>([])
   const [loadingTpl, setLoadingTpl] = useState(false)
@@ -207,7 +247,8 @@ export default function AgendaConfiguracoesPage() {
   const [enviandoTesteModelo, setEnviandoTesteModelo] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const setTplField = (k: keyof EmailTpl, v: unknown) => setTpl(t => (t ? { ...t, [k]: v } as EmailTpl : t))
-  const gruposSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  const [loadingCardHtml, setLoadingCardHtml] = useState(false)
+  const dndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   function onDragEndGrupos(e: DragEndEvent) {
     const { active, over } = e
     if (!over || active.id === over.id) return
@@ -216,6 +257,29 @@ export default function AgendaConfiguracoesPage() {
       const to = gs.findIndex(g => g.uid === over.id)
       return from < 0 || to < 0 ? gs : arrayMove(gs, from, to)
     })
+  }
+  function onDragEndCardEls(e: DragEndEvent) {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    setCardEls(els => {
+      const from = els.findIndex(x => x.key === active.id)
+      const to = els.findIndex(x => x.key === over.id)
+      return from < 0 || to < 0 ? els : arrayMove(els, from, to)
+    })
+  }
+  // Mescla o catálogo atual com o salvo (preserva ordem salva, garante chaves novas no fim).
+  function mergeCardEls(saved: CardEl[]): CardEl[] {
+    const known = new Set(DEFAULT_CARD_ELS.map(d => d.key))
+    const out = saved.filter(s => known.has(s.key))
+    const have = new Set(out.map(s => s.key))
+    for (const d of DEFAULT_CARD_ELS) if (!have.has(d.key)) out.push({ ...d })
+    return out
+  }
+  async function restaurarHtmlPadrao() {
+    setLoadingCardHtml(true)
+    try { const r = await (trpc.agenda as any).modeloEmail.cardHtmlPadrao.query(); setTplField('eventoLinhaHtml', r.html) }
+    catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setLoadingCardHtml(false) }
   }
   async function onUploadLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -238,15 +302,21 @@ export default function AgendaConfiguracoesPage() {
         (trpc.agenda as any).modeloEmail.get.query(),
         (trpc.agenda as any).listTipos.query().catch(() => []),
       ])
-      setTpl(r.template); setGrupos((r.grupos || []).map((g: Partial<EmailGrp>) => ({ icone: '', incluiParticulares: false, tiposIds: [], nome: '', cor: '#38bdf8', ...g, uid: crypto.randomUUID() }))); setTiposModelo(tps || [])
+      setTpl(r.template)
+      // Elementos do card (ordem/visibilidade) — mescla com o catálogo atual.
+      try {
+        const parsed = JSON.parse(r.template?.cardElementos || '[]')
+        setCardEls(Array.isArray(parsed) && parsed.length ? mergeCardEls(parsed) : DEFAULT_CARD_ELS)
+      } catch { setCardEls(DEFAULT_CARD_ELS) }
+      setGrupos((r.grupos || []).map((g: Partial<EmailGrp>) => ({ icone: '', incluiParticulares: false, tiposIds: [], nome: '', cor: '#38bdf8', ...g, uid: crypto.randomUUID() }))); setTiposModelo(tps || [])
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setLoadingTpl(false) }
   }
   async function atualizarPreview() {
     setLoadingPreview(true)
-    // Prévia AO VIVO: manda o estado atual do editor (inclui logo/textos/grupos ainda não salvos).
+    // Prévia AO VIVO: manda o estado atual do editor (inclui logo/textos/grupos/card ainda não salvos).
     // A logo vai ABSOLUTA pro iframe da prévia conseguir carregar (no srcDoc não há base URL).
-    const tplPreview = tpl ? { ...tpl, logoUrl: tpl.logoUrl ? resolveAssetUrl(tpl.logoUrl) : '' } : undefined
+    const tplPreview = tpl ? { ...tpl, cardElementos: JSON.stringify(cardEls), logoUrl: tpl.logoUrl ? resolveAssetUrl(tpl.logoUrl) : '' } : undefined
     try { const r = await (trpc.agenda as any).modeloEmail.preview.query({ template: tplPreview, grupos }); setPreviewHtml(r.html) }
     catch { setPreviewHtml('<p style="padding:16px;font-family:sans-serif;color:#ef4444">Falha ao gerar prévia.</p>') }
     finally { setLoadingPreview(false) }
@@ -255,7 +325,7 @@ export default function AgendaConfiguracoesPage() {
     if (!tpl) return
     setSavingTpl(true)
     try {
-      await (trpc.agenda as any).modeloEmail.save.mutate(tpl)
+      await (trpc.agenda as any).modeloEmail.save.mutate({ ...tpl, cardElementos: JSON.stringify(cardEls) })
       await (trpc.agenda as any).modeloEmail.saveGrupos.mutate({ grupos })
       await atualizarPreview()
       if (!opts?.silent) alerts.success('Salvo', 'Modelo de e-mail atualizado.')
@@ -278,7 +348,7 @@ export default function AgendaConfiguracoesPage() {
     const t = setTimeout(() => { atualizarPreview() }, 500)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, tpl, grupos])
+  }, [activeTab, tpl, grupos, cardEls])
 
   // Combobox filtrável de destinatários
   const [destSearchOpen, setDestSearchOpen] = useState(false)
@@ -1107,29 +1177,77 @@ export default function AgendaConfiguracoesPage() {
                     </div>
 
                     <div className="rounded-md border border-border bg-muted/30 p-2.5">
-                      <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">Variáveis do cabeçalho / introdução / rodapé (clique para copiar)</p>
+                      <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">Variáveis do cabeçalho / rodapé (clique para copiar)</p>
                       <div className="flex flex-wrap gap-1">
                         {['{{usuario.name}}', '{{dataDisplay}}', '{{diaSemana}}', '{{totalEventos}}'].map(v => (
                           <button key={v} type="button" onClick={() => { navigator.clipboard?.writeText(v); alerts.success('Copiado', v) }} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-card border border-border hover:bg-muted">{v}</button>
                         ))}
                       </div>
-                      <p className="text-[11px] text-muted-foreground mt-2">Os eventos são exibidos automaticamente em blocos, agrupados pelos grupos abaixo.</p>
+                      <p className="text-[11px] text-muted-foreground mt-2">Os eventos são exibidos em blocos, agrupados pelos grupos abaixo. O layout de cada card é configurável em "Card do evento".</p>
                     </div>
 
                     {/* Campos de texto — RichEditor (visual + modo HTML, como nos demais campos de descrição) */}
-                    {([['headerHtml', 'Cabeçalho'], ['introHtml', 'Introdução']] as const).map(([k, label]) => (
+                    {([['headerHtml', 'Cabeçalho'], ['footerHtml', 'Rodapé'], ['semEventosHtml', 'Mensagem quando não há eventos']] as const).map(([k, label]) => (
                       <div key={k} className="space-y-1.5">
                         <Label className="text-[13px] font-semibold">{label}</Label>
                         <RichEditor value={(tpl as Record<string, string>)[k] ?? ''} onChange={v => setTplField(k as keyof EmailTpl, v)} placeholder="Use a barra de formatação ou o modo HTML (&lt;/&gt;)…" />
                       </div>
                     ))}
 
-                    {([['footerHtml', 'Rodapé'], ['semEventosHtml', 'Mensagem quando não há eventos']] as const).map(([k, label]) => (
-                      <div key={k} className="space-y-1.5">
-                        <Label className="text-[13px] font-semibold">{label}</Label>
-                        <RichEditor value={(tpl as Record<string, string>)[k] ?? ''} onChange={v => setTplField(k as keyof EmailTpl, v)} placeholder="Use a barra de formatação ou o modo HTML (&lt;/&gt;)…" />
+                    {/* Card do evento — builder estruturado ou HTML livre */}
+                    <div className="space-y-2 border-t border-border pt-3">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <Label className="text-[13px] font-semibold">Card do evento</Label>
+                        <div className="inline-flex rounded-md border border-border p-0.5 text-xs">
+                          <button type="button" onClick={() => setTplField('cardModo', 'builder')}
+                            className={cn('px-2.5 py-1 rounded transition-colors', tpl.cardModo !== 'html' ? 'bg-muted font-medium' : 'text-muted-foreground hover:bg-muted/50')}>Builder</button>
+                          <button type="button" onClick={() => { if (tpl.cardModo !== 'html' && !(tpl.eventoLinhaHtml || '').trim()) restaurarHtmlPadrao(); setTplField('cardModo', 'html') }}
+                            className={cn('px-2.5 py-1 rounded transition-colors inline-flex items-center gap-1', tpl.cardModo === 'html' ? 'bg-muted font-medium' : 'text-muted-foreground hover:bg-muted/50')}><FileText className="h-3 w-3" /> HTML</button>
+                        </div>
                       </div>
-                    ))}
+
+                      {tpl.cardModo !== 'html' ? (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <p className="text-[11px] text-muted-foreground">Arraste pela alça <GripVertical className="h-3 w-3 inline -mt-0.5" /> para reordenar; ligue/desligue cada elemento.</p>
+                            <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setCardEls(DEFAULT_CARD_ELS)}><RefreshCw className="h-3 w-3" /> Restaurar padrão</Button>
+                          </div>
+                          <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={onDragEndCardEls}>
+                            <SortableContext items={cardEls.map(x => x.key)} strategy={verticalListSortingStrategy}>
+                              <div className="space-y-1.5">
+                                {cardEls.map((el, idx) => (
+                                  <SortableCardElRow key={el.key} el={el}
+                                    onToggle={v => setCardEls(els => els.map((x, i) => i === idx ? { ...x, visivel: v } : x))} />
+                                ))}
+                              </div>
+                            </SortableContext>
+                          </DndContext>
+                          <p className="text-[11px] text-muted-foreground">O horário fica sempre na coluna lateral colorida. Elementos vizinhos curtos (categoria, modalidade, local, data) fluem na mesma linha.</p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <p className="text-[11px] text-muted-foreground">HTML livre do card (controle total). Use as variáveis abaixo.</p>
+                            <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={restaurarHtmlPadrao} disabled={loadingCardHtml}>{loadingCardHtml ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Restaurar HTML padrão</Button>
+                          </div>
+                          <div className="rounded-md border border-border bg-muted/30 p-2.5">
+                            <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">Variáveis do card (clique para copiar)</p>
+                            <div className="flex flex-wrap gap-1">
+                              {['{{evento.titulo}}', '{{evento.horario}}', '{{evento.horaInicio}}', '{{evento.horaFim}}', '{{evento.data}}', '{{evento.tipoNome}}', '{{evento.tipoCor}}', '{{evento.modalidade}}', '{{evento.local}}', '{{evento.contato}}', '{{evento.link}}', '{{evento.criador}}', '{{evento.descricao}}', '{{evento.participantes}}', '{{evento.pillCategoria}}', '{{evento.participantesHtml}}', '{{evento.linkHtml}}', '{{evento.criadorHtml}}'].map(v => (
+                                <button key={v} type="button" onClick={() => { navigator.clipboard?.writeText(v); alerts.success('Copiado', v) }} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-card border border-border hover:bg-muted">{v}</button>
+                              ))}
+                            </div>
+                          </div>
+                          <textarea
+                            value={tpl.eventoLinhaHtml}
+                            onChange={e => setTplField('eventoLinhaHtml', e.target.value)}
+                            rows={14}
+                            placeholder="HTML do card — ex.: <table>…{{evento.titulo}}…</table>"
+                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs font-mono resize-y focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          />
+                        </>
+                      )}
+                    </div>
 
                     {/* Grupos por tipo */}
                     <div className="space-y-2 border-t border-border pt-3">
@@ -1139,7 +1257,7 @@ export default function AgendaConfiguracoesPage() {
                       </div>
                       {grupos.length === 0 && <p className="text-xs text-muted-foreground italic">Sem grupos personalizados — todos os eventos caem no grupo catch-all "{tpl.nomeGrupoOutros || 'Outros'}".</p>}
                       {grupos.length > 1 && <p className="text-[11px] text-muted-foreground">Arraste pela alça <GripVertical className="h-3 w-3 inline -mt-0.5" /> para reordenar — a ordem aqui é a ordem no e-mail.</p>}
-                      <DndContext sensors={gruposSensors} collisionDetection={closestCenter} onDragEnd={onDragEndGrupos}>
+                      <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={onDragEndGrupos}>
                         <SortableContext items={grupos.map(g => g.uid)} strategy={verticalListSortingStrategy}>
                           <div className="space-y-2">
                             {grupos.map((g, idx) => (

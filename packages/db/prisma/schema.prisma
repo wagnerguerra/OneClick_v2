@@ -2315,6 +2315,8 @@ model AgendaEmailTemplate {
   footerHtml             String   @default("") @map("footer_html") @db.Text
   eventoLinhaHtml        String   @default("") @map("evento_linha_html") @db.Text
   semEventosHtml         String   @default("") @map("sem_eventos_html") @db.Text
+  cardModo               String   @default("builder") @map("card_modo") // 'builder' | 'html'
+  cardElementos          String   @default("") @map("card_elementos") @db.Text // JSON [{key,visivel}] do builder
   mostrarOutros          Boolean  @default(true) @map("mostrar_outros")
   nomeGrupoOutros        String   @default("Outros") @map("nome_grupo_outros")
   nomeGrupoParticulares  String   @default("Compromissos pessoais") @map("nome_grupo_particulares")

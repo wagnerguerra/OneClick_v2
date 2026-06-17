@@ -344,6 +344,8 @@ export function createAgendaRouter(
     modeloEmail: router({
       get: readSubProcedure(MODULE, 'manage_config', 'Ver o modelo de e-mail da agenda')
         .query(() => disparoService.getEmailTemplate()),
+      cardHtmlPadrao: readSubProcedure(MODULE, 'manage_config', 'Ver o HTML padrão do card de evento')
+        .query(() => disparoService.cardHtmlPadrao()),
       save: writeSubProcedure(MODULE, 'manage_config', 'Editar o modelo de e-mail da agenda')
         .input(z.object({
           ativo: z.boolean().optional(),
@@ -355,6 +357,8 @@ export function createAgendaRouter(
           footerHtml: z.string().optional(),
           eventoLinhaHtml: z.string().optional(),
           semEventosHtml: z.string().optional(),
+          cardModo: z.enum(['builder', 'html']).optional(),
+          cardElementos: z.string().optional(),
           mostrarOutros: z.boolean().optional(),
           nomeGrupoOutros: z.string().optional(),
           nomeGrupoParticulares: z.string().optional(),

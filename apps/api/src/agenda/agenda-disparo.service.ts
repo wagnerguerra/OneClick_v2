@@ -339,6 +339,7 @@ export class AgendaDisparoService implements OnModuleInit {
   // ============================================================
   getEmailTemplate() { return this.templateService.getTemplate(null) }
   saveEmailTemplate(patch: Record<string, unknown>) { return this.templateService.saveTemplate(null, patch) }
+  cardHtmlPadrao() { return { html: this.templateService.defaultCardHtml() } }
   saveEmailGrupos(grupos: Array<{ nome: string; cor: string; icone?: string; incluiParticulares: boolean; tiposIds: string[] }>) {
     return this.templateService.saveGrupos(null, grupos.map((g, i) => ({ icone: '', ...g, ordem: i })))
   }

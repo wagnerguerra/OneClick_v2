@@ -19,6 +19,8 @@ export interface EmailTemplate {
   footerHtml: string
   eventoLinhaHtml: string
   semEventosHtml: string
+  cardModo: string
+  cardElementos: string
   mostrarOutros: boolean
   nomeGrupoOutros: string
   nomeGrupoParticulares: string
@@ -40,14 +42,26 @@ const DEFAULT_HEADER = `<h1 style="margin:0;font-size:20px;color:#0f172a">Agenda
 <p style="margin:4px 0 0;font-size:13px;color:#64748b">{{diaSemana}}, {{dataDisplay}}</p>`
 const DEFAULT_INTRO = `<p style="margin:0 0 8px;font-size:14px;color:#334155">Olá {{usuario.name}}, você tem <strong>{{totalEventos}}</strong> compromisso(s) hoje:</p>`
 const DEFAULT_FOOTER = `<p style="margin:16px 0 0;font-size:11px;color:#94a3b8">Enviado automaticamente pela Agenda Corporativa.</p>`
-const DEFAULT_EVENTO_LINHA = `<tr>
-  <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;width:80px;vertical-align:top;font-size:13px;font-weight:600;color:{{evento.tipoCor}}">{{evento.horario}}</td>
-  <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9">
-    <div style="font-size:14px;font-weight:600;color:#0f172a">{{evento.titulo}}</div>
-    <div style="font-size:12px;color:#64748b">{{evento.tipoNome}}{{evento.localSuffix}}</div>
-  </td>
-</tr>`
 const DEFAULT_SEM_EVENTOS = `<p style="font-size:13px;color:#94a3b8;font-style:italic">Nenhum compromisso para hoje.</p>`
+
+// ── Builder do card: ordem + visibilidade dos elementos. O default reproduz
+//    EXATAMENTE o card original (título → categoria+modalidade+local → link →
+//    participantes → criador), pra ser possível voltar a ele a qualquer momento. ──
+export type CardElemento = { key: string; visivel: boolean }
+const DEFAULT_CARD_ELEMENTOS: CardElemento[] = [
+  { key: 'titulo', visivel: true },
+  { key: 'categoria', visivel: true },
+  { key: 'modalidade', visivel: true },
+  { key: 'local', visivel: true },
+  { key: 'link', visivel: true },
+  { key: 'participantes', visivel: true },
+  { key: 'criador', visivel: true },
+  { key: 'data', visivel: false },
+  { key: 'contato', visivel: false },
+  { key: 'descricao', visivel: false },
+]
+// inline = flui na mesma linha quando vizinhos; block = ocupa a própria linha.
+const CARD_EL_INLINE = new Set(['categoria', 'modalidade', 'local', 'data'])
 
 function tplDefaults(): Omit<EmailTemplate, 'id' | 'empresaId'> {
   return {
@@ -59,8 +73,10 @@ function tplDefaults(): Omit<EmailTemplate, 'id' | 'empresaId'> {
     headerHtml: DEFAULT_HEADER,
     introHtml: DEFAULT_INTRO,
     footerHtml: DEFAULT_FOOTER,
-    eventoLinhaHtml: DEFAULT_EVENTO_LINHA,
+    eventoLinhaHtml: '', // só usado no modo HTML; vazio = builder cuida do card
     semEventosHtml: DEFAULT_SEM_EVENTOS,
+    cardModo: 'builder',
+    cardElementos: JSON.stringify(DEFAULT_CARD_ELEMENTOS),
     mostrarOutros: true,
     nomeGrupoOutros: 'Compromissos corporativos',
     nomeGrupoParticulares: 'Compromissos pessoais',
@@ -107,6 +123,7 @@ export class AgendaEmailTemplateService {
       `SELECT id, empresa_id AS "empresaId", ativo, assunto, accent, largura_max AS "larguraMax", logo_url AS "logoUrl",
               header_html AS "headerHtml", intro_html AS "introHtml", footer_html AS "footerHtml",
               evento_linha_html AS "eventoLinhaHtml", sem_eventos_html AS "semEventosHtml",
+              card_modo AS "cardModo", card_elementos AS "cardElementos",
               mostrar_outros AS "mostrarOutros", nome_grupo_outros AS "nomeGrupoOutros",
               nome_grupo_particulares AS "nomeGrupoParticulares", cor_particulares AS "corParticulares"
          FROM agenda_email_template WHERE ($1::text IS NULL OR empresa_id = $1) ORDER BY created_at ASC LIMIT 1`,
@@ -116,10 +133,10 @@ export class AgendaEmailTemplateService {
     if (!template) {
       const id = randomUUID(); const d = tplDefaults()
       await prisma.$executeRawUnsafe(
-        `INSERT INTO agenda_email_template (id, empresa_id, ativo, assunto, accent, header_html, intro_html, footer_html, evento_linha_html, sem_eventos_html, mostrar_outros, nome_grupo_outros, nome_grupo_particulares, cor_particulares, logo_url, largura_max, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, now(), now())`,
+        `INSERT INTO agenda_email_template (id, empresa_id, ativo, assunto, accent, header_html, intro_html, footer_html, evento_linha_html, sem_eventos_html, mostrar_outros, nome_grupo_outros, nome_grupo_particulares, cor_particulares, logo_url, largura_max, card_modo, card_elementos, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18, now(), now())`,
         id, empresaId ?? null, d.ativo, d.assunto, d.accent, d.headerHtml, d.introHtml, d.footerHtml,
-        d.eventoLinhaHtml, d.semEventosHtml, d.mostrarOutros, d.nomeGrupoOutros, d.nomeGrupoParticulares, d.corParticulares, d.logoUrl, d.larguraMax,
+        d.eventoLinhaHtml, d.semEventosHtml, d.mostrarOutros, d.nomeGrupoOutros, d.nomeGrupoParticulares, d.corParticulares, d.logoUrl, d.larguraMax, d.cardModo, d.cardElementos,
       )
       template = { id, empresaId: empresaId ?? null, ...d }
     }
@@ -139,13 +156,14 @@ export class AgendaEmailTemplateService {
          mostrar_outros = COALESCE($10, mostrar_outros), nome_grupo_outros = COALESCE($11, nome_grupo_outros),
          nome_grupo_particulares = COALESCE($12, nome_grupo_particulares), cor_particulares = COALESCE($13, cor_particulares),
          logo_url = COALESCE($14, logo_url), largura_max = COALESCE($15, largura_max),
+         card_modo = COALESCE($16, card_modo), card_elementos = COALESCE($17, card_elementos),
          updated_at = now()
        WHERE id = $1`,
       template.id, patch.ativo ?? null, patch.assunto ?? null, patch.accent ?? null,
       patch.headerHtml ?? null, patch.introHtml ?? null, patch.footerHtml ?? null,
       patch.eventoLinhaHtml ?? null, patch.semEventosHtml ?? null, patch.mostrarOutros ?? null,
       patch.nomeGrupoOutros ?? null, patch.nomeGrupoParticulares ?? null, patch.corParticulares ?? null,
-      patch.logoUrl ?? null, patch.larguraMax ?? null,
+      patch.logoUrl ?? null, patch.larguraMax ?? null, patch.cardModo ?? null, patch.cardElementos ?? null,
     )
     return { id: template.id }
   }
@@ -197,46 +215,100 @@ export class AgendaEmailTemplateService {
       totalEventos: eventos.length,
     }
 
-    // ── Card individual do evento (espelha o e-mail atual: faixa lateral colorida,
-    //    coluna de horário, título, pill da categoria, modalidade/local, participantes
-    //    em chips e "agendado por" no rodapé). ──
-    const renderCard = (ev: any) => {
+    // Elementos do builder (ordem + visibilidade). Default = card original.
+    let elementos: CardElemento[] = DEFAULT_CARD_ELEMENTOS
+    try {
+      const parsed = JSON.parse(template.cardElementos || '[]')
+      if (Array.isArray(parsed) && parsed.length) elementos = parsed
+    } catch { /* usa default */ }
+
+    // Monta o conjunto de fragmentos HTML por chave de elemento (string vazia = sem conteúdo).
+    const fragmentosDoEvento = (ev: any) => {
       const cor = ev.tipo?.cor || template.accent
-      const horarioBlock = ev.diaInteiro
-        ? `<span style="font-weight:700;color:${cor}">Dia inteiro</span>`
-        : `<div style="font-weight:700;font-size:14px;color:#0f172a;line-height:1.1">${esc(ev.horaInicio ?? '')}</div>
-           <div style="font-weight:500;font-size:11px;color:#94a3b8;line-height:1;margin-top:2px">${esc(ev.horaFim ?? '')}</div>`
       const modalidadeLabel = ev.presenca === 'ONLINE' ? 'Online' : ev.presenca === 'HIBRIDO' ? 'Híbrido' : 'Presencial'
       const modalidadeIcon = ev.presenca === 'ONLINE' ? '💻' : ev.presenca === 'HIBRIDO' ? '🔄' : '🏢'
-      const local = ev.salaRef?.nome || ev.sala || ''
-
+      const local = ev.salaRef?.nome || ev.sala || ev.local || ''
       const textoNaPill = contrastarTexto(cor)
       const corEscura = escurecer(cor, 0.25)
-      const linhaInfo: string[] = []
-      linhaInfo.push(`<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;background:${cor};color:${textoNaPill};border:1px solid ${corEscura};box-shadow:0 1px 2px rgba(15,23,42,0.08)">${esc(ev.tipo?.nome ?? '')}</span>`)
-      linhaInfo.push(`<span style="font-size:11px;color:#64748b">${modalidadeIcon} ${modalidadeLabel}</span>`)
-      if (local) linhaInfo.push(`<span style="font-size:11px;color:#64748b">📍 ${esc(local)}</span>`)
-
       const nomes = ((ev.participantes ?? []) as Array<{ usuario?: { name: string } | null; nomeAvulso?: string | null }>)
-        .map(p => p.usuario?.name ?? p.nomeAvulso)
-        .filter(Boolean) as string[]
+        .map(p => p.usuario?.name ?? p.nomeAvulso).filter(Boolean) as string[]
+
+      const pillCategoria = `<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;background:${cor};color:${textoNaPill};border:1px solid ${corEscura};box-shadow:0 1px 2px rgba(15,23,42,0.08)">${esc(ev.tipo?.nome ?? '')}</span>`
       const participantesHtml = nomes.length > 0
         ? `<div style="margin-top:12px;padding-top:10px;border-top:1px dashed #e2e8f0">
              <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">👥 Participantes</div>
              <div style="line-height:1.9">${nomes.map(n => `<span style="display:inline-block;padding:2px 9px;margin:0 4px 4px 0;border-radius:999px;background:#f1f5f9;color:#475569;font-size:11px;font-weight:500;border:1px solid #e2e8f0">${esc(n)}</span>`).join('')}</div>
-           </div>`
-        : ''
-
+           </div>` : ''
       const linkHtml = ev.link
-        ? `<div style="margin-top:10px;font-size:11px;color:#64748b">
-             <strong style="color:#475569">🔗 Link:</strong>
-             <a href="${escAttr(ev.link)}" style="color:${template.accent};text-decoration:none;word-break:break-all">${esc(ev.link)}</a>
-           </div>`
-        : ''
-
+        ? `<div style="margin-top:10px;font-size:11px;color:#64748b"><strong style="color:#475569">🔗 Link:</strong> <a href="${escAttr(ev.link)}" style="color:${template.accent};text-decoration:none;word-break:break-all">${esc(ev.link)}</a></div>` : ''
       const criadorHtml = ev.criador?.name
-        ? `<div style="margin-top:12px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Agendado por ${esc(ev.criador.name)}</div>`
-        : ''
+        ? `<div style="margin-top:12px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Agendado por ${esc(ev.criador.name)}</div>` : ''
+      const descricaoHtml = ev.descricao
+        ? `<div style="margin-top:10px;font-size:12px;color:#475569;line-height:1.5">${String(ev.descricao)}</div>` : ''
+      const contatoHtml = ev.contato
+        ? `<div style="margin-top:8px;font-size:11px;color:#64748b"><strong style="color:#475569">📇 Contato:</strong> ${esc(ev.contato)}</div>` : ''
+
+      return {
+        cor,
+        frags: {
+          titulo: `<div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;line-height:1.3">${esc(ev.titulo)}</div>`,
+          categoria: pillCategoria,
+          modalidade: `<span style="font-size:11px;color:#64748b">${modalidadeIcon} ${modalidadeLabel}</span>`,
+          local: local ? `<span style="font-size:11px;color:#64748b">📍 ${esc(local)}</span>` : '',
+          data: ev.data ? `<span style="font-size:11px;color:#64748b">📅 ${esc(this.formatDateBrFromAny(ev.data))}</span>` : '',
+          link: linkHtml,
+          participantes: participantesHtml,
+          criador: criadorHtml,
+          descricao: descricaoHtml,
+          contato: contatoHtml,
+        } as Record<string, string>,
+      }
+    }
+
+    // Variáveis pro modo HTML livre (controle total do card).
+    const buildVars = (ev: any) => {
+      const { cor, frags } = fragmentosDoEvento(ev)
+      const horario = ev.diaInteiro ? 'Dia inteiro' : [ev.horaInicio, ev.horaFim].filter(Boolean).join(' — ') || ev.horaInicio || ''
+      const local = ev.salaRef?.nome || ev.sala || ev.local || ''
+      const modalidade = ev.presenca === 'ONLINE' ? 'Online' : ev.presenca === 'HIBRIDO' ? 'Híbrido' : 'Presencial'
+      const nomes = ((ev.participantes ?? []) as Array<{ usuario?: { name: string } | null; nomeAvulso?: string | null }>)
+        .map(p => p.usuario?.name ?? p.nomeAvulso).filter(Boolean) as string[]
+      return {
+        ...globalVars,
+        evento: {
+          titulo: esc(ev.titulo), horario: esc(horario), horaInicio: esc(ev.horaInicio ?? ''), horaFim: esc(ev.horaFim ?? ''),
+          data: ev.data ? esc(this.formatDateBrFromAny(ev.data)) : '',
+          local: esc(local), sala: esc(ev.salaRef?.nome || ev.sala || ''), contato: esc(ev.contato ?? ''),
+          link: esc(ev.link ?? ''), presenca: esc(ev.presenca ?? ''), modalidade: esc(modalidade),
+          tipoNome: esc(ev.tipo?.nome ?? ''), tipoCor: cor, criador: esc(ev.criador?.name ?? ''),
+          descricao: ev.descricao ? String(ev.descricao) : '',
+          participantes: nomes.map(esc).join(', '),
+          // convenções prontas (HTML) pra não precisar montar na mão:
+          pillCategoria: frags.categoria, participantesHtml: frags.participantes, linkHtml: frags.link, criadorHtml: frags.criador,
+        },
+      }
+    }
+
+    // ── Builder: monta o corpo do card respeitando ordem/visibilidade; elementos
+    //    inline vizinhos fluem na mesma linha (preserva o visual original). ──
+    const renderCardBuilder = (ev: any) => {
+      const { cor, frags } = fragmentosDoEvento(ev)
+      const horarioBlock = ev.diaInteiro
+        ? `<span style="font-weight:700;color:${cor}">Dia inteiro</span>`
+        : `<div style="font-weight:700;font-size:14px;color:#0f172a;line-height:1.1">${esc(ev.horaInicio ?? '')}</div>
+           <div style="font-weight:500;font-size:11px;color:#94a3b8;line-height:1;margin-top:2px">${esc(ev.horaFim ?? '')}</div>`
+
+      const partes: string[] = []
+      let inlineBuf: string[] = []
+      const flush = () => { if (inlineBuf.length) { partes.push(`<div style="margin-bottom:4px">${inlineBuf.join(' &nbsp; ')}</div>`); inlineBuf = [] } }
+      for (const el of elementos) {
+        if (!el.visivel) continue
+        const html = frags[el.key]
+        if (!html) continue
+        if (CARD_EL_INLINE.has(el.key)) inlineBuf.push(html)
+        else { flush(); partes.push(html) }
+      }
+      flush()
 
       return `
 <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 14px">
@@ -248,17 +320,18 @@ export class AgendaEmailTemplateService {
           ${horarioBlock}
         </td>
         <td valign="top" style="padding:14px 16px;vertical-align:top">
-          <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;line-height:1.3">${esc(ev.titulo)}</div>
-          <div style="margin-bottom:4px">${linhaInfo.join(' &nbsp; ')}</div>
-          ${linkHtml}
-          ${participantesHtml}
-          ${criadorHtml}
+          ${partes.join('\n          ')}
         </td>
       </tr>
     </table>
   </td></tr>
 </table>`
     }
+
+    const renderCard = (ev: any) =>
+      template.cardModo === 'html' && (template.eventoLinhaHtml || '').trim()
+        ? interpolate(template.eventoLinhaHtml, buildVars(ev))
+        : renderCardBuilder(ev)
 
     // ── Cabeçalho de grupo: ícone + nome em caixa-alta + badge de contagem. ──
     const renderSecao = (s: { nome: string; cor: string; icone: string; items: any[] }) => `
@@ -276,7 +349,6 @@ export class AgendaEmailTemplateService {
       : secoes.map(renderSecao).join('')
 
     const header = interpolate(template.headerHtml, globalVars)
-    const intro = interpolate(template.introHtml, globalVars)
     const footer = interpolate(template.footerHtml, globalVars)
 
     // Logomarca do topo: usa a enviada no template (URL absoluta); senão a logo
@@ -298,7 +370,6 @@ export class AgendaEmailTemplateService {
   <tr><td style="padding:22px 28px 26px">
     ${logoHtml}
     ${header}
-    ${intro}
     ${corpoSecoes}
     ${footer}
   </td></tr>
@@ -310,5 +381,36 @@ export class AgendaEmailTemplateService {
   /** Assunto interpolado (pra envio/teste). */
   renderAssunto(template: EmailTemplate, ctx: { dataDisplay: string; diaSemana: string }): string {
     return interpolate(template.assunto, { dataDisplay: ctx.dataDisplay, diaSemana: ctx.diaSemana })
+  }
+
+  /** dd/mm/aaaa a partir de Date ou string (campo `data` do evento, em UTC). */
+  formatDateBrFromAny(d: Date | string): string {
+    const dt = d instanceof Date ? d : new Date(d)
+    if (Number.isNaN(dt.getTime())) return ''
+    return `${String(dt.getUTCDate()).padStart(2, '0')}/${String(dt.getUTCMonth() + 1).padStart(2, '0')}/${dt.getUTCFullYear()}`
+  }
+
+  /** HTML padrão do card pro modo HTML livre — espelha o card do builder (chrome + corpo). */
+  defaultCardHtml(): string {
+    return `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 14px">
+  <tr><td bgcolor="#cbd5e1" style="background-color:#cbd5e1;padding:1px;border-radius:10px">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#ffffff;border-radius:9px;overflow:hidden">
+      <tr>
+        <td width="4" bgcolor="{{evento.tipoCor}}" style="background-color:{{evento.tipoCor}};width:4px;padding:0;line-height:0;font-size:0">&nbsp;</td>
+        <td width="68" valign="middle" style="padding:14px 10px 14px 14px;text-align:center;border-right:1px solid #f1f5f9;vertical-align:middle;background:#f8fafc">
+          <div style="font-weight:700;font-size:14px;color:#0f172a;line-height:1.1">{{evento.horaInicio}}</div>
+          <div style="font-weight:500;font-size:11px;color:#94a3b8;line-height:1;margin-top:2px">{{evento.horaFim}}</div>
+        </td>
+        <td valign="top" style="padding:14px 16px;vertical-align:top">
+          <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;line-height:1.3">{{evento.titulo}}</div>
+          <div style="margin-bottom:4px">{{evento.pillCategoria}} &nbsp; <span style="font-size:11px;color:#64748b">{{evento.modalidade}}</span></div>
+          {{evento.linkHtml}}
+          {{evento.participantesHtml}}
+          {{evento.criadorHtml}}
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>`
   }
 }
