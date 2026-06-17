@@ -5926,3 +5926,92 @@ model TvBloco {
   @@index([folhaId])
   @@map("tv_bloco")
 }
+
+// ============================================================
+// Orçamentos do LEGADO (v4 / db_intranet — família com_orc*).
+// Tabelas auxiliares só-leitura no sistema novo: histórico de orçamentos
+// anteriores do cliente (valores, mensagens, eventos), importado por CNPJ.
+// Sem FK p/ Cliente (decoupled — match por documento; clienteId pode ser null).
+// ============================================================
+model OrcamentoLegado {
+  id             String   @id @default(cuid())
+  legacyId       Int      @map("legacy_id") // com_orc.id
+  numero         Int
+  clienteId      String?  @map("cliente_id") // Cliente novo (match por CNPJ); null = sem correspondência
+  cnpj           String?  // documento do cliente no legado (só dígitos)
+  razaoSocial    String?  @map("razao_social")
+  status         String?
+  tipo           String?
+  contato        String?
+  contatoEmail   String?  @map("contato_email")
+  validadeDias   Int?     @map("validade_dias")
+  desconto       String?
+  valorDesconto  String?  @map("valor_desconto")
+  valorTotal     Decimal? @map("valor_total") @db.Decimal(15, 2)
+  descricao      String?  @db.Text
+  decisaoTipo    String?  @map("decisao_tipo")
+  decisaoNome    String?  @map("decisao_nome")
+  decisaoCpf     String?  @map("decisao_cpf")
+  decisaoObs     String?  @map("decisao_obs") @db.Text
+  decisaoEm      DateTime? @map("decisao_em")
+  csatNota       Int?     @map("csat_nota")
+  csatObs        String?  @map("csat_obs") @db.Text
+  dtNovo         DateTime? @map("dt_novo")
+  dtEnviado      DateTime? @map("dt_enviado")
+  dtAprovado     DateTime? @map("dt_aprovado")
+  dtLiberado     DateTime? @map("dt_liberado")
+  dtFinalizado   DateTime? @map("dt_finalizado")
+  dtEncerrado    DateTime? @map("dt_encerrado")
+  dtCancelado    DateTime? @map("dt_cancelado")
+  importadoEm    DateTime @default(now()) @map("importado_em")
+
+  itens     OrcamentoLegadoItem[]
+  mensagens OrcamentoLegadoMensagem[]
+  eventos   OrcamentoLegadoEvento[]
+
+  @@unique([legacyId])
+  @@index([clienteId])
+  @@index([cnpj])
+  @@map("orcamento_legado")
+}
+
+model OrcamentoLegadoItem {
+  id            String   @id @default(cuid())
+  orcamentoId   String   @map("orcamento_id")
+  descricao     String?  @db.Text
+  tipo          String?
+  quantidade    Decimal? @db.Decimal(15, 4)
+  valorUnitario Decimal? @map("valor_unitario") @db.Decimal(15, 2)
+  ordem         Int      @default(0)
+
+  orcamento OrcamentoLegado @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+
+  @@index([orcamentoId])
+  @@map("orcamento_legado_item")
+}
+
+model OrcamentoLegadoMensagem {
+  id          String   @id @default(cuid())
+  orcamentoId String   @map("orcamento_id")
+  autorNome   String?  @map("autor_nome")
+  conteudo    String   @db.Text
+  data        DateTime?
+
+  orcamento OrcamentoLegado @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+
+  @@index([orcamentoId])
+  @@map("orcamento_legado_mensagem")
+}
+
+model OrcamentoLegadoEvento {
+  id          String   @id @default(cuid())
+  orcamentoId String   @map("orcamento_id")
+  autorNome   String?  @map("autor_nome")
+  evento      String   @db.Text
+  data        DateTime?
+
+  orcamento OrcamentoLegado @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+
+  @@index([orcamentoId])
+  @@map("orcamento_legado_evento")
+}
