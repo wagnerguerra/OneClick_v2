@@ -24,20 +24,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-// Texto escuro/branco conforme o brilho do fundo — garante legibilidade da pill
-// mesmo quando o tipo tem cor pastel (espelha contrastarTexto do backend).
-function contrastText(hex: string): string {
-  const h = String(hex || '').replace('#', '')
-  const exp = h.length === 3 ? h.split('').map(c => c + c).join('') : h
-  if (exp.length !== 6) return '#ffffff'
-  const n = parseInt(exp, 16)
-  if (Number.isNaN(n)) return '#ffffff'
-  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
-  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  return lum > 0.62 ? '#0f172a' : '#ffffff'
-}
-
-const EMOJI_OPCOES = ['📅', '💼', '🏢', '🌟', '📌', '📞', '🤝', '💻', '🎓', '🛠️', '⚖️', '🏛️', '🏖️', '🎉', '📋', '🔔', '🚀', '👥', '💰', '📈', '🩺', '🍽️']
+const EMOJI_OPCOES =['📅', '💼', '🏢', '🌟', '📌', '📞', '🤝', '💻', '🎓', '🛠️', '⚖️', '🏛️', '🏖️', '🎉', '📋', '🔔', '🚀', '👥', '💰', '📈', '🩺', '🍽️']
 
 type GrupoModelo = { uid: string; nome: string; cor: string; icone: string; incluiParticulares: boolean; tiposIds: string[] }
 
@@ -80,10 +67,13 @@ function SortableGrupoCard({ grupo, tiposModelo, onPatch, onRemove }: {
             return (
               <button key={t.id} type="button"
                 onClick={() => onPatch({ tiposIds: on ? grupo.tiposIds.filter(id => id !== t.id) : [...grupo.tiposIds, t.id] })}
-                className={cn('text-[11px] px-2 py-0.5 rounded-full border font-medium transition-colors', !on && 'bg-card hover:bg-muted')}
-                style={on
-                  ? { backgroundColor: t.cor, borderColor: t.cor, color: contrastText(t.cor) }
-                  : { borderColor: t.cor, color: t.cor }}>
+                className={cn(
+                  'inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full border transition-colors',
+                  on
+                    ? 'bg-foreground/10 dark:bg-foreground/15 border-foreground/20 text-foreground font-medium'
+                    : 'bg-transparent border-border text-muted-foreground hover:bg-muted/60',
+                )}>
+                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: t.cor }} />
                 {t.nome}
               </button>
             )
