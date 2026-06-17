@@ -438,32 +438,45 @@ export class AgendaEmailTemplateService {
     .em-chip { background:rgba(255,255,255,.07) !important; color:#cbd5e1 !important; border-color:rgba(255,255,255,.12) !important; }
     .em-creator { border-top-color:rgba(255,255,255,.07) !important; color:#64748b !important; }
   }
+  /* MOBILE/ANDROID: força a paleta CLARA nos dois modos (vence o prefers-dark acima
+     por vir depois) + compacta a coluna de hora. */
   @media only screen and (max-width:480px) {
-    .em-evtime { width:46px !important; padding:12px 4px 12px 8px !important; }
-    .em-evtimev { font-size:13px !important; }
-    .em-evtimev2 { font-size:10px !important; }
+    .em-page { background:#f1f5f9 !important; }
+    .em-card { background:#ffffff !important; }
+    .em-pad { background:#ffffff !important; padding:18px 14px 22px !important; }
+    .em-logobar { background:#ffffff !important; }
+    .em-sectitle { color:#0f172a !important; }
+    .em-count { background:#e2e8f0 !important; color:#475569 !important; }
+    .em-evborder { background-color:#cbd5e1 !important; }
+    .em-evcard { background:#ffffff !important; }
+    .em-evtime { background:#f8fafc !important; border-right-color:#f1f5f9 !important; width:46px !important; padding:12px 4px 12px 8px !important; }
+    .em-evtimev { color:#0f172a !important; font-size:13px !important; }
+    .em-evtimev2 { color:#94a3b8 !important; font-size:10px !important; }
     .em-evbody { padding:12px 12px !important; }
-    .em-evtitle { font-size:14px !important; line-height:1.25 !important; }
-    .em-pad { padding:18px 14px 22px !important; }
+    .em-evtitle { color:#0f172a !important; font-size:14px !important; line-height:1.25 !important; }
+    .em-meta { color:#64748b !important; }
+    .em-evlabel { color:#475569 !important; }
+    .em-evlabelwrap { border-top-color:#e2e8f0 !important; }
+    .em-chip { background:#f1f5f9 !important; color:#475569 !important; border-color:#e2e8f0 !important; }
+    .em-creator { border-top-color:#f1f5f9 !important; color:#94a3b8 !important; }
   }
-  /* Gmail app (Android/iOS): ignora prefers-color-scheme e injeta data-ogsc (texto)
-     / data-ogsb (fundo) ao aplicar o dark theme dele. Forçamos a paleta escura
-     coerente nos dois formatos (elemento marcado e ancestral marcado). */
-  [data-ogsb].em-page, [data-ogsc] .em-page { background:#0b1220 !important; }
-  [data-ogsb].em-card, [data-ogsc] .em-card { background:#0f172a !important; }
-  [data-ogsb].em-pad, [data-ogsc] .em-pad { background:#0f172a !important; }
+  /* Gmail app/web: injeta data-ogsc (texto)/data-ogsb (fundo) ao aplicar o dark theme
+     próprio. Aqui RESTAURAMOS a paleta CLARA (desfaz o escurecimento do Gmail). */
+  [data-ogsb].em-page, [data-ogsc] .em-page { background:#f1f5f9 !important; }
+  [data-ogsb].em-card, [data-ogsc] .em-card { background:#ffffff !important; }
+  [data-ogsb].em-pad, [data-ogsc] .em-pad { background:#ffffff !important; }
   [data-ogsb].em-logobar, [data-ogsc] .em-logobar { background:#ffffff !important; }
-  [data-ogsc].em-sectitle, [data-ogsc] .em-sectitle { color:#f1f5f9 !important; }
-  [data-ogsb].em-count, [data-ogsc] .em-count { background:#334155 !important; color:#e2e8f0 !important; }
-  [data-ogsb].em-evborder, [data-ogsc] .em-evborder { background:#334155 !important; }
-  [data-ogsb].em-evcard, [data-ogsc] .em-evcard { background:#1e293b !important; }
-  [data-ogsb].em-evtime, [data-ogsc] .em-evtime { background:#0f172a !important; }
-  [data-ogsc].em-evtimev, [data-ogsc] .em-evtimev { color:#f1f5f9 !important; }
+  [data-ogsc].em-sectitle, [data-ogsc] .em-sectitle { color:#0f172a !important; }
+  [data-ogsb].em-count, [data-ogsc] .em-count { background:#e2e8f0 !important; color:#475569 !important; }
+  [data-ogsb].em-evborder, [data-ogsc] .em-evborder { background:#cbd5e1 !important; }
+  [data-ogsb].em-evcard, [data-ogsc] .em-evcard { background:#ffffff !important; }
+  [data-ogsb].em-evtime, [data-ogsc] .em-evtime { background:#f8fafc !important; }
+  [data-ogsc].em-evtimev, [data-ogsc] .em-evtimev { color:#0f172a !important; }
   [data-ogsc].em-evtimev2, [data-ogsc] .em-evtimev2 { color:#94a3b8 !important; }
-  [data-ogsc].em-evtitle, [data-ogsc] .em-evtitle { color:#f8fafc !important; }
-  [data-ogsc].em-meta, [data-ogsc] .em-meta { color:#94a3b8 !important; }
-  [data-ogsc].em-evlabel, [data-ogsc] .em-evlabel { color:#cbd5e1 !important; }
-  [data-ogsb].em-chip, [data-ogsc] .em-chip { background:#334155 !important; color:#e2e8f0 !important; }
+  [data-ogsc].em-evtitle, [data-ogsc] .em-evtitle { color:#0f172a !important; }
+  [data-ogsc].em-meta, [data-ogsc] .em-meta { color:#64748b !important; }
+  [data-ogsc].em-evlabel, [data-ogsc] .em-evlabel { color:#475569 !important; }
+  [data-ogsb].em-chip, [data-ogsc] .em-chip { background:#f1f5f9 !important; color:#475569 !important; }
   [data-ogsc].em-creator, [data-ogsc] .em-creator { color:#94a3b8 !important; }`
 
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>${responsiveCss}</style></head>
