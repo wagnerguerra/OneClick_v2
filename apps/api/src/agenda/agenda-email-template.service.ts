@@ -110,9 +110,9 @@ function tplDefaults(): Omit<EmailTemplate, 'id' | 'empresaId'> {
 }
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] || c))
-// Texto livre de sala só é exibido se tiver letra — descarta ids legados puramente
-// numéricos (ex.: "1") que não são nome de sala. O nome real vem do salaRef.
-const salaTexto = (s: unknown) => { const t = String(s ?? '').trim(); return /[^\d]/.test(t) ? t : '' }
+// Exibição da sala a partir do texto livre. O nome real vem do salaRef (prioridade);
+// quando só há o valor legado puramente numérico (ex.: "1"), rotula como "Sala 1".
+const salaTexto = (s: unknown) => { const t = String(s ?? '').trim(); if (!t) return ''; return /^\d+$/.test(t) ? `Sala ${t}` : t }
 const escAttr = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c))
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const h = String(hex || '').replace('#', '')

@@ -100,9 +100,9 @@ interface AgendaEvento {
   } | null
 }
 
-// Texto livre de sala só vale se tiver letra — descarta ids legados puramente
-// numéricos (ex.: "1") do sistema v1, que não são nome de sala.
-const salaTexto = (s?: string | null) => { const t = (s ?? '').trim(); return /[^\d]/.test(t) ? t : '' }
+// Exibição da sala a partir do texto livre. Nome real vem do vínculo; quando só há
+// o valor legado puramente numérico (ex.: "1"), rotula como "Sala 1".
+const salaTexto = (s?: string | null) => { const t = (s ?? '').trim(); if (!t) return ''; return /^\d+$/.test(t) ? `Sala ${t}` : t }
 
 interface OportunidadeBusca {
   id: string
