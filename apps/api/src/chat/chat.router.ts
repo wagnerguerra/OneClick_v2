@@ -79,6 +79,10 @@ export function createChatRouter(service: ChatService) {
       }))
       .mutation(({ input, ctx }) => service.setStatus(ctx.userId!, input.status)),
 
+    // === Anuncia presença ao entrar/recarregar (broadcast pros outros) ===
+    announceOnline: protectedProcedure
+      .mutation(({ ctx }) => service.announceOnline(ctx.userId!)),
+
     // === Editar / Deletar ===
     editarMensagem: protectedProcedure
       .input(z.object({ mensagemId: z.string(), conteudo: z.string().min(1).max(4000) }))

@@ -296,6 +296,9 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
     // Esperar a mutation resolver garante consistência na primeira carga.
     ;(async () => {
       try { await (trpc.presence as any).ping.mutate() } catch { /* ignora */ }
+      // Anuncia que voltei (login/reload) — faz os OUTROS refazerem a lista na hora,
+      // em vez de esperar o poll de 30s deles (resolve "não aparece online por padrão").
+      ;(trpc.chat as any).announceOnline.mutate().catch(() => { /* ignora */ })
       loadConversas()
       loadOnline()
     })()

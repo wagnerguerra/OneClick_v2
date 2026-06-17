@@ -533,6 +533,30 @@ export class ChatService {
     return { ok: true }
   }
 
+  /**
+   * Anuncia que o user ENTROU/voltou (login, reload, reconectar). Marca atividade
+   * agora e emite `status-mudou` pros outros refazerem a lista — sem isso, ao
+   * recarregar a página o `goOffline` (pagehide) avisa os outros que você saiu,
+   * mas nada avisa que você voltou, e você só reaparece no poll de 30s deles.
+   * Respeita `invisible`: getOnline() continua escondendo quem está invisível.
+   */
+  async announceOnline(userId: string) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { lastActivityAt: new Date() },
+    }).catch(() => { /* user pode ter sido removido */ })
+    const others = await prisma.user.findMany({
+      where: { isActive: true, id: { not: userId } },
+      select: { id: true },
+    })
+    this.events.emit('status-mudou', {
+      usuarioId: userId,
+      status: 'online',
+      destinatarios: others.map(o => o.id),
+    } as never)
+    return { ok: true }
+  }
+
   // ============================================================
   // Helpers
   // ============================================================
