@@ -110,6 +110,9 @@ function tplDefaults(): Omit<EmailTemplate, 'id' | 'empresaId'> {
 }
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] || c))
+// Texto livre de sala só é exibido se tiver letra — descarta ids legados puramente
+// numéricos (ex.: "1") que não são nome de sala. O nome real vem do salaRef.
+const salaTexto = (s: unknown) => { const t = String(s ?? '').trim(); return /[^\d]/.test(t) ? t : '' }
 const escAttr = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c))
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const h = String(hex || '').replace('#', '')
@@ -276,7 +279,7 @@ export class AgendaEmailTemplateService {
       const cor = ev.tipo?.cor || template.accent
       const modalidadeLabel = ev.presenca === 'ONLINE' ? 'Online' : ev.presenca === 'HIBRIDO' ? 'Híbrido' : 'Presencial'
       const modalidadeIcon = ev.presenca === 'ONLINE' ? '💻' : ev.presenca === 'HIBRIDO' ? '🔄' : '🏢'
-      const local = ev.salaRef?.nome || ev.sala || ev.local || ''
+      const local = ev.salaRef?.nome || salaTexto(ev.sala) || ev.local || ''
       const textoNaPill = contrastarTexto(cor)
       const corEscura = escurecer(cor, 0.25)
       const nomes = ((ev.participantes ?? []) as Array<{ usuario?: { name: string } | null; nomeAvulso?: string | null }>)
@@ -298,7 +301,7 @@ export class AgendaEmailTemplateService {
         ? `<div class="em-meta" style="margin-top:8px;font-size:11px;color:#64748b"><strong style="color:#475569">📇 Contato:</strong> ${esc(ev.contato)}</div>` : ''
 
       // ── Logística (reunião interna): sala, equipamentos, garagem, preparação ──
-      const salaNome = ev.salaRef?.nome || ev.sala || ''
+      const salaNome = ev.salaRef?.nome || salaTexto(ev.sala) || ''
       const vagasTxt = ev.vagas ? ` · ${ev.vagas} vaga${ev.vagas > 1 ? 's' : ''}` : ''
       const salaHtml = salaNome ? `<span class="em-meta" style="font-size:11px;color:#64748b">🚪 ${esc(salaNome)}</span>` : ''
       const equipamentosHtml = ev.equipamentos
@@ -351,7 +354,7 @@ export class AgendaEmailTemplateService {
     const buildVars = (ev: any) => {
       const { cor, frags } = fragmentosDoEvento(ev)
       const horario = ev.diaInteiro ? 'Dia inteiro' : [ev.horaInicio, ev.horaFim].filter(Boolean).join(' — ') || ev.horaInicio || ''
-      const local = ev.salaRef?.nome || ev.sala || ev.local || ''
+      const local = ev.salaRef?.nome || salaTexto(ev.sala) || ev.local || ''
       const modalidade = ev.presenca === 'ONLINE' ? 'Online' : ev.presenca === 'HIBRIDO' ? 'Híbrido' : 'Presencial'
       const nomes = ((ev.participantes ?? []) as Array<{ usuario?: { name: string } | null; nomeAvulso?: string | null }>)
         .map(p => p.usuario?.name ?? p.nomeAvulso).filter(Boolean) as string[]
@@ -360,7 +363,7 @@ export class AgendaEmailTemplateService {
         evento: {
           titulo: esc(ev.titulo), horario: esc(horario), horaInicio: esc(ev.horaInicio ?? ''), horaFim: esc(ev.horaFim ?? ''),
           data: ev.data ? esc(this.formatDateBrFromAny(ev.data)) : '',
-          local: esc(local), sala: esc(ev.salaRef?.nome || ev.sala || ''), contato: esc(ev.contato ?? ''),
+          local: esc(local), sala: esc(ev.salaRef?.nome || salaTexto(ev.sala) || ''), contato: esc(ev.contato ?? ''),
           link: esc(ev.link ?? ''), presenca: esc(ev.presenca ?? ''), modalidade: esc(modalidade),
           tipoNome: esc(ev.tipo?.nome ?? ''), tipoCor: cor, criador: esc(ev.criador?.name ?? ''),
           descricao: ev.descricao ? String(ev.descricao) : '',

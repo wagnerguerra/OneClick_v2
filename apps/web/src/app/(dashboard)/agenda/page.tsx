@@ -100,6 +100,10 @@ interface AgendaEvento {
   } | null
 }
 
+// Texto livre de sala só vale se tiver letra — descarta ids legados puramente
+// numéricos (ex.: "1") do sistema v1, que não são nome de sala.
+const salaTexto = (s?: string | null) => { const t = (s ?? '').trim(); return /[^\d]/.test(t) ? t : '' }
+
 interface OportunidadeBusca {
   id: string
   titulo: string
@@ -1875,10 +1879,10 @@ export default function AgendaPage() {
                                             <span>{horaLinha}</span>
                                           </div>
                                         )}
-                                        {(ev.sala || ev.local) && (
+                                        {(salaTexto(ev.sala) || ev.local) && (
                                           <div className="flex items-center gap-1.5 text-[11px]">
                                             <MapPin className="h-3 w-3 shrink-0 opacity-70" />
-                                            <span className="truncate">{ev.sala || ev.local}</span>
+                                            <span className="truncate">{salaTexto(ev.sala) || ev.local}</span>
                                           </div>
                                         )}
                                         {nomes.length > 0 && (
@@ -2009,7 +2013,7 @@ export default function AgendaPage() {
                 : ev.horaInicio
                   ? `${ev.horaInicio}${ev.horaFim ? ` — ${ev.horaFim}` : ''}`
                   : 'Sem horário'
-              const localSala = ev.sala || ev.local
+              const localSala = salaTexto(ev.sala) || ev.local
               const presencaDef = PRESENCA_LABELS[ev.presenca]
               const PresencaIcon = presencaDef?.icon ?? Building2
               return (
@@ -2258,10 +2262,10 @@ export default function AgendaPage() {
                         <span className="text-foreground">{presencaDef?.label ?? ev.presenca}</span>
                       </FieldRow>
 
-                      {(ev.local || ev.sala) && (
+                      {(ev.local || salaTexto(ev.sala)) && (
                         <FieldRow icon={MapPin} label="Local / Sala">
                           <span className="text-foreground">
-                            {[ev.sala, ev.local].filter(Boolean).join(' · ')}
+                            {[salaTexto(ev.sala), ev.local].filter(Boolean).join(' · ')}
                           </span>
                         </FieldRow>
                       )}
@@ -2328,7 +2332,7 @@ export default function AgendaPage() {
 
                       {/* Descrição do evento — abaixo dos detalhes (não é aba) */}
                       {ev.descricao && (
-                        <div className="rounded-lg border-l-4 bg-muted/30 px-4 py-3" style={{ borderLeftColor: corTipo }}>
+                        <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
                           <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Descrição</div>
                           <div
                             className="text-sm prose prose-sm dark:prose-invert max-w-none [&_*]:text-sm [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-sky-600"
