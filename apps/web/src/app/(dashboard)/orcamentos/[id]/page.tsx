@@ -23,6 +23,7 @@ import {
 import { cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { OrcamentosLegadoSection } from '@/components/orcamento/orcamentos-legado-section'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -2408,6 +2409,8 @@ export default function OrcamentoDetailPage() {
 
           {/* === TAB: HISTORICO (outros orcamentos + eventos) === */}
           <TabsContent value="historico" className="mt-0 space-y-5">
+            {/* Histórico do sistema legado (só leitura) */}
+            <OrcamentosLegadoSection clienteId={orc.cliente?.id} />
             {historicoCliente.length > 0 && (
               <Card>
                 <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">

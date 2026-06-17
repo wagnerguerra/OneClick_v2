@@ -18,6 +18,11 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ id: z.string() }))
       .query(({ input, ctx }) => orcamentoService.getById(input.id, { userId: ctx.userId, isMaster: ctx.isMaster })),
 
+    // Histórico do legado (só leitura) por cliente — exibido no detalhe do orçamento e no cliente
+    legadoPorCliente: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => orcamentoService.listLegadoPorCliente(input.clienteId)),
+
     create: writeProcedure(MODULE)
       .input(createOrcamentoSchema)
       .mutation(({ input, ctx }) => orcamentoService.create(input, ctx.userId, ctx.empresaId)),

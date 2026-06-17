@@ -2761,4 +2761,34 @@ export class OrcamentoService {
 
     return { verificados: orcs.length, notificados }
   }
+
+  // ============================================================
+  // Histórico do LEGADO (orcamento_legado*) — SÓ leitura. NÃO são orçamentos
+  // válidos: ficam em tabelas separadas e só aparecem como histórico no detalhe
+  // do orçamento atual e no cadastro do cliente. Lido via SQL raw (client local
+  // pode estar desatualizado pelo lock de DLL; tabelas existem no schema/prod).
+  // ============================================================
+  async listLegadoPorCliente(clienteId: string) {
+    if (!clienteId) return []
+    const orcs = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id, legacy_id AS "legacyId", numero, status, tipo, contato, contato_email AS "contatoEmail",
+              validade_dias AS "validadeDias", desconto, valor_desconto AS "valorDesconto", valor_total AS "valorTotal",
+              descricao, decisao_tipo AS "decisaoTipo", decisao_nome AS "decisaoNome", decisao_obs AS "decisaoObs",
+              decisao_em AS "decisaoEm", csat_obs AS "csatObs",
+              dt_novo AS "dtNovo", dt_enviado AS "dtEnviado", dt_aprovado AS "dtAprovado", dt_liberado AS "dtLiberado",
+              dt_finalizado AS "dtFinalizado", dt_encerrado AS "dtEncerrado", dt_cancelado AS "dtCancelado"
+         FROM orcamento_legado WHERE cliente_id = $1 ORDER BY numero DESC`, clienteId,
+    ).catch(() => [] as any[])
+    if (orcs.length === 0) return []
+    const ids = orcs.map(o => o.id)
+    const inList = ids.map((_, i) => `$${i + 1}`).join(',')
+    const [itens, msgs, evs] = await Promise.all([
+      prisma.$queryRawUnsafe<any[]>(`SELECT orcamento_id AS "orcamentoId", descricao, tipo, quantidade, valor_unitario AS "valorUnitario" FROM orcamento_legado_item WHERE orcamento_id IN (${inList}) ORDER BY ordem ASC`, ...ids).catch(() => [] as any[]),
+      prisma.$queryRawUnsafe<any[]>(`SELECT orcamento_id AS "orcamentoId", conteudo, data FROM orcamento_legado_mensagem WHERE orcamento_id IN (${inList}) ORDER BY data ASC`, ...ids).catch(() => [] as any[]),
+      prisma.$queryRawUnsafe<any[]>(`SELECT orcamento_id AS "orcamentoId", evento, data FROM orcamento_legado_evento WHERE orcamento_id IN (${inList}) ORDER BY data ASC`, ...ids).catch(() => [] as any[]),
+    ])
+    const by = (arr: any[]) => { const m = new Map<string, any[]>(); for (const x of arr) { const k = x.orcamentoId as string; if (!m.has(k)) m.set(k, []); m.get(k)!.push(x) } return m }
+    const mi = by(itens), mm = by(msgs), me = by(evs)
+    return orcs.map(o => ({ ...o, itens: mi.get(o.id) || [], mensagens: mm.get(o.id) || [], eventos: me.get(o.id) || [] }))
+  }
 }

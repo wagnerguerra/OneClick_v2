@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { trpc } from '@/lib/trpc'
 import { ClienteForm } from '../_components/cliente-form'
+import { OrcamentosLegadoSection } from '@/components/orcamento/orcamentos-legado-section'
 
 export default function EditClientePage() {
   const params = useParams<{ id: string }>()
@@ -43,10 +44,14 @@ export default function EditClientePage() {
   )
 
   return (
-    <ClienteForm
-      mode="edit"
-      clienteId={params.id}
-      defaultValues={defaultValues as Parameters<typeof ClienteForm>[0]['defaultValues']}
-    />
+    <div className="space-y-5">
+      <ClienteForm
+        mode="edit"
+        clienteId={params.id}
+        defaultValues={defaultValues as Parameters<typeof ClienteForm>[0]['defaultValues']}
+      />
+      {/* Histórico de orçamentos do sistema legado (só leitura) */}
+      <OrcamentosLegadoSection clienteId={params.id} />
+    </div>
   )
 }
