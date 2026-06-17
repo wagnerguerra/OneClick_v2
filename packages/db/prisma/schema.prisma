@@ -4855,11 +4855,15 @@ model HelpdeskMensagem {
   conteudo          String    @db.Text // HTML
   interna           Boolean   @default(false) // true = nota privada (só agentes), não notifica solicitante
   editadoEm         DateTime? @map("editado_em")
+  // Resposta a uma mensagem específica do ticket (estilo "responder/citar")
+  respostaParaId    String?   @map("resposta_para_id")
   createdAt         DateTime  @default(now()) @map("created_at")
 
   ticket HelpdeskTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   autor  User?           @relation(fields: [autorId], references: [id], onDelete: SetNull)
   anexos HelpdeskAnexo[]
+  respostaPara HelpdeskMensagem?  @relation("HelpdeskMensagemResposta", fields: [respostaParaId], references: [id], onDelete: SetNull)
+  respostas    HelpdeskMensagem[] @relation("HelpdeskMensagemResposta")
 
   @@index([ticketId])
   @@map("helpdesk_mensagens")

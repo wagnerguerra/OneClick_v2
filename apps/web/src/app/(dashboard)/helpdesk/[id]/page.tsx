@@ -8,7 +8,7 @@ import {
   Eye, Star, Save, Tag, Building2, Download, ExternalLink, Image as ImageIcon,
   FileVideo, FileAudio, File as FileIcon, FileSpreadsheet,
   MoreVertical, Pencil, Trash2, Bot, ThumbsUp, ThumbsDown,
-  Terminal, Copy, Zap, FileCheck,
+  Terminal, Copy, Zap, FileCheck, Reply, X,
 } from 'lucide-react'
 import {
   Button, Card, CardContent, Badge, Label, cn, RichEditor, Input,
@@ -42,6 +42,8 @@ interface Mensagem {
   editadoEm?: string | null
   autor: { id: string; name: string; image: string | null } | null
   anexos?: Anexo[]
+  respostaParaId?: string | null
+  respostaPara?: { id: string; conteudo: string; interna: boolean; autorNome: string | null } | null
 }
 
 interface Evento {
@@ -137,6 +139,8 @@ export default function HelpdeskTicketDetailPage() {
   const [novaMsg, setNovaMsg] = useState('')
   const [interna, setInterna] = useState(false)
   const [enviando, setEnviando] = useState(false)
+  // Respondendo a uma mensagem específica (citar)
+  const [respondendoA, setRespondendoA] = useState<Mensagem | null>(null)
   const [msgAnexos, setMsgAnexos] = useState<AnexoStaged[]>([])
   // Edição de mensagem — autor pode editar enquanto ticket não estiver CANCELADO
   const [editingMsg, setEditingMsg] = useState<Mensagem | null>(null)
@@ -303,7 +307,9 @@ export default function HelpdeskTicketDetailPage() {
         ticketId: id,
         conteudo: conteudo || '<p>(anexo)</p>',
         interna,
+        respostaParaId: respondendoA?.id ?? undefined,
       })
+      setRespondendoA(null)
       // Grava anexos vinculados à mensagem
       const prontos = msgAnexos.filter(a => a.status === 'ready' && a.fileUrl)
       for (const a of prontos) {
@@ -1157,8 +1163,16 @@ export default function HelpdeskTicketDetailPage() {
                         {msg.editadoEm && (
                           <span className="text-muted-foreground italic">(editada)</span>
                         )}
-                        {podeEditar && (
-                          <div className="ml-auto">
+                        <div className="ml-auto flex items-center gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => { setRespondendoA(msg); document.getElementById('helpdesk-composer')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }}
+                            className="inline-flex items-center gap-1 p-1 px-1.5 rounded hover:bg-muted text-muted-foreground"
+                            title="Responder esta mensagem"
+                          >
+                            <Reply className="h-3.5 w-3.5" /> Responder
+                          </button>
+                          {podeEditar && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <button
@@ -1186,9 +1200,16 @@ export default function HelpdeskTicketDetailPage() {
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
+                      {/* Mensagem citada (resposta a) */}
+                      {msg.respostaPara && (
+                        <div className="mb-2 border-l-2 border-cyan-400 bg-muted/40 rounded-r px-2.5 py-1.5 text-xs">
+                          <p className="font-semibold text-muted-foreground mb-0.5">↩ {msg.respostaPara.autorNome || 'Mensagem'}</p>
+                          <div className="text-muted-foreground line-clamp-2 [&_*]:inline [&_p]:m-0" dangerouslySetInnerHTML={{ __html: msg.respostaPara.conteudo }} />
+                        </div>
+                      )}
                       <div
                         className="text-sm whitespace-pre-wrap"
                         dangerouslySetInnerHTML={{ __html: linkifyHelpdesk(msg.conteudo) }}
@@ -1227,8 +1248,18 @@ export default function HelpdeskTicketDetailPage() {
               })}
 
               {/* Composer */}
-              <Card>
+              <Card id="helpdesk-composer">
                 <CardContent className="p-3 space-y-2">
+                  {/* Respondendo a uma mensagem específica */}
+                  {respondendoA && (
+                    <div className="flex items-start gap-2 border-l-2 border-cyan-400 bg-muted/40 rounded-r px-2.5 py-1.5 text-xs">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-muted-foreground mb-0.5">↩ Respondendo a {respondendoA.autor?.name || 'mensagem'}</p>
+                        <div className="text-muted-foreground line-clamp-2 [&_*]:inline [&_p]:m-0" dangerouslySetInnerHTML={{ __html: respondendoA.conteudo }} />
+                      </div>
+                      <button type="button" onClick={() => setRespondendoA(null)} className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground" title="Cancelar resposta"><X className="h-3.5 w-3.5" /></button>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"

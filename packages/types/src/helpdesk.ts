@@ -110,6 +110,7 @@ export const addMensagemSchema = z.object({
   ticketId: z.string(),
   conteudo: z.string().min(1, 'Mensagem vazia'),
   interna: z.boolean().default(false),
+  respostaParaId: z.string().optional().nullable(),
 })
 export type AddMensagemInput = z.infer<typeof addMensagemSchema>
 

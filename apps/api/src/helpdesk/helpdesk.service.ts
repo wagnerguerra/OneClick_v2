@@ -354,7 +354,30 @@ export class HelpdeskService {
         },
       },
     })
-    return ticket
+    if (!ticket) return ticket
+
+    // Resposta-a-mensagem (citar) — lido via SQL raw e mesclado nas mensagens.
+    type RespRow = { id: string; respostaParaId: string | null; rConteudo: string | null; rInterna: boolean | null; rAutorNome: string | null; rAutorExternoNome: string | null }
+    const respRows = await prisma.$queryRawUnsafe<RespRow[]>(
+      `SELECT m.id, m.resposta_para_id AS "respostaParaId", r.conteudo AS "rConteudo", r.interna AS "rInterna",
+              ru.name AS "rAutorNome", r.autor_externo_nome AS "rAutorExternoNome"
+         FROM helpdesk_mensagens m
+         LEFT JOIN helpdesk_mensagens r ON r.id = m.resposta_para_id
+         LEFT JOIN users ru ON ru.id = r.autor_id
+        WHERE m.ticket_id = $1 AND m.resposta_para_id IS NOT NULL`, id,
+    ).catch(() => [] as RespRow[])
+    const respMap = new Map(respRows.map(r => [r.id, r]))
+    const mensagens = ticket.mensagens.map(m => {
+      const r = respMap.get(m.id)
+      return {
+        ...m,
+        respostaParaId: r?.respostaParaId ?? null,
+        respostaPara: r?.respostaParaId
+          ? { id: r.respostaParaId, conteudo: r.rConteudo ?? '', interna: !!r.rInterna, autorNome: r.rAutorNome || r.rAutorExternoNome || null }
+          : null,
+      }
+    })
+    return { ...ticket, mensagens }
   }
 
   /** Listagem do agente (kanban e tabela). Escopo definido por sub-permissões. */
@@ -840,6 +863,15 @@ export class HelpdeskService {
         interna: input.interna,
       },
     })
+
+    // Resposta a uma mensagem específica (citar) — via SQL raw (client local pode
+    // estar desatualizado pelo lock de DLL; coluna existe no schema/prod).
+    if (input.respostaParaId) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE helpdesk_mensagens SET resposta_para_id = $2 WHERE id = $1 AND EXISTS (SELECT 1 FROM helpdesk_mensagens p WHERE p.id = $2 AND p.ticket_id = $3)`,
+        msg.id, input.respostaParaId, input.ticketId,
+      ).catch(() => { /* coluna ausente ainda */ })
+    }
 
     await this.addEvento(
       input.ticketId,
