@@ -281,27 +281,27 @@ export class AgendaEmailTemplateService {
 
       const pillCategoria = `<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;background:${cor};color:${textoNaPill};border:1px solid ${corEscura};box-shadow:0 1px 2px rgba(15,23,42,0.08)">${esc(ev.tipo?.nome ?? '')}</span>`
       const participantesHtml = nomes.length > 0
-        ? `<div class="em-evlabelwrap" style="margin-top:12px;padding-top:10px;border-top:1px dashed #e2e8f0">
-             <div class="em-evlabel" style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">👥 Participantes</div>
-             <div style="line-height:1.9">${nomes.map(n => `<span class="em-chip" style="display:inline-block;padding:2px 9px;margin:0 4px 4px 0;border-radius:999px;background:#f1f5f9;color:#475569;font-size:11px;font-weight:500;border:1px solid #e2e8f0">${esc(n)}</span>`).join('')}</div>
+        ? `<div class="em-evlabelwrap" style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(255,255,255,0.12)">
+             <div class="em-evlabel" style="font-size:10px;font-weight:700;color:#cbd5e1;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">👥 Participantes</div>
+             <div style="line-height:1.9">${nomes.map(n => `<span class="em-chip" style="display:inline-block;padding:2px 9px;margin:0 4px 4px 0;border-radius:999px;background:#334155;color:#e2e8f0;font-size:11px;font-weight:500;border:1px solid #475569">${esc(n)}</span>`).join('')}</div>
            </div>` : ''
       const linkHtml = ev.link
-        ? `<div class="em-meta" style="margin-top:10px;font-size:11px;color:#64748b"><strong style="color:#475569">🔗 Link:</strong> <a href="${escAttr(ev.link)}" style="color:${template.accent};text-decoration:none;word-break:break-all">${esc(ev.link)}</a></div>` : ''
+        ? `<div class="em-meta" style="margin-top:10px;font-size:11px;color:#94a3b8"><strong style="color:#cbd5e1">🔗 Link:</strong> <a href="${escAttr(ev.link)}" style="color:#7dd3fc;text-decoration:none;word-break:break-all">${esc(ev.link)}</a></div>` : ''
       const criadorHtml = ev.criador?.name
-        ? `<div class="em-creator" style="margin-top:12px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Agendado por ${esc(ev.criador.name)}</div>` : ''
+        ? `<div class="em-creator" style="margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Agendado por ${esc(ev.criador.name)}</div>` : ''
       const descricaoHtml = ev.descricao
-        ? `<div class="em-meta" style="margin-top:10px;font-size:12px;color:#475569;line-height:1.5">${String(ev.descricao)}</div>` : ''
+        ? `<div class="em-meta" style="margin-top:10px;font-size:12px;color:#cbd5e1;line-height:1.5">${String(ev.descricao)}</div>` : ''
       const contatoHtml = ev.contato
-        ? `<div class="em-meta" style="margin-top:8px;font-size:11px;color:#64748b"><strong style="color:#475569">📇 Contato:</strong> ${esc(ev.contato)}</div>` : ''
+        ? `<div class="em-meta" style="margin-top:8px;font-size:11px;color:#94a3b8"><strong style="color:#cbd5e1">📇 Contato:</strong> ${esc(ev.contato)}</div>` : ''
 
       return {
         cor,
         frags: {
-          titulo: `<div class="em-evtitle" style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;line-height:1.3">${esc(ev.titulo)}</div>`,
+          titulo: `<div class="em-evtitle" style="font-size:15px;font-weight:700;color:#f8fafc;margin-bottom:6px;line-height:1.3">${esc(ev.titulo)}</div>`,
           categoria: pillCategoria,
-          modalidade: `<span class="em-meta" style="font-size:11px;color:#64748b">${modalidadeIcon} ${modalidadeLabel}</span>`,
-          local: local ? `<span class="em-meta" style="font-size:11px;color:#64748b">📍 ${esc(local)}</span>` : '',
-          data: ev.data ? `<span class="em-meta" style="font-size:11px;color:#64748b">📅 ${esc(this.formatDateBrFromAny(ev.data))}</span>` : '',
+          modalidade: `<span class="em-meta" style="font-size:11px;color:#94a3b8">${modalidadeIcon} ${modalidadeLabel}</span>`,
+          local: local ? `<span class="em-meta" style="font-size:11px;color:#94a3b8">📍 ${esc(local)}</span>` : '',
+          data: ev.data ? `<span class="em-meta" style="font-size:11px;color:#94a3b8">📅 ${esc(this.formatDateBrFromAny(ev.data))}</span>` : '',
           link: linkHtml,
           participantes: participantesHtml,
           criador: criadorHtml,
@@ -341,8 +341,8 @@ export class AgendaEmailTemplateService {
       const { cor, frags } = fragmentosDoEvento(ev)
       const horarioBlock = ev.diaInteiro
         ? `<span class="em-evtimev" style="font-weight:700;color:${cor}">Dia inteiro</span>`
-        : `<div class="em-evtimev" style="font-weight:700;font-size:14px;color:#0f172a;line-height:1.1">${esc(ev.horaInicio ?? '')}</div>
-           <div class="em-evtimev2" style="font-weight:500;font-size:11px;color:#94a3b8;line-height:1;margin-top:2px">${esc(ev.horaFim ?? '')}</div>`
+        : `<div class="em-evtimev" style="font-weight:700;font-size:14px;color:#f1f5f9;line-height:1.1">${esc(ev.horaInicio ?? '')}</div>
+           <div class="em-evtimev2" style="font-weight:500;font-size:11px;color:#64748b;line-height:1;margin-top:2px">${esc(ev.horaFim ?? '')}</div>`
 
       const partes: string[] = []
       let inlineBuf: string[] = []
@@ -358,11 +358,11 @@ export class AgendaEmailTemplateService {
 
       return `
 <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 14px">
-  <tr><td class="em-evborder" bgcolor="#cbd5e1" style="background-color:#cbd5e1;padding:1px;border-radius:10px">
-    <table cellpadding="0" cellspacing="0" border="0" width="100%" class="em-evcard" style="background:#ffffff;border-radius:9px;overflow:hidden">
+  <tr><td class="em-evborder" bgcolor="#334155" style="background-color:#334155;padding:1px;border-radius:10px">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" class="em-evcard" style="background:#1e293b;border-radius:9px;overflow:hidden">
       <tr>
         <td width="4" bgcolor="${cor}" style="background-color:${cor};width:4px;padding:0;line-height:0;font-size:0">&nbsp;</td>
-        <td width="68" valign="middle" class="em-evtime" style="padding:14px 10px 14px 14px;text-align:center;border-right:1px solid #f1f5f9;vertical-align:middle;background:#f8fafc">
+        <td width="68" valign="middle" class="em-evtime" style="padding:14px 10px 14px 14px;text-align:center;border-right:1px solid rgba(255,255,255,0.07);vertical-align:middle;background:#0f172a">
           ${horarioBlock}
         </td>
         <td valign="top" class="em-evbody" style="padding:14px 16px;vertical-align:top">
@@ -384,8 +384,8 @@ export class AgendaEmailTemplateService {
       <table cellpadding="0" cellspacing="0" border="0" style="margin:22px 0 12px">
         <tr>
           <td valign="middle" style="padding-right:10px;font-size:16px;line-height:1">${s.icone}</td>
-          <td valign="middle" class="em-sectitle" style="padding-right:10px;font-size:13px;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:0.8px;line-height:1">${esc(s.nome)}</td>
-          <td valign="middle"><span class="em-count" style="display:inline-block;background:#e2e8f0;color:#475569;font-size:10px;padding:2px 9px;border-radius:999px;font-weight:700;line-height:1.4">${s.items.length}</span></td>
+          <td valign="middle" class="em-sectitle" style="padding-right:10px;font-size:13px;font-weight:700;color:#f1f5f9;text-transform:uppercase;letter-spacing:0.8px;line-height:1">${esc(s.nome)}</td>
+          <td valign="middle"><span class="em-count" style="display:inline-block;background:#334155;color:#e2e8f0;font-size:10px;padding:2px 9px;border-radius:999px;font-weight:700;line-height:1.4">${s.items.length}</span></td>
         </tr>
       </table>
       ${s.items.map(renderCard).join('')}`
@@ -415,29 +415,11 @@ export class AgendaEmailTemplateService {
     // Largura máxima do corpo (px), configurável — clamp defensivo.
     const larguraMax = Math.min(1000, Math.max(440, Number(template.larguraMax) || 600))
 
-    // CSS responsivo: dark mode (legibilidade no celular) + mobile (coluna de hora
-    // mais estreita). Só afeta clientes que suportam <style>/media queries — desktop
-    // e claro permanecem idênticos.
+    // Plano B: tema ESCURO FIXO embutido nos estilos inline — o e-mail já nasce escuro,
+    // então nenhum cliente precisa convertê-lo (o Gmail só escurece e-mails claros).
+    // color-scheme:dark reforça pro cliente não aplicar transformação. As regras abaixo
+    // são só: mobile (coluna de hora) + reforço pro dark theme do Gmail app (data-ogsc/ogsb).
     const responsiveCss = `
-  @media (prefers-color-scheme: dark) {
-    .em-page { background:#0b1220 !important; }
-    .em-card { background:#0f172a !important; }
-    .em-pad { background:#0f172a !important; }
-    .em-logobar { background:#ffffff !important; }  /* logo sempre sobre fundo claro */
-    .em-sectitle { color:#f1f5f9 !important; }
-    .em-count { background:rgba(255,255,255,.10) !important; color:#cbd5e1 !important; }
-    .em-evborder { background-color:#334155 !important; }
-    .em-evcard { background:#1e293b !important; }
-    .em-evtime { background:#0f172a !important; border-right-color:rgba(255,255,255,.07) !important; }
-    .em-evtimev { color:#f1f5f9 !important; }
-    .em-evtimev2 { color:#64748b !important; }
-    .em-evtitle { color:#f8fafc !important; }
-    .em-meta { color:#94a3b8 !important; }
-    .em-evlabel { color:#cbd5e1 !important; }
-    .em-evlabelwrap { border-top-color:rgba(255,255,255,.10) !important; }
-    .em-chip { background:rgba(255,255,255,.07) !important; color:#cbd5e1 !important; border-color:rgba(255,255,255,.12) !important; }
-    .em-creator { border-top-color:rgba(255,255,255,.07) !important; color:#64748b !important; }
-  }
   @media only screen and (max-width:480px) {
     .em-evtime { width:46px !important; padding:12px 4px 12px 8px !important; }
     .em-evtimev { font-size:13px !important; }
@@ -450,8 +432,8 @@ export class AgendaEmailTemplateService {
      / data-ogsb (fundo) ao aplicar o dark theme dele. Forçamos a paleta escura
      coerente nos dois formatos (elemento marcado e ancestral marcado). */
   [data-ogsb].em-page, [data-ogsc] .em-page { background:#0b1220 !important; }
-  [data-ogsb].em-card, [data-ogsc] .em-card { background:#0f172a !important; }
-  [data-ogsb].em-pad, [data-ogsc] .em-pad { background:#0f172a !important; }
+  [data-ogsb].em-card, [data-ogsc] .em-card { background:#111827 !important; }
+  [data-ogsb].em-pad, [data-ogsc] .em-pad { background:#111827 !important; }
   [data-ogsb].em-logobar, [data-ogsc] .em-logobar { background:#ffffff !important; }
   [data-ogsc].em-sectitle, [data-ogsc] .em-sectitle { color:#f1f5f9 !important; }
   [data-ogsb].em-count, [data-ogsc] .em-count { background:#334155 !important; color:#e2e8f0 !important; }
@@ -466,13 +448,13 @@ export class AgendaEmailTemplateService {
   [data-ogsb].em-chip, [data-ogsc] .em-chip { background:#334155 !important; color:#e2e8f0 !important; }
   [data-ogsc].em-creator, [data-ogsc] .em-creator { color:#94a3b8 !important; }`
 
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>${responsiveCss}</style></head>
-<body class="em-page" style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0" class="em-page" style="background:#f1f5f9;padding:24px 0"><tr><td align="center" style="padding:0 12px">
-<table width="${larguraMax}" cellpadding="0" cellspacing="0" class="em-card" style="max-width:${larguraMax}px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06)">
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark"><style>${responsiveCss}</style></head>
+<body class="em-page" style="margin:0;padding:0;background:#0b1220;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" class="em-page" style="background:#0b1220;padding:24px 0"><tr><td align="center" style="padding:0 12px">
+<table width="${larguraMax}" cellpadding="0" cellspacing="0" class="em-card" style="max-width:${larguraMax}px;width:100%;background:#111827;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.4)">
   ${logoBar}
   <tr><td style="padding:0">${header}</td></tr>
-  <tr><td class="em-pad" style="padding:22px 28px 26px">
+  <tr><td class="em-pad" style="padding:22px 28px 26px;background:#111827">
     ${corpoSecoes}
     ${footer}
   </td></tr>
