@@ -29,12 +29,15 @@ const EMOJI_OPCOES =['📅', '💼', '🏢', '🌟', '📌', '📞', '🤝', '�
 type GrupoModelo = { uid: string; nome: string; cor: string; icone: string; incluiParticulares: boolean; tiposIds: string[] }
 
 // Card de grupo arrastável (dnd-kit sortable) — usado no editor do modelo de e-mail.
-function SortableGrupoCard({ grupo, tiposModelo, onPatch, onRemove }: {
+function SortableGrupoCard({ grupo, tiposModelo, tiposEmOutrosGrupos, onPatch, onRemove }: {
   grupo: GrupoModelo
   tiposModelo: Array<{ id: string; nome: string; cor: string }>
+  tiposEmOutrosGrupos: string[]
   onPatch: (patch: Partial<GrupoModelo>) => void
   onRemove: () => void
 }) {
+  // Cada tipo pertence a no máximo um grupo: os usados por OUTROS grupos saem da lista.
+  const disponiveis = tiposModelo.filter(t => !tiposEmOutrosGrupos.includes(t.id))
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: grupo.uid })
   const [emojiOpen, setEmojiOpen] = useState(false)
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1, zIndex: isDragging ? 10 : undefined }
@@ -62,7 +65,7 @@ function SortableGrupoCard({ grupo, tiposModelo, onPatch, onRemove }: {
       <div className="space-y-1">
         <p className="text-[11px] font-medium text-muted-foreground">Tipos de evento deste grupo:</p>
         <div className="flex flex-wrap gap-1">
-          {tiposModelo.map(t => {
+          {disponiveis.map(t => {
             const on = grupo.tiposIds.includes(t.id)
             return (
               <button key={t.id} type="button"
@@ -79,6 +82,7 @@ function SortableGrupoCard({ grupo, tiposModelo, onPatch, onRemove }: {
             )
           })}
           {tiposModelo.length === 0 && <span className="text-[10px] text-muted-foreground italic">Nenhum tipo cadastrado.</span>}
+          {tiposModelo.length > 0 && disponiveis.length === 0 && <span className="text-[10px] text-muted-foreground italic">Todos os tipos já estão em outros grupos.</span>}
         </div>
       </div>
     </div>
@@ -1126,6 +1130,7 @@ export default function AgendaConfiguracoesPage() {
                                 key={g.uid}
                                 grupo={g}
                                 tiposModelo={tiposModelo}
+                                tiposEmOutrosGrupos={grupos.filter((_, i) => i !== idx).flatMap(x => x.tiposIds)}
                                 onPatch={patch => setGrupos(gs => gs.map((x, i) => i === idx ? { ...x, ...patch } : x))}
                                 onRemove={() => setGrupos(gs => gs.filter((_, i) => i !== idx))}
                               />
