@@ -55,7 +55,9 @@ export function NotesRail() {
     catch { setNotas([]) }
     finally { setLoading(false) }
   }, [])
-  useEffect(() => { if (open) void load() }, [load, open])
+  // Carrega na montagem (pro badge de contagem aparecer mesmo com o painel fechado)
+  // e recarrega ao abrir o painel.
+  useEffect(() => { void load() }, [load, open])
 
   async function criar() {
     if (!novoTitulo.trim() && !novoConteudo.trim()) { setComporAberto(false); return }
