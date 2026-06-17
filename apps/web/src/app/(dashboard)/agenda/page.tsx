@@ -2121,7 +2121,7 @@ export default function AgendaPage() {
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={resolveAssetUrl(p.image)} alt={p.nome} className="h-6 w-6 rounded-full object-cover shrink-0" />
                             ) : (
-                              <span className="h-6 w-6 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+                              <span className="h-6 w-6 rounded-full bg-sky-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
                                 {p.nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
                               </span>
                             )}
@@ -2209,7 +2209,7 @@ export default function AgendaPage() {
               }
               return (
                 <div className="space-y-5">
-                <div className={cn('grid gap-5 lg:h-[62vh]', op ? 'grid-cols-1 lg:grid-cols-[1fr_340px]' : 'grid-cols-1')}>
+                <div className={cn('grid gap-5 lg:h-[72vh]', op ? 'grid-cols-1 lg:grid-cols-[1fr_340px]' : 'grid-cols-1')}>
                   {/* ============ COLUNA ESQUERDA (principal) ============ */}
                   <div className="min-w-0 flex flex-col lg:min-h-0">
                     {/* Cabeçalho: título em destaque + badge do tipo + criado por */}
@@ -2347,7 +2347,7 @@ export default function AgendaPage() {
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img src={resolveAssetUrl(p.usuario.image)} alt={nome} className="h-5 w-5 rounded-full object-cover shrink-0" />
                                   ) : (
-                                    <span className="h-5 w-5 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+                                    <span className="h-5 w-5 rounded-full bg-sky-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
                                       {iniciais}
                                     </span>
                                   )}
@@ -2460,13 +2460,13 @@ export default function AgendaPage() {
                             )}
                           </div>
 
-                          {/* Detalhes em mini-tabela */}
-                          <div className="space-y-2 text-[12px]">
+                          {/* Detalhes em mini-tabela — container com borda igual aos campos do evento */}
+                          <div className="rounded-lg border border-border overflow-hidden divide-y divide-border text-[12px] [&>div]:px-3 [&>div]:py-2">
                             {op.responsavel && (
                               <div className="flex items-center justify-between gap-2">
                                 <span className="text-muted-foreground shrink-0">Responsável</span>
                                 <span className="inline-flex items-center gap-1.5 text-foreground font-medium truncate">
-                                  <span className="h-5 w-5 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+                                  <span className="h-5 w-5 rounded-full bg-violet-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
                                     {op.responsavel.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
                                   </span>
                                   <span className="truncate">{op.responsavel.name}</span>
