@@ -58,6 +58,9 @@ const DEFAULT_HEADER = `<table cellpadding="0" cellspacing="0" border="0" width=
   </td></tr>
 </table>`
 const DEFAULT_INTRO = `<p style="margin:0 0 8px;font-size:14px;color:#334155">Olá {{usuario.name}}, você tem <strong>{{totalEventos}}</strong> compromisso(s) hoje:</p>`
+// Cabeçalho default ANTIGO (h1 simples) — usado só pra migração automática p/ o hero.
+const OLD_DEFAULT_HEADER = `<h1 style="margin:0;font-size:20px;color:#0f172a">Agenda do dia</h1>
+<p style="margin:4px 0 0;font-size:13px;color:#64748b">{{diaSemana}}, {{dataDisplay}}</p>`
 const DEFAULT_FOOTER = `<p style="margin:16px 0 0;font-size:11px;color:#94a3b8">Enviado automaticamente pela Agenda Corporativa.</p>`
 const DEFAULT_SEM_EVENTOS = `<p style="font-size:13px;color:#94a3b8;font-style:italic">Nenhum compromisso para hoje.</p>`
 
@@ -156,6 +159,11 @@ export class AgendaEmailTemplateService {
         d.eventoLinhaHtml, d.semEventosHtml, d.mostrarOutros, d.nomeGrupoOutros, d.nomeGrupoParticulares, d.corParticulares, d.logoUrl, d.larguraMax, d.cardModo, d.cardElementos,
       )
       template = { id, empresaId: empresaId ?? null, ...d }
+    }
+    // Migração: cabeçalho default ANTIGO (h1 simples) → hero novo, uma vez só.
+    if ((template.headerHtml || '').trim() === OLD_DEFAULT_HEADER.trim()) {
+      await prisma.$executeRawUnsafe(`UPDATE agenda_email_template SET header_html = $2, updated_at = now() WHERE id = $1`, template.id, DEFAULT_HEADER)
+      template.headerHtml = DEFAULT_HEADER
     }
     const grupos = (await prisma.$queryRawUnsafe(
       `SELECT id, nome, cor, icone, ordem, inclui_particulares AS "incluiParticulares", tipos_ids AS "tiposIds"
