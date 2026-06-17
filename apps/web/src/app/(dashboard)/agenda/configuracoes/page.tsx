@@ -192,7 +192,7 @@ export default function AgendaConfiguracoesPage() {
 
   // ── Modelo de e-mail configurável ──
   type EmailTpl = {
-    id: string; ativo: boolean; assunto: string; accent: string; logoUrl: string
+    id: string; ativo: boolean; assunto: string; accent: string; larguraMax: number; logoUrl: string
     headerHtml: string; introHtml: string; footerHtml: string; eventoLinhaHtml: string; semEventosHtml: string
     mostrarOutros: boolean; nomeGrupoOutros: string; nomeGrupoParticulares: string; corParticulares: string
   }
@@ -1064,6 +1064,23 @@ export default function AgendaConfiguracoesPage() {
                     <div className="grid grid-cols-3 gap-3">
                       <div className="col-span-2 space-y-1.5"><Label className="text-[13px] font-semibold">Assunto</Label><Input className="h-9 text-sm" value={tpl.assunto} onChange={e => setTplField('assunto', e.target.value)} /></div>
                       <div className="space-y-1.5"><Label className="text-[13px] font-semibold">Cor de destaque</Label><Input type="color" className="h-9 w-full p-1" value={tpl.accent} onChange={e => setTplField('accent', e.target.value)} /></div>
+                    </div>
+
+                    {/* Largura máxima do e-mail */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[13px] font-semibold">Largura do e-mail</Label>
+                        <span className="text-xs font-mono text-muted-foreground">{tpl.larguraMax}px</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <input type="range" min={440} max={1000} step={20} value={tpl.larguraMax}
+                          onChange={e => setTplField('larguraMax', Number(e.target.value))}
+                          className="flex-1 accent-[var(--mod-administrativo,#38bdf8)] cursor-pointer" />
+                        <Input type="number" min={440} max={1000} step={20} value={tpl.larguraMax}
+                          onChange={e => setTplField('larguraMax', Math.min(1000, Math.max(440, Number(e.target.value) || 600)))}
+                          className="h-9 w-24 text-sm" />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">Largura máxima do corpo (440–1000px). Em telas menores o e-mail se adapta automaticamente.</p>
                     </div>
 
                     {/* Logomarca do topo */}

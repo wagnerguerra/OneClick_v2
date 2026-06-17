@@ -12,6 +12,7 @@ export interface EmailTemplate {
   ativo: boolean
   assunto: string
   accent: string
+  larguraMax: number
   logoUrl: string
   headerHtml: string
   introHtml: string
@@ -53,6 +54,7 @@ function tplDefaults(): Omit<EmailTemplate, 'id' | 'empresaId'> {
     ativo: false,
     assunto: 'Agenda do dia · {{dataDisplay}}',
     accent: '#38bdf8',
+    larguraMax: 600,
     logoUrl: '',
     headerHtml: DEFAULT_HEADER,
     introHtml: DEFAULT_INTRO,
@@ -102,7 +104,7 @@ export class AgendaEmailTemplateService {
   // ── CRUD ──
   async getTemplate(empresaId?: string | null): Promise<{ template: EmailTemplate; grupos: EmailGrupo[] }> {
     const rows = (await prisma.$queryRawUnsafe(
-      `SELECT id, empresa_id AS "empresaId", ativo, assunto, accent, logo_url AS "logoUrl",
+      `SELECT id, empresa_id AS "empresaId", ativo, assunto, accent, largura_max AS "larguraMax", logo_url AS "logoUrl",
               header_html AS "headerHtml", intro_html AS "introHtml", footer_html AS "footerHtml",
               evento_linha_html AS "eventoLinhaHtml", sem_eventos_html AS "semEventosHtml",
               mostrar_outros AS "mostrarOutros", nome_grupo_outros AS "nomeGrupoOutros",
@@ -114,10 +116,10 @@ export class AgendaEmailTemplateService {
     if (!template) {
       const id = randomUUID(); const d = tplDefaults()
       await prisma.$executeRawUnsafe(
-        `INSERT INTO agenda_email_template (id, empresa_id, ativo, assunto, accent, header_html, intro_html, footer_html, evento_linha_html, sem_eventos_html, mostrar_outros, nome_grupo_outros, nome_grupo_particulares, cor_particulares, logo_url, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, now(), now())`,
+        `INSERT INTO agenda_email_template (id, empresa_id, ativo, assunto, accent, header_html, intro_html, footer_html, evento_linha_html, sem_eventos_html, mostrar_outros, nome_grupo_outros, nome_grupo_particulares, cor_particulares, logo_url, largura_max, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, now(), now())`,
         id, empresaId ?? null, d.ativo, d.assunto, d.accent, d.headerHtml, d.introHtml, d.footerHtml,
-        d.eventoLinhaHtml, d.semEventosHtml, d.mostrarOutros, d.nomeGrupoOutros, d.nomeGrupoParticulares, d.corParticulares, d.logoUrl,
+        d.eventoLinhaHtml, d.semEventosHtml, d.mostrarOutros, d.nomeGrupoOutros, d.nomeGrupoParticulares, d.corParticulares, d.logoUrl, d.larguraMax,
       )
       template = { id, empresaId: empresaId ?? null, ...d }
     }
@@ -136,14 +138,14 @@ export class AgendaEmailTemplateService {
          evento_linha_html = COALESCE($8, evento_linha_html), sem_eventos_html = COALESCE($9, sem_eventos_html),
          mostrar_outros = COALESCE($10, mostrar_outros), nome_grupo_outros = COALESCE($11, nome_grupo_outros),
          nome_grupo_particulares = COALESCE($12, nome_grupo_particulares), cor_particulares = COALESCE($13, cor_particulares),
-         logo_url = COALESCE($14, logo_url),
+         logo_url = COALESCE($14, logo_url), largura_max = COALESCE($15, largura_max),
          updated_at = now()
        WHERE id = $1`,
       template.id, patch.ativo ?? null, patch.assunto ?? null, patch.accent ?? null,
       patch.headerHtml ?? null, patch.introHtml ?? null, patch.footerHtml ?? null,
       patch.eventoLinhaHtml ?? null, patch.semEventosHtml ?? null, patch.mostrarOutros ?? null,
       patch.nomeGrupoOutros ?? null, patch.nomeGrupoParticulares ?? null, patch.corParticulares ?? null,
-      patch.logoUrl ?? null,
+      patch.logoUrl ?? null, patch.larguraMax ?? null,
     )
     return { id: template.id }
   }
@@ -285,10 +287,13 @@ export class AgendaEmailTemplateService {
       : (ctx.temLogo ? 'cid:logo' : '')
     const logoHtml = logoSrc ? `<div style="text-align:center;padding:6px 0 18px"><img src="${logoSrc}" alt="logo" style="max-height:54px;max-width:240px" /></div>` : ''
 
+    // Largura máxima do corpo (px), configurável — clamp defensivo.
+    const larguraMax = Math.min(1000, Math.max(440, Number(template.larguraMax) || 600))
+
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 0"><tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06)">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 0"><tr><td align="center" style="padding:0 12px">
+<table width="${larguraMax}" cellpadding="0" cellspacing="0" style="max-width:${larguraMax}px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06)">
   <tr><td style="height:4px;background:${template.accent}"></td></tr>
   <tr><td style="padding:22px 28px 26px">
     ${logoHtml}

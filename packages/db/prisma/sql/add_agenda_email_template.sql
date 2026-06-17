@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS agenda_email_grupos (
 CREATE INDEX IF NOT EXISTS agenda_email_grupos_template_idx ON agenda_email_grupos (template_id);
 
 ALTER TABLE agenda_email_template ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT '';
+ALTER TABLE agenda_email_template ADD COLUMN IF NOT EXISTS largura_max integer NOT NULL DEFAULT 600;
 ALTER TABLE agenda_email_grupos ADD COLUMN IF NOT EXISTS icone text NOT NULL DEFAULT '';
 
 DO $$ BEGIN

@@ -349,6 +349,7 @@ export function createAgendaRouter(
           ativo: z.boolean().optional(),
           assunto: z.string().optional(),
           accent: z.string().optional(),
+          larguraMax: z.number().int().min(440).max(1000).optional(),
           headerHtml: z.string().optional(),
           introHtml: z.string().optional(),
           footerHtml: z.string().optional(),
