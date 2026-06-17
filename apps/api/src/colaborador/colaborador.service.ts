@@ -41,6 +41,9 @@ export class ColaboradorService {
           { name: { contains: search, mode: 'insensitive' as const } },
           { cpf: { contains: search } },
           { email: { contains: search, mode: 'insensitive' as const } },
+          // Busca também por cargo e área (qualquer registro das colunas)
+          { cargo: { name: { contains: search, mode: 'insensitive' as const } } },
+          { area: { name: { contains: search, mode: 'insensitive' as const } } },
         ],
       } : {}),
       ...(isActive !== undefined ? { isActive } : {}),
@@ -49,9 +52,15 @@ export class ColaboradorService {
       ...(cargoId ? { cargoId } : {}),
     }
 
-    // sortBy mapping (compat: nomeCompleto → name; fotoUrl → image)
+    // sortBy mapping (compat: nomeCompleto → name; fotoUrl → image) + ordenação por
+    // relação (cargo/area usam o nome da relação).
+    const dir = (sortDir === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc'
     const sortField = sortBy === 'nomeCompleto' ? 'name' : (sortBy === 'fotoUrl' ? 'image' : sortBy)
-    const orderBy = sortField ? { [sortField]: sortDir } : { name: 'asc' as const }
+    let orderBy: Prisma.UserOrderByWithRelationInput
+    if (sortField === 'cargo') orderBy = { cargo: { name: dir } }
+    else if (sortField === 'area') orderBy = { area: { name: dir } }
+    else if (sortField) orderBy = { [sortField]: dir } as Prisma.UserOrderByWithRelationInput
+    else orderBy = { name: 'asc' }
 
     const [data, total] = await Promise.all([
       prisma.user.findMany({

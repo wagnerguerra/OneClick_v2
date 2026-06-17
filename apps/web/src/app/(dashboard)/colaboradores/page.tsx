@@ -189,7 +189,7 @@ export default function ColaboradoresPage() {
             <span className="hidden sm:inline">registros</span>
           </div>
           <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar por nome, CPF ou e-mail..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar por nome, CPF, e-mail, cargo ou área..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
           </div>
         </div>
 
@@ -202,10 +202,26 @@ export default function ColaboradoresPage() {
                   Nome <SortIcon column="name" />
                 </button>
               </TableHead>
-              <TableHead className="hidden lg:table-cell w-[130px]">CPF</TableHead>
-              <TableHead className="hidden md:table-cell">Cargo</TableHead>
-              <TableHead className="hidden sm:table-cell">Área</TableHead>
-              <TableHead className="hidden xl:table-cell w-[110px]">Contrato</TableHead>
+              <TableHead className="hidden lg:table-cell w-[130px]">
+                <button onClick={() => toggleSort('cpf')} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                  CPF <SortIcon column="cpf" />
+                </button>
+              </TableHead>
+              <TableHead className="hidden md:table-cell">
+                <button onClick={() => toggleSort('cargo')} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                  Cargo <SortIcon column="cargo" />
+                </button>
+              </TableHead>
+              <TableHead className="hidden sm:table-cell">
+                <button onClick={() => toggleSort('area')} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                  Área <SortIcon column="area" />
+                </button>
+              </TableHead>
+              <TableHead className="hidden xl:table-cell w-[110px]">
+                <button onClick={() => toggleSort('tipoContrato')} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                  Contrato <SortIcon column="tipoContrato" />
+                </button>
+              </TableHead>
               <TableHead className="w-[90px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
