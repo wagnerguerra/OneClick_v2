@@ -86,6 +86,7 @@ const BLOCOS: BlocoMenu[] = [
   {
     titulo: 'Cadastros',
     itens: [
+      { label: 'Clientes', icon: 'business', route: 'clientes', modulo: 'clientes' },
       { label: 'Usuários', icon: 'people', route: 'usuarios', modulo: 'usuarios' },
       { label: 'Serviços', icon: 'briefcase', route: 'servicos', modulo: 'servicos' },
     ],
