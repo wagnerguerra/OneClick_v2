@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   ChevronLeft, ChevronRight, ChevronDown, Plus, Loader2, Calendar, Clock,
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
-  Repeat, Lock, History, Settings, Palette, Check, Download, DoorOpen,
+  Repeat, Lock, History, Settings, Palette, Check, DoorOpen,
   Bell, Mail, CheckSquare, Square, ListTodo, Search, Target, ArrowRight, Link2, ExternalLink,
   StickyNote, Paperclip, Send, Upload, FileBarChart,
 } from 'lucide-react'
@@ -276,7 +276,6 @@ export default function AgendaPage() {
   const agendaPerm = permissions.find(p => p.moduleSlug === 'agenda')
   const subPerms = (agendaPerm?.subPermissions ?? {}) as Record<string, boolean>
   const canManageTipos = isMaster || subPerms.manage_tipos === true
-  const canImportLegado = isMaster || subPerms.import_legado === true
   const canManageRecorrencia = isMaster || subPerms.manage_recorrencia === true
   // `manage_participantes` controla a edição avançada de participantes (em eventos
   // de outros usuários, por exemplo). O campo no formulário de criação fica
@@ -295,7 +294,7 @@ export default function AgendaPage() {
   const canVerRelatorios = isMaster || subPerms.ver_relatorios === true
   // Acesso ao módulo CRM — gateia o botão "Abrir no CRM" no painel da oportunidade.
   const canViewCrm = isMaster || permissions.some(p => p.moduleSlug === 'crm' && p.canRead)
-  const showSettingsDropdown = canManageTipos || canImportLegado || canManageConfig
+  const showSettingsDropdown = canManageTipos || canManageConfig
 
   const [year, setYear] = useState(() => new Date().getFullYear())
   const [month, setMonth] = useState(() => new Date().getMonth())
@@ -696,15 +695,6 @@ export default function AgendaPage() {
     id: string; acao: string; createdAt: string
     usuario: { id: string; name: string; image: string | null } | null
   }>>([])
-
-  // Importação legado
-  const [importModalOpen, setImportModalOpen] = useState(false)
-  const [importProgress, setImportProgress] = useState<{
-    status: string; total: number; current: number; importados: number; ignorados: number
-    erros: number; participantes: number; currentEvento: string
-    items: Array<{ nome: string; status: string; erro?: string }>
-  } | null>(null)
-  const importPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Modal de gerenciamento de tipos
   const [tiposModalOpen, setTiposModalOpen] = useState(false)
@@ -1468,30 +1458,6 @@ export default function AgendaPage() {
             {canManageTipos && (
             <DropdownMenuItem onClick={openTipoNew} className="text-xs gap-2 cursor-pointer">
               <Palette className="h-3.5 w-3.5" />Gerenciar Tipos
-            </DropdownMenuItem>
-            )}
-            {canImportLegado && (
-            <DropdownMenuItem className="text-xs gap-2 cursor-pointer" onClick={async () => {
-              const ok = await alerts.confirm({ title: 'Importar eventos do legado', text: 'Importar todos os eventos ativos do banco OneClick v1? Eventos já importados serão ignorados.', confirmText: 'Importar', icon: 'question' })
-              if (!ok) return
-              setImportModalOpen(true)
-              setImportProgress(null)
-              try {
-                await trpc.agenda.importEventosLegado.mutate({ apenasAtivos: true })
-                if (importPollRef.current) clearInterval(importPollRef.current)
-                importPollRef.current = setInterval(async () => {
-                  const p = await trpc.agenda.importProgress.query() as typeof importProgress
-                  setImportProgress(p)
-                  if (p?.status === 'done') {
-                    if (importPollRef.current) { clearInterval(importPollRef.current); importPollRef.current = null }
-                    fetchEventos()
-                  }
-                }, 1000)
-                const p0 = await trpc.agenda.importProgress.query() as typeof importProgress
-                setImportProgress(p0)
-              } catch (e) { alerts.error('Erro', (e as Error).message) }
-            }}>
-              <Download className="h-3.5 w-3.5" />Importar Eventos Legado
             </DropdownMenuItem>
             )}
             {canManageConfig && (
@@ -3363,91 +3329,6 @@ export default function AgendaPage() {
               </DialogFooter>
             )
           })()}
-        </DialogContent>
-      </Dialog>
-
-      {/* ============================================================ */}
-      {/* Modal importação legado — progresso */}
-      {/* ============================================================ */}
-      <Dialog open={importModalOpen} onOpenChange={open => { if (!open && importProgress?.status !== 'running') { setImportModalOpen(false); if (importPollRef.current) { clearInterval(importPollRef.current); importPollRef.current = null } } }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeaderIcon icon={History} color="sky">
-            <DialogTitle>Importação do Legado</DialogTitle>
-            <DialogDescription>
-              {importProgress?.status === 'running' ? 'Importando eventos...' : importProgress?.status === 'done' ? 'Importação concluída' : 'Iniciando...'}
-            </DialogDescription>
-          </DialogHeaderIcon>
-          <DialogBody>
-            {importProgress && (
-              <div className="space-y-4">
-                {/* Barra de progresso */}
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="text-muted-foreground">Progresso</span>
-                    <span className="font-medium">{importProgress.current} / {importProgress.total}</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-sky-500 transition-all duration-300"
-                      style={{ width: importProgress.total > 0 ? `${(importProgress.current / importProgress.total) * 100}%` : '0%' }}
-                    />
-                  </div>
-                </div>
-
-                {/* Evento atual */}
-                {importProgress.status === 'running' && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin shrink-0" />
-                    <span className="truncate">{importProgress.currentEvento}</span>
-                  </div>
-                )}
-
-                {/* Resumo */}
-                <div className="grid grid-cols-4 gap-2">
-                  <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-950/20 p-2 text-center">
-                    <p className="text-lg font-bold text-emerald-600">{importProgress.importados}</p>
-                    <p className="text-[10px] text-muted-foreground">Importados</p>
-                  </div>
-                  <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 p-2 text-center">
-                    <p className="text-lg font-bold text-amber-600">{importProgress.ignorados}</p>
-                    <p className="text-[10px] text-muted-foreground">Ignorados</p>
-                  </div>
-                  <div className="rounded-lg border bg-red-50 dark:bg-red-950/20 p-2 text-center">
-                    <p className="text-lg font-bold text-red-600">{importProgress.erros}</p>
-                    <p className="text-[10px] text-muted-foreground">Erros</p>
-                  </div>
-                  <div className="rounded-lg border bg-sky-50 dark:bg-sky-950/20 p-2 text-center">
-                    <p className="text-lg font-bold text-sky-600">{importProgress.participantes}</p>
-                    <p className="text-[10px] text-muted-foreground">Participantes</p>
-                  </div>
-                </div>
-
-                {/* Log de itens */}
-                <div className="max-h-[250px] overflow-y-auto space-y-0.5 border rounded-lg p-2">
-                  {importProgress.items.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-4">Aguardando...</p>
-                  ) : (
-                    [...importProgress.items].reverse().map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-2 text-[11px] py-0.5">
-                        {item.status === 'importado' && <Check className="h-3 w-3 text-emerald-500 shrink-0" />}
-                        {item.status === 'ignorado' && <span className="h-3 w-3 text-amber-400 shrink-0 text-center">—</span>}
-                        {item.status === 'erro' && <X className="h-3 w-3 text-red-500 shrink-0" />}
-                        <span className={cn('truncate', item.status === 'ignorado' && 'text-muted-foreground', item.status === 'erro' && 'text-red-600')}>
-                          {item.nome}
-                          {item.erro && <span className="ml-1 text-[10px] text-red-400">({item.erro})</span>}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </DialogBody>
-          {importProgress?.status === 'done' && (
-            <DialogFooter>
-              <Button variant="outline" size="sm" onClick={() => setImportModalOpen(false)}>Fechar</Button>
-            </DialogFooter>
-          )}
         </DialogContent>
       </Dialog>
 
