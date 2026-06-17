@@ -404,11 +404,22 @@ export class HelpdeskService {
     if (input.responsavelId) where.responsavelId = input.responsavelId
     if (input.search) {
       const q = input.search.trim()
-      where.OR = [
+      const digits = q.replace(/\D/g, '')
+      const or: any[] = [
         { titulo: { contains: q, mode: 'insensitive' } },
         { descricao: { contains: q, mode: 'insensitive' } },
         { tags: { has: q.toLowerCase() } },
+        // Solicitante (interno + externo) / responsável / categoria — como /crm e /orcamentos
+        { solicitante: { name: { contains: q, mode: 'insensitive' } } },
+        { solicitante: { email: { contains: q, mode: 'insensitive' } } },
+        { solicitanteExternoNome: { contains: q, mode: 'insensitive' } },
+        { solicitanteExternoEmail: { contains: q, mode: 'insensitive' } },
+        { responsavel: { name: { contains: q, mode: 'insensitive' } } },
+        { categoria: { nome: { contains: q, mode: 'insensitive' } } },
       ]
+      // Número do ticket (#HLP0075 / 0075 / 75)
+      if (digits) { const n = parseInt(digits, 10); if (!Number.isNaN(n)) or.push({ numero: { equals: n } }) }
+      where.OR = or
     }
 
     // Escopo (a menos que privilegiado)

@@ -157,10 +157,18 @@ export default function HelpdeskPage() {
         // Colaborador comum: vê APENAS os próprios tickets em formato lista
         const data = await (trpc.helpdesk as any).listMeus.query({ incluirHistorico: true })
         const q = (debouncedSearch || '').trim().toLowerCase()
+        const digits = q.replace(/\D/g, '')
         const filtered = (data || []).filter((t: Ticket) => {
           if (filtroPrioridade && t.prioridade !== filtroPrioridade) return false
           if (q) {
-            const hit = t.titulo.toLowerCase().includes(q)
+            const numFmt = `#hlp${String(t.numero).padStart(4, '0')}`
+            const hit =
+              t.titulo.toLowerCase().includes(q) ||
+              numFmt.includes(q) ||
+              (!!digits && String(t.numero).includes(digits)) ||
+              (t.categoria?.nome?.toLowerCase().includes(q) ?? false) ||
+              (t.responsavel?.name?.toLowerCase().includes(q) ?? false) ||
+              (t.solicitante?.name?.toLowerCase().includes(q) ?? false)
             if (!hit) return false
           }
           return true
