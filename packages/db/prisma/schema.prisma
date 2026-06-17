@@ -2674,6 +2674,9 @@ model Oportunidade {
   // Dados do lead/empresa (texto livre)
   cpfCnpj            String?   @map("cpf_cnpj")
   razaoSocial        String?   @map("razao_social")
+  nomeFantasia       String?   @map("nome_fantasia")
+  cnaeCodigo         String?   @map("cnae_codigo")   // CNAE principal (código), da consulta de CNPJ
+  cnaeDescricao      String?   @map("cnae_descricao") // atividade principal (descrição do CNAE)
   // Contato
   contatoNome        String?   @map("contato_nome")
   contatoCargo       String?   @map("contato_cargo")

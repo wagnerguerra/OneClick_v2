@@ -255,8 +255,15 @@ export class CrmService {
         ? await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, image: true } }).catch(() => [])
         : []
       const userMap = new Map(users.map(u => [u.id, u]))
+      // Campos novos (nome fantasia + CNAE) via SQL raw — client local pode estar stale.
+      const extras = await prisma.$queryRawUnsafe<Array<{ nomeFantasia: string | null; cnaeCodigo: string | null; cnaeDescricao: string | null }>>(
+        `SELECT nome_fantasia AS "nomeFantasia", cnae_codigo AS "cnaeCodigo", cnae_descricao AS "cnaeDescricao" FROM oportunidades WHERE id = $1`, id,
+      ).catch(() => [])
       return {
         ...op,
+        nomeFantasia: extras[0]?.nomeFantasia ?? null,
+        cnaeCodigo: extras[0]?.cnaeCodigo ?? null,
+        cnaeDescricao: extras[0]?.cnaeDescricao ?? null,
         responsavel: op.responsavelId ? userMap.get(op.responsavelId) || null : null,
         eventos: op.eventos.map(e => ({ ...e, user: e.userId ? userMap.get(e.userId) || null : null })),
         mensagens: op.mensagens.map(m => ({ ...m, user: m.userId ? userMap.get(m.userId) || null : null })),
@@ -387,6 +394,14 @@ export class CrmService {
       },
       include: { etapa: true },
     })
+    // Campos novos (nome fantasia + CNAE) via SQL raw — client Prisma local pode
+    // estar desatualizado (lock de DLL no Windows); colunas existem no schema/prod.
+    if (input.nomeFantasia || input.cnaeCodigo || input.cnaeDescricao) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE oportunidades SET nome_fantasia = $2, cnae_codigo = $3, cnae_descricao = $4 WHERE id = $1`,
+        oportunidade.id, input.nomeFantasia || null, input.cnaeCodigo || null, input.cnaeDescricao || null,
+      ).catch(() => { /* colunas ausentes em ambiente sem migração ainda */ })
+    }
     this.addEvento(oportunidade.id, userId, 'criacao', `Oportunidade "${input.titulo}" criada`)
     // Notifica destinatários da área Comercial (#HLP0075) — comportamento da v1
     // (Wagner + Giovana). Tira o próprio criador da lista pra não auto-notificar.
@@ -433,7 +448,17 @@ export class CrmService {
     if (input.isActive !== undefined) data.isActive = input.isActive
 
     const result = await prisma.oportunidade.update({ where: { id }, data, include: { etapa: true } })
-    const campos = Object.keys(data).join(', ')
+    // Campos novos (nome fantasia + CNAE) via SQL raw — só os que vieram no input.
+    const extrasCols: string[] = []
+    const extrasVals: unknown[] = [id]
+    if (input.nomeFantasia !== undefined) { extrasVals.push(input.nomeFantasia || null); extrasCols.push(`nome_fantasia = $${extrasVals.length}`) }
+    if (input.cnaeCodigo !== undefined) { extrasVals.push(input.cnaeCodigo || null); extrasCols.push(`cnae_codigo = $${extrasVals.length}`) }
+    if (input.cnaeDescricao !== undefined) { extrasVals.push(input.cnaeDescricao || null); extrasCols.push(`cnae_descricao = $${extrasVals.length}`) }
+    if (extrasCols.length > 0) {
+      await prisma.$executeRawUnsafe(`UPDATE oportunidades SET ${extrasCols.join(', ')} WHERE id = $1`, ...extrasVals)
+        .catch(() => { /* colunas ausentes ainda */ })
+    }
+    const campos = [...Object.keys(data), ...extrasCols.map(c => c.split(' ')[0])].join(', ')
     this.addEvento(id, userId, 'edicao', `Campos alterados: ${campos}`)
     return result
   }

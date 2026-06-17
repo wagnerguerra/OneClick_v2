@@ -139,7 +139,7 @@ export default function CrmPage() {
   // Create modal
   const [createOpen, setCreateOpen] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [form, setForm] = useState({ titulo: '', descricao: '', valor: '', etapaId: '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '' })
+  const [form, setForm] = useState({ titulo: '', descricao: '', valor: '', etapaId: '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '' })
   const [clientes, setClientes] = useState<ClienteSelect[]>([])
 
   // Detail modal
@@ -169,8 +169,11 @@ export default function CrmPage() {
       if (doc.length === 14) {
         const data = await (trpc.socio as any).consultarCnpj.query({ cnpj: doc }) as {
           razaoSocial?: string
+          nomeFantasia?: string | null
           email?: string | null
           telefone?: string | null
+          atividadePrincipal?: string | null
+          cnaePrincipalCodigo?: string | null
           qsa?: Array<{ nome: string; qualificacao?: string; codigoQualificacao?: number }>
         }
         // Heurística pra "nome do contato": prioriza Administrador → Titular →
@@ -183,6 +186,9 @@ export default function CrmPage() {
         setForm(f => ({
           ...f,
           razaoSocial: f.razaoSocial.trim() || data.razaoSocial || f.razaoSocial,
+          nomeFantasia: f.nomeFantasia.trim() || (data.nomeFantasia ?? '') || f.nomeFantasia,
+          cnaeCodigo: f.cnaeCodigo.trim() || (data.cnaePrincipalCodigo ?? '') || f.cnaeCodigo,
+          cnaeDescricao: f.cnaeDescricao.trim() || (data.atividadePrincipal ?? '') || f.cnaeDescricao,
           contatoEmail: f.contatoEmail.trim() || (data.email ?? '') || f.contatoEmail,
           contatoTelefone: f.contatoTelefone.trim() || (data.telefone ?? '') || f.contatoTelefone,
           contatoNome: f.contatoNome.trim() || (contatoSocio?.nome ?? '') || f.contatoNome,
@@ -457,7 +463,7 @@ export default function CrmPage() {
 
   // ── Create ──
   const openCreate = async () => {
-    setForm({ titulo: '', descricao: '', valor: '', etapaId: etapas[0]?.id || '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '' })
+    setForm({ titulo: '', descricao: '', valor: '', etapaId: etapas[0]?.id || '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '' })
     setCreateOpen(true)
     try {
       const c = await (trpc.cliente as any).listForSelect.query()
@@ -499,6 +505,9 @@ export default function CrmPage() {
         atividade: form.atividade || undefined,
         cpfCnpj: form.cpfCnpj.trim() || undefined,
         razaoSocial: form.razaoSocial.trim() || undefined,
+        nomeFantasia: form.nomeFantasia.trim() || undefined,
+        cnaeCodigo: form.cnaeCodigo.trim() || undefined,
+        cnaeDescricao: form.cnaeDescricao.trim() || undefined,
         contatoNome: form.contatoNome.trim() || undefined,
         contatoCargo: form.contatoCargo.trim() || undefined,
         contatoTelefone: form.contatoTelefone.trim() || undefined,
@@ -977,6 +986,22 @@ export default function CrmPage() {
                 <Input value={form.razaoSocial} onChange={e => setForm(f => ({ ...f, razaoSocial: e.target.value }))} placeholder="Nome da empresa ou cliente" className="h-9 text-sm" />
               </div>
             </div>
+            {/* Nome Fantasia (preenchido pela consulta de CNPJ; editável) */}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Nome Fantasia</label>
+              <Input value={form.nomeFantasia} onChange={e => setForm(f => ({ ...f, nomeFantasia: e.target.value }))} placeholder="Nome fantasia da empresa" className="h-9 text-sm" />
+            </div>
+            {/* CNAE principal + atividade da empresa (Receita Federal) */}
+            <div className="grid grid-cols-12 gap-3">
+              <div className="col-span-3">
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">CNAE principal</label>
+                <Input value={form.cnaeCodigo} onChange={e => setForm(f => ({ ...f, cnaeCodigo: e.target.value }))} placeholder="0000-0/00" className="h-9 text-sm" />
+              </div>
+              <div className="col-span-9">
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Atividade principal (CNAE)</label>
+                <Input value={form.cnaeDescricao} onChange={e => setForm(f => ({ ...f, cnaeDescricao: e.target.value }))} placeholder="Descrição da atividade econômica" className="h-9 text-sm" />
+              </div>
+            </div>
             {/* Atividade + Origem */}
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-6">
@@ -1374,6 +1399,9 @@ function DetailTab({ detail, etapas, clientes, onSave, onMove, saving, loadClien
   const [descricao, setDescricao] = useState(detail.descricao || '')
   const [cpfCnpj, setCpfCnpj] = useState((detail as any).cpfCnpj || '')
   const [razaoSocial, setRazaoSocial] = useState((detail as any).razaoSocial || '')
+  const [nomeFantasia, setNomeFantasia] = useState((detail as any).nomeFantasia || '')
+  const [cnaeCodigo, setCnaeCodigo] = useState((detail as any).cnaeCodigo || '')
+  const [cnaeDescricao, setCnaeDescricao] = useState((detail as any).cnaeDescricao || '')
   const [atividade, setAtividade] = useState((detail as any).atividade || '')
   const [origem, setOrigem] = useState(detail.origem || '')
   const [contatoNome, setContatoNome] = useState((detail as any).contatoNome || '')
@@ -1390,6 +1418,9 @@ function DetailTab({ detail, etapas, clientes, onSave, onMove, saving, loadClien
     setDescricao(detail.descricao || '')
     setCpfCnpj((detail as any).cpfCnpj || '')
     setRazaoSocial((detail as any).razaoSocial || '')
+    setNomeFantasia((detail as any).nomeFantasia || '')
+    setCnaeCodigo((detail as any).cnaeCodigo || '')
+    setCnaeDescricao((detail as any).cnaeDescricao || '')
     setAtividade((detail as any).atividade || '')
     setOrigem(detail.origem || '')
     setContatoNome((detail as any).contatoNome || '')
@@ -1406,6 +1437,9 @@ function DetailTab({ detail, etapas, clientes, onSave, onMove, saving, loadClien
       descricao: descricao.trim() || null,
       cpfCnpj: cpfCnpj.trim() || null,
       razaoSocial: razaoSocial.trim() || null,
+      nomeFantasia: nomeFantasia.trim() || null,
+      cnaeCodigo: cnaeCodigo.trim() || null,
+      cnaeDescricao: cnaeDescricao.trim() || null,
       atividade: atividade || null,
       origem: origem || null,
       contatoNome: contatoNome.trim() || null,
@@ -1464,6 +1498,23 @@ function DetailTab({ detail, etapas, clientes, onSave, onMove, saving, loadClien
         <div className="col-span-9">
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Empresa / Cliente *</label>
           <Input value={razaoSocial} onChange={e => { setRazaoSocial(e.target.value); markDirty() }} className="h-9 text-sm" />
+        </div>
+      </div>
+
+      {/* Nome Fantasia */}
+      <div>
+        <label className="text-xs font-medium text-muted-foreground mb-1 block">Nome Fantasia</label>
+        <Input value={nomeFantasia} onChange={e => { setNomeFantasia(e.target.value); markDirty() }} placeholder="Nome fantasia da empresa" className="h-9 text-sm" />
+      </div>
+      {/* CNAE principal + atividade da empresa (Receita Federal) */}
+      <div className="grid grid-cols-12 gap-3">
+        <div className="col-span-3">
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">CNAE principal</label>
+          <Input value={cnaeCodigo} onChange={e => { setCnaeCodigo(e.target.value); markDirty() }} placeholder="0000-0/00" className="h-9 text-sm" />
+        </div>
+        <div className="col-span-9">
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Atividade principal (CNAE)</label>
+          <Input value={cnaeDescricao} onChange={e => { setCnaeDescricao(e.target.value); markDirty() }} placeholder="Descrição da atividade econômica" className="h-9 text-sm" />
         </div>
       </div>
 
