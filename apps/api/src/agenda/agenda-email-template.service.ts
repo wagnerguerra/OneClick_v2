@@ -14,6 +14,7 @@ export interface EmailTemplate {
   accent: string
   larguraMax: number
   logoUrl: string
+  logoLargura: number
   headerHtml: string
   introHtml: string
   footerHtml: string
@@ -90,6 +91,7 @@ function tplDefaults(): Omit<EmailTemplate, 'id' | 'empresaId'> {
     accent: '#38bdf8',
     larguraMax: 600,
     logoUrl: '',
+    logoLargura: 0,
     headerHtml: DEFAULT_HEADER,
     introHtml: DEFAULT_INTRO,
     footerHtml: DEFAULT_FOOTER,
@@ -140,7 +142,7 @@ export class AgendaEmailTemplateService {
   // ── CRUD ──
   async getTemplate(empresaId?: string | null): Promise<{ template: EmailTemplate; grupos: EmailGrupo[] }> {
     const rows = (await prisma.$queryRawUnsafe(
-      `SELECT id, empresa_id AS "empresaId", ativo, assunto, accent, largura_max AS "larguraMax", logo_url AS "logoUrl",
+      `SELECT id, empresa_id AS "empresaId", ativo, assunto, accent, largura_max AS "larguraMax", logo_url AS "logoUrl", logo_largura AS "logoLargura",
               header_html AS "headerHtml", intro_html AS "introHtml", footer_html AS "footerHtml",
               evento_linha_html AS "eventoLinhaHtml", sem_eventos_html AS "semEventosHtml",
               card_modo AS "cardModo", card_elementos AS "cardElementos",
@@ -153,10 +155,10 @@ export class AgendaEmailTemplateService {
     if (!template) {
       const id = randomUUID(); const d = tplDefaults()
       await prisma.$executeRawUnsafe(
-        `INSERT INTO agenda_email_template (id, empresa_id, ativo, assunto, accent, header_html, intro_html, footer_html, evento_linha_html, sem_eventos_html, mostrar_outros, nome_grupo_outros, nome_grupo_particulares, cor_particulares, logo_url, largura_max, card_modo, card_elementos, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18, now(), now())`,
+        `INSERT INTO agenda_email_template (id, empresa_id, ativo, assunto, accent, header_html, intro_html, footer_html, evento_linha_html, sem_eventos_html, mostrar_outros, nome_grupo_outros, nome_grupo_particulares, cor_particulares, logo_url, largura_max, card_modo, card_elementos, logo_largura, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19, now(), now())`,
         id, empresaId ?? null, d.ativo, d.assunto, d.accent, d.headerHtml, d.introHtml, d.footerHtml,
-        d.eventoLinhaHtml, d.semEventosHtml, d.mostrarOutros, d.nomeGrupoOutros, d.nomeGrupoParticulares, d.corParticulares, d.logoUrl, d.larguraMax, d.cardModo, d.cardElementos,
+        d.eventoLinhaHtml, d.semEventosHtml, d.mostrarOutros, d.nomeGrupoOutros, d.nomeGrupoParticulares, d.corParticulares, d.logoUrl, d.larguraMax, d.cardModo, d.cardElementos, d.logoLargura,
       )
       template = { id, empresaId: empresaId ?? null, ...d }
     }
@@ -182,6 +184,7 @@ export class AgendaEmailTemplateService {
          nome_grupo_particulares = COALESCE($12, nome_grupo_particulares), cor_particulares = COALESCE($13, cor_particulares),
          logo_url = COALESCE($14, logo_url), largura_max = COALESCE($15, largura_max),
          card_modo = COALESCE($16, card_modo), card_elementos = COALESCE($17, card_elementos),
+         logo_largura = COALESCE($18, logo_largura),
          updated_at = now()
        WHERE id = $1`,
       template.id, patch.ativo ?? null, patch.assunto ?? null, patch.accent ?? null,
@@ -189,6 +192,7 @@ export class AgendaEmailTemplateService {
       patch.eventoLinhaHtml ?? null, patch.semEventosHtml ?? null, patch.mostrarOutros ?? null,
       patch.nomeGrupoOutros ?? null, patch.nomeGrupoParticulares ?? null, patch.corParticulares ?? null,
       patch.logoUrl ?? null, patch.larguraMax ?? null, patch.cardModo ?? null, patch.cardElementos ?? null,
+      patch.logoLargura ?? null,
     )
     return { id: template.id }
   }
@@ -396,10 +400,14 @@ export class AgendaEmailTemplateService {
     const logoSrc = template.logoUrl
       ? (template.logoUrl.startsWith('http') ? template.logoUrl : `${base}${template.logoUrl}`)
       : (ctx.temLogo ? 'cid:logo' : '')
-    // Faixa branca da logo no topo (acima do hero), bleed-to-edge. Logo no tamanho
-    // original (sem altura/largura fixas); max-width:100% só pra não estourar o corpo.
+    // Faixa branca da logo no topo (acima do hero), bleed-to-edge. Largura configurável
+    // (logoLargura px); 0 = tamanho original. max-width:100% evita estourar o corpo.
+    const logoW = Number(template.logoLargura) || 0
+    const logoStyle = logoW > 0
+      ? `width:${logoW}px;max-width:100%;height:auto`
+      : `max-width:100%;height:auto`
     const logoBar = logoSrc
-      ? `<tr><td align="center" style="padding:20px 28px;background:#ffffff;text-align:center"><img src="${logoSrc}" alt="logo" style="max-width:100%;height:auto;display:block;margin:0 auto;border:0" /></td></tr>`
+      ? `<tr><td align="center" style="padding:20px 28px;background:#ffffff;text-align:center"><img src="${logoSrc}" alt="logo" width="${logoW > 0 ? logoW : ''}" style="${logoStyle};display:block;margin:0 auto;border:0" /></td></tr>`
       : ''
 
     // Largura máxima do corpo (px), configurável — clamp defensivo.

@@ -2310,6 +2310,7 @@ model AgendaEmailTemplate {
   accent                 String   @default("#38bdf8")
   larguraMax             Int      @default(600) @map("largura_max") // largura máxima do corpo do e-mail (px)
   logoUrl                String   @default("") @map("logo_url") // logomarca do topo (URL do /api/upload)
+  logoLargura            Int      @default(0) @map("logo_largura") // largura da logo em px; 0 = tamanho original
   headerHtml             String   @default("") @map("header_html") @db.Text
   introHtml              String   @default("") @map("intro_html") @db.Text
   footerHtml             String   @default("") @map("footer_html") @db.Text

@@ -230,7 +230,7 @@ export default function AgendaConfiguracoesPage() {
 
   // ── Modelo de e-mail configurável ──
   type EmailTpl = {
-    id: string; ativo: boolean; assunto: string; accent: string; larguraMax: number; logoUrl: string
+    id: string; ativo: boolean; assunto: string; accent: string; larguraMax: number; logoUrl: string; logoLargura: number
     headerHtml: string; introHtml: string; footerHtml: string; eventoLinhaHtml: string; semEventosHtml: string
     cardModo: 'builder' | 'html'; cardElementos: string
     mostrarOutros: boolean; nomeGrupoOutros: string; nomeGrupoParticulares: string; corParticulares: string
@@ -1181,6 +1181,23 @@ export default function AgendaConfiguracoesPage() {
                         )}
                       </div>
                       <p className="text-[11px] text-muted-foreground">Exibida centralizada no topo do e-mail, antes do cabeçalho.</p>
+                      {tpl.logoUrl && (
+                        <div className="space-y-1.5 pt-1">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[12px] font-medium">Largura da logo</Label>
+                            <span className="text-xs font-mono text-muted-foreground">{tpl.logoLargura > 0 ? `${tpl.logoLargura}px` : 'original'}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <input type="range" min={0} max={600} step={10} value={tpl.logoLargura}
+                              onChange={e => setTplField('logoLargura', Number(e.target.value))}
+                              className="flex-1 accent-[var(--mod-administrativo,#38bdf8)] cursor-pointer" />
+                            <Input type="number" min={0} max={1000} step={10} value={tpl.logoLargura}
+                              onChange={e => setTplField('logoLargura', Math.min(1000, Math.max(0, Number(e.target.value) || 0)))}
+                              className="h-9 w-24 text-sm" />
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Largura da logo em px. <strong>0 = tamanho original</strong> da imagem enviada.</p>
+                        </div>
+                      )}
                     </div>
 
                     <div className="rounded-md border border-border bg-muted/30 p-2.5">
