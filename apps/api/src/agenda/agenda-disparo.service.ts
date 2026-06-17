@@ -166,6 +166,12 @@ export class AgendaDisparoService implements OnModuleInit {
     return this.toBrasilia(new Date())
   }
 
+  /** Saudação conforme a hora de Brasília (pro hero do modelo configurável). */
+  private saudacaoAgora(): string {
+    const h = this.getNowBrasilia().getHours()
+    return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'
+  }
+
   /**
    * Converte um Date UTC pra um Date "virtual" cujos getHours/getDay/etc.
    * retornam o equivalente em BR. Usa Intl.formatToParts pra evitar
@@ -315,7 +321,7 @@ export class AgendaDisparoService implements OnModuleInit {
     let html: string
     let subject = `Agenda do dia · ${dataDisplay}`
     if (tpl?.template.ativo) {
-      html = this.templateService.render(tpl.template, tpl.grupos, visiveis, { usuarioNome: user.name, dataDisplay, diaSemana, temLogo: !!LOGO_BUFFER })
+      html = this.templateService.render(tpl.template, tpl.grupos, visiveis, { usuarioNome: user.name, dataDisplay, diaSemana, temLogo: !!LOGO_BUFFER, saudacao: this.saudacaoAgora() })
       const s = this.templateService.renderAssunto(tpl.template, { dataDisplay, diaSemana })
       if (s) subject = s
     } else {
@@ -340,6 +346,7 @@ export class AgendaDisparoService implements OnModuleInit {
   getEmailTemplate() { return this.templateService.getTemplate(null) }
   saveEmailTemplate(patch: Record<string, unknown>) { return this.templateService.saveTemplate(null, patch) }
   cardHtmlPadrao() { return { html: this.templateService.defaultCardHtml() } }
+  cabecalhoPadrao() { return { html: this.templateService.defaultHeaderHtml() } }
   saveEmailGrupos(grupos: Array<{ nome: string; cor: string; icone?: string; incluiParticulares: boolean; tiposIds: string[] }>) {
     return this.templateService.saveGrupos(null, grupos.map((g, i) => ({ icone: '', ...g, ordem: i })))
   }
@@ -372,7 +379,7 @@ export class AgendaDisparoService implements OnModuleInit {
     const visiveis = eventos.filter(ev => !ev.particular || ev.criadorId === userId)
     const dataDisplay = this.formatDataBr(eventDate)
     const diaSemana = this.diaSemanaExt(eventDate)
-    const html = this.templateService.render(template, grupos, visiveis, { usuarioNome: user?.name ?? 'Você', dataDisplay, diaSemana, temLogo: false })
+    const html = this.templateService.render(template, grupos, visiveis, { usuarioNome: user?.name ?? 'Você', dataDisplay, diaSemana, temLogo: false, saudacao: this.saudacaoAgora() })
     return { html, assunto: this.templateService.renderAssunto(template, { dataDisplay, diaSemana }) }
   }
 
@@ -396,7 +403,7 @@ export class AgendaDisparoService implements OnModuleInit {
     const visiveis = eventos.filter(ev => !ev.particular || ev.criadorId === userId)
     const dataDisplay = this.formatDataBr(eventDate)
     const diaSemana = this.diaSemanaExt(eventDate)
-    const html = this.templateService.render(template, grupos, visiveis, { usuarioNome: user.name, dataDisplay, diaSemana, temLogo: !!LOGO_BUFFER })
+    const html = this.templateService.render(template, grupos, visiveis, { usuarioNome: user.name, dataDisplay, diaSemana, temLogo: !!LOGO_BUFFER, saudacao: this.saudacaoAgora() })
     await this.emailService.sendMail({
       to: user.email,
       subject: `[TESTE] ${this.templateService.renderAssunto(template, { dataDisplay, diaSemana })}`,

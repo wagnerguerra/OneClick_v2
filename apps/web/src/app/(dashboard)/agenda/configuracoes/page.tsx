@@ -281,6 +281,13 @@ export default function AgendaConfiguracoesPage() {
     catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setLoadingCardHtml(false) }
   }
+  const [loadingHeaderHtml, setLoadingHeaderHtml] = useState(false)
+  async function restaurarCabecalhoPadrao() {
+    setLoadingHeaderHtml(true)
+    try { const r = await (trpc.agenda as any).modeloEmail.cabecalhoPadrao.query(); setTplField('headerHtml', r.html) }
+    catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setLoadingHeaderHtml(false) }
+  }
   async function onUploadLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -1179,15 +1186,30 @@ export default function AgendaConfiguracoesPage() {
                     <div className="rounded-md border border-border bg-muted/30 p-2.5">
                       <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">Variáveis do cabeçalho / rodapé (clique para copiar)</p>
                       <div className="flex flex-wrap gap-1">
-                        {['{{usuario.name}}', '{{dataDisplay}}', '{{diaSemana}}', '{{totalEventos}}'].map(v => (
+                        {['{{usuario.name}}', '{{nomePrimeiro}}', '{{saudacao}}', '{{dataDisplay}}', '{{diaSemana}}', '{{diaNum}}', '{{mesAbrev}}', '{{anoNum}}', '{{totalEventos}}', '{{assetBg}}', '{{accent}}'].map(v => (
                           <button key={v} type="button" onClick={() => { navigator.clipboard?.writeText(v); alerts.success('Copiado', v) }} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-card border border-border hover:bg-muted">{v}</button>
                         ))}
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-2">Os eventos são exibidos em blocos, agrupados pelos grupos abaixo. O layout de cada card é configurável em "Card do evento".</p>
                     </div>
 
-                    {/* Campos de texto — RichEditor (visual + modo HTML, como nos demais campos de descrição) */}
-                    {([['headerHtml', 'Cabeçalho'], ['footerHtml', 'Rodapé'], ['semEventosHtml', 'Mensagem quando não há eventos']] as const).map(([k, label]) => (
+                    {/* Cabeçalho (hero) — HTML estrutural (gradiente + tile de data). */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[13px] font-semibold">Cabeçalho <span className="text-[11px] font-normal text-muted-foreground">(HTML)</span></Label>
+                        <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={restaurarCabecalhoPadrao} disabled={loadingHeaderHtml}>{loadingHeaderHtml ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Restaurar padrão</Button>
+                      </div>
+                      <textarea
+                        value={tpl.headerHtml}
+                        onChange={e => setTplField('headerHtml', e.target.value)}
+                        rows={12}
+                        placeholder="HTML do cabeçalho — use as variáveis acima ({{saudacao}}, {{nomePrimeiro}}, {{diaNum}}…)"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs font-mono resize-y focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      />
+                    </div>
+
+                    {/* Rodapé / sem eventos — RichEditor (prosa simples) */}
+                    {([['footerHtml', 'Rodapé'], ['semEventosHtml', 'Mensagem quando não há eventos']] as const).map(([k, label]) => (
                       <div key={k} className="space-y-1.5">
                         <Label className="text-[13px] font-semibold">{label}</Label>
                         <RichEditor value={(tpl as Record<string, string>)[k] ?? ''} onChange={v => setTplField(k as keyof EmailTpl, v)} placeholder="Use a barra de formatação ou o modo HTML (&lt;/&gt;)…" />

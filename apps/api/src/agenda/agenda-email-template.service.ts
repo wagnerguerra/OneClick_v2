@@ -38,8 +38,25 @@ export interface EmailGrupo {
 
 // ── Defaults (replicam o e-mail atual: nenhum grupo de tipo, particular→pessoais,
 //    o resto vira "Compromissos corporativos" via o grupo Outros renomeado). ──
-const DEFAULT_HEADER = `<h1 style="margin:0;font-size:20px;color:#0f172a">Agenda do dia</h1>
-<p style="margin:4px 0 0;font-size:13px;color:#64748b">{{diaSemana}}, {{dataDisplay}}</p>`
+// Hero do topo (gradiente + tile de data + saudação). Full-bleed; editável em HTML.
+const DEFAULT_HEADER = `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="color:#ffffff;background:linear-gradient(135deg,#0ea5e9 0%,#6366f1 100%);background-image:url({{assetBg}}),linear-gradient(135deg,#0ea5e9 0%,#6366f1 100%);background-repeat:repeat,no-repeat;background-size:260px 260px,100% 100%">
+  <tr><td style="padding:28px 28px 24px">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+      <td width="78" valign="top" style="padding-right:18px">
+        <table cellpadding="0" cellspacing="0" border="0" width="78" style="background:#ffffff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.18);overflow:hidden">
+          <tr><td style="padding:5px 0;text-align:center;font-size:11px;font-weight:800;color:#ffffff;text-transform:uppercase;letter-spacing:2px;background:#0f172a">{{mesAbrev}}</td></tr>
+          <tr><td style="padding:8px 0 2px;text-align:center;font-size:34px;font-weight:800;color:#0f172a;line-height:1">{{diaNum}}</td></tr>
+          <tr><td style="padding:0 0 8px;text-align:center;font-size:10px;color:#64748b;letter-spacing:1px;font-weight:600">{{anoNum}}</td></tr>
+        </table>
+      </td>
+      <td valign="middle">
+        <div style="font-size:11px;color:rgba(255,255,255,0.95);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:6px">{{saudacao}}, {{nomePrimeiro}}</div>
+        <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;line-height:1.15">Sua agenda do dia</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.9);margin-top:6px;text-transform:capitalize">{{diaSemana}}</div>
+      </td>
+    </tr></table>
+  </td></tr>
+</table>`
 const DEFAULT_INTRO = `<p style="margin:0 0 8px;font-size:14px;color:#334155">Olá {{usuario.name}}, você tem <strong>{{totalEventos}}</strong> compromisso(s) hoje:</p>`
 const DEFAULT_FOOTER = `<p style="margin:16px 0 0;font-size:11px;color:#94a3b8">Enviado automaticamente pela Agenda Corporativa.</p>`
 const DEFAULT_SEM_EVENTOS = `<p style="font-size:13px;color:#94a3b8;font-style:italic">Nenhum compromisso para hoje.</p>`
@@ -190,7 +207,7 @@ export class AgendaEmailTemplateService {
     template: EmailTemplate,
     grupos: EmailGrupo[],
     eventos: any[],
-    ctx: { usuarioNome: string; dataDisplay: string; diaSemana: string; temLogo: boolean },
+    ctx: { usuarioNome: string; dataDisplay: string; diaSemana: string; temLogo: boolean; saudacao?: string },
   ): string {
     // Distribui TODOS os eventos visíveis estritamente pelos grupos definidos
     // (pela atribuição de tipos). O que não cair em nenhum grupo vai pro catch-all
@@ -208,10 +225,24 @@ export class AgendaEmailTemplateService {
     const secoes: Array<{ nome: string; cor: string; icone: string; items: any[] }> = [...secoesGrupos]
     if (template.mostrarOutros && outros.length > 0) secoes.push({ nome: template.nomeGrupoOutros || 'Outros', cor: template.accent, icone: '📌', items: outros })
 
+    // Base absoluta (logo/marca d'água) e partes da data derivadas do dataDisplay (dd/mm/aaaa).
+    const base = (process.env.API_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_API_URL || 'https://app.oneclick.central-rnc.com.br').replace(/\/$/, '')
+    const MESES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ']
+    const [diaNum = '', mmStr = '', anoNum = ''] = (ctx.dataDisplay || '').split('/')
+    const mesAbrev = MESES[(parseInt(mmStr, 10) || 1) - 1] || ''
+    const nomePrimeiro = (ctx.usuarioNome || '').split(' ')[0] || ctx.usuarioNome || ''
+
     const globalVars = {
       usuario: { name: ctx.usuarioNome },
+      nomePrimeiro,
+      saudacao: ctx.saudacao || 'Olá',
       dataDisplay: ctx.dataDisplay,
       diaSemana: ctx.diaSemana,
+      diaNum,
+      mesAbrev,
+      anoNum,
+      assetBg: `${base}/email-bg-agenda.svg`,
+      accent: template.accent,
       totalEventos: eventos.length,
     }
 
@@ -353,11 +384,13 @@ export class AgendaEmailTemplateService {
 
     // Logomarca do topo: usa a enviada no template (URL absoluta); senão a logo
     // padrão embarcada (cid:logo) quando disponível.
-    const base = (process.env.API_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_API_URL || 'https://app.oneclick.central-rnc.com.br').replace(/\/$/, '')
     const logoSrc = template.logoUrl
       ? (template.logoUrl.startsWith('http') ? template.logoUrl : `${base}${template.logoUrl}`)
       : (ctx.temLogo ? 'cid:logo' : '')
-    const logoHtml = logoSrc ? `<div style="text-align:center;padding:6px 0 18px"><img src="${logoSrc}" alt="logo" style="max-height:54px;max-width:240px" /></div>` : ''
+    // Faixa branca da logo no topo (acima do hero), bleed-to-edge.
+    const logoBar = logoSrc
+      ? `<tr><td align="center" style="padding:20px 28px;background:#ffffff;text-align:center"><img src="${logoSrc}" alt="logo" style="max-height:52px;max-width:240px;display:block;margin:0 auto" /></td></tr>`
+      : ''
 
     // Largura máxima do corpo (px), configurável — clamp defensivo.
     const larguraMax = Math.min(1000, Math.max(440, Number(template.larguraMax) || 600))
@@ -367,9 +400,9 @@ export class AgendaEmailTemplateService {
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 0"><tr><td align="center" style="padding:0 12px">
 <table width="${larguraMax}" cellpadding="0" cellspacing="0" style="max-width:${larguraMax}px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06)">
   <tr><td style="height:4px;background:${template.accent}"></td></tr>
+  ${logoBar}
+  <tr><td style="padding:0">${header}</td></tr>
   <tr><td style="padding:22px 28px 26px">
-    ${logoHtml}
-    ${header}
     ${corpoSecoes}
     ${footer}
   </td></tr>
@@ -389,6 +422,9 @@ export class AgendaEmailTemplateService {
     if (Number.isNaN(dt.getTime())) return ''
     return `${String(dt.getUTCDate()).padStart(2, '0')}/${String(dt.getUTCMonth() + 1).padStart(2, '0')}/${dt.getUTCFullYear()}`
   }
+
+  /** Cabeçalho (hero) padrão — pra restaurar pelo editor. */
+  defaultHeaderHtml(): string { return DEFAULT_HEADER }
 
   /** HTML padrão do card pro modo HTML livre — espelha o card do builder (chrome + corpo). */
   defaultCardHtml(): string {

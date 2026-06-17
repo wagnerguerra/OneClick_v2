@@ -346,6 +346,8 @@ export function createAgendaRouter(
         .query(() => disparoService.getEmailTemplate()),
       cardHtmlPadrao: readSubProcedure(MODULE, 'manage_config', 'Ver o HTML padrão do card de evento')
         .query(() => disparoService.cardHtmlPadrao()),
+      cabecalhoPadrao: readSubProcedure(MODULE, 'manage_config', 'Ver o HTML padrão do cabeçalho')
+        .query(() => disparoService.cabecalhoPadrao()),
       save: writeSubProcedure(MODULE, 'manage_config', 'Editar o modelo de e-mail da agenda')
         .input(z.object({
           ativo: z.boolean().optional(),
