@@ -1385,6 +1385,36 @@ export default function AgendaPage() {
     return eventosPorDia[dayModalDate] ?? []
   }, [dayModalDate, eventosPorDia])
 
+  // Agrupamento do resumo do dia — segue os grupos definidos no modelo de e-mail.
+  type AgrupGrupo = { nome: string; cor: string; icone: string; ordem: number; tiposIds: string[] }
+  const [agrupGrupos, setAgrupGrupos] = useState<AgrupGrupo[]>([])
+  const [agrupOutros, setAgrupOutros] = useState<{ nome: string; mostrar: boolean }>({ nome: 'Outros', mostrar: true })
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await (trpc.agenda as any).modeloEmail.grupos.query()
+        setAgrupGrupos((r?.grupos ?? []).slice().sort((a: AgrupGrupo, b: AgrupGrupo) => a.ordem - b.ordem))
+        setAgrupOutros({ nome: r?.nomeGrupoOutros || 'Outros', mostrar: r?.mostrarOutros !== false })
+      } catch { /* sem permissão/endpoint: cai no fluxo sem grupos */ }
+    })()
+  }, [])
+  // Distribui os eventos do dia nos grupos (por tipo), na ordem definida; o que não
+  // cair em nenhum grupo vai pro catch-all. Sem grupos configurados => lista única.
+  const dayModalGrupos = useMemo(() => {
+    if (agrupGrupos.length === 0) return [{ key: '__all__', nome: '', cor: '', icone: '', items: dayModalEvents }]
+    const usados = new Set<string>()
+    const secoes = agrupGrupos
+      .map(g => {
+        const items = dayModalEvents.filter(e => !usados.has(e.id) && g.tiposIds.includes(e.tipoId))
+        items.forEach(e => usados.add(e.id))
+        return { key: g.nome, nome: g.nome, cor: g.cor, icone: g.icone || '📅', items }
+      })
+      .filter(s => s.items.length > 0)
+    const resto = dayModalEvents.filter(e => !usados.has(e.id))
+    if (resto.length > 0) secoes.push({ key: '__outros__', nome: agrupOutros.nome || 'Outros', cor: '#94a3b8', icone: '📌', items: resto })
+    return secoes
+  }, [dayModalEvents, agrupGrupos, agrupOutros])
+
   return (
     <TooltipProvider delayDuration={250}>
     <div className="space-y-3">
@@ -2001,8 +2031,17 @@ export default function AgendaPage() {
             </DialogTitle>
             <DialogDescription>{dayModalEvents.length} evento(s)</DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-3 max-h-[min(72vh,640px)] nice-scrollbar">
-            {dayModalEvents.map(ev => {
+          <DialogBody className="space-y-4 max-h-[min(72vh,640px)] nice-scrollbar">
+            {dayModalGrupos.map(grupo => (
+            <div key={grupo.key} className="space-y-3">
+              {grupo.nome && (
+                <div className="flex items-center gap-2">
+                  <span className="text-base leading-none">{grupo.icone}</span>
+                  <span className="text-[13px] font-bold uppercase tracking-wide text-foreground">{grupo.nome}</span>
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{grupo.items.length}</span>
+                </div>
+              )}
+            {grupo.items.map(ev => {
               const parts = ev.participantes
                 .map(p => ({ nome: (p.usuario?.name ?? p.nomeAvulso) ?? '', image: p.usuario?.image ?? null }))
                 .filter(p => p.nome)
@@ -2098,6 +2137,8 @@ export default function AgendaPage() {
                 </div>
               )
             })}
+            </div>
+            ))}
           </DialogBody>
           {/* Footer só quando há ação possível — pra datas passadas, oculta inteiro */}
           {dayModalDate >= formatDate(new Date()) && (

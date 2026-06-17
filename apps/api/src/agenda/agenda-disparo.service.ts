@@ -353,6 +353,17 @@ export class AgendaDisparoService implements OnModuleInit {
   saveEmailTemplate(patch: Record<string, unknown>) { return this.templateService.saveTemplate(null, patch) }
   cardHtmlPadrao() { return { html: this.templateService.defaultCardHtml() } }
   cabecalhoPadrao() { return { html: this.templateService.defaultHeaderHtml() } }
+
+  /** Config de agrupamento (grupos por tipo + catch-all) — leve, pra UI agrupar o
+   *  resumo do dia igual ao e-mail. Sem dados sensíveis. */
+  async getAgrupamento() {
+    const { template, grupos } = await this.templateService.getTemplate(null)
+    return {
+      grupos: grupos.map(g => ({ nome: g.nome, cor: g.cor, icone: g.icone || '📅', ordem: g.ordem, tiposIds: g.tiposIds || [] })),
+      nomeGrupoOutros: template.nomeGrupoOutros || 'Outros',
+      mostrarOutros: template.mostrarOutros !== false,
+    }
+  }
   saveEmailGrupos(grupos: Array<{ nome: string; cor: string; icone?: string; incluiParticulares: boolean; tiposIds: string[] }>) {
     return this.templateService.saveGrupos(null, grupos.map((g, i) => ({ icone: '', ...g, ordem: i })))
   }

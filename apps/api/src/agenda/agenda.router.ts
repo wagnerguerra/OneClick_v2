@@ -348,6 +348,9 @@ export function createAgendaRouter(
         .query(() => disparoService.cardHtmlPadrao()),
       cabecalhoPadrao: readSubProcedure(MODULE, 'manage_config', 'Ver o HTML padrão do cabeçalho')
         .query(() => disparoService.cabecalhoPadrao()),
+      // Config de agrupamento (leve, sem manage_config) — pra UI agrupar o resumo do dia
+      grupos: readProcedure(MODULE)
+        .query(() => disparoService.getAgrupamento()),
       save: writeSubProcedure(MODULE, 'manage_config', 'Editar o modelo de e-mail da agenda')
         .input(z.object({
           ativo: z.boolean().optional(),
