@@ -385,7 +385,7 @@ export class AgendaDisparoService implements OnModuleInit {
     const visiveis = eventos.filter(ev => !ev.particular || ev.criadorId === userId)
     const dataDisplay = this.formatDataBr(eventDate)
     const diaSemana = this.diaSemanaExt(eventDate)
-    const html = this.templateService.render(template, grupos, visiveis, { usuarioNome: user?.name ?? 'Você', dataDisplay, diaSemana, temLogo: false, saudacao: this.saudacaoAgora() })
+    const html = this.templateService.render(template, grupos, visiveis, { usuarioNome: user?.name ?? 'Você', dataDisplay, diaSemana, temLogo: false, saudacao: this.saudacaoAgora(), preview: true })
     return { html, assunto: this.templateService.renderAssunto(template, { dataDisplay, diaSemana }) }
   }
 

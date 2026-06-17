@@ -219,7 +219,7 @@ export class AgendaEmailTemplateService {
     template: EmailTemplate,
     grupos: EmailGrupo[],
     eventos: any[],
-    ctx: { usuarioNome: string; dataDisplay: string; diaSemana: string; temLogo: boolean; saudacao?: string },
+    ctx: { usuarioNome: string; dataDisplay: string; diaSemana: string; temLogo: boolean; saudacao?: string; preview?: boolean },
   ): string {
     // Distribui TODOS os eventos visíveis estritamente pelos grupos definidos
     // (pela atribuição de tipos). O que não cair em nenhum grupo vai pro catch-all
@@ -418,7 +418,9 @@ export class AgendaEmailTemplateService {
     // CSS responsivo: dark mode (legibilidade no celular) + mobile (coluna de hora
     // mais estreita). Só afeta clientes que suportam <style>/media queries — desktop
     // e claro permanecem idênticos.
-    const responsiveCss = `
+    // Na prévia do painel, NÃO emitimos o bloco de dark adaptativo — assim a prévia
+    // mostra sempre o visual CLARO (canônico), independente do modo do navegador.
+    const darkCss = ctx.preview ? '' : `
   @media (prefers-color-scheme: dark) {
     .em-page { background:#0b1220 !important; }
     .em-card { background:#0f172a !important; }
@@ -437,7 +439,8 @@ export class AgendaEmailTemplateService {
     .em-evlabelwrap { border-top-color:rgba(255,255,255,.10) !important; }
     .em-chip { background:rgba(255,255,255,.07) !important; color:#cbd5e1 !important; border-color:rgba(255,255,255,.12) !important; }
     .em-creator { border-top-color:rgba(255,255,255,.07) !important; color:#64748b !important; }
-  }
+  }`
+    const responsiveCss = `${darkCss}
   /* MOBILE/ANDROID: força a paleta CLARA nos dois modos (vence o prefers-dark acima
      por vir depois) + compacta a coluna de hora. */
   @media only screen and (max-width:480px) {
@@ -479,7 +482,8 @@ export class AgendaEmailTemplateService {
   [data-ogsb].em-chip, [data-ogsc] .em-chip { background:#f1f5f9 !important; color:#475569 !important; }
   [data-ogsc].em-creator, [data-ogsc] .em-creator { color:#94a3b8 !important; }`
 
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>${responsiveCss}</style></head>
+    const colorScheme = ctx.preview ? 'light' : 'light dark'
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="${colorScheme}"><meta name="supported-color-schemes" content="${colorScheme}"><style>${responsiveCss}</style></head>
 <body class="em-page" style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" class="em-page" style="background:#f1f5f9;padding:24px 0"><tr><td align="center" style="padding:0 12px">
 <table width="${larguraMax}" cellpadding="0" cellspacing="0" class="em-card" style="max-width:${larguraMax}px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06)">
