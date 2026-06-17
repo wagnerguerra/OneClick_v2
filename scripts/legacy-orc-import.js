@@ -37,6 +37,15 @@ const STATUS_MAP = { 1: 'A enviar', 2: 'Enviado', 3: 'Aprovado', 4: 'Liberado', 
 
 const esc = (v) => v == null ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`
 const num = (v) => (v == null || v === '' || isNaN(Number(v))) ? 'NULL' : String(Number(v))
+// Valores no legado vêm em pt-BR ("1.500,00", "216,81") e qtde como "01". Converte
+// pra número (ponto = milhar, vírgula = decimal quando há vírgula).
+const parseBr = (v) => {
+  if (v == null) return null
+  let t = String(v).trim(); if (!t) return null
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.')
+  const n = Number(t); return isNaN(n) ? null : n
+}
+const numBr = (v) => { const n = parseBr(v); return n == null ? 'NULL' : String(n) }
 const dt = (v) => { if (!v) return 'NULL'; const d = new Date(v); return isNaN(d.getTime()) ? 'NULL' : `'${d.toISOString().slice(0, 19).replace('T', ' ')}'` }
 const digits = (v) => String(v || '').replace(/\D/g, '')
 
@@ -61,9 +70,9 @@ async function main() {
       ORDER BY o.numero ASC`, [EMP])
   console.log(`  ${orcs.length} orçamentos`)
 
-  // catálogo de serviços (cod_serv -> nome) p/ descrição dos itens
-  const [cad] = await conn.query(`SELECT id, servico FROM com_orc_cad WHERE id_empresa = ?`, [EMP])
-  const cadMap = new Map(cad.map(r => [r.id, r.servico]))
+  // catálogo de serviços (cod_serv -> nome/valor) p/ descrição e fallback de valor
+  const [cad] = await conn.query(`SELECT id, servico, valor FROM com_orc_cad WHERE id_empresa = ?`, [EMP])
+  const cadMap = new Map(cad.map(r => [r.id, { servico: r.servico, valor: r.valor }]))
 
   const lines = []
   lines.push('BEGIN;')
@@ -76,10 +85,11 @@ async function main() {
     if (cnpjD) comCnpj++
     const clienteSub = cnpjD ? `(SELECT id FROM clientes WHERE regexp_replace(documento,'\\D','','g') = '${cnpjD}' LIMIT 1)` : 'NULL'
 
-    // itens
+    // itens — valor em pt-BR; fallback pro valor do catálogo quando o item vem vazio
     const [itens] = await conn.query(`SELECT cod_serv, qtde, valor, situacao FROM com_orc_ser WHERE cod_orc = ? AND ativo = 1 ORDER BY id ASC`, [o.numero])
+    const itemValor = (it) => { const v = parseBr(it.valor); if (v != null) return v; const c = cadMap.get(it.cod_serv); return c ? parseBr(c.valor) : null }
     let total = 0
-    itens.forEach(it => { const q = Number(it.qtde) || 0, v = Number(it.valor) || 0; total += q * v })
+    itens.forEach(it => { const q = parseBr(it.qtde) || 1; const v = itemValor(it) || 0; total += q * v })
 
     // decisão
     let decisaoTipo = null, decisaoNome = null, decisaoCpf = null, decisaoObs = null, decisaoEm = null
@@ -92,7 +102,9 @@ async function main() {
 
     itens.forEach((it, i) => {
       totItens++
-      lines.push(`INSERT INTO orcamento_legado_item (id, orcamento_id, descricao, tipo, quantidade, valor_unitario, ordem) VALUES (${esc(pid + '-i' + i)}, ${esc(pid)}, ${esc(cadMap.get(it.cod_serv) || null)}, ${esc(it.situacao)}, ${num(it.qtde)}, ${num(it.valor)}, ${i});`)
+      const cad = cadMap.get(it.cod_serv)
+      const vUnit = itemValor(it)
+      lines.push(`INSERT INTO orcamento_legado_item (id, orcamento_id, descricao, tipo, quantidade, valor_unitario, ordem) VALUES (${esc(pid + '-i' + i)}, ${esc(pid)}, ${esc(cad ? cad.servico : null)}, ${esc(it.situacao)}, ${numBr(it.qtde)}, ${vUnit == null ? 'NULL' : String(vUnit)}, ${i});`)
     })
 
     const [msgs] = await conn.query(`SELECT interacao, dt_int FROM com_orc_int WHERE controle = ? AND ativo = 1 ORDER BY id ASC`, [o.numero])
