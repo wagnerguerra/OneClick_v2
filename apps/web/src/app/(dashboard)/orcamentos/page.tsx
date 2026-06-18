@@ -6,7 +6,7 @@ import {
   FileText, CircleDollarSign, Loader2, Plus, MoreVertical, Copy, Archive, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
   Clock, LayoutGrid, List, Eye, Settings2, Package, BarChart3,
-  MessageSquare, Paperclip, RotateCcw,
+  MessageSquare, Paperclip, RotateCcw, Star,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card,
@@ -76,6 +76,7 @@ interface OrcamentoRow {
   solicitante?: UserRef | null
   itens?: Array<{ id: string; descricao: string; tipo: string }>
   _count?: { itens: number; mensagens: number; arquivos: number }
+  pesquisaRespondida?: boolean
   createdAt: string
   updatedAt: string
   arquivado?: boolean
@@ -1327,6 +1328,11 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onDelete,
           {(orc._count?.arquivos ?? 0) > 0 && (
             <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title={`${orc._count!.arquivos} ${orc._count!.arquivos === 1 ? 'arquivo' : 'arquivos'}`}>
               <Paperclip className="h-3 w-3" /> {orc._count!.arquivos}
+            </span>
+          )}
+          {orc.pesquisaRespondida && (
+            <span className="text-[10px] flex items-center gap-0.5" style={{ color: 'var(--mod-comercial, #fb7185)' }} title="Cliente respondeu a pesquisa de satisfação">
+              <Star className="h-3 w-3 fill-current" />
             </span>
           )}
         </div>

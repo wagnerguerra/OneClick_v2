@@ -174,10 +174,21 @@ export class OrcamentoService {
       : []
     const userMap = new Map(users.map(u => [u.id, u]))
 
+    // Indicador de pesquisa respondida (kanban) — quais orçamentos têm envio respondido.
+    const orcIds = data.map(o => o.id)
+    const respondidas = orcIds.length
+      ? await prisma.$queryRawUnsafe<{ orcamentoId: string }[]>(
+          `SELECT DISTINCT orcamento_id AS "orcamentoId" FROM pesquisa_envio WHERE respondida_em IS NOT NULL AND orcamento_id IN (${orcIds.map((_, i) => `$${i + 1}`).join(',')})`,
+          ...orcIds,
+        ).catch(() => [] as { orcamentoId: string }[])
+      : []
+    const respSet = new Set(respondidas.map(r => r.orcamentoId))
+
     const enriched = data.map(o => ({
       ...o,
       responsavel: o.responsavelId ? userMap.get(o.responsavelId) || null : null,
       solicitante: o.solicitanteId ? userMap.get(o.solicitanteId) || null : null,
+      pesquisaRespondida: respSet.has(o.id),
     }))
 
     return { data: enriched, total, page, limit, totalPages: Math.ceil(total / limit) }
