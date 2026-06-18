@@ -2606,15 +2606,29 @@ export default function OrcamentoDetailPage() {
               // A ordem segue o fluxo natural do orcamento — Criado sempre primeiro,
               // depois Cancelado/Encerrado encerram a timeline (visualmente no fim).
               type TimelineEvent = { key: string; label: string; valor: string; dotColor: string; campo?: string }
+              // Fallback: quando a coluna de data dedicada (dtX) não foi gravada,
+              // deriva a data do evento de status correspondente na timeline
+              // (orc.eventos). Pega a ocorrência mais recente daquele status.
+              const dataDoStatus = (status: string): string | null => {
+                const evs = (orc.eventos ?? []).filter((e: any) => e.tipo === 'status_change' && e.para === status)
+                if (!evs.length) return null
+                return evs.reduce((a: any, b: any) => (new Date(a.createdAt).getTime() >= new Date(b.createdAt).getTime() ? a : b)).createdAt
+              }
+              const dEnviado = orc.dtEnviado ?? dataDoStatus('ENVIADO')
+              const dAprovado = orc.dtAprovado ?? dataDoStatus('APROVADO')
+              const dLiberado = orc.dtLiberado ?? dataDoStatus('LIBERADO')
+              const dFinalizado = orc.dtFinalizado ?? dataDoStatus('FINALIZADO')
+              const dEncerrado = orc.dtEncerrado ?? dataDoStatus('ENCERRADO')
+              const dCancelado = orc.dtCancelado ?? dataDoStatus('CANCELADO')
               const events: TimelineEvent[] = [
                 { key: 'createdAt', label: 'Criado', valor: orc.createdAt, dotColor: STATUS_COLORS.NOVO || '#94a3b8' },
               ]
-              if (orc.dtEnviado) events.push({ key: 'dtEnviado', label: 'Enviado', valor: orc.dtEnviado, dotColor: STATUS_COLORS.ENVIADO!, campo: 'dtEnviado' })
-              if (orc.dtAprovado) events.push({ key: 'dtAprovado', label: 'Aprovado', valor: orc.dtAprovado, dotColor: STATUS_COLORS.APROVADO!, campo: 'dtAprovado' })
-              if (orc.dtLiberado) events.push({ key: 'dtLiberado', label: 'Liberado', valor: orc.dtLiberado, dotColor: STATUS_COLORS.LIBERADO!, campo: 'dtLiberado' })
-              if (orc.dtFinalizado) events.push({ key: 'dtFinalizado', label: 'Finalizado', valor: orc.dtFinalizado, dotColor: STATUS_COLORS.FINALIZADO!, campo: 'dtFinalizado' })
-              if (orc.dtEncerrado) events.push({ key: 'dtEncerrado', label: 'Encerrado', valor: orc.dtEncerrado, dotColor: STATUS_COLORS.ENCERRADO!, campo: 'dtEncerrado' })
-              if (orc.dtCancelado) events.push({ key: 'dtCancelado', label: 'Cancelado', valor: orc.dtCancelado, dotColor: '#ef4444', campo: 'dtCancelado' })
+              if (dEnviado) events.push({ key: 'dtEnviado', label: 'Enviado', valor: dEnviado, dotColor: STATUS_COLORS.ENVIADO!, campo: 'dtEnviado' })
+              if (dAprovado) events.push({ key: 'dtAprovado', label: 'Aprovado', valor: dAprovado, dotColor: STATUS_COLORS.APROVADO!, campo: 'dtAprovado' })
+              if (dLiberado) events.push({ key: 'dtLiberado', label: 'Liberado', valor: dLiberado, dotColor: STATUS_COLORS.LIBERADO!, campo: 'dtLiberado' })
+              if (dFinalizado) events.push({ key: 'dtFinalizado', label: 'Finalizado', valor: dFinalizado, dotColor: STATUS_COLORS.FINALIZADO!, campo: 'dtFinalizado' })
+              if (dEncerrado) events.push({ key: 'dtEncerrado', label: 'Encerrado', valor: dEncerrado, dotColor: STATUS_COLORS.ENCERRADO!, campo: 'dtEncerrado' })
+              if (dCancelado) events.push({ key: 'dtCancelado', label: 'Cancelado', valor: dCancelado, dotColor: '#ef4444', campo: 'dtCancelado' })
 
               return (
                 <div className="flex flex-col">
