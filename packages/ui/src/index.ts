@@ -1,5 +1,7 @@
 export { Button, buttonVariants, type ButtonProps } from './components/button'
 export { Input } from './components/input'
+export { Textarea } from './components/textarea'
+export { Switch } from './components/switch'
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from './components/card'
 export { Label } from './components/label'
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './components/tooltip'
