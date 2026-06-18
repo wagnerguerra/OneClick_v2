@@ -2,9 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Sparkles, Send, Loader2, Wand2, Copy, Check, FileText, RotateCcw, Paperclip, X, Image as ImageIcon } from 'lucide-react'
+import { marked } from 'marked'
 import { Button, cn } from '@saas/ui'
 import { alerts } from '@/lib/alerts'
 import { trpc } from '@/lib/trpc'
+import { MarkdownView } from '@/components/ui/markdown-view'
+
+/** Converte a resposta (markdown ou HTML) em HTML, p/ aplicar no campo da proposta. */
+function mdToHtml(s: string): string {
+  try { return marked.parse(s || '', { async: false, gfm: true, breaks: true }) as string }
+  catch { return s || '' }
+}
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
 type Anexo = { name: string; mediaType: string; kind: 'image' | 'pdf'; data: string; size: number }
@@ -277,17 +285,23 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
                   : 'bg-muted/60 rounded-bl-sm',
               )}>
                 {m.role === 'assistant' ? (
-                  m.content
-                    ? (
-                      <>
-                        <div
-                          className="prose prose-sm dark:prose-invert max-w-none [&_p]:my-1.5 [&_ul]:my-1.5 [&_li]:my-0.5"
-                          dangerouslySetInnerHTML={{ __html: m.content }}
-                        />
-                        {!streaming && (
+                  !m.content
+                    ? <span className="inline-flex items-center gap-2 text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {status || 'Pensando…'}</span>
+                    : (streaming && i === mensagens.length - 1)
+                      // Enquanto digita: texto puro (sem reparse) p/ um streaming suave + cursor.
+                      ? (
+                        <div className="whitespace-pre-wrap break-words leading-relaxed">
+                          {m.content}
+                          <span className="ml-0.5 inline-block w-[2px] h-[1em] translate-y-[2px] bg-violet-400/80 animate-pulse rounded-sm" />
+                        </div>
+                      )
+                      // Concluído: renderiza markdown/HTML formatado + ações.
+                      : (
+                        <>
+                          <MarkdownView source={m.content} />
                           <div className="mt-2 flex items-center gap-1.5 border-t border-border/50 pt-2">
                             <Button size="sm" variant="ghost" className="h-7 gap-1.5 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30"
-                              onClick={() => { onAplicar(m.content); alerts.success('Texto aplicado', 'O texto foi enviado para o campo da proposta na aba Detalhes. Revise e salve.') }}>
+                              onClick={() => { onAplicar(mdToHtml(m.content)); alerts.success('Texto aplicado', 'O texto foi enviado para o campo da proposta na aba Detalhes. Revise e salve.') }}>
                               <FileText className="h-3.5 w-3.5" /> Aplicar à proposta
                             </Button>
                             <Button size="sm" variant="ghost" className="h-7 gap-1.5" onClick={() => copiar(m.content, i)}>
@@ -295,12 +309,10 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
                               {copiado === i ? 'Copiado' : 'Copiar'}
                             </Button>
                           </div>
-                        )}
-                      </>
-                    )
-                    : <span className="inline-flex items-center gap-2 text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {status || 'Pensando…'}</span>
+                        </>
+                      )
                 ) : (
-                  <span className="whitespace-pre-wrap">{m.content}</span>
+                  <span className="whitespace-pre-wrap break-words">{m.content}</span>
                 )}
               </div>
             </div>
