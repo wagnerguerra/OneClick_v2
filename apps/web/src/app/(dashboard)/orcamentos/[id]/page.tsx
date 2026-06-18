@@ -1868,9 +1868,8 @@ export default function OrcamentoDetailPage() {
               title="Assistente de proposta (IA)"
               onClick={() => setIaOpen(true)}
               className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90"
-              style={{ color: MODULE_COLOR, borderColor: `color-mix(in srgb, ${MODULE_COLOR} 35%, transparent)` }}
             >
-              <Sparkles className="h-4 w-4" />
+              <Sparkles className="h-4 w-4" style={{ color: MODULE_COLOR }} />
             </Button>
             {canEnviarPesquisa && (
               <Button
@@ -1879,9 +1878,8 @@ export default function OrcamentoDetailPage() {
                 title="Pesquisa de satisfação"
                 onClick={abrirEnviarPesquisa}
                 className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90"
-                style={{ color: MODULE_COLOR, borderColor: `color-mix(in srgb, ${MODULE_COLOR} 35%, transparent)` }}
               >
-                <Star className="h-4 w-4" />
+                <Star className="h-4 w-4" style={{ color: MODULE_COLOR }} />
               </Button>
             )}
             <BackButton href="/orcamentos" />
