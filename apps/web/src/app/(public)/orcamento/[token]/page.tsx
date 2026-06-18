@@ -22,6 +22,7 @@ interface Orcamento {
   token: string
   status: string
   validadeDias: number
+  formaPagamento: string | null
   contatos: string | null
   observacoes: string | null
   textoCorpoCliente: string | null
@@ -274,6 +275,12 @@ export default function PublicOrcamentoPage() {
               <span>Total</span>
               <span style={{ color: MODULE_COLOR }}>{formatCurrency(orc.totalGeral)}</span>
             </div>
+            {orc.formaPagamento && (
+              <div className="flex justify-between pt-1.5">
+                <span className="text-muted-foreground">Forma de pagamento</span>
+                <span className="font-semibold">{orc.formaPagamento}</span>
+              </div>
+            )}
           </div>
         </div>
       </section>
