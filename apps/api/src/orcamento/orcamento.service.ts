@@ -2847,4 +2847,60 @@ export class OrcamentoService {
     ).catch(() => [] as { numero: number; tipo: string | null; status: string; texto: string }[])
     return rows
   }
+
+  // ── Biblioteca curada de modelos de proposta (gerida nas Configurações) ──
+  /** Modelos curados ATIVOS — usados como referência pela IA (prefere o tipo do orçamento). */
+  async listModelosPropostaCurados(opts: { tipo?: string | null; empresaId?: string | null; limite?: number }) {
+    const limite = Math.min(opts.limite ?? 6, 12)
+    return prisma.$queryRawUnsafe<{ titulo: string; conteudo: string; tipo: string | null }[]>(
+      `SELECT titulo, conteudo, tipo FROM orcamento_proposta_modelo
+        WHERE ativo = true AND ($1::text IS NULL OR empresa_id = $1 OR empresa_id IS NULL)
+        ORDER BY ($2::text IS NOT NULL AND tipo = $2) DESC, ordem ASC, created_at DESC
+        LIMIT ${limite}`,
+      opts.empresaId ?? null, opts.tipo ?? null,
+    ).catch(() => [] as { titulo: string; conteudo: string; tipo: string | null }[])
+  }
+
+  /** Lista completa (ativos + inativos) para a tela de gestão. */
+  async listModelosPropostaAdmin(empresaId?: string | null) {
+    return prisma.$queryRawUnsafe<any[]>(
+      `SELECT id, titulo, conteudo, tipo, segmento, ativo, ordem, created_at AS "createdAt", updated_at AS "updatedAt"
+         FROM orcamento_proposta_modelo
+        WHERE ($1::text IS NULL OR empresa_id = $1 OR empresa_id IS NULL)
+        ORDER BY ordem ASC, created_at DESC`,
+      empresaId ?? null,
+    ).catch(() => [] as any[])
+  }
+
+  async createModeloProposta(data: { titulo: string; conteudo: string; tipo?: string | null; segmento?: string | null; ativo?: boolean; ordem?: number }, userId?: string, empresaId?: string | null) {
+    const rows = await prisma.$queryRawUnsafe<{ id: string }[]>(
+      `INSERT INTO orcamento_proposta_modelo (id, titulo, conteudo, tipo, segmento, ativo, ordem, empresa_id, created_by)
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      data.titulo, data.conteudo, data.tipo ?? null, data.segmento ?? null,
+      data.ativo ?? true, data.ordem ?? 0, empresaId ?? null, userId ?? null,
+    )
+    return { id: rows[0]?.id }
+  }
+
+  async updateModeloProposta(id: string, data: { titulo?: string; conteudo?: string; tipo?: string | null; segmento?: string | null; ativo?: boolean; ordem?: number }) {
+    await prisma.$executeRawUnsafe(
+      `UPDATE orcamento_proposta_modelo SET
+         titulo = COALESCE($2, titulo),
+         conteudo = COALESCE($3, conteudo),
+         tipo = $4,
+         segmento = $5,
+         ativo = COALESCE($6, ativo),
+         ordem = COALESCE($7, ordem),
+         updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      id, data.titulo ?? null, data.conteudo ?? null, data.tipo ?? null, data.segmento ?? null,
+      data.ativo ?? null, data.ordem ?? null,
+    )
+    return { id }
+  }
+
+  async excluirModeloProposta(id: string) {
+    await prisma.$executeRawUnsafe(`DELETE FROM orcamento_proposta_modelo WHERE id = $1`, id)
+    return { id }
+  }
 }

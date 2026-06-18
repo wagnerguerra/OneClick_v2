@@ -235,6 +235,7 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     // Acesso às telas de configuração/parâmetros do módulo (catálogo, formas de
     // pagamento, textos, etc.). Master/EmpresaMaster sempre têm acesso.
     { key: 'acessar_configuracoes', label: 'Acessar configurações e parâmetros de orçamentos', group: 'Configurações' },
+    { key: 'gerir_modelos_proposta', label: 'Gerir a biblioteca de modelos de proposta (referência da IA)', group: 'Configurações' },
   ],
   helpdesk: [
     // Atuação como agente (quem tem 'canRead' já abre tickets como solicitante;

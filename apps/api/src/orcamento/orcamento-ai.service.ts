@@ -190,19 +190,29 @@ export class OrcamentoAiService {
       }
     }
 
-    // "Banco de modelos" — exemplos reais de propostas já enviadas pela casa,
-    // pra IA aprender o estilo/estrutura. HTML preservado (truncado) p/ a IA
-    // espelhar também a formatação. Prioriza propostas comprovadas e do mesmo tipo.
-    const modelos = await this.orcamentoService.listModelosProposta({
-      excluirId: orcamentoId, tipo: o.tipo, empresaId: o.empresaId, limite: 5,
-    }).catch(() => [] as { numero: number; status: string; texto: string }[])
-    if (modelos.length) {
-      linhas.push(`## Exemplos de propostas REAIS já enviadas pela casa (modelos de referência)`)
+    // "Banco de modelos" pra IA aprender o estilo. Precedência:
+    // 1) biblioteca CURADA (gerida nas Configurações); 2) fallback: propostas
+    // reais comprovadas (textoCorpoCliente de orçamentos já registrados).
+    // HTML preservado (truncado) p/ a IA espelhar também a formatação.
+    let exemplos: { rotulo: string; texto: string }[] = []
+    const curados = await this.orcamentoService.listModelosPropostaCurados({
+      tipo: o.tipo, empresaId: o.empresaId, limite: 6,
+    }).catch(() => [] as { titulo: string; conteudo: string; tipo: string | null }[])
+    if (curados.length) {
+      exemplos = curados.map(m => ({ rotulo: `modelo "${m.titulo}"`, texto: m.conteudo }))
+    } else {
+      const auto = await this.orcamentoService.listModelosProposta({
+        excluirId: orcamentoId, tipo: o.tipo, empresaId: o.empresaId, limite: 5,
+      }).catch(() => [] as { numero: number; status: string; texto: string }[])
+      exemplos = auto.map(m => ({ rotulo: `orçamento #${m.numero}, status ${m.status}`, texto: m.texto }))
+    }
+    if (exemplos.length) {
+      linhas.push(`## Exemplos de propostas (modelos de referência da casa)`)
       linhas.push(`Espelhe o ESTILO, TOM, ESTRUTURA e FORMATAÇÃO destes exemplos ao redigir. NÃO copie valores, nomes ou condições específicas deles — use sempre os dados do orçamento atual.`)
-      modelos.forEach((m, i) => {
-        const t = String(m.texto || '')
+      exemplos.forEach((e, i) => {
+        const t = String(e.texto || '')
         const corte = t.length > 1600 ? t.slice(0, 1600) + '…' : t
-        linhas.push(`\n### Exemplo ${i + 1} (orçamento #${m.numero}, status ${m.status})`)
+        linhas.push(`\n### Exemplo ${i + 1} (${e.rotulo})`)
         linhas.push(`"""\n${corte}\n"""`)
       })
       linhas.push('')

@@ -32,6 +32,40 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => orcamentoService.limparIaChat(input.id, ctx.userId)),
 
+    // ── Biblioteca de modelos de proposta (referência da IA) ──
+    modelosProposta: readProcedure(MODULE)
+      .query(({ ctx }) => orcamentoService.listModelosPropostaAdmin(ctx.empresaId)),
+
+    criarModeloProposta: writeSubProcedure(MODULE, 'gerir_modelos_proposta', 'Gerir modelos de proposta')
+      .input(z.object({
+        titulo: z.string().min(1),
+        conteudo: z.string().min(1),
+        tipo: z.string().nullable().optional(),
+        segmento: z.string().nullable().optional(),
+        ativo: z.boolean().optional(),
+        ordem: z.number().int().optional(),
+      }))
+      .mutation(({ input, ctx }) => orcamentoService.createModeloProposta(input, ctx.userId, ctx.empresaId)),
+
+    atualizarModeloProposta: writeSubProcedure(MODULE, 'gerir_modelos_proposta', 'Gerir modelos de proposta')
+      .input(z.object({
+        id: z.string(),
+        titulo: z.string().min(1).optional(),
+        conteudo: z.string().min(1).optional(),
+        tipo: z.string().nullable().optional(),
+        segmento: z.string().nullable().optional(),
+        ativo: z.boolean().optional(),
+        ordem: z.number().int().optional(),
+      }))
+      .mutation(({ input, ctx: _ctx }) => {
+        const { id, ...data } = input
+        return orcamentoService.updateModeloProposta(id, data)
+      }),
+
+    excluirModeloProposta: writeSubProcedure(MODULE, 'gerir_modelos_proposta', 'Gerir modelos de proposta')
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => orcamentoService.excluirModeloProposta(input.id)),
+
     create: writeProcedure(MODULE)
       .input(createOrcamentoSchema)
       .mutation(({ input, ctx }) => orcamentoService.create(input, ctx.userId, ctx.empresaId)),

@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Settings2, Loader2, Save, Clock, Hash, Mail, FileText, Users, Bell } from 'lucide-react'
-import { Button, Card, Input, RichEditor, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@saas/ui'
+import { Settings2, Loader2, Save, Clock, Hash, Mail, FileText, Users, Bell, Sparkles, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Button, Card, Input, RichEditor, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, Switch, Badge, Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -40,7 +41,7 @@ const DEFAULT_CONFIG: ConfigState = {
   textoApresentacao: '',
 }
 
-type TabKey = 'prazos' | 'numeracao' | 'emails' | 'textos' | 'areas'
+type TabKey = 'prazos' | 'numeracao' | 'emails' | 'textos' | 'areas' | 'modelos'
 
 const TABS: Array<{ key: TabKey; label: string; icon: typeof Clock }> = [
   { key: 'prazos', label: 'Prazos do workflow', icon: Clock },
@@ -48,6 +49,7 @@ const TABS: Array<{ key: TabKey; label: string; icon: typeof Clock }> = [
   { key: 'emails', label: 'Notificações', icon: Mail },
   { key: 'textos', label: 'Textos padrão', icon: FileText },
   { key: 'areas', label: 'Áreas (detalhamento)', icon: Users },
+  { key: 'modelos', label: 'Modelos de proposta (IA)', icon: Sparkles },
 ]
 
 export default function OrcamentosConfiguracoesPage() {
@@ -61,6 +63,8 @@ export default function OrcamentosConfiguracoesPage() {
   const { isMaster, isEmpresaMaster, permissions, loading: permsLoading } = useUserPermissions()
   const orcSubPerms = (permissions.find(p => p.moduleSlug === 'orcamentos')?.subPermissions ?? {}) as Record<string, boolean>
   const podeConfig = isMaster || isEmpresaMaster || orcSubPerms.acessar_configuracoes === true
+  const podeGerirModelos = isMaster || isEmpresaMaster || orcSubPerms.gerir_modelos_proposta === true
+  const visibleTabs = TABS.filter(t => t.key !== 'modelos' || podeGerirModelos)
   useEffect(() => {
     if (!permsLoading && !podeConfig) router.replace('/orcamentos')
   }, [permsLoading, podeConfig, router])
@@ -124,7 +128,7 @@ export default function OrcamentosConfiguracoesPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {activeTab !== 'areas' && (
+          {activeTab !== 'areas' && activeTab !== 'modelos' && (
             <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
@@ -142,7 +146,7 @@ export default function OrcamentosConfiguracoesPage() {
         <div className="flex flex-col sm:flex-row min-h-[450px]">
           {/* Pills laterais */}
           <div className="sm:w-[200px] shrink-0 border-b sm:border-b-0 sm:border-r border-border bg-muted/40 p-3 flex sm:flex-col gap-1 overflow-x-auto">
-            {TABS.map(tab => {
+            {visibleTabs.map(tab => {
               const Icon = tab.icon
               const active = activeTab === tab.key
               return (
@@ -170,7 +174,7 @@ export default function OrcamentosConfiguracoesPage() {
             {/* Título interno full-width */}
             <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
               <h4 className="text-[13px] font-semibold text-foreground">
-                {TABS.find(t => t.key === activeTab)?.label}
+                {visibleTabs.find(t => t.key === activeTab)?.label}
               </h4>
             </div>
 
@@ -276,6 +280,7 @@ export default function OrcamentosConfiguracoesPage() {
               )}
 
               {activeTab === 'areas' && <AreasConfigTab />}
+              {activeTab === 'modelos' && <ModelosPropostaTab />}
             </div>
           </div>
         </div>
@@ -435,6 +440,137 @@ function AreasConfigTab() {
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar áreas
         </Button>
       </div>
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Aba "Modelos de proposta (IA)" — biblioteca curada de textos de proposta
+// (texto p/ cliente) que servem de referência de estilo pro assistente de IA.
+// ────────────────────────────────────────────────────────────────────
+interface ModeloProposta {
+  id: string; titulo: string; conteudo: string; tipo: string | null
+  segmento: string | null; ativo: boolean; ordem: number
+}
+
+const TIPO_MODELO_LABEL: Record<string, string> = { SERVICO_MENSAL: 'Mensal', SERVICO_EXTRA: 'Avulso/Extra' }
+
+function stripTagsModelo(html: string): string {
+  return String(html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function ModelosPropostaTab() {
+  const [loading, setLoading] = useState(true)
+  const [modelos, setModelos] = useState<ModeloProposta[]>([])
+  const [edit, setEdit] = useState<(Partial<ModeloProposta> & { _new?: boolean }) | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const carregar = () => {
+    setLoading(true)
+    ;(trpc.orcamento as any).modelosProposta.query()
+      .then((r: ModeloProposta[]) => setModelos(r || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }
+  useEffect(() => { carregar() }, [])
+
+  async function salvar() {
+    if (!edit?.titulo?.trim()) { alerts.error('Título obrigatório', 'Dê um nome ao modelo.'); return }
+    if (!edit?.conteudo?.trim()) { alerts.error('Conteúdo obrigatório', 'Escreva o texto do modelo.'); return }
+    setSaving(true)
+    try {
+      const payload = {
+        titulo: edit.titulo, conteudo: edit.conteudo,
+        tipo: edit.tipo || null, segmento: edit.segmento || null,
+        ativo: edit.ativo ?? true, ordem: edit.ordem ?? 0,
+      }
+      if (edit._new) await (trpc.orcamento as any).criarModeloProposta.mutate(payload)
+      else await (trpc.orcamento as any).atualizarModeloProposta.mutate({ id: edit.id, ...payload })
+      setEdit(null); carregar()
+      alerts.success('Salvo', 'Modelo salvo com sucesso.')
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setSaving(false) }
+  }
+
+  async function remover(m: ModeloProposta) {
+    const ok = await alerts.confirm({ title: 'Excluir modelo', text: `Excluir o modelo "${m.titulo}"?`, confirmText: 'Excluir', icon: 'warning' })
+    if (!ok) return
+    try { await (trpc.orcamento as any).excluirModeloProposta.mutate({ id: m.id }); carregar() }
+    catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
+  if (loading) return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[12px] text-muted-foreground max-w-xl">
+          Cadastre modelos de proposta (o texto que vai ao cliente). O assistente de IA usa os modelos <strong>ativos</strong> como referência de estilo, tom e estrutura ao redigir. Sem nenhum modelo ativo, a IA aprende com as propostas já enviadas.
+        </p>
+        <Button size="sm" onClick={() => setEdit({ _new: true, ativo: true })} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5 shrink-0">
+          <Plus className="h-4 w-4" /> Novo modelo
+        </Button>
+      </div>
+
+      <div className="border rounded-lg divide-y">
+        {modelos.length === 0 && <p className="text-sm text-muted-foreground p-6 text-center">Nenhum modelo cadastrado ainda.</p>}
+        {modelos.map(m => (
+          <div key={m.id} className={cn('flex items-center gap-3 p-3', !m.ativo && 'opacity-60')}>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium truncate">{m.titulo}</p>
+                {m.tipo && <Badge variant="secondary" className="text-[10px]">{TIPO_MODELO_LABEL[m.tipo] || m.tipo}</Badge>}
+                {!m.ativo && <Badge variant="outline" className="text-[10px] text-muted-foreground">inativo</Badge>}
+              </div>
+              <p className="text-[11px] text-muted-foreground truncate mt-0.5">{stripTagsModelo(m.conteudo).slice(0, 120) || '—'}</p>
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setEdit({ ...m })}><Pencil className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive" onClick={() => remover(m)}><Trash2 className="h-3.5 w-3.5" /></Button>
+          </div>
+        ))}
+      </div>
+
+      <Dialog open={!!edit} onOpenChange={o => !o && setEdit(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeaderIcon icon={Sparkles} color="fuchsia">
+            <DialogTitle>{edit?._new ? 'Novo modelo de proposta' : 'Editar modelo'}</DialogTitle>
+            <DialogDescription>Texto de referência que a IA usa pra aprender o padrão das propostas.</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-4">
+            <div className="grid grid-cols-12 gap-3">
+              <div className="col-span-12 sm:col-span-8 space-y-1.5">
+                <label className="text-[13px] font-semibold">Título *</label>
+                <Input className="h-9 text-sm" value={edit?.titulo ?? ''} onChange={e => setEdit(s => ({ ...s, titulo: e.target.value }))} placeholder="Ex.: Proposta padrão — Contabilidade mensal" />
+              </div>
+              <div className="col-span-12 sm:col-span-4 space-y-1.5">
+                <label className="text-[13px] font-semibold">Tipo</label>
+                <Select value={edit?.tipo ?? '__any'} onValueChange={v => setEdit(s => ({ ...s, tipo: v === '__any' ? null : v }))}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__any">Qualquer</SelectItem>
+                    <SelectItem value="SERVICO_MENSAL">Mensal</SelectItem>
+                    <SelectItem value="SERVICO_EXTRA">Avulso/Extra</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold">Texto do modelo *</label>
+              <RichEditor value={edit?.conteudo ?? ''} onChange={v => setEdit(s => ({ ...s, conteudo: v }))} placeholder="Cole/escreva aqui uma proposta-modelo (o texto que vai ao cliente)…" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={edit?.ativo ?? true} onCheckedChange={v => setEdit(s => ({ ...s, ativo: v }))} />
+              <label className="text-[13px]">Ativo (usado como referência pela IA)</label>
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEdit(null)}>Cancelar</Button>
+            <Button onClick={salvar} disabled={saving} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

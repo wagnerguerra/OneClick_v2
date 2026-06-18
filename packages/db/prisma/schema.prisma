@@ -6029,3 +6029,22 @@ model OrcamentoIaMensagem {
   @@index([orcamentoId, userId, createdAt])
   @@map("orcamento_ia_mensagem")
 }
+
+// Biblioteca curada de modelos de proposta (texto p/ cliente) — referência de
+// estilo pro assistente de IA. Gerida nas Configurações de Orçamentos.
+model OrcamentoPropostaModelo {
+  id        String   @id @default(cuid())
+  titulo    String
+  conteudo  String   @db.Text
+  tipo      String?
+  segmento  String?
+  ativo     Boolean  @default(true)
+  ordem     Int      @default(0)
+  empresaId String?  @map("empresa_id")
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([empresaId, ativo, ordem])
+  @@map("orcamento_proposta_modelo")
+}
