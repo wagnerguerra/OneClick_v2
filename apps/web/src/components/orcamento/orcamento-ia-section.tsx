@@ -1,9 +1,10 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Sparkles, Send, Loader2, Wand2, Copy, Check, FileText, RotateCcw } from 'lucide-react'
 import { Button, cn } from '@saas/ui'
 import { alerts } from '@/lib/alerts'
+import { trpc } from '@/lib/trpc'
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
 
@@ -34,7 +35,22 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
   const [streaming, setStreaming] = useState(false)
   const [status, setStatus] = useState('')
   const [copiado, setCopiado] = useState<number | null>(null)
+  const [carregando, setCarregando] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Carrega o histórico persistido do chat ao montar (persiste entre reloads/visitas).
+  useEffect(() => {
+    let vivo = true
+    ;(trpc.orcamento as any).iaMensagens.query({ id: orcamentoId })
+      .then((rows: { role: 'user' | 'assistant'; conteudo: string }[]) => {
+        if (!vivo) return
+        setMensagens((rows || []).map(r => ({ role: r.role, content: r.conteudo })))
+      })
+      .catch(() => {})
+      .finally(() => { if (vivo) { setCarregando(false); scrollToBottom() } })
+    return () => { vivo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orcamentoId])
 
   function scrollToBottom() {
     requestAnimationFrame(() => {
@@ -119,6 +135,22 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
     }
   }
 
+  async function limparConversa() {
+    const ok = await alerts.confirm({
+      title: 'Limpar conversa',
+      text: 'Apagar todo o histórico desta conversa com a IA? Esta ação não pode ser desfeita.',
+      confirmText: 'Limpar',
+      icon: 'warning',
+    })
+    if (!ok) return
+    try {
+      await (trpc.orcamento as any).limparIaChat.mutate({ id: orcamentoId })
+      setMensagens([])
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    }
+  }
+
   async function copiar(texto: string, idx: number) {
     try {
       await navigator.clipboard.writeText(texto)
@@ -145,7 +177,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
           </div>
         </div>
         {mensagens.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={() => setMensagens([])} disabled={streaming} className="gap-1.5 shrink-0">
+          <Button variant="ghost" size="sm" onClick={limparConversa} disabled={streaming} className="gap-1.5 shrink-0">
             <RotateCcw className="h-3.5 w-3.5" /> Limpar
           </Button>
         )}
@@ -153,7 +185,11 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
 
       {/* Conversa */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {vazio ? (
+        {carregando ? (
+          <div className="h-full flex items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : vazio ? (
           <div className="h-full flex flex-col items-center justify-center text-center gap-4 py-6">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400">
               <Wand2 className="h-6 w-6" />

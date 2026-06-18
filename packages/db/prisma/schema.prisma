@@ -6015,3 +6015,17 @@ model OrcamentoLegadoEvento {
   @@index([orcamentoId])
   @@map("orcamento_legado_evento")
 }
+
+// Histórico do chat do Assistente de IA no orçamento (persistido por orçamento + usuário).
+// FK p/ orcamentos aplicada via SQL cirúrgico (add_orcamento_ia_chat.sql).
+model OrcamentoIaMensagem {
+  id          String   @id @default(cuid())
+  orcamentoId String   @map("orcamento_id")
+  userId      String?  @map("user_id")
+  role        String // 'user' | 'assistant'
+  conteudo    String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([orcamentoId, userId, createdAt])
+  @@map("orcamento_ia_mensagem")
+}

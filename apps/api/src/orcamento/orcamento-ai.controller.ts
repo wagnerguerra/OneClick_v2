@@ -61,7 +61,7 @@ export class OrcamentoAiController {
       const mensagens = (Array.isArray(body?.mensagens) ? body!.mensagens! : [])
         .filter(m => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
         .slice(-30)
-      await this.aiService.chatStream(id, mensagens, send)
+      await this.aiService.chatStream(id, mensagens, session.user.id, send)
     } catch (e) {
       send({ type: 'error', message: (e as Error).message })
     } finally {

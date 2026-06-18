@@ -23,6 +23,15 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => orcamentoService.listLegadoPorCliente(input.clienteId)),
 
+    // Assistente de IA — histórico do chat persistido (por orçamento + usuário)
+    iaMensagens: readProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .query(({ input, ctx }) => orcamentoService.listIaMensagens(input.id, ctx.userId)),
+
+    limparIaChat: writeProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => orcamentoService.limparIaChat(input.id, ctx.userId)),
+
     create: writeProcedure(MODULE)
       .input(createOrcamentoSchema)
       .mutation(({ input, ctx }) => orcamentoService.create(input, ctx.userId, ctx.empresaId)),

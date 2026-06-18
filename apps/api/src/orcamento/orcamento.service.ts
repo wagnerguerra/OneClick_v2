@@ -2793,4 +2793,33 @@ export class OrcamentoService {
     const mi = by(itens), mm = by(msgs), me = by(evs)
     return orcs.map(o => ({ ...o, itens: mi.get(o.id) || [], mensagens: mm.get(o.id) || [], eventos: me.get(o.id) || [] }))
   }
+
+  // ── Assistente de IA — chat persistido por orçamento + usuário ──────────
+  async listIaMensagens(orcamentoId: string, userId?: string) {
+    return prisma.$queryRawUnsafe<{ role: string; conteudo: string }[]>(
+      `SELECT role, conteudo FROM orcamento_ia_mensagem
+        WHERE orcamento_id = $1 AND user_id IS NOT DISTINCT FROM $2
+        ORDER BY created_at ASC`,
+      orcamentoId, userId ?? null,
+    ).catch(() => [] as { role: string; conteudo: string }[])
+  }
+
+  async salvarIaMensagens(orcamentoId: string, userId: string | undefined, msgs: { role: string; conteudo: string }[]) {
+    for (const m of msgs) {
+      if (!m.conteudo?.trim()) continue
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO orcamento_ia_mensagem (id, orcamento_id, user_id, role, conteudo)
+         VALUES (gen_random_uuid()::text, $1, $2, $3, $4)`,
+        orcamentoId, userId ?? null, m.role, m.conteudo,
+      ).catch(() => {})
+    }
+  }
+
+  async limparIaChat(orcamentoId: string, userId?: string) {
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM orcamento_ia_mensagem WHERE orcamento_id = $1 AND user_id IS NOT DISTINCT FROM $2`,
+      orcamentoId, userId ?? null,
+    ).catch(() => {})
+    return { ok: true }
+  }
 }

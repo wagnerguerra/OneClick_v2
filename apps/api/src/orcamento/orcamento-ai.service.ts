@@ -215,6 +215,7 @@ ${contexto}`
   async chatStream(
     orcamentoId: string,
     mensagens: ChatMsg[],
+    userId: string | undefined,
     onEvent: (e: StreamEvent) => void,
   ): Promise<void> {
     const client = this.getClient()
@@ -238,6 +239,7 @@ ${contexto}`
     const start = Date.now()
     let tokensIn = 0
     let tokensOut = 0
+    let resposta = ''
 
     try {
       const stream = client.messages.stream({
@@ -248,7 +250,7 @@ ${contexto}`
       })
 
       stream.on('text', (delta) => {
-        if (delta) onEvent({ type: 'text', text: delta })
+        if (delta) { resposta += delta; onEvent({ type: 'text', text: delta }) }
       })
 
       const finalMessage = await stream.finalMessage()
@@ -262,6 +264,16 @@ ${contexto}`
     const duracaoMs = Date.now() - start
     const custoUsd = (tokensIn / 1_000_000) * this.PRICE_INPUT_USD_PER_MTOK
                    + (tokensOut / 1_000_000) * this.PRICE_OUTPUT_USD_PER_MTOK
+
+    // Persiste o turno: a última mensagem do usuário + a resposta da IA.
+    // (As trocas anteriores já foram gravadas em chamadas anteriores.)
+    const ultimaUser = [...mensagens].reverse().find(m => m.role === 'user')
+    const aGravar: { role: string; conteudo: string }[] = []
+    if (ultimaUser) aGravar.push({ role: 'user', conteudo: ultimaUser.content })
+    if (resposta.trim()) aGravar.push({ role: 'assistant', conteudo: resposta })
+    if (aGravar.length) {
+      await this.orcamentoService.salvarIaMensagens(orcamentoId, userId, aGravar).catch(() => {})
+    }
 
     onEvent({ type: 'done', custoUsd, tokensIn, tokensOut, duracaoMs })
   }
