@@ -8,6 +8,10 @@ import { trpc } from '@/lib/trpc'
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
 
+// Espelha o MODEL do backend (OrcamentoAiService). Exibido no header do painel.
+const MODELO_LABEL = 'Claude Sonnet 4.6'
+const MODELO_ID = 'claude-sonnet-4-6'
+
 const ACOES_RAPIDAS = [
   { label: 'Analisar e redigir proposta', prompt: 'Analise este orçamento (itens, valores, condições e o histórico do cliente) e redija o texto completo da proposta para enviar ao cliente. Use HTML simples (parágrafos, negrito).' },
   { label: 'Mais formal', prompt: 'Reescreva a última proposta com um tom mais formal e institucional, mantendo as mesmas informações.' },
@@ -172,7 +176,15 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
             <Sparkles className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold leading-tight">Assistente de proposta (IA)</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold leading-tight">Assistente de proposta (IA)</p>
+              <span
+                title={`Modelo: ${MODELO_ID}`}
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-200 dark:border-violet-900 bg-violet-50 dark:bg-violet-950/30 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-300"
+              >
+                <Sparkles className="h-2.5 w-2.5" /> {MODELO_LABEL}
+              </span>
+            </div>
             <p className="text-xs text-muted-foreground leading-tight">Analisa o orçamento e o histórico e redige a proposta para o cliente</p>
           </div>
         </div>
