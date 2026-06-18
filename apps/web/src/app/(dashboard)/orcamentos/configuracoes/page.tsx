@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Settings2, Loader2, Save, Clock, Hash, Mail, FileText, Users, Bell, Sparkles, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Settings2, Loader2, Save, Clock, Hash, Mail, FileText, Users, Bell, Sparkles, Plus, Pencil, Trash2, Star, ArrowUp, ArrowDown, History } from 'lucide-react'
 import { Button, Card, Input, RichEditor, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, Switch, Badge, Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -41,7 +41,7 @@ const DEFAULT_CONFIG: ConfigState = {
   textoApresentacao: '',
 }
 
-type TabKey = 'prazos' | 'numeracao' | 'emails' | 'textos' | 'areas' | 'modelos'
+type TabKey = 'prazos' | 'numeracao' | 'emails' | 'textos' | 'areas' | 'modelos' | 'pesquisa'
 
 const TABS: Array<{ key: TabKey; label: string; icon: typeof Clock }> = [
   { key: 'prazos', label: 'Prazos do workflow', icon: Clock },
@@ -50,6 +50,7 @@ const TABS: Array<{ key: TabKey; label: string; icon: typeof Clock }> = [
   { key: 'textos', label: 'Textos padrão', icon: FileText },
   { key: 'areas', label: 'Áreas (detalhamento)', icon: Users },
   { key: 'modelos', label: 'Modelos de proposta (IA)', icon: Sparkles },
+  { key: 'pesquisa', label: 'Pesquisa de satisfação', icon: Star },
 ]
 
 export default function OrcamentosConfiguracoesPage() {
@@ -64,7 +65,11 @@ export default function OrcamentosConfiguracoesPage() {
   const orcSubPerms = (permissions.find(p => p.moduleSlug === 'orcamentos')?.subPermissions ?? {}) as Record<string, boolean>
   const podeConfig = isMaster || isEmpresaMaster || orcSubPerms.acessar_configuracoes === true
   const podeGerirModelos = isMaster || isEmpresaMaster || orcSubPerms.gerir_modelos_proposta === true
-  const visibleTabs = TABS.filter(t => t.key !== 'modelos' || podeGerirModelos)
+  const podeGerirPesquisas = isMaster || isEmpresaMaster || orcSubPerms.gerir_pesquisas === true
+  const visibleTabs = TABS.filter(t =>
+    (t.key !== 'modelos' || podeGerirModelos) &&
+    (t.key !== 'pesquisa' || podeGerirPesquisas),
+  )
   useEffect(() => {
     if (!permsLoading && !podeConfig) router.replace('/orcamentos')
   }, [permsLoading, podeConfig, router])
@@ -128,7 +133,7 @@ export default function OrcamentosConfiguracoesPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {activeTab !== 'areas' && activeTab !== 'modelos' && (
+          {activeTab !== 'areas' && activeTab !== 'modelos' && activeTab !== 'pesquisa' && (
             <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
@@ -281,6 +286,7 @@ export default function OrcamentosConfiguracoesPage() {
 
               {activeTab === 'areas' && <AreasConfigTab />}
               {activeTab === 'modelos' && <ModelosPropostaTab />}
+              {activeTab === 'pesquisa' && <PesquisaConfigTab />}
             </div>
           </div>
         </div>
@@ -571,6 +577,142 @@ function ModelosPropostaTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Aba "Pesquisa de satisfação" — edita a pesquisa ativa (título + perguntas).
+// Salvar com respostas existentes cria nova versão (respostas antigas mantidas).
+// ────────────────────────────────────────────────────────────────────
+interface PerguntaForm { id?: string; tipo: string; enunciado: string; obrigatoria: boolean }
+
+const TIPO_PERGUNTA: { value: string; label: string }[] = [
+  { value: 'ESTRELAS', label: 'Estrelas (1–5)' },
+  { value: 'NPS', label: 'NPS (0–10)' },
+  { value: 'SIM_NAO', label: 'Sim / Não' },
+  { value: 'TEXTO', label: 'Texto livre' },
+]
+
+function PesquisaConfigTab() {
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [titulo, setTitulo] = useState('')
+  const [perguntas, setPerguntas] = useState<PerguntaForm[]>([])
+  const [temRespostas, setTemRespostas] = useState(false)
+  const [versao, setVersao] = useState(1)
+  const [versoes, setVersoes] = useState<any[]>([])
+
+  const carregar = () => {
+    setLoading(true)
+    Promise.all([
+      (trpc.pesquisa as any).getModeloAtivo.query(),
+      (trpc.pesquisa as any).listVersoes.query().catch(() => []),
+    ]).then(([m, vs]: [any, any[]]) => {
+      setTitulo(m.titulo); setVersao(m.versao); setTemRespostas(!!m.temRespostas)
+      setPerguntas((m.perguntas || []).map((p: any) => ({ id: p.id, tipo: p.tipo, enunciado: p.enunciado, obrigatoria: p.obrigatoria })))
+      setVersoes(vs || [])
+    }).catch(() => {}).finally(() => setLoading(false))
+  }
+  useEffect(() => { carregar() }, [])
+
+  const addPergunta = () => setPerguntas(p => [...p, { tipo: 'ESTRELAS', enunciado: '', obrigatoria: true }])
+  const upd = (i: number, patch: Partial<PerguntaForm>) => setPerguntas(p => p.map((x, j) => j === i ? { ...x, ...patch } : x))
+  const rm = (i: number) => setPerguntas(p => p.filter((_, j) => j !== i))
+  const mover = (i: number, dir: number) => setPerguntas(p => {
+    const j = i + dir
+    if (j < 0 || j >= p.length) return p
+    const n = [...p]
+    const tmp = n[i]!
+    n[i] = n[j]!
+    n[j] = tmp
+    return n
+  })
+
+  async function salvar() {
+    if (!titulo.trim()) { alerts.error('Título obrigatório', 'Dê um título à pesquisa.'); return }
+    const validas = perguntas.filter(p => p.enunciado.trim())
+    if (!validas.length) { alerts.error('Sem perguntas', 'Inclua ao menos uma pergunta.'); return }
+    if (temRespostas) {
+      const ok = await alerts.confirm({
+        title: 'Criar nova versão?',
+        text: 'Esta pesquisa já recebeu respostas. Salvar criará uma NOVA versão — as respostas anteriores são preservadas na versão delas.',
+        confirmText: 'Criar nova versão', icon: 'question',
+      })
+      if (!ok) return
+    }
+    setSaving(true)
+    try {
+      const r = await (trpc.pesquisa as any).salvarModelo.mutate({
+        titulo,
+        perguntas: validas.map((p, idx) => ({ ordem: idx, tipo: p.tipo, enunciado: p.enunciado, obrigatoria: p.obrigatoria })),
+      })
+      alerts.success('Salvo', r?.novaVersao ? `Nova versão (v${r.versao}) criada.` : 'Pesquisa atualizada.')
+      carregar()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setSaving(false) }
+  }
+
+  if (loading) return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+
+  return (
+    <div className="space-y-5">
+      <p className="text-[12px] text-muted-foreground max-w-2xl">
+        Esta é a pesquisa enviada aos clientes (versão <strong>v{versao}</strong> ativa).{' '}
+        {temRespostas && <span className="text-amber-600 dark:text-amber-400 font-medium">Já recebeu respostas — ao salvar, uma nova versão é criada e as respostas antigas ficam preservadas.</span>}
+      </p>
+
+      <div className="space-y-1.5 max-w-xl">
+        <label className="text-[13px] font-semibold">Título</label>
+        <Input className="h-9 text-sm" value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Pesquisa de Satisfação" />
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-[13px] font-semibold">Perguntas</label>
+          <Button size="sm" variant="outline" onClick={addPergunta} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Adicionar pergunta</Button>
+        </div>
+        {perguntas.length === 0 && <p className="text-sm text-muted-foreground p-4 text-center border rounded-lg">Nenhuma pergunta cadastrada.</p>}
+        {perguntas.map((p, i) => (
+          <div key={i} className="flex items-start gap-2 border rounded-lg p-3 bg-muted/20">
+            <div className="flex flex-col gap-1 pt-1.5">
+              <button type="button" onClick={() => mover(i, -1)} disabled={i === 0} className="text-muted-foreground hover:text-foreground disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
+              <button type="button" onClick={() => mover(i, 1)} disabled={i === perguntas.length - 1} className="text-muted-foreground hover:text-foreground disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" /></button>
+            </div>
+            <div className="flex-1 space-y-2 min-w-0">
+              <Input className="h-9 text-sm" value={p.enunciado} onChange={e => upd(i, { enunciado: e.target.value })} placeholder="Enunciado da pergunta" />
+              <div className="flex items-center gap-3 flex-wrap">
+                <Select value={p.tipo} onValueChange={v => upd(i, { tipo: v })}>
+                  <SelectTrigger className="h-8 text-xs w-[170px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>{TIPO_PERGUNTA.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+                </Select>
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer"><Switch checked={p.obrigatoria} onCheckedChange={v => upd(i, { obrigatoria: v })} /> Obrigatória</label>
+              </div>
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive" onClick={() => rm(i)}><Trash2 className="h-3.5 w-3.5" /></Button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex justify-end">
+        <Button size="sm" onClick={salvar} disabled={saving} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} {temRespostas ? 'Salvar (nova versão)' : 'Salvar'}
+        </Button>
+      </div>
+
+      {versoes.filter(v => !v.ativo).length > 0 && (
+        <div className="space-y-2 pt-3 border-t">
+          <p className="text-[13px] font-semibold flex items-center gap-1.5"><History className="h-3.5 w-3.5" /> Versões anteriores</p>
+          <div className="border rounded-lg divide-y">
+            {versoes.filter(v => !v.ativo).map(v => (
+              <div key={v.id} className="flex items-center justify-between gap-3 p-2.5 text-xs">
+                <span className="font-medium">v{v.versao} · {v.titulo}</span>
+                <span className="text-muted-foreground">{v.qtdPerguntas} pergunta(s) · {v.qtdRespostas} resposta(s)</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
