@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  ArrowLeft, BarChart3, Loader2, Clock, Target, AlertTriangle, Building2, TrendingUp, Users,
+  ArrowLeft, BarChart3, Loader2, Clock, Target, AlertTriangle, Building2, TrendingUp, Star, ThumbsUp, MessageSquare,
 } from 'lucide-react'
 import {
   Button, Card, Badge,
@@ -36,6 +36,7 @@ const TABS = [
   { key: 'desempenho', label: 'Desempenho', icon: Target },
   { key: 'tempo', label: 'Tempo de Ciclo', icon: Clock },
   { key: 'area', label: 'Por Área', icon: Building2 },
+  { key: 'satisfacao', label: 'Satisfação', icon: Star },
 ] as const
 
 type TabKey = typeof TABS[number]['key']
@@ -71,6 +72,7 @@ export default function RelatoriosOrcamentosPage() {
   const [desempenho, setDesempenho] = useState<any[]>([])
   const [tempo, setTempo] = useState<any | null>(null)
   const [areas, setAreas] = useState<any[]>([])
+  const [pesquisa, setPesquisa] = useState<any | null>(null)
   const [loading, setLoading] = useState(false)
 
   const loadTab = useCallback(async (currentTab: TabKey) => {
@@ -91,6 +93,9 @@ export default function RelatoriosOrcamentosPage() {
       } else if (currentTab === 'area') {
         const data = await (trpc.orcamento as any).reportPorArea.query({ dias })
         setAreas(data)
+      } else if (currentTab === 'satisfacao') {
+        const data = await (trpc.pesquisa as any).reportPesquisa.query({ dias: dias ?? null })
+        setPesquisa(data)
       }
     } catch { /* silent */ }
     finally { setLoading(false) }
@@ -155,6 +160,7 @@ export default function RelatoriosOrcamentosPage() {
           {tab === 'desempenho' && <DesempenhoTab data={desempenho} />}
           {tab === 'tempo' && tempo && <TempoTab data={tempo} />}
           {tab === 'area' && <AreaTab data={areas} />}
+          {tab === 'satisfacao' && <SatisfacaoTab data={pesquisa} />}
         </>
       )}
     </div>
@@ -480,6 +486,58 @@ function AreaTab({ data }: { data: any[] }) {
           </TableBody>
         </Table>
       </Card>
+    </div>
+  )
+}
+
+function SatisfacaoTab({ data }: { data: any | null }) {
+  if (!data) return <p className="text-sm text-muted-foreground text-center py-10">Carregando…</p>
+  const npsCor = data.nps < 0 ? '#ef4444' : data.nps < 50 ? '#f59e0b' : '#10b981'
+  const chartNps = (data.distribuicaoNps || []).map((d: any) => ({ nome: String(d.nota), count: d.count }))
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard label={`Respostas (${data.taxaResposta}%)`} value={`${data.respondidas}/${data.enviadas}`} icon={Star} />
+        <StatCard label="NPS" value={String(data.nps)} icon={TrendingUp} cor={npsCor} />
+        <StatCard label="Média de estrelas" value={data.mediaEstrelas ? Number(data.mediaEstrelas).toFixed(1) : '—'} icon={Star} />
+        <StatCard label="% Sim (Sim/Não)" value={`${data.percentSim}%`} icon={ThumbsUp} />
+      </div>
+
+      {data.respondidas === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-8">Nenhuma resposta de pesquisa no período selecionado.</p>
+      )}
+
+      {chartNps.length > 0 && (
+        <Card className="p-5">
+          <h4 className="text-sm font-semibold mb-4">Distribuição das notas NPS (0–10)</h4>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={chartNps}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+              <XAxis dataKey="nome" tick={{ fontSize: 12 }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+              <Tooltip />
+              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                {chartNps.map((d: any, i: number) => {
+                  const n = Number(d.nome); const c = n <= 6 ? '#ef4444' : n <= 8 ? '#f59e0b' : '#10b981'
+                  return <Cell key={i} fill={c} />
+                })}
+                <LabelList dataKey="count" position="top" style={{ fontSize: 11 }} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      )}
+
+      {(data.comentarios || []).length > 0 && (
+        <Card className="p-5">
+          <h4 className="text-sm font-semibold mb-3 flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Comentários ({data.comentarios.length})</h4>
+          <div className="space-y-2 max-h-[360px] overflow-y-auto">
+            {data.comentarios.map((c: any, i: number) => (
+              <p key={i} className="text-sm border-l-2 pl-3 py-1 text-muted-foreground" style={{ borderColor: MODULE_COLOR }}>{c.texto}</p>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   )
 }
