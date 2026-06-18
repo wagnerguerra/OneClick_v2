@@ -136,40 +136,23 @@ export function SidebarGroup({ group, collapsed, isOpen, onToggle }: SidebarGrou
                       <DropdownMenuLabel className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60 py-1">{item.category}</DropdownMenuLabel>
                     </>
                   )}
-                  <DropdownMenuItem asChild className="sidebar-group-btn focus:bg-transparent focus:text-inherit data-highlighted:bg-transparent" style={{ '--gc': hex } as React.CSSProperties}>
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        'flex items-center gap-2 cursor-pointer',
-                        isActive && 'font-medium',
-                      )}
-                      style={isActive ? { color: hex, backgroundColor: `color-mix(in srgb, ${hex} 15%, transparent)` } : undefined}
-                    >
-                      <ItemIcon className="h-4 w-4" style={isActive ? { color: hex } : undefined} />
-                      {item.label}
-                    </Link>
-                  </DropdownMenuItem>
-                  {/* Sub-itens — renderizados indentados logo abaixo do pai, com setinha └→ */}
-                  {item.subItems && item.subItems.length > 0 && item.subItems.map((sub) => {
-                    const SubIcon = sub.icon
-                    const subActive = pathname === sub.href || pathname.startsWith(sub.href + '/')
-                    return (
-                      <DropdownMenuItem key={sub.href} asChild className="sidebar-group-btn focus:bg-transparent focus:text-inherit data-highlighted:bg-transparent pl-3" style={{ '--gc': hex } as React.CSSProperties}>
-                        <Link
-                          href={sub.href}
-                          className={cn(
-                            'flex items-center gap-1.5 cursor-pointer text-[13px]',
-                            subActive && 'font-medium',
-                          )}
-                          style={subActive ? { color: hex, backgroundColor: `color-mix(in srgb, ${hex} 15%, transparent)` } : undefined}
-                        >
-                          <CornerDownRight className="h-3 w-3 opacity-50 shrink-0" />
-                          <SubIcon className="h-3.5 w-3.5" style={subActive ? { color: hex } : undefined} />
-                          {sub.label}
-                        </Link>
-                      </DropdownMenuItem>
-                    )
-                  })}
+                  {item.subItems && item.subItems.length > 0 ? (
+                    <FlyoutSubmenu item={item} hex={hex} pathname={pathname} />
+                  ) : (
+                    <DropdownMenuItem asChild className="sidebar-group-btn focus:bg-transparent focus:text-inherit data-highlighted:bg-transparent" style={{ '--gc': hex } as React.CSSProperties}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          'flex items-center gap-2 cursor-pointer',
+                          isActive && 'font-medium',
+                        )}
+                        style={isActive ? { color: hex, backgroundColor: `color-mix(in srgb, ${hex} 15%, transparent)` } : undefined}
+                      >
+                        <ItemIcon className="h-4 w-4" style={isActive ? { color: hex } : undefined} />
+                        {item.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                 </div>
               )
             })
@@ -317,5 +300,64 @@ function SidebarItemWithSubmenu({ item, hex, pathname }: {
         })}
       </CollapsibleContent>
     </Collapsible>
+  )
+}
+
+/**
+ * Flyout (sidebar recolhida): item-pai com sub-menu colapsável.
+ * O nome/ícone navega normalmente; a setinha à direita expande/recolhe os
+ * sub-itens SEM fechar o flyout. Abre automaticamente se um sub-item estiver
+ * ativo. Espelha o comportamento de `SidebarItemWithSubmenu` (modo expandido).
+ */
+function FlyoutSubmenu({ item, hex, pathname }: {
+  item: { label: string; href: string; icon: any; subItems?: any[] }
+  hex: string
+  pathname: string
+}) {
+  const Icon = item.icon
+  const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+  const subActive = item.subItems?.some((s: any) => pathname === s.href || pathname.startsWith(s.href + '/')) ?? false
+  const [open, setOpen] = useState<boolean>(subActive)
+
+  return (
+    <>
+      <div className="flex items-stretch">
+        <DropdownMenuItem asChild className="sidebar-group-btn flex-1 focus:bg-transparent focus:text-inherit data-highlighted:bg-transparent" style={{ '--gc': hex } as React.CSSProperties}>
+          <Link
+            href={item.href}
+            className={cn('flex items-center gap-2 cursor-pointer', isActive && 'font-medium')}
+            style={isActive ? { color: hex, backgroundColor: `color-mix(in srgb, ${hex} 15%, transparent)` } : undefined}
+          >
+            <Icon className="h-4 w-4" style={isActive ? { color: hex } : undefined} />
+            {item.label}
+          </Link>
+        </DropdownMenuItem>
+        <button
+          type="button"
+          aria-label={open ? 'Recolher submenu' : 'Expandir submenu'}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(o => !o) }}
+          className="flex items-center px-2.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        >
+          <ChevronDown className={cn('h-3.5 w-3.5 transition-transform duration-200', open && 'rotate-180')} />
+        </button>
+      </div>
+      {open && (item.subItems ?? []).map((sub: any) => {
+        const SubIcon = sub.icon
+        const subItemActive = pathname === sub.href || pathname.startsWith(sub.href + '/')
+        return (
+          <DropdownMenuItem key={sub.href} asChild className="sidebar-group-btn focus:bg-transparent focus:text-inherit data-highlighted:bg-transparent pl-3" style={{ '--gc': hex } as React.CSSProperties}>
+            <Link
+              href={sub.href}
+              className={cn('flex items-center gap-1.5 cursor-pointer text-[13px]', subItemActive && 'font-medium')}
+              style={subItemActive ? { color: hex, backgroundColor: `color-mix(in srgb, ${hex} 15%, transparent)` } : undefined}
+            >
+              <CornerDownRight className="h-3 w-3 opacity-50 shrink-0" />
+              <SubIcon className="h-3.5 w-3.5" style={subItemActive ? { color: hex } : undefined} />
+              {sub.label}
+            </Link>
+          </DropdownMenuItem>
+        )
+      })}
+    </>
   )
 }
