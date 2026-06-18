@@ -132,9 +132,9 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
   const vazio = mensagens.length === 0
 
   return (
-    <div className="flex flex-col rounded-lg border bg-card" style={{ height: 'min(70vh, 640px)' }}>
+    <div className="flex flex-col h-full min-h-0 bg-card">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+      <div className="flex items-center justify-between gap-3 border-b px-4 py-3 pr-12">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400">
             <Sparkles className="h-5 w-5" />
