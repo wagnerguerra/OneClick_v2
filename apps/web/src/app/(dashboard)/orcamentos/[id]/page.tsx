@@ -9,7 +9,7 @@ import {
   MoreVertical, Pause, Play, RotateCcw, AlertTriangle,
   Package, History, Type, ChevronDown, ThumbsUp, ThumbsDown, CheckCircle2,
   Paperclip, Image as ImageIcon, Archive, MessageSquare, ClipboardCheck, Files, Shield, Lock,
-  Users, Clock as ClockIcon, CalendarClock, Sparkles,
+  Sparkles,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, CardHeader, CardContent, Label,
@@ -1839,9 +1839,6 @@ export default function OrcamentoDetailPage() {
           <TabsTrigger value="timeline" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5">
             <History className="h-3.5 w-3.5" /> Timeline
           </TabsTrigger>
-          <TabsTrigger value="areas" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5">
-            <Users className="h-3.5 w-3.5" /> Áreas
-          </TabsTrigger>
           {(historicoCliente.length > 0 || temLegado) && (
             <TabsTrigger value="historico" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5">
               <Files className="h-3.5 w-3.5" /> Outros orçamentos
@@ -2424,11 +2421,6 @@ export default function OrcamentoDetailPage() {
               )}
             </CardContent>
           </Card>
-          </TabsContent>
-
-          {/* === TAB: ÁREAS (detalhamento por área) === */}
-          <TabsContent value="areas" className="mt-0">
-            <OrcamentoAreasTab orcamentoId={orc.id} />
           </TabsContent>
 
           {/* === TAB: HISTORICO (outros orcamentos + eventos) === */}
@@ -3670,180 +3662,5 @@ function PesquisaCard({ orcamentoId, status }: { orcamentoId: string; status: st
         </DialogContent>
       </Dialog>
     </Card>
-  )
-}
-
-// ════════════════════════════════════════════════════════════════════
-// Aba "Áreas" — detalhamento por área (líder/substituto detalham + prorrogam 1×)
-// ════════════════════════════════════════════════════════════════════
-interface AreaRow {
-  id: string; areaId: string; areaNome: string; status: string
-  prazo: string; prazoOriginal: string; prorrogado: boolean; prorrogadoEm: string | null; justificativaProrrogacao: string | null
-  detalhe: string | null; valor: number | null
-  responsavel: { id: string; name: string; image: string | null } | null
-  substituto: { id: string; name: string; image: string | null } | null
-  respondidoPor: { id: string; name: string } | null
-  respondidoEm: string | null
-}
-
-const AREA_STATUS: Record<string, { label: string; cls: string }> = {
-  PENDENTE:  { label: 'Pendente',  cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-400' },
-  DETALHADO: { label: 'Detalhado', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' },
-  ATRASADO:  { label: 'Atrasado',  cls: 'bg-rose-500/15 text-rose-700 dark:text-rose-400' },
-  DISPENSADO:{ label: 'Dispensado',cls: 'bg-slate-500/15 text-slate-600 dark:text-slate-300' },
-}
-
-function OrcamentoAreasTab({ orcamentoId }: { orcamentoId: string }) {
-  const { profile } = useCurrentUserProfile()
-  const meuId = profile?.id ?? ''
-  const isMaster = !!(profile?.isMaster || profile?.isEmpresaMaster)
-  const [areas, setAreas] = useState<AreaRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [editId, setEditId] = useState<string | null>(null)
-  const [detalhe, setDetalhe] = useState('')
-  const [valor, setValor] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [prorrogarId, setProrrogarId] = useState<string | null>(null)
-  const [prDias, setPrDias] = useState(2)
-  const [prJust, setPrJust] = useState('')
-
-  const load = () => {
-    (trpc.orcamento as any).listAreasDoOrcamento.query({ orcamentoId })
-      .then((d: AreaRow[]) => setAreas(d)).catch(() => setAreas([])).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [orcamentoId])
-
-  const podeMexer = (a: AreaRow) => isMaster || a.responsavel?.id === meuId || a.substituto?.id === meuId
-  const fmt = (d: string) => { const x = new Date(d); return Number.isNaN(x.getTime()) ? '—' : x.toLocaleDateString('pt-BR') }
-  const atrasado = (a: AreaRow) => a.status !== 'DETALHADO' && new Date(a.prazo).getTime() < Date.now()
-
-  function abrirEdicao(a: AreaRow) { setEditId(a.id); setDetalhe(a.detalhe ?? ''); setValor(a.valor != null ? String(a.valor) : '') }
-
-  async function salvar(a: AreaRow) {
-    if (!detalhe.trim()) return alerts.error('Detalhe vazio', 'Descreva a parte da sua área.')
-    setSaving(true)
-    try {
-      await (trpc.orcamento as any).detalharArea.mutate({ id: a.id, detalhe: detalhe.trim(), valor: valor.trim() ? Number(valor.replace(',', '.')) : null })
-      setEditId(null); load()
-      alerts.success('Área detalhada', 'Seu detalhamento foi registrado.')
-    } catch (e) { alerts.error('Erro', (e as Error).message) } finally { setSaving(false) }
-  }
-
-  async function prorrogar() {
-    if (!prorrogarId) return
-    if (!prJust.trim()) return alerts.error('Justificativa obrigatória', 'Explique o motivo da prorrogação.')
-    setSaving(true)
-    try {
-      await (trpc.orcamento as any).prorrogarArea.mutate({ id: prorrogarId, dias: prDias, justificativa: prJust.trim() })
-      setProrrogarId(null); setPrJust(''); load()
-      alerts.success('Prazo prorrogado', 'O novo prazo foi registrado.')
-    } catch (e) { alerts.error('Erro', (e as Error).message) } finally { setSaving(false) }
-  }
-
-  if (loading) return <div className="flex justify-center py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>
-  if (!areas.length) return (
-    <Card><CardContent className="py-14 text-center text-sm text-muted-foreground italic">
-      Nenhuma área vinculada a este orçamento. Vincule áreas na solicitação ou pelo botão de áreas.
-    </CardContent></Card>
-  )
-
-  return (
-    <div className="space-y-3">
-      {areas.map(a => {
-        const st = AREA_STATUS[a.status] ?? AREA_STATUS.PENDENTE
-        const editando = editId === a.id
-        const venceu = atrasado(a)
-        return (
-          <Card key={a.id} className={cn('overflow-hidden', venceu && 'border-rose-300 dark:border-rose-900/50')}>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-start justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Users className="h-4 w-4 text-rose-500 shrink-0" />
-                  <span className="font-semibold text-sm">{a.areaNome}</span>
-                  <span className={cn('text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full', st!.cls)}>{st!.label}</span>
-                </div>
-                <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                  <span className={cn('inline-flex items-center gap-1', venceu && 'text-rose-600 dark:text-rose-400 font-medium')}>
-                    <CalendarClock className="h-3.5 w-3.5" /> Prazo: {fmt(a.prazo)}{a.prorrogado && ' (prorrogado)'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                <span>Líder: <b className="text-foreground/80">{a.responsavel?.name ?? '—'}</b></span>
-                {a.substituto && <span>Substituto: <b className="text-foreground/80">{a.substituto.name}</b></span>}
-                {a.respondidoPor && <span>Detalhado por {a.respondidoPor.name} em {a.respondidoEm ? fmt(a.respondidoEm) : '—'}</span>}
-              </div>
-
-              {a.prorrogado && a.justificativaProrrogacao && (
-                <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-500/10 rounded px-2 py-1">Prorrogação: {a.justificativaProrrogacao}</p>
-              )}
-
-              {editando ? (
-                <div className="space-y-2">
-                  <textarea value={detalhe} onChange={e => setDetalhe(e.target.value)} rows={4} placeholder="Detalhe os serviços/itens da sua área…"
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-400" />
-                  <div className="flex items-center gap-2">
-                    <Input value={valor} onChange={e => setValor(e.target.value)} placeholder="Valor (opcional)" className="h-9 text-sm w-40" />
-                    <div className="flex-1" />
-                    <Button size="sm" variant="outline" onClick={() => setEditId(null)} disabled={saving}>Cancelar</Button>
-                    <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={() => salvar(a)} disabled={saving}>
-                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Salvar
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {a.detalhe ? (
-                    <div className="rounded-md bg-muted/40 px-3 py-2 text-sm whitespace-pre-wrap">{a.detalhe}{a.valor != null && <span className="block mt-1 text-xs font-semibold text-foreground/70">Valor: {Number(a.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>}</div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground italic">Aguardando detalhamento da área.</p>
-                  )}
-                  {podeMexer(a) && (
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => abrirEdicao(a)}>
-                        <Pencil className="h-3.5 w-3.5" /> {a.detalhe ? 'Editar detalhamento' : 'Detalhar'}
-                      </Button>
-                      {!a.prorrogado && a.status !== 'DETALHADO' && (
-                        <Button size="sm" variant="ghost" className="gap-1.5 text-amber-600" onClick={() => { setProrrogarId(a.id); setPrDias(2); setPrJust('') }}>
-                          <ClockIcon className="h-3.5 w-3.5" /> Prorrogar prazo
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        )
-      })}
-
-      {/* Modal de prorrogação (1×) */}
-      <Dialog open={!!prorrogarId} onOpenChange={(o) => { if (!o) setProrrogarId(null) }}>
-        <DialogContent>
-          <DialogHeaderIcon icon={CalendarClock} color="amber">
-            <DialogTitle>Prorrogar prazo</DialogTitle>
-            <DialogDescription>Você pode prorrogar uma única vez. Informe quantos dias e justifique.</DialogDescription>
-          </DialogHeaderIcon>
-          <DialogBody className="space-y-4">
-            <div className="space-y-1.5">
-              <Label className="text-[13px] font-semibold">Dias adicionais</Label>
-              <Input type="number" min={1} max={60} value={prDias} onChange={e => setPrDias(parseInt(e.target.value) || 1)} className="h-9 text-sm w-28" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[13px] font-semibold">Justificativa *</Label>
-              <textarea value={prJust} onChange={e => setPrJust(e.target.value)} rows={3} placeholder="Motivo da prorrogação…"
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-400" />
-            </div>
-          </DialogBody>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setProrrogarId(null)} disabled={saving}>Cancelar</Button>
-            <Button size="sm" variant="success" onClick={prorrogar} disabled={saving || !prJust.trim()}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarClock className="h-4 w-4" />} Prorrogar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
   )
 }
