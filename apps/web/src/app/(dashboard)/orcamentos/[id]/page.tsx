@@ -8,7 +8,7 @@ import {
   Upload, DollarSign, Send, Printer, Copy as CopyIcon, ExternalLink,
   MoreVertical, Pause, Play, RotateCcw, AlertTriangle,
   Package, History, Type, ChevronDown, ThumbsUp, ThumbsDown, CheckCircle2,
-  Paperclip, Image as ImageIcon, Archive, MessageSquare, ClipboardCheck, Files, Shield, Lock,
+  Paperclip, Image as ImageIcon, Archive, MessageSquare, Files, Shield, Lock,
   Sparkles,
 } from 'lucide-react'
 import {
@@ -1844,9 +1844,6 @@ export default function OrcamentoDetailPage() {
               <Files className="h-3.5 w-3.5" /> Outros orçamentos
             </TabsTrigger>
           )}
-          <TabsTrigger value="pesquisa" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5">
-            <ClipboardCheck className="h-3.5 w-3.5" /> Pesquisa
-          </TabsTrigger>
         </SlidingTabsList>
       </div>
       </div>
@@ -2470,11 +2467,6 @@ export default function OrcamentoDetailPage() {
           {/* === TAB: MENSAGENS === */}
           <TabsContent value="mensagens" className="mt-0">
             <MensagensCard orcamentoId={id} mensagens={orc.mensagens} usuarios={usuarios} onChange={fetchOrc} />
-          </TabsContent>
-
-          {/* === TAB: PESQUISA === */}
-          <TabsContent value="pesquisa" className="mt-0">
-            <PesquisaCard orcamentoId={id} status={orc.status} />
           </TabsContent>
 
         </div>
@@ -3430,237 +3422,6 @@ function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare =
         <Badge variant="secondary" className="text-[10px]">{mensagensLocais.length}</Badge>
       </CardHeader>
       <CardContent className="p-0">{inner}</CardContent>
-    </Card>
-  )
-}
-
-// ============================================================
-// PesquisaCard — gerencia a pesquisa vinculada ao orcamento
-// ============================================================
-
-interface PesquisaData {
-  id: string
-  token: string
-  enviadaEm: string | null
-  respondidaEm: string | null
-  respondenteNome: string | null
-  respondenteArea: string | null
-  respondenteEmail: string | null
-  q1Atendeu: boolean | null
-  q2Qualidade: number | null
-  q3Recomendaria: boolean | null
-  nota: number | null
-  comentario: string | null
-}
-
-function PesquisaCard({ orcamentoId, status }: { orcamentoId: string; status: string }) {
-  const [pesquisa, setPesquisa] = useState<PesquisaData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [actionLoading, setActionLoading] = useState(false)
-  const [enviarModal, setEnviarModal] = useState(false)
-  const [destinatarios, setDestinatarios] = useState('')
-
-  const fetch = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await (trpc.pesquisa as any).getByOrcamento.query({ orcamentoId })
-      setPesquisa(data)
-    } catch { /* silent */ }
-    finally { setLoading(false) }
-  }, [orcamentoId])
-
-  useEffect(() => { fetch() }, [fetch])
-
-  const linkPublico = pesquisa?.token && typeof window !== 'undefined'
-    ? `${window.location.protocol}//${window.location.host}/pesquisa/${pesquisa.token}`
-    : ''
-
-  async function handleCriar() {
-    setActionLoading(true)
-    try {
-      await (trpc.pesquisa as any).criarParaOrcamento.mutate({ orcamentoId })
-      alerts.success('Criada', 'Pesquisa de satisfação gerada')
-      fetch()
-    } catch (e) {
-      alerts.error('Erro', (e as Error).message)
-    } finally { setActionLoading(false) }
-  }
-
-  async function handleEnviar() {
-    if (!pesquisa) return
-    setActionLoading(true)
-    try {
-      const lista = destinatarios.split(/[,;]/).map(s => s.trim()).filter(Boolean)
-      await (trpc.pesquisa as any).enviarPorEmail.mutate({ id: pesquisa.id, destinatarios: lista.length ? lista : undefined })
-      setEnviarModal(false)
-      alerts.success('Enviado', 'Pesquisa enviada com sucesso')
-      fetch()
-    } catch (e) {
-      alerts.error('Erro', (e as Error).message)
-    } finally { setActionLoading(false) }
-  }
-
-  function copiarLink() {
-    if (!linkPublico) return
-    navigator.clipboard.writeText(linkPublico).then(() => alerts.success('Copiado', 'Link copiado'))
-  }
-
-  return (
-    <Card>
-      <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center justify-between">
-        <h3 className="text-sm font-semibold flex items-center gap-2">
-          <FileText className="h-4 w-4" style={{ color: MODULE_COLOR }} />
-          Pesquisa de Satisfação
-        </h3>
-        {pesquisa && (
-          <div className="flex items-center gap-2">
-            {pesquisa.respondidaEm ? (
-              <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">Respondida</Badge>
-            ) : pesquisa.enviadaEm ? (
-              <Badge className="bg-blue-100 text-blue-700 text-[10px]">Enviada</Badge>
-            ) : (
-              <Badge className="bg-slate-100 text-slate-700 text-[10px]">Pendente</Badge>
-            )}
-          </div>
-        )}
-      </CardHeader>
-      <CardContent className="p-5">
-        {loading ? (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : !pesquisa ? (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Nenhuma pesquisa criada para este orçamento.
-              {status !== 'FINALIZADO' && ' A pesquisa é gerada automaticamente quando o orçamento é marcado como FINALIZADO.'}
-            </p>
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={handleCriar} disabled={actionLoading}>
-              {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-              Gerar pesquisa manualmente
-            </Button>
-          </div>
-        ) : pesquisa.respondidaEm ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Respondente</p>
-                <p className="font-medium">{pesquisa.respondenteNome || '—'}</p>
-                {pesquisa.respondenteArea && <p className="text-xs text-muted-foreground">{pesquisa.respondenteArea}</p>}
-                {pesquisa.respondenteEmail && <p className="text-xs text-muted-foreground">{pesquisa.respondenteEmail}</p>}
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Respondida em</p>
-                <p className="font-medium">{new Date(pesquisa.respondidaEm).toLocaleString('pt-BR')}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-border/60">
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Atendeu expectativas</p>
-                {pesquisa.q1Atendeu === true ? (
-                  <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">Sim</Badge>
-                ) : pesquisa.q1Atendeu === false ? (
-                  <Badge className="bg-rose-100 text-rose-700 text-[10px]">Não</Badge>
-                ) : <span className="text-xs text-muted-foreground">—</span>}
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Qualidade</p>
-                {pesquisa.q2Qualidade != null ? (
-                  <span className="text-sm font-semibold">{'★'.repeat(pesquisa.q2Qualidade)}<span className="text-muted-foreground">{'☆'.repeat(5 - pesquisa.q2Qualidade)}</span></span>
-                ) : <span className="text-xs text-muted-foreground">—</span>}
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Recomendaria</p>
-                {pesquisa.q3Recomendaria === true ? (
-                  <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">Sim</Badge>
-                ) : pesquisa.q3Recomendaria === false ? (
-                  <Badge className="bg-rose-100 text-rose-700 text-[10px]">Não</Badge>
-                ) : <span className="text-xs text-muted-foreground">—</span>}
-              </div>
-            </div>
-
-            {pesquisa.nota != null && (
-              <div className="pt-3 border-t border-border/60">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">NPS (0-10)</p>
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl font-bold" style={{ color: pesquisa.nota >= 9 ? '#10b981' : pesquisa.nota >= 7 ? '#f59e0b' : '#ef4444' }}>
-                    {pesquisa.nota}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {pesquisa.nota >= 9 ? 'Promotor' : pesquisa.nota >= 7 ? 'Neutro' : 'Detrator'}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {pesquisa.comentario && (
-              <div className="pt-3 border-t border-border/60">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Comentários</p>
-                <p className="text-sm whitespace-pre-wrap text-muted-foreground italic">"{pesquisa.comentario}"</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {pesquisa.enviadaEm
-                ? `Pesquisa enviada em ${new Date(pesquisa.enviadaEm).toLocaleString('pt-BR')}, aguardando resposta.`
-                : 'Pesquisa criada mas ainda não foi enviada.'}
-            </p>
-            {linkPublico && (
-              <div className="text-[11px] bg-muted/30 rounded p-2 flex items-start gap-2">
-                <ExternalLink className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium mb-0.5">Link público:</p>
-                  <p className="font-mono break-all text-[10px]">{linkPublico}</p>
-                </div>
-              </div>
-            )}
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setEnviarModal(true)} disabled={actionLoading}>
-                <Send className="h-3.5 w-3.5" />
-                {pesquisa.enviadaEm ? 'Reenviar' : 'Enviar por email'}
-              </Button>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={copiarLink}>
-                <ExternalLink className="h-3.5 w-3.5" />
-                Copiar link
-              </Button>
-            </div>
-          </div>
-        )}
-      </CardContent>
-
-      {/* Modal de envio */}
-      <Dialog open={enviarModal} onOpenChange={setEnviarModal}>
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeaderIcon icon={Send} color="sky">
-            <DialogTitle className="text-[15px]">Enviar pesquisa por email</DialogTitle>
-            <DialogDescription className="text-[11px]">
-              Deixe em branco para usar o email do cliente cadastrado, ou informe e-mails customizados.
-            </DialogDescription>
-          </DialogHeaderIcon>
-          <DialogBody className="space-y-3">
-            <div>
-              <Label className="text-[13px] font-semibold text-foreground">Destinatários</Label>
-              <Input
-                value={destinatarios}
-                onChange={e => setDestinatarios(e.target.value)}
-                placeholder="email1@dominio.com, email2@dominio.com"
-                className="h-9 text-sm"
-              />
-              <p className="text-[11px] text-muted-foreground mt-1">Separe vários e-mails com vírgula ou ponto-e-vírgula</p>
-            </div>
-          </DialogBody>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setEnviarModal(false)} disabled={actionLoading}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleEnviar} disabled={actionLoading}>
-              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              Enviar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   )
 }
