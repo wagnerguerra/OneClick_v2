@@ -9,7 +9,7 @@ import {
   MoreVertical, Pause, Play, RotateCcw, AlertTriangle,
   Package, History, Type, ChevronDown, ThumbsUp, ThumbsDown, CheckCircle2,
   Paperclip, Image as ImageIcon, Archive, MessageSquare, ClipboardCheck, Files, Shield, Lock,
-  Users, Clock as ClockIcon, CalendarClock,
+  Users, Clock as ClockIcon, CalendarClock, Sparkles,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, CardHeader, CardContent, Label,
@@ -24,6 +24,7 @@ import { cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { OrcamentosLegadoSection } from '@/components/orcamento/orcamentos-legado-section'
+import { OrcamentoIaSection } from '@/components/orcamento/orcamento-ia-section'
 import { masks } from '@/lib/masks'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -1837,6 +1838,9 @@ export default function OrcamentoDetailPage() {
           <TabsTrigger value="pesquisa" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5">
             <ClipboardCheck className="h-3.5 w-3.5" /> Pesquisa
           </TabsTrigger>
+          <TabsTrigger value="ia" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-violet-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-violet-400 gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" /> Assistente IA
+          </TabsTrigger>
         </SlidingTabsList>
       </div>
       </div>
@@ -2470,6 +2474,14 @@ export default function OrcamentoDetailPage() {
           {/* === TAB: PESQUISA === */}
           <TabsContent value="pesquisa" className="mt-0">
             <PesquisaCard orcamentoId={id} status={orc.status} />
+          </TabsContent>
+
+          {/* === TAB: ASSISTENTE IA === */}
+          <TabsContent value="ia" className="mt-0">
+            <OrcamentoIaSection
+              orcamentoId={id}
+              onAplicar={(html) => { setFormTextoCliente(html); setActiveTab('detalhes') }}
+            />
           </TabsContent>
         </div>
 
