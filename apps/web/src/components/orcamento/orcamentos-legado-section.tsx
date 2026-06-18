@@ -11,6 +11,7 @@ interface MsgLegado { conteudo: string; data: string | null }
 interface EvLegado { evento: string; data: string | null }
 interface OrcLegado {
   id: string; legacyId: number; numero: number; status: string | null; valorTotal: string | number | null
+  desconto: string | null; valorDesconto: string | number | null
   contato: string | null; contatoEmail: string | null; validadeDias: number | null; descricao: string | null
   decisaoTipo: string | null; decisaoNome: string | null; decisaoObs: string | null; decisaoEm: string | null
   dtNovo: string | null; dtFinalizado: string | null; dtAprovado: string | null; dtCancelado: string | null
@@ -109,11 +110,21 @@ export function OrcamentosLegadoSection({ clienteId, className }: { clienteId?: 
           <DialogBody className="space-y-4 max-h-[min(70vh,640px)] nice-scrollbar">
             {sel && (
               <>
-                {/* Resumo */}
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm">
-                  <span><span className="text-muted-foreground">Valor total:</span> <strong className="text-emerald-700 dark:text-emerald-400">{fmtMoeda(sel.valorTotal)}</strong></span>
-                  {sel.validadeDias ? <span><span className="text-muted-foreground">Validade:</span> {sel.validadeDias} dias</span> : null}
-                  {sel.contato ? <span><span className="text-muted-foreground">Contato:</span> {sel.contato}</span> : null}
+                {/* Resumo financeiro (com desconto, como no legado) */}
+                <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-sm space-y-1">
+                  {Number(sel.valorDesconto) > 0 ? (
+                    <>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums">{fmtMoeda(Number(sel.valorTotal || 0) + Number(sel.valorDesconto || 0))}</span></div>
+                      <div className="flex justify-between text-rose-600 dark:text-rose-400"><span>Desconto</span><span className="tabular-nums">− {fmtMoeda(sel.valorDesconto)}</span></div>
+                      <div className="flex justify-between font-semibold border-t border-border/60 pt-1"><span>Total</span><span className="tabular-nums text-emerald-700 dark:text-emerald-400">{fmtMoeda(sel.valorTotal)}</span></div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between font-semibold"><span>Valor total</span><span className="tabular-nums text-emerald-700 dark:text-emerald-400">{fmtMoeda(sel.valorTotal)}</span></div>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-xs text-muted-foreground">
+                  {sel.validadeDias ? <span>Validade: {sel.validadeDias} dias</span> : null}
+                  {sel.contato ? <span>Contato: {sel.contato}</span> : null}
                 </div>
                 {sel.descricao && (
                   <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: sel.descricao }} />

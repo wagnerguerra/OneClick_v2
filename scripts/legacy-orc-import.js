@@ -98,8 +98,15 @@ async function main() {
     // itens — valor em pt-BR; fallback pro valor do catálogo quando o item vem vazio
     const [itens] = await conn.query(`SELECT cod_serv, qtde, valor, situacao FROM com_orc_ser WHERE cod_orc = ? AND ativo = 1 ORDER BY id ASC`, [o.numero])
     const itemValor = (it) => { const v = parseBr(it.valor); if (v != null) return v; const c = cadMap.get(it.cod_serv); return c ? parseBr(c.valor) : null }
-    let total = 0
-    itens.forEach(it => { const q = parseBr(it.qtde) || 1; const v = itemValor(it) || 0; total += q * v })
+    // Bruto = soma dos itens; desconto no legado é R$ (valor_desconto) OU % (desconto).
+    let bruto = 0
+    itens.forEach(it => { const q = parseBr(it.qtde) || 1; const v = itemValor(it) || 0; bruto += q * v })
+    const descPct = parseBr(o.desconto) || 0
+    const descVal = parseBr(o.valor_desconto) || 0
+    const descontoR = descVal > 0 ? descVal : (descPct > 0 ? bruto * (descPct / 100) : 0)
+    const total = Math.max(0, bruto - descontoR)            // líquido (após desconto)
+    const totalCol = bruto > 0 ? Math.round(total * 100) / 100 : null
+    const descontoCol = descontoR > 0 ? Math.round(descontoR * 100) / 100 : null
 
     // decisão
     let decisaoTipo = null, decisaoNome = null, decisaoCpf = null, decisaoObs = null, decisaoEm = null
@@ -108,7 +115,7 @@ async function main() {
 
     lines.push(
       `INSERT INTO orcamento_legado (id, legacy_id, numero, cliente_id, cnpj, razao_social, status, tipo, contato, contato_email, validade_dias, desconto, valor_desconto, valor_total, descricao, decisao_tipo, decisao_nome, decisao_cpf, decisao_obs, decisao_em, csat_obs, dt_novo, dt_enviado, dt_aprovado, dt_liberado, dt_finalizado, dt_encerrado, dt_cancelado) VALUES (` +
-      `${esc(pid)}, ${o.id}, ${o.numero}, ${clienteSub}, ${esc(cnpjValid ? cnpjD : null)}, ${esc(o.razao)}, ${esc(STATUS_MAP[o.status] || o.status)}, ${esc(o.tipo)}, ${esc(o.contato)}, ${esc(o.contato_email)}, ${num(o.validade)}, ${esc(o.desconto)}, ${esc(o.valor_desconto)}, ${num(total || null)}, ${esc(o.descricao)}, ${esc(decisaoTipo)}, ${esc(decisaoNome)}, ${esc(decisaoCpf)}, ${esc(decisaoObs)}, ${dt(decisaoEm)}, ${esc(o.obs_pesquisa)}, ${dt(o.dt_nov)}, ${dt(o.dt_env)}, ${dt(o.dt_apr)}, ${dt(o.dt_lib)}, ${dt(o.dt_fin)}, ${dt(o.dt_enc)}, ${dt(o.dt_can)});`)
+      `${esc(pid)}, ${o.id}, ${o.numero}, ${clienteSub}, ${esc(cnpjValid ? cnpjD : null)}, ${esc(o.razao)}, ${esc(STATUS_MAP[o.status] || o.status)}, ${esc(o.tipo)}, ${esc(o.contato)}, ${esc(o.contato_email)}, ${num(o.validade)}, ${esc(o.desconto || null)}, ${descontoCol == null ? 'NULL' : String(descontoCol)}, ${totalCol == null ? 'NULL' : String(totalCol)}, ${esc(o.descricao)}, ${esc(decisaoTipo)}, ${esc(decisaoNome)}, ${esc(decisaoCpf)}, ${esc(decisaoObs)}, ${dt(decisaoEm)}, ${esc(o.obs_pesquisa)}, ${dt(o.dt_nov)}, ${dt(o.dt_env)}, ${dt(o.dt_apr)}, ${dt(o.dt_lib)}, ${dt(o.dt_fin)}, ${dt(o.dt_enc)}, ${dt(o.dt_can)});`)
 
     itens.forEach((it, i) => {
       totItens++
