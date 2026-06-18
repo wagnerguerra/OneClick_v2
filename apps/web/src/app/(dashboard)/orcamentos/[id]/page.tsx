@@ -24,6 +24,7 @@ import { cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { OrcamentosLegadoSection } from '@/components/orcamento/orcamentos-legado-section'
+import { masks } from '@/lib/masks'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -792,6 +793,7 @@ export default function OrcamentoDetailPage() {
     createdAt: string; arquivado: boolean; tipo: string | null;
     itens?: Array<{ descricao: string }>
   }>>([])
+  const [temLegado, setTemLegado] = useState(false)
 
   // Sugestoes de e-mails para o campo "Emails dos Contatos" — extraidas de:
   //   1) cliente.email (e-mail principal)
@@ -971,11 +973,16 @@ export default function OrcamentoDetailPage() {
 
   // Carregar historico de orcamentos do mesmo cliente
   useEffect(() => {
-    if (!orc?.cliente?.id) { setHistoricoCliente([]); return }
+    if (!orc?.cliente?.id) { setHistoricoCliente([]); setTemLegado(false); return }
     (async () => {
       try {
         const data = await (trpc.orcamento as any).listOrcamentosDoCliente.query({ clienteId: orc.cliente!.id, excluirId: id })
         setHistoricoCliente(data || [])
+      } catch { /* silent */ }
+      // Histórico do legado (define se a aba aparece mesmo sem outros orçamentos atuais)
+      try {
+        const leg = await (trpc.orcamento as any).legadoPorCliente.query({ clienteId: orc.cliente!.id })
+        setTemLegado((leg || []).length > 0)
       } catch { /* silent */ }
     })()
   }, [orc?.cliente?.id, id])
@@ -1641,7 +1648,7 @@ export default function OrcamentoDetailPage() {
               <h1 className="text-xl font-semibold uppercase">{orc.cliente?.razaoSocial || 'Sem cliente'}</h1>
               <p className="text-sm text-muted-foreground mt-0.5">
                 #{String(orc.numero).padStart(4, '0')}
-                {orc.cliente?.documento && (<>&nbsp;&nbsp;|&nbsp;&nbsp;{orc.cliente.documento}</>)}
+                {orc.cliente?.documento && (<>&nbsp;&nbsp;|&nbsp;&nbsp;{masks.cpfCnpj(orc.cliente.documento)}</>)}
                 &nbsp;&nbsp;|&nbsp;&nbsp;Criado em: {new Date(orc.createdAt).toLocaleDateString('pt-BR')}, {new Date(orc.createdAt).toLocaleTimeString('pt-BR')}
               </p>
               <div className="flex flex-wrap gap-2 mt-2.5">
@@ -1818,7 +1825,7 @@ export default function OrcamentoDetailPage() {
           <TabsTrigger value="areas" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5">
             <Users className="h-3.5 w-3.5" /> Áreas
           </TabsTrigger>
-          {historicoCliente.length > 0 && (
+          {(historicoCliente.length > 0 || temLegado) && (
             <TabsTrigger value="historico" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5">
               <Files className="h-3.5 w-3.5" /> Outros orçamentos
             </TabsTrigger>
