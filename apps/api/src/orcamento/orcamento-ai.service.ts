@@ -190,6 +190,24 @@ export class OrcamentoAiService {
       }
     }
 
+    // "Banco de modelos" — exemplos reais de propostas já enviadas pela casa,
+    // pra IA aprender o estilo/estrutura. HTML preservado (truncado) p/ a IA
+    // espelhar também a formatação. Prioriza propostas comprovadas e do mesmo tipo.
+    const modelos = await this.orcamentoService.listModelosProposta({
+      excluirId: orcamentoId, tipo: o.tipo, empresaId: o.empresaId, limite: 5,
+    }).catch(() => [] as { numero: number; status: string; texto: string }[])
+    if (modelos.length) {
+      linhas.push(`## Exemplos de propostas REAIS já enviadas pela casa (modelos de referência)`)
+      linhas.push(`Espelhe o ESTILO, TOM, ESTRUTURA e FORMATAÇÃO destes exemplos ao redigir. NÃO copie valores, nomes ou condições específicas deles — use sempre os dados do orçamento atual.`)
+      modelos.forEach((m, i) => {
+        const t = String(m.texto || '')
+        const corte = t.length > 1600 ? t.slice(0, 1600) + '…' : t
+        linhas.push(`\n### Exemplo ${i + 1} (orçamento #${m.numero}, status ${m.status})`)
+        linhas.push(`"""\n${corte}\n"""`)
+      })
+      linhas.push('')
+    }
+
     return linhas.join('\n')
   }
 
@@ -202,6 +220,7 @@ Diretrizes:
 - Use o histórico de orçamentos anteriores do cliente para dar contexto de relacionamento (ex.: cliente recorrente, serviços já contratados), mas não exponha valores de outros orçamentos no texto ao cliente a menos que solicitado.
 - Não invente serviços, valores ou condições que não estejam no contexto. Se faltar informação essencial, pergunte de forma breve.
 - Pode formatar o texto da proposta em HTML simples (parágrafos <p>, <strong>, listas <ul><li>) quando fizer sentido, pois o campo de proposta aceita HTML.
+- IMPORTANTE: há uma seção "Exemplos de propostas REAIS já enviadas pela casa". Trate-os como o PADRÃO a seguir — espelhe a estrutura (saudação, apresentação, escopo/serviços, valores/condições, fechamento), o tom e a formatação. Adapte aos dados do orçamento atual, sem copiar dados específicos dos exemplos.
 - Seja conciso nas conversas; só produza o texto longo da proposta quando for esse o pedido.
 
 A seguir, todo o contexto do orçamento em questão:

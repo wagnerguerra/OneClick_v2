@@ -2822,4 +2822,29 @@ export class OrcamentoService {
     ).catch(() => {})
     return { ok: true }
   }
+
+  /**
+   * "Banco de modelos" pro assistente de IA aprender o estilo da casa: textos
+   * de proposta (textoCorpoCliente) de orçamentos JÁ registrados. Prioriza os
+   * comprovados (aprovado/liberado/finalizado) e do mesmo tipo, mais recentes.
+   * Consulta ao vivo — sem tabela/seed extra; sempre reflete o que existe.
+   */
+  async listModelosProposta(opts: { excluirId?: string; tipo?: string | null; empresaId?: string | null; limite?: number }) {
+    const limite = Math.min(opts.limite ?? 5, 10)
+    const rows = await prisma.$queryRawUnsafe<{ numero: number; tipo: string | null; status: string; texto: string }[]>(
+      `SELECT numero, tipo, status, texto_corpo_cliente AS "texto"
+         FROM orcamentos
+        WHERE texto_corpo_cliente IS NOT NULL
+          AND length(btrim(texto_corpo_cliente)) > 40
+          AND ($1::text IS NULL OR id <> $1)
+          AND ($2::text IS NULL OR empresa_id = $2)
+          AND arquivado = false
+        ORDER BY (status IN ('APROVADO','LIBERADO','FINALIZADO')) DESC,
+                 ($3::text IS NOT NULL AND tipo = $3) DESC,
+                 created_at DESC
+        LIMIT ${limite}`,
+      opts.excluirId ?? null, opts.empresaId ?? null, opts.tipo ?? null,
+    ).catch(() => [] as { numero: number; tipo: string | null; status: string; texto: string }[])
+    return rows
+  }
 }
