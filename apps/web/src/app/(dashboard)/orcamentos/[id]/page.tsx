@@ -9,7 +9,7 @@ import {
   MoreVertical, Pause, Play, RotateCcw, AlertTriangle,
   Package, History, Type, ChevronDown, ThumbsUp, ThumbsDown, CheckCircle2,
   Paperclip, Image as ImageIcon, Archive, MessageSquare, Files, Shield, Lock,
-  Sparkles,
+  Sparkles, Star,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, CardHeader, CardContent, Label,
@@ -741,6 +741,7 @@ export default function OrcamentoDetailPage() {
   const canArquivar = isMaster || subPerms.acao_arquivar === true
   const canChangeSolicitante = isMaster || subPerms.change_solicitante === true
   const canChangeResponsavel = isMaster || subPerms.change_responsavel === true
+  const canEnviarPesquisa = isMaster || subPerms.enviar_pesquisa === true
   // Catálogo de serviços é configuração administrativa do módulo — restrito a master/empresa-master
   const canManageCatalogo = isMaster || isEmpresaMaster
 
@@ -770,6 +771,12 @@ export default function OrcamentoDetailPage() {
 
   // Modal de envio
   const [iaOpen, setIaOpen] = useState(false)
+  const [pesquisaResumo, setPesquisaResumo] = useState<any>(null)
+  const [pesquisaSheet, setPesquisaSheet] = useState(false)
+  const [pesquisaEnviarModal, setPesquisaEnviarModal] = useState(false)
+  const [pesquisaDest, setPesquisaDest] = useState('')
+  const [pesquisaLink, setPesquisaLink] = useState('')
+  const [pesquisaBusy, setPesquisaBusy] = useState(false)
   const [enviarModal, setEnviarModal] = useState(false)
   const [enviarDestinatarios, setEnviarDestinatarios] = useState('')
   const [enviarMensagem, setEnviarMensagem] = useState('')
@@ -913,6 +920,40 @@ export default function OrcamentoDetailPage() {
   }, [id])
 
   useEffect(() => { fetchOrc(false) }, [fetchOrc])
+
+  // Resumo da pesquisa de satisfação (indicador "respondida" + Sheet de respostas)
+  const loadPesquisaResumo = useCallback(() => {
+    (trpc.pesquisa as any).getResumoPorOrcamento.query({ orcamentoId: id })
+      .then((r: any) => setPesquisaResumo(r))
+      .catch(() => {})
+  }, [id])
+  useEffect(() => { loadPesquisaResumo() }, [loadPesquisaResumo])
+
+  async function abrirEnviarPesquisa() {
+    setPesquisaDest((orc?.emailsContatos as string) || orc?.cliente?.email || '')
+    setPesquisaLink('')
+    setPesquisaEnviarModal(true)
+    try {
+      const r = await (trpc.pesquisa as any).prepararEnvio.mutate({ orcamentoId: id })
+      setPesquisaLink(r?.link || '')
+    } catch { /* link fica vazio; envio por e-mail ainda funciona */ }
+  }
+  async function enviarPesquisaEmail() {
+    setPesquisaBusy(true)
+    try {
+      const dest = pesquisaDest.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean)
+      await (trpc.pesquisa as any).enviarPesquisaPorEmail.mutate({ orcamentoId: id, destinatarios: dest.length ? dest : undefined })
+      alerts.success('Pesquisa enviada', 'O link da pesquisa foi enviado ao cliente.')
+      setPesquisaEnviarModal(false)
+      loadPesquisaResumo()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setPesquisaBusy(false) }
+  }
+  async function copiarLinkPesquisa() {
+    if (!pesquisaLink) return
+    try { await navigator.clipboard.writeText(pesquisaLink); alerts.success('Copiado', 'Link da pesquisa copiado.') }
+    catch { alerts.error('Erro', 'Não foi possível copiar.') }
+  }
 
   // SSE — recebe push do backend quando outro cliente altera este orçamento
   // (dados gerais, itens, status do kanban). Filtra por `orcamentoId` da URL
@@ -1683,6 +1724,17 @@ export default function OrcamentoDetailPage() {
                     <RotateCcw className="h-3 w-3" /> Reaberto {orc.reaberturasCount}×
                   </span>
                 )}
+                {pesquisaResumo?.respondida && (
+                  <button
+                    type="button"
+                    onClick={() => setPesquisaSheet(true)}
+                    title="O cliente respondeu a pesquisa de satisfação — clique para ver"
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium uppercase border transition-colors hover:brightness-105"
+                    style={{ color: MODULE_COLOR, borderColor: `color-mix(in srgb, ${MODULE_COLOR} 35%, transparent)`, backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 12%, transparent)` }}
+                  >
+                    <Star className="h-3 w-3" /> Pesquisa respondida
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1820,6 +1872,18 @@ export default function OrcamentoDetailPage() {
             >
               <Sparkles className="h-4 w-4" />
             </Button>
+            {canEnviarPesquisa && (
+              <Button
+                variant="outline"
+                size="icon-sm"
+                title="Pesquisa de satisfação"
+                onClick={abrirEnviarPesquisa}
+                className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90"
+                style={{ color: MODULE_COLOR, borderColor: `color-mix(in srgb, ${MODULE_COLOR} 35%, transparent)` }}
+              >
+                <Star className="h-4 w-4" />
+              </Button>
+            )}
             <BackButton href="/orcamentos" />
           </div>
         </div>
@@ -2645,6 +2709,75 @@ export default function OrcamentoDetailPage() {
           />
         </SheetContent>
       </Sheet>
+
+      {/* Sheet: resposta da pesquisa de satisfação */}
+      <Sheet open={pesquisaSheet} onOpenChange={setPesquisaSheet}>
+        <SheetContent side="right" size="md" className="p-0">
+          <div className="flex items-center gap-2.5 border-b px-5 py-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 14%, transparent)`, color: MODULE_COLOR }}>
+              <Star className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <SheetTitle className="text-sm font-semibold leading-tight">Resposta da pesquisa</SheetTitle>
+              <p className="text-xs text-muted-foreground leading-tight">
+                {pesquisaResumo?.respondenteNome || 'Cliente'}
+                {pesquisaResumo?.respondidaEm ? ` · ${new Date(pesquisaResumo.respondidaEm).toLocaleDateString('pt-BR')}` : ''}
+              </p>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            {(pesquisaResumo?.itens ?? []).length === 0 && <p className="text-sm text-muted-foreground">Sem itens.</p>}
+            {(pesquisaResumo?.itens ?? []).map((it: any, i: number) => (
+              <div key={i} className="space-y-1">
+                <p className="text-[13px] font-medium">{it.enunciado}</p>
+                <div className="text-sm text-muted-foreground">
+                  {it.tipo === 'ESTRELAS' && (
+                    <span className="inline-flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map(n => <Star key={n} className={`h-4 w-4 ${it.valorNumero != null && n <= it.valorNumero ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'}`} />)}
+                      <span className="ml-1.5">{it.valorNumero ?? '—'}/5</span>
+                    </span>
+                  )}
+                  {it.tipo === 'NPS' && <span className="font-semibold text-foreground">{it.valorNumero ?? '—'}<span className="text-muted-foreground font-normal">/10</span></span>}
+                  {it.tipo === 'SIM_NAO' && <span className="font-medium text-foreground">{it.valorBooleano === true ? 'Sim' : it.valorBooleano === false ? 'Não' : '—'}</span>}
+                  {it.tipo === 'TEXTO' && <span className="whitespace-pre-wrap">{it.valorTexto || '—'}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Modal: enviar pesquisa de satisfação ao cliente */}
+      <Dialog open={pesquisaEnviarModal} onOpenChange={setPesquisaEnviarModal}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeaderIcon icon={Star} color="rose">
+            <DialogTitle className="text-[15px]">Pesquisa de satisfação</DialogTitle>
+            <DialogDescription className="text-[11px]">Envie o link da pesquisa ao cliente por e-mail ou copie para enviar por outro canal.</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold">Destinatários (e-mail)</label>
+              <Input className="h-9 text-sm" value={pesquisaDest} onChange={e => setPesquisaDest(e.target.value)} placeholder="emails separados por vírgula" />
+              <p className="text-[11px] text-muted-foreground">Deixe em branco para usar o e-mail do cliente.</p>
+            </div>
+            {pesquisaLink && (
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold">Link da pesquisa</label>
+                <div className="flex gap-2">
+                  <Input className="h-9 text-sm flex-1 font-mono text-[11px]" value={pesquisaLink} readOnly onFocus={e => e.currentTarget.select()} />
+                  <Button variant="outline" size="sm" onClick={copiarLinkPesquisa} className="gap-1.5"><CopyIcon className="h-4 w-4" /> Copiar</Button>
+                </div>
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPesquisaEnviarModal(false)} disabled={pesquisaBusy}>Fechar</Button>
+            <Button onClick={enviarPesquisaEmail} disabled={pesquisaBusy} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
+              {pesquisaBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Enviar por e-mail
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal: Gerenciar Formas de Pagamento (espelha o legado) */}
       <Dialog open={formasModal} onOpenChange={setFormasModal}>
