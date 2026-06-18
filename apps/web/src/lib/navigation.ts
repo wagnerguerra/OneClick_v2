@@ -134,7 +134,7 @@ export const navigation: NavGroup[] = [
         icon: CircleDollarSign,
         subItems: [
           { label: 'Custeio por Cliente', href: '/custeio-clientes', icon: PieChart },
-          { label: 'Pesquisa de Satisfação', href: '/pesquisas', icon: Star },
+          { label: 'Pesquisa de Satisfação', href: '/orcamentos/relatorios?tab=satisfacao', icon: Star },
         ],
       },
       { label: 'Relatórios Comerciais', href: '/comercial-relatorios', icon: FileBarChart },
