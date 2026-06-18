@@ -91,6 +91,8 @@ scripts/launcher/razao-frames/
 
 # Next.js build cache
 **/tsconfig.tsbuildinfo
+**/*.tsbuildinfo
+**/tsconfig.tc.json
 **/next-env.d.ts
 
 # Tmp / diagnósticos
