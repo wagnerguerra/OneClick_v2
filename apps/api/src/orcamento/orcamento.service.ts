@@ -878,14 +878,8 @@ export class OrcamentoService {
         : `Status restaurado para ${STATUS_LABELS[novoStatus] || novoStatus} (sem reenvio de notificação — marco já havia sido alcançado)`,
     )
 
-    // Trigger automático: ao FINALIZAR pela primeira vez, gera pesquisa
-    if (novoStatus === 'FINALIZADO' && isFirstTransition) {
-      try {
-        await this.pesquisaService.criarParaOrcamento(id, orc.empresaId || undefined)
-      } catch (e) {
-        console.warn('[Orcamento] Falha ao criar pesquisa automaticamente:', (e as Error).message)
-      }
-    }
+    // (A pesquisa de satisfação agora é enviada MANUALMENTE pelo comercial —
+    //  sem disparo automático no FINALIZADO.)
 
     // Trigger: ao APROVAR pela primeira vez, cria automaticamente uma ServicoExecucao
     // para CADA item de tipo SERVICO do orçamento (catalogoId aponta para Servico template).

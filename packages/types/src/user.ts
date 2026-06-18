@@ -222,6 +222,7 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'edit_timeline_dates', label: 'Alterar datas da timeline', group: 'Ações' },
     { key: 'mover_kanban', label: 'Mover cards no kanban (alterar status arrastando)', group: 'Ações' },
     { key: 'acao_enviar', label: 'Enviar orçamentos', group: 'Ações' },
+    { key: 'enviar_pesquisa', label: 'Enviar/copiar o link da pesquisa de satisfação', group: 'Ações' },
     { key: 'acao_aprovar', label: 'Aprovar/reprovar orçamentos', group: 'Ações' },
     { key: 'acao_liberar', label: 'Liberar orçamentos', group: 'Ações' },
     { key: 'acao_encerrar', label: 'Encerrar orçamentos', group: 'Ações' },
@@ -236,6 +237,7 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     // pagamento, textos, etc.). Master/EmpresaMaster sempre têm acesso.
     { key: 'acessar_configuracoes', label: 'Acessar configurações e parâmetros de orçamentos', group: 'Configurações' },
     { key: 'gerir_modelos_proposta', label: 'Gerir a biblioteca de modelos de proposta (referência da IA)', group: 'Configurações' },
+    { key: 'gerir_pesquisas', label: 'Gerir a pesquisa de satisfação (cadastro/versões)', group: 'Configurações' },
   ],
   helpdesk: [
     // Atuação como agente (quem tem 'canRead' já abre tickets como solicitante;

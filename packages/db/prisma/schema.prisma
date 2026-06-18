@@ -4245,6 +4245,67 @@ model PesquisaSatisfacao {
   @@map("pesquisas_satisfacao")
 }
 
+// Pesquisa de satisfação configurável e versionada. modelo(versão) → perguntas;
+// envio(por orçamento) → itens de resposta. FKs/tabelas via SQL cirúrgico
+// (add_pesquisa_versionada.sql). Substitui o fluxo fixo do PesquisaSatisfacao.
+model PesquisaModelo {
+  id        String   @id @default(cuid())
+  titulo    String
+  versao    Int      @default(1)
+  ativo     Boolean  @default(true)
+  empresaId String?  @map("empresa_id")
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([empresaId, ativo])
+  @@map("pesquisa_modelo")
+}
+
+model PesquisaPergunta {
+  id          String  @id @default(cuid())
+  modeloId    String  @map("modelo_id")
+  ordem       Int     @default(0)
+  tipo        String // ESTRELAS | NPS | SIM_NAO | TEXTO
+  enunciado   String
+  obrigatoria Boolean @default(true)
+
+  @@index([modeloId, ordem])
+  @@map("pesquisa_pergunta")
+}
+
+model PesquisaEnvio {
+  id               String    @id @default(cuid())
+  token            String    @unique @default(cuid())
+  modeloId         String    @map("modelo_id")
+  orcamentoId      String?   @map("orcamento_id")
+  clienteId        String?   @map("cliente_id")
+  empresaId        String?   @map("empresa_id")
+  enviadaEm        DateTime? @map("enviada_em")
+  enviadaPor       String?   @map("enviada_por")
+  respondidaEm     DateTime? @map("respondida_em")
+  respondenteNome  String?   @map("respondente_nome")
+  respondenteEmail String?   @map("respondente_email")
+  notificadoEm     DateTime? @map("notificado_em")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@index([orcamentoId])
+  @@index([empresaId, respondidaEm])
+  @@index([token])
+  @@map("pesquisa_envio")
+}
+
+model PesquisaRespostaItem {
+  id            String   @id @default(cuid())
+  envioId       String   @map("envio_id")
+  perguntaId    String   @map("pergunta_id")
+  valorNumero   Int?     @map("valor_numero")
+  valorBooleano Boolean? @map("valor_booleano")
+  valorTexto    String?  @map("valor_texto") @db.Text
+
+  @@index([envioId])
+  @@map("pesquisa_resposta_item")
+}
+
 // ============================================================
 // Contratos — Cláusulas versionadas + Templates + Instâncias + Assinaturas
 // ============================================================
