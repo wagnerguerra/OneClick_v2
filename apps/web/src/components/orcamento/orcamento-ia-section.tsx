@@ -1,12 +1,30 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, Send, Loader2, Wand2, Copy, Check, FileText, RotateCcw } from 'lucide-react'
+import { Sparkles, Send, Loader2, Wand2, Copy, Check, FileText, RotateCcw, Paperclip, X, Image as ImageIcon } from 'lucide-react'
 import { Button, cn } from '@saas/ui'
 import { alerts } from '@/lib/alerts'
 import { trpc } from '@/lib/trpc'
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
+type Anexo = { name: string; mediaType: string; kind: 'image' | 'pdf'; data: string; size: number }
+
+const MAX_ANEXOS = 5
+const MAX_MB = { image: 5, pdf: 20 }
+
+/** Lê um File como base64 puro (sem o prefixo data:...;base64,). */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => {
+      const s = String(r.result)
+      const c = s.indexOf(',')
+      resolve(c >= 0 ? s.slice(c + 1) : s)
+    }
+    r.onerror = () => reject(new Error('Falha ao ler o arquivo'))
+    r.readAsDataURL(file)
+  })
+}
 
 // Espelha o MODEL do backend (OrcamentoAiService). Exibido no header do painel.
 const MODELO_LABEL = 'Claude Sonnet 4.6'
@@ -40,7 +58,9 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
   const [status, setStatus] = useState('')
   const [copiado, setCopiado] = useState<number | null>(null)
   const [carregando, setCarregando] = useState(true)
+  const [anexos, setAnexos] = useState<Anexo[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   // Carrega o histórico persistido do chat ao montar (persiste entre reloads/visitas).
   useEffect(() => {
@@ -63,14 +83,40 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
     })
   }
 
+  async function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || [])
+    e.target.value = '' // permite re-selecionar o mesmo arquivo
+    let count = anexos.length
+    for (const f of files) {
+      const isImg = f.type.startsWith('image/')
+      const isPdf = f.type === 'application/pdf'
+      if (!isImg && !isPdf) { alerts.error('Tipo não suportado', `"${f.name}": envie imagem ou PDF.`); continue }
+      if (count >= MAX_ANEXOS) { alerts.error('Limite de anexos', `Máximo de ${MAX_ANEXOS} anexos por mensagem.`); break }
+      const maxMb = isImg ? MAX_MB.image : MAX_MB.pdf
+      if (f.size > maxMb * 1024 * 1024) { alerts.error('Arquivo muito grande', `"${f.name}": limite de ${maxMb}MB.`); continue }
+      try {
+        const data = await fileToBase64(f)
+        const anexo: Anexo = { name: f.name, mediaType: f.type, kind: isImg ? 'image' : 'pdf', data, size: f.size }
+        setAnexos(prev => (prev.length >= MAX_ANEXOS ? prev : [...prev, anexo]))
+        count++
+      } catch { alerts.error('Erro', `Não foi possível ler "${f.name}".`) }
+    }
+  }
+
   async function enviar(texto: string) {
     const conteudo = texto.trim()
-    if (!conteudo || streaming) return
+    const anexosAtuais = anexos
+    if ((!conteudo && anexosAtuais.length === 0) || streaming) return
 
-    const base: ChatMsg[] = [...mensagens, { role: 'user', content: conteudo }]
+    // Marcadores dos anexos no texto exibido/persistido (o binário só vai à API agora).
+    const markers = anexosAtuais.map(a => `📎 ${a.name}`).join('\n')
+    const conteudoExibido = [conteudo, markers].filter(Boolean).join('\n\n')
+
+    const base: ChatMsg[] = [...mensagens, { role: 'user', content: conteudoExibido }]
     // adiciona um balão vazio do assistant que será preenchido pelo stream
     setMensagens([...base, { role: 'assistant', content: '' }])
     setInput('')
+    setAnexos([])
     setStreaming(true)
     setStatus('Conectando…')
     scrollToBottom()
@@ -81,7 +127,10 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensagens: base }),
+        body: JSON.stringify({
+          mensagens: base,
+          anexos: anexosAtuais.map(a => ({ name: a.name, mediaType: a.mediaType, kind: a.kind, data: a.data })),
+        }),
       })
       if (!res.ok || !res.body) {
         throw new Error(res.status === 401 ? 'Sessão expirada — recarregue a página.' : `Falha ao conectar (HTTP ${res.status}).`)
@@ -271,8 +320,33 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
         </div>
       )}
 
+      {/* Anexos pendentes (chips) */}
+      {anexos.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 border-t px-4 pt-2">
+          {anexos.map((a, i) => (
+            <span key={i} title={a.name} className="inline-flex items-center gap-1.5 rounded-md border bg-muted/50 px-2 py-1 text-[11px] max-w-[200px]">
+              {a.kind === 'image' ? <ImageIcon className="h-3 w-3 shrink-0 text-violet-500" /> : <FileText className="h-3 w-3 shrink-0 text-rose-500" />}
+              <span className="truncate">{a.name}</span>
+              <button type="button" onClick={() => setAnexos(prev => prev.filter((_, j) => j !== i))} disabled={streaming} className="shrink-0 text-muted-foreground hover:text-destructive disabled:opacity-50">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Input */}
       <div className="flex items-end gap-2 border-t px-4 py-3">
+        <input ref={fileRef} type="file" accept="image/*,application/pdf" multiple className="hidden" onChange={onPickFiles} />
+        <Button
+          type="button" size="icon" variant="outline"
+          onClick={() => fileRef.current?.click()}
+          disabled={streaming || anexos.length >= MAX_ANEXOS}
+          title={anexos.length >= MAX_ANEXOS ? `Máximo de ${MAX_ANEXOS} anexos` : 'Anexar imagem ou PDF'}
+          className="shrink-0"
+        >
+          <Paperclip className="h-4 w-4" />
+        </Button>
         <textarea
           value={input}
           onChange={e => setInput(e.target.value)}
@@ -282,7 +356,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
           disabled={streaming}
           className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60 max-h-32"
         />
-        <Button size="icon" onClick={() => enviar(input)} disabled={streaming || !input.trim()} className="shrink-0 bg-violet-600 hover:bg-violet-700 text-white">
+        <Button size="icon" onClick={() => enviar(input)} disabled={streaming || (!input.trim() && anexos.length === 0)} className="shrink-0 bg-violet-600 hover:bg-violet-700 text-white">
           {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </div>

@@ -21,6 +21,8 @@ import { OrcamentoService } from './orcamento.service'
 
 type StreamEvent = { type: string; [k: string]: unknown }
 export type ChatMsg = { role: 'user' | 'assistant'; content: string }
+/** Anexo enviado no chat (inline em base64). kind decide o tipo de bloco na API. */
+export type AnexoIA = { name: string; mediaType: string; kind: 'image' | 'pdf'; data: string }
 
 @Injectable()
 export class OrcamentoAiService {
@@ -216,6 +218,7 @@ ${contexto}`
     orcamentoId: string,
     mensagens: ChatMsg[],
     userId: string | undefined,
+    anexos: AnexoIA[],
     onEvent: (e: StreamEvent) => void,
   ): Promise<void> {
     const client = this.getClient()
@@ -241,12 +244,31 @@ ${contexto}`
     let tokensOut = 0
     let resposta = ''
 
+    // Monta as mensagens para a API. Anexos (imagens/PDF) entram como blocos
+    // na ÚLTIMA mensagem do usuário; as demais permanecem texto puro.
+    const lastIdx = mensagens.length - 1
+    const anthropicMsgs = mensagens.map((m, i) => {
+      if (i === lastIdx && m.role === 'user' && anexos.length) {
+        const blocks: Anthropic.Messages.ContentBlockParam[] = []
+        for (const a of anexos) {
+          if (a.kind === 'image') {
+            blocks.push({ type: 'image', source: { type: 'base64', media_type: a.mediaType as 'image/png', data: a.data } })
+          } else if (a.kind === 'pdf') {
+            blocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.data } })
+          }
+        }
+        blocks.push({ type: 'text', text: m.content || 'Considere o(s) anexo(s) acima na análise.' })
+        return { role: 'user' as const, content: blocks }
+      }
+      return { role: m.role, content: m.content }
+    }) as Anthropic.Messages.MessageParam[]
+
     try {
       const stream = client.messages.stream({
         model: this.MODEL,
         max_tokens: 4000,
         system: this.systemPrompt(contexto),
-        messages: mensagens.map(m => ({ role: m.role, content: m.content })),
+        messages: anthropicMsgs,
       })
 
       stream.on('text', (delta) => {

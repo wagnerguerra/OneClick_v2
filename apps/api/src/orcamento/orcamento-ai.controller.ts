@@ -1,6 +1,6 @@
 import { Body, Controller, Param, Post, Req, Res } from '@nestjs/common'
 import type { Request, Response } from 'express'
-import { OrcamentoAiService, type ChatMsg } from './orcamento-ai.service'
+import { OrcamentoAiService, type ChatMsg, type AnexoIA } from './orcamento-ai.service'
 import { AuthService } from '../auth/auth.service'
 
 /**
@@ -21,7 +21,7 @@ export class OrcamentoAiController {
   @Post(':id/ai-chat')
   async chat(
     @Param('id') id: string,
-    @Body() body: { mensagens?: ChatMsg[] },
+    @Body() body: { mensagens?: ChatMsg[]; anexos?: AnexoIA[] },
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
@@ -61,7 +61,15 @@ export class OrcamentoAiController {
       const mensagens = (Array.isArray(body?.mensagens) ? body!.mensagens! : [])
         .filter(m => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
         .slice(-30)
-      await this.aiService.chatStream(id, mensagens, session.user.id, send)
+      // Sanitiza anexos: só image/* e application/pdf, com data base64; no máx. 5.
+      const anexos = (Array.isArray(body?.anexos) ? body!.anexos! : [])
+        .filter(a => a && typeof a.data === 'string' && a.data.length > 0
+          && (a.kind === 'image' || a.kind === 'pdf')
+          && typeof a.mediaType === 'string'
+          && (a.mediaType.startsWith('image/') || a.mediaType === 'application/pdf'))
+        .slice(0, 5)
+        .map(a => ({ name: String(a.name || 'anexo'), mediaType: a.mediaType, kind: a.kind, data: a.data }))
+      await this.aiService.chatStream(id, mensagens, session.user.id, anexos, send)
     } catch (e) {
       send({ type: 'error', message: (e as Error).message })
     } finally {
