@@ -82,8 +82,18 @@ async function main() {
   for (const o of orcs) {
     const pid = `orcleg-${o.id}`
     const cnpjD = digits(o.cnpj)
-    if (cnpjD) comCnpj++
-    const clienteSub = cnpjD ? `(SELECT id FROM clientes WHERE regexp_replace(documento,'\\D','','g') = '${cnpjD}' LIMIT 1)` : 'NULL'
+    // CNPJ só vale se tiver 11/14 dígitos E não for tudo zero (constituições no
+    // legado vêm com CNPJ zerado — casar por ele juntaria clientes diferentes).
+    const cnpjValid = (cnpjD.length === 14 || cnpjD.length === 11) && !/^0+$/.test(cnpjD)
+    if (cnpjValid) comCnpj++
+    // Razão social normalizada (uppercase + espaços colapsados) — 2º critério de match.
+    const razaoNorm = String(o.razao || '').trim().replace(/\s+/g, ' ')
+    const razaoEsc = razaoNorm.replace(/'/g, "''")
+    // Vínculo com o cliente novo: CNPJ válido primeiro; senão razão social.
+    const subs = []
+    if (cnpjValid) subs.push(`(SELECT id FROM clientes WHERE regexp_replace(documento,'\\D','','g') = '${cnpjD}' LIMIT 1)`)
+    if (razaoEsc) subs.push(`(SELECT id FROM clientes WHERE upper(regexp_replace(btrim(razao_social),'\\s+',' ','g')) = upper('${razaoEsc}') LIMIT 1)`)
+    const clienteSub = subs.length === 0 ? 'NULL' : subs.length === 1 ? subs[0] : `COALESCE(${subs.join(', ')})`
 
     // itens — valor em pt-BR; fallback pro valor do catálogo quando o item vem vazio
     const [itens] = await conn.query(`SELECT cod_serv, qtde, valor, situacao FROM com_orc_ser WHERE cod_orc = ? AND ativo = 1 ORDER BY id ASC`, [o.numero])
@@ -98,7 +108,7 @@ async function main() {
 
     lines.push(
       `INSERT INTO orcamento_legado (id, legacy_id, numero, cliente_id, cnpj, razao_social, status, tipo, contato, contato_email, validade_dias, desconto, valor_desconto, valor_total, descricao, decisao_tipo, decisao_nome, decisao_cpf, decisao_obs, decisao_em, csat_obs, dt_novo, dt_enviado, dt_aprovado, dt_liberado, dt_finalizado, dt_encerrado, dt_cancelado) VALUES (` +
-      `${esc(pid)}, ${o.id}, ${o.numero}, ${clienteSub}, ${esc(cnpjD || null)}, ${esc(o.razao)}, ${esc(STATUS_MAP[o.status] || o.status)}, ${esc(o.tipo)}, ${esc(o.contato)}, ${esc(o.contato_email)}, ${num(o.validade)}, ${esc(o.desconto)}, ${esc(o.valor_desconto)}, ${num(total || null)}, ${esc(o.descricao)}, ${esc(decisaoTipo)}, ${esc(decisaoNome)}, ${esc(decisaoCpf)}, ${esc(decisaoObs)}, ${dt(decisaoEm)}, ${esc(o.obs_pesquisa)}, ${dt(o.dt_nov)}, ${dt(o.dt_env)}, ${dt(o.dt_apr)}, ${dt(o.dt_lib)}, ${dt(o.dt_fin)}, ${dt(o.dt_enc)}, ${dt(o.dt_can)});`)
+      `${esc(pid)}, ${o.id}, ${o.numero}, ${clienteSub}, ${esc(cnpjValid ? cnpjD : null)}, ${esc(o.razao)}, ${esc(STATUS_MAP[o.status] || o.status)}, ${esc(o.tipo)}, ${esc(o.contato)}, ${esc(o.contato_email)}, ${num(o.validade)}, ${esc(o.desconto)}, ${esc(o.valor_desconto)}, ${num(total || null)}, ${esc(o.descricao)}, ${esc(decisaoTipo)}, ${esc(decisaoNome)}, ${esc(decisaoCpf)}, ${esc(decisaoObs)}, ${dt(decisaoEm)}, ${esc(o.obs_pesquisa)}, ${dt(o.dt_nov)}, ${dt(o.dt_env)}, ${dt(o.dt_apr)}, ${dt(o.dt_lib)}, ${dt(o.dt_fin)}, ${dt(o.dt_enc)}, ${dt(o.dt_can)});`)
 
     itens.forEach((it, i) => {
       totItens++
