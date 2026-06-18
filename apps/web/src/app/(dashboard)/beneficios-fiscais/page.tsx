@@ -7,7 +7,7 @@ import {
   ChevronUp, ChevronDown, ChevronsUpDown, GitBranch,
 } from 'lucide-react'
 import {
-  Button, Input, Badge, Card, Label, cn, Checkbox, Textarea,
+  Button, Input, Badge, Card, Label, cn, Checkbox, RichEditor,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -454,7 +454,7 @@ export default function BeneficiosFiscaisPage() {
 
       {/* Modal vínculo */}
       <Dialog open={!!vincModal} onOpenChange={o => !o && setVincModal(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeaderIcon icon={Percent} color="fuchsia">
             <DialogTitle>{vincModal?._new ? 'Novo benefício do cliente' : 'Editar benefício'}</DialogTitle>
             <DialogDescription>Vincule um benefício fiscal do catálogo a um cliente.</DialogDescription>
@@ -499,8 +499,12 @@ export default function BeneficiosFiscaisPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Observações</Label>
-              <Textarea rows={3} className="text-sm" value={vincModal?.obs ?? ''}
-                onChange={e => setVincModal(m => ({ ...m, obs: e.target.value }))} />
+              <RichEditor
+                value={vincModal?.obs ?? ''}
+                onChange={html => setVincModal(m => ({ ...m, obs: html }))}
+                placeholder="Use a barra de formatação ou o modo HTML (</>)…"
+                maxHeight={220}
+              />
             </div>
           </DialogBody>
           <DialogFooter>
