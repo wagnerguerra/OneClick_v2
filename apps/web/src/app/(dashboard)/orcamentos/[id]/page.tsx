@@ -1815,7 +1815,8 @@ export default function OrcamentoDetailPage() {
               size="icon-sm"
               title="Assistente de proposta (IA)"
               onClick={() => setIaOpen(true)}
-              className="bg-white dark:bg-card hover:bg-violet-50 dark:hover:bg-violet-950/30 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-900"
+              className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90"
+              style={{ color: MODULE_COLOR, borderColor: `color-mix(in srgb, ${MODULE_COLOR} 35%, transparent)` }}
             >
               <Sparkles className="h-4 w-4" />
             </Button>

@@ -38,6 +38,12 @@ function fileToBase64(file: File): Promise<string> {
 const MODELO_LABEL = 'Claude Sonnet 4.6'
 const MODELO_ID = 'claude-sonnet-4-6'
 
+// Cor do módulo Comercial (design system). Sólidos usam a var direta; tints
+// suaves via color-mix. Nunca hardcodear cor de accent fora do token.
+const MOD = 'var(--mod-comercial, #fb7185)'
+const MOD_SOFT = 'color-mix(in srgb, var(--mod-comercial, #fb7185) 14%, transparent)'
+const MOD_BORDER = 'color-mix(in srgb, var(--mod-comercial, #fb7185) 35%, transparent)'
+
 const ACOES_RAPIDAS = [
   { label: 'Analisar e redigir proposta', prompt: 'Analise este orçamento (itens, valores, condições e o histórico do cliente) e redija o texto completo da proposta para enviar ao cliente. Use HTML simples (parágrafos, negrito).' },
   { label: 'Mais formal', prompt: 'Reescreva a última proposta com um tom mais formal e institucional, mantendo as mesmas informações.' },
@@ -229,7 +235,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
       {/* Header */}
       <div className="flex items-center justify-between gap-3 border-b px-4 py-3 pr-12">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: MOD_SOFT, color: MOD }}>
             <Sparkles className="h-5 w-5" />
           </div>
           <div className="min-w-0">
@@ -237,7 +243,8 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
               <p className="text-sm font-semibold leading-tight">Assistente de proposta (IA)</p>
               <span
                 title={`Modelo: ${MODELO_ID}`}
-                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-200 dark:border-violet-900 bg-violet-50 dark:bg-violet-950/30 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-300"
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium"
+                style={{ backgroundColor: MOD_SOFT, color: MOD, borderColor: MOD_BORDER }}
               >
                 <Sparkles className="h-2.5 w-2.5" /> {MODELO_LABEL}
               </span>
@@ -260,7 +267,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
           </div>
         ) : vazio ? (
           <div className="h-full flex flex-col items-center justify-center text-center gap-4 py-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full" style={{ backgroundColor: MOD_SOFT, color: MOD }}>
               <Wand2 className="h-6 w-6" />
             </div>
             <div className="max-w-sm">
@@ -269,7 +276,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
             </div>
             <div className="flex flex-wrap justify-center gap-2">
               {ACOES_RAPIDAS.slice(0, 1).map(a => (
-                <Button key={a.label} size="sm" onClick={() => enviar(a.prompt)} disabled={streaming} className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white">
+                <Button key={a.label} size="sm" onClick={() => enviar(a.prompt)} disabled={streaming} className="gap-1.5 text-white" style={{ backgroundColor: MOD }}>
                   <Sparkles className="h-3.5 w-3.5" /> {a.label}
                 </Button>
               ))}
@@ -278,12 +285,13 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
         ) : (
           mensagens.map((m, i) => (
             <div key={i} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
-              <div className={cn(
-                'rounded-2xl px-4 py-2.5 max-w-[85%] text-sm',
-                m.role === 'user'
-                  ? 'bg-violet-600 text-white rounded-br-sm'
-                  : 'bg-muted/60 rounded-bl-sm',
-              )}>
+              <div
+                className={cn(
+                  'rounded-2xl px-4 py-2.5 max-w-[85%] text-sm',
+                  m.role === 'user' ? 'text-white rounded-br-sm' : 'bg-muted/60 rounded-bl-sm',
+                )}
+                style={m.role === 'user' ? { backgroundColor: MOD } : undefined}
+              >
                 {m.role === 'assistant' ? (
                   !m.content
                     ? <span className="inline-flex items-center gap-2 text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {status || 'Pensando…'}</span>
@@ -292,7 +300,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
                       ? (
                         <div className="whitespace-pre-wrap break-words leading-relaxed">
                           {m.content}
-                          <span className="ml-0.5 inline-block w-[2px] h-[1em] translate-y-[2px] bg-violet-400/80 animate-pulse rounded-sm" />
+                          <span className="ml-0.5 inline-block w-[2px] h-[1em] translate-y-[2px] animate-pulse rounded-sm" style={{ backgroundColor: MOD }} />
                         </div>
                       )
                       // Concluído: renderiza markdown/HTML formatado + ações.
@@ -300,7 +308,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
                         <>
                           <MarkdownView source={m.content} />
                           <div className="mt-2 flex items-center gap-1.5 border-t border-border/50 pt-2">
-                            <Button size="sm" variant="ghost" className="h-7 gap-1.5 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30"
+                            <Button size="sm" variant="ghost" className="h-7 gap-1.5 hover:bg-muted" style={{ color: MOD }}
                               onClick={() => { onAplicar(mdToHtml(m.content)); alerts.success('Texto aplicado', 'O texto foi enviado para o campo da proposta na aba Detalhes. Revise e salve.') }}>
                               <FileText className="h-3.5 w-3.5" /> Aplicar à proposta
                             </Button>
@@ -337,7 +345,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
         <div className="flex flex-wrap gap-1.5 border-t px-4 pt-2">
           {anexos.map((a, i) => (
             <span key={i} title={a.name} className="inline-flex items-center gap-1.5 rounded-md border bg-muted/50 px-2 py-1 text-[11px] max-w-[200px]">
-              {a.kind === 'image' ? <ImageIcon className="h-3 w-3 shrink-0 text-violet-500" /> : <FileText className="h-3 w-3 shrink-0 text-rose-500" />}
+              {a.kind === 'image' ? <ImageIcon className="h-3 w-3 shrink-0 text-sky-500" /> : <FileText className="h-3 w-3 shrink-0 text-rose-500" />}
               <span className="truncate">{a.name}</span>
               <button type="button" onClick={() => setAnexos(prev => prev.filter((_, j) => j !== i))} disabled={streaming} className="shrink-0 text-muted-foreground hover:text-destructive disabled:opacity-50">
                 <X className="h-3 w-3" />
@@ -368,7 +376,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
           disabled={streaming}
           className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60 max-h-32"
         />
-        <Button size="icon" onClick={() => enviar(input)} disabled={streaming || (!input.trim() && anexos.length === 0)} className="shrink-0 bg-violet-600 hover:bg-violet-700 text-white">
+        <Button size="icon" onClick={() => enviar(input)} disabled={streaming || (!input.trim() && anexos.length === 0)} className="shrink-0 text-white" style={{ backgroundColor: MOD }}>
           {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </div>
