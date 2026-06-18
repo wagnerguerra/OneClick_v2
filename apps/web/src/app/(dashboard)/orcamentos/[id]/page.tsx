@@ -770,6 +770,7 @@ export default function OrcamentoDetailPage() {
   const [enviarModal, setEnviarModal] = useState(false)
   const [enviarDestinatarios, setEnviarDestinatarios] = useState('')
   const [enviarMensagem, setEnviarMensagem] = useState('')
+  const [enviarNotificar, setEnviarNotificar] = useState(true)
   const [enviando, setEnviando] = useState(false)
 
   // Modais de workflow estendido
@@ -1130,6 +1131,7 @@ export default function OrcamentoDetailPage() {
     if (orc?.emailsContatos) emails.push(...orc.emailsContatos.split(/[,;]/).map(s => s.trim()).filter(Boolean))
     setEnviarDestinatarios([...new Set(emails)].join(', '))
     setEnviarMensagem('')
+    setEnviarNotificar(true)
     setEnviarModal(true)
   }
 
@@ -1168,9 +1170,11 @@ export default function OrcamentoDetailPage() {
       // ENVIADO sem disparar notificação. Permite que o usuário marque o orçamento
       // como enviado por canal externo (WhatsApp, telefone) sem precisar de email.
       const destinatarios = enviarDestinatarios.split(/[,;]/).map(s => s.trim()).filter(Boolean)
+      // Checkbox desmarcado → força "sem e-mail" (destinatarios=[]): marca como enviado
+      // sem notificar o cliente. Marcado → envia pros destinatários.
       const result = await (trpc.orcamento as any).enviar.mutate({
         id,
-        destinatarios: destinatarios.length > 0 ? destinatarios : undefined,
+        destinatarios: enviarNotificar ? (destinatarios.length > 0 ? destinatarios : undefined) : [],
         mensagem: enviarMensagem.trim() || undefined,
       })
       setEnviarModal(false)
@@ -2671,13 +2675,21 @@ export default function OrcamentoDetailPage() {
             </DialogDescription>
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">
-            <div>
+            <label className="flex items-start gap-2.5 rounded-md border border-border bg-muted/30 px-3 py-2.5 cursor-pointer">
+              <input type="checkbox" checked={enviarNotificar} onChange={e => setEnviarNotificar(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--mod-comercial,#3b82f6)]" />
+              <div className="text-xs">
+                <p className="font-semibold text-foreground">Notificar o cliente por e-mail</p>
+                <p className="text-muted-foreground">{enviarNotificar ? 'O cliente receberá o e-mail com o link da proposta.' : 'O orçamento será marcado como Enviado, mas o cliente NÃO será notificado (envio por outro canal).'}</p>
+              </div>
+            </label>
+            <div className={cn(!enviarNotificar && 'opacity-50 pointer-events-none')}>
               <Label className="text-[13px] font-semibold text-foreground">Destinatários <span className="text-rose-500">*</span></Label>
               <Input
                 value={enviarDestinatarios}
                 onChange={e => setEnviarDestinatarios(e.target.value)}
                 placeholder="email1@dominio.com, email2@dominio.com"
                 className="h-9 text-sm"
+                disabled={!enviarNotificar}
               />
               <p className="text-[11px] text-muted-foreground mt-1">Separe vários e-mails com vírgula ou ponto-e-vírgula</p>
             </div>

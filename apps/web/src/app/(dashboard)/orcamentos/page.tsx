@@ -414,10 +414,27 @@ export default function OrcamentosPage() {
         return
       }
 
+      // Ao mover para ENVIADO, perguntar se notifica o cliente por e-mail (decisão do operador).
+      let notificarCliente = true
+      if (targetStatus === 'ENVIADO') {
+        const r = await alerts.custom({
+          title: 'Mover para Enviado',
+          icon: 'question',
+          html: `<p style="margin:0 0 14px">Confirmar a mudança do orçamento para <b>Enviado</b>.</p>
+                 <label style="display:flex;align-items:center;gap:8px;justify-content:center;font-size:14px;cursor:pointer">
+                   <input type="checkbox" id="swal-notificar-cli" checked style="width:16px;height:16px"> Notificar o cliente por e-mail
+                 </label>`,
+          confirmButtonText: 'Confirmar',
+          preConfirm: () => (document.getElementById('swal-notificar-cli') as HTMLInputElement)?.checked ?? true,
+        })
+        if (!r.isConfirmed) return // cancelou → não move
+        notificarCliente = r.value !== false
+      }
+
       // Mover para outro status (optimistic update + rollback em caso de erro)
       setOrcamentos(prev => prev.map(o => o.id === cardId ? { ...o, status: targetStatus } : o))
       try {
-        await (trpc.orcamento as any).changeStatus.mutate({ id: cardId, status: targetStatus, viaKanban: true })
+        await (trpc.orcamento as any).changeStatus.mutate({ id: cardId, status: targetStatus, viaKanban: true, notificarCliente })
         await fetchData(true)
       } catch (e) {
         alerts.error('Erro', (e as Error).message)

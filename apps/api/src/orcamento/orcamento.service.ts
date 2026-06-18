@@ -818,7 +818,7 @@ export class OrcamentoService {
 
   // ── Status Workflow ───────────────────────────────────────
 
-  async changeStatus(id: string, novoStatus: string, userId?: string, opts?: { skipNotifications?: boolean }) {
+  async changeStatus(id: string, novoStatus: string, userId?: string, opts?: { skipNotifications?: boolean; notificarCliente?: boolean }) {
     const orc = await prisma.orcamento.findUnique({ where: { id } })
     if (!orc) throw new Error('Orçamento não encontrado')
 
@@ -1003,7 +1003,7 @@ export class OrcamentoService {
     // `opts.skipNotifications` = pula e-mails — usado por triggers automáticos internos
     // (ex: cascata da execução raiz finalizando o orcamento via APROVADO→LIBERADO transparente).
     if (isFirstTransition && !opts?.skipNotifications) {
-      this.notificarMudancaStatus(id, statusAtual, novoStatus, userId).catch(e => {
+      this.notificarMudancaStatus(id, statusAtual, novoStatus, userId, { notificarCliente: opts?.notificarCliente }).catch(e => {
         console.warn('[Orcamento] Falha ao enviar notificacao de status:', (e as Error).message)
       })
     }
@@ -1535,8 +1535,10 @@ export class OrcamentoService {
    * - -> FINALIZADO: emailComercial
    * Email de pesquisa ao cliente em FINALIZADO e enviado pelo PesquisaService (best-effort).
    */
-  async notificarMudancaStatus(id: string, statusAtual: string, novoStatus: string, userId?: string) {
+  async notificarMudancaStatus(id: string, statusAtual: string, novoStatus: string, userId?: string, opts?: { notificarCliente?: boolean }) {
     if (statusAtual === novoStatus) return
+    // notificarCliente=false → não dispara o e-mail de proposta pro cliente (decisão do operador).
+    const notificarCliente = opts?.notificarCliente !== false
 
     const orc = await prisma.orcamento.findUnique({ where: { id } })
     if (!orc) return
@@ -1639,7 +1641,7 @@ export class OrcamentoService {
         ...(cliente?.email ? [cliente.email] : []),
         ...emailsContatos,
       ]
-      if (destinatariosCliente.length > 0) {
+      if (notificarCliente && destinatariosCliente.length > 0) {
         await enviarEmail({
           to: destinatariosCliente,
           subject: `Proposta comercial ${numero} · ${empresaNome}`,

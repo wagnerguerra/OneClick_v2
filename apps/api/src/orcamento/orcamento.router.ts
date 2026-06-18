@@ -60,7 +60,7 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
     // Master / EmpresaMaster sempre passam. Backend agora bate sub-permissão
     // (antes só `canWrite` era validado — UI bloqueava botões mas API aceitava).
     changeStatus: writeProcedure(MODULE)
-      .input(z.object({ id: z.string(), status: z.string(), viaKanban: z.boolean().optional() }))
+      .input(z.object({ id: z.string(), status: z.string(), viaKanban: z.boolean().optional(), notificarCliente: z.boolean().optional() }))
       .mutation(async ({ input, ctx }) => {
         const isPriv = ctx.isMaster || ctx.isEmpresaMaster
         if (!isPriv) {
@@ -89,7 +89,7 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
             }
           }
         }
-        return orcamentoService.changeStatus(input.id, input.status, ctx.userId)
+        return orcamentoService.changeStatus(input.id, input.status, ctx.userId, { notificarCliente: input.notificarCliente })
       }),
 
     enviar: writeSubProcedure(MODULE, 'acao_enviar', 'Enviar orcamentos')
