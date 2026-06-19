@@ -1308,12 +1308,15 @@ export class AgendaService {
     const fim = new Date(params.dataFim)
 
     // Busca eventos onde algum dos usuários (participante OU criador) tem
-    // envolvimento no range — INCLUINDO eventos de dia inteiro (ex.: ausências/
-    // férias), que também ocupam a agenda da pessoa (fix HLP0204).
+    // envolvimento no range. Considera SOMENTE tipos que "bloqueiam agenda"
+    // (mesma regra da detecção de conflito) — lembretes/compromissos
+    // corporativos (bloqueiaAgenda=false) não ocupam a disponibilidade.
+    // Inclui eventos de dia inteiro de tipos que bloqueiam (ex.: ausências/férias).
     const eventos = await prisma.agendaEvento.findMany({
       where: {
         isActive: true,
         data: { gte: inicio, lte: fim },
+        tipo: { bloqueiaAgenda: true },
         OR: [
           { criadorId: { in: params.usuarioIds } },
           { participantes: { some: { usuarioId: { in: params.usuarioIds }, isActive: true } } },
