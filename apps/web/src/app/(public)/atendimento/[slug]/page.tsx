@@ -226,9 +226,9 @@ export default function AtendimentoPublicoPage() {
     : <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: COR }}><Sparkles className="h-5 w-5" /></div>
 
   return (
-    <div className="min-h-screen" style={{ background: BG }}>
-      {/* ── Header fixo, conteúdo centralizado ── */}
-      <header className="fixed top-0 inset-x-0 z-30 border-b border-border/60 bg-card/70 backdrop-blur-md">
+    <div className="h-[100dvh] flex flex-col overflow-hidden" style={{ background: BG }}>
+      {/* ── Header fixo no topo, conteúdo centralizado ── */}
+      <header className="shrink-0 border-b border-border/60 bg-card/70 backdrop-blur-md">
         <div className="max-w-3xl mx-auto px-4 py-2.5 flex items-center gap-3">
           {Marca}
           <div className="min-w-0">
@@ -242,7 +242,7 @@ export default function AtendimentoPublicoPage() {
 
       {!iniciado ? (
         // ── Tela inicial — boas-vindas + LGPD + Turnstile ──
-        <div className="min-h-screen flex flex-col items-center justify-center text-center gap-5 px-6 pt-16">
+        <div className="flex-1 flex flex-col items-center justify-center text-center gap-5 px-6">
           <div className="h-16 w-16 rounded-2xl flex items-center justify-center text-white shadow-lg" style={{ background: COR }}><MessageCircle className="h-8 w-8" /></div>
           <div className="max-w-md space-y-2">
             <h1 className="text-2xl font-bold tracking-tight">Vamos conversar?</h1>
@@ -256,10 +256,10 @@ export default function AtendimentoPublicoPage() {
           {cfg.avisoLgpd && <p className="text-[10px] text-muted-foreground max-w-sm leading-relaxed">{cfg.avisoLgpd}</p>}
         </div>
       ) : (
-        <>
-          {/* ── Área de mensagens (rola) ── */}
-          <div ref={scrollRef} onScroll={onScroll} className="fixed inset-0 overflow-y-auto">
-            <div className="max-w-3xl mx-auto px-4 pt-20 pb-44 space-y-4">
+        <main className="flex-1 min-h-0 w-full max-w-3xl mx-auto px-4 py-4 flex flex-col gap-3">
+          {/* ── Área de mensagens: card com borda arredondada, rola por dentro ── */}
+          <div className="flex-1 min-h-0 rounded-3xl border border-border/70 bg-card/30 overflow-hidden">
+            <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto px-4 py-4 space-y-4">
               {mensagens.map((m, i) => {
                 const live = streaming && i === mensagens.length - 1 && m.role === 'assistant'
                 if (m.role === 'user') {
@@ -331,33 +331,30 @@ export default function AtendimentoPublicoPage() {
             </div>
           </div>
 
-          {/* ── Composer flutuante fixo (estilo Claude) ── */}
-          <div className="fixed inset-x-0 bottom-0 z-20 pt-10 pb-4 pointer-events-none"
-               style={{ background: `linear-gradient(to top, ${BG} 60%, transparent)` }}>
-            <div className="max-w-3xl mx-auto px-4 pointer-events-auto">
-              {erro && <p className="text-xs text-rose-600 mb-2 text-center">{erro}</p>}
-              <div className="rounded-[26px] border border-border bg-card shadow-xl shadow-black/10 transition-shadow focus-within:shadow-2xl focus-within:border-border">
-                <textarea
-                  ref={taRef}
-                  value={input}
-                  onChange={e => { setInput(e.target.value); autoGrow() }}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() } }}
-                  placeholder="Escreva sua mensagem…" rows={1} disabled={streaming}
-                  className="block w-full resize-none bg-transparent px-5 pt-4 pb-1 text-sm leading-relaxed placeholder:text-muted-foreground focus:outline-none disabled:opacity-60 max-h-40"
-                />
-                <div className="flex items-center justify-between px-3 pb-3 pt-1">
-                  <span className="pl-2 text-[11px] text-muted-foreground">{streaming ? 'Respondendo…' : 'Enter envia · Shift+Enter quebra linha'}</span>
-                  <button onClick={enviar} disabled={streaming || !input.trim()}
-                    className="shrink-0 h-9 w-9 rounded-full flex items-center justify-center text-white shadow-sm transition-transform active:scale-90 disabled:opacity-40 disabled:active:scale-100"
-                    style={{ background: COR }}>
-                    {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
-                  </button>
-                </div>
+          {/* ── Composer (estilo Claude) ── */}
+          <div className="shrink-0">
+            {erro && <p className="text-xs text-rose-600 mb-2 text-center">{erro}</p>}
+            <div className="rounded-[26px] border border-border bg-card shadow-xl shadow-black/10 transition-shadow focus-within:shadow-2xl">
+              <textarea
+                ref={taRef}
+                value={input}
+                onChange={e => { setInput(e.target.value); autoGrow() }}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() } }}
+                placeholder="Escreva sua mensagem…" rows={1} disabled={streaming}
+                className="block w-full resize-none border-0 bg-transparent px-5 pt-4 pb-1 text-sm leading-relaxed placeholder:text-muted-foreground focus:outline-none focus:ring-0 disabled:opacity-60 max-h-40"
+              />
+              <div className="flex items-center justify-between px-3 pb-3 pt-1">
+                <span className="pl-2 text-[11px] text-muted-foreground">{streaming ? 'Respondendo…' : 'Enter envia · Shift+Enter quebra linha'}</span>
+                <button onClick={enviar} disabled={streaming || !input.trim()}
+                  className="shrink-0 h-9 w-9 rounded-full flex items-center justify-center text-white shadow-sm transition-transform active:scale-90 disabled:opacity-40 disabled:active:scale-100"
+                  style={{ background: COR }}>
+                  {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
+                </button>
               </div>
-              <p className="text-center text-[10px] text-muted-foreground mt-2">Powered by {cfg.empresaNome}</p>
             </div>
+            <p className="text-center text-[10px] text-muted-foreground mt-2">Powered by {cfg.empresaNome}</p>
           </div>
-        </>
+        </main>
       )}
     </div>
   )
