@@ -45,11 +45,11 @@ export class LeadService {
     const rows = await prisma.$queryRawUnsafe<any[]>(
       `SELECT id, slug, ativo, trilha_prompt AS "trilhaPrompt", rubrica, limiar_medio AS "limiarMedio", limiar_alto AS "limiarAlto",
               mensagem_boas_vindas AS "mensagemBoasVindas", aviso_lgpd AS "avisoLgpd", whatsapp_comercial AS "whatsappComercial",
-              tipo_evento_reuniao_id AS "tipoEventoReuniaoId"
+              tipo_evento_reuniao_id AS "tipoEventoReuniaoId", cor_primaria AS "corPrimaria"
          FROM lead_funil_config WHERE empresa_id IS NOT DISTINCT FROM $1 ORDER BY created_at ASC LIMIT 1`,
       empresaId ?? null,
     )
-    if (rows[0]) return rows[0]
+    if (rows[0]) return { ...rows[0], corPrimaria: rows[0].corPrimaria || '#10b981' }
     // default (não persiste até salvar)
     return {
       id: null, slug: 'atendimento', ativo: true,
@@ -58,7 +58,7 @@ export class LeadService {
       limiarMedio: 40, limiarAlto: 70,
       mensagemBoasVindas: 'Olá! 👋 Sou o assistente virtual. Vou te ajudar rapidinho e já encaminho você ao nosso time.',
       avisoLgpd: 'Ao continuar, você concorda que usaremos seus dados para entrar em contato sobre nossos serviços.',
-      whatsappComercial: null, tipoEventoReuniaoId: null,
+      whatsappComercial: null, tipoEventoReuniaoId: null, corPrimaria: '#10b981',
     }
   }
 
@@ -68,18 +68,18 @@ export class LeadService {
     if (existing[0]) {
       await prisma.$executeRawUnsafe(
         `UPDATE lead_funil_config SET slug=$2, ativo=$3, trilha_prompt=$4, rubrica=$5, limiar_medio=$6, limiar_alto=$7,
-           mensagem_boas_vindas=$8, aviso_lgpd=$9, whatsapp_comercial=$10, tipo_evento_reuniao_id=$11, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
+           mensagem_boas_vindas=$8, aviso_lgpd=$9, whatsapp_comercial=$10, tipo_evento_reuniao_id=$11, cor_primaria=$12, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
         existing[0].id, input.slug, input.ativo ?? true, input.trilhaPrompt, input.rubrica, input.limiarMedio, input.limiarAlto,
-        input.mensagemBoasVindas ?? null, input.avisoLgpd ?? null, input.whatsappComercial ?? null, input.tipoEventoReuniaoId ?? null,
+        input.mensagemBoasVindas ?? null, input.avisoLgpd ?? null, input.whatsappComercial ?? null, input.tipoEventoReuniaoId ?? null, input.corPrimaria ?? null,
       )
       return { id: existing[0].id }
     }
     const id = randomUUID()
     await prisma.$executeRawUnsafe(
-      `INSERT INTO lead_funil_config (id, empresa_id, slug, ativo, trilha_prompt, rubrica, limiar_medio, limiar_alto, mensagem_boas_vindas, aviso_lgpd, whatsapp_comercial, tipo_evento_reuniao_id, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      `INSERT INTO lead_funil_config (id, empresa_id, slug, ativo, trilha_prompt, rubrica, limiar_medio, limiar_alto, mensagem_boas_vindas, aviso_lgpd, whatsapp_comercial, tipo_evento_reuniao_id, cor_primaria, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       id, empresaId ?? null, input.slug, input.ativo ?? true, input.trilhaPrompt, input.rubrica, input.limiarMedio, input.limiarAlto,
-      input.mensagemBoasVindas ?? null, input.avisoLgpd ?? null, input.whatsappComercial ?? null, input.tipoEventoReuniaoId ?? null,
+      input.mensagemBoasVindas ?? null, input.avisoLgpd ?? null, input.whatsappComercial ?? null, input.tipoEventoReuniaoId ?? null, input.corPrimaria ?? null,
     )
     return { id }
   }
@@ -87,7 +87,7 @@ export class LeadService {
   /** Config pública (pelo slug) — só o necessário pra renderizar a página. */
   async getConfigPublica(slug: string) {
     const rows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id, slug, ativo, empresa_id AS "empresaId", mensagem_boas_vindas AS "mensagemBoasVindas", aviso_lgpd AS "avisoLgpd", whatsapp_comercial AS "whatsappComercial"
+      `SELECT id, slug, ativo, empresa_id AS "empresaId", mensagem_boas_vindas AS "mensagemBoasVindas", aviso_lgpd AS "avisoLgpd", whatsapp_comercial AS "whatsappComercial", cor_primaria AS "corPrimaria"
          FROM lead_funil_config WHERE slug=$1 AND ativo=true LIMIT 1`, slug)
     const cfg = rows[0]
     if (!cfg) return null
@@ -101,6 +101,7 @@ export class LeadService {
       empresaNome: empresa?.nomeFantasia || empresa?.razaoSocial || 'Atendimento',
       logoUrl: empresa?.logoUrl ?? null,
       whatsappComercial: cfg.whatsappComercial ?? null,
+      corPrimaria: cfg.corPrimaria || '#10b981',
       turnstileSiteKey: process.env.TURNSTILE_SITE_KEY ?? null,
     }
   }
@@ -143,7 +144,7 @@ export class LeadService {
     return rows[0] ?? null
   }
 
-  private systemPrompt(cfg: any): string {
+  private systemPrompt(cfg: any, jaRegistrado = false): string {
     return `Você é um atendente comercial virtual de um escritório de contabilidade brasileiro, atendendo um possível cliente (lead) que veio de uma campanha. Converse em português do Brasil, de forma natural, cordial e objetiva — NUNCA ofereça menus ou opções numeradas; faça a conversa fluir como um humano.
 
 REGRAS:
@@ -151,7 +152,9 @@ REGRAS:
 - Sempre que descobrir ou atualizar dados do lead, chame a tool "qualificar_lead" com TODOS os dados que você já sabe + uma pontuação (score 0-100) conforme a rubrica. Marque "prontoParaRegistrar" como true assim que tiver pelo menos o NOME e um CONTATO (e-mail ou telefone).
 - Não invente informações. Se o lead informar um CNPJ, peça confirmação e siga.
 - Mantenha o foco no atendimento comercial; não responda assuntos fora desse escopo.
-- Seja breve. Ao obter o essencial, encaminhe o lead cordialmente (o sistema cuida do próximo passo).
+- O registro do lead é AUTOMÁTICO e INSTANTÂNEO (acontece quando você chama a tool). NUNCA diga que está "registrando agora", "só um segundo", "aguarde" nem peça paciência — isso não existe pra você.
+- Assim que tiver NOME + CONTATO: chame a tool e, na MESMA resposta, finalize de forma DEFINITIVA e calorosa (ex.: "Prontinho! Já passei seus dados pro nosso time — em breve entram em contato com você 😊"). Não prometa registrar depois; já está feito.
+${jaRegistrado ? `- IMPORTANTE: este lead JÁ FOI REGISTRADO e o time comercial já foi avisado. NÃO diga que vai registrar, não se desculpe por demora e não peça para aguardar. Apenas responda dúvidas e finalize com cordialidade; se a pontuação for alta, reforce o convite para agendar uma reunião.` : ''}
 
 ## Trilha de atendimento
 ${cfg.trilhaPrompt || '(não configurada)'}
@@ -192,7 +195,7 @@ ${cfg.rubrica || '(não configurada)'}`
       const stream = client.messages.stream({
         model: this.MODEL,
         max_tokens: 1200,
-        system: this.systemPrompt(cfg),
+        system: this.systemPrompt(cfg, sessao.status === 'registrado'),
         tools: [this.TOOL],
         messages: mensagens.map(m => ({ role: m.role, content: m.content })),
       })
@@ -227,6 +230,9 @@ ${cfg.rubrica || '(não configurada)'}`
     if (sessao.status !== 'registrado' && temContato) {
       await this.registrarNoCrm(sessao.id, dadosAtual, score, temperatura, sessao.empresaId).catch(() => {})
       onEvent({ type: 'fechamento', temperatura: temperatura ?? 'frio' })
+    } else if (sessao.status === 'registrado') {
+      // já registrado: reemite o fechamento pra UI manter/mostrar o CTA de encerramento
+      onEvent({ type: 'fechamento', temperatura: (sessao.temperatura ?? temperatura ?? 'frio') })
     }
     onEvent({ type: 'done', score, temperatura })
   }

@@ -2722,6 +2722,7 @@ model LeadFunilConfig {
   avisoLgpd           String?  @map("aviso_lgpd") @db.Text
   whatsappComercial   String?  @map("whatsapp_comercial")
   tipoEventoReuniaoId String?  @map("tipo_evento_reuniao_id")
+  corPrimaria         String?  @map("cor_primaria") // cor da marca do tenant no chat público
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 

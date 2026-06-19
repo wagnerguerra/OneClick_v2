@@ -15,7 +15,7 @@ interface Cfg {
   slug: string; ativo: boolean; trilhaPrompt: string; rubrica: string
   limiarMedio: number; limiarAlto: number
   mensagemBoasVindas: string | null; avisoLgpd: string | null; whatsappComercial: string | null
-  tipoEventoReuniaoId: string | null
+  tipoEventoReuniaoId: string | null; corPrimaria: string | null
 }
 
 const TEMP_META: Record<string, { label: string; icon: typeof Flame; cor: string }> = {
@@ -64,6 +64,7 @@ export default function CrmFunilPage() {
         limiarMedio: cfg.limiarMedio, limiarAlto: cfg.limiarAlto,
         mensagemBoasVindas: cfg.mensagemBoasVindas, avisoLgpd: cfg.avisoLgpd,
         whatsappComercial: cfg.whatsappComercial, tipoEventoReuniaoId: cfg.tipoEventoReuniaoId,
+        corPrimaria: cfg.corPrimaria || null,
       })
       alerts.success('Salvo', 'Funil atualizado.')
       carregar()
@@ -135,6 +136,16 @@ export default function CrmFunilPage() {
               {tipos.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
             <p className="text-[11px] text-muted-foreground">Usado ao agendar a reunião de um lead quente.</p>
+          </div>
+          <div className="col-span-12 sm:col-span-4 space-y-1.5">
+            <Label className="text-[13px] font-semibold">Cor principal do chat</Label>
+            <div className="flex items-center gap-2">
+              <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(cfg.corPrimaria ?? '') ? cfg.corPrimaria! : '#10b981'}
+                onChange={e => upd({ corPrimaria: e.target.value })}
+                className="h-9 w-12 shrink-0 cursor-pointer rounded-md border border-input bg-transparent p-0.5" />
+              <Input className="h-9 text-sm font-mono" value={cfg.corPrimaria ?? ''} onChange={e => upd({ corPrimaria: e.target.value })} placeholder="#10b981" />
+            </div>
+            <p className="text-[11px] text-muted-foreground">Cor da marca aplicada na página pública (balões, botões, header).</p>
           </div>
         </div>
 

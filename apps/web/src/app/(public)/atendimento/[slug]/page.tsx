@@ -7,8 +7,8 @@ import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
 import { MarkdownView } from '@/components/ui/markdown-view'
 
-const COR = '#fb7185' // identidade comercial
-const BG = `color-mix(in srgb, ${COR} 6%, var(--color-background, #fff))`
+const COR_FALLBACK = '#10b981' // verde — fallback até carregar a cor do tenant
+const bgFor = (c: string) => `color-mix(in srgb, ${c} 6%, var(--color-background, #fff))`
 
 interface ConfigPublica {
   slug: string
@@ -17,6 +17,7 @@ interface ConfigPublica {
   empresaNome: string
   logoUrl: string | null
   whatsappComercial: string | null
+  corPrimaria: string | null
   turnstileSiteKey: string | null
 }
 type Msg = { role: 'user' | 'assistant'; content: string }
@@ -217,9 +218,12 @@ export default function AtendimentoPublicoPage() {
     }
   }
 
-  if (loadingCfg) return <div className="flex items-center justify-center min-h-screen" style={{ background: BG }}><Loader2 className="h-8 w-8 animate-spin" style={{ color: COR }} /></div>
-  if (erro && !cfg) return <div className="flex items-center justify-center min-h-screen px-4" style={{ background: BG }}><div className="max-w-md text-center bg-card rounded-2xl shadow-xl p-8 border"><p className="text-sm text-muted-foreground">{erro}</p></div></div>
+  if (loadingCfg) return <div className="flex items-center justify-center min-h-screen" style={{ background: bgFor(COR_FALLBACK) }}><Loader2 className="h-8 w-8 animate-spin" style={{ color: COR_FALLBACK }} /></div>
+  if (erro && !cfg) return <div className="flex items-center justify-center min-h-screen px-4" style={{ background: bgFor(COR_FALLBACK) }}><div className="max-w-md text-center bg-card rounded-2xl shadow-xl p-8 border"><p className="text-sm text-muted-foreground">{erro}</p></div></div>
   if (!cfg) return null
+
+  const COR = cfg.corPrimaria || COR_FALLBACK
+  const BG = bgFor(COR)
 
   const Marca = cfg.logoUrl
     ? <img src={resolveAssetUrl(cfg.logoUrl)} alt={cfg.empresaNome} className="h-9 w-auto object-contain" />
