@@ -2750,7 +2750,8 @@ function useClientesPerms() {
   // Edição de observações de certificado: módulo gestao-certificados (writeProcedure no backend)
   const certPerm = permissions.find((p) => p.moduleSlug === 'gestao-certificados')
   const canEditCertificados = isAdmin || !!certPerm?.canWrite
-  return { isAdmin, canWrite, canDelete, canManageActivitiesBenefits, canManageFiles, canEditCertificados }
+  const canDownloadCert = isAdmin || certPerm?.subPermissions?.['download_arquivo'] === true
+  return { isAdmin, canWrite, canDelete, canManageActivitiesBenefits, canManageFiles, canEditCertificados, canDownloadCert }
 }
 
 const MODULE_COLOR_CLIENTES = 'var(--mod-cadastros, #10b981)'
@@ -3074,7 +3075,7 @@ type CertSidebarItem = {
 }
 
 function ArquivosSidebar({ clienteId }: { clienteId: string }) {
-  const { canManageFiles, canEditCertificados } = useClientesPerms()
+  const { canManageFiles, canEditCertificados, canDownloadCert } = useClientesPerms()
   const [arquivos, setArquivos] = useState<Array<{ id: string; fileName: string; fileUrl: string; fileSize: number | null; mimeType: string | null; descricao: string | null; createdAt: string; user: { name: string } | null }>>([])
   const [certificados, setCertificados] = useState<CertSidebarItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -3084,6 +3085,32 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
   // Modal de edição de observações do certificado
   const [editingCert, setEditingCert] = useState<{ id: string; titular: string; emissor: string; observacoes: string } | null>(null)
   const [savingCert, setSavingCert] = useState(false)
+  // Modal de VISUALIZAÇÃO (read-only) + download do certificado
+  const [viewCert, setViewCert] = useState<CertSidebarItem | null>(null)
+  const [dlSenha, setDlSenha] = useState('')
+  const [dlMotivo, setDlMotivo] = useState('')
+  const [baixando, setBaixando] = useState(false)
+
+  async function handleDownloadCert() {
+    if (!viewCert) return
+    if (!dlSenha) { alerts.error('Senha obrigatória', 'Confirme sua senha de login.'); return }
+    if (dlMotivo.trim().length < 3) { alerts.error('Motivo obrigatório', 'Informe o motivo (mín. 3 caracteres) — fica na trilha de auditoria.'); return }
+    setBaixando(true)
+    try {
+      const r = await (trpc.certificadoDigital as any).downloadPfx.mutate({ id: viewCert.id, senhaUser: dlSenha, motivo: dlMotivo.trim() })
+      const blob = new Blob([Uint8Array.from(atob(r.pfxBase64), c => c.charCodeAt(0))], { type: 'application/x-pkcs12' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${(viewCert.titular || 'certificado').replace(/\s+/g, '_')}.pfx`
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      setDlSenha(''); setDlMotivo('')
+      alerts.success('Download iniciado', 'Trilha de auditoria registrada.')
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message || 'Não foi possível baixar.')
+    } finally { setBaixando(false) }
+  }
   // Modal de cadastro de certificado quando um .pfx/.p12 é solto no card de Arquivos.
   const [certUpload, setCertUpload] = useState<{ file: File; senha: string; confirmar: string; observacoes: string } | null>(null)
   const [savingCertUpload, setSavingCertUpload] = useState(false)
@@ -3254,7 +3281,9 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
                   <ShieldCheck className="h-4 w-4 shrink-0 text-fuchsia-600 dark:text-fuchsia-400 mt-0.5" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="truncate font-medium">{cert.titular || cert.documento || cert.id}</span>
+                      <button type="button" onClick={() => { setViewCert(cert); setDlSenha(''); setDlMotivo('') }} className="truncate font-medium text-left hover:text-primary hover:underline" title="Ver detalhes do certificado">
+                        {cert.titular || cert.documento || cert.id}
+                      </button>
                       <Badge variant="outline" className="h-4 px-1 text-[9px] shrink-0">Certificado</Badge>
                     </div>
                     {cert.emissor && <p className="text-muted-foreground truncate" title={cert.emissor}>{cert.emissor}</p>}
@@ -3369,6 +3398,46 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
             <Button type="button" variant="success" onClick={handleSaveCert} disabled={savingCert}>
               {savingCert ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: VISUALIZAÇÃO (read-only) do certificado + download seguro */}
+      <Dialog open={!!viewCert} onOpenChange={(o) => { if (!o) { setViewCert(null); setDlSenha(''); setDlMotivo('') } }}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeaderIcon icon={ShieldCheck} color="fuchsia">
+            <DialogTitle>Certificado digital</DialogTitle>
+            <DialogDescription>Detalhes do certificado (somente leitura).</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2 space-y-0.5"><Label className="text-[11px] font-semibold text-muted-foreground uppercase">Titular</Label><p className="text-sm">{viewCert?.titular || '—'}</p></div>
+              <div className="space-y-0.5"><Label className="text-[11px] font-semibold text-muted-foreground uppercase">Documento</Label><p className="text-sm">{viewCert?.documento || '—'}</p></div>
+              <div className="space-y-0.5"><Label className="text-[11px] font-semibold text-muted-foreground uppercase">Status</Label><p className="text-sm">{viewCert?.status || '—'}</p></div>
+              <div className="col-span-2 space-y-0.5"><Label className="text-[11px] font-semibold text-muted-foreground uppercase">Emissor</Label><p className="text-sm">{viewCert?.emissor || '—'}</p></div>
+              <div className="space-y-0.5"><Label className="text-[11px] font-semibold text-muted-foreground uppercase">Emitido em</Label><p className="text-sm">{formatDate(viewCert?.emitidoEm ?? null)}</p></div>
+              <div className="space-y-0.5"><Label className="text-[11px] font-semibold text-muted-foreground uppercase">Expira em</Label><p className="text-sm">{formatDate(viewCert?.expiraEm ?? null)}</p></div>
+            </div>
+            {viewCert?.observacoes && (
+              <div className="space-y-1"><Label className="text-[13px] font-semibold">Observações</Label><p className="text-sm text-muted-foreground whitespace-pre-wrap">{viewCert.observacoes}</p></div>
+            )}
+            {canDownloadCert ? (
+              <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2.5">
+                <p className="text-[13px] font-semibold flex items-center gap-1.5"><Download className="h-3.5 w-3.5" /> Baixar certificado (.pfx)</p>
+                <p className="text-[11px] text-muted-foreground">Operação auditada — confirme sua senha de login e o motivo.</p>
+                <Input type="password" className="h-9 text-sm" value={dlSenha} onChange={(e) => setDlSenha(e.target.value)} placeholder="Sua senha de login" />
+                <textarea className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm" value={dlMotivo} onChange={(e) => setDlMotivo(e.target.value)} placeholder="Motivo do download (fica na trilha de auditoria)..." />
+                <Button type="button" variant="success" onClick={handleDownloadCert} disabled={baixando} className="w-full gap-1.5">
+                  {baixando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Baixar .pfx
+                </Button>
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">Você não tem permissão para baixar o arquivo .pfx deste certificado.</p>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <a href={`/gestao-certificados?openId=${viewCert?.id}`} target="_blank" rel="noreferrer"><Button type="button" variant="outline" className="gap-1.5"><ExternalLink className="h-4 w-4" /> Abrir na gestão</Button></a>
+            <Button type="button" variant="outline" onClick={() => { setViewCert(null); setDlSenha(''); setDlMotivo('') }}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
