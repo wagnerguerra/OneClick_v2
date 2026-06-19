@@ -85,7 +85,7 @@ export class LeadService {
   /** Config pública (pelo slug) — só o necessário pra renderizar a página. */
   async getConfigPublica(slug: string) {
     const rows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id, slug, ativo, empresa_id AS "empresaId", mensagem_boas_vindas AS "mensagemBoasVindas", aviso_lgpd AS "avisoLgpd"
+      `SELECT id, slug, ativo, empresa_id AS "empresaId", mensagem_boas_vindas AS "mensagemBoasVindas", aviso_lgpd AS "avisoLgpd", whatsapp_comercial AS "whatsappComercial"
          FROM lead_funil_config WHERE slug=$1 AND ativo=true LIMIT 1`, slug)
     const cfg = rows[0]
     if (!cfg) return null
@@ -98,6 +98,7 @@ export class LeadService {
       avisoLgpd: cfg.avisoLgpd,
       empresaNome: empresa?.nomeFantasia || empresa?.razaoSocial || 'Atendimento',
       logoUrl: empresa?.logoUrl ?? null,
+      whatsappComercial: cfg.whatsappComercial ?? null,
       turnstileSiteKey: process.env.TURNSTILE_SITE_KEY ?? null,
     }
   }
