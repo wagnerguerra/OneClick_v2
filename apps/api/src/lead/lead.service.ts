@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { SalvarFunilConfigInput, LeadChatMsg } from '@saas/types'
 import { CnpjService } from '../cnpj/cnpj.service'
 import { CrmService } from '../crm/crm.service'
+import { AgendaService } from '../agenda/agenda.service'
 import { NotificationService } from '../notification/notification.service'
 
 type StreamEvent = { type: string; [k: string]: unknown }
@@ -27,6 +28,7 @@ export class LeadService {
   constructor(
     private readonly cnpjService: CnpjService,
     private readonly crmService: CrmService,
+    private readonly agendaService: AgendaService,
     private readonly notificationService: NotificationService,
   ) {}
 
@@ -301,5 +303,75 @@ ${cfg.rubrica || '(não configurada)'}`
       porTemperatura: porTemp,
       porOrigem: Object.entries(porOrigem).map(([origem, count]) => ({ origem, count })).sort((a, b) => b.count - a.count),
     }
+  }
+
+  // ── Agendamento do lead quente ──────────────────────────────────────
+  private async ensureAiUser(): Promise<string> {
+    const email = 'ia-assistente@central-rnc.com.br'
+    const ex = await prisma.user.findUnique({ where: { email }, select: { id: true } })
+    if (ex) return ex.id
+    const c = await prisma.user.create({
+      data: { email, name: 'IA Assistente', emailVerified: true, isAi: true, isActive: true, role: 'COLABORADOR_INTERNO' },
+      select: { id: true },
+    })
+    return c.id
+  }
+
+  private async resolverComercial(empresaId?: string | null): Promise<string[]> {
+    const users = await prisma.user.findMany({
+      where: { isActive: true, area: { name: { equals: 'Comercial', mode: 'insensitive' } }, ...(empresaId ? { empresaId } : {}) },
+      select: { id: true },
+    }).catch(() => [] as { id: string }[])
+    return users.map(u => u.id)
+  }
+
+  /** Horários sugeridos (próximos dias úteis × faixas). MVP sem filtro de agenda. */
+  async sugestoesHorario(): Promise<Array<{ data: string; horaInicio: string; label: string }>> {
+    const horas = ['09:00', '11:00', '14:00', '16:00']
+    const out: Array<{ data: string; horaInicio: string; label: string }> = []
+    const d = new Date(); d.setHours(0, 0, 0, 0)
+    let dias = 0
+    while (out.length < 8 && dias < 14) {
+      d.setDate(d.getDate() + 1); dias++
+      const dow = d.getDay()
+      if (dow === 0 || dow === 6) continue
+      const dataIso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      const dataBr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+      for (const h of horas) { if (out.length < 8) out.push({ data: dataIso, horaInicio: h, label: `${dataBr} · ${h}` }) }
+    }
+    return out
+  }
+
+  async agendarReuniao(token: string, data: string, horaInicio: string) {
+    const s = await this.sessaoPorToken(token)
+    if (!s) throw new Error('Sessão inválida.')
+    const dados: LeadDados = s.dados ?? {}
+    const cfgRows = await prisma.$queryRawUnsafe<any[]>(`SELECT tipo_evento_reuniao_id AS "tipoEventoReuniaoId" FROM lead_funil_config WHERE slug=$1 LIMIT 1`, s.slug)
+    let tipoId: string | undefined = cfgRows[0]?.tipoEventoReuniaoId
+    if (!tipoId) { const tipos = await this.agendaService.listTipos().catch(() => [] as any[]); tipoId = tipos[0]?.id }
+    if (!tipoId) throw new Error('Nenhum tipo de evento configurado para a reunião.')
+    const [h, m] = horaInicio.split(':').map(Number)
+    const horaFim = `${String((h ?? 0) + 1).padStart(2, '0')}:${String(m ?? 0).padStart(2, '0')}`
+    const criadorId = await this.ensureAiUser()
+    const comercial = await this.resolverComercial(s.empresaId)
+    try {
+      await this.agendaService.create({
+        titulo: `Reunião — ${dados.nome || dados.razaoSocial || 'Lead'}`,
+        descricao: `Reunião solicitada por lead da campanha.\n${dados.resumo ?? ''}`,
+        data, horaInicio, horaFim, tipoId,
+        empresaId: s.empresaId ?? undefined,
+        oportunidadeId: s.oportunidadeId ?? undefined,
+        participanteIds: comercial,
+        notificar: true,
+      } as any, criadorId)
+    } catch {
+      if (comercial.length) await this.notificationService.criarParaUsers(comercial, {
+        titulo: 'Lead quente quer agendar reunião',
+        mensagem: `${dados.nome ?? 'Lead'} sugeriu ${data} ${horaInicio}`,
+        tipo: 'warning', link: s.oportunidadeId ? `/crm/oportunidades/${s.oportunidadeId}` : '/crm', origem: 'lead-ia', empresaId: s.empresaId,
+      }).catch(() => {})
+      throw new Error('Não consegui agendar automaticamente — nosso time entrará em contato para confirmar.')
+    }
+    return { ok: true }
   }
 }

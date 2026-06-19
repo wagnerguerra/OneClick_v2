@@ -79,4 +79,22 @@ export class LeadController {
       clearInterval(hb); try { res.end() } catch { /* ignore */ }
     }
   }
+
+  @Post(':token/agendar')
+  async agendar(
+    @Param('token') token: string,
+    @Body() body: { data?: string; horaInicio?: string },
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    const ip = this.ipDe(req)
+    if (!dentroDoLimite(`lead:agendar:${ip}`, 20, 3_600_000)) { res.status(429).json({ error: 'Muitas tentativas.' }); return }
+    try {
+      if (!body?.data || !body?.horaInicio) throw new Error('Informe data e horário.')
+      const r = await this.leadService.agendarReuniao(token, body.data, body.horaInicio)
+      res.json(r)
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message })
+    }
+  }
 }

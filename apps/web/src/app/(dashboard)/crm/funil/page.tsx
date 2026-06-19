@@ -35,6 +35,9 @@ export default function CrmFunilPage() {
   const [saving, setSaving] = useState(false)
   const [sessoes, setSessoes] = useState<any[]>([])
   const [report, setReport] = useState<any | null>(null)
+  const [tipos, setTipos] = useState<Array<{ id: string; nome: string }>>([])
+
+  useEffect(() => { (trpc.agenda as any).listTipos.query().then((t: any[]) => setTipos(t || [])).catch(() => {}) }, [])
 
   useEffect(() => { if (!permsLoading && !pode) router.replace('/crm') }, [permsLoading, pode, router])
 
@@ -124,6 +127,14 @@ export default function CrmFunilPage() {
           <div className="col-span-6 sm:col-span-4 space-y-1.5">
             <Label className="text-[13px] font-semibold">WhatsApp do comercial</Label>
             <Input className="h-9 text-sm" value={cfg.whatsappComercial ?? ''} onChange={e => upd({ whatsappComercial: e.target.value })} placeholder="55279..." />
+          </div>
+          <div className="col-span-12 sm:col-span-4 space-y-1.5">
+            <Label className="text-[13px] font-semibold">Tipo de evento da reunião</Label>
+            <select className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={cfg.tipoEventoReuniaoId ?? ''} onChange={e => upd({ tipoEventoReuniaoId: e.target.value || null })}>
+              <option value="">Padrão (primeiro tipo)</option>
+              {tipos.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+            </select>
+            <p className="text-[11px] text-muted-foreground">Usado ao agendar a reunião de um lead quente.</p>
           </div>
         </div>
 

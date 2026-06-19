@@ -7,6 +7,7 @@ import {
   CheckCircle2, Clock, TrendingUp, Calendar,
   CheckSquare, MessageSquare, Trash2, Send, X, LayoutGrid, List,
   Download, FileText, Settings2, GripVertical, Save, Paperclip, UploadCloud, File, History, Archive, SlidersHorizontal, Tag, Layers, Sparkles,
+  Flame, Thermometer, Snowflake,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, RichEditor,
@@ -29,13 +30,36 @@ import { alerts } from '@/lib/alerts'
 import { numeroParaMoeda, moedaParaNumero, masks } from '@/lib/masks'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
+// Temperatura do lead (vinda do funil de captação por IA).
+const TEMP_META: Record<string, { label: string; icon: typeof Flame; cor: string }> = {
+  quente: { label: 'Quente', icon: Flame, cor: '#ef4444' },
+  morno: { label: 'Morno', icon: Thermometer, cor: '#f59e0b' },
+  frio: { label: 'Frio', icon: Snowflake, cor: '#38bdf8' },
+}
+
+function TemperaturaBadge({ temperatura, score }: { temperatura?: string | null; score?: number | null }) {
+  if (!temperatura) return null
+  const meta = TEMP_META[temperatura]
+  if (!meta) return null
+  const Icon = meta.icon
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0 text-[9px] font-semibold"
+      style={{ color: meta.cor, backgroundColor: `color-mix(in srgb, ${meta.cor} 14%, transparent)` }}
+      title={`Lead ${meta.label.toLowerCase()}${typeof score === 'number' ? ` · score ${score}` : ''}`}
+    >
+      <Icon className="h-2.5 w-2.5" /> {meta.label}{typeof score === 'number' ? ` ${score}` : ''}
+    </span>
+  )
+}
+
 // ============================================================
 // Tipos
 // ============================================================
 
 interface Etapa { id: string; nome: string; ordem: number; cor: string; probabilidade: number; ehGanho: boolean; ehPerda: boolean; slaDias: number | null; _count: { oportunidades: number } }
 
-interface Oportunidade { id: string; titulo: string; descricao: string | null; valor: number | null; origem: string | null; previsaoFechamento: string | null; createdAt: string; updatedAt: string; etapaId: string; clienteId: string | null; responsavelId: string | null; etapa: Etapa; cliente?: { id: string; razaoSocial: string } | null; responsavel?: { id: string; name: string } | null; _count?: { tarefas: number; mensagens: number; arquivos: number; agendaEventos?: number } }
+interface Oportunidade { id: string; titulo: string; descricao: string | null; valor: number | null; origem: string | null; temperatura?: string | null; score?: number | null; previsaoFechamento: string | null; createdAt: string; updatedAt: string; etapaId: string; clienteId: string | null; responsavelId: string | null; etapa: Etapa; cliente?: { id: string; razaoSocial: string } | null; responsavel?: { id: string; name: string } | null; _count?: { tarefas: number; mensagens: number; arquivos: number; agendaEventos?: number } }
 
 interface OportunidadeDetail extends Oportunidade { tarefas: Tarefa[]; mensagens: Mensagem[]; arquivos: Arquivo[]; eventos: Evento[] }
 
@@ -1127,6 +1151,12 @@ export default function CrmPage() {
                         {(detail as any).razaoSocial || (detail as any).cliente?.razaoSocial}
                       </SheetDescription>
                     )}
+                    {detail.temperatura && (
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <TemperaturaBadge temperatura={detail.temperatura} score={detail.score} />
+                        {detail.origem === 'lead-ia' && <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground"><Sparkles className="h-3 w-3" /> Captado pela IA</span>}
+                      </div>
+                    )}
                   </div>
                 </div>
               </SheetHeader>
@@ -1883,6 +1913,7 @@ function KanbanCardContent({ op, etapas, onMover, onDelete, diasDesde, showMenu,
       {/* ── Body ── */}
       <div className="px-3 pb-2 space-y-1.5">
         <div className="flex flex-wrap items-center gap-1.5">
+          <TemperaturaBadge temperatura={op.temperatura} score={op.score} />
           {(op as any).orcamento && (
             <Link
               href={`/orcamentos/${(op as any).orcamento.id}`}

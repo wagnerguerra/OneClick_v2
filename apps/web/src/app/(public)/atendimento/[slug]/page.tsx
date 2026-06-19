@@ -39,6 +39,9 @@ export default function AtendimentoPublicoPage() {
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [fechamento, setFechamento] = useState<string | null>(null) // temperatura
+  const [slots, setSlots] = useState<Array<{ data: string; horaInicio: string; label: string }>>([])
+  const [agendando, setAgendando] = useState(false)
+  const [agendado, setAgendado] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const turnstileTokenRef = useRef<string | null>(null)
   const turnstileBoxRef = useRef<HTMLDivElement>(null)
@@ -74,6 +77,26 @@ export default function AtendimentoPublicoPage() {
 
   function scrollToBottom() {
     requestAnimationFrame(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight })
+  }
+
+  // Lead quente → carrega horários sugeridos pra agendar reunião.
+  useEffect(() => {
+    if (fechamento !== 'quente' || slots.length || agendado) return
+    ;(trpc.lead as any).sugestoesHorario.query().then((s: any[]) => setSlots(s || [])).catch(() => {})
+  }, [fechamento, slots.length, agendado])
+
+  async function agendar(data: string, horaInicio: string, label: string) {
+    if (!token || agendando) return
+    setAgendando(true); setErro(null)
+    try {
+      const res = await fetch(`${apiBase}/api/lead/${token}/agendar`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data, horaInicio }),
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j?.error || 'Não foi possível agendar.')
+      setAgendado(label)
+    } catch (e) { setErro((e as Error).message) }
+    finally { setAgendando(false) }
   }
 
   async function iniciar() {
@@ -191,9 +214,31 @@ export default function AtendimentoPublicoPage() {
                 </div>
               )}
               {fechamento === 'quente' && (
-                <div className="flex flex-col items-center gap-1.5 pt-2 text-center">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium" style={{ color: COR }}><CalendarClock className="h-4 w-4" /> Que tal agendar uma reunião com um consultor?</span>
-                  <span className="text-[11px] text-muted-foreground">Um consultor já vai entrar em contato com você. 🙂</span>
+                <div className="flex flex-col items-center gap-2 pt-2 text-center">
+                  {agendado ? (
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium" style={{ color: COR }}>
+                      <CheckCircle2 className="h-4 w-4" /> Reunião solicitada para <strong>{agendado}</strong>. Até lá! 🎉
+                    </span>
+                  ) : (
+                    <>
+                      <span className="inline-flex items-center gap-1.5 text-sm font-medium" style={{ color: COR }}><CalendarClock className="h-4 w-4" /> Quer agendar uma reunião com um consultor?</span>
+                      {slots.length > 0 ? (
+                        <div className="flex flex-wrap justify-center gap-1.5 max-w-md">
+                          {slots.map(sl => (
+                            <button key={sl.data + sl.horaInicio} type="button" disabled={agendando}
+                              onClick={() => agendar(sl.data, sl.horaInicio, sl.label)}
+                              className="rounded-md border px-2.5 py-1 text-xs font-medium hover:text-white disabled:opacity-50 transition-colors"
+                              style={{ borderColor: COR, color: COR }}
+                              onMouseEnter={e => { e.currentTarget.style.background = COR; e.currentTarget.style.color = '#fff' }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = COR }}>
+                              {sl.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : <span className="text-[11px] text-muted-foreground">Um consultor já vai entrar em contato. 🙂</span>}
+                      {agendando && <Loader2 className="h-4 w-4 animate-spin" style={{ color: COR }} />}
+                    </>
+                  )}
                 </div>
               )}
               {fechamento === 'frio' && (
