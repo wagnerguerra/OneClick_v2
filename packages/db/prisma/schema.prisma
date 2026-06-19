@@ -2685,6 +2685,9 @@ model Oportunidade {
   empresaId          String?   @map("empresa_id")
   ordem              Int       @default(0)
   isActive           Boolean   @default(true) @map("is_active")
+  // Funil de captação por IA: pontuação/temperatura do lead (urgência).
+  score              Int?
+  temperatura        String?
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -2702,6 +2705,61 @@ model Oportunidade {
   @@index([clienteId])
   @@index([empresaId])
   @@map("oportunidades")
+}
+
+// Funil de captação de leads por IA (chat público → qualificação → CRM).
+// Tabelas/FKs via SQL cirúrgico (add_lead_funil.sql).
+model LeadFunilConfig {
+  id                  String   @id @default(cuid())
+  empresaId           String?  @map("empresa_id")
+  slug                String   @unique
+  ativo               Boolean  @default(true)
+  trilhaPrompt        String   @default("") @map("trilha_prompt") @db.Text
+  rubrica             String   @default("") @db.Text
+  limiarMedio         Int      @default(40) @map("limiar_medio")
+  limiarAlto          Int      @default(70) @map("limiar_alto")
+  mensagemBoasVindas  String?  @map("mensagem_boas_vindas") @db.Text
+  avisoLgpd           String?  @map("aviso_lgpd") @db.Text
+  whatsappComercial   String?  @map("whatsapp_comercial")
+  tipoEventoReuniaoId String?  @map("tipo_evento_reuniao_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@index([empresaId])
+  @@map("lead_funil_config")
+}
+
+model LeadSessao {
+  id             String   @id @default(cuid())
+  token          String   @unique @default(cuid())
+  slug           String?
+  origem         String?
+  ip             String?
+  status         String   @default("em_andamento") // em_andamento | registrado | abandonado
+  score          Int?
+  temperatura    String? // frio | morno | quente
+  dados          Json?
+  oportunidadeId String?  @map("oportunidade_id")
+  clienteId      String?  @map("cliente_id")
+  empresaId      String?  @map("empresa_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([token])
+  @@index([empresaId, createdAt])
+  @@index([oportunidadeId])
+  @@map("lead_sessao")
+}
+
+model LeadSessaoMensagem {
+  id        String   @id @default(cuid())
+  sessaoId  String   @map("sessao_id")
+  role      String // user | assistant
+  conteudo  String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([sessaoId])
+  @@map("lead_sessao_mensagem")
 }
 
 model OportunidadeTarefa {

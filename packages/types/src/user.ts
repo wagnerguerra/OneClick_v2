@@ -148,6 +148,9 @@ export interface SubPermissionDef {
 }
 
 export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
+  crm: [
+    { key: 'gerir_funil_lead', label: 'Configurar o funil de captação de leads por IA (trilha/rubrica)', group: 'Configurações' },
+  ],
   agenda: [
     { key: 'manage_config', label: 'Gerenciar configurações da agenda (regras de conflito e salas)', group: 'Configurações' },
     { key: 'manage_tipos', label: 'Gerenciar tipos de evento', group: 'Configurações' },
