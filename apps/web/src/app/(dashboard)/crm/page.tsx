@@ -53,6 +53,60 @@ function TemperaturaBadge({ temperatura, score }: { temperatura?: string | null;
   )
 }
 
+// Transcrição da conversa do lead (funil IA) dentro do card do CRM.
+function ConversaIATab({ oportunidadeId }: { oportunidadeId: string }) {
+  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState<{ sessao: any; mensagens: Array<{ role: string; conteudo: string; createdAt: string }> } | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    ;(trpc.lead as any).conversaOportunidade.query({ oportunidadeId })
+      .then((d: any) => setData(d))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false))
+  }, [oportunidadeId])
+
+  if (loading) return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+  if (!data || !data.mensagens?.length) return <p className="text-xs text-muted-foreground text-center py-8 italic">Nenhuma conversa registrada para este lead.</p>
+
+  const { sessao, mensagens } = data
+  const d = sessao.dados || {}
+  const resumo = [d.servicoInteresse, d.faturamentoFaixa, d.urgencia].filter(Boolean).join(' · ')
+
+  return (
+    <div className="space-y-4">
+      {/* Cabeçalho: origem/temperatura/resumo */}
+      <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <TemperaturaBadge temperatura={sessao.temperatura} score={sessao.score} />
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground"><Sparkles className="h-3 w-3" /> Captado pela IA</span>
+          {sessao.origem && <span className="text-[10px] text-muted-foreground">origem: <strong>{sessao.origem}</strong></span>}
+        </div>
+        {(d.nome || d.email || d.telefone) && (
+          <p className="text-[11px] text-muted-foreground">{[d.nome, d.email, d.telefone].filter(Boolean).join(' · ')}</p>
+        )}
+        {resumo && <p className="text-[11px] text-muted-foreground">{resumo}</p>}
+        {d.resumo && <p className="text-xs italic text-foreground/80 pt-0.5">“{d.resumo}”</p>}
+      </div>
+
+      {/* Transcrição */}
+      <div className="space-y-2.5">
+        {mensagens.map((m, i) => (
+          <div key={i} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
+            <div
+              className={cn('rounded-2xl px-3 py-2 max-w-[85%] text-xs leading-relaxed whitespace-pre-wrap',
+                m.role === 'user' ? 'text-white rounded-br-sm' : 'bg-muted border rounded-bl-sm')}
+              style={m.role === 'user' ? { background: MODULE_COLOR } : undefined}
+            >
+              {m.conteudo}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ============================================================
 // Tipos
 // ============================================================
@@ -171,7 +225,7 @@ export default function CrmPage() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [detail, setDetail] = useState<OportunidadeDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
-  const [detailTab, setDetailTab] = useState<'detalhes' | 'tarefas' | 'mensagens' | 'arquivos' | 'historico'>('detalhes')
+  const [detailTab, setDetailTab] = useState<'detalhes' | 'conversa' | 'tarefas' | 'mensagens' | 'arquivos' | 'historico'>('detalhes')
   const [novaTarefa, setNovaTarefa] = useState('')
   const [novaMensagem, setNovaMensagem] = useState('')
   const [saving, setSaving] = useState(false)
@@ -1165,6 +1219,9 @@ export default function CrmPage() {
               <div className="flex gap-4 px-6 shrink-0 border-b border-border/40">
                 {([
                   { key: 'detalhes' as const, label: 'Detalhes', icon: Target },
+                  ...((detail.origem === 'lead-ia' || detail.temperatura)
+                    ? [{ key: 'conversa' as const, label: 'Conversa (IA)', icon: Sparkles }]
+                    : []),
                   { key: 'tarefas' as const, label: `Tarefas (${detail.tarefas.length})`, icon: CheckSquare },
                   { key: 'mensagens' as const, label: `Anotações (${detail.mensagens.length})`, icon: MessageSquare },
                   { key: 'arquivos' as const, label: `Arquivos (${detail.arquivos.length})`, icon: Paperclip },
@@ -1194,6 +1251,9 @@ export default function CrmPage() {
                     try { const c = await (trpc.cliente as any).listForSelect.query(); setClientes(c) } catch { /* ignore */ }
                   }} />
                 )}
+
+                {/* ── Conversa IA Tab ── */}
+                {detailTab === 'conversa' && <ConversaIATab oportunidadeId={detail.id} />}
 
                 {/* ── Tarefas Tab ── */}
                 {detailTab === 'tarefas' && (

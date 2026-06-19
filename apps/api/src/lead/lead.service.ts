@@ -282,6 +282,24 @@ ${cfg.rubrica || '(não configurada)'}`
     ).catch(() => [] as any[])
   }
 
+  /** Conversa completa de um lead vinculado a uma oportunidade (consulta no card do CRM). */
+  async conversaPorOportunidade(oportunidadeId: string, empresaId?: string | null) {
+    const sessoes = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id, slug, origem, status, score, temperatura, dados, created_at AS "createdAt"
+         FROM lead_sessao
+        WHERE oportunidade_id=$1 AND empresa_id IS NOT DISTINCT FROM $2
+        ORDER BY created_at DESC LIMIT 1`,
+      oportunidadeId, empresaId ?? null,
+    ).catch(() => [] as any[])
+    const sessao = sessoes[0]
+    if (!sessao) return null
+    const mensagens = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT role, conteudo, created_at AS "createdAt" FROM lead_sessao_mensagem WHERE sessao_id=$1 ORDER BY created_at ASC`,
+      sessao.id,
+    ).catch(() => [] as any[])
+    return { sessao, mensagens }
+  }
+
   async reportFunil(dias: number | null, empresaId?: string | null) {
     const desde = dias ? new Date(Date.now() - dias * 86400000) : null
     const rows = await prisma.$queryRawUnsafe<any[]>(
