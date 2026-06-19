@@ -158,56 +158,65 @@ export default function AgendaDisponibilidadePage() {
     return map
   }, [eventos])
 
-  // Layout de cada coluna (dia): em vez de repetir o evento em cada slot de
-  // 30min, calculamos blocos mesclados (rowSpan). Cada célula vira:
-  //   'free'              → slot livre (clicável pra agendar)
-  //   'skip'              → coberto por um rowSpan acima (não renderiza <td>)
-  //   { ev, span }        → início de um bloco ocupado, abrange `span` slots
-  // Eventos sobrepostos: o que começa antes "reserva" os slots; o seguinte
-  // ocupa os slots livres restantes (mantém o comportamento de 1 evento por
-  // bloco que já existia, mas sem repetição).
-  type Cell = 'free' | 'skip' | { ev: EventoOcupacao; span: number }
+  // ── Layout posicionado com "lanes" (estilo Google Agenda) ──────────────
+  // Eventos sobrepostos dividem a largura da coluna em sub-colunas (lanes),
+  // ficando todos visíveis lado a lado. Blocos absolutos por horário.
+  const SLOT_PX = 28                       // altura de cada slot de 30min (px)
   const baseMin = HORA_INICIO * 60
-  const layouts = useMemo(() => {
+  const gridMin = (HORA_FIM - HORA_INICIO) * 60
+  type Bloco = { ev: EventoOcupacao; topPx: number; heightPx: number; lane: number; lanes: number }
+
+  const diasLayout = useMemo<Bloco[][]>(() => {
     return diasDaSemana.map(dia => {
       const dataKey = formatDateKey(dia)
       const doDia = eventosPorDia[dataKey] ?? []
-      const cells: Cell[] = new Array(slots.length).fill('free')
-      // Eventos de dia inteiro (ausência/férias) ocupam a coluna toda (fix HLP0204).
-      const allDay = doDia.filter(e => e.diaInteiro)
-      if (allDay.length > 0) {
-        cells[0] = { ev: allDay[0]!, span: slots.length }
-        for (let i = 1; i < slots.length; i++) cells[i] = 'skip'
-        return cells
-      }
-      const evs = doDia.filter(e => !e.diaInteiro).slice()
-        .sort((a, b) => minutesFromMidnight(a.horaInicio) - minutesFromMidnight(b.horaInicio))
-      const claimed: boolean[] = new Array(slots.length).fill(false)
-      for (const ev of evs) {
-        const evIni = minutesFromMidnight(ev.horaInicio)
-        const evFim = minutesFromMidnight(ev.horaFim)
-        // Faixa de slots [first, last] que o evento sobrepõe dentro do grid
-        let first = -1, last = -1
-        for (let i = 0; i < slots.length; i++) {
-          const sIni = baseMin + i * SLOT_MINUTOS
-          if (evIni < sIni + SLOT_MINUTOS && evFim > sIni) { if (first < 0) first = i; last = i }
+      // Eventos de dia inteiro entram como blocos de altura cheia (ocupam a
+      // janela toda) e participam das lanes junto com os de horário — assim não
+      // escondem os demais e ficam lado a lado.
+      const diaTodo = doDia.filter(e => e.diaInteiro)
+        .map(e => ({ ev: e, ini: baseMin, fim: baseMin + gridMin, lane: 0 }))
+      const comHora = doDia
+        .filter(e => !e.diaInteiro && e.horaInicio && e.horaFim)
+        .map(e => ({ ev: e, ini: minutesFromMidnight(e.horaInicio), fim: minutesFromMidnight(e.horaFim), lane: 0 }))
+      const timed = [...diaTodo, ...comHora]
+        .filter(e => e.fim > baseMin && e.ini < baseMin + gridMin)
+        .sort((a, b) => (a.ini - b.ini) || (b.fim - a.fim))
+
+      const blocos: Bloco[] = []
+      let grupo: typeof timed = []
+      let grupoFim = -Infinity
+      const fecharGrupo = () => {
+        if (!grupo.length) return
+        const colsEnd: number[] = []            // fim de cada lane no cluster
+        for (const e of grupo) {
+          let c = 0
+          while (c < colsEnd.length && colsEnd[c]! > e.ini) c++
+          colsEnd[c] = e.fim
+          e.lane = c
         }
-        if (first < 0) continue  // fora da janela 8h–18h
-        // Começa no 1º slot livre da faixa e estende enquanto houver slots livres
-        let s = first
-        while (s <= last && claimed[s]) s++
-        if (s > last) continue  // já totalmente coberto por evento anterior
-        let e = s
-        while (e + 1 <= last && !claimed[e + 1]) e++
-        for (let k = s; k <= e; k++) claimed[k] = true
-        cells[s] = { ev, span: e - s + 1 }
+        const lanes = colsEnd.length
+        for (const e of grupo) {
+          const ini = Math.max(e.ini, baseMin)
+          const fim = Math.min(e.fim, baseMin + gridMin)
+          blocos.push({
+            ev: e.ev,
+            topPx: ((ini - baseMin) / SLOT_MINUTOS) * SLOT_PX,
+            heightPx: Math.max(SLOT_PX - 2, ((fim - ini) / SLOT_MINUTOS) * SLOT_PX),
+            lane: e.lane,
+            lanes,
+          })
+        }
+        grupo = []; grupoFim = -Infinity
       }
-      for (let i = 0; i < slots.length; i++) {
-        if (claimed[i] && cells[i] === 'free') cells[i] = 'skip'
+      for (const e of timed) {
+        if (grupo.length && e.ini >= grupoFim) fecharGrupo()
+        grupo.push(e)
+        grupoFim = Math.max(grupoFim, e.fim)
       }
-      return cells
+      fecharGrupo()
+      return blocos
     })
-  }, [diasDaSemana, eventosPorDia, slots, baseMin])
+  }, [diasDaSemana, eventosPorDia, baseMin, gridMin])
 
   // ============================ Ações ============================
   function toggleParticipante(uid: string) {
@@ -408,96 +417,94 @@ export default function AgendaDisponibilidadePage() {
                 <Loader2 className="h-3 w-3 animate-spin" /> Atualizando…
               </div>
             )}
-            {/* Grid bidimensional usando <table> — mais previsível que grid + display:contents */}
-            <table className="w-full border-collapse table-fixed">
-              <thead className="sticky top-0 z-10 bg-muted/30">
-                <tr>
-                  <th className="w-[64px] px-2 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-center border-b border-r border-border">
-                    Hora
-                  </th>
+            {/* Grid posicionado: colunas por dia + blocos absolutos por horário.
+                Eventos sobrepostos dividem a largura em lanes (lado a lado). */}
+            <div className="overflow-x-auto">
+              <div className="min-w-[680px]">
+                {/* Cabeçalho dos dias */}
+                <div className="flex sticky top-0 z-20 bg-muted/30">
+                  <div className="w-[60px] shrink-0 border-b border-r border-border px-2 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Hora</div>
                   {diasDaSemana.map((d, i) => {
                     const isHoje = formatDateKey(d) === hojeKey
                     return (
-                      <th
-                        key={i}
-                        className={cn(
-                          'px-2 py-2 text-center border-b border-r border-border last:border-r-0',
-                          isHoje && 'bg-sky-50 dark:bg-sky-950/30',
-                        )}
-                      >
-                        <div className={cn('text-[10px] font-semibold uppercase tracking-wider', isHoje ? 'text-sky-700 dark:text-sky-400' : 'text-muted-foreground')}>
-                          {DIAS_LABEL[i]}
-                        </div>
+                      <div key={i} className={cn('flex-1 border-b border-r border-border last:border-r-0 px-2 py-2 text-center', isHoje && 'bg-sky-50 dark:bg-sky-950/30')}>
+                        <div className={cn('text-[10px] font-semibold uppercase tracking-wider', isHoje ? 'text-sky-700 dark:text-sky-400' : 'text-muted-foreground')}>{DIAS_LABEL[i]}</div>
                         <div className={cn('text-sm font-semibold mt-0.5', isHoje && 'text-sky-700 dark:text-sky-400')}>
                           {String(d.getDate()).padStart(2, '0')}/{String(d.getMonth() + 1).padStart(2, '0')}
                         </div>
-                      </th>
+                      </div>
                     )
                   })}
-                </tr>
-              </thead>
-              <tbody>
-                {slots.map((slot, si) => (
-                  <tr key={slot}>
-                    <td className="w-[64px] px-2 py-1 text-[11px] text-muted-foreground border-b border-r border-border bg-muted/20 text-right tabular-nums align-middle">
-                      {slot}
-                    </td>
-                    {diasDaSemana.map((dia, di) => {
-                      const cell = layouts[di]![si]!
-                      // Slot coberto por um rowSpan acima — não renderiza <td>.
-                      if (cell === 'skip') return null
-                      const diaKey = formatDateKey(dia)
-                      const isPast = diaKey < hojeKey
-                      // Slot livre
-                      if (cell === 'free') {
-                        return (
-                          <td
-                            key={di}
+                </div>
+                {/* Corpo: régua de horas + colunas dos dias */}
+                <div className="flex">
+                  <div className="w-[60px] shrink-0">
+                    {slots.map(slot => (
+                      <div key={slot} className="h-[28px] px-2 text-[11px] text-muted-foreground border-b border-r border-border bg-muted/20 text-right tabular-nums flex items-center justify-end">
+                        {slot}
+                      </div>
+                    ))}
+                  </div>
+                  {diasDaSemana.map((dia, di) => {
+                    const diaKey = formatDateKey(dia)
+                    const isPast = diaKey < hojeKey
+                    const isHoje = diaKey === hojeKey
+                    const blocos = diasLayout[di] ?? []
+                    return (
+                      <div key={di} className={cn('flex-1 relative border-r border-border last:border-r-0', isHoje && 'bg-sky-50/30 dark:bg-sky-950/10')} style={{ height: slots.length * SLOT_PX }}>
+                        {/* Slots de fundo (verde = livre / clicável) */}
+                        {slots.map(slot => (
+                          <div
+                            key={slot}
                             className={cn(
-                              'border-b border-r last:border-r-0 border-border h-[28px] transition-colors align-middle',
-                              isPast
-                                ? 'bg-muted/30 dark:bg-muted/10'
-                                : 'bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-950/40 cursor-pointer',
+                              'h-[28px] border-b border-border transition-colors',
+                              isPast ? 'bg-muted/20 dark:bg-muted/10' : 'bg-emerald-50/60 dark:bg-emerald-950/10 hover:bg-emerald-100 dark:hover:bg-emerald-950/30 cursor-pointer',
                             )}
                             onClick={() => { if (!isPast) clickSlotLivre(dia, slot) }}
                             title={isPast ? 'Data passada' : 'Disponível — clique pra agendar'}
                           />
-                        )
-                      }
-                      // Início de um bloco ocupado — mescla `span` slots num único <td>
-                      const ev = cell.ev
-                      return (
-                        <td
-                          key={di}
-                          rowSpan={cell.span}
-                          className="border-b border-r last:border-r-0 border-border transition-colors relative align-top cursor-pointer hover:bg-muted/40"
-                          // Zebrado diagonal vermelho suave reforçando "ocupado".
-                          style={{
-                            backgroundImage: 'repeating-linear-gradient(135deg, transparent 0px, transparent 6px, rgba(244,63,94,0.05) 6px, rgba(244,63,94,0.05) 12px)',
-                          }}
-                          onClick={() => clickEventoOcupado(ev.id)}
-                          title={`${ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio}–${ev.horaFim}`} ${ev.titulo} (${ev.nomesOcupados.join(', ')})\n\nClique pra ver detalhes do evento`}
-                        >
-                          <div className="flex items-start gap-1.5 px-1.5 py-1 min-w-0">
-                            <span
-                              className="h-2.5 w-2.5 rounded-full shrink-0 mt-0.5 ring-1 ring-black/10"
-                              style={{ backgroundColor: ev.tipoCorBorda || ev.tipoCor }}
-                            />
-                            <span className="text-[10px] text-foreground leading-tight min-w-0">
-                              <span className="font-semibold">{ev.nomesOcupados.join(', ')}</span>
-                              <span className="text-muted-foreground"> — {ev.titulo}</span>
-                              <span className="block text-[9px] text-muted-foreground tabular-nums mt-0.5">
-                                {ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio}–${ev.horaFim}`}
+                        ))}
+                        {/* Blocos ocupados (posicionados + lanes) */}
+                        {blocos.map((b, bi) => {
+                          const ev = b.ev
+                          const cor = ev.tipoCorBorda || ev.tipoCor
+                          const widthPct = 100 / b.lanes
+                          const leftPct = b.lane * widthPct
+                          const tempo = ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio}–${ev.horaFim}`
+                          return (
+                            <button
+                              key={ev.id + '-' + bi}
+                              type="button"
+                              onClick={() => clickEventoOcupado(ev.id)}
+                              className="absolute rounded-md border text-left overflow-hidden px-1 py-0.5 hover:z-30 hover:shadow-lg transition-shadow"
+                              style={{
+                                top: b.topPx + 1,
+                                height: b.heightPx - 2,
+                                left: `calc(${leftPct}% + 1px)`,
+                                width: `calc(${widthPct}% - 2px)`,
+                                zIndex: 10 + b.lane,
+                                backgroundColor: `color-mix(in srgb, ${cor} 14%, var(--background, #fff))`,
+                                borderColor: cor,
+                              }}
+                              title={`${tempo} · ${ev.titulo} (${ev.nomesOcupados.join(', ')})\n\nClique pra ver detalhes`}
+                            >
+                              <span className="flex items-start gap-1 min-w-0">
+                                <span className="h-2 w-2 rounded-full shrink-0 mt-0.5 ring-1 ring-black/10" style={{ backgroundColor: cor }} />
+                                <span className="min-w-0 leading-tight">
+                                  <span className="block text-[9px] font-semibold truncate">{ev.nomesOcupados.join(', ')}</span>
+                                  <span className="block text-[9px] text-muted-foreground truncate">{ev.titulo}</span>
+                                  <span className="block text-[8px] text-muted-foreground tabular-nums">{tempo}</span>
+                                </span>
                               </span>
-                            </span>
-                          </div>
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
 
             {/* Legenda */}
             <div className="px-4 py-2.5 border-t border-border bg-muted/20 flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
@@ -505,11 +512,8 @@ export default function AgendaDisponibilidadePage() {
                 <span className="h-3 w-3 rounded bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800" /> Todos livres
               </span>
               <span className="flex items-center gap-1.5">
-                <span
-                  className="h-3 w-3 rounded border border-border"
-                  style={{ backgroundImage: 'repeating-linear-gradient(135deg, transparent 0px, transparent 3px, rgba(244,63,94,0.3) 3px, rgba(244,63,94,0.3) 6px)' }}
-                />
-                Participante ocupado (cor da bolinha = tipo)
+                <span className="h-3 w-3 rounded border" style={{ borderColor: '#d4705a', backgroundColor: 'color-mix(in srgb, #d4705a 14%, var(--background, #fff))' }} />
+                Ocupado (cor = tipo do evento; sobrepostos ficam lado a lado)
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded bg-muted" /> Passado
