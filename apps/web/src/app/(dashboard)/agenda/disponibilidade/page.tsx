@@ -36,6 +36,7 @@ interface EventoOcupacao {
   titulo: string
   tipoNome: string
   tipoCor: string
+  tipoCorBorda?: string
   usuariosOcupados: string[]
   nomesOcupados: string[]
 }
@@ -479,8 +480,8 @@ export default function AgendaDisponibilidadePage() {
                         >
                           <div className="flex items-start gap-1.5 px-1.5 py-1 min-w-0">
                             <span
-                              className="h-2 w-2 rounded-full shrink-0 mt-1"
-                              style={{ backgroundColor: ev.tipoCor }}
+                              className="h-2.5 w-2.5 rounded-full shrink-0 mt-0.5 ring-1 ring-black/10"
+                              style={{ backgroundColor: ev.tipoCorBorda || ev.tipoCor }}
                             />
                             <span className="text-[10px] text-foreground leading-tight min-w-0">
                               <span className="font-semibold">{ev.nomesOcupados.join(', ')}</span>

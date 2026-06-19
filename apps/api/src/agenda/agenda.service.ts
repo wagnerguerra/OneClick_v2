@@ -1300,6 +1300,7 @@ export class AgendaService {
     titulo: string
     tipoNome: string
     tipoCor: string
+    tipoCorBorda: string          // cor da borda do tipo (mais viva — usada no marcador)
     usuariosOcupados: string[]   // ids dos solicitados que estão nesse evento
     nomesOcupados: string[]      // nomes correspondentes (pra tooltip)
   }>> {
@@ -1328,7 +1329,7 @@ export class AgendaService {
           include: { usuario: { select: { id: true, name: true } } },
         },
         criador: { select: { id: true, name: true } },
-        tipo: { select: { nome: true, cor: true } },
+        tipo: { select: { nome: true, cor: true, corBorda: true } },
       },
       orderBy: [{ data: 'asc' }, { horaInicio: 'asc' }],
     })
@@ -1358,6 +1359,7 @@ export class AgendaService {
           titulo: ev.titulo,
           tipoNome: ev.tipo.nome,
           tipoCor: ev.tipo.cor,
+          tipoCorBorda: ev.tipo.corBorda,
           usuariosOcupados: Array.from(envolvidos),
           nomesOcupados: Array.from(envolvidos).map(id => nomes.get(id) ?? id),
         }
