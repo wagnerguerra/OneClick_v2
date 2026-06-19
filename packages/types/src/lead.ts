@@ -13,6 +13,7 @@ export const salvarFunilConfigSchema = z.object({
   whatsappComercial: z.string().nullable().optional(),
   tipoEventoReuniaoId: z.string().nullable().optional(),
   corPrimaria: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Cor inválida (use #RRGGBB)').nullable().optional(),
+  regrasFinalizacao: z.string().nullable().optional(),
 })
 export type SalvarFunilConfigInput = z.infer<typeof salvarFunilConfigSchema>
 

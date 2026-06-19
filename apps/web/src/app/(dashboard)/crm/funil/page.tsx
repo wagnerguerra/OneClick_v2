@@ -15,7 +15,7 @@ interface Cfg {
   slug: string; ativo: boolean; trilhaPrompt: string; rubrica: string
   limiarMedio: number; limiarAlto: number
   mensagemBoasVindas: string | null; avisoLgpd: string | null; whatsappComercial: string | null
-  tipoEventoReuniaoId: string | null; corPrimaria: string | null
+  tipoEventoReuniaoId: string | null; corPrimaria: string | null; regrasFinalizacao: string | null
 }
 
 const TEMP_META: Record<string, { label: string; icon: typeof Flame; cor: string }> = {
@@ -65,6 +65,7 @@ export default function CrmFunilPage() {
         mensagemBoasVindas: cfg.mensagemBoasVindas, avisoLgpd: cfg.avisoLgpd,
         whatsappComercial: cfg.whatsappComercial, tipoEventoReuniaoId: cfg.tipoEventoReuniaoId,
         corPrimaria: cfg.corPrimaria || null,
+        regrasFinalizacao: cfg.regrasFinalizacao || null,
       })
       alerts.success('Salvo', 'Funil atualizado.')
       carregar()
@@ -170,7 +171,13 @@ export default function CrmFunilPage() {
             <Label className="text-[13px] font-semibold">Limiar quente (≥)</Label>
             <Input type="number" min={0} max={100} className="h-9 text-sm" value={cfg.limiarAlto} onChange={e => upd({ limiarAlto: parseInt(e.target.value) || 0 })} />
           </div>
-          <div className="col-span-12 sm:col-span-6 flex items-end"><p className="text-[11px] text-muted-foreground pb-2">Frio &lt; morno &lt; quente. Frio → só registra; morno → oferece WhatsApp; quente → sugere agendar reunião.</p></div>
+          <div className="col-span-12 sm:col-span-6 flex items-end"><p className="text-[11px] text-muted-foreground pb-2">Frio &lt; morno &lt; quente. A IA pontua de 0 a 100 conforme a rubrica e a temperatura sai desses limiares.</p></div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-[13px] font-semibold">Regras de finalização</Label>
+          <p className="text-[11px] text-muted-foreground">Como a IA deve encerrar conforme a temperatura. Ela só finaliza após concluir a qualificação. Ex.: "Quente → convide para agendar; morno → ofereça WhatsApp; frio → agradeça."</p>
+          <textarea className="w-full min-h-[110px] rounded-md border border-input bg-transparent px-3 py-2 text-sm" value={cfg.regrasFinalizacao ?? ''} onChange={e => upd({ regrasFinalizacao: e.target.value })} placeholder="Deixe em branco para usar o padrão." />
         </div>
 
         <div className="space-y-1.5">

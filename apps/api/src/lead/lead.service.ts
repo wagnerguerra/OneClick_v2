@@ -25,6 +25,13 @@ export class LeadService {
   private readonly MODEL = 'claude-sonnet-4-6'
   private client: Anthropic | null = null
 
+  // Política de encerramento padrão (o master pode sobrescrever em /crm/funil).
+  static readonly REGRAS_FINALIZACAO_PADRAO =
+    'Só finalize depois de concluir a qualificação. Ao finalizar, marque "encerrar": true e ajuste o tom pela pontuação:\n' +
+    '- Pontuação ALTA (quente): demonstre entusiasmo e convide para agendar uma reunião com um consultor.\n' +
+    '- Pontuação MÉDIA (morno): agradeça e diga que o time entrará em contato; ofereça também falar pelo WhatsApp.\n' +
+    '- Pontuação BAIXA (frio): agradeça cordialmente o contato e encerre.'
+
   constructor(
     private readonly cnpjService: CnpjService,
     private readonly crmService: CrmService,
@@ -45,11 +52,11 @@ export class LeadService {
     const rows = await prisma.$queryRawUnsafe<any[]>(
       `SELECT id, slug, ativo, trilha_prompt AS "trilhaPrompt", rubrica, limiar_medio AS "limiarMedio", limiar_alto AS "limiarAlto",
               mensagem_boas_vindas AS "mensagemBoasVindas", aviso_lgpd AS "avisoLgpd", whatsapp_comercial AS "whatsappComercial",
-              tipo_evento_reuniao_id AS "tipoEventoReuniaoId", cor_primaria AS "corPrimaria"
+              tipo_evento_reuniao_id AS "tipoEventoReuniaoId", cor_primaria AS "corPrimaria", regras_finalizacao AS "regrasFinalizacao"
          FROM lead_funil_config WHERE empresa_id IS NOT DISTINCT FROM $1 ORDER BY created_at ASC LIMIT 1`,
       empresaId ?? null,
     )
-    if (rows[0]) return { ...rows[0], corPrimaria: rows[0].corPrimaria || '#10b981' }
+    if (rows[0]) return { ...rows[0], corPrimaria: rows[0].corPrimaria || '#10b981', regrasFinalizacao: rows[0].regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO }
     // default (não persiste até salvar)
     return {
       id: null, slug: 'atendimento', ativo: true,
@@ -59,6 +66,7 @@ export class LeadService {
       mensagemBoasVindas: 'Olá! 👋 Sou o assistente virtual. Vou te ajudar rapidinho e já encaminho você ao nosso time.',
       avisoLgpd: 'Ao continuar, você concorda que usaremos seus dados para entrar em contato sobre nossos serviços.',
       whatsappComercial: null, tipoEventoReuniaoId: null, corPrimaria: '#10b981',
+      regrasFinalizacao: LeadService.REGRAS_FINALIZACAO_PADRAO,
     }
   }
 
@@ -68,18 +76,18 @@ export class LeadService {
     if (existing[0]) {
       await prisma.$executeRawUnsafe(
         `UPDATE lead_funil_config SET slug=$2, ativo=$3, trilha_prompt=$4, rubrica=$5, limiar_medio=$6, limiar_alto=$7,
-           mensagem_boas_vindas=$8, aviso_lgpd=$9, whatsapp_comercial=$10, tipo_evento_reuniao_id=$11, cor_primaria=$12, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
+           mensagem_boas_vindas=$8, aviso_lgpd=$9, whatsapp_comercial=$10, tipo_evento_reuniao_id=$11, cor_primaria=$12, regras_finalizacao=$13, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
         existing[0].id, input.slug, input.ativo ?? true, input.trilhaPrompt, input.rubrica, input.limiarMedio, input.limiarAlto,
-        input.mensagemBoasVindas ?? null, input.avisoLgpd ?? null, input.whatsappComercial ?? null, input.tipoEventoReuniaoId ?? null, input.corPrimaria ?? null,
+        input.mensagemBoasVindas ?? null, input.avisoLgpd ?? null, input.whatsappComercial ?? null, input.tipoEventoReuniaoId ?? null, input.corPrimaria ?? null, input.regrasFinalizacao ?? null,
       )
       return { id: existing[0].id }
     }
     const id = randomUUID()
     await prisma.$executeRawUnsafe(
-      `INSERT INTO lead_funil_config (id, empresa_id, slug, ativo, trilha_prompt, rubrica, limiar_medio, limiar_alto, mensagem_boas_vindas, aviso_lgpd, whatsapp_comercial, tipo_evento_reuniao_id, cor_primaria, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      `INSERT INTO lead_funil_config (id, empresa_id, slug, ativo, trilha_prompt, rubrica, limiar_medio, limiar_alto, mensagem_boas_vindas, aviso_lgpd, whatsapp_comercial, tipo_evento_reuniao_id, cor_primaria, regras_finalizacao, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       id, empresaId ?? null, input.slug, input.ativo ?? true, input.trilhaPrompt, input.rubrica, input.limiarMedio, input.limiarAlto,
-      input.mensagemBoasVindas ?? null, input.avisoLgpd ?? null, input.whatsappComercial ?? null, input.tipoEventoReuniaoId ?? null, input.corPrimaria ?? null,
+      input.mensagemBoasVindas ?? null, input.avisoLgpd ?? null, input.whatsappComercial ?? null, input.tipoEventoReuniaoId ?? null, input.corPrimaria ?? null, input.regrasFinalizacao ?? null,
     )
     return { id }
   }
@@ -161,7 +169,10 @@ ${jaRegistrado ? `- Este lead já foi registrado e o time comercial já foi avis
 ${cfg.trilhaPrompt || '(não configurada)'}
 
 ## Rubrica de pontuação (pesos)
-${cfg.rubrica || '(não configurada)'}`
+${cfg.rubrica || '(não configurada)'}
+
+## Regras de finalização
+${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
   }
 
   private readonly TOOL = {
@@ -188,7 +199,7 @@ ${cfg.rubrica || '(não configurada)'}`
     const sessao = await this.sessaoPorToken(token)
     if (!sessao) { onEvent({ type: 'error', message: 'Sessão inválida.' }); return }
     const cfgRows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT trilha_prompt AS "trilhaPrompt", rubrica, limiar_medio AS "limiarMedio", limiar_alto AS "limiarAlto" FROM lead_funil_config WHERE slug=$1 LIMIT 1`, sessao.slug)
+      `SELECT trilha_prompt AS "trilhaPrompt", rubrica, limiar_medio AS "limiarMedio", limiar_alto AS "limiarAlto", regras_finalizacao AS "regrasFinalizacao" FROM lead_funil_config WHERE slug=$1 LIMIT 1`, sessao.slug)
     const cfg = cfgRows[0] ?? await this.getConfig(sessao.empresaId)
 
     let resposta = ''

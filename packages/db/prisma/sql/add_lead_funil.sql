@@ -49,6 +49,8 @@ CREATE INDEX IF NOT EXISTS lead_sessao_mensagem_sessao_idx ON lead_sessao_mensag
 
 -- Cor da marca do tenant aplicada no chat público.
 ALTER TABLE lead_funil_config ADD COLUMN IF NOT EXISTS cor_primaria text;
+-- Regras de finalização do chat (injetadas no prompt da IA).
+ALTER TABLE lead_funil_config ADD COLUMN IF NOT EXISTS regras_finalizacao text;
 
 -- Urgência por temperatura/pontuação na oportunidade (lead do funil).
 ALTER TABLE oportunidades ADD COLUMN IF NOT EXISTS score integer;

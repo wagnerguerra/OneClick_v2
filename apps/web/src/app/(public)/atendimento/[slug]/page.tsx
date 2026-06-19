@@ -114,6 +114,11 @@ export default function AtendimentoPublicoPage() {
 
   useEffect(() => { scrollToBottom(true) }, [fechamento, slots.length, agendado])
 
+  // Devolve o foco ao input quando a IA termina de responder, pra digitar a próxima já.
+  useEffect(() => {
+    if (iniciado && !streaming) requestAnimationFrame(() => taRef.current?.focus())
+  }, [streaming, iniciado])
+
   async function agendar(data: string, horaInicio: string, label: string) {
     if (!token || agendando) return
     setAgendando(true); setErro(null)
