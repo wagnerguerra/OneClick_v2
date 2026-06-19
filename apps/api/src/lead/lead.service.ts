@@ -152,9 +152,10 @@ REGRAS:
 - Sempre que descobrir ou atualizar dados do lead, chame a tool "qualificar_lead" com TODOS os dados que você já sabe + uma pontuação (score 0-100) conforme a rubrica. Marque "prontoParaRegistrar" como true assim que tiver pelo menos o NOME e um CONTATO (e-mail ou telefone).
 - Não invente informações. Se o lead informar um CNPJ, peça confirmação e siga.
 - Mantenha o foco no atendimento comercial; não responda assuntos fora desse escopo.
-- O registro do lead é AUTOMÁTICO e INSTANTÂNEO (acontece quando você chama a tool). NUNCA diga que está "registrando agora", "só um segundo", "aguarde" nem peça paciência — isso não existe pra você.
-- Assim que tiver NOME + CONTATO: chame a tool e, na MESMA resposta, finalize de forma DEFINITIVA e calorosa (ex.: "Prontinho! Já passei seus dados pro nosso time — em breve entram em contato com você 😊"). Não prometa registrar depois; já está feito.
-${jaRegistrado ? `- IMPORTANTE: este lead JÁ FOI REGISTRADO e o time comercial já foi avisado. NÃO diga que vai registrar, não se desculpe por demora e não peça para aguardar. Apenas responda dúvidas e finalize com cordialidade; se a pontuação for alta, reforce o convite para agendar uma reunião.` : ''}
+- Conduza a conversa pela trilha INTEIRA antes de encerrar: descubra o serviço de interesse, o faturamento aproximado e a urgência (e o CNPJ/ramo, se houver). Uma pergunta por vez. NÃO encerre a conversa só porque já tem o nome e o contato — continue qualificando.
+- O registro é AUTOMÁTICO e INSTANTÂNEO (acontece nos bastidores quando você chama a tool com nome + contato). NUNCA diga que está "registrando", "só um segundo" ou "aguarde", e não peça paciência.
+- Só quando você CONCLUIR a qualificação e já tiver orientado o lead: finalize de forma definitiva e calorosa e marque "encerrar": true na tool. Enquanto a conversa continuar, mantenha "encerrar": false (ou omita).
+${jaRegistrado ? `- Este lead já foi registrado e o time comercial já foi avisado; não diga que vai registrar nem se desculpe por demora.` : ''}
 
 ## Trilha de atendimento
 ${cfg.trilhaPrompt || '(não configurada)'}
@@ -175,6 +176,7 @@ ${cfg.rubrica || '(não configurada)'}`
         resumo: { type: 'string', description: 'Resumo curto do lead pro comercial' },
         score: { type: 'integer', description: '0 a 100 conforme a rubrica' },
         prontoParaRegistrar: { type: 'boolean' },
+        encerrar: { type: 'boolean', description: 'true SOMENTE quando a qualificação foi concluída e o lead já foi orientado/encaminhado — dispara o fechamento' },
       },
     },
   }
@@ -190,7 +192,7 @@ ${cfg.rubrica || '(não configurada)'}`
     const cfg = cfgRows[0] ?? await this.getConfig(sessao.empresaId)
 
     let resposta = ''
-    let toolInput: LeadDados & { score?: number; prontoParaRegistrar?: boolean } = {}
+    let toolInput: LeadDados & { score?: number; prontoParaRegistrar?: boolean; encerrar?: boolean } = {}
     try {
       const stream = client.messages.stream({
         model: this.MODEL,
@@ -217,7 +219,7 @@ ${cfg.rubrica || '(não configurada)'}`
 
     // Atualiza dados + score/temperatura
     const dadosAtual: LeadDados = { ...(sessao.dados ?? {}), ...toolInput }
-    delete (dadosAtual as any).score; delete (dadosAtual as any).prontoParaRegistrar
+    delete (dadosAtual as any).score; delete (dadosAtual as any).prontoParaRegistrar; delete (dadosAtual as any).encerrar
     const score = typeof toolInput.score === 'number' ? Math.max(0, Math.min(100, toolInput.score)) : (sessao.score ?? null)
     const temperatura = score == null ? null : score >= (cfg.limiarAlto ?? 70) ? 'quente' : score >= (cfg.limiarMedio ?? 40) ? 'morno' : 'frio'
     await prisma.$executeRawUnsafe(
@@ -225,14 +227,14 @@ ${cfg.rubrica || '(não configurada)'}`
       sessao.id, JSON.stringify(dadosAtual), score, temperatura,
     )
 
-    // Registra no CRM assim que tiver nome + contato
+    // Registro SILENCIOSO assim que houver nome + contato (não encerra a conversa).
     const temContato = !!dadosAtual.nome && (!!dadosAtual.email || !!dadosAtual.telefone)
     if (sessao.status !== 'registrado' && temContato) {
       await this.registrarNoCrm(sessao.id, dadosAtual, score, temperatura, sessao.empresaId).catch(() => {})
-      onEvent({ type: 'fechamento', temperatura: temperatura ?? 'frio' })
-    } else if (sessao.status === 'registrado') {
-      // já registrado: reemite o fechamento pra UI manter/mostrar o CTA de encerramento
-      onEvent({ type: 'fechamento', temperatura: (sessao.temperatura ?? temperatura ?? 'frio') })
+    }
+    // Fechamento (CTA de encerramento) só quando a IA sinaliza que concluiu a qualificação.
+    if (toolInput.encerrar) {
+      onEvent({ type: 'fechamento', temperatura: temperatura ?? sessao.temperatura ?? 'frio' })
     }
     onEvent({ type: 'done', score, temperatura })
   }
