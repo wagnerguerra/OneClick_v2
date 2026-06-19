@@ -1294,8 +1294,9 @@ export class AgendaService {
   }): Promise<Array<{
     id: string
     data: string          // YYYY-MM-DD
-    horaInicio: string    // HH:MM
-    horaFim: string       // HH:MM
+    diaInteiro: boolean   // true = ocupa o dia todo (sem hora)
+    horaInicio: string    // HH:MM ('' quando dia inteiro)
+    horaFim: string       // HH:MM ('' quando dia inteiro)
     titulo: string
     tipoNome: string
     tipoCor: string
@@ -1306,12 +1307,12 @@ export class AgendaService {
     const inicio = new Date(params.dataInicio)
     const fim = new Date(params.dataFim)
 
-    // Busca eventos com horário onde algum dos usuários (participante OU criador)
-    // tem envolvimento no range. Inclui dados pra montar tooltip no frontend.
+    // Busca eventos onde algum dos usuários (participante OU criador) tem
+    // envolvimento no range — INCLUINDO eventos de dia inteiro (ex.: ausências/
+    // férias), que também ocupam a agenda da pessoa (fix HLP0204).
     const eventos = await prisma.agendaEvento.findMany({
       where: {
         isActive: true,
-        diaInteiro: false,
         data: { gte: inicio, lte: fim },
         OR: [
           { criadorId: { in: params.usuarioIds } },
@@ -1330,7 +1331,7 @@ export class AgendaService {
     })
 
     return eventos
-      .filter(ev => ev.horaInicio && ev.horaFim)
+      .filter(ev => ev.diaInteiro || (ev.horaInicio && ev.horaFim))
       .map(ev => {
         const partIds = ev.participantes.map(p => p.usuarioId).filter(Boolean) as string[]
         const envolvidos = new Set<string>()
@@ -1348,8 +1349,9 @@ export class AgendaService {
         return {
           id: ev.id,
           data: dataIso,
-          horaInicio: ev.horaInicio!,
-          horaFim: ev.horaFim!,
+          diaInteiro: ev.diaInteiro,
+          horaInicio: ev.horaInicio ?? '',
+          horaFim: ev.horaFim ?? '',
           titulo: ev.titulo,
           tipoNome: ev.tipo.nome,
           tipoCor: ev.tipo.cor,

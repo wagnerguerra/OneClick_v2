@@ -30,8 +30,9 @@ interface Usuario {
 interface EventoOcupacao {
   id: string
   data: string          // YYYY-MM-DD
-  horaInicio: string    // HH:MM
-  horaFim: string       // HH:MM
+  diaInteiro?: boolean   // ocupa o dia todo (ausência/férias)
+  horaInicio: string    // HH:MM ('' quando dia inteiro)
+  horaFim: string       // HH:MM ('' quando dia inteiro)
   titulo: string
   tipoNome: string
   tipoCor: string
@@ -142,7 +143,7 @@ export default function AgendaDisponibilidadePage() {
     setLoading(true)
     trpc.agenda.disponibilidadeRange.query({ dataInicio, dataFim, usuarioIds: selecionadosIds })
       .then((r: unknown) => setEventos(r as EventoOcupacao[]))
-      .catch(e => alerts.error('Erro', (e as Error).message))
+      .catch((e: unknown) => alerts.error('Erro', (e as Error).message))
       .finally(() => setLoading(false))
   }, [selecionadosIds, diasDaSemana])
 
@@ -169,9 +170,17 @@ export default function AgendaDisponibilidadePage() {
   const layouts = useMemo(() => {
     return diasDaSemana.map(dia => {
       const dataKey = formatDateKey(dia)
-      const evs = (eventosPorDia[dataKey] ?? []).slice()
-        .sort((a, b) => minutesFromMidnight(a.horaInicio) - minutesFromMidnight(b.horaInicio))
+      const doDia = eventosPorDia[dataKey] ?? []
       const cells: Cell[] = new Array(slots.length).fill('free')
+      // Eventos de dia inteiro (ausência/férias) ocupam a coluna toda (fix HLP0204).
+      const allDay = doDia.filter(e => e.diaInteiro)
+      if (allDay.length > 0) {
+        cells[0] = { ev: allDay[0]!, span: slots.length }
+        for (let i = 1; i < slots.length; i++) cells[i] = 'skip'
+        return cells
+      }
+      const evs = doDia.filter(e => !e.diaInteiro).slice()
+        .sort((a, b) => minutesFromMidnight(a.horaInicio) - minutesFromMidnight(b.horaInicio))
       const claimed: boolean[] = new Array(slots.length).fill(false)
       for (const ev of evs) {
         const evIni = minutesFromMidnight(ev.horaInicio)
@@ -466,7 +475,7 @@ export default function AgendaDisponibilidadePage() {
                             backgroundImage: 'repeating-linear-gradient(135deg, transparent 0px, transparent 6px, rgba(244,63,94,0.05) 6px, rgba(244,63,94,0.05) 12px)',
                           }}
                           onClick={() => clickEventoOcupado(ev.id)}
-                          title={`${ev.horaInicio}–${ev.horaFim} ${ev.titulo} (${ev.nomesOcupados.join(', ')})\n\nClique pra ver detalhes do evento`}
+                          title={`${ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio}–${ev.horaFim}`} ${ev.titulo} (${ev.nomesOcupados.join(', ')})\n\nClique pra ver detalhes do evento`}
                         >
                           <div className="flex items-start gap-1.5 px-1.5 py-1 min-w-0">
                             <span
@@ -477,7 +486,7 @@ export default function AgendaDisponibilidadePage() {
                               <span className="font-semibold">{ev.nomesOcupados.join(', ')}</span>
                               <span className="text-muted-foreground"> — {ev.titulo}</span>
                               <span className="block text-[9px] text-muted-foreground tabular-nums mt-0.5">
-                                {ev.horaInicio}–{ev.horaFim}
+                                {ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio}–${ev.horaFim}`}
                               </span>
                             </span>
                           </div>
