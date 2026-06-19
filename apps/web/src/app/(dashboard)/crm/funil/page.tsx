@@ -196,7 +196,7 @@ export default function CrmFunilPage() {
                   <span className="flex-1 min-w-0 truncate"><span className="font-medium">{nome}</span> <span className="text-muted-foreground">· {s.origem || 'direto'}</span></span>
                   {t && <Badge variant="outline" className="text-[10px] gap-1" style={{ color: t.cor, borderColor: t.cor + '55' }}><t.icon className="h-3 w-3" /> {t.label}{s.score != null ? ` ${s.score}` : ''}</Badge>}
                   <Badge variant={s.status === 'registrado' ? 'secondary' : 'outline'} className="text-[10px]">{s.status === 'registrado' ? 'no CRM' : s.status}</Badge>
-                  {s.oportunidadeId && <a href={`/crm/oportunidades/${s.oportunidadeId}`} className="text-muted-foreground hover:text-foreground"><ExternalLink className="h-3.5 w-3.5" /></a>}
+                  {s.oportunidadeId && <a href={`/crm?op=${s.oportunidadeId}&tab=conversa`} title="Abrir conversa no CRM" className="text-muted-foreground hover:text-foreground"><ExternalLink className="h-3.5 w-3.5" /></a>}
                 </div>
               )
             })}

@@ -477,9 +477,13 @@ export default function CrmPage() {
   // (usado pelo botão "Abrir no CRM" do detalhe de um evento da agenda).
   const searchParams = useSearchParams()
   const opParam = searchParams.get('op')
+  const tabParam = searchParams.get('tab')
   useEffect(() => {
     if (!opParam) return
     openDetail(opParam)
+    if (tabParam === 'conversa' || tabParam === 'tarefas' || tabParam === 'mensagens' || tabParam === 'arquivos' || tabParam === 'historico') {
+      setDetailTab(tabParam)
+    }
     router.replace('/crm', { scroll: false })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opParam])
