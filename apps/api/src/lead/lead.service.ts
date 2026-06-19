@@ -224,19 +224,30 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
     let resposta = ''
     let toolInput: LeadDados & { score?: number; prontoParaRegistrar?: boolean; encerrar?: boolean } = {}
     try {
-      const stream = client.messages.stream({
-        model: this.MODEL,
-        max_tokens: 1200,
-        system: this.systemPrompt(cfg, sessao.status === 'registrado'),
-        tools: [this.TOOL],
-        messages: mensagens.map(m => ({ role: m.role, content: m.content })),
-      })
-      stream.on('text', (delta) => { if (delta) { resposta += delta; onEvent({ type: 'text', text: delta }) } })
-      const final = await stream.finalMessage()
-      for (const block of final.content) {
-        if (block.type === 'tool_use' && block.name === 'qualificar_lead') {
-          toolInput = { ...toolInput, ...(block.input as object) }
+      // Loop de tool-use: ao chamar a tool, devolvemos tool_result e deixamos o
+      // modelo CONTINUAR (senão ele encerra o turno com um texto curto tipo
+      // "Ótimo!" esperando o resultado, e o lead fica sem resposta de verdade).
+      const convo: any[] = mensagens.map(m => ({ role: m.role, content: m.content }))
+      let rodadas = 0
+      while (rodadas++ < 4) {
+        const stream = client.messages.stream({
+          model: this.MODEL,
+          max_tokens: 1200,
+          system: this.systemPrompt(cfg, sessao.status === 'registrado'),
+          tools: [this.TOOL],
+          messages: convo,
+        })
+        stream.on('text', (delta) => { if (delta) { resposta += delta; onEvent({ type: 'text', text: delta }) } })
+        const final = await stream.finalMessage()
+        const toolUses = final.content.filter((b: any) => b.type === 'tool_use')
+        for (const tu of toolUses) {
+          if (tu.name === 'qualificar_lead') toolInput = { ...toolInput, ...(tu.input as object) }
         }
+        if (final.stop_reason !== 'tool_use' || !toolUses.length) break
+        // separador visual entre o que já foi dito e a continuação
+        if (resposta && !/\s$/.test(resposta)) { resposta += '\n\n'; onEvent({ type: 'text', text: '\n\n' }) }
+        convo.push({ role: 'assistant', content: final.content })
+        convo.push({ role: 'user', content: toolUses.map((tu: any) => ({ type: 'tool_result', tool_use_id: tu.id, content: 'Dados recebidos e registrados com sucesso.' })) })
       }
     } catch (e) {
       onEvent({ type: 'error', message: (e as Error).message }); return
