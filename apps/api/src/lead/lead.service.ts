@@ -25,12 +25,31 @@ export class LeadService {
   private readonly MODEL = 'claude-sonnet-4-6'
   private client: Anthropic | null = null
 
+  // Conteúdo padrão calibrado para escritório de contabilidade (o master pode
+  // sobrescrever tudo em /crm/funil; usado como fallback quando o campo está vazio).
+  static readonly TRILHA_PADRAO =
+    'Você atende um possível cliente de um escritório de contabilidade. Conduza de forma natural e cordial, uma pergunta por vez, descobrindo nesta ordem (sem parecer interrogatório):\n' +
+    '1. O que ele precisa hoje: abrir empresa, trocar de contador, contabilidade mensal, folha de pagamento/eSocial, regularização ou impostos atrasados, IRPF, BPO financeiro, etc.\n' +
+    '2. Se já tem CNPJ — se sim, o ramo/atividade e, se souber, o regime (Simples, Presumido ou Real).\n' +
+    '3. O faturamento mensal aproximado.\n' +
+    '4. O nível de urgência (precisa agora, nas próximas semanas, ou só pesquisando).\n' +
+    '5. O nome e um contato (e-mail ou WhatsApp).'
+
+  static readonly RUBRICA_PADRAO =
+    'Pontue de 0 a 100 somando:\n' +
+    '- Possui CNPJ ativo (empresa já constituída): +25\n' +
+    '- Faturamento mensal — acima de R$ 100 mil: +25 | de R$ 30 mil a R$ 100 mil: +15 | até R$ 30 mil: +5\n' +
+    '- Serviço recorrente (contabilidade mensal, folha/eSocial, BPO): +20 | serviço pontual (abertura, IRPF, certidão): +10\n' +
+    '- Urgência — imediata / troca de contador agora: +20 | próximas semanas: +10 | só pesquisando: 0\n' +
+    '- Insatisfação com o contador atual ou problema fiscal a resolver: +10\n' +
+    'Curiosidade sem CNPJ e sem intenção de contratar: mantenha baixo (0–20).'
+
   // Política de encerramento padrão (o master pode sobrescrever em /crm/funil).
   static readonly REGRAS_FINALIZACAO_PADRAO =
-    'Só finalize depois de concluir a qualificação. Ao finalizar, marque "encerrar": true e ajuste o tom pela pontuação:\n' +
-    '- Pontuação ALTA (quente): demonstre entusiasmo e convide para agendar uma reunião com um consultor.\n' +
-    '- Pontuação MÉDIA (morno): agradeça e diga que o time entrará em contato; ofereça também falar pelo WhatsApp.\n' +
-    '- Pontuação BAIXA (frio): agradeça cordialmente o contato e encerre.'
+    'Só finalize depois de concluir a qualificação (serviço, CNPJ, faturamento e urgência) e de ter nome + contato. Ao finalizar, marque "encerrar": true e ajuste o tom pela pontuação:\n' +
+    '- Quente (alta): demonstre entusiasmo, diga que é um ótimo momento para uma análise contábil/tributária e convide para agendar uma reunião com um consultor.\n' +
+    '- Morno (média): agradeça, diga que um especialista vai entrar em contato em breve e ofereça adiantar a conversa pelo WhatsApp.\n' +
+    '- Frio (baixa): agradeça cordialmente o contato, coloque o escritório à disposição e encerre.'
 
   constructor(
     private readonly cnpjService: CnpjService,
@@ -60,8 +79,8 @@ export class LeadService {
     // default (não persiste até salvar)
     return {
       id: null, slug: 'atendimento', ativo: true,
-      trilhaPrompt: 'Você é um atendente comercial. Descubra: se o lead tem CNPJ, o ramo/atividade, o serviço de interesse, o faturamento aproximado e a urgência. Conduza de forma natural e cordial.',
-      rubrica: 'Tem CNPJ ativo: +30. Faturamento alto: +25. Urgência alta: +25. Serviço premium (contabilidade mensal/BPO): +20. Apenas curiosidade/sem contato: 0.',
+      trilhaPrompt: LeadService.TRILHA_PADRAO,
+      rubrica: LeadService.RUBRICA_PADRAO,
       limiarMedio: 40, limiarAlto: 70,
       mensagemBoasVindas: 'Olá! 👋 Sou o assistente virtual. Vou te ajudar rapidinho e já encaminho você ao nosso time.',
       avisoLgpd: 'Ao continuar, você concorda que usaremos seus dados para entrar em contato sobre nossos serviços.',
@@ -166,10 +185,10 @@ REGRAS:
 ${jaRegistrado ? `- Este lead já foi registrado e o time comercial já foi avisado; não diga que vai registrar nem se desculpe por demora.` : ''}
 
 ## Trilha de atendimento
-${cfg.trilhaPrompt || '(não configurada)'}
+${cfg.trilhaPrompt || LeadService.TRILHA_PADRAO}
 
 ## Rubrica de pontuação (pesos)
-${cfg.rubrica || '(não configurada)'}
+${cfg.rubrica || LeadService.RUBRICA_PADRAO}
 
 ## Regras de finalização
 ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
