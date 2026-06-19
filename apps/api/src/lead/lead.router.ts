@@ -27,6 +27,7 @@ export function createLeadRouter(leadService: LeadService) {
       .query(({ input }) => leadService.getConfigPublica(input.slug)),
 
     sugestoesHorario: publicProcedure
+      .input(z.object({}).nullish())
       .query(() => leadService.sugestoesHorario()),
   })
 }
