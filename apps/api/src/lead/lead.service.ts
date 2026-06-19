@@ -76,8 +76,8 @@ export class LeadService {
     }
     const id = randomUUID()
     await prisma.$executeRawUnsafe(
-      `INSERT INTO lead_funil_config (id, empresa_id, slug, ativo, trilha_prompt, rubrica, limiar_medio, limiar_alto, mensagem_boas_vindas, aviso_lgpd, whatsapp_comercial, tipo_evento_reuniao_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      `INSERT INTO lead_funil_config (id, empresa_id, slug, ativo, trilha_prompt, rubrica, limiar_medio, limiar_alto, mensagem_boas_vindas, aviso_lgpd, whatsapp_comercial, tipo_evento_reuniao_id, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       id, empresaId ?? null, input.slug, input.ativo ?? true, input.trilhaPrompt, input.rubrica, input.limiarMedio, input.limiarAlto,
       input.mensagemBoasVindas ?? null, input.avisoLgpd ?? null, input.whatsappComercial ?? null, input.tipoEventoReuniaoId ?? null,
     )
@@ -130,7 +130,7 @@ export class LeadService {
     const id = randomUUID()
     const token = randomUUID().replace(/-/g, '')
     await prisma.$executeRawUnsafe(
-      `INSERT INTO lead_sessao (id, token, slug, origem, ip, empresa_id) VALUES ($1,$2,$3,$4,$5,$6)`,
+      `INSERT INTO lead_sessao (id, token, slug, origem, ip, empresa_id, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       id, token, params.slug, params.origem ?? null, params.ip ?? null, cfg.empresaId ?? null,
     )
     return { token }
@@ -270,7 +270,7 @@ ${cfg.rubrica || '(não configurada)'}`
     } as any, undefined, empresaId ?? undefined).catch(() => null)
     if (!op?.id) return
     await prisma.$executeRawUnsafe(`UPDATE oportunidades SET score=$2, temperatura=$3 WHERE id=$1`, op.id, score, temperatura).catch(() => {})
-    await prisma.$executeRawUnsafe(`UPDATE lead_sessao SET status='registrado', oportunidade_id=$2, cliente_id=$3 WHERE id=$1`, sessaoId, op.id, (op as any).clienteId ?? null).catch(() => {})
+    await prisma.$executeRawUnsafe(`UPDATE lead_sessao SET status='registrado', oportunidade_id=$2, cliente_id=$3, updated_at=CURRENT_TIMESTAMP WHERE id=$1`, sessaoId, op.id, (op as any).clienteId ?? null).catch(() => {})
   }
 
   // ── Admin / relatório ────────────────────────────────────────────────
