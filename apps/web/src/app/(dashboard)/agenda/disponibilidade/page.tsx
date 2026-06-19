@@ -10,6 +10,7 @@ import {
 import {
   Button, Input, Label, Card, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
@@ -286,6 +287,7 @@ export default function AgendaDisponibilidadePage() {
 
   // ============================ Render ============================
   return (
+    <TooltipProvider delayDuration={250}>
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -471,32 +473,62 @@ export default function AgendaDisponibilidadePage() {
                           const widthPct = 100 / b.lanes
                           const leftPct = b.lane * widthPct
                           const tempo = ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio}–${ev.horaFim}`
+                          const nomesVis = ev.nomesOcupados.slice(0, 4)
+                          const nomesRest = ev.nomesOcupados.length - nomesVis.length
                           return (
-                            <button
-                              key={ev.id + '-' + bi}
-                              type="button"
-                              onClick={() => clickEventoOcupado(ev.id)}
-                              className="absolute rounded-md border text-left overflow-hidden px-1 py-0.5 hover:z-30 hover:shadow-lg transition-shadow"
-                              style={{
-                                top: b.topPx + 1,
-                                height: b.heightPx - 2,
-                                left: `calc(${leftPct}% + 1px)`,
-                                width: `calc(${widthPct}% - 2px)`,
-                                zIndex: 10 + b.lane,
-                                backgroundColor: `color-mix(in srgb, ${cor} 14%, var(--background, #fff))`,
-                                borderColor: cor,
-                              }}
-                              title={`${tempo} · ${ev.titulo} (${ev.nomesOcupados.join(', ')})\n\nClique pra ver detalhes`}
-                            >
-                              <span className="flex items-start gap-1 min-w-0">
-                                <span className="h-2 w-2 rounded-full shrink-0 mt-0.5 ring-1 ring-black/10" style={{ backgroundColor: cor }} />
-                                <span className="min-w-0 leading-tight">
-                                  <span className="block text-[9px] font-semibold truncate">{ev.nomesOcupados.join(', ')}</span>
-                                  <span className="block text-[9px] text-muted-foreground truncate">{ev.titulo}</span>
-                                  <span className="block text-[8px] text-muted-foreground tabular-nums">{tempo}</span>
-                                </span>
-                              </span>
-                            </button>
+                            <Tooltip key={ev.id + '-' + bi}>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  onClick={() => clickEventoOcupado(ev.id)}
+                                  className="absolute rounded-md border text-left overflow-hidden px-1 py-0.5 bg-card hover:z-30 hover:shadow-lg transition-shadow"
+                                  style={{
+                                    top: b.topPx + 1,
+                                    height: b.heightPx - 2,
+                                    left: `calc(${leftPct}% + 1px)`,
+                                    width: `calc(${widthPct}% - 2px)`,
+                                    zIndex: 10 + b.lane,
+                                    backgroundColor: `color-mix(in srgb, ${cor} 16%, var(--color-card, #fff))`,
+                                    borderColor: cor,
+                                  }}
+                                >
+                                  <span className="flex items-start gap-1 min-w-0">
+                                    <span className="h-2 w-2 rounded-full shrink-0 mt-0.5 ring-1 ring-black/10" style={{ backgroundColor: cor }} />
+                                    <span className="min-w-0 leading-tight">
+                                      <span className="block text-[9px] font-semibold truncate text-foreground">{ev.nomesOcupados.join(', ')}</span>
+                                      <span className="block text-[9px] text-muted-foreground truncate">{ev.titulo}</span>
+                                      <span className="block text-[8px] text-muted-foreground tabular-nums">{tempo}</span>
+                                    </span>
+                                  </span>
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs p-0 overflow-hidden">
+                                <div className="px-3 py-2 flex items-start gap-2 border-b border-background/20">
+                                  <span className="h-2.5 w-2.5 rounded-full shrink-0 mt-1" style={{ backgroundColor: cor }} />
+                                  <div className="min-w-0">
+                                    <p className="font-semibold leading-tight">{ev.titulo}</p>
+                                    <p className="text-[10px] opacity-70 mt-0.5">{ev.tipoNome}</p>
+                                  </div>
+                                </div>
+                                <div className="px-3 py-2 space-y-1.5">
+                                  <div className="flex items-center gap-1.5 text-[11px]">
+                                    <Clock className="h-3 w-3 shrink-0 opacity-70" />
+                                    <span>{tempo}</span>
+                                  </div>
+                                  {ev.nomesOcupados.length > 0 && (
+                                    <div className="flex items-start gap-1.5 text-[11px]">
+                                      <Users className="h-3 w-3 shrink-0 opacity-70 mt-0.5" />
+                                      <span className="leading-snug">
+                                        {nomesVis.join(', ')}{nomesRest > 0 && <span className="opacity-70"> +{nomesRest}</span>}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="px-3 py-1.5 border-t border-background/20 text-[10px] opacity-60 italic text-center">
+                                  Clique pra ver detalhes
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
                           )
                         })}
                       </div>
@@ -512,7 +544,7 @@ export default function AgendaDisponibilidadePage() {
                 <span className="h-3 w-3 rounded bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800" /> Todos livres
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded border" style={{ borderColor: '#d4705a', backgroundColor: 'color-mix(in srgb, #d4705a 14%, var(--background, #fff))' }} />
+                <span className="h-3 w-3 rounded border" style={{ borderColor: '#d4705a', backgroundColor: 'color-mix(in srgb, #d4705a 16%, var(--color-card, #fff))' }} />
                 Ocupado (cor = tipo do evento; sobrepostos ficam lado a lado)
               </span>
               <span className="flex items-center gap-1.5">
@@ -612,5 +644,6 @@ export default function AgendaDisponibilidadePage() {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   )
 }
