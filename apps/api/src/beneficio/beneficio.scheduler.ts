@@ -33,15 +33,16 @@ export class BeneficioSchedulerService implements OnModuleInit, OnModuleDestroy 
       const empresas = await prisma.$queryRawUnsafe<Array<{ empresa_id: string }>>(
         `SELECT empresa_id FROM beneficio_config WHERE notificar_auto=true AND dia_notificacao=$1`, dia,
       ).catch(() => [])
-      let n = 0
+      let n = 0, semComp = 0
       for (const e of empresas) {
         const comp = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
           `SELECT id FROM beneficio_competencia WHERE empresa_id=$1 AND ano=$2 AND mes=$3 AND status IN ('ABERTA','EM_APONTAMENTO') LIMIT 1`,
           e.empresa_id, ano, mes,
         ).catch(() => [])
         if (comp[0]) { await this.beneficioService.notificarLideres(comp[0].id).catch(err => console.error('[Beneficios Scheduler] notificar falhou', comp[0]!.id, (err as Error).message)); n++ }
+        else { await this.beneficioService.notificarResponsavelAbrir(e.empresa_id, ano, mes).catch(err => console.error('[Beneficios Scheduler] avisar responsavel falhou', e.empresa_id, (err as Error).message)); semComp++ }
       }
-      if (empresas.length) console.log(`[Beneficios Scheduler] dia ${dia}: ${n}/${empresas.length} empresa(s) notificadas (${mes}/${ano})`)
+      if (empresas.length) console.log(`[Beneficios Scheduler] dia ${dia}: ${n} notificadas, ${semComp} sem competência (responsável avisado) — ${mes}/${ano}`)
     } catch (e) {
       console.error('[Beneficios Scheduler] erro:', (e as Error).message)
     }

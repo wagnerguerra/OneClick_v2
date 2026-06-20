@@ -395,6 +395,36 @@ export class BeneficioService {
     return { notificados: userIds.length }
   }
 
+  /** Responsáveis = usuários com sub-permissão gerir_beneficios na empresa. */
+  private async resolverResponsaveis(empresaId: string): Promise<Array<{ id: string; nome: string; email: string | null }>> {
+    return prisma.$queryRawUnsafe<any[]>(
+      `SELECT u.id, u.name AS nome, u.email
+         FROM user_permissions up JOIN users u ON u.id = up.user_id
+        WHERE up.module_slug='beneficios' AND (up.sub_permissions->>'gerir_beneficios')='true'
+          AND u.is_active=true AND u.empresa_id=$1`, empresaId,
+    ).catch(() => [] as any[])
+  }
+
+  /** Avisa os responsáveis que falta abrir a competência do mês. */
+  async notificarResponsavelAbrir(empresaId: string, ano: number, mes: number) {
+    const resp = await this.resolverResponsaveis(empresaId)
+    if (resp.length === 0) return { notificados: 0 }
+    const mesRef = `${String(mes).padStart(2, '0')}/${ano}`
+    await this.notificationService.criarParaUsers(resp.map(r => r.id), {
+      titulo: 'Abra a competência de benefícios',
+      mensagem: `Ainda não há competência aberta para ${mesRef}. Abra-a para notificar os líderes.`,
+      tipo: 'warning', link: '/beneficios', origem: 'beneficios', empresaId,
+    }).catch(() => {})
+    for (const r of resp) {
+      if (!r.email) continue
+      await this.emailService.sendMail({
+        to: r.email, subject: `Benefícios — abra a competência de ${mesRef}`,
+        html: `<p>Olá, ${r.nome?.split(' ')[0] || ''}!</p><p>Ainda não há uma competência de benefícios aberta para <strong>${mesRef}</strong>. Acesse <strong>Trabalhista &rsaquo; Benefícios</strong>, abra a competência do mês e os líderes serão notificados para lançar os apontamentos.</p>`,
+      }).catch(() => {})
+    }
+    return { notificados: resp.length }
+  }
+
   private async emailResumoFechamento(competenciaId: string) {
     const comp = await this.getCompetencia(competenciaId)
     if (!comp) return
