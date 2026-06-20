@@ -384,6 +384,15 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
     return c.id
   }
 
+  /** Get-or-create do tipo de evento dedicado às reuniões agendadas pelo chat. */
+  private async ensureTipoReuniaoLead(): Promise<string> {
+    const nome = 'Reunião com Lead'
+    const ex = await prisma.agendaTipo.findFirst({ where: { nome: { equals: nome, mode: 'insensitive' } }, select: { id: true } }).catch(() => null)
+    if (ex) return ex.id
+    const t = await this.agendaService.createTipo({ nome, cor: '#fb7185', corBorda: '#e11d48', corTexto: '#ffffff', bloqueiaAgenda: true })
+    return t.id
+  }
+
   private async resolverComercial(empresaId?: string | null): Promise<string[]> {
     const users = await prisma.user.findMany({
       where: { isActive: true, area: { name: { equals: 'Comercial', mode: 'insensitive' } }, ...(empresaId ? { empresaId } : {}) },
@@ -413,22 +422,25 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
     const s = await this.sessaoPorToken(token)
     if (!s) throw new Error('Sessão inválida.')
     const dados: LeadDados = s.dados ?? {}
+    // Tipo dedicado "Reunião com Lead" (config pode sobrescrever em /crm/funil).
     const cfgRows = await prisma.$queryRawUnsafe<any[]>(`SELECT tipo_evento_reuniao_id AS "tipoEventoReuniaoId" FROM lead_funil_config WHERE slug=$1 LIMIT 1`, s.slug)
-    let tipoId: string | undefined = cfgRows[0]?.tipoEventoReuniaoId
-    if (!tipoId) { const tipos = await this.agendaService.listTipos().catch(() => [] as any[]); tipoId = tipos[0]?.id }
-    if (!tipoId) throw new Error('Nenhum tipo de evento configurado para a reunião.')
+    const tipoId: string = cfgRows[0]?.tipoEventoReuniaoId || await this.ensureTipoReuniaoLead()
     const [h, m] = horaInicio.split(':').map(Number)
     const horaFim = `${String((h ?? 0) + 1).padStart(2, '0')}:${String(m ?? 0).padStart(2, '0')}`
     const criadorId = await this.ensureAiUser()
     const comercial = await this.resolverComercial(s.empresaId)
+    const leadNome = dados.nome || dados.razaoSocial || 'Lead'
+    const contatoLead = [dados.nome, dados.email, dados.telefone].filter(Boolean).join(' · ') || null
     try {
       await this.agendaService.create({
-        titulo: `Reunião — ${dados.nome || dados.razaoSocial || 'Lead'}`,
-        descricao: `Reunião solicitada por lead da campanha.\n${dados.resumo ?? ''}`,
+        titulo: `Reunião com lead — ${leadNome}`,
+        descricao: `Reunião solicitada por lead da campanha.\nContato: ${contatoLead ?? '—'}\n${dados.resumo ?? ''}`.trim(),
         data, horaInicio, horaFim, tipoId,
         empresaId: s.empresaId ?? undefined,
         oportunidadeId: s.oportunidadeId ?? undefined,
-        participanteIds: comercial,
+        participanteIds: comercial,        // usuários do comercial
+        participantesAvulsos: [leadNome],  // o próprio lead (contato externo)
+        contato: contatoLead,
         notificar: true,
       } as any, criadorId)
     } catch {
