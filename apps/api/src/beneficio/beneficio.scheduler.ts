@@ -5,10 +5,11 @@ import { schedulersAtivos } from '../common/scheduler-guard'
 import { BeneficioService } from './beneficio.service'
 
 /**
- * Notificação mensal automática dos líderes de setor para lançarem os
- * apontamentos de benefícios. Roda todo dia 25 às 08:00 (BR): para cada
- * empresa com uma competência ABERTA/EM_APONTAMENTO no mês corrente, dispara
- * notificarLideres (e-mail + sino). Só executa em produção (schedulersAtivos).
+ * Alerta mensal automático aos líderes de setor para lançarem os apontamentos.
+ * Roda TODO DIA às 08:00 (BR) e, para cada empresa com `notificar_auto=true` cujo
+ * `dia_notificacao` seja o dia de hoje, dispara notificarLideres (e-mail + sino)
+ * na competência ABERTA/EM_APONTAMENTO do mês corrente. O dia é configurável em
+ * /beneficios › Configurações. Só executa em produção (schedulersAtivos).
  */
 @Injectable()
 export class BeneficioSchedulerService implements OnModuleInit, OnModuleDestroy {
@@ -18,24 +19,29 @@ export class BeneficioSchedulerService implements OnModuleInit, OnModuleDestroy 
 
   onModuleInit() {
     if (!schedulersAtivos()) { console.log('[Beneficios Scheduler] desativado fora de produção'); return }
-    // Dia 25 às 08:00, fuso de São Paulo.
-    this.cronJob = new CronJob('0 8 25 * *', () => { void this.executar() }, null, true, 'America/Sao_Paulo')
-    console.log('[Beneficios Scheduler] Iniciado: 0 8 25 * * (America/Sao_Paulo)')
+    this.cronJob = new CronJob('0 8 * * *', () => { void this.executar() }, null, true, 'America/Sao_Paulo')
+    console.log('[Beneficios Scheduler] Iniciado: 0 8 * * * (America/Sao_Paulo)')
   }
 
   onModuleDestroy() { this.cronJob?.stop() }
 
   private async executar() {
     try {
-      const agora = new Date()
-      const ano = agora.getFullYear(), mes = agora.getMonth() + 1
-      const comps = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
-        `SELECT id FROM beneficio_competencia WHERE ano=$1 AND mes=$2 AND status IN ('ABERTA','EM_APONTAMENTO')`, ano, mes,
+      // Dia/mês/ano no fuso de São Paulo (independe do fuso do servidor).
+      const br = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
+      const dia = br.getDate(), mes = br.getMonth() + 1, ano = br.getFullYear()
+      const empresas = await prisma.$queryRawUnsafe<Array<{ empresa_id: string }>>(
+        `SELECT empresa_id FROM beneficio_config WHERE notificar_auto=true AND dia_notificacao=$1`, dia,
       ).catch(() => [])
-      for (const c of comps) {
-        await this.beneficioService.notificarLideres(c.id).catch(e => console.error('[Beneficios Scheduler] notificar falhou', c.id, (e as Error).message))
+      let n = 0
+      for (const e of empresas) {
+        const comp = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+          `SELECT id FROM beneficio_competencia WHERE empresa_id=$1 AND ano=$2 AND mes=$3 AND status IN ('ABERTA','EM_APONTAMENTO') LIMIT 1`,
+          e.empresa_id, ano, mes,
+        ).catch(() => [])
+        if (comp[0]) { await this.beneficioService.notificarLideres(comp[0].id).catch(err => console.error('[Beneficios Scheduler] notificar falhou', comp[0]!.id, (err as Error).message)); n++ }
       }
-      console.log(`[Beneficios Scheduler] Notificados líderes de ${comps.length} competência(s) ${mes}/${ano}`)
+      if (empresas.length) console.log(`[Beneficios Scheduler] dia ${dia}: ${n}/${empresas.length} empresa(s) notificadas (${mes}/${ano})`)
     } catch (e) {
       console.error('[Beneficios Scheduler] erro:', (e as Error).message)
     }

@@ -7,6 +7,8 @@ export const salvarBeneficioConfigSchema = z.object({
   diariaVA: z.coerce.number().min(0),
   diariaVT: z.coerce.number().min(0),
   vtDiasDescontoSaldo: z.coerce.number().int().min(0).max(31),
+  notificarAuto: z.boolean().optional(),
+  diaNotificacao: z.coerce.number().int().min(1).max(28).nullable().optional(),
 })
 export type SalvarBeneficioConfigInput = z.infer<typeof salvarBeneficioConfigSchema>
 

@@ -2773,6 +2773,8 @@ model BeneficioConfig {
   diariaVA            Decimal  @default(0) @map("diaria_va") @db.Decimal(10, 2)
   diariaVT            Decimal  @default(10.20) @map("diaria_vt") @db.Decimal(10, 2)
   vtDiasDescontoSaldo Int      @default(7) @map("vt_dias_desconto_saldo")
+  notificarAuto       Boolean  @default(false) @map("notificar_auto") // alerta automático aos líderes
+  diaNotificacao      Int?     @map("dia_notificacao")                // dia do mês (1-28) do alerta
   ativo               Boolean  @default(true)
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")

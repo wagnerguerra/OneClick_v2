@@ -56,26 +56,26 @@ export class BeneficioService {
   async getConfig(empresaId: string) {
     const rows = await prisma.$queryRawUnsafe<any[]>(
       `SELECT id, empresa_id AS "empresaId", diaria_va AS "diariaVA", diaria_vt AS "diariaVT",
-              vt_dias_desconto_saldo AS "vtDiasDescontoSaldo", ativo
+              vt_dias_desconto_saldo AS "vtDiasDescontoSaldo", notificar_auto AS "notificarAuto", dia_notificacao AS "diaNotificacao", ativo
          FROM beneficio_config WHERE empresa_id=$1 LIMIT 1`, empresaId,
     ).catch(() => [] as any[])
     if (rows[0]) return { ...rows[0], diariaVA: Number(rows[0].diariaVA), diariaVT: Number(rows[0].diariaVT) }
-    return { id: null, empresaId, diariaVA: 0, diariaVT: this.DIARIA_VT_PADRAO, vtDiasDescontoSaldo: this.VT_DIAS_DESCONTO_PADRAO, ativo: true }
+    return { id: null, empresaId, diariaVA: 0, diariaVT: this.DIARIA_VT_PADRAO, vtDiasDescontoSaldo: this.VT_DIAS_DESCONTO_PADRAO, notificarAuto: false, diaNotificacao: null, ativo: true }
   }
 
   async saveConfig(input: SalvarBeneficioConfigInput) {
     const existing = await prisma.$queryRawUnsafe<any[]>(`SELECT id FROM beneficio_config WHERE empresa_id=$1 LIMIT 1`, input.empresaId)
     if (existing[0]) {
       await prisma.$executeRawUnsafe(
-        `UPDATE beneficio_config SET diaria_va=$2, diaria_vt=$3, vt_dias_desconto_saldo=$4, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
-        existing[0].id, input.diariaVA, input.diariaVT, input.vtDiasDescontoSaldo)
+        `UPDATE beneficio_config SET diaria_va=$2, diaria_vt=$3, vt_dias_desconto_saldo=$4, notificar_auto=$5, dia_notificacao=$6, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
+        existing[0].id, input.diariaVA, input.diariaVT, input.vtDiasDescontoSaldo, input.notificarAuto ?? false, input.diaNotificacao ?? null)
       return { id: existing[0].id }
     }
     const id = randomUUID()
     await prisma.$executeRawUnsafe(
-      `INSERT INTO beneficio_config (id, empresa_id, diaria_va, diaria_vt, vt_dias_desconto_saldo, ativo, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      id, input.empresaId, input.diariaVA, input.diariaVT, input.vtDiasDescontoSaldo)
+      `INSERT INTO beneficio_config (id, empresa_id, diaria_va, diaria_vt, vt_dias_desconto_saldo, notificar_auto, dia_notificacao, ativo, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      id, input.empresaId, input.diariaVA, input.diariaVT, input.vtDiasDescontoSaldo, input.notificarAuto ?? false, input.diaNotificacao ?? null)
     return { id }
   }
 

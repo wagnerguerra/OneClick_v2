@@ -172,7 +172,7 @@ function ConfigView({ empresaId }: { empresaId: string }) {
 
   async function salvarCfg() {
     setSaving(true)
-    try { await (trpc.beneficios as any).saveConfig.mutate({ empresaId, diariaVA: cfg.diariaVA, diariaVT: cfg.diariaVT, vtDiasDescontoSaldo: cfg.vtDiasDescontoSaldo }); alerts.success('Salvo', 'Configuração atualizada.') }
+    try { await (trpc.beneficios as any).saveConfig.mutate({ empresaId, diariaVA: cfg.diariaVA, diariaVT: cfg.diariaVT, vtDiasDescontoSaldo: cfg.vtDiasDescontoSaldo, notificarAuto: !!cfg.notificarAuto, diaNotificacao: cfg.notificarAuto ? (Number(cfg.diaNotificacao) || 1) : null }); alerts.success('Salvo', 'Configuração atualizada.') }
     catch (e) { alerts.error('Erro', (e as Error).message) } finally { setSaving(false) }
   }
 
@@ -198,6 +198,24 @@ function ConfigView({ empresaId }: { empresaId: string }) {
           <div className="col-span-4 space-y-1"><Label className="text-[12px] font-semibold">Diária VT (R$)</Label><Input type="number" step="0.01" className="h-9 text-sm" value={cfg.diariaVT} onChange={e => setCfg({ ...cfg, diariaVT: +e.target.value })} /></div>
           <div className="col-span-4 space-y-1"><Label className="text-[12px] font-semibold">Dias p/ desconto do saldo VT</Label><Input type="number" className="h-9 text-sm" value={cfg.vtDiasDescontoSaldo} onChange={e => setCfg({ ...cfg, vtDiasDescontoSaldo: +e.target.value })} /></div>
         </div>
+
+        <div className="rounded-lg border bg-muted/20 p-3 space-y-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <Label className="text-[13px] font-semibold">Alerta automático aos líderes</Label>
+              <p className="text-[11px] text-muted-foreground">Todo mês, no dia escolhido, os líderes recebem e-mail + notificação para lançar os apontamentos do seu setor (na competência aberta do mês).</p>
+            </div>
+            <Switch checked={!!cfg.notificarAuto} onCheckedChange={(v: boolean) => setCfg({ ...cfg, notificarAuto: v })} />
+          </div>
+          {cfg.notificarAuto && (
+            <div className="flex items-center gap-2">
+              <Label className="text-[12px] font-semibold">Disparar no dia</Label>
+              <Input type="number" min={1} max={28} className="h-9 w-20 text-sm" value={cfg.diaNotificacao ?? 1} onChange={e => setCfg({ ...cfg, diaNotificacao: +e.target.value })} />
+              <span className="text-[11px] text-muted-foreground">de cada mês (1–28), às 08:00.</span>
+            </div>
+          )}
+        </div>
+
         <Button size="sm" className="gap-1.5 text-white" style={{ background: COR }} onClick={salvarCfg} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar</Button>
       </Card>
 
