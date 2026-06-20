@@ -6,6 +6,7 @@ import type { SalvarFunilConfigInput, LeadChatMsg } from '@saas/types'
 import { CnpjService } from '../cnpj/cnpj.service'
 import { CrmService } from '../crm/crm.service'
 import { AgendaService } from '../agenda/agenda.service'
+import { AgendaLembreteService } from '../agenda/agenda-lembrete.service'
 import { NotificationService } from '../notification/notification.service'
 
 type StreamEvent = { type: string; [k: string]: unknown }
@@ -55,6 +56,7 @@ export class LeadService {
     private readonly cnpjService: CnpjService,
     private readonly crmService: CrmService,
     private readonly agendaService: AgendaService,
+    private readonly agendaLembreteService: AgendaLembreteService,
     private readonly notificationService: NotificationService,
   ) {}
 
@@ -432,7 +434,7 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
     const leadNome = dados.nome || dados.razaoSocial || 'Lead'
     const contatoLead = [dados.nome, dados.email, dados.telefone].filter(Boolean).join(' · ') || null
     try {
-      await this.agendaService.create({
+      const ev = await this.agendaService.create({
         titulo: `Reunião com lead — ${leadNome}`,
         descricao: `Reunião solicitada por lead da campanha.\nContato: ${contatoLead ?? '—'}\n${dados.resumo ?? ''}`.trim(),
         data, horaInicio, horaFim, tipoId,
@@ -443,6 +445,15 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
         contato: contatoLead,
         notificar: true,
       } as any, criadorId)
+      // Lembrete por e-mail pra equipe comercial na véspera às 08:00.
+      // minutosAntes = (horário do evento) - (08:00 do dia anterior) = 960 + h*60 + m.
+      const eventoId = Array.isArray(ev) ? ev[0]?.id : (ev as any)?.id
+      if (eventoId) {
+        const minutosAntes = 960 + (h ?? 0) * 60 + (m ?? 0)
+        if (minutosAntes > 0 && minutosAntes <= 43200) {
+          await this.agendaLembreteService.save(eventoId, [{ canal: 'EMAIL' as any, minutosAntes }]).catch(() => {})
+        }
+      }
     } catch {
       if (comercial.length) await this.notificationService.criarParaUsers(comercial, {
         titulo: 'Lead quente quer agendar reunião',
