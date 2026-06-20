@@ -190,6 +190,28 @@ export class BeneficioService {
     return { competencia: comp, itens }
   }
 
+  /** Progresso de lançamento por setor (total x lançados). Escopo por líder. */
+  async progressoPorSetor(competenciaId: string, ctx: Ctx) {
+    const comp = await this.getCompetencia(competenciaId)
+    if (!comp) return []
+    const gerir = await this.podeGerir(ctx)
+    const ledAreas = gerir ? [] : await this.areasLideradas(ctx.userId)
+    if (!gerir && ledAreas.length === 0) return []
+    const filtro = gerir ? '' : 'AND a.id = ANY($3::text[])'
+    const params: any[] = gerir ? [comp.empresaId, competenciaId] : [comp.empresaId, competenciaId, ledAreas]
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT a.name AS setor, COUNT(u.id)::int AS total,
+              COUNT(ap.id) FILTER (WHERE ap.lancado_por_id IS NOT NULL)::int AS lancados
+         FROM areas a
+         JOIN users u ON u.area_id = a.id AND u.is_active=true AND u.exibir_como_colaborador=true
+         LEFT JOIN beneficio_apontamento ap ON ap.colaborador_id = u.id AND ap.competencia_id=$2
+        WHERE a.empresa_id=$1 ${filtro}
+        GROUP BY a.name ORDER BY a.name ASC`,
+      ...params,
+    ).catch(() => [] as any[])
+    return rows.map(r => ({ setor: r.setor, total: Number(r.total), lancados: Number(r.lancados) }))
+  }
+
   private async verificarEscopo(competenciaId: string, colaboradorId: string, ctx: Ctx) {
     if (await this.podeGerir(ctx)) return
     const led = await this.areasLideradas(ctx.userId)

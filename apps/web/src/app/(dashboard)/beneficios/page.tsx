@@ -302,14 +302,19 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
   const [loading, setLoading] = useState(true)
   const [acao, setAcao] = useState(false)
   const [filtroSetor, setFiltroSetor] = useState('')
+  const [progresso, setProgresso] = useState<any[]>([])
+
+  const refreshProgresso = useCallback(() => {
+    (trpc.beneficios as any).progressoSetores.query({ competenciaId: id }).then((p: any[]) => setProgresso(p || [])).catch(() => {})
+  }, [id])
 
   const carregar = useCallback(() => {
     setLoading(true)
     Promise.all([
       (trpc.beneficios as any).getCompetencia.query({ id }),
       (trpc.beneficios as any).listApontamentos.query({ competenciaId: id }).then((r: any) => r.itens).catch(() => []),
-    ]).then(([c, it]: [any, any[]]) => { setComp(c); setItens(it || []) }).finally(() => setLoading(false))
-  }, [id])
+    ]).then(([c, it]: [any, any[]]) => { setComp(c); setItens(it || []) }).finally(() => { setLoading(false); refreshProgresso() })
+  }, [id, refreshProgresso])
   useEffect(() => { carregar() }, [carregar])
 
   useEffect(() => {
@@ -325,6 +330,7 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
         diasFerias: +novo.diasFerias || 0, diasLicenca: +novo.diasLicenca || 0, diasAusencia: +novo.diasAusencia || 0,
         faltas: +novo.faltas || 0, plantoes: +novo.plantoes || 0,
       })
+      refreshProgresso()
     } catch (e) { alerts.error('Erro', (e as Error).message); carregar() }
   }
   async function salvarSaldo(it: any, valor: string) {
@@ -418,6 +424,20 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
         const visiveis = filtroSetor ? itens.filter(i => i.setor === filtroSetor) : itens
         return (
         <div className="space-y-2">
+          {progresso.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {progresso.map(p => {
+                const done = p.total > 0 && p.lancados >= p.total
+                const ativo = filtroSetor === p.setor
+                return (
+                  <button key={p.setor} onClick={() => setFiltroSetor(ativo ? '' : p.setor)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${ativo ? 'ring-2 ring-offset-1' : ''} ${done ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300' : 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300'}`}>
+                    {done ? <CheckCheck className="h-3 w-3" /> : <BellRing className="h-3 w-3" />} {p.setor} {p.lancados}/{p.total}
+                  </button>
+                )
+              })}
+            </div>
+          )}
           {!fechada && itens.length > 0 && (
             <div className="flex items-center justify-between gap-2 flex-wrap">
               {setores.length > 1 ? (

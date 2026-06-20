@@ -56,6 +56,9 @@ export function createBeneficioRouter(beneficioService: BeneficioService) {
     listApontamentos: readSubProcedure(MODULE, LANCAR, 'Lançar apontamentos')
       .input(z.object({ competenciaId: z.string() }))
       .query(({ input, ctx }) => beneficioService.listApontamentos(input.competenciaId, ctx)),
+    progressoSetores: readProcedure(MODULE)
+      .input(z.object({ competenciaId: z.string() }))
+      .query(({ input, ctx }) => beneficioService.progressoPorSetor(input.competenciaId, ctx)),
     upsertApontamento: writeSubProcedure(MODULE, LANCAR, 'Lançar apontamentos')
       .input(salvarApontamentoSchema)
       .mutation(({ input, ctx }) => beneficioService.upsertApontamento(input, ctx)),
