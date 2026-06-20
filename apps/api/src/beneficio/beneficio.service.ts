@@ -6,7 +6,7 @@ import { EmailService } from '../common/email.service'
 import { NotificationService } from '../notification/notification.service'
 import type {
   SalvarBeneficioConfigInput, SalvarFichaBeneficioInput, AbrirCompetenciaInput,
-  SalvarApontamentoInput, SalvarSaldoVtInput,
+  SalvarApontamentoInput, SalvarSaldoVtInput, SalvarCartaoAvulsoInput,
 } from '@saas/types'
 
 type Ctx = { userId?: string; isMaster?: boolean; isEmpresaMaster?: boolean }
@@ -233,6 +233,35 @@ export class BeneficioService {
     return { id }
   }
 
+  // ── Cartões avulsos (ESCRITÓRIO / RESERVA) ─────────────────────────
+  async listCartoes(empresaId: string) {
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id, nome, valor_va AS "valorVA", valor_vt AS "valorVT", valor_mobilidade AS "valorMobilidade", ativo
+         FROM beneficio_cartao_avulso WHERE empresa_id=$1 AND ativo=true ORDER BY nome ASC`, empresaId,
+    ).catch(() => [] as any[])
+    return rows.map(r => ({ ...r, valorVA: Number(r.valorVA), valorVT: Number(r.valorVT), valorMobilidade: Number(r.valorMobilidade) }))
+  }
+
+  async saveCartao(input: SalvarCartaoAvulsoInput) {
+    if (input.id) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE beneficio_cartao_avulso SET nome=$2, valor_va=$3, valor_vt=$4, valor_mobilidade=$5, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
+        input.id, input.nome, input.valorVA, input.valorVT, input.valorMobilidade)
+      return { id: input.id }
+    }
+    const id = randomUUID()
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO beneficio_cartao_avulso (id, empresa_id, nome, valor_va, valor_vt, valor_mobilidade, ativo, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      id, input.empresaId, input.nome, input.valorVA, input.valorVT, input.valorMobilidade)
+    return { id }
+  }
+
+  async deleteCartao(id: string) {
+    await prisma.$executeRawUnsafe(`UPDATE beneficio_cartao_avulso SET ativo=false, updated_at=CURRENT_TIMESTAMP WHERE id=$1`, id)
+    return { ok: true }
+  }
+
   // ── Motor de cálculo ───────────────────────────────────────────────
   private weekdaysInRange(start: Date, end: Date): number {
     if (end < start) return 0
@@ -301,6 +330,17 @@ export class BeneficioService {
         breakdown: { diasUteisEf, fator: round2(fator), descontoVA, faltas, plantoes, sobra: round2(sobra), recebeVA: !!r.recebeVA, recebeVT: !!r.recebeVT },
       }
     })
+    // Cartões avulsos (ESCRITÓRIO/RESERVA) — valores fixos somados ao total.
+    const cartoes = await this.listCartoes(comp.empresaId)
+    for (const c of cartoes) {
+      const round2 = (n: number) => Math.round(n * 100) / 100
+      itens.push({
+        colaboradorId: `avulso:${c.id}`, nome: c.nome, setor: 'Cartão avulso',
+        valorVA: round2(c.valorVA), valorVT: round2(c.valorVT), valorMobilidade: round2(c.valorMobilidade),
+        total: round2(c.valorVA + c.valorVT + c.valorMobilidade),
+        breakdown: { avulso: true, recebeVA: c.valorVA > 0, recebeVT: c.valorVT > 0 },
+      })
+    }
     return { competencia: comp, itens }
   }
 

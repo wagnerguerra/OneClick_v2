@@ -2854,6 +2854,23 @@ model BeneficioRecarga {
   @@map("beneficio_recarga")
 }
 
+// Cartões avulsos (ESCRITÓRIO/RESERVA) — não vinculados a colaborador; valores
+// fixos somados ao fechamento/exportação da empresa.
+model BeneficioCartaoAvulso {
+  id              String   @id @default(cuid())
+  empresaId       String   @map("empresa_id")
+  nome            String
+  valorVA         Decimal  @default(0) @map("valor_va") @db.Decimal(10, 2)
+  valorVT         Decimal  @default(0) @map("valor_vt") @db.Decimal(10, 2)
+  valorMobilidade Decimal  @default(0) @map("valor_mobilidade") @db.Decimal(10, 2)
+  ativo           Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([empresaId])
+  @@map("beneficio_cartao_avulso")
+}
+
 model OportunidadeTarefa {
   id             String    @id @default(cuid())
   oportunidadeId String    @map("oportunidade_id")

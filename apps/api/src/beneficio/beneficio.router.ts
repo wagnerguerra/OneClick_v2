@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { router, readProcedure, writeSubProcedure, readSubProcedure } from '../trpc/trpc.service'
 import {
   salvarBeneficioConfigSchema, salvarFichaBeneficioSchema, abrirCompetenciaSchema,
-  salvarApontamentoSchema, salvarSaldoVtSchema,
+  salvarApontamentoSchema, salvarSaldoVtSchema, salvarCartaoAvulsoSchema,
 } from '@saas/types'
 import { BeneficioService } from './beneficio.service'
 
@@ -56,6 +56,17 @@ export function createBeneficioRouter(beneficioService: BeneficioService) {
     upsertApontamento: writeSubProcedure(MODULE, LANCAR, 'Lançar apontamentos')
       .input(salvarApontamentoSchema)
       .mutation(({ input, ctx }) => beneficioService.upsertApontamento(input, ctx)),
+
+    // ── Cartões avulsos (responsável) ──
+    listCartoes: readSubProcedure(MODULE, GERIR, 'Gerir benefícios')
+      .input(z.object({ empresaId: z.string() }))
+      .query(({ input }) => beneficioService.listCartoes(input.empresaId)),
+    saveCartao: writeSubProcedure(MODULE, GERIR, 'Gerir benefícios')
+      .input(salvarCartaoAvulsoSchema)
+      .mutation(({ input }) => beneficioService.saveCartao(input)),
+    deleteCartao: writeSubProcedure(MODULE, GERIR, 'Gerir benefícios')
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => beneficioService.deleteCartao(input.id)),
 
     // ── Saldo do VT (responsável) ──
     setVtSaldo: writeSubProcedure(MODULE, GERIR, 'Gerir benefícios')

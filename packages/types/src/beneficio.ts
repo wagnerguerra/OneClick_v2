@@ -45,6 +45,16 @@ export const salvarApontamentoSchema = z.object({
 })
 export type SalvarApontamentoInput = z.infer<typeof salvarApontamentoSchema>
 
+export const salvarCartaoAvulsoSchema = z.object({
+  id: z.string().nullable().optional(),
+  empresaId: z.string(),
+  nome: z.string().min(1),
+  valorVA: z.coerce.number().min(0),
+  valorVT: z.coerce.number().min(0),
+  valorMobilidade: z.coerce.number().min(0),
+})
+export type SalvarCartaoAvulsoInput = z.infer<typeof salvarCartaoAvulsoSchema>
+
 export const salvarSaldoVtSchema = z.object({
   competenciaId: z.string(),
   colaboradorId: z.string(),

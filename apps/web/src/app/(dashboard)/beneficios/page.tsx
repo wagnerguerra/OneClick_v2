@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Gift, Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, ArrowLeft } from 'lucide-react'
+import { Gift, Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, ArrowLeft, Trash2, CreditCard } from 'lucide-react'
 import { Button, Card, Input, Label, Switch } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -145,15 +145,27 @@ function CompetenciasList({ competencias, loading, empresaId, podeGerir, onOpen,
 function ConfigView({ empresaId }: { empresaId: string }) {
   const [cfg, setCfg] = useState<any>(null)
   const [fichas, setFichas] = useState<any[]>([])
+  const [cartoes, setCartoes] = useState<any[]>([])
+  const [novoCartao, setNovoCartao] = useState({ nome: '', valorVA: 0, valorVT: 0, valorMobilidade: 0 })
   const [saving, setSaving] = useState(false)
 
   const carregar = useCallback(() => {
     Promise.all([
       (trpc.beneficios as any).getConfig.query({ empresaId }),
       (trpc.beneficios as any).listFichas.query({ empresaId }).catch(() => []),
-    ]).then(([c, f]: [any, any[]]) => { setCfg({ ...c, diariaVA: Number(c.diariaVA), diariaVT: Number(c.diariaVT) }); setFichas(f || []) })
+      (trpc.beneficios as any).listCartoes.query({ empresaId }).catch(() => []),
+    ]).then(([c, f, ca]: [any, any[], any[]]) => { setCfg({ ...c, diariaVA: Number(c.diariaVA), diariaVT: Number(c.diariaVT) }); setFichas(f || []); setCartoes(ca || []) })
   }, [empresaId])
   useEffect(() => { carregar() }, [carregar])
+
+  async function addCartao() {
+    if (!novoCartao.nome.trim()) return
+    try { await (trpc.beneficios as any).saveCartao.mutate({ empresaId, ...novoCartao }); setNovoCartao({ nome: '', valorVA: 0, valorVT: 0, valorMobilidade: 0 }); carregar() }
+    catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+  async function delCartao(id: string) {
+    try { await (trpc.beneficios as any).deleteCartao.mutate({ id }); carregar() } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
 
   async function salvarCfg() {
     setSaving(true)
@@ -212,6 +224,28 @@ function ConfigView({ empresaId }: { empresaId: string }) {
               ))}
             </tbody>
           </table>
+        </div>
+      </Card>
+
+      <Card className="p-4 space-y-3">
+        <div className="flex items-center gap-2"><CreditCard className="h-4 w-4" style={{ color: COR }} /><h3 className="text-sm font-semibold">Cartões avulsos (ESCRITÓRIO / RESERVA)</h3></div>
+        <p className="text-[11px] text-muted-foreground">Cartões não vinculados a colaborador, com valores fixos somados ao fechamento.</p>
+        <div className="border rounded-lg divide-y">
+          {cartoes.map(c => (
+            <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+              <span className="font-medium flex-1 truncate">{c.nome}</span>
+              <span className="text-xs text-muted-foreground">VA {brl(c.valorVA)} · VT {brl(c.valorVT)} · Mob {brl(c.valorMobilidade)}</span>
+              <button onClick={() => delCartao(c.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+            </div>
+          ))}
+          {cartoes.length === 0 && <p className="text-xs text-muted-foreground italic px-3 py-2">Nenhum cartão avulso.</p>}
+        </div>
+        <div className="grid grid-cols-12 gap-2 items-end">
+          <div className="col-span-12 sm:col-span-4 space-y-1"><Label className="text-[12px] font-semibold">Nome</Label><Input className="h-9 text-sm" value={novoCartao.nome} onChange={e => setNovoCartao(c => ({ ...c, nome: e.target.value }))} placeholder="Cartão Escritório" /></div>
+          <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">VA</Label><Input type="number" step="0.01" className="h-9 text-sm" value={novoCartao.valorVA} onChange={e => setNovoCartao(c => ({ ...c, valorVA: +e.target.value }))} /></div>
+          <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">VT</Label><Input type="number" step="0.01" className="h-9 text-sm" value={novoCartao.valorVT} onChange={e => setNovoCartao(c => ({ ...c, valorVT: +e.target.value }))} /></div>
+          <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Mobilidade</Label><Input type="number" step="0.01" className="h-9 text-sm" value={novoCartao.valorMobilidade} onChange={e => setNovoCartao(c => ({ ...c, valorMobilidade: +e.target.value }))} /></div>
+          <div className="col-span-12 sm:col-span-2"><Button size="sm" className="w-full gap-1.5 text-white" style={{ background: COR }} onClick={addCartao}><Plus className="h-4 w-4" /> Adicionar</Button></div>
         </div>
       </Card>
     </div>

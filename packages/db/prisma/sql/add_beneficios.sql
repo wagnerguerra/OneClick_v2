@@ -78,6 +78,19 @@ CREATE TABLE IF NOT EXISTS beneficio_recarga (
 CREATE UNIQUE INDEX IF NOT EXISTS beneficio_recarga_comp_colab_key ON beneficio_recarga (competencia_id, colaborador_id);
 CREATE INDEX IF NOT EXISTS beneficio_recarga_comp_idx ON beneficio_recarga (competencia_id);
 
+CREATE TABLE IF NOT EXISTS beneficio_cartao_avulso (
+  id               text PRIMARY KEY,
+  empresa_id       text NOT NULL,
+  nome             text NOT NULL,
+  valor_va         numeric(10,2) NOT NULL DEFAULT 0,
+  valor_vt         numeric(10,2) NOT NULL DEFAULT 0,
+  valor_mobilidade numeric(10,2) NOT NULL DEFAULT 0,
+  ativo            boolean NOT NULL DEFAULT true,
+  created_at       timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS beneficio_cartao_avulso_emp_idx ON beneficio_cartao_avulso (empresa_id);
+
 -- FKs (cascade) — só cria se ainda não existir.
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'beneficio_apontamento_competencia_fkey') THEN
