@@ -56,26 +56,26 @@ export class BeneficioService {
   async getConfig(empresaId: string) {
     const rows = await prisma.$queryRawUnsafe<any[]>(
       `SELECT id, empresa_id AS "empresaId", diaria_va AS "diariaVA", diaria_vt AS "diariaVT",
-              vt_dias_desconto_saldo AS "vtDiasDescontoSaldo", notificar_auto AS "notificarAuto", dia_notificacao AS "diaNotificacao", ativo
+              vt_dias_desconto_saldo AS "vtDiasDescontoSaldo", notificar_auto AS "notificarAuto", dia_notificacao AS "diaNotificacao", dia_cobranca AS "diaCobranca", ativo
          FROM beneficio_config WHERE empresa_id=$1 LIMIT 1`, empresaId,
     ).catch(() => [] as any[])
     if (rows[0]) return { ...rows[0], diariaVA: Number(rows[0].diariaVA), diariaVT: Number(rows[0].diariaVT) }
-    return { id: null, empresaId, diariaVA: 0, diariaVT: this.DIARIA_VT_PADRAO, vtDiasDescontoSaldo: this.VT_DIAS_DESCONTO_PADRAO, notificarAuto: false, diaNotificacao: null, ativo: true }
+    return { id: null, empresaId, diariaVA: 0, diariaVT: this.DIARIA_VT_PADRAO, vtDiasDescontoSaldo: this.VT_DIAS_DESCONTO_PADRAO, notificarAuto: false, diaNotificacao: null, diaCobranca: null, ativo: true }
   }
 
   async saveConfig(input: SalvarBeneficioConfigInput) {
     const existing = await prisma.$queryRawUnsafe<any[]>(`SELECT id FROM beneficio_config WHERE empresa_id=$1 LIMIT 1`, input.empresaId)
     if (existing[0]) {
       await prisma.$executeRawUnsafe(
-        `UPDATE beneficio_config SET diaria_va=$2, diaria_vt=$3, vt_dias_desconto_saldo=$4, notificar_auto=$5, dia_notificacao=$6, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
-        existing[0].id, input.diariaVA, input.diariaVT, input.vtDiasDescontoSaldo, input.notificarAuto ?? false, input.diaNotificacao ?? null)
+        `UPDATE beneficio_config SET diaria_va=$2, diaria_vt=$3, vt_dias_desconto_saldo=$4, notificar_auto=$5, dia_notificacao=$6, dia_cobranca=$7, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
+        existing[0].id, input.diariaVA, input.diariaVT, input.vtDiasDescontoSaldo, input.notificarAuto ?? false, input.diaNotificacao ?? null, input.diaCobranca ?? null)
       return { id: existing[0].id }
     }
     const id = randomUUID()
     await prisma.$executeRawUnsafe(
-      `INSERT INTO beneficio_config (id, empresa_id, diaria_va, diaria_vt, vt_dias_desconto_saldo, notificar_auto, dia_notificacao, ativo, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      id, input.empresaId, input.diariaVA, input.diariaVT, input.vtDiasDescontoSaldo, input.notificarAuto ?? false, input.diaNotificacao ?? null)
+      `INSERT INTO beneficio_config (id, empresa_id, diaria_va, diaria_vt, vt_dias_desconto_saldo, notificar_auto, dia_notificacao, dia_cobranca, ativo, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      id, input.empresaId, input.diariaVA, input.diariaVT, input.vtDiasDescontoSaldo, input.notificarAuto ?? false, input.diaNotificacao ?? null, input.diaCobranca ?? null)
     return { id }
   }
 
@@ -423,6 +423,42 @@ export class BeneficioService {
       }).catch(() => {})
     }
     return { notificados: resp.length }
+  }
+
+  /** Cobra os líderes cujos setores ainda têm colaboradores sem apontamento lançado. */
+  async cobrarPendentes(competenciaId: string) {
+    const comp = await this.getCompetencia(competenciaId)
+    if (!comp) throw new Error('Competência inválida.')
+    const pendentes = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT a.name AS setor, l.id AS "leaderId", l.name AS "leaderNome", l.email AS "leaderEmail",
+              COUNT(u.id) AS total,
+              COUNT(ap.id) FILTER (WHERE ap.lancado_por_id IS NOT NULL) AS lancados
+         FROM areas a
+         JOIN users u ON u.area_id = a.id AND u.is_active=true AND u.exibir_como_colaborador=true
+         JOIN users l ON l.id = a.leader_id AND l.is_active=true
+         LEFT JOIN beneficio_apontamento ap ON ap.colaborador_id = u.id AND ap.competencia_id=$2
+        WHERE a.empresa_id=$1
+        GROUP BY a.name, l.id, l.name, l.email
+       HAVING COUNT(ap.id) FILTER (WHERE ap.lancado_por_id IS NOT NULL) < COUNT(u.id)`,
+      comp.empresaId, competenciaId,
+    ).catch(() => [] as any[])
+    const mesRef = `${String(comp.mes).padStart(2, '0')}/${comp.ano}`
+    const userIds = [...new Set(pendentes.map(p => p.leaderId))]
+    if (userIds.length) {
+      await this.notificationService.criarParaUsers(userIds, {
+        titulo: 'Apontamentos pendentes', mensagem: `Ainda faltam apontamentos do seu setor para ${mesRef}.`,
+        tipo: 'warning', link: '/beneficios', origem: 'beneficios', empresaId: comp.empresaId,
+      }).catch(() => {})
+    }
+    for (const p of pendentes) {
+      if (!p.leaderEmail) continue
+      const faltam = Number(p.total) - Number(p.lancados)
+      await this.emailService.sendMail({
+        to: p.leaderEmail, subject: `Pendente: apontamentos de benefícios — ${p.setor} — ${mesRef}`,
+        html: `<p>Olá, ${p.leaderNome?.split(' ')[0] || ''}!</p><p>Ainda faltam lançar os apontamentos de <strong>${faltam}</strong> de <strong>${p.total}</strong> colaborador(es) do setor <strong>${p.setor}</strong> para a competência <strong>${mesRef}</strong>.</p><p>Acesse <strong>Trabalhista &rsaquo; Benefícios</strong> e finalize os lançamentos.</p>`,
+      }).catch(() => {})
+    }
+    return { cobrados: userIds.length, setores: pendentes.length }
   }
 
   private async emailResumoFechamento(competenciaId: string) {

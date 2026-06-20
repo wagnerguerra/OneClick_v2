@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Gift, Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, ArrowLeft, Trash2, CreditCard, Printer } from 'lucide-react'
+import { Gift, Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, ArrowLeft, Trash2, CreditCard, Printer, BellRing } from 'lucide-react'
 import { Button, Card, Input, Label, Switch } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -172,7 +172,7 @@ function ConfigView({ empresaId }: { empresaId: string }) {
 
   async function salvarCfg() {
     setSaving(true)
-    try { await (trpc.beneficios as any).saveConfig.mutate({ empresaId, diariaVA: cfg.diariaVA, diariaVT: cfg.diariaVT, vtDiasDescontoSaldo: cfg.vtDiasDescontoSaldo, notificarAuto: !!cfg.notificarAuto, diaNotificacao: cfg.notificarAuto ? (Number(cfg.diaNotificacao) || 1) : null }); alerts.success('Salvo', 'Configuração atualizada.') }
+    try { await (trpc.beneficios as any).saveConfig.mutate({ empresaId, diariaVA: cfg.diariaVA, diariaVT: cfg.diariaVT, vtDiasDescontoSaldo: cfg.vtDiasDescontoSaldo, notificarAuto: !!cfg.notificarAuto, diaNotificacao: cfg.notificarAuto ? (Number(cfg.diaNotificacao) || 1) : null, diaCobranca: cfg.notificarAuto && cfg.diaCobranca ? Number(cfg.diaCobranca) : null }); alerts.success('Salvo', 'Configuração atualizada.') }
     catch (e) { alerts.error('Erro', (e as Error).message) } finally { setSaving(false) }
   }
 
@@ -208,10 +208,12 @@ function ConfigView({ empresaId }: { empresaId: string }) {
             <Switch checked={!!cfg.notificarAuto} onCheckedChange={(v: boolean) => setCfg({ ...cfg, notificarAuto: v })} />
           </div>
           {cfg.notificarAuto && (
-            <div className="flex items-center gap-2">
-              <Label className="text-[12px] font-semibold">Disparar no dia</Label>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+              <Label className="text-[12px] font-semibold">Alertar no dia</Label>
               <Input type="number" min={1} max={28} className="h-9 w-20 text-sm" value={cfg.diaNotificacao ?? 1} onChange={e => setCfg({ ...cfg, diaNotificacao: +e.target.value })} />
-              <span className="text-[11px] text-muted-foreground">de cada mês (1–28), às 08:00.</span>
+              <Label className="text-[12px] font-semibold ml-3">Cobrar pendentes no dia</Label>
+              <Input type="number" min={1} max={28} className="h-9 w-20 text-sm" placeholder="—" value={cfg.diaCobranca ?? ''} onChange={e => setCfg({ ...cfg, diaCobranca: e.target.value ? +e.target.value : null })} />
+              <span className="text-[11px] text-muted-foreground w-full">Dias do mês (1–28), às 08:00. Deixe a cobrança em branco para não cobrar automaticamente.</span>
             </div>
           )}
         </div>
@@ -317,6 +319,11 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
     try { const r = await (trpc.beneficios as any).notificarLideres.mutate({ id }); alerts.success('Enviado', `${r.notificados} líder(es) notificado(s).`); carregar() }
     catch (e) { alerts.error('Erro', (e as Error).message) } finally { setAcao(false) }
   }
+  async function cobrar() {
+    setAcao(true)
+    try { const r = await (trpc.beneficios as any).cobrarPendentes.mutate({ id }); alerts.success('Cobrança enviada', r.cobrados ? `${r.cobrados} líder(es) com pendência avisado(s).` : 'Nenhuma pendência — todos lançaram. 🎉') }
+    catch (e) { alerts.error('Erro', (e as Error).message) } finally { setAcao(false) }
+  }
   async function fechar() {
     const ok = await alerts.confirm({ title: 'Fechar competência?', text: 'As recargas serão congeladas. Você poderá reabrir depois.', confirmText: 'Fechar' })
     if (!ok) return
@@ -365,6 +372,7 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
         {podeGerir && (
           <div className="flex items-center gap-2">
             {!fechada && <Button variant="outline" size="sm" className="gap-1.5" onClick={notificar} disabled={acao}><Mail className="h-4 w-4" /> Notificar líderes</Button>}
+            {!fechada && <Button variant="outline" size="sm" className="gap-1.5" onClick={cobrar} disabled={acao}><BellRing className="h-4 w-4" /> Cobrar pendentes</Button>}
             <Button variant="outline" size="sm" className="gap-1.5" onClick={exportar}><FileSpreadsheet className="h-4 w-4" /> Exportar XLSX</Button>
             <Button variant="outline" size="sm" className="gap-1.5" onClick={imprimir} disabled={acao}><Printer className="h-4 w-4" /> Imprimir / PDF</Button>
             {fechada ? <Button variant="outline" size="sm" className="gap-1.5" onClick={reabrir} disabled={acao}><Unlock className="h-4 w-4" /> Reabrir</Button>

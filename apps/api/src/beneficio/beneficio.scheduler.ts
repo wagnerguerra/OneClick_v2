@@ -43,6 +43,20 @@ export class BeneficioSchedulerService implements OnModuleInit, OnModuleDestroy 
         else { await this.beneficioService.notificarResponsavelAbrir(e.empresa_id, ano, mes).catch(err => console.error('[Beneficios Scheduler] avisar responsavel falhou', e.empresa_id, (err as Error).message)); semComp++ }
       }
       if (empresas.length) console.log(`[Beneficios Scheduler] dia ${dia}: ${n} notificadas, ${semComp} sem competência (responsável avisado) — ${mes}/${ano}`)
+
+      // Cobrança de quem ainda não lançou — empresas cujo dia_cobranca é hoje.
+      const cobrancas = await prisma.$queryRawUnsafe<Array<{ empresa_id: string }>>(
+        `SELECT empresa_id FROM beneficio_config WHERE notificar_auto=true AND dia_cobranca=$1`, dia,
+      ).catch(() => [])
+      let c = 0
+      for (const e of cobrancas) {
+        const comp = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+          `SELECT id FROM beneficio_competencia WHERE empresa_id=$1 AND ano=$2 AND mes=$3 AND status IN ('ABERTA','EM_APONTAMENTO') LIMIT 1`,
+          e.empresa_id, ano, mes,
+        ).catch(() => [])
+        if (comp[0]) { await this.beneficioService.cobrarPendentes(comp[0].id).catch(err => console.error('[Beneficios Scheduler] cobrar falhou', comp[0]!.id, (err as Error).message)); c++ }
+      }
+      if (cobrancas.length) console.log(`[Beneficios Scheduler] dia ${dia}: cobranca em ${c}/${cobrancas.length} empresa(s)`)
     } catch (e) {
       console.error('[Beneficios Scheduler] erro:', (e as Error).message)
     }

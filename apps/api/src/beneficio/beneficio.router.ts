@@ -48,6 +48,9 @@ export function createBeneficioRouter(beneficioService: BeneficioService) {
     notificarLideres: writeSubProcedure(MODULE, GERIR, 'Gerir benefícios')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => beneficioService.notificarLideres(input.id)),
+    cobrarPendentes: writeSubProcedure(MODULE, GERIR, 'Gerir benefícios')
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => beneficioService.cobrarPendentes(input.id)),
 
     // ── Apontamentos (líder do setor) ──
     listApontamentos: readSubProcedure(MODULE, LANCAR, 'Lançar apontamentos')

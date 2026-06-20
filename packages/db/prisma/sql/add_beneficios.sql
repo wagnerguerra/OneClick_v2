@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS beneficio_config (
 CREATE UNIQUE INDEX IF NOT EXISTS beneficio_config_empresa_key ON beneficio_config (empresa_id);
 ALTER TABLE beneficio_config ADD COLUMN IF NOT EXISTS notificar_auto boolean NOT NULL DEFAULT false;
 ALTER TABLE beneficio_config ADD COLUMN IF NOT EXISTS dia_notificacao integer;
+ALTER TABLE beneficio_config ADD COLUMN IF NOT EXISTS dia_cobranca integer;
 
 CREATE TABLE IF NOT EXISTS beneficio_colaborador (
   id                text PRIMARY KEY,

@@ -2775,6 +2775,7 @@ model BeneficioConfig {
   vtDiasDescontoSaldo Int      @default(7) @map("vt_dias_desconto_saldo")
   notificarAuto       Boolean  @default(false) @map("notificar_auto") // alerta automático aos líderes
   diaNotificacao      Int?     @map("dia_notificacao")                // dia do mês (1-28) do alerta
+  diaCobranca         Int?     @map("dia_cobranca")                   // dia do mês (1-28) da cobrança a quem não lançou
   ativo               Boolean  @default(true)
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
