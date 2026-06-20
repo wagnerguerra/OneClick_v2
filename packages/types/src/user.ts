@@ -148,6 +148,10 @@ export interface SubPermissionDef {
 }
 
 export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
+  beneficios: [
+    { key: 'gerir_beneficios', label: 'Gerir benefícios (config, fichas, competências, saldo do VT, fechamento e exportação)', group: 'Configurações' },
+    { key: 'lancar_apontamentos', label: 'Lançar apontamentos do seu setor (férias, licenças, ausências, faltas, plantões)', group: 'Apontamentos' },
+  ],
   crm: [
     { key: 'gerir_funil_lead', label: 'Configurar o funil de captação de leads por IA (trilha/rubrica)', group: 'Configurações' },
   ],

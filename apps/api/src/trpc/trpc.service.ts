@@ -85,6 +85,8 @@ import { PesquisaService } from '../pesquisa/pesquisa.service'
 import { LeadService } from '../lead/lead.service'
 import { createPesquisaRouter } from '../pesquisa/pesquisa.router'
 import { createLeadRouter } from '../lead/lead.router'
+import { BeneficioService } from '../beneficio/beneficio.service'
+import { createBeneficioRouter } from '../beneficio/beneficio.router'
 import { ContratoService } from '../contrato/contrato.service'
 import { createContratoRouter } from '../contrato/contrato.router'
 import { NotificationService } from '../notification/notification.service'
@@ -455,6 +457,7 @@ export class TrpcService {
     @Inject(ProcessoService) private readonly processoService: ProcessoService,
     @Inject(PesquisaService) private readonly pesquisaService: PesquisaService,
     @Inject(LeadService) private readonly leadService: LeadService,
+    @Inject(BeneficioService) private readonly beneficioService: BeneficioService,
     @Inject(ContratoService) private readonly contratoService: ContratoService,
     @Inject(NotificationService) private readonly notificationService: NotificationService,
     @Inject(TabsService) private readonly tabsService: TabsService,
@@ -541,6 +544,7 @@ export class TrpcService {
       processo: createProcessoRouter(this.processoService),
       pesquisa: createPesquisaRouter(this.pesquisaService),
       lead: createLeadRouter(this.leadService),
+      beneficios: createBeneficioRouter(this.beneficioService),
       contrato: createContratoRouter(this.contratoService),
       notification: createNotificationRouter(this.notificationService),
       tabs: createTabsRouter(this.tabsService),

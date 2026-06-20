@@ -2764,6 +2764,96 @@ model LeadSessaoMensagem {
   @@map("lead_sessao_mensagem")
 }
 
+// ── Benefícios (Trabalhista): controle de VT / VA / Mobilidade ──────────
+// Colunas escalares (sem @relation) — acopladas a User/Empresa/Area por id,
+// no padrão do LeadFunilConfig. Tabelas criadas via SQL cirúrgico idempotente.
+model BeneficioConfig {
+  id                  String   @id @default(cuid())
+  empresaId           String   @unique @map("empresa_id")
+  diariaVA            Decimal  @default(0) @map("diaria_va") @db.Decimal(10, 2)
+  diariaVT            Decimal  @default(10.20) @map("diaria_vt") @db.Decimal(10, 2)
+  vtDiasDescontoSaldo Int      @default(7) @map("vt_dias_desconto_saldo")
+  ativo               Boolean  @default(true)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("beneficio_config")
+}
+
+model BeneficioColaborador {
+  id               String   @id @default(cuid())
+  colaboradorId    String   @unique @map("colaborador_id")
+  empresaId        String?  @map("empresa_id")
+  recebeVA         Boolean  @default(true) @map("recebe_va")
+  recebeVT         Boolean  @default(false) @map("recebe_vt")
+  recebeMobilidade Boolean  @default(false) @map("recebe_mobilidade")
+  valorMobilidade  Decimal  @default(0) @map("valor_mobilidade") @db.Decimal(10, 2)
+  observacao       String?  @db.Text
+  ativo            Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([empresaId])
+  @@map("beneficio_colaborador")
+}
+
+model BeneficioCompetencia {
+  id                  String   @id @default(cuid())
+  empresaId           String   @map("empresa_id")
+  ano                 Int
+  mes                 Int
+  diasUteis           Int      @map("dias_uteis")
+  diariaVA            Decimal  @map("diaria_va") @db.Decimal(10, 2)
+  diariaVT            Decimal  @map("diaria_vt") @db.Decimal(10, 2)
+  vtDiasDescontoSaldo Int      @default(7) @map("vt_dias_desconto_saldo")
+  status              String   @default("ABERTA") // ABERTA | EM_APONTAMENTO | FECHADA
+  abertoPorId         String?  @map("aberto_por_id")
+  fechadoPorId        String?  @map("fechado_por_id")
+  fechadoEm           DateTime? @map("fechado_em")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@unique([empresaId, ano, mes])
+  @@index([empresaId, ano, mes])
+  @@map("beneficio_competencia")
+}
+
+model BeneficioApontamento {
+  id            String   @id @default(cuid())
+  competenciaId String   @map("competencia_id")
+  colaboradorId String   @map("colaborador_id")
+  diasFerias    Int      @default(0) @map("dias_ferias")
+  diasLicenca   Int      @default(0) @map("dias_licenca")
+  diasAusencia  Int      @default(0) @map("dias_ausencia")
+  faltas        Int      @default(0)
+  plantoes      Int      @default(0)
+  vtSaldoCartao Decimal  @default(0) @map("vt_saldo_cartao") @db.Decimal(10, 2)
+  observacao    String?  @db.Text
+  lancadoPorId  String?  @map("lancado_por_id")
+  lancadoEm     DateTime @default(now()) @map("lancado_em")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([competenciaId, colaboradorId])
+  @@index([competenciaId])
+  @@map("beneficio_apontamento")
+}
+
+model BeneficioRecarga {
+  id              String   @id @default(cuid())
+  competenciaId   String   @map("competencia_id")
+  colaboradorId   String   @map("colaborador_id")
+  valorVA         Decimal  @default(0) @map("valor_va") @db.Decimal(10, 2)
+  valorVT         Decimal  @default(0) @map("valor_vt") @db.Decimal(10, 2)
+  valorMobilidade Decimal  @default(0) @map("valor_mobilidade") @db.Decimal(10, 2)
+  total           Decimal  @default(0) @db.Decimal(10, 2)
+  breakdown       Json?
+  geradoEm        DateTime @default(now()) @map("gerado_em")
+
+  @@unique([competenciaId, colaboradorId])
+  @@index([competenciaId])
+  @@map("beneficio_recarga")
+}
+
 model OportunidadeTarefa {
   id             String    @id @default(cuid())
   oportunidadeId String    @map("oportunidade_id")
