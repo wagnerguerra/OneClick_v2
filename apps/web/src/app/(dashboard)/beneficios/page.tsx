@@ -1,0 +1,383 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { Gift, Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, ArrowLeft } from 'lucide-react'
+import { Button, Card, Input, Label, Switch } from '@saas/ui'
+import { trpc } from '@/lib/trpc'
+import { alerts } from '@/lib/alerts'
+import { getApiUrl } from '@/lib/api-url'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
+
+const COR = 'var(--mod-trabalhista, #a3e635)'
+const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+const brl = (n: number) => (n ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+type Empresa = { id: string; razaoSocial: string; nomeFantasia: string | null }
+
+export default function BeneficiosPage() {
+  const { isMaster, isEmpresaMaster, permissions, loading: permsLoading } = useUserPermissions()
+  const perms = (permissions.find(p => p.moduleSlug === 'beneficios')?.subPermissions ?? {}) as Record<string, boolean>
+  const podeGerir = isMaster || isEmpresaMaster || perms.gerir_beneficios === true
+
+  const [empresas, setEmpresas] = useState<Empresa[]>([])
+  const [empresaId, setEmpresaId] = useState<string>('')
+  const [view, setView] = useState<'competencias' | 'config'>('competencias')
+  const [competencias, setCompetencias] = useState<any[]>([])
+  const [selId, setSelId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    (trpc.beneficios as any).listEmpresas.query()
+      .then((e: Empresa[]) => { setEmpresas(e || []); if (e?.[0]) setEmpresaId(e[0].id) })
+      .catch(() => {})
+  }, [])
+
+  const carregarComps = useCallback(() => {
+    if (!empresaId) return
+    setLoading(true)
+    ;(trpc.beneficios as any).listCompetencias.query({ empresaId })
+      .then((c: any[]) => setCompetencias(c || []))
+      .catch(() => setCompetencias([]))
+      .finally(() => setLoading(false))
+  }, [empresaId])
+  useEffect(() => { carregarComps() }, [carregarComps])
+
+  if (permsLoading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+
+  return (
+    <div className="p-6 space-y-5 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: COR }}><Gift className="h-5 w-5" /></div>
+          <div>
+            <h1 className="text-xl font-bold leading-tight">Benefícios</h1>
+            <p className="text-xs text-muted-foreground">Controle mensal de Vale-Transporte, Vale-Alimentação e Mobilidade</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={empresaId} onChange={e => { setEmpresaId(e.target.value); setSelId(null) }}>
+            {empresas.map(e => <option key={e.id} value={e.id}>{e.nomeFantasia || e.razaoSocial}</option>)}
+          </select>
+          {podeGerir && (
+            <Button variant={view === 'config' ? 'default' : 'outline'} size="sm" className="gap-1.5" onClick={() => { setView(view === 'config' ? 'competencias' : 'config'); setSelId(null) }} style={view === 'config' ? { background: COR } : undefined}>
+              <Settings2 className="h-4 w-4" /> Configurações
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {!empresaId ? <p className="text-sm text-muted-foreground">Nenhuma empresa disponível.</p>
+        : view === 'config' && podeGerir ? <ConfigView empresaId={empresaId} />
+        : selId ? <CompetenciaDetail id={selId} podeGerir={podeGerir} onBack={() => { setSelId(null); carregarComps() }} />
+        : <CompetenciasList competencias={competencias} loading={loading} empresaId={empresaId} podeGerir={podeGerir} onOpen={setSelId} onReload={carregarComps} />}
+    </div>
+  )
+}
+
+// ── Lista de competências ──────────────────────────────────────────────
+function CompetenciasList({ competencias, loading, empresaId, podeGerir, onOpen, onReload }: {
+  competencias: any[]; loading: boolean; empresaId: string; podeGerir: boolean; onOpen: (id: string) => void; onReload: () => void
+}) {
+  const [abrindo, setAbrindo] = useState(false)
+  const now = new Date()
+  const [form, setForm] = useState({ ano: now.getFullYear(), mes: now.getMonth() + 1, diasUteis: 22, diariaVA: 0, diariaVT: 10.2, vtDiasDescontoSaldo: 7 })
+
+  useEffect(() => {
+    (trpc.beneficios as any).getConfig.query({ empresaId }).then((c: any) => {
+      setForm(f => ({ ...f, diariaVA: Number(c.diariaVA) || 0, diariaVT: Number(c.diariaVT) || 10.2, vtDiasDescontoSaldo: c.vtDiasDescontoSaldo ?? 7 }))
+    }).catch(() => {})
+  }, [empresaId])
+
+  async function abrir() {
+    setAbrindo(true)
+    try {
+      await (trpc.beneficios as any).abrirCompetencia.mutate({ empresaId, ...form })
+      alerts.success('Aberta', 'Competência criada.')
+      onReload()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setAbrindo(false) }
+  }
+
+  const STATUS: Record<string, { label: string; cls: string }> = {
+    ABERTA: { label: 'Aberta', cls: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
+    EM_APONTAMENTO: { label: 'Em apontamento', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+    FECHADA: { label: 'Fechada', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+  }
+
+  return (
+    <div className="space-y-4">
+      {podeGerir && (
+        <Card className="p-4">
+          <div className="grid grid-cols-12 gap-3 items-end">
+            <div className="col-span-6 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Mês</Label>
+              <select className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm" value={form.mes} onChange={e => setForm(f => ({ ...f, mes: +e.target.value }))}>{MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}</select></div>
+            <div className="col-span-6 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Ano</Label><Input type="number" className="h-9 text-sm" value={form.ano} onChange={e => setForm(f => ({ ...f, ano: +e.target.value }))} /></div>
+            <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Dias úteis</Label><Input type="number" className="h-9 text-sm" value={form.diasUteis} onChange={e => setForm(f => ({ ...f, diasUteis: +e.target.value }))} /></div>
+            <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Diária VA</Label><Input type="number" step="0.01" className="h-9 text-sm" value={form.diariaVA} onChange={e => setForm(f => ({ ...f, diariaVA: +e.target.value }))} /></div>
+            <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Diária VT</Label><Input type="number" step="0.01" className="h-9 text-sm" value={form.diariaVT} onChange={e => setForm(f => ({ ...f, diariaVT: +e.target.value }))} /></div>
+            <div className="col-span-12 sm:col-span-2"><Button size="sm" className="w-full gap-1.5 text-white" style={{ background: COR }} onClick={abrir} disabled={abrindo}>{abrindo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Abrir competência</Button></div>
+          </div>
+        </Card>
+      )}
+
+      {loading ? <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        : competencias.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Nenhuma competência ainda.</p>
+        : <div className="border rounded-lg divide-y">
+            {competencias.map(c => {
+              const s = STATUS[c.status] || { label: c.status, cls: 'bg-muted text-muted-foreground' }
+              return (
+                <button key={c.id} onClick={() => onOpen(c.id)} className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold">{MESES[c.mes - 1]}/{c.ano}</span>
+                    <span className="text-[11px] text-muted-foreground">{c.diasUteis} dias úteis · VA {brl(Number(c.diariaVA))}/dia · VT {brl(Number(c.diariaVT))}/dia</span>
+                  </div>
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${s.cls}`}>{s.label}</span>
+                </button>
+              )
+            })}
+          </div>}
+    </div>
+  )
+}
+
+// ── Config (diárias + fichas) ───────────────────────────────────────────
+function ConfigView({ empresaId }: { empresaId: string }) {
+  const [cfg, setCfg] = useState<any>(null)
+  const [fichas, setFichas] = useState<any[]>([])
+  const [saving, setSaving] = useState(false)
+
+  const carregar = useCallback(() => {
+    Promise.all([
+      (trpc.beneficios as any).getConfig.query({ empresaId }),
+      (trpc.beneficios as any).listFichas.query({ empresaId }).catch(() => []),
+    ]).then(([c, f]: [any, any[]]) => { setCfg({ ...c, diariaVA: Number(c.diariaVA), diariaVT: Number(c.diariaVT) }); setFichas(f || []) })
+  }, [empresaId])
+  useEffect(() => { carregar() }, [carregar])
+
+  async function salvarCfg() {
+    setSaving(true)
+    try { await (trpc.beneficios as any).saveConfig.mutate({ empresaId, diariaVA: cfg.diariaVA, diariaVT: cfg.diariaVT, vtDiasDescontoSaldo: cfg.vtDiasDescontoSaldo }); alerts.success('Salvo', 'Configuração atualizada.') }
+    catch (e) { alerts.error('Erro', (e as Error).message) } finally { setSaving(false) }
+  }
+
+  async function salvarFicha(f: any, patch: any) {
+    const novo = { ...f, ...patch }
+    setFichas(fs => fs.map(x => x.colaboradorId === f.colaboradorId ? novo : x))
+    try {
+      await (trpc.beneficios as any).saveFicha.mutate({
+        colaboradorId: f.colaboradorId, empresaId, recebeVA: novo.recebeVA, recebeVT: novo.recebeVT,
+        recebeMobilidade: novo.recebeMobilidade, valorMobilidade: Number(novo.valorMobilidade) || 0,
+      })
+    } catch (e) { alerts.error('Erro', (e as Error).message); carregar() }
+  }
+
+  if (!cfg) return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+
+  return (
+    <div className="space-y-4">
+      <Card className="p-4 space-y-3">
+        <h3 className="text-sm font-semibold">Valores padrão</h3>
+        <div className="grid grid-cols-12 gap-3 items-end">
+          <div className="col-span-4 space-y-1"><Label className="text-[12px] font-semibold">Diária VA (R$)</Label><Input type="number" step="0.01" className="h-9 text-sm" value={cfg.diariaVA} onChange={e => setCfg({ ...cfg, diariaVA: +e.target.value })} /></div>
+          <div className="col-span-4 space-y-1"><Label className="text-[12px] font-semibold">Diária VT (R$)</Label><Input type="number" step="0.01" className="h-9 text-sm" value={cfg.diariaVT} onChange={e => setCfg({ ...cfg, diariaVT: +e.target.value })} /></div>
+          <div className="col-span-4 space-y-1"><Label className="text-[12px] font-semibold">Dias p/ desconto do saldo VT</Label><Input type="number" className="h-9 text-sm" value={cfg.vtDiasDescontoSaldo} onChange={e => setCfg({ ...cfg, vtDiasDescontoSaldo: +e.target.value })} /></div>
+        </div>
+        <Button size="sm" className="gap-1.5 text-white" style={{ background: COR }} onClick={salvarCfg} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar</Button>
+      </Card>
+
+      <Card className="p-0 overflow-hidden">
+        <div className="px-4 py-3 border-b"><h3 className="text-sm font-semibold">Fichas de benefício por colaborador</h3></div>
+        <div className="overflow-x-auto max-h-[480px]">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-[11px] uppercase text-muted-foreground sticky top-0"><tr>
+              <th className="text-left px-4 py-2 font-semibold">Colaborador</th><th className="text-left px-2 py-2 font-semibold">Setor</th>
+              <th className="text-center px-2 py-2 font-semibold">VA</th><th className="text-center px-2 py-2 font-semibold">VT</th>
+              <th className="text-center px-2 py-2 font-semibold">Mobilidade</th><th className="text-right px-4 py-2 font-semibold">Valor Mob.</th>
+            </tr></thead>
+            <tbody className="divide-y">
+              {fichas.map(f => (
+                <tr key={f.colaboradorId} className="hover:bg-muted/30">
+                  <td className="px-4 py-1.5">{f.nome}</td>
+                  <td className="px-2 py-1.5 text-muted-foreground text-xs">{f.setor ?? '—'}</td>
+                  <td className="px-2 py-1.5 text-center"><Switch checked={f.recebeVA} onCheckedChange={(v: boolean) => salvarFicha(f, { recebeVA: v })} /></td>
+                  <td className="px-2 py-1.5 text-center"><Switch checked={f.recebeVT} onCheckedChange={(v: boolean) => salvarFicha(f, { recebeVT: v })} /></td>
+                  <td className="px-2 py-1.5 text-center"><Switch checked={f.recebeMobilidade} onCheckedChange={(v: boolean) => salvarFicha(f, { recebeMobilidade: v })} /></td>
+                  <td className="px-4 py-1.5 text-right">
+                    <Input type="number" step="0.01" className="h-8 w-24 text-sm text-right ml-auto" value={f.valorMobilidade} disabled={!f.recebeMobilidade}
+                      onChange={e => setFichas(fs => fs.map(x => x.colaboradorId === f.colaboradorId ? { ...x, valorMobilidade: e.target.value } : x))}
+                      onBlur={e => salvarFicha(f, { valorMobilidade: e.target.value })} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+// ── Detalhe da competência (apontamentos / saldo VT / fechamento) ───────
+function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: boolean; onBack: () => void }) {
+  const [comp, setComp] = useState<any>(null)
+  const [tab, setTab] = useState<'apontamentos' | 'saldo' | 'fechamento'>('apontamentos')
+  const [itens, setItens] = useState<any[]>([])
+  const [recargas, setRecargas] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [acao, setAcao] = useState(false)
+
+  const carregar = useCallback(() => {
+    setLoading(true)
+    Promise.all([
+      (trpc.beneficios as any).getCompetencia.query({ id }),
+      (trpc.beneficios as any).listApontamentos.query({ competenciaId: id }).then((r: any) => r.itens).catch(() => []),
+    ]).then(([c, it]: [any, any[]]) => { setComp(c); setItens(it || []) }).finally(() => setLoading(false))
+  }, [id])
+  useEffect(() => { carregar() }, [carregar])
+
+  useEffect(() => {
+    if (tab === 'fechamento' && podeGerir) (trpc.beneficios as any).calcularRecargas.query({ competenciaId: id }).then((r: any) => setRecargas(r.itens || [])).catch(() => setRecargas([]))
+  }, [tab, id, podeGerir])
+
+  async function salvarApont(it: any, patch: any) {
+    const novo = { ...it, ...patch }
+    setItens(xs => xs.map(x => x.colaboradorId === it.colaboradorId ? novo : x))
+    try {
+      await (trpc.beneficios as any).upsertApontamento.mutate({
+        competenciaId: id, colaboradorId: it.colaboradorId,
+        diasFerias: +novo.diasFerias || 0, diasLicenca: +novo.diasLicenca || 0, diasAusencia: +novo.diasAusencia || 0,
+        faltas: +novo.faltas || 0, plantoes: +novo.plantoes || 0,
+      })
+    } catch (e) { alerts.error('Erro', (e as Error).message); carregar() }
+  }
+  async function salvarSaldo(it: any, valor: string) {
+    setItens(xs => xs.map(x => x.colaboradorId === it.colaboradorId ? { ...x, vtSaldoCartao: valor } : x))
+    try { await (trpc.beneficios as any).setVtSaldo.mutate({ competenciaId: id, colaboradorId: it.colaboradorId, vtSaldoCartao: +valor || 0 }) }
+    catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
+  async function notificar() {
+    setAcao(true)
+    try { const r = await (trpc.beneficios as any).notificarLideres.mutate({ id }); alerts.success('Enviado', `${r.notificados} líder(es) notificado(s).`); carregar() }
+    catch (e) { alerts.error('Erro', (e as Error).message) } finally { setAcao(false) }
+  }
+  async function fechar() {
+    const ok = await alerts.confirm({ title: 'Fechar competência?', text: 'As recargas serão congeladas. Você poderá reabrir depois.', confirmText: 'Fechar' })
+    if (!ok) return
+    setAcao(true)
+    try { await (trpc.beneficios as any).fecharCompetencia.mutate({ id }); alerts.success('Fechada', 'Recargas geradas.'); carregar() }
+    catch (e) { alerts.error('Erro', (e as Error).message) } finally { setAcao(false) }
+  }
+  async function reabrir() {
+    setAcao(true)
+    try { await (trpc.beneficios as any).reabrirCompetencia.mutate({ id }); alerts.success('Reaberta', 'Competência reaberta.'); carregar() }
+    catch (e) { alerts.error('Erro', (e as Error).message) } finally { setAcao(false) }
+  }
+  function exportar() { window.open(`${getApiUrl()}/api/beneficios/competencias/${id}/export.xlsx`, '_blank') }
+
+  if (loading || !comp) return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+  const fechada = comp.status === 'FECHADA'
+  const numInput = (val: any, on: (v: string) => void, disabled = false) => <Input type="number" min={0} className="h-8 w-14 text-sm text-center px-1" value={val ?? 0} disabled={disabled} onChange={e => on(e.target.value)} />
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> {MESES[comp.mes - 1]}/{comp.ano} · {comp.diasUteis} dias úteis</button>
+        {podeGerir && (
+          <div className="flex items-center gap-2">
+            {!fechada && <Button variant="outline" size="sm" className="gap-1.5" onClick={notificar} disabled={acao}><Mail className="h-4 w-4" /> Notificar líderes</Button>}
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={exportar}><FileSpreadsheet className="h-4 w-4" /> Exportar XLSX</Button>
+            {fechada ? <Button variant="outline" size="sm" className="gap-1.5" onClick={reabrir} disabled={acao}><Unlock className="h-4 w-4" /> Reabrir</Button>
+              : <Button size="sm" className="gap-1.5 text-white" style={{ background: COR }} onClick={fechar} disabled={acao}>{acao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Fechar</Button>}
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-4 border-b">
+        {([['apontamentos', 'Apontamentos'], ...(podeGerir ? [['saldo', 'Saldo VT'], ['fechamento', 'Fechamento']] : [])] as [string, string][]).map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k as any)} className={`px-1 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${tab === k ? 'text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`} style={tab === k ? { borderBottomColor: COR } : undefined}>{l}</button>
+        ))}
+      </div>
+
+      {tab === 'apontamentos' && (
+        <Card className="p-0 overflow-hidden">
+          <div className="overflow-x-auto max-h-[520px]">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-[11px] uppercase text-muted-foreground sticky top-0"><tr>
+                <th className="text-left px-3 py-2 font-semibold">Colaborador</th><th className="text-left px-2 py-2 font-semibold">Setor</th>
+                <th className="px-1 py-2 font-semibold">Férias</th><th className="px-1 py-2 font-semibold">Licença</th><th className="px-1 py-2 font-semibold">Ausência</th>
+                <th className="px-1 py-2 font-semibold">Faltas</th><th className="px-1 py-2 font-semibold">Plantões</th>
+              </tr></thead>
+              <tbody className="divide-y">
+                {itens.map(it => (
+                  <tr key={it.colaboradorId} className="hover:bg-muted/30">
+                    <td className="px-3 py-1.5 whitespace-nowrap">{it.nome}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground text-xs whitespace-nowrap">{it.setor ?? '—'}</td>
+                    <td className="px-1 py-1 text-center">{numInput(it.diasFerias, v => salvarApont(it, { diasFerias: v }), fechada)}</td>
+                    <td className="px-1 py-1 text-center">{numInput(it.diasLicenca, v => salvarApont(it, { diasLicenca: v }), fechada)}</td>
+                    <td className="px-1 py-1 text-center">{numInput(it.diasAusencia, v => salvarApont(it, { diasAusencia: v }), fechada)}</td>
+                    <td className="px-1 py-1 text-center">{it.recebeVT ? numInput(it.faltas, v => salvarApont(it, { faltas: v }), fechada) : <span className="text-muted-foreground">—</span>}</td>
+                    <td className="px-1 py-1 text-center">{it.recebeVT ? numInput(it.plantoes, v => salvarApont(it, { plantoes: v }), fechada) : <span className="text-muted-foreground">—</span>}</td>
+                  </tr>
+                ))}
+                {itens.length === 0 && <tr><td colSpan={7} className="text-center text-muted-foreground py-8 text-xs italic">Nenhum colaborador no seu escopo.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {tab === 'saldo' && podeGerir && (
+        <Card className="p-0 overflow-hidden">
+          <div className="px-4 py-2.5 border-b text-[11px] text-muted-foreground">Saldo restante no cartão de VT (do extrato do operador). Reduz a recarga (complemento).</div>
+          <div className="overflow-x-auto max-h-[520px]">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-[11px] uppercase text-muted-foreground sticky top-0"><tr><th className="text-left px-3 py-2 font-semibold">Colaborador (VT)</th><th className="text-left px-2 py-2 font-semibold">Setor</th><th className="text-right px-4 py-2 font-semibold">Saldo cartão</th></tr></thead>
+              <tbody className="divide-y">
+                {itens.filter(it => it.recebeVT).map(it => (
+                  <tr key={it.colaboradorId} className="hover:bg-muted/30">
+                    <td className="px-3 py-1.5">{it.nome}</td><td className="px-2 py-1.5 text-muted-foreground text-xs">{it.setor ?? '—'}</td>
+                    <td className="px-4 py-1 text-right"><Input type="number" step="0.01" className="h-8 w-28 text-sm text-right ml-auto" value={it.vtSaldoCartao ?? 0} disabled={fechada}
+                      onChange={e => setItens(xs => xs.map(x => x.colaboradorId === it.colaboradorId ? { ...x, vtSaldoCartao: e.target.value } : x))}
+                      onBlur={e => salvarSaldo(it, e.target.value)} /></td>
+                  </tr>
+                ))}
+                {itens.filter(it => it.recebeVT).length === 0 && <tr><td colSpan={3} className="text-center text-muted-foreground py-8 text-xs italic">Nenhum colaborador recebe VT.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {tab === 'fechamento' && podeGerir && (
+        <Card className="p-0 overflow-hidden">
+          <div className="overflow-x-auto max-h-[520px]">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-[11px] uppercase text-muted-foreground sticky top-0"><tr>
+                <th className="text-left px-3 py-2 font-semibold">Colaborador</th><th className="text-left px-2 py-2 font-semibold">Setor</th>
+                <th className="text-right px-3 py-2 font-semibold">VA</th><th className="text-right px-3 py-2 font-semibold">VT</th><th className="text-right px-3 py-2 font-semibold">Mobilidade</th><th className="text-right px-4 py-2 font-semibold">Total</th>
+              </tr></thead>
+              <tbody className="divide-y">
+                {recargas.map(r => (
+                  <tr key={r.colaboradorId} className="hover:bg-muted/30">
+                    <td className="px-3 py-1.5 whitespace-nowrap">{r.nome}</td><td className="px-2 py-1.5 text-muted-foreground text-xs">{r.setor ?? '—'}</td>
+                    <td className="px-3 py-1.5 text-right">{brl(r.valorVA)}</td><td className="px-3 py-1.5 text-right">{brl(r.valorVT)}</td><td className="px-3 py-1.5 text-right">{brl(r.valorMobilidade)}</td>
+                    <td className="px-4 py-1.5 text-right font-semibold">{brl(r.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-muted/30 font-semibold text-sm"><tr>
+                <td className="px-3 py-2" colSpan={2}>Total ({recargas.length})</td>
+                <td className="px-3 py-2 text-right">{brl(recargas.reduce((s, r) => s + r.valorVA, 0))}</td>
+                <td className="px-3 py-2 text-right">{brl(recargas.reduce((s, r) => s + r.valorVT, 0))}</td>
+                <td className="px-3 py-2 text-right">{brl(recargas.reduce((s, r) => s + r.valorMobilidade, 0))}</td>
+                <td className="px-4 py-2 text-right" style={{ color: COR }}>{brl(recargas.reduce((s, r) => s + r.total, 0))}</td>
+              </tr></tfoot>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  )
+}
