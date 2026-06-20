@@ -7,6 +7,8 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import { BackButton } from '@/components/ui/back-button'
 
 const COR = 'var(--mod-trabalhista, #a3e635)'
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
@@ -45,25 +47,26 @@ export default function BeneficiosPage() {
   if (permsLoading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
 
   return (
-    <div className="p-6 space-y-5 max-w-6xl mx-auto">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: COR }}><Gift className="h-5 w-5" /></div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <PageHeaderIcon module="trabalhista" icon={Gift} />
           <div>
-            <h1 className="text-xl font-bold leading-tight">Benefícios</h1>
-            <p className="text-xs text-muted-foreground">Controle mensal de Vale-Transporte, Vale-Alimentação e Mobilidade</p>
+            <h1>Benefícios</h1>
+            <p className="text-sm text-muted-foreground">Controle mensal de Vale-Transporte, Vale-Alimentação e Mobilidade</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={empresaId} onChange={e => { setEmpresaId(e.target.value); setSelId(null) }}>
             {empresas.map(e => <option key={e.id} value={e.id}>{e.nomeFantasia || e.razaoSocial}</option>)}
           </select>
           {podeGerir && (
-            <Button variant={view === 'config' ? 'default' : 'outline'} size="sm" className="gap-1.5" onClick={() => { setView(view === 'config' ? 'competencias' : 'config'); setSelId(null) }} style={view === 'config' ? { background: COR } : undefined}>
+            <Button variant={view === 'config' ? 'success' : 'outline'} size="sm" className="gap-1.5" onClick={() => { setView(view === 'config' ? 'competencias' : 'config'); setSelId(null) }}>
               <Settings2 className="h-4 w-4" /> Configurações
             </Button>
           )}
+          <BackButton href="/dashboard" label="Voltar" />
         </div>
       </div>
 
