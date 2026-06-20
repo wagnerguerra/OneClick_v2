@@ -218,6 +218,34 @@ export class BeneficioService {
     return { id }
   }
 
+  /** Marca todos os colaboradores do escopo (setor do líder) como lançados — "nada a reportar". */
+  async confirmarSetorSemAlteracoes(competenciaId: string, ctx: Ctx) {
+    const comp = await this.getCompetencia(competenciaId)
+    if (!comp) throw new Error('Competência inválida.')
+    if (comp.status === 'FECHADA') throw new Error('Competência fechada.')
+    const gerir = await this.podeGerir(ctx)
+    const ledAreas = gerir ? [] : await this.areasLideradas(ctx.userId)
+    if (!gerir && ledAreas.length === 0) throw new Error('Sem permissão para confirmar.')
+    const filtro = gerir ? '' : 'AND u.area_id = ANY($3::text[])'
+    const params: any[] = gerir ? [comp.empresaId, competenciaId] : [comp.empresaId, competenciaId, ledAreas]
+    const pendentes = await prisma.$queryRawUnsafe<Array<{ id: string; apId: string | null }>>(
+      `SELECT u.id, ap.id AS "apId" FROM users u
+         LEFT JOIN beneficio_apontamento ap ON ap.colaborador_id=u.id AND ap.competencia_id=$2
+        WHERE u.empresa_id=$1 AND u.is_active=true AND u.exibir_como_colaborador=true ${filtro}
+          AND (ap.id IS NULL OR ap.lancado_por_id IS NULL)`,
+      ...params,
+    ).catch(() => [] as Array<{ id: string; apId: string | null }>)
+    let n = 0
+    for (const p of pendentes) {
+      if (p.apId) await prisma.$executeRawUnsafe(`UPDATE beneficio_apontamento SET lancado_por_id=$2, updated_at=CURRENT_TIMESTAMP WHERE id=$1`, p.apId, ctx.userId ?? null)
+      else await prisma.$executeRawUnsafe(
+        `INSERT INTO beneficio_apontamento (id, competencia_id, colaborador_id, lancado_por_id, lancado_em, updated_at) VALUES ($1,$2,$3,$4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        randomUUID(), competenciaId, p.id, ctx.userId ?? null)
+      n++
+    }
+    return { confirmados: n }
+  }
+
   /** Saldo do cartão de VT (responsável). Cria a linha de apontamento se faltar. */
   async setVtSaldo(input: SalvarSaldoVtInput) {
     const existing = await prisma.$queryRawUnsafe<any[]>(`SELECT id FROM beneficio_apontamento WHERE competencia_id=$1 AND colaborador_id=$2 LIMIT 1`, input.competenciaId, input.colaboradorId)

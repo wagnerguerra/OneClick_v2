@@ -59,6 +59,9 @@ export function createBeneficioRouter(beneficioService: BeneficioService) {
     upsertApontamento: writeSubProcedure(MODULE, LANCAR, 'Lançar apontamentos')
       .input(salvarApontamentoSchema)
       .mutation(({ input, ctx }) => beneficioService.upsertApontamento(input, ctx)),
+    confirmarSetor: writeSubProcedure(MODULE, LANCAR, 'Lançar apontamentos')
+      .input(z.object({ competenciaId: z.string() }))
+      .mutation(({ input, ctx }) => beneficioService.confirmarSetorSemAlteracoes(input.competenciaId, ctx)),
 
     // ── Cartões avulsos (responsável) ──
     listCartoes: readSubProcedure(MODULE, GERIR, 'Gerir benefícios')

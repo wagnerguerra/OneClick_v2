@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Gift, Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, ArrowLeft, Trash2, CreditCard, Printer, BellRing } from 'lucide-react'
+import { Gift, Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, ArrowLeft, Trash2, CreditCard, Printer, BellRing, CheckCheck } from 'lucide-react'
 import { Button, Card, Input, Label, Switch } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -319,6 +319,13 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
     try { const r = await (trpc.beneficios as any).notificarLideres.mutate({ id }); alerts.success('Enviado', `${r.notificados} líder(es) notificado(s).`); carregar() }
     catch (e) { alerts.error('Erro', (e as Error).message) } finally { setAcao(false) }
   }
+  async function confirmarSetor() {
+    const ok = await alerts.confirm({ title: 'Confirmar sem alterações?', text: 'Marca todos os colaboradores ainda pendentes do seu setor como revisados (nada a reportar).', confirmText: 'Confirmar', icon: 'question' })
+    if (!ok) return
+    setAcao(true)
+    try { const r = await (trpc.beneficios as any).confirmarSetor.mutate({ competenciaId: id }); alerts.success('Confirmado', `${r.confirmados} colaborador(es) marcados como revisados.`); carregar() }
+    catch (e) { alerts.error('Erro', (e as Error).message) } finally { setAcao(false) }
+  }
   async function cobrar() {
     setAcao(true)
     try { const r = await (trpc.beneficios as any).cobrarPendentes.mutate({ id }); alerts.success('Cobrança enviada', r.cobrados ? `${r.cobrados} líder(es) com pendência avisado(s).` : 'Nenhuma pendência — todos lançaram. 🎉') }
@@ -388,7 +395,13 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
       </div>
 
       {tab === 'apontamentos' && (
-        <Card className="p-0 overflow-hidden">
+        <div className="space-y-2">
+          {!fechada && itens.length > 0 && (
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={confirmarSetor} disabled={acao}><CheckCheck className="h-4 w-4" /> Confirmar setor sem alterações</Button>
+            </div>
+          )}
+          <Card className="p-0 overflow-hidden">
           <div className="overflow-x-auto max-h-[520px]">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-[11px] uppercase text-muted-foreground sticky top-0"><tr>
@@ -412,7 +425,8 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
               </tbody>
             </table>
           </div>
-        </Card>
+          </Card>
+        </div>
       )}
 
       {tab === 'saldo' && podeGerir && (
