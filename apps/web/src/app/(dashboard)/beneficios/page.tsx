@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Gift, Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, ArrowLeft, Trash2, CreditCard } from 'lucide-react'
+import { Gift, Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, ArrowLeft, Trash2, CreditCard, Printer } from 'lucide-react'
 import { Button, Card, Input, Label, Switch } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -313,6 +313,29 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
   }
   function exportar() { window.open(`${getApiUrl()}/api/beneficios/competencias/${id}/export.xlsx`, '_blank') }
 
+  async function imprimir() {
+    setAcao(true)
+    try {
+      const r = await (trpc.beneficios as any).calcularRecargas.query({ competenciaId: id })
+      const its: any[] = r.itens || []
+      const mesRef = `${MESES[comp.mes - 1]}/${comp.ano}`
+      const tot = (k: string) => its.reduce((s, i) => s + (i[k] || 0), 0)
+      const linhas = its.map(i => `<tr><td>${i.nome}</td><td>${i.setor ?? '—'}</td><td class="r">${brl(i.valorVA)}</td><td class="r">${brl(i.valorVT)}</td><td class="r">${brl(i.valorMobilidade)}</td><td class="r b">${brl(i.total)}</td></tr>`).join('')
+      const w = window.open('', '_blank'); if (!w) { setAcao(false); return }
+      w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Benefícios ${mesRef}</title>
+        <style>body{font-family:Arial,Helvetica,sans-serif;color:#1e293b;padding:24px}h1{font-size:18px;margin:0 0 2px}p{margin:0 0 16px;color:#64748b;font-size:12px}
+        table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:left}
+        th{background:#f1f5f9;text-transform:uppercase;font-size:10px;color:#475569}.r{text-align:right}.b{font-weight:700}tfoot td{font-weight:700;border-top:2px solid #cbd5e1}
+        @media print{body{padding:0}}</style></head><body>
+        <h1>Fechamento de Benefícios — ${mesRef}</h1><p>${comp.diasUteis} dias úteis · ${its.length} linha(s)</p>
+        <table><thead><tr><th>Colaborador</th><th>Setor</th><th class="r">VA</th><th class="r">VT</th><th class="r">Mobilidade</th><th class="r">Total</th></tr></thead>
+        <tbody>${linhas}</tbody>
+        <tfoot><tr><td colspan="2">TOTAL</td><td class="r">${brl(tot('valorVA'))}</td><td class="r">${brl(tot('valorVT'))}</td><td class="r">${brl(tot('valorMobilidade'))}</td><td class="r">${brl(tot('total'))}</td></tr></tfoot>
+        </table></body></html>`)
+      w.document.close(); w.focus(); setTimeout(() => w.print(), 300)
+    } catch (e) { alerts.error('Erro', (e as Error).message) } finally { setAcao(false) }
+  }
+
   if (loading || !comp) return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
   const fechada = comp.status === 'FECHADA'
   const numInput = (val: any, on: (v: string) => void, disabled = false) => <Input type="number" min={0} className="h-8 w-14 text-sm text-center px-1" value={val ?? 0} disabled={disabled} onChange={e => on(e.target.value)} />
@@ -325,6 +348,7 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
           <div className="flex items-center gap-2">
             {!fechada && <Button variant="outline" size="sm" className="gap-1.5" onClick={notificar} disabled={acao}><Mail className="h-4 w-4" /> Notificar líderes</Button>}
             <Button variant="outline" size="sm" className="gap-1.5" onClick={exportar}><FileSpreadsheet className="h-4 w-4" /> Exportar XLSX</Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={imprimir} disabled={acao}><Printer className="h-4 w-4" /> Imprimir / PDF</Button>
             {fechada ? <Button variant="outline" size="sm" className="gap-1.5" onClick={reabrir} disabled={acao}><Unlock className="h-4 w-4" /> Reabrir</Button>
               : <Button size="sm" className="gap-1.5 text-white" style={{ background: COR }} onClick={fechar} disabled={acao}>{acao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Fechar</Button>}
           </div>
