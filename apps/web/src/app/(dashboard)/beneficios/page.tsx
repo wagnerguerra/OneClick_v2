@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Gift, Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, ArrowLeft, Trash2, CreditCard, Printer, BellRing, CheckCheck } from 'lucide-react'
 import { Button, Card, Input, Label, Switch } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -27,12 +28,21 @@ export default function BeneficiosPage() {
   const [competencias, setCompetencias] = useState<any[]>([])
   const [selId, setSelId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const compParam = searchParams?.get('competencia') || null
 
   useEffect(() => {
     (trpc.beneficios as any).listEmpresas.query()
       .then((e: Empresa[]) => { setEmpresas(e || []); if (e?.[0]) setEmpresaId(e[0].id) })
       .catch(() => {})
   }, [])
+
+  // Deep-link: abre direto a competência (notificação/e-mail dos líderes).
+  useEffect(() => {
+    if (compParam) { setSelId(compParam); router.replace('/beneficios', { scroll: false }) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compParam])
 
   const carregarComps = useCallback(() => {
     if (!empresaId) return
@@ -108,8 +118,16 @@ function CompetenciasList({ competencias, loading, empresaId, podeGerir, onOpen,
     FECHADA: { label: 'Fechada', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
   }
 
+  const aberta = competencias.find(c => c.status === 'ABERTA' || c.status === 'EM_APONTAMENTO')
+
   return (
     <div className="space-y-4">
+      {aberta && (
+        <button onClick={() => onOpen(aberta.id)} className="w-full flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors hover:bg-muted/40" style={{ borderColor: COR, background: `color-mix(in srgb, ${'var(--mod-trabalhista, #a3e635)'} 8%, transparent)` }}>
+          <span className="inline-flex items-center gap-2 text-sm font-semibold"><BellRing className="h-4 w-4" style={{ color: COR }} /> Meus apontamentos do mês — {MESES[aberta.mes - 1]}/{aberta.ano}</span>
+          <span className="text-[11px] text-muted-foreground">Lançar / revisar →</span>
+        </button>
+      )}
       {podeGerir && (
         <Card className="p-4">
           <div className="grid grid-cols-12 gap-3 items-end">
@@ -283,6 +301,7 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
   const [recargas, setRecargas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [acao, setAcao] = useState(false)
+  const [filtroSetor, setFiltroSetor] = useState('')
 
   const carregar = useCallback(() => {
     setLoading(true)
@@ -394,10 +413,19 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
         ))}
       </div>
 
-      {tab === 'apontamentos' && (
+      {tab === 'apontamentos' && (() => {
+        const setores = [...new Set(itens.map(i => i.setor).filter(Boolean))].sort() as string[]
+        const visiveis = filtroSetor ? itens.filter(i => i.setor === filtroSetor) : itens
+        return (
         <div className="space-y-2">
           {!fechada && itens.length > 0 && (
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              {setores.length > 1 ? (
+                <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={filtroSetor} onChange={e => setFiltroSetor(e.target.value)}>
+                  <option value="">Todos os setores ({itens.length})</option>
+                  {setores.map(s => <option key={s} value={s}>{s} ({itens.filter(i => i.setor === s).length})</option>)}
+                </select>
+              ) : <span />}
               <Button variant="outline" size="sm" className="gap-1.5" onClick={confirmarSetor} disabled={acao}><CheckCheck className="h-4 w-4" /> Confirmar setor sem alterações</Button>
             </div>
           )}
@@ -410,7 +438,7 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
                 <th className="px-1 py-2 font-semibold">Faltas</th><th className="px-1 py-2 font-semibold">Plantões</th>
               </tr></thead>
               <tbody className="divide-y">
-                {itens.map(it => (
+                {visiveis.map(it => (
                   <tr key={it.colaboradorId} className="hover:bg-muted/30">
                     <td className="px-3 py-1.5 whitespace-nowrap">{it.nome}</td>
                     <td className="px-2 py-1.5 text-muted-foreground text-xs whitespace-nowrap">{it.setor ?? '—'}</td>
@@ -421,13 +449,14 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
                     <td className="px-1 py-1 text-center">{it.recebeVT ? numInput(it.plantoes, v => salvarApont(it, { plantoes: v }), fechada) : <span className="text-muted-foreground">—</span>}</td>
                   </tr>
                 ))}
-                {itens.length === 0 && <tr><td colSpan={7} className="text-center text-muted-foreground py-8 text-xs italic">Nenhum colaborador no seu escopo.</td></tr>}
+                {visiveis.length === 0 && <tr><td colSpan={7} className="text-center text-muted-foreground py-8 text-xs italic">Nenhum colaborador no seu escopo.</td></tr>}
               </tbody>
             </table>
           </div>
           </Card>
         </div>
-      )}
+        )
+      })()}
 
       {tab === 'saldo' && podeGerir && (
         <Card className="p-0 overflow-hidden">

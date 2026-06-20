@@ -389,6 +389,13 @@ export class BeneficioService {
     return { ok: true, total: itens.reduce((s, i) => s + i.total, 0) }
   }
 
+  /** Botão/link de e-mail para o app (deep-link). Cai em texto se não houver APP_URL. */
+  private linkBotao(path: string, label: string): string {
+    const base = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+    if (base) return `<p style="margin-top:14px"><a href="${base}${path}" style="display:inline-block;background:#65a30d;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600">${label}</a></p>`
+    return `<p>Acesse o sistema em <strong>Trabalhista &rsaquo; Benefícios</strong> para ${label.toLowerCase()}.</p>`
+  }
+
   // ── Notificar líderes ──────────────────────────────────────────────
   async notificarLideres(competenciaId: string) {
     const comp = await this.getCompetencia(competenciaId)
@@ -403,11 +410,12 @@ export class BeneficioService {
     ).catch(() => [] as any[])
     if (comp.status === 'ABERTA') await prisma.$executeRawUnsafe(`UPDATE beneficio_competencia SET status='EM_APONTAMENTO', updated_at=CURRENT_TIMESTAMP WHERE id=$1`, competenciaId)
     const mesRef = `${String(comp.mes).padStart(2, '0')}/${comp.ano}`
+    const link = `/beneficios?competencia=${competenciaId}`
     const userIds = [...new Set(lideres.map(l => l.leaderId))]
     if (userIds.length) {
       await this.notificationService.criarParaUsers(userIds, {
         titulo: 'Apontamentos de benefícios', mensagem: `Informe os apontamentos do seu setor para a competência ${mesRef}.`,
-        tipo: 'info', link: '/beneficios', origem: 'beneficios', empresaId: comp.empresaId,
+        tipo: 'info', link, origem: 'beneficios', empresaId: comp.empresaId,
       }).catch(() => {})
     }
     for (const l of lideres) {
@@ -417,7 +425,7 @@ export class BeneficioService {
         subject: `Apontamentos de benefícios — ${l.setor} — ${mesRef}`,
         html: `<p>Olá, ${l.leaderNome?.split(' ')[0] || ''}!</p>
         <p>Chegou a hora de informar os apontamentos de benefícios (férias, licenças, ausências, faltas e plantões) do setor <strong>${l.setor}</strong> para a competência <strong>${mesRef}</strong>.</p>
-        <p>Acesse o sistema em <strong>Trabalhista &rsaquo; Benefícios</strong> e lance os apontamentos do seu setor.</p>`,
+        ${this.linkBotao(link, 'Lançar apontamentos do meu setor')}`,
       }).catch(() => {})
     }
     return { notificados: userIds.length }
@@ -447,7 +455,7 @@ export class BeneficioService {
       if (!r.email) continue
       await this.emailService.sendMail({
         to: r.email, subject: `Benefícios — abra a competência de ${mesRef}`,
-        html: `<p>Olá, ${r.nome?.split(' ')[0] || ''}!</p><p>Ainda não há uma competência de benefícios aberta para <strong>${mesRef}</strong>. Acesse <strong>Trabalhista &rsaquo; Benefícios</strong>, abra a competência do mês e os líderes serão notificados para lançar os apontamentos.</p>`,
+        html: `<p>Olá, ${r.nome?.split(' ')[0] || ''}!</p><p>Ainda não há uma competência de benefícios aberta para <strong>${mesRef}</strong>. Abra a competência do mês e os líderes serão notificados para lançar os apontamentos.</p>${this.linkBotao('/beneficios', 'Abrir a competência')}`,
       }).catch(() => {})
     }
     return { notificados: resp.length }
@@ -471,11 +479,12 @@ export class BeneficioService {
       comp.empresaId, competenciaId,
     ).catch(() => [] as any[])
     const mesRef = `${String(comp.mes).padStart(2, '0')}/${comp.ano}`
+    const link = `/beneficios?competencia=${competenciaId}`
     const userIds = [...new Set(pendentes.map(p => p.leaderId))]
     if (userIds.length) {
       await this.notificationService.criarParaUsers(userIds, {
         titulo: 'Apontamentos pendentes', mensagem: `Ainda faltam apontamentos do seu setor para ${mesRef}.`,
-        tipo: 'warning', link: '/beneficios', origem: 'beneficios', empresaId: comp.empresaId,
+        tipo: 'warning', link, origem: 'beneficios', empresaId: comp.empresaId,
       }).catch(() => {})
     }
     for (const p of pendentes) {
@@ -483,7 +492,7 @@ export class BeneficioService {
       const faltam = Number(p.total) - Number(p.lancados)
       await this.emailService.sendMail({
         to: p.leaderEmail, subject: `Pendente: apontamentos de benefícios — ${p.setor} — ${mesRef}`,
-        html: `<p>Olá, ${p.leaderNome?.split(' ')[0] || ''}!</p><p>Ainda faltam lançar os apontamentos de <strong>${faltam}</strong> de <strong>${p.total}</strong> colaborador(es) do setor <strong>${p.setor}</strong> para a competência <strong>${mesRef}</strong>.</p><p>Acesse <strong>Trabalhista &rsaquo; Benefícios</strong> e finalize os lançamentos.</p>`,
+        html: `<p>Olá, ${p.leaderNome?.split(' ')[0] || ''}!</p><p>Ainda faltam lançar os apontamentos de <strong>${faltam}</strong> de <strong>${p.total}</strong> colaborador(es) do setor <strong>${p.setor}</strong> para a competência <strong>${mesRef}</strong>.</p>${this.linkBotao(link, 'Finalizar os lançamentos')}`,
       }).catch(() => {})
     }
     return { cobrados: userIds.length, setores: pendentes.length }
