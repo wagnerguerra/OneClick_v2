@@ -68,12 +68,16 @@ https://app.oneclick.central-rnc.com.br/privacidade
 - Público-alvo: adultos (uso profissional). Não direcionado a crianças.
 - Contém anúncios: Não
 
-## App access (acesso para revisão do Google)
-O app exige login. Fornecer um usuário de demonstração na seção
-"App access" do console:
-- E-mail: (criar usuário demo dedicado, ex.: demo.play@central-rnc.com.br)
-- Senha: (definir)
-- Observação: "App corporativo; todas as telas ficam acessíveis após o login."
+## App access (acesso para revisão do Google) — PRONTO
+O app exige login. Informar este usuário de demonstração na seção
+"App access" do console (login validado na API, HTTP 200):
+- E-mail: demo.play@central-rnc.com.br
+- Senha: OneClickDemo2026
+- Acesso: SOMENTE LEITURA nos módulos Agenda, Tarefas, Clientes, Serviços,
+  Meus Serviços e Helpdesk (não pode criar/editar/excluir).
+- Observação para o revisor: "Aplicativo corporativo (B2B). Faça login com as
+  credenciais acima; o menu lateral dá acesso aos módulos. Conta de demonstração
+  com acesso somente leitura."
 
 ## Data safety (resumo a declarar)
 - Coleta: Nome, E-mail, ID de usuário, Token de notificação, Logs de diagnóstico.
