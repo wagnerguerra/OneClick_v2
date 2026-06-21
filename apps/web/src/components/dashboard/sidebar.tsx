@@ -23,7 +23,8 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
   const logoSrc = '/logo-light.png'
 
   // Filtrar navigation baseado nas permissões do usuário
-  const { isMaster, allowedSlugs, loading: permsLoading } = useUserPermissions()
+  const { isMaster, allowedSlugs, role, loading: permsLoading } = useUserPermissions()
+  const ehLiderSetor = ['GESTOR', 'COORDENADOR', 'DIRETOR'].includes(role)
 
   const pathname = usePathname()
 
@@ -61,12 +62,15 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
           if (item.href === '/comercial') {
             return ['crm', 'orcamentos', 'contratos'].some((s) => allowedSlugs.includes(s))
           }
+          // Benefícios: líder de setor (GESTOR/COORDENADOR/DIRETOR) acessa por tipo
+          // para lançar os apontamentos do seu setor, mesmo sem permissão explícita.
+          if (item.href === '/beneficios' && ehLiderSetor) return true
           const slug = item.href.replace('/', '')
           return allowedSlugs.includes(slug)
         }),
       }))
       .filter((group) => group.items.length > 0)
-  }, [isMaster, allowedSlugs])
+  }, [isMaster, allowedSlugs, ehLiderSetor])
 
   // Fechar com Escape
   useEffect(() => {

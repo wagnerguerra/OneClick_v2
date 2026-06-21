@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { router, readProcedure, writeSubProcedure, readSubProcedure } from '../trpc/trpc.service'
+import { router, readProcedure, writeSubProcedure, readSubProcedure, readOrLiderProcedure, writeSubOrLiderProcedure } from '../trpc/trpc.service'
 import {
   salvarBeneficioConfigSchema, salvarFichaBeneficioSchema, abrirCompetenciaSchema,
   salvarApontamentoSchema, salvarSaldoVtSchema, salvarCartaoAvulsoSchema,
@@ -12,8 +12,8 @@ const LANCAR = 'lancar_apontamentos'
 
 export function createBeneficioRouter(beneficioService: BeneficioService) {
   return router({
-    // ── Geral ──
-    listEmpresas: readProcedure(MODULE)
+    // ── Geral ── (líder de setor acessa por tipo, sem permissão manual)
+    listEmpresas: readOrLiderProcedure(MODULE)
       .query(({ ctx }) => beneficioService.listEmpresas(ctx.empresaId, ctx.isMaster)),
 
     // ── Config (responsável) ──
@@ -32,11 +32,11 @@ export function createBeneficioRouter(beneficioService: BeneficioService) {
       .input(salvarFichaBeneficioSchema)
       .mutation(({ input }) => beneficioService.saveFicha(input)),
 
-    // ── Competências (responsável) ──
-    listCompetencias: readProcedure(MODULE)
+    // ── Competências (responsável abre; líder lê p/ apontar) ──
+    listCompetencias: readOrLiderProcedure(MODULE)
       .input(z.object({ empresaId: z.string() }))
       .query(({ input }) => beneficioService.listCompetencias(input.empresaId)),
-    getCompetencia: readProcedure(MODULE)
+    getCompetencia: readOrLiderProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .query(({ input }) => beneficioService.getCompetencia(input.id)),
     abrirCompetencia: writeSubProcedure(MODULE, GERIR, 'Gerir benefícios')
@@ -52,17 +52,17 @@ export function createBeneficioRouter(beneficioService: BeneficioService) {
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => beneficioService.cobrarPendentes(input.id)),
 
-    // ── Apontamentos (líder do setor) ──
-    listApontamentos: readSubProcedure(MODULE, LANCAR, 'Lançar apontamentos')
+    // ── Apontamentos (líder do setor — acesso por tipo GESTOR/COORDENADOR/DIRETOR) ──
+    listApontamentos: readOrLiderProcedure(MODULE)
       .input(z.object({ competenciaId: z.string() }))
       .query(({ input, ctx }) => beneficioService.listApontamentos(input.competenciaId, ctx)),
-    progressoSetores: readProcedure(MODULE)
+    progressoSetores: readOrLiderProcedure(MODULE)
       .input(z.object({ competenciaId: z.string() }))
       .query(({ input, ctx }) => beneficioService.progressoPorSetor(input.competenciaId, ctx)),
-    upsertApontamento: writeSubProcedure(MODULE, LANCAR, 'Lançar apontamentos')
+    upsertApontamento: writeSubOrLiderProcedure(MODULE, LANCAR, 'Lançar apontamentos')
       .input(salvarApontamentoSchema)
       .mutation(({ input, ctx }) => beneficioService.upsertApontamento(input, ctx)),
-    confirmarSetor: writeSubProcedure(MODULE, LANCAR, 'Lançar apontamentos')
+    confirmarSetor: writeSubOrLiderProcedure(MODULE, LANCAR, 'Lançar apontamentos')
       .input(z.object({ competenciaId: z.string() }))
       .mutation(({ input, ctx }) => beneficioService.confirmarSetorSemAlteracoes(input.competenciaId, ctx)),
 

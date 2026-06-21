@@ -395,6 +395,42 @@ export function deleteSubProcedure(moduleSlug: string, subKey: string, label: st
     .use(createSubPermissionMiddleware(moduleSlug, subKey, label))
 }
 
+// Tipos de colaborador que lideram o próprio setor — acesso liberado por tipo
+// (sem precisar conceder a permissão manualmente). Usado p/ os apontamentos.
+const ROLES_LIDER_SETOR = ['GESTOR', 'COORDENADOR', 'DIRETOR']
+async function ehLiderDeSetor(userId: string): Promise<boolean> {
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } }).catch(() => null)
+  return !!u && ROLES_LIDER_SETOR.includes(String(u.role))
+}
+
+/** Leitura no módulo OU ser líder de setor (acesso por tipo). */
+export function readOrLiderProcedure(moduleSlug: string) {
+  return t.procedure.use(async ({ ctx, next }) => {
+    if (!ctx.userId) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+    if (ctx.isMaster || ctx.isEmpresaMaster) return next({ ctx: { ...ctx, userId: ctx.userId } })
+    if (await ehLiderDeSetor(ctx.userId)) return next({ ctx: { ...ctx, userId: ctx.userId } })
+    const perms = await getUserPermissions(ctx.userId)
+    const mp = perms.find(p => p.moduleSlug === moduleSlug)
+    if (!mp?.canRead) throw new TRPCError({ code: 'FORBIDDEN', message: `Sem permissão de leitura no módulo "${moduleSlug}"` })
+    return next({ ctx: { ...ctx, userId: ctx.userId } })
+  })
+}
+
+/** Escrita + sub-permissão no módulo OU ser líder de setor (acesso por tipo). */
+export function writeSubOrLiderProcedure(moduleSlug: string, subKey: string, label: string) {
+  return t.procedure.use(async ({ ctx, next }) => {
+    if (!ctx.userId) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+    if (ctx.isMaster || ctx.isEmpresaMaster) return next({ ctx: { ...ctx, userId: ctx.userId } })
+    if (await ehLiderDeSetor(ctx.userId)) return next({ ctx: { ...ctx, userId: ctx.userId } })
+    const perms = await getUserPermissions(ctx.userId)
+    const mp = perms.find(p => p.moduleSlug === moduleSlug)
+    if (!mp?.canWrite) throw new TRPCError({ code: 'FORBIDDEN', message: `Sem permissão de escrita no módulo "${moduleSlug}"` })
+    const subs = (mp.subPermissions ?? {}) as Record<string, boolean>
+    if (!subs[subKey]) throw new TRPCError({ code: 'FORBIDDEN', message: `Sem a permissão: ${label}` })
+    return next({ ctx: { ...ctx, userId: ctx.userId } })
+  })
+}
+
 @Injectable()
 export class TrpcService {
   public readonly appRouter: ReturnType<typeof this.createRouter>
