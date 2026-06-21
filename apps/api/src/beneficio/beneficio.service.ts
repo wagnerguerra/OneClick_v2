@@ -37,10 +37,22 @@ export class BeneficioService {
     return !!(p?.subPermissions as any)?.gerir_beneficios
   }
 
+  // Tipos de colaborador que lideram o próprio setor (gestor = líder da área).
+  private readonly ROLES_LIDER_SETOR = ['GESTOR', 'COORDENADOR', 'DIRETOR']
+
+  /**
+   * Setores que o usuário lidera. O líder é definido pelo TIPO do colaborador
+   * (role GESTOR/COORDENADOR/DIRETOR → lidera o próprio setor `areaId`). Também
+   * considera, como fallback, o campo Líder da Área (`Area.leaderId`).
+   */
   private async areasLideradas(userId?: string): Promise<string[]> {
     if (!userId) return []
+    const ids = new Set<string>()
+    const u = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, areaId: true } }).catch(() => null)
+    if (u?.areaId && this.ROLES_LIDER_SETOR.includes(String(u.role))) ids.add(u.areaId)
     const areas = await prisma.area.findMany({ where: { leaderId: userId, isActive: true }, select: { id: true } }).catch(() => [])
-    return areas.map(a => a.id)
+    for (const a of areas) ids.add(a.id)
+    return [...ids]
   }
 
   // ── Empresas (seletor CENTRAL / L&L) ───────────────────────────────
