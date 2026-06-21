@@ -103,3 +103,5 @@ DO $$ BEGIN
     ALTER TABLE beneficio_recarga ADD CONSTRAINT beneficio_recarga_competencia_fkey FOREIGN KEY (competencia_id) REFERENCES beneficio_competencia(id) ON DELETE CASCADE;
   END IF;
 END $$;
+
+-- Script idempotente — seguro reaplicar a cada deploy (CREATE/ALTER IF NOT EXISTS).
