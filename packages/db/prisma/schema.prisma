@@ -923,6 +923,116 @@ model ClienteAcesso {
   @@map("cliente_acessos")
 }
 
+// Tabelas do cadastro (Legalização/Protocolos/Reclamações/DT-e/CNAEs) acessadas
+// via SQL raw — cliente_id sem @relation pra não exigir back-relation no Cliente.
+model ClienteVencimento {
+  id             String    @id @default(cuid())
+  clienteId      String    @map("cliente_id")
+  descricao      String
+  dataVencimento DateTime? @map("data_vencimento")
+  alertaDias     Int?      @default(0) @map("alerta_dias")
+  observacoes    String?   @db.Text
+  concluido      Boolean   @default(false)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([clienteId])
+  @@map("cliente_vencimentos")
+}
+
+model ClienteAndamento {
+  id            String    @id @default(cuid())
+  clienteId     String    @map("cliente_id")
+  descricao     String
+  tipo          String?
+  status        String?
+  dataInicio    DateTime? @map("data_inicio")
+  dataConclusao DateTime? @map("data_conclusao")
+  observacoes   String?   @db.Text
+  usuarioId     String?   @map("usuario_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([clienteId])
+  @@map("cliente_andamentos")
+}
+
+model ClienteCnae {
+  id         String   @id @default(cuid())
+  clienteId  String   @map("cliente_id")
+  codigo     String
+  descricao  String?
+  principal  Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([clienteId])
+  @@map("cliente_cnaes")
+}
+
+model ClienteProtocolo {
+  id          String    @id @default(cuid())
+  clienteId   String    @map("cliente_id")
+  orgao       String?
+  tipo        String?
+  protocolo   String?
+  descricao   String?   @db.Text
+  status      String    @default("pendente")
+  resultado   String?   @db.Text
+  dataRetorno DateTime? @map("data_retorno")
+  usuarioId   String?   @map("usuario_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([clienteId])
+  @@map("cliente_protocolos")
+}
+
+model ClienteOcorrencia {
+  id            String    @id @default(cuid())
+  clienteId     String    @map("cliente_id")
+  tipo          String?
+  titulo        String?
+  descricao     String?   @db.Text
+  prioridade    String?
+  status        String    @default("aberta")
+  resolucao     String?   @db.Text
+  dataResolucao DateTime? @map("data_resolucao")
+  areaId        String?   @map("area_id")
+  responsavelId String?   @map("responsavel_id")
+  usuarioId     String?   @map("usuario_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([clienteId])
+  @@map("cliente_ocorrencias")
+}
+
+model ClienteDteMensagem {
+  id           String    @id @default(cuid())
+  clienteId    String    @map("cliente_id")
+  tipo         String?
+  titulo       String?
+  dataMensagem DateTime? @map("data_mensagem")
+  observacao   String?   @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@index([clienteId])
+  @@map("cliente_dte_mensagens")
+}
+
+model ClienteParticularidadeHistorico {
+  id                      String   @id @default(cuid())
+  clienteAreaContratadaId String   @map("cliente_area_contratada_id")
+  textoAnterior           String?  @map("texto_anterior") @db.Text
+  textoNovo               String?  @map("texto_novo") @db.Text
+  usuarioId               String?  @map("usuario_id")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  @@index([clienteAreaContratadaId])
+  @@map("cliente_particularidades_historico")
+}
+
 // ============================================================
 // Benefícios Fiscais (port do v1 `crp_beneficios`) — bloco Legalização.
 // Catálogo de benefícios/incentivos fiscais + vínculo cliente↔benefício com
