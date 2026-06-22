@@ -2277,6 +2277,11 @@ export class OrcamentoService {
   }
 
   async addCatalogoTexto(data: { catalogoId: string; titulo: string; descricao?: string; valor?: number }) {
+    // Textos pertencem a itens do catálogo (ServicoCatalogo — Taxa/Despesa).
+    // Serviços (modelo Servico, tipo SERVICO) não têm textos múltiplos — sem essa
+    // checagem o create estoura FK (orcamento_catalogo_textos_catalogo_id_fkey).
+    const cat = await prisma.servicoCatalogo.findUnique({ where: { id: data.catalogoId }, select: { id: true } })
+    if (!cat) throw new Error('Textos só podem ser adicionados a itens do catálogo (Taxa/Despesa). Serviços não possuem variações de texto.')
     // ordem = proximo na sequencia
     const count = await prisma.orcamentoCatalogoTexto.count({ where: { catalogoId: data.catalogoId } })
     return prisma.orcamentoCatalogoTexto.create({

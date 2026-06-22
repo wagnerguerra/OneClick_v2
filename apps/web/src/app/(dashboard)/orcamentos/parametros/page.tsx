@@ -104,7 +104,7 @@ export default function ParametrosOrcamentosPage() {
   // Modal create/edit
   const [editOpen, setEditOpen] = useState(false)
   const [editing, setEditing] = useState<CatalogoItem | null>(null)
-  const [form, setForm] = useState({ nome: '', tipo: 'SERVICO', valorPadrao: '', textoPadrao: '', disponivelOrcamento: true })
+  const [form, setForm] = useState({ nome: '', tipo: 'TAXA', valorPadrao: '', textoPadrao: '', disponivelOrcamento: true })
   const [saving, setSaving] = useState(false)
 
   // Textos do registro (titulo + descricao + valor) — só no modo edição (item já tem id)
@@ -169,7 +169,7 @@ export default function ParametrosOrcamentosPage() {
 
   function abrirNovo() {
     setEditing(null)
-    setForm({ nome: '', tipo: 'SERVICO', valorPadrao: '', textoPadrao: '', disponivelOrcamento: true })
+    setForm({ nome: '', tipo: 'TAXA', valorPadrao: '', textoPadrao: '', disponivelOrcamento: true })
     setTextos([])
     setEditOpen(true)
   }
@@ -442,10 +442,12 @@ export default function ParametrosOrcamentosPage() {
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-3">
                 <Label className="text-xs font-medium">Tipo <span className="text-rose-500">*</span></Label>
-                <Select value={form.tipo} onValueChange={v => setForm(f => ({ ...f, tipo: v }))}>
+                <Select value={form.tipo} onValueChange={v => setForm(f => ({ ...f, tipo: v }))} disabled={editing?.tipo === 'SERVICO'}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="SERVICO">Serviço</SelectItem>
+                    {/* SERVIÇO só aqui para exibir itens vindos do módulo Serviços; novos
+                        itens deste catálogo são apenas Taxa/Despesa (serviços nascem em Serviços). */}
+                    {editing?.tipo === 'SERVICO' && <SelectItem value="SERVICO">Serviço</SelectItem>}
                     <SelectItem value="TAXA">Taxa</SelectItem>
                     <SelectItem value="DESPESA">Despesa</SelectItem>
                   </SelectContent>
@@ -507,7 +509,7 @@ export default function ParametrosOrcamentosPage() {
                   <Label className="text-[13px] font-semibold text-foreground">Textos do registro</Label>
                   <p className="text-[11px] text-muted-foreground">Variações de texto (título + descrição + valor) que poderão ser escolhidas ao adicionar este item num orçamento.</p>
                 </div>
-                {editing && (
+                {editing && editing.tipo !== 'SERVICO' && (
                   <Button type="button" variant="outline" size="xs" className="gap-1 shrink-0" onClick={abrirNovoTexto}>
                     <Plus className="h-3.5 w-3.5" /> Texto
                   </Button>
@@ -517,6 +519,10 @@ export default function ParametrosOrcamentosPage() {
               {!editing ? (
                 <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/30 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300">
                   Salve o item primeiro para poder adicionar textos a ele.
+                </div>
+              ) : editing.tipo === 'SERVICO' ? (
+                <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+                  Variações de texto estão disponíveis apenas para itens de catálogo do tipo <strong>Taxa</strong> e <strong>Despesa</strong>. Serviços usam a descrição do próprio cadastro de Serviços.
                 </div>
               ) : textosLoading ? (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground py-3"><Loader2 className="h-4 w-4 animate-spin" /> Carregando textos...</div>
