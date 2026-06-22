@@ -2,7 +2,9 @@ import { z } from 'zod'
 
 // Funil de captação de leads por IA.
 export const salvarFunilConfigSchema = z.object({
+  id: z.string().nullable().optional(), // presente = edição (permite renomear o slug); ausente = upsert por slug
   slug: z.string().min(2).regex(/^[a-z0-9-]+$/, 'Use apenas letras minúsculas, números e hífen'),
+  nome: z.string().nullable().optional(),
   ativo: z.boolean().optional(),
   trilhaPrompt: z.string(),
   rubrica: z.string(),

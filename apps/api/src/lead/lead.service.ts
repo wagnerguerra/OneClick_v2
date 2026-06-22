@@ -69,18 +69,24 @@ export class LeadService {
   }
 
   // ── Config ─────────────────────────────────────────────────────────
-  async getConfig(empresaId?: string | null) {
-    const rows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id, slug, ativo, trilha_prompt AS "trilhaPrompt", rubrica, limiar_medio AS "limiarMedio", limiar_alto AS "limiarAlto",
-              mensagem_boas_vindas AS "mensagemBoasVindas", aviso_lgpd AS "avisoLgpd", whatsapp_comercial AS "whatsappComercial",
-              tipo_evento_reuniao_id AS "tipoEventoReuniaoId", cor_primaria AS "corPrimaria", regras_finalizacao AS "regrasFinalizacao"
-         FROM lead_funil_config WHERE empresa_id IS NOT DISTINCT FROM $1 ORDER BY created_at ASC LIMIT 1`,
-      empresaId ?? null,
-    )
-    if (rows[0]) return { ...rows[0], corPrimaria: rows[0].corPrimaria || '#10b981', regrasFinalizacao: rows[0].regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO }
+  private static readonly CONFIG_COLS =
+    `id, slug, nome, ativo, trilha_prompt AS "trilhaPrompt", rubrica, limiar_medio AS "limiarMedio", limiar_alto AS "limiarAlto",
+     mensagem_boas_vindas AS "mensagemBoasVindas", aviso_lgpd AS "avisoLgpd", whatsapp_comercial AS "whatsappComercial",
+     tipo_evento_reuniao_id AS "tipoEventoReuniaoId", cor_primaria AS "corPrimaria", regras_finalizacao AS "regrasFinalizacao"`
+
+  /** Config de uma campanha. Por `slug` quando informado; senão a 1ª da empresa (compat). */
+  async getConfig(empresaId?: string | null, slug?: string | null) {
+    const rows = slug
+      ? await prisma.$queryRawUnsafe<any[]>(
+          `SELECT ${LeadService.CONFIG_COLS} FROM lead_funil_config WHERE slug=$1 LIMIT 1`, slug)
+      : await prisma.$queryRawUnsafe<any[]>(
+          `SELECT ${LeadService.CONFIG_COLS} FROM lead_funil_config WHERE empresa_id IS NOT DISTINCT FROM $1 ORDER BY created_at ASC LIMIT 1`,
+          empresaId ?? null,
+        )
+    if (rows[0]) return { ...rows[0], nome: rows[0].nome || 'Atendimento', corPrimaria: rows[0].corPrimaria || '#10b981', regrasFinalizacao: rows[0].regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO }
     // default (não persiste até salvar)
     return {
-      id: null, slug: 'atendimento', ativo: true,
+      id: null, slug: 'atendimento', nome: 'Atendimento', ativo: true,
       trilhaPrompt: LeadService.TRILHA_PADRAO,
       rubrica: LeadService.RUBRICA_PADRAO,
       limiarMedio: 40, limiarAlto: 70,
@@ -91,26 +97,76 @@ export class LeadService {
     }
   }
 
+  /** Lista todas as campanhas (funis) da empresa, com contagem de sessões/registrados. */
+  async listConfigs(empresaId?: string | null) {
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT ${LeadService.CONFIG_COLS}, created_at AS "createdAt" FROM lead_funil_config
+        WHERE empresa_id IS NOT DISTINCT FROM $1 ORDER BY created_at ASC`,
+      empresaId ?? null,
+    ).catch(() => [] as any[])
+    if (rows.length === 0) {
+      // Nenhuma campanha ainda: devolve a default (não persistida) pra UI ter algo pra editar/salvar.
+      return [await this.getConfig(empresaId)]
+    }
+    // Métricas por slug (sessões e registrados)
+    const stats = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT slug, COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status='registrado')::int AS registrados
+         FROM lead_sessao WHERE empresa_id IS NOT DISTINCT FROM $1 GROUP BY slug`,
+      empresaId ?? null,
+    ).catch(() => [] as any[])
+    const bySlug = new Map(stats.map(s => [s.slug, s]))
+    return rows.map(r => ({
+      ...r,
+      nome: r.nome || 'Atendimento',
+      corPrimaria: r.corPrimaria || '#10b981',
+      regrasFinalizacao: r.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO,
+      _total: bySlug.get(r.slug)?.total ?? 0,
+      _registrados: bySlug.get(r.slug)?.registrados ?? 0,
+    }))
+  }
+
   async saveConfig(input: SalvarFunilConfigInput, empresaId?: string | null) {
-    const existing = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id FROM lead_funil_config WHERE empresa_id IS NOT DISTINCT FROM $1 LIMIT 1`, empresaId ?? null)
+    // Identidade da campanha: por id (permite renomear o slug) ou, na ausência, pelo slug.
+    const existing = input.id
+      ? await prisma.$queryRawUnsafe<any[]>(`SELECT id FROM lead_funil_config WHERE id=$1 AND empresa_id IS NOT DISTINCT FROM $2 LIMIT 1`, input.id, empresaId ?? null)
+      : await prisma.$queryRawUnsafe<any[]>(`SELECT id FROM lead_funil_config WHERE slug=$1 LIMIT 1`, input.slug)
+    // Guard: slug não pode colidir com OUTRA campanha (slug é único global).
+    const clash = await prisma.$queryRawUnsafe<any[]>(`SELECT id FROM lead_funil_config WHERE slug=$1 LIMIT 1`, input.slug)
+    if (clash[0] && (!existing[0] || clash[0].id !== existing[0].id)) {
+      throw new Error(`Já existe uma campanha com o slug "${input.slug}". Escolha outro.`)
+    }
     if (existing[0]) {
       await prisma.$executeRawUnsafe(
-        `UPDATE lead_funil_config SET slug=$2, ativo=$3, trilha_prompt=$4, rubrica=$5, limiar_medio=$6, limiar_alto=$7,
-           mensagem_boas_vindas=$8, aviso_lgpd=$9, whatsapp_comercial=$10, tipo_evento_reuniao_id=$11, cor_primaria=$12, regras_finalizacao=$13, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
-        existing[0].id, input.slug, input.ativo ?? true, input.trilhaPrompt, input.rubrica, input.limiarMedio, input.limiarAlto,
+        `UPDATE lead_funil_config SET slug=$2, nome=$3, ativo=$4, trilha_prompt=$5, rubrica=$6, limiar_medio=$7, limiar_alto=$8,
+           mensagem_boas_vindas=$9, aviso_lgpd=$10, whatsapp_comercial=$11, tipo_evento_reuniao_id=$12, cor_primaria=$13, regras_finalizacao=$14, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
+        existing[0].id, input.slug, input.nome ?? null, input.ativo ?? true, input.trilhaPrompt, input.rubrica, input.limiarMedio, input.limiarAlto,
         input.mensagemBoasVindas ?? null, input.avisoLgpd ?? null, input.whatsappComercial ?? null, input.tipoEventoReuniaoId ?? null, input.corPrimaria ?? null, input.regrasFinalizacao ?? null,
       )
       return { id: existing[0].id }
     }
     const id = randomUUID()
     await prisma.$executeRawUnsafe(
-      `INSERT INTO lead_funil_config (id, empresa_id, slug, ativo, trilha_prompt, rubrica, limiar_medio, limiar_alto, mensagem_boas_vindas, aviso_lgpd, whatsapp_comercial, tipo_evento_reuniao_id, cor_primaria, regras_finalizacao, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      id, empresaId ?? null, input.slug, input.ativo ?? true, input.trilhaPrompt, input.rubrica, input.limiarMedio, input.limiarAlto,
+      `INSERT INTO lead_funil_config (id, empresa_id, slug, nome, ativo, trilha_prompt, rubrica, limiar_medio, limiar_alto, mensagem_boas_vindas, aviso_lgpd, whatsapp_comercial, tipo_evento_reuniao_id, cor_primaria, regras_finalizacao, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      id, empresaId ?? null, input.slug, input.nome ?? null, input.ativo ?? true, input.trilhaPrompt, input.rubrica, input.limiarMedio, input.limiarAlto,
       input.mensagemBoasVindas ?? null, input.avisoLgpd ?? null, input.whatsappComercial ?? null, input.tipoEventoReuniaoId ?? null, input.corPrimaria ?? null, input.regrasFinalizacao ?? null,
     )
     return { id }
+  }
+
+  /** Exclui uma campanha. Bloqueia se já houver leads registrados por ela (preserva histórico). */
+  async deleteConfig(id: string, empresaId?: string | null) {
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT slug FROM lead_funil_config WHERE id=$1 AND empresa_id IS NOT DISTINCT FROM $2 LIMIT 1`, id, empresaId ?? null)
+    const slug = rows[0]?.slug
+    if (!slug) throw new Error('Campanha não encontrada.')
+    const used = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT COUNT(*)::int AS n FROM lead_sessao WHERE slug=$1 AND status='registrado'`, slug)
+    if ((used[0]?.n ?? 0) > 0) {
+      throw new Error('Esta campanha já gerou leads no CRM. Desative-a em vez de excluir, para preservar o histórico.')
+    }
+    await prisma.$executeRawUnsafe(`DELETE FROM lead_funil_config WHERE id=$1 AND empresa_id IS NOT DISTINCT FROM $2`, id, empresaId ?? null)
+    return { ok: true }
   }
 
   /** Config pública (pelo slug) — só o necessário pra renderizar a página. */
@@ -273,7 +329,7 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
     // Registro SILENCIOSO assim que houver nome + contato (não encerra a conversa).
     const temContato = !!dadosAtual.nome && (!!dadosAtual.email || !!dadosAtual.telefone)
     if (sessao.status !== 'registrado' && temContato) {
-      await this.registrarNoCrm(sessao.id, dadosAtual, score, temperatura, sessao.empresaId).catch(() => {})
+      await this.registrarNoCrm(sessao.id, dadosAtual, score, temperatura, sessao.empresaId, sessao.slug).catch(() => {})
     }
     // Fechamento (CTA de encerramento) só quando a IA sinaliza que concluiu a qualificação.
     if (toolInput.encerrar) {
@@ -290,7 +346,7 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
   }
 
   /** Cria a Oportunidade no CRM (dedupe + notifica comercial via crmService). */
-  private async registrarNoCrm(sessaoId: string, dados: LeadDados, score: number | null, temperatura: string | null, empresaId?: string | null) {
+  private async registrarNoCrm(sessaoId: string, dados: LeadDados, score: number | null, temperatura: string | null, empresaId?: string | null, campanhaSlug?: string | null) {
     // Enriquecimento por CNPJ (CNAE/razão) — best-effort
     let cnaeCodigo: string | null = null, cnaeDescricao: string | null = null, razaoSocial = dados.razaoSocial ?? null
     const cnpjDigits = (dados.cnpj ?? '').replace(/\D/g, '')
@@ -318,6 +374,7 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
       contatoNome: dados.nome ?? null,
       contatoEmail: dados.email ?? null,
       contatoTelefone: dados.telefone ?? null,
+      campanhaSlug: campanhaSlug ?? null,
     } as any, undefined, empresaId ?? undefined).catch(() => null)
     if (!op?.id) return
     await prisma.$executeRawUnsafe(`UPDATE oportunidades SET score=$2, temperatura=$3 WHERE id=$1`, op.id, score, temperatura).catch(() => {})

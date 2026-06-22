@@ -2832,6 +2832,7 @@ model Oportunidade {
   // Funil de captação por IA: pontuação/temperatura do lead (urgência).
   score              Int?
   temperatura        String?
+  campanhaSlug       String?   @map("campanha_slug") // slug da campanha (LeadFunilConfig) que gerou o lead
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -2857,6 +2858,7 @@ model LeadFunilConfig {
   id                  String   @id @default(cuid())
   empresaId           String?  @map("empresa_id")
   slug                String   @unique
+  nome                String?  // rótulo amigável da campanha
   ativo               Boolean  @default(true)
   trilhaPrompt        String   @default("") @map("trilha_prompt") @db.Text
   rubrica             String   @default("") @db.Text

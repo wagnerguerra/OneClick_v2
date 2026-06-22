@@ -123,7 +123,7 @@ export class CrmService {
     return { data, total, page: input.page || 1, limit: input.limit || 50, totalPages: Math.ceil(total / (input.limit || 50)) }
   }
 
-  async listKanban(isMaster: boolean, empresaId?: string, search?: string) {
+  async listKanban(isMaster: boolean, empresaId?: string, search?: string, campanhaSlug?: string) {
     // Limpar declinios vencidos silenciosamente
     this.limparDecliniosVencidos(empresaId).catch(() => {})
 
@@ -209,11 +209,28 @@ export class CrmService {
         } catch { /* tabela pode nao existir ainda */ }
       }
 
-      return ops.map(o => ({
+      // Campanha (funil) de cada oportunidade — coluna nova, via raw (client pode estar stale).
+      const campanhaMap = new Map<string, { slug: string; nome: string | null }>()
+      if (opIds.length > 0) {
+        try {
+          const rows = await prisma.$queryRawUnsafe<Array<{ id: string; campanha_slug: string | null; nome: string | null }>>(
+            `SELECT o.id, o.campanha_slug, c.nome
+               FROM oportunidades o LEFT JOIN lead_funil_config c ON c.slug = o.campanha_slug
+              WHERE o.id IN (${opIds.map((_, i) => `$${i + 1}`).join(',')}) AND o.campanha_slug IS NOT NULL`,
+            ...opIds,
+          )
+          for (const r of rows) if (r.campanha_slug) campanhaMap.set(r.id, { slug: r.campanha_slug, nome: r.nome })
+        } catch { /* coluna pode nao existir ainda */ }
+      }
+
+      let result = ops.map(o => ({
         ...o,
         responsavel: o.responsavelId ? userMap.get(o.responsavelId) || null : null,
         orcamento: orcamentoMap.get(o.id) || null,
+        campanha: campanhaMap.get(o.id) || null,
       }))
+      if (campanhaSlug) result = result.filter(o => o.campanha?.slug === campanhaSlug)
+      return result
     })
   }
 
@@ -401,6 +418,12 @@ export class CrmService {
         `UPDATE oportunidades SET nome_fantasia = $2, cnae_codigo = $3, cnae_descricao = $4 WHERE id = $1`,
         oportunidade.id, input.nomeFantasia || null, input.cnaeCodigo || null, input.cnaeDescricao || null,
       ).catch(() => { /* colunas ausentes em ambiente sem migração ainda */ })
+    }
+    // Campanha (funil) que gerou o lead — via raw (client pode estar stale).
+    if (input.campanhaSlug) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE oportunidades SET campanha_slug = $2 WHERE id = $1`, oportunidade.id, input.campanhaSlug,
+      ).catch(() => { /* coluna ausente em ambiente sem migração ainda */ })
     }
     this.addEvento(oportunidade.id, userId, 'criacao', `Oportunidade "${input.titulo}" criada`)
     // Notifica destinatários da área Comercial (#HLP0075) — comportamento da v1

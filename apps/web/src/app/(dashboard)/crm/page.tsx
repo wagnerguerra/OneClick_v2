@@ -7,7 +7,7 @@ import {
   CheckCircle2, Clock, TrendingUp, Calendar,
   CheckSquare, MessageSquare, Trash2, Send, X, LayoutGrid, List,
   Download, FileText, Settings2, GripVertical, Save, Paperclip, UploadCloud, File, History, Archive, SlidersHorizontal, Tag, Layers, Sparkles,
-  Flame, Thermometer, Snowflake,
+  Flame, Thermometer, Snowflake, Megaphone,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, RichEditor,
@@ -210,6 +210,10 @@ export default function CrmPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   // Mantém o termo atual acessível ao fetchAll (usado tb. pelos refreshes via SSE)
   const searchRef = useRef('')
+  // Filtro por campanha (funil) que gerou o lead
+  const [campanhaFiltro, setCampanhaFiltro] = useState('')
+  const campanhaFiltroRef = useRef('')
+  const [campanhasList, setCampanhasList] = useState<Array<{ slug: string; nome: string | null }>>([])
   const [viewMode, setViewMode] = useState<'kanban' | 'tabela'>(() => {
     if (typeof window !== 'undefined') return (localStorage.getItem('crm-view-mode') as 'kanban' | 'tabela') || 'kanban'
     return 'kanban'
@@ -424,14 +428,15 @@ export default function CrmPage() {
   const fetchAll = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const [et, kanban, st, tg, opAtiv, opOrig, cfg] = await Promise.all([
+      const [et, kanban, st, tg, opAtiv, opOrig, cfg, camps] = await Promise.all([
         (trpc.crm as any).listEtapas.query(),
-        (trpc.crm as any).listKanban.query({ search: searchRef.current || undefined }),
+        (trpc.crm as any).listKanban.query({ search: searchRef.current || undefined, campanhaSlug: campanhaFiltroRef.current || undefined }),
         (trpc.crm as any).getStats.query(),
         (trpc.crm as any).listTags.query().catch(() => []),
         (trpc.cliente as any).listOpcoes.query({ tipo: 'ATIVIDADE' }).catch(() => []),
         (trpc.cliente as any).listOpcoes.query({ tipo: 'ORIGEM' }).catch(() => []),
         (trpc.crm as any).getConfig.query().catch(() => ({ declinioDias: 30 })),
+        (trpc.lead as any).listConfigs.query().catch(() => []),
       ])
       setEtapas(et)
       setOportunidades(kanban)
@@ -440,6 +445,7 @@ export default function CrmPage() {
       setOpcoesAtividade(opAtiv)
       setOpcoesOrigem(opOrig)
       if (cfg?.declinioDias) setDeclinioDias(cfg.declinioDias)
+      setCampanhasList(((camps || []) as any[]).map(c => ({ slug: c.slug, nome: c.nome })))
     } catch {
       if (!silent) alerts.error('Erro', 'Falha ao carregar dados do CRM')
     } finally {
@@ -450,7 +456,7 @@ export default function CrmPage() {
   // Recarrega apenas o kanban (busca server-side) sem mexer no resto da tela
   const reloadKanban = useCallback(async () => {
     try {
-      const kanban = await (trpc.crm as any).listKanban.query({ search: searchRef.current || undefined })
+      const kanban = await (trpc.crm as any).listKanban.query({ search: searchRef.current || undefined, campanhaSlug: campanhaFiltroRef.current || undefined })
       setOportunidades(kanban)
     } catch { /* mantém os dados atuais em caso de falha */ }
   }, [])
@@ -876,6 +882,17 @@ export default function CrmPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
+          {campanhasList.length > 0 && (
+            <select
+              className="h-9 rounded-md border border-input bg-transparent px-2 text-sm max-w-[180px]"
+              value={campanhaFiltro}
+              onChange={e => { const v = e.target.value; setCampanhaFiltro(v); campanhaFiltroRef.current = v; reloadKanban() }}
+              title="Filtrar por campanha"
+            >
+              <option value="">Todas as campanhas</option>
+              {campanhasList.map(c => <option key={c.slug} value={c.slug}>{c.nome || c.slug}</option>)}
+            </select>
+          )}
           <div className="flex items-center border rounded-[2px] overflow-hidden">
             <button type="button" className={cn('p-1.5 transition-colors', viewMode === 'kanban' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')} onClick={() => { setViewMode('kanban'); localStorage.setItem('crm-view-mode', 'kanban') }} title="Kanban">
               <LayoutGrid className="h-4 w-4" />
@@ -1978,6 +1995,14 @@ function KanbanCardContent({ op, etapas, onMover, onDelete, diasDesde, showMenu,
       <div className="px-3 pb-2 space-y-1.5">
         <div className="flex flex-wrap items-center gap-1.5">
           <TemperaturaBadge temperatura={op.temperatura} score={op.score} />
+          {(op as any).campanha && (
+            <span
+              className="inline-flex items-center gap-1 text-[10px] font-medium text-rose-600 bg-rose-50 dark:bg-rose-900/30 dark:text-rose-400 rounded-sm px-1.5 py-0.5"
+              title={`Campanha: ${(op as any).campanha.nome || (op as any).campanha.slug}`}
+            >
+              <Megaphone className="h-3 w-3" /> {(op as any).campanha.nome || (op as any).campanha.slug}
+            </span>
+          )}
           {(op as any).orcamento && (
             <Link
               href={`/orcamentos/${(op as any).orcamento.id}`}

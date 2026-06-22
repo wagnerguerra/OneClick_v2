@@ -40,8 +40,8 @@ export function createCrmRouter(crmService: CrmService, importComercialService?:
       .query(({ input, ctx }) => crmService.list(input, ctx.isMaster ?? false, ctx.empresaId)),
 
     listKanban: readProcedure(MODULE)
-      .input(z.object({ search: z.string().optional() }).optional())
-      .query(({ ctx, input }) => crmService.listKanban(ctx.isMaster ?? false, ctx.empresaId, input?.search)),
+      .input(z.object({ search: z.string().optional(), campanhaSlug: z.string().optional() }).optional())
+      .query(({ ctx, input }) => crmService.listKanban(ctx.isMaster ?? false, ctx.empresaId, input?.search, input?.campanhaSlug)),
 
     getById: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))

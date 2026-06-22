@@ -34,6 +34,7 @@ export const createOportunidadeSchema = z.object({
   contatoCargo: z.string().optional().nullable(),
   contatoTelefone: z.string().optional().nullable(),
   contatoEmail: z.string().optional().nullable(),
+  campanhaSlug: z.string().optional().nullable(), // campanha (funil) que gerou o lead
 })
 
 export const updateOportunidadeSchema = createOportunidadeSchema.partial().extend({

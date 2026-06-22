@@ -8,11 +8,19 @@ const MODULE = 'crm' // sub-permissão gerir_funil_lead vive no módulo CRM
 export function createLeadRouter(leadService: LeadService) {
   return router({
     getConfig: readProcedure(MODULE)
-      .query(({ ctx }) => leadService.getConfig(ctx.empresaId)),
+      .input(z.object({ slug: z.string().nullable().optional() }).optional())
+      .query(({ ctx, input }) => leadService.getConfig(ctx.empresaId, input?.slug ?? null)),
+
+    listConfigs: readProcedure(MODULE)
+      .query(({ ctx }) => leadService.listConfigs(ctx.empresaId)),
 
     saveConfig: writeSubProcedure(MODULE, 'gerir_funil_lead', 'Configurar funil de leads')
       .input(salvarFunilConfigSchema)
       .mutation(({ input, ctx }) => leadService.saveConfig(input, ctx.empresaId)),
+
+    deleteConfig: writeSubProcedure(MODULE, 'gerir_funil_lead', 'Configurar funil de leads')
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => leadService.deleteConfig(input.id, ctx.empresaId)),
 
     listSessoes: readProcedure(MODULE)
       .query(({ ctx }) => leadService.listSessoes(ctx.empresaId)),
