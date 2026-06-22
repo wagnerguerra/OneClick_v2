@@ -2906,7 +2906,7 @@ export default function AgendaPage() {
                   {/* min-h fixa a altura do conteúdo pra o modal não encolher ao trocar de aba */}
                   {/* Abas verticais (pills laterais) — padrão de /configuracoes */}
                   <Tabs defaultValue="geral" className="w-full h-[62vh] flex flex-col overflow-hidden">
-                    <TabsList className="flex items-center justify-start gap-1 shrink-0 h-auto p-0 bg-transparent border-b border-border rounded-none overflow-x-auto nice-scrollbar">
+                    <TabsList className="flex items-center justify-start gap-0 shrink-0 h-auto p-0 bg-transparent border-b border-border rounded-none w-full">
                       {[
                         { value: 'geral', label: 'Geral', icon: Calendar },
                         { value: 'lembretes', label: 'Lembretes', icon: Bell },
@@ -2917,7 +2917,7 @@ export default function AgendaPage() {
                         <TabsTrigger
                           key={t.value}
                           value={t.value}
-                          className="gap-1.5 px-3 py-2 text-sm font-medium whitespace-nowrap rounded-none border-b-2 -mb-px border-transparent text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-sky-500 data-[state=active]:text-sky-600 dark:data-[state=active]:text-sky-400"
+                          className="gap-2 px-4 py-2.5 text-xs font-medium whitespace-nowrap rounded-none border-b-2 -mb-px border-transparent text-muted-foreground transition-all hover:text-foreground hover:border-border data-[state=active]:border-sky-500 data-[state=active]:text-sky-600 dark:data-[state=active]:text-sky-400 data-[state=active]:shadow-none"
                         >
                           <t.icon className="h-3.5 w-3.5 shrink-0" />{t.label}
                         </TabsTrigger>
