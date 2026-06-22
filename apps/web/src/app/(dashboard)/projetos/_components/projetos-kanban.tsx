@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { resolveAssetUrl } from '@/lib/api-url'
 import {
   DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors,
   useDroppable, type DragEndEvent, type DragStartEvent,
@@ -473,7 +474,7 @@ function CardFooter({ projeto }: { projeto: KanbanProjeto }) {
 function AvatarPequeno({ user }: { user: { name: string; image: string | null } }) {
   if (user.image) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={user.image} alt={user.name} className="h-5 w-5 rounded-full object-cover" />
+    return <img src={resolveAssetUrl(user.image)} alt={user.name} className="h-5 w-5 rounded-full object-cover" />
   }
   const iniciais = user.name
     .split(' ')

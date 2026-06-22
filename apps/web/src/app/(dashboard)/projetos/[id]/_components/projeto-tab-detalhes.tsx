@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Loader2, Check, Calendar, User as UserIcon, Flag, Palette } from 'lucide-react'
+import { resolveAssetUrl } from '@/lib/api-url'
 import {
   Input, Label, Card,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
@@ -231,7 +232,7 @@ export function ProjetoTabDetalhes({ projeto, canWrite, onSaved }: Props) {
                 <>
                   {projeto.responsavel.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={projeto.responsavel.image} alt={projeto.responsavel.name} className="h-5 w-5 rounded-full" />
+                    <img src={resolveAssetUrl(projeto.responsavel.image)} alt={projeto.responsavel.name} className="h-5 w-5 rounded-full" />
                   ) : (
                     <div className="h-5 w-5 rounded-full bg-background border border-border flex items-center justify-center text-[9px] font-semibold">
                       {projeto.responsavel.name.split(' ').slice(0, 2).map((s) => s[0]).join('')}

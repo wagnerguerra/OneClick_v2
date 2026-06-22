@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Loader2, Send, MessageSquare } from 'lucide-react'
+import { resolveAssetUrl } from '@/lib/api-url'
 import { Button, Card } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -117,7 +118,7 @@ function MensagemItem({ msg }: { msg: Mensagem }) {
     <div className="flex gap-3 px-4 py-3 hover:bg-muted/30">
       {msg.autor?.image ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={msg.autor.image} alt={autorNome} className="h-8 w-8 rounded-full shrink-0" />
+        <img src={resolveAssetUrl(msg.autor.image)} alt={autorNome} className="h-8 w-8 rounded-full shrink-0" />
       ) : (
         <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-[11px] font-semibold shrink-0">
           {autorNome.split(' ').filter(Boolean).slice(0, 2).map((s) => s[0]).join('').toUpperCase()}
