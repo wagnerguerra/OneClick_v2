@@ -1407,6 +1407,8 @@ export default function OrcamentoDetailPage() {
     if (texto && !temValorFixo(item?.valorPadrao) && texto.valor != null) {
       setItemValor(String(texto.valor))
     }
+    // A descrição da variação alimenta o "Texto para o Cliente" do orçamento.
+    if (texto?.descricao) setFormTextoCliente(texto.descricao)
   }
 
   function startEditItem(item: OrcamentoItem) {
@@ -1438,6 +1440,7 @@ export default function OrcamentoDetailPage() {
     if (texto && !temValorFixo(item?.valorPadrao) && texto.valor != null) {
       setEditValor(String(texto.valor))
     }
+    if (texto?.descricao) setFormTextoCliente(texto.descricao)
   }
 
   async function handleSaveItem() {
