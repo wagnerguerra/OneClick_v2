@@ -2509,6 +2509,11 @@ model AgendaTipo {
   corBorda       String   @default("#2563eb") @map("cor_borda")
   corTexto       String   @default("#ffffff") @map("cor_texto")
   bloqueiaAgenda Boolean  @default(false) @map("bloqueia_agenda")
+  // Regras de campos extras exibidos no form do evento, por tipo.
+  permiteModalidade   Boolean @default(false) @map("permite_modalidade")
+  permiteSala         Boolean @default(false) @map("permite_sala")
+  permiteGaragem      Boolean @default(false) @map("permite_garagem")
+  permiteEquipamentos Boolean @default(false) @map("permite_equipamentos")
   isActive       Boolean  @default(true) @map("is_active")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")

@@ -429,7 +429,7 @@ export class AgendaService {
     })
   }
 
-  async createTipo(data: { nome: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean }) {
+  async createTipo(data: { nome: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean }) {
     return prisma.agendaTipo.create({
       data: {
         nome: data.nome,
@@ -437,17 +437,25 @@ export class AgendaService {
         corBorda: data.corBorda ?? '#2563eb',
         corTexto: data.corTexto ?? '#ffffff',
         bloqueiaAgenda: data.bloqueiaAgenda ?? false,
+        permiteModalidade: data.permiteModalidade ?? false,
+        permiteSala: data.permiteSala ?? false,
+        permiteGaragem: data.permiteGaragem ?? false,
+        permiteEquipamentos: data.permiteEquipamentos ?? false,
       },
     })
   }
 
-  async updateTipo(id: string, data: { nome?: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean }) {
+  async updateTipo(id: string, data: { nome?: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean }) {
     const updateData: Record<string, unknown> = {}
     if (data.nome !== undefined) updateData.nome = data.nome
     if (data.cor !== undefined) updateData.cor = data.cor
     if (data.corBorda !== undefined) updateData.corBorda = data.corBorda
     if (data.corTexto !== undefined) updateData.corTexto = data.corTexto
     if (data.bloqueiaAgenda !== undefined) updateData.bloqueiaAgenda = data.bloqueiaAgenda
+    if (data.permiteModalidade !== undefined) updateData.permiteModalidade = data.permiteModalidade
+    if (data.permiteSala !== undefined) updateData.permiteSala = data.permiteSala
+    if (data.permiteGaragem !== undefined) updateData.permiteGaragem = data.permiteGaragem
+    if (data.permiteEquipamentos !== undefined) updateData.permiteEquipamentos = data.permiteEquipamentos
 
     return prisma.agendaTipo.update({
       where: { id },

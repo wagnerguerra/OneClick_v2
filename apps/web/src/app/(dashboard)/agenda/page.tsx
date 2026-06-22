@@ -40,6 +40,10 @@ interface AgendaTipo {
   corBorda: string
   corTexto: string
   bloqueiaAgenda: boolean
+  permiteModalidade?: boolean
+  permiteSala?: boolean
+  permiteGaragem?: boolean
+  permiteEquipamentos?: boolean
 }
 
 interface AgendaEvento {
@@ -699,7 +703,7 @@ export default function AgendaPage() {
   // Modal de gerenciamento de tipos
   const [tiposModalOpen, setTiposModalOpen] = useState(false)
   const [tipoEditando, setTipoEditando] = useState<AgendaTipo | null>(null)
-  const [tipoForm, setTipoForm] = useState({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false })
+  const [tipoForm, setTipoForm] = useState({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false })
   const [tipoSaving, setTipoSaving] = useState(false)
 
   // Drag and drop
@@ -1319,18 +1323,18 @@ export default function AgendaPage() {
 
   function openTipoNew() {
     setTipoEditando(null)
-    setTipoForm({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false })
+    setTipoForm({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false })
     setTiposModalOpen(true)
   }
 
   function openTipoEdit(t: AgendaTipo) {
     setTipoEditando(t)
-    setTipoForm({ nome: t.nome, cor: t.cor, corBorda: t.corBorda, corTexto: t.corTexto, bloqueiaAgenda: t.bloqueiaAgenda })
+    setTipoForm({ nome: t.nome, cor: t.cor, corBorda: t.corBorda, corTexto: t.corTexto, bloqueiaAgenda: t.bloqueiaAgenda, permiteModalidade: !!t.permiteModalidade, permiteSala: !!t.permiteSala, permiteGaragem: !!t.permiteGaragem, permiteEquipamentos: !!t.permiteEquipamentos })
   }
 
   function cancelTipoEdit() {
     setTipoEditando(null)
-    setTipoForm({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false })
+    setTipoForm({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false })
   }
 
   async function handleSaveTipo() {
@@ -2540,10 +2544,18 @@ export default function AgendaPage() {
             {/* CREATE / EDIT MODE */}
             {(modalMode === 'create' || modalMode === 'edit') && (() => {
               const tipoSelecionado = tipos.find(t => t.id === form.tipoId)
-              const tipoNome = tipoSelecionado?.nome?.toLowerCase() ?? ''
-              const isReuniao = tipoNome.includes('reunião interna') || tipoNome.includes('treinamento interno')
-              const needsLink = form.presenca === 'ONLINE' || form.presenca === 'HIBRIDO'
-              const needsGaragem = isReuniao && (form.presenca === 'PRESENCIAL' || form.presenca === 'HIBRIDO')
+              // Campos extras agora são REGRAS configuráveis por tipo (Agenda › Configurações).
+              // Leitura defensiva: tipos antigos sem as flags caem em false.
+              const tt = tipoSelecionado as unknown as Record<string, unknown> | undefined
+              const permiteModalidade = !!tt?.permiteModalidade
+              const permiteSala = !!tt?.permiteSala
+              const permiteGaragem = !!tt?.permiteGaragem
+              const permiteEquipamentos = !!tt?.permiteEquipamentos
+              const temConfigEvento = permiteModalidade || permiteSala || permiteGaragem || permiteEquipamentos
+              const needsLink = permiteModalidade && (form.presenca === 'ONLINE' || form.presenca === 'HIBRIDO')
+              const needsGaragem = permiteGaragem && (form.presenca === 'PRESENCIAL' || form.presenca === 'HIBRIDO')
+              // Link para tipos que usam a modalidade simples (sem a regra de modalidade rica)
+              const needsLinkSimples = !permiteModalidade && (form.presenca === 'ONLINE' || form.presenca === 'HIBRIDO')
 
               // Resumo de recorrência estilo Google Calendar
               const recSummary = form.recorrencia !== 'NENHUMA' && form.recorrenciaVezes > 1 ? (() => {
@@ -2630,12 +2642,13 @@ export default function AgendaPage() {
                     })()}
                   </div>
 
-                  {/* Campos especiais: Reunião Interna / Treinamento */}
-                  {isReuniao && (
+                  {/* Campos especiais — regras configuráveis por tipo (Agenda › Configurações) */}
+                  {temConfigEvento && (
                     <div className="space-y-3 rounded-lg border bg-sky-50/50 dark:bg-sky-950/10 p-3">
-                      <p className="text-[10px] text-sky-600 dark:text-sky-400 font-medium">Configurações da reunião</p>
+                      <p className="text-[10px] text-sky-600 dark:text-sky-400 font-medium">Configurações do evento</p>
 
                       {/* Modalidade */}
+                      {permiteModalidade && (
                       <div className="space-y-1.5">
                         <Label className="text-[11px]">Modalidade *</Label>
                         <div className="space-y-1">
@@ -2651,11 +2664,13 @@ export default function AgendaPage() {
                           ))}
                         </div>
                       </div>
+                      )}
 
                       {/* Sala — radios no mesmo estilo da Modalidade.
                           Lista vem de /agenda/configuracoes (aba Salas) + "Outro local". */}
+                      {permiteSala && (
                       <div className="space-y-1.5">
-                        <Label className="text-[11px]">Sala *</Label>
+                        <Label className="text-[11px]">Sala</Label>
                         <div className="space-y-1">
                           {salasCadastradas.filter(s => s.ativo).map(s => {
                             const active = form.salaId === s.id
@@ -2701,6 +2716,7 @@ export default function AgendaPage() {
                           </p>
                         )}
                       </div>
+                      )}
 
                       {/* Link (Online/Híbrido) */}
                       {needsLink && (
@@ -2725,15 +2741,17 @@ export default function AgendaPage() {
                       )}
 
                       {/* Equipamentos */}
+                      {permiteEquipamentos && (
                       <label className="flex items-center gap-2 cursor-pointer text-xs">
                         <Checkbox checked={!!form.equipamentos} onCheckedChange={v => setForm(f => ({ ...f, equipamentos: v ? 'sim' : '' }))} />
                         Solicitar equipamentos
                       </label>
+                      )}
                     </div>
                   )}
 
-                  {/* Modalidade (quando NÃO é reunião interna) */}
-                  {!isReuniao && (
+                  {/* Modalidade simples — para tipos que NÃO usam a regra de modalidade rica */}
+                  {!permiteModalidade && (
                     <div className="space-y-1.5">
                       <Label className="text-[13px]">Modalidade</Label>
                       <Select value={form.presenca} onValueChange={v => setForm(f => ({ ...f, presenca: v }))}>
@@ -2956,8 +2974,8 @@ export default function AgendaPage() {
                     </label>
                   </div>
 
-                  {/* Local e Sala (quando NÃO é reunião interna) */}
-                  {!isReuniao && (
+                  {/* Local e Sala livre — para tipos sem a regra de Sala (a regra usa o seletor de salas) */}
+                  {!permiteSala && (
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <Label className="text-[13px]">Local</Label>
@@ -2970,8 +2988,8 @@ export default function AgendaPage() {
                     </div>
                   )}
 
-                  {/* Link (quando NÃO é reunião interna mas é online/híbrido) */}
-                  {!isReuniao && needsLink && (
+                  {/* Link para a modalidade simples (online/híbrido) */}
+                  {needsLinkSimples && (
                     <div className="space-y-1.5">
                       <Label className="text-[13px]">Link da reunião</Label>
                       <Input className="h-9 text-sm" value={form.link} onChange={e => setForm(f => ({ ...f, link: e.target.value }))} placeholder="https://meet.google.com/..." />
@@ -3409,6 +3427,31 @@ export default function AgendaPage() {
                   </Button>
                 </div>
               </div>
+
+              {/* Regras de campos extras no form do evento deste tipo */}
+              <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                <p className="text-[11px] font-semibold text-muted-foreground">Campos extras no agendamento</p>
+                <p className="text-[10px] text-muted-foreground">Escolha quais campos especiais aparecem ao criar um evento deste tipo.</p>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={tipoForm.permiteModalidade} onCheckedChange={v => setTipoForm(f => ({ ...f, permiteModalidade: !!v }))} />
+                    <span className="text-xs">Modalidade (presencial/online/híbrido + link)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={tipoForm.permiteSala} onCheckedChange={v => setTipoForm(f => ({ ...f, permiteSala: !!v }))} />
+                    <span className="text-xs">Sala (seletor de salas cadastradas)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={tipoForm.permiteGaragem} onCheckedChange={v => setTipoForm(f => ({ ...f, permiteGaragem: !!v }))} />
+                    <span className="text-xs">Garagem (reserva + nº de vagas)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={tipoForm.permiteEquipamentos} onCheckedChange={v => setTipoForm(f => ({ ...f, permiteEquipamentos: !!v }))} />
+                    <span className="text-xs">Equipamentos</span>
+                  </label>
+                </div>
+              </div>
+
               {/* Preview */}
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-muted-foreground">Preview:</span>

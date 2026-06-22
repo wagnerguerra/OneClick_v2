@@ -37,6 +37,10 @@ export function createAgendaRouter(
         corBorda: z.string().optional(),
         corTexto: z.string().optional(),
         bloqueiaAgenda: z.boolean().optional(),
+        permiteModalidade: z.boolean().optional(),
+        permiteSala: z.boolean().optional(),
+        permiteGaragem: z.boolean().optional(),
+        permiteEquipamentos: z.boolean().optional(),
       }))
       .mutation(({ input }) => service.createTipo(input)),
 
@@ -49,6 +53,10 @@ export function createAgendaRouter(
           corBorda: z.string().optional(),
           corTexto: z.string().optional(),
           bloqueiaAgenda: z.boolean().optional(),
+          permiteModalidade: z.boolean().optional(),
+          permiteSala: z.boolean().optional(),
+          permiteGaragem: z.boolean().optional(),
+          permiteEquipamentos: z.boolean().optional(),
         }),
       }))
       .mutation(({ input }) => service.updateTipo(input.id, input.data)),
