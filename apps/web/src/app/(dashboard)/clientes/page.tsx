@@ -185,31 +185,37 @@ export default function ClientesPage() {
     trpc.cliente.getFilterOptions.query().then(setFilterOptions).catch(() => {})
   }, [])
 
+  // Monta o input de filtros da listagem — reusado pela exportação (exporta o
+  // conjunto filtrado, não todos os clientes).
+  const buildListInput = useCallback(() => {
+    const situacaoFinal = onlyMensal ? 'MENSAL' : (filterSituacao || undefined)
+    return {
+      page, limit, search: debouncedSearch || undefined, sortBy: sort.column, sortDir: sort.dir,
+      ...(situacaoFinal ? { situacao: situacaoFinal as 'MENSAL' } : {}),
+      ...(filterStatus ? { status: filterStatus as 'ATIVA' } : {}),
+      ...(filterTributacao ? { tributacao: filterTributacao as 'SIMPLES_NACIONAL' } : {}),
+      ...(filterGrupo ? { grupo: filterGrupo } : {}),
+      ...(filterCidade ? { cidade: filterCidade } : {}),
+      ...(filterUf ? { uf: filterUf } : {}),
+      ...(debouncedNumero.trim() ? { numero: debouncedNumero.trim() } : {}),
+      ...(filterTipo ? { tipoCliente: filterTipo } : {}),
+      ...(filterAtividade ? { atividade: filterAtividade } : {}),
+      ...(filterArea ? { areaContratada: filterArea } : {}),
+      ...(filterBeneficio ? { comBeneficio: filterBeneficio } : {}),
+    }
+  }, [page, limit, debouncedSearch, sort, filterSituacao, filterStatus, filterTributacao, filterGrupo, filterCidade, filterUf, debouncedNumero, filterTipo, filterAtividade, filterArea, filterBeneficio, onlyMensal])
+
   const fetchClientes = useCallback(async () => {
     setLoading(true)
     try {
-      const situacaoFinal = onlyMensal ? 'MENSAL' : (filterSituacao || undefined)
-      const input = {
-        page, limit, search: debouncedSearch || undefined, sortBy: sort.column, sortDir: sort.dir,
-        ...(situacaoFinal ? { situacao: situacaoFinal as 'MENSAL' } : {}),
-        ...(filterStatus ? { status: filterStatus as 'ATIVA' } : {}),
-        ...(filterTributacao ? { tributacao: filterTributacao as 'SIMPLES_NACIONAL' } : {}),
-        ...(filterGrupo ? { grupo: filterGrupo } : {}),
-        ...(filterCidade ? { cidade: filterCidade } : {}),
-        ...(filterUf ? { uf: filterUf } : {}),
-        ...(debouncedNumero.trim() ? { numero: debouncedNumero.trim() } : {}),
-        ...(filterTipo ? { tipoCliente: filterTipo } : {}),
-        ...(filterAtividade ? { atividade: filterAtividade } : {}),
-        ...(filterArea ? { areaContratada: filterArea } : {}),
-        ...(filterBeneficio ? { comBeneficio: filterBeneficio } : {}),
-      }
+      const input = buildListInput()
       const result = trashMode
         ? await trpc.cliente.listTrash.query(input)
         : await trpc.cliente.list.query(input)
       setData(result)
       setSelected(new Set())
     } catch { /* silent */ } finally { setLoading(false) }
-  }, [page, limit, debouncedSearch, sort, filterSituacao, filterStatus, filterTributacao, filterGrupo, filterCidade, filterUf, debouncedNumero, filterTipo, filterAtividade, filterArea, filterBeneficio, onlyMensal, trashMode])
+  }, [buildListInput, trashMode])
 
   useEffect(() => { fetchClientes() }, [fetchClientes])
 
@@ -251,8 +257,10 @@ export default function ClientesPage() {
   async function handleExport() {
     setExporting(true)
     try {
-      const all = await trpc.cliente.exportAll.query()
-      exportToExcel(all as Record<string, unknown>[], EXPORT_COLUMNS, `clientes-${new Date().toISOString().slice(0, 10)}`)
+      // Exporta exatamente o conjunto filtrado (mesmos filtros da listagem).
+      const all = await trpc.cliente.exportAll.query(buildListInput())
+      const sufixo = hasActiveFilters || debouncedSearch ? '-filtrados' : ''
+      exportToExcel(all as Record<string, unknown>[], EXPORT_COLUMNS, `clientes${sufixo}-${new Date().toISOString().slice(0, 10)}`)
     } catch { alerts.error('Erro', 'Não foi possível exportar.') }
     finally { setExporting(false) }
   }

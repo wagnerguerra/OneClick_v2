@@ -87,9 +87,10 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.getEvents(input.clienteId)),
 
-    // Exportar todos
+    // Exportar respeitando os filtros ativos da listagem
     exportAll: readProcedure(MODULE)
-      .query(({ ctx }) => clienteService.exportAll(ctx.isMaster, ctx.empresaId)),
+      .input(listClienteSchema)
+      .query(({ input, ctx }) => clienteService.exportAll(input, ctx.isMaster, ctx.empresaId)),
 
     // Lista para select (lookup leve usado em vários módulos: orçamentos, CRM,
     // contratos, sócios, etc.). Qualquer usuário logado pode consultar — retorna

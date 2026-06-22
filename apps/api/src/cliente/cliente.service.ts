@@ -494,11 +494,11 @@ export class ClienteService {
   // ============================================================
   // Exportar todos
   // ============================================================
-  async exportAll(isMaster?: boolean, empresaId?: string) {
-    return prisma.cliente.findMany({
-      where: { deletedAt: null, ...empresaFilter(isMaster, empresaId) },
-      orderBy: { razaoSocial: 'asc' },
-    })
+  /** Exporta os clientes aplicando os MESMOS filtros da listagem (não só todos). */
+  async exportAll(input: ListClienteInput, isMaster?: boolean, empresaId?: string) {
+    // Reusa o where/busca do list; limite alto pra trazer todo o conjunto filtrado.
+    const result = await this.list({ ...input, page: 1, limit: 100000 }, isMaster, empresaId)
+    return result.data
   }
 
   // ============================================================
