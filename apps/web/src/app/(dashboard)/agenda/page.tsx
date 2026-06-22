@@ -44,6 +44,7 @@ interface AgendaTipo {
   permiteSala?: boolean
   permiteGaragem?: boolean
   permiteEquipamentos?: boolean
+  salasPermitidas?: string[]
 }
 
 interface AgendaEvento {
@@ -702,8 +703,10 @@ export default function AgendaPage() {
 
   // Modal de gerenciamento de tipos
   const [tiposModalOpen, setTiposModalOpen] = useState(false)
+  // Master-detail: painel direito ativo p/ criar um tipo novo (edição usa tipoEditando)
+  const [tipoPainelNovo, setTipoPainelNovo] = useState(false)
   const [tipoEditando, setTipoEditando] = useState<AgendaTipo | null>(null)
-  const [tipoForm, setTipoForm] = useState({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false })
+  const [tipoForm, setTipoForm] = useState({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false, salasPermitidas: [] as string[] })
   const [tipoSaving, setTipoSaving] = useState(false)
 
   // Drag and drop
@@ -1323,18 +1326,21 @@ export default function AgendaPage() {
 
   function openTipoNew() {
     setTipoEditando(null)
-    setTipoForm({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false })
+    setTipoForm({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false, salasPermitidas: [] as string[] })
+    setTipoPainelNovo(true)
     setTiposModalOpen(true)
   }
 
   function openTipoEdit(t: AgendaTipo) {
     setTipoEditando(t)
-    setTipoForm({ nome: t.nome, cor: t.cor, corBorda: t.corBorda, corTexto: t.corTexto, bloqueiaAgenda: t.bloqueiaAgenda, permiteModalidade: !!t.permiteModalidade, permiteSala: !!t.permiteSala, permiteGaragem: !!t.permiteGaragem, permiteEquipamentos: !!t.permiteEquipamentos })
+    setTipoPainelNovo(false)
+    setTipoForm({ nome: t.nome, cor: t.cor, corBorda: t.corBorda, corTexto: t.corTexto, bloqueiaAgenda: t.bloqueiaAgenda, permiteModalidade: !!t.permiteModalidade, permiteSala: !!t.permiteSala, permiteGaragem: !!t.permiteGaragem, permiteEquipamentos: !!t.permiteEquipamentos, salasPermitidas: t.salasPermitidas ?? [] })
   }
 
   function cancelTipoEdit() {
     setTipoEditando(null)
-    setTipoForm({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false })
+    setTipoPainelNovo(false)
+    setTipoForm({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false, salasPermitidas: [] as string[] })
   }
 
   async function handleSaveTipo() {
@@ -1460,7 +1466,7 @@ export default function AgendaPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             {canManageTipos && (
-            <DropdownMenuItem onClick={openTipoNew} className="text-xs gap-2 cursor-pointer">
+            <DropdownMenuItem onClick={() => { cancelTipoEdit(); setTiposModalOpen(true) }} className="text-xs gap-2 cursor-pointer">
               <Palette className="h-3.5 w-3.5" />Gerenciar Tipos
             </DropdownMenuItem>
             )}
@@ -2552,6 +2558,9 @@ export default function AgendaPage() {
               const permiteGaragem = !!tt?.permiteGaragem
               const permiteEquipamentos = !!tt?.permiteEquipamentos
               const temConfigEvento = permiteModalidade || permiteSala || permiteGaragem || permiteEquipamentos
+              // Allowlist de salas do tipo (vazia = todas as ativas)
+              const salasPermitidasTipo = (tt?.salasPermitidas as string[] | undefined) ?? []
+              const salasDisponiveis = salasCadastradas.filter(s => s.ativo && (salasPermitidasTipo.length === 0 || salasPermitidasTipo.includes(s.id)))
               const needsLink = permiteModalidade && (form.presenca === 'ONLINE' || form.presenca === 'HIBRIDO')
               const needsGaragem = permiteGaragem && (form.presenca === 'PRESENCIAL' || form.presenca === 'HIBRIDO')
               // Link para tipos que usam a modalidade simples (sem a regra de modalidade rica)
@@ -2672,7 +2681,7 @@ export default function AgendaPage() {
                       <div className="space-y-1.5">
                         <Label className="text-[11px]">Sala</Label>
                         <div className="space-y-1">
-                          {salasCadastradas.filter(s => s.ativo).map(s => {
+                          {salasDisponiveis.map(s => {
                             const active = form.salaId === s.id
                             return (
                               <label
@@ -3354,34 +3363,70 @@ export default function AgendaPage() {
       {/* Modal gerenciar tipos de evento */}
       {/* ============================================================ */}
       <Dialog open={tiposModalOpen} onOpenChange={setTiposModalOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl">
           <DialogHeaderIcon icon={Palette} color="sky">
             <DialogTitle>Tipos de Evento</DialogTitle>
             <DialogDescription>Cadastre e edite as categorias de eventos da agenda</DialogDescription>
           </DialogHeaderIcon>
-          {/* Botão importar legado no topo */}
-          <div className="px-5 -mt-2 mb-0">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs w-full"
-              onClick={async () => {
-                const ok = await alerts.confirm({ title: 'Importar tipos do legado', text: 'Importar categorias de eventos do banco OneClick v1? Tipos já existentes serão ignorados.', confirmText: 'Importar', icon: 'question' })
-                if (!ok) return
-                try {
-                  const r = await trpc.agenda.importTiposLegado.mutate() as { importados: number; ignorados: number; erros: number }
-                  await alerts.success('Importação concluída', `${r.importados} importado(s), ${r.ignorados} já existente(s), ${r.erros} erro(s).`)
-                  const tipos2 = await trpc.agenda.listTipos.query()
-                  setTipos(tipos2 as AgendaTipo[])
-                } catch (e) { alerts.error('Erro', (e as Error).message) }
-              }}
-            >
-              <History className="h-3.5 w-3.5" />Importar do Legado (OneClick v1)
-            </Button>
-          </div>
-          <DialogBody className="space-y-4">
-            {/* Formulário novo/editar tipo */}
-            <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+          <DialogBody className="p-0">
+            <div className="flex h-[62vh] min-h-[440px]">
+              {/* LISTA (esquerda) */}
+              <div className="w-[300px] shrink-0 border-r flex flex-col">
+                <div className="flex items-center justify-between px-4 py-3 border-b">
+                  <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tipos cadastrados</h5>
+                  <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={openTipoNew}>
+                    <Plus className="h-3.5 w-3.5" /> Novo
+                  </Button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                  {tipos.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">Nenhum tipo cadastrado</p>
+                  ) : tipos.map(t => (
+                    <div
+                      key={t.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openTipoEdit(t)}
+                      className={cn(
+                        'group w-full flex items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-left cursor-pointer transition-colors hover:bg-muted/50',
+                        tipoEditando?.id === t.id && 'ring-2 ring-sky-500 bg-sky-50/50 dark:bg-sky-950/20',
+                      )}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="text-xs px-2.5 py-0.5 rounded-[2px] font-medium truncate"
+                          style={{ backgroundColor: t.cor, color: t.corTexto, borderLeft: `3px solid ${t.corBorda}` }}
+                        >
+                          {t.nome}
+                        </span>
+                        {t.bloqueiaAgenda && (
+                          <span className="text-[9px] text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded-[2px] shrink-0">
+                            Bloqueia
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        role="button"
+                        tabIndex={-1}
+                        onClick={e => { e.stopPropagation(); handleDeleteTipo(t) }}
+                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 shrink-0 p-1 rounded transition-opacity"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* PAINEL DE EDIÇÃO (direita) */}
+              <div className="flex-1 overflow-y-auto p-5">
+                {!(tipoEditando || tipoPainelNovo) ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center gap-2 text-muted-foreground">
+                    <Palette className="h-9 w-9 opacity-30" />
+                    <p className="text-sm max-w-[240px]">Selecione um tipo à esquerda para editar ou clique em <span className="font-medium">Novo</span> para criar.</p>
+                  </div>
+                ) : (
+                <div className="space-y-3">
               <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {tipoEditando ? 'Editar tipo' : 'Novo tipo'}
               </h5>
@@ -3412,21 +3457,10 @@ export default function AgendaPage() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Checkbox checked={tipoForm.bloqueiaAgenda} onCheckedChange={v => setTipoForm(f => ({ ...f, bloqueiaAgenda: !!v }))} />
-                  <span className="text-xs">Bloqueia agenda (detecta conflitos)</span>
-                </label>
-                <div className="flex items-center gap-2">
-                  {tipoEditando && (
-                    <Button variant="ghost" size="sm" onClick={cancelTipoEdit} className="text-xs">Cancelar</Button>
-                  )}
-                  <Button variant="success" size="sm" onClick={handleSaveTipo} disabled={tipoSaving} className="gap-1.5 text-sm">
-                    {tipoSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                    {tipoEditando ? 'Atualizar' : 'Criar'}
-                  </Button>
-                </div>
-              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox checked={tipoForm.bloqueiaAgenda} onCheckedChange={v => setTipoForm(f => ({ ...f, bloqueiaAgenda: !!v }))} />
+                <span className="text-xs">Bloqueia agenda (detecta conflitos)</span>
+              </label>
 
               {/* Regras de campos extras no form do evento deste tipo */}
               <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
@@ -3450,55 +3484,74 @@ export default function AgendaPage() {
                     <span className="text-xs">Equipamentos</span>
                   </label>
                 </div>
+
+                {/* Allowlist de salas — só quando a regra de Sala está ligada */}
+                {tipoForm.permiteSala && (
+                  <div className="mt-1 space-y-1.5 rounded-md border bg-background/60 p-2.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-semibold text-muted-foreground">Salas disponíveis para este tipo</p>
+                      {tipoForm.salasPermitidas.length > 0 && (
+                        <button type="button" className="text-[10px] text-sky-600 hover:underline" onClick={() => setTipoForm(f => ({ ...f, salasPermitidas: [] }))}>
+                          Liberar todas
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      {tipoForm.salasPermitidas.length === 0
+                        ? 'Nenhuma marcada = todas as salas ativas ficam disponíveis.'
+                        : `Apenas as ${tipoForm.salasPermitidas.length} sala(s) marcada(s) aparecerão no agendamento.`}
+                    </p>
+                    {salasCadastradas.filter(s => s.ativo).length === 0 ? (
+                      <p className="text-[10px] text-muted-foreground italic">
+                        Nenhuma sala cadastrada. <Link href="/agenda/configuracoes" className="text-sky-600 hover:underline">Cadastrar</Link>
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                        {salasCadastradas.filter(s => s.ativo).map(s => {
+                          const on = tipoForm.salasPermitidas.includes(s.id)
+                          return (
+                            <label key={s.id} className="flex items-center gap-2 cursor-pointer">
+                              <Checkbox
+                                checked={on}
+                                onCheckedChange={v => setTipoForm(f => ({
+                                  ...f,
+                                  salasPermitidas: v
+                                    ? [...f.salasPermitidas, s.id]
+                                    : f.salasPermitidas.filter(id => id !== s.id),
+                                }))}
+                              />
+                              <span className="text-xs truncate">{s.nome}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Preview */}
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-muted-foreground">Preview:</span>
                 <span
-                  className="text-xs px-3 py-1 rounded"
+                  className="text-xs px-3 py-1 rounded-[2px]"
                   style={{ backgroundColor: tipoForm.cor, color: tipoForm.corTexto, borderLeft: `3px solid ${tipoForm.corBorda}` }}
                 >
                   {tipoForm.nome || 'Nome do tipo'}
                 </span>
               </div>
-            </div>
 
-            {/* Lista de tipos existentes */}
-            <div className="space-y-1">
-              {tipos.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">Nenhum tipo cadastrado</p>
-              ) : tipos.map(t => (
-                <div
-                  key={t.id}
-                  className={cn(
-                    'flex items-center justify-between rounded-lg border px-3 py-2 transition-colors',
-                    tipoEditando?.id === t.id && 'ring-2 ring-sky-500 bg-sky-50/50 dark:bg-sky-950/20',
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="text-xs px-3 py-1 rounded font-medium"
-                      style={{ backgroundColor: t.cor, color: t.corTexto, borderLeft: `3px solid ${t.corBorda}` }}
-                    >
-                      {t.nome}
-                    </span>
-                    {t.bloqueiaAgenda && (
-                      <span className="text-[9px] text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded-full">
-                        Bloqueia agenda
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon-sm" className="h-7 w-7" onClick={() => openTipoEdit(t)}>
-                      <Edit2 className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="icon-sm" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => handleDeleteTipo(t)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
+              {/* Ações */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t">
+                <Button variant="ghost" size="sm" onClick={cancelTipoEdit} className="text-xs">Cancelar</Button>
+                <Button variant="success" size="sm" onClick={handleSaveTipo} disabled={tipoSaving} className="gap-1.5 text-sm">
+                  {tipoSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                  {tipoEditando ? 'Atualizar' : 'Criar'}
+                </Button>
+              </div>
                 </div>
-              ))}
+                )}
+              </div>
             </div>
           </DialogBody>
         </DialogContent>

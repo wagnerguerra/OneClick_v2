@@ -429,7 +429,7 @@ export class AgendaService {
     })
   }
 
-  async createTipo(data: { nome: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean }) {
+  async createTipo(data: { nome: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }) {
     return prisma.agendaTipo.create({
       data: {
         nome: data.nome,
@@ -441,11 +441,12 @@ export class AgendaService {
         permiteSala: data.permiteSala ?? false,
         permiteGaragem: data.permiteGaragem ?? false,
         permiteEquipamentos: data.permiteEquipamentos ?? false,
+        salasPermitidas: data.salasPermitidas ?? [],
       },
     })
   }
 
-  async updateTipo(id: string, data: { nome?: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean }) {
+  async updateTipo(id: string, data: { nome?: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }) {
     const updateData: Record<string, unknown> = {}
     if (data.nome !== undefined) updateData.nome = data.nome
     if (data.cor !== undefined) updateData.cor = data.cor
@@ -456,6 +457,7 @@ export class AgendaService {
     if (data.permiteSala !== undefined) updateData.permiteSala = data.permiteSala
     if (data.permiteGaragem !== undefined) updateData.permiteGaragem = data.permiteGaragem
     if (data.permiteEquipamentos !== undefined) updateData.permiteEquipamentos = data.permiteEquipamentos
+    if (data.salasPermitidas !== undefined) updateData.salasPermitidas = data.salasPermitidas
 
     return prisma.agendaTipo.update({
       where: { id },

@@ -41,6 +41,7 @@ export function createAgendaRouter(
         permiteSala: z.boolean().optional(),
         permiteGaragem: z.boolean().optional(),
         permiteEquipamentos: z.boolean().optional(),
+        salasPermitidas: z.array(z.string()).optional(),
       }))
       .mutation(({ input }) => service.createTipo(input)),
 
@@ -57,6 +58,7 @@ export function createAgendaRouter(
           permiteSala: z.boolean().optional(),
           permiteGaragem: z.boolean().optional(),
           permiteEquipamentos: z.boolean().optional(),
+          salasPermitidas: z.array(z.string()).optional(),
         }),
       }))
       .mutation(({ input }) => service.updateTipo(input.id, input.data)),

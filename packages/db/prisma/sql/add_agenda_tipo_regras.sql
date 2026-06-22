@@ -3,6 +3,8 @@ ALTER TABLE agenda_tipos ADD COLUMN IF NOT EXISTS permite_modalidade   boolean N
 ALTER TABLE agenda_tipos ADD COLUMN IF NOT EXISTS permite_sala         boolean NOT NULL DEFAULT false;
 ALTER TABLE agenda_tipos ADD COLUMN IF NOT EXISTS permite_garagem      boolean NOT NULL DEFAULT false;
 ALTER TABLE agenda_tipos ADD COLUMN IF NOT EXISTS permite_equipamentos boolean NOT NULL DEFAULT false;
+-- Allowlist de salas por tipo (vazio = todas as salas ativas ficam disponíveis).
+ALTER TABLE agenda_tipos ADD COLUMN IF NOT EXISTS salas_permitidas text[] NOT NULL DEFAULT '{}';
 
 -- Preservação: tipos que hoje exibem o bloco "Configurações da reunião" recebem
 -- as 4 regras ligadas, mantendo o comportamento idêntico ao atual.
