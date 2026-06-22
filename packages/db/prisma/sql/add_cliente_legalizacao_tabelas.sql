@@ -112,3 +112,18 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='cliente_part_hist_cac_id_fkey') THEN
     ALTER TABLE cliente_particularidades_historico ADD CONSTRAINT cliente_part_hist_cac_id_fkey FOREIGN KEY (cliente_area_contratada_id) REFERENCES cliente_areas_contratadas(id) ON DELETE CASCADE; END IF;
 END $$;
+
+-- Particularidades (nota por área contratada) — 1 por área (ON CONFLICT exige unique).
+CREATE TABLE IF NOT EXISTS cliente_particularidades (
+  id                         text PRIMARY KEY,
+  cliente_area_contratada_id text NOT NULL,
+  texto                      text,
+  updated_by_user_id         text,
+  created_at                 timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at                 timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS cliente_particularidades_cac_key ON cliente_particularidades (cliente_area_contratada_id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='cliente_particularidades_cac_id_fkey') THEN
+    ALTER TABLE cliente_particularidades ADD CONSTRAINT cliente_particularidades_cac_id_fkey FOREIGN KEY (cliente_area_contratada_id) REFERENCES cliente_areas_contratadas(id) ON DELETE CASCADE; END IF;
+END $$;
