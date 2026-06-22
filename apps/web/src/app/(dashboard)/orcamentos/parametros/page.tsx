@@ -219,15 +219,22 @@ export default function ParametrosOrcamentosPage() {
           descricao: textoForm.descricao.trim() || null,
           valor: valor ?? null,
         })
+        alerts.success('Salvo', 'Texto atualizado.')
       } else {
-        await (trpc.orcamento as any).addCatalogoTexto.mutate({
+        const novo = await (trpc.orcamento as any).addCatalogoTexto.mutate({
           catalogoId: editing.id,
           titulo: textoForm.titulo.trim(),
           descricao: textoForm.descricao.trim() || undefined,
           valor,
         })
+        // Mantém o sub-modal aberto, agora em modo edição do texto recém-criado.
+        setTextoEdit({
+          id: novo?.id ?? '', catalogoId: editing.id,
+          titulo: textoForm.titulo.trim(), descricao: textoForm.descricao.trim() || null,
+          valor: valor ?? null, ordem: novo?.ordem ?? 0,
+        })
+        alerts.success('Salvo', 'Texto adicionado.')
       }
-      setTextoEdit(null)
       loadTextos(editing.id)
     } catch (e) {
       alerts.error('Erro', (e as Error).message)

@@ -2139,11 +2139,11 @@ export default function OrcamentoDetailPage() {
                               if (!cat?.textos?.length) return null
                               return (
                                 <div className="space-y-1.5 min-w-[180px]">
-                                  <Label className="text-[13px] font-semibold text-foreground">Texto</Label>
+                                  <Label className="text-[13px] font-semibold text-foreground">Variação</Label>
                                   <Select value={itemTextoId || '__none__'} onValueChange={v => handleSelecionarTexto(v === '__none__' ? '' : v)}>
-                                    <SelectTrigger className="h-9 w-[200px] text-sm"><SelectValue placeholder="Selecione o texto" /></SelectTrigger>
+                                    <SelectTrigger className="h-9 w-[200px] text-sm"><SelectValue placeholder="Selecione a variação" /></SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="__none__">Nenhum</SelectItem>
+                                      <SelectItem value="__none__">Nenhuma</SelectItem>
                                       {cat.textos.map(t => (
                                         <SelectItem key={t.id} value={t.id}>{t.titulo}</SelectItem>
                                       ))}
@@ -2218,9 +2218,9 @@ export default function OrcamentoDetailPage() {
                                     if (!cat?.textos?.length) return null
                                     return (
                                       <Select value={editTextoId || '__none__'} onValueChange={v => handleSelecionarTextoEdit(v === '__none__' ? '' : v)}>
-                                        <SelectTrigger className="h-7 text-[11px] mt-1"><SelectValue placeholder="Texto" /></SelectTrigger>
+                                        <SelectTrigger className="h-7 text-[11px] mt-1"><SelectValue placeholder="Variação" /></SelectTrigger>
                                         <SelectContent>
-                                          <SelectItem value="__none__">Nenhum texto</SelectItem>
+                                          <SelectItem value="__none__">Nenhuma variação</SelectItem>
                                           {cat.textos.map(t => (
                                             <SelectItem key={t.id} value={t.id}>{t.titulo}</SelectItem>
                                           ))}
