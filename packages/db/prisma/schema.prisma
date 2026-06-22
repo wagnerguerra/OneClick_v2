@@ -907,6 +907,22 @@ model ClienteBeneficio {
   @@map("cliente_beneficios")
 }
 
+// Acessos a portais/sistemas por cliente (aba Legalização). Acessado via SQL raw;
+// cliente_id sem @relation pra não exigir back-relation no Cliente.
+model ClienteAcesso {
+  id          String   @id @default(cuid())
+  clienteId   String   @map("cliente_id")
+  portal      String
+  usuario     String?
+  senha       String?
+  observacoes String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([clienteId])
+  @@map("cliente_acessos")
+}
+
 // ============================================================
 // Benefícios Fiscais (port do v1 `crp_beneficios`) — bloco Legalização.
 // Catálogo de benefícios/incentivos fiscais + vínculo cliente↔benefício com
