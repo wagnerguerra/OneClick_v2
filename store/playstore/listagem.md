@@ -88,8 +88,21 @@ O app exige login. Informar este usuário de demonstração na seção
 
 ---
 
+## Capturas de tela (ordem sugerida na ficha) — DADOS FICTÍCIOS (LGPD ok)
+1. screenshot-clientes.png — lista de clientes (fictícios)
+2. screenshot-cliente-detalhe.png — detalhe com abas/pills
+3. screenshot-servicos.png — catálogo de serviços
+4. screenshot-novo-cliente.png — formulário de cadastro
+5. screenshot-config.png — configurações
+
 ## Arquivos desta pasta
 - icon-512.png — ícone de alta resolução (512×512)
 - feature-graphic-1024x500.png — banner da loja
-- screenshot-dash.png / -agenda / -clientes / -meus / -helpdesk (1080×2160)
+- screenshot-*.png — 5 capturas (acima), 1080×2160
 - AAB para upload: scripts/mobile-dist/OneClick-ERP-1.2.18-19.aab
+
+## Observação LGPD
+O usuário demo (demo.play@…) está numa EMPRESA DE DEMONSTRAÇÃO com dados
+fictícios (clientes/serviços de exemplo) — não expõe dados reais, valendo tanto
+para os screenshots quanto para o login do revisor do Google. A agenda do app não
+é isolada por empresa, então telas de agenda/dashboard ficaram fora da listagem.
