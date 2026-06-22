@@ -874,7 +874,7 @@ export function createClienteRouter(
           ).catch(() => [])
           if (exists.length === 0) {
             await prisma.$executeRawUnsafe(
-              `INSERT INTO cliente_cnaes (id, cliente_id, codigo, descricao, principal, created_at) VALUES (gen_random_uuid()::text, $1, $2, $3, true, NOW())`,
+              `INSERT INTO cliente_cnaes (id, cliente_id, codigo, descricao, principal, created_at, updated_at) VALUES (gen_random_uuid()::text, $1, $2, $3, true, NOW(), NOW())`,
               input.clienteId, codigo, descricao,
             )
             imported++
@@ -890,7 +890,7 @@ export function createClienteRouter(
           ).catch(() => [])
           if (exists.length > 0) { skipped++; continue }
           await prisma.$executeRawUnsafe(
-            `INSERT INTO cliente_cnaes (id, cliente_id, codigo, descricao, principal, created_at) VALUES (gen_random_uuid()::text, $1, $2, $3, false, NOW())`,
+            `INSERT INTO cliente_cnaes (id, cliente_id, codigo, descricao, principal, created_at, updated_at) VALUES (gen_random_uuid()::text, $1, $2, $3, false, NOW(), NOW())`,
             input.clienteId, codigo, String(cnae.descricao || ''),
           ).catch(() => {})
           imported++

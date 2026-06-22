@@ -1217,8 +1217,8 @@ export class ClienteService {
       await prisma.$executeRawUnsafe(`UPDATE cliente_cnaes SET principal = false WHERE cliente_id = $1`, clienteId)
     }
     await prisma.$executeRawUnsafe(
-      `INSERT INTO cliente_cnaes (id, cliente_id, codigo, descricao, principal, created_at)
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, NOW())`,
+      `INSERT INTO cliente_cnaes (id, cliente_id, codigo, descricao, principal, created_at, updated_at)
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, NOW(), NOW())`,
       clienteId, data.codigo, data.descricao || '', data.principal ?? false,
     )
     return { created: true }
@@ -1452,8 +1452,8 @@ export class ClienteService {
 
   async addProtocolo(clienteId: string, data: { orgao: string; tipo?: string; protocolo: string; descricao?: string }, userId?: string) {
     await prisma.$executeRawUnsafe(
-      `INSERT INTO cliente_protocolos (id, cliente_id, orgao, tipo, protocolo, descricao, usuario_id, created_at)
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, NOW())`,
+      `INSERT INTO cliente_protocolos (id, cliente_id, orgao, tipo, protocolo, descricao, usuario_id, created_at, updated_at)
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, NOW(), NOW())`,
       clienteId, data.orgao, data.tipo || 'consulta', data.protocolo, data.descricao || null, userId || null,
     )
     return { created: true }
