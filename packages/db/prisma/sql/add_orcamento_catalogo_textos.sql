@@ -17,15 +17,12 @@ CREATE TABLE IF NOT EXISTS "orcamento_catalogo_textos" (
   "updated_at"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- FK: texto → servicos_catalogo (cascade ao excluir o item do catálogo)
-DO $$ BEGIN
-  ALTER TABLE "orcamento_catalogo_textos"
-    ADD CONSTRAINT "orcamento_catalogo_textos_catalogo_id_fkey"
-    FOREIGN KEY ("catalogo_id") REFERENCES "servicos_catalogo"("id")
-    ON DELETE CASCADE ON UPDATE CASCADE;
-EXCEPTION
-  WHEN duplicate_object THEN null;
-END $$;
+-- A FK para servicos_catalogo foi REMOVIDA: textos pertencem a QUALQUER item do
+-- catálogo (Serviço, Taxa ou Despesa). O catalogo_id é referência "soft" — pode
+-- apontar para `servicos` (módulo Serviços) OU `servicos_catalogo`. A limpeza ao
+-- excluir o item é feita na aplicação (deleteCatalogo).
+ALTER TABLE "orcamento_catalogo_textos"
+  DROP CONSTRAINT IF EXISTS "orcamento_catalogo_textos_catalogo_id_fkey";
 
 CREATE INDEX IF NOT EXISTS "orcamento_catalogo_textos_catalogo_id_idx"
   ON "orcamento_catalogo_textos"("catalogo_id");

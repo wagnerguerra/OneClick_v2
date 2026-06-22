@@ -3167,9 +3167,8 @@ model ServicoCatalogo {
   empresaId           String?  @map("empresa_id")
   createdAt           DateTime @default(now()) @map("created_at")
 
-  // Múltiplos textos do registro (cada um com título + descrição + valor).
-  // Adicional aos campos legados textoPadrao/valorPadrao.
-  textos OrcamentoCatalogoTexto[]
+  // Os textos do registro (OrcamentoCatalogoTexto) referenciam o item por
+  // catalogo_id de forma "soft" (sem FK) — valem p/ Serviço, Taxa e Despesa.
 
   @@map("servicos_catalogo")
 }
@@ -3187,7 +3186,8 @@ model OrcamentoCatalogoTexto {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  catalogo     ServicoCatalogo @relation(fields: [catalogoId], references: [id], onDelete: Cascade)
+  // catalogoId é referência "soft" — aponta para servicos OU servicos_catalogo
+  // (textos valem p/ Serviço, Taxa e Despesa). Sem FK; limpeza na aplicação.
   itensVinculados OrcamentoItem[]
 
   @@index([catalogoId])

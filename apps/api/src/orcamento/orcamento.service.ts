@@ -2201,12 +2201,10 @@ export class OrcamentoService {
       prisma.servicoCatalogo.findMany({
         where: { ...baseWhere, ...ativo, ...disponivel, tipo: { in: ['TAXA', 'DESPESA'] } },
         orderBy: [{ tipo: 'asc' }, { nome: 'asc' }],
-        include: { textos: { orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }] } },
       }),
     ])
 
     // Normaliza os Servicos para o shape do catalogo (com tipo sintético 'SERVICO')
-    // Servicos (modelo Servico) nao tem textos multiplos — só ServicoCatalogo.
     const servicosAsCatalogo = servicos.map(s => ({
       id: s.id,
       nome: s.nome,
@@ -2218,14 +2216,28 @@ export class OrcamentoService {
       empresaId: s.empresaId,
       categoria: s.categoria,
       createdAt: null as Date | null,
-      textos: [] as Array<{ id: string; titulo: string; descricao: string | null; valor: unknown; ordem: number }>,
     }))
     const catalogosNormalizados = catalogos.map(c => ({ ...c, categoria: null as string | null }))
 
     const items = [...servicosAsCatalogo, ...catalogosNormalizados]
+    const ids = items.map(i => i.id)
+
+    // Textos do registro de TODOS os itens (Serviço/Taxa/Despesa) — referência
+    // "soft" por catalogoId (sem FK); valem para qualquer tipo.
+    const textosRows = ids.length > 0
+      ? await prisma.orcamentoCatalogoTexto.findMany({
+          where: { catalogoId: { in: ids } },
+          orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }],
+        }).catch(() => [])
+      : []
+    const textosMap = new Map<string, typeof textosRows>()
+    for (const t of textosRows) {
+      const arr = textosMap.get(t.catalogoId) ?? []
+      arr.push(t)
+      textosMap.set(t.catalogoId, arr)
+    }
 
     // Contagem de uso (referenciados em itens de orcamento)
-    const ids = items.map(i => i.id)
     let usoMap = new Map<string, number>()
     if (ids.length > 0) {
       const usos = await prisma.orcamentoItem.groupBy({
@@ -2236,7 +2248,7 @@ export class OrcamentoService {
       usoMap = new Map(usos.map(u => [u.catalogoId!, u._count]))
     }
 
-    return items.map(i => ({ ...i, usoCount: usoMap.get(i.id) || 0 }))
+    return items.map(i => ({ ...i, textos: textosMap.get(i.id) ?? [], usoCount: usoMap.get(i.id) || 0 }))
   }
 
   async createCatalogo(data: { nome: string; tipo: string; valorPadrao?: number; textoPadrao?: string; disponivelOrcamento?: boolean }, empresaId?: string) {
@@ -2253,16 +2265,25 @@ export class OrcamentoService {
   }
 
   async updateCatalogo(id: string, data: { nome?: string; tipo?: string; valorPadrao?: number | null; textoPadrao?: string | null; ativo?: boolean; disponivelOrcamento?: boolean }) {
-    return prisma.servicoCatalogo.update({ where: { id }, data: data as any })
+    // O item pode ser um ServicoCatalogo (Taxa/Despesa) ou um Servico (módulo
+    // Serviços). Roteia pela origem. `tipo` não se aplica a Servico.
+    const cat = await prisma.servicoCatalogo.findUnique({ where: { id }, select: { id: true } })
+    if (cat) return prisma.servicoCatalogo.update({ where: { id }, data: data as any })
+    const { tipo: _tipo, ...semTipo } = data
+    return prisma.servico.update({ where: { id }, data: semTipo as any })
   }
 
   async deleteCatalogo(id: string) {
-    // Soft-delete: marca como inativo. Se nunca usado, pode excluir definitivamente.
+    // Limpa os textos do registro (referência soft, sem cascade no banco).
+    await prisma.orcamentoCatalogoTexto.deleteMany({ where: { catalogoId: id } }).catch(() => {})
+    const cat = await prisma.servicoCatalogo.findUnique({ where: { id }, select: { id: true } })
     const usos = await prisma.orcamentoItem.count({ where: { catalogoId: id } })
-    if (usos === 0) {
-      return prisma.servicoCatalogo.delete({ where: { id } })
+    if (cat) {
+      if (usos === 0) return prisma.servicoCatalogo.delete({ where: { id } })
+      return prisma.servicoCatalogo.update({ where: { id }, data: { ativo: false } })
     }
-    return prisma.servicoCatalogo.update({ where: { id }, data: { ativo: false } })
+    // Serviço (módulo Serviços): nunca excluir aqui — apenas inativa no catálogo.
+    return prisma.servico.update({ where: { id }, data: { ativo: false } })
   }
 
   // ── Textos do registro do catalogo (titulo + descricao + valor) ──
@@ -2277,11 +2298,14 @@ export class OrcamentoService {
   }
 
   async addCatalogoTexto(data: { catalogoId: string; titulo: string; descricao?: string; valor?: number }) {
-    // Textos pertencem a itens do catálogo (ServicoCatalogo — Taxa/Despesa).
-    // Serviços (modelo Servico, tipo SERVICO) não têm textos múltiplos — sem essa
-    // checagem o create estoura FK (orcamento_catalogo_textos_catalogo_id_fkey).
-    const cat = await prisma.servicoCatalogo.findUnique({ where: { id: data.catalogoId }, select: { id: true } })
-    if (!cat) throw new Error('Textos só podem ser adicionados a itens do catálogo (Taxa/Despesa). Serviços não possuem variações de texto.')
+    // Textos valem para QUALQUER item do catálogo (Serviço, Taxa ou Despesa). O
+    // catalogo_id é referência soft, então validamos nas duas origens p/ dar erro
+    // claro caso o item não exista (em vez de criar texto órfão).
+    const [servico, catalogo] = await Promise.all([
+      prisma.servico.findUnique({ where: { id: data.catalogoId }, select: { id: true } }),
+      prisma.servicoCatalogo.findUnique({ where: { id: data.catalogoId }, select: { id: true } }),
+    ])
+    if (!servico && !catalogo) throw new Error('Item de catálogo inválido para o texto.')
     // ordem = proximo na sequencia
     const count = await prisma.orcamentoCatalogoTexto.count({ where: { catalogoId: data.catalogoId } })
     return prisma.orcamentoCatalogoTexto.create({

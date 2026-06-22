@@ -509,7 +509,7 @@ export default function ParametrosOrcamentosPage() {
                   <Label className="text-[13px] font-semibold text-foreground">Textos do registro</Label>
                   <p className="text-[11px] text-muted-foreground">Variações de texto (título + descrição + valor) que poderão ser escolhidas ao adicionar este item num orçamento.</p>
                 </div>
-                {editing && editing.tipo !== 'SERVICO' && (
+                {editing && (
                   <Button type="button" variant="outline" size="xs" className="gap-1 shrink-0" onClick={abrirNovoTexto}>
                     <Plus className="h-3.5 w-3.5" /> Texto
                   </Button>
@@ -519,10 +519,6 @@ export default function ParametrosOrcamentosPage() {
               {!editing ? (
                 <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/30 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300">
                   Salve o item primeiro para poder adicionar textos a ele.
-                </div>
-              ) : editing.tipo === 'SERVICO' ? (
-                <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-                  Variações de texto estão disponíveis apenas para itens de catálogo do tipo <strong>Taxa</strong> e <strong>Despesa</strong>. Serviços usam a descrição do próprio cadastro de Serviços.
                 </div>
               ) : textosLoading ? (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground py-3"><Loader2 className="h-4 w-4 animate-spin" /> Carregando textos...</div>
