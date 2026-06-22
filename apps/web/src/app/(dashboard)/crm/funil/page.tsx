@@ -139,6 +139,40 @@ export default function CrmFunilPage() {
         </div>
       )}
 
+      {/* Comparativo por campanha (30d) */}
+      {report?.porCampanha?.length > 0 && (
+        <Card className="p-5 space-y-3">
+          <h4 className="text-sm font-semibold">Comparativo por campanha (30 dias)</h4>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b">
+                  <th className="py-2 pr-3 font-semibold">Campanha</th>
+                  <th className="py-2 px-3 font-semibold text-right">Sessões</th>
+                  <th className="py-2 px-3 font-semibold text-right">No CRM</th>
+                  <th className="py-2 px-3 font-semibold text-right">Conversão</th>
+                  <th className="py-2 pl-3 font-semibold text-right">🔥 / 🌡️ / ❄️</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {report.porCampanha.map((c: any) => (
+                  <tr key={c.slug} className="hover:bg-muted/30">
+                    <td className="py-2 pr-3">
+                      <span className="font-medium">{c.nome}</span>
+                      <span className="text-[11px] text-muted-foreground font-mono ml-1.5">/{c.slug}</span>
+                    </td>
+                    <td className="py-2 px-3 text-right tabular-nums">{c.total}</td>
+                    <td className="py-2 px-3 text-right tabular-nums">{c.registrados}</td>
+                    <td className="py-2 px-3 text-right tabular-nums font-semibold">{c.taxaConversao}%</td>
+                    <td className="py-2 pl-3 text-right tabular-nums text-muted-foreground">{c.porTemperatura?.quente ?? 0} · {c.porTemperatura?.morno ?? 0} · {c.porTemperatura?.frio ?? 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
       {/* Master-detail: lista de campanhas + editor */}
       <Card className="overflow-hidden">
         <div className="flex flex-col md:flex-row">

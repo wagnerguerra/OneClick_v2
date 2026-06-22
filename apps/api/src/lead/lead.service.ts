@@ -411,7 +411,7 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
   async reportFunil(dias: number | null, empresaId?: string | null) {
     const desde = dias ? new Date(Date.now() - dias * 86400000) : null
     const rows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT status, temperatura, origem FROM lead_sessao
+      `SELECT status, temperatura, origem, slug FROM lead_sessao
         WHERE empresa_id IS NOT DISTINCT FROM $1 ${desde ? 'AND created_at >= $2' : ''}`,
       ...(desde ? [empresaId ?? null, desde] : [empresaId ?? null]),
     ).catch(() => [] as any[])
@@ -419,15 +419,40 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
     const registrados = rows.filter(r => r.status === 'registrado').length
     const porTemp = { quente: 0, morno: 0, frio: 0 } as Record<string, number>
     const porOrigem: Record<string, number> = {}
+    // Agregação por campanha (slug do funil)
+    type CampAgg = { slug: string; total: number; registrados: number; quente: number; morno: number; frio: number }
+    const campMap = new Map<string, CampAgg>()
     for (const r of rows) {
       if (r.temperatura) porTemp[r.temperatura] = (porTemp[r.temperatura] ?? 0) + 1
       const o = r.origem || '(direto)'; porOrigem[o] = (porOrigem[o] ?? 0) + 1
+      const slug = r.slug || '(sem campanha)'
+      const c = campMap.get(slug) ?? { slug, total: 0, registrados: 0, quente: 0, morno: 0, frio: 0 }
+      c.total++
+      if (r.status === 'registrado') c.registrados++
+      if (r.temperatura === 'quente') c.quente++
+      else if (r.temperatura === 'morno') c.morno++
+      else if (r.temperatura === 'frio') c.frio++
+      campMap.set(slug, c)
     }
+    // Nome amigável por slug
+    const nomes = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT slug, nome FROM lead_funil_config WHERE empresa_id IS NOT DISTINCT FROM $1`, empresaId ?? null,
+    ).catch(() => [] as any[])
+    const nomeBySlug = new Map(nomes.map(n => [n.slug, n.nome]))
+    const porCampanha = [...campMap.values()].map(c => ({
+      slug: c.slug,
+      nome: nomeBySlug.get(c.slug) || (c.slug === '(sem campanha)' ? 'Sem campanha' : c.slug),
+      total: c.total,
+      registrados: c.registrados,
+      taxaConversao: c.total > 0 ? Math.round((c.registrados / c.total) * 100) : 0,
+      porTemperatura: { quente: c.quente, morno: c.morno, frio: c.frio },
+    })).sort((a, b) => b.total - a.total)
     return {
       total, registrados,
       taxaConversao: total > 0 ? Math.round((registrados / total) * 100) : 0,
       porTemperatura: porTemp,
       porOrigem: Object.entries(porOrigem).map(([origem, count]) => ({ origem, count })).sort((a, b) => b.count - a.count),
+      porCampanha,
     }
   }
 
