@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Gauge, Target, TrendingUp, Percent, CircleDollarSign, FileText, AlertTriangle,
   FileCheck, Landmark, CalendarClock, RefreshCw, Loader2, BarChart3,
-  ChevronDown, Filter,
+  ChevronDown, Filter, Users,
 } from 'lucide-react'
 import {
   Button, Card, Badge,
@@ -197,9 +197,21 @@ export default function ComercialPage() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>Relatórios comerciais</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push('/comercial/relatorios')}>
+              <DropdownMenuItem onClick={() => router.push('/comercial/relatorios?tab=funil')}>
                 <Filter className="h-4 w-4" />
                 Funil unificado
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/comercial/relatorios?tab=mrr')}>
+                <Landmark className="h-4 w-4" />
+                MRR recorrente vs. avulso
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/comercial/relatorios?tab=vendedores')}>
+                <Users className="h-4 w-4" />
+                Ranking de vendedores
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/comercial/relatorios?tab=descontos')}>
+                <Percent className="h-4 w-4" />
+                Descontos & margem
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

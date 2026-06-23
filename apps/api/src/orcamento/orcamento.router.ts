@@ -400,6 +400,18 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ dias: z.number().optional() }).optional())
       .query(({ input, ctx }) => orcamentoService.reportFunilComercial(ctx.empresaId, input?.dias)),
 
+    reportMrrAvulso: readProcedure(MODULE)
+      .input(z.object({ dias: z.number().optional() }).optional())
+      .query(({ input, ctx }) => orcamentoService.reportMrrAvulso(ctx.empresaId, input?.dias)),
+
+    reportRankingVendedores: readProcedure(MODULE)
+      .input(z.object({ dias: z.number().optional() }).optional())
+      .query(({ input, ctx }) => orcamentoService.reportRankingVendedores(ctx.empresaId, input?.dias)),
+
+    reportDescontosMargem: readProcedure(MODULE)
+      .input(z.object({ dias: z.number().optional() }).optional())
+      .query(({ input, ctx }) => orcamentoService.reportDescontosMargem(ctx.empresaId, input?.dias)),
+
     reportAtrasados: readProcedure(MODULE)
       .query(({ ctx }) => orcamentoService.reportAtrasados(ctx.empresaId)),
 
