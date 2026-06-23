@@ -4,8 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles, Loader2, Save, Copy, ExternalLink, Flame, Thermometer, Snowflake, Plus, Trash2, Megaphone } from 'lucide-react'
 import { Button, Card, Input, Label, Switch, Badge, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn } from '@saas/ui'
-import Link from 'next/link'
-import { PageHeader } from '@/components/page-header'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { masks } from '@/lib/masks'
 import { alerts } from '@/lib/alerts'
@@ -122,14 +121,19 @@ export default function CrmFunilPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <PageHeader
-        color={MODULE_COLOR}
-        icon={Sparkles}
-        title="Campanhas de captação (IA)"
-        subtitle="Cada campanha tem seu próprio link e conduz a IA focada no assunto; os leads caem no CRM marcados pela campanha"
-        breadcrumb={<Link href="/crm" className="hover:text-foreground">CRM</Link>}
-      />
+      {/* Header — padrão inline de /orcamentos e /crm (ícone gradiente + h1 + descrição) */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <BackButton href="/crm" />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
+            <Sparkles className="h-6 w-6" />
+          </div>
+          <div>
+            <h1>Campanhas de captação (IA)</h1>
+            <p className="text-sm text-muted-foreground">Cada campanha tem seu próprio link e conduz a IA focada no assunto; os leads caem no CRM marcados pela campanha</p>
+          </div>
+        </div>
+      </div>
 
       {/* Indicadores (últimos 30 dias, todas as campanhas) */}
       {report && (
