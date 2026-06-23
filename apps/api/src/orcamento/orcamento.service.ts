@@ -2857,6 +2857,34 @@ export class OrcamentoService {
     return { ok: true }
   }
 
+  // ── Sugestões (ações rápidas) do assistente de IA — editáveis em Configurações ──
+  async listIaSugestoes(empresaId?: string) {
+    return prisma.$queryRawUnsafe<{ id: string; label: string; prompt: string; ordem: number }[]>(
+      `SELECT id, label, prompt, ordem FROM orcamento_ia_sugestao
+        WHERE empresa_id IS NOT DISTINCT FROM $1
+        ORDER BY ordem ASC, created_at ASC`,
+      empresaId ?? null,
+    ).catch(() => [] as { id: string; label: string; prompt: string; ordem: number }[])
+  }
+
+  async saveIaSugestoes(empresaId: string | undefined, items: { label: string; prompt: string }[]) {
+    // Lista pequena e reordenável → replace-all por empresa, mantendo a ordem recebida.
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`DELETE FROM orcamento_ia_sugestao WHERE empresa_id IS NOT DISTINCT FROM $1`, empresaId ?? null)
+      for (let i = 0; i < items.length; i++) {
+        const label = (items[i]?.label ?? '').trim()
+        const prompt = (items[i]?.prompt ?? '').trim()
+        if (!label || !prompt) continue
+        await tx.$executeRawUnsafe(
+          `INSERT INTO orcamento_ia_sugestao (id, label, prompt, ordem, empresa_id)
+           VALUES (gen_random_uuid()::text, $1, $2, $3, $4)`,
+          label, prompt, i, empresaId ?? null,
+        )
+      }
+    })
+    return { ok: true }
+  }
+
   /**
    * "Banco de modelos" pro assistente de IA aprender o estilo da casa: textos
    * de proposta (textoCorpoCliente) de orçamentos JÁ registrados. Prioriza os

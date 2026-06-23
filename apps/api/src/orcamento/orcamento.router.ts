@@ -66,6 +66,14 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => orcamentoService.excluirModeloProposta(input.id)),
 
+    // ── Sugestões (ações rápidas) do assistente de IA — editáveis em Configurações ──
+    iaSugestoesListar: readProcedure(MODULE)
+      .query(({ ctx }) => orcamentoService.listIaSugestoes(ctx.empresaId)),
+
+    iaSugestoesSalvar: writeSubProcedure(MODULE, 'acessar_configuracoes', 'Editar configurações de orçamentos')
+      .input(z.object({ items: z.array(z.object({ label: z.string().min(1), prompt: z.string().min(1) })).max(20) }))
+      .mutation(({ input, ctx }) => orcamentoService.saveIaSugestoes(ctx.empresaId, input.items)),
+
     create: writeProcedure(MODULE)
       .input(createOrcamentoSchema)
       .mutation(({ input, ctx }) => orcamentoService.create(input, ctx.userId, ctx.empresaId)),
