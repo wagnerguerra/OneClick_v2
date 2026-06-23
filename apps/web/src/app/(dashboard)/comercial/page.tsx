@@ -72,6 +72,7 @@ interface PainelData {
   orcStats: any
   orcDash: any
   contratos: any
+  mrrAvulso: any
 }
 
 export default function ComercialPage() {
@@ -93,19 +94,20 @@ export default function ComercialPage() {
     // os demais continuam carregando.
     const safe = <T,>(p: Promise<T>): Promise<T | null> => p.then((r) => r).catch(() => null)
     try {
-      const [crmStats, crmFunil, crmDesempenho, orcStats, orcDash, contratos] = await Promise.all([
+      const [crmStats, crmFunil, crmDesempenho, orcStats, orcDash, contratos, mrrAvulso] = await Promise.all([
         safe((trpc.crm as any).getStats.query()),
         safe((trpc.crm as any).reportFunil.query({ dias })),
         safe((trpc.crm as any).reportDesempenho.query({ dias })),
         safe((trpc.orcamento as any).getStats.query()),
         safe((trpc.orcamento as any).getDashboardStats.query()),
         safe((trpc.contrato as any).reportComercial.query()),
+        safe((trpc.orcamento as any).reportMrrAvulso.query({ dias })),
       ])
       if (!crmStats && !crmFunil && !orcStats && !contratos) setErro(true)
       setData({
         crmStats, crmFunil,
         crmDesempenho: Array.isArray(crmDesempenho) ? crmDesempenho : [],
-        orcStats, orcDash, contratos,
+        orcStats, orcDash, contratos, mrrAvulso,
       })
     } finally {
       firstLoad.current = false
@@ -146,6 +148,15 @@ export default function ComercialPage() {
   const mrr = ct?.mrr ?? 0
   const vigentes = ct?.vigentes ?? 0
   const aVencer30 = ct?.aVencer30 ?? 0
+
+  // ── Receita recorrente vs. avulsa (vendas aprovadas no período) ──
+  const mrrAvulso = data?.mrrAvulso
+  const recPeriodo = mrrAvulso?.periodo
+  const recValor = recPeriodo?.recorrente?.valor ?? 0
+  const avValor = recPeriodo?.avulso?.valor ?? 0
+  const recPct = recPeriodo?.pctRecorrente ?? 0
+  const avPct = recPeriodo?.pctAvulso ?? 0
+  const recAvTotal = recPeriodo?.totalValor ?? 0
 
   // ── Dados de graficos ──────────────────────────────────────
   const funilChart = funilEtapas.filter((e) => !e.ehPerda)
@@ -272,6 +283,60 @@ export default function ComercialPage() {
               <StatCard icon={CalendarClock} label="A vencer (30 dias)" value={aVencer30} color="#fbbf24" sub={`${ct?.aVencer60 ?? 0} em até 60 dias`} />
             </div>
           </div>
+
+          {/* ── Receita recorrente vs. avulsa (vendas aprovadas no período) ── */}
+          {mrrAvulso && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+                <CircleDollarSign className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Receita — recorrente vs. avulsa
+              </p>
+              <Card className="p-4">
+                {recAvTotal > 0 ? (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Mix das vendas aprovadas no período</span>
+                      <span className="font-medium tabular-nums">{formatCurrency(recAvTotal)}</span>
+                    </div>
+                    <div className="flex h-6 w-full overflow-hidden rounded">
+                      <div className="flex items-center justify-center text-[10px] font-semibold text-white transition-all"
+                        style={{ width: `${recPct}%`, backgroundColor: '#34d399' }}>
+                        {recPct >= 10 ? `${recPct}%` : ''}
+                      </div>
+                      <div className="flex items-center justify-center text-[10px] font-semibold text-white transition-all"
+                        style={{ width: `${avPct}%`, backgroundColor: '#fbbf24' }}>
+                        {avPct >= 10 ? `${avPct}%` : ''}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-lg border border-border p-3">
+                        <div className="flex items-center gap-1.5 text-xs font-medium">
+                          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Recorrente (entra como MRR)
+                        </div>
+                        <p className="text-lg font-semibold tabular-nums mt-1">{formatCurrency(recValor)}</p>
+                        <p className="text-[11px] text-muted-foreground">{recPeriodo?.recorrente?.count ?? 0} orçamento(s)</p>
+                      </div>
+                      <div className="rounded-lg border border-border p-3">
+                        <div className="flex items-center gap-1.5 text-xs font-medium">
+                          <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Avulso (pontual)
+                        </div>
+                        <p className="text-lg font-semibold tabular-nums mt-1">{formatCurrency(avValor)}</p>
+                        <p className="text-[11px] text-muted-foreground">{recPeriodo?.avulso?.count ?? 0} orçamento(s)</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => router.push('/comercial/relatorios?tab=mrr')}
+                      className="self-start text-[11px] font-medium hover:underline"
+                      style={{ color: MODULE_COLOR }}
+                    >
+                      Ver relatório completo de MRR →
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-4 text-center">Nenhum orçamento aprovado no período.</p>
+                )}
+              </Card>
+            </div>
+          )}
 
           {/* ── Graficos linha 1: Funil CRM + Orcamentos por status ── */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
