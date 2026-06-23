@@ -45,7 +45,7 @@ const MOD_SOFT = 'color-mix(in srgb, var(--mod-comercial, #fb7185) 14%, transpar
 const MOD_BORDER = 'color-mix(in srgb, var(--mod-comercial, #fb7185) 35%, transparent)'
 
 const ACOES_RAPIDAS = [
-  { label: 'Analisar e redigir proposta', prompt: 'Analise este orçamento (itens, valores, condições e o histórico do cliente) e redija o texto completo da proposta para enviar ao cliente. Use HTML simples (parágrafos, negrito).' },
+  { label: 'Analisar e redigir proposta', prompt: 'Analise este orçamento (itens, valores, condições e o histórico do cliente) e redija o texto completo da proposta para enviar ao cliente. Formate em Markdown simples (parágrafos, negrito, listas) — sem HTML e sem blocos de código.' },
   { label: 'Mais formal', prompt: 'Reescreva a última proposta com um tom mais formal e institucional, mantendo as mesmas informações.' },
   { label: 'Mais direto', prompt: 'Reescreva a última proposta de forma mais curta e objetiva, indo direto ao ponto.' },
   { label: 'Destacar o desconto', prompt: 'Reescreva a última proposta destacando o desconto/condição comercial oferecida como um diferencial para o cliente.' },
