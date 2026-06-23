@@ -2497,34 +2497,38 @@ export class OrcamentoService {
     const donutEstagios = { aprovados: aprMensal.count + aprExtra.count, liberados: libMensal.count + libExtra.count, reprovados: reprovados.count }
     const donutTipo = { mensal: aprMensal.count, extra: aprExtra.count }
 
-    // Listas (aprovados/liberados/reprovados) — nº, data, cliente, 1º item +N, valor
+    // Listas (aprovados/liberados/reprovados) — nº, data, cliente, 1º item +N, valor.
+    // Orcamento não tem relação `cliente` (só o escalar clienteId): resolve por map.
     const listaSelect = {
-      id: true, numero: true, tipo: true, totalGeral: true,
-      cliente: { select: { razaoSocial: true, nomeFantasia: true } },
+      id: true, numero: true, tipo: true, totalGeral: true, clienteId: true,
       itens: { select: { descricao: true } },
     } as const
-    type OrcLista = Prisma.OrcamentoGetPayload<{ select: typeof listaSelect }> & {
-      dtAprovado?: Date | null; dtLiberado?: Date | null; dtCancelado?: Date | null
-    }
-    const mapItem = (o: OrcLista, data: Date | null | undefined) => {
-      const itens = o.itens ?? []
-      return {
-        id: o.id,
-        numero: o.numero,
-        data: data ? data.toISOString() : null,
-        cliente: o.cliente?.razaoSocial || o.cliente?.nomeFantasia || '—',
-        tipo: o.tipo === 'SERVICO_MENSAL' ? 'Serviço mensal' : 'Serviço extra',
-        tipoKey: o.tipo,
-        primeiroItem: itens[0]?.descricao ? itens[0].descricao.toUpperCase() : '',
-        qtdExtra: itens.length > 1 ? itens.length - 1 : 0,
-        valor: Number(o.totalGeral),
-      }
-    }
     const [lAprovados, lLiberados, lReprovados] = await Promise.all([
       prisma.orcamento.findMany({ where: periodo('dtAprovado'), select: { ...listaSelect, dtAprovado: true }, orderBy: [{ tipo: 'asc' }, { numero: 'asc' }] }),
       prisma.orcamento.findMany({ where: { ...periodo('dtLiberado'), status: 'LIBERADO' }, select: { ...listaSelect, dtLiberado: true }, orderBy: [{ tipo: 'asc' }, { numero: 'asc' }] }),
       prisma.orcamento.findMany({ where: periodo('dtCancelado'), select: { ...listaSelect, dtCancelado: true }, orderBy: [{ tipo: 'asc' }, { numero: 'asc' }] }),
     ])
+    const clienteIds = [...new Set([...lAprovados, ...lLiberados, ...lReprovados].map(o => o.clienteId).filter(Boolean))] as string[]
+    const clientes = clienteIds.length
+      ? await prisma.cliente.findMany({ where: { id: { in: clienteIds } }, select: { id: true, razaoSocial: true, nomeFantasia: true } }).catch(() => [])
+      : []
+    const clienteMap = new Map(clientes.map(c => [c.id, c]))
+
+    type OrcListaRow = { id: string; numero: number; tipo: string | null; totalGeral: Prisma.Decimal; clienteId: string | null; itens: { descricao: string }[] }
+    const mapItem = (o: OrcListaRow, data: Date | null | undefined) => {
+      const c = o.clienteId ? clienteMap.get(o.clienteId) : null
+      return {
+        id: o.id,
+        numero: o.numero,
+        data: data ? data.toISOString() : null,
+        cliente: c?.razaoSocial || c?.nomeFantasia || '—',
+        tipo: o.tipo === 'SERVICO_MENSAL' ? 'Serviço mensal' : 'Serviço extra',
+        tipoKey: o.tipo,
+        primeiroItem: o.itens[0]?.descricao ? o.itens[0].descricao.toUpperCase() : '',
+        qtdExtra: o.itens.length > 1 ? o.itens.length - 1 : 0,
+        valor: Number(o.totalGeral),
+      }
+    }
     const listas = {
       aprovados: lAprovados.map(o => mapItem(o, o.dtAprovado)),
       liberados: lLiberados.map(o => mapItem(o, o.dtLiberado)),
