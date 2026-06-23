@@ -1,14 +1,17 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Gauge, Target, TrendingUp, Percent, CircleDollarSign, FileText, AlertTriangle,
   FileCheck, Landmark, CalendarClock, RefreshCw, Loader2, BarChart3,
+  ChevronDown, Filter,
 } from 'lucide-react'
 import {
   Button, Card, Badge,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { StatCard } from '@/components/stat-card'
@@ -72,6 +75,7 @@ interface PainelData {
 }
 
 export default function ComercialPage() {
+  const router = useRouter()
   const [periodo, setPeriodo] = useState('90')
   const [data, setData] = useState<PainelData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -182,6 +186,23 @@ export default function ComercialPage() {
               ))}
             </SelectContent>
           </Select>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 text-xs">
+                <BarChart3 className="h-4 w-4" />
+                Relatórios
+                <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Relatórios comerciais</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push('/comercial/relatorios')}>
+                <Filter className="h-4 w-4" />
+                Funil unificado
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant="outline"
             size="icon-sm"
