@@ -7,7 +7,7 @@ import {
   CheckCircle2, Clock, TrendingUp, Calendar,
   CheckSquare, MessageSquare, Trash2, Send, X, LayoutGrid, List,
   Download, FileText, Settings2, GripVertical, Save, Paperclip, UploadCloud, File, History, Archive, SlidersHorizontal, Tag, Layers, Sparkles,
-  Flame, Thermometer, Snowflake, Megaphone,
+  Flame, Thermometer, Snowflake, Megaphone, RotateCcw,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, RichEditor,
@@ -135,6 +135,14 @@ interface ClienteSelect { id: string; razaoSocial: string }
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
+// Rascunho da "Nova Oportunidade" — persistido no navegador para não perder o
+// que o usuário digitou caso o Sheet feche (clique fora) antes de salvar.
+const NOVA_OP_DRAFT_KEY = 'crm:nova-oportunidade:rascunho'
+// Tem conteúdo digitado? (ignora etapaId, que tem default e não é "digitação")
+function novaOpTemConteudo(f: Record<string, unknown>): boolean {
+  return Object.entries(f).some(([k, v]) => k !== 'etapaId' && typeof v === 'string' && v.trim() !== '')
+}
+
 // ============================================================
 // Helpers
 // ============================================================
@@ -222,6 +230,7 @@ export default function CrmPage() {
   // Create modal
   const [createOpen, setCreateOpen] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [draftRestored, setDraftRestored] = useState(false)   // rascunho recuperado ao reabrir
   const [form, setForm] = useState({ titulo: '', descricao: '', valor: '', etapaId: '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '' })
   const [clientes, setClientes] = useState<ClienteSelect[]>([])
 
@@ -551,13 +560,47 @@ export default function CrmPage() {
   }, [stats])
 
   // ── Create ──
+  const formVazio = () => ({ titulo: '', descricao: '', valor: '', etapaId: etapas[0]?.id || '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '' })
+
+  // Persiste o rascunho enquanto o Sheet está aberto e há conteúdo digitado.
+  // Assim, se o usuário fechar (clique fora) sem salvar, os dados não somem.
+  useEffect(() => {
+    if (!createOpen || typeof window === 'undefined') return
+    try {
+      if (novaOpTemConteudo(form)) localStorage.setItem(NOVA_OP_DRAFT_KEY, JSON.stringify(form))
+      else localStorage.removeItem(NOVA_OP_DRAFT_KEY)
+    } catch { /* quota/privado — tolera perder o rascunho */ }
+  }, [form, createOpen])
+
   const openCreate = async () => {
-    setForm({ titulo: '', descricao: '', valor: '', etapaId: etapas[0]?.id || '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '' })
+    const base = formVazio()
+    let restored = false
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(NOVA_OP_DRAFT_KEY) : null
+      if (raw) {
+        const draft = JSON.parse(raw) as Partial<typeof base>
+        if (draft && novaOpTemConteudo(draft as Record<string, unknown>)) {
+          setForm({ ...base, ...draft, etapaId: draft.etapaId || base.etapaId })
+          restored = true
+        }
+      }
+    } catch { /* rascunho corrompido — ignora */ }
+    if (!restored) setForm(base)
+    setDraftRestored(restored)
     setCreateOpen(true)
     try {
       const c = await (trpc.cliente as any).listForSelect.query()
       setClientes(c)
     } catch { /* ignore */ }
+  }
+
+  // Limpa o rascunho e zera o form (botão "Descartar" do Sheet).
+  const descartarRascunho = async () => {
+    const ok = await alerts.confirm({ title: 'Descartar dados?', text: 'Os dados digitados nesta oportunidade serão apagados.', confirmText: 'Descartar', icon: 'warning' })
+    if (!ok) return
+    try { if (typeof window !== 'undefined') localStorage.removeItem(NOVA_OP_DRAFT_KEY) } catch { /* */ }
+    setForm(formVazio())
+    setDraftRestored(false)
   }
 
   const handleCreate = async () => {
@@ -607,6 +650,8 @@ export default function CrmPage() {
         await (trpc.crm as any).addTag.mutate({ oportunidadeId: created.id, tagId: form.tagId }).catch(() => {})
       }
       setCreateOpen(false)
+      try { if (typeof window !== 'undefined') localStorage.removeItem(NOVA_OP_DRAFT_KEY) } catch { /* */ }
+      setDraftRestored(false)
       alerts.success('Oportunidade criada')
       fetchAll()
     } catch {
@@ -1023,15 +1068,30 @@ export default function CrmPage() {
       <Sheet open={createOpen} onOpenChange={setCreateOpen}>
         <SheetContent side="right" size="xl" className="w-[75vw] max-w-[1200px]">
           <SheetHeader className="border-b-0 bg-transparent">
-            <div className="absolute right-14 top-4 z-10">
+            <div className="absolute right-14 top-4 z-10 flex items-center gap-1">
+              <button
+                type="button"
+                className="flex h-7 w-7 items-center justify-center rounded-md opacity-60 transition-all hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-20 disabled:cursor-default disabled:hover:bg-transparent"
+                disabled={creating || !novaOpTemConteudo(form)}
+                onClick={descartarRascunho}
+                title="Descartar dados digitados"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
               <button className="flex h-7 w-7 items-center justify-center rounded-md opacity-60 transition-all hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10" disabled={creating} onClick={handleCreate} title="Salvar">
                 {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               </button>
             </div>
-            <SheetTitle className="text-base pr-24">Nova Oportunidade</SheetTitle>
+            <SheetTitle className="text-base pr-32">Nova Oportunidade</SheetTitle>
           </SheetHeader>
 
           <SheetBody className="px-6 py-5 space-y-5">
+            {draftRestored && (
+              <div className="flex items-center gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+                <span>Recuperamos os dados que você havia começado a digitar. Para começar do zero, use <strong>Descartar</strong> (ícone de lixeira no topo).</span>
+              </div>
+            )}
             {/* Pipeline */}
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-2 block">Pipeline</label>
