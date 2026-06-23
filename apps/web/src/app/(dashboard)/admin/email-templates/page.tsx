@@ -18,7 +18,6 @@ import type { Editor } from '@tiptap/react'
 import {
   Button, Input, Label, Card, Badge, Separator, RichEditor, cn,
 } from '@saas/ui'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { alerts } from '@/lib/alerts'
 import { renderEmailShell } from './_lib/email-shell'
 import {
@@ -208,10 +207,12 @@ export default function EmailTemplatesPage() {
   )
 
   return (
-    <div className="space-y-5 p-4 md:p-6">
-      {/* Header */}
+    <div className="space-y-5">
+      {/* Header — padrão inline de /orcamentos e /crm (ícone gradiente + h1 + descrição) */}
       <div className="flex items-center gap-4">
-        <PageHeaderIcon icon={Mail} module="administrativo" />
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
+          <Mail className="h-6 w-6" />
+        </div>
         <div className="min-w-0">
           <h1>Modelos de E-mail</h1>
           <p className="text-sm text-muted-foreground">
