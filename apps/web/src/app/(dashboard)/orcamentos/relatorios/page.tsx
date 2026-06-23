@@ -1,24 +1,35 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, type ElementType } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  ArrowLeft, BarChart3, Loader2, Clock, Target, AlertTriangle, Building2, TrendingUp, Star, ThumbsUp, MessageSquare,
+  BarChart3, Loader2, Clock, Target, AlertTriangle, Building2, TrendingUp, Star, ThumbsUp, MessageSquare,
 } from 'lucide-react'
 import {
-  Button, Card, Badge,
+  Card, Badge,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
+import type { inferRouterOutputs } from '@trpc/server'
+import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, LabelList,
 } from 'recharts'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+
+type OrcOut = inferRouterOutputs<AppRouter>['orcamento']
+type FunilData = OrcOut['reportFunil']
+type AtrasadosData = OrcOut['reportAtrasados']
+type DesempenhoData = OrcOut['reportDesempenho']
+type TempoData = OrcOut['reportTempoCiclo']
+type AreaData = OrcOut['reportPorArea']
+type PesquisaData = inferRouterOutputs<AppRouter>['pesquisa']['reportPesquisa']
 
 const STATUS_LABELS: Record<string, string> = {
   NOVO: 'Novo', A_ENVIAR: 'A Enviar', ENVIADO: 'Enviado', APROVADO: 'Aprovado',
@@ -67,35 +78,29 @@ export default function RelatoriosOrcamentosPage() {
   }, [periodo])
 
   // Data states
-  const [funil, setFunil] = useState<{ funil: Array<{ status: string; count: number; valor: number }>; total: number; valorTotal: number; taxaConversao: number } | null>(null)
-  const [atrasados, setAtrasados] = useState<{ aguardandoEnvio: any[]; aguardandoAprovacao: any[]; diasEnvioConfig: number; diasAprovacaoConfig: number } | null>(null)
-  const [desempenho, setDesempenho] = useState<any[]>([])
-  const [tempo, setTempo] = useState<any | null>(null)
-  const [areas, setAreas] = useState<any[]>([])
-  const [pesquisa, setPesquisa] = useState<any | null>(null)
+  const [funil, setFunil] = useState<FunilData | null>(null)
+  const [atrasados, setAtrasados] = useState<AtrasadosData | null>(null)
+  const [desempenho, setDesempenho] = useState<DesempenhoData>([])
+  const [tempo, setTempo] = useState<TempoData | null>(null)
+  const [areas, setAreas] = useState<AreaData>([])
+  const [pesquisa, setPesquisa] = useState<PesquisaData | null>(null)
   const [loading, setLoading] = useState(false)
 
   const loadTab = useCallback(async (currentTab: TabKey) => {
     setLoading(true)
     try {
       if (currentTab === 'funil') {
-        const data = await (trpc.orcamento as any).reportFunil.query({ dias })
-        setFunil(data)
+        setFunil(await trpc.orcamento.reportFunil.query({ dias }))
       } else if (currentTab === 'atrasados') {
-        const data = await (trpc.orcamento as any).reportAtrasados.query()
-        setAtrasados(data)
+        setAtrasados(await trpc.orcamento.reportAtrasados.query())
       } else if (currentTab === 'desempenho') {
-        const data = await (trpc.orcamento as any).reportDesempenho.query({ dias })
-        setDesempenho(data)
+        setDesempenho(await trpc.orcamento.reportDesempenho.query({ dias }))
       } else if (currentTab === 'tempo') {
-        const data = await (trpc.orcamento as any).reportTempoCiclo.query({ dias })
-        setTempo(data)
+        setTempo(await trpc.orcamento.reportTempoCiclo.query({ dias }))
       } else if (currentTab === 'area') {
-        const data = await (trpc.orcamento as any).reportPorArea.query({ dias })
-        setAreas(data)
+        setAreas(await trpc.orcamento.reportPorArea.query({ dias }))
       } else if (currentTab === 'satisfacao') {
-        const data = await (trpc.pesquisa as any).reportPesquisa.query({ dias: dias ?? null })
-        setPesquisa(data)
+        setPesquisa(await trpc.pesquisa.reportPesquisa.query({ dias: dias ?? null }))
       }
     } catch { /* silent */ }
     finally { setLoading(false) }
@@ -108,9 +113,6 @@ export default function RelatoriosOrcamentosPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/orcamentos')}>
-            <ArrowLeft className="h-4 w-4" /> Voltar
-          </Button>
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
             <BarChart3 className="h-6 w-6" />
           </div>
@@ -119,12 +121,15 @@ export default function RelatoriosOrcamentosPage() {
             <p className="text-sm text-muted-foreground">Indicadores e análises do pipeline comercial</p>
           </div>
         </div>
-        <Select value={periodo} onValueChange={setPeriodo}>
-          <SelectTrigger className="h-9 w-[180px] text-sm"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {PERIODOS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 shrink-0">
+          <Select value={periodo} onValueChange={setPeriodo}>
+            <SelectTrigger className="h-9 w-[180px] text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {PERIODOS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <BackButton href="/orcamentos" label="Voltar" />
+        </div>
       </div>
 
       {/* Pills */}
@@ -171,7 +176,7 @@ export default function RelatoriosOrcamentosPage() {
 // Tabs
 // ============================================================
 
-function FunilTab({ funil }: { funil: { funil: Array<{ status: string; count: number; valor: number }>; total: number; valorTotal: number; taxaConversao: number } }) {
+function FunilTab({ funil }: { funil: FunilData }) {
   const dadosChart = funil.funil.map(f => ({
     name: STATUS_LABELS[f.status] || f.status,
     qtd: f.count,
@@ -223,7 +228,7 @@ function FunilTab({ funil }: { funil: { funil: Array<{ status: string; count: nu
         <h3 className="text-sm font-semibold mb-4">Distribuicao</h3>
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={dadosChart}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="name" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} />
             <Tooltip />
@@ -237,7 +242,7 @@ function FunilTab({ funil }: { funil: { funil: Array<{ status: string; count: nu
   )
 }
 
-function AtrasadosTab({ atrasados }: { atrasados: { aguardandoEnvio: any[]; aguardandoAprovacao: any[]; diasEnvioConfig: number; diasAprovacaoConfig: number } }) {
+function AtrasadosTab({ atrasados }: { atrasados: AtrasadosData }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -269,7 +274,7 @@ function AtrasadosTab({ atrasados }: { atrasados: { aguardandoEnvio: any[]; agua
                 <TableCell className="text-right text-sm">{formatCurrency(o.totalGeral)}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">{new Date(o.createdAt).toLocaleDateString('pt-BR')}</TableCell>
                 <TableCell className="text-center">
-                  <Badge className="bg-amber-100 text-amber-700 text-[10px]">{o.diasAtraso}d</Badge>
+                  <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px]">{o.diasAtraso}d</Badge>
                 </TableCell>
               </TableRow>
             ))}
@@ -301,7 +306,7 @@ function AtrasadosTab({ atrasados }: { atrasados: { aguardandoEnvio: any[]; agua
                 <TableCell className="text-right text-sm">{formatCurrency(o.totalGeral)}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">{o.dtEnviado ? new Date(o.dtEnviado).toLocaleDateString('pt-BR') : '—'}</TableCell>
                 <TableCell className="text-center">
-                  <Badge className="bg-rose-100 text-rose-700 text-[10px]">{o.diasAtraso}d</Badge>
+                  <Badge className="bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 text-[10px]">{o.diasAtraso}d</Badge>
                 </TableCell>
               </TableRow>
             ))}
@@ -312,7 +317,7 @@ function AtrasadosTab({ atrasados }: { atrasados: { aguardandoEnvio: any[]; agua
   )
 }
 
-function DesempenhoTab({ data }: { data: any[] }) {
+function DesempenhoTab({ data }: { data: DesempenhoData }) {
   const dadosChart = data.slice(0, 10).map(d => ({
     name: d.nome.length > 20 ? d.nome.slice(0, 18) + '...' : d.nome,
     Aprovados: d.aprovados,
@@ -328,7 +333,7 @@ function DesempenhoTab({ data }: { data: any[] }) {
         ) : (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={dadosChart}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
@@ -360,6 +365,7 @@ function DesempenhoTab({ data }: { data: any[] }) {
                 <TableCell className="text-sm">
                   <div className="flex items-center gap-2">
                     {d.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={resolveAssetUrl(d.image)} alt={d.nome} className="h-6 w-6 rounded-full object-cover shrink-0" />
                     ) : (
                       <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
@@ -375,8 +381,8 @@ function DesempenhoTab({ data }: { data: any[] }) {
                 <TableCell className="text-center">
                   <Badge className={cn(
                     'text-[10px]',
-                    d.taxaAprovacao >= 50 ? 'bg-emerald-100 text-emerald-700' :
-                      d.taxaAprovacao >= 25 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                    d.taxaAprovacao >= 50 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                      d.taxaAprovacao >= 25 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
                   )}>{d.taxaAprovacao}%</Badge>
                 </TableCell>
                 <TableCell className="text-right text-sm font-medium">{formatCurrency(d.valorAprovado)}</TableCell>
@@ -389,7 +395,7 @@ function DesempenhoTab({ data }: { data: any[] }) {
   )
 }
 
-function TempoTab({ data }: { data: any }) {
+function TempoTab({ data }: { data: TempoData }) {
   const items = [
     { label: 'Criacao -> Envio', d: data.criacaoAteEnvio, cor: '#818cf8' },
     { label: 'Envio -> Aprovacao', d: data.envioAteAprovacao, cor: '#3b82f6' },
@@ -424,7 +430,7 @@ function TempoTab({ data }: { data: any }) {
   )
 }
 
-function AreaTab({ data }: { data: any[] }) {
+function AreaTab({ data }: { data: AreaData }) {
   const total = data.reduce((s, d) => s + d.count, 0)
   const dadosPie = data.map((d, i) => ({
     name: d.area,
@@ -476,8 +482,8 @@ function AreaTab({ data }: { data: any[] }) {
                 <TableCell className="text-center">
                   <Badge className={cn(
                     'text-[10px]',
-                    d.taxaAprovacao >= 50 ? 'bg-emerald-100 text-emerald-700' :
-                      d.taxaAprovacao >= 25 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                    d.taxaAprovacao >= 50 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                      d.taxaAprovacao >= 25 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
                   )}>{d.taxaAprovacao}%</Badge>
                 </TableCell>
                 <TableCell className="text-right text-sm">{formatCurrency(d.valor)}</TableCell>
@@ -490,10 +496,10 @@ function AreaTab({ data }: { data: any[] }) {
   )
 }
 
-function SatisfacaoTab({ data }: { data: any | null }) {
+function SatisfacaoTab({ data }: { data: PesquisaData | null }) {
   if (!data) return <p className="text-sm text-muted-foreground text-center py-10">Carregando…</p>
   const npsCor = data.nps < 0 ? '#ef4444' : data.nps < 50 ? '#f59e0b' : '#10b981'
-  const chartNps = (data.distribuicaoNps || []).map((d: any) => ({ nome: String(d.nota), count: d.count }))
+  const chartNps = (data.distribuicaoNps || []).map((d: { nota: number; count: number }) => ({ nome: String(d.nota), count: d.count }))
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -512,12 +518,12 @@ function SatisfacaoTab({ data }: { data: any | null }) {
           <h4 className="text-sm font-semibold mb-4">Distribuição das notas NPS (0–10)</h4>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={chartNps}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis dataKey="nome" tick={{ fontSize: 12 }} />
               <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
               <Tooltip />
               <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                {chartNps.map((d: any, i: number) => {
+                {chartNps.map((d, i: number) => {
                   const n = Number(d.nome); const c = n <= 6 ? '#ef4444' : n <= 8 ? '#f59e0b' : '#10b981'
                   return <Cell key={i} fill={c} />
                 })}
@@ -532,7 +538,7 @@ function SatisfacaoTab({ data }: { data: any | null }) {
         <Card className="p-5">
           <h4 className="text-sm font-semibold mb-3 flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Comentários ({data.comentarios.length})</h4>
           <div className="space-y-2 max-h-[360px] overflow-y-auto">
-            {data.comentarios.map((c: any, i: number) => (
+            {data.comentarios.map((c: { texto: string }, i: number) => (
               <p key={i} className="text-sm border-l-2 pl-3 py-1 text-muted-foreground" style={{ borderColor: MODULE_COLOR }}>{c.texto}</p>
             ))}
           </div>
@@ -542,7 +548,7 @@ function SatisfacaoTab({ data }: { data: any | null }) {
   )
 }
 
-function StatCard({ label, value, icon: Icon, cor = MODULE_COLOR }: { label: string; value: string; icon: any; cor?: string }) {
+function StatCard({ label, value, icon: Icon, cor = MODULE_COLOR }: { label: string; value: string; icon: ElementType; cor?: string }) {
   return (
     <Card className="p-4 flex items-center gap-3">
       <div className="h-10 w-10 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: `${cor}18` }}>
