@@ -1,0 +1,91 @@
+name: Build & Push imagens (API + Web)
+
+# ──────────────────────────────────────────────────────────────────────────
+# Builda as imagens Docker da API e do Web FORA da VPS (no runner do GitHub) e
+# publica no GitHub Container Registry (ghcr.io). Objetivo: tirar o `next build`
+# (pesado de RAM) da produção — a VPS passa a só dar `docker pull` + `up`.
+#
+# Trigger: MANUAL por enquanto (workflow_dispatch). Quando quiser build
+# automático a cada push na oneclick_v2, descomente o bloco `push:` abaixo.
+#
+# PRÉ-REQUISITOS (configurar uma vez no GitHub → Settings → Secrets and
+# variables → Actions → aba "Variables"):
+#   NEXT_PUBLIC_API_URL  → mesmo valor que o Service Manager passa hoje no build
+#                          do web (destino do rewrite /be/* → API).
+#   NEXT_PUBLIC_APP_URL  → URL pública do app (ex.: https://app.oneclick.central-rnc.com.br)
+# O push pro ghcr.io usa o GITHUB_TOKEN embutido — nenhum secret extra.
+#
+# CONSUMIR NA VPS (mudança no Service Manager — fora deste repo):
+#   # 1x: autenticar no ghcr (PAT com read:packages, ou deixe o pacote público)
+#   echo "$GHCR_PAT" | docker login ghcr.io -u wagnerguerra --password-stdin
+#   # a cada deploy, no lugar do `docker buildx bake`:
+#   docker pull ghcr.io/wagnerguerra/oneclick-api:latest
+#   docker pull ghcr.io/wagnerguerra/oneclick-web:latest
+#   docker compose up -d   # com `image: ghcr.io/wagnerguerra/oneclick-{api,web}:latest`
+# Detalhes em docs/CI-BUILD-IMAGENS.md.
+# ──────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [oneclick_v2]
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: wagnerguerra
+
+jobs:
+  build-api:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Login ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build & push API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/oneclick-api:latest
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/oneclick-api:${{ github.sha }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+  build-web:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Login ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build & push Web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_APP_URL=${{ vars.NEXT_PUBLIC_APP_URL }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/oneclick-web:latest
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/oneclick-web:${{ github.sha }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
