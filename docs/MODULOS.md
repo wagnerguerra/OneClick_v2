@@ -41,6 +41,11 @@ Lista canônica dos módulos do SaaS ERP/CRM, agrupados por bloco. Referenciada 
 - DT-e SEFAZ ES (Agência Virtual)
 - DANFE / Galeria de Notas
 
+## CONTÁBIL
+- Categorias de Balancete
+- Dashboard Financeiro
+- Tratamento de Lançamentos (importação → Modelo de Tratamento → exportação SCI)
+
 ## TI
 - Gestão de Ativos
 - HelpDesk

@@ -27,6 +27,8 @@ import { ColaboradorService } from '../colaborador/colaborador.service'
 import { createColaboradorRouter } from '../colaborador/colaborador.router'
 import { FornecedorService } from '../fornecedor/fornecedor.service'
 import { createFornecedorRouter } from '../fornecedor/fornecedor.router'
+import { TratamentoLancamentosService } from '../tratamento-lancamentos/tratamento-lancamentos.service'
+import { createTratamentoLancamentosRouter } from '../tratamento-lancamentos/tratamento-lancamentos.router'
 import { SocioService } from '../socio/socio.service'
 import { createSocioRouter } from '../socio/socio.router'
 import { CnpjService } from '../cnpj/cnpj.service'
@@ -452,6 +454,7 @@ export class TrpcService {
     @Inject(StripeService) private readonly stripeService: StripeService,
     @Inject(ColaboradorService) private readonly colaboradorService: ColaboradorService,
     @Inject(FornecedorService) private readonly fornecedorService: FornecedorService,
+    @Inject(TratamentoLancamentosService) private readonly tratamentoLancamentosService: TratamentoLancamentosService,
     @Inject(SocioService) private readonly socioService: SocioService,
     @Inject(CnpjService) private readonly cnpjService: CnpjService,
     @Inject(SitfisService) private readonly sitfisService: SitfisService,
@@ -560,6 +563,7 @@ export class TrpcService {
       billing: createBillingRouter(this.stripeService),
       colaborador: createColaboradorRouter(this.colaboradorService),
       fornecedor: createFornecedorRouter(this.fornecedorService),
+      tratamentoLancamentos: createTratamentoLancamentosRouter(this.tratamentoLancamentosService),
       socio: createSocioRouter(this.socioService, this.cnpjService, this.sitfisService),
       sitfis: createSitfisRouter(this.sitfisService, this.cnpjService, this.socioService),
       caixaPostal: createCaixaPostalRouter(this.caixaPostalService, this.caixaPostalScheduler),

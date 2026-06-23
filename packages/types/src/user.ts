@@ -62,7 +62,7 @@ export const MODULE_SLUGS = [
   'obrigacoes-servicos', 'situacao-fiscal',
 
   // Contábil
-  'bi-categorias-balancete', 'bi-faturamento',
+  'bi-categorias-balancete', 'bi-faturamento', 'tratamento-lancamentos',
   // TI
   'ativos', 'helpdesk', 'projetos',
   // Qualidade
@@ -107,6 +107,7 @@ export const MODULE_LABELS: Record<string, string> = {
   'obrigacoes-servicos': 'Obrigações e Serviços', 'situacao-fiscal': 'Situação Fiscal',
   // Contábil
   'bi-categorias-balancete': 'Categorias de Balancete', 'bi-faturamento': 'Dashboard Financeiro',
+  'tratamento-lancamentos': 'Tratamento de Lançamentos',
   // TI
   ativos: 'Gestão de Ativos', helpdesk: 'HelpDesk', projetos: 'Projetos',
   // Qualidade
@@ -129,7 +130,7 @@ export const MODULE_GROUPS = {
   'Legalização': ['beneficios-fiscais', 'certificados', 'gestao-certificados', 'processos', 'quadro-societario'],
   'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento'],
   'Fiscal': ['caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal'],
-  'Contábil': ['bi-categorias-balancete', 'bi-faturamento'],
+  'Contábil': ['bi-categorias-balancete', 'bi-faturamento', 'tratamento-lancamentos'],
   'TI': ['ativos', 'helpdesk', 'projetos'],
   'Qualidade': ['qualidade', 'aquisicoes', 'analise-contexto', 'capacitacoes', 'documentos-internos', 'documentos-externos', 'tabelas-registros', 'elogios', 'melhorias', 'nao-conformidades', 'reclamacoes', 'reunioes', 'sugestoes'],
   'Configurações': ['configuracoes', 'metricas', 'backup-restore'],

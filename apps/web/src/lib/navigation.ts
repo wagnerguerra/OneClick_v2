@@ -200,6 +200,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Categorias de Balancete', href: '/bi-categorias-balancete', icon: FolderKanban },
       { label: 'Dashboard Financeiro', href: '/bi-faturamento', icon: BarChart2 },
+      { label: 'Tratamento de Lançamentos', href: '/tratamento-lancamentos', icon: FileSpreadsheet },
     ],
   },
   {

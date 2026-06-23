@@ -1506,6 +1506,59 @@ model FornecedorEvent {
 }
 
 // ============================================================
+// Módulo Contábil — Tratamento de Lançamentos (exportação SCI)
+//
+// O corpo do Modelo (de/para de colunas, regra entrada/saída, contrapartidas,
+// conta corrente) é estrutura variável → armazenado como JSON na versão.
+// Cada save gera uma nova versão com snapshot COMPLETO da definição.
+// empresaId/clienteId/authorId são ids soltos (sem FK) de propósito, p/ não
+// acoplar aos models Empresa/User/Cliente.
+// ============================================================
+
+model TreatmentModel {
+  id   String @id @default(cuid())
+  code Int    @default(autoincrement())
+
+  nome          String
+  contaCorrente String? @map("conta_corrente")
+  clienteId     String? @map("cliente_id")
+
+  // Ponteiro p/ a versão atual (snapshot). Sem FK formal p/ evitar ciclo.
+  currentVersionId String? @map("current_version_id")
+
+  // Multi-empresa
+  empresaId String? @map("empresa_id")
+
+  // Controle
+  isActive  Boolean   @default(true) @map("is_active")
+  version   Int       @default(1)
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  versions TreatmentModelVersion[]
+
+  @@index([empresaId])
+  @@index([clienteId])
+  @@map("tratamento_modelos")
+}
+
+model TreatmentModelVersion {
+  id            String   @id @default(cuid())
+  modelId       String   @map("model_id")
+  versionNumber Int      @map("version_number")
+  definition    Json
+  authorId      String?  @map("author_id")
+  note          String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  model TreatmentModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([modelId])
+  @@map("tratamento_modelo_versoes")
+}
+
+// ============================================================
 // Módulo Cadastros — Sócios
 // ============================================================
 
