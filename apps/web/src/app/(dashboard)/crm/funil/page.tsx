@@ -124,7 +124,6 @@ export default function CrmFunilPage() {
       {/* Header — padrão inline de /orcamentos e /crm (ícone gradiente + h1 + descrição) */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <BackButton href="/crm" />
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
             <Sparkles className="h-6 w-6" />
           </div>
@@ -132,6 +131,10 @@ export default function CrmFunilPage() {
             <h1>Campanhas de captação (IA)</h1>
             <p className="text-sm text-muted-foreground">Cada campanha tem seu próprio link e conduz a IA focada no assunto; os leads caem no CRM marcados pela campanha</p>
           </div>
+        </div>
+        {/* Ações à direita — botão Voltar sempre à direita (último) */}
+        <div className="flex items-center gap-2 shrink-0">
+          <BackButton href="/crm" label="Voltar" />
         </div>
       </div>
 
