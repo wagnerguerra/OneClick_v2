@@ -708,7 +708,7 @@ export default function OrcamentosPage() {
             </Button>
           )}
           {canViewIndicadores && (
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/orcamentos/indicadores')} title="Indicadores">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/orcamentos/relatorios?tab=indicadores')} title="Indicadores">
               <Activity className="h-4 w-4" />
             </Button>
           )}

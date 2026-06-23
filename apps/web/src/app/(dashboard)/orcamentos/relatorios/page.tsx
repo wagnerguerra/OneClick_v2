@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, type ElementType } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  BarChart3, Loader2, Clock, Target, AlertTriangle, Building2, TrendingUp, Star, ThumbsUp, MessageSquare,
+  BarChart3, Loader2, Clock, Target, AlertTriangle, Building2, TrendingUp, Star, ThumbsUp, MessageSquare, Activity,
 } from 'lucide-react'
 import {
   Card, Badge,
@@ -12,6 +12,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { IndicadoresDashboard } from '../_components/indicadores-dashboard'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
 import type { inferRouterOutputs } from '@trpc/server'
@@ -42,6 +43,7 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const TABS = [
+  { key: 'indicadores', label: 'Indicadores', icon: Activity },
   { key: 'funil', label: 'Funil de Vendas', icon: TrendingUp },
   { key: 'atrasados', label: 'Atrasados', icon: AlertTriangle },
   { key: 'desempenho', label: 'Desempenho', icon: Target },
@@ -87,6 +89,7 @@ export default function RelatoriosOrcamentosPage() {
   const [loading, setLoading] = useState(false)
 
   const loadTab = useCallback(async (currentTab: TabKey) => {
+    if (currentTab === 'indicadores') { setLoading(false); return }   // tab gerencia o próprio carregamento
     setLoading(true)
     try {
       if (currentTab === 'funil') {
@@ -122,12 +125,14 @@ export default function RelatoriosOrcamentosPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {tab !== 'indicadores' && (
           <Select value={periodo} onValueChange={setPeriodo}>
             <SelectTrigger className="h-9 w-[180px] text-sm"><SelectValue /></SelectTrigger>
             <SelectContent>
               {PERIODOS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
             </SelectContent>
           </Select>
+          )}
           <BackButton href="/orcamentos" label="Voltar" />
         </div>
       </div>
@@ -160,6 +165,7 @@ export default function RelatoriosOrcamentosPage() {
         </div>
       ) : (
         <>
+          {tab === 'indicadores' && <IndicadoresDashboard />}
           {tab === 'funil' && funil && <FunilTab funil={funil} />}
           {tab === 'atrasados' && atrasados && <AtrasadosTab atrasados={atrasados} />}
           {tab === 'desempenho' && <DesempenhoTab data={desempenho} />}
