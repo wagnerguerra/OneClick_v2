@@ -2465,84 +2465,98 @@ export class OrcamentoService {
     const periodo = (campo: 'dtEnviado' | 'dtAprovado' | 'dtLiberado' | 'dtCancelado'): Prisma.OrcamentoWhereInput =>
       ({ ...base, [campo]: { gte: ini, lte: fim } })
 
-    const [gEnviados, gAprovados, gLiberados, aggReprovados] = await Promise.all([
-      prisma.orcamento.groupBy({ by: ['tipo'], where: periodo('dtEnviado'), _count: true, _sum: { totalGeral: true } }),
-      prisma.orcamento.groupBy({ by: ['tipo'], where: periodo('dtAprovado'), _count: true, _sum: { totalGeral: true } }),
-      prisma.orcamento.groupBy({ by: ['tipo'], where: { ...periodo('dtLiberado'), status: 'LIBERADO' }, _count: true, _sum: { totalGeral: true } }),
-      prisma.orcamento.aggregate({ where: periodo('dtCancelado'), _count: true, _sum: { totalGeral: true } }),
+    // Classificação mensal/extra pela natureza do SERVIÇO (não pelo campo tipo
+    // estático, que não é atualizado pela transição extra→mensal do fluxo).
+    // Regra: orçamento com ≥1 item SERVICO de um Servico recorrenteMensal=true
+    // conta como MENSAL; se não tiver itens de serviço, usa o campo `tipo`.
+    const recorrentes = await prisma.servico.findMany({
+      where: { recorrenteMensal: true, ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}) },
+      select: { id: true },
+    })
+    const recorrenteSet = new Set(recorrentes.map(s => s.id))
+    const ehMensal = (itens: { tipo: string; catalogoId: string | null }[], tipoFallback: string | null) => {
+      const servicos = itens.filter(it => it.tipo === 'SERVICO' && it.catalogoId)
+      if (servicos.length === 0) return tipoFallback === 'SERVICO_MENSAL'
+      return servicos.some(it => recorrenteSet.has(it.catalogoId!))
+    }
+
+    const stageSelect = {
+      id: true, numero: true, tipo: true, totalGeral: true, clienteId: true,
+      itens: { select: { descricao: true, tipo: true, catalogoId: true }, orderBy: { createdAt: 'asc' } },
+    } as const
+    const [oEnviados, oAprovados, oLiberados, oReprovados] = await Promise.all([
+      prisma.orcamento.findMany({ where: periodo('dtEnviado'), select: { ...stageSelect, dtEnviado: true } }),
+      prisma.orcamento.findMany({ where: periodo('dtAprovado'), select: { ...stageSelect, dtAprovado: true } }),
+      prisma.orcamento.findMany({ where: { ...periodo('dtLiberado'), status: 'LIBERADO' }, select: { ...stageSelect, dtLiberado: true } }),
+      prisma.orcamento.findMany({ where: periodo('dtCancelado'), select: { ...stageSelect, dtCancelado: true } }),
     ])
 
-    type G = { tipo: string | null; _count: number; _sum: { totalGeral: Prisma.Decimal | null } }
-    const pick = (rows: G[], tipo: string) => {
-      const r = rows.find(x => x.tipo === tipo)
-      return { count: r?._count ?? 0, valor: Number(r?._sum?.totalGeral ?? 0) }
+    type Row = { id: string; numero: number; tipo: string | null; totalGeral: Prisma.Decimal; clienteId: string | null; itens: { descricao: string; tipo: string; catalogoId: string | null }[] }
+    const agg = (rows: Row[]) => {
+      const m = { count: 0, valor: 0 }, e = { count: 0, valor: 0 }
+      for (const o of rows) {
+        const v = Number(o.totalGeral)
+        if (ehMensal(o.itens, o.tipo)) { m.count++; m.valor += v } else { e.count++; e.valor += v }
+      }
+      return { mensal: m, extra: e }
     }
-    const envMensal = pick(gEnviados, 'SERVICO_MENSAL'), envExtra = pick(gEnviados, 'SERVICO_EXTRA')
-    const aprMensal = pick(gAprovados, 'SERVICO_MENSAL'), aprExtra = pick(gAprovados, 'SERVICO_EXTRA')
-    const libMensal = pick(gLiberados, 'SERVICO_MENSAL'), libExtra = pick(gLiberados, 'SERVICO_EXTRA')
-    const reprovados = { count: aggReprovados._count ?? 0, valor: Number(aggReprovados._sum?.totalGeral ?? 0) }
+    const env = agg(oEnviados), apr = agg(oAprovados), lib = agg(oLiberados)
+    const reprovadosValor = oReprovados.reduce((s, o) => s + Number(o.totalGeral), 0)
 
     const kpis = {
-      enviadosMensal: envMensal,
-      enviadosExtra: envExtra,
-      aprovadosMensal: aprMensal,
-      aprovadosExtra: aprExtra,
-      conversaoMensal: envMensal.count > 0 ? Math.round((aprMensal.count / envMensal.count) * 100) : 0,
-      conversaoExtra: envExtra.count > 0 ? Math.round((aprExtra.count / envExtra.count) * 100) : 0,
-      reprovados,
-      totalEnviados: { count: envMensal.count + envExtra.count, valor: envMensal.valor + envExtra.valor },
-      totalAprovados: { count: aprMensal.count + aprExtra.count, valor: aprMensal.valor + aprExtra.valor },
+      enviadosMensal: env.mensal,
+      enviadosExtra: env.extra,
+      aprovadosMensal: apr.mensal,
+      aprovadosExtra: apr.extra,
+      conversaoMensal: env.mensal.count > 0 ? Math.round((apr.mensal.count / env.mensal.count) * 100) : 0,
+      conversaoExtra: env.extra.count > 0 ? Math.round((apr.extra.count / env.extra.count) * 100) : 0,
+      reprovados: { count: oReprovados.length, valor: reprovadosValor },
+      totalEnviados: { count: env.mensal.count + env.extra.count, valor: env.mensal.valor + env.extra.valor },
+      totalAprovados: { count: apr.mensal.count + apr.extra.count, valor: apr.mensal.valor + apr.extra.valor },
     }
 
-    const donutEstagios = { aprovados: aprMensal.count + aprExtra.count, liberados: libMensal.count + libExtra.count, reprovados: reprovados.count }
-    const donutTipo = { mensal: aprMensal.count, extra: aprExtra.count }
+    const donutEstagios = { aprovados: apr.mensal.count + apr.extra.count, liberados: lib.mensal.count + lib.extra.count, reprovados: oReprovados.length }
+    const donutTipo = { mensal: apr.mensal.count, extra: apr.extra.count }
 
-    // Listas (aprovados/liberados/reprovados) — nº, data, cliente, 1º item +N, valor.
-    // Orcamento não tem relação `cliente` (só o escalar clienteId): resolve por map.
-    const listaSelect = {
-      id: true, numero: true, tipo: true, totalGeral: true, clienteId: true,
-      itens: { select: { descricao: true } },
-    } as const
-    const [lAprovados, lLiberados, lReprovados] = await Promise.all([
-      prisma.orcamento.findMany({ where: periodo('dtAprovado'), select: { ...listaSelect, dtAprovado: true }, orderBy: [{ tipo: 'asc' }, { numero: 'asc' }] }),
-      prisma.orcamento.findMany({ where: { ...periodo('dtLiberado'), status: 'LIBERADO' }, select: { ...listaSelect, dtLiberado: true }, orderBy: [{ tipo: 'asc' }, { numero: 'asc' }] }),
-      prisma.orcamento.findMany({ where: periodo('dtCancelado'), select: { ...listaSelect, dtCancelado: true }, orderBy: [{ tipo: 'asc' }, { numero: 'asc' }] }),
-    ])
-    const clienteIds = [...new Set([...lAprovados, ...lLiberados, ...lReprovados].map(o => o.clienteId).filter(Boolean))] as string[]
+    // Listas — cliente resolvido por id (Orcamento não tem relação `cliente`)
+    const clienteIds = [...new Set([...oAprovados, ...oLiberados, ...oReprovados].map(o => o.clienteId).filter(Boolean))] as string[]
     const clientes = clienteIds.length
       ? await prisma.cliente.findMany({ where: { id: { in: clienteIds } }, select: { id: true, razaoSocial: true, nomeFantasia: true } }).catch(() => [])
       : []
     const clienteMap = new Map(clientes.map(c => [c.id, c]))
 
-    type OrcListaRow = { id: string; numero: number; tipo: string | null; totalGeral: Prisma.Decimal; clienteId: string | null; itens: { descricao: string }[] }
-    const mapItem = (o: OrcListaRow, data: Date | null | undefined) => {
+    const mapItem = (o: Row, data: Date | null | undefined) => {
       const c = o.clienteId ? clienteMap.get(o.clienteId) : null
+      const mensal = ehMensal(o.itens, o.tipo)
+      const primeiro = o.itens.find(it => it.tipo === 'SERVICO') ?? o.itens[0]
       return {
         id: o.id,
         numero: o.numero,
         data: data ? data.toISOString() : null,
         cliente: c?.razaoSocial || c?.nomeFantasia || '—',
-        tipo: o.tipo === 'SERVICO_MENSAL' ? 'Serviço mensal' : 'Serviço extra',
-        tipoKey: o.tipo,
-        primeiroItem: o.itens[0]?.descricao ? o.itens[0].descricao.toUpperCase() : '',
+        tipo: mensal ? 'Serviço mensal' : 'Serviço extra',
+        tipoKey: mensal ? 'SERVICO_MENSAL' : 'SERVICO_EXTRA',
+        primeiroItem: primeiro?.descricao ? primeiro.descricao.toUpperCase() : '',
         qtdExtra: o.itens.length > 1 ? o.itens.length - 1 : 0,
         valor: Number(o.totalGeral),
       }
     }
+    const ordenar = (rows: ReturnType<typeof mapItem>[]) =>
+      rows.sort((a, b) => (a.tipoKey === b.tipoKey ? a.numero - b.numero : a.tipoKey === 'SERVICO_MENSAL' ? -1 : 1))
     const listas = {
-      aprovados: lAprovados.map(o => mapItem(o, o.dtAprovado)),
-      liberados: lLiberados.map(o => mapItem(o, o.dtLiberado)),
-      reprovados: lReprovados.map(o => mapItem(o, o.dtCancelado)),
+      aprovados: ordenar(oAprovados.map(o => mapItem(o, o.dtAprovado))),
+      liberados: ordenar(oLiberados.map(o => mapItem(o, o.dtLiberado))),
+      reprovados: ordenar(oReprovados.map(o => mapItem(o, o.dtCancelado))),
     }
 
-    // Série dos últimos 12 meses (por createdAt): mensal × extra
+    // Série dos últimos 12 meses (por createdAt), classificada pelos serviços
     const desde = new Date()
     desde.setMonth(desde.getMonth() - 11)
     desde.setDate(1)
     desde.setHours(0, 0, 0, 0)
     const ult12 = await prisma.orcamento.findMany({
       where: { ...base, createdAt: { gte: desde } },
-      select: { createdAt: true, tipo: true },
+      select: { createdAt: true, tipo: true, itens: { select: { tipo: true, catalogoId: true } } },
     })
     const buckets: { mes: string; mensal: number; extra: number }[] = []
     for (let i = 0; i < 12; i++) {
@@ -2555,8 +2569,8 @@ export class OrcamentoService {
       const key = `${String(o.createdAt.getMonth() + 1).padStart(2, '0')}-${o.createdAt.getFullYear()}`
       const i = idxMes.get(key)
       if (i === undefined) continue
-      if (o.tipo === 'SERVICO_MENSAL') buckets[i]!.mensal++
-      else if (o.tipo === 'SERVICO_EXTRA') buckets[i]!.extra++
+      if (ehMensal(o.itens, o.tipo)) buckets[i]!.mensal++
+      else buckets[i]!.extra++
     }
 
     return { periodo: { dataInicio, dataFim }, kpis, donutEstagios, donutTipo, listas, serie12m: buckets }
