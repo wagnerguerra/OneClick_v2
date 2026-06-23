@@ -2576,6 +2576,38 @@ export class OrcamentoService {
     return { periodo: { dataInicio, dataFim }, kpis, donutEstagios, donutTipo, listas, serie12m: buckets }
   }
 
+  /**
+   * Funil comercial unificado (macro): volume por estágio da jornada
+   * Lead → Oportunidade → Orçamento enviado → aprovado → Contrato, com taxa de
+   * conversão entre estágios consecutivos. Filtra por createdAt nos últimos
+   * `dias` (ou todo o período se não informado).
+   */
+  async reportFunilComercial(empresaId?: string, dias?: number) {
+    const cutoff = dias ? new Date(Date.now() - dias * 86400000) : undefined
+    const emp: Prisma.OrcamentoWhereInput = empresaId ? { empresaId } : {}
+    const desdeCreated = cutoff ? { createdAt: { gte: cutoff } } : {}
+
+    const [leads, oportunidades, orcEnviados, orcAprovados, contratos] = await Promise.all([
+      prisma.leadSessao.count({ where: { ...(empresaId ? { empresaId } : {}), ...desdeCreated } }),
+      prisma.oportunidade.count({ where: { ...(empresaId ? { empresaId } : {}), ...desdeCreated } }),
+      prisma.orcamento.count({ where: { ...emp, arquivado: false, dtEnviado: cutoff ? { gte: cutoff } : { not: null } } }),
+      prisma.orcamento.count({ where: { ...emp, arquivado: false, dtAprovado: cutoff ? { gte: cutoff } : { not: null } } }),
+      prisma.contrato.count({ where: { ...(empresaId ? { empresaId } : {}), ...desdeCreated, status: { not: 'RASCUNHO' } } }),
+    ])
+
+    const stage = (label: string, count: number, prev: number | null) => ({
+      label, count, conversao: prev !== null && prev > 0 ? Math.round((count / prev) * 100) : null,
+    })
+    const funil = [
+      stage('Leads (captação)', leads, null),
+      stage('Oportunidades', oportunidades, leads),
+      stage('Orçamentos enviados', orcEnviados, oportunidades),
+      stage('Orçamentos aprovados', orcAprovados, orcEnviados),
+      stage('Contratos efetivados', contratos, orcAprovados),
+    ]
+    return { funil, dias: dias ?? null }
+  }
+
   /** Atrasados — envio e aprovacao alem do prazo configurado */
   async reportAtrasados(empresaId?: string) {
     const where: any = { arquivado: false }
