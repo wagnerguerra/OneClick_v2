@@ -392,6 +392,10 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ dias: z.number().optional() }).optional())
       .query(({ input, ctx }) => orcamentoService.reportFunil(ctx.empresaId, input?.dias)),
 
+    reportIndicadores: readProcedure(MODULE)
+      .input(z.object({ dataInicio: z.string(), dataFim: z.string() }))
+      .query(({ input, ctx }) => orcamentoService.reportIndicadores(ctx.empresaId, input.dataInicio, input.dataFim)),
+
     reportAtrasados: readProcedure(MODULE)
       .query(({ ctx }) => orcamentoService.reportAtrasados(ctx.empresaId)),
 

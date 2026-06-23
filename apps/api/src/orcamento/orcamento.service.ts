@@ -2453,6 +2453,111 @@ export class OrcamentoService {
     return { funil, total, valorTotal, taxaConversao }
   }
 
+  /**
+   * Indicadores de Orçamentos (recriação do dashboard legado): KPIs por estágio
+   * × tipo (mensal/extra), donuts, listas (aprovados/liberados/reprovados) e
+   * série de 12 meses. Período = [dataInicio, dataFim] (default mês anterior).
+   */
+  async reportIndicadores(empresaId: string | undefined, dataInicio: string, dataFim: string) {
+    const ini = new Date(`${dataInicio}T00:00:00`)
+    const fim = new Date(`${dataFim}T23:59:59.999`)
+    const base: Prisma.OrcamentoWhereInput = { arquivado: false, ...(empresaId ? { empresaId } : {}) }
+    const periodo = (campo: 'dtEnviado' | 'dtAprovado' | 'dtLiberado' | 'dtCancelado'): Prisma.OrcamentoWhereInput =>
+      ({ ...base, [campo]: { gte: ini, lte: fim } })
+
+    const [gEnviados, gAprovados, gLiberados, aggReprovados] = await Promise.all([
+      prisma.orcamento.groupBy({ by: ['tipo'], where: periodo('dtEnviado'), _count: true, _sum: { totalGeral: true } }),
+      prisma.orcamento.groupBy({ by: ['tipo'], where: periodo('dtAprovado'), _count: true, _sum: { totalGeral: true } }),
+      prisma.orcamento.groupBy({ by: ['tipo'], where: { ...periodo('dtLiberado'), status: 'LIBERADO' }, _count: true, _sum: { totalGeral: true } }),
+      prisma.orcamento.aggregate({ where: periodo('dtCancelado'), _count: true, _sum: { totalGeral: true } }),
+    ])
+
+    type G = { tipo: string | null; _count: number; _sum: { totalGeral: Prisma.Decimal | null } }
+    const pick = (rows: G[], tipo: string) => {
+      const r = rows.find(x => x.tipo === tipo)
+      return { count: r?._count ?? 0, valor: Number(r?._sum?.totalGeral ?? 0) }
+    }
+    const envMensal = pick(gEnviados, 'SERVICO_MENSAL'), envExtra = pick(gEnviados, 'SERVICO_EXTRA')
+    const aprMensal = pick(gAprovados, 'SERVICO_MENSAL'), aprExtra = pick(gAprovados, 'SERVICO_EXTRA')
+    const libMensal = pick(gLiberados, 'SERVICO_MENSAL'), libExtra = pick(gLiberados, 'SERVICO_EXTRA')
+    const reprovados = { count: aggReprovados._count ?? 0, valor: Number(aggReprovados._sum?.totalGeral ?? 0) }
+
+    const kpis = {
+      enviadosMensal: envMensal,
+      enviadosExtra: envExtra,
+      aprovadosMensal: aprMensal,
+      aprovadosExtra: aprExtra,
+      conversaoMensal: envMensal.count > 0 ? Math.round((aprMensal.count / envMensal.count) * 100) : 0,
+      conversaoExtra: envExtra.count > 0 ? Math.round((aprExtra.count / envExtra.count) * 100) : 0,
+      reprovados,
+      totalEnviados: { count: envMensal.count + envExtra.count, valor: envMensal.valor + envExtra.valor },
+      totalAprovados: { count: aprMensal.count + aprExtra.count, valor: aprMensal.valor + aprExtra.valor },
+    }
+
+    const donutEstagios = { aprovados: aprMensal.count + aprExtra.count, liberados: libMensal.count + libExtra.count, reprovados: reprovados.count }
+    const donutTipo = { mensal: aprMensal.count, extra: aprExtra.count }
+
+    // Listas (aprovados/liberados/reprovados) — nº, data, cliente, 1º item +N, valor
+    const listaSelect = {
+      id: true, numero: true, tipo: true, totalGeral: true,
+      cliente: { select: { razaoSocial: true, nomeFantasia: true } },
+      itens: { select: { descricao: true } },
+    } as const
+    type OrcLista = Prisma.OrcamentoGetPayload<{ select: typeof listaSelect }> & {
+      dtAprovado?: Date | null; dtLiberado?: Date | null; dtCancelado?: Date | null
+    }
+    const mapItem = (o: OrcLista, data: Date | null | undefined) => {
+      const itens = o.itens ?? []
+      return {
+        id: o.id,
+        numero: o.numero,
+        data: data ? data.toISOString() : null,
+        cliente: o.cliente?.razaoSocial || o.cliente?.nomeFantasia || '—',
+        tipo: o.tipo === 'SERVICO_MENSAL' ? 'Serviço mensal' : 'Serviço extra',
+        tipoKey: o.tipo,
+        primeiroItem: itens[0]?.descricao ? itens[0].descricao.toUpperCase() : '',
+        qtdExtra: itens.length > 1 ? itens.length - 1 : 0,
+        valor: Number(o.totalGeral),
+      }
+    }
+    const [lAprovados, lLiberados, lReprovados] = await Promise.all([
+      prisma.orcamento.findMany({ where: periodo('dtAprovado'), select: { ...listaSelect, dtAprovado: true }, orderBy: [{ tipo: 'asc' }, { numero: 'asc' }] }),
+      prisma.orcamento.findMany({ where: { ...periodo('dtLiberado'), status: 'LIBERADO' }, select: { ...listaSelect, dtLiberado: true }, orderBy: [{ tipo: 'asc' }, { numero: 'asc' }] }),
+      prisma.orcamento.findMany({ where: periodo('dtCancelado'), select: { ...listaSelect, dtCancelado: true }, orderBy: [{ tipo: 'asc' }, { numero: 'asc' }] }),
+    ])
+    const listas = {
+      aprovados: lAprovados.map(o => mapItem(o, o.dtAprovado)),
+      liberados: lLiberados.map(o => mapItem(o, o.dtLiberado)),
+      reprovados: lReprovados.map(o => mapItem(o, o.dtCancelado)),
+    }
+
+    // Série dos últimos 12 meses (por createdAt): mensal × extra
+    const desde = new Date()
+    desde.setMonth(desde.getMonth() - 11)
+    desde.setDate(1)
+    desde.setHours(0, 0, 0, 0)
+    const ult12 = await prisma.orcamento.findMany({
+      where: { ...base, createdAt: { gte: desde } },
+      select: { createdAt: true, tipo: true },
+    })
+    const buckets: { mes: string; mensal: number; extra: number }[] = []
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(desde)
+      d.setMonth(desde.getMonth() + i)
+      buckets.push({ mes: `${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`, mensal: 0, extra: 0 })
+    }
+    const idxMes = new Map(buckets.map((b, i) => [b.mes, i]))
+    for (const o of ult12) {
+      const key = `${String(o.createdAt.getMonth() + 1).padStart(2, '0')}-${o.createdAt.getFullYear()}`
+      const i = idxMes.get(key)
+      if (i === undefined) continue
+      if (o.tipo === 'SERVICO_MENSAL') buckets[i]!.mensal++
+      else if (o.tipo === 'SERVICO_EXTRA') buckets[i]!.extra++
+    }
+
+    return { periodo: { dataInicio, dataFim }, kpis, donutEstagios, donutTipo, listas, serie12m: buckets }
+  }
+
   /** Atrasados — envio e aprovacao alem do prazo configurado */
   async reportAtrasados(empresaId?: string) {
     const where: any = { arquivado: false }
