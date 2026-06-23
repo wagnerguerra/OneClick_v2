@@ -11,7 +11,6 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { PageHeader } from '@/components/page-header'
 import { StatCard } from '@/components/stat-card'
 import { trpc } from '@/lib/trpc'
 import {
@@ -157,37 +156,42 @@ export default function ComercialPage() {
   const aVencer: any[] = ct?.aVencer ?? []
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        color="#fb7185"
-        icon={Gauge}
-        title="Painel Comercial"
-        subtitle="Gestão à vista — CRM, Orçamentos e Contratos"
-        actions={
-          <div className="flex items-center gap-2">
-            {refreshing && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-            <Select value={periodo} onValueChange={setPeriodo}>
-              <SelectTrigger className="w-[170px] h-8 text-xs bg-white dark:bg-card">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PERIODOS.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              onClick={() => load()}
-              title="Atualizar agora"
-              className="bg-white dark:bg-card"
-            >
-              <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
-            </Button>
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <div
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
+            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
+          >
+            <Gauge className="h-6 w-6" />
           </div>
-        }
-      />
+          <div>
+            <h1>Painel Comercial</h1>
+            <p className="text-sm text-muted-foreground">Gestão à vista — CRM, Orçamentos e Contratos</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {refreshing && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          <Select value={periodo} onValueChange={setPeriodo}>
+            <SelectTrigger className="w-[170px] h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIODOS.map((p) => (
+                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={() => load()}
+            title="Atualizar agora"
+          >
+            <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
+          </Button>
+        </div>
+      </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-24">
@@ -244,10 +248,10 @@ export default function ComercialPage() {
                 {funilChart.length ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={funilChart} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
                       <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                      <Tooltip content={<ChartTooltip fmt={(v: any, n: string) => (n === 'Valor' ? formatCurrency(v) : v)} />} cursor={{ fill: 'rgba(128,128,128,0.08)' }} />
+                      <Tooltip content={<ChartTooltip fmt={(v: any, n: string) => (n === 'Valor' ? formatCurrency(v) : v)} />} cursor={{ fill: 'hsl(var(--muted))' }} />
                       <Bar dataKey="count" name="Quantidade" radius={[4, 4, 0, 0]}>
                         {funilChart.map((e: any) => (
                           <Cell key={e.etapaId} fill={e.cor || '#fb7185'} opacity={0.85} />
@@ -302,10 +306,10 @@ export default function ComercialPage() {
                 {ctEvolucao.length ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={ctEvolucao} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
                       <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                      <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(128,128,128,0.08)' }} />
+                      <Tooltip content={<ChartTooltip />} cursor={{ fill: 'hsl(var(--muted))' }} />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
                       <Bar dataKey="novos" name="Novos" fill="#34d399" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="encerrados" name="Encerrados" fill="#ef4444" radius={[4, 4, 0, 0]} />
@@ -323,10 +327,10 @@ export default function ComercialPage() {
               <div className="h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data.crmDesempenho} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                    <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(128,128,128,0.08)' }} />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: 'hsl(var(--muted))' }} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                     <Bar dataKey="ganhos" name="Ganhos" fill="#10b981" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="perdidos" name="Perdidos" fill="#ef4444" radius={[4, 4, 0, 0]} />
@@ -365,11 +369,14 @@ export default function ComercialPage() {
                       <TableCell className="text-xs text-center">
                         <Badge
                           variant="secondary"
-                          className="text-[10px]"
-                          style={{
-                            backgroundColor: c.diasRestantes != null && c.diasRestantes <= 15 ? '#fee2e2' : c.diasRestantes != null && c.diasRestantes <= 30 ? '#fef3c7' : '#dbeafe',
-                            color: c.diasRestantes != null && c.diasRestantes <= 15 ? '#991b1b' : c.diasRestantes != null && c.diasRestantes <= 30 ? '#92400e' : '#1e40af',
-                          }}
+                          className={cn(
+                            'text-[10px]',
+                            c.diasRestantes != null && c.diasRestantes <= 15
+                              ? 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300'
+                              : c.diasRestantes != null && c.diasRestantes <= 30
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                                : 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300',
+                          )}
                         >
                           {c.diasRestantes != null ? `${c.diasRestantes} dias` : '—'}
                         </Badge>
