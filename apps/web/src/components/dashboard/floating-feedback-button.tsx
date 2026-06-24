@@ -314,7 +314,9 @@ export function FloatingFeedbackButton() {
           className={cn(
             // Popover acompanha o FAB (z-[60] + pointer-events-auto) —
             // fica acima de modais e recebe cliques normalmente.
-            'fixed bottom-20 right-5 lg:right-16 z-[60] pointer-events-auto w-[360px] max-w-[calc(100vw-2.5rem)]',
+            // 'evento' tem mais campos (modalidade/sala/garagem) → um pouco mais largo.
+            'fixed bottom-20 right-5 lg:right-16 z-[60] pointer-events-auto max-w-[calc(100vw-2.5rem)]',
+            mode === 'evento' ? 'w-[420px]' : 'w-[360px]',
             'rounded-lg border border-border bg-card shadow-2xl overflow-hidden',
             // Transição manual (origin no canto inferior direito = "sai do botão FAB").
             'origin-bottom-right transition-all duration-200 ease-out',
