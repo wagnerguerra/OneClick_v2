@@ -50,3 +50,6 @@ example
 # generated native folders
 /ios
 /android
+
+# pasta de materiais soltos (não faz parte do build do app)
+/materiais
