@@ -2640,6 +2640,23 @@ model AgendaLog {
   @@map("agenda_logs")
 }
 
+/// Auditoria das ações nos TIPOS de evento (criar/editar/excluir categoria).
+/// Sem FK pro AgendaTipo (snapshot do nome sobrevive à exclusão); usuário
+/// resolvido por query (igual ao AgendaLog). Master acompanha quem fez o quê.
+model AgendaTipoEvent {
+  id        String   @id @default(cuid())
+  tipoId    String?  @map("tipo_id")
+  tipoNome  String   @map("tipo_nome")
+  usuarioId String   @map("usuario_id")
+  acao      String // CRIOU | EDITOU | EXCLUIU
+  detalhes  String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tipoId])
+  @@index([createdAt])
+  @@map("agenda_tipo_events")
+}
+
 /// Canal de notificação do lembrete.
 /// POPUP: notificação no app (browser Notification API + toast in-app, via SSE).
 /// EMAIL: e-mail transacional via EmailService pros participantes do evento.

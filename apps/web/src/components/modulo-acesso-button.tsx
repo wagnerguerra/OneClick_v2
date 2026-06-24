@@ -5,11 +5,14 @@
  * Mostra dois grupos: acesso total (master/dono do tenant) e usuários com
  * permissão explícita de leitura no módulo (com o nível de cada um).
  *
+ * Master/empresaMaster podem clicar nos badges de nível para REVOGAR a permissão
+ * (Leitura remove o acesso; Escrita também tira Exclusão; Exclusão só ela).
+ *
  * Uso: <ModuloAcessoButton moduleSlug="agenda" />
  */
 
-import { useState } from 'react'
-import { Users, Crown, ShieldCheck, Loader2 } from 'lucide-react'
+import { useState, useCallback } from 'react'
+import { Users, Crown, ShieldCheck, Loader2, X } from 'lucide-react'
 import {
   Button, Badge, cn,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody,
@@ -17,6 +20,10 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
+import { alerts } from '@/lib/alerts'
+import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+
+type Nivel = 'read' | 'write' | 'delete'
 
 interface Pessoa {
   id: string
@@ -51,22 +58,47 @@ export function ModuloAcessoButton({
   size?: 'sm' | 'icon-sm'
   className?: string
 }) {
+  const { profile } = useCurrentUserProfile()
+  const canManage = !!(profile?.isMaster || profile?.isEmpresaMaster)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<Resultado | null>(null)
+  const [revogando, setRevogando] = useState<string | null>(null)
 
-  async function handleOpen(o: boolean) {
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await (trpc.user as any).comAcessoAoModulo.query({ moduleSlug })
+      setData(res as Resultado)
+    } catch {
+      setData({ acessoTotal: [], comPermissao: [], total: 0 })
+    } finally {
+      setLoading(false)
+    }
+  }, [moduleSlug])
+
+  function handleOpen(o: boolean) {
     setOpen(o)
-    if (o && !data) {
-      setLoading(true)
-      try {
-        const res = await (trpc.user as any).comAcessoAoModulo.query({ moduleSlug })
-        setData(res as Resultado)
-      } catch {
-        setData({ acessoTotal: [], comPermissao: [], total: 0 })
-      } finally {
-        setLoading(false)
-      }
+    if (o && !data) load()
+  }
+
+  async function handleRevogar(p: Pessoa, nivel: Nivel) {
+    const labels: Record<Nivel, string> = { read: 'Leitura (remove o acesso)', write: 'Escrita', delete: 'Exclusão' }
+    const ok = await alerts.confirm({
+      title: 'Revogar permissão',
+      text: `Remover "${labels[nivel]}" de ${p.name} nesta tela?`,
+      confirmText: 'Revogar',
+    })
+    if (!ok) return
+    setRevogando(`${p.id}:${nivel}`)
+    try {
+      await (trpc.user as any).revogarAcessoModulo.mutate({ userId: p.id, moduleSlug, nivel })
+      alerts.success('Permissão revogada.')
+      await load()
+    } catch (err: any) {
+      alerts.error(err?.message || 'Erro ao revogar permissão')
+    } finally {
+      setRevogando(null)
     }
   }
 
@@ -81,7 +113,9 @@ export function ModuloAcessoButton({
         <DialogContent className="max-w-md">
           <DialogHeaderIcon icon={Users} color="indigo">
             <DialogTitle>Quem tem acesso</DialogTitle>
-            <DialogDescription>Usuários que podem acessar esta tela</DialogDescription>
+            <DialogDescription>
+              {canManage ? 'Clique num nível para revogar a permissão' : 'Usuários que podem acessar esta tela'}
+            </DialogDescription>
           </DialogHeaderIcon>
           <DialogBody className="max-h-[60vh] space-y-5 overflow-y-auto">
             {loading ? (
@@ -110,10 +144,10 @@ export function ModuloAcessoButton({
                   <Secao titulo="Com permissão" icon={ShieldCheck}>
                     {data.comPermissao.map((p) => (
                       <LinhaPessoa key={p.id} p={p}>
-                        <div className="flex flex-wrap gap-1">
-                          <NivelBadge ativo>Leitura</NivelBadge>
-                          {p.canWrite && <NivelBadge>Escrita</NivelBadge>}
-                          {p.canDelete && <NivelBadge>Exclusão</NivelBadge>}
+                        <div className="flex flex-wrap justify-end gap-1">
+                          <NivelBadge ativo canManage={canManage} loading={revogando === `${p.id}:read`} onClick={() => handleRevogar(p, 'read')}>Leitura</NivelBadge>
+                          {p.canWrite && <NivelBadge canManage={canManage} loading={revogando === `${p.id}:write`} onClick={() => handleRevogar(p, 'write')}>Escrita</NivelBadge>}
+                          {p.canDelete && <NivelBadge canManage={canManage} loading={revogando === `${p.id}:delete`} onClick={() => handleRevogar(p, 'delete')}>Exclusão</NivelBadge>}
                         </div>
                       </LinhaPessoa>
                     ))}
@@ -156,19 +190,36 @@ function LinhaPessoa({ p, children }: { p: Pessoa; children: React.ReactNode }) 
   )
 }
 
-function NivelBadge({ children, ativo }: { children: React.ReactNode; ativo?: boolean }) {
+function NivelBadge({
+  children, ativo, canManage, loading, onClick,
+}: {
+  children: React.ReactNode
+  ativo?: boolean
+  canManage?: boolean
+  loading?: boolean
+  onClick?: () => void
+}) {
+  const base = ativo
+    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+    : 'border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400'
+  if (!canManage) {
+    return <Badge variant="outline" className={cn('font-medium', base)}>{children}</Badge>
+  }
   return (
-    <Badge
-      variant="outline"
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={loading}
+      title="Clique para revogar"
       className={cn(
-        'font-medium',
-        ativo
-          ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-          : 'border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400',
+        'group inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors',
+        base,
+        'hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400',
       )}
     >
       {children}
-    </Badge>
+      {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />}
+    </button>
   )
 }
 

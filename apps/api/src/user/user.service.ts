@@ -370,6 +370,27 @@ export class UserService {
   }
 
   /**
+   * Revoga um nível de acesso de um usuário num módulo (usado pelo botão "Quem
+   * tem acesso"). Cascata coerente:
+   *  - 'delete' → tira só exclusão.
+   *  - 'write'  → tira escrita E exclusão (sem escrita não faz sentido excluir).
+   *  - 'read'   → remove o acesso ao módulo por completo (apaga a linha).
+   * Não mexe em master/empresaMaster (eles não têm linha em UserPermission).
+   */
+  async revogarAcessoModulo(userId: string, moduleSlug: string, nivel: 'read' | 'write' | 'delete') {
+    const where = { userId_moduleSlug: { userId, moduleSlug } }
+    if (nivel === 'read') {
+      await prisma.userPermission.deleteMany({ where: { userId, moduleSlug } })
+    } else if (nivel === 'write') {
+      await prisma.userPermission.update({ where, data: { canWrite: false, canDelete: false } })
+    } else {
+      await prisma.userPermission.update({ where, data: { canDelete: false } })
+    }
+    this.notifyPermissionsChanged(userId)
+    return { success: true }
+  }
+
+  /**
    * Soft delete: desativa o usuário. Hard delete não é seguro porque o User tem
    * FKs em vários módulos (eventos da agenda, permissões, sessions, etc.).
    * Desativa sessões ativas pra cortar o acesso imediato.

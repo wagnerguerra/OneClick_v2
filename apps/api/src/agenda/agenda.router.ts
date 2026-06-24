@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TRPCError } from '@trpc/server'
 import { router, readProcedure, writeProcedure, deleteProcedure, writeSubProcedure, deleteSubProcedure, readSubProcedure } from '../trpc/trpc.service'
 import { AgendaService } from './agenda.service'
 import { AgendaGoogleService } from './agenda-google.service'
@@ -43,7 +44,7 @@ export function createAgendaRouter(
         permiteEquipamentos: z.boolean().optional(),
         salasPermitidas: z.array(z.string()).optional(),
       }))
-      .mutation(({ input }) => service.createTipo(input)),
+      .mutation(({ input, ctx }) => service.createTipo(input, ctx.userId)),
 
     updateTipo: writeProcedure(MODULE)
       .input(z.object({
@@ -61,11 +62,21 @@ export function createAgendaRouter(
           salasPermitidas: z.array(z.string()).optional(),
         }),
       }))
-      .mutation(({ input }) => service.updateTipo(input.id, input.data)),
+      .mutation(({ input, ctx }) => service.updateTipo(input.id, input.data, ctx.userId)),
 
     deleteTipo: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => service.deleteTipo(input.id)),
+      .mutation(({ input, ctx }) => service.deleteTipo(input.id, ctx.userId)),
+
+    // Histórico de ações nos tipos — só master/dono do tenant acompanham.
+    listTipoEventos: readProcedure(MODULE)
+      .input(z.object({ limit: z.number().min(1).max(200).optional() }).optional())
+      .query(({ ctx, input }) => {
+        if (!ctx.isMaster && !ctx.isEmpresaMaster) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas master/administrador' })
+        }
+        return service.listTipoEventos(input?.limit)
+      }),
 
     importTiposLegado: writeProcedure(MODULE)
       .mutation(() => service.importTiposLegado()),

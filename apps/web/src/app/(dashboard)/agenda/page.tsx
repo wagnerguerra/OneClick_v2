@@ -22,6 +22,7 @@ import {
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { ModuloAcessoButton } from '@/components/modulo-acesso-button'
+import { AgendaTipoHistoricoButton } from '@/components/agenda-tipo-historico-button'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
 import { TarefaModal } from './_components/tarefa-modal'
@@ -3369,7 +3370,8 @@ export default function AgendaPage() {
             <DialogTitle>Tipos de Evento</DialogTitle>
             <DialogDescription>Cadastre e edite as categorias de eventos da agenda</DialogDescription>
           </DialogHeaderIcon>
-          <div className="flex items-center justify-end border-b px-4 py-2">
+          <div className="flex items-center justify-end gap-2 border-b px-4 py-2">
+            <AgendaTipoHistoricoButton />
             <ModuloAcessoButton moduleSlug="agenda" />
           </div>
           <DialogBody className="p-0">

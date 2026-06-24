@@ -429,8 +429,21 @@ export class AgendaService {
     })
   }
 
-  async createTipo(data: { nome: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }) {
-    return prisma.agendaTipo.create({
+  /** Grava auditoria de uma ação num tipo de evento (best-effort, não quebra a ação). */
+  private async logTipo(tipoId: string | null, tipoNome: string, usuarioId: string | undefined, acao: string, detalhes?: string) {
+    if (!usuarioId) return
+    try {
+      await prisma.agendaTipoEvent.create({
+        data: { tipoId, tipoNome, usuarioId, acao, detalhes: detalhes ?? null },
+      })
+    } catch (e) {
+      // tabela ainda não migrada / falha de log não deve abortar a operação
+      console.warn('[agenda] logTipo falhou:', (e as Error).message)
+    }
+  }
+
+  async createTipo(data: { nome: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }, userId?: string) {
+    const tipo = await prisma.agendaTipo.create({
       data: {
         nome: data.nome,
         cor: data.cor ?? '#3b82f6',
@@ -444,9 +457,11 @@ export class AgendaService {
         salasPermitidas: data.salasPermitidas ?? [],
       },
     })
+    await this.logTipo(tipo.id, tipo.nome, userId, 'CRIOU')
+    return tipo
   }
 
-  async updateTipo(id: string, data: { nome?: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }) {
+  async updateTipo(id: string, data: { nome?: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }, userId?: string) {
     const updateData: Record<string, unknown> = {}
     if (data.nome !== undefined) updateData.nome = data.nome
     if (data.cor !== undefined) updateData.cor = data.cor
@@ -459,17 +474,44 @@ export class AgendaService {
     if (data.permiteEquipamentos !== undefined) updateData.permiteEquipamentos = data.permiteEquipamentos
     if (data.salasPermitidas !== undefined) updateData.salasPermitidas = data.salasPermitidas
 
-    return prisma.agendaTipo.update({
+    const tipo = await prisma.agendaTipo.update({
       where: { id },
       data: updateData,
     })
+    const campos = Object.keys(updateData)
+    await this.logTipo(tipo.id, tipo.nome, userId, 'EDITOU', campos.length ? `Campos: ${campos.join(', ')}` : undefined)
+    return tipo
   }
 
-  async deleteTipo(id: string) {
-    return prisma.agendaTipo.update({
+  async deleteTipo(id: string, userId?: string) {
+    const tipo = await prisma.agendaTipo.update({
       where: { id },
       data: { isActive: false },
     })
+    await this.logTipo(tipo.id, tipo.nome, userId, 'EXCLUIU')
+    return tipo
+  }
+
+  /** Histórico de ações nos tipos (master/empresaMaster). Resolve nome do ator. */
+  async listTipoEventos(limit = 100) {
+    const eventos = await prisma.agendaTipoEvent.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+    const userIds = [...new Set(eventos.map((e) => e.usuarioId))]
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, image: true },
+    })
+    const byId = new Map(users.map((u) => [u.id, u]))
+    return eventos.map((e) => ({
+      id: e.id,
+      tipoNome: e.tipoNome,
+      acao: e.acao,
+      detalhes: e.detalhes,
+      createdAt: e.createdAt,
+      usuario: byId.get(e.usuarioId) ?? { id: e.usuarioId, name: 'Usuário removido', image: null },
+    }))
   }
 
   // ============================================================

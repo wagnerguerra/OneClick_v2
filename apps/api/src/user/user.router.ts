@@ -93,6 +93,17 @@ export function createUserRouter(userService: UserService) {
         userService.comAcessoAoModulo(input.moduleSlug, ctx.isMaster ?? false, ctx.empresaId),
       ),
 
+    // Revogar um nível de acesso de um usuário num módulo (botão "Quem tem
+    // acesso"). Gerência de permissão → exige escrita no módulo 'usuarios'
+    // (master/empresaMaster passam direto).
+    revogarAcessoModulo: writeProcedure('usuarios')
+      .input(z.object({
+        userId: z.string(),
+        moduleSlug: z.string().min(1),
+        nivel: z.enum(['read', 'write', 'delete']),
+      }))
+      .mutation(({ input }) => userService.revogarAcessoModulo(input.userId, input.moduleSlug, input.nivel)),
+
     // Carteira de clientes do próprio usuário logado — não exige permissão "usuarios"
     getMyAssignedClients: protectedProcedure
       .query(({ ctx }) => userService.getAssignedClients(ctx.userId)),
