@@ -19,6 +19,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { fileToBase64 } from '@/lib/file'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 type CellValue = string | number | boolean | null
 interface PreviewData { headers: string[]; rows: Array<Record<string, CellValue>>; totalRows: number; truncated: boolean }
@@ -52,6 +53,12 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   // Destino de "Voltar"/"Salvar": a origem (?from=), restrita ao módulo; senão a lista.
   const backHref = backTo && backTo.startsWith('/tratamento-lancamentos') ? backTo : '/tratamento-lancamentos/modelos'
+
+  // Criar/editar Modelo exige a sub-permissão "gerenciar_modelos".
+  const { isMaster, isEmpresaMaster, permissions, loading: permsLoading } = useUserPermissions()
+  const canManage =
+    isMaster || isEmpresaMaster ||
+    permissions.find((p) => p.moduleSlug === 'tratamento-lancamentos')?.subPermissions?.['gerenciar_modelos'] === true
 
   const [loading, setLoading] = useState(mode === 'edit')
   const [saving, setSaving] = useState(false)
@@ -348,11 +355,30 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   )
   dirtyRef.current = dirty
 
-  if (loading) {
+  if (permsLoading || loading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando Modelo...
       </div>
+    )
+  }
+
+  // Sem a sub-permissão de gestão: bloqueia o editor (criar/editar).
+  if (!canManage) {
+    return (
+      <Card className="mx-auto max-w-md p-8 text-center space-y-3">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
+          <Info className="h-6 w-6" />
+        </div>
+        <h2 className="text-base font-semibold text-foreground">Acesso restrito</h2>
+        <p className="text-sm text-muted-foreground">
+          Você não tem permissão para gerenciar Modelos de Tratamento. Fale com um administrador
+          para liberar a permissão <strong>Gerenciar modelos de tratamento</strong>.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => router.push(backHref)}>
+          <ArrowLeft className="h-4 w-4" /> Voltar
+        </Button>
+      </Card>
     )
   }
 

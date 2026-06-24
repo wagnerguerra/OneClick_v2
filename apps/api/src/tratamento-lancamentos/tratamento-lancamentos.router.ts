@@ -1,9 +1,12 @@
 import { z } from 'zod'
-import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
+import { router, readProcedure, writeSubProcedure, deleteSubProcedure } from '../trpc/trpc.service'
 import { createTreatmentModelSchema, updateTreatmentModelSchema, listTreatmentModelSchema, previewArquivoSchema, convertSchema } from '@saas/types'
 import { TratamentoLancamentosService } from './tratamento-lancamentos.service'
 
 const MODULE = 'tratamento-lancamentos'
+// Sub-permissão que libera criar/editar/duplicar/excluir Modelos de Tratamento.
+const MANAGE = 'gerenciar_modelos'
+const MANAGE_LABEL = 'Gerenciar modelos de tratamento'
 
 export function createTratamentoLancamentosRouter(service: TratamentoLancamentosService) {
   return router({
@@ -36,23 +39,23 @@ export function createTratamentoLancamentosRouter(service: TratamentoLancamentos
       .input(convertSchema)
       .mutation(({ input, ctx }) => service.convert(input, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
-    create: writeProcedure(MODULE)
+    create: writeSubProcedure(MODULE, MANAGE, MANAGE_LABEL)
       .input(createTreatmentModelSchema)
       .mutation(({ input, ctx }) => service.create(input, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
-    update: writeProcedure(MODULE)
+    update: writeSubProcedure(MODULE, MANAGE, MANAGE_LABEL)
       .input(z.object({ id: z.string(), data: updateTreatmentModelSchema }))
       .mutation(({ input, ctx }) => service.update(input.id, input.data, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
-    delete: deleteProcedure(MODULE)
+    delete: deleteSubProcedure(MODULE, MANAGE, MANAGE_LABEL)
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => service.remove(input.id, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
-    restore: writeProcedure(MODULE)
+    restore: writeSubProcedure(MODULE, MANAGE, MANAGE_LABEL)
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => service.restore(input.id, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
-    duplicate: writeProcedure(MODULE)
+    duplicate: writeSubProcedure(MODULE, MANAGE, MANAGE_LABEL)
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => service.duplicate(input.id, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
   })

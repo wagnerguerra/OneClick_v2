@@ -17,6 +17,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 interface TreatmentModelRow {
   id: string
@@ -43,6 +44,17 @@ export default function ModelosTratamentoPage() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+
+  // Gerenciar Modelos é restrito à sub-permissão "gerenciar_modelos".
+  // Sem ela, manda de volta ao fluxo principal (que segue acessível com leitura).
+  const { isMaster, isEmpresaMaster, permissions, loading: permsLoading } = useUserPermissions()
+  const canManage =
+    isMaster || isEmpresaMaster ||
+    permissions.find((p) => p.moduleSlug === 'tratamento-lancamentos')?.subPermissions?.['gerenciar_modelos'] === true
+
+  useEffect(() => {
+    if (!permsLoading && !canManage) router.replace('/tratamento-lancamentos')
+  }, [permsLoading, canManage, router])
 
   useEffect(() => {
     const timer = setTimeout(() => { setDebouncedSearch(search); setPage(1) }, 400)
@@ -121,6 +133,17 @@ export default function ModelosTratamentoPage() {
     start = Math.max(1, end - 4)
     for (let i = start; i <= end; i++) pages.push(i)
     return pages
+  }
+
+  // Enquanto resolve a permissão (ou durante o redirect de quem não tem acesso),
+  // não renderiza a tela de gestão.
+  if (permsLoading || !canManage) {
+    return (
+      <div className="flex items-center justify-center py-20 text-muted-foreground">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent mr-2" />
+        Carregando...
+      </div>
+    )
   }
 
   return (

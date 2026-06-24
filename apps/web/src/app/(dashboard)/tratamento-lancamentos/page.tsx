@@ -16,6 +16,7 @@ import { alerts } from '@/lib/alerts'
 import { fileToBase64 } from '@/lib/file'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 interface ModelOption { id: string; nome: string; code: number }
 // Tipo do retorno de `convert` inferido do tRPC — nomeado p/ uso na UI, sem
@@ -36,6 +37,12 @@ const extOk = (name: string) => ACCEPT.some((e) => name.toLowerCase().endsWith(e
 export default function TratamentoLancamentosPage() {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Sub-permissão "gerenciar_modelos": criar/editar/duplicar/excluir Modelos.
+  const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
+  const canManage =
+    isMaster || isEmpresaMaster ||
+    permissions.find((p) => p.moduleSlug === 'tratamento-lancamentos')?.subPermissions?.['gerenciar_modelos'] === true
 
   const [models, setModels] = useState<ModelOption[]>([])
   const [modelId, setModelId] = useState('')
@@ -137,9 +144,11 @@ export default function TratamentoLancamentosPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={() => router.push('/tratamento-lancamentos/modelos')}>
-            <Settings2 className="h-4 w-4" /> Gerenciar modelos
-          </Button>
+          {canManage && (
+            <Button variant="outline" size="sm" onClick={() => router.push('/tratamento-lancamentos/modelos')}>
+              <Settings2 className="h-4 w-4" /> Gerenciar modelos
+            </Button>
+          )}
           <BackButton href="/dashboard" label="Voltar" />
         </div>
       </div>
@@ -211,9 +220,11 @@ export default function TratamentoLancamentosPage() {
             </Select>
             <div className="flex items-center gap-2 text-[11px]">
               {models.length === 0 && <span className="text-muted-foreground">Nenhum modelo cadastrado.</span>}
-              <button className="text-sm text-primary underline" onClick={goCreateModel}>
-                + Criar novo modelo{file ? ' a partir do arquivo enviado' : ''}
-              </button>
+              {canManage && (
+                <button className="text-sm text-primary underline" onClick={goCreateModel}>
+                  + Criar novo modelo{file ? ' a partir do arquivo enviado' : ''}
+                </button>
+              )}
             </div>
           </StepBlock>
 
@@ -297,12 +308,17 @@ export default function TratamentoLancamentosPage() {
             )}
 
             <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center">
-              <Button variant="soft-info" size="sm" className="shrink-0" onClick={() => goEditModel(modelId)}>
-                <Pencil className="h-4 w-4" /> Editar modelo
-              </Button>
+              {canManage && (
+                <Button variant="soft-info" size="sm" className="shrink-0" onClick={() => goEditModel(modelId)}>
+                  <Pencil className="h-4 w-4" /> Editar modelo
+                </Button>
+              )}
               <span className="text-xs text-muted-foreground">
                 As pendências podem vir do <strong>modelo</strong> (mapeamentos faltando) ou do <strong>próprio arquivo</strong>
-                {' '}(campos em branco, datas ou valores inválidos). Corrija o que for necessário e gere novamente.
+                {' '}(campos em branco, datas ou valores inválidos).
+                {canManage
+                  ? ' Corrija o que for necessário e gere novamente.'
+                  : ' Ajuste o arquivo, ou solicite a quem gerencia os modelos a correção do mapeamento.'}
               </span>
             </div>
             </div>

@@ -149,6 +149,9 @@ export interface SubPermissionDef {
 }
 
 export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
+  'tratamento-lancamentos': [
+    { key: 'gerenciar_modelos', label: 'Gerenciar modelos de tratamento (criar, editar, duplicar e excluir)', group: 'Modelos' },
+  ],
   beneficios: [
     { key: 'gerir_beneficios', label: 'Responsável pelo módulo (gerenciar tudo)', group: 'Configurações' },
     { key: 'lancar_apontamentos', label: 'Lançar apontamentos do seu setor (férias, licenças, ausências, faltas, plantões)', group: 'Apontamentos' },
