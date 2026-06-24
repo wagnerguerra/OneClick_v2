@@ -908,7 +908,7 @@ function EventoRequestForm({
   const [config, setConfig] = useState<{ conflitoParticipante: ConflitoModo; conflitoSala: ConflitoModo }>({ conflitoParticipante: 'AVISAR', conflitoSala: 'AVISAR' })
 
   useEffect(() => {
-    (trpc.agenda as any).listTipos.query().then((d: AgendaTipoOpc[]) => { setTipos(d); if (d[0]) setTipoId(d[0].id) }).catch(() => setTipos([]))
+    (trpc.agenda as any).listTipos.query().then((d: AgendaTipoOpc[]) => setTipos(d)).catch(() => setTipos([]))
     ;(trpc.agenda as any).listUsuarios.query().then((d: Array<{ id: string; name: string }>) => setUsuarios(d)).catch(() => setUsuarios([]))
     ;(trpc.agenda as any).sala.list.query({}).then((d: Array<{ id: string; nome: string; ativo: boolean }>) => setSalas(d)).catch(() => setSalas([]))
     ;(trpc.agenda as any).config.get.query().then((c: { conflitoParticipante: ConflitoModo; conflitoSala: ConflitoModo }) => setConfig({ conflitoParticipante: c.conflitoParticipante, conflitoSala: c.conflitoSala })).catch(() => { /* mantém default AVISAR */ })
@@ -1019,7 +1019,7 @@ function EventoRequestForm({
           <div className="space-y-1.5">
             <label className="text-[13px] font-semibold text-foreground">Tipo</label>
             <select value={tipoId} onChange={e => setTipoId(e.target.value)} className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-              {tipos.length === 0 && <option value="">—</option>}
+              <option value="" disabled>Selecione…</option>
               {tipos.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
           </div>

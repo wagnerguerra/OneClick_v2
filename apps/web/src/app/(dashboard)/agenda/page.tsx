@@ -894,7 +894,8 @@ export default function AgendaPage() {
       local: '', contato: '', link: '', presenca: 'PRESENCIAL',
       particular: false, editavel: true, sala: '', salaId: '', garagem: false, vagas: undefined,
       equipamentos: '', isTarefa: false,
-      tipoId: tipos[0]?.id ?? '', recorrencia: 'NENHUMA', recorrenciaVezes: 2,
+      // Tipo em branco — o usuário escolhe (nada pré-selecionado).
+      tipoId: '', recorrencia: 'NENHUMA', recorrenciaVezes: 2,
       participanteIds,
       participantesAvulsos: [],
       notificar: false,
