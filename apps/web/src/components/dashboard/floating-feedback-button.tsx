@@ -5,12 +5,13 @@ import { usePathname } from 'next/navigation'
 import {
   Bug, Lightbulb, MessageSquare, X, Send, Loader2, Check, ExternalLink,
   ImagePlus, Paperclip, Plus, ChevronLeft, LifeBuoy, FileText, Search, Building2,
-  CalendarPlus, Clock, Users,
+  CalendarPlus, Clock, Users, Video, Monitor, DoorOpen, MapPin,
 } from 'lucide-react'
 import { Button, cn, RichEditor } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
+import { renderConflitosHtml, type ConflitoAgenda, type ConflitoModo } from '@/lib/agenda-conflitos'
 
 /**
  * FAB ("Fale com a TI") — sempre visível no canto inferior direito.
@@ -35,6 +36,19 @@ interface AnexoPendente {
   mimeType: string
   tamanho: number
   uploading?: boolean
+}
+
+/** Tipo de evento com as flags configuráveis (mesmas regras da agenda completa). */
+interface AgendaTipoOpc {
+  id: string
+  nome: string
+  cor: string
+  bloqueiaAgenda?: boolean
+  permiteModalidade?: boolean
+  permiteSala?: boolean
+  permiteGaragem?: boolean
+  permiteEquipamentos?: boolean
+  salasPermitidas?: string[]
 }
 
 export function FloatingFeedbackButton() {
@@ -865,7 +879,7 @@ function EventoRequestForm({
 }) {
   const hojeStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
   const [titulo, setTitulo] = useState('')
-  const [tipos, setTipos] = useState<Array<{ id: string; nome: string; cor: string }>>([])
+  const [tipos, setTipos] = useState<AgendaTipoOpc[]>([])
   const [tipoId, setTipoId] = useState('')
   const [data, setData] = useState(hojeStr)
   const [diaInteiro, setDiaInteiro] = useState(false)
@@ -879,21 +893,77 @@ function EventoRequestForm({
   const [enviando, setEnviando] = useState(false)
   const [criado, setCriado] = useState<{ id: string; titulo: string } | null>(null)
 
+  // Campos condicionais por tipo + conflitos (mesma lógica da agenda completa)
+  const [presenca, setPresenca] = useState<'PRESENCIAL' | 'ONLINE' | 'HIBRIDO'>('PRESENCIAL')
+  const [salaId, setSalaId] = useState('')
+  const [sala, setSala] = useState('')
+  const [local, setLocal] = useState('')
+  const [link, setLink] = useState('')
+  const [garagem, setGaragem] = useState(false)
+  const [vagas, setVagas] = useState<number | undefined>(undefined)
+  const [equipamentos, setEquipamentos] = useState(false)
+  const [salas, setSalas] = useState<Array<{ id: string; nome: string; ativo: boolean }>>([])
+  const [config, setConfig] = useState<{ conflitoParticipante: ConflitoModo; conflitoSala: ConflitoModo }>({ conflitoParticipante: 'AVISAR', conflitoSala: 'AVISAR' })
+
   useEffect(() => {
-    (trpc.agenda as any).listTipos.query().then((d: Array<{ id: string; nome: string; cor: string }>) => { setTipos(d); if (d[0]) setTipoId(d[0].id) }).catch(() => setTipos([]))
+    (trpc.agenda as any).listTipos.query().then((d: AgendaTipoOpc[]) => { setTipos(d); if (d[0]) setTipoId(d[0].id) }).catch(() => setTipos([]))
     ;(trpc.agenda as any).listUsuarios.query().then((d: Array<{ id: string; name: string }>) => setUsuarios(d)).catch(() => setUsuarios([]))
+    ;(trpc.agenda as any).sala.list.query({}).then((d: Array<{ id: string; nome: string; ativo: boolean }>) => setSalas(d)).catch(() => setSalas([]))
+    ;(trpc.agenda as any).config.get.query().then((c: { conflitoParticipante: ConflitoModo; conflitoSala: ConflitoModo }) => setConfig({ conflitoParticipante: c.conflitoParticipante, conflitoSala: c.conflitoSala })).catch(() => { /* mantém default AVISAR */ })
   }, [])
 
   const usuariosFiltrados = buscaUser.trim()
     ? usuarios.filter(u => u.name.toLowerCase().includes(buscaUser.trim().toLowerCase()) && !participantes.some(p => p.id === u.id)).slice(0, 6)
     : []
 
+  // Regras configuráveis do tipo selecionado (Agenda › Configurações)
+  const tipoSel = tipos.find(t => t.id === tipoId)
+  const permiteModalidade = !!tipoSel?.permiteModalidade
+  const permiteSala = !!tipoSel?.permiteSala
+  const permiteGaragem = !!tipoSel?.permiteGaragem
+  const permiteEquipamentos = !!tipoSel?.permiteEquipamentos
+  const temConfigEvento = permiteModalidade || permiteSala || permiteGaragem || permiteEquipamentos
+  const salasPermitidasTipo = tipoSel?.salasPermitidas ?? []
+  const salasDisponiveis = salas.filter(s => s.ativo && (salasPermitidasTipo.length === 0 || salasPermitidasTipo.includes(s.id)))
+  const needsLink = permiteModalidade && (presenca === 'ONLINE' || presenca === 'HIBRIDO')
+  const needsGaragem = permiteGaragem && (presenca === 'PRESENCIAL' || presenca === 'HIBRIDO')
+
   async function handleCriar() {
     if (titulo.trim().length < 1) return alerts.error('Informe o título', 'Dê um nome ao evento.')
     if (!tipoId) return alerts.error('Selecione o tipo', 'Escolha o tipo do evento.')
     if (!data) return alerts.error('Informe a data', 'Selecione a data do evento.')
+    if (needsLink && !link.trim()) return alerts.error('Informe o link', 'Eventos online/híbridos precisam do link da reunião.')
+    if (needsGaragem && garagem && !vagas) return alerts.error('Informe as vagas', 'Quantas vagas de garagem reservar?')
     setEnviando(true)
     try {
+      // Conflitos de agenda (participante/sala) conforme regras da empresa
+      const tipoBloqueia = tipoSel?.bloqueiaAgenda !== false
+      const checaParticipante = tipoBloqueia && config.conflitoParticipante !== 'DESLIGADO'
+      const checaSala = tipoBloqueia && config.conflitoSala !== 'DESLIGADO'
+      if ((checaParticipante || checaSala) && !diaInteiro && horaInicio && horaFim) {
+        const conflitos = await (trpc.agenda as any).verificarConflitos.query({
+          data, horaInicio, horaFim,
+          participanteIds: checaParticipante && participantes.length > 0 ? participantes.map(p => p.id) : undefined,
+          sala: checaSala ? (sala || undefined) : undefined,
+          salaId: checaSala ? (salaId || undefined) : undefined,
+          tipoId: tipoId || undefined,
+        }) as ConflitoAgenda[]
+        const relevantes = conflitos.filter(c => (c.tipo === 'participante' && checaParticipante) || (c.tipo === 'sala' && checaSala))
+        if (relevantes.length > 0) {
+          const fatais = relevantes.filter(c =>
+            (c.tipo === 'participante' && config.conflitoParticipante === 'BLOQUEAR') ||
+            (c.tipo === 'sala' && config.conflitoSala === 'BLOQUEAR'))
+          const html = renderConflitosHtml(relevantes, fatais.length > 0)
+          if (fatais.length > 0) {
+            await alerts.custom({ icon: 'error', title: `${fatais.length} conflito${fatais.length > 1 ? 's' : ''} de agenda`, html, showCancelButton: false, confirmButtonText: 'Entendi', width: '32rem' })
+            setEnviando(false)
+            return
+          }
+          const r = await alerts.custom({ icon: 'warning', title: `${relevantes.length} conflito${relevantes.length > 1 ? 's' : ''} de agenda`, html, showCancelButton: true, cancelButtonText: 'Revisar', confirmButtonText: 'Criar mesmo assim', width: '32rem' })
+          if (!r.isConfirmed) { setEnviando(false); return }
+        }
+      }
+
       const res = await (trpc.agenda as any).create.mutate({
         titulo: titulo.trim(),
         tipoId,
@@ -903,6 +973,14 @@ function EventoRequestForm({
         horaFim: diaInteiro ? null : horaFim,
         descricao: descricao.trim() || null,
         participanteIds: participantes.map(p => p.id),
+        presenca: permiteModalidade ? presenca : undefined,
+        sala: permiteSala ? (sala || undefined) : undefined,
+        salaId: permiteSala ? (salaId || undefined) : undefined,
+        link: needsLink ? (link.trim() || undefined) : undefined,
+        local: permiteSala && sala === 'Outro' ? (local.trim() || undefined) : undefined,
+        garagem: needsGaragem ? garagem : undefined,
+        vagas: needsGaragem && garagem ? vagas : undefined,
+        equipamentos: permiteEquipamentos && equipamentos ? 'sim' : undefined,
       }) as { id: string }
       setCriado({ id: res.id, titulo: titulo.trim() })
     } catch (e) {
@@ -948,6 +1026,87 @@ function EventoRequestForm({
             <input type="date" value={data} onChange={e => setData(e.target.value)} className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
           </div>
         </div>
+
+        {/* Configurações do evento — regras por tipo (sala, garagem, modalidade...) */}
+        {temConfigEvento && (
+          <div className="space-y-3 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
+            <p className="text-[10px] font-medium text-sky-600 dark:text-sky-400">Configurações do evento</p>
+
+            {/* Modalidade */}
+            {permiteModalidade && (
+              <div className="space-y-1.5">
+                <label className="text-[12px] font-medium text-foreground">Modalidade *</label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {([['PRESENCIAL', 'Presencial', Building2], ['ONLINE', 'Online', Video], ['HIBRIDO', 'Híbrido', Monitor]] as const).map(([v, l, I]) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setPresenca(v)}
+                      className={cn(
+                        'flex items-center justify-center gap-1 h-8 rounded-md border text-[11px] font-medium transition-colors',
+                        presenca === v ? 'border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400' : 'border-border hover:bg-muted/60',
+                      )}
+                    >
+                      <I className="h-3.5 w-3.5" />{l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sala (allowlist do tipo) + Outro local */}
+            {permiteSala && (
+              <div className="space-y-1.5">
+                <label className="text-[12px] font-medium text-foreground">Sala</label>
+                <div className="space-y-1">
+                  {salasDisponiveis.map(s => (
+                    <label key={s.id} className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', salaId === s.id ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400' : 'hover:bg-muted/50')}>
+                      <input type="radio" name="fab-sala" checked={salaId === s.id} onChange={() => { setSalaId(s.id); setSala(s.nome); setLocal('') }} className="accent-sky-500" />
+                      <DoorOpen className="h-3.5 w-3.5" />{s.nome}
+                    </label>
+                  ))}
+                  <label className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', sala === 'Outro' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400' : 'hover:bg-muted/50')}>
+                    <input type="radio" name="fab-sala" checked={sala === 'Outro'} onChange={() => { setSalaId(''); setSala('Outro') }} className="accent-sky-500" />
+                    <MapPin className="h-3.5 w-3.5" />Outro local
+                  </label>
+                </div>
+                {sala === 'Outro' && (
+                  <input value={local} onChange={e => setLocal(e.target.value)} placeholder="Qual local?" className="w-full h-8 rounded-md border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                )}
+              </div>
+            )}
+
+            {/* Link (online/híbrido) */}
+            {needsLink && (
+              <div className="space-y-1.5">
+                <label className="text-[12px] font-medium text-foreground">Link da reunião *</label>
+                <input value={link} onChange={e => setLink(e.target.value)} placeholder="https://meet.google.com/..." className="w-full h-8 rounded-md border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+            )}
+
+            {/* Garagem + vagas (presencial/híbrido) */}
+            {needsGaragem && (
+              <label className="flex items-center gap-2 cursor-pointer text-xs text-foreground">
+                <input type="checkbox" checked={garagem} onChange={e => setGaragem(e.target.checked)} className="h-3.5 w-3.5 rounded border-border accent-sky-500" />
+                Reservar garagem
+              </label>
+            )}
+            {needsGaragem && garagem && (
+              <div className="space-y-1">
+                <label className="text-[12px] font-medium text-foreground">Vagas *</label>
+                <input type="number" min={1} value={vagas ?? ''} onChange={e => setVagas(Number(e.target.value) || undefined)} className="h-8 w-20 rounded-md border border-border bg-background px-2 text-xs" />
+              </div>
+            )}
+
+            {/* Equipamentos */}
+            {permiteEquipamentos && (
+              <label className="flex items-center gap-2 cursor-pointer text-xs text-foreground">
+                <input type="checkbox" checked={equipamentos} onChange={e => setEquipamentos(e.target.checked)} className="h-3.5 w-3.5 rounded border-border accent-sky-500" />
+                Solicitar equipamentos
+              </label>
+            )}
+          </div>
+        )}
 
         {/* Horário / dia inteiro */}
         <div className="space-y-1.5">
