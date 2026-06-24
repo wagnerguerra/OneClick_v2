@@ -1074,12 +1074,26 @@ export class ClienteService {
 
   private readonly CPT = 'cliente_particularidades'
 
-  async listParticularidades(clienteId: string) {
+  // Só o responsável pelo serviço na área, o gestor (líder) da área e o master
+  // podem alterar as particularidades daquela área.
+  private podeEditarParticularidade(opts: {
+    responsavelId: string | null
+    leaderId: string | null
+    userId: string
+    master: boolean
+  }) {
+    if (opts.master) return true
+    if (opts.responsavelId && opts.responsavelId === opts.userId) return true
+    if (opts.leaderId && opts.leaderId === opts.userId) return true
+    return false
+  }
+
+  async listParticularidades(clienteId: string, userId: string, master: boolean) {
     // Todas as areas contratadas com suas particularidades
     const allAreas = await prisma.clienteAreaContratada.findMany({
       where: { clienteId, contratado: true },
       include: {
-        area: { select: { name: true } },
+        area: { select: { name: true, leaderId: true } },
       },
       orderBy: { area: { name: 'asc' } },
     })
@@ -1103,11 +1117,27 @@ export class ClienteService {
         texto: existing?.texto ?? '',
         updatedByNome: existing?.user_nome ?? null,
         updatedAt: existing?.updated_at ?? null,
+        canEdit: this.podeEditarParticularidade({
+          responsavelId: a.responsavelId,
+          leaderId: a.area.leaderId,
+          userId,
+          master,
+        }),
       }
     })
   }
 
-  async saveParticularidade(clienteAreaContratadaId: string, texto: string, userId: string) {
+  async saveParticularidade(clienteAreaContratadaId: string, texto: string, userId: string, master: boolean) {
+    // Permissão: só responsável da área no cliente, gestor da área ou master.
+    const cac = await prisma.clienteAreaContratada.findUnique({
+      where: { id: clienteAreaContratadaId },
+      select: { responsavelId: true, area: { select: { leaderId: true } } },
+    })
+    if (!cac) throw new Error('Área contratada não encontrada')
+    if (!this.podeEditarParticularidade({ responsavelId: cac.responsavelId, leaderId: cac.area.leaderId, userId, master })) {
+      throw new Error('Acesso negado: apenas o responsável pelo serviço na área, o gestor da área ou o master podem editar as particularidades.')
+    }
+
     // Buscar texto anterior para historico
     type PrevRow = { texto: string }
     const [prev] = await prisma.$queryRawUnsafe<PrevRow[]>(

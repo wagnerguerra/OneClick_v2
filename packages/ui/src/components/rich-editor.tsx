@@ -51,9 +51,11 @@ interface RichEditorProps {
    *  número (px) ou string CSS. Default 420px — mantém o toolbar à mão quando
    *  o texto é longo. Passe `0`/undefined-equivalente via string 'none' p/ ilimitado. */
   maxHeight?: number | string
+  /** Modo somente-leitura: oculta o toolbar e desabilita a edição. */
+  readOnly?: boolean
 }
 
-export function RichEditor({ value, onChange, placeholder, className, onReady, maxHeight = 420 }: RichEditorProps) {
+export function RichEditor({ value, onChange, placeholder, className, onReady, maxHeight = 420, readOnly = false }: RichEditorProps) {
   // Último HTML que ESTE editor emitiu via onChange. Usado pra distinguir um
   // eco do próprio onChange (não deve re-setar o conteúdo) de uma mudança
   // externa de `value` (deve sincronizar). Sem isso, o setContent de eco
@@ -100,6 +102,7 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
       }),
     ],
     content: value ?? '',
+    editable: !readOnly,
     editorProps: {
       attributes: {
         class: 'prose prose-sm dark:prose-invert max-w-none px-3 py-2 min-h-[250px] focus:outline-none text-sm',
@@ -117,6 +120,11 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
   useEffect(() => {
     if (editor && onReady) onReady(editor)
   }, [editor, onReady])
+
+  // Mantém o estado editável em sincronia se `readOnly` mudar após a montagem.
+  useEffect(() => {
+    if (editor) editor.setEditable(!readOnly)
+  }, [editor, readOnly])
 
   // Sincroniza o conteúdo do editor quando o pai muda `value` externamente
   // (ex.: setNovaMsg('') após enviar mensagem — #HLP0064). emitUpdate=false
@@ -243,7 +251,8 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
         .rich-editor-root h3 { font-size: 1.1em; font-weight: 600; margin: 0.4em 0 0.2em; }
         .rich-editor-root hr { border: 0; border-top: 1px solid var(--color-border); margin: 0.75rem 0; }
       ` }} />
-      {/* Toolbar */}
+      {/* Toolbar (oculto em modo leitura) */}
+      {!readOnly && (
       <div className="flex items-center gap-0.5 border-b border-border/40 px-1.5 py-1 flex-wrap">
         {/* Histórico (undo/redo) */}
         <ToolbarButton
@@ -446,6 +455,7 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
           <Code2 className="h-3.5 w-3.5" />
         </ToolbarButton>
       </div>
+      )}
 
       {/* Editor content / HTML source — modo controlado por htmlMode.
           Quando ligado, a textarea mostra o HTML cru com fonte mono; o conteúdo

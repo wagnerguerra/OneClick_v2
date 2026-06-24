@@ -368,14 +368,14 @@ export function createClienteRouter(
     // === PARTICULARIDADES ===
     particularidadesListar: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
-      .query(({ input }) => clienteService.listParticularidades(input.clienteId)),
+      .query(({ input, ctx }) => clienteService.listParticularidades(input.clienteId, ctx.userId, !!(ctx.isMaster || ctx.isEmpresaMaster))),
 
     particularidadesSalvar: writeProcedure(MODULE)
       .input(z.object({
         clienteAreaContratadaId: z.string(),
         texto: z.string(),
       }))
-      .mutation(({ input, ctx }) => clienteService.saveParticularidade(input.clienteAreaContratadaId, input.texto, ctx.userId)),
+      .mutation(({ input, ctx }) => clienteService.saveParticularidade(input.clienteAreaContratadaId, input.texto, ctx.userId, !!(ctx.isMaster || ctx.isEmpresaMaster))),
 
     // === ACESSOS (Legalização) ===
     listAcessos: readProcedure(MODULE)

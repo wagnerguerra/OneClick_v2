@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { StickyNote, Save, Loader2, User, Clock } from 'lucide-react'
+import { StickyNote, Save, Loader2, User, Clock, Lock } from 'lucide-react'
 import { Button, Card, RichEditor } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -12,6 +12,7 @@ interface ParticularidadeRow {
   texto: string
   updatedByNome: string | null
   updatedAt: string | null
+  canEdit: boolean
 }
 
 export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
@@ -105,6 +106,11 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold">{row.areaNome}</span>
                   {isDirty && <span className="text-[10px] text-amber-600 font-medium">alterado</span>}
+                  {!row.canEdit && (
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground" title="Só o responsável pela área, o gestor da área ou o master podem editar.">
+                      <Lock className="h-3 w-3" /> somente leitura
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                   {row.updatedByNome && (
@@ -117,14 +123,16 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
                       <Clock className="h-3 w-3" /> {new Date(row.updatedAt).toLocaleDateString('pt-BR')}
                     </span>
                   )}
-                  <Button
-                    variant="outline" size="sm"
-                    onClick={() => handleSave(row.clienteAreaContratadaId)}
-                    disabled={!isDirty || isSaving}
-                    className="h-6 text-[10px] px-2"
-                  >
-                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                  </Button>
+                  {row.canEdit && (
+                    <Button
+                      variant="outline" size="sm"
+                      onClick={() => handleSave(row.clienteAreaContratadaId)}
+                      disabled={!isDirty || isSaving}
+                      className="h-6 text-[10px] px-2"
+                    >
+                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                    </Button>
+                  )}
                 </div>
               </div>
               <RichEditor
@@ -132,6 +140,7 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
                 onChange={html => updateTexto(row.clienteAreaContratadaId, html)}
                 placeholder={`Particularidades da área ${row.areaNome}...`}
                 maxHeight={260}
+                readOnly={!row.canEdit}
               />
             </div>
           )
