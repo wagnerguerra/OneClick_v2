@@ -2901,6 +2901,8 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
 
       {loading ? (
         <div className="flex justify-center py-4"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
+      ) : (atividades.length === 0 && beneficios.length === 0) ? (
+        <p className="text-xs text-muted-foreground">Sem registro</p>
       ) : (
         <div className="space-y-4">
           {/* Atividades */}
@@ -3259,10 +3261,10 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
           <Button type="button" variant="outline" size="sm" onClick={handleUpload}><Plus className="h-3.5 w-3.5" /> Adicionar</Button>
         )}
       </div>
-      {/* Certificados digitais — leitura + edição de observações (seção adicional) */}
+      {/* Certificados digitais — leitura + edição de observações (seção adicional).
+          Sem subtítulo: o badge "Certificado" em cada item já identifica. */}
       {certificados.length > 0 && (
         <div className="mb-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Certificados digitais</p>
           <div className="space-y-2">
             {certificados.map((cert) => {
               const exp = cert.expiraEm ? new Date(cert.expiraEm) : null
@@ -3313,7 +3315,11 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
       {loading ? (
         <div className="flex justify-center py-4"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
       ) : arquivos.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Nenhum arquivo enviado.</p>
+        // Só mostra o vazio quando não há NEM certificado nem arquivo — senão
+        // contradiz o certificado exibido logo acima.
+        certificados.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhum arquivo enviado.</p>
+        ) : null
       ) : (
         <div className="space-y-2 max-h-[300px] overflow-y-auto scrollbar-none">
           {arquivos.map((arq) => (
