@@ -607,6 +607,26 @@ export class ClienteService {
   }
 
   // ============================================================
+  // REGISTRO DE INSCRIÇÕES (estaduais — N por cliente, migrado do legado)
+  // ============================================================
+  async listInscricoes(clienteId: string) {
+    return prisma.clienteInscricao.findMany({
+      where: { clienteId },
+      orderBy: [{ estado: 'asc' }, { createdAt: 'asc' }],
+    })
+  }
+
+  async addInscricao(clienteId: string, estado: string, inscricao: string) {
+    return prisma.clienteInscricao.create({
+      data: { clienteId, estado: estado.toUpperCase(), inscricao: inscricao.trim() },
+    })
+  }
+
+  async removeInscricao(id: string) {
+    return prisma.clienteInscricao.delete({ where: { id } })
+  }
+
+  // ============================================================
   // ATIVIDADES E BENEFÍCIOS (#5/#6)
   // ============================================================
   async listAtividades(clienteId: string) {

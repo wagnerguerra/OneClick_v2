@@ -178,6 +178,19 @@ export function createClienteRouter(
       .input(z.object({ arquivoId: z.string() }))
       .mutation(({ input }) => clienteService.removeArquivo(input.arquivoId)),
 
+    // === REGISTRO DE INSCRIÇÕES (estaduais — N por cliente, migrado do legado) ===
+    listInscricoes: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => clienteService.listInscricoes(input.clienteId)),
+
+    addInscricao: writeProcedure(MODULE)
+      .input(z.object({ clienteId: z.string(), estado: z.string().trim().min(2).max(2), inscricao: z.string().trim().min(1) }))
+      .mutation(({ input }) => clienteService.addInscricao(input.clienteId, input.estado, input.inscricao)),
+
+    removeInscricao: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => clienteService.removeInscricao(input.id)),
+
     // === ATIVIDADES E BENEFÍCIOS (#5/#6) ===
     // Leitura livre (qualquer um com read no módulo). Mutações gateadas pela
     // sub-permissão 'manage_activities_benefits' (#7) — master/empresa-master

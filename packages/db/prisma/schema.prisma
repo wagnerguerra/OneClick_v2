@@ -793,6 +793,7 @@ model Cliente {
   events               ClienteEvent[]
   arquivos             ClienteArquivo[]
   contatos             ClienteContato[]
+  inscricoes           ClienteInscricao[]
   contratoParams       ClienteContratoParam[]
   erpSnapshots         ClienteErpSnapshot[]
   biCategorias         ClienteBiCategoria[]
@@ -1133,6 +1134,22 @@ model ClienteContato {
   area    Area?   @relation(fields: [areaId], references: [id], onDelete: SetNull)
 
   @@map("cliente_contatos")
+}
+
+// Registro de Inscrições (estaduais) — N por cliente, por estado.
+// Migrado do legado (cad_cli_inscricoes). Convive com o campo único
+// Cliente.inscricaoEstadual (IE principal).
+model ClienteInscricao {
+  id        String   @id @default(cuid())
+  clienteId String   @map("cliente_id")
+  estado    String // UF (2 letras)
+  inscricao String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId])
+  @@map("cliente_inscricoes")
 }
 
 // Parâmetros do Contrato do Cliente

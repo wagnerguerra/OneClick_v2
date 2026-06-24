@@ -2471,6 +2471,13 @@ function FiscalCard({ register, control, clienteId, isEdit, documento }: {
                   <Input placeholder="IM" {...register('inscricaoMunicipal')} />
                 </div>
               </div>
+
+              {/* Registro de Inscrições (estaduais) — N por estado, migrado do legado */}
+              {isEdit && clienteId ? (
+                <RegistroInscricoesCard clienteId={clienteId} />
+              ) : (
+                <p className="mt-6 text-xs text-muted-foreground">Salve o cliente para registrar inscrições.</p>
+              )}
             </div>
           )}
 
@@ -2755,6 +2762,114 @@ function useClientesPerms() {
 }
 
 const MODULE_COLOR_CLIENTES = 'var(--mod-cadastros, #10b981)'
+
+const UF_LIST = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
+
+interface InscricaoRow { id: string; estado: string; inscricao: string; createdAt: string }
+
+/* ================================================================== */
+/* Registro de Inscrições (estaduais — N por cliente, migrado do legado) */
+/* ================================================================== */
+function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
+  const { canWrite, canDelete } = useClientesPerms()
+  const [rows, setRows] = useState<InscricaoRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [estado, setEstado] = useState('')
+  const [inscricao, setInscricao] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await (trpc.cliente as any).listInscricoes.query({ clienteId })
+      setRows(data as InscricaoRow[])
+    } catch { setRows([]) } finally { setLoading(false) }
+  }, [clienteId])
+  useEffect(() => { void load() }, [load])
+
+  async function handleAdd() {
+    if (!estado || !inscricao.trim()) { alerts.error('Preencha o estado e a inscrição.'); return }
+    setSaving(true)
+    try {
+      await (trpc.cliente as any).addInscricao.mutate({ clienteId, estado, inscricao: inscricao.trim() })
+      setEstado(''); setInscricao('')
+      await load()
+    } catch (e) { alerts.error('Erro', (e as Error).message || 'Não foi possível adicionar.') }
+    finally { setSaving(false) }
+  }
+
+  async function handleRemove(id: string) {
+    const ok = await alerts.confirmDelete('esta inscrição')
+    if (!ok) return
+    try {
+      await (trpc.cliente as any).removeInscricao.mutate({ id })
+      await load()
+    } catch (e) { alerts.error('Erro', (e as Error).message || 'Não foi possível remover.') }
+  }
+
+  return (
+    <div className="mt-6">
+      <div className="-mx-5 mb-4 border-b border-border px-5 py-3">
+        <h4 className="text-[13px] font-semibold text-foreground">Registro de Inscrições</h4>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-4"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
+      ) : rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Sem registro</p>
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <th className="w-24 px-3 py-2 text-left">Estado</th>
+                <th className="px-3 py-2 text-left">Inscrição</th>
+                {canDelete && <th className="w-12 px-3 py-2" />}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-b border-border/60 last:border-0">
+                  <td className="px-3 py-2 font-medium text-foreground">{r.estado}</td>
+                  <td className="px-3 py-2 text-foreground">{r.inscricao}</td>
+                  {canDelete && (
+                    <td className="px-3 py-2 text-right">
+                      <button type="button" onClick={() => handleRemove(r.id)} className="text-muted-foreground hover:text-rose-600" title="Remover">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {canWrite && (
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <div className="space-y-1">
+            <Label className="text-[11px]">Estado</Label>
+            <Select value={estado || '__none__'} onValueChange={(v) => setEstado(v === '__none__' ? '' : v)}>
+              <SelectTrigger className="h-9 w-24 text-sm"><SelectValue placeholder="UF" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">UF</SelectItem>
+                {UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex-1 min-w-[160px] space-y-1">
+            <Label className="text-[11px]">Inscrição</Label>
+            <Input value={inscricao} onChange={(e) => setInscricao(e.target.value)} placeholder="Número da inscrição" className="h-9 text-sm" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAdd() } }} />
+          </div>
+          <Button type="button" size="sm" onClick={handleAdd} disabled={saving}>
+            <Plus className="h-3.5 w-3.5" /> Adicionar
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 /* ================================================================== */
 /* AtividadesBeneficiosSidebar (#5/#6/#7) — substitui Áreas Contratadas */
