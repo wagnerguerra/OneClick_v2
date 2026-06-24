@@ -184,8 +184,12 @@ export function createClienteRouter(
       .query(({ input }) => clienteService.listInscricoes(input.clienteId)),
 
     addInscricao: writeProcedure(MODULE)
-      .input(z.object({ clienteId: z.string(), estado: z.string().trim().min(2).max(2), inscricao: z.string().trim().min(1) }))
-      .mutation(({ input }) => clienteService.addInscricao(input.clienteId, input.estado, input.inscricao)),
+      .input(z.object({ clienteId: z.string(), estado: z.string().trim().min(2).max(2), inscricao: z.string().trim().min(1), descricao: z.string().trim().optional() }))
+      .mutation(({ input }) => clienteService.addInscricao(input.clienteId, input.estado, input.inscricao, input.descricao)),
+
+    updateInscricao: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), estado: z.string().trim().min(2).max(2), inscricao: z.string().trim().min(1), descricao: z.string().trim().optional() }))
+      .mutation(({ input }) => clienteService.updateInscricao(input.id, input.estado, input.inscricao, input.descricao)),
 
     removeInscricao: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))

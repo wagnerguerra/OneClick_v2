@@ -616,9 +616,16 @@ export class ClienteService {
     })
   }
 
-  async addInscricao(clienteId: string, estado: string, inscricao: string) {
+  async addInscricao(clienteId: string, estado: string, inscricao: string, descricao?: string | null) {
     return prisma.clienteInscricao.create({
-      data: { clienteId, estado: estado.toUpperCase(), inscricao: inscricao.trim() },
+      data: { clienteId, estado: estado.toUpperCase(), inscricao: inscricao.trim(), descricao: descricao?.trim() || null },
+    })
+  }
+
+  async updateInscricao(id: string, estado: string, inscricao: string, descricao?: string | null) {
+    return prisma.clienteInscricao.update({
+      where: { id },
+      data: { estado: estado.toUpperCase(), inscricao: inscricao.trim(), descricao: descricao?.trim() || null },
     })
   }
 

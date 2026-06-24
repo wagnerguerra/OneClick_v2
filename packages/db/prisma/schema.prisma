@@ -1144,6 +1144,7 @@ model ClienteInscricao {
   clienteId String   @map("cliente_id")
   estado    String // UF (2 letras)
   inscricao String
+  descricao String? // observação livre da inscrição
   createdAt DateTime @default(now()) @map("created_at")
 
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)

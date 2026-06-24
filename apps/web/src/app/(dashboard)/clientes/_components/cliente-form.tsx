@@ -9,7 +9,7 @@ import {
   FileText, ShoppingCart, Receipt, ClipboardList, Plus, Send,
   Briefcase, FileBarChart, History, File, Calculator, Shield,
   ListChecks, StickyNote, FileInput, MessageSquareQuote, Users, ListTodo,
-  ExternalLink, X, Loader2, Building2, Phone, Star, Pencil, Trash2, Link2,
+  ExternalLink, X, Loader2, Building2, Phone, Star, Pencil, Trash2, Link2, Check,
   CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen, HardDriveDownload,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, MoreVertical,
   Image as ImageIcon, Activity, Percent, ShieldCheck,
@@ -2769,7 +2769,7 @@ const MODULE_COLOR_CLIENTES = 'var(--mod-cadastros, #10b981)'
 
 const UF_LIST = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
 
-interface InscricaoRow { id: string; estado: string; inscricao: string; createdAt: string }
+interface InscricaoRow { id: string; estado: string; inscricao: string; descricao: string | null; createdAt: string }
 
 /* ================================================================== */
 /* Registro de Inscrições (estaduais — N por cliente, migrado do legado) */
@@ -2780,7 +2780,12 @@ function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
   const [loading, setLoading] = useState(true)
   const [estado, setEstado] = useState('')
   const [inscricao, setInscricao] = useState('')
+  const [descricaoNova, setDescricaoNova] = useState('')
   const [saving, setSaving] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editEstado, setEditEstado] = useState('')
+  const [editInscricao, setEditInscricao] = useState('')
+  const [editDescricao, setEditDescricao] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -2795,10 +2800,24 @@ function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
     if (!estado || !inscricao.trim()) { alerts.error('Preencha o estado e a inscrição.'); return }
     setSaving(true)
     try {
-      await (trpc.cliente as any).addInscricao.mutate({ clienteId, estado, inscricao: inscricao.trim() })
-      setEstado(''); setInscricao('')
+      await (trpc.cliente as any).addInscricao.mutate({ clienteId, estado, inscricao: inscricao.trim(), descricao: descricaoNova.trim() || undefined })
+      setEstado(''); setInscricao(''); setDescricaoNova('')
       await load()
     } catch (e) { alerts.error('Erro', (e as Error).message || 'Não foi possível adicionar.') }
+    finally { setSaving(false) }
+  }
+
+  function startEdit(r: InscricaoRow) { setEditId(r.id); setEditEstado(r.estado); setEditInscricao(r.inscricao); setEditDescricao(r.descricao || '') }
+  function cancelEdit() { setEditId(null); setEditEstado(''); setEditInscricao(''); setEditDescricao('') }
+  async function saveEdit() {
+    if (!editId) return
+    if (!editEstado || !editInscricao.trim()) { alerts.error('Preencha o estado e a inscrição.'); return }
+    setSaving(true)
+    try {
+      await (trpc.cliente as any).updateInscricao.mutate({ id: editId, estado: editEstado, inscricao: editInscricao.trim(), descricao: editDescricao.trim() || undefined })
+      cancelEdit()
+      await load()
+    } catch (e) { alerts.error('Erro', (e as Error).message || 'Não foi possível salvar.') }
     finally { setSaving(false) }
   }
 
@@ -2824,19 +2843,46 @@ function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
               <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <th className="w-24 px-3 py-2 text-left">Estado</th>
                 <th className="px-3 py-2 text-left">Inscrição</th>
-                {canDelete && <th className="w-12 px-3 py-2" />}
+                <th className="px-3 py-2 text-left">Descrição</th>
+                {(canWrite || canDelete) && <th className="w-20 px-3 py-2" />}
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {rows.map((r) => editId === r.id ? (
+                <tr key={r.id} className="border-b border-border/60 last:border-0 bg-muted/20">
+                  <td className="px-3 py-1.5">
+                    <Select value={editEstado || '__none__'} onValueChange={(v) => setEditEstado(v === '__none__' ? '' : v)}>
+                      <SelectTrigger className="h-8 w-24 text-sm"><SelectValue placeholder="UF" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">UF</SelectItem>
+                        {UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <Input value={editInscricao} onChange={(e) => setEditInscricao(e.target.value)} className="h-8 text-sm" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void saveEdit() } if (e.key === 'Escape') cancelEdit() }} />
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <Input value={editDescricao} onChange={(e) => setEditDescricao(e.target.value)} placeholder="Opcional" className="h-8 text-sm" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void saveEdit() } if (e.key === 'Escape') cancelEdit() }} />
+                  </td>
+                  <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                    <button type="button" onClick={() => void saveEdit()} disabled={saving} className="mr-2 text-emerald-600 hover:text-emerald-700" title="Salvar"><Check className="h-4 w-4" /></button>
+                    <button type="button" onClick={cancelEdit} className="text-muted-foreground hover:text-foreground" title="Cancelar"><X className="h-4 w-4" /></button>
+                  </td>
+                </tr>
+              ) : (
                 <tr key={r.id} className="border-b border-border/60 last:border-0">
                   <td className="px-3 py-2 font-medium text-foreground">{r.estado}</td>
                   <td className="px-3 py-2 text-foreground">{r.inscricao}</td>
-                  {canDelete && (
-                    <td className="px-3 py-2 text-right">
-                      <button type="button" onClick={() => handleRemove(r.id)} className="text-muted-foreground hover:text-rose-600" title="Remover">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                  <td className="px-3 py-2 text-muted-foreground">{r.descricao || '—'}</td>
+                  {(canWrite || canDelete) && (
+                    <td className="px-3 py-2 text-right whitespace-nowrap">
+                      {canWrite && (
+                        <button type="button" onClick={() => startEdit(r)} className="mr-2 text-muted-foreground hover:text-sky-600" title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
+                      )}
+                      {canDelete && (
+                        <button type="button" onClick={() => handleRemove(r.id)} className="text-muted-foreground hover:text-rose-600" title="Remover"><Trash2 className="h-3.5 w-3.5" /></button>
+                      )}
                     </td>
                   )}
                 </tr>
@@ -2858,9 +2904,13 @@ function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex-1 min-w-[160px] space-y-1">
+          <div className="flex-1 min-w-[150px] space-y-1">
             <Label className="text-[11px]">Inscrição</Label>
             <Input value={inscricao} onChange={(e) => setInscricao(e.target.value)} placeholder="Número da inscrição" className="h-9 text-sm" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAdd() } }} />
+          </div>
+          <div className="flex-1 min-w-[140px] space-y-1">
+            <Label className="text-[11px]">Descrição</Label>
+            <Input value={descricaoNova} onChange={(e) => setDescricaoNova(e.target.value)} placeholder="Opcional" className="h-9 text-sm" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAdd() } }} />
           </div>
           <Button type="button" size="sm" onClick={handleAdd} disabled={saving}>
             <Plus className="h-3.5 w-3.5" /> Adicionar

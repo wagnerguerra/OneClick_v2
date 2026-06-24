@@ -10,3 +10,5 @@ CREATE TABLE IF NOT EXISTS "cliente_inscricoes" (
   CONSTRAINT "cliente_inscricoes_pkey" PRIMARY KEY ("id")
 );
 CREATE INDEX IF NOT EXISTS "cliente_inscricoes_cliente_id_idx" ON "cliente_inscricoes"("cliente_id");
+-- descrição (observação livre) — adicionada depois; idempotente
+ALTER TABLE "cliente_inscricoes" ADD COLUMN IF NOT EXISTS "descricao" TEXT;
