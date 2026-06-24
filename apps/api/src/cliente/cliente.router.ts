@@ -330,6 +330,17 @@ export function createClienteRouter(
       }))
       .mutation(({ input, ctx }) => clienteService.saveServicos(input.clienteId, input.items, ctx.userId, ctx.isMaster)),
 
+    // Atualiza só o responsável/substituto de UMA área (popover do card de
+    // Responsáveis por área, na aba Obrigações). Preserva os demais campos.
+    setAreaResponsavel: writeProcedure(MODULE)
+      .input(z.object({
+        clienteId: z.string(),
+        areaId: z.string(),
+        responsavelId: z.string().nullable(),
+        substitutoId: z.string().nullable(),
+      }))
+      .mutation(({ input }) => clienteService.setAreaResponsavel(input.clienteId, input.areaId, input.responsavelId, input.substitutoId)),
+
     servicosGetParametros: readProcedure(MODULE)
       .input(z.object({ clienteAreaContratadaId: z.string() }))
       .query(({ input }) => clienteService.getParametros(input.clienteAreaContratadaId)),

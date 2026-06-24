@@ -971,6 +971,19 @@ export class ClienteService {
     return { saved }
   }
 
+  /**
+   * Atualiza só responsável/substituto de UMA área contratada — usado pelo
+   * popover de "Responsáveis por área" (aba Obrigações). Não toca em
+   * dataEncerramento/observacoes/complexidade (ao contrário do saveServicos).
+   */
+  async setAreaResponsavel(clienteId: string, areaId: string, responsavelId: string | null, substitutoId: string | null) {
+    return prisma.clienteAreaContratada.upsert({
+      where: { clienteId_areaId: { clienteId, areaId } },
+      create: { clienteId, areaId, contratado: true, responsavelId, substitutoId },
+      update: { responsavelId, substitutoId },
+    })
+  }
+
   async getParametros(clienteAreaContratadaId: string) {
     const params = await prisma.clienteAreaParametro.findMany({
       where: { clienteAreaContratadaId },

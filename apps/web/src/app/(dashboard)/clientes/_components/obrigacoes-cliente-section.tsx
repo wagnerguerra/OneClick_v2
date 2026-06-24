@@ -96,6 +96,8 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
   const [loading, setLoading] = useState(true)
   const [recomendacao, setRecomendacao] = useState<Recomendacao | null>(null)
   const [areasResponsaveis, setAreasResponsaveis] = useState<AreaResponsavel[]>([])
+  const [usuariosArea, setUsuariosArea] = useState<Array<{ id: string; name: string; areaId: string | null }>>([])
+  const [editArea, setEditArea] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
   // Filtros da tabela
@@ -138,12 +140,26 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
       // servicosListar devolve { areas: [...], usuarios: [...] } — filtra só contratadas
       const areasList = (servicos?.areas ?? []) as AreaResponsavel[]
       setAreasResponsaveis(areasList.filter((a) => a.contratado))
+      setUsuariosArea((servicos?.usuarios ?? []) as Array<{ id: string; name: string; areaId: string | null }>)
     } catch (e: any) {
       alerts.error('Erro', e?.message ?? 'Falha ao carregar obrigações.')
     } finally { setLoading(false) }
   }, [clienteId])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Usuários elegíveis para uma área (lotados nela ou sem área definida).
+  const usersForArea = (areaId: string) => usuariosArea.filter((u) => !u.areaId || u.areaId === areaId)
+
+  // Salva responsável/substituto de UMA área (popover do card). Salva na hora.
+  async function setAreaResp(ar: AreaResponsavel, field: 'resp' | 'sub', value: string | null) {
+    const responsavelId = field === 'resp' ? value : ar.responsavelId
+    const substitutoId = field === 'sub' ? value : ar.substitutoId
+    try {
+      await (trpc as any).cliente.setAreaResponsavel.mutate({ clienteId, areaId: ar.areaId, responsavelId, substitutoId })
+      await fetchData()
+    } catch (e: any) { alerts.error('Erro', e?.message ?? 'Não foi possível salvar o responsável.') }
+  }
 
   async function aplicarRecomendado() {
     if (!recomendacao) return
@@ -365,33 +381,72 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
             {areasResponsaveis.map((ar) => {
               const cores = AREA_CORES[ar.areaNome] ?? { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700' }
               return (
-                <div
-                  key={ar.areaId}
-                  className={cn('rounded-md border p-2.5 flex items-center gap-2.5', cores.bg, cores.border)}
-                >
-                  <div className={cn(
-                    'h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
-                    ar.responsavelNome ? 'bg-white text-foreground border-2 ' + cores.border : 'bg-white/60 text-muted-foreground border border-dashed',
-                  )}>
-                    {ar.responsavelNome ? iniciais(ar.responsavelNome) : '?'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className={cn('text-[10px] uppercase tracking-wide font-semibold', cores.text)}>
-                      {ar.areaNome}
+                <div key={ar.areaId} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setEditArea(editArea === ar.areaId ? null : ar.areaId)}
+                    className={cn('group w-full text-left rounded-md border p-2.5 flex items-center gap-2.5 transition hover:brightness-[0.97]', cores.bg, cores.border)}
+                    title="Clique para atribuir responsável/substituto"
+                  >
+                    <div className={cn(
+                      'h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
+                      ar.responsavelNome ? 'bg-white text-foreground border-2 ' + cores.border : 'bg-white/60 text-muted-foreground border border-dashed',
+                    )}>
+                      {ar.responsavelNome ? iniciais(ar.responsavelNome) : '?'}
                     </div>
-                    {ar.responsavelNome ? (
-                      <div className="text-xs font-medium text-foreground truncate" title={ar.responsavelNome}>
-                        {ar.responsavelNome}
+                    <div className="flex-1 min-w-0">
+                      <div className={cn('text-[10px] uppercase tracking-wide font-semibold', cores.text)}>
+                        {ar.areaNome}
                       </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground italic">Não atribuído</div>
-                    )}
-                    {ar.substitutoNome && (
-                      <div className="text-[10px] text-muted-foreground truncate" title={`Substituto: ${ar.substitutoNome}`}>
-                        Subs.: {ar.substitutoNome}
+                      {ar.responsavelNome ? (
+                        <div className="text-xs font-medium text-foreground truncate" title={ar.responsavelNome}>
+                          {ar.responsavelNome}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground italic">Não atribuído</div>
+                      )}
+                      {ar.substitutoNome && (
+                        <div className="text-[10px] text-muted-foreground truncate" title={`Substituto: ${ar.substitutoNome}`}>
+                          Subs.: {ar.substitutoNome}
+                        </div>
+                      )}
+                    </div>
+                    <Pencil className="h-3 w-3 shrink-0 text-muted-foreground/40 group-hover:text-muted-foreground" />
+                  </button>
+
+                  {editArea === ar.areaId && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setEditArea(null)} />
+                      <div className="absolute left-0 top-full z-50 mt-1 w-64 space-y-2.5 rounded-md border border-border bg-popover p-3 shadow-lg">
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Responsável</Label>
+                          <Select value={ar.responsavelId || '__none__'} onValueChange={(v) => setAreaResp(ar, 'resp', v === '__none__' ? null : v)}>
+                            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">Não atribuído</SelectItem>
+                              {usersForArea(ar.areaId).map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                              {ar.responsavelId && !usersForArea(ar.areaId).some((u) => u.id === ar.responsavelId) && (
+                                <SelectItem value={ar.responsavelId}>{ar.responsavelNome || ar.responsavelId} (fora da área)</SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Substituto</Label>
+                          <Select value={ar.substitutoId || '__none__'} onValueChange={(v) => setAreaResp(ar, 'sub', v === '__none__' ? null : v)}>
+                            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">Nenhum</SelectItem>
+                              {usersForArea(ar.areaId).map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                              {ar.substitutoId && !usersForArea(ar.areaId).some((u) => u.id === ar.substitutoId) && (
+                                <SelectItem value={ar.substitutoId}>{ar.substitutoNome || ar.substitutoId} (fora da área)</SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
-                    )}
-                  </div>
+                    </>
+                  )}
                 </div>
               )
             })}
