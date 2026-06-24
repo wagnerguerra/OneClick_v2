@@ -6,6 +6,7 @@ import { Button, Card, Input } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { useClientesPerms } from './use-clientes-perms'
 
 interface Protocolo {
   id: string; orgao: string; tipo: string; protocolo: string
@@ -17,6 +18,7 @@ const STATUS_COLORS: Record<string, string> = { aberto: 'bg-amber-100 text-amber
 const ORGAOS = ['Receita Federal', 'SEFAZ', 'Prefeitura', 'SERPRO', 'INSS', 'FGTS', 'Junta Comercial', 'Cartorio', 'Outro']
 
 export function ProtocolosCard({ clienteId }: { clienteId: string }) {
+  const { canManageRegistration } = useClientesPerms()
   const [items, setItems] = useState<Protocolo[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
@@ -61,7 +63,7 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
           <h4 className="text-sm font-semibold flex items-center gap-2"><FileInput className="h-4 w-4 text-emerald-600" /> Protocolos</h4>
           <p className="text-[11px] text-muted-foreground mt-0.5">{items.length} protocolo(s) registrado(s)</p>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={() => setAdding(!adding)} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Registrar</Button>
+        {canManageRegistration && <Button type="button" variant="outline" size="sm" onClick={() => setAdding(!adding)} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Registrar</Button>}
       </div>
 
       {adding && (

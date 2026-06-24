@@ -29,6 +29,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { useClientesPerms } from './use-clientes-perms'
 import { useBeneficioFiscalPerms } from '@/hooks/use-beneficio-fiscal'
 import { ServicosCard } from './servicos-card'
 import { ParticularidadesCard } from './particularidades-card'
@@ -2745,25 +2746,8 @@ function LogsTab({ clienteId }: { clienteId: string }) {
   )
 }
 
-/* ================================================================== */
-/* Hook de permissões do módulo clientes (canWrite/canDelete + sub)    */
-/* ================================================================== */
-function useClientesPerms() {
-  const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
-  const isAdmin = isMaster || isEmpresaMaster
-  const perm = permissions.find((p) => p.moduleSlug === 'clientes')
-  const canWrite = isAdmin || !!perm?.canWrite
-  const canDelete = isAdmin || !!perm?.canDelete
-  // Sub-permissão #7 — master/empresa-master sempre podem
-  const canManageActivitiesBenefits = isAdmin || perm?.subPermissions?.['manage_activities_benefits'] === true
-  // Sub-permissão de arquivos — incluir/editar/excluir arquivos do cliente
-  const canManageFiles = isAdmin || perm?.subPermissions?.['manage_files'] === true
-  // Edição de observações de certificado: módulo gestao-certificados (writeProcedure no backend)
-  const certPerm = permissions.find((p) => p.moduleSlug === 'gestao-certificados')
-  const canEditCertificados = isAdmin || !!certPerm?.canWrite
-  const canDownloadCert = isAdmin || certPerm?.subPermissions?.['download_arquivo'] === true
-  return { isAdmin, canWrite, canDelete, canManageActivitiesBenefits, canManageFiles, canEditCertificados, canDownloadCert }
-}
+// Hook de permissões do módulo clientes extraído para `./use-clientes-perms`
+// (compartilhado com os cards de cada aba).
 
 const MODULE_COLOR_CLIENTES = 'var(--mod-cadastros, #10b981)'
 

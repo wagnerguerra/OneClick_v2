@@ -16,6 +16,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
+import { useClientesPerms } from './use-clientes-perms'
 import { alerts } from '@/lib/alerts'
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
@@ -92,6 +93,7 @@ interface Recomendacao {
 }
 
 export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
+  const { canManageResponsible } = useClientesPerms()
   const [items, setItems] = useState<ClienteObrigacao[]>([])
   const [loading, setLoading] = useState(true)
   const [recomendacao, setRecomendacao] = useState<Recomendacao | null>(null)
@@ -384,9 +386,10 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                 <div key={ar.areaId} className="relative">
                   <button
                     type="button"
-                    onClick={() => setEditArea(editArea === ar.areaId ? null : ar.areaId)}
-                    className={cn('group w-full text-left rounded-md border p-2.5 flex items-center gap-2.5 transition hover:brightness-[0.97]', cores.bg, cores.border)}
-                    title="Clique para atribuir responsável/substituto"
+                    disabled={!canManageResponsible}
+                    onClick={() => { if (!canManageResponsible) return; setEditArea(editArea === ar.areaId ? null : ar.areaId) }}
+                    className={cn('group w-full text-left rounded-md border p-2.5 flex items-center gap-2.5 transition', canManageResponsible && 'hover:brightness-[0.97]', cores.bg, cores.border)}
+                    title={canManageResponsible ? 'Clique para atribuir responsável/substituto' : 'Sem permissão para gerenciar responsáveis'}
                   >
                     <div className={cn(
                       'h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
@@ -411,7 +414,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                         </div>
                       )}
                     </div>
-                    <Pencil className="h-3 w-3 shrink-0 text-muted-foreground/40 group-hover:text-muted-foreground" />
+                    {canManageResponsible && <Pencil className="h-3 w-3 shrink-0 text-muted-foreground/40 group-hover:text-muted-foreground" />}
                   </button>
 
                   {editArea === ar.areaId && (
