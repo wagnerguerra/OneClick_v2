@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { StickyNote, Save, Loader2, User, Clock } from 'lucide-react'
-import { Button, Card } from '@saas/ui'
-import { cn } from '@saas/ui'
+import { Button, Card, RichEditor } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -128,15 +127,11 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
                   </Button>
                 </div>
               </div>
-              <textarea
+              <RichEditor
                 value={row.texto}
-                onChange={e => updateTexto(row.clienteAreaContratadaId, e.target.value)}
-                rows={3}
-                className={cn(
-                  'w-full rounded-md border bg-card px-3 py-2 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring transition-colors',
-                  isDirty && 'border-amber-400/60 bg-amber-50/30 dark:bg-amber-950/10',
-                )}
-                placeholder={`Particularidades da area ${row.areaNome}...`}
+                onChange={html => updateTexto(row.clienteAreaContratadaId, html)}
+                placeholder={`Particularidades da área ${row.areaNome}...`}
+                maxHeight={260}
               />
             </div>
           )
