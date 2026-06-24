@@ -904,6 +904,7 @@ function EventoRequestForm({
   const [garagem, setGaragem] = useState(false)
   const [vagas, setVagas] = useState<number | undefined>(undefined)
   const [equipamentos, setEquipamentos] = useState(false)
+  const [arrumarSala, setArrumarSala] = useState(false)
   const [salas, setSalas] = useState<Array<{ id: string; nome: string; ativo: boolean }>>([])
   const [config, setConfig] = useState<{ conflitoParticipante: ConflitoModo; conflitoSala: ConflitoModo }>({ conflitoParticipante: 'AVISAR', conflitoSala: 'AVISAR' })
 
@@ -983,6 +984,7 @@ function EventoRequestForm({
         garagem: needsGaragem ? garagem : undefined,
         vagas: needsGaragem && garagem ? vagas : undefined,
         equipamentos: permiteEquipamentos && equipamentos ? 'sim' : undefined,
+        arrumarSala: permiteSala && salaId ? arrumarSala : undefined,
       }) as { id: string }
       setCriado({ id: res.id, titulo: titulo.trim() })
     } catch (e) {
@@ -1074,6 +1076,13 @@ function EventoRequestForm({
                 </div>
                 {sala === 'Outro' && (
                   <input value={local} onChange={e => setLocal(e.target.value)} placeholder="Qual local?" className="w-full h-8 rounded-md border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                )}
+                {/* Arrumar a sala — só quando uma sala cadastrada é escolhida */}
+                {salaId && (
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-foreground">
+                    <input type="checkbox" checked={arrumarSala} onChange={e => setArrumarSala(e.target.checked)} className="h-3.5 w-3.5 rounded border-border accent-sky-500" />
+                    Será necessário arrumar a sala?
+                  </label>
                 )}
               </div>
             )}

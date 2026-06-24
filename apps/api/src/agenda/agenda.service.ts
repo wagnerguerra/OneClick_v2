@@ -70,6 +70,7 @@ interface CreateEventoInput {
   garagem?: boolean
   vagas?: number | null
   equipamentos?: string | null
+  arrumarSala?: boolean
   isTarefa?: boolean
   tipoId: string
   empresaId?: string | null
@@ -100,6 +101,7 @@ interface UpdateEventoInput {
   garagem?: boolean
   vagas?: number | null
   equipamentos?: string | null
+  arrumarSala?: boolean
   isTarefa?: boolean
   tipoId?: string
   empresaId?: string | null
@@ -817,7 +819,7 @@ export class AgendaService {
     const {
       titulo, descricao, data, dataFim, horaInicio, horaFim, diaInteiro,
       local, contato, link, presenca, particular, editavel,
-      sala, salaId, garagem, vagas, equipamentos, isTarefa,
+      sala, salaId, garagem, vagas, equipamentos, arrumarSala, isTarefa,
       tipoId, empresaId, oportunidadeId, participanteIds, participantesAvulsos,
       recorrencia, recorrenciaVezes, notificar,
     } = input
@@ -888,6 +890,7 @@ export class AgendaService {
           garagem: garagem ?? false,
           vagas: vagas ?? null,
           equipamentos: equipamentos || null,
+          arrumarSala: arrumarSala ?? false,
           isTarefa: isTarefa ?? false,
           tipoId,
           criadorId: userId,
@@ -995,6 +998,7 @@ export class AgendaService {
     if (data.garagem !== undefined) updateData.garagem = data.garagem
     if (data.vagas !== undefined) updateData.vagas = data.vagas
     if (data.equipamentos !== undefined) updateData.equipamentos = data.equipamentos || null
+    if (data.arrumarSala !== undefined) updateData.arrumarSala = data.arrumarSala
     if (data.isTarefa !== undefined) updateData.isTarefa = data.isTarefa
     if (data.tipoId !== undefined) updateData.tipoId = data.tipoId
     if (data.empresaId !== undefined) updateData.empresaId = data.empresaId || null

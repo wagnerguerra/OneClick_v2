@@ -325,6 +325,7 @@ export default function AgendaPage() {
     garagem: false,
     vagas: undefined as number | undefined,
     equipamentos: '',
+    arrumarSala: false,
     isTarefa: false,
     tipoId: '',
     recorrencia: 'NENHUMA',
@@ -893,7 +894,7 @@ export default function AgendaPage() {
       diaInteiro: false,
       local: '', contato: '', link: '', presenca: 'PRESENCIAL',
       particular: false, editavel: true, sala: '', salaId: '', garagem: false, vagas: undefined,
-      equipamentos: '', isTarefa: false,
+      equipamentos: '', arrumarSala: false, isTarefa: false,
       // Tipo em branco — o usuário escolhe (nada pré-selecionado).
       tipoId: '', recorrencia: 'NENHUMA', recorrenciaVezes: 2,
       participanteIds,
@@ -957,6 +958,7 @@ export default function AgendaPage() {
       garagem: (ev as unknown as Record<string, unknown>).garagem as boolean ?? false,
       vagas: (ev as unknown as Record<string, unknown>).vagas as number | undefined,
       equipamentos: (ev as unknown as Record<string, unknown>).equipamentos as string ?? '',
+      arrumarSala: (ev as unknown as Record<string, unknown>).arrumarSala as boolean ?? false,
       isTarefa: ev.isTarefa,
       tipoId: ev.tipoId,
       recorrencia: ev.recorrencia,
@@ -1085,6 +1087,7 @@ export default function AgendaPage() {
           editavel: form.editavel,
           sala: form.sala || undefined,
           salaId: form.salaId || undefined,
+          arrumarSala: form.arrumarSala,
           isTarefa: form.isTarefa,
           tipoId: form.tipoId,
           oportunidadeId: form.oportunidadeId || null,
@@ -1121,6 +1124,7 @@ export default function AgendaPage() {
             editavel: form.editavel,
             sala: form.sala || undefined,
             salaId: form.salaId || undefined,
+            arrumarSala: form.arrumarSala,
             isTarefa: form.isTarefa,
             tipoId: form.tipoId,
             oportunidadeId: form.oportunidadeId || null,
@@ -2658,6 +2662,14 @@ export default function AgendaPage() {
                           </p>
                         )}
                       </div>
+                      )}
+
+                      {/* Arrumar a sala — pergunta quando uma sala CADASTRADA é escolhida */}
+                      {permiteSala && form.salaId && (
+                        <label className="flex items-center gap-2 cursor-pointer text-xs">
+                          <Checkbox checked={form.arrumarSala} onCheckedChange={v => setForm(f => ({ ...f, arrumarSala: !!v }))} />
+                          Será necessário arrumar a sala?
+                        </label>
                       )}
 
                       {/* Link (Online/Híbrido) */}

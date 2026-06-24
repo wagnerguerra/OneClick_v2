@@ -2565,6 +2565,7 @@ model AgendaEvento {
   garagem      Boolean        @default(false)
   vagas        Int?
   equipamentos String?
+  arrumarSala  Boolean        @default(false) @map("arrumar_sala") // preparar/arrumar a sala antes do evento
   isTarefa     Boolean        @default(false) @map("is_tarefa")
   isActive     Boolean        @default(true) @map("is_active")
 
