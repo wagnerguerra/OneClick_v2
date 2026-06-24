@@ -54,7 +54,8 @@ export function FloatingFeedbackButton() {
     setDir(next === 'menu' ? 'back' : 'fwd')
     setMode(next)
   }
-  const [tipo, setTipo] = useState<Tipo>('INCIDENTE')
+  // Começa SEM tipo — o usuário é obrigado a escolher um (nada vem marcado).
+  const [tipo, setTipo] = useState<Tipo | null>(null)
   const [texto, setTexto] = useState('')
   const [anexos, setAnexos] = useState<AnexoPendente[]>([])
   const [enviando, setEnviando] = useState(false)
@@ -109,7 +110,7 @@ export function FloatingFeedbackButton() {
         if (!open) {
           setMode('menu')
           setTexto('')
-          setTipo('INCIDENTE')
+          setTipo(null)
           setAnexos([])
           setTicketCriado(null)
           setEnviando(false)
@@ -191,6 +192,10 @@ export function FloatingFeedbackButton() {
   }
 
   async function handleEnviar() {
+    if (!tipo) {
+      alerts.error('Selecione o tipo do chamado (Erro, Sugestão ou Outro)')
+      return
+    }
     if (!texto.trim()) {
       alerts.error('Descreva o que aconteceu')
       return
@@ -498,7 +503,7 @@ export function FloatingFeedbackButton() {
                   <Button
                     size="sm"
                     onClick={handleEnviar}
-                    disabled={enviando || !texto.trim()}
+                    disabled={enviando || !texto.trim() || !tipo}
                     className="gap-1.5 text-white"
                     style={{ background: 'var(--mod-ti, #22d3ee)' }}
                   >
