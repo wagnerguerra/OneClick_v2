@@ -1866,7 +1866,18 @@ export class OrcamentoService {
 
     // Atualizar status para ENVIADO se ainda nao estiver
     if (orc.status !== 'ENVIADO') {
-      await prisma.orcamento.update({ where: { id }, data: { status: 'ENVIADO' } })
+      await prisma.orcamento.update({
+        where: { id },
+        // Grava o marco "Enviado" (dt_enviado) — sem isso o "Enviado" some da
+        // timeline (Datas Importantes). Preserva a 1a data em re-envios.
+        data: { status: 'ENVIADO', ...(orc.dtEnviado ? {} : { dtEnviado: new Date() }) },
+      })
+      // Registra o marco de status na timeline (alem do evento 'envio' abaixo),
+      // pra a aba Timeline e o painel Datas Importantes mostrarem "Enviado".
+      await this.addEvento(
+        id, userId, 'status_change', orc.status, 'ENVIADO',
+        `Status alterado de ${STATUS_LABELS[orc.status] || orc.status} para Enviado`,
+      )
     }
 
     const descricaoEvento = emails.size > 0
@@ -1893,7 +1904,7 @@ export class OrcamentoService {
 
     const novoStatus = decisao.tipo === 'APROVADO' ? 'APROVADO' : 'ENCERRADO'
 
-    return prisma.orcamento.update({
+    const updated = await prisma.orcamento.update({
       where: { token },
       data: {
         decisaoTipo: decisao.tipo,
@@ -1902,8 +1913,17 @@ export class OrcamentoService {
         decisaoCpf: decisao.cpf || null,
         decisaoObs: decisao.observacao || null,
         status: novoStatus as any,
+        // Grava o marco da decisão (timeline) — sem isso Aprovado/Encerrado não
+        // aparece quando o cliente decide pelo link público.
+        ...(novoStatus === 'APROVADO' ? { dtAprovado: new Date() } : { dtEncerrado: new Date() }),
       },
     })
+    // Registra o status_change na timeline (decisão do cliente pelo link).
+    await this.addEvento(
+      orc.id, null, 'status_change', orc.status, novoStatus,
+      `Decisão do cliente (${decisao.nome}): ${novoStatus === 'APROVADO' ? 'Aprovado' : 'Recusado'}`,
+    )
+    return updated
   }
 
   // ── Itens ─────────────────────────────────────────────────
