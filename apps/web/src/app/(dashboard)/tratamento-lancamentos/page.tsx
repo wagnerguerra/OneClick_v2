@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Plus, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
@@ -16,7 +17,6 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
-import { TreatmentModelModal, type TreatmentModelEditTarget } from './_components/treatment-model-modal'
 
 interface TreatmentModelRow {
   id: string
@@ -42,8 +42,7 @@ export default function TratamentoLancamentosPage() {
     data: TreatmentModelRow[]; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean
   } | null>(null)
   const [loading, setLoading] = useState(true)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editTarget, setEditTarget] = useState<TreatmentModelEditTarget | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     const timer = setTimeout(() => { setDebouncedSearch(search); setPage(1) }, 400)
@@ -78,11 +77,8 @@ export default function TratamentoLancamentosPage() {
     return sort.dir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
   }
 
-  function openCreate() { setEditTarget(null); setModalOpen(true) }
-  function openEdit(row: TreatmentModelRow) {
-    setEditTarget({ id: row.id, nome: row.nome, contaCorrente: row.contaCorrente, isActive: row.isActive })
-    setModalOpen(true)
-  }
+  function openCreate() { router.push('/tratamento-lancamentos/new') }
+  function openEdit(row: TreatmentModelRow) { router.push(`/tratamento-lancamentos/${row.id}`) }
 
   async function handleDelete(id: string, nome: string) {
     const confirmed = await alerts.confirmDelete(nome)
@@ -244,12 +240,6 @@ export default function TratamentoLancamentosPage() {
         )}
       </Card>
 
-      <TreatmentModelModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSuccess={fetchModels}
-        target={editTarget}
-      />
     </div>
   )
 }

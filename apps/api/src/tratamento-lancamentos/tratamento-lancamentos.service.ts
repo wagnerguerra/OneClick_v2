@@ -6,10 +6,21 @@ import {
   type UpdateTreatmentModelInput,
   type ListTreatmentModelInput,
   type TreatmentDefinition,
+  type PreviewArquivoInput,
+  stableStringify,
 } from '@saas/types'
+import { extractTabela } from './lib/extract-tabela'
+
+/** Teto de linhas devolvidas ao wizard no preview (limita payload). */
+const PREVIEW_MAX_ROWS = 5000
 
 function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.TreatmentModelWhereInput {
   return !isMaster && empresaId ? { empresaId } : {}
+}
+
+/** Garante que a linha pertence à empresa do usuário (master ignora o filtro). */
+function assertScope(empresaIdRow: string | null, isMaster?: boolean, empresaId?: string) {
+  if (!isMaster && empresaId && empresaIdRow !== empresaId) throw new Error('Acesso negado.')
 }
 
 @Injectable()
@@ -65,9 +76,7 @@ export class TratamentoLancamentosService {
   async getById(id: string, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
       const model = await db.treatmentModel.findUniqueOrThrow({ where: { id } })
-      if (!isMaster && empresaId && model.empresaId !== empresaId) {
-        throw new Error('Acesso negado.')
-      }
+      assertScope(model.empresaId, isMaster, empresaId)
       const currentVersion = model.currentVersionId
         ? await db.treatmentModelVersion.findUnique({ where: { id: model.currentVersionId } })
         : null
@@ -115,46 +124,52 @@ export class TratamentoLancamentosService {
   async update(id: string, input: UpdateTreatmentModelInput, userId?: string, isMaster?: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
       const existing = await db.treatmentModel.findUniqueOrThrow({ where: { id } })
-      if (!isMaster && empresaId && existing.empresaId !== empresaId) {
-        throw new Error('Acesso negado.')
-      }
+      assertScope(existing.empresaId, isMaster, empresaId)
 
       const data: Prisma.TreatmentModelUpdateInput = {}
+      let versionCreated = false
       if (input.nome !== undefined) data.nome = input.nome
       if (input.clienteId !== undefined) data.clienteId = input.clienteId || null
       if (input.isActive !== undefined) data.isActive = input.isActive
       if (input.contaCorrente !== undefined) data.contaCorrente = input.contaCorrente || null
 
-      // Nova versão apenas quando a definição (corpo do modelo) é enviada.
+      // Nova versão apenas quando a definição muda DE FATO — evita versões
+      // idênticas em edições que só alteram metadados (nome/ativo) ou nada.
       if (input.definition !== undefined) {
-        const newVersionNumber = existing.version + 1
-        const version = await db.treatmentModelVersion.create({
-          data: {
-            modelId: id,
-            versionNumber: newVersionNumber,
-            definition: input.definition as unknown as Prisma.InputJsonValue,
-            authorId: userId || null,
-            note: input.note || null,
-          },
-        })
-        data.version = newVersionNumber
-        data.currentVersionId = version.id
+        const current = existing.currentVersionId
+          ? await db.treatmentModelVersion.findUnique({ where: { id: existing.currentVersionId } })
+          : null
+        const mudou = !current || stableStringify(current.definition) !== stableStringify(input.definition)
+        versionCreated = mudou
+        if (mudou) {
+          const newVersionNumber = existing.version + 1
+          const version = await db.treatmentModelVersion.create({
+            data: {
+              modelId: id,
+              versionNumber: newVersionNumber,
+              definition: input.definition as unknown as Prisma.InputJsonValue,
+              authorId: userId || null,
+              note: input.note || null,
+            },
+          })
+          data.version = newVersionNumber
+          data.currentVersionId = version.id
+        }
         // Mantém a conta corrente do modelo em sincronia com a da definição.
         if (input.contaCorrente === undefined && input.definition.contaCorrente) {
           data.contaCorrente = input.definition.contaCorrente
         }
       }
 
-      return db.treatmentModel.update({ where: { id }, data })
+      const updated = await db.treatmentModel.update({ where: { id }, data })
+      return { ...updated, versionCreated }
     })
   }
 
   async remove(id: string, _userId?: string, isMaster?: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
       const existing = await db.treatmentModel.findUniqueOrThrow({ where: { id } })
-      if (!isMaster && empresaId && existing.empresaId !== empresaId) {
-        throw new Error('Acesso negado.')
-      }
+      assertScope(existing.empresaId, isMaster, empresaId)
       return db.treatmentModel.update({ where: { id }, data: { deletedAt: new Date() } })
     })
   }
@@ -162,9 +177,7 @@ export class TratamentoLancamentosService {
   async restore(id: string, isMaster?: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
       const existing = await db.treatmentModel.findUniqueOrThrow({ where: { id } })
-      if (!isMaster && empresaId && existing.empresaId !== empresaId) {
-        throw new Error('Acesso negado.')
-      }
+      assertScope(existing.empresaId, isMaster, empresaId)
       return db.treatmentModel.update({ where: { id }, data: { deletedAt: null } })
     })
   }
@@ -172,15 +185,29 @@ export class TratamentoLancamentosService {
   async getVersions(id: string, isMaster?: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
       const model = await db.treatmentModel.findUniqueOrThrow({ where: { id } })
-      if (!isMaster && empresaId && model.empresaId !== empresaId) {
-        throw new Error('Acesso negado.')
-      }
+      assertScope(model.empresaId, isMaster, empresaId)
       return db.treatmentModelVersion.findMany({
         where: { modelId: id },
         orderBy: { versionNumber: 'desc' },
         select: { id: true, versionNumber: true, note: true, authorId: true, createdAt: true },
       })
     })
+  }
+
+  /**
+   * Extrai a tabela de um arquivo-exemplo (base64) para o wizard montar o
+   * de/para e os SELECT DISTINCT. Operação pura (sem banco/tenant).
+   */
+  preview(input: PreviewArquivoInput) {
+    const buffer = Buffer.from(input.fileBase64, 'base64')
+    const t = extractTabela({ buffer, filename: input.filename })
+    return {
+      headers: t.headers,
+      rows: t.rows.slice(0, PREVIEW_MAX_ROWS),
+      totalRows: t.meta.totalDataRows,
+      truncated: t.meta.totalDataRows > PREVIEW_MAX_ROWS,
+      meta: t.meta,
+    }
   }
 
   async listForSelect(isMaster: boolean, empresaId?: string, tenantSchema?: string) {

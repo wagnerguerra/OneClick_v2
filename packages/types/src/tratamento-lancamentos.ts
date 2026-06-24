@@ -72,16 +72,14 @@ export const contrapartidaDescricaoItem = z.object({
   historicoFixo: z.string().optional().or(z.literal('')),
   direcao: z.enum(['ENTRADA', 'SAIDA']).optional(),
 })
-export const contrapartidaSchema = z.discriminatedUnion('modo', [
-  z.object({
-    modo: z.literal('PALAVRA_CHAVE'),
-    itens: z.array(contrapartidaPalavraChaveItem).default([]),
-  }),
-  z.object({
-    modo: z.literal('DESCRICAO'),
-    itens: z.array(contrapartidaDescricaoItem).default([]),
-  }),
-])
+// Guarda AMBOS os modos (palavraChave + descricao) + o modo ativo, para que
+// alternar o modo NÃO perca o que foi preenchido no outro — persistido na
+// definição (sobrevive a salvar/fechar/reabrir o modelo).
+export const contrapartidaSchema = z.object({
+  modo: z.enum(['PALAVRA_CHAVE', 'DESCRICAO']).default('DESCRICAO'),
+  palavraChave: z.array(contrapartidaPalavraChaveItem).default([]),
+  descricao: z.array(contrapartidaDescricaoItem).default([]),
+})
 export type ContrapartidaRule = z.infer<typeof contrapartidaSchema>
 
 // ---- Definição completa (corpo do Modelo — snapshot em JSON) ---------------
@@ -98,7 +96,7 @@ export const EMPTY_TREATMENT_DEFINITION: TreatmentDefinition = {
   contaCorrente: '',
   columnMapping: { descricao: '', participante: '', valor: '', data: '', numeroNf: '', documento: '' },
   entradaSaida: { tipo: 'COLUNA', coluna: '', mapa: [] },
-  contrapartida: { modo: 'PALAVRA_CHAVE', itens: [] },
+  contrapartida: { modo: 'DESCRICAO', palavraChave: [], descricao: [] },
 }
 
 // ---- CRUD do Modelo de Tratamento ------------------------------------------
@@ -122,3 +120,24 @@ export const listTreatmentModelSchema = paginationSchema.extend({
 export type CreateTreatmentModelInput = z.infer<typeof createTreatmentModelSchema>
 export type UpdateTreatmentModelInput = z.infer<typeof updateTreatmentModelSchema>
 export type ListTreatmentModelInput = z.infer<typeof listTreatmentModelSchema>
+
+// ---- Preview de arquivo (wizard) -------------------------------------------
+// Recebe o arquivo-exemplo em base64 → backend extrai a tabela e devolve
+// colunas + linhas (o wizard monta de/para e SELECT DISTINCT no cliente).
+export const previewArquivoSchema = z.object({
+  fileBase64: z.string().min(1, 'Arquivo vazio'),
+  filename: z.string().min(1),
+})
+export type PreviewArquivoInput = z.infer<typeof previewArquivoSchema>
+
+/**
+ * Stringify estável (chaves ordenadas recursivamente). Usado para comparar
+ * definições/estados — o `jsonb` do Postgres não preserva a ordem das chaves,
+ * então um JSON.stringify direto daria "diferente" para objetos iguais.
+ */
+export function stableStringify(v: unknown): string {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v) ?? 'null'
+  if (Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']'
+  const obj = v as Record<string, unknown>
+  return '{' + Object.keys(obj).sort().map((k) => JSON.stringify(k) + ':' + stableStringify(obj[k])).join(',') + '}'
+}

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
-import { createTreatmentModelSchema, updateTreatmentModelSchema, listTreatmentModelSchema } from '@saas/types'
+import { createTreatmentModelSchema, updateTreatmentModelSchema, listTreatmentModelSchema, previewArquivoSchema } from '@saas/types'
 import { TratamentoLancamentosService } from './tratamento-lancamentos.service'
 
 const MODULE = 'tratamento-lancamentos'
@@ -25,6 +25,11 @@ export function createTratamentoLancamentosRouter(service: TratamentoLancamentos
 
     listForSelect: readProcedure(MODULE)
       .query(({ ctx }) => service.listForSelect(ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
+
+    // Preview do arquivo-exemplo (base64 no corpo → mutation). Só leitura.
+    preview: readProcedure(MODULE)
+      .input(previewArquivoSchema)
+      .mutation(({ input }) => service.preview(input)),
 
     create: writeProcedure(MODULE)
       .input(createTreatmentModelSchema)
