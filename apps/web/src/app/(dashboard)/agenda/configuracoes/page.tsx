@@ -316,7 +316,10 @@ export default function AgendaConfiguracoesPage() {
         const parsed = JSON.parse(r.template?.cardElementos || '[]')
         setCardEls(Array.isArray(parsed) && parsed.length ? mergeCardEls(parsed) : DEFAULT_CARD_ELS)
       } catch { setCardEls(DEFAULT_CARD_ELS) }
-      setGrupos((r.grupos || []).map((g: Partial<EmailGrp>) => ({ icone: '', incluiParticulares: false, tiposIds: [], nome: '', cor: '#38bdf8', ...g, uid: crypto.randomUUID() }))); setTiposModelo(tps || [])
+      setGrupos((r.grupos || []).map((g: Partial<EmailGrp>) => ({ icone: '', incluiParticulares: false, tiposIds: [], nome: '', cor: '#38bdf8', ...g, uid: crypto.randomUUID() })))
+      // Pseudo-tipo (não é evento real): atribuído a um grupo, faz os vencimentos
+      // de obrigação acessória do dia entrarem naquele grupo no e-mail diário.
+      setTiposModelo([...(tps || []), { id: 'OBRIGACAO_ACESSORIA', nome: 'Obrigação acessória', cor: '#a855f7' }])
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setLoadingTpl(false) }
   }

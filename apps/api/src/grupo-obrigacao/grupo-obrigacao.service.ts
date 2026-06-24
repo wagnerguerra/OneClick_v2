@@ -373,6 +373,55 @@ export class GrupoObrigacaoService {
     return eventos
   }
 
+  /**
+   * Vencimentos de obrigações de TODOS os clientes que caem num DIA específico.
+   * Computa a partir da recorrência (mesma lógica do calendário do cliente),
+   * mas cross-client e filtrado pro dia. Usado no e-mail diário da agenda.
+   */
+  async getVencimentosDoDia(target: Date): Promise<Array<{ clienteNome: string; obrigacaoNome: string; categoria: string | null }>> {
+    const ymd = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+    const alvo = ymd(target)
+
+    const vinculos = await prisma.clienteObrigacao.findMany({
+      where: { ativo: true },
+      include: {
+        servico: { select: { nome: true, categoria: true, recorrencia: true } },
+        cliente: { select: { razaoSocial: true } },
+      },
+    })
+
+    const extrasNaoUteis = await this.recorrenciaScheduler.carregarDiasNaoUteis([target.getFullYear(), target.getFullYear() - 1])
+    // Cursor 2 meses antes (proximasExecucoes filtra > cursor); 6 ocorrências
+    // bastam pra alcançar o dia-alvo em qualquer frequência (mensal..anual).
+    const cursor = new Date(target.getFullYear(), target.getMonth() - 2, 1, 0, 0, 0, 0)
+
+    const out: Array<{ clienteNome: string; obrigacaoNome: string; categoria: string | null }> = []
+    for (const v of vinculos) {
+      const r = v.servico.recorrencia
+      if (!r || !r.ativa) continue
+      const datas = this.recorrenciaScheduler.proximasExecucoes(
+        {
+          frequencia: r.frequencia,
+          ancoragem: r.ancoragem,
+          valorAncoragem: r.valorAncoragem,
+          competenciaOffset: r.competenciaOffset,
+          modoPersonalizado: r.modoPersonalizado,
+          diasDoMes: r.diasDoMes,
+          mesesDoAno: r.mesesDoAno,
+          ajusteVencimento: v.ajusteVencimentoOverride ?? r.ajusteVencimento,
+        },
+        cursor,
+        6,
+        extrasNaoUteis,
+      )
+      if (datas.some((d) => ymd(d) === alvo)) {
+        out.push({ clienteNome: v.cliente.razaoSocial, obrigacaoNome: v.servico.nome, categoria: v.servico.categoria })
+      }
+    }
+    out.sort((a, b) => (a.categoria ?? '').localeCompare(b.categoria ?? '') || a.clienteNome.localeCompare(b.clienteNome))
+    return out
+  }
+
   /** Stats pro header da página: total grupos, ativos, por regime. */
   async getStats() {
     const todos = await prisma.grupoObrigacao.findMany({

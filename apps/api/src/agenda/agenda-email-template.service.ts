@@ -286,6 +286,22 @@ export class AgendaEmailTemplateService {
         .map(p => p.usuario?.name ?? p.nomeAvulso).filter(Boolean) as string[]
 
       const pillCategoria = `<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;background:${cor};color:${textoNaPill};border:1px solid ${corEscura};box-shadow:0 1px 2px rgba(15,23,42,0.08)">${esc(ev.tipo?.nome ?? '')}</span>`
+
+      // Pseudo-eventos de vencimento de obrigação acessória: card enxuto — só
+      // título (Obrigação — Cliente) + pill da categoria. Sem modalidade/local/
+      // participantes/logística (não fazem sentido num vencimento).
+      if (ev.tipoId === 'OBRIGACAO_ACESSORIA') {
+        return {
+          cor,
+          frags: {
+            titulo: `<div class="em-evtitle" style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;line-height:1.3">${esc(ev.titulo)}</div>`,
+            categoria: pillCategoria,
+            modalidade: '', local: '', data: '', link: '', participantes: '',
+            criador: '', descricao: '', contato: '', sala: '', equipamentos: '',
+            garagem: '', preparacao: '', logistica: '',
+          } as Record<string, string>,
+        }
+      }
       const participantesHtml = nomes.length > 0
         ? `<div class="em-evlabelwrap" style="margin-top:12px;padding-top:10px;border-top:1px dashed #e2e8f0">
              <div class="em-evlabel" style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">👥 Participantes</div>
