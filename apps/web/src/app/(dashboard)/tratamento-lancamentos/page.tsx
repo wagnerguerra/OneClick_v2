@@ -1,126 +1,127 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Trash2, Copy,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
-  ArrowUpDown, ArrowUp, ArrowDown,
-  FileSpreadsheet,
+  FileSpreadsheet, Upload, Download, Loader2, AlertTriangle, CheckCircle2, Pencil, FileText, Image as ImageIcon, Settings2, FileCog, type LucideIcon,
 } from 'lucide-react'
 import {
-  Button, Input, Badge,
+  Button, Card, Badge,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
-  Card, Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { fileToBase64 } from '@/lib/file'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 
-interface TreatmentModelRow {
-  id: string
-  code: number
-  nome: string
-  contaCorrente: string | null
-  version: number
-  isActive: boolean
+interface ModelOption { id: string; nome: string; code: number }
+// Tipo do retorno de `convert` inferido do tRPC — nomeado p/ uso na UI, sem
+// duplicar nem castar o shape do backend (mudanças no backend propagam aqui).
+type ConvertResult = Awaited<ReturnType<typeof trpc.tratamentoLancamentos.convert.mutate>>
+
+const PENDENCIA_LABELS: Record<string, string> = {
+  ES_NAO_MAPEADO: 'Entrada/Saída não mapeada',
+  CONTA_NAO_MAPEADA: 'Conta de contrapartida não mapeada',
+  CAMPO_VAZIO: 'Campo vazio',
+  DATA_INVALIDA: 'Data inválida',
+  VALOR_INVALIDO: 'Valor não numérico',
 }
-
-type SortDir = 'asc' | 'desc'
-interface SortState { column: string; dir: SortDir }
-
-const PAGE_SIZES = [10, 20, 50, 100]
+const MAX_PENDENCIAS_VISIVEIS = 200
+const ACCEPT = ['.xlsx', '.xls', '.csv']
+const extOk = (name: string) => ACCEPT.some((e) => name.toLowerCase().endsWith(e))
 
 export default function TratamentoLancamentosPage() {
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(20)
-  const [sort, setSort] = useState<SortState>({ column: 'code', dir: 'desc' })
-  const [data, setData] = useState<{
-    data: TreatmentModelRow[]; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean
-  } | null>(null)
-  const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const [models, setModels] = useState<ModelOption[]>([])
+  const [modelId, setModelId] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+  const [converting, setConverting] = useState(false)
+  const [result, setResult] = useState<ConvertResult | null>(null)
+  // base64 lido na seleção do arquivo — reaproveitado na geração e ao criar modelo.
+  const [fileBase64, setFileBase64] = useState<string | null>(null)
+  const [reading, setReading] = useState(false)
+  const [detectedRows, setDetectedRows] = useState<number | null>(null)
 
   useEffect(() => {
-    const timer = setTimeout(() => { setDebouncedSearch(search); setPage(1) }, 400)
-    return () => clearTimeout(timer)
-  }, [search])
+    let active = true
+    ;(async () => {
+      try {
+        const list = await trpc.tratamentoLancamentos.listForSelect.query()
+        if (active) setModels(list as ModelOption[])
+      } catch { /* silencioso */ }
+    })()
+    return () => { active = false }
+  }, [])
 
-  const fetchModels = useCallback(async () => {
-    setLoading(true)
+  async function pickFile(f: File | undefined | null) {
+    if (!f) return
+    if (!extOk(f.name)) { alerts.error('Formato não suportado', 'Envie um arquivo .xlsx, .xls ou .csv.'); return }
+    setFile(f); setResult(null); setDetectedRows(null); setFileBase64(null)
+    setReading(true)
     try {
-      const result = await trpc.tratamentoLancamentos.list.query({
-        page, limit,
-        search: debouncedSearch || undefined,
-        sortBy: sort.column, sortDir: sort.dir,
-      })
-      setData(result as typeof data)
+      const base64 = await fileToBase64(f)
+      const res = await trpc.tratamentoLancamentos.preview.mutate({ fileBase64: base64, filename: f.name })
+      setFileBase64(base64)
+      setDetectedRows(res.totalRows)
     } catch {
-      // erro silencioso
+      alerts.error('Falha ao ler o arquivo', 'Não foi possível detectar uma tabela de lançamentos no arquivo.')
+      setFile(null)
     } finally {
-      setLoading(false)
+      setReading(false)
     }
-  }, [page, limit, debouncedSearch, sort])
-
-  useEffect(() => { fetchModels() }, [fetchModels])
-
-  function toggleSort(column: string) {
-    setSort((prev) => ({ column, dir: prev.column === column && prev.dir === 'asc' ? 'desc' : 'asc' }))
-    setPage(1)
   }
 
-  function SortIcon({ column }: { column: string }) {
-    if (sort.column !== column) return <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
-    return sort.dir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+  // Guarda o arquivo enviado (se houver) para o editor reaproveitar.
+  function carregaArquivoNoEditor() {
+    if (fileBase64 && file) {
+      try { sessionStorage.setItem('tl:exemplo', JSON.stringify({ fileBase64, filename: file.name })) } catch { /* ignore */ }
+    }
+  }
+  const FROM = encodeURIComponent('/tratamento-lancamentos')
+  function goCreateModel() {
+    carregaArquivoNoEditor()
+    router.push(`/tratamento-lancamentos/modelos/new?from=${FROM}`)
+  }
+  function goEditModel(id: string) {
+    carregaArquivoNoEditor()
+    router.push(`/tratamento-lancamentos/modelos/${id}?from=${FROM}`)
   }
 
-  function openCreate() { router.push('/tratamento-lancamentos/new') }
-  function openEdit(row: TreatmentModelRow) { router.push(`/tratamento-lancamentos/${row.id}`) }
+  const download = useCallback((base64: string, fileName: string) => {
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+    const blob = new Blob([bytes], { type: 'text/plain;charset=iso-8859-1' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = fileName; a.click()
+    URL.revokeObjectURL(url)
+  }, [])
 
-  async function handleDelete(id: string, nome: string) {
-    const confirmed = await alerts.confirmDelete(nome)
-    if (!confirmed) return
+  async function handleExport() {
+    if (!file || !modelId || !fileBase64) return
+    setConverting(true)
+    setResult(null)
     try {
-      await trpc.tratamentoLancamentos.delete.mutate({ id })
-      await alerts.success('Modelo excluído', `"${nome}" foi movido para a lixeira.`)
-      fetchModels()
+      const res = await trpc.tratamentoLancamentos.convert.mutate({ modelId, fileBase64, filename: file.name })
+      setResult(res)
+      if (res.fileBase64) {
+        download(res.fileBase64, res.fileName)
+        await alerts.success('Arquivo gerado', `${res.totalLancamentos} lançamentos convertidos para o SCI.`)
+      }
     } catch {
-      alerts.error('Erro ao excluir', 'Não foi possível excluir o Modelo.')
+      alerts.error('Falha ao gerar o arquivo', 'Não foi possível ler o arquivo ou aplicar o modelo. Verifique o arquivo e tente novamente.')
+    } finally {
+      setConverting(false)
     }
   }
 
-  async function handleDuplicate(id: string, nome: string) {
-    const ok = await alerts.confirm({
-      title: 'Duplicar modelo',
-      text: `Criar uma cópia de "${nome}"? A cópia poderá ser editada de forma independente.`,
-      confirmText: 'Duplicar',
-      icon: 'question',
-    })
-    if (!ok) return
-    try {
-      await trpc.tratamentoLancamentos.duplicate.mutate({ id })
-      await alerts.success('Modelo duplicado', `Uma cópia de "${nome}" foi criada.`)
-      fetchModels()
-    } catch {
-      alerts.error('Erro ao duplicar', 'Não foi possível duplicar o Modelo.')
-    }
-  }
-
-  const totalPages = data?.totalPages ?? 1
-  const startRecord = data ? (page - 1) * limit + 1 : 0
-  const endRecord = data ? Math.min(page * limit, data.total) : 0
-
-  function getPageNumbers() {
-    const pages: number[] = []
-    let start = Math.max(1, page - 2)
-    const end = Math.min(totalPages, start + 4)
-    start = Math.max(1, end - 4)
-    for (let i = start; i <= end; i++) pages.push(i)
-    return pages
-  }
+  const pend = result?.pendencias ?? []
+  const pendPorTipo = pend.reduce<Record<string, number>>((a, p) => { a[p.tipo] = (a[p.tipo] ?? 0) + 1; return a }, {})
 
   return (
     <div className="space-y-6">
@@ -131,135 +132,201 @@ export default function TratamentoLancamentosPage() {
           <div>
             <h1>Tratamento de Lançamentos</h1>
             <p className="text-sm text-muted-foreground">
-              Modelos de Tratamento para conversão de lançamentos e exportação para o SCI
+              Converta um arquivo de lançamentos e gere o arquivo de importação do SCI em 3 passos
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="success" size="sm" onClick={openCreate}>
-            <Plus className="h-4 w-4" />Novo Modelo
+          <Button variant="outline" size="sm" onClick={() => router.push('/tratamento-lancamentos/modelos')}>
+            <Settings2 className="h-4 w-4" /> Gerenciar modelos
           </Button>
           <BackButton href="/dashboard" label="Voltar" />
         </div>
       </div>
 
-      <Card>
-        {/* Toolbar */}
-        <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="hidden sm:inline">Exibir</span>
-            <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
-              <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
-            </Select>
-            <span className="hidden sm:inline">registros</span>
-          </div>
-          <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar por nome ou conta..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
-          </div>
-        </div>
-
-        {/* Table */}
-        <Table className="table-fixed">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[70px]">
-                <button onClick={() => toggleSort('code')} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                  ID <SortIcon column="code" />
-                </button>
-              </TableHead>
-              <TableHead>
-                <button onClick={() => toggleSort('nome')} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                  Nome <SortIcon column="nome" />
-                </button>
-              </TableHead>
-              <TableHead className="hidden sm:table-cell w-[180px]">Conta corrente</TableHead>
-              <TableHead className="hidden md:table-cell w-[90px]">Versão</TableHead>
-              <TableHead className="w-[130px] text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-10">
-                  <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                    Carregando...
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : !data?.data.length ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
-                  Nenhum Modelo de Tratamento cadastrado
-                </TableCell>
-              </TableRow>
-            ) : (
-              data.data.map((row) => (
-                <TableRow key={row.id} className="cursor-pointer" onClick={() => openEdit(row)}>
-                  <TableCell className="font-mono text-muted-foreground text-xs">{row.code}</TableCell>
-                  <TableCell className="font-medium text-sm truncate">
-                    {row.nome}
-                    {!row.isActive && <Badge variant="secondary" className="ml-2 text-[10px]">Inativo</Badge>}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                    {row.contaCorrente || '—'}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                    v{row.version}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="soft-info" size="icon-sm" onClick={() => openEdit(row)} title="Editar">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="soft" size="icon-sm" onClick={() => handleDuplicate(row.id, row.nome)} title="Duplicar">
-                        <Copy className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="soft-destructive" size="icon-sm" onClick={() => handleDelete(row.id, row.nome)} title="Excluir">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-
-        {/* Footer */}
-        {data && (
-          <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-muted-foreground">
-              Mostrando <span className="font-medium">{startRecord}</span> a{' '}
-              <span className="font-medium">{endRecord}</span> de{' '}
-              <span className="font-medium">{data.total}</span> registros
-            </p>
-            {totalPages > 1 && (
-              <div className="flex items-center gap-1">
-                <Button variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(1)}>
-                  <ChevronsLeft className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="outline" size="icon-xs" disabled={!data.hasPrev} onClick={() => setPage((p) => p - 1)}>
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                {getPageNumbers().map((p) => (
-                  <Button key={p} variant={p === page ? 'soft' : 'outline'} size="icon-xs" className="text-xs" onClick={() => setPage(p)}>
-                    {p}
-                  </Button>
-                ))}
-                <Button variant="outline" size="icon-xs" disabled={!data.hasNext} onClick={() => setPage((p) => p + 1)}>
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(totalPages)}>
-                  <ChevronsRight className="h-3.5 w-3.5" />
-                </Button>
+      {/* Cards full-width; conteúdo centralizado dentro de cada um */}
+      <div className="space-y-5">
+        <Card className="p-6">
+          <div className="divide-y divide-border/60 lg:mx-20 xl:mx-40 2xl:mx-60">
+          {/* 1. Arquivo (drag & drop) */}
+          <StepBlock num={1} icon={FileSpreadsheet} title="Arquivo de lançamentos" className="pb-6">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = '' }}
+            />
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => fileRef.current?.click()}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileRef.current?.click() } }}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files?.[0]) }}
+              className={cn(
+                'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-10 text-center cursor-pointer outline-none transition-colors',
+                dragOver ? 'bg-muted/40' : 'border-border/60 bg-muted/20 hover:bg-muted/30',
+              )}
+              style={dragOver ? { borderColor: 'var(--mod-contabil, #a78bfa)' } : undefined}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                <Upload className="h-6 w-6 text-muted-foreground" />
               </div>
+              {file ? (
+                <>
+                  <p className="text-sm font-medium text-foreground"><FileSpreadsheet className="inline h-4 w-4 mr-1" />{file.name}</p>
+                  <p className="text-xs text-muted-foreground">Clique ou arraste outro arquivo para trocar</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-foreground">Arraste o arquivo de lançamentos aqui</p>
+                  <p className="text-xs text-muted-foreground">ou clique para selecionar — .xlsx, .xls, .csv</p>
+                </>
+              )}
+              <span className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground/60">
+                <FileText className="h-3.5 w-3.5" /><ImageIcon className="h-3.5 w-3.5" /> PDF / imagem — em breve
+              </span>
+            </div>
+            {reading && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Lendo arquivo...
+              </p>
             )}
-          </div>
-        )}
-      </Card>
+            {!reading && detectedRows !== null && (
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5" /> {detectedRows} lançamentos detectados no arquivo.
+              </p>
+            )}
+          </StepBlock>
 
+          {/* 2. Modelo */}
+          <StepBlock num={2} icon={FileCog} title="Modelo de Tratamento" className="py-6">
+            <Select value={modelId} onValueChange={(v) => { setModelId(v); setResult(null) }}>
+              <SelectTrigger className="h-9 text-sm bg-card max-w-md"><SelectValue placeholder="Selecione o modelo" /></SelectTrigger>
+              <SelectContent>
+                {models.map((m) => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-2 text-[11px]">
+              {models.length === 0 && <span className="text-muted-foreground">Nenhum modelo cadastrado.</span>}
+              <button className="text-sm text-primary underline" onClick={goCreateModel}>
+                + Criar novo modelo{file ? ' a partir do arquivo enviado' : ''}
+              </button>
+            </div>
+          </StepBlock>
+
+          {/* 3. Gerar */}
+          <StepBlock num={3} icon={Download} title="Gerar arquivo de importação SCI" className="pt-6">
+            <div>
+              <Button variant="success" size="sm" onClick={handleExport} disabled={!file || !modelId || converting}>
+                {converting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Gerar arquivo
+              </Button>
+            </div>
+          </StepBlock>
+          </div>
+        </Card>
+
+        {/* Resultado: sucesso */}
+        {result && result.fileBase64 && (
+          <Card className="p-5 border-emerald-300 dark:border-emerald-900/50">
+            <div className="flex items-center gap-3 lg:mx-20 xl:mx-40 2xl:mx-60">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">Arquivo de importação gerado</p>
+                <p className="text-xs text-muted-foreground">{result.totalLancamentos} lançamentos · o download iniciou automaticamente.</p>
+              </div>
+              <Button variant="success" size="sm" className="shrink-0" onClick={() => download(result.fileBase64!, result.fileName)}>
+                <Download className="h-4 w-4" /> Baixar
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* Resultado: pendências */}
+        {result && !result.fileBase64 && pend.length > 0 && (
+          <Card className="p-5 border-rose-300 dark:border-rose-900/50">
+            <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">Não foi possível gerar o arquivo</p>
+                <p className="text-xs text-muted-foreground">
+                  {pend.length} pendência{pend.length > 1 ? 's' : ''} em {result.totalLancamentos} lançamentos
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(pendPorTipo).map(([tipo, n]) => (
+                <Badge key={tipo} variant="secondary" className="text-[11px]">{PENDENCIA_LABELS[tipo] ?? tipo}: {n}</Badge>
+              ))}
+            </div>
+
+            <div className="rounded-[2px] border border-border/60 overflow-hidden">
+              <div className="max-h-[420px] overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[70px]">Linha</TableHead>
+                      <TableHead className="w-[200px]">Campo</TableHead>
+                      <TableHead className="w-[200px]">Valor</TableHead>
+                      <TableHead>Motivo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pend.slice(0, MAX_PENDENCIAS_VISIVEIS).map((p, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-mono text-xs text-muted-foreground">{p.linha || '—'}</TableCell>
+                        <TableCell className="text-xs">{p.campo}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate" title={p.valor}>{p.valor || '—'}</TableCell>
+                        <TableCell className="text-xs">{p.mensagem}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+            {pend.length > MAX_PENDENCIAS_VISIVEIS && (
+              <p className="text-[11px] text-muted-foreground">Mostrando as primeiras {MAX_PENDENCIAS_VISIVEIS} de {pend.length} pendências.</p>
+            )}
+
+            <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center">
+              <Button variant="soft-info" size="sm" className="shrink-0" onClick={() => goEditModel(modelId)}>
+                <Pencil className="h-4 w-4" /> Editar modelo
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                As pendências podem vir do <strong>modelo</strong> (mapeamentos faltando) ou do <strong>próprio arquivo</strong>
+                {' '}(campos em branco, datas ou valores inválidos). Corrija o que for necessário e gere novamente.
+              </span>
+            </div>
+            </div>
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Etapa do fluxo: círculo com ícone (cor do bloco) + número/título + conteúdo. */
+function StepBlock({ num, icon: Icon, title, className, children }: { num: number; icon: LucideIcon; title: string; className?: string; children: React.ReactNode }) {
+  return (
+    <div className={cn('flex gap-4', className)}>
+      <div
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-sm"
+        style={{ backgroundColor: 'var(--mod-contabil, #a78bfa)' }}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="flex-1 min-w-0 space-y-2">
+        <p className="text-sm font-semibold text-foreground">{num}. {title}</p>
+        {children}
+      </div>
     </div>
   )
 }

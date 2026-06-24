@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
-import { createTreatmentModelSchema, updateTreatmentModelSchema, listTreatmentModelSchema, previewArquivoSchema } from '@saas/types'
+import { createTreatmentModelSchema, updateTreatmentModelSchema, listTreatmentModelSchema, previewArquivoSchema, convertSchema } from '@saas/types'
 import { TratamentoLancamentosService } from './tratamento-lancamentos.service'
 
 const MODULE = 'tratamento-lancamentos'
@@ -30,6 +30,11 @@ export function createTratamentoLancamentosRouter(service: TratamentoLancamentos
     preview: readProcedure(MODULE)
       .input(previewArquivoSchema)
       .mutation(({ input }) => service.preview(input)),
+
+    // Conversão para o SCI (aplica o modelo ao arquivo). Só leitura.
+    convert: readProcedure(MODULE)
+      .input(convertSchema)
+      .mutation(({ input, ctx }) => service.convert(input, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
     create: writeProcedure(MODULE)
       .input(createTreatmentModelSchema)

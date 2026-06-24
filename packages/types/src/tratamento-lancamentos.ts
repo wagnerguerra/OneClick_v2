@@ -127,6 +127,14 @@ export const previewArquivoSchema = z.object({
 })
 export type PreviewArquivoInput = z.infer<typeof previewArquivoSchema>
 
+// ---- Conversão para o SCI ("Exportação para o SCI") ------------------------
+export const convertSchema = z.object({
+  modelId: z.string().min(1),
+  fileBase64: z.string().min(1, 'Arquivo vazio'),
+  filename: z.string().min(1),
+})
+export type ConvertInput = z.infer<typeof convertSchema>
+
 /**
  * Stringify estável (chaves ordenadas recursivamente). Usado para comparar
  * definições/estados — o `jsonb` do Postgres não preserva a ordem das chaves,

@@ -7,9 +7,11 @@ import {
   type ListTreatmentModelInput,
   type TreatmentDefinition,
   type PreviewArquivoInput,
+  type ConvertInput,
   stableStringify,
 } from '@saas/types'
 import { extractTabela } from './lib/extract-tabela'
+import { applyModel } from './lib/apply-model'
 
 /** Teto de linhas devolvidas ao wizard no preview (limita payload). */
 const PREVIEW_MAX_ROWS = 5000
@@ -235,6 +237,35 @@ export class TratamentoLancamentosService {
       totalRows: t.meta.totalDataRows,
       truncated: t.meta.totalDataRows > PREVIEW_MAX_ROWS,
       meta: t.meta,
+    }
+  }
+
+  /**
+   * Converte um arquivo de lançamentos aplicando um Modelo → conteúdo SCI
+   * (base64, ANSI/latin1) ou lista de pendências quando algo não pôde ser
+   * interpretado. "Exportação para o SCI".
+   */
+  async convert(input: ConvertInput, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
+    const buffer = Buffer.from(input.fileBase64, 'base64')
+    const table = extractTabela({ buffer, filename: input.filename })
+
+    const model = await scoped(tenantSchema, async (db) => {
+      const m = await db.treatmentModel.findUniqueOrThrow({ where: { id: input.modelId } })
+      assertScope(m.empresaId, isMaster, empresaId)
+      const cv = m.currentVersionId
+        ? await db.treatmentModelVersion.findUnique({ where: { id: m.currentVersionId } })
+        : null
+      return { nome: m.nome, definition: (cv?.definition ?? null) as TreatmentDefinition | null }
+    })
+
+    const result = applyModel(table, model.definition ?? EMPTY_TREATMENT_DEFINITION)
+    const safe = model.nome.replace(/[^a-zA-Z0-9-_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'lancamentos'
+    return {
+      totalLancamentos: result.totalLancamentos,
+      pendencias: result.pendencias,
+      // .txt em ANSI (latin1); null quando há pendências.
+      fileBase64: result.sciText !== null ? Buffer.from(result.sciText, 'latin1').toString('base64') : null,
+      fileName: `SCI_${safe}.txt`,
     }
   }
 

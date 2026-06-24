@@ -17,6 +17,7 @@ import type { TreatmentDefinition, Direcao, ContrapartidaRule } from '@saas/type
 import { EMPTY_TREATMENT_DEFINITION, stableStringify } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { fileToBase64 } from '@/lib/file'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 
 type CellValue = string | number | boolean | null
@@ -32,6 +33,8 @@ const HISTORICO_FIXO_HINT =
 interface Props {
   mode: 'create' | 'edit'
   modelId?: string
+  /** Caminho de origem (?from=) — para "Voltar"/"Salvar" retornarem a ele. */
+  backTo?: string
 }
 
 // Campos do de/para. `req` marca os obrigatórios.
@@ -44,9 +47,11 @@ const MAP_FIELDS: Array<{ key: keyof TreatmentDefinition['columnMapping']; label
   { key: 'documento', label: 'CNPJ/CPF', hint: 'Opcional — pré-selecionado se houver coluna "CNPJ"' },
 ]
 
-export function ModelEditor({ mode, modelId }: Props) {
+export function ModelEditor({ mode, modelId, backTo }: Props) {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
+  // Destino de "Voltar"/"Salvar": a origem (?from=), restrita ao módulo; senão a lista.
+  const backHref = backTo && backTo.startsWith('/tratamento-lancamentos') ? backTo : '/tratamento-lancamentos/modelos'
 
   const [loading, setLoading] = useState(mode === 'edit')
   const [saving, setSaving] = useState(false)
@@ -99,6 +104,25 @@ export function ModelEditor({ mode, modelId }: Props) {
     if (mode === 'create') baselineRef.current = serializeForm('', '', true, EMPTY_TREATMENT_DEFINITION)
   }, [mode])
 
+  // Reaproveita o arquivo-exemplo enviado no fluxo principal (criação ou edição).
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('tl:exemplo')
+      if (!raw) return
+      sessionStorage.removeItem('tl:exemplo')
+      const parsed = JSON.parse(raw) as { fileBase64?: string; filename?: string }
+      if (parsed.fileBase64 && parsed.filename) {
+        void loadPreview(parsed.fileBase64, parsed.filename)
+        // No wizard (criação), arquivo já enviado → pula a etapa de Arquivo.
+        if (mode === 'create') {
+          setStep(1)
+          setMaxStep((m) => Math.max(m, 1))
+        }
+      }
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode])
+
   // Avisa ao fechar/atualizar a aba com alterações não salvas.
   useEffect(() => {
     function onBeforeUnload(e: BeforeUnloadEvent) {
@@ -138,23 +162,25 @@ export function ModelEditor({ mode, modelId }: Props) {
   }, [preview])
 
   // ---- Upload do arquivo-exemplo ------------------------------------------
-  async function handleFile(file: File) {
+  async function loadPreview(base64: string, filename: string) {
     setUploading(true)
     try {
-      const base64 = await fileToBase64(file)
-      const res = await trpc.tratamentoLancamentos.preview.mutate({ fileBase64: base64, filename: file.name })
+      const res = await trpc.tratamentoLancamentos.preview.mutate({ fileBase64: base64, filename })
       setPreview(res as PreviewData)
-      setFileName(file.name)
-      // Pré-seleção automática da coluna de CNPJ.
+      setFileName(filename)
+      // Pré-seleção automática da coluna de CNPJ (sem sobrescrever escolha existente).
       const cnpjCol = res.headers.find((h) => /cnpj/i.test(h))
-      if (cnpjCol && !def.columnMapping.documento) {
-        setDef((d) => ({ ...d, columnMapping: { ...d.columnMapping, documento: cnpjCol } }))
-      }
+      if (cnpjCol) setDef((d) => (d.columnMapping.documento ? d : { ...d, columnMapping: { ...d.columnMapping, documento: cnpjCol } }))
     } catch {
       alerts.error('Falha ao ler o arquivo', 'Não foi possível detectar uma tabela de lançamentos no arquivo.')
     } finally {
       setUploading(false)
     }
+  }
+
+  async function handleFile(file: File) {
+    const base64 = await fileToBase64(file)
+    await loadPreview(base64, file.name)
   }
 
   // ---- Updaters da definição ----------------------------------------------
@@ -188,7 +214,7 @@ export function ModelEditor({ mode, modelId }: Props) {
       })
       if (!ok) return
     }
-    router.push('/tratamento-lancamentos')
+    router.push(backHref)
   }
 
   // ---- Validação por etapa (reutilizada no wizard e no salvar) ------------
@@ -264,11 +290,11 @@ export function ModelEditor({ mode, modelId }: Props) {
     })
   }
 
-  // Validadores por índice de etapa do wizard (arquivo não tem obrigatórios;
-  // a última etapa junta Entrada/Saída + Contrapartida).
+  // Validadores por índice de etapa do wizard (ordem: Arquivo, Dados, Colunas,
+  // Entrada/Saída + Contrapartida). Arquivo não tem campos obrigatórios.
   const STEP_VALIDATORS: Array<(() => string[]) | null> = [
-    probDados,
     null,
+    probDados,
     probDePara,
     () => [...probES(), ...probContrapartida()],
   ]
@@ -307,7 +333,7 @@ export function ModelEditor({ mode, modelId }: Props) {
         await alerts.success('Modelo criado', `"${nome}" foi criado com sucesso.`)
       }
       dirtyRef.current = false
-      router.push('/tratamento-lancamentos')
+      router.push(backHref)
     } catch {
       alerts.error('Erro ao salvar', 'Não foi possível salvar o Modelo. Revise os campos e tente novamente.')
     } finally {
@@ -518,8 +544,8 @@ export function ModelEditor({ mode, modelId }: Props) {
   // ---- Modo CRIAÇÃO: wizard passo a passo ---------------------------------
   if (mode === 'create') {
     const wizardSteps = [
-      { label: 'Dados', node: secDados },
       { label: 'Arquivo', node: secArquivo },
+      { label: 'Dados', node: secDados },
       { label: 'Colunas', node: secDePara },
       { label: 'Entrada/Saída e Contrapartida', node: (<>{secES}{secContrapartida}</>) },
     ]
@@ -929,16 +955,4 @@ function normalizeDefinition(raw: unknown): TreatmentDefinition {
     entradaSaida,
     contrapartida,
   }
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = String(reader.result)
-      resolve(result.includes(',') ? result.split(',')[1]! : result)
-    }
-    reader.onerror = () => reject(new Error('Falha ao ler arquivo'))
-    reader.readAsDataURL(file)
-  })
 }
