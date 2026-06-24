@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Trash2,
+  Plus, Pencil, Trash2, Copy,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
   FileSpreadsheet,
@@ -92,6 +92,23 @@ export default function TratamentoLancamentosPage() {
     }
   }
 
+  async function handleDuplicate(id: string, nome: string) {
+    const ok = await alerts.confirm({
+      title: 'Duplicar modelo',
+      text: `Criar uma cópia de "${nome}"? A cópia poderá ser editada de forma independente.`,
+      confirmText: 'Duplicar',
+      icon: 'question',
+    })
+    if (!ok) return
+    try {
+      await trpc.tratamentoLancamentos.duplicate.mutate({ id })
+      await alerts.success('Modelo duplicado', `Uma cópia de "${nome}" foi criada.`)
+      fetchModels()
+    } catch {
+      alerts.error('Erro ao duplicar', 'Não foi possível duplicar o Modelo.')
+    }
+  }
+
   const totalPages = data?.totalPages ?? 1
   const startRecord = data ? (page - 1) * limit + 1 : 0
   const endRecord = data ? Math.min(page * limit, data.total) : 0
@@ -158,7 +175,7 @@ export default function TratamentoLancamentosPage() {
               </TableHead>
               <TableHead className="hidden sm:table-cell w-[180px]">Conta corrente</TableHead>
               <TableHead className="hidden md:table-cell w-[90px]">Versão</TableHead>
-              <TableHead className="w-[90px] text-right">Ações</TableHead>
+              <TableHead className="w-[130px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -193,10 +210,13 @@ export default function TratamentoLancamentosPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="soft-info" size="icon-sm" onClick={() => openEdit(row)}>
+                      <Button variant="soft-info" size="icon-sm" onClick={() => openEdit(row)} title="Editar">
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="soft-destructive" size="icon-sm" onClick={() => handleDelete(row.id, row.nome)}>
+                      <Button variant="soft" size="icon-sm" onClick={() => handleDuplicate(row.id, row.nome)} title="Duplicar">
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="soft-destructive" size="icon-sm" onClick={() => handleDelete(row.id, row.nome)} title="Excluir">
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>

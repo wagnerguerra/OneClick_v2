@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileSpreadsheet, Save, Upload, Plus, Trash2, Loader2, Info, FileText, Image as ImageIcon,
-  Tag, Columns3, ArrowLeftRight, Network, HelpCircle, ArrowLeft, type LucideIcon,
+  Tag, Columns3, ArrowLeftRight, Network, HelpCircle, ArrowLeft, ArrowRight, type LucideIcon,
 } from 'lucide-react'
 import {
   Button, Input, Label, Checkbox, Card,
@@ -66,6 +66,10 @@ export function ModelEditor({ mode, modelId }: Props) {
   // Detecção de alterações não salvas.
   const baselineRef = useRef<string>('')
   const dirtyRef = useRef(false)
+
+  // Wizard (apenas no modo criação): etapa atual e etapa máxima já alcançada.
+  const [step, setStep] = useState(0)
+  const [maxStep, setMaxStep] = useState(0)
 
   // ---- Carrega o modelo (modo edição) -------------------------------------
   useEffect(() => {
@@ -158,14 +162,13 @@ export function ModelEditor({ mode, modelId }: Props) {
     setDef((d) => ({ ...d, columnMapping: { ...d.columnMapping, [key]: value } }))
   }
 
+  // Troca só o tipo — mantém coluna+mapa (persistido), p/ não perder ao reverter.
   function setEsTipo(tipo: 'COLUNA' | 'DESCRICAO') {
-    setDef((d) => tipo === 'COLUNA'
-      ? { ...d, entradaSaida: { tipo: 'COLUNA', coluna: d.entradaSaida.tipo === 'COLUNA' ? d.entradaSaida.coluna : '', mapa: d.entradaSaida.tipo === 'COLUNA' ? d.entradaSaida.mapa : [] } }
-      : { ...d, entradaSaida: { tipo: 'DESCRICAO' } })
+    setDef((d) => ({ ...d, entradaSaida: { ...d.entradaSaida, tipo } }))
   }
 
   function setEsColuna(coluna: string) {
-    setDef((d) => ({ ...d, entradaSaida: { tipo: 'COLUNA', coluna, mapa: d.entradaSaida.tipo === 'COLUNA' ? d.entradaSaida.mapa : [] } }))
+    setDef((d) => ({ ...d, entradaSaida: { ...d.entradaSaida, coluna } }))
   }
 
   // Troca só o modo ativo — mantém o conteúdo dos DOIS modos (persistido).
@@ -188,70 +191,105 @@ export function ModelEditor({ mode, modelId }: Props) {
     router.push('/tratamento-lancamentos')
   }
 
-  async function handleSave() {
-    // Validação completa no cliente — coleta TODOS os problemas e os mostra de
-    // uma vez, de forma específica (evita o erro genérico vindo do backend).
-    const problemas: string[] = []
-
-    if (!nome.trim() || nome.trim().length < 2) problemas.push('Informe um <b>nome</b> para o modelo (mínimo 2 caracteres).')
-
-    if (!def.columnMapping.descricao) problemas.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Descrição do lançamento</b>.')
-    if (!def.columnMapping.valor) problemas.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Valor</b>.')
-    if (!def.columnMapping.data) problemas.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Data</b>.')
-
-    // Entrada / Saída
+  // ---- Validação por etapa (reutilizada no wizard e no salvar) ------------
+  function probDados(): string[] {
+    const p: string[] = []
+    if (!nome.trim() || nome.trim().length < 2) p.push('Informe um <b>nome</b> para o modelo (mínimo 2 caracteres).')
+    return p
+  }
+  function probDePara(): string[] {
+    const p: string[] = []
+    if (!def.columnMapping.descricao) p.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Descrição do lançamento</b>.')
+    if (!def.columnMapping.valor) p.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Valor</b>.')
+    if (!def.columnMapping.data) p.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Data</b>.')
+    return p
+  }
+  function probES(): string[] {
+    const p: string[] = []
     if (def.entradaSaida.tipo === 'COLUNA') {
       if (!def.entradaSaida.coluna.trim()) {
-        problemas.push('Em <b>Entrada/Saída</b>, selecione a <b>coluna</b> que define entrada ou saída.')
+        p.push('Em <b>Entrada/Saída</b>, selecione a <b>coluna</b> que define entrada ou saída.')
       } else {
         const distinct = getDistinct(def.entradaSaida.coluna)
         const mapped = new Set(def.entradaSaida.mapa.map((m) => m.valor))
         if (distinct.length) {
           const faltam = distinct.filter((v) => !mapped.has(v))
-          if (faltam.length) problemas.push(`Em <b>Entrada/Saída</b>, defina a direção ${faltam.length === 1 ? 'do valor' : 'dos valores'}: ${listaResumo(faltam)}.`)
+          if (faltam.length) p.push(`Em <b>Entrada/Saída</b>, defina a direção ${faltam.length === 1 ? 'do valor' : 'dos valores'}: ${listaResumo(faltam)}.`)
         } else if (mapped.size === 0) {
-          problemas.push('Em <b>Entrada/Saída</b>, defina a direção dos valores da coluna (envie o arquivo de exemplo para listá-los).')
+          p.push('Em <b>Entrada/Saída</b>, defina a direção dos valores da coluna (envie o arquivo de exemplo para listá-los).')
         }
       }
     }
-
-    // Contrapartida (modo ativo)
+    return p
+  }
+  function probContrapartida(): string[] {
+    const p: string[] = []
     if (def.contrapartida.modo === 'PALAVRA_CHAVE') {
       const itens = def.contrapartida.palavraChave
       if (!itens.length) {
-        problemas.push('Em <b>Contrapartida</b> (por palavra-chave), adicione ao menos um item.')
+        p.push('Em <b>Contrapartida</b> (por palavra-chave), adicione ao menos um item.')
       } else {
         const semPalavra = itens.filter((it) => !it.palavraChave.trim()).length
         const semConta = itens.filter((it) => !it.conta.trim()).length
-        if (semPalavra) problemas.push(`Em <b>Contrapartida</b>, preencha a <b>palavra-chave</b> em ${semPalavra} ${semPalavra === 1 ? 'item' : 'itens'}.`)
-        if (semConta) problemas.push(`Em <b>Contrapartida</b>, informe a <b>conta</b> em ${semConta} ${semConta === 1 ? 'item' : 'itens'}.`)
+        if (semPalavra) p.push(`Em <b>Contrapartida</b>, preencha a <b>palavra-chave</b> em ${semPalavra} ${semPalavra === 1 ? 'item' : 'itens'}.`)
+        if (semConta) p.push(`Em <b>Contrapartida</b>, informe a <b>conta</b> em ${semConta} ${semConta === 1 ? 'item' : 'itens'}.`)
         if (esByDescricao) {
           const semDir = itens.filter((it) => !it.direcao).length
-          if (semDir) problemas.push(`Em <b>Contrapartida</b>, defina <b>Entrada/Saída</b> em ${semDir} ${semDir === 1 ? 'item' : 'itens'}.`)
+          if (semDir) p.push(`Em <b>Contrapartida</b>, defina <b>Entrada/Saída</b> em ${semDir} ${semDir === 1 ? 'item' : 'itens'}.`)
         }
       }
     } else {
       const itens = def.contrapartida.descricao
       if (!itens.length) {
-        problemas.push('Em <b>Contrapartida</b> (por descrição), envie o arquivo de exemplo e mapeie a coluna de descrição para listar as descrições.')
+        p.push('Em <b>Contrapartida</b> (por descrição), envie o arquivo de exemplo e mapeie a coluna de descrição para listar as descrições.')
       } else {
         const semConta = itens.filter((it) => !it.conta.trim())
-        if (semConta.length) problemas.push(`Em <b>Contrapartida</b>, informe a <b>conta</b> ${semConta.length === 1 ? 'da descrição' : 'das descrições'}: ${listaResumo(semConta.map((it) => it.descricao))}.`)
+        if (semConta.length) p.push(`Em <b>Contrapartida</b>, informe a <b>conta</b> ${semConta.length === 1 ? 'da descrição' : 'das descrições'}: ${listaResumo(semConta.map((it) => it.descricao))}.`)
         if (esByDescricao) {
           const semDir = itens.filter((it) => !it.direcao).length
-          if (semDir) problemas.push(`Em <b>Contrapartida</b>, defina <b>Entrada/Saída</b> em ${semDir} ${semDir === 1 ? 'descrição' : 'descrições'}.`)
+          if (semDir) p.push(`Em <b>Contrapartida</b>, defina <b>Entrada/Saída</b> em ${semDir} ${semDir === 1 ? 'descrição' : 'descrições'}.`)
         }
       }
     }
+    return p
+  }
 
+  async function showProblemas(title: string, problemas: string[]) {
+    await alerts.custom({
+      title,
+      icon: 'error',
+      showCancelButton: false,
+      confirmButtonText: 'Entendi',
+      html: `<div style="text-align:left"><p style="margin:0 0 8px">Corrija os pontos abaixo:</p><ul style="text-align:left;margin:0;padding-left:1.2em;line-height:1.7">${problemas.map((p) => `<li>${p}</li>`).join('')}</ul></div>`,
+    })
+  }
+
+  // Validadores por índice de etapa do wizard (arquivo não tem obrigatórios;
+  // a última etapa junta Entrada/Saída + Contrapartida).
+  const STEP_VALIDATORS: Array<(() => string[]) | null> = [
+    probDados,
+    null,
+    probDePara,
+    () => [...probES(), ...probContrapartida()],
+  ]
+
+  function advanceStep() {
+    const validator = STEP_VALIDATORS[step]
+    const probs = validator ? validator() : []
+    if (probs.length) { void showProblemas('Revise esta etapa', probs); return }
+    const next = step + 1
+    setStep(next)
+    setMaxStep((m) => Math.max(m, next))
+  }
+
+  function goStep(i: number) {
+    if (i <= maxStep) setStep(i)
+  }
+
+  async function handleSave() {
+    const problemas = [...probDados(), ...probDePara(), ...probES(), ...probContrapartida()]
     if (problemas.length) {
-      await alerts.custom({
-        title: 'Revise o preenchimento do modelo',
-        icon: 'error',
-        showCancelButton: false,
-        confirmButtonText: 'Entendi',
-        html: `<div style="text-align:left"><p style="margin:0 0 8px">Corrija os pontos abaixo antes de salvar:</p><ul style="text-align:left;margin:0;padding-left:1.2em;line-height:1.7">${problemas.map((p) => `<li>${p}</li>`).join('')}</ul></div>`,
-      })
+      await showProblemas('Revise o preenchimento do modelo', problemas)
       return
     }
 
@@ -294,193 +332,272 @@ export function ModelEditor({ mode, modelId }: Props) {
 
   const cpItens = def.contrapartida.modo === 'PALAVRA_CHAVE' ? def.contrapartida.palavraChave : def.contrapartida.descricao
 
-  return (
-    <TooltipProvider>
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="contabil" icon={FileSpreadsheet} />
-          <div>
-            <h1>{mode === 'edit' ? 'Editar Modelo' : 'Novo Modelo de Tratamento'}</h1>
-            <p className="text-sm text-muted-foreground">
-              Configure o mapeamento usado na conversão para o SCI
-            </p>
-          </div>
+  // ---- Blocos de seção: construídos uma vez. Empilhados na "visão geral"
+  //      (edição + revisão final do wizard) ou exibidos um a um no wizard. --
+  const secDados = (
+    <Card className="p-5 space-y-4">
+      <StepHeader
+        icon={Tag} color="bg-violet-500" title="Dados do Modelo"
+        hint="Dê um nome fácil de reconhecer para este modelo (por exemplo, o nome do banco ou do cliente). A conta corrente é opcional e pode ser preenchida depois."
+      />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-1.5">
+          <Label className="text-[13px] font-semibold">Nome <span className="text-destructive">*</span></Label>
+          <Input className="h-9 text-sm bg-card" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Banco do Brasil — Conta 12345" />
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleBack}>
-            <ArrowLeft className="h-4 w-4" /> Voltar
-          </Button>
+        <div className="space-y-1.5">
+          <Label className="text-[13px] font-semibold">Conta corrente</Label>
+          <Input className="h-9 text-sm bg-card" value={contaCorrente} onChange={(e) => setContaCorrente(e.target.value)} placeholder="Número da conta corrente" />
+        </div>
+        <div className="flex items-end pb-1.5">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <Checkbox checked={isActive} onCheckedChange={(v) => setIsActive(!!v)} />
+            <span className="text-[13px] font-semibold">Ativo</span>
+          </label>
         </div>
       </div>
+    </Card>
+  )
 
-      {/* Dados do Modelo */}
-      <Card className="p-5 space-y-4">
-        <StepHeader
-          icon={Tag} color="bg-violet-500" title="Dados do Modelo"
-          hint="Dê um nome fácil de reconhecer para este modelo (por exemplo, o nome do banco ou do cliente). A conta corrente é opcional e pode ser preenchida depois."
+  const secArquivo = (
+    <Card className="p-5 space-y-4">
+      <StepHeader
+        icon={Upload} color="bg-sky-500" title="Arquivo de exemplo"
+        hint="Envie uma planilha de lançamentos de exemplo (Excel ou CSV). O sistema localiza a tabela e lê os nomes das colunas sozinho — você não precisa arrumar nada no arquivo antes."
+      />
+      <p className="text-xs text-muted-foreground">
+        Envie um arquivo de lançamentos (.xlsx, .xls, .csv) para mapear as colunas. A detecção da tabela é automática.
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
         />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-1.5">
-            <Label className="text-[13px] font-semibold">Nome <span className="text-destructive">*</span></Label>
-            <Input className="h-9 text-sm bg-card" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Banco do Brasil — Conta 12345" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[13px] font-semibold">Conta corrente</Label>
-            <Input className="h-9 text-sm bg-card" value={contaCorrente} onChange={(e) => setContaCorrente(e.target.value)} placeholder="Número da conta corrente" />
-          </div>
-          <div className="flex items-end pb-1.5">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <Checkbox checked={isActive} onCheckedChange={(v) => setIsActive(!!v)} />
-              <span className="text-[13px] font-semibold">Ativo</span>
-            </label>
-          </div>
-        </div>
-      </Card>
-
-      {/* Arquivo-exemplo */}
-      <Card className="p-5 space-y-4">
-        <StepHeader
-          icon={Upload} color="bg-sky-500" title="Arquivo de exemplo"
-          hint="Envie uma planilha de lançamentos de exemplo (Excel ou CSV). O sistema localiza a tabela e lê os nomes das colunas sozinho — você não precisa arrumar nada no arquivo antes."
-        />
-        <p className="text-xs text-muted-foreground">
-          Envie um arquivo de lançamentos (.xlsx, .xls, .csv) para mapear as colunas. A detecção da tabela é automática.
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
-          />
-          <Button variant="soft" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
-            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            {fileName ? 'Trocar arquivo' : 'Enviar arquivo'}
-          </Button>
-          {fileName && (
-            <span className="text-xs text-muted-foreground">
-              <FileSpreadsheet className="inline h-3.5 w-3.5 mr-1" />
-              {fileName} — {preview?.totalRows ?? 0} lançamentos
-              {preview?.truncated && ' (prévia limitada)'}
-            </span>
-          )}
-          {/* Formatos não-tabelados (Fase futura — IA) */}
-          <span className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground/70">
-            <FileText className="h-3.5 w-3.5 opacity-50" />
-            <ImageIcon className="h-3.5 w-3.5 opacity-50" />
-            PDF / imagem — em breve
+        <Button variant="soft" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          {fileName ? 'Trocar arquivo' : 'Enviar arquivo'}
+        </Button>
+        {fileName && (
+          <span className="text-xs text-muted-foreground">
+            <FileSpreadsheet className="inline h-3.5 w-3.5 mr-1" />
+            {fileName} — {preview?.totalRows ?? 0} lançamentos
+            {preview?.truncated && ' (prévia limitada)'}
           </span>
-        </div>
-        {!preview && headers.length > 0 && (
-          <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-            <Info className="h-3.5 w-3.5" /> Mostrando o mapeamento salvo. Envie o arquivo para revisar valores e distinções.
-          </p>
         )}
-      </Card>
+        {/* Formatos não-tabelados (Fase futura — IA) */}
+        <span className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground/70">
+          <FileText className="h-3.5 w-3.5 opacity-50" />
+          <ImageIcon className="h-3.5 w-3.5 opacity-50" />
+          PDF / imagem — em breve
+        </span>
+      </div>
+      {!preview && headers.length > 0 && (
+        <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+          <Info className="h-3.5 w-3.5" /> Mostrando o mapeamento salvo. Envie o arquivo para revisar valores e distinções.
+        </p>
+      )}
+    </Card>
+  )
 
-      {/* De/Para de colunas */}
-      <Card className="p-5 space-y-4">
-        <StepHeader
-          icon={Columns3} color="bg-emerald-500" title="De/Para de colunas"
-          hint={'Para cada informação que o SCI precisa, escolha qual coluna da sua planilha contém esse dado. A "Prévia de dados" abaixo de cada campo mostra exemplos reais para você conferir se acertou.'}
-        />
-        {headers.length === 0 ? (
+  const secDePara = (
+    <Card className="p-5 space-y-4">
+      <StepHeader
+        icon={Columns3} color="bg-emerald-500" title="De/Para de colunas"
+        hint={'Para cada informação que o SCI precisa, escolha qual coluna da sua planilha contém esse dado. A "Prévia de dados" abaixo de cada campo mostra exemplos reais para você conferir se acertou.'}
+      />
+      {headers.length === 0 ? (
+        <EmptyHint>Envie um arquivo de exemplo para listar as colunas.</EmptyHint>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {MAP_FIELDS.map((f) => {
+            const value = def.columnMapping[f.key] || ''
+            const samples = samplesFor(value)
+            return (
+              <div key={f.key} className="space-y-1.5">
+                <Label className="text-[13px] font-semibold">
+                  {f.label} {f.req && <span className="text-destructive">*</span>}
+                </Label>
+                <ColumnSelect headers={headers} value={value} optional={!f.req} onChange={(v) => setMap(f.key, v)} />
+                {f.hint && <p className="text-[11px] text-muted-foreground">{f.hint}</p>}
+                {samples.length > 0 && (
+                  <div className="text-[11px] text-muted-foreground/80">
+                    <span className="font-medium">Prévia de dados:</span>
+                    {samples.map((s, i) => <div key={i} className="truncate">{s}</div>)}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </Card>
+  )
+
+  const secES = (
+    <Card className="p-5 space-y-4">
+      <StepHeader
+        icon={ArrowLeftRight} color="bg-amber-500" title="Definição de Entrada / Saída"
+        hint="O sistema precisa saber se cada lançamento é uma entrada (dinheiro que entra) ou uma saída (dinheiro que sai). Escolha se isso vem de uma coluna da planilha ou das descrições dos lançamentos."
+      />
+      <Toggle
+        value={def.entradaSaida.tipo}
+        options={[{ value: 'COLUNA', label: 'Por coluna' }, { value: 'DESCRICAO', label: 'Pela descrição' }]}
+        onChange={(v) => setEsTipo(v as 'COLUNA' | 'DESCRICAO')}
+      />
+      {def.entradaSaida.tipo === 'COLUNA' ? (
+        headers.length === 0 ? (
           <EmptyHint>Envie um arquivo de exemplo para listar as colunas.</EmptyHint>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {MAP_FIELDS.map((f) => {
-              const value = def.columnMapping[f.key] || ''
-              const samples = samplesFor(value)
-              return (
-                <div key={f.key} className="space-y-1.5">
-                  <Label className="text-[13px] font-semibold">
-                    {f.label} {f.req && <span className="text-destructive">*</span>}
-                  </Label>
-                  <ColumnSelect headers={headers} value={value} optional={!f.req} onChange={(v) => setMap(f.key, v)} />
-                  {f.hint && <p className="text-[11px] text-muted-foreground">{f.hint}</p>}
-                  {samples.length > 0 && (
-                    <div className="text-[11px] text-muted-foreground/80">
-                      <span className="font-medium">Prévia de dados:</span>
-                      {samples.map((s, i) => <div key={i} className="truncate">{s}</div>)}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+        <div className="space-y-4">
+          <div className="space-y-1.5 max-w-xs">
+            <Label className="text-[13px] font-semibold">Coluna de Entrada/Saída <span className="text-destructive">*</span></Label>
+            <ColumnSelect headers={headers} value={def.entradaSaida.coluna} onChange={setEsColuna} />
           </div>
-        )}
-      </Card>
+          {def.entradaSaida.coluna && (
+            <EntradaSaidaColunaMap def={def} setDef={setDef} coluna={def.entradaSaida.coluna} getDistinct={getDistinct} />
+          )}
+        </div>
+        )
+      ) : (
+        <div className="flex items-start gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          <Info className="h-4 w-4 shrink-0 mt-0.5" />
+          Faça a definição de entrada/saída em cada item de contrapartida abaixo.
+        </div>
+      )}
+    </Card>
+  )
 
-      {/* Entrada / Saída */}
-      <Card className="p-5 space-y-4">
-        <StepHeader
-          icon={ArrowLeftRight} color="bg-amber-500" title="Definição de Entrada / Saída"
-          hint="O sistema precisa saber se cada lançamento é uma entrada (dinheiro que entra) ou uma saída (dinheiro que sai). Escolha se isso vem de uma coluna da planilha ou das descrições dos lançamentos."
+  const secContrapartida = (
+    <Card className="p-5 space-y-4">
+      <StepHeader
+        icon={Network} color="bg-rose-500" title="Mapeamento de contas de contrapartida"
+        hint="Informe a conta contábil de contrapartida de cada lançamento. Você pode mapear por palavra-chave encontrada na descrição, ou definir uma conta para cada descrição."
+      />
+      <Toggle
+        value={def.contrapartida.modo}
+        options={[{ value: 'DESCRICAO', label: 'Por descrição' }, { value: 'PALAVRA_CHAVE', label: 'Por palavra-chave' }]}
+        onChange={(v) => setCpModo(v as 'PALAVRA_CHAVE' | 'DESCRICAO')}
+      />
+
+      {def.contrapartida.modo === 'PALAVRA_CHAVE' ? (
+        <ContrapartidaPalavraChave def={def} setDef={setDef} esByDescricao={esByDescricao} />
+      ) : (
+        <ContrapartidaDescricao
+          def={def} setDef={setDef} esByDescricao={esByDescricao}
+          descricaoColuna={def.columnMapping.descricao || ''} getDistinct={getDistinct}
         />
-        <Toggle
-          value={def.entradaSaida.tipo}
-          options={[{ value: 'COLUNA', label: 'Por coluna' }, { value: 'DESCRICAO', label: 'Pela descrição' }]}
-          onChange={(v) => setEsTipo(v as 'COLUNA' | 'DESCRICAO')}
-        />
-        {def.entradaSaida.tipo === 'COLUNA' ? (
-          headers.length === 0 ? (
-            <EmptyHint>Envie um arquivo de exemplo para listar as colunas.</EmptyHint>
-          ) : (
-          <div className="space-y-4">
-            <div className="space-y-1.5 max-w-xs">
-              <Label className="text-[13px] font-semibold">Coluna de Entrada/Saída <span className="text-destructive">*</span></Label>
-              <ColumnSelect headers={headers} value={def.entradaSaida.coluna} onChange={setEsColuna} />
+      )}
+      {cpItens.length === 0 && def.contrapartida.modo === 'DESCRICAO' && (
+        <EmptyHint>Mapeie a coluna de descrição e envie o arquivo para listar as descrições distintas.</EmptyHint>
+      )}
+    </Card>
+  )
+
+  const secNota = (
+    <Card className="p-5 space-y-2">
+      <Label className="text-[13px] font-semibold">Nota desta versão (opcional)</Label>
+      <Input className="h-9 text-sm bg-card" value={note} onChange={(e) => setNote(e.target.value)} placeholder="O que mudou nesta versão?" />
+    </Card>
+  )
+
+  // Visão geral = todas as seções empilhadas (edição + revisão final do wizard).
+  const overview = (
+    <>
+      {secDados}
+      {secArquivo}
+      {secDePara}
+      {secES}
+      {secContrapartida}
+      {secNota}
+    </>
+  )
+
+  // ---- Modo CRIAÇÃO: wizard passo a passo ---------------------------------
+  if (mode === 'create') {
+    const wizardSteps = [
+      { label: 'Dados', node: secDados },
+      { label: 'Arquivo', node: secArquivo },
+      { label: 'Colunas', node: secDePara },
+      { label: 'Entrada/Saída e Contrapartida', node: (<>{secES}{secContrapartida}</>) },
+    ]
+    const isReview = step >= wizardSteps.length
+    const currentStep = wizardSteps[step]
+
+    return (
+      <TooltipProvider>
+        <div className="space-y-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <PageHeaderIcon module="contabil" icon={FileSpreadsheet} />
+              <div>
+                <h1>Novo Modelo de Tratamento</h1>
+                <p className="text-sm text-muted-foreground">
+                  {isReview || !currentStep
+                    ? 'Revise as escolhas e confirme a criação'
+                    : `Passo ${step + 1} de ${wizardSteps.length} — ${currentStep.label}`}
+                </p>
+              </div>
             </div>
-            {def.entradaSaida.coluna && (
-              <EntradaSaidaColunaMap def={def} setDef={setDef} coluna={def.entradaSaida.coluna} getDistinct={getDistinct} />
+            <Button variant="outline" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4" /> Sair</Button>
+          </div>
+
+          <Stepper labels={[...wizardSteps.map((s) => s.label), 'Revisão']} current={step} maxStep={maxStep} onGo={goStep} />
+
+          {isReview || !currentStep ? (
+            <>
+              <div className="flex items-start gap-2 rounded-[2px] border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
+                <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                Confira o resumo do modelo abaixo. Você pode voltar a qualquer etapa para ajustar antes de criar.
+              </div>
+              {overview}
+            </>
+          ) : (
+            currentStep.node
+          )}
+
+          <div className="flex items-center justify-between border-t border-border/60 pt-4">
+            <Button variant="outline" size="sm" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>
+              <ArrowLeft className="h-4 w-4" /> Etapa anterior
+            </Button>
+            {isReview ? (
+              <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Criar modelo
+              </Button>
+            ) : (
+              <Button variant="success" size="sm" onClick={advanceStep}>
+                Avançar <ArrowRight className="h-4 w-4" />
+              </Button>
             )}
           </div>
-          )
-        ) : (
-          <div className="flex items-start gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            <Info className="h-4 w-4 shrink-0 mt-0.5" />
-            Faça a definição de entrada/saída em cada item de contrapartida abaixo.
+        </div>
+      </TooltipProvider>
+    )
+  }
+
+  // ---- Modo EDIÇÃO: visão geral (todas as seções) -------------------------
+  return (
+    <TooltipProvider>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <PageHeaderIcon module="contabil" icon={FileSpreadsheet} />
+            <div>
+              <h1>Editar Modelo</h1>
+              <p className="text-sm text-muted-foreground">Configure o mapeamento usado na conversão para o SCI</p>
+            </div>
           </div>
-        )}
-      </Card>
-
-      {/* Contrapartidas */}
-      <Card className="p-5 space-y-4">
-        <StepHeader
-          icon={Network} color="bg-rose-500" title="Mapeamento de contas de contrapartida"
-          hint="Informe a conta contábil de contrapartida de cada lançamento. Você pode mapear por palavra-chave encontrada na descrição, ou definir uma conta para cada descrição."
-        />
-        <Toggle
-          value={def.contrapartida.modo}
-          options={[{ value: 'DESCRICAO', label: 'Por descrição' }, { value: 'PALAVRA_CHAVE', label: 'Por palavra-chave' }]}
-          onChange={(v) => setCpModo(v as 'PALAVRA_CHAVE' | 'DESCRICAO')}
-        />
-
-        {def.contrapartida.modo === 'PALAVRA_CHAVE' ? (
-          <ContrapartidaPalavraChave def={def} setDef={setDef} esByDescricao={esByDescricao} />
-        ) : (
-          <ContrapartidaDescricao
-            def={def} setDef={setDef} esByDescricao={esByDescricao}
-            descricaoColuna={def.columnMapping.descricao || ''} getDistinct={getDistinct}
-          />
-        )}
-        {cpItens.length === 0 && def.contrapartida.modo === 'DESCRICAO' && (
-          <EmptyHint>Mapeie a coluna de descrição e envie o arquivo para listar as descrições distintas.</EmptyHint>
-        )}
-      </Card>
-
-      {/* Nota da versão */}
-      <Card className="p-5 space-y-2">
-        <Label className="text-[13px] font-semibold">Nota desta versão (opcional)</Label>
-        <Input className="h-9 text-sm bg-card" value={note} onChange={(e) => setNote(e.target.value)} placeholder="O que mudou nesta versão?" />
-      </Card>
-    </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4" /> Voltar</Button>
+          </div>
+        </div>
+        {overview}
+      </div>
     </TooltipProvider>
   )
 }
@@ -518,6 +635,40 @@ function StepHeader({ icon: Icon, title, hint, color }: { icon: LucideIcon; titl
 }
 function EmptyHint({ children }: { children: React.ReactNode }) {
   return <p className="text-xs text-muted-foreground italic">{children}</p>
+}
+
+/** Barra de etapas do wizard — clicável para etapas já alcançadas. */
+function Stepper({ labels, current, maxStep, onGo }: { labels: string[]; current: number; maxStep: number; onGo: (i: number) => void }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
+      {labels.map((label, i) => {
+        const active = i === current
+        const reachable = i <= maxStep
+        return (
+          <div key={label} className="flex items-center">
+            <button
+              type="button"
+              disabled={!reachable}
+              onClick={() => onGo(i)}
+              className={cn(
+                'flex items-center gap-1.5 rounded-[2px] px-2.5 py-1 text-xs font-medium transition-colors',
+                active
+                  ? 'text-white'
+                  : reachable
+                    ? 'bg-muted/50 text-foreground hover:bg-muted cursor-pointer'
+                    : 'bg-muted/30 text-muted-foreground/60 cursor-not-allowed',
+              )}
+              style={active ? { backgroundColor: 'var(--mod-contabil, #a78bfa)' } : undefined}
+            >
+              <span className={cn('flex h-4 w-4 items-center justify-center rounded-full text-[10px]', active ? 'bg-white/25' : 'bg-foreground/10')}>{i + 1}</span>
+              {label}
+            </button>
+            {i < labels.length - 1 && <span className="px-1 text-muted-foreground/40">›</span>}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 function Toggle({ value, options, onChange }: { value: string; options: Array<{ value: string; label: string }>; onChange: (v: string) => void }) {
@@ -558,7 +709,7 @@ function ColumnSelect({ headers, value, optional, onChange, placeholder = 'Selec
 
 type SetDef = React.Dispatch<React.SetStateAction<TreatmentDefinition>>
 
-/** Mapa valor→direção da coluna de Entrada/Saída, semeando default ENTRADA. */
+/** Mapa valor→direção da coluna de Entrada/Saída (sem default; direção obrigatória). */
 function EntradaSaidaColunaMap({ def, setDef, coluna, getDistinct }: { def: TreatmentDefinition; setDef: SetDef; coluna: string; getDistinct: (c: string) => string[] }) {
   const distinct = getDistinct(coluna)
 
@@ -567,7 +718,6 @@ function EntradaSaidaColunaMap({ def, setDef, coluna, getDistinct }: { def: Trea
   useEffect(() => {
     if (!distinct.length) return
     setDef((d) => {
-      if (d.entradaSaida.tipo !== 'COLUNA') return d
       const valid = new Set(distinct)
       const mapa = d.entradaSaida.mapa.filter((m) => valid.has(m.valor))
       if (mapa.length === d.entradaSaida.mapa.length) return d
@@ -577,14 +727,13 @@ function EntradaSaidaColunaMap({ def, setDef, coluna, getDistinct }: { def: Trea
 
   function setOne(valor: string, direcao: Direcao) {
     setDef((d) => {
-      if (d.entradaSaida.tipo !== 'COLUNA') return d
       const mapa = d.entradaSaida.mapa.filter((m) => m.valor !== valor)
       mapa.push({ valor, direcao })
       return { ...d, entradaSaida: { ...d.entradaSaida, mapa } }
     })
   }
 
-  const mapa = def.entradaSaida.tipo === 'COLUNA' ? def.entradaSaida.mapa : []
+  const mapa = def.entradaSaida.mapa
   const valores = distinct.length ? distinct : mapa.map((m) => m.valor)
   if (!valores.length) return <EmptyHint>Envie o arquivo para listar os valores distintos desta coluna.</EmptyHint>
   return (
@@ -768,10 +917,16 @@ function normalizeDefinition(raw: unknown): TreatmentDefinition {
   const contrapartida: ContrapartidaRule = cp && Array.isArray(cp.itens)
     ? { modo, palavraChave: modo === 'PALAVRA_CHAVE' ? asPC(cp.itens) : [], descricao: modo === 'DESCRICAO' ? asDesc(cp.itens) : [] }
     : { modo, palavraChave: asPC(cp?.palavraChave), descricao: asDesc(cp?.descricao) }
+  const esRaw = r.entradaSaida as { tipo?: string; coluna?: unknown; mapa?: unknown[] } | undefined
+  const entradaSaida: TreatmentDefinition['entradaSaida'] = {
+    tipo: esRaw?.tipo === 'DESCRICAO' ? 'DESCRICAO' : 'COLUNA',
+    coluna: typeof esRaw?.coluna === 'string' ? esRaw.coluna : '',
+    mapa: Array.isArray(esRaw?.mapa) ? (esRaw!.mapa as unknown as TreatmentDefinition['entradaSaida']['mapa']) : [],
+  }
   return {
     contaCorrente: typeof r.contaCorrente === 'string' ? r.contaCorrente : base.contaCorrente,
     columnMapping: { ...base.columnMapping, ...(r.columnMapping ?? {}) },
-    entradaSaida: (r.entradaSaida as TreatmentDefinition['entradaSaida']) ?? base.entradaSaida,
+    entradaSaida,
     contrapartida,
   }
 }

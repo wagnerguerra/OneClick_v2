@@ -46,5 +46,9 @@ export function createTratamentoLancamentosRouter(service: TratamentoLancamentos
     restore: writeProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => service.restore(input.id, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
+
+    duplicate: writeProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => service.duplicate(input.id, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
   })
 }

@@ -182,6 +182,34 @@ export class TratamentoLancamentosService {
     })
   }
 
+  /** Cria um novo Modelo a partir de um existente (copia a definição da versão atual). */
+  async duplicate(id: string, userId?: string, isMaster?: boolean, empresaId?: string, tenantSchema?: string) {
+    return scoped(tenantSchema, async (db) => {
+      const src = await db.treatmentModel.findUniqueOrThrow({ where: { id } })
+      assertScope(src.empresaId, isMaster, empresaId)
+
+      const currentVersion = src.currentVersionId
+        ? await db.treatmentModelVersion.findUnique({ where: { id: src.currentVersionId } })
+        : null
+      const definition = (currentVersion?.definition ?? EMPTY_TREATMENT_DEFINITION) as unknown as Prisma.InputJsonValue
+
+      const model = await db.treatmentModel.create({
+        data: {
+          nome: `${src.nome} (cópia)`,
+          contaCorrente: src.contaCorrente,
+          clienteId: src.clienteId,
+          empresaId: src.empresaId,
+          isActive: src.isActive,
+          version: 1,
+        },
+      })
+      const version = await db.treatmentModelVersion.create({
+        data: { modelId: model.id, versionNumber: 1, definition, authorId: userId || null, note: `Duplicado de "${src.nome}"` },
+      })
+      return db.treatmentModel.update({ where: { id: model.id }, data: { currentVersionId: version.id } })
+    })
+  }
+
   async getVersions(id: string, isMaster?: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
       const model = await db.treatmentModel.findUniqueOrThrow({ where: { id } })

@@ -37,23 +37,20 @@ export type ColumnMapping = z.infer<typeof columnMappingSchema>
 // ---- Regra de Entrada/Saída ------------------------------------------------
 // Ou por uma COLUNA (com mapa de valor→direção via "SELECT DISTINCT"),
 // ou pela DESCRIÇÃO (a direção é definida em cada item de contrapartida).
-export const entradaSaidaSchema = z.discriminatedUnion('tipo', [
-  z.object({
-    tipo: z.literal('COLUNA'),
-    coluna: z.string().min(1, 'Selecione a coluna de entrada/saída'),
-    mapa: z
-      .array(
-        z.object({
-          valor: z.string(),
-          direcao: z.enum(['ENTRADA', 'SAIDA']),
-        }),
-      )
-      .default([]),
-  }),
-  z.object({
-    tipo: z.literal('DESCRICAO'),
-  }),
-])
+// Guarda coluna+mapa SEMPRE (mesmo no modo DESCRICAO), para alternar o modo
+// não perder o que foi preenchido por coluna. `tipo` define qual regra vale.
+export const entradaSaidaSchema = z.object({
+  tipo: z.enum(['COLUNA', 'DESCRICAO']).default('COLUNA'),
+  coluna: z.string().default(''),
+  mapa: z
+    .array(
+      z.object({
+        valor: z.string(),
+        direcao: z.enum(['ENTRADA', 'SAIDA']),
+      }),
+    )
+    .default([]),
+})
 export type EntradaSaidaRule = z.infer<typeof entradaSaidaSchema>
 
 // ---- Mapeamentos de contrapartida ------------------------------------------
