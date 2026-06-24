@@ -2178,27 +2178,27 @@ function registerIpcHandlers() {
           const addRes = await gitExec(['add', '--', d.path], null, 10000)
           deployCheckAbort('commit', 3)
           if (addRes.code !== 0) {
-            const msg = addRes.stderr || addRes.error || 'git add falhou'
-            deployEmit(3, 'commit', `✗ git add "${d.path}": ${msg.slice(0, 200)}`, 'err')
+            const msg = addRes.stderr || addRes.error || 'falha ao adicionar arquivo ao commit'
+            deployEmit(3, 'commit', `✗ Falha ao adicionar "${d.path}": ${msg.slice(0, 200)}`, 'err')
             deployRunning = false
-            return { ok: false, error: `git add falhou em ${d.path}: ${msg.slice(0, 200)}` }
+            return { ok: false, error: `Falha ao adicionar ${d.path}: ${msg.slice(0, 200)}` }
           }
           deployEmit(3, 'commit', `  + ${d.path}`, 'info')
         }
         const commitRes = await gitExec(['commit', '-m', commitMessage], null, 30000)
         deployCheckAbort('commit', 4)
         if (commitRes.code !== 0) {
-          const msg = commitRes.stderr || commitRes.stdout || commitRes.error || 'git commit falhou'
+          const msg = commitRes.stderr || commitRes.stdout || commitRes.error || 'criação do commit falhou'
           deployEmit(4, 'commit', `✗ ${msg.slice(0, 300)}`, 'err')
           deployRunning = false
-          return { ok: false, error: 'git commit falhou: ' + msg.slice(0, 200) }
+          return { ok: false, error: 'Criação do commit falhou: ' + msg.slice(0, 200) }
         }
         deployEmit(4, 'commit', `✓ Commit criado: "${commitMessage.slice(0, 60)}"`, 'ok')
         targetSha = gitOutput(['rev-parse', 'HEAD'])
       }
 
       // ─── Stage 1: git push ─────────────────────────
-      deployEmit(5, 'push', '→ Pushing pro GitHub...', 'info')
+      deployEmit(5, 'push', '→ Enviando para o GitHub...', 'info')
       deployCheckAbort('push', 5)
       deployCurrentStep = 'push'
       const localBranch = gitOutput(['rev-parse', '--abbrev-ref', 'HEAD'])
@@ -2208,9 +2208,9 @@ function registerIpcHandlers() {
         deployEmit(5, 'push', `→ Buscando PR #${corePrTarget.number} no GitHub...`, 'info')
         const fetchPr = await gitExec(['fetch', 'origin', `pull/${corePrTarget.number}/head`], (line) => deployEmit(6, 'push', line, 'info'), 60000)
         if (fetchPr.code !== 0) {
-          const msg = fetchPr.stderr || fetchPr.stdout || fetchPr.error || 'git fetch PR falhou'
+          const msg = fetchPr.stderr || fetchPr.stdout || fetchPr.error || 'falha ao buscar PR no GitHub'
           deployRunning = false
-          return { ok: false, error: 'git fetch PR falhou: ' + msg.slice(0, 200) }
+          return { ok: false, error: 'Falha ao buscar PR no GitHub: ' + msg.slice(0, 200) }
         }
         targetSha = gitOutput(['rev-parse', 'FETCH_HEAD'])
         coreDeployBranch = `deploy/pr-${corePrTarget.number}-core`
@@ -2226,36 +2226,36 @@ function registerIpcHandlers() {
       // Timeout 60s — se Git Credential Manager pedir popup, mata em 60s ao invés de travar.
       const targetAlreadyRemote = remoteShaBeforePush && gitExitCode(['merge-base', '--is-ancestor', targetSha, remoteShaBeforePush]) === 0
       const pushResult = targetAlreadyRemote
-        ? { code: 0, stdout: 'Commit alvo ja esta no GitHub (push skip)' }
+        ? { code: 0, stdout: 'Commit alvo já está no GitHub (envio ignorado)' }
         : await gitExec(['push', 'origin', `${targetSha}:refs/heads/${coreDeployBranch}`], (line) => deployEmit(7, 'push', line, 'info'), 60000)
       deployCheckAbort('push', 10)
       if (pushResult.code !== 0) {
-        const msg = pushResult.stderr || pushResult.stdout || pushResult.error || 'git push falhou'
-        const extra = pushResult.timedOut ? ' [timeout 60s — provavelmente faltando credencial: rode `git push` no terminal pra autenticar]' : ''
+        const msg = pushResult.stderr || pushResult.stdout || pushResult.error || 'envio ao GitHub falhou'
+        const extra = pushResult.timedOut ? ' [tempo limite de 60s — provavelmente falta credencial: rode `git push` no terminal para autenticar]' : ''
         deployEmit(10, 'push', `✗ ${msg.slice(0, 300)}${extra}`, 'err')
         deployRunning = false
-        return { ok: false, error: 'git push falhou: ' + msg.slice(0, 200) + extra }
+        return { ok: false, error: 'Envio ao GitHub falhou: ' + msg.slice(0, 200) + extra }
       }
-      deployEmit(10, 'push', `✓ Push OK (${targetSha.slice(0, 7)})`, 'ok')
+      deployEmit(10, 'push', `✓ Envio ao GitHub concluído (${targetSha.slice(0, 7)})`, 'ok')
 
       // ─── Stage 2: SSH git pull ─────────────────────
-      deployEmit(15, 'pull', '→ git pull na VPS...', 'info')
+      deployEmit(15, 'pull', '→ Atualizando código na VPS...', 'info')
       deployCheckAbort('pull', 15)
       deployCurrentStep = 'pull'
       const pull = await sshExec(cfg, `cd /opt/oneclick-src && git fetch origin ${coreDeployBranch} 2>&1 && git merge --ff-only ${targetSha} 2>&1`, (line) => deployEmit(20, 'pull', line, 'info'))
       if (pull.code !== 0) {
         deployEmit(25, 'pull', `✗ ${(pull.stderr || pull.stdout || '').slice(0, 300)}`, 'err')
         deployRunning = false
-        return { ok: false, error: 'git pull falhou na VPS' }
+        return { ok: false, error: 'Atualização do código na VPS falhou' }
       }
-      deployEmit(25, 'pull', '✓ Pull OK', 'ok')
+      deployEmit(25, 'pull', '✓ Código atualizado na VPS', 'ok')
 
       // ─── Stage 3: Build API ────────────────────────
       // IMPORTANTE: build api PRECEDE o db push porque o `prisma db push` usa
       // a imagem `oneclick-api:latest` (que contém o schema.prisma). Se o build
       // for depois, o db push acaba rodando com schema antigo e tabelas novas
       // não são criadas.
-      deployEmit(30, 'build-api', '→ Building oneclick-api...', 'info')
+      deployEmit(30, 'build-api', '→ Gerando imagem da API...', 'info')
       deployCheckAbort('build-api', 30)
       deployCurrentStep = 'build-api'
       const buildApi = await sshExec(cfg, 'cd /opt/oneclick && docker compose build api 2>&1', (line) => {
@@ -2264,11 +2264,11 @@ function registerIpcHandlers() {
         }
       })
       if (buildApi.code !== 0) {
-        deployEmit(50, 'build-api', `✗ Build api falhou`, 'err')
+        deployEmit(50, 'build-api', `✗ Geração da imagem da API falhou`, 'err')
         deployRunning = false
-        return { ok: false, error: 'build api falhou' }
+        return { ok: false, error: 'Geração da imagem da API falhou' }
       }
-      deployEmit(50, 'build-api', '✓ Build api OK', 'ok')
+      deployEmit(50, 'build-api', '✓ Imagem da API gerada', 'ok')
 
       // ─── Stage 4: Schema (se mudou) ────────────────
       // Roda APÓS o build api, usando a imagem recém-buildada (com schema novo).
@@ -2286,7 +2286,7 @@ function registerIpcHandlers() {
         }
         deployEmit(65, 'schema', '✓ Schema aplicado', 'ok')
       } else {
-        deployEmit(65, 'schema', '· Sem mudança de schema (skip)', 'info')
+        deployEmit(65, 'schema', '· Sem mudança de schema (ignorado)', 'info')
       }
 
       // ─── Stage 4.5: SQLs cirúrgicos (sempre) ────────
@@ -2301,7 +2301,7 @@ function registerIpcHandlers() {
       const listSql = await sshExec(cfg, 'ls /opt/oneclick-src/packages/db/prisma/sql/*.sql 2>/dev/null | sort', null, 30000)
       const sqlFiles = (listSql.stdout || '').trim().split('\n').filter(Boolean)
       if (sqlFiles.length === 0) {
-        deployEmit(67, 'sql', '· Nenhum SQL cirúrgico encontrado (skip)', 'info')
+        deployEmit(67, 'sql', '· Nenhum SQL cirúrgico encontrado (ignorado)', 'info')
       } else {
         deployEmit(66, 'sql', `→ ${sqlFiles.length} arquivo(s) SQL a aplicar`, 'info')
         let sqlFailed = false
@@ -2323,7 +2323,7 @@ function registerIpcHandlers() {
           )
           deployCheckAbort('sql', 68)
           if (sqlExec.code !== 0) {
-            const motivo = sqlExec.timedOut ? 'timeout 130s (preso em lock?)' : `code ${sqlExec.code}`
+            const motivo = sqlExec.timedOut ? 'tempo limite de 130s (preso em lock?)' : `código ${sqlExec.code}`
             deployEmit(68, 'sql', `✗ ${fname} falhou (${motivo})`, 'err')
             sqlFailed = true
             break
@@ -2337,7 +2337,7 @@ function registerIpcHandlers() {
       }
 
       // ─── Stage 5: Build Web ────────────────────────
-      deployEmit(70, 'build-web', '→ Building oneclick-web...', 'info')
+      deployEmit(70, 'build-web', '→ Gerando imagem do Web...', 'info')
       deployCheckAbort('build-web', 70)
       deployCurrentStep = 'build-web'
       const buildWeb = await sshExec(cfg, 'cd /opt/oneclick && docker compose build web 2>&1', (line) => {
@@ -2346,28 +2346,28 @@ function registerIpcHandlers() {
         }
       })
       if (buildWeb.code !== 0) {
-        deployEmit(85, 'build-web', `✗ Build web falhou`, 'err')
+        deployEmit(85, 'build-web', `✗ Geração da imagem do Web falhou`, 'err')
         deployRunning = false
-        return { ok: false, error: 'build web falhou' }
+        return { ok: false, error: 'Geração da imagem do Web falhou' }
       }
-      deployEmit(85, 'build-web', '✓ Build web OK', 'ok')
+      deployEmit(85, 'build-web', '✓ Imagem do Web gerada', 'ok')
 
       // ─── Stage 6: Restart + Health check ───────────
-      deployEmit(90, 'restart', '→ Restart containers + health check...', 'info')
+      deployEmit(90, 'restart', '→ Reiniciando containers e verificando saúde...', 'info')
       deployCheckAbort('restart', 90)
       deployCurrentStep = 'restart'
       const up = await sshExec(cfg, 'cd /opt/oneclick && docker compose up -d --force-recreate api web 2>&1 && sleep 12 && curl -s -o /dev/null -w "API:%{http_code}\\n" http://127.0.0.1:4100/api/health', (line) => deployEmit(95, 'restart', line, 'info'))
       if (up.code !== 0 || !/(API:200|API:204)/.test(up.stdout || '')) {
-        deployEmit(98, 'restart', `✗ Restart ou health falhou`, 'err')
+        deployEmit(98, 'restart', `✗ Reinício ou verificação de saúde falhou`, 'err')
         deployRunning = false
-        return { ok: false, error: 'restart ou health check falhou' }
+        return { ok: false, error: 'Reinício ou verificação de saúde falhou' }
       }
       } else {
-        deployEmit(90, 'restart', '· Core/API/Web não selecionado (skip)', 'info')
+        deployEmit(90, 'restart', '· Core/API/Web não selecionado (ignorado)', 'info')
       }
 
       if (appRequested) {
-        deployEmit(96, 'pull', '→ Deploy App Mobile...', 'info')
+        deployEmit(96, 'pull', '→ Publicando App Mobile...', 'info')
         deployCheckAbort('app', 96)
         deployCurrentStep = 'pull'
         const appDef = deployProjectDefs(cfg).find(p => p.id === 'app')
@@ -2387,13 +2387,13 @@ function registerIpcHandlers() {
             const addRes = await gitExec(['add', '--', d.path], null, 10000, appCwd)
             if (addRes.code !== 0) {
               deployRunning = false
-              return { ok: false, error: `git add falhou no App Mobile: ${d.path}` }
+              return { ok: false, error: `Falha ao adicionar arquivo no App Mobile: ${d.path}` }
             }
           }
           const appCommit = await gitExec(['commit', '-m', commitMessage], null, 30000, appCwd)
           if (appCommit.code !== 0) {
             deployRunning = false
-            return { ok: false, error: 'git commit falhou no App Mobile: ' + (appCommit.stderr || appCommit.stdout || '').slice(0, 200) }
+            return { ok: false, error: 'Commit falhou no App Mobile: ' + (appCommit.stderr || appCommit.stdout || '').slice(0, 200) }
           }
         }
         const appPrTarget = prTargets.app
@@ -2404,7 +2404,7 @@ function registerIpcHandlers() {
           const fetchAppPr = await gitExec(['fetch', 'origin', `pull/${appPrTarget.number}/head`], (line) => deployEmit(96, 'pull', `[app] ${line}`, 'info'), 60000, appCwd)
           if (fetchAppPr.code !== 0) {
             deployRunning = false
-            return { ok: false, error: 'git fetch PR falhou no App Mobile: ' + (fetchAppPr.stderr || fetchAppPr.stdout || fetchAppPr.error || '').slice(0, 200) }
+            return { ok: false, error: 'Falha ao buscar PR no App Mobile: ' + (fetchAppPr.stderr || fetchAppPr.stdout || fetchAppPr.error || '').slice(0, 200) }
           }
           requestedAppSha = gitOutput(['rev-parse', 'FETCH_HEAD'], appCwd)
           appDeployBranch = `deploy/pr-${appPrTarget.number}-app`
@@ -2425,7 +2425,7 @@ function registerIpcHandlers() {
         const appPush = await gitExec(['push', 'origin', `${appTargetSha}:refs/heads/${appDeployBranch}`], (line) => deployEmit(97, 'push', `[app] ${line}`, 'info'), 60000, appCwd)
         if (appPush.code !== 0) {
           deployRunning = false
-          return { ok: false, error: 'git push falhou no App Mobile: ' + (appPush.stderr || appPush.stdout || appPush.error || '').slice(0, 200) }
+          return { ok: false, error: 'Envio do App Mobile ao GitHub falhou: ' + (appPush.stderr || appPush.stdout || appPush.error || '').slice(0, 200) }
         }
         const appRemoteUrl = gitOutput(['remote', 'get-url', 'origin'], appCwd)
         const appRemoteDirQ = shellQuote(appDef.remoteDir)
@@ -2437,7 +2437,7 @@ function registerIpcHandlers() {
         const appPull = await sshExec(cfg, appPullCmd, (line) => deployEmit(98, 'pull', `[app] ${line}`, 'info'))
         if (appPull.code !== 0) {
           deployRunning = false
-          return { ok: false, error: 'git pull falhou no App Mobile na VPS' }
+          return { ok: false, error: 'Atualização do App Mobile na VPS falhou' }
         }
         deployEmit(99, 'pull', '✓ App Mobile atualizado', 'ok')
       }
