@@ -85,6 +85,14 @@ export function createUserRouter(userService: UserService) {
     getMyPermissions: protectedProcedure
       .query(({ ctx }) => userService.getMyPermissions(ctx.userId)),
 
+    // Quem tem acesso a um módulo/tela (genérico). protectedProcedure — quem
+    // já está na tela pode ver os colegas com acesso. Escopo por empresa.
+    comAcessoAoModulo: protectedProcedure
+      .input(z.object({ moduleSlug: z.string().min(1) }))
+      .query(({ input, ctx }) =>
+        userService.comAcessoAoModulo(input.moduleSlug, ctx.isMaster ?? false, ctx.empresaId),
+      ),
+
     // Carteira de clientes do próprio usuário logado — não exige permissão "usuarios"
     getMyAssignedClients: protectedProcedure
       .query(({ ctx }) => userService.getAssignedClients(ctx.userId)),

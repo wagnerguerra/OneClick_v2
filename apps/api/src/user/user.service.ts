@@ -85,6 +85,66 @@ export class UserService {
     return buildPaginatedResponse(data, total, page, limit)
   }
 
+  /**
+   * Lista quem tem acesso a um módulo (tela). Retorna dois grupos:
+   *  - acessoTotal: master global e donos do tenant (empresaMaster) — enxergam
+   *    tudo sem precisar de linha em UserPermission.
+   *  - comPermissao: usuários com UserPermission(moduleSlug, canRead=true), com
+   *    o nível (leitura/escrita/exclusão).
+   * Escopo: não-master vê só usuários da própria empresa (igual ao list).
+   */
+  async comAcessoAoModulo(moduleSlug: string, callerIsMaster = false, callerEmpresaId?: string) {
+    const where: Prisma.UserWhereInput = {
+      isActive: true,
+      ...(!callerIsMaster && callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
+    }
+
+    const users = await prisma.user.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        role: true,
+        isMaster: true,
+        isEmpresaMaster: true,
+        cargo: { select: { name: true } },
+        area: { select: { name: true } },
+        permissions: {
+          where: { moduleSlug },
+          select: { canRead: true, canWrite: true, canDelete: true },
+        },
+      },
+    })
+
+    const acessoTotal: Array<Record<string, unknown>> = []
+    const comPermissao: Array<Record<string, unknown>> = []
+
+    for (const u of users) {
+      const base = {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        image: u.image,
+        role: u.role,
+        cargo: u.cargo?.name ?? null,
+        area: u.area?.name ?? null,
+      }
+      if (u.isMaster || u.isEmpresaMaster) {
+        acessoTotal.push({ ...base, tipo: u.isMaster ? 'MASTER' : 'EMPRESA_MASTER' })
+      } else {
+        const perm = u.permissions[0]
+        if (perm?.canRead) {
+          comPermissao.push({ ...base, canRead: perm.canRead, canWrite: perm.canWrite, canDelete: perm.canDelete })
+        }
+      }
+    }
+
+    return { acessoTotal, comPermissao, total: acessoTotal.length + comPermissao.length }
+  }
+
   async getById(id: string, callerIsMaster = false, callerEmpresaId?: string) {
     const user = await prisma.user.findUniqueOrThrow({
       where: { id },
