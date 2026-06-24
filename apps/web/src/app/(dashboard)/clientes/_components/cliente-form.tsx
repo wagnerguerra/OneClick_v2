@@ -24,6 +24,7 @@ import {
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { OrcamentosLegadoSection } from '@/components/orcamento/orcamentos-legado-section'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -664,6 +665,12 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   <PlaceholderTab icon={ListTodo} title="Log's" description="Salve o cliente primeiro para visualizar o histórico." />
                 )}
               </TabsContent>
+
+              {/* Histórico de orçamentos do legado — dentro da coluna principal
+                  (1fr), pra alinhar com o conteúdo e não "vazar" full-width. */}
+              {isEdit && clienteId && (
+                <OrcamentosLegadoSection clienteId={clienteId} className="mt-5" />
+              )}
             </div>
 
             {/* ============================================================ */}
@@ -2462,22 +2469,20 @@ function FiscalCard({ register, control, clienteId, isEdit, documento }: {
                     </Select>
                   )} />
                 </div>
-                <div className="col-span-12 md:col-span-6 space-y-1.5">
-                  <Label>Inscrição Estadual</Label>
-                  <Input placeholder="IE" {...register('inscricaoEstadual')} />
-                </div>
-                <div className="col-span-12 md:col-span-6 space-y-1.5">
-                  <Label>Inscrição Municipal</Label>
-                  <Input placeholder="IM" {...register('inscricaoMunicipal')} />
-                </div>
               </div>
 
-              {/* Registro de Inscrições (estaduais) — N por estado, migrado do legado */}
-              {isEdit && clienteId ? (
-                <RegistroInscricoesCard clienteId={clienteId} />
-              ) : (
-                <p className="mt-6 text-xs text-muted-foreground">Salve o cliente para registrar inscrições.</p>
-              )}
+              {/* Registro de Inscrições — mesmo padrão visual de "Dados Fiscais"
+                  (header-bar full-width + conteúdo em p-5). */}
+              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] dark:border-border">
+                <h4 className="text-[13px] font-semibold text-foreground">Registro de Inscrições</h4>
+              </div>
+              <div className="p-5">
+                {isEdit && clienteId ? (
+                  <RegistroInscricoesCard clienteId={clienteId} />
+                ) : (
+                  <p className="text-xs text-muted-foreground">Salve o cliente para registrar inscrições.</p>
+                )}
+              </div>
             </div>
           )}
 
@@ -2808,11 +2813,7 @@ function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
   }
 
   return (
-    <div className="mt-6">
-      <div className="-mx-5 mb-4 border-b border-border px-5 py-3">
-        <h4 className="text-[13px] font-semibold text-foreground">Registro de Inscrições</h4>
-      </div>
-
+    <div>
       {loading ? (
         <div className="flex justify-center py-4"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
       ) : rows.length === 0 ? (
