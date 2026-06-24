@@ -309,7 +309,7 @@ export class AgendaEmailTemplateService {
       const garagemHtml = ev.garagem
         ? `<span class="em-meta" style="font-size:11px;color:#64748b">🚗 Garagem reservada${esc(vagasTxt)}</span>` : ''
       const prepItens: string[] = []
-      if (ev.salaRef || ev.sala) prepItens.push('Arrumar sala')
+      if (ev.arrumarSala) prepItens.push('Arrumar sala')
       if (ev.equipamentos) prepItens.push('Disponibilizar equipamentos')
       if (ev.garagem) prepItens.push('Reservar garagem')
       const preparacaoHtml = prepItens.length > 0

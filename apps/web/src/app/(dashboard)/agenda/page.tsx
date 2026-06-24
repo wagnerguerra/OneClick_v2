@@ -8,7 +8,7 @@ import {
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
   Repeat, Lock, History, Settings, Palette, Check, DoorOpen,
   Bell, Mail, CheckSquare, Square, ListTodo, Search, Target, ArrowRight, Link2, ExternalLink,
-  StickyNote, Paperclip, Send, Upload, FileBarChart,
+  StickyNote, Paperclip, Send, Upload, FileBarChart, Sparkles,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card,
@@ -67,6 +67,7 @@ interface AgendaEvento {
   editavel: boolean
   sala: string | null
   salaId: string | null
+  arrumarSala?: boolean
   isTarefa: boolean
   recorrencia: string
   lote: string | null
@@ -2019,6 +2020,11 @@ export default function AgendaPage() {
                           <span className="truncate max-w-[220px]">{localSala}</span>
                         </span>
                       )}
+                      {ev.arrumarSala && (
+                        <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                          <Sparkles className="h-3.5 w-3.5 shrink-0" />Arrumar sala
+                        </span>
+                      )}
                     </div>
                     {/* Participantes — foto (usuário do sistema) ou iniciais + nome, com +N */}
                     {parts.length > 0 && (
@@ -2221,6 +2227,12 @@ export default function AgendaPage() {
                           <span className="text-foreground">
                             {[salaTexto(ev.sala), ev.local].filter(Boolean).join(' · ')}
                           </span>
+                        </FieldRow>
+                      )}
+
+                      {ev.arrumarSala && (
+                        <FieldRow icon={Sparkles} label="Preparação">
+                          <span className="text-amber-600 dark:text-amber-400">Arrumar a sala</span>
                         </FieldRow>
                       )}
 

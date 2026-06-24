@@ -493,7 +493,7 @@ export class AgendaDisparoService implements OnModuleInit {
         : ''
 
       const prepItens: string[] = []
-      if (ev.salaRef || ev.sala) prepItens.push('Arrumar sala')
+      if (ev.arrumarSala) prepItens.push('Arrumar sala')
       if (ev.equipamentos) prepItens.push('Disponibilizar equipamentos')
       const prepHtml = prepItens.length > 0
         ? `<div class="ev-section" style="margin-top:8px;font-size:11px;color:#64748b">
