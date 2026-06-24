@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import type { UpsertPlanInput } from '@saas/types'
 
 // Stripe v22 — import dinâmico para evitar conflitos de tipos CJS/ESM
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -117,7 +118,7 @@ export class StripeService {
   async getPlans() {
     return prisma.plan.findMany({
       where: { isActive: true },
-      orderBy: { price: 'asc' },
+      orderBy: [{ displayOrder: 'asc' }, { price: 'asc' }],
     })
   }
 
@@ -126,6 +127,56 @@ export class StripeService {
       where: { tenantId },
       include: { plan: true },
       orderBy: { createdAt: 'desc' },
+    })
+  }
+
+  // ── Admin de planos (master-only) ─────────────────────
+
+  /** Todos os planos (inclusive inativos), ordenados p/ a tela de gestão. */
+  async adminListPlans() {
+    return prisma.plan.findMany({
+      orderBy: [{ displayOrder: 'asc' }, { price: 'asc' }],
+    })
+  }
+
+  /** Cria ou atualiza um plano. `price` em centavos; `features` lista de strings. */
+  async upsertPlan(input: UpsertPlanInput) {
+    const data = {
+      name: input.name,
+      description: input.description ?? null,
+      stripePriceId: input.stripePriceId,
+      interval: input.interval,
+      price: input.price,
+      features: input.features,
+      maxUsers: input.maxUsers,
+      isActive: input.isActive,
+      highlight: input.highlight,
+      displayOrder: input.displayOrder,
+    }
+    if (input.id) {
+      return prisma.plan.update({ where: { id: input.id }, data })
+    }
+    return prisma.plan.create({ data })
+  }
+
+  /** Ativa/desativa um plano (não aparece na pricing quando inativo). */
+  async togglePlan(id: string, isActive: boolean) {
+    return prisma.plan.update({ where: { id }, data: { isActive } })
+  }
+
+  // ── Config global de billing/trial ────────────────────
+
+  async getBillingConfig() {
+    const cfg = await prisma.platformBillingConfig.findUnique({ where: { id: 1 } })
+    if (cfg) return cfg
+    return prisma.platformBillingConfig.create({ data: { id: 1 } })
+  }
+
+  async setBillingConfig(trialDays: number, userId?: string) {
+    return prisma.platformBillingConfig.upsert({
+      where: { id: 1 },
+      update: { trialDays, updatedBy: userId ?? null },
+      create: { id: 1, trialDays, updatedBy: userId ?? null },
     })
   }
 

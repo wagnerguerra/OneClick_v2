@@ -1,17 +1,65 @@
 import { z } from 'zod'
+import { TRPCError } from '@trpc/server'
+import { upsertPlanInput, billingConfigSchema } from '@saas/types'
 import { router, publicProcedure, protectedProcedure } from '../trpc/trpc.service'
 import { StripeService } from './stripe.service'
+
+const DAY_MS = 24 * 60 * 60 * 1000
 
 export function createBillingRouter(stripeService: StripeService) {
   return router({
     // Planos disponiveis (publico — para exibir na landing/pricing)
     plans: publicProcedure.query(() => stripeService.getPlans()),
 
+    // Estado de acesso (trial/assinatura) do tenant logado — usado pelo guard
+    // do dashboard e pelo banner de trial. Lê o billingState do contexto.
+    access: protectedProcedure.query(({ ctx }) => {
+      const state = ctx.billingState ?? 'ACTIVE'
+      const trialEndsAt = ctx.trialEndsAt ?? null
+      let daysRemaining: number | null = null
+      if (trialEndsAt) {
+        daysRemaining = Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / DAY_MS))
+      }
+      return { state, trialEndsAt, daysRemaining }
+    }),
+
     // Assinatura atual do tenant
     currentSubscription: protectedProcedure.query(({ ctx }) => {
       if (!ctx.tenantId) return null
       return stripeService.getCurrentSubscription(ctx.tenantId)
     }),
+
+    // ── Admin de planos e config (master global) ─────────
+    adminListPlans: protectedProcedure.query(({ ctx }) => {
+      if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas master' })
+      return stripeService.adminListPlans()
+    }),
+
+    upsertPlan: protectedProcedure
+      .input(upsertPlanInput)
+      .mutation(({ ctx, input }) => {
+        if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas master' })
+        return stripeService.upsertPlan(input)
+      }),
+
+    togglePlan: protectedProcedure
+      .input(z.object({ id: z.string(), isActive: z.boolean() }))
+      .mutation(({ ctx, input }) => {
+        if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas master' })
+        return stripeService.togglePlan(input.id, input.isActive)
+      }),
+
+    getBillingConfig: protectedProcedure.query(({ ctx }) => {
+      if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas master' })
+      return stripeService.getBillingConfig()
+    }),
+
+    setBillingConfig: protectedProcedure
+      .input(billingConfigSchema)
+      .mutation(({ ctx, input }) => {
+        if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas master' })
+        return stripeService.setBillingConfig(input.trialDays, ctx.userId)
+      }),
 
     // Criar sessao de checkout do Stripe
     createCheckoutSession: protectedProcedure

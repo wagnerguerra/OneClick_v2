@@ -251,6 +251,8 @@ export const navigation: NavGroup[] = [
       { label: 'Chat Interno', href: '/configuracoes/chat', icon: MessageSquare },
       { label: 'Certificado Digital', href: '/configuracoes/certificado', icon: BadgeCheck },
       { label: 'Stripe', href: '/configuracoes/stripe', icon: CreditCard },
+      { label: 'Empresas (tenants)', href: '/admin/empresas', icon: Building2 },
+      { label: 'Planos e preços', href: '/admin/planos', icon: CircleDollarSign },
       { label: 'Assinatura de email', href: '/admin/assinatura-template', icon: Mail },
       { label: 'Métricas', href: '/metricas', icon: Activity },
       { label: 'Backup e Restore', href: '/backup-restore', icon: Archive },

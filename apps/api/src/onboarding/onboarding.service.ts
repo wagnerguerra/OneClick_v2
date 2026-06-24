@@ -25,7 +25,13 @@ export class OnboardingService {
         throw new Error('Usuário já possui uma empresa vinculada.')
       }
 
-      // Criar tenant (container de billing)
+      // Período de teste: lê os dias da config global (fallback 7)
+      const billingCfg = await tx.platformBillingConfig.findUnique({ where: { id: 1 } })
+      const trialDays = billingCfg?.trialDays ?? 7
+      const now = new Date()
+      const trialEndsAt = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000)
+
+      // Criar tenant (container de billing) — já em trial de N dias, sem cartão
       const slug = data.cnpj.replace(/\D/g, '').slice(0, 14)
       const tenant = await tx.tenant.create({
         data: {
@@ -33,6 +39,8 @@ export class OnboardingService {
           slug: `tenant-${slug}-${Date.now()}`,
           schema: `tenant_${slug}`,
           status: 'ACTIVE',
+          trialStartedAt: now,
+          trialEndsAt,
         },
       })
 

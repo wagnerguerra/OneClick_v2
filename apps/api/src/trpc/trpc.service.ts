@@ -13,6 +13,8 @@ import { OnboardingService } from '../onboarding/onboarding.service'
 import { createOnboardingRouter } from '../onboarding/onboarding.router'
 import { AdminService } from '../admin/admin.service'
 import { createAdminRouter } from '../admin/admin.router'
+import { AdminTenantService } from '../admin-tenant/admin-tenant.service'
+import { createAdminTenantRouter } from '../admin-tenant/admin-tenant.router'
 import { ClienteService } from '../cliente/cliente.service'
 import { ClienteEnriquecimentoService } from '../cliente/cliente-enriquecimento.service'
 import { SincronizarResponsaveisService } from '../cliente/sincronizar-responsaveis.service'
@@ -152,6 +154,16 @@ import { createNfseRouter } from '../nfse/nfse.router'
 import { createMinhasObrigacoesRouter } from '../minhas-obrigacoes/minhas-obrigacoes.router'
 import { AuthService } from '../auth/auth.service'
 
+/**
+ * Estado de billing do tenant, calculado no createContext.
+ * - ACTIVE: assinatura paga ativa, OU trial vigente não é o foco (acesso liberado),
+ *   OU tenant antigo isento (trialEndsAt NULL), OU master global.
+ * - TRIAL: período de teste vigente (acesso liberado, mas com aviso/contagem).
+ * - TRIAL_EXPIRED: trial acabou sem assinatura → bloqueia features.
+ * - SUSPENDED: tenant suspenso manualmente pelo master → bloqueia features.
+ */
+export type BillingState = 'ACTIVE' | 'TRIAL' | 'TRIAL_EXPIRED' | 'SUSPENDED'
+
 export interface TrpcContext {
   tenantId?: string
   tenantSchema?: string
@@ -159,6 +171,25 @@ export interface TrpcContext {
   empresaId?: string
   isMaster?: boolean
   isEmpresaMaster?: boolean
+  billingState?: BillingState
+  trialEndsAt?: Date
+}
+
+/**
+ * Bloqueia features quando o trial expirou ou o tenant foi suspenso. Chamado no
+ * início de TODA permission-procedure (readProcedure/writeProcedure/...), ANTES
+ * do bypass de master/empresaMaster — assim o dono do tenant (isEmpresaMaster)
+ * também é barrado ao fim do trial. O master GLOBAL nunca cai aqui porque o
+ * createContext já devolve billingState='ACTIVE' pra ele.
+ * A mensagem é um código legível pelo front (redireciona p/ a tela de planos).
+ */
+export function assertTenantActive(ctx: TrpcContext) {
+  if (ctx.billingState === 'TRIAL_EXPIRED') {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'TRIAL_EXPIRED' })
+  }
+  if (ctx.billingState === 'SUSPENDED') {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'SUSPENDED' })
+  }
 }
 
 interface UserPermissionRow {
@@ -224,6 +255,7 @@ function createPermissionMiddleware(moduleSlug: string, action: 'canRead' | 'can
     if (!ctx.userId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
     }
+    assertTenantActive(ctx)
 
     // Master e EmpresaMaster têm acesso total
     if (ctx.isMaster || ctx.isEmpresaMaster) {
@@ -271,6 +303,7 @@ export function readProcedureAnyOf(...moduleSlugs: string[]) {
     if (!ctx.userId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
     }
+    assertTenantActive(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) {
       return next({ ctx: { ...ctx, userId: ctx.userId } })
     }
@@ -317,6 +350,7 @@ function createSocioMiddleware(action: 'canWrite' | 'canDelete') {
     if (!ctx.userId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
     }
+    assertTenantActive(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) {
       return next({ ctx: { ...ctx, userId: ctx.userId } })
     }
@@ -358,6 +392,7 @@ function createSubPermissionMiddleware(moduleSlug: string, subKey: string, label
     if (!ctx.userId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
     }
+    assertTenantActive(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) {
       return next({ ctx: { ...ctx, userId: ctx.userId } })
     }
@@ -407,6 +442,7 @@ async function ehLiderDeSetor(userId: string): Promise<boolean> {
 export function readOrLiderProcedure(moduleSlug: string) {
   return t.procedure.use(async ({ ctx, next }) => {
     if (!ctx.userId) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+    assertTenantActive(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) return next({ ctx: { ...ctx, userId: ctx.userId } })
     if (await ehLiderDeSetor(ctx.userId)) return next({ ctx: { ...ctx, userId: ctx.userId } })
     const perms = await getUserPermissions(ctx.userId)
@@ -420,6 +456,7 @@ export function readOrLiderProcedure(moduleSlug: string) {
 export function writeSubOrLiderProcedure(moduleSlug: string, subKey: string, label: string) {
   return t.procedure.use(async ({ ctx, next }) => {
     if (!ctx.userId) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+    assertTenantActive(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) return next({ ctx: { ...ctx, userId: ctx.userId } })
     if (await ehLiderDeSetor(ctx.userId)) return next({ ctx: { ...ctx, userId: ctx.userId } })
     const perms = await getUserPermissions(ctx.userId)
@@ -442,6 +479,7 @@ export class TrpcService {
     @Inject(CargoService) private readonly cargoService: CargoService,
     @Inject(OnboardingService) private readonly onboardingService: OnboardingService,
     @Inject(AdminService) private readonly adminService: AdminService,
+    @Inject(AdminTenantService) private readonly adminTenantService: AdminTenantService,
     @Inject(ClienteService) private readonly clienteService: ClienteService,
     @Inject(ImportOneclickService) private readonly importOneclickService: ImportOneclickService,
     @Inject(ClienteEnriquecimentoService) private readonly clienteEnriquecimentoService: ClienteEnriquecimentoService,
@@ -556,6 +594,7 @@ export class TrpcService {
       nfse: createNfseRouter(this.nfseDistService),
       onboarding: createOnboardingRouter(this.onboardingService),
       admin: createAdminRouter(this.adminService),
+      adminTenant: createAdminTenantRouter(this.adminTenantService),
       cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService),
       billing: createBillingRouter(this.stripeService),
       colaborador: createColaboradorRouter(this.colaboradorService),

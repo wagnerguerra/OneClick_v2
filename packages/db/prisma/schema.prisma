@@ -25,6 +25,10 @@ model Tenant {
   schema           String       @unique // nome do schema no Postgres: tenant_<id>
   status           TenantStatus @default(ACTIVE)
   stripeCustomerId String?      @unique @map("stripe_customer_id")
+  // Período de teste (trial sem cartão). NULL = isento/grandfathered (tenants
+  // antigos nunca expiram). Novos tenants recebem trialEndsAt = hoje + trialDays.
+  trialStartedAt   DateTime?    @map("trial_started_at")
+  trialEndsAt      DateTime?    @map("trial_ends_at")
   createdAt        DateTime     @default(now()) @map("created_at")
   updatedAt        DateTime     @updatedAt @map("updated_at")
 
@@ -68,12 +72,27 @@ model Plan {
   features      Json         @default("[]")
   maxUsers      Int          @default(5) @map("max_users")
   isActive      Boolean      @default(true) @map("is_active")
+  highlight     Boolean      @default(false) // plano em destaque na pricing
+  displayOrder  Int          @default(0) @map("display_order")
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
 
   subscriptions Subscription[]
 
   @@map("plans")
+}
+
+// ============================================================
+// Configuração global de billing/trial (single-row, id=1).
+// Editável em /admin/planos por master. Define dias de trial p/ novos tenants.
+// ============================================================
+model PlatformBillingConfig {
+  id        Int      @id @default(1)
+  trialDays Int      @default(7) @map("trial_days")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by")
+
+  @@map("platform_billing_config")
 }
 
 enum SubscriptionStatus {

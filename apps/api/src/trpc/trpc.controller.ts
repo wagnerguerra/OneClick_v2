@@ -1,10 +1,53 @@
 import { All, Controller, Req, Res, Next } from '@nestjs/common'
 import type { Request, Response, NextFunction } from 'express'
 import * as trpcExpress from '@trpc/server/adapters/express'
-import { TrpcService, type TrpcContext } from './trpc.service'
+import { TrpcService, type TrpcContext, type BillingState } from './trpc.service'
 import { AuthService } from '../auth/auth.service'
 import { OnlineUsersService } from '../online-users/online-users.service'
-import { resolveTenantSchema } from '@saas/db'
+import { resolveTenantSchema, prisma } from '@saas/db'
+
+/**
+ * Calcula o estado de billing do tenant (trial/assinatura/suspensão).
+ * Roda no createContext (cacheado 30s junto da sessão). Master global e
+ * usuários sem tenant (ex.: durante onboarding) nunca são bloqueados.
+ * trialEndsAt NULL = tenant antigo isento (grandfathered) → ACTIVE.
+ */
+async function computeBillingState(
+  tenantId: string | undefined,
+  isMaster: boolean,
+): Promise<{ billingState: BillingState; trialEndsAt?: Date }> {
+  if (isMaster || !tenantId) return { billingState: 'ACTIVE' }
+  try {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { status: true, trialEndsAt: true },
+    })
+    if (!tenant) return { billingState: 'ACTIVE' }
+    const trialEndsAt = tenant.trialEndsAt ?? undefined
+    if (tenant.status === 'SUSPENDED') return { billingState: 'SUSPENDED', trialEndsAt }
+
+    const now = Date.now()
+    // Assinatura paga/trial vigente no Stripe → acesso liberado
+    const sub = await prisma.subscription.findFirst({
+      where: { tenantId, status: { in: ['ACTIVE', 'TRIALING'] } },
+      orderBy: { currentPeriodEnd: 'desc' },
+      select: { currentPeriodEnd: true },
+    })
+    if (sub && sub.currentPeriodEnd.getTime() > now) return { billingState: 'ACTIVE', trialEndsAt }
+
+    // Sem assinatura: avaliar o trial local
+    if (trialEndsAt) {
+      return trialEndsAt.getTime() > now
+        ? { billingState: 'TRIAL', trialEndsAt }
+        : { billingState: 'TRIAL_EXPIRED', trialEndsAt }
+    }
+    // trialEndsAt NULL = isento/grandfathered
+    return { billingState: 'ACTIVE' }
+  } catch {
+    // Falha ao calcular não deve trancar o usuário — liberar por segurança
+    return { billingState: 'ACTIVE' }
+  }
+}
 
 // Cache de sessão em memória (TTL 30s para evitar queries repetidas)
 const sessionCache = new Map<string, { data: TrpcContext; expires: number }>()
@@ -88,6 +131,9 @@ export class TrpcController {
           }
         }
 
+        // Estado de billing (trial/assinatura/suspensão) — gate de acesso
+        const { billingState, trialEndsAt } = await computeBillingState(resolvedTenantId, isMaster)
+
         const context: TrpcContext = {
           tenantId: resolvedTenantId,
           tenantSchema,
@@ -95,6 +141,8 @@ export class TrpcController {
           empresaId,
           isMaster,
           isEmpresaMaster,
+          billingState,
+          trialEndsAt,
         }
 
         // Tracking de presença — fire-and-forget, throttled internamente a 30s/user.

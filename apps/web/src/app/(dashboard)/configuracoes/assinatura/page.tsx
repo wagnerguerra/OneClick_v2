@@ -104,10 +104,11 @@ export default function AssinaturaPage() {
   }
 
   async function handleCancel() {
-    const confirmed = await alerts.confirmDelete(
-      'Cancelar assinatura',
-      'Sua assinatura continuara ativa ate o final do periodo atual. Deseja continuar?',
-    )
+    const confirmed = await alerts.confirm({
+      title: 'Cancelar assinatura',
+      text: 'Sua assinatura continuara ativa ate o final do periodo atual. Deseja continuar?',
+      confirmText: 'Cancelar assinatura',
+    })
     if (!confirmed) return
 
     setActionLoading('cancel')
@@ -144,9 +145,23 @@ export default function AssinaturaPage() {
   }
 
   const hasActiveSubscription = subscription && ['ACTIVE', 'TRIALING'].includes(subscription.status)
+  const bloqueado = searchParams.get('bloqueado') === '1'
 
   return (
     <div className="space-y-6">
+      {/* Aviso de trial expirado / acesso bloqueado */}
+      {bloqueado && !hasActiveSubscription && (
+        <div className="flex items-start gap-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+          <div>
+            <p className="font-semibold">Seu período de teste terminou</p>
+            <p className="mt-0.5 text-rose-600/90 dark:text-rose-300/80">
+              Escolha um plano abaixo para reativar o acesso ao sistema. Seus dados continuam salvos.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

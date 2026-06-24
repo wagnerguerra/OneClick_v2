@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useSession } from '@/lib/auth-client'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
+import { trpc } from '@/lib/trpc'
+import { TrialBanner } from '@/components/dashboard/trial-banner'
 import { useSidebar } from '@/hooks/use-sidebar'
 import { usePageMeta } from '@/hooks/use-page-meta'
 import { Sidebar } from '@/components/dashboard/sidebar'
@@ -25,13 +27,14 @@ import { useAgendaLembreteSse } from '@/hooks/use-agenda-lembrete-sse'
 import { cn } from '@saas/ui'
 
 // Componente interno que usa os hooks (precisa estar dentro do TabsProvider)
-function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMobile, closeMobile }: {
+function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMobile, closeMobile, trialDaysRemaining }: {
   children: React.ReactNode
   collapsed: boolean
   toggle: () => void
   mobileOpen: boolean
   openMobile: () => void
   closeMobile: () => void
+  trialDaysRemaining: number | null
 }) {
   useSyncRouteTab()
   useTabShortcuts()
@@ -56,6 +59,7 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
         <Header onOpenMobile={openMobile} />
         {/* lg:mr-11 reserva a faixa do rail de tarefas (direita) */}
         <div className="lg:mr-11">
+          {trialDaysRemaining != null && <TrialBanner daysRemaining={trialDaysRemaining} />}
           <TabBar />
           <main className="p-4 sm:p-6">
             <PageTransition>{children}</PageTransition>
@@ -71,11 +75,23 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
   )
 }
 
+// Rotas liberadas mesmo com trial expirado / tenant suspenso — o usuário
+// precisa alcançar a tela de planos (para assinar) e o próprio perfil.
+const BILLING_ALLOWLIST = ['/configuracoes/assinatura', '/perfil']
+
+type BillingAccess = { state: 'ACTIVE' | 'TRIAL' | 'TRIAL_EXPIRED' | 'SUSPENDED'; daysRemaining: number | null }
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = useSession()
   const { collapsed, toggle, mobileOpen, openMobile, closeMobile, mounted } = useSidebar()
   const router = useRouter()
+  const pathname = usePathname()
+  const [billing, setBilling] = useState<BillingAccess | null>(null)
   usePageMeta()
+
+  const user = session?.user as Record<string, unknown> | undefined
+  const isMasterGlobal = (user?.isMaster as boolean) ?? false
+  const hasEmpresa = !!(user?.empresaId as string)
 
   useEffect(() => {
     if (isPending) return
@@ -84,13 +100,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return
     }
     // Guard: usuário sem empresa (e não MASTER global) → onboarding
-    const user = session.user as Record<string, unknown>
-    const isMasterGlobal = (user.isMaster as boolean) ?? false
-    const hasEmpresa = !!(user.empresaId as string)
     if (!isMasterGlobal && !hasEmpresa) {
       router.push('/onboarding')
     }
-  }, [isPending, session, router])
+  }, [isPending, session, router, isMasterGlobal, hasEmpresa])
+
+  // Estado de billing (trial/assinatura). Master global nunca é checado.
+  useEffect(() => {
+    if (isPending || !session || isMasterGlobal || !hasEmpresa) {
+      setBilling(null)
+      return
+    }
+    let cancelado = false
+    ;(trpc.billing as any).access.query()
+      .then((data: BillingAccess) => { if (!cancelado) setBilling(data) })
+      .catch(() => { /* falha silenciosa — não bloqueia por erro de rede */ })
+    return () => { cancelado = true }
+  }, [isPending, session, isMasterGlobal, hasEmpresa])
+
+  // Guard de bloqueio: trial expirado / suspenso → tela de planos
+  useEffect(() => {
+    if (!billing) return
+    const bloqueado = billing.state === 'TRIAL_EXPIRED' || billing.state === 'SUSPENDED'
+    const liberado = BILLING_ALLOWLIST.some((p) => pathname?.startsWith(p))
+    if (bloqueado && !liberado) {
+      router.push('/configuracoes/assinatura?bloqueado=1')
+    }
+  }, [billing, pathname, router])
+
+  const trialDaysRemaining = billing?.state === 'TRIAL' ? (billing.daysRemaining ?? 0) : null
 
   // Loader full-screen SÓ no carregamento inicial (sem sessão ainda). Durante
   // revalidações do better-auth (isPending=true momentâneo com sessão existente),
@@ -115,6 +153,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         mobileOpen={mobileOpen}
         openMobile={openMobile}
         closeMobile={closeMobile}
+        trialDaysRemaining={trialDaysRemaining}
       >
         {children}
       </DashboardLayoutInner>
