@@ -665,12 +665,6 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   <PlaceholderTab icon={ListTodo} title="Log's" description="Salve o cliente primeiro para visualizar o histórico." />
                 )}
               </TabsContent>
-
-              {/* Histórico de orçamentos do legado — dentro da coluna principal
-                  (1fr), pra alinhar com o conteúdo e não "vazar" full-width. */}
-              {isEdit && clienteId && (
-                <OrcamentosLegadoSection clienteId={clienteId} className="mt-5" />
-              )}
             </div>
 
             {/* ============================================================ */}
@@ -1569,9 +1563,14 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
                 <h4 className="text-[13px] font-semibold text-foreground">Orçamentos</h4>
                 <Button type="button" variant="outline" size="sm"><Plus className="h-3.5 w-3.5" /> Novo Orçamento</Button>
               </div>
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <FileBarChart className="h-10 w-10 mb-2 opacity-20" />
-                <p className="text-sm">Nenhum orçamento cadastrado.</p>
+              <div className="p-5 space-y-5">
+                {/* Sistema novo — ainda sem orçamentos vinculados aqui */}
+                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                  <FileBarChart className="h-10 w-10 mb-2 opacity-20" />
+                  <p className="text-sm">Nenhum orçamento no sistema novo.</p>
+                </div>
+                {/* Histórico de orçamentos do sistema legado (só leitura) */}
+                {clienteId && <OrcamentosLegadoSection clienteId={clienteId} />}
               </div>
             </div>
           )}
