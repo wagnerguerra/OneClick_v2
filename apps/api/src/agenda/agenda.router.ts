@@ -31,7 +31,9 @@ export function createAgendaRouter(
     listTipos: readProcedure(MODULE)
       .query(() => service.listTipos()),
 
-    createTipo: writeProcedure(MODULE)
+    // Gerir tipos é governado pela sub-permissão 'manage_tipos' (independente
+    // do canWrite de eventos). readSubProcedure = acesso ao módulo + a sub.
+    createTipo: readSubProcedure(MODULE, 'manage_tipos', 'Gerenciar tipos de evento')
       .input(z.object({
         nome: z.string().min(1),
         cor: z.string().optional(),
@@ -46,7 +48,7 @@ export function createAgendaRouter(
       }))
       .mutation(({ input, ctx }) => service.createTipo(input, ctx.userId)),
 
-    updateTipo: writeProcedure(MODULE)
+    updateTipo: readSubProcedure(MODULE, 'manage_tipos', 'Gerenciar tipos de evento')
       .input(z.object({
         id: z.string(),
         data: z.object({
@@ -64,7 +66,7 @@ export function createAgendaRouter(
       }))
       .mutation(({ input, ctx }) => service.updateTipo(input.id, input.data, ctx.userId)),
 
-    deleteTipo: deleteProcedure(MODULE)
+    deleteTipo: readSubProcedure(MODULE, 'manage_tipos', 'Gerenciar tipos de evento')
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => service.deleteTipo(input.id, ctx.userId)),
 

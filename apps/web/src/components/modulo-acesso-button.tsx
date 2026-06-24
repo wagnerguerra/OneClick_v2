@@ -5,10 +5,17 @@
  * Mostra dois grupos: acesso total (master/dono do tenant) e usuários com
  * permissão explícita de leitura no módulo (com o nível de cada um).
  *
- * Master/empresaMaster podem clicar nos badges de nível para REVOGAR a permissão
- * (Leitura remove o acesso; Escrita também tira Exclusão; Exclusão só ela).
+ * Master/empresaMaster podem clicar nos badges para REVOGAR a permissão.
+ *
+ * Dois modos:
+ *  - módulo (padrão): níveis leitura/escrita/exclusão. Revogar Leitura remove o
+ *    acesso ao módulo; Escrita também tira Exclusão; Exclusão só ela.
+ *  - sub-permissão (prop subPermission): a tela é governada por UMA sub-permissão
+ *    (ex.: 'manage_tipos'). Lista quem a tem e revogar desliga só ela, sem mexer
+ *    no acesso ao módulo inteiro.
  *
  * Uso: <ModuloAcessoButton moduleSlug="agenda" />
+ *      <ModuloAcessoButton moduleSlug="agenda" subPermission={{ key: 'manage_tipos', label: 'Gerenciar tipos' }} />
  */
 
 import { useState, useCallback } from 'react'
@@ -47,12 +54,14 @@ interface Resultado {
 
 export function ModuloAcessoButton({
   moduleSlug,
+  subPermission,
   label = 'Quem tem acesso',
   variant = 'outline',
   size = 'sm',
   className,
 }: {
   moduleSlug: string
+  subPermission?: { key: string; label: string }
   label?: string
   variant?: 'outline' | 'ghost' | 'soft'
   size?: 'sm' | 'icon-sm'
@@ -68,31 +77,30 @@ export function ModuloAcessoButton({
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await (trpc.user as any).comAcessoAoModulo.query({ moduleSlug })
+      const res = await (trpc.user as any).comAcessoAoModulo.query({ moduleSlug, subPermission: subPermission?.key })
       setData(res as Resultado)
     } catch {
       setData({ acessoTotal: [], comPermissao: [], total: 0 })
     } finally {
       setLoading(false)
     }
-  }, [moduleSlug])
+  }, [moduleSlug, subPermission?.key])
 
   function handleOpen(o: boolean) {
     setOpen(o)
     if (o && !data) load()
   }
 
-  async function handleRevogar(p: Pessoa, nivel: Nivel) {
-    const labels: Record<Nivel, string> = { read: 'Leitura (remove o acesso)', write: 'Escrita', delete: 'Exclusão' }
-    const ok = await alerts.confirm({
-      title: 'Revogar permissão',
-      text: `Remover "${labels[nivel]}" de ${p.name} nesta tela?`,
-      confirmText: 'Revogar',
-    })
+  async function handleRevogar(p: Pessoa, alvo: { nivel?: Nivel; subKey?: string }) {
+    const texto = alvo.subKey
+      ? `Remover "${subPermission?.label}" de ${p.name}?`
+      : `Remover "${({ read: 'Leitura (remove o acesso)', write: 'Escrita', delete: 'Exclusão' } as Record<Nivel, string>)[alvo.nivel!]}" de ${p.name} nesta tela?`
+    const ok = await alerts.confirm({ title: 'Revogar permissão', text: texto, confirmText: 'Revogar' })
     if (!ok) return
-    setRevogando(`${p.id}:${nivel}`)
+    const tag = `${p.id}:${alvo.subKey ?? alvo.nivel}`
+    setRevogando(tag)
     try {
-      await (trpc.user as any).revogarAcessoModulo.mutate({ userId: p.id, moduleSlug, nivel })
+      await (trpc.user as any).revogarAcessoModulo.mutate({ userId: p.id, moduleSlug, nivel: alvo.nivel, subKey: alvo.subKey })
       alerts.success('Permissão revogada.')
       await load()
     } catch (err: any) {
@@ -145,9 +153,15 @@ export function ModuloAcessoButton({
                     {data.comPermissao.map((p) => (
                       <LinhaPessoa key={p.id} p={p}>
                         <div className="flex flex-wrap justify-end gap-1">
-                          <NivelBadge ativo canManage={canManage} loading={revogando === `${p.id}:read`} onClick={() => handleRevogar(p, 'read')}>Leitura</NivelBadge>
-                          {p.canWrite && <NivelBadge canManage={canManage} loading={revogando === `${p.id}:write`} onClick={() => handleRevogar(p, 'write')}>Escrita</NivelBadge>}
-                          {p.canDelete && <NivelBadge canManage={canManage} loading={revogando === `${p.id}:delete`} onClick={() => handleRevogar(p, 'delete')}>Exclusão</NivelBadge>}
+                          {subPermission ? (
+                            <NivelBadge ativo canManage={canManage} loading={revogando === `${p.id}:${subPermission.key}`} onClick={() => handleRevogar(p, { subKey: subPermission.key })}>{subPermission.label}</NivelBadge>
+                          ) : (
+                            <>
+                              <NivelBadge ativo canManage={canManage} loading={revogando === `${p.id}:read`} onClick={() => handleRevogar(p, { nivel: 'read' })}>Leitura</NivelBadge>
+                              {p.canWrite && <NivelBadge canManage={canManage} loading={revogando === `${p.id}:write`} onClick={() => handleRevogar(p, { nivel: 'write' })}>Escrita</NivelBadge>}
+                              {p.canDelete && <NivelBadge canManage={canManage} loading={revogando === `${p.id}:delete`} onClick={() => handleRevogar(p, { nivel: 'delete' })}>Exclusão</NivelBadge>}
+                            </>
+                          )}
                         </div>
                       </LinhaPessoa>
                     ))}

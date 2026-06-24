@@ -89,11 +89,17 @@ export class UserService {
    * Lista quem tem acesso a um módulo (tela). Retorna dois grupos:
    *  - acessoTotal: master global e donos do tenant (empresaMaster) — enxergam
    *    tudo sem precisar de linha em UserPermission.
-   *  - comPermissao: usuários com UserPermission(moduleSlug, canRead=true), com
-   *    o nível (leitura/escrita/exclusão).
+   *  - comPermissao: usuários com permissão no módulo.
+   *
+   * Dois modos:
+   *  - módulo (padrão): lista quem tem canRead, com o nível (leitura/escrita/
+   *    exclusão).
+   *  - sub-permissão (subPermission informado): lista quem tem aquela sub-
+   *    permissão específica ligada (ex.: 'manage_tipos'). Útil quando a tela é
+   *    governada por uma sub-permissão, não pelo módulo inteiro.
    * Escopo: não-master vê só usuários da própria empresa (igual ao list).
    */
-  async comAcessoAoModulo(moduleSlug: string, callerIsMaster = false, callerEmpresaId?: string) {
+  async comAcessoAoModulo(moduleSlug: string, callerIsMaster = false, callerEmpresaId?: string, subPermission?: string) {
     const where: Prisma.UserWhereInput = {
       isActive: true,
       ...(!callerIsMaster && callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
@@ -114,7 +120,7 @@ export class UserService {
         area: { select: { name: true } },
         permissions: {
           where: { moduleSlug },
-          select: { canRead: true, canWrite: true, canDelete: true },
+          select: { canRead: true, canWrite: true, canDelete: true, subPermissions: true },
         },
       },
     })
@@ -134,15 +140,22 @@ export class UserService {
       }
       if (u.isMaster || u.isEmpresaMaster) {
         acessoTotal.push({ ...base, tipo: u.isMaster ? 'MASTER' : 'EMPRESA_MASTER' })
-      } else {
-        const perm = u.permissions[0]
-        if (perm?.canRead) {
-          comPermissao.push({ ...base, canRead: perm.canRead, canWrite: perm.canWrite, canDelete: perm.canDelete })
+        continue
+      }
+      const perm = u.permissions[0]
+      if (!perm?.canRead) continue
+
+      if (subPermission) {
+        const subs = (perm.subPermissions ?? {}) as Record<string, boolean>
+        if (subs[subPermission] === true) {
+          comPermissao.push({ ...base, sub: true })
         }
+      } else {
+        comPermissao.push({ ...base, canRead: perm.canRead, canWrite: perm.canWrite, canDelete: perm.canDelete })
       }
     }
 
-    return { acessoTotal, comPermissao, total: acessoTotal.length + comPermissao.length }
+    return { acessoTotal, comPermissao, total: acessoTotal.length + comPermissao.length, mode: subPermission ? 'sub' : 'module' }
   }
 
   async getById(id: string, callerIsMaster = false, callerEmpresaId?: string) {
@@ -370,22 +383,34 @@ export class UserService {
   }
 
   /**
-   * Revoga um nível de acesso de um usuário num módulo (usado pelo botão "Quem
-   * tem acesso"). Cascata coerente:
+   * Revoga acesso de um usuário num módulo (botão "Quem tem acesso").
+   *
+   * Modo sub-permissão (subKey informado): desliga só aquela sub-permissão
+   * (ex.: 'manage_tipos') — NÃO mexe no acesso ao módulo. Usado quando a tela é
+   * governada por uma sub-permissão.
+   *
+   * Modo módulo (nivel informado): cascata coerente:
    *  - 'delete' → tira só exclusão.
-   *  - 'write'  → tira escrita E exclusão (sem escrita não faz sentido excluir).
+   *  - 'write'  → tira escrita E exclusão.
    *  - 'read'   → remove o acesso ao módulo por completo (apaga a linha).
    * Não mexe em master/empresaMaster (eles não têm linha em UserPermission).
    */
-  async revogarAcessoModulo(userId: string, moduleSlug: string, nivel: 'read' | 'write' | 'delete') {
+  async revogarAcessoModulo(userId: string, moduleSlug: string, opts: { nivel?: 'read' | 'write' | 'delete'; subKey?: string }) {
     const where = { userId_moduleSlug: { userId, moduleSlug } }
-    if (nivel === 'read') {
+
+    if (opts.subKey) {
+      const perm = await prisma.userPermission.findUnique({ where, select: { subPermissions: true } })
+      const subs = { ...((perm?.subPermissions ?? {}) as Record<string, boolean>) }
+      subs[opts.subKey] = false
+      await prisma.userPermission.update({ where, data: { subPermissions: subs } })
+    } else if (opts.nivel === 'read') {
       await prisma.userPermission.deleteMany({ where: { userId, moduleSlug } })
-    } else if (nivel === 'write') {
+    } else if (opts.nivel === 'write') {
       await prisma.userPermission.update({ where, data: { canWrite: false, canDelete: false } })
-    } else {
+    } else if (opts.nivel === 'delete') {
       await prisma.userPermission.update({ where, data: { canDelete: false } })
     }
+
     this.notifyPermissionsChanged(userId)
     return { success: true }
   }

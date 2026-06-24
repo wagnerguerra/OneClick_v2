@@ -3372,7 +3372,7 @@ export default function AgendaPage() {
           </DialogHeaderIcon>
           <div className="flex items-center justify-end gap-2 border-b px-4 py-2">
             <AgendaTipoHistoricoButton />
-            <ModuloAcessoButton moduleSlug="agenda" />
+            <ModuloAcessoButton moduleSlug="agenda" subPermission={{ key: 'manage_tipos', label: 'Gerenciar tipos' }} />
           </div>
           <DialogBody className="p-0">
             <div className="flex h-[62vh] min-h-[440px]">
