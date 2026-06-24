@@ -145,6 +145,14 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
       lastEmittedRef.current = ''
       return
     }
+    // 🔑 Blindagem global: se o usuário está com o editor EM FOCO (digitando),
+    // não re-setar conteúdo não-vazio vindo de fora. Páginas com auto-save +
+    // refetch reenviam um snapshot atrasado pelo `value`; sem isso o setContent
+    // jogava o cursor pro fim e revertia o texto no meio da digitação. O caso
+    // de LIMPAR (next === '') já passou acima, então fluxos de "enviar e limpar"
+    // seguem funcionando. Mudanças externas legítimas (carregar template, trocar
+    // registro) ocorrem com o editor sem foco e sincronizam normalmente.
+    if (editor.isFocused) return
     const current = editor.getHTML()
     if (current !== next) {
       // Mudança genuinamente externa (ex.: carregar template, trocar registro).
