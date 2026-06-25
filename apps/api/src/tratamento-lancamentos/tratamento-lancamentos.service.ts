@@ -42,6 +42,16 @@ async function resolveAuthors(ids: Array<string | null>) {
   return map
 }
 
+/**
+ * Valor de exibição da conta corrente do modelo (coluna denormalizada usada na
+ * listagem/busca). UNICA → o número; MULTIPLAS → rótulo "Múltiplas contas".
+ */
+function ccDisplay(def: TreatmentDefinition): string | null {
+  const cc = def.contasCorrentes
+  if (cc.modo === 'MULTIPLAS') return 'Múltiplas contas'
+  return cc.unica.trim() || null
+}
+
 @Injectable()
 export class TratamentoLancamentosService {
   async list(input: ListTreatmentModelInput, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
@@ -109,7 +119,7 @@ export class TratamentoLancamentosService {
 
   async create(input: CreateTreatmentModelInput, userId?: string, _isMaster?: boolean, empresaId?: string, tenantSchema?: string) {
     const definition: TreatmentDefinition = input.definition ?? EMPTY_TREATMENT_DEFINITION
-    const contaCorrente = input.contaCorrente || definition.contaCorrente || null
+    const contaCorrente = ccDisplay(definition)
 
     return scoped(tenantSchema, async (db) => {
       const model = await db.treatmentModel.create({
@@ -150,7 +160,6 @@ export class TratamentoLancamentosService {
       if (input.nome !== undefined) data.nome = input.nome
       if (input.clienteId !== undefined) data.clienteId = input.clienteId || null
       if (input.isActive !== undefined) data.isActive = input.isActive
-      if (input.contaCorrente !== undefined) data.contaCorrente = input.contaCorrente || null
 
       // Nova versão apenas quando a definição muda DE FATO — evita versões
       // idênticas em edições que só alteram metadados (nome/ativo) ou nada.
@@ -174,10 +183,8 @@ export class TratamentoLancamentosService {
           data.version = newVersionNumber
           data.currentVersionId = version.id
         }
-        // Mantém a conta corrente do modelo em sincronia com a da definição.
-        if (input.contaCorrente === undefined && input.definition.contaCorrente) {
-          data.contaCorrente = input.definition.contaCorrente
-        }
+        // Mantém a conta corrente do modelo (display) em sincronia com a definição.
+        data.contaCorrente = ccDisplay(input.definition)
       }
 
       const updated = await db.treatmentModel.update({ where: { id }, data })
@@ -298,8 +305,8 @@ export class TratamentoLancamentosService {
         data: {
           version: newVersionNumber,
           currentVersionId: version.id,
-          // Mantém a conta corrente do modelo em sincronia com a definição restaurada.
-          contaCorrente: definition.contaCorrente || null,
+          // Mantém a conta corrente do modelo (display) em sincronia com a definição restaurada.
+          contaCorrente: ccDisplay(definition),
         },
       })
     })

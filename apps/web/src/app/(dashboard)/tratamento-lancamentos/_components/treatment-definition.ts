@@ -12,7 +12,8 @@ export function normalizeDefinition(raw: unknown): TreatmentDefinition {
   const base = EMPTY_TREATMENT_DEFINITION
   if (!raw || typeof raw !== 'object') return base
   const r = raw as {
-    contaCorrente?: unknown
+    contaCorrente?: unknown // legado (modelos antigos com conta única em string)
+    contasCorrentes?: unknown
     columnMapping?: Partial<TreatmentDefinition['columnMapping']>
     debitoCredito?: unknown
     contrapartida?: { modo?: string; itens?: unknown[]; palavraChave?: unknown[]; descricao?: unknown[] }
@@ -30,8 +31,18 @@ export function normalizeDefinition(raw: unknown): TreatmentDefinition {
     coluna: typeof dcRaw?.coluna === 'string' ? dcRaw.coluna : '',
     mapa: Array.isArray(dcRaw?.mapa) ? (dcRaw!.mapa as unknown as TreatmentDefinition['debitoCredito']['mapa']) : [],
   }
+  const ccRaw = r.contasCorrentes as { modo?: string; unica?: unknown; coluna?: unknown; mapa?: unknown[] } | undefined
+  const contasCorrentes: TreatmentDefinition['contasCorrentes'] = ccRaw
+    ? {
+        modo: ccRaw.modo === 'MULTIPLAS' ? 'MULTIPLAS' : 'UNICA',
+        unica: typeof ccRaw.unica === 'string' ? ccRaw.unica : '',
+        coluna: typeof ccRaw.coluna === 'string' ? ccRaw.coluna : '',
+        mapa: Array.isArray(ccRaw.mapa) ? (ccRaw.mapa as unknown as TreatmentDefinition['contasCorrentes']['mapa']) : [],
+      }
+    // Migração de modelos antigos: contaCorrente (string) → conta única.
+    : { modo: 'UNICA', unica: typeof r.contaCorrente === 'string' ? r.contaCorrente : '', coluna: '', mapa: [] }
   return {
-    contaCorrente: typeof r.contaCorrente === 'string' ? r.contaCorrente : base.contaCorrente,
+    contasCorrentes,
     columnMapping: { ...base.columnMapping, ...(r.columnMapping ?? {}) },
     debitoCredito,
     contrapartida,

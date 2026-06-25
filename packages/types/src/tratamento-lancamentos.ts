@@ -79,9 +79,24 @@ export const contrapartidaSchema = z.object({
 })
 export type ContrapartidaRule = z.infer<typeof contrapartidaSchema>
 
+// ---- Conta(s) corrente(s) --------------------------------------------------
+// UNICA: uma conta para todos os lançamentos (comportamento padrão).
+// MULTIPLAS: o arquivo traz lançamentos de vários bancos → uma COLUNA identifica
+// a conta e cada valor distinto dela (SELECT DISTINCT) mapeia para um número de
+// conta. Guarda os dois modos para não perder o preenchimento ao alternar.
+export const contasCorrentesSchema = z.object({
+  modo: z.enum(['UNICA', 'MULTIPLAS']).default('UNICA'),
+  unica: z.string().default(''),
+  coluna: z.string().default(''),
+  mapa: z
+    .array(z.object({ valor: z.string(), conta: z.string() }))
+    .default([]),
+})
+export type ContasCorrentesRule = z.infer<typeof contasCorrentesSchema>
+
 // ---- Definição completa (corpo do Modelo — snapshot em JSON) ---------------
 export const treatmentDefinitionSchema = z.object({
-  contaCorrente: z.string().default(''),
+  contasCorrentes: contasCorrentesSchema,
   columnMapping: columnMappingSchema,
   debitoCredito: debitoCreditoSchema,
   contrapartida: contrapartidaSchema,
@@ -90,7 +105,7 @@ export type TreatmentDefinition = z.infer<typeof treatmentDefinitionSchema>
 
 /** Definição "vazia" usada ao criar um Modelo antes de configurar o wizard. */
 export const EMPTY_TREATMENT_DEFINITION: TreatmentDefinition = {
-  contaCorrente: '',
+  contasCorrentes: { modo: 'UNICA', unica: '', coluna: '', mapa: [] },
   columnMapping: { descricao: '', participante: '', valor: '', data: '', numeroNf: '', documento: '' },
   debitoCredito: { tipo: 'COLUNA', coluna: '', mapa: [] },
   contrapartida: { modo: 'DESCRICAO', palavraChave: [], descricao: [] },
@@ -99,7 +114,6 @@ export const EMPTY_TREATMENT_DEFINITION: TreatmentDefinition = {
 // ---- CRUD do Modelo de Tratamento ------------------------------------------
 export const createTreatmentModelSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
-  contaCorrente: z.string().optional().or(z.literal('')),
   clienteId: z.string().optional().or(z.literal('')),
   // Opcional na criação: na Fase 1 o Modelo pode nascer sem configuração e ser
   // configurado depois no editor (wizard). Quando ausente → EMPTY_TREATMENT_DEFINITION.

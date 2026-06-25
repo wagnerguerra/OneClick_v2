@@ -1,6 +1,6 @@
 'use client'
 
-import { Tag, Columns3, ArrowLeftRight, Network, type LucideIcon } from 'lucide-react'
+import { Landmark, Columns3, ArrowLeftRight, Network, type LucideIcon } from 'lucide-react'
 import { Badge } from '@saas/ui'
 import { cn } from '@saas/ui'
 import type { TreatmentDefinition, Direcao } from '@saas/types'
@@ -26,6 +26,9 @@ const DC_TIPO_LABEL: Record<TreatmentDefinition['debitoCredito']['tipo'], string
 }
 const CP_MODO_LABEL: Record<TreatmentDefinition['contrapartida']['modo'], string> = {
   PALAVRA_CHAVE: 'Por palavra-chave', DESCRICAO: 'Por descrição',
+}
+const CC_MODO_LABEL: Record<TreatmentDefinition['contasCorrentes']['modo'], string> = {
+  UNICA: 'Uma conta corrente', MULTIPLAS: 'Várias contas correntes',
 }
 const COLUMN_LABELS: Record<keyof TreatmentDefinition['columnMapping'], string> = {
   descricao: 'Descrição do lançamento', valor: 'Valor', data: 'Data',
@@ -61,10 +64,25 @@ export function VersionOverview({ def, compareTo, compareLabel = 'versão atual'
   const cmp = !!compareTo
   return (
     <div className="space-y-4">
-      <Section icon={Tag} title="Dados">
+      <Section icon={Landmark} title="Contas correntes">
         <FieldGrid>
-          <ReadField label="Conta corrente" value={def.contaCorrente} current={compareTo?.contaCorrente} hasCompare={cmp} compareLabel={compareLabel} />
+          <ReadField label="Modo" value={CC_MODO_LABEL[def.contasCorrentes.modo]} current={compareTo && CC_MODO_LABEL[compareTo.contasCorrentes.modo]} hasCompare={cmp} compareLabel={compareLabel} />
+          {def.contasCorrentes.modo === 'UNICA' ? (
+            <ReadField label="Conta corrente" value={def.contasCorrentes.unica} current={compareTo?.contasCorrentes.unica} hasCompare={cmp} compareLabel={compareLabel} />
+          ) : (
+            <ReadField label="Coluna" value={def.contasCorrentes.coluna} current={compareTo?.contasCorrentes.coluna} hasCompare={cmp} compareLabel={compareLabel} />
+          )}
         </FieldGrid>
+        {def.contasCorrentes.modo === 'MULTIPLAS' && (
+          <KeyedList
+            items={def.contasCorrentes.mapa.map((m) => ({ key: m.valor, label: m.valor, value: m.conta }))}
+            current={compareTo?.contasCorrentes.mapa.map((m) => ({ key: m.valor, value: m.conta }))}
+            hasCompare={cmp}
+            compareLabel={compareLabel}
+            defIsNewer={defIsNewer}
+            emptyHint="Nenhuma conta mapeada."
+          />
+        )}
       </Section>
 
       <Section icon={Columns3} title="De/Para de colunas">

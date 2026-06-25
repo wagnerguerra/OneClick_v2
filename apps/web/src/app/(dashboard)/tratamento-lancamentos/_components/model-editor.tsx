@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileSpreadsheet, Save, Upload, Plus, Trash2, Loader2, Info, FileText, Image as ImageIcon,
-  Tag, Columns3, ArrowLeftRight, Network, HelpCircle, ArrowLeft, ArrowRight, History, type LucideIcon,
+  Tag, Columns3, ArrowLeftRight, Network, HelpCircle, ArrowLeft, ArrowRight, History, Landmark, CheckCircle2, type LucideIcon,
 } from 'lucide-react'
 import {
   Button, Input, Label, Checkbox, Card,
@@ -67,9 +67,9 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
 
-  // Dados de identificação do Modelo.
+  // Dados de identificação do Modelo. (Conta corrente vive na definição —
+  // etapa "Contas correntes" — pois pode ser única ou múltipla.)
   const [nome, setNome] = useState('')
-  const [contaCorrente, setContaCorrente] = useState('')
   const [isActive, setIsActive] = useState(true)
   const [note, setNote] = useState('')
 
@@ -101,10 +101,9 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         if (!active) return
         const loadedDef = m.definition ? normalizeDefinition(m.definition) : EMPTY_TREATMENT_DEFINITION
         setNome(m.nome)
-        setContaCorrente(m.contaCorrente ?? '')
         setIsActive(m.isActive)
         setDef(loadedDef)
-        baselineRef.current = serializeForm(m.nome, m.contaCorrente ?? '', m.isActive, loadedDef)
+        baselineRef.current = serializeForm(m.nome, m.isActive, loadedDef)
       } catch {
         alerts.error('Erro', 'Não foi possível carregar o Modelo.')
       } finally {
@@ -116,7 +115,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
 
   // Baseline do modo criação (parte do estado vazio).
   useEffect(() => {
-    if (mode === 'create') baselineRef.current = serializeForm('', '', true, EMPTY_TREATMENT_DEFINITION)
+    if (mode === 'create') baselineRef.current = serializeForm('', true, EMPTY_TREATMENT_DEFINITION)
   }, [mode])
 
   // Reaproveita o arquivo-exemplo enviado no fluxo principal (criação ou edição).
@@ -127,12 +126,9 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       sessionStorage.removeItem('tl:exemplo')
       const parsed = JSON.parse(raw) as { fileBase64?: string; filename?: string }
       if (parsed.fileBase64 && parsed.filename) {
+        // Arquivo já vem carregado na 1ª etapa ("Dados do Modelo"); o usuário
+        // ainda precisa informar o nome, então não pulamos a etapa.
         void loadPreview(parsed.fileBase64, parsed.filename)
-        // No wizard (criação), arquivo já enviado → pula a etapa de Arquivo.
-        if (mode === 'create') {
-          setStep(1)
-          setMaxStep((m) => Math.max(m, 1))
-        }
       }
     } catch { /* ignore */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -155,6 +151,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     const fromDef = new Set<string>()
     Object.values(def.columnMapping).forEach((v) => { if (v) fromDef.add(v) })
     if (def.debitoCredito.tipo === 'COLUNA' && def.debitoCredito.coluna) fromDef.add(def.debitoCredito.coluna)
+    if (def.contasCorrentes.modo === 'MULTIPLAS' && def.contasCorrentes.coluna) fromDef.add(def.contasCorrentes.coluna)
     return [...fromDef]
   }, [preview, def])
 
@@ -212,6 +209,17 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     setDef((d) => ({ ...d, debitoCredito: { ...d.debitoCredito, coluna } }))
   }
 
+  // Contas correntes: troca só o modo/única/coluna — mantém o resto (persistido).
+  function setCcModo(modo: 'UNICA' | 'MULTIPLAS') {
+    setDef((d) => ({ ...d, contasCorrentes: { ...d.contasCorrentes, modo } }))
+  }
+  function setCcUnica(unica: string) {
+    setDef((d) => ({ ...d, contasCorrentes: { ...d.contasCorrentes, unica } }))
+  }
+  function setCcColuna(coluna: string) {
+    setDef((d) => ({ ...d, contasCorrentes: { ...d.contasCorrentes, coluna } }))
+  }
+
   // Troca só o modo ativo — mantém o conteúdo dos DOIS modos (persistido).
   function setCpModo(modo: 'PALAVRA_CHAVE' | 'DESCRICAO') {
     setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, modo } }))
@@ -243,6 +251,27 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     if (!def.columnMapping.descricao) p.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Descrição do lançamento</b>.')
     if (!def.columnMapping.valor) p.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Valor</b>.')
     if (!def.columnMapping.data) p.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Data</b>.')
+    return p
+  }
+  function probContasCorrentes(): string[] {
+    const p: string[] = []
+    const cc = def.contasCorrentes
+    if (cc.modo === 'UNICA') {
+      if (!cc.unica.trim()) p.push('Em <b>Contas correntes</b>, informe o número da <b>conta corrente</b>.')
+    } else {
+      if (!cc.coluna.trim()) {
+        p.push('Em <b>Contas correntes</b>, selecione a <b>coluna</b> que identifica a conta corrente.')
+      } else {
+        const distinct = getDistinct(cc.coluna)
+        const mapped = new Set(cc.mapa.filter((m) => m.conta.trim()).map((m) => m.valor))
+        if (distinct.length) {
+          const faltam = distinct.filter((v) => !mapped.has(v))
+          if (faltam.length) p.push(`Em <b>Contas correntes</b>, informe a conta ${faltam.length === 1 ? 'do valor' : 'dos valores'}: ${listaResumo(faltam)}.`)
+        } else if (mapped.size === 0) {
+          p.push('Em <b>Contas correntes</b>, informe as contas dos valores da coluna (envie o arquivo de exemplo para listá-los).')
+        }
+      }
+    }
     return p
   }
   function probDC(): string[] {
@@ -305,12 +334,13 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     })
   }
 
-  // Validadores por índice de etapa do wizard (ordem: Arquivo, Dados, Colunas,
-  // Débito/Crédito + Contrapartida). Arquivo não tem campos obrigatórios.
+  // Validadores por índice de etapa do wizard (ordem: Dados do Modelo, Colunas,
+  // Contas correntes, Débito/Crédito + Contrapartida). O arquivo de exemplo (na
+  // 1ª etapa) não tem campo obrigatório — só o nome (probDados).
   const STEP_VALIDATORS: Array<(() => string[]) | null> = [
-    null,
     probDados,
     probDePara,
+    probContasCorrentes,
     () => [...probDC(), ...probContrapartida()],
   ]
 
@@ -328,23 +358,23 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   }
 
   async function handleSave() {
-    const problemas = [...probDados(), ...probDePara(), ...probDC(), ...probContrapartida()]
+    const problemas = [...probDados(), ...probDePara(), ...probContasCorrentes(), ...probDC(), ...probContrapartida()]
     if (problemas.length) {
       await showProblemas('Revise o preenchimento do modelo', problemas)
       return
     }
 
     setSaving(true)
-    const definition: TreatmentDefinition = { ...def, contaCorrente }
+    const definition: TreatmentDefinition = def
     try {
       if (mode === 'edit' && modelId) {
         const res = await trpc.tratamentoLancamentos.update.mutate({
           id: modelId,
-          data: { nome, contaCorrente, isActive, definition, note: note || undefined },
+          data: { nome, isActive, definition, note: note || undefined },
         })
         await alerts.success('Modelo salvo', res.versionCreated ? 'As alterações foram salvas (nova versão gerada).' : 'As alterações foram salvas.')
       } else {
-        await trpc.tratamentoLancamentos.create.mutate({ nome, contaCorrente, isActive, definition, note: note || undefined })
+        await trpc.tratamentoLancamentos.create.mutate({ nome, isActive, definition, note: note || undefined })
         await alerts.success('Modelo criado', `"${nome}" foi criado com sucesso.`)
       }
       dirtyRef.current = false
@@ -358,8 +388,8 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
 
   // Alterações não salvas: compara o estado atual com o baseline.
   const dirty = useMemo(
-    () => baselineRef.current !== '' && serializeForm(nome, contaCorrente, isActive, def) !== baselineRef.current,
-    [nome, contaCorrente, isActive, def],
+    () => baselineRef.current !== '' && serializeForm(nome, isActive, def) !== baselineRef.current,
+    [nome, isActive, def],
   )
   dirtyRef.current = dirty
 
@@ -398,23 +428,22 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     <Card className="p-5 space-y-4">
       <StepHeader
         icon={Tag} color="bg-violet-500" title="Dados do Modelo"
-        hint="Dê um nome fácil de reconhecer para este modelo (por exemplo, o nome do banco ou do cliente). A conta corrente é opcional e pode ser preenchida depois."
+        hint="Dê um nome fácil de reconhecer para este modelo (por exemplo, o nome do banco ou do cliente). A conta corrente é definida na etapa Contas correntes."
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1.5">
           <Label className="text-[13px] font-semibold">Nome <span className="text-destructive">*</span></Label>
           <Input className="h-9 text-sm bg-card" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Banco do Brasil — Conta 12345" />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-[13px] font-semibold">Conta corrente</Label>
-          <Input className="h-9 text-sm bg-card" value={contaCorrente} onChange={(e) => setContaCorrente(semSeparador(e.target.value))} placeholder="Número da conta corrente" />
-        </div>
-        <div className="flex items-end pb-1.5">
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <Checkbox checked={isActive} onCheckedChange={(v) => setIsActive(!!v)} />
-            <span className="text-[13px] font-semibold">Ativo</span>
-          </label>
-        </div>
+        {/* "Ativo" só na edição — na criação o modelo nasce sempre ativo. */}
+        {mode === 'edit' && (
+          <div className="flex items-end pb-1.5">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <Checkbox checked={isActive} onCheckedChange={(v) => setIsActive(!!v)} />
+              <span className="text-[13px] font-semibold">Ativo</span>
+            </label>
+          </div>
+        )}
       </div>
     </Card>
   )
@@ -440,13 +469,6 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
           {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
           {fileName ? 'Trocar arquivo' : 'Enviar arquivo'}
         </Button>
-        {fileName && (
-          <span className="text-xs text-muted-foreground">
-            <FileSpreadsheet className="inline h-3.5 w-3.5 mr-1" />
-            {fileName} — {preview?.totalRows ?? 0} lançamentos
-            {preview?.truncated && ' (prévia limitada)'}
-          </span>
-        )}
         {/* Formatos não-tabelados (Fase futura — IA) */}
         <span className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground/70">
           <FileText className="h-3.5 w-3.5 opacity-50" />
@@ -454,6 +476,16 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
           PDF / imagem — em breve
         </span>
       </div>
+      {fileName && (
+        <div className="flex items-center gap-2.5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-900/50 dark:bg-emerald-950/30">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <span className="min-w-0 flex-1">
+            <span className="font-semibold text-emerald-800 dark:text-emerald-300">Arquivo carregado:</span>{' '}
+            <span className="font-medium text-foreground break-all">{fileName}</span>
+            <span className="text-muted-foreground"> — {preview?.totalRows ?? 0} lançamentos{preview?.truncated ? ' (prévia limitada)' : ''}</span>
+          </span>
+        </div>
+      )}
       {!preview && headers.length > 0 && (
         <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
           <Info className="h-3.5 w-3.5" /> Mostrando o mapeamento salvo. Envie o arquivo para revisar valores e distinções.
@@ -492,6 +524,48 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
             )
           })}
         </div>
+      )}
+    </Card>
+  )
+
+  const secContasCorrentes = (
+    <Card className="p-5 space-y-4">
+      <StepHeader
+        icon={Landmark} color="bg-cyan-500" title="Contas correntes"
+        hint="Se o arquivo traz lançamentos de mais de um banco/conta, escolha 'Várias contas' e indique a coluna que identifica a conta — então informe o número de cada uma. Caso contrário, informe uma única conta."
+      />
+      <div className="space-y-2">
+        <p className="text-[13px] font-semibold text-foreground">Este documento é referente a:</p>
+        <Toggle
+          value={def.contasCorrentes.modo}
+          options={[{ value: 'UNICA', label: 'Uma conta corrente' }, { value: 'MULTIPLAS', label: 'Várias contas correntes' }]}
+          onChange={(v) => setCcModo(v as 'UNICA' | 'MULTIPLAS')}
+        />
+      </div>
+      {def.contasCorrentes.modo === 'UNICA' ? (
+        <div className="space-y-1.5 max-w-xs">
+          <Label className="text-[13px] font-semibold">Conta corrente <span className="text-destructive">*</span></Label>
+          <Input
+            className="h-9 text-sm bg-card"
+            value={def.contasCorrentes.unica}
+            onChange={(e) => setCcUnica(semSeparador(e.target.value))}
+            placeholder="Número da conta corrente"
+          />
+        </div>
+      ) : (
+        headers.length === 0 ? (
+          <EmptyHint>Envie um arquivo de exemplo para listar as colunas.</EmptyHint>
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-1.5 max-w-xs">
+              <Label className="text-[13px] font-semibold">Coluna que identifica a conta <span className="text-destructive">*</span></Label>
+              <ColumnSelect headers={headers} value={def.contasCorrentes.coluna} onChange={setCcColuna} />
+            </div>
+            {def.contasCorrentes.coluna && (
+              <ContasCorrentesMap def={def} setDef={setDef} coluna={def.contasCorrentes.coluna} getDistinct={getDistinct} />
+            )}
+          </div>
+        )
       )}
     </Card>
   )
@@ -569,6 +643,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       {secDados}
       {secArquivo}
       {secDePara}
+      {secContasCorrentes}
       {secDC}
       {secContrapartida}
       {secNota}
@@ -578,9 +653,9 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   // ---- Modo CRIAÇÃO: wizard passo a passo ---------------------------------
   if (mode === 'create') {
     const wizardSteps = [
-      { label: 'Arquivo', node: secArquivo },
-      { label: 'Dados', node: secDados },
+      { label: 'Início', node: (<>{secArquivo}{secDados}</>) },
       { label: 'Colunas', node: secDePara },
+      { label: 'Contas correntes', node: secContasCorrentes },
       { label: 'Débito/Crédito e Contrapartida', node: (<>{secDC}{secContrapartida}</>) },
     ]
     const isReview = step >= wizardSteps.length
@@ -619,9 +694,13 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
           )}
 
           <div className="flex items-center justify-between border-t border-border/60 pt-4">
-            <Button variant="outline" size="sm" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>
-              <ArrowLeft className="h-4 w-4" /> Etapa anterior
-            </Button>
+            {step > 0 ? (
+              <Button variant="outline" size="sm" onClick={() => setStep((s) => Math.max(0, s - 1))}>
+                <ArrowLeft className="h-4 w-4" /> Etapa anterior
+              </Button>
+            ) : (
+              <span />
+            )}
             {isReview ? (
               <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Criar modelo
@@ -835,6 +914,55 @@ function DebitoCreditoColunaMap({ def, setDef, coluna, getDistinct }: { def: Tre
   )
 }
 
+/** Mapa valor→conta corrente da coluna que identifica o banco (modo múltiplas contas). */
+function ContasCorrentesMap({ def, setDef, coluna, getDistinct }: { def: TreatmentDefinition; setDef: SetDef; coluna: string; getDistinct: (c: string) => string[] }) {
+  const distinct = getDistinct(coluna)
+
+  // Poda valores que não existem mais na coluna (ex.: ao trocar de coluna).
+  useEffect(() => {
+    if (!distinct.length) return
+    setDef((d) => {
+      const valid = new Set(distinct)
+      const mapa = d.contasCorrentes.mapa.filter((m) => valid.has(m.valor))
+      if (mapa.length === d.contasCorrentes.mapa.length) return d
+      return { ...d, contasCorrentes: { ...d.contasCorrentes, mapa } }
+    })
+  }, [coluna, getDistinct, setDef])
+
+  function setOne(valor: string, conta: string) {
+    setDef((d) => {
+      const mapa = d.contasCorrentes.mapa.filter((m) => m.valor !== valor)
+      mapa.push({ valor, conta })
+      return { ...d, contasCorrentes: { ...d.contasCorrentes, mapa } }
+    })
+  }
+
+  const mapa = def.contasCorrentes.mapa
+  const valores = distinct.length ? distinct : mapa.map((m) => m.valor)
+  if (!valores.length) return <EmptyHint>Envie o arquivo para listar os valores distintos desta coluna.</EmptyHint>
+  return (
+    <div className="space-y-2">
+      <p className="text-[12px] text-muted-foreground">Para cada valor da coluna, informe o número da conta corrente:</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {valores.map((val) => {
+          const cur = mapa.find((m) => m.valor === val)?.conta ?? ''
+          return (
+            <div key={val} className="flex items-center gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-3 py-1.5">
+              <span className="text-sm flex-1 truncate" title={val}>{val}</span>
+              <Input
+                className={cn('h-8 w-[150px] text-xs bg-card', !cur.trim() && 'border-r-2 border-r-destructive')}
+                placeholder="Conta corrente"
+                value={cur}
+                onChange={(e) => setOne(val, semSeparador(e.target.value))}
+              />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function ContrapartidaPalavraChave({ def, setDef, dcByDescricao }: { def: TreatmentDefinition; setDef: SetDef; dcByDescricao: boolean }) {
   const itens = def.contrapartida.palavraChave
 
@@ -979,6 +1107,6 @@ function listaResumo(itens: string[], max = 3): string {
 }
 
 /** Snapshot serializado do formulário para detectar alterações não salvas. */
-function serializeForm(nome: string, contaCorrente: string, isActive: boolean, def: TreatmentDefinition): string {
-  return stableStringify({ nome: nome.trim(), contaCorrente: contaCorrente.trim(), isActive, def })
+function serializeForm(nome: string, isActive: boolean, def: TreatmentDefinition): string {
+  return stableStringify({ nome: nome.trim(), isActive, def })
 }

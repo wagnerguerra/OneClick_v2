@@ -26,6 +26,7 @@ type ConvertResult = Awaited<ReturnType<typeof trpc.tratamentoLancamentos.conver
 const PENDENCIA_LABELS: Record<string, string> = {
   DC_NAO_MAPEADO: 'Débito/Crédito não mapeado',
   CONTA_NAO_MAPEADA: 'Conta de contrapartida não mapeada',
+  CONTA_CORRENTE_NAO_MAPEADA: 'Conta corrente não mapeada',
   CAMPO_VAZIO: 'Campo vazio',
   DATA_INVALIDA: 'Data inválida',
   VALOR_INVALIDO: 'Valor não numérico',

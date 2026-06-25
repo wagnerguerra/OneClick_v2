@@ -108,11 +108,16 @@ function unionKeyed<T>(base: T[] | undefined, target: T[] | undefined, keyOf: (t
 export function computeDiff(base: TreatmentDefinition, target: TreatmentDefinition): DiffGroup[] {
   const groups: DiffGroup[] = []
 
-  // ---- Identificação (conta corrente vive na definição) ----
+  // ---- Contas correntes ----
   {
     const out: DiffChange[] = []
-    cmpScalar('Conta corrente', base.contaCorrente, target.contaCorrente, out)
-    if (out.length) groups.push({ section: 'Identificação', changes: out })
+    const ccModo: Record<TreatmentDefinition['contasCorrentes']['modo'], string> = { UNICA: 'Uma conta corrente', MULTIPLAS: 'Várias contas correntes' }
+    cmpScalar('Modo', ccModo[base.contasCorrentes.modo], ccModo[target.contasCorrentes.modo], out)
+    cmpScalar('Conta única', base.contasCorrentes.unica, target.contasCorrentes.unica, out)
+    cmpScalar('Coluna', base.contasCorrentes.coluna, target.contasCorrentes.coluna, out)
+    const mapa = unionKeyed(base.contasCorrentes.mapa, target.contasCorrentes.mapa, (m) => m.valor)
+    diffKeyed(mapa, (valor) => `Valor "${valor}"`, [{ name: 'Conta', get: (m) => m.conta }], out)
+    if (out.length) groups.push({ section: 'Contas correntes', changes: out })
   }
 
   // ---- De/Para de colunas ----

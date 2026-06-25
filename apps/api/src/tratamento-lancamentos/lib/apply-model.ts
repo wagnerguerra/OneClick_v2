@@ -4,11 +4,12 @@
 // não pôde ser interpretado.
 //
 // Tipos de pendência (alinhados ao plano):
-//   DC_NAO_MAPEADO     valor da coluna de débito/crédito sem direção definida
-//   CONTA_NAO_MAPEADA  sem conta de contrapartida para a descrição/palavra-chave
-//   CAMPO_VAZIO        coluna obrigatória sem valor na linha
-//   DATA_INVALIDA      data não reconhecida
-//   VALOR_INVALIDO     valor não numérico
+//   DC_NAO_MAPEADO              valor da coluna de débito/crédito sem direção definida
+//   CONTA_NAO_MAPEADA           sem conta de contrapartida para a descrição/palavra-chave
+//   CONTA_CORRENTE_NAO_MAPEADA  (modo múltiplas contas) valor da coluna sem conta corrente
+//   CAMPO_VAZIO                 coluna obrigatória sem valor na linha
+//   DATA_INVALIDA              data não reconhecida
+//   VALOR_INVALIDO             valor não numérico
 // ============================================================
 
 import type { TreatmentDefinition } from '@saas/types'
@@ -16,7 +17,7 @@ import type { ExtractedTable, CellValue } from './extract-tabela'
 import { parseData, parseValor } from './parsers'
 import { buildSciLine, buildSciFile, type Direcao } from './sci-format'
 
-export type PendenciaTipo = 'DC_NAO_MAPEADO' | 'CONTA_NAO_MAPEADA' | 'CAMPO_VAZIO' | 'DATA_INVALIDA' | 'VALOR_INVALIDO'
+export type PendenciaTipo = 'DC_NAO_MAPEADO' | 'CONTA_NAO_MAPEADA' | 'CONTA_CORRENTE_NAO_MAPEADA' | 'CAMPO_VAZIO' | 'DATA_INVALIDA' | 'VALOR_INVALIDO'
 
 export interface Pendencia {
   /** Linha de dados (1-based) na tabela extraída; 0 = pendência do modelo. */
@@ -65,14 +66,19 @@ function matchContrapartida(def: TreatmentDefinition, descricao: string): CpMatc
 export function applyModel(table: ExtractedTable, def: TreatmentDefinition): ConversionResult {
   const cm = def.columnMapping
   const dcMapa = new Map(def.debitoCredito.mapa.map((m) => [m.valor, m.direcao]))
-  const contaCorrente = def.contaCorrente.trim()
+  const cc = def.contasCorrentes
+  const ccMapa = new Map(cc.mapa.map((m) => [m.valor, m.conta]))
 
   const lines: string[] = []
   const pendencias: Pendencia[] = []
 
   // Pendência de modelo: conta corrente é necessária para os campos <3>/<4>.
-  if (!contaCorrente) {
-    pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'contaCorrente', mensagem: 'Conta corrente não informada no modelo.' })
+  if (cc.modo === 'UNICA') {
+    if (!cc.unica.trim()) {
+      pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'contaCorrente', mensagem: 'Conta corrente não informada no modelo.' })
+    }
+  } else if (!cc.coluna.trim()) {
+    pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'contasCorrentes', mensagem: 'Coluna que identifica a conta corrente não definida no modelo.' })
   }
 
   table.rows.forEach((row, i) => {
@@ -124,6 +130,21 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition): Con
     } else if (match) {
       if (match.direcao) direcao = match.direcao
       else rowPend.push({ linha, tipo: 'DC_NAO_MAPEADO', campo: cm.descricao, mensagem: `"${descricao}" sem débito/crédito definido na contrapartida.`, valor: descricao })
+    }
+
+    // Conta corrente do lançamento: fixa (UNICA) ou pela coluna do banco (MULTIPLAS).
+    let contaCorrente = ''
+    if (cc.modo === 'UNICA') {
+      contaCorrente = cc.unica.trim()
+    } else {
+      const ccVal = cell(row, cc.coluna)
+      if (!ccVal) {
+        rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cc.coluna, mensagem: 'Valor de conta corrente vazio.' })
+      } else {
+        const conta = ccMapa.get(ccVal)
+        if (!conta || !conta.trim()) rowPend.push({ linha, tipo: 'CONTA_CORRENTE_NAO_MAPEADA', campo: cc.coluna, mensagem: `Valor "${ccVal}" sem conta corrente mapeada.`, valor: ccVal })
+        else contaCorrente = conta.trim()
+      }
     }
 
     if (rowPend.length) { pendencias.push(...rowPend); return }
