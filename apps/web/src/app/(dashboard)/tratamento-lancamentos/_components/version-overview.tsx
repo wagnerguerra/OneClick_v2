@@ -18,10 +18,10 @@ import type { TreatmentDefinition, Direcao } from '@saas/types'
 const EMPTY = '—'
 const txt = (v: string | undefined | null) => (v && String(v).trim() ? String(v) : EMPTY)
 
-const DIRECAO_LABEL: Record<Direcao, string> = { ENTRADA: 'Entrada', SAIDA: 'Saída' }
+const DIRECAO_LABEL: Record<Direcao, string> = { DEBITO: 'Débito', CREDITO: 'Crédito' }
 const dirTxt = (d?: Direcao | '') => (d ? DIRECAO_LABEL[d] : EMPTY)
 
-const ES_TIPO_LABEL: Record<TreatmentDefinition['entradaSaida']['tipo'], string> = {
+const DC_TIPO_LABEL: Record<TreatmentDefinition['debitoCredito']['tipo'], string> = {
   COLUNA: 'Por coluna', DESCRICAO: 'Pela descrição',
 }
 const CP_MODO_LABEL: Record<TreatmentDefinition['contrapartida']['modo'], string> = {
@@ -82,17 +82,17 @@ export function VersionOverview({ def, compareTo, compareLabel = 'versão atual'
         </FieldGrid>
       </Section>
 
-      <Section icon={ArrowLeftRight} title="Entrada / Saída">
+      <Section icon={ArrowLeftRight} title="Débito / Crédito">
         <FieldGrid>
-          <ReadField label="Modo" value={ES_TIPO_LABEL[def.entradaSaida.tipo]} current={compareTo && ES_TIPO_LABEL[compareTo.entradaSaida.tipo]} hasCompare={cmp} compareLabel={compareLabel} />
-          {def.entradaSaida.tipo === 'COLUNA' && (
-            <ReadField label="Coluna" value={def.entradaSaida.coluna} current={compareTo?.entradaSaida.coluna} hasCompare={cmp} compareLabel={compareLabel} />
+          <ReadField label="Modo" value={DC_TIPO_LABEL[def.debitoCredito.tipo]} current={compareTo && DC_TIPO_LABEL[compareTo.debitoCredito.tipo]} hasCompare={cmp} compareLabel={compareLabel} />
+          {def.debitoCredito.tipo === 'COLUNA' && (
+            <ReadField label="Coluna" value={def.debitoCredito.coluna} current={compareTo?.debitoCredito.coluna} hasCompare={cmp} compareLabel={compareLabel} />
           )}
         </FieldGrid>
-        {def.entradaSaida.tipo === 'COLUNA' ? (
+        {def.debitoCredito.tipo === 'COLUNA' ? (
           <KeyedList
-            items={def.entradaSaida.mapa.map((m) => ({ key: m.valor, label: m.valor, value: dirTxt(m.direcao) }))}
-            current={compareTo?.entradaSaida.mapa.map((m) => ({ key: m.valor, value: dirTxt(m.direcao) }))}
+            items={def.debitoCredito.mapa.map((m) => ({ key: m.valor, label: m.valor, value: dirTxt(m.direcao) }))}
+            current={compareTo?.debitoCredito.mapa.map((m) => ({ key: m.valor, value: dirTxt(m.direcao) }))}
             hasCompare={cmp}
             compareLabel={compareLabel}
             defIsNewer={defIsNewer}
@@ -254,7 +254,7 @@ function Cell({ value, current, hasCompare, compareLabel }: { value?: string | n
   )
 }
 
-/** Lista chave→valor (mapa de Entrada/Saída) com destaque de diff vs. referência. */
+/** Lista chave→valor (mapa de Débito/Crédito) com destaque de diff vs. referência. */
 function KeyedList({ items, current, hasCompare, compareLabel, defIsNewer, emptyHint }: {
   items: Array<{ key: string; label: string; value: string }>
   current?: Array<{ key: string; value: string }>

@@ -14,7 +14,7 @@ export function normalizeDefinition(raw: unknown): TreatmentDefinition {
   const r = raw as {
     contaCorrente?: unknown
     columnMapping?: Partial<TreatmentDefinition['columnMapping']>
-    entradaSaida?: unknown
+    debitoCredito?: unknown
     contrapartida?: { modo?: string; itens?: unknown[]; palavraChave?: unknown[]; descricao?: unknown[] }
   }
   const cp = r.contrapartida
@@ -24,16 +24,16 @@ export function normalizeDefinition(raw: unknown): TreatmentDefinition {
   const contrapartida: ContrapartidaRule = cp && Array.isArray(cp.itens)
     ? { modo, palavraChave: modo === 'PALAVRA_CHAVE' ? asPC(cp.itens) : [], descricao: modo === 'DESCRICAO' ? asDesc(cp.itens) : [] }
     : { modo, palavraChave: asPC(cp?.palavraChave), descricao: asDesc(cp?.descricao) }
-  const esRaw = r.entradaSaida as { tipo?: string; coluna?: unknown; mapa?: unknown[] } | undefined
-  const entradaSaida: TreatmentDefinition['entradaSaida'] = {
-    tipo: esRaw?.tipo === 'DESCRICAO' ? 'DESCRICAO' : 'COLUNA',
-    coluna: typeof esRaw?.coluna === 'string' ? esRaw.coluna : '',
-    mapa: Array.isArray(esRaw?.mapa) ? (esRaw!.mapa as unknown as TreatmentDefinition['entradaSaida']['mapa']) : [],
+  const dcRaw = r.debitoCredito as { tipo?: string; coluna?: unknown; mapa?: unknown[] } | undefined
+  const debitoCredito: TreatmentDefinition['debitoCredito'] = {
+    tipo: dcRaw?.tipo === 'DESCRICAO' ? 'DESCRICAO' : 'COLUNA',
+    coluna: typeof dcRaw?.coluna === 'string' ? dcRaw.coluna : '',
+    mapa: Array.isArray(dcRaw?.mapa) ? (dcRaw!.mapa as unknown as TreatmentDefinition['debitoCredito']['mapa']) : [],
   }
   return {
     contaCorrente: typeof r.contaCorrente === 'string' ? r.contaCorrente : base.contaCorrente,
     columnMapping: { ...base.columnMapping, ...(r.columnMapping ?? {}) },
-    entradaSaida,
+    debitoCredito,
     contrapartida,
   }
 }

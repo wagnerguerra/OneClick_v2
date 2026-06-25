@@ -12,12 +12,12 @@ import { paginationSchema } from './pagination'
 // conta corrente) é estrutura variável/aninhada → vive no JSON `definition`.
 // ============================================================
 
-// ---- Direção do lançamento (entrada x saída) -------------------------------
-export const DIRECAO = { ENTRADA: 'ENTRADA', SAIDA: 'SAIDA' } as const
+// ---- Direção do lançamento (débito x crédito) ------------------------------
+export const DIRECAO = { DEBITO: 'DEBITO', CREDITO: 'CREDITO' } as const
 export type Direcao = (typeof DIRECAO)[keyof typeof DIRECAO]
 export const DIRECAO_LABELS: Record<Direcao, string> = {
-  ENTRADA: 'Entrada',
-  SAIDA: 'Saída',
+  DEBITO: 'Débito',
+  CREDITO: 'Crédito',
 }
 
 // ---- De/Para de colunas ----------------------------------------------------
@@ -34,40 +34,40 @@ export const columnMappingSchema = z.object({
 })
 export type ColumnMapping = z.infer<typeof columnMappingSchema>
 
-// ---- Regra de Entrada/Saída ------------------------------------------------
+// ---- Regra de Débito/Crédito -----------------------------------------------
 // Ou por uma COLUNA (com mapa de valor→direção via "SELECT DISTINCT"),
 // ou pela DESCRIÇÃO (a direção é definida em cada item de contrapartida).
 // Guarda coluna+mapa SEMPRE (mesmo no modo DESCRICAO), para alternar o modo
 // não perder o que foi preenchido por coluna. `tipo` define qual regra vale.
-export const entradaSaidaSchema = z.object({
+export const debitoCreditoSchema = z.object({
   tipo: z.enum(['COLUNA', 'DESCRICAO']).default('COLUNA'),
   coluna: z.string().default(''),
   mapa: z
     .array(
       z.object({
         valor: z.string(),
-        direcao: z.enum(['ENTRADA', 'SAIDA']),
+        direcao: z.enum(['DEBITO', 'CREDITO']),
       }),
     )
     .default([]),
 })
-export type EntradaSaidaRule = z.infer<typeof entradaSaidaSchema>
+export type DebitoCreditoRule = z.infer<typeof debitoCreditoSchema>
 
 // ---- Mapeamentos de contrapartida ------------------------------------------
 // Modo PALAVRA_CHAVE: 1ª palavra-chave encontrada na descrição (esq→dir).
 // Modo DESCRICAO: mapeia cada descrição distinta para uma conta.
-// `direcao` só é usada quando entradaSaida.tipo === 'DESCRICAO'.
+// `direcao` só é usada quando debitoCredito.tipo === 'DESCRICAO'.
 export const contrapartidaPalavraChaveItem = z.object({
   palavraChave: z.string().min(1, 'Informe a palavra-chave'),
   conta: z.string().min(1, 'Informe a conta de contrapartida'),
   historicoFixo: z.string().optional().or(z.literal('')),
-  direcao: z.enum(['ENTRADA', 'SAIDA']).optional(),
+  direcao: z.enum(['DEBITO', 'CREDITO']).optional(),
 })
 export const contrapartidaDescricaoItem = z.object({
   descricao: z.string().min(1, 'Informe a descrição'),
   conta: z.string().min(1, 'Informe a conta de contrapartida'),
   historicoFixo: z.string().optional().or(z.literal('')),
-  direcao: z.enum(['ENTRADA', 'SAIDA']).optional(),
+  direcao: z.enum(['DEBITO', 'CREDITO']).optional(),
 })
 // Guarda AMBOS os modos (palavraChave + descricao) + o modo ativo, para que
 // alternar o modo NÃO perca o que foi preenchido no outro — persistido na
@@ -83,7 +83,7 @@ export type ContrapartidaRule = z.infer<typeof contrapartidaSchema>
 export const treatmentDefinitionSchema = z.object({
   contaCorrente: z.string().default(''),
   columnMapping: columnMappingSchema,
-  entradaSaida: entradaSaidaSchema,
+  debitoCredito: debitoCreditoSchema,
   contrapartida: contrapartidaSchema,
 })
 export type TreatmentDefinition = z.infer<typeof treatmentDefinitionSchema>
@@ -92,7 +92,7 @@ export type TreatmentDefinition = z.infer<typeof treatmentDefinitionSchema>
 export const EMPTY_TREATMENT_DEFINITION: TreatmentDefinition = {
   contaCorrente: '',
   columnMapping: { descricao: '', participante: '', valor: '', data: '', numeroNf: '', documento: '' },
-  entradaSaida: { tipo: 'COLUNA', coluna: '', mapa: [] },
+  debitoCredito: { tipo: 'COLUNA', coluna: '', mapa: [] },
   contrapartida: { modo: 'DESCRICAO', palavraChave: [], descricao: [] },
 }
 

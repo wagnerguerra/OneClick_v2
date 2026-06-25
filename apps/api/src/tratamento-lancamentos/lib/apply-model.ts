@@ -4,7 +4,7 @@
 // não pôde ser interpretado.
 //
 // Tipos de pendência (alinhados ao plano):
-//   ES_NAO_MAPEADO     valor da coluna de entrada/saída sem direção definida
+//   DC_NAO_MAPEADO     valor da coluna de débito/crédito sem direção definida
 //   CONTA_NAO_MAPEADA  sem conta de contrapartida para a descrição/palavra-chave
 //   CAMPO_VAZIO        coluna obrigatória sem valor na linha
 //   DATA_INVALIDA      data não reconhecida
@@ -16,7 +16,7 @@ import type { ExtractedTable, CellValue } from './extract-tabela'
 import { parseData, parseValor } from './parsers'
 import { buildSciLine, buildSciFile, type Direcao } from './sci-format'
 
-export type PendenciaTipo = 'ES_NAO_MAPEADO' | 'CONTA_NAO_MAPEADA' | 'CAMPO_VAZIO' | 'DATA_INVALIDA' | 'VALOR_INVALIDO'
+export type PendenciaTipo = 'DC_NAO_MAPEADO' | 'CONTA_NAO_MAPEADA' | 'CAMPO_VAZIO' | 'DATA_INVALIDA' | 'VALOR_INVALIDO'
 
 export interface Pendencia {
   /** Linha de dados (1-based) na tabela extraída; 0 = pendência do modelo. */
@@ -64,7 +64,7 @@ function matchContrapartida(def: TreatmentDefinition, descricao: string): CpMatc
 
 export function applyModel(table: ExtractedTable, def: TreatmentDefinition): ConversionResult {
   const cm = def.columnMapping
-  const esMapa = new Map(def.entradaSaida.mapa.map((m) => [m.valor, m.direcao]))
+  const dcMapa = new Map(def.debitoCredito.mapa.map((m) => [m.valor, m.direcao]))
   const contaCorrente = def.contaCorrente.trim()
 
   const lines: string[] = []
@@ -110,20 +110,20 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition): Con
       rowPend.push({ linha, tipo: 'CONTA_NAO_MAPEADA', campo: cm.descricao, mensagem: `Sem conta de contrapartida para "${descricao}".`, valor: descricao })
     }
 
-    // Direção (entrada/saída)
+    // Direção (débito/crédito)
     let direcao: Direcao | null = null
-    if (def.entradaSaida.tipo === 'COLUNA') {
-      const esVal = cell(row, def.entradaSaida.coluna)
-      if (!esVal) {
-        rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: def.entradaSaida.coluna, mensagem: 'Valor de entrada/saída vazio.' })
+    if (def.debitoCredito.tipo === 'COLUNA') {
+      const dcVal = cell(row, def.debitoCredito.coluna)
+      if (!dcVal) {
+        rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: def.debitoCredito.coluna, mensagem: 'Valor de débito/crédito vazio.' })
       } else {
-        const dir = esMapa.get(esVal)
-        if (!dir) rowPend.push({ linha, tipo: 'ES_NAO_MAPEADO', campo: def.entradaSaida.coluna, mensagem: `Valor "${esVal}" não mapeado como entrada/saída.`, valor: esVal })
+        const dir = dcMapa.get(dcVal)
+        if (!dir) rowPend.push({ linha, tipo: 'DC_NAO_MAPEADO', campo: def.debitoCredito.coluna, mensagem: `Valor "${dcVal}" não mapeado como débito/crédito.`, valor: dcVal })
         else direcao = dir
       }
     } else if (match) {
       if (match.direcao) direcao = match.direcao
-      else rowPend.push({ linha, tipo: 'ES_NAO_MAPEADO', campo: cm.descricao, mensagem: `"${descricao}" sem entrada/saída definida na contrapartida.`, valor: descricao })
+      else rowPend.push({ linha, tipo: 'DC_NAO_MAPEADO', campo: cm.descricao, mensagem: `"${descricao}" sem débito/crédito definido na contrapartida.`, valor: descricao })
     }
 
     if (rowPend.length) { pendencias.push(...rowPend); return }

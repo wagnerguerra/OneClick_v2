@@ -28,7 +28,7 @@ export interface DiffGroup {
 const EMPTY = '—'
 const show = (v: string | undefined | null) => (v && String(v).trim() ? String(v) : EMPTY)
 
-const DIRECAO_LABEL: Record<Direcao, string> = { ENTRADA: 'Entrada', SAIDA: 'Saída' }
+const DIRECAO_LABEL: Record<Direcao, string> = { DEBITO: 'Débito', CREDITO: 'Crédito' }
 const dir = (d?: Direcao | '') => (d ? DIRECAO_LABEL[d] : EMPTY)
 
 const COLUMN_FIELD_LABELS: Record<keyof TreatmentDefinition['columnMapping'], string> = {
@@ -40,7 +40,7 @@ const COLUMN_FIELD_LABELS: Record<keyof TreatmentDefinition['columnMapping'], st
   documento: 'CNPJ/CPF',
 }
 
-const ES_TIPO_LABEL: Record<TreatmentDefinition['entradaSaida']['tipo'], string> = {
+const DC_TIPO_LABEL: Record<TreatmentDefinition['debitoCredito']['tipo'], string> = {
   COLUNA: 'Por coluna',
   DESCRICAO: 'Pela descrição',
 }
@@ -124,19 +124,19 @@ export function computeDiff(base: TreatmentDefinition, target: TreatmentDefiniti
     if (out.length) groups.push({ section: 'De/Para de colunas', changes: out })
   }
 
-  // ---- Entrada / Saída ----
+  // ---- Débito / Crédito ----
   {
     const out: DiffChange[] = []
-    cmpScalar('Modo', ES_TIPO_LABEL[base.entradaSaida.tipo], ES_TIPO_LABEL[target.entradaSaida.tipo], out)
-    cmpScalar('Coluna', base.entradaSaida.coluna, target.entradaSaida.coluna, out)
-    const mapa = unionKeyed(base.entradaSaida.mapa, target.entradaSaida.mapa, (m) => m.valor)
+    cmpScalar('Modo', DC_TIPO_LABEL[base.debitoCredito.tipo], DC_TIPO_LABEL[target.debitoCredito.tipo], out)
+    cmpScalar('Coluna', base.debitoCredito.coluna, target.debitoCredito.coluna, out)
+    const mapa = unionKeyed(base.debitoCredito.mapa, target.debitoCredito.mapa, (m) => m.valor)
     diffKeyed(
       mapa,
       (valor) => `Valor "${valor}"`,
       [{ name: 'Direção', get: (m) => dir(m.direcao) }],
       out,
     )
-    if (out.length) groups.push({ section: 'Entrada / Saída', changes: out })
+    if (out.length) groups.push({ section: 'Débito / Crédito', changes: out })
   }
 
   // ---- Contrapartida ----

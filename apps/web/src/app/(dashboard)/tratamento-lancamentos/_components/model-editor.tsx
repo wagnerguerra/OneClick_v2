@@ -153,7 +153,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     if (preview) return preview.headers
     const fromDef = new Set<string>()
     Object.values(def.columnMapping).forEach((v) => { if (v) fromDef.add(v) })
-    if (def.entradaSaida.tipo === 'COLUNA' && def.entradaSaida.coluna) fromDef.add(def.entradaSaida.coluna)
+    if (def.debitoCredito.tipo === 'COLUNA' && def.debitoCredito.coluna) fromDef.add(def.debitoCredito.coluna)
     return [...fromDef]
   }, [preview, def])
 
@@ -203,12 +203,12 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   }
 
   // Troca só o tipo — mantém coluna+mapa (persistido), p/ não perder ao reverter.
-  function setEsTipo(tipo: 'COLUNA' | 'DESCRICAO') {
-    setDef((d) => ({ ...d, entradaSaida: { ...d.entradaSaida, tipo } }))
+  function setDcTipo(tipo: 'COLUNA' | 'DESCRICAO') {
+    setDef((d) => ({ ...d, debitoCredito: { ...d.debitoCredito, tipo } }))
   }
 
-  function setEsColuna(coluna: string) {
-    setDef((d) => ({ ...d, entradaSaida: { ...d.entradaSaida, coluna } }))
+  function setDcColuna(coluna: string) {
+    setDef((d) => ({ ...d, debitoCredito: { ...d.debitoCredito, coluna } }))
   }
 
   // Troca só o modo ativo — mantém o conteúdo dos DOIS modos (persistido).
@@ -216,7 +216,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, modo } }))
   }
 
-  const esByDescricao = def.entradaSaida.tipo === 'DESCRICAO'
+  const dcByDescricao = def.debitoCredito.tipo === 'DESCRICAO'
 
   async function handleBack() {
     if (dirtyRef.current) {
@@ -244,19 +244,19 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     if (!def.columnMapping.data) p.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Data</b>.')
     return p
   }
-  function probES(): string[] {
+  function probDC(): string[] {
     const p: string[] = []
-    if (def.entradaSaida.tipo === 'COLUNA') {
-      if (!def.entradaSaida.coluna.trim()) {
-        p.push('Em <b>Entrada/Saída</b>, selecione a <b>coluna</b> que define entrada ou saída.')
+    if (def.debitoCredito.tipo === 'COLUNA') {
+      if (!def.debitoCredito.coluna.trim()) {
+        p.push('Em <b>Débito/Crédito</b>, selecione a <b>coluna</b> que define débito ou crédito.')
       } else {
-        const distinct = getDistinct(def.entradaSaida.coluna)
-        const mapped = new Set(def.entradaSaida.mapa.map((m) => m.valor))
+        const distinct = getDistinct(def.debitoCredito.coluna)
+        const mapped = new Set(def.debitoCredito.mapa.map((m) => m.valor))
         if (distinct.length) {
           const faltam = distinct.filter((v) => !mapped.has(v))
-          if (faltam.length) p.push(`Em <b>Entrada/Saída</b>, defina a direção ${faltam.length === 1 ? 'do valor' : 'dos valores'}: ${listaResumo(faltam)}.`)
+          if (faltam.length) p.push(`Em <b>Débito/Crédito</b>, defina a direção ${faltam.length === 1 ? 'do valor' : 'dos valores'}: ${listaResumo(faltam)}.`)
         } else if (mapped.size === 0) {
-          p.push('Em <b>Entrada/Saída</b>, defina a direção dos valores da coluna (envie o arquivo de exemplo para listá-los).')
+          p.push('Em <b>Débito/Crédito</b>, defina a direção dos valores da coluna (envie o arquivo de exemplo para listá-los).')
         }
       }
     }
@@ -273,9 +273,9 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         const semConta = itens.filter((it) => !it.conta.trim()).length
         if (semPalavra) p.push(`Em <b>Contrapartida</b>, preencha a <b>palavra-chave</b> em ${semPalavra} ${semPalavra === 1 ? 'item' : 'itens'}.`)
         if (semConta) p.push(`Em <b>Contrapartida</b>, informe a <b>conta</b> em ${semConta} ${semConta === 1 ? 'item' : 'itens'}.`)
-        if (esByDescricao) {
+        if (dcByDescricao) {
           const semDir = itens.filter((it) => !it.direcao).length
-          if (semDir) p.push(`Em <b>Contrapartida</b>, defina <b>Entrada/Saída</b> em ${semDir} ${semDir === 1 ? 'item' : 'itens'}.`)
+          if (semDir) p.push(`Em <b>Contrapartida</b>, defina <b>Débito/Crédito</b> em ${semDir} ${semDir === 1 ? 'item' : 'itens'}.`)
         }
       }
     } else {
@@ -285,9 +285,9 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       } else {
         const semConta = itens.filter((it) => !it.conta.trim())
         if (semConta.length) p.push(`Em <b>Contrapartida</b>, informe a <b>conta</b> ${semConta.length === 1 ? 'da descrição' : 'das descrições'}: ${listaResumo(semConta.map((it) => it.descricao))}.`)
-        if (esByDescricao) {
+        if (dcByDescricao) {
           const semDir = itens.filter((it) => !it.direcao).length
-          if (semDir) p.push(`Em <b>Contrapartida</b>, defina <b>Entrada/Saída</b> em ${semDir} ${semDir === 1 ? 'descrição' : 'descrições'}.`)
+          if (semDir) p.push(`Em <b>Contrapartida</b>, defina <b>Débito/Crédito</b> em ${semDir} ${semDir === 1 ? 'descrição' : 'descrições'}.`)
         }
       }
     }
@@ -305,12 +305,12 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   }
 
   // Validadores por índice de etapa do wizard (ordem: Arquivo, Dados, Colunas,
-  // Entrada/Saída + Contrapartida). Arquivo não tem campos obrigatórios.
+  // Débito/Crédito + Contrapartida). Arquivo não tem campos obrigatórios.
   const STEP_VALIDATORS: Array<(() => string[]) | null> = [
     null,
     probDados,
     probDePara,
-    () => [...probES(), ...probContrapartida()],
+    () => [...probDC(), ...probContrapartida()],
   ]
 
   function advanceStep() {
@@ -327,7 +327,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   }
 
   async function handleSave() {
-    const problemas = [...probDados(), ...probDePara(), ...probES(), ...probContrapartida()]
+    const problemas = [...probDados(), ...probDePara(), ...probDC(), ...probContrapartida()]
     if (problemas.length) {
       await showProblemas('Revise o preenchimento do modelo', problemas)
       return
@@ -495,35 +495,35 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     </Card>
   )
 
-  const secES = (
+  const secDC = (
     <Card className="p-5 space-y-4">
       <StepHeader
-        icon={ArrowLeftRight} color="bg-amber-500" title="Definição de Entrada / Saída"
-        hint="O sistema precisa saber se cada lançamento é uma entrada (dinheiro que entra) ou uma saída (dinheiro que sai). Escolha se isso vem de uma coluna da planilha ou das descrições dos lançamentos."
+        icon={ArrowLeftRight} color="bg-amber-500" title="Definição de Débito / Crédito"
+        hint="O sistema precisa saber se cada lançamento é um débito ou um crédito. Escolha se essa informação vem de uma coluna da planilha ou das descrições dos lançamentos."
       />
       <Toggle
-        value={def.entradaSaida.tipo}
+        value={def.debitoCredito.tipo}
         options={[{ value: 'COLUNA', label: 'Por coluna' }, { value: 'DESCRICAO', label: 'Pela descrição' }]}
-        onChange={(v) => setEsTipo(v as 'COLUNA' | 'DESCRICAO')}
+        onChange={(v) => setDcTipo(v as 'COLUNA' | 'DESCRICAO')}
       />
-      {def.entradaSaida.tipo === 'COLUNA' ? (
+      {def.debitoCredito.tipo === 'COLUNA' ? (
         headers.length === 0 ? (
           <EmptyHint>Envie um arquivo de exemplo para listar as colunas.</EmptyHint>
         ) : (
         <div className="space-y-4">
           <div className="space-y-1.5 max-w-xs">
-            <Label className="text-[13px] font-semibold">Coluna de Entrada/Saída <span className="text-destructive">*</span></Label>
-            <ColumnSelect headers={headers} value={def.entradaSaida.coluna} onChange={setEsColuna} />
+            <Label className="text-[13px] font-semibold">Coluna de Débito/Crédito <span className="text-destructive">*</span></Label>
+            <ColumnSelect headers={headers} value={def.debitoCredito.coluna} onChange={setDcColuna} />
           </div>
-          {def.entradaSaida.coluna && (
-            <EntradaSaidaColunaMap def={def} setDef={setDef} coluna={def.entradaSaida.coluna} getDistinct={getDistinct} />
+          {def.debitoCredito.coluna && (
+            <DebitoCreditoColunaMap def={def} setDef={setDef} coluna={def.debitoCredito.coluna} getDistinct={getDistinct} />
           )}
         </div>
         )
       ) : (
         <div className="flex items-start gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
           <Info className="h-4 w-4 shrink-0 mt-0.5" />
-          Faça a definição de entrada/saída em cada item de contrapartida abaixo.
+          Faça a definição de débito/crédito em cada item de contrapartida abaixo.
         </div>
       )}
     </Card>
@@ -542,10 +542,10 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       />
 
       {def.contrapartida.modo === 'PALAVRA_CHAVE' ? (
-        <ContrapartidaPalavraChave def={def} setDef={setDef} esByDescricao={esByDescricao} />
+        <ContrapartidaPalavraChave def={def} setDef={setDef} dcByDescricao={dcByDescricao} />
       ) : (
         <ContrapartidaDescricao
-          def={def} setDef={setDef} esByDescricao={esByDescricao}
+          def={def} setDef={setDef} dcByDescricao={dcByDescricao}
           descricaoColuna={def.columnMapping.descricao || ''} getDistinct={getDistinct}
         />
       )}
@@ -568,7 +568,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       {secDados}
       {secArquivo}
       {secDePara}
-      {secES}
+      {secDC}
       {secContrapartida}
       {secNota}
     </>
@@ -580,7 +580,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       { label: 'Arquivo', node: secArquivo },
       { label: 'Dados', node: secDados },
       { label: 'Colunas', node: secDePara },
-      { label: 'Entrada/Saída e Contrapartida', node: (<>{secES}{secContrapartida}</>) },
+      { label: 'Débito/Crédito e Contrapartida', node: (<>{secDC}{secContrapartida}</>) },
     ]
     const isReview = step >= wizardSteps.length
     const currentStep = wizardSteps[step]
@@ -783,8 +783,8 @@ function ColumnSelect({ headers, value, optional, onChange, placeholder = 'Selec
 
 type SetDef = React.Dispatch<React.SetStateAction<TreatmentDefinition>>
 
-/** Mapa valor→direção da coluna de Entrada/Saída (sem default; direção obrigatória). */
-function EntradaSaidaColunaMap({ def, setDef, coluna, getDistinct }: { def: TreatmentDefinition; setDef: SetDef; coluna: string; getDistinct: (c: string) => string[] }) {
+/** Mapa valor→direção da coluna de Débito/Crédito (sem default; direção obrigatória). */
+function DebitoCreditoColunaMap({ def, setDef, coluna, getDistinct }: { def: TreatmentDefinition; setDef: SetDef; coluna: string; getDistinct: (c: string) => string[] }) {
   const distinct = getDistinct(coluna)
 
   // Poda valores que não existem mais na coluna (ex.: ao trocar de coluna).
@@ -793,21 +793,21 @@ function EntradaSaidaColunaMap({ def, setDef, coluna, getDistinct }: { def: Trea
     if (!distinct.length) return
     setDef((d) => {
       const valid = new Set(distinct)
-      const mapa = d.entradaSaida.mapa.filter((m) => valid.has(m.valor))
-      if (mapa.length === d.entradaSaida.mapa.length) return d
-      return { ...d, entradaSaida: { ...d.entradaSaida, mapa } }
+      const mapa = d.debitoCredito.mapa.filter((m) => valid.has(m.valor))
+      if (mapa.length === d.debitoCredito.mapa.length) return d
+      return { ...d, debitoCredito: { ...d.debitoCredito, mapa } }
     })
   }, [coluna, getDistinct, setDef])
 
   function setOne(valor: string, direcao: Direcao) {
     setDef((d) => {
-      const mapa = d.entradaSaida.mapa.filter((m) => m.valor !== valor)
+      const mapa = d.debitoCredito.mapa.filter((m) => m.valor !== valor)
       mapa.push({ valor, direcao })
-      return { ...d, entradaSaida: { ...d.entradaSaida, mapa } }
+      return { ...d, debitoCredito: { ...d.debitoCredito, mapa } }
     })
   }
 
-  const mapa = def.entradaSaida.mapa
+  const mapa = def.debitoCredito.mapa
   const valores = distinct.length ? distinct : mapa.map((m) => m.valor)
   if (!valores.length) return <EmptyHint>Envie o arquivo para listar os valores distintos desta coluna.</EmptyHint>
   return (
@@ -822,8 +822,8 @@ function EntradaSaidaColunaMap({ def, setDef, coluna, getDistinct }: { def: Trea
               <Select value={cur} onValueChange={(v) => setOne(val, v as Direcao)}>
                 <SelectTrigger className={cn('h-8 w-[130px] text-xs bg-card', !cur && 'border-r-2 border-r-destructive')}><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ENTRADA">Entrada</SelectItem>
-                  <SelectItem value="SAIDA">Saída</SelectItem>
+                  <SelectItem value="DEBITO">Débito</SelectItem>
+                  <SelectItem value="CREDITO">Crédito</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -834,7 +834,7 @@ function EntradaSaidaColunaMap({ def, setDef, coluna, getDistinct }: { def: Trea
   )
 }
 
-function ContrapartidaPalavraChave({ def, setDef, esByDescricao }: { def: TreatmentDefinition; setDef: SetDef; esByDescricao: boolean }) {
+function ContrapartidaPalavraChave({ def, setDef, dcByDescricao }: { def: TreatmentDefinition; setDef: SetDef; dcByDescricao: boolean }) {
   const itens = def.contrapartida.palavraChave
 
   function update(i: number, patch: Partial<typeof itens[number]>) {
@@ -861,7 +861,7 @@ function ContrapartidaPalavraChave({ def, setDef, esByDescricao }: { def: Treatm
           <span className="flex-1 min-w-[140px] inline-flex items-center gap-1">
             Histórico fixo (opcional) <HelpTip text={HISTORICO_FIXO_HINT} />
           </span>
-          {esByDescricao && <span className="w-[120px]">Direção</span>}
+          {dcByDescricao && <span className="w-[120px]">Direção</span>}
           <span className="w-8 shrink-0" />
         </div>
       )}
@@ -871,10 +871,10 @@ function ContrapartidaPalavraChave({ def, setDef, esByDescricao }: { def: Treatm
             <Input className="h-8 text-xs bg-card flex-1 min-w-[140px]" placeholder="Palavra-chave" value={it.palavraChave} onChange={(e) => update(i, { palavraChave: e.target.value })} />
             <Input className={cn('h-8 text-xs bg-card w-[120px]', !it.conta.trim() && 'border-r-2 border-r-destructive')} placeholder="Conta" value={it.conta} onChange={(e) => update(i, { conta: e.target.value })} />
             <Input className="h-8 text-xs bg-card flex-1 min-w-[140px]" placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => update(i, { historicoFixo: e.target.value })} />
-            {esByDescricao && (
+            {dcByDescricao && (
               <Select value={it.direcao ?? ''} onValueChange={(v) => update(i, { direcao: v as Direcao })}>
                 <SelectTrigger className={cn('h-8 w-[120px] text-xs bg-card', !it.direcao && 'border-r-2 border-r-destructive')}><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent><SelectItem value="ENTRADA">Entrada</SelectItem><SelectItem value="SAIDA">Saída</SelectItem></SelectContent>
+                <SelectContent><SelectItem value="DEBITO">Débito</SelectItem><SelectItem value="CREDITO">Crédito</SelectItem></SelectContent>
               </Select>
             )}
             <Button variant="soft-destructive" size="icon-sm" onClick={() => remove(i)}><Trash2 className="h-3.5 w-3.5" /></Button>
@@ -886,8 +886,8 @@ function ContrapartidaPalavraChave({ def, setDef, esByDescricao }: { def: Treatm
   )
 }
 
-function ContrapartidaDescricao({ def, setDef, esByDescricao, descricaoColuna, getDistinct }: {
-  def: TreatmentDefinition; setDef: SetDef; esByDescricao: boolean; descricaoColuna: string; getDistinct: (c: string) => string[]
+function ContrapartidaDescricao({ def, setDef, dcByDescricao, descricaoColuna, getDistinct }: {
+  def: TreatmentDefinition; setDef: SetDef; dcByDescricao: boolean; descricaoColuna: string; getDistinct: (c: string) => string[]
 }) {
   const itens = def.contrapartida.descricao
 
@@ -928,7 +928,7 @@ function ContrapartidaDescricao({ def, setDef, esByDescricao, descricaoColuna, g
                   <HelpTip text={HISTORICO_FIXO_HINT} />
                 </span>
               </TableHead>
-              {esByDescricao && <TableHead className="w-[120px]">Direção</TableHead>}
+              {dcByDescricao && <TableHead className="w-[120px]">Direção</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -937,11 +937,11 @@ function ContrapartidaDescricao({ def, setDef, esByDescricao, descricaoColuna, g
                 <TableCell className="text-sm max-w-[280px] truncate" title={it.descricao}>{it.descricao}</TableCell>
                 <TableCell><Input className={cn('h-8 text-xs bg-card', !it.conta.trim() && 'border-r-2 border-r-destructive')} placeholder="Conta" value={it.conta} onChange={(e) => update(i, { conta: e.target.value })} /></TableCell>
                 <TableCell><Input className="h-8 text-xs bg-card" placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => update(i, { historicoFixo: e.target.value })} /></TableCell>
-                {esByDescricao && (
+                {dcByDescricao && (
                   <TableCell>
                     <Select value={it.direcao ?? ''} onValueChange={(v) => update(i, { direcao: v as Direcao })}>
                       <SelectTrigger className={cn('h-8 text-xs bg-card', !it.direcao && 'border-r-2 border-r-destructive')}><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent><SelectItem value="ENTRADA">Entrada</SelectItem><SelectItem value="SAIDA">Saída</SelectItem></SelectContent>
+                      <SelectContent><SelectItem value="DEBITO">Débito</SelectItem><SelectItem value="CREDITO">Crédito</SelectItem></SelectContent>
                     </Select>
                   </TableCell>
                 )}

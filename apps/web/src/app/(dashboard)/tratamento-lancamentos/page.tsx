@@ -24,7 +24,7 @@ interface ModelOption { id: string; nome: string; code: number }
 type ConvertResult = Awaited<ReturnType<typeof trpc.tratamentoLancamentos.convert.mutate>>
 
 const PENDENCIA_LABELS: Record<string, string> = {
-  ES_NAO_MAPEADO: 'Entrada/Saída não mapeada',
+  DC_NAO_MAPEADO: 'Débito/Crédito não mapeado',
   CONTA_NAO_MAPEADA: 'Conta de contrapartida não mapeada',
   CAMPO_VAZIO: 'Campo vazio',
   DATA_INVALIDA: 'Data inválida',

@@ -5,8 +5,8 @@
 //   <1>,<2>,<3>,<4>,<5>,<VAZIO>,<6>,<7>,<VAZIO>,<8>
 //   <1> nº da linha (5 dígitos, inicia 00001)
 //   <2> data AAAAMMDD
-//   <3> entrada → conta corrente; saída → conta de contrapartida
-//   <4> entrada → conta de contrapartida; saída → conta corrente
+//   <3> débito → conta corrente; crédito → conta de contrapartida
+//   <4> débito → conta de contrapartida; crédito → conta corrente
 //   <5> valor sem sinal, separador decimal "."
 //   <6> histórico
 //   <7> "DCTO<nº NF>" se houver NF, senão vazio
@@ -19,7 +19,7 @@
 // (vazio puro, como aqui) ou aspas literais; (b) se o valor leva sempre 2 casas.
 // ============================================================
 
-export type Direcao = 'ENTRADA' | 'SAIDA'
+export type Direcao = 'DEBITO' | 'CREDITO'
 
 export interface SciLancamento {
   numero: number          // 1-based, ordem no arquivo
@@ -37,7 +37,7 @@ export interface SciLancamento {
 /** Monta o campo <6> (histórico). */
 export function buildHistorico(l: Pick<SciLancamento, 'direcao' | 'numeroNf' | 'participante' | 'historicoFixo'>): string {
   if (l.historicoFixo && l.historicoFixo.trim()) return l.historicoFixo.trim()
-  const ref = l.direcao === 'ENTRADA' ? 'RECEB' : 'PGTO'
+  const ref = l.direcao === 'DEBITO' ? 'RECEB' : 'PGTO'
   const nf = l.numeroNf && l.numeroNf.trim() ? ` NF Nº ${l.numeroNf.trim()}` : ''
   const participante = (l.participante ?? '').trim().toUpperCase()
   const parte = participante ? ` - ${participante}` : '' // participante opcional → omitido se ausente
@@ -54,8 +54,8 @@ const onlyDigits = (s: string | undefined): string => String(s ?? '').replace(/\
 /** Constrói a linha SCI (10 campos) de um lançamento. */
 export function buildSciLine(l: SciLancamento): string {
   const numero = String(l.numero).padStart(5, '0')
-  const c3 = l.direcao === 'ENTRADA' ? l.contaCorrente : l.contaContrapartida
-  const c4 = l.direcao === 'ENTRADA' ? l.contaContrapartida : l.contaCorrente
+  const c3 = l.direcao === 'DEBITO' ? l.contaCorrente : l.contaContrapartida
+  const c4 = l.direcao === 'DEBITO' ? l.contaContrapartida : l.contaCorrente
   const valor = formatValorSci(l.valor)
   const historico = buildHistorico(l)
   const nfTrim = l.numeroNf?.trim()
