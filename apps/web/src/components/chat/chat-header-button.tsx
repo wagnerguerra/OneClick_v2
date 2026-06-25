@@ -64,10 +64,11 @@ interface Mensagem {
 interface OnlineUser {
   id: string
   name: string
-  email: string
+  // PII (e-mail) só vem no payload de monitoramento admin; no chat de usuários
+  // comuns o endpoint /api/admin/online-users devolve só presença (F-001).
+  email?: string
   image: string | null
   lastActivityAt: Date | string | null
-  lastActivityPath: string | null
   chatStatus?: ChatStatus
 }
 
@@ -529,7 +530,7 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
       if (order[a.presenca] !== order[b.presenca]) return order[a.presenca] - order[b.presenca]
       return a.name.localeCompare(b.name)
     })
-    return q ? all.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) : all
+    return q ? all.filter(u => u.name.toLowerCase().includes(q) || (u.email ?? '').toLowerCase().includes(q)) : all
   }, [onlineUsers, searchPessoas, meuId, ausenteAposMin])
 
   const conversasFiltradas = useMemo(() => {
@@ -1810,7 +1811,7 @@ function NovoGrupoView({ meuId, onlineUsers, onCancel, onCreated }: {
   const disponiveis = useMemo(() => {
     const q = search.trim().toLowerCase()
     const all = onlineUsers.filter(u => u.id !== meuId)
-    return q ? all.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) : all
+    return q ? all.filter(u => u.name.toLowerCase().includes(q) || (u.email ?? '').toLowerCase().includes(q)) : all
   }, [onlineUsers, search, meuId])
 
   function toggle(id: string) {
@@ -1856,7 +1857,7 @@ function NovoGrupoView({ meuId, onlineUsers, onCancel, onCreated }: {
               <Avatar user={u} />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{u.name}</div>
-                <div className="text-[10px] text-muted-foreground truncate">{u.email}</div>
+                {u.email && <div className="text-[10px] text-muted-foreground truncate">{u.email}</div>}
               </div>
             </button>
           )

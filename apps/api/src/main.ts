@@ -20,6 +20,8 @@ async function bootstrap() {
   // /api/auth/get-session, fazendo o cliente receber 304 sem body — better-auth
   // ficava com sessão null e redirecionava pro login após autenticar.
   app.getHttpAdapter().getInstance().set('etag', false)
+  // Não revelar o framework (Express) no header de resposta — reduz fingerprinting.
+  app.getHttpAdapter().getInstance().disable('x-powered-by')
   app.useBodyParser('json', {
     limit: '100mb',  // suporta upload em lote de PFX em base64 (~558 arquivos)
     verify: (req: any, _res: any, buf: Buffer) => {
