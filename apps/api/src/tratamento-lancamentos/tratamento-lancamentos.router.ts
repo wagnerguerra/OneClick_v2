@@ -26,6 +26,11 @@ export function createTratamentoLancamentosRouter(service: TratamentoLancamentos
       .input(z.object({ id: z.string() }))
       .query(({ input, ctx }) => service.getVersions(input.id, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
+    // Versão específica COM a definição completa (para o diff do histórico).
+    getVersion: readProcedure(MODULE)
+      .input(z.object({ versionId: z.string() }))
+      .query(({ input, ctx }) => service.getVersion(input.versionId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
+
     listForSelect: readProcedure(MODULE)
       .query(({ ctx }) => service.listForSelect(ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
@@ -58,5 +63,10 @@ export function createTratamentoLancamentosRouter(service: TratamentoLancamentos
     duplicate: writeSubProcedure(MODULE, MANAGE, MANAGE_LABEL)
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => service.duplicate(input.id, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
+
+    // Restaurar uma versão anterior gera uma nova versão → exige gerenciar modelos.
+    restoreVersion: writeSubProcedure(MODULE, MANAGE, MANAGE_LABEL)
+      .input(z.object({ versionId: z.string() }))
+      .mutation(({ input, ctx }) => service.restoreVersion(input.versionId, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
   })
 }

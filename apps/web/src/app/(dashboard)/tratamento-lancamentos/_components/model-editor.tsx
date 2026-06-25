@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileSpreadsheet, Save, Upload, Plus, Trash2, Loader2, Info, FileText, Image as ImageIcon,
-  Tag, Columns3, ArrowLeftRight, Network, HelpCircle, ArrowLeft, ArrowRight, type LucideIcon,
+  Tag, Columns3, ArrowLeftRight, Network, HelpCircle, ArrowLeft, ArrowRight, History, type LucideIcon,
 } from 'lucide-react'
 import {
   Button, Input, Label, Checkbox, Card,
@@ -13,13 +13,15 @@ import {
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import type { TreatmentDefinition, Direcao, ContrapartidaRule } from '@saas/types'
+import type { TreatmentDefinition, Direcao } from '@saas/types'
 import { EMPTY_TREATMENT_DEFINITION, stableStringify } from '@saas/types'
+import { normalizeDefinition } from './treatment-definition'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { fileToBase64 } from '@/lib/file'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { VersionHistoryDialog } from './version-history-dialog'
 
 type CellValue = string | number | boolean | null
 interface PreviewData { headers: string[]; rows: Array<Record<string, CellValue>>; totalRows: number; truncated: boolean }
@@ -83,6 +85,11 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   const [step, setStep] = useState(0)
   const [maxStep, setMaxStep] = useState(0)
 
+  // Histórico de versões (modo edição). `reloadNonce` força recarregar o modelo
+  // após restaurar uma versão.
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [reloadNonce, setReloadNonce] = useState(0)
+
   // ---- Carrega o modelo (modo edição) -------------------------------------
   useEffect(() => {
     if (mode !== 'edit' || !modelId) return
@@ -104,7 +111,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       }
     })()
     return () => { active = false }
-  }, [mode, modelId])
+  }, [mode, modelId, reloadNonce])
 
   // Baseline do modo criação (parte do estado vazio).
   useEffect(() => {
@@ -642,6 +649,11 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {modelId && (
+              <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)}>
+                <History className="h-4 w-4" /> Histórico
+              </Button>
+            )}
             <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
             </Button>
@@ -649,6 +661,16 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
           </div>
         </div>
         {overview}
+        {modelId && (
+          <VersionHistoryDialog
+            modelId={modelId}
+            modelNome={nome}
+            open={historyOpen}
+            onOpenChange={setHistoryOpen}
+            canManage={canManage}
+            onRestored={() => setReloadNonce((n) => n + 1)}
+          />
+        )}
       </div>
     </TooltipProvider>
   )
@@ -949,36 +971,4 @@ function listaResumo(itens: string[], max = 3): string {
 /** Snapshot serializado do formulário para detectar alterações não salvas. */
 function serializeForm(nome: string, contaCorrente: string, isActive: boolean, def: TreatmentDefinition): string {
   return stableStringify({ nome: nome.trim(), contaCorrente: contaCorrente.trim(), isActive, def })
-}
-
-// Normaliza a definição vinda do banco para o formato atual. Tolerante a
-// modelos antigos cuja contrapartida era { modo, itens } (só o modo ativo).
-function normalizeDefinition(raw: unknown): TreatmentDefinition {
-  const base = EMPTY_TREATMENT_DEFINITION
-  if (!raw || typeof raw !== 'object') return base
-  const r = raw as {
-    contaCorrente?: unknown
-    columnMapping?: Partial<TreatmentDefinition['columnMapping']>
-    entradaSaida?: unknown
-    contrapartida?: { modo?: string; itens?: unknown[]; palavraChave?: unknown[]; descricao?: unknown[] }
-  }
-  const cp = r.contrapartida
-  const modo: ContrapartidaRule['modo'] = cp?.modo === 'PALAVRA_CHAVE' ? 'PALAVRA_CHAVE' : 'DESCRICAO'
-  const asPC = (a?: unknown[]) => (Array.isArray(a) ? (a as unknown as ContrapartidaRule['palavraChave']) : [])
-  const asDesc = (a?: unknown[]) => (Array.isArray(a) ? (a as unknown as ContrapartidaRule['descricao']) : [])
-  const contrapartida: ContrapartidaRule = cp && Array.isArray(cp.itens)
-    ? { modo, palavraChave: modo === 'PALAVRA_CHAVE' ? asPC(cp.itens) : [], descricao: modo === 'DESCRICAO' ? asDesc(cp.itens) : [] }
-    : { modo, palavraChave: asPC(cp?.palavraChave), descricao: asDesc(cp?.descricao) }
-  const esRaw = r.entradaSaida as { tipo?: string; coluna?: unknown; mapa?: unknown[] } | undefined
-  const entradaSaida: TreatmentDefinition['entradaSaida'] = {
-    tipo: esRaw?.tipo === 'DESCRICAO' ? 'DESCRICAO' : 'COLUNA',
-    coluna: typeof esRaw?.coluna === 'string' ? esRaw.coluna : '',
-    mapa: Array.isArray(esRaw?.mapa) ? (esRaw!.mapa as unknown as TreatmentDefinition['entradaSaida']['mapa']) : [],
-  }
-  return {
-    contaCorrente: typeof r.contaCorrente === 'string' ? r.contaCorrente : base.contaCorrente,
-    columnMapping: { ...base.columnMapping, ...(r.columnMapping ?? {}) },
-    entradaSaida,
-    contrapartida,
-  }
 }

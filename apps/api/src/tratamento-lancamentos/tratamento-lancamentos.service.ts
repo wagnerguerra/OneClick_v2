@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { buildPaginatedResponse, getPrismaSkipTake, scoped, Prisma } from '@saas/db'
+import { buildPaginatedResponse, getPrismaSkipTake, scoped, prisma, Prisma } from '@saas/db'
 import {
   EMPTY_TREATMENT_DEFINITION,
   type CreateTreatmentModelInput,
@@ -23,6 +23,23 @@ function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.TreatmentM
 /** Garante que a linha pertence à empresa do usuário (master ignora o filtro). */
 function assertScope(empresaIdRow: string | null, isMaster?: boolean, empresaId?: string) {
   if (!isMaster && empresaId && empresaIdRow !== empresaId) throw new Error('Acesso negado.')
+}
+
+/**
+ * Resolve authorIds → {name, image}. Users vivem no schema `public` (Better Auth),
+ * acessados pelo `prisma` global (não pelo `scoped`/tenant). authorId é id solto
+ * (sem FK), então usuários removidos simplesmente não aparecem no mapa.
+ */
+async function resolveAuthors(ids: Array<string | null>) {
+  const unique = [...new Set(ids.filter((id): id is string => !!id))]
+  const map = new Map<string, { name: string; image: string | null }>()
+  if (!unique.length) return map
+  const users = await prisma.user.findMany({
+    where: { id: { in: unique } },
+    select: { id: true, name: true, image: true },
+  })
+  for (const u of users) map.set(u.id, { name: u.name, image: u.image })
+  return map
 }
 
 @Injectable()
@@ -216,10 +233,74 @@ export class TratamentoLancamentosService {
     return scoped(tenantSchema, async (db) => {
       const model = await db.treatmentModel.findUniqueOrThrow({ where: { id } })
       assertScope(model.empresaId, isMaster, empresaId)
-      return db.treatmentModelVersion.findMany({
+      const versions = await db.treatmentModelVersion.findMany({
         where: { modelId: id },
         orderBy: { versionNumber: 'desc' },
         select: { id: true, versionNumber: true, note: true, authorId: true, createdAt: true },
+      })
+      const authors = await resolveAuthors(versions.map((v) => v.authorId))
+      // A versão atual é sempre a de maior número (toda nova versão = version+1).
+      return versions.map((v) => ({
+        ...v,
+        isCurrent: v.id === model.currentVersionId,
+        authorName: v.authorId ? authors.get(v.authorId)?.name ?? null : null,
+        authorImage: v.authorId ? authors.get(v.authorId)?.image ?? null : null,
+      }))
+    })
+  }
+
+  /**
+   * Devolve uma versão específica COM a definição completa (snapshot JSON) —
+   * usado pelo visualizador de histórico/diff para comparar duas versões.
+   */
+  async getVersion(versionId: string, isMaster?: boolean, empresaId?: string, tenantSchema?: string) {
+    return scoped(tenantSchema, async (db) => {
+      const version = await db.treatmentModelVersion.findUniqueOrThrow({ where: { id: versionId } })
+      const model = await db.treatmentModel.findUniqueOrThrow({ where: { id: version.modelId } })
+      assertScope(model.empresaId, isMaster, empresaId)
+      const authors = await resolveAuthors([version.authorId])
+      return {
+        id: version.id,
+        versionNumber: version.versionNumber,
+        note: version.note,
+        authorId: version.authorId,
+        authorName: version.authorId ? authors.get(version.authorId)?.name ?? null : null,
+        authorImage: version.authorId ? authors.get(version.authorId)?.image ?? null : null,
+        createdAt: version.createdAt,
+        definition: version.definition as unknown as TreatmentDefinition,
+      }
+    })
+  }
+
+  /**
+   * Restaura uma versão anterior: cria uma NOVA versão a partir do snapshot da
+   * versão escolhida (não reescreve o histórico) e a torna a versão atual.
+   */
+  async restoreVersion(versionId: string, userId?: string, isMaster?: boolean, empresaId?: string, tenantSchema?: string) {
+    return scoped(tenantSchema, async (db) => {
+      const src = await db.treatmentModelVersion.findUniqueOrThrow({ where: { id: versionId } })
+      const model = await db.treatmentModel.findUniqueOrThrow({ where: { id: src.modelId } })
+      assertScope(model.empresaId, isMaster, empresaId)
+
+      const definition = (src.definition ?? EMPTY_TREATMENT_DEFINITION) as unknown as TreatmentDefinition
+      const newVersionNumber = model.version + 1
+      const version = await db.treatmentModelVersion.create({
+        data: {
+          modelId: model.id,
+          versionNumber: newVersionNumber,
+          definition: definition as unknown as Prisma.InputJsonValue,
+          authorId: userId || null,
+          note: `Restaurado da versão ${src.versionNumber}`,
+        },
+      })
+      return db.treatmentModel.update({
+        where: { id: model.id },
+        data: {
+          version: newVersionNumber,
+          currentVersionId: version.id,
+          // Mantém a conta corrente do modelo em sincronia com a definição restaurada.
+          contaCorrente: definition.contaCorrente || null,
+        },
       })
     })
   }
