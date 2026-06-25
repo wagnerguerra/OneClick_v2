@@ -299,7 +299,7 @@ export default function LoginPage() {
 
       {/* Link de registro */}
       <p className="text-center text-[13px] text-muted-foreground">
-        Ainda nao tem uma conta?{' '}
+        Ainda não tem uma conta?{' '}
         <Link
           href="/register"
           className="font-semibold text-[#5ea3cb] hover:text-[#4a8db5] transition-colors"

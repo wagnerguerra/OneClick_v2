@@ -27,7 +27,7 @@ interface ConfigField {
 
 const GROUP_ICONS: Record<string, LucideIcon> = {
   'Armazenamento (S3)': HardDrive,
-  'Autenticacao': Shield,
+  'Autenticação': Shield,
   'Banco de Dados': Database,
   'Carimbo de Tempo (TSA)': Clock,
   'E-mail (SMTP)': Mail,
