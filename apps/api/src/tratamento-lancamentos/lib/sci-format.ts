@@ -15,11 +15,26 @@
 // Arquivo final: encoding ANSI (latin1) + quebra de linha Windows (CRLF) —
 // aplicados na entrega (controller), aqui produzimos a string.
 //
-// ⚠️ A REVISAR com um arquivo SCI real: (a) se campos de texto vazios são ""
-// (vazio puro, como aqui) ou aspas literais; (b) se o valor leva sempre 2 casas.
+// Confirmado em importação real (com a gestora do contábil): campos de texto
+// vazios = vazio puro (",,"), valor sempre com 2 casas, e o mapeamento de
+// contas/direção (DÉBITO↔RECEB, CRÉDITO↔PGTO) está correto.
+//
+// Como os campos NÃO são escapados (separador = vírgula), qualquer vírgula ou
+// quebra de linha em campo de texto (histórico/contas) desalinharia a linha →
+// `sanitizeCampo` remove esses caracteres antes de montar a linha.
 // ============================================================
 
 export type Direcao = 'DEBITO' | 'CREDITO'
+
+/**
+ * Higieniza um campo de texto que vai para a linha SCI: remove vírgulas e
+ * quebras de linha (que quebrariam o layout de campos separados por vírgula) e
+ * colapsa espaços. Rede de segurança no servidor — vale também para valores que
+ * vêm do arquivo de origem (participante, nº NF), fora do controle do front.
+ */
+export function sanitizeCampo(s: string): string {
+  return s.replace(/[\r\n,]+/g, ' ').replace(/\s+/g, ' ').trim()
+}
 
 export interface SciLancamento {
   numero: number          // 1-based, ordem no arquivo
@@ -57,11 +72,12 @@ export function buildSciLine(l: SciLancamento): string {
   const c3 = l.direcao === 'DEBITO' ? l.contaCorrente : l.contaContrapartida
   const c4 = l.direcao === 'DEBITO' ? l.contaContrapartida : l.contaCorrente
   const valor = formatValorSci(l.valor)
-  const historico = buildHistorico(l)
+  const historico = sanitizeCampo(buildHistorico(l))
   const nfTrim = l.numeroNf?.trim()
-  const dcto = nfTrim ? `DCTO${nfTrim}` : ''
+  const dcto = nfTrim ? `DCTO${sanitizeCampo(nfTrim)}` : ''
   const doc = onlyDigits(l.documento)
-  return [numero, l.yyyymmdd, c3, c4, valor, '', historico, dcto, '', doc].join(',')
+  // Contas também passam pelo saneamento (vírgula numa conta quebraria a linha).
+  return [numero, l.yyyymmdd, sanitizeCampo(c3), sanitizeCampo(c4), valor, '', historico, dcto, '', doc].join(',')
 }
 
 /** Junta as linhas no conteúdo final do arquivo (CRLF; latin1 aplicado na entrega). */

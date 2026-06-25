@@ -31,7 +31,8 @@ const NONE = '__none__'
 const HISTORICO_FIXO_HINT =
   'Texto fixo que será gravado no campo Histórico do SCI para esses lançamentos. ' +
   'Se deixar em branco, o sistema monta o histórico automaticamente ' +
-  '(ex.: "VR REF RECEB - NOME DO PARTICIPANTE").'
+  '(ex.: "VR REF RECEB - NOME DO PARTICIPANTE"). ' +
+  'Vírgulas são removidas automaticamente (quebrariam o layout do SCI).'
 
 interface Props {
   mode: 'create' | 'edit'
@@ -406,7 +407,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         </div>
         <div className="space-y-1.5">
           <Label className="text-[13px] font-semibold">Conta corrente</Label>
-          <Input className="h-9 text-sm bg-card" value={contaCorrente} onChange={(e) => setContaCorrente(e.target.value)} placeholder="Número da conta corrente" />
+          <Input className="h-9 text-sm bg-card" value={contaCorrente} onChange={(e) => setContaCorrente(semSeparador(e.target.value))} placeholder="Número da conta corrente" />
         </div>
         <div className="flex items-end pb-1.5">
           <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -869,8 +870,8 @@ function ContrapartidaPalavraChave({ def, setDef, dcByDescricao }: { def: Treatm
         {itens.map((it, i) => (
           <div key={i} className="flex flex-wrap items-center gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-2 py-1.5">
             <Input className="h-8 text-xs bg-card flex-1 min-w-[140px]" placeholder="Palavra-chave" value={it.palavraChave} onChange={(e) => update(i, { palavraChave: e.target.value })} />
-            <Input className={cn('h-8 text-xs bg-card w-[120px]', !it.conta.trim() && 'border-r-2 border-r-destructive')} placeholder="Conta" value={it.conta} onChange={(e) => update(i, { conta: e.target.value })} />
-            <Input className="h-8 text-xs bg-card flex-1 min-w-[140px]" placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => update(i, { historicoFixo: e.target.value })} />
+            <Input className={cn('h-8 text-xs bg-card w-[120px]', !it.conta.trim() && 'border-r-2 border-r-destructive')} placeholder="Conta" value={it.conta} onChange={(e) => update(i, { conta: semSeparador(e.target.value) })} />
+            <Input className="h-8 text-xs bg-card flex-1 min-w-[140px]" placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => update(i, { historicoFixo: semSeparador(e.target.value) })} />
             {dcByDescricao && (
               <Select value={it.direcao ?? ''} onValueChange={(v) => update(i, { direcao: v as Direcao })}>
                 <SelectTrigger className={cn('h-8 w-[120px] text-xs bg-card', !it.direcao && 'border-r-2 border-r-destructive')}><SelectValue placeholder="Selecione" /></SelectTrigger>
@@ -935,8 +936,8 @@ function ContrapartidaDescricao({ def, setDef, dcByDescricao, descricaoColuna, g
             {itens.map((it, i) => (
               <TableRow key={it.descricao + i}>
                 <TableCell className="text-sm max-w-[280px] truncate" title={it.descricao}>{it.descricao}</TableCell>
-                <TableCell><Input className={cn('h-8 text-xs bg-card', !it.conta.trim() && 'border-r-2 border-r-destructive')} placeholder="Conta" value={it.conta} onChange={(e) => update(i, { conta: e.target.value })} /></TableCell>
-                <TableCell><Input className="h-8 text-xs bg-card" placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => update(i, { historicoFixo: e.target.value })} /></TableCell>
+                <TableCell><Input className={cn('h-8 text-xs bg-card', !it.conta.trim() && 'border-r-2 border-r-destructive')} placeholder="Conta" value={it.conta} onChange={(e) => update(i, { conta: semSeparador(e.target.value) })} /></TableCell>
+                <TableCell><Input className="h-8 text-xs bg-card" placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => update(i, { historicoFixo: semSeparador(e.target.value) })} /></TableCell>
                 {dcByDescricao && (
                   <TableCell>
                     <Select value={it.direcao ?? ''} onValueChange={(v) => update(i, { direcao: v as Direcao })}>
@@ -955,6 +956,15 @@ function ContrapartidaDescricao({ def, setDef, dcByDescricao, descricaoColuna, g
 }
 
 // ---- util ----
+
+/**
+ * Remove vírgulas e quebras de linha de campos que vão para a linha do SCI
+ * (separada por vírgula, sem escape). Enforce no front nos campos digitados —
+ * o backend ainda saneia como rede de segurança (inclui dados vindos do arquivo).
+ */
+function semSeparador(s: string): string {
+  return s.replace(/[,\r\n]/g, '')
+}
 
 /** Escapa HTML de valores do usuário antes de embutir nas mensagens (SweetAlert html). */
 function esc(s: string): string {
