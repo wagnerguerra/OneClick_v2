@@ -262,6 +262,39 @@ export const masterProcedure = t.procedure.use(({ ctx, next }) => {
   return next({ ctx: { ...ctx, userId: ctx.userId } })
 })
 
+/**
+ * Valida/normaliza um `empresaId` recebido do CLIENTE contra a sessão (F-012).
+ * Procedures que aceitam empresaId no input NUNCA devem confiar no valor cru —
+ * a "empresa ativa" do cliente pode estar divergente (id antigo no localStorage)
+ * ou forjada, permitindo ler/gravar dados de OUTRO tenant.
+ *
+ * - Não-master: SEMPRE a própria empresa da sessão. Um `inputEmpresaId`
+ *   divergente é rejeitado (FORBIDDEN).
+ * - Master (admin de plataforma): pode operar sobre a empresa informada
+ *   (navegação multi-empresa); cai pra `ctx.empresaId` quando ausente.
+ *
+ * `scopedEmpresaIdOpt` permite ausência (retorna null); `scopedEmpresaId` exige.
+ */
+export function scopedEmpresaIdOpt(
+  ctx: { isMaster?: boolean; empresaId?: string },
+  inputEmpresaId?: string | null,
+): string | null {
+  if (ctx.isMaster) return inputEmpresaId ?? ctx.empresaId ?? null
+  if (inputEmpresaId != null && inputEmpresaId !== ctx.empresaId) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Empresa fora do seu acesso.' })
+  }
+  return ctx.empresaId ?? null
+}
+
+export function scopedEmpresaId(
+  ctx: { isMaster?: boolean; empresaId?: string },
+  inputEmpresaId?: string | null,
+): string {
+  const id = scopedEmpresaIdOpt(ctx, inputEmpresaId)
+  if (!id) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Empresa não selecionada' })
+  return id
+}
+
 // ── Permission-based procedures ─────────────────────────────
 // isMaster e isEmpresaMaster sempre têm acesso total.
 // Outros usuários precisam da permissão correspondente no módulo.
