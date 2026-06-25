@@ -10,6 +10,7 @@ import {
 import { Button, Input, Label, Card, CardHeader, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { MasterGate } from '@/components/auth/master-gate'
 
 /* ── Sub-abas (pills laterais) ─────────────────────────── */
 
@@ -52,6 +53,14 @@ const WEBHOOK_EVENTS = [
 ]
 
 export default function StripeSettingsPage() {
+  return (
+    <MasterGate>
+      <StripeSettingsPageInner />
+    </MasterGate>
+  )
+}
+
+function StripeSettingsPageInner() {
   const [activeTab, setActiveTab] = useState('chaves')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)

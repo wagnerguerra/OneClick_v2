@@ -8,6 +8,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { MasterGate } from '@/components/auth/master-gate'
 import { alerts } from '@/lib/alerts'
 
 interface Metrics {
@@ -20,6 +21,14 @@ interface Metrics {
 }
 
 export default function MetricasPage() {
+  return (
+    <MasterGate>
+      <MetricasPageInner />
+    </MasterGate>
+  )
+}
+
+function MetricasPageInner() {
   const [loading, setLoading] = useState(true)
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [startDate, setStartDate] = useState(() => {
