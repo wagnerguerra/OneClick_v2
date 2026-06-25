@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import { TRPCError } from '@trpc/server'
 import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
 import type { Prisma } from '@saas/db'
 import type { CreateEmpresaInput, UpdateEmpresaInput, ListEmpresaInput } from '@saas/types'
@@ -47,7 +48,18 @@ export class EmpresaService {
     return buildPaginatedResponse(data, total, page, limit)
   }
 
-  async getById(id: string) {
+  /**
+   * Isolamento multi-tenant (F-012): não-master só resolve a PRÓPRIA empresa;
+   * master (admin de plataforma) resolve qualquer uma (navegação multi-empresa).
+   * Sem isto, o seletor de "empresa ativa" do cliente resolvia uma empresa de
+   * OUTRO tenant via id antigo no localStorage, divergindo do empresaId real do
+   * usuário. Permissões/dados são sempre avaliados pelo `ctx.empresaId` da sessão
+   * (a empresa real do usuário), nunca pela "empresa ativa" do cliente.
+   */
+  async getById(id: string, isMaster = false, empresaId?: string | null) {
+    if (!isMaster && id !== (empresaId ?? null)) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Empresa fora do seu acesso.' })
+    }
     return prisma.empresa.findUniqueOrThrow({ where: { id } })
   }
 

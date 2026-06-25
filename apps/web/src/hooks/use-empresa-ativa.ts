@@ -29,6 +29,16 @@ export function refreshEmpresaAtiva() {
   window.dispatchEvent(new Event(REFRESH_EVENT))
 }
 
+/**
+ * "Empresa ativa" — seletor de EXIBIÇÃO (header/branding) da empresa que o
+ * usuário está visualizando. É client-side e NÃO altera o escopo de dados nem
+ * de permissões no servidor, que são sempre avaliados pelo `empresaId` da SESSÃO
+ * (a empresa real do usuário — vide `getMyPermissions`). Para não-master o
+ * servidor (`empresa.getById`) só resolve a PRÓPRIA empresa: um id antigo/de
+ * outro tenant salvo no localStorage é rejeitado (FORBIDDEN) e o hook cai no
+ * fallback (`listForSelect` → `getMyEmpresa`), convergindo para a empresa real.
+ * Só o master navega entre empresas. F-012.
+ */
 export function useEmpresaAtiva() {
   const { data: session } = useSession()
   const userId = session?.user?.id
