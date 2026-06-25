@@ -122,6 +122,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
               {/* Botão fechar - mobile only */}
               <button
                 onClick={onCloseMobile}
+                aria-label="Fechar menu"
                 className="lg:hidden absolute right-3 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
                 <X className="h-5 w-5" />
@@ -193,6 +194,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
         <div className="hidden lg:block border-t border-sidebar-border p-3">
           <button
             onClick={onToggle}
+            aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
             className={cn(
               'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors',
               'hover:bg-muted hover:text-foreground',
