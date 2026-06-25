@@ -54,6 +54,9 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
       .map((group) => ({
         ...group,
         items: group.items.filter((item) => {
+          // Módulos master-only (ex.: Empresas — admin global multi-tenant):
+          // nunca aparecem para admins de tenant, mesmo com o slug nas permissões.
+          if (item.masterOnly) return false
           // FAQ é conteúdo de ajuda — sempre visível pra qualquer usuário,
           // independentemente da matriz de permissões.
           if (item.href === '/faq') return true

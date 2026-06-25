@@ -81,6 +81,9 @@ export interface NavItem {
   href: string
   icon: LucideIcon
   category?: string // Sub-categoria visual dentro do grupo (ex: "Contábil", "Gestão")
+  // Visível APENAS para o master global da plataforma (isMaster). Admins de
+  // tenant (isEmpresaMaster) não veem, mesmo tendo o slug nas permissões.
+  masterOnly?: boolean
   // Sub-itens hierárquicos (ex: Contratos → Cláusulas, Modelos, Relatórios).
   // O item pai continua navegável (clicar no label abre o href dele).
   subItems?: NavItem[]
@@ -101,7 +104,7 @@ export const navigation: NavGroup[] = [
       { label: 'Cargos', href: '/cargos', icon: Briefcase },
       { label: 'Clientes', href: '/clientes', icon: Handshake },
       { label: 'Colaboradores', href: '/colaboradores', icon: Users },
-      { label: 'Empresas', href: '/empresas', icon: Building2 },
+      { label: 'Empresas', href: '/empresas', icon: Building2, masterOnly: true },
       { label: 'Fornecedores', href: '/fornecedores', icon: Package },
       { label: 'Grupos Empresariais', href: '/grupos-empresariais', icon: Folders },
       { label: 'Obrigações', href: '/obrigacoes', icon: Receipt },

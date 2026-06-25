@@ -246,6 +246,22 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   return next({ ctx: { ...ctx, userId: ctx.userId } })
 })
 
+/**
+ * Procedure restrita ao MASTER GLOBAL da plataforma (`isMaster`).
+ * Diferente das permission-procedures, NÃO libera para `isEmpresaMaster` —
+ * usado em módulos de administração global multi-tenant (ex.: gestão de
+ * empresas/tenants), que jamais devem ser acessíveis por admins de tenant.
+ */
+export const masterProcedure = t.procedure.use(({ ctx, next }) => {
+  if (!ctx.userId) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+  }
+  if (!ctx.isMaster) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Acesso restrito ao administrador da plataforma' })
+  }
+  return next({ ctx: { ...ctx, userId: ctx.userId } })
+})
+
 // ── Permission-based procedures ─────────────────────────────
 // isMaster e isEmpresaMaster sempre têm acesso total.
 // Outros usuários precisam da permissão correspondente no módulo.

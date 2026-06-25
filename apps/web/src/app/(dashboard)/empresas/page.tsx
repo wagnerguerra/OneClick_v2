@@ -7,7 +7,7 @@ import {
   Plus, Pencil, Trash2, Search,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
-  Building2, MoreVertical, FileUp, FileDown, Loader2,
+  Building2, MoreVertical, FileUp, FileDown, Loader2, Lock,
 } from 'lucide-react'
 import {
   Button,
@@ -31,6 +31,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { ImportModal } from './_components/import-modal'
 import { exportToExcel, type ExportColumn } from '@/lib/export-data'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 interface Empresa {
   id: string
@@ -57,6 +58,8 @@ const PAGE_SIZES = [10, 20, 50, 100]
 
 export default function EmpresasPage() {
   const router = useRouter()
+  // Módulo de administração global multi-tenant: restrito ao master da plataforma.
+  const { isMaster, loading: permsLoading } = useUserPermissions()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -177,6 +180,21 @@ export default function EmpresasPage() {
     start = Math.max(1, end - 4)
     for (let i = start; i <= end; i++) pages.push(i)
     return pages
+  }
+
+  // Guard master-only: admins de tenant (isEmpresaMaster) não acessam este módulo.
+  if (!permsLoading && !isMaster) {
+    return (
+      <Card className="max-w-md mx-auto mt-12">
+        <div className="p-8 text-center space-y-3">
+          <Lock className="h-10 w-10 mx-auto text-muted-foreground" />
+          <h2 className="text-lg font-semibold">Acesso restrito</h2>
+          <p className="text-sm text-muted-foreground">
+            O módulo de Empresas é exclusivo do administrador da plataforma.
+          </p>
+        </div>
+      </Card>
+    )
   }
 
   return (

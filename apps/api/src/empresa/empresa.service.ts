@@ -120,9 +120,17 @@ export class EmpresaService {
     return results
   }
 
-  async listForSelect() {
+  /**
+   * Lista empresas para selects/dropdowns. Isolamento multi-tenant:
+   * não-master vê APENAS a própria empresa; master global vê todas.
+   * `empresaId` nulo (não-master) retorna vazio (default-deny).
+   */
+  async listForSelect(opts: { empresaId?: string | null; isMaster: boolean }) {
     return prisma.empresa.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(opts.isMaster ? {} : { id: opts.empresaId ?? '__none__' }),
+      },
       select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, logoUrl: true, logoDarkUrl: true, marcaDaguaUrl: true },
       orderBy: { razaoSocial: 'asc' },
     })
