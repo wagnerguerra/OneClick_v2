@@ -57,15 +57,19 @@ export type DebitoCreditoRule = z.infer<typeof debitoCreditoSchema>
 // Modo PALAVRA_CHAVE: 1ª palavra-chave encontrada na descrição (esq→dir).
 // Modo DESCRICAO: mapeia cada descrição distinta para uma conta.
 // `direcao` só é usada quando debitoCredito.tipo === 'DESCRICAO'.
+// Campos SEM min(1): a definição é um snapshot que guarda OS DOIS modos; o modo
+// inativo pode ter itens incompletos (ex.: descrições auto-listadas sem conta).
+// A completude do modo ATIVO é validada no editor (probContrapartida) e a
+// conversão gera pendências para o que faltar — não cabe ao schema barrar.
 export const contrapartidaPalavraChaveItem = z.object({
-  palavraChave: z.string().min(1, 'Informe a palavra-chave'),
-  conta: z.string().min(1, 'Informe a conta de contrapartida'),
+  palavraChave: z.string(),
+  conta: z.string(),
   historicoFixo: z.string().optional().or(z.literal('')),
   direcao: z.enum(['DEBITO', 'CREDITO']).optional(),
 })
 export const contrapartidaDescricaoItem = z.object({
-  descricao: z.string().min(1, 'Informe a descrição'),
-  conta: z.string().min(1, 'Informe a conta de contrapartida'),
+  descricao: z.string(),
+  conta: z.string(),
   historicoFixo: z.string().optional().or(z.literal('')),
   direcao: z.enum(['DEBITO', 'CREDITO']).optional(),
 })
