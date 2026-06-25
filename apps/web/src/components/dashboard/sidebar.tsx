@@ -6,7 +6,7 @@ import { PanelLeftClose, PanelLeft, LayoutDashboard, X } from 'lucide-react'
 import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import { cn, ScrollArea, Separator, TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@saas/ui'
-import { navigation } from '@/lib/navigation'
+import { navigation, type NavItem } from '@/lib/navigation'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { SidebarGroup } from './sidebar-group'
 import { SidebarItem } from './sidebar-item'
@@ -49,29 +49,38 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
   }, [pathname])
 
   const filteredNavigation = useMemo(() => {
-    if (isMaster) return navigation // MASTER vê tudo
+    // Permissões por slug — restringem apenas usuários comuns (master vê tudo).
+    const byPermission = (item: NavItem): boolean => {
+      // Módulos master-only (ex.: Empresas — admin global multi-tenant):
+      // nunca aparecem para admins de tenant, mesmo com o slug nas permissões.
+      if (item.masterOnly) return false
+      // FAQ é conteúdo de ajuda — sempre visível pra qualquer usuário,
+      // independentemente da matriz de permissões.
+      if (item.href === '/faq') return true
+      // Painel Comercial consolida CRM/Orçamentos/Contratos — visível a quem
+      // tem leitura em qualquer um deles (os dados em si são gateados no backend).
+      if (item.href === '/comercial') {
+        return ['crm', 'orcamentos', 'contratos'].some((s) => allowedSlugs.includes(s))
+      }
+      // Benefícios: líder de setor (GESTOR/COORDENADOR/DIRETOR) acessa por tipo
+      // para lançar os apontamentos do seu setor, mesmo sem permissão explícita.
+      if (item.href === '/beneficios' && ehLiderSetor) return true
+      const slug = item.href.replace('/', '')
+      return allowedSlugs.includes(slug)
+    }
+
     return navigation
-      .map((group) => ({
-        ...group,
-        items: group.items.filter((item) => {
-          // Módulos master-only (ex.: Empresas — admin global multi-tenant):
-          // nunca aparecem para admins de tenant, mesmo com o slug nas permissões.
-          if (item.masterOnly) return false
-          // FAQ é conteúdo de ajuda — sempre visível pra qualquer usuário,
-          // independentemente da matriz de permissões.
-          if (item.href === '/faq') return true
-          // Painel Comercial consolida CRM/Orçamentos/Contratos — visível a quem
-          // tem leitura em qualquer um deles (os dados em si são gateados no backend).
-          if (item.href === '/comercial') {
-            return ['crm', 'orcamentos', 'contratos'].some((s) => allowedSlugs.includes(s))
-          }
-          // Benefícios: líder de setor (GESTOR/COORDENADOR/DIRETOR) acessa por tipo
-          // para lançar os apontamentos do seu setor, mesmo sem permissão explícita.
-          if (item.href === '/beneficios' && ehLiderSetor) return true
-          const slug = item.href.replace('/', '')
-          return allowedSlugs.includes(slug)
-        }),
-      }))
+      .map((group) => {
+        // wip = rota ainda não publicada (404). Escondida de TODOS, inclusive
+        // master (também tomaria 404). Aplica também aos subItems. F-006.
+        let items: NavItem[] = group.items
+          .filter((item) => !item.wip)
+          .map((item) =>
+            item.subItems ? { ...item, subItems: item.subItems.filter((s) => !s.wip) } : item,
+          )
+        if (!isMaster) items = items.filter(byPermission)
+        return { ...group, items }
+      })
       .filter((group) => group.items.length > 0)
   }, [isMaster, allowedSlugs, ehLiderSetor])
 

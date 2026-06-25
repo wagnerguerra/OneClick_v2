@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack --port 3000 --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "check:routes": "node scripts/check-nav-routes.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
