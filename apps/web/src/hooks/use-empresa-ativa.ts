@@ -30,14 +30,17 @@ export function refreshEmpresaAtiva() {
 }
 
 /**
- * "Empresa ativa" — seletor de EXIBIÇÃO (header/branding) da empresa que o
- * usuário está visualizando. É client-side e NÃO altera o escopo de dados nem
- * de permissões no servidor, que são sempre avaliados pelo `empresaId` da SESSÃO
- * (a empresa real do usuário — vide `getMyPermissions`). Para não-master o
- * servidor (`empresa.getById`) só resolve a PRÓPRIA empresa: um id antigo/de
- * outro tenant salvo no localStorage é rejeitado (FORBIDDEN) e o hook cai no
- * fallback (`listForSelect` → `getMyEmpresa`), convergindo para a empresa real.
- * Só o master navega entre empresas. F-012.
+ * "Empresa ativa" — SERVER-AUTHORITATIVE (F-012). A empresa ativa é persistida
+ * no servidor (`users.active_empresa_id`) e resolvida em `empresa.getMyEmpresa`;
+ * o localStorage é só CACHE de render, nunca a autoridade (era manipulável).
+ *
+ * - `loadEmpresa` lê a ativa do servidor (`getMyEmpresa`).
+ * - `selectEmpresa` persiste no servidor (`setActiveEmpresa`, que valida acesso:
+ *   não-master só a própria/home; master qualquer) e recarrega.
+ *
+ * O MESMO empresaId resolvido no servidor alimenta o ctx, as permissões
+ * (`getMyPermissions.empresaId`) e a autorização — consistência garantida.
+ * Não-master é sempre travado na home; só o master navega entre empresas.
  */
 export function useEmpresaAtiva() {
   const { data: session } = useSession()
@@ -53,64 +56,26 @@ export function useEmpresaAtiva() {
     try { localStorage.removeItem(LEGACY_KEY) } catch { /* ignore */ }
 
     try {
-      const savedId = localStorage.getItem(key)
-
-      if (savedId) {
-        try {
-          const data = await trpc.empresa.getById.query({ id: savedId })
-          setEmpresa({
-            id: data.id,
-            code: data.code,
-            razaoSocial: data.razaoSocial,
-            nomeFantasia: data.nomeFantasia,
-            logoUrl: data.logoUrl,
-            logoDarkUrl: data.logoDarkUrl,
-            marcaDaguaUrl: (data as any).marcaDaguaUrl ?? null,
-          })
-          return
-        } catch {
-          localStorage.removeItem(key)
-        }
-      }
-
-      // Tentar listar empresas (requer permissão no módulo empresas)
-      try {
-        const list = await trpc.empresa.listForSelect.query()
-        if (list.length > 0) {
-          const first = list[0]!
-          const data = await trpc.empresa.getById.query({ id: first.id })
-          setEmpresa({
-            id: data.id,
-            code: data.code,
-            razaoSocial: data.razaoSocial,
-            nomeFantasia: data.nomeFantasia,
-            logoUrl: data.logoUrl,
-            logoDarkUrl: data.logoDarkUrl,
-            marcaDaguaUrl: (data as any).marcaDaguaUrl ?? null,
-          })
-          localStorage.setItem(key, data.id)
-          return
-        }
-      } catch {
-        // Sem permissão no módulo empresas — buscar empresa do próprio usuário
-      }
-
-      // Fallback: buscar empresa vinculada ao usuário logado
-      const myEmpresa = await trpc.empresa.getMyEmpresa.query()
-      if (myEmpresa) {
+      // Server-authoritative (F-012): a empresa ATIVA vem do servidor —
+      // getMyEmpresa resolve activeEmpresaId (master) ou a home (não-master).
+      // O localStorage é só CACHE de render, nunca a autoridade.
+      const active = await trpc.empresa.getMyEmpresa.query()
+      if (active) {
         setEmpresa({
-          id: myEmpresa.id,
-          code: myEmpresa.code,
-          razaoSocial: myEmpresa.razaoSocial,
-          nomeFantasia: myEmpresa.nomeFantasia,
-          logoUrl: myEmpresa.logoUrl,
-          logoDarkUrl: myEmpresa.logoDarkUrl,
-          marcaDaguaUrl: (myEmpresa as any).marcaDaguaUrl ?? null,
+          id: active.id,
+          code: active.code,
+          razaoSocial: active.razaoSocial,
+          nomeFantasia: active.nomeFantasia,
+          logoUrl: active.logoUrl,
+          logoDarkUrl: active.logoDarkUrl,
+          marcaDaguaUrl: (active as any).marcaDaguaUrl ?? null,
         })
-        localStorage.setItem(key, myEmpresa.id)
+        try { localStorage.setItem(key, active.id) } catch { /* ignore */ }
+      } else {
+        setEmpresa(null)
       }
     } catch {
-      // Sem empresas ou erro de auth
+      // Sem empresa ou erro de auth
     } finally {
       setLoading(false)
     }
@@ -129,11 +94,16 @@ export function useEmpresaAtiva() {
     return () => window.removeEventListener(REFRESH_EVENT, handleRefresh)
   }, [loadEmpresa])
 
-  const selectEmpresa = useCallback((id: string) => {
-    const key = storageKey(userId)
-    if (key) localStorage.setItem(key, id)
-    loadEmpresa()
-  }, [userId, loadEmpresa])
+  const selectEmpresa = useCallback(async (id: string) => {
+    // Persiste a empresa ativa NO SERVIDOR (valida acesso: não-master só a home;
+    // master qualquer). A partir daí o ctx/permissões refletem a escolhida. F-012.
+    try {
+      await trpc.empresa.setActiveEmpresa.mutate({ empresaId: id })
+    } catch {
+      // Sem acesso à empresa (ex.: não-master tentando outra) — ignora a troca.
+    }
+    await loadEmpresa()
+  }, [loadEmpresa])
 
   return { empresa, loading, selectEmpresa, refresh: loadEmpresa }
 }

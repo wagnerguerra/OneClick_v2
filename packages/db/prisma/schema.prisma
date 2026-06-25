@@ -160,6 +160,9 @@ model User {
   isActive        Boolean     @default(true) @map("is_active")
   tenantId        String?     @map("tenant_id")
   empresaId       String?     @map("empresa_id")
+  // Empresa ATIVA (server-authoritative) — multi-empresa do master. NULL = usa a
+  // empresaId (home). Não-master é sempre forçado à home. F-012.
+  activeEmpresaId String?     @map("active_empresa_id")
 
   // Visibilidade no módulo Colaboradores (público) — quando true, aparece no listing
   exibirComoColaborador Boolean @default(false) @map("exibir_como_colaborador")

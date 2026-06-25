@@ -517,7 +517,7 @@ export class UserService {
     }))
   }
 
-  async getMyPermissions(userId: string) {
+  async getMyPermissions(userId: string, activeEmpresaId?: string | null) {
     const user = await prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: {
@@ -549,7 +549,9 @@ export class UserService {
       isMaster: user.isMaster,
       isEmpresaMaster: user.isEmpresaMaster,
       role: user.role,
-      empresaId: user.empresaId,
+      // Empresa ATIVA resolvida no servidor (ctx) — não a home fixa nem o
+      // localStorage. Para não-master é sempre a home; master segue a ativa. F-012.
+      empresaId: activeEmpresaId ?? user.empresaId,
       permissions,
     }
   }

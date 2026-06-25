@@ -5,6 +5,7 @@ import { TrpcService, type TrpcContext, type BillingState } from './trpc.service
 import { AuthService } from '../auth/auth.service'
 import { OnlineUsersService } from '../online-users/online-users.service'
 import { resolveTenantSchema, prisma } from '@saas/db'
+import { getCachedSession, setCachedSession } from './session-cache'
 
 /**
  * Calcula o estado de billing do tenant (trial/assinatura/suspensão).
@@ -50,7 +51,6 @@ async function computeBillingState(
 }
 
 // Cache de sessão em memória (TTL 30s para evitar queries repetidas)
-const sessionCache = new Map<string, { data: TrpcContext; expires: number }>()
 const SESSION_TTL = 30_000 // 30 segundos
 
 function getCacheKey(req: Request): string {
@@ -87,10 +87,8 @@ export class TrpcController {
       createContext: async ({ req }): Promise<TrpcContext> => {
         // Verificar cache
         const cacheKey = getCacheKey(req)
-        const cached = sessionCache.get(cacheKey)
-        if (cached && cached.expires > Date.now()) {
-          return cached.data
-        }
+        const cached = getCachedSession(cacheKey)
+        if (cached) return cached
 
         let userId: string | undefined
         let tenantId: string | undefined
@@ -112,9 +110,15 @@ export class TrpcController {
             const user = session.user as Record<string, unknown>
             userId = session.user.id
             tenantId = user.tenantId as string | undefined
-            empresaId = user.empresaId as string | undefined
             isMaster = (user.isMaster as boolean) ?? false
             isEmpresaMaster = (user.isEmpresaMaster as boolean) ?? false
+            // Empresa ATIVA server-authoritative (F-012): o master segue a empresa
+            // ativa (multi-empresa); o não-master é SEMPRE a home — um activeEmpresaId
+            // divergente é ignorado (defesa). Este é o ÚNICO empresaId usado pelas
+            // permissões (getMyPermissions), pela autorização e pelos resolvers.
+            const homeEmpresaId = user.empresaId as string | undefined
+            const activeEmpresaId = user.activeEmpresaId as string | undefined
+            empresaId = isMaster ? (activeEmpresaId ?? homeEmpresaId) : homeEmpresaId
           }
         } catch {
           // Sem sessão válida
@@ -163,16 +167,8 @@ export class TrpcController {
           this.onlineUsersService.touch(userId, pathFinal, this.extractIp(req))
         }
 
-        // Salvar no cache
-        sessionCache.set(cacheKey, { data: context, expires: Date.now() + SESSION_TTL })
-
-        // Limpar entradas expiradas periodicamente
-        if (sessionCache.size > 100) {
-          const now = Date.now()
-          for (const [key, val] of sessionCache) {
-            if (val.expires < now) sessionCache.delete(key)
-          }
-        }
+        // Salvar no cache (limpeza de expirados é feita dentro do helper)
+        setCachedSession(cacheKey, context, SESSION_TTL)
 
         return context
       },

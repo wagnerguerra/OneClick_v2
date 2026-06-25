@@ -19,7 +19,11 @@ export function createEmpresaRouter(empresaService: EmpresaService) {
     exportAll: masterProcedure.query(() => empresaService.exportAll()),
     listForSelect: protectedProcedure.query(({ ctx }) => empresaService.listForSelect({ empresaId: ctx.empresaId ?? null, isMaster: !!ctx.isMaster })),
     importBulk: masterProcedure.input(z.object({ items: z.array(createEmpresaSchema) })).mutation(({ input, ctx }) => empresaService.bulkCreate(input.items, ctx.userId)),
-    /** Retorna a empresa vinculada ao usuário logado — sem exigir permissão no módulo */
+    /** Retorna a empresa ATIVA do usuário logado (server-authoritative) */
     getMyEmpresa: protectedProcedure.query(({ ctx }) => empresaService.getMyEmpresa(ctx.userId)),
+    /** Define a empresa ATIVA no servidor (master: qualquer; não-master: só a home) */
+    setActiveEmpresa: protectedProcedure
+      .input(z.object({ empresaId: z.string() }))
+      .mutation(({ input, ctx }) => empresaService.setActiveEmpresa(ctx.userId, input.empresaId)),
   })
 }

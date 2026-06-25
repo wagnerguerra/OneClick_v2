@@ -83,7 +83,7 @@ export function createUserRouter(userService: UserService) {
 
     // getMyPermissions permanece como protectedProcedure — todo usuário pode consultar suas próprias permissões
     getMyPermissions: protectedProcedure
-      .query(({ ctx }) => userService.getMyPermissions(ctx.userId)),
+      .query(({ ctx }) => userService.getMyPermissions(ctx.userId, ctx.empresaId)),
 
     // Quem tem acesso a um módulo/tela (genérico). protectedProcedure — quem
     // já está na tela pode ver os colegas com acesso. Escopo por empresa.
