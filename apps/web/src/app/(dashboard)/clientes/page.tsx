@@ -755,7 +755,11 @@ export default function ClientesPage() {
         {data && (
           <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
-              Mostrando <span className="font-medium">{startRecord}</span> a <span className="font-medium">{endRecord}</span> de <span className="font-medium">{data.total}</span> registros
+              {data.total === 0 ? (
+                'Mostrando 0 registros'
+              ) : (
+                <>Mostrando <span className="font-medium">{startRecord}</span> a <span className="font-medium">{endRecord}</span> de <span className="font-medium">{data.total}</span> registros</>
+              )}
             </p>
             {totalPages > 1 && (
               <div className="flex items-center gap-1">

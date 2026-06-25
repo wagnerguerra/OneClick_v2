@@ -334,7 +334,7 @@ export default function CargosPage() {
         </Table>
         {data && (
           <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-muted-foreground">Mostrando <span className="font-medium">{start}</span> a <span className="font-medium">{end}</span> de <span className="font-medium">{data.total}</span> registros</p>
+            <p className="text-xs text-muted-foreground">{data.total === 0 ? 'Mostrando 0 registros' : (<>Mostrando <span className="font-medium">{start}</span> a <span className="font-medium">{end}</span> de <span className="font-medium">{data.total}</span> registros</>)}</p>
             {totalPages > 1 && <div className="flex items-center gap-1">
               <Button variant="outline" size="icon-xs" disabled={page===1} onClick={() => setPage(1)}><ChevronsLeft className="h-3.5 w-3.5" /></Button>
               <Button variant="outline" size="icon-xs" disabled={!data.hasPrev} onClick={() => setPage(p => p-1)}><ChevronLeft className="h-3.5 w-3.5" /></Button>
