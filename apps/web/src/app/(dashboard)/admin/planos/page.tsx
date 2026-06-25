@@ -17,6 +17,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { MODULE_GROUPS, MODULE_LABELS } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
@@ -35,6 +36,7 @@ interface Plan {
   isActive: boolean
   highlight: boolean
   displayOrder: number
+  modules: string[]
 }
 
 interface PlanForm {
@@ -49,11 +51,13 @@ interface PlanForm {
   isActive: boolean
   highlight: boolean
   displayOrder: number
+  modules: string[]
 }
 
 const EMPTY_FORM: PlanForm = {
   name: '', description: '', stripePriceId: '', interval: 'MONTHLY',
   precoReais: '', featuresText: '', maxUsers: 5, isActive: true, highlight: false, displayOrder: 0,
+  modules: [],
 }
 
 export default function AdminPlanosPage() {
@@ -97,6 +101,7 @@ export default function AdminPlanosPage() {
       isActive: p.isActive,
       highlight: p.highlight,
       displayOrder: p.displayOrder,
+      modules: p.modules ?? [],
     })
   }
 
@@ -119,6 +124,7 @@ export default function AdminPlanosPage() {
         isActive: form.isActive,
         highlight: form.highlight,
         displayOrder: form.displayOrder,
+        modules: form.modules,
       })
       alerts.success(form.id ? 'Plano atualizado.' : 'Plano criado.')
       setForm(null)
@@ -128,6 +134,27 @@ export default function AdminPlanosPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  // Grupos vendáveis (exclui Configurações = admin de plataforma)
+  const sellableGroups = Object.entries(MODULE_GROUPS).filter(([g]) => g !== 'Configurações')
+  const allSellableSlugs = sellableGroups.flatMap(([, slugs]) => slugs as readonly string[])
+
+  function setModules(next: string[]) {
+    if (!form) return
+    setForm({ ...form, modules: next })
+  }
+  function toggleModule(slug: string) {
+    if (!form) return
+    const has = form.modules.includes(slug)
+    setModules(has ? form.modules.filter((s) => s !== slug) : [...form.modules, slug])
+  }
+  function setGroup(slugs: readonly string[], enabled: boolean) {
+    if (!form) return
+    const set = new Set(form.modules)
+    if (enabled) slugs.forEach((s) => set.add(s))
+    else slugs.forEach((s) => set.delete(s))
+    setModules([...set])
   }
 
   async function handleToggle(p: Plan) {
@@ -219,13 +246,13 @@ export default function AdminPlanosPage() {
         <div className="overflow-x-auto">
           <table className="w-full table-fixed text-sm">
             <thead>
-              <tr className="border-b border-border bg-muted/40 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                <th className="px-4 py-2.5 text-left">Plano</th>
-                <th className="w-28 px-4 py-2.5 text-left">Preço</th>
-                <th className="hidden w-24 px-4 py-2.5 text-left md:table-cell">Intervalo</th>
-                <th className="hidden w-20 px-4 py-2.5 text-left lg:table-cell">Usuários</th>
-                <th className="w-24 px-4 py-2.5 text-left">Ativo</th>
-                <th className="w-12 px-4 py-2.5"></th>
+              <tr className="border-b border-border bg-muted/40 text-xs font-semibold uppercase tracking-wider text-muted-foreground [&>th]:whitespace-nowrap">
+                <th className="w-[40%] px-4 py-2.5 text-left">Plano</th>
+                <th className="w-[14%] px-4 py-2.5 text-left">Preço</th>
+                <th className="hidden w-[16%] px-4 py-2.5 text-left md:table-cell">Intervalo</th>
+                <th className="hidden w-[14%] px-4 py-2.5 text-left lg:table-cell">Usuários</th>
+                <th className="w-[10%] px-4 py-2.5 text-center">Ativo</th>
+                <th className="w-[6%] px-4 py-2.5"></th>
               </tr>
             </thead>
             <tbody>
@@ -246,7 +273,7 @@ export default function AdminPlanosPage() {
                     <td className="px-4 py-2.5 font-medium text-foreground">{formatCurrency(p.price)}</td>
                     <td className="hidden px-4 py-2.5 text-muted-foreground md:table-cell">{p.interval === 'MONTHLY' ? 'Mensal' : 'Anual'}</td>
                     <td className="hidden px-4 py-2.5 text-muted-foreground lg:table-cell">{p.maxUsers}</td>
-                    <td className="px-4 py-2.5"><Switch checked={p.isActive} onCheckedChange={() => handleToggle(p)} /></td>
+                    <td className="px-4 py-2.5"><div className="flex justify-center"><Switch checked={p.isActive} onCheckedChange={() => handleToggle(p)} /></div></td>
                     <td className="px-4 py-2.5 text-right">
                       <Button variant="soft-info" size="icon-sm" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
                     </td>
@@ -260,7 +287,7 @@ export default function AdminPlanosPage() {
 
       {/* Modal criar/editar plano */}
       <Dialog open={!!form} onOpenChange={(o) => !o && setForm(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-3xl">
           <DialogHeaderIcon icon={form?.id ? Pencil : Plus} color={form?.id ? 'sky' : 'emerald'}>
             <DialogTitle>{form?.id ? 'Editar plano' : 'Novo plano'}</DialogTitle>
             <DialogDescription>O preço é exibição; a cobrança usa o stripePriceId.</DialogDescription>
@@ -304,6 +331,55 @@ export default function AdminPlanosPage() {
                 <label className="flex items-center gap-2 text-sm text-foreground">
                   <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} /> Ativo
                 </label>
+              </div>
+
+              {/* Módulos do plano */}
+              <div className="col-span-12 space-y-2 pt-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[13px] font-semibold text-foreground">Módulos do plano</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({form.modules.filter((s) => allSellableSlugs.includes(s)).length} de {allSellableSlugs.length} liberados)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setGroup(allSellableSlugs, true)}>
+                      Liberar tudo
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setGroup(allSellableSlugs, false)}>
+                      Bloquear tudo
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="max-h-[320px] space-y-4 overflow-y-auto rounded-md border border-border bg-muted/20 p-3">
+                  {sellableGroups.map(([group, slugs]) => {
+                    const groupSlugs = slugs as readonly string[]
+                    const allOn = groupSlugs.every((s) => form.modules.includes(s))
+                    return (
+                      <div key={group} className="space-y-2">
+                        <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-1">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{group}</span>
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                            onClick={() => setGroup(groupSlugs, !allOn)}
+                          >
+                            {allOn ? 'Bloquear todos' : 'Liberar todos'}
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+                          {groupSlugs.map((slug) => (
+                            <label key={slug} className="flex items-center gap-2 text-sm text-foreground">
+                              <Switch checked={form.modules.includes(slug)} onCheckedChange={() => toggleModule(slug)} />
+                              <span className="truncate">{MODULE_LABELS[slug] ?? slug}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             </DialogBody>
           )}
