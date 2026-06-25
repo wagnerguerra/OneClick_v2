@@ -75,6 +75,16 @@ export const MODULE_SLUGS = [
 
 export type ModuleSlug = (typeof MODULE_SLUGS)[number]
 
+/**
+ * Módulos de administração da PLATAFORMA (config de sistema global que afeta
+ * TODOS os tenants: integrações Stripe/SMTP/Banco/SERPRO/OpenAI/S3, métricas e
+ * backup). Acesso restrito ao MASTER global — jamais concedidos a roles de
+ * empresa/não-master. Filtrados em getMyPermissions e não concedidos no
+ * onboarding; rotas correspondentes são bloqueadas no servidor (middleware).
+ * F-009 (broken access control).
+ */
+export const PLATFORM_ADMIN_MODULES = ['configuracoes', 'metricas', 'backup-restore'] as const
+
 export const MODULE_LABELS: Record<string, string> = {
   dashboard: 'Dashboard',
   // Cadastros

@@ -1,6 +1,6 @@
 import { Inject, Injectable, Optional } from '@nestjs/common'
 import { prisma, createTenantSchema } from '@saas/db'
-import { MODULE_SLUGS } from '@saas/types'
+import { MODULE_SLUGS, PLATFORM_ADMIN_MODULES } from '@saas/types'
 import { StripeService } from '../stripe/stripe.service'
 
 @Injectable()
@@ -66,7 +66,10 @@ export class OnboardingService {
       })
 
       // Criar permissões completas para todos os módulos
-      const allSlugs = MODULE_SLUGS as readonly string[]
+      // Não conceder módulos de PLATAFORMA (config de sistema global) ao
+      // empresa-master — são exclusivos do master global (F-009).
+      const platformAdmin = new Set<string>(PLATFORM_ADMIN_MODULES)
+      const allSlugs = (MODULE_SLUGS as readonly string[]).filter((s) => !platformAdmin.has(s))
       await tx.userPermission.createMany({
         data: allSlugs.map((moduleSlug) => ({
           userId,

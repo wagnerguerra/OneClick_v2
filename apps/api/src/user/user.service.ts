@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
 import type { Prisma } from '@saas/db'
 import type { CreateUserInput, UpdateUserInput, ListUserInput } from '@saas/types'
+import { PLATFORM_ADMIN_MODULES } from '@saas/types'
 import { hashPassword, verifyPassword } from 'better-auth/crypto'
 import { PermissionsEventsService } from '../permissions-events/permissions-events.service'
 import { invalidateUserPermissionsCache } from '../trpc/trpc.service'
@@ -534,12 +535,22 @@ export class UserService {
       },
     })
 
+    // Controle de acesso de PLATAFORMA (F-009): módulos de config de sistema
+    // (configuracoes/metricas/backup-restore) NUNCA são concedidos a não-master,
+    // mesmo que existam grants antigos no banco (onboarding legado concedia tudo).
+    // O servidor (masterProcedure no tRPC + middleware nas rotas) é o boundary
+    // real; aqui garantimos que getMyPermissions não exponha canWrite indevido.
+    const platformAdmin = new Set<string>(PLATFORM_ADMIN_MODULES)
+    const permissions = user.isMaster
+      ? user.permissions
+      : user.permissions.filter((p) => !platformAdmin.has(p.moduleSlug))
+
     return {
       isMaster: user.isMaster,
       isEmpresaMaster: user.isEmpresaMaster,
       role: user.role,
       empresaId: user.empresaId,
-      permissions: user.permissions,
+      permissions,
     }
   }
 
