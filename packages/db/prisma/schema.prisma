@@ -70,6 +70,7 @@ model Plan {
   interval      PlanInterval @default(MONTHLY)
   price         Int // valor em centavos
   features      Json         @default("[]")
+  modules       Json         @default("[]") // slugs dos módulos liberados no plano
   maxUsers      Int          @default(5) @map("max_users")
   isActive      Boolean      @default(true) @map("is_active")
   highlight     Boolean      @default(false) // plano em destaque na pricing

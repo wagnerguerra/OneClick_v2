@@ -148,6 +148,7 @@ export class StripeService {
       interval: input.interval,
       price: input.price,
       features: input.features,
+      modules: input.modules,
       maxUsers: input.maxUsers,
       isActive: input.isActive,
       highlight: input.highlight,
