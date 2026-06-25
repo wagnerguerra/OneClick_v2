@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   CreditCard, ExternalLink, Loader2, CheckCircle2, AlertTriangle,
-  XCircle, Clock, Crown, Users, Zap, Shield,
+  XCircle, Clock, Crown, Users, Sparkles, Shield,
 } from 'lucide-react'
 import { Button, Card, CardHeader, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -13,6 +13,7 @@ import {
   SUBSCRIPTION_STATUS_LABELS,
   SUBSCRIPTION_STATUS_COLORS,
   PLAN_INTERVAL_LABELS,
+  MODULE_GROUPS,
 } from '@saas/types'
 
 interface Plan {
@@ -25,6 +26,8 @@ interface Plan {
   features: string[]
   maxUsers: number
   isActive: boolean
+  modules: string[]
+  highlight: boolean
 }
 
 interface Subscription {
@@ -50,6 +53,7 @@ export default function AssinaturaPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [intervalo, setIntervalo] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY')
 
   useEffect(() => {
     loadData()
@@ -70,8 +74,13 @@ export default function AssinaturaPage() {
         trpc.billing.plans.query(),
         trpc.billing.currentSubscription.query(),
       ])
-      setPlans((plansData as Plan[]) || [])
+      const loadedPlans = (plansData as Plan[]) || []
+      setPlans(loadedPlans)
       setSubscription((subData as Subscription) || null)
+      // Default: prefere MONTHLY; se nao houver, cai pra YEARLY se existir
+      const hasMonthly = loadedPlans.some((p) => p.interval === 'MONTHLY')
+      const hasYearly = loadedPlans.some((p) => p.interval === 'YEARLY')
+      if (!hasMonthly && hasYearly) setIntervalo('YEARLY')
     } catch {
       // Silencioso — pode nao ter tenant ainda
     } finally {
@@ -272,99 +281,155 @@ export default function AssinaturaPage() {
         </Card>
       )}
 
-      {/* Grid de planos */}
+      {/* Planos e Precos */}
       {plans.length > 0 && (
-        <>
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">
-              {hasActiveSubscription ? 'Alterar plano' : 'Escolha seu plano'}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">
+        <div className="space-y-8 pt-2">
+          {/* Cabecalho centralizado */}
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-bold text-foreground">Planos e Preços</h2>
+            <p className="text-sm text-muted-foreground max-w-xl mx-auto">
               {hasActiveSubscription
-                ? 'Voce pode fazer upgrade ou downgrade a qualquer momento.'
-                : 'Selecione o plano ideal para sua empresa.'}
+                ? 'Escolha o plano ideal para o seu escritório. Faça upgrade ou downgrade a qualquer momento.'
+                : 'Escolha o plano ideal para o seu escritório e tenha acesso a todos os recursos.'}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {plans.map((plan) => {
-              const isCurrentPlan = subscription?.plan?.id === plan.id
-              const features = Array.isArray(plan.features) ? plan.features : []
-
-              return (
-                <div
-                  key={plan.id}
+          {/* Toggle Mensal / Anual */}
+          <div className="flex justify-center">
+            <div className="inline-flex items-center rounded-full border border-border bg-muted/40 p-1">
+              {(['MONTHLY', 'YEARLY'] as const).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setIntervalo(opt)}
                   className={cn(
-                    'relative rounded-xl border bg-card p-6 transition-all hover:shadow-md',
-                    isCurrentPlan
-                      ? 'border-primary/50 ring-2 ring-primary/20'
-                      : 'border-border',
+                    'rounded-full px-5 py-1.5 text-sm font-medium transition-colors',
+                    intervalo === opt
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  {isCurrentPlan && (
-                    <div className="absolute -top-3 left-4 px-3 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
-                      Plano atual
-                    </div>
-                  )}
-
-                  <div className="space-y-4">
-                    {/* Nome e preco */}
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground">{plan.name}</h3>
-                      {plan.description && (
-                        <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>
-                      )}
-                    </div>
-
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold text-foreground">
-                        {formatCurrency(plan.price)}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        /{PLAN_INTERVAL_LABELS[plan.interval] || plan.interval}
-                      </span>
-                    </div>
-
-                    {/* Info usuarios */}
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Users className="h-4 w-4" />
-                      Ate {plan.maxUsers} usuarios
-                    </div>
-
-                    {/* Features */}
-                    {features.length > 0 && (
-                      <ul className="space-y-2 pt-2 border-t border-border">
-                        {features.map((feature, i) => (
-                          <li key={i} className="flex items-center gap-2 text-sm">
-                            <Zap className="h-3.5 w-3.5 text-primary shrink-0" />
-                            <span className="text-muted-foreground">{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-
-                    {/* Botao */}
-                    <Button
-                      className="w-full mt-2"
-                      variant={isCurrentPlan ? 'outline' : 'default'}
-                      disabled={isCurrentPlan || !!actionLoading}
-                      onClick={() => handleCheckout(plan.stripePriceId)}
-                    >
-                      {actionLoading === plan.stripePriceId ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : isCurrentPlan ? (
-                        <Shield className="h-4 w-4 mr-2" />
-                      ) : (
-                        <CreditCard className="h-4 w-4 mr-2" />
-                      )}
-                      {isCurrentPlan ? 'Plano atual' : 'Assinar'}
-                    </Button>
-                  </div>
-                </div>
-              )
-            })}
+                  {opt === 'MONTHLY' ? 'Mensal' : 'Anual'}
+                </button>
+              ))}
+            </div>
           </div>
-        </>
+
+          {(() => {
+            const visiblePlans = plans.filter((p) => p.interval === intervalo)
+
+            if (visiblePlans.length === 0) {
+              return (
+                <p className="text-center text-sm text-muted-foreground">
+                  Nenhum plano {intervalo === 'YEARLY' ? 'anual' : 'mensal'} disponível.
+                </p>
+              )
+            }
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 items-stretch">
+                {visiblePlans.map((plan) => {
+                  const isCurrentPlan = subscription?.plan?.id === plan.id
+                  const planModules = Array.isArray(plan.modules) ? plan.modules : []
+
+                  return (
+                    <div
+                      key={plan.id}
+                      className={cn(
+                        'relative flex flex-col rounded-xl border bg-card p-6 transition-all hover:shadow-md',
+                        plan.highlight
+                          ? 'border-primary/40 ring-2 ring-primary/40 shadow-lg md:-translate-y-1'
+                          : 'border-border',
+                      )}
+                    >
+                      {/* Selo Popular */}
+                      {plan.highlight && (
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold shadow-sm">
+                          <Sparkles className="h-3 w-3" />
+                          Popular
+                        </div>
+                      )}
+
+                      {/* Nome e descricao */}
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-semibold text-foreground">{plan.name}</h3>
+                        {plan.description && (
+                          <p className="text-sm text-muted-foreground">{plan.description}</p>
+                        )}
+                      </div>
+
+                      {/* Preco */}
+                      <div className="mt-4 flex items-baseline gap-1">
+                        <span className="text-3xl font-bold text-foreground">
+                          {formatCurrency(plan.price)}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {plan.interval === 'YEARLY' ? '/ano' : '/mês'}
+                        </span>
+                      </div>
+
+                      {/* Usuarios */}
+                      <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                        <Users className="h-4 w-4 shrink-0" />
+                        Até {plan.maxUsers} usuários
+                      </div>
+
+                      {/* Features = grupos de modulos */}
+                      <ul className="mt-4 space-y-2.5 border-t border-border pt-4">
+                        {Object.entries(MODULE_GROUPS)
+                          .filter(([group]) => group !== 'Configurações')
+                          .map(([group, slugs]) => {
+                            const included = (slugs as readonly string[]).some((s) =>
+                              planModules.includes(s),
+                            )
+                            return (
+                              <li key={group} className="flex items-center gap-2 text-sm">
+                                {included ? (
+                                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                                ) : (
+                                  <XCircle className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+                                )}
+                                <span
+                                  className={cn(
+                                    included
+                                      ? 'text-foreground'
+                                      : 'text-muted-foreground/50 line-through',
+                                  )}
+                                >
+                                  {group}
+                                </span>
+                              </li>
+                            )
+                          })}
+                      </ul>
+
+                      {/* CTA */}
+                      <Button
+                        className="w-full mt-6"
+                        variant={isCurrentPlan ? 'outline' : 'default'}
+                        disabled={isCurrentPlan || !!actionLoading}
+                        onClick={() => handleCheckout(plan.stripePriceId)}
+                      >
+                        {actionLoading === plan.stripePriceId ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : isCurrentPlan ? (
+                          <Shield className="h-4 w-4 mr-2" />
+                        ) : (
+                          <CreditCard className="h-4 w-4 mr-2" />
+                        )}
+                        {isCurrentPlan
+                          ? 'Plano atual'
+                          : hasActiveSubscription
+                            ? 'Mudar plano'
+                            : 'Assinar'}
+                      </Button>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+        </div>
       )}
 
       {/* Sem planos */}
