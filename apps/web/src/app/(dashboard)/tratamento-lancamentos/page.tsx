@@ -158,7 +158,7 @@ export default function TratamentoLancamentosPage() {
         <Card className="p-6">
           <div className="divide-y divide-border/60 lg:mx-20 xl:mx-40 2xl:mx-60">
           {/* 1. Arquivo (drag & drop) */}
-          <StepBlock num={1} icon={FileSpreadsheet} title="Arquivo de lançamentos" className="pb-6">
+          <StepBlock num={1} icon={FileSpreadsheet} title="Arquivo de lançamentos" color="#0ea5e9" className="pb-6">
             <input
               ref={fileRef}
               type="file"
@@ -211,7 +211,7 @@ export default function TratamentoLancamentosPage() {
           </StepBlock>
 
           {/* 2. Modelo */}
-          <StepBlock num={2} icon={FileCog} title="Modelo de Tratamento" className="py-6">
+          <StepBlock num={2} icon={FileCog} title="Modelo de Tratamento" color="#8b5cf6" className="py-6">
             <Select value={modelId} onValueChange={(v) => { setModelId(v); setResult(null) }}>
               <SelectTrigger className="h-9 text-sm bg-card max-w-md"><SelectValue placeholder="Selecione o modelo" /></SelectTrigger>
               <SelectContent>
@@ -229,7 +229,7 @@ export default function TratamentoLancamentosPage() {
           </StepBlock>
 
           {/* 3. Gerar */}
-          <StepBlock num={3} icon={Download} title="Gerar arquivo de importação SCI" className="pt-6">
+          <StepBlock num={3} icon={Download} title="Gerar arquivo de importação SCI" color="#10b981" className="pt-6">
             <div>
               <Button variant="success" size="sm" onClick={handleExport} disabled={!file || !modelId || converting}>
                 {converting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Gerar arquivo
@@ -329,13 +329,13 @@ export default function TratamentoLancamentosPage() {
   )
 }
 
-/** Etapa do fluxo: círculo com ícone (cor do bloco) + número/título + conteúdo. */
-function StepBlock({ num, icon: Icon, title, className, children }: { num: number; icon: LucideIcon; title: string; className?: string; children: React.ReactNode }) {
+/** Etapa do fluxo: círculo com ícone (cor por etapa, fallback na cor do bloco) + número/título + conteúdo. */
+function StepBlock({ num, icon: Icon, title, color, className, children }: { num: number; icon: LucideIcon; title: string; color?: string; className?: string; children: React.ReactNode }) {
   return (
     <div className={cn('flex gap-4', className)}>
       <div
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-sm"
-        style={{ backgroundColor: 'var(--mod-contabil, #a78bfa)' }}
+        style={{ backgroundColor: color ?? 'var(--mod-contabil, #a78bfa)' }}
       >
         <Icon className="h-4 w-4" />
       </div>
