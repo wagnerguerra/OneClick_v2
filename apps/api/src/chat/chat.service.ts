@@ -356,20 +356,31 @@ export class ChatService {
    * 'invisible' | null (auto). Emite SSE pra TODOS users — outros precisam
    * recalcular a presença na lista de pessoas.
    */
+  /**
+   * Destinatários de broadcast de presença: SOMENTE usuários ativos da MESMA
+   * empresa do ator (isolamento multi-tenant). `empresaId` nulo aplica
+   * `empresa_id IS NULL` (default-deny: nunca vaza presença pra outro tenant).
+   */
+  private async peersDaMesmaEmpresa(userId: string): Promise<string[]> {
+    const me = await prisma.user.findUnique({ where: { id: userId }, select: { empresaId: true } })
+    const others = await prisma.user.findMany({
+      where: { isActive: true, id: { not: userId }, empresaId: me?.empresaId ?? null },
+      select: { id: true },
+    })
+    return others.map(o => o.id)
+  }
+
   async setStatus(userId: string, status: 'online' | 'ausente' | 'dnd' | 'invisible' | null) {
     await prisma.user.update({
       where: { id: userId },
       data: { chatStatus: status },
     })
-    // Broadcast: destinatarios = todos os outros usuarios ativos (não filtra por DM/grupo)
-    const others = await prisma.user.findMany({
-      where: { isActive: true, id: { not: userId } },
-      select: { id: true },
-    })
+    // Broadcast: destinatarios = outros usuarios ativos da mesma empresa
+    const destinatarios = await this.peersDaMesmaEmpresa(userId)
     this.events.emit('status-mudou', {
       usuarioId: userId,
       status,
-      destinatarios: others.map(o => o.id),
+      destinatarios,
     } as never)
     return { ok: true, status }
   }
@@ -521,14 +532,11 @@ export class ChatService {
       where: { id: userId },
       data: { lastActivityAt: null },
     })
-    const others = await prisma.user.findMany({
-      where: { isActive: true, id: { not: userId } },
-      select: { id: true },
-    })
+    const destinatarios = await this.peersDaMesmaEmpresa(userId)
     this.events.emit('status-mudou', {
       usuarioId: userId,
       status: 'offline',
-      destinatarios: others.map(o => o.id),
+      destinatarios,
     } as never)
     return { ok: true }
   }
@@ -545,14 +553,11 @@ export class ChatService {
       where: { id: userId },
       data: { lastActivityAt: new Date() },
     }).catch(() => { /* user pode ter sido removido */ })
-    const others = await prisma.user.findMany({
-      where: { isActive: true, id: { not: userId } },
-      select: { id: true },
-    })
+    const destinatarios = await this.peersDaMesmaEmpresa(userId)
     this.events.emit('status-mudou', {
       usuarioId: userId,
       status: 'online',
-      destinatarios: others.map(o => o.id),
+      destinatarios,
     } as never)
     return { ok: true }
   }

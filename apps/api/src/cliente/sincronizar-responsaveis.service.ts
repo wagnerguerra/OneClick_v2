@@ -49,9 +49,9 @@ export class SincronizarResponsaveisService {
     const inicioJanela = new Date()
     inicioJanela.setMonth(inicioJanela.getMonth() - meses)
 
-    // Carrega Users (todos ativos) pra match rápido por nome canônico
+    // Carrega Users ativos (da empresa do tenant, quando informado) pra match por nome canônico
     const users = await prisma.user.findMany({
-      where: { isActive: true },
+      where: { isActive: true, ...(opts?.empresaId ? { empresaId: opts.empresaId } : {}) },
       select: { id: true, name: true, email: true },
     })
     const userMap = new Map<string, { id: string; name: string }>()

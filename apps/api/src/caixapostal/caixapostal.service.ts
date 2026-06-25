@@ -476,7 +476,7 @@ export class CaixaPostalService {
   private async buscarItemsDoBanco(contribuinte: string, empresaId: string | null, incluirArquivadas = false) {
     const params: unknown[] = [contribuinte]
     let paramIdx = 2
-    let empFilter = ''
+    let empFilter = 'AND empresa_id IS NULL'
     if (empresaId) { empFilter = `AND empresa_id = $${paramIdx}`; params.push(empresaId); paramIdx++ }
     const archFilter = !incluirArquivadas ? 'AND arquivada = false' : ''
     return prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
@@ -663,7 +663,8 @@ export class CaixaPostalService {
 
   async totalizadores(empresaId: string | null) {
     const params: unknown[] = []
-    let empFilter = ''
+    // Default-deny: sem empresa no contexto, nunca conta itens de outra empresa
+    let empFilter = 'AND empresa_id IS NULL'
     if (empresaId) { empFilter = 'AND empresa_id = $1'; params.push(empresaId) }
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
       SELECT
@@ -690,7 +691,7 @@ export class CaixaPostalService {
   async status(contribuinte: string, empresaId: string | null) {
     const doc = limparDocumento(contribuinte)
     const params: unknown[] = [doc]
-    let empFilter = ''
+    let empFilter = 'AND empresa_id IS NULL'
     if (empresaId) { empFilter = 'AND empresa_id = $2'; params.push(empresaId) }
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
       `SELECT COUNT(*)::int as total, COUNT(*) FILTER (WHERE lida = true)::int as lidas,
@@ -713,7 +714,7 @@ export class CaixaPostalService {
   ) {
     const params: unknown[] = []
     let paramIdx = 1
-    let empFilter = ''
+    let empFilter = 'AND empresa_id IS NULL'
     let prioFilter = ''
     const impFilter = apenasImportantes ? 'AND importante = true' : ''
     if (empresaId) { empFilter = `AND empresa_id = $${paramIdx}`; params.push(empresaId); paramIdx++ }
@@ -1445,7 +1446,7 @@ export class CaixaPostalService {
     const doc = limparDocumento(contribuinte)
     const params: unknown[] = [doc, diasAnteriores]
     let paramIdx = 3
-    let empFilter = ''
+    let empFilter = 'AND empresa_id IS NULL'
     if (empresaId) { empFilter = `AND empresa_id = $${paramIdx}`; params.push(empresaId); paramIdx++ }
 
     const items = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
@@ -1465,7 +1466,7 @@ export class CaixaPostalService {
   async listarArquivadas(contribuinte: string, empresaId: string | null) {
     const doc = limparDocumento(contribuinte)
     const params: unknown[] = [doc]
-    let empFilter = ''
+    let empFilter = 'AND empresa_id IS NULL'
     if (empresaId) { empFilter = 'AND empresa_id = $2'; params.push(empresaId) }
 
     const items = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(

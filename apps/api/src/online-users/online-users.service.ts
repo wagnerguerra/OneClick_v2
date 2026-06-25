@@ -68,7 +68,13 @@ export class OnlineUsersService {
    * sleep/kill (cenários em que beforeunload não dispara) ficava eternamente
    * online porque o chatStatus persistia no banco sem ninguém limpar.
    */
-  async getOnline() {
+  /**
+   * @param empresaId Escopo de tenant:
+   *   - `undefined` → global (consumido pelo Service Manager, sem sessão)
+   *   - string/`null` → restringe à empresa do requisitante (chat web).
+   *     `null` aplica `empresa_id IS NULL` (default-deny: nunca vaza outra empresa).
+   */
+  async getOnline(empresaId?: string | null) {
     const cutoff = new Date(Date.now() - this.WINDOW_MIN * 60_000)
     const users = await prisma.user.findMany({
       where: {
@@ -76,6 +82,8 @@ export class OnlineUsersService {
         lastActivityAt: { gte: cutoff },
         // 'invisible' = aparece como offline pros outros, mesmo ativo
         NOT: { chatStatus: 'invisible' },
+        // Isolamento multi-tenant: só quando há sessão (empresaId !== undefined)
+        ...(empresaId !== undefined ? { empresaId } : {}),
       },
       select: {
         id: true,

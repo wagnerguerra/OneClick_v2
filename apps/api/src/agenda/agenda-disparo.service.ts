@@ -166,8 +166,10 @@ export class AgendaDisparoService implements OnModuleInit {
    */
   private async resolverDestinatarios(cfg: AgendaDisparoConfig): Promise<string[]> {
     if (cfg.enviarParaTodos) {
+      // Isolamento multi-tenant: só colaboradores da empresa dona da config.
+      // Sem empresa (config legada não migrada) → default-deny.
       const todos = await prisma.user.findMany({
-        where: { isActive: true, email: { not: '' } },
+        where: { isActive: true, email: { not: '' }, empresaId: cfg.empresaId ?? null },
         select: { id: true },
       })
       return todos.map(u => u.id)

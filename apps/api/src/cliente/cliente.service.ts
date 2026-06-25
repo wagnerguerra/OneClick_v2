@@ -883,7 +883,7 @@ export class ClienteService {
   // SERVIÇOS (ÁREAS CONTRATADAS)
   // ============================================================
 
-  async listServicos(clienteId: string) {
+  async listServicos(clienteId: string, empresaId: string | null = null) {
     const [areas, contratos, usuarios] = await Promise.all([
       prisma.area.findMany({ where: { isActive: true, availableForHiring: true }, select: { id: true, name: true, leaderId: true }, orderBy: { name: 'asc' } }),
       prisma.clienteAreaContratada.findMany({
@@ -893,7 +893,8 @@ export class ClienteService {
           substituto: { select: { id: true, name: true } },
         },
       }),
-      prisma.user.findMany({ where: { isActive: true }, select: { id: true, name: true, areaId: true }, orderBy: { name: 'asc' } }),
+      // Isolamento multi-tenant: candidatos a responsável apenas da empresa do tenant.
+      prisma.user.findMany({ where: { isActive: true, empresaId: empresaId ?? null }, select: { id: true, name: true, areaId: true }, orderBy: { name: 'asc' } }),
     ])
 
     const cMap = new Map(contratos.map(c => [c.areaId, c]))

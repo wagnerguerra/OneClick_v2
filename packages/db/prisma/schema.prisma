@@ -2444,6 +2444,7 @@ model AgendaConfig {
 /// `destinatariosIds` no horário/dias configurados.
 model AgendaDisparoConfig {
   id               String   @id @default(cuid())
+  empresaId        String?  @map("empresa_id")   // isolamento multi-tenant: destinatários só desta empresa
   ativo            Boolean  @default(false)
   horario          String   @default("07:00")             // HH:MM
   diasSemana       Int[]    @default([1, 2, 3, 4, 5])    // 0=dom..6=sab — default seg-sex

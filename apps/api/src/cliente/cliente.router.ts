@@ -314,7 +314,7 @@ export function createClienteRouter(
     // === SERVIÇOS (ÁREAS CONTRATADAS) ===
     servicosListar: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
-      .query(({ input }) => clienteService.listServicos(input.clienteId)),
+      .query(({ input, ctx }) => clienteService.listServicos(input.clienteId, ctx.empresaId ?? null)),
 
     servicosSalvar: writeSubProcedure(MODULE, 'manage_services', 'Gerenciar serviços contratados')
       .input(z.object({

@@ -510,8 +510,12 @@ export class CndService {
 
   // ── Listagem paginada ────────────────────────────────
 
-  async totalizadores() {
+  async totalizadores(empresaId: string | null = null) {
     await this.ensureTable()
+    // Isolamento multi-tenant: conta apenas certidões da empresa do tenant.
+    // Sem empresa no contexto → default-deny (empresa_id IS NULL).
+    const empFilter = empresaId ? 'AND empresa_id = $1' : 'AND empresa_id IS NULL'
+    const params = empresaId ? [empresaId] : []
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
       SELECT
         COUNT(*)::int as total,
@@ -521,8 +525,8 @@ export class CndService {
         COUNT(*) FILTER (WHERE sucesso = true AND data_validade IS NOT NULL AND data_validade < NOW())::int as vencidas,
         COUNT(*) FILTER (WHERE sucesso = true AND data_validade IS NOT NULL AND data_validade >= NOW() AND data_validade <= NOW() + INTERVAL '15 days')::int as vencendo,
         COUNT(*) FILTER (WHERE deleted_at IS NOT NULL)::int as lixeira
-      FROM certidoes_cnd WHERE deleted_at IS NULL
-    `)
+      FROM certidoes_cnd WHERE deleted_at IS NULL ${empFilter}
+    `, ...params)
     const r = rows[0]!
     return {
       total: Number(r.total ?? 0),

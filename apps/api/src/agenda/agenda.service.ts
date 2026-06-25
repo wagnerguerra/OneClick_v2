@@ -1607,7 +1607,10 @@ export class AgendaService {
     const tipoMap = new Map<string, string>()
     for (const t of tiposLocais) tipoMap.set(t.nome.toLowerCase(), t.id)
 
-    const usersLocais = await prisma.user.findMany({ where: { isActive: true }, select: { id: true, email: true, name: true } })
+    // Isolamento multi-tenant: casa participantes do legado apenas com usuários
+    // da empresa do importador (não vaza catálogo de usuários de outro tenant).
+    const importador = await prisma.user.findUnique({ where: { id: userId }, select: { empresaId: true } })
+    const usersLocais = await prisma.user.findMany({ where: { isActive: true, empresaId: importador?.empresaId ?? null }, select: { id: true, email: true, name: true } })
     const userByEmail = new Map<string, string>()
     const userByName = new Map<string, string>()
     for (const u of usersLocais) {
