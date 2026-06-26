@@ -19,6 +19,7 @@ import { Text } from '@/components/ui/text'
 import { cn } from '@/lib/cn'
 import { mutedForegroundFor, primaryFor } from '@/lib/theme-colors'
 import { usePermissions } from '@/lib/use-permissions'
+import { useContadoresBarra } from '@/lib/use-contadores-barra'
 
 type Tab = {
   label: string
@@ -29,13 +30,15 @@ type Tab = {
   match: string[]
   /** Slug do módulo cuja permissão libera a tab (`null` = sempre visível). */
   modulo: string | null
+  /** Contador exibido como badge sobre o ícone, quando > 0. */
+  badge?: 'eventos' | 'tarefas' | 'chamados'
 }
 
 const TABS: Tab[] = [
   { label: 'Início', icon: 'home', href: '/dashboard', match: ['/dashboard'], modulo: null },
-  { label: 'Agenda', icon: 'calendar', href: '/agenda', match: ['/agenda'], modulo: 'agenda' },
-  { label: 'Tarefas', icon: 'checkbox', href: '/tarefas', match: ['/tarefas'], modulo: 'agenda' },
-  { label: 'Helpdesk', icon: 'chatbubbles', href: '/helpdesk', match: ['/helpdesk'], modulo: 'helpdesk' },
+  { label: 'Agenda', icon: 'calendar', href: '/agenda', match: ['/agenda'], modulo: 'agenda', badge: 'eventos' },
+  { label: 'Tarefas', icon: 'checkbox', href: '/tarefas', match: ['/tarefas'], modulo: 'agenda', badge: 'tarefas' },
+  { label: 'Helpdesk', icon: 'chatbubbles', href: '/helpdesk', match: ['/helpdesk'], modulo: 'helpdesk', badge: 'chamados' },
   { label: 'Perfil', icon: 'person', href: '/perfil', match: ['/perfil'], modulo: null },
 ]
 
@@ -45,6 +48,7 @@ export function BottomTabBar() {
   const insets = useSafeAreaInsets()
   const isDark = useColorScheme().colorScheme === 'dark'
   const { podeVer } = usePermissions()
+  const contadores = useContadoresBarra()
 
   const corAtiva = primaryFor(isDark)
   const corMuted = mutedForegroundFor(isDark)
@@ -61,6 +65,7 @@ export function BottomTabBar() {
         const ativo = tab.match.some(
           (m) => pathname === m || pathname.startsWith(`${m}/`),
         )
+        const count = tab.badge ? contadores[tab.badge] : 0
         return (
           <Pressable
             key={tab.href}
@@ -72,11 +77,18 @@ export function BottomTabBar() {
           >
             <View
               className={cn(
-                'h-9 w-12 items-center justify-center rounded-full',
+                'relative h-9 w-12 items-center justify-center rounded-full',
                 ativo && 'bg-primary/10',
               )}
             >
               <Ionicons name={tab.icon} size={22} color={ativo ? corAtiva : corMuted} />
+              {count > 0 ? (
+                <View className="absolute right-1 top-0 h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1">
+                  <Text className="text-[9px] font-bold leading-none text-primary-foreground">
+                    {count > 99 ? '99+' : count}
+                  </Text>
+                </View>
+              ) : null}
             </View>
             <Text
               className={cn(
