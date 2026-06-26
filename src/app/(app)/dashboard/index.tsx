@@ -13,8 +13,16 @@
 // Pressable/View/Text (RN). Dados reais via tRPC (sem mocks).
 
 import { useMemo, useRef } from 'react'
-import { Alert, Animated, Pressable, ScrollView, View } from 'react-native'
-import { Swipeable } from 'react-native-gesture-handler'
+import { Alert, Pressable, ScrollView, View } from 'react-native'
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable'
+import Reanimated, {
+  useAnimatedStyle,
+  interpolate,
+  Extrapolation,
+  type SharedValue,
+} from 'react-native-reanimated'
 import { Ionicons } from '@expo/vector-icons'
 import { useColorScheme } from 'nativewind'
 import { useRouter } from 'expo-router'
@@ -542,7 +550,7 @@ function EventoLinha({
   const borda = withAlpha(cores.bg, isDark ? 0.45 : 0.28)
 
   // Ref pro Swipeable — usada pra fechar o card depois de tocar numa ação.
-  const swipeRef = useRef<Swipeable>(null)
+  const swipeRef = useRef<SwipeableMethods>(null)
 
   const card = (
     <Pressable
@@ -576,62 +584,83 @@ function EventoLinha({
   // entrada dos botões proporcional ao arrasto.
   const acoesLargura = (canEdit ? 64 : 0) + (canDelete ? 64 : 0)
 
-  // Ações reveladas ao arrastar p/ a esquerda. `progress` (0→1) controla um
-  // deslize suave dos botões entrando, dando o efeito Gmail.
-  function renderRightActions(progress: Animated.AnimatedInterpolation<number>) {
-    const translateX = progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [acoesLargura, 0],
-      extrapolate: 'clamp',
-    })
-    return (
-      <Animated.View
-        style={{ flexDirection: 'row', transform: [{ translateX }] }}
-        className="overflow-hidden rounded-md"
-      >
-        {canEdit ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Editar evento"
-            onPress={() => {
-              swipeRef.current?.close()
-              onEditar()
-            }}
-            className="w-16 items-center justify-center bg-primary active:opacity-80"
-          >
-            <Ionicons name="create-outline" size={20} color="#ffffff" />
-            <Text className="mt-0.5 text-[11px] font-semibold text-white">Editar</Text>
-          </Pressable>
-        ) : null}
-        {canDelete ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Excluir evento"
-            onPress={() => {
-              swipeRef.current?.close()
-              onExcluir()
-            }}
-            className="w-16 items-center justify-center bg-destructive active:opacity-80"
-          >
-            <Ionicons name="trash-outline" size={20} color="#ffffff" />
-            <Text className="mt-0.5 text-[11px] font-semibold text-white">Excluir</Text>
-          </Pressable>
-        ) : null}
-      </Animated.View>
-    )
-  }
-
   return (
-    <Swipeable
+    <ReanimatedSwipeable
       ref={swipeRef}
       friction={2}
       rightThreshold={40}
       overshootRight={false}
-      renderRightActions={renderRightActions}
       containerStyle={{ borderRadius: 6 }}
+      renderRightActions={(progress) => (
+        <EventoAcoes
+          progress={progress}
+          acoesLargura={acoesLargura}
+          canEdit={canEdit}
+          canDelete={canDelete}
+          onEditar={() => {
+            swipeRef.current?.close()
+            onEditar()
+          }}
+          onExcluir={() => {
+            swipeRef.current?.close()
+            onExcluir()
+          }}
+        />
+      )}
     >
       {card}
-    </Swipeable>
+    </ReanimatedSwipeable>
+  )
+}
+
+// Ações reveladas ao arrastar p/ a esquerda (Editar/Excluir). `progress` é um
+// SharedValue (0→1) do ReanimatedSwipeable que anima a entrada dos botões (efeito
+// Gmail). Componente à parte porque renderRightActions não pode chamar hooks.
+function EventoAcoes({
+  progress,
+  acoesLargura,
+  canEdit,
+  canDelete,
+  onEditar,
+  onExcluir,
+}: {
+  progress: SharedValue<number>
+  acoesLargura: number
+  canEdit: boolean
+  canDelete: boolean
+  onEditar: () => void
+  onExcluir: () => void
+}) {
+  const estilo = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: interpolate(progress.value, [0, 1], [acoesLargura, 0], Extrapolation.CLAMP) },
+    ],
+  }))
+  return (
+    <Reanimated.View style={[{ flexDirection: 'row', overflow: 'hidden', borderRadius: 6 }, estilo]}>
+      {canEdit ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Editar evento"
+          onPress={onEditar}
+          className="w-16 items-center justify-center bg-primary active:opacity-80"
+        >
+          <Ionicons name="create-outline" size={20} color="#ffffff" />
+          <Text className="mt-0.5 text-[11px] font-semibold text-white">Editar</Text>
+        </Pressable>
+      ) : null}
+      {canDelete ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Excluir evento"
+          onPress={onExcluir}
+          className="w-16 items-center justify-center bg-destructive active:opacity-80"
+        >
+          <Ionicons name="trash-outline" size={20} color="#ffffff" />
+          <Text className="mt-0.5 text-[11px] font-semibold text-white">Excluir</Text>
+        </Pressable>
+      ) : null}
+    </Reanimated.View>
   )
 }
 
