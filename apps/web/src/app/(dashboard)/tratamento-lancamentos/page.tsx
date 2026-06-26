@@ -13,6 +13,7 @@ import {
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { DetectedRowsStatus } from './_components/detected-rows-status'
 import { fileToBase64 } from '@/lib/file'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
@@ -205,8 +206,8 @@ export default function TratamentoLancamentosPage() {
               </p>
             )}
             {!reading && detectedRows !== null && (
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5" /> {detectedRows} lançamentos detectados no arquivo.
+              <p className="text-xs">
+                <DetectedRowsStatus rows={detectedRows} />
               </p>
             )}
           </StepBlock>

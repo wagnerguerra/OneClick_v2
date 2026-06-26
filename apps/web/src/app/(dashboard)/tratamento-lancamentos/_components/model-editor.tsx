@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileSpreadsheet, Save, Upload, Plus, Trash2, Loader2, Info, FileText, Image as ImageIcon,
-  Tag, Columns3, ArrowLeftRight, Network, HelpCircle, ArrowLeft, ArrowRight, History, Landmark, CheckCircle2, type LucideIcon,
+  Tag, Columns3, ArrowLeftRight, Network, HelpCircle, ArrowLeft, ArrowRight, History, Landmark, type LucideIcon,
 } from 'lucide-react'
 import {
   Button, Input, Label, Checkbox, Card,
@@ -16,6 +16,7 @@ import { cn } from '@saas/ui'
 import type { TreatmentDefinition, Direcao } from '@saas/types'
 import { EMPTY_TREATMENT_DEFINITION, stableStringify } from '@saas/types'
 import { normalizeDefinition } from './treatment-definition'
+import { DetectedRowsStatus } from './detected-rows-status'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { fileToBase64 } from '@/lib/file'
@@ -39,6 +40,31 @@ interface Props {
   modelId?: string
   /** Caminho de origem (?from=) — para "Voltar"/"Salvar" retornarem a ele. */
   backTo?: string
+}
+
+/**
+ * Ao trocar o arquivo de exemplo, descarta as referências de coluna da definição
+ * que não existem mais no novo arquivo (De/Para, Débito/Crédito e Contas
+ * correntes). Sem isso, o select continuaria exibindo uma coluna inexistente.
+ * Quando uma coluna de mapeamento (Débito/Crédito ou Contas) some, o respectivo
+ * mapa de valores também é zerado — passou a ser de outra coluna.
+ */
+function pruneDefToHeaders(d: TreatmentDefinition, headers: string[]): TreatmentDefinition {
+  const has = new Set(headers)
+  const columnMapping = { ...d.columnMapping }
+  for (const k of Object.keys(columnMapping) as Array<keyof TreatmentDefinition['columnMapping']>) {
+    const v = columnMapping[k]
+    if (v && !has.has(v)) columnMapping[k] = ''
+  }
+  const debitoCredito =
+    d.debitoCredito.coluna && !has.has(d.debitoCredito.coluna)
+      ? { ...d.debitoCredito, coluna: '', mapa: [] }
+      : d.debitoCredito
+  const contasCorrentes =
+    d.contasCorrentes.coluna && !has.has(d.contasCorrentes.coluna)
+      ? { ...d.contasCorrentes, coluna: '', mapa: [] }
+      : d.contasCorrentes
+  return { ...d, columnMapping, debitoCredito, contasCorrentes }
 }
 
 // Campos do de/para. `req` marca os obrigatórios.
@@ -180,6 +206,8 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       const res = await trpc.tratamentoLancamentos.preview.mutate({ fileBase64: base64, filename })
       setPreview(res as PreviewData)
       setFileName(filename)
+      // Ao trocar o arquivo, descarta colunas selecionadas que não existem mais.
+      setDef((d) => pruneDefToHeaders(d, res.headers))
       // Pré-seleção automática da coluna de CNPJ (sem sobrescrever escolha existente).
       const cnpjCol = res.headers.find((h) => /cnpj/i.test(h))
       if (cnpjCol) setDef((d) => (d.columnMapping.documento ? d : { ...d, columnMapping: { ...d.columnMapping, documento: cnpjCol } }))
@@ -427,12 +455,12 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   const secDados = (
     <Card className="p-5 space-y-4">
       <StepHeader
-        icon={Tag} color="bg-violet-500" title="Dados do Modelo"
+        icon={Tag} color="bg-violet-500" title="Informações básicas"
         hint="Dê um nome fácil de reconhecer para este modelo (por exemplo, o nome do banco ou do cliente). A conta corrente é definida na etapa Contas correntes."
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1.5">
-          <Label className="text-[13px] font-semibold">Nome <span className="text-destructive">*</span></Label>
+          <Label className="text-[13px] font-semibold">Nome do modelo <span className="text-destructive">*</span></Label>
           <Input className="h-9 text-sm bg-card" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Banco do Brasil — Conta 12345" />
         </div>
         {/* "Ativo" só na edição — na criação o modelo nasce sempre ativo. */}
@@ -469,6 +497,13 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
           {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
           {fileName ? 'Trocar arquivo' : 'Enviar arquivo'}
         </Button>
+        {fileName && (
+          <span className="text-xs text-muted-foreground leading-relaxed">
+            <span className="font-semibold text-foreground">{fileName}</span>
+            <br />
+            <DetectedRowsStatus rows={preview?.totalRows ?? 0} truncated={preview?.truncated} />
+          </span>
+        )}
         {/* Formatos não-tabelados (Fase futura — IA) */}
         <span className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground/70">
           <FileText className="h-3.5 w-3.5 opacity-50" />
@@ -476,16 +511,6 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
           PDF / imagem — em breve
         </span>
       </div>
-      {fileName && (
-        <div className="flex items-center gap-2.5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-900/50 dark:bg-emerald-950/30">
-          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-          <span className="min-w-0 flex-1">
-            <span className="font-semibold text-emerald-800 dark:text-emerald-300">Arquivo carregado:</span>{' '}
-            <span className="font-medium text-foreground break-all">{fileName}</span>
-            <span className="text-muted-foreground"> — {preview?.totalRows ?? 0} lançamentos{preview?.truncated ? ' (prévia limitada)' : ''}</span>
-          </span>
-        </div>
-      )}
       {!preview && headers.length > 0 && (
         <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
           <Info className="h-3.5 w-3.5" /> Mostrando o mapeamento salvo. Envie o arquivo para revisar valores e distinções.
