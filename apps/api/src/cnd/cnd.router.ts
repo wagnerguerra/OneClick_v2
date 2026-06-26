@@ -247,7 +247,7 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
 
     schedule: router({
       get: readProcedure(MODULE)
-        .query(() => scheduler.getStatus()),
+        .query(({ ctx }) => scheduler.getStatus(ctx.empresaId ?? '')),
 
       update: writeProcedure(MODULE)
         .input(z.object({
@@ -258,20 +258,20 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         }))
         .mutation(async ({ input, ctx }) => {
           if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas perfil MASTER pode alterar agendamentos' })
-          return scheduler.updateConfig(input)
+          return scheduler.updateConfig(ctx.empresaId ?? '', input)
         }),
 
       runNow: writeProcedure(MODULE)
         .mutation(async ({ ctx }) => {
           if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas perfil MASTER pode executar manualmente' })
-          return scheduler.runNow(ctx.userId)
+          return scheduler.runNow(ctx.userId, ctx.empresaId ?? '')
         }),
 
       progress: readProcedure(MODULE)
-        .query(() => scheduler.getProgress()),
+        .query(({ ctx }) => scheduler.getProgress(ctx.empresaId ?? '')),
 
       clientes: readProcedure(MODULE)
-        .query(() => scheduler.listarClientesDisponiveis()),
+        .query(({ ctx }) => scheduler.listarClientesDisponiveis(ctx.empresaId ?? '')),
     }),
 
     // ── Inativar cliente (compartilhado entre abas) ────────

@@ -622,7 +622,9 @@ export class CndService {
   // ── Resolver empresaId fallback ──────────────────────
 
   async resolverEmpresaId(): Promise<string> {
-    const emp = await prisma.empresa.findFirst({ select: { id: true } })
+    // Empresa "home" determinística (a mais antiga) — alvo do cron automático.
+    // Deve casar com o backfill da migração ISO-003 (ORDER BY created_at ASC).
+    const emp = await prisma.empresa.findFirst({ select: { id: true }, orderBy: { createdAt: 'asc' } })
     return emp?.id || ''
   }
 }

@@ -291,7 +291,7 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
 
     schedule: router({
       get: readProcedure(MODULE)
-        .query(() => scheduler.getStatus()),
+        .query(({ ctx }) => scheduler.getStatus(ctx.empresaId ?? '')),
 
       update: writeProcedure(MODULE)
         .input(z.object({
@@ -303,28 +303,28 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
         }))
         .mutation(async ({ input, ctx }) => {
           if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas perfil MASTER pode alterar agendamentos' })
-          return scheduler.updateConfig(input)
+          return scheduler.updateConfig(ctx.empresaId ?? '', input)
         }),
 
       runNow: writeProcedure(MODULE)
         .mutation(async ({ ctx }) => {
           if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas perfil MASTER pode executar manualmente' })
-          return scheduler.runNow(ctx.userId)
+          return scheduler.runNow(ctx.userId, ctx.empresaId ?? '')
         }),
 
       progress: readProcedure(MODULE)
-        .query(() => scheduler.getProgress()),
+        .query(({ ctx }) => scheduler.getProgress(ctx.empresaId ?? '')),
 
       clientes: readProcedure(MODULE)
-        .query(() => scheduler.listarClientesDisponiveis()),
+        .query(({ ctx }) => scheduler.listarClientesDisponiveis(ctx.empresaId ?? '')),
 
       logs: readProcedure(MODULE)
         .input(z.object({ limit: z.number().min(1).max(100).default(20), offset: z.number().min(0).default(0) }).optional())
-        .query(({ input }) => scheduler.listarExecLogs(input?.limit ?? 20, input?.offset ?? 0)),
+        .query(({ input, ctx }) => scheduler.listarExecLogs(input?.limit ?? 20, input?.offset ?? 0, ctx.empresaId ?? '')),
 
       logById: readProcedure(MODULE)
         .input(z.object({ id: z.string() }))
-        .query(({ input }) => scheduler.getExecLogById(input.id)),
+        .query(({ input, ctx }) => scheduler.getExecLogById(input.id, ctx.empresaId ?? '')),
     }),
   })
 }
