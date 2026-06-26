@@ -99,11 +99,11 @@ export function createAgendaRouter(
         criadorId: z.string().optional(),
         empresaId: z.string().optional(),
       }))
-      .query(({ input, ctx }) => service.listEventos(input, ctx.userId)),
+      .query(({ input, ctx }) => service.listEventos(input, ctx.userId, ctx.empresaId ?? null)),
 
     getById: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .query(({ input }) => service.getById(input.id)),
+      .query(({ input, ctx }) => service.getById(input.id, ctx.isMaster ?? false, ctx.empresaId ?? null)),
 
     create: writeProcedure(MODULE)
       .input(z.object({
@@ -136,7 +136,7 @@ export function createAgendaRouter(
         // Opt-in: só notifica participantes por e-mail quando marcado (default false).
         notificar: z.boolean().optional(),
       }))
-      .mutation(({ input, ctx }) => service.create(input, ctx.userId)),
+      .mutation(({ input, ctx }) => service.create(input, ctx.userId, ctx.empresaId ?? null)),
 
     update: writeProcedure(MODULE)
       .input(z.object({
@@ -263,7 +263,7 @@ export function createAgendaRouter(
         eventoIdExcluir: z.string().optional(),
         tipoId: z.string().optional(),
       }))
-      .query(({ input }) => service.verificarConflitos(input)),
+      .query(({ input, ctx }) => service.verificarConflitos(input, ctx.empresaId ?? null)),
 
     // === CONFIGURAÇÃO (singleton) — leitura aberta pra qualquer um com acesso ao
     // módulo (precisa pra o front saber se deve verificar conflitos antes de salvar).
@@ -315,7 +315,7 @@ export function createAgendaRouter(
         data: z.string(),
         usuarioIds: z.array(z.string()).min(1),
       }))
-      .query(({ input }) => service.verificarDisponibilidade(input)),
+      .query(({ input, ctx }) => service.verificarDisponibilidade(input, ctx.empresaId ?? null)),
 
     // Disponibilidade combinada num range — usada pelo /agenda/disponibilidade
     disponibilidadeRange: readProcedure(MODULE)
@@ -324,7 +324,7 @@ export function createAgendaRouter(
         dataFim: z.string(),
         usuarioIds: z.array(z.string()).min(1),
       }))
-      .query(({ input }) => service.disponibilidadeRange(input)),
+      .query(({ input, ctx }) => service.disponibilidadeRange(input, ctx.empresaId ?? null)),
 
     // === LOGS ===
     listLogs: readProcedure(MODULE)

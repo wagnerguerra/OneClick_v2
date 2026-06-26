@@ -520,8 +520,11 @@ export class AgendaService {
   // EVENTOS
   // ============================================================
 
-  async listEventos(params: ListEventosParams, userId: string) {
-    const { dataInicio, dataFim, tipoId, criadorId, empresaId } = params
+  async listEventos(params: ListEventosParams, userId: string, ctxEmpresaId: string | null) {
+    // Ignora params.empresaId (vinha do cliente, opcional) — o escopo de tenant
+    // é SEMPRE a empresa da sessão (ctx). Sem isto, a agenda vazava eventos de
+    // todos os tenants. F-013.
+    const { dataInicio, dataFim, tipoId, criadorId } = params
 
     const rangeStart = new Date(dataInicio)
     const rangeEnd = new Date(dataFim)
@@ -529,6 +532,7 @@ export class AgendaService {
     const where: Prisma.AgendaEventoWhereInput = {
       isActive: true,
       isTarefa: false,  // tarefas agora moram em agenda_tarefas — não vazam pra listagem de eventos
+      empresaId: ctxEmpresaId,  // isolamento multi-tenant (forçado pela sessão)
       OR: [
         // Evento começa dentro do range
         { data: { gte: rangeStart, lte: rangeEnd } },
@@ -537,7 +541,6 @@ export class AgendaService {
       ],
       ...(tipoId ? { tipoId } : {}),
       ...(criadorId ? { criadorId } : {}),
-      ...(empresaId ? { empresaId } : {}),
     }
 
     const eventos = await prisma.agendaEvento.findMany({
@@ -563,9 +566,10 @@ export class AgendaService {
     })
   }
 
-  async getById(id: string) {
-    return prisma.agendaEvento.findUniqueOrThrow({
-      where: { id },
+  async getById(id: string, isMaster = false, empresaId: string | null = null) {
+    return prisma.agendaEvento.findFirstOrThrow({
+      // Isolamento multi-tenant: não-master só acessa eventos da própria empresa.
+      where: { id, ...(isMaster ? {} : { empresaId }) },
       include: {
         tipo: { select: { id: true, nome: true, cor: true, corBorda: true, corTexto: true } },
         criador: { select: { id: true, name: true } },
@@ -815,12 +819,12 @@ export class AgendaService {
     return { ok: true }
   }
 
-  async create(input: CreateEventoInput, userId: string) {
+  async create(input: CreateEventoInput, userId: string, ctxEmpresaId: string | null = null) {
     const {
       titulo, descricao, data, dataFim, horaInicio, horaFim, diaInteiro,
       local, contato, link, presenca, particular, editavel,
       sala, salaId, garagem, vagas, equipamentos, arrumarSala, isTarefa,
-      tipoId, empresaId, oportunidadeId, participanteIds, participantesAvulsos,
+      tipoId, oportunidadeId, participanteIds, participantesAvulsos,
       recorrencia, recorrenciaVezes, notificar,
     } = input
 
@@ -894,7 +898,8 @@ export class AgendaService {
           isTarefa: isTarefa ?? false,
           tipoId,
           criadorId: userId,
-          empresaId: empresaId || null,
+          // Carimba SEMPRE a empresa da sessão (tenant) — não o input do cliente.
+          empresaId: ctxEmpresaId ?? null,
           oportunidadeId: oportunidadeId || null,
           recorrencia: rec as never,
           recorrenciaVezes: isRecurrent ? vezes : null,
@@ -1001,7 +1006,8 @@ export class AgendaService {
     if (data.arrumarSala !== undefined) updateData.arrumarSala = data.arrumarSala
     if (data.isTarefa !== undefined) updateData.isTarefa = data.isTarefa
     if (data.tipoId !== undefined) updateData.tipoId = data.tipoId
-    if (data.empresaId !== undefined) updateData.empresaId = data.empresaId || null
+    // empresaId do evento é IMUTÁVEL (definido no create = tenant). Ignorado no
+    // update — não permitir mover um evento entre tenants via cliente. F-013.
     if (data.oportunidadeId !== undefined) updateData.oportunidadeId = data.oportunidadeId || null
 
     const updated = await prisma.agendaEvento.update({
@@ -1150,7 +1156,7 @@ export class AgendaService {
     salaId?: string  // novo: prioritário sobre `sala` (string) quando ambos passados
     eventoIdExcluir?: string // para ignorar o próprio evento ao editar
     tipoId?: string // se o tipo do evento sendo criado/editado não bloqueia (ex.: LEMBRETE CORPORATIVO), pular toda a checagem
-  }) {
+  }, empresaId: string | null = null) {
     const { data, horaInicio, horaFim, participanteIds, sala, salaId, eventoIdExcluir, tipoId } = params
     const conflitos: Array<{
       tipo: 'participante' | 'sala'
@@ -1178,6 +1184,7 @@ export class AgendaService {
     const eventosNoDia = await prisma.agendaEvento.findMany({
       where: {
         isActive: true,
+        empresaId,  // isolamento multi-tenant: conflitos só com eventos do próprio tenant
         data: eventDate,
         diaInteiro: false,
         ...(eventoIdExcluir ? { id: { not: eventoIdExcluir } } : {}),
@@ -1258,12 +1265,13 @@ export class AgendaService {
   async verificarDisponibilidade(params: {
     data: string
     usuarioIds: string[]
-  }) {
+  }, empresaId: string | null = null) {
     const eventDate = new Date(params.data)
 
     const eventos = await prisma.agendaEvento.findMany({
       where: {
         isActive: true,
+        empresaId,  // isolamento multi-tenant
         data: eventDate,
         diaInteiro: false,
         participantes: {
@@ -1287,6 +1295,7 @@ export class AgendaService {
     const eventosCriador = await prisma.agendaEvento.findMany({
       where: {
         isActive: true,
+        empresaId,  // isolamento multi-tenant
         data: eventDate,
         diaInteiro: false,
         criadorId: { in: params.usuarioIds },
@@ -1347,7 +1356,7 @@ export class AgendaService {
     dataInicio: string  // YYYY-MM-DD
     dataFim: string     // YYYY-MM-DD inclusivo
     usuarioIds: string[]
-  }): Promise<Array<{
+  }, empresaId: string | null = null): Promise<Array<{
     id: string
     data: string          // YYYY-MM-DD
     diaInteiro: boolean   // true = ocupa o dia todo (sem hora)
@@ -1372,6 +1381,7 @@ export class AgendaService {
     const eventos = await prisma.agendaEvento.findMany({
       where: {
         isActive: true,
+        empresaId,  // isolamento multi-tenant
         data: { gte: inicio, lte: fim },
         tipo: { bloqueiaAgenda: true },
         OR: [
