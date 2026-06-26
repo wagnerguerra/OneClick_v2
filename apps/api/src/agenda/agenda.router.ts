@@ -64,11 +64,11 @@ export function createAgendaRouter(
           salasPermitidas: z.array(z.string()).optional(),
         }),
       }))
-      .mutation(({ input, ctx }) => service.updateTipo(input.id, input.data, ctx.userId)),
+      .mutation(({ input, ctx }) => service.updateTipo(input.id, input.data, ctx.userId, ctx.isMaster ?? false, ctx.empresaId ?? null)),
 
     deleteTipo: readSubProcedure(MODULE, 'manage_tipos', 'Gerenciar tipos de evento')
       .input(z.object({ id: z.string() }))
-      .mutation(({ input, ctx }) => service.deleteTipo(input.id, ctx.userId)),
+      .mutation(({ input, ctx }) => service.deleteTipo(input.id, ctx.userId, ctx.isMaster ?? false, ctx.empresaId ?? null)),
 
     // Histórico de ações nos tipos — só master/dono do tenant acompanham.
     listTipoEventos: readProcedure(MODULE)
@@ -303,10 +303,10 @@ export function createAgendaRouter(
             ativo: z.boolean().optional(),
           }),
         }))
-        .mutation(({ input }) => salaService.update(input.id, input.data)),
+        .mutation(({ input, ctx }) => salaService.update(input.id, input.data, ctx.isMaster ?? false, ctx.empresaId ?? null)),
       delete: deleteSubProcedure(MODULE, 'manage_config', 'Remover salas da agenda')
         .input(z.object({ id: z.string() }))
-        .mutation(({ input }) => salaService.delete(input.id)),
+        .mutation(({ input, ctx }) => salaService.delete(input.id, ctx.isMaster ?? false, ctx.empresaId ?? null)),
     }),
 
     // === DISPONIBILIDADE ===

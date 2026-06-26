@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 
 interface CreateSalaInput {
@@ -43,7 +44,20 @@ export class AgendaSalaService {
     })
   }
 
-  update(id: string, data: UpdateSalaInput) {
+  /**
+   * Não-master só altera/exclui as PRÓPRIAS salas — nunca as globais (empresa
+   * NULL) nem as de outro tenant. F-013.
+   */
+  private async assertSalaOwned(id: string, isMaster: boolean, empresaId: string | null) {
+    if (isMaster) return
+    const sala = await prisma.agendaSala.findUnique({ where: { id }, select: { empresaId: true } })
+    if (!sala || sala.empresaId === null || sala.empresaId !== empresaId) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Sala fora do seu acesso (salas globais só o master gerencia).' })
+    }
+  }
+
+  async update(id: string, data: UpdateSalaInput, isMaster = false, empresaId: string | null = null) {
+    await this.assertSalaOwned(id, isMaster, empresaId)
     const patch: UpdateSalaInput = {}
     if (data.nome !== undefined) patch.nome = data.nome.trim()
     if (data.capacidade !== undefined) patch.capacidade = data.capacidade
@@ -53,7 +67,8 @@ export class AgendaSalaService {
   }
 
   /** Soft delete — eventos antigos continuam apontando pra ela. */
-  async delete(id: string) {
+  async delete(id: string, isMaster = false, empresaId: string | null = null) {
+    await this.assertSalaOwned(id, isMaster, empresaId)
     return prisma.agendaSala.update({ where: { id }, data: { ativo: false } })
   }
 }

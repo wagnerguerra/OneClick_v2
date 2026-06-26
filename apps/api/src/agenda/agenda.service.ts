@@ -466,7 +466,20 @@ export class AgendaService {
     return tipo
   }
 
-  async updateTipo(id: string, data: { nome?: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }, userId?: string) {
+  /**
+   * Não-master só altera/exclui os PRÓPRIOS tipos — nunca os defaults GLOBAIS
+   * (empresa NULL, que afetariam todos os tenants) nem os de outro tenant. F-013.
+   */
+  private async assertTipoOwned(tipoId: string, isMaster: boolean, empresaId: string | null) {
+    if (isMaster) return
+    const tipo = await prisma.agendaTipo.findUnique({ where: { id: tipoId }, select: { empresaId: true } })
+    if (!tipo || tipo.empresaId === null || tipo.empresaId !== empresaId) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Tipo fora do seu acesso (padrões globais só o master gerencia).' })
+    }
+  }
+
+  async updateTipo(id: string, data: { nome?: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }, userId?: string, isMaster = false, empresaId: string | null = null) {
+    await this.assertTipoOwned(id, isMaster, empresaId)
     const updateData: Record<string, unknown> = {}
     if (data.nome !== undefined) updateData.nome = data.nome
     if (data.cor !== undefined) updateData.cor = data.cor
@@ -488,7 +501,8 @@ export class AgendaService {
     return tipo
   }
 
-  async deleteTipo(id: string, userId?: string) {
+  async deleteTipo(id: string, userId?: string, isMaster = false, empresaId: string | null = null) {
+    await this.assertTipoOwned(id, isMaster, empresaId)
     const tipo = await prisma.agendaTipo.update({
       where: { id },
       data: { isActive: false },
