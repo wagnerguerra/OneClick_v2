@@ -134,14 +134,13 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
   const [chatAsCliente, setChatAsCliente] = useState(false)
 
   // Capa do header — config global do modulo. Apenas Master pode editar.
-  const { isMaster, permissions } = useUserPermissions()
-  // Sub-permissão 'edit_details' (módulo cliente) governa a edição dos Detalhes:
-  // sem ela, o botão Salvar some e os campos da aba Detalhes ficam read-only.
-  const canEditDetails = useMemo(() => {
-    if (isMaster) return true
-    const sub = (permissions.find(p => p.moduleSlug === 'cliente')?.subPermissions ?? {}) as Record<string, boolean>
-    return sub.edit_details === true
-  }, [isMaster, permissions])
+  const { isMaster } = useUserPermissions()
+  // Sub-permissões por aba (espelham o gateamento do backend). O hook usa o slug
+  // correto ('clientes') e já trata master/empresa-master.
+  // Detalhes → edit_details; Comercial → manage_commercial; Fiscal → manage_fiscal.
+  // As demais abas (serviços, legalização, contábil, obrigações, protocolos,
+  // particularidades) já gatilham internamente pelos seus próprios cards.
+  const { canEditDetails, canManageCommercial, canManageFiscal } = useClientesPerms()
   const [headerCover, setHeaderCover] = useState<string>('')
   const [uploadingCover, setUploadingCover] = useState(false)
   const coverInputRef = useRef<HTMLInputElement>(null)
@@ -608,7 +607,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   chatMsg={chatMsg} setChatMsg={setChatMsg}
                   chatAsCliente={chatAsCliente} setChatAsCliente={setChatAsCliente}
                   clienteId={clienteId}
-                  opcoesOrigem={opcoesOrigem}
+                  opcoesOrigem={opcoesOrigem} canEdit={canManageCommercial}
                 />
               </TabsContent>
 
@@ -622,6 +621,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   clienteId={clienteId}
                   isEdit={!!isEdit}
                   documento={watchedValues.documento || defaultValues?.documento || ''}
+                  canEdit={canManageFiscal}
                 />
               </TabsContent>
 
@@ -1412,7 +1412,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   )
 }
 
-function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem }: {
+function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem, canEdit }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
@@ -1421,6 +1421,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
   chatAsCliente: boolean; setChatAsCliente: (v: boolean) => void
   clienteId?: string
   opcoesOrigem: Array<{ id: string; valor: string }>
+  canEdit: boolean
 }) {
   const [activeTab, setActiveTab] = useState('cadastros')
   const [historicos, setHistoricos] = useState<Array<{ id: string; mensagem: string; tipo: string; createdAt: string; user: { id: string; name: string } | null }>>([])
@@ -1500,7 +1501,8 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
           </div>
         </div>
 
-        {/* Conteúdo */}
+        {/* Conteúdo — read-only sem permissão 'manage_commercial' (mantém as pills) */}
+        <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0">
         <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
           {activeTab === 'cadastros' && (
             <div className="-m-5">
@@ -1659,6 +1661,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
             </div>
           )}
         </div>
+        </fieldset>
       </div>
     </Card>
   )
@@ -2400,12 +2403,13 @@ function AcessoriasIntegracao({ clienteId }: { clienteId: string | null }) {
 // FiscalCard — pills laterais (padrão igual ComercialCard)
 // ============================================================
 
-function FiscalCard({ register, control, clienteId, isEdit, documento }: {
+function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   clienteId?: string
   isEdit: boolean
   documento: string
+  canEdit: boolean
 }) {
   const [activeTab, setActiveTab] = useState('dados')
 
@@ -2451,7 +2455,8 @@ function FiscalCard({ register, control, clienteId, isEdit, documento }: {
           </div>
         </div>
 
-        {/* Conteúdo */}
+        {/* Conteúdo — read-only sem permissão 'manage_fiscal' (mantém as pills) */}
+        <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0">
         <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
           {activeTab === 'dados' && (
             <div className="-m-5">
@@ -2579,6 +2584,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento }: {
             </div>
           )}
         </div>
+        </fieldset>
       </div>
     </Card>
   )
