@@ -33,6 +33,15 @@ export default function Login() {
         router.push('/2fa')
         return
       }
+      // Hidrata a sessão no store reativo ANTES de navegar. Sem isso, o guard do
+      // (app)/_layout lê a sessão ainda nula (o store não atualiza no mesmo tick
+      // do signIn) e rebota pro /login — só a 2ª tentativa entrava. Falha aqui
+      // não bloqueia: o próprio guard refaz o fetch.
+      try {
+        await authClient.getSession()
+      } catch {
+        // segue — o guard refaz o fetch da sessão
+      }
       router.replace('/dashboard')
     } catch {
       setErro('Falha de conexão. Verifique a rede e tente de novo.')

@@ -28,6 +28,13 @@ export default function TwoFactor() {
         setErro(error.message ?? 'Código inválido.')
         return
       }
+      // Hidrata a sessão no store antes de navegar (mesma race do login — sem isso
+      // o guard de (app) rebota pro /login na 1ª vez). Falha aqui não bloqueia.
+      try {
+        await authClient.getSession()
+      } catch {
+        // segue — o guard refaz o fetch da sessão
+      }
       router.replace('/dashboard')
     } catch {
       setErro('Falha de conexão. Tente de novo.')
