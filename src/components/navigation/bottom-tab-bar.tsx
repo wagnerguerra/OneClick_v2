@@ -1,7 +1,7 @@
 // Barra de navegação inferior (bottom tab bar) — navegação principal do app.
 //
-// Marca registrada da identidade nova: 4 destinos fixos no rodapé (Início,
-// Agenda, Helpdesk, Perfil). É renderizada nas telas autenticadas; o Drawer (☰)
+// Marca registrada da identidade nova: destinos fixos no rodapé (Início, Agenda,
+// Tarefas, Helpdesk, Perfil). É renderizada nas telas autenticadas; o Drawer (☰)
 // continua disponível como acesso secundário (todos os módulos).
 //
 // NÃO reestrutura o roteamento pra (tabs) — navega entre as rotas existentes via
@@ -33,7 +33,8 @@ type Tab = {
 
 const TABS: Tab[] = [
   { label: 'Início', icon: 'home', href: '/dashboard', match: ['/dashboard'], modulo: null },
-  { label: 'Agenda', icon: 'calendar', href: '/agenda', match: ['/agenda', '/tarefas'], modulo: 'agenda' },
+  { label: 'Agenda', icon: 'calendar', href: '/agenda', match: ['/agenda'], modulo: 'agenda' },
+  { label: 'Tarefas', icon: 'checkbox', href: '/tarefas', match: ['/tarefas'], modulo: 'agenda' },
   { label: 'Helpdesk', icon: 'chatbubbles', href: '/helpdesk', match: ['/helpdesk'], modulo: 'helpdesk' },
   { label: 'Perfil', icon: 'person', href: '/perfil', match: ['/perfil'], modulo: null },
 ]

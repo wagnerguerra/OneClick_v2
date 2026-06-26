@@ -38,6 +38,7 @@ import { trpc } from '@/lib/trpc'
 import { useSession } from '@/lib/auth-client'
 import { cn } from '@/lib/cn'
 import { resolveAssetUrl } from '@/lib/api-url'
+import { ImageViewerModal } from '@/components/image-viewer-modal'
 import { HELPDESK_STATUS_CLASSES } from '@/features/helpdesk/status-colors'
 
 import { Text } from '@/components/ui/text'
@@ -106,6 +107,8 @@ export default function HelpdeskTicketDetalheScreen() {
 
   // Texto do campo de resposta.
   const [resposta, setResposta] = useState('')
+  // URL da imagem aberta no visualizador in-app (null = fechado).
+  const [imagemUri, setImagemUri] = useState<string | null>(null)
 
   // Detalhe do ticket + thread da conversa.
   const ticketQuery = trpc.helpdesk.getById.useQuery({ id })
@@ -290,7 +293,7 @@ export default function HelpdeskTicketDetalheScreen() {
                           key={a.id}
                           accessibilityRole="imagebutton"
                           accessibilityLabel={a.fileName}
-                          onPress={() => abrirAnexo(a.fileUrl)}
+                          onPress={() => setImagemUri(url)}
                           className="active:opacity-70"
                         >
                           <Image
@@ -422,6 +425,9 @@ export default function HelpdeskTicketDetalheScreen() {
               Não foi possível enviar a mensagem.
             </Text>
           ) : null}
+
+          {/* Visualizador de imagem em tela cheia para os anexos (zoom/pan, in-app). */}
+          <ImageViewerModal uri={imagemUri} onClose={() => setImagemUri(null)} />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
