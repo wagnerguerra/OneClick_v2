@@ -47,21 +47,21 @@ export class AgendamentoService {
    * Status atual de um scheduler: config (cron, enabled), próxima execução,
    * qtd clientes ativos, última rodada.
    */
-  async getStatus(slug: SchedulerSlug) {
+  async getStatus(slug: SchedulerSlug, empresaId: string | null) {
     const meta = META[slug]
     if (!meta) throw new Error(`Scheduler desconhecido: ${slug}`)
 
     const cfg = await loadSchedulerConfig(slug)
     const proximaExecucao = cfg.enabled ? this.calcularProximaExecucao(cfg.cron) : null
 
-    // Conta clientes ativos pra esse scheduler
-    const where: any = { deletedAt: null }
+    // Conta clientes ativos pra esse scheduler — escopado por empresa (ISO-003)
+    const where: any = { deletedAt: null, empresaId: empresaId ?? null }
     where[meta.clienteEnabledField] = true
     const clientesAtivos = await prisma.cliente.count({ where })
 
-    // Última rodada (independente de cron/manual)
+    // Última rodada (independente de cron/manual) — só do tenant ativo
     const ultimaExecucao = await prisma.schedulerExecution.findFirst({
-      where: { scheduler: slug },
+      where: { scheduler: slug, empresaId: empresaId ?? null },
       orderBy: { iniciadoEm: 'desc' },
       select: {
         id: true,
@@ -76,11 +76,11 @@ export class AgendamentoService {
       },
     })
 
-    // Estatísticas dos últimos 30 dias
+    // Estatísticas dos últimos 30 dias — escopadas por empresa
     const desde30d = new Date(Date.now() - 30 * 86400_000)
     const stats30d = await prisma.schedulerExecution.groupBy({
       by: ['status'],
-      where: { scheduler: slug, iniciadoEm: { gte: desde30d } },
+      where: { scheduler: slug, empresaId: empresaId ?? null, iniciadoEm: { gte: desde30d } },
       _count: true,
     })
     const contagens = {
@@ -133,11 +133,12 @@ export class AgendamentoService {
    * Dispara sync MANUAL pra TODOS os clientes ativos do scheduler.
    * Marca *SyncRequestedAt = now() — o poll de 60s do scheduler consome.
    */
-  async dispararAgora(slug: SchedulerSlug) {
+  async dispararAgora(slug: SchedulerSlug, empresaId: string | null) {
     const meta = META[slug]
     if (!meta) throw new BadRequestException(`Scheduler desconhecido: ${slug}`)
 
-    const where: any = { deletedAt: null }
+    // Escopo por empresa (ISO-003) — antes marcava clientes de TODOS os tenants.
+    const where: any = { deletedAt: null, empresaId: empresaId ?? null }
     where[meta.clienteEnabledField] = true
 
     const r = await prisma.cliente.updateMany({
@@ -147,16 +148,17 @@ export class AgendamentoService {
     return { ok: true, totalMarcados: r.count }
   }
 
-  /** Lista as últimas execuções de um scheduler. */
+  /** Lista as últimas execuções de um scheduler (escopado por empresa). */
   async listExecucoes(opts: {
     scheduler: SchedulerSlug
+    empresaId: string | null
     limit?: number
     offset?: number
     statusFiltro?: 'OK' | 'ERRO' | 'PARCIAL' | 'RODANDO' | null
   }) {
     const limit = Math.min(opts.limit ?? 50, 100)
     const offset = opts.offset ?? 0
-    const where: any = { scheduler: opts.scheduler }
+    const where: any = { scheduler: opts.scheduler, empresaId: opts.empresaId ?? null }
     if (opts.statusFiltro) where.status = opts.statusFiltro
 
     const [items, total] = await Promise.all([
@@ -184,9 +186,10 @@ export class AgendamentoService {
     return { items, total, limit, offset }
   }
 
-  /** Detalhe de uma execução (inclui o array de detalhes por cliente). */
-  async getExecucao(id: string) {
-    return prisma.schedulerExecution.findUnique({ where: { id } })
+  /** Detalhe de uma execução (inclui o array de detalhes por cliente).
+   *  Escopado por empresa (ISO-003) — default-deny se for de outro tenant. */
+  async getExecucao(id: string, empresaId: string | null) {
+    return prisma.schedulerExecution.findFirst({ where: { id, empresaId: empresaId ?? null } })
   }
 
   // ============================================================
@@ -198,7 +201,7 @@ export class AgendamentoService {
    * Lê o registry estático em `scheduler-registry.ts` e enriquece cada item
    * com: cron atual, ativo, próxima execução, última execução (data + status).
    */
-  async listAll() {
+  async listAll(empresaId: string | null) {
     const { SCHEDULER_REGISTRY } = await import('./scheduler-registry')
 
     // ── Pré-carrega fontes que serão consultadas em batch ──
@@ -226,6 +229,7 @@ export class AgendamentoService {
           SELECT DISTINCT ON (scheduler) scheduler, iniciado_em, finalizado_em, status, total_clientes, sucesso, erros
           FROM scheduler_executions
           WHERE scheduler = ANY(${slugsExec})
+            AND empresa_id IS NOT DISTINCT FROM ${empresaId}
           ORDER BY scheduler, iniciado_em DESC
         `
       : []

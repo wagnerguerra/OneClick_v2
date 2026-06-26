@@ -133,6 +133,13 @@ export class NfseDistScheduler implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /** Empresa "home" (mais antiga) — alvo do cron automático (ISO-003).
+   *  Mesma resolução determinística usada por cnd/caixapostal e pelos backfills. */
+  private async resolverHomeEmpresaId(): Promise<string | null> {
+    const emp = await prisma.empresa.findFirst({ orderBy: { createdAt: 'asc' }, select: { id: true } })
+    return emp?.id ?? null
+  }
+
   /**
    * Execução diária: itera todos os clientes habilitados e dispara o service.
    */
@@ -147,7 +154,9 @@ export class NfseDistScheduler implements OnModuleInit, OnModuleDestroy {
     const inicio = Date.now()
     console.log('[NfseDistScheduler] Sync diário INICIADO.')
 
-    const execId = await iniciarExecucao('nfse-dist', 'CRON').catch(() => null)
+    // Escopo multi-tenant (ISO-003): o cron do servidor processa a empresa "home".
+    const empresaIdHome = await this.resolverHomeEmpresaId()
+    const execId = await iniciarExecucao('nfse-dist', 'CRON', empresaIdHome).catch(() => null)
     const detalhes: ExecucaoClienteDetalhe[] = []
     let sucesso = 0
     let falha = 0
@@ -159,6 +168,7 @@ export class NfseDistScheduler implements OnModuleInit, OnModuleDestroy {
           // @ts-ignore — coluna `nfseDistEnabled` será adicionada no schema Prisma em paralelo.
           nfseDistEnabled: true,
           deletedAt: null,
+          empresaId: empresaIdHome, // default-deny: null → IS NULL, nunca "todos"
         },
         select: { id: true, razaoSocial: true },
       })
@@ -216,11 +226,14 @@ export class NfseDistScheduler implements OnModuleInit, OnModuleDestroy {
     let totalClientes = 0
 
     try {
+      // Escopo multi-tenant (ISO-003): processa apenas a empresa "home".
+      const empresaIdHome = await this.resolverHomeEmpresaId()
       const clientes = await prisma.cliente.findMany({
         where: {
           // @ts-ignore — campos serão adicionados no schema Prisma em paralelo.
           nfseDistSyncRequestedAt: { not: null },
           deletedAt: null,
+          empresaId: empresaIdHome, // default-deny: null → IS NULL, nunca "todos"
         },
         select: { id: true, razaoSocial: true },
       })
@@ -230,7 +243,7 @@ export class NfseDistScheduler implements OnModuleInit, OnModuleDestroy {
         return
       }
       totalClientes = clientes.length
-      execId = await iniciarExecucao('nfse-dist', 'MANUAL').catch(() => null)
+      execId = await iniciarExecucao('nfse-dist', 'MANUAL', empresaIdHome).catch(() => null)
 
       console.log(
         `[NfseDistScheduler] ${clientes.length} sync request(s) manual(is) pendente(s).`,

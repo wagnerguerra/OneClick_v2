@@ -6080,9 +6080,14 @@ model SchedulerExecution {
   /// Mensagem agregada quando status='ERRO' (ex: falha de conectividade global)
   erroGeral String? @map("erro_geral") @db.Text
 
+  /// Empresa (tenant) dona da execução — escopo multi-tenant (ISO-003).
+  /// NULL = execução de plataforma (ex.: google-backup) ou legado pré-escopo.
+  empresaId String? @map("empresa_id")
+
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([scheduler, iniciadoEm(sort: Desc)])
+  @@index([scheduler, empresaId, iniciadoEm(sort: Desc)])
   @@index([status])
   @@map("scheduler_executions")
 }
