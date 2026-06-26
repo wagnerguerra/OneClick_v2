@@ -134,7 +134,14 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
   const [chatAsCliente, setChatAsCliente] = useState(false)
 
   // Capa do header — config global do modulo. Apenas Master pode editar.
-  const { isMaster } = useUserPermissions()
+  const { isMaster, permissions } = useUserPermissions()
+  // Sub-permissão 'edit_details' (módulo cliente) governa a edição dos Detalhes:
+  // sem ela, o botão Salvar some e os campos da aba Detalhes ficam read-only.
+  const canEditDetails = useMemo(() => {
+    if (isMaster) return true
+    const sub = (permissions.find(p => p.moduleSlug === 'cliente')?.subPermissions ?? {}) as Record<string, boolean>
+    return sub.edit_details === true
+  }, [isMaster, permissions])
   const [headerCover, setHeaderCover] = useState<string>('')
   const [uploadingCover, setUploadingCover] = useState(false)
   const coverInputRef = useRef<HTMLInputElement>(null)
@@ -502,7 +509,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <Button variant="success" size="icon-sm" type="submit" disabled={saving} title="Salvar"><Save className="h-4 w-4" /></Button>
+              {canEditDetails && <Button variant="success" size="icon-sm" type="submit" disabled={saving} title="Salvar"><Save className="h-4 w-4" /></Button>}
               <BackButton href="/clientes" />
             </div>
           </div>
@@ -561,7 +568,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <Button variant="success" size="sm" type="submit" disabled={saving}><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>
+              {canEditDetails && <Button variant="success" size="sm" type="submit" disabled={saving}><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>}
               <BackButton href="/clientes" label="Voltar" />
             </div>
           </div>
@@ -588,7 +595,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   watchedValues={watchedValues} tipoDocumento={tipoDocumento}
                   buscarCnpj={buscarCnpj} buscarCep={buscarCep}
                   consultarCartaoCnpj={consultarCartaoCnpj} cnpjCard={cnpjCard} cnpjCardLoading={cnpjCardLoading} setCnpjCard={setCnpjCard}
-                  opcoesOrigem={opcoesOrigem}
+                  opcoesOrigem={opcoesOrigem} canEdit={canEditDetails}
                 />
               </TabsContent>
 
@@ -755,7 +762,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
 /* ================================================================== */
 /* DetalhesCard — pills laterais (padrão igual ComercialCard)         */
 /* ================================================================== */
-function DetalhesCard({ register, control, watch, errors, setValue, clienteId, watchedValues, tipoDocumento, buscarCnpj, buscarCep, consultarCartaoCnpj, cnpjCard, cnpjCardLoading, setCnpjCard, opcoesOrigem }: {
+function DetalhesCard({ register, control, watch, errors, setValue, clienteId, watchedValues, tipoDocumento, buscarCnpj, buscarCep, consultarCartaoCnpj, cnpjCard, cnpjCardLoading, setCnpjCard, opcoesOrigem, canEdit }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
@@ -771,6 +778,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   cnpjCardLoading: boolean
   setCnpjCard: (v: CnpjCardData | null) => void
   opcoesOrigem: Array<{ id: string; valor: string }>
+  canEdit: boolean
 }) {
   const [activeTab, setActiveTab] = useState('dados')
 
@@ -817,7 +825,8 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
           </div>
         </div>
 
-        {/* Conteúdo */}
+        {/* Conteúdo — fieldset desabilita TODOS os campos quando sem permissão 'edit_details' */}
+        <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0">
         <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
 
           {/* ---- SUB-TAB: DADOS GERAIS (tela única — igual ao v1) ---- */}
@@ -1118,6 +1127,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
             </div>
           )}
         </div>
+        </fieldset>
       </div>
 
       {/* Modal Cartão CNPJ — Réplica fiel do SERPRO2 */}
