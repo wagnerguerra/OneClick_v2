@@ -83,8 +83,8 @@ export function BottomTabBar() {
             >
               <Ionicons name={tab.icon} size={22} color={ativo ? corAtiva : corMuted} />
               {count > 0 ? (
-                <View className="absolute right-1 top-0 h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1">
-                  <Text className="text-[9px] font-bold leading-none text-primary-foreground">
+                <View className="absolute right-1 top-0 h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1">
+                  <Text className="text-[9px] font-bold leading-none text-white">
                     {count > 99 ? '99+' : count}
                   </Text>
                 </View>
