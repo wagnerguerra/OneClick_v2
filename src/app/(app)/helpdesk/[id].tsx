@@ -21,6 +21,8 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import { Image } from 'expo-image'
+import * as WebBrowser from 'expo-web-browser'
 
 import {
   HELPDESK_STATUS,
@@ -35,6 +37,7 @@ import {
 import { trpc } from '@/lib/trpc'
 import { useSession } from '@/lib/auth-client'
 import { cn } from '@/lib/cn'
+import { resolveAssetUrl } from '@/lib/api-url'
 import { HELPDESK_STATUS_CLASSES } from '@/features/helpdesk/status-colors'
 
 import { Text } from '@/components/ui/text'
@@ -73,6 +76,23 @@ function formatHora(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
+/**
+ * Extrai a rota de origem que o balão "Fale com a TI" embute na descrição
+ * (`📍 Página: <code>/rota</code>`). Retorna a rota ou null.
+ */
+function extrairOrigem(html: string | null | undefined): string | null {
+  if (!html) return null
+  const m = html.match(/📍\s*P[áa]gina:\s*<code>(.*?)<\/code>/i)
+  const rota = m?.[1]?.trim()
+  return rota && rota.length > 0 ? rota : null
+}
+
+/** Remove o bloco "📍 Página" da descrição — já exibido em "Origem", evita duplicar. */
+function removerBlocoOrigem(html: string | null | undefined): string {
+  if (!html) return ''
+  return html.replace(/<hr\s*\/?>(?:\s|&nbsp;)*<p>\s*<small>\s*📍[\s\S]*?<\/small>\s*<\/p>/i, '')
 }
 
 export default function HelpdeskTicketDetalheScreen() {
@@ -145,7 +165,32 @@ export default function HelpdeskTicketDetalheScreen() {
     addMensagem.mutate({ ticketId: id, conteudo: respostaLimpa })
   }
 
-  const descricaoTexto = htmlParaTexto(ticket.descricao)
+  // Abre um anexo no navegador (resolve a URL relativa/dev antes).
+  async function abrirAnexo(fileUrl: string) {
+    const url = resolveAssetUrl(fileUrl)
+    if (!url) return
+    try {
+      await WebBrowser.openBrowserAsync(url)
+    } catch {
+      // silencioso — sem navegador disponível
+    }
+  }
+
+  // Descrição sem o bloco "📍 Página" (exibido à parte em "Origem").
+  const descricaoTexto = htmlParaTexto(removerBlocoOrigem(ticket.descricao))
+
+  // Solicitante (interno ou externo) — quem abriu o chamado.
+  const solicitante = ticket.solicitante as { name?: string | null; email?: string | null } | null
+  const solicitanteNome = solicitante?.name ?? ticket.solicitanteExternoNome ?? null
+  const solicitanteEmail = solicitante?.email ?? ticket.solicitanteExternoEmail ?? null
+
+  // Origem: rota embutida pelo balão + flag da tag fab-feedback.
+  const origemRota = extrairOrigem(ticket.descricao)
+  const viaBalao = Array.isArray(ticket.tags) && ticket.tags.includes('fab-feedback')
+
+  // Anexos do ticket (nível do chamado — mensagemId null). Shape raso evita TS2589.
+  type AnexoView = { id: string; fileName: string; fileUrl: string; mimeType: string | null }
+  const anexos = (ticket.anexos ?? []) as AnexoView[]
 
   // Linha de metadados (prioridade · tipo · categoria) — campos opcionais.
   const metaPartes: string[] = [
@@ -188,6 +233,38 @@ export default function HelpdeskTicketDetalheScreen() {
               <Text className="text-sm text-muted-foreground">{metaPartes.join(' · ')}</Text>
             </View>
 
+            {/* Solicitante + origem (de qual módulo o chamado foi aberto). */}
+            {solicitanteNome || origemRota ? (
+              <Card>
+                <CardContent className="p-4 gap-2.5">
+                  {solicitanteNome ? (
+                    <View className="flex-row items-start gap-3">
+                      <Text className="w-20 text-xs text-muted-foreground">Solicitante</Text>
+                      <View className="flex-1">
+                        <Text className="text-sm font-medium text-foreground">{solicitanteNome}</Text>
+                        {solicitanteEmail ? (
+                          <Text className="text-xs text-muted-foreground">{solicitanteEmail}</Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  ) : null}
+                  {origemRota ? (
+                    <View className="flex-row items-start gap-3">
+                      <Text className="w-20 text-xs text-muted-foreground">Origem</Text>
+                      <View className="flex-1">
+                        <Text className="text-sm text-foreground">{origemRota}</Text>
+                        {viaBalao ? (
+                          <Text className="text-xs text-muted-foreground">
+                            via balão “Fale com a TI”
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  ) : null}
+                </CardContent>
+              </Card>
+            ) : null}
+
             {/* Descrição inicial. */}
             {descricaoTexto.length > 0 ? (
               <Card>
@@ -195,6 +272,53 @@ export default function HelpdeskTicketDetalheScreen() {
                   <Text className="text-sm text-foreground">{descricaoTexto}</Text>
                 </CardContent>
               </Card>
+            ) : null}
+
+            {/* Anexos do chamado: imagens em miniatura, demais como arquivo. Toque abre no navegador. */}
+            {anexos.length > 0 ? (
+              <View className="gap-2">
+                <Text className="text-[13px] font-semibold text-foreground">
+                  Anexos ({anexos.length})
+                </Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {anexos.map((a) => {
+                    const url = resolveAssetUrl(a.fileUrl)
+                    const isImagem = (a.mimeType ?? '').startsWith('image/')
+                    if (isImagem && url) {
+                      return (
+                        <Pressable
+                          key={a.id}
+                          accessibilityRole="imagebutton"
+                          accessibilityLabel={a.fileName}
+                          onPress={() => abrirAnexo(a.fileUrl)}
+                          className="active:opacity-70"
+                        >
+                          <Image
+                            source={{ uri: url }}
+                            style={{ width: 96, height: 96, borderRadius: 8 }}
+                            contentFit="cover"
+                            transition={150}
+                          />
+                        </Pressable>
+                      )
+                    }
+                    return (
+                      <Pressable
+                        key={a.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={a.fileName}
+                        onPress={() => abrirAnexo(a.fileUrl)}
+                        className="flex-row items-center gap-2 rounded-md border border-border bg-card px-3 py-2 active:opacity-70"
+                      >
+                        <Text className="text-base">📎</Text>
+                        <Text className="max-w-[200px] text-sm text-foreground" numberOfLines={1}>
+                          {a.fileName}
+                        </Text>
+                      </Pressable>
+                    )
+                  })}
+                </View>
+              </View>
             ) : null}
 
             {/* Troca de status — chips. Tocar atualiza e invalida o detalhe. */}
