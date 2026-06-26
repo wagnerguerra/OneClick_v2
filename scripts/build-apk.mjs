@@ -52,20 +52,26 @@ console.log(`\n▶ Gerando ${apkName} (${args.has('--universal') ? 'universal' :
 // 2. (Opcional) Regenera o nativo — necessário após mudar deps/config/SDK.
 if (args.has('--prebuild')) {
   console.log('▶ expo prebuild --clean -p android...')
-  spawnSync(isWin ? 'npx.cmd' : 'npx', ['expo', 'prebuild', '--clean', '-p', 'android'], {
+  const pre = spawnSync(isWin ? 'npx.cmd' : 'npx', ['expo', 'prebuild', '--clean', '-p', 'android'], {
     cwd: root, stdio: 'inherit', shell: isWin,
   })
+  if (pre.status !== 0) {
+    console.error(`\n✖ prebuild falhou (código ${pre.status}). Cheque se há Gradle daemon/Android Studio segurando android/ (rode \`gradlew --stop\` ou mate os GradleDaemon).`)
+    process.exit(pre.status ?? 1)
+  }
 }
 
 // 3. Build do APK assinado (release). arm64 por padrão; --universal inclui todas as ABIs.
 const env = {
   EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL ?? 'https://app.oneclick.central-rnc.com.br',
 }
-const gradleArgs = [':app:assembleRelease', '--console=plain']
+// --no-daemon: evita deixar um Gradle daemon vivo segurando locks em android/build
+// (que quebravam o `prebuild --clean` da próxima vez).
+const gradleArgs = [':app:assembleRelease', '--console=plain', '--no-daemon']
 if (!args.has('--universal')) {
   gradleArgs.push('-PreactNativeArchitectures=arm64-v8a', '-PdistAbi=arm64-v8a')
 }
-run(isWin ? 'gradlew.bat' : './gradlew', gradleArgs, env)
+run(isWin ? path.join(androidDir, 'gradlew.bat') : './gradlew', gradleArgs, env)
 
 // 4. Copia o artefato pra mobile-dist com o nome versionado.
 const built = path.join(androidDir, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk')
