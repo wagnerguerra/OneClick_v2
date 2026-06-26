@@ -70,34 +70,9 @@ export class DteService {
 
   // ── Tabela ────────────────────────────────────────────────
   private async ensureTable() {
+    // Schema garantido por migração manual_2026_06_26_cnd_dte_tables.sql (R2-002).
+    // Sem DDL no caminho de request — os métodos apenas LEEM.
     if (this.tableChecked) return
-    try {
-      const exists = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
-        `SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'dte_mensagens')`,
-      )
-      if (exists[0]?.exists) { this.tableChecked = true; return }
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS dte_mensagens (
-          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-          cliente_id TEXT,
-          documento TEXT NOT NULL,
-          razao_social TEXT,
-          tipo TEXT,
-          titulo TEXT,
-          data_mensagem TEXT,
-          status TEXT DEFAULT 'nao_lida',
-          observacao TEXT,
-          hash TEXT,
-          synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-      `)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_dte_msg_doc ON dte_mensagens (documento)`)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_dte_msg_cli ON dte_mensagens (cliente_id)`)
-      await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS idx_dte_msg_hash ON dte_mensagens (hash)`)
-    } catch (e) {
-      if (!(e as Error).message?.includes('already exists')) throw e
-    }
     this.tableChecked = true
   }
 

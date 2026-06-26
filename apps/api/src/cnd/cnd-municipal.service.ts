@@ -45,38 +45,11 @@ export class CndMunicipalService {
   }
 
   private async ensureTable() {
+    // Schema (tabela + colunas debitos/pdf_base64/data_validade + índices) garantido
+    // pela migração manual_2026_06_26_cnd_dte_tables.sql (R2-002). Sem DDL no caminho
+    // de request — antes o CREATE/ALTER aqui rodava em totalizadores/validadeDashboard
+    // (read), com race de pg_type sob concorrência. Os métodos apenas LEEM agora.
     if (this.tableChecked) return
-    try {
-      const exists = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
-        `SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'certidoes_cnd_municipal')`,
-      )
-      if (!exists[0]?.exists) {
-        await prisma.$executeRawUnsafe(`
-          CREATE TABLE IF NOT EXISTS certidoes_cnd_municipal (
-            id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-            documento TEXT NOT NULL,
-            razao_social TEXT,
-            municipio TEXT NOT NULL,
-            sucesso BOOLEAN NOT NULL DEFAULT false,
-            tipo_certidao TEXT,
-            mensagem TEXT,
-            conteudo_html TEXT,
-            data_validade DATE,
-            cliente_id TEXT,
-            user_id TEXT,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-          )
-        `)
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_mun_doc ON certidoes_cnd_municipal (documento)`)
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_mun_mun ON certidoes_cnd_municipal (municipio)`)
-      }
-      // Tabelas legadas foram criadas sem `data_validade` (a coluna só era adicionada
-      // de forma preguiçosa no INSERT). Garante a coluna sempre — idempotente — para que
-      // totalizadores/validadeDashboard não quebrem com 42703 (column does not exist).
-      await prisma.$executeRawUnsafe(`ALTER TABLE certidoes_cnd_municipal ADD COLUMN IF NOT EXISTS data_validade DATE`)
-    } catch (e) {
-      if (!(e as Error).message?.includes('already exists')) throw e
-    }
     this.tableChecked = true
   }
 
@@ -274,10 +247,7 @@ export class CndMunicipalService {
       if (cli) { razaoSocial = cli.razaoSocial; resolvedClienteId = cli.id }
     }
 
-    // Adicionar colunas extras se não existirem
-    await prisma.$executeRawUnsafe(`ALTER TABLE certidoes_cnd_municipal ADD COLUMN IF NOT EXISTS debitos JSONB DEFAULT '[]'`).catch(() => {})
-    await prisma.$executeRawUnsafe(`ALTER TABLE certidoes_cnd_municipal ADD COLUMN IF NOT EXISTS pdf_base64 TEXT`).catch(() => {})
-    await prisma.$executeRawUnsafe(`ALTER TABLE certidoes_cnd_municipal ADD COLUMN IF NOT EXISTS data_validade DATE`).catch(() => {})
+    // Colunas debitos/pdf_base64/data_validade garantidas pela migração — sem DDL aqui.
 
     // Extrair validade do PDF
     const dataValidade = pdfBase64 ? await this.extrairValidadePdf(pdfBase64) : null
@@ -542,10 +512,7 @@ export class CndMunicipalService {
         if (cli) { razaoSocial = cli.razaoSocial; resolvedClienteId = cli.id }
       }
 
-      // Salvar
-      await prisma.$executeRawUnsafe(`ALTER TABLE certidoes_cnd_municipal ADD COLUMN IF NOT EXISTS debitos JSONB DEFAULT '[]'`).catch(() => {})
-      await prisma.$executeRawUnsafe(`ALTER TABLE certidoes_cnd_municipal ADD COLUMN IF NOT EXISTS pdf_base64 TEXT`).catch(() => {})
-      await prisma.$executeRawUnsafe(`ALTER TABLE certidoes_cnd_municipal ADD COLUMN IF NOT EXISTS data_validade DATE`).catch(() => {})
+      // Salvar (colunas debitos/pdf_base64/data_validade garantidas pela migração)
 
       // Extrair validade do PDF
       const dataValidade = pdfBase64 ? await this.extrairValidadePdf(pdfBase64) : null

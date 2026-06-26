@@ -207,44 +207,9 @@ export class CndService {
 
   private tableChecked = false
   async ensureTable() {
+    // Schema garantido por migração manual_2026_06_26_cnd_dte_tables.sql (R2-002).
+    // Sem DDL no caminho de request — os métodos apenas LEEM.
     if (this.tableChecked) return
-    try {
-      const exists = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
-        `SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'certidoes_cnd')`,
-      )
-      if (exists[0]?.exists) { this.tableChecked = true; return }
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS certidoes_cnd (
-          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-          documento TEXT NOT NULL,
-          tipo_documento INT NOT NULL DEFAULT 2,
-          razao_social TEXT,
-          etapa TEXT NOT NULL DEFAULT 'pendente',
-          tipo_certidao TEXT,
-          codigo_controle TEXT,
-          data_emissao TIMESTAMPTZ,
-          data_validade TIMESTAMPTZ,
-          pdf_base64 TEXT,
-          status_api INT,
-          mensagem_api TEXT,
-          resposta_completa JSONB,
-          sucesso BOOLEAN NOT NULL DEFAULT false,
-          erro TEXT,
-          cliente_id TEXT,
-          empresa_id TEXT,
-          user_id TEXT,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          deleted_at TIMESTAMPTZ
-        )
-      `)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_documento ON certidoes_cnd (documento)`)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_cliente_id ON certidoes_cnd (cliente_id)`)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_created ON certidoes_cnd (created_at DESC)`)
-    } catch (e) {
-      // Tabela/tipo já existe — ignorar erro de conflito
-      if (!(e as Error).message?.includes('already exists')) throw e
-    }
     this.tableChecked = true
   }
 
@@ -378,31 +343,9 @@ export class CndService {
 
   private execLogTableChecked = false
   private async ensureExecLogTable() {
+    // Schema (cnd_exec_log) garantido por migração manual_2026_06_26_cnd_dte_tables.sql
+    // (R2-002). Sem DDL no caminho de request.
     if (this.execLogTableChecked) return
-    try {
-      const exists = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
-        `SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'cnd_exec_log')`,
-      )
-      if (exists[0]?.exists) { this.execLogTableChecked = true; return }
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS cnd_exec_log (
-          id TEXT PRIMARY KEY,
-          tipo TEXT NOT NULL DEFAULT 'manual',
-          iniciado_por TEXT,
-          nome_usuario TEXT,
-          iniciado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          finalizado_em TIMESTAMPTZ,
-          total INT NOT NULL DEFAULT 0,
-          sucesso INT NOT NULL DEFAULT 0,
-          falhas INT NOT NULL DEFAULT 0,
-          status TEXT NOT NULL DEFAULT 'running',
-          itens JSONB NOT NULL DEFAULT '[]'::jsonb,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-      `)
-    } catch (e) {
-      if (!(e as Error).message?.includes('already exists')) throw e
-    }
     this.execLogTableChecked = true
   }
 
