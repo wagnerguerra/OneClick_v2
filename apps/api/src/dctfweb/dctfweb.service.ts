@@ -97,101 +97,15 @@ const NIVEL_ALERTA_LABELS: Record<string, string> = {
 export class DctfwebService {
   constructor(@Inject(SitfisService) private readonly sitfisService: SitfisService) {}
 
-  // ── Tabela (criacao automatica) ───────────────────────
-
-  private tableChecked = false
-  private columnsChecked = false
-  async ensureTable() {
-    if (this.tableChecked && this.columnsChecked) return
-    const exists = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
-      `SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'obrigacoes_dctfweb')`,
-    )
-    if (exists[0]?.exists && !this.columnsChecked) {
-      // Tabela existe, verificar se precisa de migration de colunas
-      await this.ensureColumns()
-      this.tableChecked = true
-      this.columnsChecked = true
-      return
-    }
-    if (exists[0]?.exists) { this.tableChecked = true; return }
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS obrigacoes_dctfweb (
-        id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-        cliente_id TEXT,
-        documento TEXT NOT NULL,
-        razao_social TEXT,
-        competencia TEXT NOT NULL,
-
-        esocial_fechado BOOLEAN DEFAULT false,
-        reinf_fechado BOOLEAN DEFAULT false,
-
-        status_dctfweb TEXT,
-        valor_debito_api DECIMAL(14,2),
-        situacao_fiscal TEXT,
-        id_apuracao INT,
-        texto_situacao TEXT,
-
-        status_processo TEXT DEFAULT 'aguardando_fechamento',
-        divergente BOOLEAN DEFAULT false,
-
-        darf_emitido BOOLEAN DEFAULT false,
-        darf_pago BOOLEAN DEFAULT false,
-        valor_darf DECIMAL(14,2),
-
-        data_consulta_api TIMESTAMPTZ,
-        data_transmissao TIMESTAMPTZ,
-        data_pagamento TIMESTAMPTZ,
-        data_encerramento TEXT,
-
-        nivel_alerta TEXT DEFAULT 'verde',
-        resposta_api JSONB,
-
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_dctf_doc ON obrigacoes_dctfweb (documento)`)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_dctf_comp ON obrigacoes_dctfweb (competencia)`)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_dctf_cliente ON obrigacoes_dctfweb (cliente_id)`)
-    // Log table
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS log_dctfweb (
-        id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-        cliente_id TEXT,
-        documento TEXT,
-        competencia TEXT,
-        acao TEXT,
-        detalhe TEXT,
-        user_id TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `)
-    await this.ensureColumns()
-    this.tableChecked = true
-    this.columnsChecked = true
-  }
-
-  private async ensureColumns() {
-    const colsToAdd = [
-      { name: 'data_ultima_entrega', def: 'TIMESTAMPTZ' },
-      { name: 'data_ultimo_fechamento_esocial', def: 'TIMESTAMPTZ' },
-      { name: 'data_ultimo_fechamento_reinf', def: 'TIMESTAMPTZ' },
-      { name: 'data_ultima_atualizacao_mit', def: 'TIMESTAMPTZ' },
-      { name: 'retificadora_pendente', def: 'BOOLEAN DEFAULT false' },
-      { name: 'motivo_retificadora', def: 'TEXT' },
-      { name: 'status_pos_entrega', def: "TEXT DEFAULT 'sem_alteracao'" },
-      { name: 'data_vencimento', def: 'DATE' },
-    ]
-    const existingCols = await prisma.$queryRawUnsafe<Array<{ column_name: string }>>(
-      `SELECT column_name FROM information_schema.columns WHERE table_name = 'obrigacoes_dctfweb'`,
-    )
-    const existingSet = new Set(existingCols.map(c => c.column_name))
-    for (const col of colsToAdd) {
-      if (!existingSet.has(col.name)) {
-        await prisma.$executeRawUnsafe(`ALTER TABLE obrigacoes_dctfweb ADD COLUMN ${col.name} ${col.def}`).catch(() => {})
-      }
-    }
-  }
+  // ── Tabela ────────────────────────────────────────────
+  //
+  // O schema (tabelas obrigacoes_dctfweb / log_dctfweb + colunas + índices) vive
+  // na migração idempotente `packages/db/migrations/manual_2026_06_26_dctfweb.sql`,
+  // aplicada no deploy. NÃO rode DDL no caminho de request (R2-002): sob
+  // concorrência o CREATE TABLE corria e o row-type implícito colidia em pg_type
+  // (23505), derrubando totalizadores com HTTP 500. Mantido como no-op para não
+  // alterar os call sites; os métodos apenas LEEM agora.
+  async ensureTable() { /* schema garantido por migração — ver comentário acima */ }
 
   // ── Consulta API SERPRO — Listar Apuracoes ───────────
 
