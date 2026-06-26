@@ -10,7 +10,15 @@
 
 ## 🚨 GATE OBRIGATÓRIO ANTES DE ENTREGAR
 
-Toda entrega que toca código de `apps/api/` precisa passar nestes três checks, **NESTA ORDEM**, antes de o assistente reportar "concluído":
+Toda entrega que toca código de `apps/api/` precisa passar nestes checks, **NESTA ORDEM**, antes de o assistente reportar "concluído":
+
+0. **Testes unitários verdes (TDD)** — infra de testes adicionada em 2026-06-26 (Jest em `apps/api`, Vitest+RTL em `apps/web`). Código novo entra com specs escritos antes (red→green→refactor). Rodar do workspace tocado ou da raiz:
+   ```
+   pnpm test                 # raiz: turbo roda api (jest) + web (vitest)
+   pnpm --filter @saas/api test
+   pnpm --filter @saas/web test
+   ```
+   Specs `*.spec.ts` (api) / `*.{test,spec}.{ts,tsx}` (web) ao lado do código. Bloqueante: nenhum teste falhando.
 
 1. **Typecheck filtrado** dos arquivos tocados:
    ```

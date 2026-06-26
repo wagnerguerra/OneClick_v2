@@ -25,6 +25,9 @@ const TENANT_TABLES = [
   'socio_arquivos',
   'socio_mensagens',
   'socio_events',
+  // Ferramentas (integração webapp). tool_jobs antes de tool_job_eventos.
+  'tool_jobs',
+  'tool_job_eventos',
 ]
 
 /**

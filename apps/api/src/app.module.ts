@@ -3,6 +3,7 @@ import { LoggerModule } from 'nestjs-pino'
 import { AuthModule } from './auth/auth.module'
 import { TenantMiddleware } from './tenant/tenant.middleware'
 import { TrpcModule } from './trpc/trpc.module'
+import { FerramentasModule } from './ferramentas/ferramentas.module'
 import { UploadModule } from './upload/upload.module'
 import { StripeModule } from './stripe/stripe.module'
 import { ColaboradorModule } from './colaborador/colaborador.module'
@@ -41,6 +42,7 @@ import { ChatModule } from './chat/chat.module'
     }),
     AuthModule,
     TrpcModule,
+    FerramentasModule,
     UploadModule,
     StripeModule,
     ColaboradorModule,

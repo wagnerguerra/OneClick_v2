@@ -1,4 +1,5 @@
 export * from './pagination'
+export * from './ferramentas'
 export * from './auth'
 export * from './area'
 export * from './empresa'

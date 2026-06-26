@@ -17,6 +17,7 @@ import {
   Boxes,
   Target,
   Shield,
+  Wrench,
   Award,
   FileText,
   HelpCircle,
@@ -66,6 +67,13 @@ import {
   Calculator,
   BookOpen,
   FileSpreadsheet,
+  FileCode,
+  Files,
+  Scale as ScaleIcon,
+  ArrowLeftRight,
+  Receipt as ReceiptIcon,
+  GitMerge,
+  FileSearch,
   Monitor,
   MailWarning,
   Star,
@@ -192,6 +200,21 @@ export const navigation: NavGroup[] = [
       { label: 'DCTFWeb', href: '/dctfweb', icon: ListChecks },
       { label: 'Obrigações e Serviços', href: '/obrigacoes-servicos', icon: Receipt },
       { label: 'Situação Fiscal', href: '/situacao-fiscal', icon: CircleUser },
+      {
+        label: 'Ferramentas',
+        href: '/ferramentas/fiscal',
+        icon: Wrench,
+        subItems: [
+          { label: 'SPED → XLSX', href: '/ferramentas/fiscal/sped', icon: FileSpreadsheet },
+          { label: 'XLSX → SPED (merge)', href: '/ferramentas/fiscal/sped-merge', icon: GitMerge },
+          { label: 'NFe XML → XLSX', href: '/ferramentas/fiscal/nfe', icon: FileCode },
+          { label: 'Consolidado SCI', href: '/ferramentas/fiscal/sci-consolidado', icon: Files },
+          { label: 'Comparador SEFAZ × SCI', href: '/ferramentas/fiscal/comparacao-planilhas', icon: ScaleIcon },
+          { label: 'Comparador NFS-e (OCR)', href: '/ferramentas/fiscal/comparacao-nfse', icon: FileSearch },
+          { label: 'Conciliador NFS-e', href: '/ferramentas/fiscal/sci-portal-nacional', icon: ArrowLeftRight },
+          { label: 'NFS-e → PDF (DANFSe)', href: '/ferramentas/fiscal/nfse-pdf', icon: FileText },
+        ],
+      },
     ],
   },
   {
@@ -200,6 +223,15 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Categorias de Balancete', href: '/bi-categorias-balancete', icon: FolderKanban },
       { label: 'Dashboard Financeiro', href: '/bi-faturamento', icon: BarChart2 },
+      {
+        label: 'Ferramentas',
+        href: '/ferramentas/contabil',
+        icon: Wrench,
+        subItems: [
+          { label: 'Extrator GNRE', href: '/ferramentas/contabil/gnre', icon: ReceiptIcon },
+          { label: 'Editor de Extrato', href: '/ferramentas/contabil/extrato-edit', icon: FileSpreadsheet },
+        ],
+      },
     ],
   },
   {
@@ -259,11 +291,16 @@ export const navigation: NavGroup[] = [
 ]
 
 // Mapa slug → ícone (para uso nas permissões)
-export const MODULE_ICONS: Record<string, LucideIcon> = Object.fromEntries(
-  navigation.flatMap((group) =>
-    group.items.map((item) => [item.href.replace('/', ''), item.icon])
+export const MODULE_ICONS: Record<string, LucideIcon> = {
+  ...Object.fromEntries(
+    navigation.flatMap((group) =>
+      group.items.map((item) => [item.href.replace('/', ''), item.icon])
+    ),
   ),
-)
+  // Slugs umbrella das ferramentas — não derivam do href do item de menu.
+  'ferramentas-fiscal': Wrench,
+  'ferramentas-contabil': Wrench,
+}
 
 // Ícones dos grupos
 export const GROUP_ICONS: Record<string, LucideIcon> = Object.fromEntries(
