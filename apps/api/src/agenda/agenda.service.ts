@@ -1,4 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common'
+import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 import type { Prisma } from '@saas/db'
 import { EmailService } from '../common/email.service'
@@ -424,9 +425,10 @@ export class AgendaService {
   // TIPOS (Categorias)
   // ============================================================
 
-  async listTipos() {
+  async listTipos(ctxEmpresaId: string | null = null) {
     return prisma.agendaTipo.findMany({
-      where: { isActive: true },
+      // Catálogo global (empresa NULL) + os tipos do tenant atual. F-013.
+      where: { isActive: true, OR: [{ empresaId: null }, { empresaId: ctxEmpresaId }] },
       orderBy: { nome: 'asc' },
     })
   }
@@ -444,9 +446,10 @@ export class AgendaService {
     }
   }
 
-  async createTipo(data: { nome: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }, userId?: string) {
+  async createTipo(data: { nome: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }, userId?: string, ctxEmpresaId: string | null = null) {
     const tipo = await prisma.agendaTipo.create({
       data: {
+        empresaId: ctxEmpresaId,  // tipo criado é DO tenant (não global). F-013.
         nome: data.nome,
         cor: data.cor ?? '#3b82f6',
         corBorda: data.corBorda ?? '#2563eb',
@@ -705,7 +708,22 @@ export class AgendaService {
     return { anotacoes: anotacoes.length, anexos: anexos.length }
   }
 
-  async listAnotacoes(eventoId: string) {
+  /**
+   * Garante que o evento é do tenant do requisitante (não-master). Usado pelos
+   * sub-recursos por-eventoId (anotações/anexos/logs) — sem isto, um id de outro
+   * tenant exporia o conteúdo. isMaster=true (default) PULA a checagem: usado por
+   * chamadas INTERNAS sobre eventos já validados (ex.: getById). F-013.
+   */
+  private async assertEventoTenant(eventoId: string, isMaster: boolean, empresaId: string | null) {
+    if (isMaster) return
+    const ev = await prisma.agendaEvento.findUnique({ where: { id: eventoId }, select: { empresaId: true } })
+    if (!ev || ev.empresaId !== empresaId) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Evento fora do seu acesso.' })
+    }
+  }
+
+  async listAnotacoes(eventoId: string, isMaster = true, empresaId: string | null = null) {
+    await this.assertEventoTenant(eventoId, isMaster, empresaId)
     const oppId = await this.eventoOportunidadeId(eventoId)
     if (oppId) {
       const rows = await prisma.oportunidadeMensagem.findMany({ where: { oportunidadeId: oppId }, orderBy: { createdAt: 'desc' } })
@@ -769,7 +787,8 @@ export class AgendaService {
     return { ok: true }
   }
 
-  async listAnexos(eventoId: string) {
+  async listAnexos(eventoId: string, isMaster = true, empresaId: string | null = null) {
+    await this.assertEventoTenant(eventoId, isMaster, empresaId)
     const oppId = await this.eventoOportunidadeId(eventoId)
     if (oppId) {
       const rows = await prisma.oportunidadeArquivo.findMany({ where: { oportunidadeId: oppId }, orderBy: { createdAt: 'desc' } })
@@ -1436,7 +1455,8 @@ export class AgendaService {
   // LOGS
   // ============================================================
 
-  async listLogs(eventoId: string) {
+  async listLogs(eventoId: string, isMaster = true, empresaId: string | null = null) {
+    await this.assertEventoTenant(eventoId, isMaster, empresaId)
     const logs = await prisma.agendaLog.findMany({
       where: { eventoId },
       orderBy: { createdAt: 'desc' },

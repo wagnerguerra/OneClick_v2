@@ -29,7 +29,7 @@ export function createAgendaRouter(
   return router({
     // === TIPOS (Categorias) ===
     listTipos: readProcedure(MODULE)
-      .query(() => service.listTipos()),
+      .query(({ ctx }) => service.listTipos(ctx.empresaId ?? null)),
 
     // Gerir tipos é governado pela sub-permissão 'manage_tipos' (independente
     // do canWrite de eventos). readSubProcedure = acesso ao módulo + a sub.
@@ -46,7 +46,7 @@ export function createAgendaRouter(
         permiteEquipamentos: z.boolean().optional(),
         salasPermitidas: z.array(z.string()).optional(),
       }))
-      .mutation(({ input, ctx }) => service.createTipo(input, ctx.userId)),
+      .mutation(({ input, ctx }) => service.createTipo(input, ctx.userId, ctx.empresaId ?? null)),
 
     updateTipo: readSubProcedure(MODULE, 'manage_tipos', 'Gerenciar tipos de evento')
       .input(z.object({
@@ -191,7 +191,7 @@ export function createAgendaRouter(
     // do evento). Editar/excluir é gateado por dono/master/sub-perm no service.
     listAnotacoes: readProcedure(MODULE)
       .input(z.object({ eventoId: z.string() }))
-      .query(({ input }) => service.listAnotacoes(input.eventoId)),
+      .query(({ input, ctx }) => service.listAnotacoes(input.eventoId, ctx.isMaster ?? false, ctx.empresaId ?? null)),
     addAnotacao: readProcedure(MODULE)
       .input(z.object({ eventoId: z.string(), texto: z.string().min(1) }))
       .mutation(({ input, ctx }) => service.addAnotacao(input.eventoId, ctx.userId, input.texto)),
@@ -204,7 +204,7 @@ export function createAgendaRouter(
 
     listAnexos: readProcedure(MODULE)
       .input(z.object({ eventoId: z.string() }))
-      .query(({ input }) => service.listAnexos(input.eventoId)),
+      .query(({ input, ctx }) => service.listAnexos(input.eventoId, ctx.isMaster ?? false, ctx.empresaId ?? null)),
     addAnexo: readProcedure(MODULE)
       .input(z.object({
         eventoId: z.string(),
@@ -284,7 +284,7 @@ export function createAgendaRouter(
     sala: router({
       list: readProcedure(MODULE)
         .input(z.object({ incluirInativas: z.boolean().optional() }).optional())
-        .query(({ input }) => salaService.list({ incluirInativas: input?.incluirInativas })),
+        .query(({ input, ctx }) => salaService.list({ incluirInativas: input?.incluirInativas, empresaId: ctx.empresaId ?? null })),
       create: writeSubProcedure(MODULE, 'manage_config', 'Cadastrar salas da agenda')
         .input(z.object({
           nome: z.string().min(1),
@@ -292,7 +292,7 @@ export function createAgendaRouter(
           equipamentos: z.string().nullable().optional(),
           ativo: z.boolean().optional(),
         }))
-        .mutation(({ input }) => salaService.create(input)),
+        .mutation(({ input, ctx }) => salaService.create({ ...input, empresaId: ctx.empresaId ?? null })),
       update: writeSubProcedure(MODULE, 'manage_config', 'Editar salas da agenda')
         .input(z.object({
           id: z.string(),
@@ -329,7 +329,7 @@ export function createAgendaRouter(
     // === LOGS ===
     listLogs: readProcedure(MODULE)
       .input(z.object({ eventoId: z.string() }))
-      .query(({ input }) => service.listLogs(input.eventoId)),
+      .query(({ input, ctx }) => service.listLogs(input.eventoId, ctx.isMaster ?? false, ctx.empresaId ?? null)),
 
     // === USUÁRIOS (para select de participantes) — filtra por empresa do user logado
     listUsuarios: readProcedure(MODULE)

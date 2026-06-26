@@ -6,6 +6,7 @@ interface CreateSalaInput {
   capacidade?: number | null
   equipamentos?: string | null
   ativo?: boolean
+  empresaId?: string | null
 }
 
 interface UpdateSalaInput {
@@ -21,9 +22,11 @@ interface UpdateSalaInput {
  */
 @Injectable()
 export class AgendaSalaService {
-  list(opts?: { incluirInativas?: boolean }) {
+  list(opts?: { incluirInativas?: boolean; empresaId?: string | null }) {
+    // Catálogo global (empresa NULL) + as salas do tenant atual. F-013.
+    const tenant = { OR: [{ empresaId: null }, { empresaId: opts?.empresaId ?? null }] }
     return prisma.agendaSala.findMany({
-      where: opts?.incluirInativas ? {} : { ativo: true },
+      where: opts?.incluirInativas ? tenant : { ativo: true, ...tenant },
       orderBy: { nome: 'asc' },
     })
   }
@@ -31,6 +34,7 @@ export class AgendaSalaService {
   create(input: CreateSalaInput) {
     return prisma.agendaSala.create({
       data: {
+        empresaId: input.empresaId ?? null,  // sala criada é DO tenant. F-013.
         nome: input.nome.trim(),
         capacidade: input.capacidade ?? null,
         equipamentos: input.equipamentos?.trim() || null,
