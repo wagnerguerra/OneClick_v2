@@ -108,6 +108,7 @@ interface CnpjCardData {
   cnaesSecundarios: Array<{ codigo: string; descricao: string }>
   qsa: Array<{ nome: string; cpfCnpj: string; qualificacao: string; percentualCapital: number | null }>
   fonte: string
+  gateAviso?: string
 }
 
 interface ClienteFormProps {
@@ -231,6 +232,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
       const data = await (trpc.socio as any).consultarCnpj.query({ cnpj: doc }) as {
         razaoSocial: string; nomeFantasia: string | null; cep: string | null; logradouro: string | null
         numero: string | null; complemento: string | null; bairro: string | null; municipio: string | null; uf: string | null
+        gateAviso?: string
       }
       if (data.razaoSocial) setValue('razaoSocial', data.razaoSocial)
       if (data.nomeFantasia) setValue('nomeFantasia', data.nomeFantasia)
@@ -241,7 +243,8 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
       if (data.bairro) setValue('bairro', data.bairro)
       if (data.municipio) setValue('cidade', data.municipio)
       if (data.uf) setValue('uf', data.uf)
-      alerts.success('CNPJ consultado', data.razaoSocial || 'Dados preenchidos com sucesso.')
+      if (data.gateAviso) alerts.warning('Consulta na base gratuita', data.gateAviso)
+      else alerts.success('CNPJ consultado', data.razaoSocial || 'Dados preenchidos com sucesso.')
     } catch (err) {
       alerts.error('Erro', (err as Error).message || 'Não foi possível consultar o CNPJ.')
     }
@@ -290,6 +293,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
       }
 
       setCnpjCard(data)
+      if (data.gateAviso) alerts.warning('Consulta na base gratuita', data.gateAviso)
     } catch (err) {
       alerts.error('Erro', (err as Error).message || 'Não foi possível consultar o CNPJ.')
     } finally { setCnpjCardLoading(false) }

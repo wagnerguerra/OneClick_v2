@@ -33,11 +33,12 @@ export function createAdminRouter(adminService: AdminService) {
     savePricing: masterProcedure
       .input(z.object({
         source: z.string(),
+        operation: z.string().nullable().optional(),
         unitPrice: z.number(),
         multiplier: z.number().default(1),
         currency: z.string().default('BRL'),
       }))
-      .mutation(({ input }) => adminService.savePricing(input.source, input.unitPrice, input.multiplier, input.currency)),
+      .mutation(({ input }) => adminService.savePricing(input.source, input.operation ?? null, input.unitPrice, input.multiplier, input.currency)),
 
     // === BACKUP ===
     generateBackup: masterProcedure

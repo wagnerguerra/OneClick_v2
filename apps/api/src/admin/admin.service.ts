@@ -360,7 +360,9 @@ export class AdminService {
       if (log.documento && !entry.docs.has(log.documento)) { entry.docs.add(log.documento); entry.unique++ }
     }
 
-    const priceMap = new Map(pricing.map(p => [p.source, p]))
+    // Preço por (source, operation) com fallback p/ (source, null) — usado só p/
+    // logs antigos sem custo congelado.
+    const priceByKey = new Map(pricing.map(p => [`${p.source}::${p.operation ?? ''}`, p]))
     const daily = Array.from(dailyMap.values())
       .sort((a, b) => b.date.localeCompare(a.date))
       .map(d => ({ date: d.date, unique: d.unique, total: d.total }))
@@ -368,19 +370,23 @@ export class AdminService {
     const totalRequests = logs.length
     const uniqueDocs = new Set(logs.filter(l => l.documento).map(l => l.documento)).size
     const totalCost = logs.reduce((sum, l) => {
-      const p = priceMap.get(l.source)
+      // Custo CONGELADO na hora da chamada é a fonte da verdade.
+      if (l.custo != null) return sum + l.custo
+      const p = priceByKey.get(`${l.source}::${l.operation ?? ''}`) ?? priceByKey.get(`${l.source}::`)
       return sum + (p ? p.unitPrice * p.multiplier : 0)
     }, 0)
 
     return { totalRequests, uniqueDocuments: uniqueDocs, totalCost: Math.round(totalCost * 100) / 100, sources: sources.map(s => s.source), pricing, daily }
   }
 
-  async savePricing(source: string, unitPrice: number, multiplier: number, currency: string) {
-    return prisma.apiPricing.upsert({
-      where: { source },
-      create: { source, unitPrice, multiplier, currency },
-      update: { unitPrice, multiplier, currency },
-    })
+  async savePricing(source: string, operation: string | null, unitPrice: number, multiplier: number, currency: string) {
+    // Upsert manual: o compound unique (source, operation) tem `operation` nullable,
+    // e o Prisma não aceita where-unique com coluna nula. findFirst + update/create.
+    const existing = await prisma.apiPricing.findFirst({ where: { source, operation } })
+    if (existing) {
+      return prisma.apiPricing.update({ where: { id: existing.id }, data: { unitPrice, multiplier, currency } })
+    }
+    return prisma.apiPricing.create({ data: { source, operation, unitPrice, multiplier, currency } })
   }
 
   // ============================================================

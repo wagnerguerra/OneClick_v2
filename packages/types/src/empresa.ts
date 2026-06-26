@@ -52,6 +52,10 @@ export const createEmpresaSchema = z.object({
   logoDarkUrl: z.string().optional().or(z.literal('')),
   // Marca d'agua exibida em documentos impressos (ex: orçamento)
   marcaDaguaUrl: z.string().optional().or(z.literal('')),
+
+  // Integração Serpro (gate de custo) — controlado pelo master no cadastro do tenant.
+  serproHabilitado: z.boolean().optional(),
+  serproOrcamentoMensal: z.number().nonnegative().nullable().optional(),
 })
 
 export const updateEmpresaSchema = createEmpresaSchema.partial()

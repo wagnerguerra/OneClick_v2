@@ -531,6 +531,11 @@ model Empresa {
   // Versionamento (ISO 9001)
   version Int @default(1)
 
+  // Integração Serpro (gate de custo por tenant) — credencial é da plataforma,
+  // mas cada tenant decide se usa a API paga e tem teto mensal de gasto.
+  serproHabilitado      Boolean @default(false) @map("serpro_habilitado")
+  serproOrcamentoMensal Float?  @map("serpro_orcamento_mensal") // teto R$/mês; null = sem teto
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -2009,28 +2014,35 @@ model CertificadoDigitalAcesso {
 model ApiLog {
   id        String   @id @default(cuid())
   source    String // ex: "serpro", "brasilapi", "omie"
+  operation String? // ex: "consulta-cnpj", "consulta-cpf" (preço/relatório por operação)
   endpoint  String // ex: "/cnpj/v1"
   method    String   @default("GET")
   status    Int? // HTTP status code
   duration  Int? // ms
   documento String? // CNPJ/CPF consultado
+  custo     Float?   @default(0) // custo CONGELADO da chamada em R$ (gate de custo)
+  error     String?  @db.Text // corpo/mensagem de erro quando status != 2xx
   userId    String?  @map("user_id")
   empresaId String?  @map("empresa_id")
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([source, createdAt])
   @@index([createdAt])
+  @@index([empresaId, source, createdAt])
   @@map("api_logs")
 }
 
-// Preços por fonte de API (para cálculo de custo)
+// Preços por fonte+operação de API (para cálculo de custo).
+// operation = null → preço default da fonte (compat. com registros antigos).
 model ApiPricing {
-  id         String @id @default(cuid())
-  source     String @unique
-  unitPrice  Float  @default(0) @map("unit_price")
-  multiplier Float  @default(1)
-  currency   String @default("BRL")
+  id         String  @id @default(cuid())
+  source     String
+  operation  String?
+  unitPrice  Float   @default(0) @map("unit_price")
+  multiplier Float   @default(1)
+  currency   String  @default("BRL")
 
+  @@unique([source, operation])
   @@map("api_pricing")
 }
 
