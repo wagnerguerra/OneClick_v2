@@ -161,7 +161,7 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
       }),
 
     listarUsuarios: readSubProcedure(MODULE, 'manage_gestao', 'Gestão e históricos')
-      .query(() => service.listarUsuariosAtivos()),
+      .query(({ ctx }) => service.listarUsuariosAtivos(ctx.empresaId ?? null)),
 
     // ── Importante ──────────────────────────────────────────
 

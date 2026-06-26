@@ -1361,9 +1361,10 @@ export class CaixaPostalService {
   }
 
   // Listar usuários para selects (responsável, encaminhar)
-  async listarUsuariosAtivos() {
+  async listarUsuariosAtivos(empresaId?: string | null) {
     return prisma.user.findMany({
-      where: { isActive: true },
+      // Isolamento multi-tenant: só usuários da empresa da sessão. ISO-001
+      where: { isActive: true, empresaId: empresaId ?? null },
       select: { id: true, name: true, email: true },
       orderBy: { name: 'asc' },
     })
