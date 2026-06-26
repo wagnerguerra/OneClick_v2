@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.oneclick.erp.mobile",
-      "versionCode": 20,
+      "versionCode": 21,
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -32,6 +32,9 @@
     },
     "plugins": [
       "expo-router",
+      "@react-native-community/datetimepicker",
+      "expo-font",
+      "expo-web-browser",
       [
         "expo-splash-screen",
         {
@@ -57,8 +60,8 @@
         "expo-build-properties",
         {
           "android": {
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36
           }
         }
       ]

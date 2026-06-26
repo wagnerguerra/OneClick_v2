@@ -45,8 +45,12 @@ export function usePermissions(): UsePermissionsResult {
   function temSubPermissao(slug: string, key: string): boolean {
     if (!perms) return false
     if (perms.isMaster || perms.isEmpresaMaster) return true
-    const mod = perms.permissions.find((p) => p.moduleSlug === slug)
-    const subs = (mod?.subPermissions ?? {}) as Record<string, boolean>
+    // cast do elemento p/ forma rasa: ler subPermissions como o JsonValue
+    // recursivo (trpc/Prisma) estoura o limite de inferência do TS (TS2589).
+    const mod = perms.permissions.find((p) => p.moduleSlug === slug) as
+      | { subPermissions?: Record<string, boolean> }
+      | undefined
+    const subs = mod?.subPermissions ?? {}
     return subs[key] === true
   }
 
