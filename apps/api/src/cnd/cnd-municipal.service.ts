@@ -50,24 +50,30 @@ export class CndMunicipalService {
       const exists = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
         `SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'certidoes_cnd_municipal')`,
       )
-      if (exists[0]?.exists) { this.tableChecked = true; return }
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS certidoes_cnd_municipal (
-          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-          documento TEXT NOT NULL,
-          razao_social TEXT,
-          municipio TEXT NOT NULL,
-          sucesso BOOLEAN NOT NULL DEFAULT false,
-          tipo_certidao TEXT,
-          mensagem TEXT,
-          conteudo_html TEXT,
-          cliente_id TEXT,
-          user_id TEXT,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-      `)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_mun_doc ON certidoes_cnd_municipal (documento)`)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_mun_mun ON certidoes_cnd_municipal (municipio)`)
+      if (!exists[0]?.exists) {
+        await prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS certidoes_cnd_municipal (
+            id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            documento TEXT NOT NULL,
+            razao_social TEXT,
+            municipio TEXT NOT NULL,
+            sucesso BOOLEAN NOT NULL DEFAULT false,
+            tipo_certidao TEXT,
+            mensagem TEXT,
+            conteudo_html TEXT,
+            data_validade DATE,
+            cliente_id TEXT,
+            user_id TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          )
+        `)
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_mun_doc ON certidoes_cnd_municipal (documento)`)
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_mun_mun ON certidoes_cnd_municipal (municipio)`)
+      }
+      // Tabelas legadas foram criadas sem `data_validade` (a coluna só era adicionada
+      // de forma preguiçosa no INSERT). Garante a coluna sempre — idempotente — para que
+      // totalizadores/validadeDashboard não quebrem com 42703 (column does not exist).
+      await prisma.$executeRawUnsafe(`ALTER TABLE certidoes_cnd_municipal ADD COLUMN IF NOT EXISTS data_validade DATE`)
     } catch (e) {
       if (!(e as Error).message?.includes('already exists')) throw e
     }
@@ -659,7 +665,8 @@ export class CndMunicipalService {
 
   async totalizadores(municipio?: string) {
     await this.ensureTable()
-    const mFilter = municipio ? `WHERE UPPER(municipio) = UPPER('${municipio}')` : ''
+    const mFilter = municipio ? `WHERE UPPER(municipio) = UPPER($1)` : ''
+    const params = municipio ? [municipio] : []
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
       SELECT
         COUNT(*)::int as total,
@@ -670,7 +677,7 @@ export class CndMunicipalService {
         COUNT(*) FILTER (WHERE data_validade IS NOT NULL AND data_validade >= CURRENT_DATE AND data_validade <= CURRENT_DATE + INTERVAL '15 days')::int as vencendo,
         COUNT(*) FILTER (WHERE data_validade IS NOT NULL AND data_validade > CURRENT_DATE + INTERVAL '15 days')::int as vigentes
       FROM certidoes_cnd_municipal ${mFilter}
-    `)
+    `, ...params)
     const r = rows[0]!
     return {
       total: Number(r.total ?? 0),
