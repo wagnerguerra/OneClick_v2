@@ -13,6 +13,23 @@ Pagamento recorrente via Stripe. Reconstrução modernizada do legado **OneClick
 
 ---
 
+## 🔒 Fluxo de colaboração (Git) — OBRIGATÓRIO
+
+A `main` é a branch de **produção e protegida**. **NUNCA** commitar/empurrar direto na `main`.
+Todo trabalho de colaborador entra **por Pull Request**, que o Wagner aprova e publica:
+
+1. Sincronize o trunk: `git checkout main && git pull`
+2. Crie uma branch: `git checkout -b feat/<descrição-curta>` (parta SEMPRE do `main` atualizado)
+3. Commits + `git push -u origin feat/<descrição-curta>`
+4. Abra o PR contra a `main`: `gh pr create --base main --fill` (descreva o que mudou e por quê)
+
+**Proibido:** `git push origin main` (push direto no trunk), `--force`, mesclar o próprio PR,
+e qualquer **deploy/publish em produção**. O deploy é **exclusivo do Wagner**, pelo Service Manager
+(`scripts/launcher/`), que mescla o PR no `main` ao publicar. Se o push na `main` for recusado pelo
+GitHub, é a proteção de branch funcionando — abra um PR. Não tente contornar.
+
+---
+
 ## Stack
 
 ### Monorepo (Turborepo + TypeScript strict)

@@ -1,0 +1,4 @@
+# Todo PR no repositório exige revisão/aprovação do dono (Wagner).
+# Combine com a proteção da branch `main` ("Require review from Code Owners")
+# para que nenhuma alteração entre na produção sem o aval do Wagner.
+* @wagnerguerra
