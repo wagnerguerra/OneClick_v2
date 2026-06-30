@@ -1291,6 +1291,25 @@
       display: grid;
       gap: 2px;
     }
+    .deploy-pr-detailsrow { margin-top: 6px; }
+    .deploy-pr-toggle {
+      background: none; border: none; padding: 0; cursor: pointer;
+      font-size: 11px; font-weight: 700; color: var(--sky);
+    }
+    .deploy-pr-details {
+      margin-top: 8px; padding-top: 8px;
+      border-top: 1px dashed var(--border);
+      display: grid; gap: 8px;
+    }
+    .deploy-pr-detailmeta { font-size: 11px; color: var(--text-muted); }
+    .deploy-pr-open {
+      justify-self: start;
+      font-size: 11px; font-weight: 700; cursor: pointer;
+      padding: 4px 10px; border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg-surface); color: var(--text-primary);
+    }
+    .deploy-pr-open:hover { border-color: var(--sky); color: var(--sky); }
     .deploy-pr-badge {
       font-size: 10px;
       font-weight: 800;
@@ -1754,10 +1773,10 @@
               <div class="deploy-pr-titlebar">Pull Requests do GitHub <span id="deployPrCount" class="deploy-project-badge">-</span></div>
               <div class="settings-hint" id="deployPrHint">Selecione PRs para publicar código ainda não mergeado.</div>
             </div>
-            <button class="btn btn-sm" onclick="deployLoadPrs()">Carregar PRs</button>
+            <button class="btn btn-sm" onclick="deployLoadPrs()">Recarregar</button>
           </div>
           <div id="deployPrList" class="deploy-pr-list">
-            <div style="color:var(--text-muted);font-size:12px;padding:4px;">Clique em Carregar PRs para consultar o GitHub.</div>
+            <div style="color:var(--text-muted);font-size:12px;padding:4px;">Os PRs são carregados ao abrir a aba e ao clicar em Atualizar.</div>
           </div>
         </div>
 
@@ -3737,6 +3756,7 @@
     function deployRenderPrs() {
       const list = document.getElementById('deployPrList')
       if (!list) return
+      if (!deployState.expandedPrs) deployState.expandedPrs = new Set()
       const prs = deployState.prs || []
       if (!prs.length) {
         list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:4px;">Nenhum PR aberto encontrado.</div>'
@@ -3748,15 +3768,27 @@
         const selected = deployState.prTargets?.[projectId]?.number === pr.number
         const card = document.createElement('label')
         card.className = 'deploy-pr-card' + (selected ? ' is-selected' : '')
-        const commits = (pr.commits || []).slice(-3).map(c => (
-          `<div><span style="color:var(--sky);font-weight:800;">${escapeHtml(c.short || String(c.sha).slice(0, 7))}</span> ${escapeHtml(c.msg || '')}</div>`
-        )).join('')
+        const fmtCommit = (c) => `<div><span style="color:var(--sky);font-weight:800;">${escapeHtml(c.short || String(c.sha).slice(0, 7))}</span> ${escapeHtml(c.msg || '')}${c.author ? ` <span style="opacity:.65;">· ${escapeHtml(c.author)}</span>` : ''}</div>`
+        const allCommitsArr = pr.commits || []
+        const commits = allCommitsArr.slice(-3).map(fmtCommit).join('')
+        const allCommits = allCommitsArr.map(fmtCommit).join('')
+        const estado = pr.draft ? 'rascunho' : (pr.mergeable === false ? 'conflito' : (pr.mergeable === true ? 'mergeável' : '—'))
+        const updated = pr.updatedAt ? new Date(pr.updatedAt).toLocaleString('pt-BR') : ''
+        const expanded = deployState.expandedPrs.has(pr.number)
         card.innerHTML = `
           <input type="checkbox" ${selected ? 'checked' : ''}>
           <div class="deploy-pr-main">
             <div class="deploy-pr-title">#${pr.number} ${escapeHtml(pr.title || '')}</div>
             <div class="deploy-pr-meta">${escapeHtml(pr.author || '')} · ${escapeHtml(pr.headRef || '')} → ${escapeHtml(pr.baseRef || '')} · ${escapeHtml(pr.projectLabel || projectId)}</div>
             <div class="deploy-pr-commits">${commits || '<div>(sem commits)</div>'}</div>
+            <div class="deploy-pr-detailsrow">
+              <button type="button" class="deploy-pr-toggle">Detalhes ${expanded ? '▴' : '▾'}</button>
+            </div>
+            <div class="deploy-pr-details" style="${expanded ? '' : 'display:none;'}">
+              <div class="deploy-pr-detailmeta">Estado: ${escapeHtml(estado)}${updated ? ` · atualizado ${escapeHtml(updated)}` : ''} · ${allCommitsArr.length} commit(s)</div>
+              <div class="deploy-pr-commits">${allCommits || '<div>(sem commits)</div>'}</div>
+              <button type="button" class="deploy-pr-open">Abrir no GitHub ↗</button>
+            </div>
           </div>
           <span class="deploy-pr-badge">${escapeHtml(pr.projectLabel || projectId)}</span>
         `
@@ -3778,6 +3810,26 @@
           deployRenderProjects(deployState.status)
           deployUpdateSelectionHint()
         })
+        // Expandir/recolher detalhes — não toca no checkbox de seleção do card.
+        const toggle = card.querySelector('.deploy-pr-toggle')
+        const details = card.querySelector('.deploy-pr-details')
+        if (toggle && details) {
+          toggle.addEventListener('click', (e) => {
+            e.preventDefault(); e.stopPropagation()
+            const open = details.style.display === 'none'
+            details.style.display = open ? '' : 'none'
+            toggle.textContent = `Detalhes ${open ? '▴' : '▾'}`
+            if (open) deployState.expandedPrs.add(pr.number)
+            else deployState.expandedPrs.delete(pr.number)
+          })
+        }
+        const openBtn = card.querySelector('.deploy-pr-open')
+        if (openBtn) {
+          openBtn.addEventListener('click', (e) => {
+            e.preventDefault(); e.stopPropagation()
+            if (pr.url) window.api.openExternal(pr.url)
+          })
+        }
         list.appendChild(card)
       }
     }
@@ -4002,6 +4054,9 @@
         }
         deployState.status = r
         deployRenderProjects(r)
+        // Atualiza os PRs abertos junto com o status/commits (ao entrar na aba e
+        // ao clicar "Atualizar"). Fire-and-forget: não bloqueia o render do status.
+        deployLoadPrs()
 
         // Local
         document.getElementById('deployLocalBranch').textContent = r.localBranch
