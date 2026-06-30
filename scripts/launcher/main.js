@@ -1907,6 +1907,47 @@ function registerIpcHandlers() {
     })
   }
 
+  // Mescla um PR na sua base (main) via API do GitHub. Requer GITHUB_TOKEN com
+  // permissão de escrita/merge no repo. Retorna { ok, merged, error, status }.
+  function githubMergePr(number, cfg, mergeMethod = 'merge') {
+    return new Promise((resolve) => {
+      const repo = deployGitHubRepo(cfg)
+      if (!repo) return resolve({ ok: false, error: 'GITHUB_REPO não configurado.' })
+      const payload = JSON.stringify({ merge_method: mergeMethod })
+      const headers = {
+        'User-Agent': 'OneClick-Service-Manager',
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      }
+      if (cfg?.GITHUB_TOKEN) headers.Authorization = `Bearer ${cfg.GITHUB_TOKEN}`
+      const req = https.request({
+        hostname: 'api.github.com',
+        path: `/repos/${repo}/pulls/${number}/merge`,
+        method: 'PUT',
+        headers,
+      }, (res) => {
+        let body = ''
+        res.setEncoding('utf8')
+        res.on('data', chunk => { body += chunk })
+        res.on('end', () => {
+          try {
+            const data = body ? JSON.parse(body) : null
+            if (res.statusCode >= 200 && res.statusCode < 300) return resolve({ ok: true, merged: !!data?.merged, data })
+            resolve({ ok: false, error: data?.message || `GitHub HTTP ${res.statusCode}`, status: res.statusCode })
+          } catch (e) {
+            resolve({ ok: false, error: e.message, status: res.statusCode })
+          }
+        })
+      })
+      req.setTimeout(20000, () => req.destroy(new Error('timeout ao mesclar PR no GitHub')))
+      req.on('error', err => resolve({ ok: false, error: err.message }))
+      req.write(payload)
+      req.end()
+    })
+  }
+
   async function githubListPrCommits(repo, number, cfg) {
     const r = await githubJson(`/pulls/${number}/commits?per_page=100`, cfg)
     if (!r.ok) return []
@@ -2491,6 +2532,30 @@ function registerIpcHandlers() {
         }
         deployEmit(99, 'pull', '✓ App Mobile atualizado', 'ok')
       }
+      // ─── Stage 7: Merge do PR no main (fecha o ciclo) ───
+      // Após o deploy validado (VPS saudável), mescla o PR do core na base (main)
+      // automaticamente, pra o código sair do limbo "branch de deploy + VPS" e
+      // cair no trunk — zerando os "commits não pushados". Requer GITHUB_TOKEN com
+      // permissão de merge. Falha aqui NÃO derruba o deploy (a VPS já está OK):
+      // apenas avisa pra mesclar manualmente. (Só o core; o app é outro repo.)
+      const corePr = targets.includes('core') ? prTargets.core : null
+      if (corePr?.number) {
+        deployCurrentStep = 'merge'
+        if (!cfg?.GITHUB_TOKEN) {
+          deployEmit(99, 'merge', '⚠ PR não mesclado no main: configure GITHUB_TOKEN (com permissão de merge) no .deploy.local.', 'warn')
+        } else {
+          deployEmit(99, 'merge', `→ Mesclando PR #${corePr.number} no main...`, 'info')
+          const mg = await githubMergePr(corePr.number, cfg)
+          if (mg.ok && mg.merged) {
+            deployEmit(99, 'merge', `✓ PR #${corePr.number} mesclado no main`, 'ok')
+            // Atualiza refs locais pra o painel refletir o main novo (zera o contador).
+            await gitExec(['fetch', 'origin', '--prune'], null, 30000)
+          } else {
+            deployEmit(99, 'merge', `⚠ PR #${corePr.number} não mesclado: ${(mg.error || 'falha').slice(0, 160)} — deploy na VPS OK, mescle manualmente.`, 'warn')
+          }
+        }
+      }
+
       deployEmit(100, 'done', '✅ Deploy concluído com sucesso!', 'ok')
 
       return { ok: true }
