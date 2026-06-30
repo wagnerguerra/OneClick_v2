@@ -120,7 +120,7 @@ function formatHora(h: string | null | undefined): string {
   return h.slice(0, 5)
 }
 
-export function CalendarioWidget({ title, expanded, bloco }: { canRead?: boolean; title?: string; expanded?: boolean; bloco?: string } = {}) {
+export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title?: string; expanded?: boolean; bloco?: string } = {}) {
   const router = useRouter()
   const today = new Date()
   const [calYear, setCalYear] = useState(() => today.getFullYear())
@@ -225,18 +225,12 @@ export function CalendarioWidget({ title, expanded, bloco }: { canRead?: boolean
   }
 
   return (
-    <Card
-      className={cn(
-        'h-full flex flex-col overflow-hidden',
-        bloco && 'border-l-4',
-      )}
-      style={bloco ? { borderLeftColor: bloco } : undefined}
-    >
+    <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-3 shrink-0 border-b border-border/50 bg-gradient-to-br from-sky-50/50 via-transparent to-transparent dark:from-sky-950/20">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-400 to-sky-600 shadow-sm">
-              <Calendar className="h-4 w-4 text-white" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-900/30">
+              <Calendar className="h-4 w-4 text-sky-600 dark:text-sky-400" />
             </div>
             <div className="min-w-0">
               <CardTitle className="text-base font-bold leading-tight capitalize">{title ?? MESES_NOME[calMonth].toLowerCase()}</CardTitle>
@@ -328,18 +322,18 @@ export function CalendarioWidget({ title, expanded, bloco }: { canRead?: boolean
               >
                 {/* Número do dia — canto superior direito */}
                 {isValid && (
-                  <span className="absolute top-1 right-1.5 text-[11px] font-bold tabular-nums leading-none">
+                  <span className="absolute top-1 right-1.5 text-[13px] font-bold tabular-nums leading-none">
                     {dayNum}
                   </span>
                 )}
                 {/* Lista de eventos do dia + comemorações — chips empilhados
                     com truncate. Eventos primeiro, comemorações abaixo. */}
                 {isValid && (dayPrazos.length > 0 || dayComemoracoes.length > 0 || especial) && (
-                  <div className="absolute inset-x-1 top-6 bottom-1 flex flex-col gap-0.5 pointer-events-none overflow-hidden">
+                  <div className="absolute inset-x-1 top-7 bottom-1 flex flex-col gap-1 pointer-events-none overflow-hidden">
                     {especial && (
                       <span
                         className={cn(
-                          'flex items-center gap-0.5 rounded-sm px-1 py-px text-[8px] font-bold uppercase tracking-tight truncate',
+                          'flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-tight truncate',
                           especial.tipo === 'feriado'
                             ? (isSelected ? 'bg-white/90 text-rose-700' : 'bg-rose-500 text-white')
                             : (isSelected ? 'bg-white/90 text-violet-700' : 'bg-violet-400 text-white'),
@@ -358,7 +352,7 @@ export function CalendarioWidget({ title, expanded, bloco }: { canRead?: boolean
                         <span
                           key={p.id}
                           className={cn(
-                            'block rounded-sm px-1 py-px text-[9px] font-medium truncate border-l-2 shrink-0',
+                            'block rounded px-1.5 py-0.5 text-[11px] font-medium truncate border-l-2 shrink-0',
                             isSelected
                               ? 'bg-white/90 text-foreground'
                               : cn(cfg.bgClass, cfg.textClass),
@@ -376,7 +370,7 @@ export function CalendarioWidget({ title, expanded, bloco }: { canRead?: boolean
                       <span
                         key={c.id}
                         className={cn(
-                          'flex items-center gap-0.5 rounded-sm px-1 py-px text-[9px] font-medium truncate border-l-2 shrink-0',
+                          'flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium truncate border-l-2 shrink-0',
                           isSelected
                             ? 'bg-white/90 text-foreground'
                             : c.tipo === 'aniversario'
@@ -386,8 +380,8 @@ export function CalendarioWidget({ title, expanded, bloco }: { canRead?: boolean
                         title={`${c.tipo === 'aniversario' ? 'Aniversário' : `${c.anos ?? '?'} ano${c.anos === 1 ? '' : 's'} de empresa`}: ${c.nome}`}
                       >
                         {c.tipo === 'aniversario'
-                          ? <Cake className="h-2.5 w-2.5 shrink-0" />
-                          : <PartyPopper className="h-2.5 w-2.5 shrink-0" />}
+                          ? <Cake className="h-3 w-3 shrink-0" />
+                          : <PartyPopper className="h-3 w-3 shrink-0" />}
                         <span className="truncate">{c.nome.split(' ')[0]}</span>
                       </span>
                     ))}
