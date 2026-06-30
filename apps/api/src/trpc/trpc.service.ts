@@ -3,6 +3,8 @@ import { initTRPC, TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 import { AreaService } from '../area/area.service'
 import { createAreaRouter } from '../area/area.router'
+import { FerramentasService } from '../ferramentas/ferramentas.service'
+import { createFerramentasRouter } from '../ferramentas/ferramentas.router'
 import { EmpresaService } from '../empresa/empresa.service'
 import { createEmpresaRouter } from '../empresa/empresa.router'
 import { UserService } from '../user/user.service'
@@ -644,6 +646,7 @@ export class TrpcService {
     @Inject(SignatureService) private readonly signatureService: SignatureService,
     @Inject(SignatureTemplateService) private readonly signatureTemplateService: SignatureTemplateService,
     @Inject(AuthService) private readonly authServiceForCert: AuthService,
+    @Inject(FerramentasService) private readonly ferramentasService: FerramentasService,
   ) {
     this.appRouter = this.createRouter()
   }
@@ -657,6 +660,7 @@ export class TrpcService {
         return { userId: ctx.userId, tenantId: ctx.tenantId, empresaId: ctx.empresaId, isMaster: ctx.isMaster }
       }),
       area: createAreaRouter(this.areaService),
+      ferramentas: createFerramentasRouter(this.ferramentasService),
       empresa: createEmpresaRouter(this.empresaService),
       user: createUserRouter(this.userService),
       cargo: createCargoRouter(this.cargoService),

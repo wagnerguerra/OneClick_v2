@@ -4,7 +4,9 @@ services:
     container_name: saas-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      # Host 5435 (não 5432) — evita colisão com Postgres do sistema e isola
+      # do server-manager. Dentro do container segue 5432. Ver port-registry.json.
+      - "5435:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -17,7 +19,8 @@ services:
     container_name: saas-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      # Host 6380 (não 6379) — 6379 já é usado pelo webapp-redis. Ver port-registry.json.
+      - "6380:6379"
     volumes:
       - redis_data:/data
 

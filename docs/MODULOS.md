@@ -40,6 +40,12 @@ Lista canônica dos módulos do SaaS ERP/CRM, agrupados por bloco. Referenciada 
 - Caixa Postal e-CAC
 - DT-e SEFAZ ES (Agência Virtual)
 - DANFE / Galeria de Notas
+- **Ferramentas (slug `ferramentas-fiscal`)** — subitem "Ferramentas" no bloco Fiscal; integração das ferramentas do webapp. Sub-permissões por tool (opt-out): `sped`, `nfe`, `sped-merge`, `sci-consolidado`, `comparacao-planilhas`, `comparacao-nfse`, `sci-portal-nacional`, `nfse-pdf`. (No piloto: SPED.) Ver `docs/plano-ferramentas.md`.
+
+## CONTÁBIL
+- Categorias de Balancete
+- Dashboard Financeiro
+- **Ferramentas (slug `ferramentas-contabil`)** — subitem "Ferramentas" no bloco Contábil. Sub-permissões por tool: `gnre`, `extrato-edit`. (Implementação na Fase 2/3.)
 
 ## CONTÁBIL
 - Categorias de Balancete

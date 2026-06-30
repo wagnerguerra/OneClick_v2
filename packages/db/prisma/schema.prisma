@@ -6561,3 +6561,50 @@ model OrcamentoPropostaModelo {
   @@index([empresaId, ativo, ordem])
   @@map("orcamento_proposta_modelo")
 }
+
+// ============================================================
+// Ferramentas (integração webapp → OneClick). Tenant-scoped:
+// histórico/auditoria de jobs por empresa. Ver docs/plano-ferramentas.md.
+// empresaId/userId são escalares (sem @relation) — tabela é clonada por
+// LIKE em cada tenant e LIKE não copia FK cross-schema.
+// ⚠️ Ao adicionar: incluir 'tool_jobs'/'tool_job_eventos' em TENANT_TABLES
+// (tenant-manager.ts) + rodar backfill nos tenants existentes.
+// ============================================================
+model ToolJob {
+  id           String    @id @default(cuid())
+  code         Int       @default(autoincrement())
+  tool         String // id da ferramenta (sped, nfe, gnre, ...)
+  status       String    @default("queued") // queued|running|done|failed|not_found
+  webappJobId  String?   @map("webapp_job_id") // id do job na API Fastify do webapp
+  fileNameIn   String    @map("file_name_in")
+  fileNameOut  String?   @map("file_name_out")
+  progress     Int       @default(0)
+  errorMessage String?   @map("error_message")
+  empresaId    String?   @map("empresa_id")
+  userId       String?   @map("user_id")
+  version      Int       @default(1)
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  eventos ToolJobEvent[]
+
+  @@index([empresaId, deletedAt])
+  @@index([tool, status])
+  @@map("tool_jobs")
+}
+
+model ToolJobEvent {
+  id        String   @id @default(cuid())
+  toolJobId String   @map("tool_job_id")
+  userId    String?  @map("user_id")
+  type      String // created | status-change | deleted | restored
+  status    String?
+  version   Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  toolJob ToolJob @relation(fields: [toolJobId], references: [id], onDelete: Cascade)
+
+  @@index([toolJobId])
+  @@map("tool_job_eventos")
+}

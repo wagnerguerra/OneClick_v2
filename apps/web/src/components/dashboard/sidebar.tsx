@@ -73,6 +73,12 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
       // Benefícios: líder de setor (GESTOR/COORDENADOR/DIRETOR) acessa por tipo
       // para lançar os apontamentos do seu setor, mesmo sem permissão explícita.
       if (item.href === '/beneficios' && ehLiderSetor) return true
+      // Ferramentas: item por bloco; visível a quem tem leitura na área
+      // (slug umbrella ferramentas-<area>). Os dados são gateados no backend.
+      if (item.href.startsWith('/ferramentas/')) {
+        const area = item.href.split('/')[2] // /ferramentas/<area>/...
+        return allowedSlugs.includes(`ferramentas-${area}`)
+      }
       const slug = item.href.replace('/', '')
       return allowedSlugs.includes(slug)
     }

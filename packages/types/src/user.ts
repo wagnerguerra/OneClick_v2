@@ -59,10 +59,10 @@ export const MODULE_SLUGS = [
   'banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento',
   // Fiscal
   'caixapostal', 'certidoes-cnd', 'dctfweb', 'dte',
-  'obrigacoes-servicos', 'situacao-fiscal',
+  'obrigacoes-servicos', 'situacao-fiscal', 'ferramentas-fiscal',
 
   // Contábil
-  'bi-categorias-balancete', 'bi-faturamento', 'tratamento-lancamentos',
+  'bi-categorias-balancete', 'bi-faturamento', 'ferramentas-contabil', 'tratamento-lancamentos',
   // TI
   'ativos', 'helpdesk', 'projetos',
   // Qualidade
@@ -115,8 +115,10 @@ export const MODULE_LABELS: Record<string, string> = {
   'beneficios-fiscais': 'Benefícios Fiscais', 'caixapostal': 'Caixa Postal e-CAC',
   'certidoes-cnd': "CND's Federais", danfe: 'DANFE (NFe → PDF)', dctfweb: 'DCTFWeb', dte: 'DT-e ES',
   'obrigacoes-servicos': 'Obrigações e Serviços', 'situacao-fiscal': 'Situação Fiscal',
+  'ferramentas-fiscal': 'Ferramentas',
   // Contábil
   'bi-categorias-balancete': 'Categorias de Balancete', 'bi-faturamento': 'Dashboard Financeiro',
+  'ferramentas-contabil': 'Ferramentas',
   'tratamento-lancamentos': 'Tratamento de Lançamentos',
   // TI
   ativos: 'Gestão de Ativos', helpdesk: 'HelpDesk', projetos: 'Projetos',
@@ -139,8 +141,8 @@ export const MODULE_GROUPS = {
   'Administrativo': ['agenda', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma'],
   'Legalização': ['beneficios-fiscais', 'certificados', 'gestao-certificados', 'processos', 'quadro-societario'],
   'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento'],
-  'Fiscal': ['caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal'],
-  'Contábil': ['bi-categorias-balancete', 'bi-faturamento', 'tratamento-lancamentos'],
+  'Fiscal': ['caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal', 'ferramentas-fiscal'],
+  'Contábil': ['bi-categorias-balancete', 'bi-faturamento', 'ferramentas-contabil', 'tratamento-lancamentos'],
   'TI': ['ativos', 'helpdesk', 'projetos'],
   'Qualidade': ['qualidade', 'aquisicoes', 'analise-contexto', 'capacitacoes', 'documentos-internos', 'documentos-externos', 'tabelas-registros', 'elogios', 'melhorias', 'nao-conformidades', 'reclamacoes', 'reunioes', 'sugestoes'],
   'Configurações': ['configuracoes', 'metricas', 'backup-restore'],
@@ -159,6 +161,22 @@ export interface SubPermissionDef {
 }
 
 export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
+  // Ferramentas (integração webapp). Sub-permissão por tool = opt-out:
+  // desmarcar bloqueia aquela ferramenta; marcado/ausente = liberado.
+  'ferramentas-fiscal': [
+    { key: 'sped', label: 'SPED → XLSX', group: 'Ferramentas' },
+    { key: 'nfe', label: 'NFe XML → XLSX', group: 'Ferramentas' },
+    { key: 'sped-merge', label: 'XLSX → SPED (merge)', group: 'Ferramentas' },
+    { key: 'sci-consolidado', label: 'Consolidado SCI', group: 'Ferramentas' },
+    { key: 'comparacao-planilhas', label: 'Comparador SEFAZ × SCI', group: 'Ferramentas' },
+    { key: 'comparacao-nfse', label: 'Comparador NFS-e (OCR)', group: 'Ferramentas' },
+    { key: 'sci-portal-nacional', label: 'Conciliador NFS-e (Portal Nacional)', group: 'Ferramentas' },
+    { key: 'nfse-pdf', label: 'NFS-e → PDF (DANFSe)', group: 'Ferramentas' },
+  ],
+  'ferramentas-contabil': [
+    { key: 'gnre', label: 'Extrator GNRE', group: 'Ferramentas' },
+    { key: 'extrato-edit', label: 'Editor de Extrato', group: 'Ferramentas' },
+  ],
   'tratamento-lancamentos': [
     { key: 'gerenciar_modelos', label: 'Gerenciar modelos de tratamento (criar, editar, duplicar e excluir)', group: 'Modelos' },
   ],
