@@ -37,11 +37,15 @@ const SITUACOES = Object.keys(SITUACAO_LABELS) as ClienteSituacao[]
 export default function ClientesScreen() {
   const router = useRouter()
   const [busca, setBusca] = useState('')
-  const [situacao, setSituacao] = useState<ClienteSituacao | null>(null)
+  // Inicia com o filtro "Mensal" marcado (pedido do negócio).
+  const [situacao, setSituacao] = useState<ClienteSituacao | null>('MENSAL')
 
   const query = trpc.cliente.list.useQuery({
     page: 1,
     limit: 50,
+    // Ordem alfabética por razão social.
+    sortBy: 'razaoSocial',
+    sortDir: 'asc',
     search: busca.trim() || undefined,
     ...(situacao ? { situacao } : {}),
   })
