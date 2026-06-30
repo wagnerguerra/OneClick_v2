@@ -4348,22 +4348,30 @@
     async function deployPublicar() {
       const s = deployState.status
       if (!s) return
-      const hasDirty = (s.localDirty || 0) > 0
+      // Junta os arquivos sujos de TODOS os projetos selecionados (core + extras
+      // como App Mobile), não só do core. Sem isso, com o app sujo o deploy não
+      // pedia mensagem e o estágio do app falhava ("Forneça uma mensagem de commit").
+      const selectedProjects = deployState.selectedProjects || ['core']
+      const projList = s.projects || [{ ...s, id: 'core', label: 'Core/API/Web' }]
+      const dirtyProjects = projList.filter(p => selectedProjects.includes(p.id) && (p.localDirty || 0) > 0)
+      const multiProj = dirtyProjects.length > 1
+      const allDirtyFiles = dirtyProjects.flatMap(p => (p.dirtyFiles || []).map(f => ({ ...f, projectLabel: p.label || p.id })))
 
-      // Se houver dirty, abre modal pra capturar mensagem de commit antes
-      if (hasDirty) {
-        document.getElementById('deployCommitModalCount').textContent = s.localDirty
+      // Se houver dirty (em qualquer projeto selecionado), abre modal pra capturar mensagem
+      if (allDirtyFiles.length > 0) {
+        document.getElementById('deployCommitModalCount').textContent = allDirtyFiles.length
         const filesBox = document.getElementById('deployCommitModalFiles')
         filesBox.innerHTML = ''
-        for (const f of (s.dirtyFiles || [])) {
+        for (const f of allDirtyFiles) {
           const line = document.createElement('div')
           line.style.padding = '2px 0'
           const statusColor = { 'M': '#f59e0b', 'A': '#16a34a', 'D': '#dc2626', '??': '#6b7280', 'R': '#06b6d4' }[f.status] || '#6b7280'
           const statusLabel = { 'M': 'mod ', 'A': 'add ', 'D': 'del ', '??': 'new ', 'R': 'ren ' }[f.status] || (f.status + ' ')
-          line.innerHTML = `<span style="color:${statusColor};font-weight:600;">${statusLabel}</span> ${f.path}`
+          const proj = multiProj ? `<span style="color:#6b7280;">[${escapeHtml(f.projectLabel)}]</span> ` : ''
+          line.innerHTML = `<span style="color:${statusColor};font-weight:600;">${statusLabel}</span> ${proj}${escapeHtml(f.path)}`
           filesBox.appendChild(line)
         }
-        document.getElementById('deployCommitMsg').value = deploySuggestCommitMessage(s.dirtyFiles || [])
+        document.getElementById('deployCommitMsg').value = deploySuggestCommitMessage(allDirtyFiles)
         document.getElementById('deployCommitModal').style.display = 'flex'
         // Foca e seleciona tudo pra usuário poder substituir digitando
         setTimeout(() => {
@@ -4376,7 +4384,6 @@
 
       // Sem dirty: vai direto pro confirm tradicional
       const selectedCommits = deploySelectedCommits(s)
-      const selectedProjects = deployState.selectedProjects || ['core']
       const totalCommits = selectedCommits.length
       const commitList = selectedCommits
         .map(c => `  • [${c.projectLabel || c.projectId || 'Core/API/Web'}] ${(c.short || c.sha.slice(0, 7))} ${c.msg}`).join('\n')
