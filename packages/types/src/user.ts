@@ -163,7 +163,8 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'lancar_apontamentos', label: 'Lançar apontamentos do seu setor (férias, licenças, ausências, faltas, plantões)', group: 'Apontamentos' },
   ],
   crm: [
-    { key: 'gerir_funil_lead', label: 'Configurar o funil de captação de leads por IA (trilha/rubrica)', group: 'Configurações' },
+    { key: 'acessar_funil_lead', label: 'Acessar o funil de captação de leads por IA (ver campanhas e relatórios)', group: 'Funil de captação' },
+    { key: 'gerir_funil_lead', label: 'Configurar o funil de captação de leads por IA (criar/editar campanhas, trilha/rubrica)', group: 'Funil de captação' },
   ],
   agenda: [
     { key: 'manage_config', label: 'Gerenciar configurações da agenda (regras de conflito e salas)', group: 'Configurações' },

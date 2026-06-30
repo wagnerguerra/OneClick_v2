@@ -90,6 +90,11 @@ export interface NavItem {
   // Sub-itens hierárquicos (ex: Contratos → Cláusulas, Modelos, Relatórios).
   // O item pai continua navegável (clicar no label abre o href dele).
   subItems?: NavItem[]
+  // Exige uma sub-permissão específica do módulo para aparecer (além da leitura
+  // do módulo). Usado p/ rotas cujo acesso é mais restrito que o módulo pai
+  // (ex.: /crm/funil exige `crm.acessar_funil_lead`). Master/EmpresaMaster veem
+  // sempre. Quem não tem a sub-permissão não vê o link (a página também barra).
+  requirePerm?: { module: string; sub: string }
 }
 
 export interface NavGroup {
@@ -126,7 +131,7 @@ export const navigation: NavGroup[] = [
         href: '/crm',
         icon: Target,
         subItems: [
-          { label: 'Funil de captação (IA)', href: '/crm/funil', icon: Sparkles },
+          { label: 'Funil de captação (IA)', href: '/crm/funil', icon: Sparkles, requirePerm: { module: 'crm', sub: 'acessar_funil_lead' } },
         ],
       },
       { label: 'WhatsApp', href: '/whatsapp', icon: MessageSquare },

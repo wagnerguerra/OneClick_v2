@@ -39,7 +39,10 @@ export default function CrmFunilPage() {
   const router = useRouter()
   const { isMaster, isEmpresaMaster, permissions, loading: permsLoading } = useUserPermissions()
   const crmPerms = (permissions.find(p => p.moduleSlug === 'crm')?.subPermissions ?? {}) as Record<string, boolean>
-  const pode = isMaster || isEmpresaMaster || crmPerms.gerir_funil_lead === true
+  // Acessar a tela: sub-permissão de acesso (configurar implica acessar).
+  const pode = isMaster || isEmpresaMaster || crmPerms.acessar_funil_lead === true || crmPerms.gerir_funil_lead === true
+  // Editar (criar/salvar/excluir campanhas): sub-permissão de configuração.
+  const podeGerir = isMaster || isEmpresaMaster || crmPerms.gerir_funil_lead === true
 
   const [campanhas, setCampanhas] = useState<Cfg[]>([])
   const [cfg, setCfg] = useState<Cfg | null>(null)   // campanha em edição (clone)
@@ -189,7 +192,7 @@ export default function CrmFunilPage() {
           <div className="md:w-[260px] shrink-0 md:border-r border-b md:border-b-0 flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b">
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Campanhas</h4>
-              <Button variant="success" size="sm" className="h-7 gap-1 text-xs" onClick={novaCampanha}><Plus className="h-3.5 w-3.5" /> Nova</Button>
+              {podeGerir && <Button variant="success" size="sm" className="h-7 gap-1 text-xs" onClick={novaCampanha}><Plus className="h-3.5 w-3.5" /> Nova</Button>}
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-1 max-h-[520px]">
               {campanhas.length === 0 && <p className="text-xs text-muted-foreground text-center py-6">Nenhuma campanha.</p>}
@@ -221,15 +224,18 @@ export default function CrmFunilPage() {
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold">{cfg.id ? 'Editar campanha' : 'Nova campanha'}</h3>
-                  <div className="flex items-center gap-2">
-                    {cfg.id && <Button variant="soft-destructive" size="sm" className="text-xs gap-1.5" onClick={excluir}><Trash2 className="h-3.5 w-3.5" /> Excluir</Button>}
-                    <Button variant="success" size="sm" onClick={salvar} disabled={saving} className="gap-1.5">
-                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
-                    </Button>
-                  </div>
+                  <h3 className="text-sm font-semibold">{!podeGerir ? 'Detalhes da campanha' : cfg.id ? 'Editar campanha' : 'Nova campanha'}</h3>
+                  {podeGerir && (
+                    <div className="flex items-center gap-2">
+                      {cfg.id && <Button variant="soft-destructive" size="sm" className="text-xs gap-1.5" onClick={excluir}><Trash2 className="h-3.5 w-3.5" /> Excluir</Button>}
+                      <Button variant="success" size="sm" onClick={salvar} disabled={saving} className="gap-1.5">
+                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
+                <fieldset disabled={!podeGerir} className="space-y-4 border-0 m-0 p-0 min-w-0 disabled:opacity-100">
                 {/* Identidade */}
                 <div className="grid grid-cols-12 gap-3">
                   <div className="col-span-12 sm:col-span-5 space-y-1.5">
@@ -319,6 +325,7 @@ export default function CrmFunilPage() {
                   <Label className="text-[13px] font-semibold">Aviso de privacidade (LGPD)</Label>
                   <textarea className="w-full min-h-[50px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.avisoLgpd ?? ''} onChange={e => upd({ avisoLgpd: e.target.value })} />
                 </div>
+                </fieldset>
               </div>
             )}
           </div>

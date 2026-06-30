@@ -472,6 +472,33 @@ export function readSubProcedure(moduleSlug: string, subKey: string, label: stri
     .use(createSubPermissionMiddleware(moduleSlug, subKey, label))
 }
 
+/**
+ * Procedure de leitura que exige QUALQUER UMA das sub-permissões informadas.
+ * Útil quando uma permissão mais ampla implica outra (ex.: quem pode
+ * "configurar o funil" também pode "acessar o funil"), evitando estados
+ * quebrados (ter a de editar mas não a de ver). Master/EmpresaMaster passam.
+ */
+export function readSubAnyProcedure(moduleSlug: string, subKeys: string[], label: string) {
+  return t.procedure.use(createPermissionMiddleware(moduleSlug, 'canRead')).use(
+    t.middleware(async ({ ctx, next }) => {
+      if (!ctx.userId) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+      }
+      assertTenantActive(ctx)
+      if (ctx.isMaster || ctx.isEmpresaMaster) {
+        return next({ ctx: { ...ctx, userId: ctx.userId } })
+      }
+      const permissions = await getUserPermissions(ctx.userId)
+      const modulePerm = permissions.find(p => p.moduleSlug === moduleSlug)
+      const subs = (modulePerm?.subPermissions ?? {}) as Record<string, boolean>
+      if (!subKeys.some(k => subs[k] === true)) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: `Sem permissão para: ${label}` })
+      }
+      return next({ ctx: { ...ctx, userId: ctx.userId } })
+    }),
+  )
+}
+
 /** Procedure que exige permissão de exclusão + sub-permissão específica */
 export function deleteSubProcedure(moduleSlug: string, subKey: string, label: string) {
   return t.procedure

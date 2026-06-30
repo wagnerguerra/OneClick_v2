@@ -23,7 +23,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
   const logoSrc = '/logo-light.png'
 
   // Filtrar navigation baseado nas permissões do usuário
-  const { isMaster, allowedSlugs, role, loading: permsLoading } = useUserPermissions()
+  const { isMaster, isEmpresaMaster, allowedSlugs, permissions, role, loading: permsLoading } = useUserPermissions()
   const ehLiderSetor = ['GESTOR', 'COORDENADOR', 'DIRETOR'].includes(role)
 
   const pathname = usePathname()
@@ -49,6 +49,14 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
   }, [pathname])
 
   const filteredNavigation = useMemo(() => {
+    const isAdmin = isMaster || isEmpresaMaster
+    // Sub-permissão satisfeita? Admin (master/empresaMaster) sempre vê.
+    const hasSub = (module: string, sub: string): boolean =>
+      isAdmin || permissions.find((p) => p.moduleSlug === module)?.subPermissions?.[sub] === true
+    // Subitem com `requirePerm` só aparece se a sub-permissão estiver concedida.
+    const subOk = (item: NavItem): boolean =>
+      !item.requirePerm || hasSub(item.requirePerm.module, item.requirePerm.sub)
+
     // Permissões por slug — restringem apenas usuários comuns (master vê tudo).
     const byPermission = (item: NavItem): boolean => {
       // Módulos master-only (ex.: Empresas — admin global multi-tenant):
@@ -76,13 +84,15 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
         let items: NavItem[] = group.items
           .filter((item) => !item.wip)
           .map((item) =>
-            item.subItems ? { ...item, subItems: item.subItems.filter((s) => !s.wip) } : item,
+            item.subItems
+              ? { ...item, subItems: item.subItems.filter((s) => !s.wip && subOk(s)) }
+              : item,
           )
         if (!isMaster) items = items.filter(byPermission)
         return { ...group, items }
       })
       .filter((group) => group.items.length > 0)
-  }, [isMaster, allowedSlugs, ehLiderSetor])
+  }, [isMaster, isEmpresaMaster, allowedSlugs, permissions, ehLiderSetor])
 
   // Fechar com Escape
   useEffect(() => {
