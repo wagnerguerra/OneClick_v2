@@ -901,20 +901,27 @@ export default function OrcamentoDetailPage() {
     try {
       const data = await (trpc.orcamento as any).getById.query({ id })
       setOrc(data)
-      // Populate form
-      setFormTipo(data.tipo || '')
-      setFormClienteId(data.cliente?.id || '')
-      setFormContatos(data.contatos || '')
-      setFormEmails(data.emailsContatos || data.emails || '')
-      setFormDescontoPercent(data.descontoPct != null ? String(data.descontoPct) : '')
-      setFormDesconto(data.descontoValor != null ? String(data.descontoValor) : '')
-      setFormValidade(data.validadeDias != null ? String(data.validadeDias) : '')
-      setFormPagamento(data.formaPagamento || '')
-      setFormTextoInterno(data.textoInterno || '')
-      setFormTextoCliente(data.textoCorpoCliente || '')
-      setFormServicoId(data.servicoId || '')
-      // Libera auto-save apos um tick (deixa os setState se acomodarem antes do effect rodar)
-      setTimeout(() => { initialLoadRef.current = false }, 50)
+      // Só (re)popula os campos EDITÁVEIS num carregamento NÃO-silencioso (load
+      // inicial / troca de registro). Em refetches silenciosos (após cada
+      // auto-save), o estado local do form é a fonte da verdade: repopular aqui
+      // reinjetava um snapshot atrasado nos RichEditors, jogando o cursor pro
+      // fim e revertendo o texto recém-digitado. O `orc` acima continua
+      // atualizando (Resumo Financeiro, status, etc.).
+      if (!silent) {
+        setFormTipo(data.tipo || '')
+        setFormClienteId(data.cliente?.id || '')
+        setFormContatos(data.contatos || '')
+        setFormEmails(data.emailsContatos || data.emails || '')
+        setFormDescontoPercent(data.descontoPct != null ? String(data.descontoPct) : '')
+        setFormDesconto(data.descontoValor != null ? String(data.descontoValor) : '')
+        setFormValidade(data.validadeDias != null ? String(data.validadeDias) : '')
+        setFormPagamento(data.formaPagamento || '')
+        setFormTextoInterno(data.textoInterno || '')
+        setFormTextoCliente(data.textoCorpoCliente || '')
+        setFormServicoId(data.servicoId || '')
+        // Libera auto-save apos um tick (deixa os setState se acomodarem antes do effect rodar)
+        setTimeout(() => { initialLoadRef.current = false }, 50)
+      }
     } catch { if (!silent) alerts.error('Erro', 'Não foi possível carregar o orçamento.') }
     finally { if (!silent) setLoading(false) }
   }, [id])

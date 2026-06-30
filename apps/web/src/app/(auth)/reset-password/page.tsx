@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { Button, Input, Label } from '@saas/ui'
 import { authClient } from '@/lib/auth-client'
 import { CheckCircle } from 'lucide-react'
+import { PasswordStrength } from '@/components/auth/password-strength'
 
 const schema = z.object({
   password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
@@ -30,10 +31,12 @@ export default function ResetPasswordPage() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
+  const password = watch('password') ?? ''
 
   async function onSubmit(data: FormData) {
     if (!token) {
@@ -123,8 +126,12 @@ export default function ResetPasswordPage() {
                   type="password"
                   placeholder="Mínimo 8 caracteres"
                   className="h-11"
+                  autoComplete="new-password"
+                  required
+                  minLength={8}
                   {...register('password')}
                 />
+                <PasswordStrength password={password} />
                 {errors.password && (
                   <p className="text-xs text-destructive">{errors.password.message}</p>
                 )}
@@ -137,6 +144,9 @@ export default function ResetPasswordPage() {
                   type="password"
                   placeholder="Repita a senha"
                   className="h-11"
+                  autoComplete="new-password"
+                  required
+                  minLength={8}
                   {...register('confirmPassword')}
                 />
                 {errors.confirmPassword && (

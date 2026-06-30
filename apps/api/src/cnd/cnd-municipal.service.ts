@@ -45,32 +45,11 @@ export class CndMunicipalService {
   }
 
   private async ensureTable() {
+    // Schema (tabela + colunas debitos/pdf_base64/data_validade + índices) garantido
+    // pela migração manual_2026_06_26_cnd_dte_tables.sql (R2-002). Sem DDL no caminho
+    // de request — antes o CREATE/ALTER aqui rodava em totalizadores/validadeDashboard
+    // (read), com race de pg_type sob concorrência. Os métodos apenas LEEM agora.
     if (this.tableChecked) return
-    try {
-      const exists = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
-        `SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'certidoes_cnd_municipal')`,
-      )
-      if (exists[0]?.exists) { this.tableChecked = true; return }
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS certidoes_cnd_municipal (
-          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-          documento TEXT NOT NULL,
-          razao_social TEXT,
-          municipio TEXT NOT NULL,
-          sucesso BOOLEAN NOT NULL DEFAULT false,
-          tipo_certidao TEXT,
-          mensagem TEXT,
-          conteudo_html TEXT,
-          cliente_id TEXT,
-          user_id TEXT,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-      `)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_mun_doc ON certidoes_cnd_municipal (documento)`)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cnd_mun_mun ON certidoes_cnd_municipal (municipio)`)
-    } catch (e) {
-      if (!(e as Error).message?.includes('already exists')) throw e
-    }
     this.tableChecked = true
   }
 
@@ -268,10 +247,7 @@ export class CndMunicipalService {
       if (cli) { razaoSocial = cli.razaoSocial; resolvedClienteId = cli.id }
     }
 
-    // Adicionar colunas extras se não existirem
-    await prisma.$executeRawUnsafe(`ALTER TABLE certidoes_cnd_municipal ADD COLUMN IF NOT EXISTS debitos JSONB DEFAULT '[]'`).catch(() => {})
-    await prisma.$executeRawUnsafe(`ALTER TABLE certidoes_cnd_municipal ADD COLUMN IF NOT EXISTS pdf_base64 TEXT`).catch(() => {})
-    await prisma.$executeRawUnsafe(`ALTER TABLE certidoes_cnd_municipal ADD COLUMN IF NOT EXISTS data_validade DATE`).catch(() => {})
+    // Colunas debitos/pdf_base64/data_validade garantidas pela migração — sem DDL aqui.
 
     // Extrair validade do PDF
     const dataValidade = pdfBase64 ? await this.extrairValidadePdf(pdfBase64) : null
@@ -536,10 +512,7 @@ export class CndMunicipalService {
         if (cli) { razaoSocial = cli.razaoSocial; resolvedClienteId = cli.id }
       }
 
-      // Salvar
-      await prisma.$executeRawUnsafe(`ALTER TABLE certidoes_cnd_municipal ADD COLUMN IF NOT EXISTS debitos JSONB DEFAULT '[]'`).catch(() => {})
-      await prisma.$executeRawUnsafe(`ALTER TABLE certidoes_cnd_municipal ADD COLUMN IF NOT EXISTS pdf_base64 TEXT`).catch(() => {})
-      await prisma.$executeRawUnsafe(`ALTER TABLE certidoes_cnd_municipal ADD COLUMN IF NOT EXISTS data_validade DATE`).catch(() => {})
+      // Salvar (colunas debitos/pdf_base64/data_validade garantidas pela migração)
 
       // Extrair validade do PDF
       const dataValidade = pdfBase64 ? await this.extrairValidadePdf(pdfBase64) : null
@@ -659,7 +632,8 @@ export class CndMunicipalService {
 
   async totalizadores(municipio?: string) {
     await this.ensureTable()
-    const mFilter = municipio ? `WHERE UPPER(municipio) = UPPER('${municipio}')` : ''
+    const mFilter = municipio ? `WHERE UPPER(municipio) = UPPER($1)` : ''
+    const params = municipio ? [municipio] : []
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(`
       SELECT
         COUNT(*)::int as total,
@@ -670,7 +644,7 @@ export class CndMunicipalService {
         COUNT(*) FILTER (WHERE data_validade IS NOT NULL AND data_validade >= CURRENT_DATE AND data_validade <= CURRENT_DATE + INTERVAL '15 days')::int as vencendo,
         COUNT(*) FILTER (WHERE data_validade IS NOT NULL AND data_validade > CURRENT_DATE + INTERVAL '15 days')::int as vigentes
       FROM certidoes_cnd_municipal ${mFilter}
-    `)
+    `, ...params)
     const r = rows[0]!
     return {
       total: Number(r.total ?? 0),

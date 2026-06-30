@@ -62,7 +62,7 @@ export const MODULE_SLUGS = [
   'obrigacoes-servicos', 'situacao-fiscal', 'ferramentas-fiscal',
 
   // Contábil
-  'bi-categorias-balancete', 'bi-faturamento', 'ferramentas-contabil',
+  'bi-categorias-balancete', 'bi-faturamento', 'ferramentas-contabil', 'tratamento-lancamentos',
   // TI
   'ativos', 'helpdesk', 'projetos',
   // Qualidade
@@ -74,6 +74,16 @@ export const MODULE_SLUGS = [
 ] as const
 
 export type ModuleSlug = (typeof MODULE_SLUGS)[number]
+
+/**
+ * Módulos de administração da PLATAFORMA (config de sistema global que afeta
+ * TODOS os tenants: integrações Stripe/SMTP/Banco/SERPRO/OpenAI/S3, métricas e
+ * backup). Acesso restrito ao MASTER global — jamais concedidos a roles de
+ * empresa/não-master. Filtrados em getMyPermissions e não concedidos no
+ * onboarding; rotas correspondentes são bloqueadas no servidor (middleware).
+ * F-009 (broken access control).
+ */
+export const PLATFORM_ADMIN_MODULES = ['configuracoes', 'metricas', 'backup-restore'] as const
 
 export const MODULE_LABELS: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -109,6 +119,7 @@ export const MODULE_LABELS: Record<string, string> = {
   // Contábil
   'bi-categorias-balancete': 'Categorias de Balancete', 'bi-faturamento': 'Dashboard Financeiro',
   'ferramentas-contabil': 'Ferramentas',
+  'tratamento-lancamentos': 'Tratamento de Lançamentos',
   // TI
   ativos: 'Gestão de Ativos', helpdesk: 'HelpDesk', projetos: 'Projetos',
   // Qualidade
@@ -131,7 +142,7 @@ export const MODULE_GROUPS = {
   'Legalização': ['beneficios-fiscais', 'certificados', 'gestao-certificados', 'processos', 'quadro-societario'],
   'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento'],
   'Fiscal': ['caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal', 'ferramentas-fiscal'],
-  'Contábil': ['bi-categorias-balancete', 'bi-faturamento', 'ferramentas-contabil'],
+  'Contábil': ['bi-categorias-balancete', 'bi-faturamento', 'ferramentas-contabil', 'tratamento-lancamentos'],
   'TI': ['ativos', 'helpdesk', 'projetos'],
   'Qualidade': ['qualidade', 'aquisicoes', 'analise-contexto', 'capacitacoes', 'documentos-internos', 'documentos-externos', 'tabelas-registros', 'elogios', 'melhorias', 'nao-conformidades', 'reclamacoes', 'reunioes', 'sugestoes'],
   'Configurações': ['configuracoes', 'metricas', 'backup-restore'],
@@ -166,12 +177,16 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'gnre', label: 'Extrator GNRE', group: 'Ferramentas' },
     { key: 'extrato-edit', label: 'Editor de Extrato', group: 'Ferramentas' },
   ],
+  'tratamento-lancamentos': [
+    { key: 'gerenciar_modelos', label: 'Gerenciar modelos de tratamento (criar, editar, duplicar e excluir)', group: 'Modelos' },
+  ],
   beneficios: [
     { key: 'gerir_beneficios', label: 'Responsável pelo módulo (gerenciar tudo)', group: 'Configurações' },
     { key: 'lancar_apontamentos', label: 'Lançar apontamentos do seu setor (férias, licenças, ausências, faltas, plantões)', group: 'Apontamentos' },
   ],
   crm: [
-    { key: 'gerir_funil_lead', label: 'Configurar o funil de captação de leads por IA (trilha/rubrica)', group: 'Configurações' },
+    { key: 'acessar_funil_lead', label: 'Acessar o funil de captação de leads por IA (ver campanhas e relatórios)', group: 'Funil de captação' },
+    { key: 'gerir_funil_lead', label: 'Configurar o funil de captação de leads por IA (criar/editar campanhas, trilha/rubrica)', group: 'Funil de captação' },
   ],
   agenda: [
     { key: 'manage_config', label: 'Gerenciar configurações da agenda (regras de conflito e salas)', group: 'Configurações' },

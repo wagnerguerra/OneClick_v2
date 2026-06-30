@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { router, readProcedure, writeSubProcedure, readSubProcedure, readOrLiderProcedure, writeSubOrLiderProcedure } from '../trpc/trpc.service'
+import { router, readProcedure, writeSubProcedure, readSubProcedure, readOrLiderProcedure, writeSubOrLiderProcedure, scopedEmpresaId } from '../trpc/trpc.service'
 import {
   salvarBeneficioConfigSchema, salvarFichaBeneficioSchema, abrirCompetenciaSchema,
   salvarApontamentoSchema, salvarSaldoVtSchema, salvarCartaoAvulsoSchema,
@@ -19,15 +19,15 @@ export function createBeneficioRouter(beneficioService: BeneficioService) {
     // ── Config (responsável) ──
     getConfig: readProcedure(MODULE)
       .input(z.object({ empresaId: z.string() }))
-      .query(({ input }) => beneficioService.getConfig(input.empresaId)),
+      .query(({ input, ctx }) => beneficioService.getConfig(scopedEmpresaId(ctx, input.empresaId))),
     saveConfig: writeSubProcedure(MODULE, GERIR, 'Gerir benefícios')
       .input(salvarBeneficioConfigSchema)
-      .mutation(({ input }) => beneficioService.saveConfig(input)),
+      .mutation(({ input, ctx }) => beneficioService.saveConfig({ ...input, empresaId: scopedEmpresaId(ctx, input.empresaId) })),
 
     // ── Fichas de benefício ──
     listFichas: readSubProcedure(MODULE, GERIR, 'Gerir benefícios')
       .input(z.object({ empresaId: z.string() }))
-      .query(({ input }) => beneficioService.listFichas(input.empresaId)),
+      .query(({ input, ctx }) => beneficioService.listFichas(scopedEmpresaId(ctx, input.empresaId))),
     saveFicha: writeSubProcedure(MODULE, GERIR, 'Gerir benefícios')
       .input(salvarFichaBeneficioSchema)
       .mutation(({ input }) => beneficioService.saveFicha(input)),
@@ -35,13 +35,13 @@ export function createBeneficioRouter(beneficioService: BeneficioService) {
     // ── Competências (responsável abre; líder lê p/ apontar) ──
     listCompetencias: readOrLiderProcedure(MODULE)
       .input(z.object({ empresaId: z.string() }))
-      .query(({ input }) => beneficioService.listCompetencias(input.empresaId)),
+      .query(({ input, ctx }) => beneficioService.listCompetencias(scopedEmpresaId(ctx, input.empresaId))),
     getCompetencia: readOrLiderProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .query(({ input }) => beneficioService.getCompetencia(input.id)),
     abrirCompetencia: writeSubProcedure(MODULE, GERIR, 'Gerir benefícios')
       .input(abrirCompetenciaSchema)
-      .mutation(({ input, ctx }) => beneficioService.abrirCompetencia(input, ctx.userId)),
+      .mutation(({ input, ctx }) => beneficioService.abrirCompetencia({ ...input, empresaId: scopedEmpresaId(ctx, input.empresaId) }, ctx.userId)),
     reabrirCompetencia: writeSubProcedure(MODULE, GERIR, 'Gerir benefícios')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => beneficioService.reabrirCompetencia(input.id)),
@@ -69,10 +69,10 @@ export function createBeneficioRouter(beneficioService: BeneficioService) {
     // ── Cartões avulsos (responsável) ──
     listCartoes: readSubProcedure(MODULE, GERIR, 'Gerir benefícios')
       .input(z.object({ empresaId: z.string() }))
-      .query(({ input }) => beneficioService.listCartoes(input.empresaId)),
+      .query(({ input, ctx }) => beneficioService.listCartoes(scopedEmpresaId(ctx, input.empresaId))),
     saveCartao: writeSubProcedure(MODULE, GERIR, 'Gerir benefícios')
       .input(salvarCartaoAvulsoSchema)
-      .mutation(({ input }) => beneficioService.saveCartao(input)),
+      .mutation(({ input, ctx }) => beneficioService.saveCartao({ ...input, empresaId: scopedEmpresaId(ctx, input.empresaId) })),
     deleteCartao: writeSubProcedure(MODULE, GERIR, 'Gerir benefícios')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => beneficioService.deleteCartao(input.id)),

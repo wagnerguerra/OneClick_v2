@@ -174,6 +174,8 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 placeholder="seu@email.com"
+                autoComplete="username"
+                required
                 className="flex w-full h-11 rounded-lg border border-border bg-background px-3.5 pl-10 text-sm transition-colors placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
                 {...register('email')}
               />
@@ -200,6 +202,8 @@ export default function LoginPage() {
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Digite sua senha"
+                autoComplete="current-password"
+                required
                 className="flex w-full h-11 rounded-lg border border-border bg-background px-3.5 pl-10 pr-11 text-sm transition-colors placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
                 {...register('password')}
               />
@@ -299,7 +303,7 @@ export default function LoginPage() {
 
       {/* Link de registro */}
       <p className="text-center text-[13px] text-muted-foreground">
-        Ainda nao tem uma conta?{' '}
+        Ainda não tem uma conta?{' '}
         <Link
           href="/register"
           className="font-semibold text-[#5ea3cb] hover:text-[#4a8db5] transition-colors"

@@ -1,4 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common'
+import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 import type { Prisma } from '@saas/db'
 import { EmailService } from '../common/email.service'
@@ -70,6 +71,7 @@ interface CreateEventoInput {
   garagem?: boolean
   vagas?: number | null
   equipamentos?: string | null
+  arrumarSala?: boolean
   isTarefa?: boolean
   tipoId: string
   empresaId?: string | null
@@ -100,6 +102,7 @@ interface UpdateEventoInput {
   garagem?: boolean
   vagas?: number | null
   equipamentos?: string | null
+  arrumarSala?: boolean
   isTarefa?: boolean
   tipoId?: string
   empresaId?: string | null
@@ -422,16 +425,31 @@ export class AgendaService {
   // TIPOS (Categorias)
   // ============================================================
 
-  async listTipos() {
+  async listTipos(ctxEmpresaId: string | null = null) {
     return prisma.agendaTipo.findMany({
-      where: { isActive: true },
+      // Catálogo global (empresa NULL) + os tipos do tenant atual. F-013.
+      where: { isActive: true, OR: [{ empresaId: null }, { empresaId: ctxEmpresaId }] },
       orderBy: { nome: 'asc' },
     })
   }
 
-  async createTipo(data: { nome: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }) {
-    return prisma.agendaTipo.create({
+  /** Grava auditoria de uma ação num tipo de evento (best-effort, não quebra a ação). */
+  private async logTipo(tipoId: string | null, tipoNome: string, usuarioId: string | undefined, acao: string, detalhes?: string) {
+    if (!usuarioId) return
+    try {
+      await prisma.agendaTipoEvent.create({
+        data: { tipoId, tipoNome, usuarioId, acao, detalhes: detalhes ?? null },
+      })
+    } catch (e) {
+      // tabela ainda não migrada / falha de log não deve abortar a operação
+      console.warn('[agenda] logTipo falhou:', (e as Error).message)
+    }
+  }
+
+  async createTipo(data: { nome: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }, userId?: string, ctxEmpresaId: string | null = null) {
+    const tipo = await prisma.agendaTipo.create({
       data: {
+        empresaId: ctxEmpresaId,  // tipo criado é DO tenant (não global). F-013.
         nome: data.nome,
         cor: data.cor ?? '#3b82f6',
         corBorda: data.corBorda ?? '#2563eb',
@@ -444,9 +462,24 @@ export class AgendaService {
         salasPermitidas: data.salasPermitidas ?? [],
       },
     })
+    await this.logTipo(tipo.id, tipo.nome, userId, 'CRIOU')
+    return tipo
   }
 
-  async updateTipo(id: string, data: { nome?: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }) {
+  /**
+   * Não-master só altera/exclui os PRÓPRIOS tipos — nunca os defaults GLOBAIS
+   * (empresa NULL, que afetariam todos os tenants) nem os de outro tenant. F-013.
+   */
+  private async assertTipoOwned(tipoId: string, isMaster: boolean, empresaId: string | null) {
+    if (isMaster) return
+    const tipo = await prisma.agendaTipo.findUnique({ where: { id: tipoId }, select: { empresaId: true } })
+    if (!tipo || tipo.empresaId === null || tipo.empresaId !== empresaId) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Tipo fora do seu acesso (padrões globais só o master gerencia).' })
+    }
+  }
+
+  async updateTipo(id: string, data: { nome?: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }, userId?: string, isMaster = false, empresaId: string | null = null) {
+    await this.assertTipoOwned(id, isMaster, empresaId)
     const updateData: Record<string, unknown> = {}
     if (data.nome !== undefined) updateData.nome = data.nome
     if (data.cor !== undefined) updateData.cor = data.cor
@@ -459,25 +492,56 @@ export class AgendaService {
     if (data.permiteEquipamentos !== undefined) updateData.permiteEquipamentos = data.permiteEquipamentos
     if (data.salasPermitidas !== undefined) updateData.salasPermitidas = data.salasPermitidas
 
-    return prisma.agendaTipo.update({
+    const tipo = await prisma.agendaTipo.update({
       where: { id },
       data: updateData,
     })
+    const campos = Object.keys(updateData)
+    await this.logTipo(tipo.id, tipo.nome, userId, 'EDITOU', campos.length ? `Campos: ${campos.join(', ')}` : undefined)
+    return tipo
   }
 
-  async deleteTipo(id: string) {
-    return prisma.agendaTipo.update({
+  async deleteTipo(id: string, userId?: string, isMaster = false, empresaId: string | null = null) {
+    await this.assertTipoOwned(id, isMaster, empresaId)
+    const tipo = await prisma.agendaTipo.update({
       where: { id },
       data: { isActive: false },
     })
+    await this.logTipo(tipo.id, tipo.nome, userId, 'EXCLUIU')
+    return tipo
+  }
+
+  /** Histórico de ações nos tipos (master/empresaMaster). Resolve nome do ator. */
+  async listTipoEventos(limit = 100) {
+    const eventos = await prisma.agendaTipoEvent.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+    const userIds = [...new Set(eventos.map((e) => e.usuarioId))]
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, image: true },
+    })
+    const byId = new Map(users.map((u) => [u.id, u]))
+    return eventos.map((e) => ({
+      id: e.id,
+      tipoNome: e.tipoNome,
+      acao: e.acao,
+      detalhes: e.detalhes,
+      createdAt: e.createdAt,
+      usuario: byId.get(e.usuarioId) ?? { id: e.usuarioId, name: 'Usuário removido', image: null },
+    }))
   }
 
   // ============================================================
   // EVENTOS
   // ============================================================
 
-  async listEventos(params: ListEventosParams, userId: string) {
-    const { dataInicio, dataFim, tipoId, criadorId, empresaId } = params
+  async listEventos(params: ListEventosParams, userId: string, ctxEmpresaId: string | null) {
+    // Ignora params.empresaId (vinha do cliente, opcional) — o escopo de tenant
+    // é SEMPRE a empresa da sessão (ctx). Sem isto, a agenda vazava eventos de
+    // todos os tenants. F-013.
+    const { dataInicio, dataFim, tipoId, criadorId } = params
 
     const rangeStart = new Date(dataInicio)
     const rangeEnd = new Date(dataFim)
@@ -485,6 +549,7 @@ export class AgendaService {
     const where: Prisma.AgendaEventoWhereInput = {
       isActive: true,
       isTarefa: false,  // tarefas agora moram em agenda_tarefas — não vazam pra listagem de eventos
+      empresaId: ctxEmpresaId,  // isolamento multi-tenant (forçado pela sessão)
       OR: [
         // Evento começa dentro do range
         { data: { gte: rangeStart, lte: rangeEnd } },
@@ -493,7 +558,6 @@ export class AgendaService {
       ],
       ...(tipoId ? { tipoId } : {}),
       ...(criadorId ? { criadorId } : {}),
-      ...(empresaId ? { empresaId } : {}),
     }
 
     const eventos = await prisma.agendaEvento.findMany({
@@ -519,9 +583,10 @@ export class AgendaService {
     })
   }
 
-  async getById(id: string) {
-    return prisma.agendaEvento.findUniqueOrThrow({
-      where: { id },
+  async getById(id: string, isMaster = false, empresaId: string | null = null) {
+    return prisma.agendaEvento.findFirstOrThrow({
+      // Isolamento multi-tenant: não-master só acessa eventos da própria empresa.
+      where: { id, ...(isMaster ? {} : { empresaId }) },
       include: {
         tipo: { select: { id: true, nome: true, cor: true, corBorda: true, corTexto: true } },
         criador: { select: { id: true, name: true } },
@@ -657,7 +722,22 @@ export class AgendaService {
     return { anotacoes: anotacoes.length, anexos: anexos.length }
   }
 
-  async listAnotacoes(eventoId: string) {
+  /**
+   * Garante que o evento é do tenant do requisitante (não-master). Usado pelos
+   * sub-recursos por-eventoId (anotações/anexos/logs) — sem isto, um id de outro
+   * tenant exporia o conteúdo. isMaster=true (default) PULA a checagem: usado por
+   * chamadas INTERNAS sobre eventos já validados (ex.: getById). F-013.
+   */
+  private async assertEventoTenant(eventoId: string, isMaster: boolean, empresaId: string | null) {
+    if (isMaster) return
+    const ev = await prisma.agendaEvento.findUnique({ where: { id: eventoId }, select: { empresaId: true } })
+    if (!ev || ev.empresaId !== empresaId) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Evento fora do seu acesso.' })
+    }
+  }
+
+  async listAnotacoes(eventoId: string, isMaster = true, empresaId: string | null = null) {
+    await this.assertEventoTenant(eventoId, isMaster, empresaId)
     const oppId = await this.eventoOportunidadeId(eventoId)
     if (oppId) {
       const rows = await prisma.oportunidadeMensagem.findMany({ where: { oportunidadeId: oppId }, orderBy: { createdAt: 'desc' } })
@@ -721,7 +801,8 @@ export class AgendaService {
     return { ok: true }
   }
 
-  async listAnexos(eventoId: string) {
+  async listAnexos(eventoId: string, isMaster = true, empresaId: string | null = null) {
+    await this.assertEventoTenant(eventoId, isMaster, empresaId)
     const oppId = await this.eventoOportunidadeId(eventoId)
     if (oppId) {
       const rows = await prisma.oportunidadeArquivo.findMany({ where: { oportunidadeId: oppId }, orderBy: { createdAt: 'desc' } })
@@ -771,12 +852,12 @@ export class AgendaService {
     return { ok: true }
   }
 
-  async create(input: CreateEventoInput, userId: string) {
+  async create(input: CreateEventoInput, userId: string, ctxEmpresaId: string | null = null) {
     const {
       titulo, descricao, data, dataFim, horaInicio, horaFim, diaInteiro,
       local, contato, link, presenca, particular, editavel,
-      sala, salaId, garagem, vagas, equipamentos, isTarefa,
-      tipoId, empresaId, oportunidadeId, participanteIds, participantesAvulsos,
+      sala, salaId, garagem, vagas, equipamentos, arrumarSala, isTarefa,
+      tipoId, oportunidadeId, participanteIds, participantesAvulsos,
       recorrencia, recorrenciaVezes, notificar,
     } = input
 
@@ -846,10 +927,12 @@ export class AgendaService {
           garagem: garagem ?? false,
           vagas: vagas ?? null,
           equipamentos: equipamentos || null,
+          arrumarSala: arrumarSala ?? false,
           isTarefa: isTarefa ?? false,
           tipoId,
           criadorId: userId,
-          empresaId: empresaId || null,
+          // Carimba SEMPRE a empresa da sessão (tenant) — não o input do cliente.
+          empresaId: ctxEmpresaId ?? null,
           oportunidadeId: oportunidadeId || null,
           recorrencia: rec as never,
           recorrenciaVezes: isRecurrent ? vezes : null,
@@ -953,9 +1036,11 @@ export class AgendaService {
     if (data.garagem !== undefined) updateData.garagem = data.garagem
     if (data.vagas !== undefined) updateData.vagas = data.vagas
     if (data.equipamentos !== undefined) updateData.equipamentos = data.equipamentos || null
+    if (data.arrumarSala !== undefined) updateData.arrumarSala = data.arrumarSala
     if (data.isTarefa !== undefined) updateData.isTarefa = data.isTarefa
     if (data.tipoId !== undefined) updateData.tipoId = data.tipoId
-    if (data.empresaId !== undefined) updateData.empresaId = data.empresaId || null
+    // empresaId do evento é IMUTÁVEL (definido no create = tenant). Ignorado no
+    // update — não permitir mover um evento entre tenants via cliente. F-013.
     if (data.oportunidadeId !== undefined) updateData.oportunidadeId = data.oportunidadeId || null
 
     const updated = await prisma.agendaEvento.update({
@@ -1104,7 +1189,7 @@ export class AgendaService {
     salaId?: string  // novo: prioritário sobre `sala` (string) quando ambos passados
     eventoIdExcluir?: string // para ignorar o próprio evento ao editar
     tipoId?: string // se o tipo do evento sendo criado/editado não bloqueia (ex.: LEMBRETE CORPORATIVO), pular toda a checagem
-  }) {
+  }, empresaId: string | null = null) {
     const { data, horaInicio, horaFim, participanteIds, sala, salaId, eventoIdExcluir, tipoId } = params
     const conflitos: Array<{
       tipo: 'participante' | 'sala'
@@ -1132,6 +1217,7 @@ export class AgendaService {
     const eventosNoDia = await prisma.agendaEvento.findMany({
       where: {
         isActive: true,
+        empresaId,  // isolamento multi-tenant: conflitos só com eventos do próprio tenant
         data: eventDate,
         diaInteiro: false,
         ...(eventoIdExcluir ? { id: { not: eventoIdExcluir } } : {}),
@@ -1212,12 +1298,13 @@ export class AgendaService {
   async verificarDisponibilidade(params: {
     data: string
     usuarioIds: string[]
-  }) {
+  }, empresaId: string | null = null) {
     const eventDate = new Date(params.data)
 
     const eventos = await prisma.agendaEvento.findMany({
       where: {
         isActive: true,
+        empresaId,  // isolamento multi-tenant
         data: eventDate,
         diaInteiro: false,
         participantes: {
@@ -1241,6 +1328,7 @@ export class AgendaService {
     const eventosCriador = await prisma.agendaEvento.findMany({
       where: {
         isActive: true,
+        empresaId,  // isolamento multi-tenant
         data: eventDate,
         diaInteiro: false,
         criadorId: { in: params.usuarioIds },
@@ -1301,7 +1389,7 @@ export class AgendaService {
     dataInicio: string  // YYYY-MM-DD
     dataFim: string     // YYYY-MM-DD inclusivo
     usuarioIds: string[]
-  }): Promise<Array<{
+  }, empresaId: string | null = null): Promise<Array<{
     id: string
     data: string          // YYYY-MM-DD
     diaInteiro: boolean   // true = ocupa o dia todo (sem hora)
@@ -1326,6 +1414,7 @@ export class AgendaService {
     const eventos = await prisma.agendaEvento.findMany({
       where: {
         isActive: true,
+        empresaId,  // isolamento multi-tenant
         data: { gte: inicio, lte: fim },
         tipo: { bloqueiaAgenda: true },
         OR: [
@@ -1380,7 +1469,8 @@ export class AgendaService {
   // LOGS
   // ============================================================
 
-  async listLogs(eventoId: string) {
+  async listLogs(eventoId: string, isMaster = true, empresaId: string | null = null) {
+    await this.assertEventoTenant(eventoId, isMaster, empresaId)
     const logs = await prisma.agendaLog.findMany({
       where: { eventoId },
       orderBy: { createdAt: 'desc' },
@@ -1561,7 +1651,10 @@ export class AgendaService {
     const tipoMap = new Map<string, string>()
     for (const t of tiposLocais) tipoMap.set(t.nome.toLowerCase(), t.id)
 
-    const usersLocais = await prisma.user.findMany({ where: { isActive: true }, select: { id: true, email: true, name: true } })
+    // Isolamento multi-tenant: casa participantes do legado apenas com usuários
+    // da empresa do importador (não vaza catálogo de usuários de outro tenant).
+    const importador = await prisma.user.findUnique({ where: { id: userId }, select: { empresaId: true } })
+    const usersLocais = await prisma.user.findMany({ where: { isActive: true, empresaId: importador?.empresaId ?? null }, select: { id: true, email: true, name: true } })
     const userByEmail = new Map<string, string>()
     const userByName = new Map<string, string>()
     for (const u of usersLocais) {

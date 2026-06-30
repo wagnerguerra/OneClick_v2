@@ -1,0 +1,171 @@
+// ============================================================
+// Motor de conversão: aplica um Modelo de Tratamento aos lançamentos extraídos
+// e produz o conteúdo SCI — ou a lista de PENDÊNCIAS, quando algum lançamento
+// não pôde ser interpretado.
+//
+// Tipos de pendência (alinhados ao plano):
+//   DC_NAO_MAPEADO              valor da coluna de débito/crédito sem direção definida
+//   CONTA_NAO_MAPEADA           sem conta de contrapartida para a descrição/palavra-chave
+//   CONTA_CORRENTE_NAO_MAPEADA  (modo múltiplas contas) valor da coluna sem conta corrente
+//   CAMPO_VAZIO                 coluna obrigatória sem valor na linha
+//   DATA_INVALIDA              data não reconhecida
+//   VALOR_INVALIDO             valor não numérico
+// ============================================================
+
+import type { TreatmentDefinition } from '@saas/types'
+import type { ExtractedTable, CellValue } from './extract-tabela'
+import { parseData, parseValor } from './parsers'
+import { buildSciLine, buildSciFile, type Direcao } from './sci-format'
+
+export type PendenciaTipo = 'DC_NAO_MAPEADO' | 'CONTA_NAO_MAPEADA' | 'CONTA_CORRENTE_NAO_MAPEADA' | 'CAMPO_VAZIO' | 'DATA_INVALIDA' | 'VALOR_INVALIDO'
+
+export interface Pendencia {
+  /** Linha de dados (1-based) na tabela extraída; 0 = pendência do modelo. */
+  linha: number
+  tipo: PendenciaTipo
+  /** Coluna/aspecto causador (para destaque na UI). */
+  campo: string
+  mensagem: string
+  /** Valor bruto causador (tooltip/realce). */
+  valor?: string
+}
+
+export interface ConversionResult {
+  /** Conteúdo do .txt SCI; null quando há pendências. */
+  sciText: string | null
+  totalLancamentos: number
+  pendencias: Pendencia[]
+}
+
+function cell(row: Record<string, CellValue>, col: string): string {
+  if (!col) return ''
+  const v = row[col]
+  return v === null || v === undefined ? '' : String(v).trim()
+}
+
+interface CpMatch { conta: string; historicoFixo?: string; direcao?: Direcao }
+
+/** Resolve a contrapartida de uma descrição conforme o modo do modelo. */
+function matchContrapartida(def: TreatmentDefinition, descricao: string): CpMatch | null {
+  const cp = def.contrapartida
+  if (cp.modo === 'PALAVRA_CHAVE') {
+    const lower = descricao.toLowerCase()
+    let best: { item: typeof cp.palavraChave[number]; idx: number } | null = null
+    for (const item of cp.palavraChave) {
+      const kw = item.palavraChave.trim().toLowerCase()
+      if (!kw) continue
+      const idx = lower.indexOf(kw)
+      if (idx >= 0 && (best === null || idx < best.idx)) best = { item, idx }
+    }
+    return best ? { conta: best.item.conta, historicoFixo: best.item.historicoFixo, direcao: best.item.direcao } : null
+  }
+  const item = cp.descricao.find((i) => i.descricao === descricao)
+  return item ? { conta: item.conta, historicoFixo: item.historicoFixo, direcao: item.direcao } : null
+}
+
+export function applyModel(table: ExtractedTable, def: TreatmentDefinition): ConversionResult {
+  const cm = def.columnMapping
+  const dcMapa = new Map(def.debitoCredito.mapa.map((m) => [m.valor, m.direcao]))
+  const cc = def.contasCorrentes
+  const ccMapa = new Map(cc.mapa.map((m) => [m.valor, m.conta]))
+
+  const lines: string[] = []
+  const pendencias: Pendencia[] = []
+
+  // Pendência de modelo: conta corrente é necessária para os campos <3>/<4>.
+  if (cc.modo === 'UNICA') {
+    if (!cc.unica.trim()) {
+      pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'contaCorrente', mensagem: 'Conta corrente não informada no modelo.' })
+    }
+  } else if (!cc.coluna.trim()) {
+    pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'contasCorrentes', mensagem: 'Coluna que identifica a conta corrente não definida no modelo.' })
+  }
+
+  table.rows.forEach((row, i) => {
+    const linha = i + 1
+    const rowPend: Pendencia[] = []
+
+    const descricao = cell(row, cm.descricao)
+    const participante = cm.participante ? cell(row, cm.participante) : ''
+    const numeroNf = cm.numeroNf ? cell(row, cm.numeroNf) : ''
+    const documento = cm.documento ? cell(row, cm.documento) : ''
+
+    if (!descricao) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.descricao, mensagem: 'Descrição vazia.' })
+
+    // Data (campo obrigatório)
+    const dataStr = cell(row, cm.data)
+    const pd = parseData(cm.data ? row[cm.data] : '')
+    if (!pd.valid) {
+      rowPend.push(dataStr
+        ? { linha, tipo: 'DATA_INVALIDA', campo: cm.data, mensagem: `Data inválida: "${dataStr}".`, valor: dataStr }
+        : { linha, tipo: 'CAMPO_VAZIO', campo: cm.data, mensagem: 'Data vazia.' })
+    }
+
+    // Valor (campo obrigatório)
+    const valorStr = cell(row, cm.valor)
+    const pv = parseValor(cm.valor ? row[cm.valor] : '')
+    if (!pv.valid) {
+      rowPend.push(valorStr
+        ? { linha, tipo: 'VALOR_INVALIDO', campo: cm.valor, mensagem: `Valor não numérico: "${valorStr}".`, valor: valorStr }
+        : { linha, tipo: 'CAMPO_VAZIO', campo: cm.valor, mensagem: 'Valor vazio.' })
+    }
+
+    // Contrapartida (conta + possivelmente direção)
+    const match = matchContrapartida(def, descricao)
+    if (!match || !match.conta.trim()) {
+      rowPend.push({ linha, tipo: 'CONTA_NAO_MAPEADA', campo: cm.descricao, mensagem: `Sem conta de contrapartida para "${descricao}".`, valor: descricao })
+    }
+
+    // Direção (débito/crédito)
+    let direcao: Direcao | null = null
+    if (def.debitoCredito.tipo === 'COLUNA') {
+      const dcVal = cell(row, def.debitoCredito.coluna)
+      if (!dcVal) {
+        rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: def.debitoCredito.coluna, mensagem: 'Valor de débito/crédito vazio.' })
+      } else {
+        const dir = dcMapa.get(dcVal)
+        if (!dir) rowPend.push({ linha, tipo: 'DC_NAO_MAPEADO', campo: def.debitoCredito.coluna, mensagem: `Valor "${dcVal}" não mapeado como débito/crédito.`, valor: dcVal })
+        else direcao = dir
+      }
+    } else if (match) {
+      if (match.direcao) direcao = match.direcao
+      else rowPend.push({ linha, tipo: 'DC_NAO_MAPEADO', campo: cm.descricao, mensagem: `"${descricao}" sem débito/crédito definido na contrapartida.`, valor: descricao })
+    }
+
+    // Conta corrente do lançamento: fixa (UNICA) ou pela coluna do banco (MULTIPLAS).
+    let contaCorrente = ''
+    if (cc.modo === 'UNICA') {
+      contaCorrente = cc.unica.trim()
+    } else {
+      const ccVal = cell(row, cc.coluna)
+      if (!ccVal) {
+        rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cc.coluna, mensagem: 'Valor de conta corrente vazio.' })
+      } else {
+        const conta = ccMapa.get(ccVal)
+        if (!conta || !conta.trim()) rowPend.push({ linha, tipo: 'CONTA_CORRENTE_NAO_MAPEADA', campo: cc.coluna, mensagem: `Valor "${ccVal}" sem conta corrente mapeada.`, valor: ccVal })
+        else contaCorrente = conta.trim()
+      }
+    }
+
+    if (rowPend.length) { pendencias.push(...rowPend); return }
+
+    lines.push(buildSciLine({
+      numero: lines.length + 1,
+      yyyymmdd: pd.yyyymmdd as string,
+      direcao: direcao as Direcao,
+      contaCorrente,
+      contaContrapartida: (match as CpMatch).conta.trim(),
+      valor: pv.value as number,
+      participante,
+      numeroNf,
+      documento,
+      historicoFixo: (match as CpMatch).historicoFixo,
+    }))
+  })
+
+  return {
+    sciText: pendencias.length ? null : buildSciFile(lines),
+    totalLancamentos: table.rows.length,
+    pendencias,
+  }
+}

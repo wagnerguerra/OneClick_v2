@@ -766,7 +766,7 @@ export class SitfisService {
 
     const where: Record<string, unknown> = {
       deletedAt: null,
-      ...(empresaId ? { empresaId } : {}),
+      empresaId: empresaId ?? null,  // isolamento multi-tenant (default-deny). ISO-001
       ...(clienteId ? { clienteId } : {}),
       ...(situacao ? { tipoCertidao: situacao } : {}),
       ...(search ? {
@@ -795,12 +795,13 @@ export class SitfisService {
     return buildPaginatedResponse(data, total, page, limit)
   }
 
-  async listTrash(input: { page: number; limit: number; search?: string }) {
+  async listTrash(input: { page: number; limit: number; search?: string }, empresaId?: string) {
     const { page, limit, search } = input
     const { skip, take } = getPrismaSkipTake(page, limit)
 
     const where: Record<string, unknown> = {
       deletedAt: { not: null },
+      empresaId: empresaId ?? null,  // isolamento multi-tenant (default-deny). ISO-001
       ...(search ? {
         OR: [
           { documento: { contains: search } },
@@ -824,9 +825,10 @@ export class SitfisService {
     return buildPaginatedResponse(data, total, page, limit)
   }
 
-  async getById(id: string) {
-    return prisma.situacaoFiscal.findUniqueOrThrow({
-      where: { id },
+  async getById(id: string, isMaster = false, empresaId: string | null = null) {
+    return prisma.situacaoFiscal.findFirstOrThrow({
+      // isolamento multi-tenant: não-master só acessa registros do próprio tenant. ISO-001
+      where: { id, ...(isMaster ? {} : { empresaId }) },
       select: {
         id: true, documento: true, tipoDocumento: true, razaoSocial: true, periodo: true,
         protocolo: true, etapa: true, tipoCertidao: true, numeroCertidao: true,
@@ -839,18 +841,18 @@ export class SitfisService {
     })
   }
 
-  async getPdf(id: string): Promise<string | null> {
-    const record = await prisma.situacaoFiscal.findUniqueOrThrow({
-      where: { id },
+  async getPdf(id: string, isMaster = false, empresaId: string | null = null): Promise<string | null> {
+    const record = await prisma.situacaoFiscal.findFirstOrThrow({
+      where: { id, ...(isMaster ? {} : { empresaId }) },  // isolamento multi-tenant. ISO-001
       select: { pdfBase64: true, respostaCompleta: true },
     })
     // Tentar pdfBase64 primeiro, depois extrair da respostaCompleta
     return record.pdfBase64 || this.extrairPdfBase64DeConsulta(record.respostaCompleta)
   }
 
-  async getByClienteId(clienteId: string) {
+  async getByClienteId(clienteId: string, empresaId: string | null = null) {
     return prisma.situacaoFiscal.findMany({
-      where: { clienteId, deletedAt: null },
+      where: { clienteId, deletedAt: null, empresaId: empresaId ?? null },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true, documento: true, razaoSocial: true,
@@ -868,7 +870,7 @@ export class SitfisService {
         sucesso: true,
         etapa: 'concluido',
         tipoCertidao: { in: ['Positiva', 'Positiva com Efeitos de Negativa'] },
-        ...(empresaId ? { empresaId } : {}),
+        empresaId: empresaId ?? null,  // isolamento multi-tenant (default-deny). ISO-001
       },
       orderBy: { createdAt: 'desc' },
       select: {
@@ -1059,14 +1061,17 @@ export class SitfisService {
     }
   }
 
-  async listClientesMensal(_empresaId?: string, userId?: string, isMaster?: boolean) {
-    // Master vê todos os clientes mensais
+  async listClientesMensal(empresaId?: string, userId?: string, isMaster?: boolean) {
+    // ISOLAMENTO MULTI-TENANT (ISO-001): SEMPRE filtra pela empresa da sessão.
+    // `empresaId` nulo → default-deny (empresa_id IS NULL, ~vazio). NUNCA confiar
+    // em empresaId do cliente — vem do ctx (sessão). O `select` (razaoSocial,
+    // documento/CNPJ, alertaProcuracao) é PII de cliente — não pode vazar.
+    const SELECT = { id: true, razaoSocial: true, documento: true, tipoDocumento: true, alertaProcuracao: true } as const
+    const baseWhere = { deletedAt: null, situacao: 'MENSAL' as const, empresaId: empresaId ?? null }
+
+    // Master vê todos os clientes mensais DA EMPRESA ATIVA.
     if (isMaster || !userId) {
-      return prisma.cliente.findMany({
-        where: { deletedAt: null, situacao: 'MENSAL' },
-        select: { id: true, razaoSocial: true, documento: true, tipoDocumento: true, alertaProcuracao: true },
-        orderBy: { razaoSocial: 'asc' },
-      })
+      return prisma.cliente.findMany({ where: baseWhere, select: SELECT, orderBy: { razaoSocial: 'asc' } })
     }
 
     // Buscar role e areaId do usuário
@@ -1081,12 +1086,8 @@ export class SitfisService {
     // Coordenador / Diretor: todos os clientes mensais com serviços contratados
     if (role === 'COORDENADOR' || role === 'DIRETOR') {
       return prisma.cliente.findMany({
-        where: {
-          deletedAt: null,
-          situacao: 'MENSAL',
-          servicosContratados: { some: { contratado: true } },
-        },
-        select: { id: true, razaoSocial: true, documento: true, tipoDocumento: true, alertaProcuracao: true },
+        where: { ...baseWhere, servicosContratados: { some: { contratado: true } } },
+        select: SELECT,
         orderBy: { razaoSocial: 'asc' },
       })
     }
@@ -1095,12 +1096,8 @@ export class SitfisService {
     if (role === 'GESTOR') {
       if (!areaId) return []
       return prisma.cliente.findMany({
-        where: {
-          deletedAt: null,
-          situacao: 'MENSAL',
-          servicosContratados: { some: { contratado: true, areaId } },
-        },
-        select: { id: true, razaoSocial: true, documento: true, tipoDocumento: true, alertaProcuracao: true },
+        where: { ...baseWhere, servicosContratados: { some: { contratado: true, areaId } } },
+        select: SELECT,
         orderBy: { razaoSocial: 'asc' },
       })
     }
@@ -1109,8 +1106,7 @@ export class SitfisService {
     if (!areaId) return []
     return prisma.cliente.findMany({
       where: {
-        deletedAt: null,
-        situacao: 'MENSAL',
+        ...baseWhere,
         servicosContratados: {
           some: {
             contratado: true,
@@ -1119,7 +1115,7 @@ export class SitfisService {
           },
         },
       },
-      select: { id: true, razaoSocial: true, documento: true, tipoDocumento: true, alertaProcuracao: true },
+      select: SELECT,
       orderBy: { razaoSocial: 'asc' },
     })
   }

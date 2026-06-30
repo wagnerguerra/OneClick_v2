@@ -66,6 +66,11 @@ NFSE_DIST_CRON=45 3 * * *         # default 03:45 America/Sao_Paulo
 ```env
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 API_URL=http://localhost:4000
+# Chave do painel de presença global (Service Manager / launcher). Sem ela, a
+# visão global de /api/admin/online-users fica indisponível para clientes sem
+# sessão — o launcher deve enviar o header `x-admin-key: <ADMIN_API_KEY>`.
+# Usuários web logados continuam vendo só a presença da própria empresa (sem PII).
+ADMIN_API_KEY=
 ```
 
 ## Sistema Legado (referência)

@@ -25,6 +25,10 @@ model Tenant {
   schema           String       @unique // nome do schema no Postgres: tenant_<id>
   status           TenantStatus @default(ACTIVE)
   stripeCustomerId String?      @unique @map("stripe_customer_id")
+  // Período de teste (trial sem cartão). NULL = isento/grandfathered (tenants
+  // antigos nunca expiram). Novos tenants recebem trialEndsAt = hoje + trialDays.
+  trialStartedAt   DateTime?    @map("trial_started_at")
+  trialEndsAt      DateTime?    @map("trial_ends_at")
   createdAt        DateTime     @default(now()) @map("created_at")
   updatedAt        DateTime     @updatedAt @map("updated_at")
 
@@ -66,14 +70,30 @@ model Plan {
   interval      PlanInterval @default(MONTHLY)
   price         Int // valor em centavos
   features      Json         @default("[]")
+  modules       Json         @default("[]") // slugs dos módulos liberados no plano
   maxUsers      Int          @default(5) @map("max_users")
   isActive      Boolean      @default(true) @map("is_active")
+  highlight     Boolean      @default(false) // plano em destaque na pricing
+  displayOrder  Int          @default(0) @map("display_order")
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
 
   subscriptions Subscription[]
 
   @@map("plans")
+}
+
+// ============================================================
+// Configuração global de billing/trial (single-row, id=1).
+// Editável em /admin/planos por master. Define dias de trial p/ novos tenants.
+// ============================================================
+model PlatformBillingConfig {
+  id        Int      @id @default(1)
+  trialDays Int      @default(7) @map("trial_days")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by")
+
+  @@map("platform_billing_config")
 }
 
 enum SubscriptionStatus {
@@ -140,6 +160,9 @@ model User {
   isActive        Boolean     @default(true) @map("is_active")
   tenantId        String?     @map("tenant_id")
   empresaId       String?     @map("empresa_id")
+  // Empresa ATIVA (server-authoritative) — multi-empresa do master. NULL = usa a
+  // empresaId (home). Não-master é sempre forçado à home. F-012.
+  activeEmpresaId String?     @map("active_empresa_id")
 
   // Visibilidade no módulo Colaboradores (público) — quando true, aparece no listing
   exibirComoColaborador Boolean @default(false) @map("exibir_como_colaborador")
@@ -508,6 +531,11 @@ model Empresa {
   // Versionamento (ISO 9001)
   version Int @default(1)
 
+  // Integração Serpro (gate de custo por tenant) — credencial é da plataforma,
+  // mas cada tenant decide se usa a API paga e tem teto mensal de gasto.
+  serproHabilitado      Boolean @default(false) @map("serpro_habilitado")
+  serproOrcamentoMensal Float?  @map("serpro_orcamento_mensal") // teto R$/mês; null = sem teto
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -774,6 +802,7 @@ model Cliente {
   events               ClienteEvent[]
   arquivos             ClienteArquivo[]
   contatos             ClienteContato[]
+  inscricoes           ClienteInscricao[]
   contratoParams       ClienteContratoParam[]
   erpSnapshots         ClienteErpSnapshot[]
   biCategorias         ClienteBiCategoria[]
@@ -1114,6 +1143,23 @@ model ClienteContato {
   area    Area?   @relation(fields: [areaId], references: [id], onDelete: SetNull)
 
   @@map("cliente_contatos")
+}
+
+// Registro de Inscrições (estaduais) — N por cliente, por estado.
+// Migrado do legado (cad_cli_inscricoes). Convive com o campo único
+// Cliente.inscricaoEstadual (IE principal).
+model ClienteInscricao {
+  id        String   @id @default(cuid())
+  clienteId String   @map("cliente_id")
+  estado    String // UF (2 letras)
+  inscricao String
+  descricao String? // observação livre da inscrição
+  createdAt DateTime @default(now()) @map("created_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId])
+  @@map("cliente_inscricoes")
 }
 
 // Parâmetros do Contrato do Cliente
@@ -1503,6 +1549,59 @@ model FornecedorEvent {
   user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("fornecedor_events")
+}
+
+// ============================================================
+// Módulo Contábil — Tratamento de Lançamentos (exportação SCI)
+//
+// O corpo do Modelo (de/para de colunas, regra entrada/saída, contrapartidas,
+// conta corrente) é estrutura variável → armazenado como JSON na versão.
+// Cada save gera uma nova versão com snapshot COMPLETO da definição.
+// empresaId/clienteId/authorId são ids soltos (sem FK) de propósito, p/ não
+// acoplar aos models Empresa/User/Cliente.
+// ============================================================
+
+model TreatmentModel {
+  id   String @id @default(cuid())
+  code Int    @default(autoincrement())
+
+  nome          String
+  contaCorrente String? @map("conta_corrente")
+  clienteId     String? @map("cliente_id")
+
+  // Ponteiro p/ a versão atual (snapshot). Sem FK formal p/ evitar ciclo.
+  currentVersionId String? @map("current_version_id")
+
+  // Multi-empresa
+  empresaId String? @map("empresa_id")
+
+  // Controle
+  isActive  Boolean   @default(true) @map("is_active")
+  version   Int       @default(1)
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  versions TreatmentModelVersion[]
+
+  @@index([empresaId])
+  @@index([clienteId])
+  @@map("tratamento_modelos")
+}
+
+model TreatmentModelVersion {
+  id            String   @id @default(cuid())
+  modelId       String   @map("model_id")
+  versionNumber Int      @map("version_number")
+  definition    Json
+  authorId      String?  @map("author_id")
+  note          String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  model TreatmentModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([modelId])
+  @@map("tratamento_modelo_versoes")
 }
 
 // ============================================================
@@ -1968,28 +2067,35 @@ model CertificadoDigitalAcesso {
 model ApiLog {
   id        String   @id @default(cuid())
   source    String // ex: "serpro", "brasilapi", "omie"
+  operation String? // ex: "consulta-cnpj", "consulta-cpf" (preço/relatório por operação)
   endpoint  String // ex: "/cnpj/v1"
   method    String   @default("GET")
   status    Int? // HTTP status code
   duration  Int? // ms
   documento String? // CNPJ/CPF consultado
+  custo     Float?   @default(0) // custo CONGELADO da chamada em R$ (gate de custo)
+  error     String?  @db.Text // corpo/mensagem de erro quando status != 2xx
   userId    String?  @map("user_id")
   empresaId String?  @map("empresa_id")
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([source, createdAt])
   @@index([createdAt])
+  @@index([empresaId, source, createdAt])
   @@map("api_logs")
 }
 
-// Preços por fonte de API (para cálculo de custo)
+// Preços por fonte+operação de API (para cálculo de custo).
+// operation = null → preço default da fonte (compat. com registros antigos).
 model ApiPricing {
-  id         String @id @default(cuid())
-  source     String @unique
-  unitPrice  Float  @default(0) @map("unit_price")
-  multiplier Float  @default(1)
-  currency   String @default("BRL")
+  id         String  @id @default(cuid())
+  source     String
+  operation  String?
+  unitPrice  Float   @default(0) @map("unit_price")
+  multiplier Float   @default(1)
+  currency   String  @default("BRL")
 
+  @@unique([source, operation])
   @@map("api_pricing")
 }
 
@@ -2407,6 +2513,7 @@ model AgendaConfig {
 /// `destinatariosIds` no horário/dias configurados.
 model AgendaDisparoConfig {
   id               String   @id @default(cuid())
+  empresaId        String?  @map("empresa_id")   // isolamento multi-tenant: destinatários só desta empresa
   ativo            Boolean  @default(false)
   horario          String   @default("07:00")             // HH:MM
   diasSemana       Int[]    @default([1, 2, 3, 4, 5])    // 0=dom..6=sab — default seg-sex
@@ -2490,6 +2597,8 @@ model AgendaEmailGrupo {
 /// (string) é mantido pra eventos importados do SERPRO2.
 model AgendaSala {
   id           String   @id @default(cuid())
+  // Isolamento multi-tenant: NULL = sala global (compartilhada); set = do tenant. F-013.
+  empresaId    String?  @map("empresa_id")
   nome         String
   capacidade   Int?
   equipamentos String?  @db.Text
@@ -2499,11 +2608,14 @@ model AgendaSala {
 
   eventos AgendaEvento[]
 
+  @@index([empresaId])
   @@map("agenda_salas")
 }
 
 model AgendaTipo {
   id             String   @id @default(cuid())
+  // Isolamento multi-tenant: NULL = tipo global (default compartilhado); set = do tenant. F-013.
+  empresaId      String?  @map("empresa_id")
   nome           String
   cor            String   @default("#3b82f6")
   corBorda       String   @default("#2563eb") @map("cor_borda")
@@ -2522,6 +2634,7 @@ model AgendaTipo {
 
   eventos AgendaEvento[]
 
+  @@index([empresaId])
   @@map("agenda_tipos")
 }
 
@@ -2546,6 +2659,7 @@ model AgendaEvento {
   garagem      Boolean        @default(false)
   vagas        Int?
   equipamentos String?
+  arrumarSala  Boolean        @default(false) @map("arrumar_sala") // preparar/arrumar a sala antes do evento
   isTarefa     Boolean        @default(false) @map("is_tarefa")
   isActive     Boolean        @default(true) @map("is_active")
 
@@ -2619,6 +2733,23 @@ model AgendaLog {
 
   @@index([eventoId])
   @@map("agenda_logs")
+}
+
+/// Auditoria das ações nos TIPOS de evento (criar/editar/excluir categoria).
+/// Sem FK pro AgendaTipo (snapshot do nome sobrevive à exclusão); usuário
+/// resolvido por query (igual ao AgendaLog). Master acompanha quem fez o quê.
+model AgendaTipoEvent {
+  id        String   @id @default(cuid())
+  tipoId    String?  @map("tipo_id")
+  tipoNome  String   @map("tipo_nome")
+  usuarioId String   @map("usuario_id")
+  acao      String // CRIOU | EDITOU | EXCLUIU
+  detalhes  String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tipoId])
+  @@index([createdAt])
+  @@map("agenda_tipo_events")
 }
 
 /// Canal de notificação do lembrete.
@@ -6014,9 +6145,14 @@ model SchedulerExecution {
   /// Mensagem agregada quando status='ERRO' (ex: falha de conectividade global)
   erroGeral String? @map("erro_geral") @db.Text
 
+  /// Empresa (tenant) dona da execução — escopo multi-tenant (ISO-003).
+  /// NULL = execução de plataforma (ex.: google-backup) ou legado pré-escopo.
+  empresaId String? @map("empresa_id")
+
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([scheduler, iniciadoEm(sort: Desc)])
+  @@index([scheduler, empresaId, iniciadoEm(sort: Desc)])
   @@index([status])
   @@map("scheduler_executions")
 }

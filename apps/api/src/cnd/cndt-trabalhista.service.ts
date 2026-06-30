@@ -36,32 +36,9 @@ export class CndtTrabalhistaService {
   getLoteProgress(): CndtLoteProgress { return { ...this.loteProgress } }
 
   private async ensureTable() {
+    // Schema garantido por migração manual_2026_06_26_cnd_dte_tables.sql (R2-002).
+    // Sem DDL no caminho de request — os métodos apenas LEEM.
     if (this.tableChecked) return
-    try {
-      const exists = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
-        `SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'certidoes_cndt')`,
-      )
-      if (exists[0]?.exists) { this.tableChecked = true; return }
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS certidoes_cndt (
-          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-          documento TEXT NOT NULL,
-          razao_social TEXT,
-          sucesso BOOLEAN NOT NULL DEFAULT false,
-          tipo_certidao TEXT,
-          mensagem TEXT,
-          numero_certidao TEXT,
-          data_validade DATE,
-          pdf_base64 TEXT,
-          cliente_id TEXT,
-          user_id TEXT,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-      `)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_cndt_doc ON certidoes_cndt (documento)`)
-    } catch (e) {
-      if (!(e as Error).message?.includes('already exists')) throw e
-    }
     this.tableChecked = true
   }
 

@@ -19,6 +19,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useSession } from '@/lib/auth-client'
+import { useClientesPerms } from './use-clientes-perms'
 
 // ============================================================
 // Types
@@ -57,6 +58,7 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
   const { data: session } = useSession()
   const currentUserId = session?.user?.id
   const isMaster = (session?.user as any)?.role === 'master' || (session?.user as any)?.isMaster
+  const { canManageServices } = useClientesPerms()
 
   const [rows, setRows] = useState<AreaRow[]>([])
   const [users, setUsers] = useState<UserOption[]>([])
@@ -161,10 +163,12 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
             </h4>
             <p className="text-[11px] text-muted-foreground mt-0.5">Gerencie as areas contratadas, responsaveis e parametros.</p>
           </div>
-          <Button variant="success" size="sm" onClick={handleSave} disabled={saving || !dirty} className="gap-1.5">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Salvar
-          </Button>
+          {canManageServices && (
+            <Button variant="success" size="sm" onClick={handleSave} disabled={saving || !dirty} className="gap-1.5">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Salvar
+            </Button>
+          )}
         </div>
 
         {/* Table */}

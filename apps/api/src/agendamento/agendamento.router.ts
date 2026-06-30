@@ -11,7 +11,7 @@ export function createAgendamentoRouter(svc: AgendamentoService) {
     /** Status atual de um scheduler — cron, próxima execução, clientes ativos, KPIs. */
     getStatus: readProcedure(MODULE)
       .input(z.object({ scheduler: schedulerSchema }))
-      .query(({ input }) => svc.getStatus(input.scheduler as SchedulerSlug)),
+      .query(({ input, ctx }) => svc.getStatus(input.scheduler as SchedulerSlug, ctx.empresaId ?? null)),
 
     /** Lista as últimas N execuções (cron + manual). */
     listExecucoes: readProcedure(MODULE)
@@ -21,8 +21,9 @@ export function createAgendamentoRouter(svc: AgendamentoService) {
         offset: z.number().int().min(0).optional(),
         statusFiltro: z.enum(['OK', 'ERRO', 'PARCIAL', 'RODANDO']).nullable().optional(),
       }))
-      .query(({ input }) => svc.listExecucoes({
+      .query(({ input, ctx }) => svc.listExecucoes({
         scheduler: input.scheduler as SchedulerSlug,
+        empresaId: ctx.empresaId ?? null,
         limit: input.limit,
         offset: input.offset,
         statusFiltro: input.statusFiltro ?? null,
@@ -31,7 +32,7 @@ export function createAgendamentoRouter(svc: AgendamentoService) {
     /** Detalhe de uma execução (com array de detalhes por cliente). */
     getExecucao: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .query(({ input }) => svc.getExecucao(input.id)),
+      .query(({ input, ctx }) => svc.getExecucao(input.id, ctx.empresaId ?? null)),
 
     /**
      * Atualiza expressão cron. Nome com prefixo "salvar..." pra escapar de
@@ -58,13 +59,13 @@ export function createAgendamentoRouter(svc: AgendamentoService) {
      */
     executarAgora: writeProcedure(MODULE)
       .input(z.object({ scheduler: schedulerSchema }))
-      .mutation(({ input }) => svc.dispararAgora(input.scheduler as SchedulerSlug)),
+      .mutation(({ input, ctx }) => svc.dispararAgora(input.scheduler as SchedulerSlug, ctx.empresaId ?? null)),
 
     /**
      * Lista TODOS os schedulers do sistema (registry + última execução + status).
      * Usado pela página /configuracoes/agendamentos como centro de observabilidade.
      */
     listAll: readProcedure(MODULE)
-      .query(() => svc.listAll()),
+      .query(({ ctx }) => svc.listAll(ctx.empresaId ?? null)),
   })
 }

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   FileText, CircleDollarSign, Loader2, Plus, MoreVertical, Copy, Archive, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
-  Clock, LayoutGrid, List, Eye, Settings2, Package, BarChart3,
+  Clock, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
   MessageSquare, Paperclip, RotateCcw, Star,
 } from 'lucide-react'
 import {
@@ -705,6 +705,11 @@ export default function OrcamentosPage() {
           {canViewIndicadores && (
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/orcamentos/relatorios')} title="Relatórios">
               <BarChart3 className="h-4 w-4" />
+            </Button>
+          )}
+          {canViewIndicadores && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/orcamentos/relatorios?tab=indicadores')} title="Indicadores">
+              <Activity className="h-4 w-4" />
             </Button>
           )}
           {canManageConfig && (

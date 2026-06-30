@@ -10,11 +10,49 @@ export const planSchema = z.object({
   interval: z.enum(['MONTHLY', 'YEARLY']),
   price: z.number(),
   features: z.array(z.string()),
+  modules: z.array(z.string()).default([]),
   maxUsers: z.number(),
   isActive: z.boolean(),
+  highlight: z.boolean().default(false),
+  displayOrder: z.number().default(0),
 })
 
 export type PlanOutput = z.infer<typeof planSchema>
+
+// ── Admin: gestão de planos (master-only) ──────────────
+// `price` em centavos; `features` lista de strings exibidas na pricing.
+export const upsertPlanInput = z.object({
+  id: z.string().optional(),
+  name: z.string().min(2, 'Nome obrigatório'),
+  description: z.string().nullable().optional(),
+  stripePriceId: z.string().min(1, 'stripePriceId obrigatório (Price do Stripe usado no checkout)'),
+  interval: z.enum(['MONTHLY', 'YEARLY']).default('MONTHLY'),
+  price: z.number().int().min(0, 'Preço em centavos'),
+  features: z.array(z.string()).default([]),
+  modules: z.array(z.string()).default([]),
+  maxUsers: z.number().int().min(1).default(5),
+  isActive: z.boolean().default(true),
+  highlight: z.boolean().default(false),
+  displayOrder: z.number().int().default(0),
+})
+
+export type UpsertPlanInput = z.infer<typeof upsertPlanInput>
+
+// ── Config global de billing/trial ─────────────────────
+export const billingConfigSchema = z.object({
+  trialDays: z.number().int().min(0).max(365),
+})
+
+export type BillingConfig = z.infer<typeof billingConfigSchema>
+
+// ── Estado de acesso (trial/assinatura) p/ o frontend ──
+export const billingAccessSchema = z.object({
+  state: z.enum(['ACTIVE', 'TRIAL', 'TRIAL_EXPIRED', 'SUSPENDED']),
+  trialEndsAt: z.coerce.date().nullable(),
+  daysRemaining: z.number().nullable(),
+})
+
+export type BillingAccess = z.infer<typeof billingAccessSchema>
 
 // ── Assinatura ─────────────────────────────────────────
 

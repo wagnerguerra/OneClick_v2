@@ -89,9 +89,20 @@ export interface NavItem {
   href: string
   icon: LucideIcon
   category?: string // Sub-categoria visual dentro do grupo (ex: "Contábil", "Gestão")
+  // Visível APENAS para o master global da plataforma (isMaster). Admins de
+  // tenant (isEmpresaMaster) não veem, mesmo tendo o slug nas permissões.
+  masterOnly?: boolean
+  // Rota ainda NÃO publicada (feature em desenvolvimento). Escondida do menu
+  // p/ não gerar 404 (F-006). Reabilitar removendo a flag quando a página existir.
+  wip?: boolean
   // Sub-itens hierárquicos (ex: Contratos → Cláusulas, Modelos, Relatórios).
   // O item pai continua navegável (clicar no label abre o href dele).
   subItems?: NavItem[]
+  // Exige uma sub-permissão específica do módulo para aparecer (além da leitura
+  // do módulo). Usado p/ rotas cujo acesso é mais restrito que o módulo pai
+  // (ex.: /crm/funil exige `crm.acessar_funil_lead`). Master/EmpresaMaster veem
+  // sempre. Quem não tem a sub-permissão não vê o link (a página também barra).
+  requirePerm?: { module: string; sub: string }
 }
 
 export interface NavGroup {
@@ -109,9 +120,9 @@ export const navigation: NavGroup[] = [
       { label: 'Cargos', href: '/cargos', icon: Briefcase },
       { label: 'Clientes', href: '/clientes', icon: Handshake },
       { label: 'Colaboradores', href: '/colaboradores', icon: Users },
-      { label: 'Empresas', href: '/empresas', icon: Building2 },
+      { label: 'Empresas', href: '/empresas', icon: Building2, masterOnly: true },
       { label: 'Fornecedores', href: '/fornecedores', icon: Package },
-      { label: 'Grupos Empresariais', href: '/grupos-empresariais', icon: Folders },
+      { label: 'Grupos Empresariais', href: '/grupos-empresariais', icon: Folders, wip: true },
       { label: 'Obrigações', href: '/obrigacoes', icon: Receipt },
       { label: 'Serviços', href: '/servicos', icon: CheckSquare },
       { label: 'Sócios', href: '/socios', icon: UserPlus },
@@ -128,7 +139,7 @@ export const navigation: NavGroup[] = [
         href: '/crm',
         icon: Target,
         subItems: [
-          { label: 'Funil de captação (IA)', href: '/crm/funil', icon: Sparkles },
+          { label: 'Funil de captação (IA)', href: '/crm/funil', icon: Sparkles, requirePerm: { module: 'crm', sub: 'acessar_funil_lead' } },
         ],
       },
       { label: 'WhatsApp', href: '/whatsapp', icon: MessageSquare },
@@ -139,8 +150,8 @@ export const navigation: NavGroup[] = [
         subItems: [
           { label: 'Cláusulas', href: '/clausulas', icon: FileCheck },
           { label: 'Modelos de Contrato', href: '/contrato-templates', icon: FileBox },
-          { label: 'Gráficos Contrato x ERP', href: '/graficos-contrato-erp', icon: BarChart3 },
-          { label: 'Relatórios de Contratos', href: '/contratos-relatorios', icon: FileBarChart },
+          { label: 'Gráficos Contrato x ERP', href: '/graficos-contrato-erp', icon: BarChart3, wip: true },
+          { label: 'Relatórios de Contratos', href: '/contratos-relatorios', icon: FileBarChart, wip: true },
         ],
       },
       {
@@ -148,11 +159,11 @@ export const navigation: NavGroup[] = [
         href: '/orcamentos',
         icon: CircleDollarSign,
         subItems: [
-          { label: 'Custeio por Cliente', href: '/custeio-clientes', icon: PieChart },
+          { label: 'Custeio por Cliente', href: '/custeio-clientes', icon: PieChart, wip: true },
           { label: 'Pesquisa de Satisfação', href: '/orcamentos/relatorios?tab=satisfacao', icon: Star },
         ],
       },
-      { label: 'Relatórios Comerciais', href: '/comercial-relatorios', icon: FileBarChart },
+      { label: 'Relatórios Comerciais', href: '/comercial/relatorios', icon: FileBarChart },
     ],
   },
   {
@@ -160,13 +171,13 @@ export const navigation: NavGroup[] = [
     icon: Building2,
     items: [
       { label: 'Agenda Corporativa', href: '/agenda', icon: Calendar },
-      { label: 'Coleta e Recebimento', href: '/coleta-documentos', icon: FolderInput },
-      { label: 'Contatos', href: '/contatos', icon: Phone },
-      { label: 'Controle de Estoque', href: '/estoque', icon: Boxes },
+      { label: 'Coleta e Recebimento', href: '/coleta-documentos', icon: FolderInput, wip: true },
+      { label: 'Contatos', href: '/contatos', icon: Phone, wip: true },
+      { label: 'Controle de Estoque', href: '/estoque', icon: Boxes, wip: true },
       { label: 'Gerenciador de Serviços', href: '/meus-servicos', icon: ListChecks },
       { label: 'Minhas Obrigações', href: '/minhas-obrigacoes', icon: ClipboardCheck },
       { label: 'Processos', href: '/processos', icon: Workflow },
-      { label: 'Organograma', href: '/organograma', icon: GitBranch },
+      { label: 'Organograma', href: '/organograma', icon: GitBranch, wip: true },
     ],
   },
   {
@@ -176,17 +187,17 @@ export const navigation: NavGroup[] = [
       { label: 'Benefícios Fiscais', href: '/beneficios-fiscais', icon: DollarSign },
       { label: 'Certificados Digitais', href: '/gestao-certificados', icon: BadgeCheck },
       { label: 'Certidões e Alvarás', href: '/certidoes-cnd', icon: FileOutput },
-      { label: 'Quadro Societário', href: '/quadro-societario', icon: UsersRound },
+      { label: 'Quadro Societário', href: '/quadro-societario', icon: UsersRound, wip: true },
     ],
   },
   {
     label: 'Trabalhista',
     icon: Users,
     items: [
-      { label: 'Banco de Horas', href: '/banco-horas', icon: Clock },
+      { label: 'Banco de Horas', href: '/banco-horas', icon: Clock, wip: true },
       { label: 'Benefícios', href: '/beneficios', icon: Gift },
-      { label: 'Controle de Férias', href: '/controle-ferias', icon: CalendarDays },
-      { label: 'FGTS Digital', href: '/fgts-digital', icon: Landmark },
+      { label: 'Controle de Férias', href: '/controle-ferias', icon: CalendarDays, wip: true },
+      { label: 'FGTS Digital', href: '/fgts-digital', icon: Landmark, wip: true },
       { label: 'Importação de Folha', href: '/folha-pagamento', icon: FileSpreadsheet },
     ],
   },
@@ -198,7 +209,7 @@ export const navigation: NavGroup[] = [
       { label: 'DANFE (NFe → PDF)', href: '/danfe', icon: FileSpreadsheet },
       { label: 'DT-e ES', href: '/dte', icon: MailWarning },
       { label: 'DCTFWeb', href: '/dctfweb', icon: ListChecks },
-      { label: 'Obrigações e Serviços', href: '/obrigacoes-servicos', icon: Receipt },
+      { label: 'Obrigações e Serviços', href: '/obrigacoes-servicos', icon: Receipt, wip: true },
       { label: 'Situação Fiscal', href: '/situacao-fiscal', icon: CircleUser },
       {
         label: 'Ferramentas',
@@ -232,6 +243,7 @@ export const navigation: NavGroup[] = [
           { label: 'Editor de Extrato', href: '/ferramentas/contabil/extrato-edit', icon: FileSpreadsheet },
         ],
       },
+      { label: 'Tratamento de Lançamentos', href: '/tratamento-lancamentos', icon: FileSpreadsheet },
     ],
   },
   {
@@ -247,19 +259,21 @@ export const navigation: NavGroup[] = [
     label: 'Qualidade',
     icon: Award,
     items: [
-      { label: 'Análise de Contexto', href: '/analise-contexto', icon: Search },
-      { label: 'Aquisições', href: '/aquisicoes', icon: ShoppingCart },
-      { label: 'Capacitações', href: '/capacitacoes', icon: GraduationCap },
-      { label: 'Documentos Externos', href: '/documentos-externos', icon: FileBox },
-      { label: 'Documentos Internos', href: '/documentos-internos', icon: FileCheck },
-      { label: 'Elogios', href: '/elogios', icon: ThumbsUp },
-      { label: 'Melhorias', href: '/melhorias', icon: TrendingUp },
-      { label: 'Não Conformidades', href: '/nao-conformidades', icon: AlertTriangle },
-      { label: 'Painel da Qualidade', href: '/qualidade', icon: BarChart3 },
-      { label: 'Reclamações', href: '/reclamacoes', icon: MessageSquare },
-      { label: 'Reuniões', href: '/reunioes', icon: Video },
-      { label: 'Sugestões', href: '/sugestoes', icon: Lightbulb },
-      { label: 'Tabelas de Registros', href: '/tabelas-registros', icon: Table2 },
+      // ⚠️ Módulo Qualidade ainda não publicado — todas as rotas 404 em produção
+      // (F-006). Marcado wip p/ esconder do menu até as páginas existirem.
+      { label: 'Análise de Contexto', href: '/analise-contexto', icon: Search, wip: true },
+      { label: 'Aquisições', href: '/aquisicoes', icon: ShoppingCart, wip: true },
+      { label: 'Capacitações', href: '/capacitacoes', icon: GraduationCap, wip: true },
+      { label: 'Documentos Externos', href: '/documentos-externos', icon: FileBox, wip: true },
+      { label: 'Documentos Internos', href: '/documentos-internos', icon: FileCheck, wip: true },
+      { label: 'Elogios', href: '/elogios', icon: ThumbsUp, wip: true },
+      { label: 'Melhorias', href: '/melhorias', icon: TrendingUp, wip: true },
+      { label: 'Não Conformidades', href: '/nao-conformidades', icon: AlertTriangle, wip: true },
+      { label: 'Painel da Qualidade', href: '/qualidade', icon: BarChart3, wip: true },
+      { label: 'Reclamações', href: '/reclamacoes', icon: MessageSquare, wip: true },
+      { label: 'Reuniões', href: '/reunioes', icon: Video, wip: true },
+      { label: 'Sugestões', href: '/sugestoes', icon: Lightbulb, wip: true },
+      { label: 'Tabelas de Registros', href: '/tabelas-registros', icon: Table2, wip: true },
     ],
   },
   {
@@ -277,15 +291,17 @@ export const navigation: NavGroup[] = [
     label: 'Configurações',
     icon: Settings,
     items: [
-      { label: 'Configurações Gerais', href: '/configuracoes', icon: Settings },
+      { label: 'Configurações Gerais', href: '/configuracoes', icon: Settings, masterOnly: true },
       { label: 'Painéis de TV', href: '/paineis', icon: Monitor },
       { label: 'Centro de Agendamentos', href: '/configuracoes/agendamentos', icon: CalendarClock },
       { label: 'Chat Interno', href: '/configuracoes/chat', icon: MessageSquare },
-      { label: 'Certificado Digital', href: '/configuracoes/certificado', icon: BadgeCheck },
-      { label: 'Stripe', href: '/configuracoes/stripe', icon: CreditCard },
-      { label: 'Assinatura de email', href: '/admin/assinatura-template', icon: Mail },
-      { label: 'Métricas', href: '/metricas', icon: Activity },
-      { label: 'Backup e Restore', href: '/backup-restore', icon: Archive },
+      { label: 'Certificado Digital', href: '/configuracoes/certificado', icon: BadgeCheck, masterOnly: true },
+      { label: 'Stripe', href: '/configuracoes/stripe', icon: CreditCard, masterOnly: true },
+      { label: 'Empresas (tenants)', href: '/admin/empresas', icon: Building2, masterOnly: true },
+      { label: 'Planos e preços', href: '/admin/planos', icon: CircleDollarSign, masterOnly: true },
+      { label: 'Assinatura de email', href: '/admin/assinatura-template', icon: Mail, masterOnly: true },
+      { label: 'Métricas', href: '/metricas', icon: Activity, masterOnly: true },
+      { label: 'Backup e Restore', href: '/backup-restore', icon: Archive, masterOnly: true },
     ],
   },
 ]

@@ -9,6 +9,7 @@ import { Button, Input, Label, Card, CardHeader, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
+import { MasterGate } from '@/components/auth/master-gate'
 import Swal from 'sweetalert2'
 
 interface CertInfo {
@@ -38,6 +39,14 @@ const TABS = [
 ]
 
 export default function CertificadoSettingsPage() {
+  return (
+    <MasterGate>
+      <CertificadoSettingsPageInner />
+    </MasterGate>
+  )
+}
+
+function CertificadoSettingsPageInner() {
   const [activeTab, setActiveTab] = useState('certificado')
   const [loading, setLoading] = useState(true)
   const [certInfo, setCertInfo] = useState<CertInfo | null>(null)

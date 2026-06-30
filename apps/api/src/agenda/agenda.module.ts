@@ -13,9 +13,10 @@ import { EmailService } from '../common/email.service'
 import { NotificationModule } from '../notification/notification.module'
 import { AuthModule } from '../auth/auth.module'
 import { PushModule } from '../push/push.module'
+import { GrupoObrigacaoModule } from '../grupo-obrigacao/grupo-obrigacao.module'
 
 @Module({
-  imports: [NotificationModule, AuthModule, PushModule],
+  imports: [NotificationModule, AuthModule, PushModule, GrupoObrigacaoModule],
   controllers: [AgendaLembreteController],
   providers: [AgendaService, EmailService, AgendaGoogleService, AgendaConfigService, AgendaSalaService, AgendaDisparoService, AgendaEmailTemplateService, AgendaLembreteService, AgendaLembreteEventsService, AgendaTarefaService],
   exports: [AgendaService, AgendaGoogleService, AgendaConfigService, AgendaSalaService, AgendaDisparoService, AgendaLembreteService, AgendaTarefaService],

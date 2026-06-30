@@ -55,14 +55,17 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
 
     clienteContatos: readProcedure(MODULE)
       .input(z.object({ documento: z.string() }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
         const doc = input.documento.replace(/\D/g, '')
+        // Isolamento multi-tenant: só contatos de clientes da empresa do tenant
+        // (evita vazar contatos de um cliente homônimo/CNPJ igual de outro tenant).
         const rows = await prisma.$queryRawUnsafe<Array<{ email: string; nome: string | null }>>(
           `SELECT cc.email, cc.nome FROM cliente_contatos cc
            JOIN clientes c ON c.id = cc.cliente_id
            WHERE c.deleted_at IS NULL AND cc.email IS NOT NULL AND cc.email != ''
+           AND c.empresa_id = $2
            AND REPLACE(REPLACE(REPLACE(c.documento, '.', ''), '/', ''), '-', '') = $1
-           ORDER BY cc.principal DESC, cc.nome ASC`, doc,
+           ORDER BY cc.principal DESC, cc.nome ASC`, doc, ctx.empresaId ?? null,
         )
         return rows
       }),
@@ -195,7 +198,7 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
       .query(({ input }) => service.verificarCache(input.documento)),
 
     totalizadores: readProcedure(MODULE)
-      .query(() => service.totalizadores()),
+      .query(({ ctx }) => service.totalizadores(ctx.empresaId ?? null)),
 
     // ── Listagem ─────────────────────────────────────────
 
@@ -244,7 +247,7 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
 
     schedule: router({
       get: readProcedure(MODULE)
-        .query(() => scheduler.getStatus()),
+        .query(({ ctx }) => scheduler.getStatus(ctx.empresaId ?? '')),
 
       update: writeProcedure(MODULE)
         .input(z.object({
@@ -255,20 +258,20 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         }))
         .mutation(async ({ input, ctx }) => {
           if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas perfil MASTER pode alterar agendamentos' })
-          return scheduler.updateConfig(input)
+          return scheduler.updateConfig(ctx.empresaId ?? '', input)
         }),
 
       runNow: writeProcedure(MODULE)
         .mutation(async ({ ctx }) => {
           if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas perfil MASTER pode executar manualmente' })
-          return scheduler.runNow(ctx.userId)
+          return scheduler.runNow(ctx.userId, ctx.empresaId ?? '')
         }),
 
       progress: readProcedure(MODULE)
-        .query(() => scheduler.getProgress()),
+        .query(({ ctx }) => scheduler.getProgress(ctx.empresaId ?? '')),
 
       clientes: readProcedure(MODULE)
-        .query(() => scheduler.listarClientesDisponiveis()),
+        .query(({ ctx }) => scheduler.listarClientesDisponiveis(ctx.empresaId ?? '')),
     }),
 
     // ── Inativar cliente (compartilhado entre abas) ────────

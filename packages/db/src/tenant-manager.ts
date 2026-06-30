@@ -16,6 +16,7 @@ const TENANT_TABLES = [
   'cliente_events',
   'cliente_arquivos',
   'cliente_contatos',
+  'cliente_inscricoes',
   'cliente_contrato_params',
   'cliente_erp_snapshots',
   'cliente_historicos',
@@ -28,6 +29,9 @@ const TENANT_TABLES = [
   // Ferramentas (integração webapp). tool_jobs antes de tool_job_eventos.
   'tool_jobs',
   'tool_job_eventos',
+  // Contábil — Tratamento de Lançamentos (modelo antes das versões)
+  'tratamento_modelos',
+  'tratamento_modelo_versoes',
 ]
 
 /**
@@ -44,13 +48,27 @@ export async function createTenantSchema(schemaName: string): Promise<void> {
   // Criar o schema
   await prisma.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`)
 
-  // Clonar cada tabela do public para o novo schema
+  // Clonar cada tabela do public para o novo schema.
+  // Resiliente: se a tabela-template não existir no public (ex.: entrada órfã
+  // em TENANT_TABLES), pula com aviso em vez de abortar todo o provisionamento.
+  const skipped: string[] = []
   for (const table of TENANT_TABLES) {
+    const exists = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
+      `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1) as exists`,
+      table,
+    )
+    if (!exists[0]?.exists) {
+      skipped.push(table)
+      continue
+    }
     // CREATE TABLE ... (LIKE ...) copia a estrutura (colunas, defaults, constraints)
     // mas NÃO copia foreign keys para tabelas de outros schemas
     await prisma.$executeRawUnsafe(
       `CREATE TABLE IF NOT EXISTS "${schemaName}"."${table}" (LIKE "public"."${table}" INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES)`
     )
+  }
+  if (skipped.length > 0) {
+    console.warn(`[createTenantSchema] ${schemaName}: tabelas-template ausentes no public, ignoradas: ${skipped.join(', ')}`)
   }
 
   // Recriar sequences (autoincrement) independentes para o tenant

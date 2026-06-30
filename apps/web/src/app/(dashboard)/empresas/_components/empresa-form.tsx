@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useForm, Controller, type Control } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createEmpresaSchema, type CreateEmpresaInput } from '@saas/types'
-import { HelpCircle, Scale, MapPin, Phone, Search, Loader2, Upload, X, Save, Building2 } from 'lucide-react'
+import { HelpCircle, Scale, MapPin, Phone, Search, Loader2, Upload, X, Save, Building2, Plug } from 'lucide-react'
 import {
   Button,
   Input,
@@ -17,6 +17,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
+  Switch,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -31,6 +32,7 @@ const EMPRESA_TABS = [
   { key: 'endereco',     label: 'Endereço',     icon: MapPin },
   { key: 'contato',      label: 'Contato',      icon: Phone },
   { key: 'logo',         label: 'Logomarca',    icon: Upload },
+  { key: 'integracoes',  label: 'Integrações',  icon: Plug },
 ] as const
 
 type EmpresaTabKey = typeof EMPRESA_TABS[number]['key']
@@ -239,6 +241,8 @@ export function EmpresaForm({ mode, empresaId, title, description, icon, default
       logoUrl: '',
       logoDarkUrl: '',
       marcaDaguaUrl: '',
+      serproHabilitado: false,
+      serproOrcamentoMensal: null,
       ...defaultValues,
     },
   })
@@ -663,6 +667,50 @@ export function EmpresaForm({ mode, empresaId, title, description, icon, default
                     <FieldHint text="Imagem grande exibida no fundo dos documentos impressos (ex: orçamento). Idealmente uma versão monocromática ou com transparência da logo da empresa, em PNG. Aparece com baixa opacidade, centralizada na página." />
                   </div>
                   <LogoUpload control={control} setValue={setValue} fieldName="marcaDaguaUrl" />
+                </div>
+              </div>
+            )}
+
+            {/* INTEGRAÇÕES */}
+            {activeTab === 'integracoes' && (
+              <div className="space-y-6 max-w-2xl">
+                <div className="rounded-md border border-border bg-muted/30 p-4 space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-[13px] font-semibold">Consulta CNPJ via Serpro (paga)</Label>
+                        <FieldHint text="Quando ligado, as consultas de CNPJ deste tenant usam a API paga do Serpro (dados completos, com CPF dos sócios). Desligado, usam apenas a base gratuita (BrasilAPI). O custo do Serpro é da plataforma." />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Desligado = somente a base gratuita, sem custo.</p>
+                    </div>
+                    <Controller
+                      control={control}
+                      name="serproHabilitado"
+                      render={({ field }) => (
+                        <Switch checked={!!field.value} onCheckedChange={field.onChange} />
+                      )}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 border-t border-border/40 pt-4">
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-[13px] font-semibold">Orçamento mensal Serpro (R$)</Label>
+                      <FieldHint text="Teto de gasto por mês-calendário. Ao atingir o limite, as consultas voltam automaticamente para a base gratuita e o usuário é avisado. Deixe em branco para não impor teto." />
+                    </div>
+                    <Controller
+                      control={control}
+                      name="serproOrcamentoMensal"
+                      render={({ field }) => (
+                        <Input
+                          type="number" step="0.01" min="0" placeholder="Sem teto"
+                          className="h-9 text-sm max-w-[200px]"
+                          value={field.value ?? ''}
+                          onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                        />
+                      )}
+                    />
+                    <p className="text-xs text-muted-foreground">Custo atual por consulta CNPJ: <span className="font-medium">R$ 1,1717</span>. Reseta no dia 1º de cada mês.</p>
+                  </div>
                 </div>
               </div>
             )}

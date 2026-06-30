@@ -1,13 +1,56 @@
 import { All, Controller, Req, Res, Next } from '@nestjs/common'
 import type { Request, Response, NextFunction } from 'express'
 import * as trpcExpress from '@trpc/server/adapters/express'
-import { TrpcService, type TrpcContext } from './trpc.service'
+import { TrpcService, type TrpcContext, type BillingState } from './trpc.service'
 import { AuthService } from '../auth/auth.service'
 import { OnlineUsersService } from '../online-users/online-users.service'
-import { resolveTenantSchema } from '@saas/db'
+import { resolveTenantSchema, prisma } from '@saas/db'
+import { getCachedSession, setCachedSession } from './session-cache'
+
+/**
+ * Calcula o estado de billing do tenant (trial/assinatura/suspensão).
+ * Roda no createContext (cacheado 30s junto da sessão). Master global e
+ * usuários sem tenant (ex.: durante onboarding) nunca são bloqueados.
+ * trialEndsAt NULL = tenant antigo isento (grandfathered) → ACTIVE.
+ */
+async function computeBillingState(
+  tenantId: string | undefined,
+  isMaster: boolean,
+): Promise<{ billingState: BillingState; trialEndsAt?: Date }> {
+  if (isMaster || !tenantId) return { billingState: 'ACTIVE' }
+  try {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { status: true, trialEndsAt: true },
+    })
+    if (!tenant) return { billingState: 'ACTIVE' }
+    const trialEndsAt = tenant.trialEndsAt ?? undefined
+    if (tenant.status === 'SUSPENDED') return { billingState: 'SUSPENDED', trialEndsAt }
+
+    const now = Date.now()
+    // Assinatura paga/trial vigente no Stripe → acesso liberado
+    const sub = await prisma.subscription.findFirst({
+      where: { tenantId, status: { in: ['ACTIVE', 'TRIALING'] } },
+      orderBy: { currentPeriodEnd: 'desc' },
+      select: { currentPeriodEnd: true },
+    })
+    if (sub && sub.currentPeriodEnd.getTime() > now) return { billingState: 'ACTIVE', trialEndsAt }
+
+    // Sem assinatura: avaliar o trial local
+    if (trialEndsAt) {
+      return trialEndsAt.getTime() > now
+        ? { billingState: 'TRIAL', trialEndsAt }
+        : { billingState: 'TRIAL_EXPIRED', trialEndsAt }
+    }
+    // trialEndsAt NULL = isento/grandfathered
+    return { billingState: 'ACTIVE' }
+  } catch {
+    // Falha ao calcular não deve trancar o usuário — liberar por segurança
+    return { billingState: 'ACTIVE' }
+  }
+}
 
 // Cache de sessão em memória (TTL 30s para evitar queries repetidas)
-const sessionCache = new Map<string, { data: TrpcContext; expires: number }>()
 const SESSION_TTL = 30_000 // 30 segundos
 
 function getCacheKey(req: Request): string {
@@ -44,10 +87,8 @@ export class TrpcController {
       createContext: async ({ req }): Promise<TrpcContext> => {
         // Verificar cache
         const cacheKey = getCacheKey(req)
-        const cached = sessionCache.get(cacheKey)
-        if (cached && cached.expires > Date.now()) {
-          return cached.data
-        }
+        const cached = getCachedSession(cacheKey)
+        if (cached) return cached
 
         let userId: string | undefined
         let tenantId: string | undefined
@@ -69,9 +110,15 @@ export class TrpcController {
             const user = session.user as Record<string, unknown>
             userId = session.user.id
             tenantId = user.tenantId as string | undefined
-            empresaId = user.empresaId as string | undefined
             isMaster = (user.isMaster as boolean) ?? false
             isEmpresaMaster = (user.isEmpresaMaster as boolean) ?? false
+            // Empresa ATIVA server-authoritative (F-012): o master segue a empresa
+            // ativa (multi-empresa); o não-master é SEMPRE a home — um activeEmpresaId
+            // divergente é ignorado (defesa). Este é o ÚNICO empresaId usado pelas
+            // permissões (getMyPermissions), pela autorização e pelos resolvers.
+            const homeEmpresaId = user.empresaId as string | undefined
+            const activeEmpresaId = user.activeEmpresaId as string | undefined
+            empresaId = isMaster ? (activeEmpresaId ?? homeEmpresaId) : homeEmpresaId
           }
         } catch {
           // Sem sessão válida
@@ -88,6 +135,9 @@ export class TrpcController {
           }
         }
 
+        // Estado de billing (trial/assinatura/suspensão) — gate de acesso
+        const { billingState, trialEndsAt } = await computeBillingState(resolvedTenantId, isMaster)
+
         const context: TrpcContext = {
           tenantId: resolvedTenantId,
           tenantSchema,
@@ -95,6 +145,8 @@ export class TrpcController {
           empresaId,
           isMaster,
           isEmpresaMaster,
+          billingState,
+          trialEndsAt,
         }
 
         // Tracking de presença — fire-and-forget, throttled internamente a 30s/user.
@@ -115,16 +167,8 @@ export class TrpcController {
           this.onlineUsersService.touch(userId, pathFinal, this.extractIp(req))
         }
 
-        // Salvar no cache
-        sessionCache.set(cacheKey, { data: context, expires: Date.now() + SESSION_TTL })
-
-        // Limpar entradas expiradas periodicamente
-        if (sessionCache.size > 100) {
-          const now = Date.now()
-          for (const [key, val] of sessionCache) {
-            if (val.expires < now) sessionCache.delete(key)
-          }
-        }
+        // Salvar no cache (limpeza de expirados é feita dentro do helper)
+        setCachedSession(cacheKey, context, SESSION_TTL)
 
         return context
       },

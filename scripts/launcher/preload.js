@@ -59,6 +59,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // Deploy — painel "Publicar Implementações"
   deployStatus: () => ipcRenderer.invoke('deploy:status'),
+  deployListPrs: () => ipcRenderer.invoke('deploy:list-prs'),
   deployExecute: (payload) => ipcRenderer.invoke('deploy:execute', payload),
   deployAbort: () => ipcRenderer.invoke('deploy:abort'),
   deployReadDebugLog: () => ipcRenderer.invoke('deploy:read-debug-log'),

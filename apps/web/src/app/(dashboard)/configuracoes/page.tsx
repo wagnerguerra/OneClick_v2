@@ -27,7 +27,7 @@ interface ConfigField {
 
 const GROUP_ICONS: Record<string, LucideIcon> = {
   'Armazenamento (S3)': HardDrive,
-  'Autenticacao': Shield,
+  'Autenticação': Shield,
   'Banco de Dados': Database,
   'Carimbo de Tempo (TSA)': Clock,
   'E-mail (SMTP)': Mail,
@@ -93,7 +93,9 @@ export default function ConfiguracoesPage() {
   // só são acessíveis a master/empresa-master. Demais usuários são redirecionados.
   const router = useRouter()
   const { profile, loading: profileLoading } = useCurrentUserProfile()
-  const isAdmin = !!(profile?.isMaster || profile?.isEmpresaMaster)
+  // Config de SISTEMA (integrações de plataforma, SQL, backups): só master global.
+  // isEmpresaMaster (admin de tenant) NÃO acessa — F-009.
+  const isAdmin = !!profile?.isMaster
   useEffect(() => {
     if (!profileLoading && profile && !isAdmin) {
       router.replace('/dashboard')

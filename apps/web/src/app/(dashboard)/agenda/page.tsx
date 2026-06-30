@@ -8,7 +8,7 @@ import {
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
   Repeat, Lock, History, Settings, Palette, Check, DoorOpen,
   Bell, Mail, CheckSquare, Square, ListTodo, Search, Target, ArrowRight, Link2, ExternalLink,
-  StickyNote, Paperclip, Send, Upload, FileBarChart,
+  StickyNote, Paperclip, Send, Upload, FileBarChart, Sparkles,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card,
@@ -21,8 +21,11 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { ModuloAcessoButton } from '@/components/modulo-acesso-button'
+import { AgendaTipoHistoricoButton } from '@/components/agenda-tipo-historico-button'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
+import { renderConflitosHtml } from '@/lib/agenda-conflitos'
 import { TarefaModal } from './_components/tarefa-modal'
 import { alerts } from '@/lib/alerts'
 import Swal from 'sweetalert2'
@@ -64,6 +67,7 @@ interface AgendaEvento {
   editavel: boolean
   sala: string | null
   salaId: string | null
+  arrumarSala?: boolean
   isTarefa: boolean
   recorrencia: string
   lote: string | null
@@ -165,77 +169,6 @@ function somarUmaHora(hhmm: string): string {
   const nh = Math.floor(total / 60)
   const nm = total % 60
   return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`
-}
-
-/**
- * Renderiza HTML formatado da lista de conflitos de agenda pra mostrar no
- * SweetAlert. Agrupa por tipo (participante / sala), cada item vira um
- * card com avatar/ícone, badge do tipo, nome, evento conflitante e horário.
- */
-function renderConflitosHtml(
-  conflitos: Array<{ tipo: string; nome: string; evento: string; horario: string; image?: string | null }>,
-  bloqueado: boolean,
-): string {
-  const esc = (s: string) => String(s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
-
-  const initials = (n: string) => (n || '?').split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()
-
-  const avatar = (nome: string, color: string, imageUrl?: string | null) => {
-    if (imageUrl) {
-      return `<img src="${esc(resolveAssetUrl(imageUrl))}" alt="${esc(nome)}" style="flex-shrink:0;width:32px;height:32px;border-radius:50%;object-fit:cover;border:1px solid #e2e8f0" />`
-    }
-    return `<div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${esc(initials(nome))}</div>`
-  }
-
-  const iconBox = (icon: string, color: string) => `
-    <div style="flex-shrink:0;width:32px;height:32px;border-radius:8px;background:${color}1a;color:${color};display:flex;align-items:center;justify-content:center;font-size:16px">${icon}</div>`
-
-  const participantes = conflitos.filter(c => c.tipo === 'participante')
-  const salas = conflitos.filter(c => c.tipo === 'sala')
-
-  const card = (visual: string, color: string, badge: string, nome: string, evento: string, horario: string) => `
-    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;text-align:left">
-      ${visual}
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap">
-          <span style="display:inline-block;padding:1px 7px;border-radius:999px;background:${color}1a;color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px">${badge}</span>
-          <span style="font-weight:600;color:#0f172a;font-size:13px">${esc(nome)}</span>
-        </div>
-        <div style="font-size:12px;color:#64748b">
-          Em <span style="color:#0f172a;font-weight:500">"${esc(evento)}"</span>
-        </div>
-        <div style="font-size:11px;color:#94a3b8;margin-top:2px;font-variant-numeric:tabular-nums">⏰ ${esc(horario)}</div>
-      </div>
-    </div>
-  `
-
-  const sections: string[] = []
-  if (participantes.length > 0) {
-    sections.push(`
-      <div style="margin-top:8px">
-        <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">Participantes ocupados (${participantes.length})</div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          ${participantes.map(c => card(avatar(c.nome, '#0ea5e9', c.image), '#0ea5e9', 'Participante', c.nome, c.evento, c.horario)).join('')}
-        </div>
-      </div>`)
-  }
-  if (salas.length > 0) {
-    sections.push(`
-      <div style="margin-top:8px">
-        <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">Salas ocupadas (${salas.length})</div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          ${salas.map(c => card(iconBox('🚪', '#a855f7'), '#a855f7', 'Sala', c.nome, c.evento, c.horario)).join('')}
-        </div>
-      </div>`)
-  }
-
-  const intro = bloqueado
-    ? '<p style="font-size:13px;color:#475569;margin:0 0 4px 0">As regras da empresa <strong style="color:#dc2626">bloqueiam o salvamento</strong> enquanto houver estes conflitos:</p>'
-    : '<p style="font-size:13px;color:#475569;margin:0 0 4px 0">Detectamos sobreposições com outros eventos. Você pode salvar mesmo assim ou revisar:</p>'
-
-  return `<div style="text-align:left">${intro}${sections.join('')}</div>`
 }
 
 function isToday(year: number, month: number, day: number) {
@@ -393,6 +326,7 @@ export default function AgendaPage() {
     garagem: false,
     vagas: undefined as number | undefined,
     equipamentos: '',
+    arrumarSala: false,
     isTarefa: false,
     tipoId: '',
     recorrencia: 'NENHUMA',
@@ -961,8 +895,9 @@ export default function AgendaPage() {
       diaInteiro: false,
       local: '', contato: '', link: '', presenca: 'PRESENCIAL',
       particular: false, editavel: true, sala: '', salaId: '', garagem: false, vagas: undefined,
-      equipamentos: '', isTarefa: false,
-      tipoId: tipos[0]?.id ?? '', recorrencia: 'NENHUMA', recorrenciaVezes: 2,
+      equipamentos: '', arrumarSala: false, isTarefa: false,
+      // Tipo em branco — o usuário escolhe (nada pré-selecionado).
+      tipoId: '', recorrencia: 'NENHUMA', recorrenciaVezes: 2,
       participanteIds,
       participantesAvulsos: [],
       notificar: false,
@@ -1024,6 +959,7 @@ export default function AgendaPage() {
       garagem: (ev as unknown as Record<string, unknown>).garagem as boolean ?? false,
       vagas: (ev as unknown as Record<string, unknown>).vagas as number | undefined,
       equipamentos: (ev as unknown as Record<string, unknown>).equipamentos as string ?? '',
+      arrumarSala: (ev as unknown as Record<string, unknown>).arrumarSala as boolean ?? false,
       isTarefa: ev.isTarefa,
       tipoId: ev.tipoId,
       recorrencia: ev.recorrencia,
@@ -1152,6 +1088,7 @@ export default function AgendaPage() {
           editavel: form.editavel,
           sala: form.sala || undefined,
           salaId: form.salaId || undefined,
+          arrumarSala: form.arrumarSala,
           isTarefa: form.isTarefa,
           tipoId: form.tipoId,
           oportunidadeId: form.oportunidadeId || null,
@@ -1188,6 +1125,7 @@ export default function AgendaPage() {
             editavel: form.editavel,
             sala: form.sala || undefined,
             salaId: form.salaId || undefined,
+            arrumarSala: form.arrumarSala,
             isTarefa: form.isTarefa,
             tipoId: form.tipoId,
             oportunidadeId: form.oportunidadeId || null,
@@ -2082,6 +2020,11 @@ export default function AgendaPage() {
                           <span className="truncate max-w-[220px]">{localSala}</span>
                         </span>
                       )}
+                      {ev.arrumarSala && (
+                        <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                          <Sparkles className="h-3.5 w-3.5 shrink-0" />Arrumar sala
+                        </span>
+                      )}
                     </div>
                     {/* Participantes — foto (usuário do sistema) ou iniciais + nome, com +N */}
                     {parts.length > 0 && (
@@ -2284,6 +2227,12 @@ export default function AgendaPage() {
                           <span className="text-foreground">
                             {[salaTexto(ev.sala), ev.local].filter(Boolean).join(' · ')}
                           </span>
+                        </FieldRow>
+                      )}
+
+                      {ev.arrumarSala && (
+                        <FieldRow icon={Sparkles} label="Preparação">
+                          <span className="text-amber-600 dark:text-amber-400">Arrumar a sala</span>
                         </FieldRow>
                       )}
 
@@ -2725,6 +2674,14 @@ export default function AgendaPage() {
                           </p>
                         )}
                       </div>
+                      )}
+
+                      {/* Arrumar a sala — pergunta quando uma sala CADASTRADA é escolhida */}
+                      {permiteSala && form.salaId && (
+                        <label className="flex items-center gap-2 cursor-pointer text-xs">
+                          <Checkbox checked={form.arrumarSala} onCheckedChange={v => setForm(f => ({ ...f, arrumarSala: !!v }))} />
+                          Será necessário arrumar a sala?
+                        </label>
                       )}
 
                       {/* Link (Online/Híbrido) */}
@@ -3368,6 +3325,10 @@ export default function AgendaPage() {
             <DialogTitle>Tipos de Evento</DialogTitle>
             <DialogDescription>Cadastre e edite as categorias de eventos da agenda</DialogDescription>
           </DialogHeaderIcon>
+          <div className="flex items-center justify-end gap-2 border-b px-4 py-2">
+            <AgendaTipoHistoricoButton />
+            <ModuloAcessoButton moduleSlug="agenda" subPermission={{ key: 'manage_tipos', label: 'Gerenciar tipos' }} />
+          </div>
           <DialogBody className="p-0">
             <div className="flex h-[62vh] min-h-[440px]">
               {/* LISTA (esquerda) */}

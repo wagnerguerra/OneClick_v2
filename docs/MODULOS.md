@@ -47,6 +47,11 @@ Lista canônica dos módulos do SaaS ERP/CRM, agrupados por bloco. Referenciada 
 - Dashboard Financeiro
 - **Ferramentas (slug `ferramentas-contabil`)** — subitem "Ferramentas" no bloco Contábil. Sub-permissões por tool: `gnre`, `extrato-edit`. (Implementação na Fase 2/3.)
 
+## CONTÁBIL
+- Categorias de Balancete
+- Dashboard Financeiro
+- Tratamento de Lançamentos (importação → Modelo de Tratamento → exportação SCI)
+
 ## TI
 - Gestão de Ativos
 - HelpDesk

@@ -40,22 +40,22 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
 
     listCache: readProcedure(MODULE)
       .input(z.object({ contribuinte: contribuinteSchema }))
-      .query(({ input }) => service.listCache(input.contribuinte, null)),
+      .query(({ input, ctx }) => service.listCache(input.contribuinte, ctx.empresaId ?? null)),
 
     totalizadores: readProcedure(MODULE)
-      .query(() => service.totalizadores(null)),
+      .query(({ ctx }) => service.totalizadores(ctx.empresaId ?? null)),
 
     listarPorPrioridade: readProcedure(MODULE)
       .input(z.object({ prioridade: z.enum(['P0', 'P1', 'P2', 'P3']).optional(), importante: z.boolean().optional() }))
-      .query(({ input }) => service.listarPorPrioridade(input.prioridade, null, input.importante)),
+      .query(({ input, ctx }) => service.listarPorPrioridade(input.prioridade, ctx.empresaId ?? null, input.importante)),
 
     status: readProcedure(MODULE)
       .input(z.object({ contribuinte: z.string().min(11) }))
-      .query(({ input }) => service.status(input.contribuinte, null)),
+      .query(({ input, ctx }) => service.status(input.contribuinte, ctx.empresaId ?? null)),
 
     statusLote: readProcedure(MODULE)
       .input(z.object({ documentos: z.array(z.string().min(11)).min(1) }))
-      .mutation(({ input }) => service.statusLote(input.documentos, null)),
+      .mutation(({ input, ctx }) => service.statusLote(input.documentos, ctx.empresaId ?? null)),
 
     // ── Escrita (chamadas SERPRO) ──────────────────────────
 
@@ -66,7 +66,7 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
         indicadorPagina: z.string().optional(),
         ponteiroPagina: z.string().optional(),
       }))
-      .mutation(({ input }) => service.consultarClassificadas(input.contribuinte, null, {
+      .mutation(({ input, ctx }) => service.consultarClassificadas(input.contribuinte, ctx.empresaId ?? null, {
         statusLeitura: input.statusLeitura,
         indicadorPagina: input.indicadorPagina,
         ponteiroPagina: input.ponteiroPagina,
@@ -99,20 +99,20 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
     // ── Lote (sub: bulk_actions) ────────────────────────────
 
     consultarNovasLote: writeSubProcedure(MODULE, 'bulk_actions', 'Consulta em lote')
-      .mutation(() => service.consultarNovasLote(null)),
+      .mutation(({ ctx }) => service.consultarNovasLote(ctx.empresaId ?? null)),
 
     classificarLote: writeSubProcedure(MODULE, 'bulk_actions', 'Consulta em lote')
-      .mutation(() => service.classificarLote(null)),
+      .mutation(({ ctx }) => service.classificarLote(ctx.empresaId ?? null)),
 
     // ── Reclassificação (sub: reclassify) ────────────────
 
     reclassificar: writeSubProcedure(MODULE, 'reclassify', 'Reclassificar mensagens')
       .input(z.object({ itemId: z.string() }))
-      .mutation(({ input }) => service.reclassificarMensagem(input.itemId, null)),
+      .mutation(({ input, ctx }) => service.reclassificarMensagem(input.itemId, ctx.empresaId ?? null)),
 
     reclassificarTodas: writeSubProcedure(MODULE, 'reclassify', 'Reclassificar mensagens')
       .input(z.object({ contribuinte: z.string() }))
-      .mutation(({ input }) => service.reclassificarTodas(input.contribuinte, null)),
+      .mutation(({ input, ctx }) => service.reclassificarTodas(input.contribuinte, ctx.empresaId ?? null)),
 
     // ── Gestão de mensagens (sub: manage_gestao) ──────────
 
@@ -161,7 +161,7 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
       }),
 
     listarUsuarios: readSubProcedure(MODULE, 'manage_gestao', 'Gestão e históricos')
-      .query(() => service.listarUsuariosAtivos()),
+      .query(({ ctx }) => service.listarUsuariosAtivos(ctx.empresaId ?? null)),
 
     // ── Importante ──────────────────────────────────────────
 
@@ -185,11 +185,11 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
 
     arquivarAntigas: writeSubProcedure(MODULE, 'archive_delete', 'Arquivar mensagens')
       .input(z.object({ contribuinte: z.string(), dias: z.number().min(1).default(90) }))
-      .mutation(({ input, ctx }) => service.arquivarAntigas(input.contribuinte, input.dias, null, ctx.userId)),
+      .mutation(({ input, ctx }) => service.arquivarAntigas(input.contribuinte, input.dias, ctx.empresaId ?? null, ctx.userId)),
 
     listarArquivadas: readSubProcedure(MODULE, 'archive_delete', 'Arquivar mensagens')
       .input(z.object({ contribuinte: z.string() }))
-      .query(({ input }) => service.listarArquivadas(input.contribuinte, null)),
+      .query(({ input, ctx }) => service.listarArquivadas(input.contribuinte, ctx.empresaId ?? null)),
 
     // ── Inativação de clientes ─────────────────────────────
 
@@ -291,7 +291,7 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
 
     schedule: router({
       get: readProcedure(MODULE)
-        .query(() => scheduler.getStatus()),
+        .query(({ ctx }) => scheduler.getStatus(ctx.empresaId ?? '')),
 
       update: writeProcedure(MODULE)
         .input(z.object({
@@ -303,28 +303,28 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
         }))
         .mutation(async ({ input, ctx }) => {
           if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas perfil MASTER pode alterar agendamentos' })
-          return scheduler.updateConfig(input)
+          return scheduler.updateConfig(ctx.empresaId ?? '', input)
         }),
 
       runNow: writeProcedure(MODULE)
         .mutation(async ({ ctx }) => {
           if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas perfil MASTER pode executar manualmente' })
-          return scheduler.runNow(ctx.userId)
+          return scheduler.runNow(ctx.userId, ctx.empresaId ?? '')
         }),
 
       progress: readProcedure(MODULE)
-        .query(() => scheduler.getProgress()),
+        .query(({ ctx }) => scheduler.getProgress(ctx.empresaId ?? '')),
 
       clientes: readProcedure(MODULE)
-        .query(() => scheduler.listarClientesDisponiveis()),
+        .query(({ ctx }) => scheduler.listarClientesDisponiveis(ctx.empresaId ?? '')),
 
       logs: readProcedure(MODULE)
         .input(z.object({ limit: z.number().min(1).max(100).default(20), offset: z.number().min(0).default(0) }).optional())
-        .query(({ input }) => scheduler.listarExecLogs(input?.limit ?? 20, input?.offset ?? 0)),
+        .query(({ input, ctx }) => scheduler.listarExecLogs(input?.limit ?? 20, input?.offset ?? 0, ctx.empresaId ?? '')),
 
       logById: readProcedure(MODULE)
         .input(z.object({ id: z.string() }))
-        .query(({ input }) => scheduler.getExecLogById(input.id)),
+        .query(({ input, ctx }) => scheduler.getExecLogById(input.id, ctx.empresaId ?? '')),
     }),
   })
 }

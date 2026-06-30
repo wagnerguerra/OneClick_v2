@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Landmark, CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { Landmark, CheckCircle2, Clock, XCircle, AlertTriangle } from 'lucide-react'
 import { Card, CardContent } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { EmptyState } from './empty-state'
@@ -15,10 +15,12 @@ export function CndMunicipalWidget({ title, bloco }: { canRead?: boolean; title?
   const titulo = title ?? "CND's Municipais — Validade"
   const [t, setT] = useState<T | null>(null)
   const [items, setItems] = useState<ValidadeItem[]>([])
+  const [erro, setErro] = useState(false)
   useEffect(() => {
-    trpc.cnd.municipal.totalizadores.query().then((d: unknown) => setT(d as T)).catch(() => {})
+    trpc.cnd.municipal.totalizadores.query().then((d: unknown) => setT(d as T)).catch(() => setErro(true))
     trpc.cnd.municipal.validadeDashboard.query().then((d: unknown) => setItems(d as ValidadeItem[])).catch(() => {})
   }, [])
+  if (erro) return <EmptyState color="amber" Icon={AlertTriangle} title={titulo} message="Não foi possível carregar" href="/certidoes-cnd?aba=municipal" bloco={bloco} />
   if (!t) return <EmptyState color="violet" Icon={Landmark} title={titulo} message="Carregando..." bloco={bloco} />
   if (t.total === 0) return <EmptyState color="violet" Icon={Landmark} title={titulo} message="Nenhuma certidão consultada" href="/certidoes-cnd?aba=municipal" bloco={bloco} />
 

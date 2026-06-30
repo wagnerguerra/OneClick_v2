@@ -5,6 +5,12 @@ import { prisma } from '@saas/db'
 import type { AgendaDisparoConfig } from '@saas/db'
 import { EmailService } from '../common/email.service'
 import { AgendaEmailTemplateService } from './agenda-email-template.service'
+import { GrupoObrigacaoService } from '../grupo-obrigacao/grupo-obrigacao.service'
+
+// Pseudo-tipo (não é AgendaTipo real): id sentinela que, quando atribuído a um
+// grupo do e-mail, faz os vencimentos de obrigações acessórias do dia entrarem
+// naquele grupo. Ver agenda/configuracoes (pill "Obrigação acessória").
+const TIPO_OBRIGACAO_ACESSORIA = 'OBRIGACAO_ACESSORIA'
 
 // Logo embarcada inline (cid:logo) — mesmo asset usado nos e-mails de lembrete.
 const LOGO_PATH = path.resolve(process.cwd(), 'assets', 'email-logo.png')
@@ -41,7 +47,19 @@ export class AgendaDisparoService implements OnModuleInit {
   constructor(
     @Inject(EmailService) private readonly emailService: EmailService,
     @Inject(AgendaEmailTemplateService) private readonly templateService: AgendaEmailTemplateService,
+    @Inject(GrupoObrigacaoService) private readonly grupoObrigacaoService: GrupoObrigacaoService,
   ) {}
+
+  // Cache dos vencimentos do dia (mesmo dia → mesma lista pra todos os
+  // destinatários). Evita recomputar a recorrência por usuário no disparo.
+  private vencCache: { dia: string; itens: Array<{ clienteNome: string; obrigacaoNome: string; categoria: string | null }> } | null = null
+
+  private async vencimentosDoDia(dataYyyyMmDd: string) {
+    if (this.vencCache?.dia === dataYyyyMmDd) return this.vencCache.itens
+    const itens = await this.grupoObrigacaoService.getVencimentosDoDia(new Date(dataYyyyMmDd)).catch(() => [])
+    this.vencCache = { dia: dataYyyyMmDd, itens }
+    return itens
+  }
 
   private diaSemanaExt(d: Date): string {
     return ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'][d.getUTCDay()]
@@ -148,8 +166,10 @@ export class AgendaDisparoService implements OnModuleInit {
    */
   private async resolverDestinatarios(cfg: AgendaDisparoConfig): Promise<string[]> {
     if (cfg.enviarParaTodos) {
+      // Isolamento multi-tenant: só colaboradores da empresa dona da config.
+      // Sem empresa (config legada não migrada) → default-deny.
       const todos = await prisma.user.findMany({
-        where: { isActive: true, email: { not: '' } },
+        where: { isActive: true, email: { not: '' }, empresaId: cfg.empresaId ?? null },
         select: { id: true },
       })
       return todos.map(u => u.id)
@@ -307,17 +327,39 @@ export class AgendaDisparoService implements OnModuleInit {
     })
 
     // Filtro de privacidade: eventos particulares só pro próprio criador
-    const visiveis = eventos.filter(ev => !ev.particular || ev.criadorId === destinatarioId)
-    if (visiveis.length === 0) {
-      console.log(`[AgendaDisparo] ${user.email} — nenhum evento visível em ${dataYyyyMmDd}, pulando`)
-      return
-    }
+    const visiveisEventos = eventos.filter(ev => !ev.particular || ev.criadorId === destinatarioId)
 
     const dataDisplay = this.formatDataBr(eventDate)
     const diaSemana = this.diaSemanaExt(eventDate)
 
     // Modelo configurável (PARALELO): só usa quando `ativo`; senão mantém o HTML atual (fallback).
     const tpl = await this.templateService.getTemplate(null).catch(() => null)
+
+    // Vencimentos de obrigação acessória do dia → pseudo-eventos, SÓ quando o
+    // template está ativo E algum grupo tem o badge OBRIGACAO_ACESSORIA. Eles
+    // caem nesse grupo no render (mesmo mecanismo de tiposIds dos tipos reais).
+    const grupoVenc = tpl?.template.ativo
+      ? tpl.grupos.find(g => (g.tiposIds || []).includes(TIPO_OBRIGACAO_ACESSORIA))
+      : undefined
+    const pseudoVenc = grupoVenc
+      ? (await this.vencimentosDoDia(dataYyyyMmDd)).map((vc, i) => ({
+          id: `venc-${i}`,
+          titulo: `${vc.obrigacaoNome} — ${vc.clienteNome}`,
+          tipoId: TIPO_OBRIGACAO_ACESSORIA,
+          tipo: { id: TIPO_OBRIGACAO_ACESSORIA, nome: vc.categoria || 'Obrigação acessória', cor: grupoVenc.cor },
+          diaInteiro: true, horaInicio: null, horaFim: null,
+          particular: false, criadorId: null, criador: null,
+          participantes: [], salaRef: null, sala: null, presenca: 'PRESENCIAL',
+          link: null, contato: null, descricao: null,
+        }))
+      : []
+
+    const visiveis = [...visiveisEventos, ...pseudoVenc]
+    if (visiveis.length === 0) {
+      console.log(`[AgendaDisparo] ${user.email} — nada visível em ${dataYyyyMmDd}, pulando`)
+      return
+    }
+
     let html: string
     let subject = `Agenda do dia · ${dataDisplay}`
     // Só anexa a logo embutida (cid:logo) quando o HTML realmente a usa — ou seja,
@@ -330,10 +372,10 @@ export class AgendaDisparoService implements OnModuleInit {
       const s = this.templateService.renderAssunto(tpl.template, { dataDisplay, diaSemana })
       if (s) subject = s
     } else {
-      const isPessoal = (ev: typeof visiveis[number]) =>
+      const isPessoal = (ev: typeof visiveisEventos[number]) =>
         ev.particular || ev.tipo.nome.toLowerCase().includes('pessoal')
-      const corporativos = visiveis.filter(ev => !isPessoal(ev))
-      const pessoais = visiveis.filter(ev => isPessoal(ev))
+      const corporativos = visiveisEventos.filter(ev => !isPessoal(ev))
+      const pessoais = visiveisEventos.filter(ev => isPessoal(ev))
       html = this.gerarHtmlEmail(dataYyyyMmDd, corporativos, pessoais, user.name, !!LOGO_BUFFER)
       usaCidLogo = !!LOGO_BUFFER
     }
@@ -493,7 +535,7 @@ export class AgendaDisparoService implements OnModuleInit {
         : ''
 
       const prepItens: string[] = []
-      if (ev.salaRef || ev.sala) prepItens.push('Arrumar sala')
+      if (ev.arrumarSala) prepItens.push('Arrumar sala')
       if (ev.equipamentos) prepItens.push('Disponibilizar equipamentos')
       const prepHtml = prepItens.length > 0
         ? `<div class="ev-section" style="margin-top:8px;font-size:11px;color:#64748b">

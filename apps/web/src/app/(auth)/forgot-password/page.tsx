@@ -97,6 +97,8 @@ export default function ForgotPasswordPage() {
                   type="email"
                   placeholder="seu@email.com"
                   className="h-11"
+                  autoComplete="username"
+                  required
                   {...register('email')}
                 />
                 {errors.email && (

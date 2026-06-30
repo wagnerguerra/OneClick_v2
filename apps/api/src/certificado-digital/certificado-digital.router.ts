@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
-import { router, readProcedure, writeProcedure, deleteProcedure, protectedProcedure } from '../trpc/trpc.service'
+import { router, readProcedure, writeProcedure, deleteProcedure, protectedProcedure, scopedEmpresaId, scopedEmpresaIdOpt } from '../trpc/trpc.service'
 import { CertificadoDigitalService } from './certificado-digital.service'
 import { LegacyImportCertService } from './legacy-import-cert.service'
 import { BulkImportCertService } from './bulk-import-cert.service'
@@ -99,8 +99,9 @@ export function createCertificadoDigitalRouter(
       }))
       .mutation(({ input, ctx }) => certService.create({
         ...input,
-        // Se vincular a empresa não veio, usa a do contexto
-        empresaId: input.empresaId ?? ctx.empresaId ?? null,
+        // empresaId validado contra a sessão (F-012): não-master não pode
+        // vincular cert a empresa de outro tenant; sem empresa usa a do contexto.
+        empresaId: scopedEmpresaIdOpt(ctx, input.empresaId),
       }, {
         userId: ctx.userId,
         ipAddress: (ctx as any).ipAddress,
@@ -231,7 +232,7 @@ export function createCertificadoDigitalRouter(
         if (!(ctx.isMaster || ctx.isEmpresaMaster)) {
           throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas master/empresa-master' })
         }
-        return legacyImportService.startPreview(input.empresaId)
+        return legacyImportService.startPreview(scopedEmpresaId(ctx, input.empresaId))
       }),
 
     legacyImportProgress: protectedProcedure
@@ -269,7 +270,7 @@ export function createCertificadoDigitalRouter(
           base64: z.string().min(10),
         })).min(1).max(2000),
       }))
-      .mutation(({ input }) => bulkImportService.startPreview(input.empresaId, input.files, input.senhaPadrao)),
+      .mutation(({ input, ctx }) => bulkImportService.startPreview(scopedEmpresaId(ctx, input.empresaId), input.files, input.senhaPadrao)),
 
     bulkImportProgress: protectedProcedure
       .input(z.object({ jobId: z.string() }))

@@ -18,7 +18,6 @@ import type { Editor } from '@tiptap/react'
 import {
   Button, Input, Label, Card, Badge, Separator, RichEditor, cn,
 } from '@saas/ui'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { alerts } from '@/lib/alerts'
 import { renderEmailShell } from './_lib/email-shell'
 import {
@@ -208,12 +207,14 @@ export default function EmailTemplatesPage() {
   )
 
   return (
-    <div className="space-y-5 p-4 md:p-6">
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <PageHeaderIcon icon={Mail} module="administrativo" />
+    <div className="space-y-5">
+      {/* Header — padrão inline de /orcamentos e /crm (ícone gradiente + h1 + descrição) */}
+      <div className="flex items-center gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
+          <Mail className="h-6 w-6" />
+        </div>
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-foreground">Modelos de E-mail</h1>
+          <h1>Modelos de E-mail</h1>
           <p className="text-sm text-muted-foreground">
             Ambiente de composição (sandbox) para montar e pré-visualizar os modelos de e-mail do
             sistema. Não envia nem salva no servidor — compõe aqui e replique no sistema quando aprovado.
@@ -232,7 +233,7 @@ export default function EmailTemplatesPage() {
         <Card className="lg:col-span-3 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
             <span className="text-[13px] font-semibold text-foreground">Modelos</span>
-            <Button size="sm" variant="outline" onClick={novoModelo} className="h-7 gap-1 px-2 text-xs">
+            <Button size="sm" variant="success" onClick={novoModelo} className="h-7 gap-1 px-2 text-xs">
               <Plus className="h-3.5 w-3.5" /> Novo
             </Button>
           </div>
@@ -302,9 +303,9 @@ export default function EmailTemplatesPage() {
                   </Button>
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="soft-destructive"
                     onClick={excluirModelo}
-                    className="h-7 gap-1 px-2 text-xs text-red-600 hover:text-red-700"
+                    className="h-7 gap-1 px-2 text-xs"
                   >
                     <Trash2 className="h-3.5 w-3.5" /> Excluir
                   </Button>
@@ -352,7 +353,7 @@ export default function EmailTemplatesPage() {
                       type="color"
                       value={selected.accent}
                       onChange={(e) => patchSelected({ accent: e.target.value })}
-                      className="h-9 w-10 shrink-0 cursor-pointer rounded border border-border bg-background p-0.5"
+                      className="h-9 w-10 shrink-0 cursor-pointer rounded border border-border bg-card p-0.5"
                       aria-label="Cor de destaque"
                     />
                     <Input

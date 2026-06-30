@@ -19,6 +19,12 @@ SSH_KEY_PATH=/c/Users/wagner/.ssh/oneclick_deploy
 # APP_REMOTE_DIR=/opt/oneclick-app-src
 # APP_BRANCH=app-mobile
 
+# GitHub API para listar Pull Requests na aba Deploy.
+# Sem token, a consulta pode funcionar em repositório público, mas fica sujeita
+# ao limite baixo da API pública.
+# GITHUB_REPO=wagnerguerra/OneClick_v2
+# GITHUB_TOKEN=ghp_xxx
+
 # Opção B — senha (menos seguro, mas funcional):
 # Deixe SSH_KEY_PATH vazio e preencha SSH_PASSWORD.
 # Vou usar `sshpass` ou prompt interativo.

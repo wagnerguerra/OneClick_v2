@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common'
+import { TRPCError } from '@trpc/server'
 import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
+import { invalidateSessionCacheForUser } from '../trpc/session-cache'
 import type { Prisma } from '@saas/db'
 import type { CreateEmpresaInput, UpdateEmpresaInput, ListEmpresaInput } from '@saas/types'
 
@@ -47,7 +49,18 @@ export class EmpresaService {
     return buildPaginatedResponse(data, total, page, limit)
   }
 
-  async getById(id: string) {
+  /**
+   * Isolamento multi-tenant (F-012): não-master só resolve a PRÓPRIA empresa;
+   * master (admin de plataforma) resolve qualquer uma (navegação multi-empresa).
+   * Sem isto, o seletor de "empresa ativa" do cliente resolvia uma empresa de
+   * OUTRO tenant via id antigo no localStorage, divergindo do empresaId real do
+   * usuário. Permissões/dados são sempre avaliados pelo `ctx.empresaId` da sessão
+   * (a empresa real do usuário), nunca pela "empresa ativa" do cliente.
+   */
+  async getById(id: string, isMaster = false, empresaId?: string | null) {
+    if (!isMaster && id !== (empresaId ?? null)) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Empresa fora do seu acesso.' })
+    }
     return prisma.empresa.findUniqueOrThrow({ where: { id } })
   }
 
@@ -120,24 +133,61 @@ export class EmpresaService {
     return results
   }
 
-  async listForSelect() {
+  /**
+   * Lista empresas para selects/dropdowns. Isolamento multi-tenant:
+   * não-master vê APENAS a própria empresa; master global vê todas.
+   * `empresaId` nulo (não-master) retorna vazio (default-deny).
+   */
+  async listForSelect(opts: { empresaId?: string | null; isMaster: boolean }) {
     return prisma.empresa.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(opts.isMaster ? {} : { id: opts.empresaId ?? '__none__' }),
+      },
       select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, logoUrl: true, logoDarkUrl: true, marcaDaguaUrl: true },
       orderBy: { razaoSocial: 'asc' },
     })
   }
 
   /** Retorna a empresa do usuário logado (sem exigir permissão no módulo empresas) */
+  /**
+   * Empresa ATIVA do usuário (server-authoritative): master segue a empresa ativa
+   * (multi-empresa); não-master é sempre a home. É a fonte da verdade do cliente
+   * para a "empresa ativa" — substitui o localStorage como autoridade. F-012.
+   */
   async getMyEmpresa(userId: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { empresaId: true },
+      select: { empresaId: true, activeEmpresaId: true, isMaster: true },
     })
-    if (!user?.empresaId) return null
+    if (!user) return null
+    const targetId = user.isMaster ? (user.activeEmpresaId ?? user.empresaId) : user.empresaId
+    if (!targetId) return null
     return prisma.empresa.findUnique({
-      where: { id: user.empresaId },
+      where: { id: targetId },
       select: { id: true, code: true, razaoSocial: true, nomeFantasia: true, logoUrl: true, logoDarkUrl: true, marcaDaguaUrl: true },
     })
+  }
+
+  /**
+   * Define a empresa ATIVA (server-authoritative). Master ativa qualquer empresa
+   * existente; não-master só a própria (home) — senão FORBIDDEN. Persiste em
+   * users.active_empresa_id; daí o contexto, as permissões (getMyPermissions) e a
+   * autorização passam a operar sobre ela. F-012/F-009.
+   */
+  async setActiveEmpresa(userId: string, empresaId: string) {
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { empresaId: true, isMaster: true },
+    })
+    if (!user.isMaster && empresaId !== user.empresaId) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Empresa fora do seu acesso.' })
+    }
+    const exists = await prisma.empresa.findUnique({ where: { id: empresaId }, select: { id: true } })
+    if (!exists) throw new TRPCError({ code: 'NOT_FOUND', message: 'Empresa não encontrada.' })
+    await prisma.user.update({ where: { id: userId }, data: { activeEmpresaId: empresaId } })
+    // Invalida o ctx cacheado (30s) p/ o empresaId resolvido refletir na hora.
+    invalidateSessionCacheForUser(userId)
+    return { ok: true, empresaId }
   }
 }

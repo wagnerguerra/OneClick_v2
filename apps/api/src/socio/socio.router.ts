@@ -258,7 +258,7 @@ export function createSocioRouter(socioService: SocioService, cnpjService: CnpjS
     // ── Consulta CNPJ (retorna dados + QSA) ─────────────────
     consultarCnpj: readProcedure()
       .input(z.object({ cnpj: z.string().min(14) }))
-      .query(({ input }) => cnpjService.consultarCnpj(input.cnpj)),
+      .query(({ input, ctx }) => cnpjService.consultarCnpj(input.cnpj, { empresaId: ctx.empresaId ?? null, userId: ctx.userId })),
 
     // ── Importar QSA de um CNPJ ─────────────────────────────
     // Consulta o CNPJ, extrai o QSA e cria os sócios vinculados ao cliente

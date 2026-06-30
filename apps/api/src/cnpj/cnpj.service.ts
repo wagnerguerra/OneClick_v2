@@ -56,6 +56,9 @@ export interface CnpjResult {
 
   // Fonte da consulta
   fonte: 'serpro' | 'brasilapi'
+
+  // Preenchido quando o gate de custo bloqueou o Serpro e caiu na base gratuita.
+  gateAviso?: string
 }
 
 /**
@@ -314,47 +317,113 @@ export class CnpjService {
     }
   }
 
-  async consultarCnpj(cnpj: string): Promise<CnpjResult> {
+  // ── Gate de custo (por tenant) ────────────────────────────
+
+  /** Preço de uma operação em R$ (unitPrice × multiplier). Preferência:
+   *  (source, operation) → (source, null) → fallback hardcoded. */
+  private async precoOperacao(source: string, operation: string): Promise<number> {
+    const exato = await prisma.apiPricing.findFirst({ where: { source, operation } })
+    const p = exato ?? await prisma.apiPricing.findFirst({ where: { source, operation: null } })
+    if (p) return p.unitPrice * p.multiplier
+    if (source === 'serpro' && operation === 'consulta-cnpj') return 1.1717 // fallback seed
+    return 0
+  }
+
+  /** Gasto Serpro acumulado do tenant no mês-calendário corrente (R$). */
+  private async gastoSerproMes(empresaId: string): Promise<number> {
+    const inicioMes = new Date()
+    inicioMes.setDate(1)
+    inicioMes.setHours(0, 0, 0, 0)
+    const agg = await prisma.apiLog.aggregate({
+      _sum: { custo: true },
+      where: { empresaId, source: 'serpro', createdAt: { gte: inicioMes } },
+    })
+    return agg._sum.custo ?? 0
+  }
+
+  /** Decide se a consulta usa Serpro (pago) ou cai na base gratuita.
+   *  - sem credencial de plataforma → sempre grátis.
+   *  - sem empresaId (chamada não-atribuível/legada) → mantém comportamento atual.
+   *  - tenant com serproHabilitado=false → grátis (escolha do tenant).
+   *  - teto mensal estourado → bloqueia Serpro, devolve aviso. */
+  private async avaliarGateSerpro(
+    empresaId: string | null,
+    operation: string,
+  ): Promise<{ usarSerpro: boolean; aviso?: string }> {
+    if (!this.getSerproCredentials()) return { usarSerpro: false }
+    if (!empresaId) return { usarSerpro: true } // legado: sem tenant resolvido
+    const emp = await prisma.empresa.findUnique({
+      where: { id: empresaId },
+      select: { serproHabilitado: true, serproOrcamentoMensal: true },
+    })
+    if (!emp?.serproHabilitado) return { usarSerpro: false }
+    const teto = emp.serproOrcamentoMensal
+    if (teto == null) return { usarSerpro: true } // sem teto definido
+    const [preco, gasto] = await Promise.all([
+      this.precoOperacao('serpro', operation),
+      this.gastoSerproMes(empresaId),
+    ])
+    if (gasto + preco > teto) {
+      return {
+        usarSerpro: false,
+        aviso: `Limite mensal de consultas Serpro atingido (R$ ${teto.toFixed(2)}). Exibindo dados da base gratuita.`,
+      }
+    }
+    return { usarSerpro: true }
+  }
+
+  /** Registra uma chamada de API (com custo congelado + atribuição por tenant). */
+  private async logApi(d: {
+    source: string; operation: string; endpoint: string; status: number
+    duration: number; documento: string; custo: number
+    empresaId: string | null; userId: string | null
+  }): Promise<void> {
+    await prisma.apiLog.create({
+      data: {
+        source: d.source, operation: d.operation, endpoint: d.endpoint, method: 'GET',
+        status: d.status, duration: d.duration, documento: d.documento, custo: d.custo,
+        empresaId: d.empresaId, userId: d.userId,
+      },
+    }).catch(() => {})
+  }
+
+  async consultarCnpj(
+    cnpj: string,
+    opts?: { empresaId?: string | null; userId?: string | null },
+  ): Promise<CnpjResult> {
     const doc = cnpj.replace(/\D/g, '')
     if (doc.length !== 14) throw new Error('CNPJ deve ter 14 dígitos.')
 
-    const start = Date.now()
+    const empresaId = opts?.empresaId ?? null
+    const userId = opts?.userId ?? null
+    const OP = 'consulta-cnpj'
     const serpro = this.getSerproCredentials()
 
-    // Se SERPRO estiver configurado, usar preferencialmente
-    if (serpro) {
+    // Gate de custo: decide Serpro (pago) vs base gratuita conforme tenant/orçamento.
+    const gate = await this.avaliarGateSerpro(empresaId, OP)
+
+    if (gate.usarSerpro && serpro) {
+      const start = Date.now()
       try {
         const result = await this.consultarViaSerpro(doc, serpro.consumerKey, serpro.consumerSecret)
-
-        await prisma.apiLog.create({
-          data: { source: 'serpro', endpoint: `/consulta-cnpj-df/v2/empresa/${doc}`, method: 'GET', status: 200, duration: Date.now() - start, documento: doc },
-        }).catch(() => {})
-
+        const custo = await this.precoOperacao('serpro', OP)
+        await this.logApi({ source: 'serpro', operation: OP, endpoint: `/consulta-cnpj-df/v2/empresa/${doc}`, status: 200, duration: Date.now() - start, documento: doc, custo, empresaId, userId })
         return result
       } catch (e) {
-        await prisma.apiLog.create({
-          data: { source: 'serpro', endpoint: `/consulta-cnpj-df/v2/empresa/${doc}`, method: 'GET', status: 500, duration: Date.now() - start, documento: doc },
-        }).catch(() => {})
-
-        // Fallback para BrasilAPI se SERPRO falhar
+        await this.logApi({ source: 'serpro', operation: OP, endpoint: `/consulta-cnpj-df/v2/empresa/${doc}`, status: 500, duration: Date.now() - start, documento: doc, custo: 0, empresaId, userId })
+        // Serpro falhou (indisponível/erro) → cai na base gratuita (sem aviso de gate).
         console.warn(`[CnpjService] SERPRO falhou, tentando BrasilAPI: ${(e as Error).message}`)
       }
     }
 
-    // Fallback: BrasilAPI
+    // Base gratuita (BrasilAPI): tenant sem Serpro, gate bloqueou por orçamento, ou Serpro falhou.
+    const startBr = Date.now()
     try {
       const result = await this.consultarViaBrasilApi(doc)
-
-      await prisma.apiLog.create({
-        data: { source: 'brasilapi', endpoint: `/cnpj/v1/${doc}`, method: 'GET', status: 200, duration: Date.now() - start, documento: doc },
-      }).catch(() => {})
-
-      return result
+      await this.logApi({ source: 'brasilapi', operation: OP, endpoint: `/cnpj/v1/${doc}`, status: 200, duration: Date.now() - startBr, documento: doc, custo: 0, empresaId, userId })
+      return gate.aviso ? { ...result, gateAviso: gate.aviso } : result
     } catch (e) {
-      await prisma.apiLog.create({
-        data: { source: 'brasilapi', endpoint: `/cnpj/v1/${doc}`, method: 'GET', status: 500, duration: Date.now() - start, documento: doc },
-      }).catch(() => {})
-
+      await this.logApi({ source: 'brasilapi', operation: OP, endpoint: `/cnpj/v1/${doc}`, status: 500, duration: Date.now() - startBr, documento: doc, custo: 0, empresaId, userId })
       throw e
     }
   }

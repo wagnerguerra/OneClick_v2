@@ -10,6 +10,7 @@ import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { IA_SUGESTOES_PADRAO, type IaSugestao } from '@/components/orcamento/ia-sugestoes-padrao'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
@@ -41,7 +42,7 @@ const DEFAULT_CONFIG: ConfigState = {
   textoApresentacao: '',
 }
 
-type TabKey = 'prazos' | 'numeracao' | 'emails' | 'textos' | 'areas' | 'modelos' | 'pesquisa'
+type TabKey = 'prazos' | 'numeracao' | 'emails' | 'textos' | 'areas' | 'modelos' | 'ia' | 'pesquisa'
 
 const TABS: Array<{ key: TabKey; label: string; icon: typeof Clock }> = [
   { key: 'prazos', label: 'Prazos do workflow', icon: Clock },
@@ -50,6 +51,7 @@ const TABS: Array<{ key: TabKey; label: string; icon: typeof Clock }> = [
   { key: 'textos', label: 'Textos padrão', icon: FileText },
   { key: 'areas', label: 'Áreas (detalhamento)', icon: Users },
   { key: 'modelos', label: 'Modelos de proposta (IA)', icon: Sparkles },
+  { key: 'ia', label: 'Sugestões da IA', icon: Sparkles },
   { key: 'pesquisa', label: 'Pesquisa de satisfação', icon: Star },
 ]
 
@@ -133,7 +135,7 @@ export default function OrcamentosConfiguracoesPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {activeTab !== 'areas' && activeTab !== 'modelos' && activeTab !== 'pesquisa' && (
+          {activeTab !== 'areas' && activeTab !== 'modelos' && activeTab !== 'pesquisa' && activeTab !== 'ia' && (
             <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
@@ -286,6 +288,7 @@ export default function OrcamentosConfiguracoesPage() {
 
               {activeTab === 'areas' && <AreasConfigTab />}
               {activeTab === 'modelos' && <ModelosPropostaTab />}
+              {activeTab === 'ia' && <IaSugestoesTab />}
               {activeTab === 'pesquisa' && <PesquisaConfigTab />}
             </div>
           </div>
@@ -577,6 +580,84 @@ function ModelosPropostaTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Aba "Sugestões da IA" — os chips (label + prompt) do assistente de proposta.
+// Lista pequena, editável e reordenável; salva via replace-all (iaSugestoesSalvar).
+// ────────────────────────────────────────────────────────────────────
+function IaSugestoesTab() {
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [itens, setItens] = useState<IaSugestao[]>([])
+
+  const carregar = () => {
+    setLoading(true)
+    ;(trpc.orcamento as any).iaSugestoesListar.query()
+      .then((r: IaSugestao[]) => setItens((r && r.length) ? r.map(x => ({ label: x.label, prompt: x.prompt })) : IA_SUGESTOES_PADRAO))
+      .catch(() => setItens(IA_SUGESTOES_PADRAO))
+      .finally(() => setLoading(false))
+  }
+  useEffect(() => { carregar() }, [])
+
+  const upd = (i: number, patch: Partial<IaSugestao>) => setItens(prev => prev.map((it, j) => (j === i ? { ...it, ...patch } : it)))
+  const add = () => setItens(prev => [...prev, { label: '', prompt: '' }])
+  const remover = (i: number) => setItens(prev => prev.filter((_, j) => j !== i))
+  const mover = (i: number, dir: -1 | 1) => setItens(prev => {
+    const j = i + dir
+    if (j < 0 || j >= prev.length) return prev
+    const cp = [...prev]
+    ;[cp[i], cp[j]] = [cp[j]!, cp[i]!]
+    return cp
+  })
+
+  async function salvar() {
+    const items = itens.map(it => ({ label: it.label.trim(), prompt: it.prompt.trim() })).filter(it => it.label && it.prompt)
+    setSaving(true)
+    try {
+      await (trpc.orcamento as any).iaSugestoesSalvar.mutate({ items })
+      alerts.success('Salvo', 'Sugestões do assistente atualizadas.')
+      carregar()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setSaving(false) }
+  }
+
+  if (loading) return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[12px] text-muted-foreground max-w-xl">
+          Os botões de sugestão que aparecem no assistente de IA do orçamento. <strong>Rótulo</strong> = texto do botão; <strong>Instrução</strong> = o que é enviado à IA ao clicar. Reordene com as setas.
+        </p>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={() => setItens(IA_SUGESTOES_PADRAO)} className="gap-1.5"><History className="h-4 w-4" /> Restaurar padrões</Button>
+          <Button variant="outline" size="sm" onClick={add} className="gap-1.5"><Plus className="h-4 w-4" /> Adicionar</Button>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {itens.length === 0 && <p className="text-sm text-muted-foreground p-6 text-center border rounded-lg">Nenhuma sugestão. Adicione uma ou restaure os padrões.</p>}
+        {itens.map((it, i) => (
+          <div key={i} className="rounded-lg border p-3 space-y-2 bg-muted/20">
+            <div className="flex items-center gap-2">
+              <Input className="h-9 text-sm flex-1" value={it.label} onChange={e => upd(i, { label: e.target.value })} placeholder="Rótulo do botão (ex.: Mais formal)" />
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" disabled={i === 0} onClick={() => mover(i, -1)} title="Subir"><ArrowUp className="h-3.5 w-3.5" /></Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" disabled={i === itens.length - 1} onClick={() => mover(i, 1)} title="Descer"><ArrowDown className="h-3.5 w-3.5" /></Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive" onClick={() => remover(i)} title="Remover"><Trash2 className="h-3.5 w-3.5" /></Button>
+            </div>
+            <textarea className="w-full min-h-[64px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={it.prompt} onChange={e => upd(i, { prompt: e.target.value })} placeholder="Instrução enviada à IA ao clicar neste botão…" />
+          </div>
+        ))}
+      </div>
+
+      <div className="flex justify-end">
+        <Button onClick={salvar} disabled={saving} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar sugestões
+        </Button>
+      </div>
     </div>
   )
 }
