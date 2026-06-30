@@ -11,9 +11,9 @@ import { alerts } from '@/lib/alerts'
 import { generateDanfseZip, type GenResult } from './_lib/generateZip'
 import { downloadRetencaoPdf, downloadRetencaoReport } from './_lib/retencaoReport'
 import { fmtBRL } from './_lib/format'
-import { FERRAMENTAS_COLOR } from '../../_config/catalog'
+import { colorForArea } from '../../_config/catalog'
 
-const BLOCK_COLOR = FERRAMENTAS_COLOR // identidade roxa das Ferramentas
+const BLOCK_COLOR = colorForArea('fiscal') // cor do bloco Fiscal, fallback Ferramentas
 const ACTION = BLOCK_COLOR
 const GLASS = 'border border-border/50 bg-card/70 backdrop-blur-xl shadow-xl shadow-black/[0.04] dark:shadow-black/20'
 const accent = { background: `linear-gradient(135deg, ${ACTION}, color-mix(in srgb, ${ACTION} 78%, #000))` } as const

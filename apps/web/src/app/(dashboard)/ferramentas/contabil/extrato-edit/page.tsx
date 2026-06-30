@@ -21,9 +21,9 @@ import { exportExtrato } from './_lib/exportExtrato'
 import { parseRegistryFile } from './_lib/parseRegistry'
 import { importEntidades, lookupCnpj, fetchCounts, type Counts, type EntidadeTipo } from './_lib/registryApi'
 import { detectCodigoColumn, projectRows, cellPreview } from './_lib/columns'
-import { FERRAMENTAS_COLOR } from '../../_config/catalog'
+import { colorForArea } from '../../_config/catalog'
 
-const BLOCK_COLOR = FERRAMENTAS_COLOR // identidade roxa das Ferramentas
+const BLOCK_COLOR = colorForArea('contabil') // cor do bloco Contábil, fallback Ferramentas
 const ACTION = BLOCK_COLOR
 const GLASS = 'border border-border/50 bg-card/70 backdrop-blur-xl shadow-xl shadow-black/[0.04] dark:shadow-black/20'
 const accent = { background: `linear-gradient(135deg, ${ACTION}, color-mix(in srgb, ${ACTION} 78%, #000))` } as const

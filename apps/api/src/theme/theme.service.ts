@@ -62,6 +62,7 @@ export const DEFAULT_MODULE_COLORS = [
   { slug: 'trabalhista',   label: 'Trabalhista',   color: '#a3e635' },
   { slug: 'fiscal',        label: 'Fiscal',        color: '#0369a1' },
   { slug: 'contabil',      label: 'Contábil',      color: '#a78bfa' },
+  { slug: 'ferramentas',   label: 'Ferramentas',   color: '#8b5cf6' },
   { slug: 'ti',            label: 'TI',            color: '#22d3ee' },
   { slug: 'qualidade',     label: 'Qualidade',     color: '#f59e0b' },
   { slug: 'configuracoes', label: 'Configurações', color: '#f97316' },

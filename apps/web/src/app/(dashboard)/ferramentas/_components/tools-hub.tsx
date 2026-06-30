@@ -7,14 +7,12 @@ import { toolsByArea, FERRAMENTAS_COLOR, type ToolArea } from '../_config/catalo
 
 const GLASS = 'border border-border/50 bg-card/70 backdrop-blur-xl shadow-lg shadow-black/[0.04] dark:shadow-black/20'
 
-const AREA_META: Record<ToolArea, { color: string; title: string; subtitle: string }> = {
+const AREA_META: Record<ToolArea, { title: string; subtitle: string }> = {
   fiscal: {
-    color: 'var(--mod-fiscal, #818cf8)',
     title: 'Ferramentas Fiscais',
     subtitle: 'Conversões fiscais num só lugar: envie os arquivos, acompanhe na tela e baixe o resultado.',
   },
   contabil: {
-    color: 'var(--mod-contabil, #a78bfa)',
     title: 'Ferramentas Contábeis',
     subtitle: 'Conversões e utilitários contábeis: envie os arquivos e baixe o resultado pronto.',
   },
@@ -23,7 +21,7 @@ const AREA_META: Record<ToolArea, { color: string; title: string; subtitle: stri
 export function ToolsHub({ area }: { area: ToolArea }) {
   const meta = AREA_META[area]
   const tools = toolsByArea(area)
-  const color = FERRAMENTAS_COLOR // identidade roxa das Ferramentas
+  const color = FERRAMENTAS_COLOR // identidade Ferramentas (umbrella) no hub; tools tingem pelo bloco
   const accent = { background: `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 78%, #000))` } as const
 
   return (

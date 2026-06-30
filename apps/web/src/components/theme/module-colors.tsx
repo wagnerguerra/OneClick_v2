@@ -33,6 +33,7 @@ export const DEFAULT_MODULE_COLORS: ModuleColorMap = {
   trabalhista:   '#a3e635',
   fiscal:        '#0369a1',
   contabil:      '#a78bfa',
+  ferramentas:   '#8b5cf6',
   ti:            '#22d3ee',
   qualidade:     '#f59e0b',
   configuracoes: '#f97316',

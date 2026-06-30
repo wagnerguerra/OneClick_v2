@@ -8,8 +8,17 @@ import {
 
 export type ToolArea = 'fiscal' | 'contabil'
 
-/** Cor (roxo) da identidade das Ferramentas — combina com a box do menu/aba. */
-export const FERRAMENTAS_COLOR = '#8b5cf6'
+/** Cor (roxo) da identidade das Ferramentas — themeável via --mod-ferramentas. */
+export const FERRAMENTAS_COLOR = 'var(--mod-ferramentas, #8b5cf6)'
+
+/** Cor por bloco (Fiscal/Contábil) com a identidade Ferramentas como fallback.
+ *  Cada ferramenta se pinta pela cor do seu bloco (--mod-fiscal/--mod-contabil);
+ *  se o bloco não estiver definido, cai na cor Ferramentas. Tudo via CSS var
+ *  (themeável no design-system), sem hex fixo. */
+export const colorForArea = (area: ToolArea): string =>
+  area === 'contabil'
+    ? `var(--mod-contabil, ${FERRAMENTAS_COLOR})`
+    : `var(--mod-fiscal, ${FERRAMENTAS_COLOR})`
 
 export interface ToolCard {
   tool: string

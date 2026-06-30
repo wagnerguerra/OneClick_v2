@@ -18,7 +18,7 @@ import {
   type ToolJobStatus, type ToolJobView, type ToolFilePart,
 } from '@/lib/ferramentas-api'
 import type { ToolUiConfig, ToolInput } from '../_config/tools'
-import { FERRAMENTAS_COLOR } from '../_config/catalog'
+import { colorForArea } from '../_config/catalog'
 
 const POLL_MS = 1500
 const GLASS = 'border border-border/50 bg-card/70 backdrop-blur-xl shadow-xl shadow-black/[0.04] dark:shadow-black/20'
@@ -34,9 +34,9 @@ const STATUS_LABEL: Record<ToolJobStatus, string> = {
   queued: 'Na fila', running: 'Processando', done: 'Concluído', failed: 'Falhou', not_found: 'Não encontrado',
 }
 
-function colorOf(_area: ToolUiConfig['area']) {
-  // Identidade roxa das Ferramentas (combina com a box do menu), igual em todos os blocos.
-  return FERRAMENTAS_COLOR
+function colorOf(area: ToolUiConfig['area']) {
+  // Cor do bloco (Fiscal/Contábil), com a identidade Ferramentas como fallback.
+  return colorForArea(area)
 }
 function accentOf(color: string) {
   return { background: `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 78%, #000))` } as const
