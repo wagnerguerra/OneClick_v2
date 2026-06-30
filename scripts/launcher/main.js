@@ -2311,15 +2311,27 @@ function registerIpcHandlers() {
       // Roda APÓS o build api, usando a imagem recém-buildada (com schema novo).
       deployCheckAbort('schema', 55)
       deployCurrentStep = 'schema'
-      const diffFiles = await sshExec(cfg, 'cd /opt/oneclick-src && git diff --name-only HEAD@{1} HEAD 2>/dev/null')
-      const schemaChanged = (diffFiles.stdout || '').split('\n').some(f => f === 'packages/db/prisma/schema.prisma')
+      // Timeout no SSH (30s): se a VPS estiver sem responder, NÃO pendura o deploy
+      // aqui. `git diff` é instantâneo — >30s significa SSH/VPS travado. Na dúvida,
+      // assume "sem mudança de schema" e segue (os SQLs do Stage 4.5 ainda rodam).
+      const diffFiles = await sshExec(cfg, 'cd /opt/oneclick-src && git diff --name-only HEAD@{1} HEAD 2>/dev/null', null, 30000)
+      if (diffFiles.timedOut) {
+        deployEmit(55, 'schema', '⚠ Verificação de schema expirou (VPS lenta/sem resposta) — assumindo sem mudança e seguindo.', 'warn')
+      }
+      const schemaChanged = !diffFiles.timedOut && (diffFiles.stdout || '').split('\n').some(f => f === 'packages/db/prisma/schema.prisma')
       if (schemaChanged) {
         deployEmit(55, 'schema', '→ Schema mudou — aplicando prisma db push (imagem recém-buildada)...', 'warn')
-        const dbpush = await sshExec(cfg, 'docker run --rm --network n8n_default --env-file /opt/oneclick/.env oneclick-api:latest sh -c "cd /app/packages/db && npx prisma db push --accept-data-loss --skip-generate" 2>&1', (line) => deployEmit(60, 'schema', line, 'info'))
+        // Timeout no SSH (4 min): se o db push pegar LOCK (a API no ar segurando as
+        // tabelas que ele tenta alterar), NÃO pendura o deploy pra sempre — falha e
+        // o usuário re-tenta (ou roda o db push com a API parada).
+        const dbpush = await sshExec(cfg, 'docker run --rm --network n8n_default --env-file /opt/oneclick/.env oneclick-api:latest sh -c "cd /app/packages/db && npx prisma db push --accept-data-loss --skip-generate" 2>&1', (line) => deployEmit(60, 'schema', line, 'info'), 240000)
         if (dbpush.code !== 0) {
-          deployEmit(65, 'schema', `✗ db push falhou`, 'err')
+          const motivo = dbpush.timedOut
+            ? 'prisma db push expirou (4 min) — provável lock no banco com a API no ar. Re-tente ou rode o db push com a API parada.'
+            : 'prisma db push falhou'
+          deployEmit(65, 'schema', `✗ ${motivo}`, 'err')
           deployRunning = false
-          return { ok: false, error: 'prisma db push falhou' }
+          return { ok: false, error: motivo }
         }
         deployEmit(65, 'schema', '✓ Schema aplicado', 'ok')
       } else {
