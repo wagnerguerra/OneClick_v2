@@ -3778,9 +3778,22 @@
           return
         }
         deployState.prs = r.prs || []
+        // Poda seleção de PRs que não estão mais abertos (mesclados/fechados) —
+        // senão um PR já mesclado fica selecionado e o próximo deploy re-mira o
+        // head dele (código antigo), em vez dos commits locais novos.
+        const abertos = new Set(deployState.prs.map(p => p.number))
+        for (const k of Object.keys(deployState.prTargets || {})) {
+          const sel = deployState.prTargets[k]
+          if (sel && !abertos.has(sel.number)) {
+            delete deployState.prTargets[k]
+            if (deployState.targetShas) delete deployState.targetShas[k]
+          }
+        }
         if (count) count.textContent = String(deployState.prs.length)
         if (hint) hint.textContent = `${r.repo}${r.tokenConfigured ? '' : ' · sem token, sujeito ao limite público da API'}`
         deployRenderPrs()
+        if (deployState.status) deployRenderProjects(deployState.status)
+        deployUpdateSelectionHint()
       } catch (e) {
         list.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:4px;">${escapeHtml(e.message)}</div>`
         if (count) count.textContent = 'erro'
