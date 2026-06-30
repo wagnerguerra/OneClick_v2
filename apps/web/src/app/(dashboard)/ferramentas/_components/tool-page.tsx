@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   UploadCloud, Download, Loader2, RefreshCw, Trash2, FileText,
-  X, CheckCircle2, AlertCircle, ArrowRight, Sparkles,
+  CheckCircle2, AlertCircle, ArrowRight, Sparkles,
 } from 'lucide-react'
 import {
   Button, Card, Badge, cn,
@@ -416,10 +416,10 @@ function HistoricoTab({ config, color }: { config: ToolUiConfig; color: string }
                   <div className="flex items-center justify-end gap-1">
                     {j.status === 'done' && (
                       <a href={toolJobDownloadUrl(config.tool, j.id)}>
-                        <Button size="icon-sm" variant="ghost" title="Baixar"><Download className="h-4 w-4" /></Button>
+                        <Button size="icon-sm" variant="soft-info" title="Baixar"><Download className="h-4 w-4" /></Button>
                       </a>
                     )}
-                    <Button size="icon-sm" variant="ghost" className="text-destructive" title="Excluir" onClick={() => void handleDelete(j.id)}>
+                    <Button size="icon-sm" variant="soft-destructive" title="Excluir" onClick={() => void handleDelete(j.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
