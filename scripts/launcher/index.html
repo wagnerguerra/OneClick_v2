@@ -4074,6 +4074,17 @@
         push.push(...(p.pendingPush || []).map(c => ({ ...c, projectId: p.id, projectLabel: p.label })))
         deploy.push(...(p.pendingDeploy || []).map(c => ({ ...c, projectId: p.id, projectLabel: p.label })))
       }
+      // Alterna a visibilidade dos boxes + contadores (igual ao deployRefreshStatus).
+      // Sem isto, ao marcar um projeto novo (ex.: App Mobile) os commits eram
+      // renderizados num container ainda escondido (display:none) e não apareciam.
+      const pushBox = document.getElementById('deployPendingPushBox')
+      const deployBox = document.getElementById('deployPendingDeployBox')
+      if (pushBox) pushBox.style.display = push.length ? '' : 'none'
+      if (deployBox) deployBox.style.display = deploy.length ? '' : 'none'
+      const pc = document.getElementById('deployPendingPushCount')
+      const dc = document.getElementById('deployPendingDeployCount')
+      if (pc) pc.textContent = push.length
+      if (dc) dc.textContent = deploy.length
       deployRenderCommitList('deployPendingPushList', push)
       deployRenderCommitList('deployPendingDeployList', deploy)
     }
