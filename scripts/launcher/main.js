@@ -1724,6 +1724,16 @@ function registerIpcHandlers() {
     return (r.stdout || '').replace(/\r?\n+$/, '')
   }
 
+  // Branch default do repositório (trunk). Usa origin/HEAD; cai pra main/master.
+  function detectDefaultBranch(cwd) {
+    const ref = gitOutput(['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'], cwd)
+    const m = ref.match(/refs\/remotes\/origin\/(.+)$/)
+    if (m) return m[1]
+    if (gitExitCode(['rev-parse', '--verify', 'origin/main'], cwd) === 0) return 'main'
+    if (gitExitCode(['rev-parse', '--verify', 'origin/master'], cwd) === 0) return 'master'
+    return null
+  }
+
   function gitStatusForDeployProject(def, cfg) {
     const cwd = def.cwd
     if (!cwd || !fs.existsSync(cwd)) {
@@ -1765,15 +1775,36 @@ function registerIpcHandlers() {
 
     spawnSync('git', ['fetch', '--quiet'], { cwd, timeout: 15000, windowsHide: true })
     const hasRemoteBranch = gitExitCode(['rev-parse', '--verify', `origin/${deployBranch}`], cwd) === 0
-    const remoteSha = hasRemoteBranch ? gitOutput(['rev-parse', `origin/${deployBranch}`], cwd) : ''
-    const remoteShort = hasRemoteBranch ? gitOutput(['rev-parse', '--short', `origin/${deployBranch}`], cwd) : ''
-    const pendingPushRange = hasRemoteBranch ? `origin/${deployBranch}..HEAD` : 'HEAD'
-    const pendingPush = gitOutput(['log', pendingPushRange, '--format=%H%x09%h%x09%s'], cwd)
-      .split('\n').filter(Boolean)
-      .map(l => {
-        const [sha, short, ...msgParts] = l.split('\t')
-        return { sha, short, msg: msgParts.join('\t') }
-      })
+    // A coluna "GITHUB" do painel = o TRUNK (default branch / main), pra onde o
+    // código converge via PR/merge — NÃO a origem da branch local (que pode estar
+    // defasada ou nem existir). Assim o sha e o rótulo refletem o main de verdade,
+    // independentemente da branch em que você está localmente.
+    const trunkBranch = def.branch || detectDefaultBranch(cwd) || 'main'
+    const hasTrunk = gitExitCode(['rev-parse', '--verify', `origin/${trunkBranch}`], cwd) === 0
+    const remoteSha = hasTrunk ? gitOutput(['rev-parse', `origin/${trunkBranch}`], cwd) : ''
+    const remoteShort = hasTrunk ? gitOutput(['rev-parse', '--short', `origin/${trunkBranch}`], cwd) : ''
+    // Commits locais ainda não publicados — comparados por CONTEÚDO contra o
+    // trunk via `git cherry` (marca "-" o que já está no trunk com SHA diferente
+    // e "+" o genuinamente novo; ancestrais do trunk nem aparecem). Evita falso
+    // "não pushado" ao trabalhar numa branch que entra no main via PR/cherry-pick.
+    let pendingPush
+    if (hasTrunk) {
+      pendingPush = gitOutput(['cherry', '-v', `origin/${trunkBranch}`, 'HEAD'], cwd)
+        .split('\n').filter(l => l.startsWith('+ '))
+        .map(l => {
+          const m = l.match(/^\+\s+(\S+)\s+([\s\S]*)$/)
+          const sha = m ? m[1] : ''
+          return { sha, short: sha.slice(0, 7), msg: m ? m[2] : '' }
+        })
+        .filter(c => c.sha)
+    } else {
+      pendingPush = gitOutput(['log', hasRemoteBranch ? `origin/${deployBranch}..HEAD` : 'HEAD', '--format=%H%x09%h%x09%s'], cwd)
+        .split('\n').filter(Boolean)
+        .map(l => {
+          const [sha, short, ...msgParts] = l.split('\t')
+          return { sha, short, msg: msgParts.join('\t') }
+        })
+    }
 
     let vpsSha = ''
     let vpsShort = ''
@@ -1786,7 +1817,7 @@ function registerIpcHandlers() {
       vpsSha = (vpsResult.stdout || '').trim()
       vpsShort = vpsSha.slice(0, 7)
       vpsReachable = vpsResult.status === 0 && vpsSha.length > 0
-      if (vpsReachable && hasRemoteBranch && vpsSha !== remoteSha) {
+      if (vpsReachable && hasTrunk && vpsSha !== remoteSha) {
         pendingDeploy = gitOutput(['log', `${vpsSha}..${remoteSha}`, '--format=%H%x09%h%x09%s'], cwd)
           .split('\n').filter(Boolean)
           .map(l => {
@@ -1801,16 +1832,16 @@ function registerIpcHandlers() {
     return {
       id: def.id, label: def.label, kind: def.kind, cwd, localBranch, deployBranch, localSha, localShort,
       localDirty: dirtyRelevant.length, dirtyFiles: dirtyRelevant.slice(0, 30),
-      remoteSha, remoteShort, remoteUrl,
+      remoteSha, remoteShort, remoteUrl, remoteBranch: trunkBranch,
       vpsSha, vpsShort, vpsReachable,
       configured: true,
       deployable: hasRemote && !!remoteDir,
       remoteConfigured: hasRemote,
       vpsConfigured: !!remoteDir,
       pendingPush, pendingDeploy, schemaChanged,
-      synced: vpsReachable && vpsSha === localSha && hasRemoteBranch && pendingPush.length === 0 && dirtyRelevant.length === 0,
+      synced: vpsReachable && vpsSha === localSha && hasTrunk && pendingPush.length === 0 && dirtyRelevant.length === 0,
       error: !remoteDir ? 'Caminho remoto da VPS não configurado.' : null,
-      remoteBranchMissing: !hasRemoteBranch,
+      remoteBranchMissing: !hasTrunk,
     }
   }
 
@@ -1876,6 +1907,47 @@ function registerIpcHandlers() {
     })
   }
 
+  // Mescla um PR na sua base (main) via API do GitHub. Requer GITHUB_TOKEN com
+  // permissão de escrita/merge no repo. Retorna { ok, merged, error, status }.
+  function githubMergePr(number, cfg, mergeMethod = 'merge') {
+    return new Promise((resolve) => {
+      const repo = deployGitHubRepo(cfg)
+      if (!repo) return resolve({ ok: false, error: 'GITHUB_REPO não configurado.' })
+      const payload = JSON.stringify({ merge_method: mergeMethod })
+      const headers = {
+        'User-Agent': 'OneClick-Service-Manager',
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      }
+      if (cfg?.GITHUB_TOKEN) headers.Authorization = `Bearer ${cfg.GITHUB_TOKEN}`
+      const req = https.request({
+        hostname: 'api.github.com',
+        path: `/repos/${repo}/pulls/${number}/merge`,
+        method: 'PUT',
+        headers,
+      }, (res) => {
+        let body = ''
+        res.setEncoding('utf8')
+        res.on('data', chunk => { body += chunk })
+        res.on('end', () => {
+          try {
+            const data = body ? JSON.parse(body) : null
+            if (res.statusCode >= 200 && res.statusCode < 300) return resolve({ ok: true, merged: !!data?.merged, data })
+            resolve({ ok: false, error: data?.message || `GitHub HTTP ${res.statusCode}`, status: res.statusCode })
+          } catch (e) {
+            resolve({ ok: false, error: e.message, status: res.statusCode })
+          }
+        })
+      })
+      req.setTimeout(20000, () => req.destroy(new Error('timeout ao mesclar PR no GitHub')))
+      req.on('error', err => resolve({ ok: false, error: err.message }))
+      req.write(payload)
+      req.end()
+    })
+  }
+
   async function githubListPrCommits(repo, number, cfg) {
     const r = await githubJson(`/pulls/${number}/commits?per_page=100`, cfg)
     if (!r.ok) return []
@@ -1905,6 +1977,7 @@ function registerIpcHandlers() {
         prs.push({
           number: pr.number,
           title: pr.title,
+          body: pr.body || '',
           url: pr.html_url,
           author: pr.user?.login || '',
           baseRef,
@@ -2280,15 +2353,27 @@ function registerIpcHandlers() {
       // Roda APÓS o build api, usando a imagem recém-buildada (com schema novo).
       deployCheckAbort('schema', 55)
       deployCurrentStep = 'schema'
-      const diffFiles = await sshExec(cfg, 'cd /opt/oneclick-src && git diff --name-only HEAD@{1} HEAD 2>/dev/null')
-      const schemaChanged = (diffFiles.stdout || '').split('\n').some(f => f === 'packages/db/prisma/schema.prisma')
+      // Timeout no SSH (30s): se a VPS estiver sem responder, NÃO pendura o deploy
+      // aqui. `git diff` é instantâneo — >30s significa SSH/VPS travado. Na dúvida,
+      // assume "sem mudança de schema" e segue (os SQLs do Stage 4.5 ainda rodam).
+      const diffFiles = await sshExec(cfg, 'cd /opt/oneclick-src && git diff --name-only HEAD@{1} HEAD 2>/dev/null', null, 30000)
+      if (diffFiles.timedOut) {
+        deployEmit(55, 'schema', '⚠ Verificação de schema expirou (VPS lenta/sem resposta) — assumindo sem mudança e seguindo.', 'warn')
+      }
+      const schemaChanged = !diffFiles.timedOut && (diffFiles.stdout || '').split('\n').some(f => f === 'packages/db/prisma/schema.prisma')
       if (schemaChanged) {
         deployEmit(55, 'schema', '→ Schema mudou — aplicando prisma db push (imagem recém-buildada)...', 'warn')
-        const dbpush = await sshExec(cfg, 'docker run --rm --network n8n_default --env-file /opt/oneclick/.env oneclick-api:latest sh -c "cd /app/packages/db && npx prisma db push --accept-data-loss --skip-generate" 2>&1', (line) => deployEmit(60, 'schema', line, 'info'))
+        // Timeout no SSH (4 min): se o db push pegar LOCK (a API no ar segurando as
+        // tabelas que ele tenta alterar), NÃO pendura o deploy pra sempre — falha e
+        // o usuário re-tenta (ou roda o db push com a API parada).
+        const dbpush = await sshExec(cfg, 'docker run --rm --network n8n_default --env-file /opt/oneclick/.env oneclick-api:latest sh -c "cd /app/packages/db && npx prisma db push --accept-data-loss --skip-generate" 2>&1', (line) => deployEmit(60, 'schema', line, 'info'), 240000)
         if (dbpush.code !== 0) {
-          deployEmit(65, 'schema', `✗ db push falhou`, 'err')
+          const motivo = dbpush.timedOut
+            ? 'prisma db push expirou (4 min) — provável lock no banco com a API no ar. Re-tente ou rode o db push com a API parada.'
+            : 'prisma db push falhou'
+          deployEmit(65, 'schema', `✗ ${motivo}`, 'err')
           deployRunning = false
-          return { ok: false, error: 'prisma db push falhou' }
+          return { ok: false, error: motivo }
         }
         deployEmit(65, 'schema', '✓ Schema aplicado', 'ok')
       } else {
@@ -2447,6 +2532,30 @@ function registerIpcHandlers() {
         }
         deployEmit(99, 'pull', '✓ App Mobile atualizado', 'ok')
       }
+      // ─── Stage 7: Merge do PR no main (fecha o ciclo) ───
+      // Após o deploy validado (VPS saudável), mescla o PR do core na base (main)
+      // automaticamente, pra o código sair do limbo "branch de deploy + VPS" e
+      // cair no trunk — zerando os "commits não pushados". Requer GITHUB_TOKEN com
+      // permissão de merge. Falha aqui NÃO derruba o deploy (a VPS já está OK):
+      // apenas avisa pra mesclar manualmente. (Só o core; o app é outro repo.)
+      const corePr = targets.includes('core') ? prTargets.core : null
+      if (corePr?.number) {
+        deployCurrentStep = 'merge'
+        if (!cfg?.GITHUB_TOKEN) {
+          deployEmit(99, 'merge', '⚠ PR não mesclado no main: configure GITHUB_TOKEN (com permissão de merge) no .deploy.local.', 'warn')
+        } else {
+          deployEmit(99, 'merge', `→ Mesclando PR #${corePr.number} no main...`, 'info')
+          const mg = await githubMergePr(corePr.number, cfg)
+          if (mg.ok && mg.merged) {
+            deployEmit(99, 'merge', `✓ PR #${corePr.number} mesclado no main`, 'ok')
+            // Atualiza refs locais pra o painel refletir o main novo (zera o contador).
+            await gitExec(['fetch', 'origin', '--prune'], null, 30000)
+          } else {
+            deployEmit(99, 'merge', `⚠ PR #${corePr.number} não mesclado: ${(mg.error || 'falha').slice(0, 160)} — deploy na VPS OK, mescle manualmente.`, 'warn')
+          }
+        }
+      }
+
       deployEmit(100, 'done', '✅ Deploy concluído com sucesso!', 'ok')
 
       return { ok: true }
