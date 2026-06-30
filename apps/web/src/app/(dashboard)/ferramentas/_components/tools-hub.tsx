@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { ArrowRight, Wrench } from 'lucide-react'
 import { Card, cn } from '@saas/ui'
-import { PageHeader } from '@/components/page-header'
 import { toolsByArea, FERRAMENTAS_COLOR, type ToolArea } from '../_config/catalog'
 
 const GLASS = 'border border-border/50 bg-card/70 backdrop-blur-xl shadow-lg shadow-black/[0.04] dark:shadow-black/20'
@@ -29,7 +28,19 @@ export function ToolsHub({ area }: { area: ToolArea }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader color={color} icon={Wrench} title={meta.title} subtitle={meta.subtitle} />
+      {/* Header inline (padrão de módulo, oráculo /orcamentos e /crm) — NÃO usar
+          PageHeader aqui: ele é a capa sangrada de páginas de detalhe [id]. */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 87%, transparent))` }}>
+            <Wrench className="h-6 w-6" />
+          </div>
+          <div>
+            <h1>{meta.title}</h1>
+            <p className="text-sm text-muted-foreground">{meta.subtitle}</p>
+          </div>
+        </div>
+      </div>
 
       <div className="relative isolate">
         <div aria-hidden className="pointer-events-none absolute -top-16 left-[10%] -z-10 h-72 w-2/3 rounded-full blur-3xl opacity-20"
