@@ -1775,17 +1775,18 @@ function registerIpcHandlers() {
 
     spawnSync('git', ['fetch', '--quiet'], { cwd, timeout: 15000, windowsHide: true })
     const hasRemoteBranch = gitExitCode(['rev-parse', '--verify', `origin/${deployBranch}`], cwd) === 0
-    const remoteSha = hasRemoteBranch ? gitOutput(['rev-parse', `origin/${deployBranch}`], cwd) : ''
-    const remoteShort = hasRemoteBranch ? gitOutput(['rev-parse', '--short', `origin/${deployBranch}`], cwd) : ''
-    // Commits locais ainda não publicados — comparados por CONTEÚDO contra o
-    // trunk (default branch / main) via `git cherry`, não por SHA contra a
-    // origem da branch atual. Evita falso "não pushado" quando se trabalha numa
-    // branch que entra no main via PR/cherry-pick (o patch já está lá com SHA
-    // diferente) ou quando a branch local nunca foi empurrada pra própria origem.
-    // `git cherry` marca "-" os commits cujo patch já está no trunk e "+" os
-    // genuinamente novos; ancestrais do trunk nem aparecem.
+    // A coluna "GITHUB" do painel = o TRUNK (default branch / main), pra onde o
+    // código converge via PR/merge — NÃO a origem da branch local (que pode estar
+    // defasada ou nem existir). Assim o sha e o rótulo refletem o main de verdade,
+    // independentemente da branch em que você está localmente.
     const trunkBranch = def.branch || detectDefaultBranch(cwd) || 'main'
     const hasTrunk = gitExitCode(['rev-parse', '--verify', `origin/${trunkBranch}`], cwd) === 0
+    const remoteSha = hasTrunk ? gitOutput(['rev-parse', `origin/${trunkBranch}`], cwd) : ''
+    const remoteShort = hasTrunk ? gitOutput(['rev-parse', '--short', `origin/${trunkBranch}`], cwd) : ''
+    // Commits locais ainda não publicados — comparados por CONTEÚDO contra o
+    // trunk via `git cherry` (marca "-" o que já está no trunk com SHA diferente
+    // e "+" o genuinamente novo; ancestrais do trunk nem aparecem). Evita falso
+    // "não pushado" ao trabalhar numa branch que entra no main via PR/cherry-pick.
     let pendingPush
     if (hasTrunk) {
       pendingPush = gitOutput(['cherry', '-v', `origin/${trunkBranch}`, 'HEAD'], cwd)
@@ -1816,7 +1817,7 @@ function registerIpcHandlers() {
       vpsSha = (vpsResult.stdout || '').trim()
       vpsShort = vpsSha.slice(0, 7)
       vpsReachable = vpsResult.status === 0 && vpsSha.length > 0
-      if (vpsReachable && hasRemoteBranch && vpsSha !== remoteSha) {
+      if (vpsReachable && hasTrunk && vpsSha !== remoteSha) {
         pendingDeploy = gitOutput(['log', `${vpsSha}..${remoteSha}`, '--format=%H%x09%h%x09%s'], cwd)
           .split('\n').filter(Boolean)
           .map(l => {
@@ -1831,16 +1832,16 @@ function registerIpcHandlers() {
     return {
       id: def.id, label: def.label, kind: def.kind, cwd, localBranch, deployBranch, localSha, localShort,
       localDirty: dirtyRelevant.length, dirtyFiles: dirtyRelevant.slice(0, 30),
-      remoteSha, remoteShort, remoteUrl,
+      remoteSha, remoteShort, remoteUrl, remoteBranch: trunkBranch,
       vpsSha, vpsShort, vpsReachable,
       configured: true,
       deployable: hasRemote && !!remoteDir,
       remoteConfigured: hasRemote,
       vpsConfigured: !!remoteDir,
       pendingPush, pendingDeploy, schemaChanged,
-      synced: vpsReachable && vpsSha === localSha && hasRemoteBranch && pendingPush.length === 0 && dirtyRelevant.length === 0,
+      synced: vpsReachable && vpsSha === localSha && hasTrunk && pendingPush.length === 0 && dirtyRelevant.length === 0,
       error: !remoteDir ? 'Caminho remoto da VPS não configurado.' : null,
-      remoteBranchMissing: !hasRemoteBranch,
+      remoteBranchMissing: !hasTrunk,
     }
   }
 

@@ -1832,7 +1832,7 @@
               <div class="deploy-status-item">
                 <div class="deploy-status-row">
                   <div class="deploy-status-label">GitHub</div>
-                  <div class="deploy-status-main">main</div>
+                  <div class="deploy-status-main" id="deployRemoteBranch">main</div>
                   <div class="deploy-status-sha" id="deployRemoteSha">—</div>
                 </div>
               </div>
@@ -4137,6 +4137,7 @@
         }
 
         // Remote + VPS
+        document.getElementById('deployRemoteBranch').textContent = r.remoteBranch || 'main'
         document.getElementById('deployRemoteSha').textContent = r.remoteShort || '—'
         if (r.vpsReachable) {
           document.getElementById('deployVpsStatus').textContent = '🟢 online'
