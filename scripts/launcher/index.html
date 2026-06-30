@@ -1310,6 +1310,40 @@
       background: var(--bg-surface); color: var(--text-primary);
     }
     .deploy-pr-open:hover { border-color: var(--sky); color: var(--sky); }
+    /* Drawer lateral de detalhes do PR */
+    .pr-drawer-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+      opacity: 0; pointer-events: none; transition: opacity 0.28s ease; z-index: 60;
+    }
+    .pr-drawer-backdrop.is-open { opacity: 1; pointer-events: auto; }
+    .pr-drawer {
+      position: fixed; top: 0; right: 0; height: 100%;
+      width: min(460px, 92vw);
+      background: var(--bg-surface); border-left: 1px solid var(--border);
+      box-shadow: -8px 0 28px rgba(0,0,0,0.28);
+      transform: translateX(100%); transition: transform 0.28s ease;
+      z-index: 61; display: flex; flex-direction: column;
+    }
+    .pr-drawer.is-open { transform: translateX(0); }
+    .pr-drawer-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 14px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .pr-drawer-title { font-size: 13px; font-weight: 800; color: var(--text-primary); }
+    .pr-drawer-close {
+      background: none; border: none; cursor: pointer; font-size: 15px;
+      color: var(--text-muted); line-height: 1;
+    }
+    .pr-drawer-close:hover { color: var(--text-primary); }
+    .pr-drawer-body { padding: 16px; overflow-y: auto; display: grid; gap: 14px; align-content: start; }
+    .pr-drawer-section-title {
+      font-size: 11px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .04em; color: var(--text-muted); margin-bottom: 6px;
+    }
+    .pr-drawer-desc {
+      font-size: 12px; color: var(--text-primary);
+      white-space: pre-wrap; word-break: break-word; line-height: 1.5;
+    }
     .deploy-pr-badge {
       font-size: 10px;
       font-weight: 800;
@@ -3756,7 +3790,6 @@
     function deployRenderPrs() {
       const list = document.getElementById('deployPrList')
       if (!list) return
-      if (!deployState.expandedPrs) deployState.expandedPrs = new Set()
       const prs = deployState.prs || []
       if (!prs.length) {
         list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:4px;">Nenhum PR aberto encontrado.</div>'
@@ -3768,13 +3801,7 @@
         const selected = deployState.prTargets?.[projectId]?.number === pr.number
         const card = document.createElement('label')
         card.className = 'deploy-pr-card' + (selected ? ' is-selected' : '')
-        const fmtCommit = (c) => `<div><span style="color:var(--sky);font-weight:800;">${escapeHtml(c.short || String(c.sha).slice(0, 7))}</span> ${escapeHtml(c.msg || '')}${c.author ? ` <span style="opacity:.65;">· ${escapeHtml(c.author)}</span>` : ''}</div>`
-        const allCommitsArr = pr.commits || []
-        const commits = allCommitsArr.slice(-3).map(fmtCommit).join('')
-        const allCommits = allCommitsArr.map(fmtCommit).join('')
-        const estado = pr.draft ? 'rascunho' : (pr.mergeable === false ? 'conflito' : (pr.mergeable === true ? 'mergeável' : '—'))
-        const updated = pr.updatedAt ? new Date(pr.updatedAt).toLocaleString('pt-BR') : ''
-        const expanded = deployState.expandedPrs.has(pr.number)
+        const commits = (pr.commits || []).slice(-3).map(deployFmtCommit).join('')
         card.innerHTML = `
           <input type="checkbox" ${selected ? 'checked' : ''}>
           <div class="deploy-pr-main">
@@ -3782,12 +3809,7 @@
             <div class="deploy-pr-meta">${escapeHtml(pr.author || '')} · ${escapeHtml(pr.headRef || '')} → ${escapeHtml(pr.baseRef || '')} · ${escapeHtml(pr.projectLabel || projectId)}</div>
             <div class="deploy-pr-commits">${commits || '<div>(sem commits)</div>'}</div>
             <div class="deploy-pr-detailsrow">
-              <button type="button" class="deploy-pr-toggle">Detalhes ${expanded ? '▴' : '▾'}</button>
-            </div>
-            <div class="deploy-pr-details" style="${expanded ? '' : 'display:none;'}">
-              <div class="deploy-pr-detailmeta">Estado: ${escapeHtml(estado)}${updated ? ` · atualizado ${escapeHtml(updated)}` : ''} · ${allCommitsArr.length} commit(s)</div>
-              <div class="deploy-pr-commits">${allCommits || '<div>(sem commits)</div>'}</div>
-              <button type="button" class="deploy-pr-open">Abrir no GitHub ↗</button>
+              <button type="button" class="deploy-pr-toggle">Ver detalhes →</button>
             </div>
           </div>
           <span class="deploy-pr-badge">${escapeHtml(pr.projectLabel || projectId)}</span>
@@ -3810,29 +3832,61 @@
           deployRenderProjects(deployState.status)
           deployUpdateSelectionHint()
         })
-        // Expandir/recolher detalhes — não toca no checkbox de seleção do card.
-        const toggle = card.querySelector('.deploy-pr-toggle')
-        const details = card.querySelector('.deploy-pr-details')
-        if (toggle && details) {
-          toggle.addEventListener('click', (e) => {
+        // Abre o drawer lateral com os detalhes — não toca no checkbox do card.
+        const detailsBtn = card.querySelector('.deploy-pr-toggle')
+        if (detailsBtn) {
+          detailsBtn.addEventListener('click', (e) => {
             e.preventDefault(); e.stopPropagation()
-            const open = details.style.display === 'none'
-            details.style.display = open ? '' : 'none'
-            toggle.textContent = `Detalhes ${open ? '▴' : '▾'}`
-            if (open) deployState.expandedPrs.add(pr.number)
-            else deployState.expandedPrs.delete(pr.number)
-          })
-        }
-        const openBtn = card.querySelector('.deploy-pr-open')
-        if (openBtn) {
-          openBtn.addEventListener('click', (e) => {
-            e.preventDefault(); e.stopPropagation()
-            if (pr.url) window.api.openExternal(pr.url)
+            deployOpenPrDrawer(pr)
           })
         }
         list.appendChild(card)
       }
     }
+
+    function deployFmtCommit(c) {
+      return `<div><span style="color:var(--sky);font-weight:800;">${escapeHtml(c.short || String(c.sha).slice(0, 7))}</span> ${escapeHtml(c.msg || '')}${c.author ? ` <span style="opacity:.65;">· ${escapeHtml(c.author)}</span>` : ''}</div>`
+    }
+
+    // Drawer lateral deslizante com os detalhes do PR (descrição/corpo + commits).
+    function deployOpenPrDrawer(pr) {
+      const drawer = document.getElementById('deployPrDrawer')
+      const backdrop = document.getElementById('deployPrDrawerBackdrop')
+      const titleEl = document.getElementById('deployPrDrawerTitle')
+      const body = document.getElementById('deployPrDrawerBody')
+      if (!drawer || !backdrop || !body) return
+      const estado = pr.draft ? 'rascunho' : (pr.mergeable === false ? 'conflito' : (pr.mergeable === true ? 'mergeável' : '—'))
+      const updated = pr.updatedAt ? new Date(pr.updatedAt).toLocaleString('pt-BR') : ''
+      const allCommits = (pr.commits || []).map(deployFmtCommit).join('')
+      const desc = String(pr.body || '').trim()
+      titleEl.textContent = `#${pr.number} ${pr.title || ''}`
+      body.innerHTML = `
+        <div>
+          <div class="deploy-pr-meta">${escapeHtml(pr.author || '')} · ${escapeHtml(pr.headRef || '')} → ${escapeHtml(pr.baseRef || '')} · ${escapeHtml(pr.projectLabel || '')}</div>
+          <div class="deploy-pr-detailmeta">Estado: ${escapeHtml(estado)}${updated ? ` · atualizado ${escapeHtml(updated)}` : ''} · ${(pr.commits || []).length} commit(s)</div>
+        </div>
+        <div>
+          <div class="pr-drawer-section-title">Descrição</div>
+          <div class="pr-drawer-desc">${desc ? escapeHtml(desc) : '<span style="opacity:.6;">(sem descrição)</span>'}</div>
+        </div>
+        <div>
+          <div class="pr-drawer-section-title">Commits (${(pr.commits || []).length})</div>
+          <div class="deploy-pr-commits">${allCommits || '<div>(sem commits)</div>'}</div>
+        </div>
+        <button type="button" class="deploy-pr-open" id="deployPrDrawerOpen">Abrir no GitHub ↗</button>
+      `
+      const openBtn = document.getElementById('deployPrDrawerOpen')
+      if (openBtn) openBtn.addEventListener('click', () => { if (pr.url) window.api.openExternal(pr.url) })
+      backdrop.classList.add('is-open')
+      drawer.classList.add('is-open')
+    }
+    function deployClosePrDrawer() {
+      document.getElementById('deployPrDrawer')?.classList.remove('is-open')
+      document.getElementById('deployPrDrawerBackdrop')?.classList.remove('is-open')
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') deployClosePrDrawer()
+    })
 
     function deployRenderProjects(status) {
       const box = document.getElementById('deployProjectsBox')
@@ -4594,5 +4648,14 @@
       }
     })
   </script>
+  <!-- Drawer lateral de detalhes do PR (deploy) -->
+  <div id="deployPrDrawerBackdrop" class="pr-drawer-backdrop" onclick="deployClosePrDrawer()"></div>
+  <aside id="deployPrDrawer" class="pr-drawer" role="dialog" aria-modal="true" aria-label="Detalhes do Pull Request">
+    <div class="pr-drawer-head">
+      <div class="pr-drawer-title" id="deployPrDrawerTitle">—</div>
+      <button type="button" class="pr-drawer-close" onclick="deployClosePrDrawer()" aria-label="Fechar">&#10005;</button>
+    </div>
+    <div class="pr-drawer-body" id="deployPrDrawerBody"></div>
+  </aside>
 </body>
 </html>

@@ -1905,6 +1905,7 @@ function registerIpcHandlers() {
         prs.push({
           number: pr.number,
           title: pr.title,
+          body: pr.body || '',
           url: pr.html_url,
           author: pr.user?.login || '',
           baseRef,
