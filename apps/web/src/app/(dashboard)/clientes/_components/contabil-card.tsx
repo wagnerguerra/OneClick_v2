@@ -12,6 +12,7 @@ import {
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { useClientesPerms } from './use-clientes-perms'
 
 // ============================================================
 // Types
@@ -70,6 +71,7 @@ function getRootNodes(children: Map<string | null, Categoria[]>) {
 // ============================================================
 
 export function ContabilCard({ clienteId, documento }: { clienteId: string; documento?: string }) {
+  const { canManageFiscal } = useClientesPerms()
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -287,13 +289,13 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
           <Button type="button" variant="outline" size="sm" onClick={handleGetLink} className="gap-1" title="Link publico do BI">
             <Link2 className="h-3.5 w-3.5" /> Link BI
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={handleAddCategory} className="gap-1" title="Criar categoria virtual">
+          {canManageFiscal && <Button type="button" variant="outline" size="sm" onClick={handleAddCategory} className="gap-1" title="Criar categoria virtual">
             <Plus className="h-3.5 w-3.5" />
-          </Button>
-          <Button type="button" variant="success" size="sm" onClick={handleSave} disabled={saving || !dirty} className="gap-1">
+          </Button>}
+          {canManageFiscal && <Button type="button" variant="success" size="sm" onClick={handleSave} disabled={saving || !dirty} className="gap-1">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             Salvar
-          </Button>
+          </Button>}
         </div>
       </div>
 

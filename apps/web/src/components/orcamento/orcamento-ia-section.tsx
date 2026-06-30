@@ -7,6 +7,7 @@ import { Button, cn } from '@saas/ui'
 import { alerts } from '@/lib/alerts'
 import { trpc } from '@/lib/trpc'
 import { MarkdownView } from '@/components/ui/markdown-view'
+import { IA_SUGESTOES_PADRAO, type IaSugestao } from './ia-sugestoes-padrao'
 
 /** Converte a resposta (markdown ou HTML) em HTML, p/ aplicar no campo da proposta. */
 function mdToHtml(s: string): string {
@@ -44,13 +45,6 @@ const MOD = 'var(--mod-comercial, #fb7185)'
 const MOD_SOFT = 'color-mix(in srgb, var(--mod-comercial, #fb7185) 14%, transparent)'
 const MOD_BORDER = 'color-mix(in srgb, var(--mod-comercial, #fb7185) 35%, transparent)'
 
-const ACOES_RAPIDAS = [
-  { label: 'Analisar e redigir proposta', prompt: 'Analise este orçamento (itens, valores, condições e o histórico do cliente) e redija o texto completo da proposta para enviar ao cliente. Use HTML simples (parágrafos, negrito).' },
-  { label: 'Mais formal', prompt: 'Reescreva a última proposta com um tom mais formal e institucional, mantendo as mesmas informações.' },
-  { label: 'Mais direto', prompt: 'Reescreva a última proposta de forma mais curta e objetiva, indo direto ao ponto.' },
-  { label: 'Destacar o desconto', prompt: 'Reescreva a última proposta destacando o desconto/condição comercial oferecida como um diferencial para o cliente.' },
-]
-
 const STATUS_LABEL: Record<string, string> = {
   preparando: 'Lendo o orçamento…',
   chamando_ia: 'Pensando…',
@@ -73,6 +67,8 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
   const [copiado, setCopiado] = useState<number | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [anexos, setAnexos] = useState<Anexo[]>([])
+  // Sugestões (chips) configuráveis em Configurações → Orçamentos. Fallback p/ os padrões.
+  const [acoes, setAcoes] = useState<IaSugestao[]>(IA_SUGESTOES_PADRAO)
   const scrollRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -89,6 +85,17 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
     return () => { vivo = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orcamentoId])
+
+  // Carrega as sugestões configuradas (Configurações → Orçamentos). Se não houver, mantém os padrões.
+  useEffect(() => {
+    let vivo = true
+    ;(trpc.orcamento as any).iaSugestoesListar.query()
+      .then((rows: IaSugestao[]) => {
+        if (vivo && Array.isArray(rows) && rows.length) setAcoes(rows.map(r => ({ label: r.label, prompt: r.prompt })))
+      })
+      .catch(() => {})
+    return () => { vivo = false }
+  }, [])
 
   function scrollToBottom() {
     requestAnimationFrame(() => {
@@ -275,7 +282,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
               <p className="text-xs text-muted-foreground mt-1">Ela considera itens, valores, mensagens, anexos e o histórico de orçamentos anteriores do cliente para compor o texto da proposta.</p>
             </div>
             <div className="flex flex-wrap justify-center gap-2">
-              {ACOES_RAPIDAS.slice(0, 1).map(a => (
+              {acoes.slice(0, 1).map(a => (
                 <Button key={a.label} size="sm" onClick={() => enviar(a.prompt)} disabled={streaming} className="gap-1.5 text-white" style={{ backgroundColor: MOD }}>
                   <Sparkles className="h-3.5 w-3.5" /> {a.label}
                 </Button>
@@ -331,7 +338,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
       {/* Ações rápidas (quando já há conversa) */}
       {!vazio && (
         <div className="flex flex-wrap gap-1.5 border-t px-4 py-2">
-          {ACOES_RAPIDAS.map(a => (
+          {acoes.map(a => (
             <button key={a.label} type="button" onClick={() => enviar(a.prompt)} disabled={streaming}
               className="rounded-full border border-border/70 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 transition-colors">
               {a.label}

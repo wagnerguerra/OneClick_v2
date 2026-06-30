@@ -14,6 +14,7 @@ const path = require('path');
 const fs = require('fs');
 const net = require('net');
 const os = require('os');
+const https = require('https');
 
 // Auto-updater — only required when packaged (dev runs sem o módulo)
 let autoUpdater = null;
@@ -1824,6 +1825,105 @@ function registerIpcHandlers() {
     return `'${String(s).replace(/'/g, `'\\''`)}'`
   }
 
+  function inferGitHubRepoFromRemote(remoteUrl) {
+    const s = String(remoteUrl || '').trim()
+    let m = s.match(/github\.com[:/](.+?)(?:\.git)?$/i)
+    if (!m) return ''
+    return m[1].replace(/\.git$/i, '')
+  }
+
+  function deployGitHubRepo(cfg) {
+    if (cfg?.GITHUB_REPO) return cfg.GITHUB_REPO
+    const remoteUrl = gitOutput(['remote', 'get-url', 'origin'], projectRoot)
+    return inferGitHubRepoFromRemote(remoteUrl)
+  }
+
+  function githubJson(pathname, cfg) {
+    return new Promise((resolve) => {
+      const repo = deployGitHubRepo(cfg)
+      if (!repo) return resolve({ ok: false, error: 'GITHUB_REPO não configurado e não foi possível inferir pelo origin.' })
+      const headers = {
+        'User-Agent': 'OneClick-Service-Manager',
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      }
+      if (cfg?.GITHUB_TOKEN) headers.Authorization = `Bearer ${cfg.GITHUB_TOKEN}`
+      const req = https.request({
+        hostname: 'api.github.com',
+        path: `/repos/${repo}${pathname}`,
+        method: 'GET',
+        headers,
+      }, (res) => {
+        let body = ''
+        res.setEncoding('utf8')
+        res.on('data', chunk => { body += chunk })
+        res.on('end', () => {
+          try {
+            const data = body ? JSON.parse(body) : null
+            if (res.statusCode >= 200 && res.statusCode < 300) return resolve({ ok: true, data, repo, rate: res.headers['x-ratelimit-remaining'] })
+            const msg = data?.message || `GitHub HTTP ${res.statusCode}`
+            resolve({ ok: false, error: msg, status: res.statusCode, repo })
+          } catch (e) {
+            resolve({ ok: false, error: e.message, status: res.statusCode, repo })
+          }
+        })
+      })
+      req.setTimeout(15000, () => {
+        req.destroy(new Error('timeout ao consultar GitHub'))
+      })
+      req.on('error', err => resolve({ ok: false, error: err.message, repo }))
+      req.end()
+    })
+  }
+
+  async function githubListPrCommits(repo, number, cfg) {
+    const r = await githubJson(`/pulls/${number}/commits?per_page=100`, cfg)
+    if (!r.ok) return []
+    return (Array.isArray(r.data) ? r.data : []).map(c => ({
+      sha: c.sha,
+      short: String(c.sha || '').slice(0, 7),
+      msg: String(c.commit?.message || '').split('\n')[0],
+      author: c.commit?.author?.name || c.author?.login || '',
+    }))
+  }
+
+  ipcMain.handle('deploy:list-prs', async () => {
+    try {
+      const cfg = readDeployConfig() || {}
+      const repo = deployGitHubRepo(cfg)
+      if (!repo) return { ok: false, error: 'Configure GITHUB_REPO no .deploy.local ou ajuste o origin do GitHub.' }
+      const prsRes = await githubJson('/pulls?state=open&per_page=50&sort=updated&direction=desc', cfg)
+      if (!prsRes.ok) return { ok: false, error: prsRes.error, status: prsRes.status, repo }
+      const projectDefs = deployProjectDefs(cfg)
+      const projectByBase = new Map()
+      for (const p of projectDefs) projectByBase.set(p.branch || (p.id === 'core' ? 'main' : ''), p)
+      const prs = []
+      for (const pr of (prsRes.data || [])) {
+        const baseRef = pr.base?.ref || ''
+        const project = projectByBase.get(baseRef) || (baseRef === 'main' ? projectDefs.find(p => p.id === 'core') : null)
+        const commits = await githubListPrCommits(repo, pr.number, cfg)
+        prs.push({
+          number: pr.number,
+          title: pr.title,
+          url: pr.html_url,
+          author: pr.user?.login || '',
+          baseRef,
+          headRef: pr.head?.ref || '',
+          headSha: pr.head?.sha || '',
+          draft: !!pr.draft,
+          mergeable: pr.mergeable,
+          updatedAt: pr.updated_at,
+          projectId: project?.id || (baseRef === (cfg.APP_BRANCH || 'app-mobile') ? 'app' : 'core'),
+          projectLabel: project?.label || (baseRef === (cfg.APP_BRANCH || 'app-mobile') ? 'App Mobile' : 'Core/API/Web'),
+          commits,
+        })
+      }
+      return { ok: true, repo, prs, tokenConfigured: !!cfg.GITHUB_TOKEN, rate: prsRes.rate }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
+
   ipcMain.handle('deploy:status', async () => {
     try {
       const cfg = readDeployConfig()
@@ -2045,6 +2145,7 @@ function registerIpcHandlers() {
       }
       const commitMessage = (payload && payload.commitMessage) ? String(payload.commitMessage).trim() : ''
       const targetShas = (payload && payload.targetShas && typeof payload.targetShas === 'object') ? payload.targetShas : {}
+      const prTargets = (payload && payload.prTargets && typeof payload.prTargets === 'object') ? payload.prTargets : {}
       let targetSha = targetShas.core ? String(targetShas.core).trim() : ((payload && payload.targetSha) ? String(payload.targetSha).trim() : '')
       if (targetSha && !/^[0-9a-f]{7,40}$/i.test(targetSha)) {
         return { ok: false, error: 'Commit selecionado invalido.' }
@@ -2077,68 +2178,84 @@ function registerIpcHandlers() {
           const addRes = await gitExec(['add', '--', d.path], null, 10000)
           deployCheckAbort('commit', 3)
           if (addRes.code !== 0) {
-            const msg = addRes.stderr || addRes.error || 'git add falhou'
-            deployEmit(3, 'commit', `✗ git add "${d.path}": ${msg.slice(0, 200)}`, 'err')
+            const msg = addRes.stderr || addRes.error || 'falha ao adicionar arquivo ao commit'
+            deployEmit(3, 'commit', `✗ Falha ao adicionar "${d.path}": ${msg.slice(0, 200)}`, 'err')
             deployRunning = false
-            return { ok: false, error: `git add falhou em ${d.path}: ${msg.slice(0, 200)}` }
+            return { ok: false, error: `Falha ao adicionar ${d.path}: ${msg.slice(0, 200)}` }
           }
           deployEmit(3, 'commit', `  + ${d.path}`, 'info')
         }
         const commitRes = await gitExec(['commit', '-m', commitMessage], null, 30000)
         deployCheckAbort('commit', 4)
         if (commitRes.code !== 0) {
-          const msg = commitRes.stderr || commitRes.stdout || commitRes.error || 'git commit falhou'
+          const msg = commitRes.stderr || commitRes.stdout || commitRes.error || 'criação do commit falhou'
           deployEmit(4, 'commit', `✗ ${msg.slice(0, 300)}`, 'err')
           deployRunning = false
-          return { ok: false, error: 'git commit falhou: ' + msg.slice(0, 200) }
+          return { ok: false, error: 'Criação do commit falhou: ' + msg.slice(0, 200) }
         }
         deployEmit(4, 'commit', `✓ Commit criado: "${commitMessage.slice(0, 60)}"`, 'ok')
         targetSha = gitOutput(['rev-parse', 'HEAD'])
       }
 
       // ─── Stage 1: git push ─────────────────────────
-      deployEmit(5, 'push', '→ Pushing pro GitHub...', 'info')
+      deployEmit(5, 'push', '→ Enviando para o GitHub...', 'info')
       deployCheckAbort('push', 5)
       deployCurrentStep = 'push'
       const localBranch = gitOutput(['rev-parse', '--abbrev-ref', 'HEAD'])
-      const remoteShaBeforePush = gitOutput(['rev-parse', `origin/${localBranch}`])
+      const corePrTarget = prTargets.core
+      let coreDeployBranch = localBranch
+      if (corePrTarget?.number) {
+        deployEmit(5, 'push', `→ Buscando PR #${corePrTarget.number} no GitHub...`, 'info')
+        const fetchPr = await gitExec(['fetch', 'origin', `pull/${corePrTarget.number}/head`], (line) => deployEmit(6, 'push', line, 'info'), 60000)
+        if (fetchPr.code !== 0) {
+          const msg = fetchPr.stderr || fetchPr.stdout || fetchPr.error || 'falha ao buscar PR no GitHub'
+          deployRunning = false
+          return { ok: false, error: 'Falha ao buscar PR no GitHub: ' + msg.slice(0, 200) }
+        }
+        targetSha = gitOutput(['rev-parse', 'FETCH_HEAD'])
+        coreDeployBranch = `deploy/pr-${corePrTarget.number}-core`
+      }
+      const remoteShaBeforePush = gitOutput(['rev-parse', `origin/${coreDeployBranch}`])
       if (!targetSha) targetSha = gitOutput(['rev-parse', 'HEAD'])
-      if (gitExitCode(['merge-base', '--is-ancestor', targetSha, 'HEAD']) !== 0) {
+      if (!corePrTarget?.number && gitExitCode(['merge-base', '--is-ancestor', targetSha, 'HEAD']) !== 0) {
         return { ok: false, error: 'Commit selecionado não pertence ao histórico local.' }
+      }
+      if (gitExitCode(['cat-file', '-e', `${targetSha}^{commit}`]) !== 0) {
+        return { ok: false, error: 'Commit selecionado não existe no repositório local.' }
       }
       // Timeout 60s — se Git Credential Manager pedir popup, mata em 60s ao invés de travar.
       const targetAlreadyRemote = remoteShaBeforePush && gitExitCode(['merge-base', '--is-ancestor', targetSha, remoteShaBeforePush]) === 0
       const pushResult = targetAlreadyRemote
-        ? { code: 0, stdout: 'Commit alvo ja esta no GitHub (push skip)' }
-        : await gitExec(['push', 'origin', `${targetSha}:refs/heads/${localBranch}`], (line) => deployEmit(7, 'push', line, 'info'), 60000)
+        ? { code: 0, stdout: 'Commit alvo já está no GitHub (envio ignorado)' }
+        : await gitExec(['push', 'origin', `${targetSha}:refs/heads/${coreDeployBranch}`], (line) => deployEmit(7, 'push', line, 'info'), 60000)
       deployCheckAbort('push', 10)
       if (pushResult.code !== 0) {
-        const msg = pushResult.stderr || pushResult.stdout || pushResult.error || 'git push falhou'
-        const extra = pushResult.timedOut ? ' [timeout 60s — provavelmente faltando credencial: rode `git push` no terminal pra autenticar]' : ''
+        const msg = pushResult.stderr || pushResult.stdout || pushResult.error || 'envio ao GitHub falhou'
+        const extra = pushResult.timedOut ? ' [tempo limite de 60s — provavelmente falta credencial: rode `git push` no terminal para autenticar]' : ''
         deployEmit(10, 'push', `✗ ${msg.slice(0, 300)}${extra}`, 'err')
         deployRunning = false
-        return { ok: false, error: 'git push falhou: ' + msg.slice(0, 200) + extra }
+        return { ok: false, error: 'Envio ao GitHub falhou: ' + msg.slice(0, 200) + extra }
       }
-      deployEmit(10, 'push', `✓ Push OK (${targetSha.slice(0, 7)})`, 'ok')
+      deployEmit(10, 'push', `✓ Envio ao GitHub concluído (${targetSha.slice(0, 7)})`, 'ok')
 
       // ─── Stage 2: SSH git pull ─────────────────────
-      deployEmit(15, 'pull', '→ git pull na VPS...', 'info')
+      deployEmit(15, 'pull', '→ Atualizando código na VPS...', 'info')
       deployCheckAbort('pull', 15)
       deployCurrentStep = 'pull'
-      const pull = await sshExec(cfg, `cd /opt/oneclick-src && git fetch origin ${localBranch} 2>&1 && git merge --ff-only ${targetSha} 2>&1`, (line) => deployEmit(20, 'pull', line, 'info'))
+      const pull = await sshExec(cfg, `cd /opt/oneclick-src && git fetch origin ${coreDeployBranch} 2>&1 && git merge --ff-only ${targetSha} 2>&1`, (line) => deployEmit(20, 'pull', line, 'info'))
       if (pull.code !== 0) {
         deployEmit(25, 'pull', `✗ ${(pull.stderr || pull.stdout || '').slice(0, 300)}`, 'err')
         deployRunning = false
-        return { ok: false, error: 'git pull falhou na VPS' }
+        return { ok: false, error: 'Atualização do código na VPS falhou' }
       }
-      deployEmit(25, 'pull', '✓ Pull OK', 'ok')
+      deployEmit(25, 'pull', '✓ Código atualizado na VPS', 'ok')
 
       // ─── Stage 3: Build API ────────────────────────
       // IMPORTANTE: build api PRECEDE o db push porque o `prisma db push` usa
       // a imagem `oneclick-api:latest` (que contém o schema.prisma). Se o build
       // for depois, o db push acaba rodando com schema antigo e tabelas novas
       // não são criadas.
-      deployEmit(30, 'build-api', '→ Building oneclick-api...', 'info')
+      deployEmit(30, 'build-api', '→ Gerando imagem da API...', 'info')
       deployCheckAbort('build-api', 30)
       deployCurrentStep = 'build-api'
       const buildApi = await sshExec(cfg, 'cd /opt/oneclick && docker compose build api 2>&1', (line) => {
@@ -2147,11 +2264,11 @@ function registerIpcHandlers() {
         }
       })
       if (buildApi.code !== 0) {
-        deployEmit(50, 'build-api', `✗ Build api falhou`, 'err')
+        deployEmit(50, 'build-api', `✗ Geração da imagem da API falhou`, 'err')
         deployRunning = false
-        return { ok: false, error: 'build api falhou' }
+        return { ok: false, error: 'Geração da imagem da API falhou' }
       }
-      deployEmit(50, 'build-api', '✓ Build api OK', 'ok')
+      deployEmit(50, 'build-api', '✓ Imagem da API gerada', 'ok')
 
       // ─── Stage 4: Schema (se mudou) ────────────────
       // Roda APÓS o build api, usando a imagem recém-buildada (com schema novo).
@@ -2169,7 +2286,7 @@ function registerIpcHandlers() {
         }
         deployEmit(65, 'schema', '✓ Schema aplicado', 'ok')
       } else {
-        deployEmit(65, 'schema', '· Sem mudança de schema (skip)', 'info')
+        deployEmit(65, 'schema', '· Sem mudança de schema (ignorado)', 'info')
       }
 
       // ─── Stage 4.5: SQLs cirúrgicos (sempre) ────────
@@ -2184,7 +2301,7 @@ function registerIpcHandlers() {
       const listSql = await sshExec(cfg, 'ls /opt/oneclick-src/packages/db/prisma/sql/*.sql 2>/dev/null | sort', null, 30000)
       const sqlFiles = (listSql.stdout || '').trim().split('\n').filter(Boolean)
       if (sqlFiles.length === 0) {
-        deployEmit(67, 'sql', '· Nenhum SQL cirúrgico encontrado (skip)', 'info')
+        deployEmit(67, 'sql', '· Nenhum SQL cirúrgico encontrado (ignorado)', 'info')
       } else {
         deployEmit(66, 'sql', `→ ${sqlFiles.length} arquivo(s) SQL a aplicar`, 'info')
         let sqlFailed = false
@@ -2206,7 +2323,7 @@ function registerIpcHandlers() {
           )
           deployCheckAbort('sql', 68)
           if (sqlExec.code !== 0) {
-            const motivo = sqlExec.timedOut ? 'timeout 130s (preso em lock?)' : `code ${sqlExec.code}`
+            const motivo = sqlExec.timedOut ? 'tempo limite de 130s (preso em lock?)' : `código ${sqlExec.code}`
             deployEmit(68, 'sql', `✗ ${fname} falhou (${motivo})`, 'err')
             sqlFailed = true
             break
@@ -2220,7 +2337,7 @@ function registerIpcHandlers() {
       }
 
       // ─── Stage 5: Build Web ────────────────────────
-      deployEmit(70, 'build-web', '→ Building oneclick-web...', 'info')
+      deployEmit(70, 'build-web', '→ Gerando imagem do Web...', 'info')
       deployCheckAbort('build-web', 70)
       deployCurrentStep = 'build-web'
       const buildWeb = await sshExec(cfg, 'cd /opt/oneclick && docker compose build web 2>&1', (line) => {
@@ -2229,28 +2346,28 @@ function registerIpcHandlers() {
         }
       })
       if (buildWeb.code !== 0) {
-        deployEmit(85, 'build-web', `✗ Build web falhou`, 'err')
+        deployEmit(85, 'build-web', `✗ Geração da imagem do Web falhou`, 'err')
         deployRunning = false
-        return { ok: false, error: 'build web falhou' }
+        return { ok: false, error: 'Geração da imagem do Web falhou' }
       }
-      deployEmit(85, 'build-web', '✓ Build web OK', 'ok')
+      deployEmit(85, 'build-web', '✓ Imagem do Web gerada', 'ok')
 
       // ─── Stage 6: Restart + Health check ───────────
-      deployEmit(90, 'restart', '→ Restart containers + health check...', 'info')
+      deployEmit(90, 'restart', '→ Reiniciando containers e verificando saúde...', 'info')
       deployCheckAbort('restart', 90)
       deployCurrentStep = 'restart'
       const up = await sshExec(cfg, 'cd /opt/oneclick && docker compose up -d --force-recreate api web 2>&1 && sleep 12 && curl -s -o /dev/null -w "API:%{http_code}\\n" http://127.0.0.1:4100/api/health', (line) => deployEmit(95, 'restart', line, 'info'))
       if (up.code !== 0 || !/(API:200|API:204)/.test(up.stdout || '')) {
-        deployEmit(98, 'restart', `✗ Restart ou health falhou`, 'err')
+        deployEmit(98, 'restart', `✗ Reinício ou verificação de saúde falhou`, 'err')
         deployRunning = false
-        return { ok: false, error: 'restart ou health check falhou' }
+        return { ok: false, error: 'Reinício ou verificação de saúde falhou' }
       }
       } else {
-        deployEmit(90, 'restart', '· Core/API/Web não selecionado (skip)', 'info')
+        deployEmit(90, 'restart', '· Core/API/Web não selecionado (ignorado)', 'info')
       }
 
       if (appRequested) {
-        deployEmit(96, 'pull', '→ Deploy App Mobile...', 'info')
+        deployEmit(96, 'pull', '→ Publicando App Mobile...', 'info')
         deployCheckAbort('app', 96)
         deployCurrentStep = 'pull'
         const appDef = deployProjectDefs(cfg).find(p => p.id === 'app')
@@ -2270,42 +2387,57 @@ function registerIpcHandlers() {
             const addRes = await gitExec(['add', '--', d.path], null, 10000, appCwd)
             if (addRes.code !== 0) {
               deployRunning = false
-              return { ok: false, error: `git add falhou no App Mobile: ${d.path}` }
+              return { ok: false, error: `Falha ao adicionar arquivo no App Mobile: ${d.path}` }
             }
           }
           const appCommit = await gitExec(['commit', '-m', commitMessage], null, 30000, appCwd)
           if (appCommit.code !== 0) {
             deployRunning = false
-            return { ok: false, error: 'git commit falhou no App Mobile: ' + (appCommit.stderr || appCommit.stdout || '').slice(0, 200) }
+            return { ok: false, error: 'Commit falhou no App Mobile: ' + (appCommit.stderr || appCommit.stdout || '').slice(0, 200) }
           }
         }
-        const requestedAppSha = targetShas.app ? String(targetShas.app).trim() : ''
+        const appPrTarget = prTargets.app
+        let appDeployBranch = appBranch
+        let requestedAppSha = targetShas.app ? String(targetShas.app).trim() : ''
+        if (appPrTarget?.number) {
+          deployEmit(96, 'pull', `→ Buscando PR #${appPrTarget.number} do App Mobile...`, 'info')
+          const fetchAppPr = await gitExec(['fetch', 'origin', `pull/${appPrTarget.number}/head`], (line) => deployEmit(96, 'pull', `[app] ${line}`, 'info'), 60000, appCwd)
+          if (fetchAppPr.code !== 0) {
+            deployRunning = false
+            return { ok: false, error: 'Falha ao buscar PR no App Mobile: ' + (fetchAppPr.stderr || fetchAppPr.stdout || fetchAppPr.error || '').slice(0, 200) }
+          }
+          requestedAppSha = gitOutput(['rev-parse', 'FETCH_HEAD'], appCwd)
+          appDeployBranch = `deploy/pr-${appPrTarget.number}-app`
+        }
         if (requestedAppSha && !/^[0-9a-f]{7,40}$/i.test(requestedAppSha)) {
           deployRunning = false
           return { ok: false, error: 'Commit selecionado do App Mobile invalido.' }
         }
         const appTargetSha = requestedAppSha || gitOutput(['rev-parse', 'HEAD'], appCwd)
-        if (gitExitCode(['merge-base', '--is-ancestor', appTargetSha, 'HEAD'], appCwd) !== 0) {
+        if (!appPrTarget?.number && gitExitCode(['merge-base', '--is-ancestor', appTargetSha, 'HEAD'], appCwd) !== 0) {
           deployRunning = false
           return { ok: false, error: 'Commit selecionado do App Mobile não pertence ao histórico local.' }
         }
-        const appPush = await gitExec(['push', 'origin', `${appTargetSha}:refs/heads/${appBranch}`], (line) => deployEmit(97, 'push', `[app] ${line}`, 'info'), 60000, appCwd)
+        if (gitExitCode(['cat-file', '-e', `${appTargetSha}^{commit}`], appCwd) !== 0) {
+          deployRunning = false
+          return { ok: false, error: 'Commit selecionado do App Mobile não existe no repositório local.' }
+        }
+        const appPush = await gitExec(['push', 'origin', `${appTargetSha}:refs/heads/${appDeployBranch}`], (line) => deployEmit(97, 'push', `[app] ${line}`, 'info'), 60000, appCwd)
         if (appPush.code !== 0) {
           deployRunning = false
-          return { ok: false, error: 'git push falhou no App Mobile: ' + (appPush.stderr || appPush.stdout || appPush.error || '').slice(0, 200) }
+          return { ok: false, error: 'Envio do App Mobile ao GitHub falhou: ' + (appPush.stderr || appPush.stdout || appPush.error || '').slice(0, 200) }
         }
         const appRemoteUrl = gitOutput(['remote', 'get-url', 'origin'], appCwd)
         const appRemoteDirQ = shellQuote(appDef.remoteDir)
         const appRemoteUrlQ = shellQuote(appRemoteUrl)
-        const appBranchQ = shellQuote(appBranch)
         const appPullCmd = [
           `if [ -e ${appRemoteDirQ} ] && [ ! -d ${appRemoteDirQ}/.git ]; then echo "Diretório ${appDef.remoteDir} existe, mas não é um repositório Git"; exit 1; fi`,
-          `if [ ! -d ${appRemoteDirQ}/.git ]; then git clone --branch ${appBranchQ} --single-branch ${appRemoteUrlQ} ${appRemoteDirQ}; else cd ${appRemoteDirQ} && git fetch origin ${appBranchQ} 2>&1 && git merge --ff-only ${appTargetSha} 2>&1; fi`,
+          `if [ ! -d ${appRemoteDirQ}/.git ]; then git clone --branch ${shellQuote(appDeployBranch)} --single-branch ${appRemoteUrlQ} ${appRemoteDirQ}; else cd ${appRemoteDirQ} && git fetch origin ${shellQuote(appDeployBranch)} 2>&1 && git merge --ff-only ${appTargetSha} 2>&1; fi`,
         ].join(' && ')
         const appPull = await sshExec(cfg, appPullCmd, (line) => deployEmit(98, 'pull', `[app] ${line}`, 'info'))
         if (appPull.code !== 0) {
           deployRunning = false
-          return { ok: false, error: 'git pull falhou no App Mobile na VPS' }
+          return { ok: false, error: 'Atualização do App Mobile na VPS falhou' }
         }
         deployEmit(99, 'pull', '✓ App Mobile atualizado', 'ok')
       }

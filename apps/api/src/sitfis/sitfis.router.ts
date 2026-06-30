@@ -123,22 +123,22 @@ export function createSitfisRouter(sitfisService: SitfisService, cnpjService: Cn
     // Listar lixeira
     listTrash: readProcedure(MODULE)
       .input(paginationSchema)
-      .query(({ input }) => sitfisService.listTrash(input)),
+      .query(({ input, ctx }) => sitfisService.listTrash(input, ctx.empresaId)),
 
     // Detalhes de uma consulta
     getById: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .query(({ input }) => sitfisService.getById(input.id)),
+      .query(({ input, ctx }) => sitfisService.getById(input.id, ctx.isMaster ?? false, ctx.empresaId ?? null)),
 
     // Obter PDF em base64
     getPdf: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .query(({ input }) => sitfisService.getPdf(input.id)),
+      .query(({ input, ctx }) => sitfisService.getPdf(input.id, ctx.isMaster ?? false, ctx.empresaId ?? null)),
 
     // Consultas de um cliente específico
     getByClienteId: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
-      .query(({ input }) => sitfisService.getByClienteId(input.clienteId)),
+      .query(({ input, ctx }) => sitfisService.getByClienteId(input.clienteId, ctx.empresaId ?? null)),
 
     // Certidões que merecem atenção (Positiva / Positiva com Efeitos de Negativa)
     certidoesAtencao: readProcedure(MODULE)

@@ -68,7 +68,18 @@ export class OnlineUsersService {
    * sleep/kill (cenários em que beforeunload não dispara) ficava eternamente
    * online porque o chatStatus persistia no banco sem ninguém limpar.
    */
-  async getOnline() {
+  /**
+   * @param empresaId Escopo de tenant:
+   *   - `undefined` → global (monitoramento admin: master / Service Manager)
+   *   - string/`null` → restringe à empresa do requisitante (chat web).
+   *     `null` aplica `empresa_id IS NULL` (default-deny: nunca vaza outra empresa).
+   * @param opts.includeSensitive Quando `true`, inclui PII de monitoramento
+   *   (e-mail, IP, caminho de navegação, empresa). Reservado ao admin global —
+   *   NUNCA deve ir no payload de usuários comuns (rastreamento/LGPD, F-001).
+   *   Default `false`: presença mínima (id, nome, avatar, status, atividade).
+   */
+  async getOnline(empresaId?: string | null, opts?: { includeSensitive?: boolean }) {
+    const includeSensitive = opts?.includeSensitive ?? false
     const cutoff = new Date(Date.now() - this.WINDOW_MIN * 60_000)
     const users = await prisma.user.findMany({
       where: {
@@ -76,17 +87,24 @@ export class OnlineUsersService {
         lastActivityAt: { gte: cutoff },
         // 'invisible' = aparece como offline pros outros, mesmo ativo
         NOT: { chatStatus: 'invisible' },
+        // Isolamento multi-tenant: só quando há sessão (empresaId !== undefined)
+        ...(empresaId !== undefined ? { empresaId } : {}),
       },
       select: {
         id: true,
         name: true,
-        email: true,
         image: true,
         lastActivityAt: true,
-        lastActivityPath: true,
-        lastActivityIp: true,
         chatStatus: true,
-        empresa: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
+        // PII só no monitoramento admin — fora do payload de presença do chat.
+        ...(includeSensitive
+          ? {
+              email: true,
+              lastActivityPath: true,
+              lastActivityIp: true,
+              empresa: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
+            }
+          : {}),
       },
       orderBy: { lastActivityAt: 'desc' },
     })

@@ -35,13 +35,15 @@ export interface FinalizarResultado {
   detalhes?: ExecucaoClienteDetalhe[]
 }
 
-/** Cria row RODANDO e retorna o id pra ser usado no finalizar. */
+/** Cria row RODANDO e retorna o id pra ser usado no finalizar.
+ *  `empresaId` escopa a execução ao tenant (ISO-003) — NULL p/ jobs de plataforma. */
 export async function iniciarExecucao(
   scheduler: SchedulerSlug,
   trigger: TriggerType,
+  empresaId?: string | null,
 ): Promise<string> {
   const exec = await prisma.schedulerExecution.create({
-    data: { scheduler, trigger, status: 'RODANDO' },
+    data: { scheduler, trigger, status: 'RODANDO', empresaId: empresaId ?? null },
     select: { id: true },
   })
   return exec.id

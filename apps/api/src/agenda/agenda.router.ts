@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TRPCError } from '@trpc/server'
 import { router, readProcedure, writeProcedure, deleteProcedure, writeSubProcedure, deleteSubProcedure, readSubProcedure } from '../trpc/trpc.service'
 import { AgendaService } from './agenda.service'
 import { AgendaGoogleService } from './agenda-google.service'
@@ -28,9 +29,11 @@ export function createAgendaRouter(
   return router({
     // === TIPOS (Categorias) ===
     listTipos: readProcedure(MODULE)
-      .query(() => service.listTipos()),
+      .query(({ ctx }) => service.listTipos(ctx.empresaId ?? null)),
 
-    createTipo: writeProcedure(MODULE)
+    // Gerir tipos é governado pela sub-permissão 'manage_tipos' (independente
+    // do canWrite de eventos). readSubProcedure = acesso ao módulo + a sub.
+    createTipo: readSubProcedure(MODULE, 'manage_tipos', 'Gerenciar tipos de evento')
       .input(z.object({
         nome: z.string().min(1),
         cor: z.string().optional(),
@@ -43,9 +46,9 @@ export function createAgendaRouter(
         permiteEquipamentos: z.boolean().optional(),
         salasPermitidas: z.array(z.string()).optional(),
       }))
-      .mutation(({ input }) => service.createTipo(input)),
+      .mutation(({ input, ctx }) => service.createTipo(input, ctx.userId, ctx.empresaId ?? null)),
 
-    updateTipo: writeProcedure(MODULE)
+    updateTipo: readSubProcedure(MODULE, 'manage_tipos', 'Gerenciar tipos de evento')
       .input(z.object({
         id: z.string(),
         data: z.object({
@@ -61,11 +64,21 @@ export function createAgendaRouter(
           salasPermitidas: z.array(z.string()).optional(),
         }),
       }))
-      .mutation(({ input }) => service.updateTipo(input.id, input.data)),
+      .mutation(({ input, ctx }) => service.updateTipo(input.id, input.data, ctx.userId, ctx.isMaster ?? false, ctx.empresaId ?? null)),
 
-    deleteTipo: deleteProcedure(MODULE)
+    deleteTipo: readSubProcedure(MODULE, 'manage_tipos', 'Gerenciar tipos de evento')
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => service.deleteTipo(input.id)),
+      .mutation(({ input, ctx }) => service.deleteTipo(input.id, ctx.userId, ctx.isMaster ?? false, ctx.empresaId ?? null)),
+
+    // Histórico de ações nos tipos — só master/dono do tenant acompanham.
+    listTipoEventos: readProcedure(MODULE)
+      .input(z.object({ limit: z.number().min(1).max(200).optional() }).optional())
+      .query(({ ctx, input }) => {
+        if (!ctx.isMaster && !ctx.isEmpresaMaster) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas master/administrador' })
+        }
+        return service.listTipoEventos(input?.limit)
+      }),
 
     importTiposLegado: writeProcedure(MODULE)
       .mutation(() => service.importTiposLegado()),
@@ -86,11 +99,11 @@ export function createAgendaRouter(
         criadorId: z.string().optional(),
         empresaId: z.string().optional(),
       }))
-      .query(({ input, ctx }) => service.listEventos(input, ctx.userId)),
+      .query(({ input, ctx }) => service.listEventos(input, ctx.userId, ctx.empresaId ?? null)),
 
     getById: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .query(({ input }) => service.getById(input.id)),
+      .query(({ input, ctx }) => service.getById(input.id, ctx.isMaster ?? false, ctx.empresaId ?? null)),
 
     create: writeProcedure(MODULE)
       .input(z.object({
@@ -111,6 +124,7 @@ export function createAgendaRouter(
         garagem: z.boolean().optional(),
         vagas: z.number().nullable().optional(),
         equipamentos: z.string().nullable().optional(),
+        arrumarSala: z.boolean().optional(),
         isTarefa: z.boolean().optional(),
         tipoId: z.string(),
         empresaId: z.string().nullable().optional(),
@@ -122,7 +136,7 @@ export function createAgendaRouter(
         // Opt-in: só notifica participantes por e-mail quando marcado (default false).
         notificar: z.boolean().optional(),
       }))
-      .mutation(({ input, ctx }) => service.create(input, ctx.userId)),
+      .mutation(({ input, ctx }) => service.create(input, ctx.userId, ctx.empresaId ?? null)),
 
     update: writeProcedure(MODULE)
       .input(z.object({
@@ -146,6 +160,7 @@ export function createAgendaRouter(
           garagem: z.boolean().optional(),
           vagas: z.number().nullable().optional(),
           equipamentos: z.string().nullable().optional(),
+          arrumarSala: z.boolean().optional(),
           isTarefa: z.boolean().optional(),
           tipoId: z.string().optional(),
           empresaId: z.string().nullable().optional(),
@@ -176,7 +191,7 @@ export function createAgendaRouter(
     // do evento). Editar/excluir é gateado por dono/master/sub-perm no service.
     listAnotacoes: readProcedure(MODULE)
       .input(z.object({ eventoId: z.string() }))
-      .query(({ input }) => service.listAnotacoes(input.eventoId)),
+      .query(({ input, ctx }) => service.listAnotacoes(input.eventoId, ctx.isMaster ?? false, ctx.empresaId ?? null)),
     addAnotacao: readProcedure(MODULE)
       .input(z.object({ eventoId: z.string(), texto: z.string().min(1) }))
       .mutation(({ input, ctx }) => service.addAnotacao(input.eventoId, ctx.userId, input.texto)),
@@ -189,7 +204,7 @@ export function createAgendaRouter(
 
     listAnexos: readProcedure(MODULE)
       .input(z.object({ eventoId: z.string() }))
-      .query(({ input }) => service.listAnexos(input.eventoId)),
+      .query(({ input, ctx }) => service.listAnexos(input.eventoId, ctx.isMaster ?? false, ctx.empresaId ?? null)),
     addAnexo: readProcedure(MODULE)
       .input(z.object({
         eventoId: z.string(),
@@ -248,7 +263,7 @@ export function createAgendaRouter(
         eventoIdExcluir: z.string().optional(),
         tipoId: z.string().optional(),
       }))
-      .query(({ input }) => service.verificarConflitos(input)),
+      .query(({ input, ctx }) => service.verificarConflitos(input, ctx.empresaId ?? null)),
 
     // === CONFIGURAÇÃO (singleton) — leitura aberta pra qualquer um com acesso ao
     // módulo (precisa pra o front saber se deve verificar conflitos antes de salvar).
@@ -269,7 +284,7 @@ export function createAgendaRouter(
     sala: router({
       list: readProcedure(MODULE)
         .input(z.object({ incluirInativas: z.boolean().optional() }).optional())
-        .query(({ input }) => salaService.list({ incluirInativas: input?.incluirInativas })),
+        .query(({ input, ctx }) => salaService.list({ incluirInativas: input?.incluirInativas, empresaId: ctx.empresaId ?? null })),
       create: writeSubProcedure(MODULE, 'manage_config', 'Cadastrar salas da agenda')
         .input(z.object({
           nome: z.string().min(1),
@@ -277,7 +292,7 @@ export function createAgendaRouter(
           equipamentos: z.string().nullable().optional(),
           ativo: z.boolean().optional(),
         }))
-        .mutation(({ input }) => salaService.create(input)),
+        .mutation(({ input, ctx }) => salaService.create({ ...input, empresaId: ctx.empresaId ?? null })),
       update: writeSubProcedure(MODULE, 'manage_config', 'Editar salas da agenda')
         .input(z.object({
           id: z.string(),
@@ -288,10 +303,10 @@ export function createAgendaRouter(
             ativo: z.boolean().optional(),
           }),
         }))
-        .mutation(({ input }) => salaService.update(input.id, input.data)),
+        .mutation(({ input, ctx }) => salaService.update(input.id, input.data, ctx.isMaster ?? false, ctx.empresaId ?? null)),
       delete: deleteSubProcedure(MODULE, 'manage_config', 'Remover salas da agenda')
         .input(z.object({ id: z.string() }))
-        .mutation(({ input }) => salaService.delete(input.id)),
+        .mutation(({ input, ctx }) => salaService.delete(input.id, ctx.isMaster ?? false, ctx.empresaId ?? null)),
     }),
 
     // === DISPONIBILIDADE ===
@@ -300,7 +315,7 @@ export function createAgendaRouter(
         data: z.string(),
         usuarioIds: z.array(z.string()).min(1),
       }))
-      .query(({ input }) => service.verificarDisponibilidade(input)),
+      .query(({ input, ctx }) => service.verificarDisponibilidade(input, ctx.empresaId ?? null)),
 
     // Disponibilidade combinada num range — usada pelo /agenda/disponibilidade
     disponibilidadeRange: readProcedure(MODULE)
@@ -309,12 +324,12 @@ export function createAgendaRouter(
         dataFim: z.string(),
         usuarioIds: z.array(z.string()).min(1),
       }))
-      .query(({ input }) => service.disponibilidadeRange(input)),
+      .query(({ input, ctx }) => service.disponibilidadeRange(input, ctx.empresaId ?? null)),
 
     // === LOGS ===
     listLogs: readProcedure(MODULE)
       .input(z.object({ eventoId: z.string() }))
-      .query(({ input }) => service.listLogs(input.eventoId)),
+      .query(({ input, ctx }) => service.listLogs(input.eventoId, ctx.isMaster ?? false, ctx.empresaId ?? null)),
 
     // === USUÁRIOS (para select de participantes) — filtra por empresa do user logado
     listUsuarios: readProcedure(MODULE)

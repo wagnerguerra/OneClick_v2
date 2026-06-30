@@ -6,6 +6,7 @@ import { Button, Card, CardHeader, Checkbox, Label, Table, TableHeader, TableBod
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
+import { MasterGate } from '@/components/auth/master-gate'
 
 interface BackupFile {
   filename: string
@@ -21,6 +22,14 @@ interface BackupResult {
 }
 
 export default function BackupRestorePage() {
+  return (
+    <MasterGate>
+      <BackupRestorePageInner />
+    </MasterGate>
+  )
+}
+
+function BackupRestorePageInner() {
   const [generating, setGenerating] = useState(false)
   const [includeEnv, setIncludeEnv] = useState(false)
   const [backups, setBackups] = useState<BackupFile[]>([])

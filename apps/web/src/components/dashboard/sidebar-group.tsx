@@ -93,6 +93,11 @@ export function SidebarGroup({ group, collapsed, isOpen, onToggle }: SidebarGrou
       <DropdownMenu onOpenChange={setDropdownOpen} modal={false}>
         <DropdownMenuTrigger asChild>
           <button
+            // a11y (WCAG 4.1.2): no modo recolhido o botão é só ícone — sem isto
+            // o leitor de tela anuncia "botão, menu" sem nome. aria-label dá o
+            // nome do módulo; title mostra tooltip nativa ao passar o mouse.
+            aria-label={group.label}
+            title={group.label}
             className={cn(
               'sidebar-group-btn flex w-full items-center justify-center rounded-lg px-2 py-2 outline-none focus:outline-none focus-visible:outline-none transition-all duration-200 cursor-pointer',
               dropdownOpen

@@ -9,7 +9,7 @@ import {
   FileText, ShoppingCart, Receipt, ClipboardList, Plus, Send,
   Briefcase, FileBarChart, History, File, Calculator, Shield,
   ListChecks, StickyNote, FileInput, MessageSquareQuote, Users, ListTodo,
-  ExternalLink, X, Loader2, Building2, Phone, Star, Pencil, Trash2, Link2,
+  ExternalLink, X, Loader2, Building2, Phone, Star, Pencil, Trash2, Link2, Check,
   CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen, HardDriveDownload,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, MoreVertical,
   Image as ImageIcon, Activity, Percent, ShieldCheck,
@@ -24,10 +24,12 @@ import {
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { OrcamentosLegadoSection } from '@/components/orcamento/orcamentos-legado-section'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { useClientesPerms } from './use-clientes-perms'
 import { useBeneficioFiscalPerms } from '@/hooks/use-beneficio-fiscal'
 import { ServicosCard } from './servicos-card'
 import { ParticularidadesCard } from './particularidades-card'
@@ -106,6 +108,7 @@ interface CnpjCardData {
   cnaesSecundarios: Array<{ codigo: string; descricao: string }>
   qsa: Array<{ nome: string; cpfCnpj: string; qualificacao: string; percentualCapital: number | null }>
   fonte: string
+  gateAviso?: string
 }
 
 interface ClienteFormProps {
@@ -132,6 +135,12 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
 
   // Capa do header — config global do modulo. Apenas Master pode editar.
   const { isMaster } = useUserPermissions()
+  // Sub-permissões por aba (espelham o gateamento do backend). O hook usa o slug
+  // correto ('clientes') e já trata master/empresa-master.
+  // Detalhes → edit_details; Comercial → manage_commercial; Fiscal → manage_fiscal.
+  // As demais abas (serviços, legalização, contábil, obrigações, protocolos,
+  // particularidades) já gatilham internamente pelos seus próprios cards.
+  const { canEditDetails, canManageCommercial, canManageFiscal } = useClientesPerms()
   const [headerCover, setHeaderCover] = useState<string>('')
   const [uploadingCover, setUploadingCover] = useState(false)
   const coverInputRef = useRef<HTMLInputElement>(null)
@@ -229,6 +238,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
       const data = await (trpc.socio as any).consultarCnpj.query({ cnpj: doc }) as {
         razaoSocial: string; nomeFantasia: string | null; cep: string | null; logradouro: string | null
         numero: string | null; complemento: string | null; bairro: string | null; municipio: string | null; uf: string | null
+        gateAviso?: string
       }
       if (data.razaoSocial) setValue('razaoSocial', data.razaoSocial)
       if (data.nomeFantasia) setValue('nomeFantasia', data.nomeFantasia)
@@ -239,7 +249,8 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
       if (data.bairro) setValue('bairro', data.bairro)
       if (data.municipio) setValue('cidade', data.municipio)
       if (data.uf) setValue('uf', data.uf)
-      alerts.success('CNPJ consultado', data.razaoSocial || 'Dados preenchidos com sucesso.')
+      if (data.gateAviso) alerts.warning('Consulta na base gratuita', data.gateAviso)
+      else alerts.success('CNPJ consultado', data.razaoSocial || 'Dados preenchidos com sucesso.')
     } catch (err) {
       alerts.error('Erro', (err as Error).message || 'Não foi possível consultar o CNPJ.')
     }
@@ -288,6 +299,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
       }
 
       setCnpjCard(data)
+      if (data.gateAviso) alerts.warning('Consulta na base gratuita', data.gateAviso)
     } catch (err) {
       alerts.error('Erro', (err as Error).message || 'Não foi possível consultar o CNPJ.')
     } finally { setCnpjCardLoading(false) }
@@ -496,7 +508,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <Button variant="success" size="icon-sm" type="submit" disabled={saving} title="Salvar"><Save className="h-4 w-4" /></Button>
+              {canEditDetails && <Button variant="success" size="icon-sm" type="submit" disabled={saving} title="Salvar"><Save className="h-4 w-4" /></Button>}
               <BackButton href="/clientes" />
             </div>
           </div>
@@ -555,7 +567,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <Button variant="success" size="sm" type="submit" disabled={saving}><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>
+              {canEditDetails && <Button variant="success" size="sm" type="submit" disabled={saving}><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>}
               <BackButton href="/clientes" label="Voltar" />
             </div>
           </div>
@@ -582,7 +594,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   watchedValues={watchedValues} tipoDocumento={tipoDocumento}
                   buscarCnpj={buscarCnpj} buscarCep={buscarCep}
                   consultarCartaoCnpj={consultarCartaoCnpj} cnpjCard={cnpjCard} cnpjCardLoading={cnpjCardLoading} setCnpjCard={setCnpjCard}
-                  opcoesOrigem={opcoesOrigem}
+                  opcoesOrigem={opcoesOrigem} canEdit={canEditDetails}
                 />
               </TabsContent>
 
@@ -595,7 +607,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   chatMsg={chatMsg} setChatMsg={setChatMsg}
                   chatAsCliente={chatAsCliente} setChatAsCliente={setChatAsCliente}
                   clienteId={clienteId}
-                  opcoesOrigem={opcoesOrigem}
+                  opcoesOrigem={opcoesOrigem} canEdit={canManageCommercial}
                 />
               </TabsContent>
 
@@ -609,6 +621,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   clienteId={clienteId}
                   isEdit={!!isEdit}
                   documento={watchedValues.documento || defaultValues?.documento || ''}
+                  canEdit={canManageFiscal}
                 />
               </TabsContent>
 
@@ -749,7 +762,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
 /* ================================================================== */
 /* DetalhesCard — pills laterais (padrão igual ComercialCard)         */
 /* ================================================================== */
-function DetalhesCard({ register, control, watch, errors, setValue, clienteId, watchedValues, tipoDocumento, buscarCnpj, buscarCep, consultarCartaoCnpj, cnpjCard, cnpjCardLoading, setCnpjCard, opcoesOrigem }: {
+function DetalhesCard({ register, control, watch, errors, setValue, clienteId, watchedValues, tipoDocumento, buscarCnpj, buscarCep, consultarCartaoCnpj, cnpjCard, cnpjCardLoading, setCnpjCard, opcoesOrigem, canEdit }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
@@ -765,6 +778,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   cnpjCardLoading: boolean
   setCnpjCard: (v: CnpjCardData | null) => void
   opcoesOrigem: Array<{ id: string; valor: string }>
+  canEdit: boolean
 }) {
   const [activeTab, setActiveTab] = useState('dados')
 
@@ -811,7 +825,8 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
           </div>
         </div>
 
-        {/* Conteúdo */}
+        {/* Conteúdo — fieldset desabilita TODOS os campos quando sem permissão 'edit_details' */}
+        <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0">
         <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
 
           {/* ---- SUB-TAB: DADOS GERAIS (tela única — igual ao v1) ---- */}
@@ -1112,6 +1127,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
             </div>
           )}
         </div>
+        </fieldset>
       </div>
 
       {/* Modal Cartão CNPJ — Réplica fiel do SERPRO2 */}
@@ -1396,7 +1412,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   )
 }
 
-function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem }: {
+function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem, canEdit }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
@@ -1405,6 +1421,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
   chatAsCliente: boolean; setChatAsCliente: (v: boolean) => void
   clienteId?: string
   opcoesOrigem: Array<{ id: string; valor: string }>
+  canEdit: boolean
 }) {
   const [activeTab, setActiveTab] = useState('cadastros')
   const [historicos, setHistoricos] = useState<Array<{ id: string; mensagem: string; tipo: string; createdAt: string; user: { id: string; name: string } | null }>>([])
@@ -1484,7 +1501,8 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
           </div>
         </div>
 
-        {/* Conteúdo */}
+        {/* Conteúdo — read-only sem permissão 'manage_commercial' (mantém as pills) */}
+        <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0">
         <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
           {activeTab === 'cadastros' && (
             <div className="-m-5">
@@ -1562,9 +1580,14 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
                 <h4 className="text-[13px] font-semibold text-foreground">Orçamentos</h4>
                 <Button type="button" variant="outline" size="sm"><Plus className="h-3.5 w-3.5" /> Novo Orçamento</Button>
               </div>
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <FileBarChart className="h-10 w-10 mb-2 opacity-20" />
-                <p className="text-sm">Nenhum orçamento cadastrado.</p>
+              <div className="p-5 space-y-5">
+                {/* Sistema novo — ainda sem orçamentos vinculados aqui */}
+                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                  <FileBarChart className="h-10 w-10 mb-2 opacity-20" />
+                  <p className="text-sm">Nenhum orçamento no sistema novo.</p>
+                </div>
+                {/* Histórico de orçamentos do sistema legado (só leitura) */}
+                {clienteId && <OrcamentosLegadoSection clienteId={clienteId} />}
               </div>
             </div>
           )}
@@ -1638,6 +1661,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
             </div>
           )}
         </div>
+        </fieldset>
       </div>
     </Card>
   )
@@ -2379,12 +2403,13 @@ function AcessoriasIntegracao({ clienteId }: { clienteId: string | null }) {
 // FiscalCard — pills laterais (padrão igual ComercialCard)
 // ============================================================
 
-function FiscalCard({ register, control, clienteId, isEdit, documento }: {
+function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   clienteId?: string
   isEdit: boolean
   documento: string
+  canEdit: boolean
 }) {
   const [activeTab, setActiveTab] = useState('dados')
 
@@ -2430,7 +2455,8 @@ function FiscalCard({ register, control, clienteId, isEdit, documento }: {
           </div>
         </div>
 
-        {/* Conteúdo */}
+        {/* Conteúdo — read-only sem permissão 'manage_fiscal' (mantém as pills) */}
+        <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0">
         <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
           {activeTab === 'dados' && (
             <div className="-m-5">
@@ -2462,14 +2488,19 @@ function FiscalCard({ register, control, clienteId, isEdit, documento }: {
                     </Select>
                   )} />
                 </div>
-                <div className="col-span-12 md:col-span-6 space-y-1.5">
-                  <Label>Inscrição Estadual</Label>
-                  <Input placeholder="IE" {...register('inscricaoEstadual')} />
-                </div>
-                <div className="col-span-12 md:col-span-6 space-y-1.5">
-                  <Label>Inscrição Municipal</Label>
-                  <Input placeholder="IM" {...register('inscricaoMunicipal')} />
-                </div>
+              </div>
+
+              {/* Registro de Inscrições — mesmo padrão visual de "Dados Fiscais"
+                  (header-bar full-width + conteúdo em p-5). */}
+              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] dark:border-border">
+                <h4 className="text-[13px] font-semibold text-foreground">Registro de Inscrições</h4>
+              </div>
+              <div className="p-5">
+                {isEdit && clienteId ? (
+                  <RegistroInscricoesCard clienteId={clienteId} />
+                ) : (
+                  <p className="text-xs text-muted-foreground">Salve o cliente para registrar inscrições.</p>
+                )}
               </div>
             </div>
           )}
@@ -2553,6 +2584,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento }: {
             </div>
           )}
         </div>
+        </fieldset>
       </div>
     </Card>
   )
@@ -2734,27 +2766,164 @@ function LogsTab({ clienteId }: { clienteId: string }) {
   )
 }
 
-/* ================================================================== */
-/* Hook de permissões do módulo clientes (canWrite/canDelete + sub)    */
-/* ================================================================== */
-function useClientesPerms() {
-  const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
-  const isAdmin = isMaster || isEmpresaMaster
-  const perm = permissions.find((p) => p.moduleSlug === 'clientes')
-  const canWrite = isAdmin || !!perm?.canWrite
-  const canDelete = isAdmin || !!perm?.canDelete
-  // Sub-permissão #7 — master/empresa-master sempre podem
-  const canManageActivitiesBenefits = isAdmin || perm?.subPermissions?.['manage_activities_benefits'] === true
-  // Sub-permissão de arquivos — incluir/editar/excluir arquivos do cliente
-  const canManageFiles = isAdmin || perm?.subPermissions?.['manage_files'] === true
-  // Edição de observações de certificado: módulo gestao-certificados (writeProcedure no backend)
-  const certPerm = permissions.find((p) => p.moduleSlug === 'gestao-certificados')
-  const canEditCertificados = isAdmin || !!certPerm?.canWrite
-  const canDownloadCert = isAdmin || certPerm?.subPermissions?.['download_arquivo'] === true
-  return { isAdmin, canWrite, canDelete, canManageActivitiesBenefits, canManageFiles, canEditCertificados, canDownloadCert }
-}
+// Hook de permissões do módulo clientes extraído para `./use-clientes-perms`
+// (compartilhado com os cards de cada aba).
 
 const MODULE_COLOR_CLIENTES = 'var(--mod-cadastros, #10b981)'
+
+const UF_LIST = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
+
+interface InscricaoRow { id: string; estado: string; inscricao: string; descricao: string | null; createdAt: string }
+
+/* ================================================================== */
+/* Registro de Inscrições (estaduais — N por cliente, migrado do legado) */
+/* ================================================================== */
+function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
+  const { canWrite, canDelete } = useClientesPerms()
+  const [rows, setRows] = useState<InscricaoRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [estado, setEstado] = useState('')
+  const [inscricao, setInscricao] = useState('')
+  const [descricaoNova, setDescricaoNova] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editEstado, setEditEstado] = useState('')
+  const [editInscricao, setEditInscricao] = useState('')
+  const [editDescricao, setEditDescricao] = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await (trpc.cliente as any).listInscricoes.query({ clienteId })
+      setRows(data as InscricaoRow[])
+    } catch { setRows([]) } finally { setLoading(false) }
+  }, [clienteId])
+  useEffect(() => { void load() }, [load])
+
+  async function handleAdd() {
+    if (!estado || !inscricao.trim()) { alerts.error('Preencha o estado e a inscrição.'); return }
+    setSaving(true)
+    try {
+      await (trpc.cliente as any).addInscricao.mutate({ clienteId, estado, inscricao: inscricao.trim(), descricao: descricaoNova.trim() || undefined })
+      setEstado(''); setInscricao(''); setDescricaoNova('')
+      await load()
+    } catch (e) { alerts.error('Erro', (e as Error).message || 'Não foi possível adicionar.') }
+    finally { setSaving(false) }
+  }
+
+  function startEdit(r: InscricaoRow) { setEditId(r.id); setEditEstado(r.estado); setEditInscricao(r.inscricao); setEditDescricao(r.descricao || '') }
+  function cancelEdit() { setEditId(null); setEditEstado(''); setEditInscricao(''); setEditDescricao('') }
+  async function saveEdit() {
+    if (!editId) return
+    if (!editEstado || !editInscricao.trim()) { alerts.error('Preencha o estado e a inscrição.'); return }
+    setSaving(true)
+    try {
+      await (trpc.cliente as any).updateInscricao.mutate({ id: editId, estado: editEstado, inscricao: editInscricao.trim(), descricao: editDescricao.trim() || undefined })
+      cancelEdit()
+      await load()
+    } catch (e) { alerts.error('Erro', (e as Error).message || 'Não foi possível salvar.') }
+    finally { setSaving(false) }
+  }
+
+  async function handleRemove(id: string) {
+    const ok = await alerts.confirmDelete('esta inscrição')
+    if (!ok) return
+    try {
+      await (trpc.cliente as any).removeInscricao.mutate({ id })
+      await load()
+    } catch (e) { alerts.error('Erro', (e as Error).message || 'Não foi possível remover.') }
+  }
+
+  return (
+    <div>
+      {loading ? (
+        <div className="flex justify-center py-4"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
+      ) : rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Sem registro</p>
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <th className="w-24 px-3 py-2 text-left">Estado</th>
+                <th className="px-3 py-2 text-left">Inscrição</th>
+                <th className="px-3 py-2 text-left">Descrição</th>
+                {(canWrite || canDelete) && <th className="w-20 px-3 py-2" />}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => editId === r.id ? (
+                <tr key={r.id} className="border-b border-border/60 last:border-0 bg-muted/20">
+                  <td className="px-3 py-1.5">
+                    <Select value={editEstado || '__none__'} onValueChange={(v) => setEditEstado(v === '__none__' ? '' : v)}>
+                      <SelectTrigger className="h-8 w-24 text-sm"><SelectValue placeholder="UF" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">UF</SelectItem>
+                        {UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <Input value={editInscricao} onChange={(e) => setEditInscricao(e.target.value)} className="h-8 text-sm" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void saveEdit() } if (e.key === 'Escape') cancelEdit() }} />
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <Input value={editDescricao} onChange={(e) => setEditDescricao(e.target.value)} placeholder="Opcional" className="h-8 text-sm" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void saveEdit() } if (e.key === 'Escape') cancelEdit() }} />
+                  </td>
+                  <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                    <button type="button" onClick={() => void saveEdit()} disabled={saving} className="mr-2 text-emerald-600 hover:text-emerald-700" title="Salvar"><Check className="h-4 w-4" /></button>
+                    <button type="button" onClick={cancelEdit} className="text-muted-foreground hover:text-foreground" title="Cancelar"><X className="h-4 w-4" /></button>
+                  </td>
+                </tr>
+              ) : (
+                <tr key={r.id} className="border-b border-border/60 last:border-0">
+                  <td className="px-3 py-2 font-medium text-foreground">{r.estado}</td>
+                  <td className="px-3 py-2 text-foreground">{r.inscricao}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{r.descricao || '—'}</td>
+                  {(canWrite || canDelete) && (
+                    <td className="px-3 py-2 text-right whitespace-nowrap">
+                      {canWrite && (
+                        <button type="button" onClick={() => startEdit(r)} className="mr-2 text-muted-foreground hover:text-sky-600" title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
+                      )}
+                      {canDelete && (
+                        <button type="button" onClick={() => handleRemove(r.id)} className="text-muted-foreground hover:text-rose-600" title="Remover"><Trash2 className="h-3.5 w-3.5" /></button>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {canWrite && (
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <div className="space-y-1">
+            <Label className="text-[11px]">Estado</Label>
+            <Select value={estado || '__none__'} onValueChange={(v) => setEstado(v === '__none__' ? '' : v)}>
+              <SelectTrigger className="h-9 w-24 text-sm"><SelectValue placeholder="UF" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">UF</SelectItem>
+                {UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex-1 min-w-[150px] space-y-1">
+            <Label className="text-[11px]">Inscrição</Label>
+            <Input value={inscricao} onChange={(e) => setInscricao(e.target.value)} placeholder="Número da inscrição" className="h-9 text-sm" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAdd() } }} />
+          </div>
+          <div className="flex-1 min-w-[140px] space-y-1">
+            <Label className="text-[11px]">Descrição</Label>
+            <Input value={descricaoNova} onChange={(e) => setDescricaoNova(e.target.value)} placeholder="Opcional" className="h-9 text-sm" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAdd() } }} />
+          </div>
+          <Button type="button" size="sm" onClick={handleAdd} disabled={saving}>
+            <Plus className="h-3.5 w-3.5" /> Adicionar
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 /* ================================================================== */
 /* AtividadesBeneficiosSidebar (#5/#6/#7) — substitui Áreas Contratadas */
@@ -2901,6 +3070,8 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
 
       {loading ? (
         <div className="flex justify-center py-4"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
+      ) : (atividades.length === 0 && beneficios.length === 0) ? (
+        <p className="text-xs text-muted-foreground">Sem registro</p>
       ) : (
         <div className="space-y-4">
           {/* Atividades */}
@@ -3259,10 +3430,10 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
           <Button type="button" variant="outline" size="sm" onClick={handleUpload}><Plus className="h-3.5 w-3.5" /> Adicionar</Button>
         )}
       </div>
-      {/* Certificados digitais — leitura + edição de observações (seção adicional) */}
+      {/* Certificados digitais — leitura + edição de observações (seção adicional).
+          Sem subtítulo: o badge "Certificado" em cada item já identifica. */}
       {certificados.length > 0 && (
         <div className="mb-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Certificados digitais</p>
           <div className="space-y-2">
             {certificados.map((cert) => {
               const exp = cert.expiraEm ? new Date(cert.expiraEm) : null
@@ -3313,7 +3484,11 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
       {loading ? (
         <div className="flex justify-center py-4"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
       ) : arquivos.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Nenhum arquivo enviado.</p>
+        // Só mostra o vazio quando não há NEM certificado nem arquivo — senão
+        // contradiz o certificado exibido logo acima.
+        certificados.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhum arquivo enviado.</p>
+        ) : null
       ) : (
         <div className="space-y-2 max-h-[300px] overflow-y-auto scrollbar-none">
           {arquivos.map((arq) => (

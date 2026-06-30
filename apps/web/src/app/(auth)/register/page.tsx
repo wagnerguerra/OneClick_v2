@@ -9,6 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { registerSchema, type RegisterInput } from '@saas/types'
 import { Button, Input, Label } from '@saas/ui'
 import { signUp } from '@/lib/auth-client'
+import { PasswordStrength } from '@/components/auth/password-strength'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -18,10 +19,12 @@ export default function RegisterPage() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
   })
+  const password = watch('password') ?? ''
 
   async function onSubmit(data: RegisterInput) {
     setError(null)
@@ -87,6 +90,8 @@ export default function RegisterPage() {
               id="name"
               placeholder="Seu nome"
               className="h-11"
+              autoComplete="name"
+              required
               {...register('name')}
             />
             {errors.name && (
@@ -100,6 +105,8 @@ export default function RegisterPage() {
               id="tenantName"
               placeholder="Sua empresa"
               className="h-11"
+              autoComplete="organization"
+              required
               {...register('tenantName')}
             />
             {errors.tenantName && (
@@ -116,6 +123,8 @@ export default function RegisterPage() {
               type="email"
               placeholder="seu@email.com"
               className="h-11"
+              autoComplete="email"
+              required
               {...register('email')}
             />
             {errors.email && (
@@ -130,8 +139,12 @@ export default function RegisterPage() {
               type="password"
               placeholder="••••••••"
               className="h-11"
+              autoComplete="new-password"
+              required
+              minLength={8}
               {...register('password')}
             />
+            <PasswordStrength password={password} />
             {errors.password && (
               <p className="text-xs text-destructive">
                 {errors.password.message}

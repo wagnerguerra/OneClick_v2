@@ -66,6 +66,14 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => orcamentoService.excluirModeloProposta(input.id)),
 
+    // ── Sugestões (ações rápidas) do assistente de IA — editáveis em Configurações ──
+    iaSugestoesListar: readProcedure(MODULE)
+      .query(({ ctx }) => orcamentoService.listIaSugestoes(ctx.empresaId)),
+
+    iaSugestoesSalvar: writeSubProcedure(MODULE, 'acessar_configuracoes', 'Editar configurações de orçamentos')
+      .input(z.object({ items: z.array(z.object({ label: z.string().min(1), prompt: z.string().min(1) })).max(20) }))
+      .mutation(({ input, ctx }) => orcamentoService.saveIaSugestoes(ctx.empresaId, input.items)),
+
     create: writeProcedure(MODULE)
       .input(createOrcamentoSchema)
       .mutation(({ input, ctx }) => orcamentoService.create(input, ctx.userId, ctx.empresaId)),
@@ -383,6 +391,26 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
     reportFunil: readProcedure(MODULE)
       .input(z.object({ dias: z.number().optional() }).optional())
       .query(({ input, ctx }) => orcamentoService.reportFunil(ctx.empresaId, input?.dias)),
+
+    reportIndicadores: readProcedure(MODULE)
+      .input(z.object({ dataInicio: z.string(), dataFim: z.string() }))
+      .query(({ input, ctx }) => orcamentoService.reportIndicadores(ctx.empresaId, input.dataInicio, input.dataFim)),
+
+    reportFunilComercial: readProcedure(MODULE)
+      .input(z.object({ dias: z.number().optional() }).optional())
+      .query(({ input, ctx }) => orcamentoService.reportFunilComercial(ctx.empresaId, input?.dias)),
+
+    reportMrrAvulso: readProcedure(MODULE)
+      .input(z.object({ dias: z.number().optional() }).optional())
+      .query(({ input, ctx }) => orcamentoService.reportMrrAvulso(ctx.empresaId, input?.dias)),
+
+    reportRankingVendedores: readProcedure(MODULE)
+      .input(z.object({ dias: z.number().optional() }).optional())
+      .query(({ input, ctx }) => orcamentoService.reportRankingVendedores(ctx.empresaId, input?.dias)),
+
+    reportDescontosMargem: readProcedure(MODULE)
+      .input(z.object({ dias: z.number().optional() }).optional())
+      .query(({ input, ctx }) => orcamentoService.reportDescontosMargem(ctx.empresaId, input?.dias)),
 
     reportAtrasados: readProcedure(MODULE)
       .query(({ ctx }) => orcamentoService.reportAtrasados(ctx.empresaId)),

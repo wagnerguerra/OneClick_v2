@@ -13,6 +13,7 @@ import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { useClientesPerms } from './use-clientes-perms'
 import type { UseFormRegister } from 'react-hook-form'
 import type { CreateClienteInput } from '@saas/types'
 
@@ -54,6 +55,7 @@ interface Acesso { id: string; portal: string; usuario: string | null; senha: st
 interface Vencimento { id: string; descricao: string; data_vencimento: string; alerta_dias: number; observacoes: string | null; concluido: boolean }
 
 export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoCardProps) {
+  const { canManageRegistration, canManageFiscal } = useClientesPerms()
   const [activeTab, setActiveTab] = useState('pop')
   const [socios, setSocios] = useState<Socio[]>([])
   const [sociosLoading, setSociosLoading] = useState(false)
@@ -545,12 +547,14 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                   {clienteId && (
                     <div className="flex items-center gap-1.5">
                       {/* Cadastro manual — abre o modal in-place no contexto do cliente */}
-                      <Button
-                        variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
-                        onClick={e => { e.preventDefault(); e.stopPropagation(); setNovoSocioOpen(true) }}
-                      >
-                        <Plus className="h-3 w-3" />Novo Sócio
-                      </Button>
+                      {canManageRegistration && (
+                        <Button
+                          variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
+                          onClick={e => { e.preventDefault(); e.stopPropagation(); setNovoSocioOpen(true) }}
+                        >
+                          <Plus className="h-3 w-3" />Novo Sócio
+                        </Button>
+                      )}
                       {documento && (
                       <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
                         onClick={async (e) => {
@@ -710,7 +714,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                         const a = document.createElement('a'); a.href = url; a.download = 'acessos.csv'; a.click()
                       }}><Download className="h-3 w-3" />Excel</Button>
                     )}
-                    {clienteId && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openAceModal() }} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Adicionar</Button>}
+                    {clienteId && canManageRegistration && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openAceModal() }} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Adicionar</Button>}
                   </div>
                 </div>
               </div>
@@ -769,7 +773,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                         const a = document.createElement('a'); a.href = url; a.download = 'vencimentos.csv'; a.click()
                       }}><Download className="h-3 w-3" />Excel</Button>
                     )}
-                    {clienteId && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openVncModal() }} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Adicionar</Button>}
+                    {clienteId && canManageRegistration && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openVncModal() }} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Adicionar</Button>}
                   </div>
                 </div>
               </div>
@@ -829,7 +833,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
               <div className="-m-0">
                 <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
                   <h4 className="text-[13px] font-semibold text-foreground">Registro de Andamentos</h4>
-                  {clienteId && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openAndModal() }} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Adicionar</Button>}
+                  {clienteId && canManageRegistration && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openAndModal() }} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Adicionar</Button>}
                 </div>
               </div>
               <div className="p-5">
@@ -896,7 +900,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                         finally { setCnaesLoading(false) }
                       }}><Download className="h-3 w-3" />Buscar CNAE</Button>
                     )}
-                    {clienteId && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); addCnae() }} className="gap-1.5 h-7 text-[11px]"><Plus className="h-3 w-3" /> Manual</Button>}
+                    {clienteId && canManageFiscal && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); addCnae() }} className="gap-1.5 h-7 text-[11px]"><Plus className="h-3 w-3" /> Manual</Button>}
                   </div>
                 </div>
               </div>
@@ -1137,7 +1141,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
               <div className="-m-0">
                 <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
                   <h4 className="text-[13px] font-semibold text-foreground">DT-e — Domicílio Tributário Eletrônico</h4>
-                  {clienteId && (
+                  {clienteId && canManageFiscal && (
                     <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
                       onClick={async (e) => {
                         e.preventDefault(); e.stopPropagation()

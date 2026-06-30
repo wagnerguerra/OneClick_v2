@@ -39,6 +39,8 @@ export default function EditEmpresaPage() {
           site: data.site ?? '',
           logoUrl: data.logoUrl ?? '',
           logoDarkUrl: data.logoDarkUrl ?? '',
+          serproHabilitado: data.serproHabilitado ?? false,
+          serproOrcamentoMensal: data.serproOrcamentoMensal ?? null,
         })
       })
       .catch(() => setError('Empresa não encontrada'))

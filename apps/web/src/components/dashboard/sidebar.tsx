@@ -6,7 +6,7 @@ import { PanelLeftClose, PanelLeft, LayoutDashboard, X } from 'lucide-react'
 import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import { cn, ScrollArea, Separator, TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@saas/ui'
-import { navigation } from '@/lib/navigation'
+import { navigation, type NavItem } from '@/lib/navigation'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { SidebarGroup } from './sidebar-group'
 import { SidebarItem } from './sidebar-item'
@@ -23,7 +23,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
   const logoSrc = '/logo-light.png'
 
   // Filtrar navigation baseado nas permissões do usuário
-  const { isMaster, allowedSlugs, role, loading: permsLoading } = useUserPermissions()
+  const { isMaster, isEmpresaMaster, allowedSlugs, permissions, role, loading: permsLoading } = useUserPermissions()
   const ehLiderSetor = ['GESTOR', 'COORDENADOR', 'DIRETOR'].includes(role)
 
   const pathname = usePathname()
@@ -49,28 +49,50 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
   }, [pathname])
 
   const filteredNavigation = useMemo(() => {
-    if (isMaster) return navigation // MASTER vê tudo
+    const isAdmin = isMaster || isEmpresaMaster
+    // Sub-permissão satisfeita? Admin (master/empresaMaster) sempre vê.
+    const hasSub = (module: string, sub: string): boolean =>
+      isAdmin || permissions.find((p) => p.moduleSlug === module)?.subPermissions?.[sub] === true
+    // Subitem com `requirePerm` só aparece se a sub-permissão estiver concedida.
+    const subOk = (item: NavItem): boolean =>
+      !item.requirePerm || hasSub(item.requirePerm.module, item.requirePerm.sub)
+
+    // Permissões por slug — restringem apenas usuários comuns (master vê tudo).
+    const byPermission = (item: NavItem): boolean => {
+      // Módulos master-only (ex.: Empresas — admin global multi-tenant):
+      // nunca aparecem para admins de tenant, mesmo com o slug nas permissões.
+      if (item.masterOnly) return false
+      // FAQ é conteúdo de ajuda — sempre visível pra qualquer usuário,
+      // independentemente da matriz de permissões.
+      if (item.href === '/faq') return true
+      // Painel Comercial consolida CRM/Orçamentos/Contratos — visível a quem
+      // tem leitura em qualquer um deles (os dados em si são gateados no backend).
+      if (item.href === '/comercial') {
+        return ['crm', 'orcamentos', 'contratos'].some((s) => allowedSlugs.includes(s))
+      }
+      // Benefícios: líder de setor (GESTOR/COORDENADOR/DIRETOR) acessa por tipo
+      // para lançar os apontamentos do seu setor, mesmo sem permissão explícita.
+      if (item.href === '/beneficios' && ehLiderSetor) return true
+      const slug = item.href.replace('/', '')
+      return allowedSlugs.includes(slug)
+    }
+
     return navigation
-      .map((group) => ({
-        ...group,
-        items: group.items.filter((item) => {
-          // FAQ é conteúdo de ajuda — sempre visível pra qualquer usuário,
-          // independentemente da matriz de permissões.
-          if (item.href === '/faq') return true
-          // Painel Comercial consolida CRM/Orçamentos/Contratos — visível a quem
-          // tem leitura em qualquer um deles (os dados em si são gateados no backend).
-          if (item.href === '/comercial') {
-            return ['crm', 'orcamentos', 'contratos'].some((s) => allowedSlugs.includes(s))
-          }
-          // Benefícios: líder de setor (GESTOR/COORDENADOR/DIRETOR) acessa por tipo
-          // para lançar os apontamentos do seu setor, mesmo sem permissão explícita.
-          if (item.href === '/beneficios' && ehLiderSetor) return true
-          const slug = item.href.replace('/', '')
-          return allowedSlugs.includes(slug)
-        }),
-      }))
+      .map((group) => {
+        // wip = rota ainda não publicada (404). Escondida de TODOS, inclusive
+        // master (também tomaria 404). Aplica também aos subItems. F-006.
+        let items: NavItem[] = group.items
+          .filter((item) => !item.wip)
+          .map((item) =>
+            item.subItems
+              ? { ...item, subItems: item.subItems.filter((s) => !s.wip && subOk(s)) }
+              : item,
+          )
+        if (!isMaster) items = items.filter(byPermission)
+        return { ...group, items }
+      })
       .filter((group) => group.items.length > 0)
-  }, [isMaster, allowedSlugs, ehLiderSetor])
+  }, [isMaster, isEmpresaMaster, allowedSlugs, permissions, ehLiderSetor])
 
   // Fechar com Escape
   useEffect(() => {
@@ -110,6 +132,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
               {/* Botão fechar - mobile only */}
               <button
                 onClick={onCloseMobile}
+                aria-label="Fechar menu"
                 className="lg:hidden absolute right-3 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
                 <X className="h-5 w-5" />
@@ -181,6 +204,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
         <div className="hidden lg:block border-t border-sidebar-border p-3">
           <button
             onClick={onToggle}
+            aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
             className={cn(
               'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors',
               'hover:bg-muted hover:text-foreground',

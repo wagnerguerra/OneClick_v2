@@ -3,11 +3,18 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles, Loader2, Save, Copy, ExternalLink, Flame, Thermometer, Snowflake, Plus, Trash2, Megaphone } from 'lucide-react'
-import { Button, Card, Input, Label, Switch, Badge, cn } from '@saas/ui'
+import { Button, Card, Input, Label, Switch, Badge, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
+import { masks } from '@/lib/masks'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import type { inferRouterOutputs } from '@trpc/server'
+import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
+
+type LeadOutputs = inferRouterOutputs<AppRouter>['lead']
+type Sessao = LeadOutputs['listSessoes'][number]
+type ReportFunil = LeadOutputs['reportFunil']
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
@@ -32,27 +39,30 @@ export default function CrmFunilPage() {
   const router = useRouter()
   const { isMaster, isEmpresaMaster, permissions, loading: permsLoading } = useUserPermissions()
   const crmPerms = (permissions.find(p => p.moduleSlug === 'crm')?.subPermissions ?? {}) as Record<string, boolean>
-  const pode = isMaster || isEmpresaMaster || crmPerms.gerir_funil_lead === true
+  // Acessar a tela: sub-permissão de acesso (configurar implica acessar).
+  const pode = isMaster || isEmpresaMaster || crmPerms.acessar_funil_lead === true || crmPerms.gerir_funil_lead === true
+  // Editar (criar/salvar/excluir campanhas): sub-permissão de configuração.
+  const podeGerir = isMaster || isEmpresaMaster || crmPerms.gerir_funil_lead === true
 
   const [campanhas, setCampanhas] = useState<Cfg[]>([])
   const [cfg, setCfg] = useState<Cfg | null>(null)   // campanha em edição (clone)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [sessoes, setSessoes] = useState<any[]>([])
-  const [report, setReport] = useState<any | null>(null)
+  const [sessoes, setSessoes] = useState<Sessao[]>([])
+  const [report, setReport] = useState<ReportFunil | null>(null)
   const [tipos, setTipos] = useState<Array<{ id: string; nome: string }>>([])
 
-  useEffect(() => { (trpc.agenda as any).listTipos.query().then((t: any[]) => setTipos(t || [])).catch(() => {}) }, [])
+  useEffect(() => { trpc.agenda.listTipos.query().then(t => setTipos((t ?? []).map(x => ({ id: x.id, nome: x.nome })))).catch(() => {}) }, [])
   useEffect(() => { if (!permsLoading && !pode) router.replace('/crm') }, [permsLoading, pode, router])
 
   const carregar = useCallback((selecionarSlug?: string) => {
     setLoading(true)
     Promise.all([
-      (trpc.lead as any).listConfigs.query().catch(() => []),
-      (trpc.lead as any).listSessoes.query().catch(() => []),
-      (trpc.lead as any).reportFunil.query({ dias: 30 }).catch(() => null),
-    ]).then(([lista, s, r]: [Cfg[], any[], any]) => {
-      const arr = (lista || []) as Cfg[]
+      trpc.lead.listConfigs.query().catch(() => []),
+      trpc.lead.listSessoes.query().catch(() => [] as Sessao[]),
+      trpc.lead.reportFunil.query({ dias: 30 }).catch(() => null),
+    ]).then(([lista, s, r]) => {
+      const arr = (lista || []) as unknown as Cfg[]
       setCampanhas(arr)
       setSessoes(s || []); setReport(r)
       setCfg(prev => {
@@ -83,7 +93,7 @@ export default function CrmFunilPage() {
     if (!cfg.nome?.trim()) { alerts.error('Nome obrigatório', 'Dê um nome à campanha.'); return }
     setSaving(true)
     try {
-      await (trpc.lead as any).saveConfig.mutate({
+      await trpc.lead.saveConfig.mutate({
         id: cfg.id, slug: cfg.slug, nome: cfg.nome, ativo: cfg.ativo, trilhaPrompt: cfg.trilhaPrompt, rubrica: cfg.rubrica,
         limiarMedio: cfg.limiarMedio, limiarAlto: cfg.limiarAlto,
         mensagemBoasVindas: cfg.mensagemBoasVindas, avisoLgpd: cfg.avisoLgpd,
@@ -101,7 +111,7 @@ export default function CrmFunilPage() {
     const ok = await alerts.confirm({ title: 'Excluir campanha', text: `Excluir "${cfg.nome || cfg.slug}"? Esta ação não pode ser desfeita.`, confirmText: 'Excluir', icon: 'warning' })
     if (!ok) return
     try {
-      await (trpc.lead as any).deleteConfig.mutate({ id: cfg.id })
+      await trpc.lead.deleteConfig.mutate({ id: cfg.id })
       alerts.success('Excluída', 'Campanha removida.')
       setCfg(null); carregar()
     } catch (e) { alerts.error('Não foi possível excluir', (e as Error).message) }
@@ -114,10 +124,9 @@ export default function CrmFunilPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
+      {/* Header — padrão inline de /orcamentos e /crm (ícone gradiente + h1 + descrição) */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <BackButton href="/crm" />
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
             <Sparkles className="h-6 w-6" />
           </div>
@@ -125,6 +134,10 @@ export default function CrmFunilPage() {
             <h1>Campanhas de captação (IA)</h1>
             <p className="text-sm text-muted-foreground">Cada campanha tem seu próprio link e conduz a IA focada no assunto; os leads caem no CRM marcados pela campanha</p>
           </div>
+        </div>
+        {/* Ações à direita — botão Voltar sempre à direita (último) */}
+        <div className="flex items-center gap-2 shrink-0">
+          <BackButton href="/crm" label="Voltar" />
         </div>
       </div>
 
@@ -154,7 +167,7 @@ export default function CrmFunilPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {report.porCampanha.map((c: any) => (
+                {report.porCampanha.map((c) => (
                   <tr key={c.slug} className="hover:bg-muted/30">
                     <td className="py-2 pr-3">
                       <span className="font-medium">{c.nome}</span>
@@ -179,7 +192,7 @@ export default function CrmFunilPage() {
           <div className="md:w-[260px] shrink-0 md:border-r border-b md:border-b-0 flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b">
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Campanhas</h4>
-              <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={novaCampanha}><Plus className="h-3.5 w-3.5" /> Nova</Button>
+              {podeGerir && <Button variant="success" size="sm" className="h-7 gap-1 text-xs" onClick={novaCampanha}><Plus className="h-3.5 w-3.5" /> Nova</Button>}
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-1 max-h-[520px]">
               {campanhas.length === 0 && <p className="text-xs text-muted-foreground text-center py-6">Nenhuma campanha.</p>}
@@ -211,15 +224,18 @@ export default function CrmFunilPage() {
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold">{cfg.id ? 'Editar campanha' : 'Nova campanha'}</h3>
-                  <div className="flex items-center gap-2">
-                    {cfg.id && <Button variant="ghost" size="sm" className="text-xs text-red-500 hover:text-red-600 gap-1.5" onClick={excluir}><Trash2 className="h-3.5 w-3.5" /> Excluir</Button>}
-                    <Button size="sm" onClick={salvar} disabled={saving} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
-                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
-                    </Button>
-                  </div>
+                  <h3 className="text-sm font-semibold">{!podeGerir ? 'Detalhes da campanha' : cfg.id ? 'Editar campanha' : 'Nova campanha'}</h3>
+                  {podeGerir && (
+                    <div className="flex items-center gap-2">
+                      {cfg.id && <Button variant="soft-destructive" size="sm" className="text-xs gap-1.5" onClick={excluir}><Trash2 className="h-3.5 w-3.5" /> Excluir</Button>}
+                      <Button variant="success" size="sm" onClick={salvar} disabled={saving} className="gap-1.5">
+                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
+                <fieldset disabled={!podeGerir} className="space-y-4 border-0 m-0 p-0 min-w-0 disabled:opacity-100">
                 {/* Identidade */}
                 <div className="grid grid-cols-12 gap-3">
                   <div className="col-span-12 sm:col-span-5 space-y-1.5">
@@ -258,13 +274,13 @@ export default function CrmFunilPage() {
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold">Trilha de atendimento (foco desta campanha)</Label>
                   <p className="text-[11px] text-muted-foreground">O que a IA deve descobrir e como conduzir, voltado ao tema da campanha. Ex.: "Foque em recuperação de créditos e incentivos fiscais; descubra regime tributário, faturamento e se já houve apuração."</p>
-                  <textarea className="w-full min-h-[140px] rounded-md border border-input bg-transparent px-3 py-2 text-sm" value={cfg.trilhaPrompt} onChange={e => upd({ trilhaPrompt: e.target.value })} placeholder="Deixe em branco para usar a trilha padrão." />
+                  <textarea className="w-full min-h-[140px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.trilhaPrompt} onChange={e => upd({ trilhaPrompt: e.target.value })} placeholder="Deixe em branco para usar a trilha padrão." />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold">Rubrica de pontuação (pesos)</Label>
                   <p className="text-[11px] text-muted-foreground">Critérios e pesos (0–100 total) para qualificar o lead desta campanha.</p>
-                  <textarea className="w-full min-h-[100px] rounded-md border border-input bg-transparent px-3 py-2 text-sm" value={cfg.rubrica} onChange={e => upd({ rubrica: e.target.value })} placeholder="Deixe em branco para usar a rubrica padrão." />
+                  <textarea className="w-full min-h-[100px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.rubrica} onChange={e => upd({ rubrica: e.target.value })} placeholder="Deixe em branco para usar a rubrica padrão." />
                 </div>
 
                 <div className="grid grid-cols-12 gap-3">
@@ -278,34 +294,38 @@ export default function CrmFunilPage() {
                   </div>
                   <div className="col-span-12 sm:col-span-6 space-y-1.5">
                     <Label className="text-[13px] font-semibold">WhatsApp do comercial</Label>
-                    <Input className="h-9 text-sm" value={cfg.whatsappComercial ?? ''} onChange={e => upd({ whatsappComercial: e.target.value })} placeholder="55279..." />
+                    <Input className="h-9 text-sm" value={cfg.whatsappComercial ?? ''} onChange={e => upd({ whatsappComercial: masks.telefone(e.target.value) })} placeholder="(27) 99999-9999" />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold">Regras de finalização</Label>
                   <p className="text-[11px] text-muted-foreground">Como a IA encerra conforme a temperatura. Ex.: "Quente → convide para agendar; morno → ofereça WhatsApp; frio → agradeça."</p>
-                  <textarea className="w-full min-h-[100px] rounded-md border border-input bg-transparent px-3 py-2 text-sm" value={cfg.regrasFinalizacao ?? ''} onChange={e => upd({ regrasFinalizacao: e.target.value })} placeholder="Deixe em branco para usar o padrão." />
+                  <textarea className="w-full min-h-[100px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.regrasFinalizacao ?? ''} onChange={e => upd({ regrasFinalizacao: e.target.value })} placeholder="Deixe em branco para usar o padrão." />
                 </div>
 
                 <div className="grid grid-cols-12 gap-3">
                   <div className="col-span-12 sm:col-span-6 space-y-1.5">
                     <Label className="text-[13px] font-semibold">Tipo de evento da reunião</Label>
-                    <select className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={cfg.tipoEventoReuniaoId ?? ''} onChange={e => upd({ tipoEventoReuniaoId: e.target.value || null })}>
-                      <option value="">Padrão (Reunião com Lead)</option>
-                      {tipos.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
-                    </select>
+                    <Select value={cfg.tipoEventoReuniaoId ?? '__default__'} onValueChange={v => upd({ tipoEventoReuniaoId: v === '__default__' ? null : v })}>
+                      <SelectTrigger className="h-9 text-sm bg-card"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__default__">Padrão (Reunião com Lead)</SelectItem>
+                        {tipos.map(t => <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold">Mensagem de boas-vindas</Label>
-                  <textarea className="w-full min-h-[60px] rounded-md border border-input bg-transparent px-3 py-2 text-sm" value={cfg.mensagemBoasVindas ?? ''} onChange={e => upd({ mensagemBoasVindas: e.target.value })} />
+                  <textarea className="w-full min-h-[60px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.mensagemBoasVindas ?? ''} onChange={e => upd({ mensagemBoasVindas: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold">Aviso de privacidade (LGPD)</Label>
-                  <textarea className="w-full min-h-[50px] rounded-md border border-input bg-transparent px-3 py-2 text-sm" value={cfg.avisoLgpd ?? ''} onChange={e => upd({ avisoLgpd: e.target.value })} />
+                  <textarea className="w-full min-h-[50px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.avisoLgpd ?? ''} onChange={e => upd({ avisoLgpd: e.target.value })} />
                 </div>
+                </fieldset>
               </div>
             )}
           </div>

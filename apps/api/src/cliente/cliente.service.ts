@@ -607,6 +607,33 @@ export class ClienteService {
   }
 
   // ============================================================
+  // REGISTRO DE INSCRIÇÕES (estaduais — N por cliente, migrado do legado)
+  // ============================================================
+  async listInscricoes(clienteId: string) {
+    return prisma.clienteInscricao.findMany({
+      where: { clienteId },
+      orderBy: [{ estado: 'asc' }, { createdAt: 'asc' }],
+    })
+  }
+
+  async addInscricao(clienteId: string, estado: string, inscricao: string, descricao?: string | null) {
+    return prisma.clienteInscricao.create({
+      data: { clienteId, estado: estado.toUpperCase(), inscricao: inscricao.trim(), descricao: descricao?.trim() || null },
+    })
+  }
+
+  async updateInscricao(id: string, estado: string, inscricao: string, descricao?: string | null) {
+    return prisma.clienteInscricao.update({
+      where: { id },
+      data: { estado: estado.toUpperCase(), inscricao: inscricao.trim(), descricao: descricao?.trim() || null },
+    })
+  }
+
+  async removeInscricao(id: string) {
+    return prisma.clienteInscricao.delete({ where: { id } })
+  }
+
+  // ============================================================
   // ATIVIDADES E BENEFÍCIOS (#5/#6)
   // ============================================================
   async listAtividades(clienteId: string) {
@@ -856,7 +883,7 @@ export class ClienteService {
   // SERVIÇOS (ÁREAS CONTRATADAS)
   // ============================================================
 
-  async listServicos(clienteId: string) {
+  async listServicos(clienteId: string, empresaId: string | null = null) {
     const [areas, contratos, usuarios] = await Promise.all([
       prisma.area.findMany({ where: { isActive: true, availableForHiring: true }, select: { id: true, name: true, leaderId: true }, orderBy: { name: 'asc' } }),
       prisma.clienteAreaContratada.findMany({
@@ -866,7 +893,8 @@ export class ClienteService {
           substituto: { select: { id: true, name: true } },
         },
       }),
-      prisma.user.findMany({ where: { isActive: true }, select: { id: true, name: true, areaId: true }, orderBy: { name: 'asc' } }),
+      // Isolamento multi-tenant: candidatos a responsável apenas da empresa do tenant.
+      prisma.user.findMany({ where: { isActive: true, empresaId: empresaId ?? null }, select: { id: true, name: true, areaId: true }, orderBy: { name: 'asc' } }),
     ])
 
     const cMap = new Map(contratos.map(c => [c.areaId, c]))
@@ -942,6 +970,19 @@ export class ClienteService {
       saved++
     }
     return { saved }
+  }
+
+  /**
+   * Atualiza só responsável/substituto de UMA área contratada — usado pelo
+   * popover de "Responsáveis por área" (aba Obrigações). Não toca em
+   * dataEncerramento/observacoes/complexidade (ao contrário do saveServicos).
+   */
+  async setAreaResponsavel(clienteId: string, areaId: string, responsavelId: string | null, substitutoId: string | null) {
+    return prisma.clienteAreaContratada.upsert({
+      where: { clienteId_areaId: { clienteId, areaId } },
+      create: { clienteId, areaId, contratado: true, responsavelId, substitutoId },
+      update: { responsavelId, substitutoId },
+    })
   }
 
   async getParametros(clienteAreaContratadaId: string) {
@@ -1034,12 +1075,26 @@ export class ClienteService {
 
   private readonly CPT = 'cliente_particularidades'
 
-  async listParticularidades(clienteId: string) {
+  // Só o responsável pelo serviço na área, o gestor (líder) da área e o master
+  // podem alterar as particularidades daquela área.
+  private podeEditarParticularidade(opts: {
+    responsavelId: string | null
+    leaderId: string | null
+    userId: string
+    master: boolean
+  }) {
+    if (opts.master) return true
+    if (opts.responsavelId && opts.responsavelId === opts.userId) return true
+    if (opts.leaderId && opts.leaderId === opts.userId) return true
+    return false
+  }
+
+  async listParticularidades(clienteId: string, userId: string, master: boolean) {
     // Todas as areas contratadas com suas particularidades
     const allAreas = await prisma.clienteAreaContratada.findMany({
       where: { clienteId, contratado: true },
       include: {
-        area: { select: { name: true } },
+        area: { select: { name: true, leaderId: true } },
       },
       orderBy: { area: { name: 'asc' } },
     })
@@ -1063,11 +1118,27 @@ export class ClienteService {
         texto: existing?.texto ?? '',
         updatedByNome: existing?.user_nome ?? null,
         updatedAt: existing?.updated_at ?? null,
+        canEdit: this.podeEditarParticularidade({
+          responsavelId: a.responsavelId,
+          leaderId: a.area.leaderId,
+          userId,
+          master,
+        }),
       }
     })
   }
 
-  async saveParticularidade(clienteAreaContratadaId: string, texto: string, userId: string) {
+  async saveParticularidade(clienteAreaContratadaId: string, texto: string, userId: string, master: boolean) {
+    // Permissão: só responsável da área no cliente, gestor da área ou master.
+    const cac = await prisma.clienteAreaContratada.findUnique({
+      where: { id: clienteAreaContratadaId },
+      select: { responsavelId: true, area: { select: { leaderId: true } } },
+    })
+    if (!cac) throw new Error('Área contratada não encontrada')
+    if (!this.podeEditarParticularidade({ responsavelId: cac.responsavelId, leaderId: cac.area.leaderId, userId, master })) {
+      throw new Error('Acesso negado: apenas o responsável pelo serviço na área, o gestor da área ou o master podem editar as particularidades.')
+    }
+
     // Buscar texto anterior para historico
     type PrevRow = { texto: string }
     const [prev] = await prisma.$queryRawUnsafe<PrevRow[]>(

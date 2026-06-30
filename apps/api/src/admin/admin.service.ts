@@ -52,8 +52,8 @@ const PRESERVE_IF_EMPTY = new Set(['SCI_DSN', 'SCI_USER', 'DB_HOST', 'DB_USER', 
 
 const CONFIG_FIELDS: ConfigField[] = [
   // SERPRO
-  { key: 'CNPJ_CONTRATANTE', label: 'CNPJ do Contratante', group: 'SERPRO', type: 'text', placeholder: '00000000000000', help: 'CNPJ 14 digitos do contratante SERPRO' },
-  { key: 'PUBLIC_BASE_URL', label: 'URL Publica', group: 'SERPRO', type: 'text', placeholder: 'http://192.168.0.108:5176/' },
+  { key: 'CNPJ_CONTRATANTE', label: 'CNPJ do Contratante', group: 'SERPRO', type: 'text', placeholder: '00000000000000', help: 'CNPJ 14 dígitos do contratante SERPRO' },
+  { key: 'PUBLIC_BASE_URL', label: 'URL Pública', group: 'SERPRO', type: 'text', placeholder: 'http://192.168.0.108:5176/' },
   { key: 'CONSUMER_KEY', label: 'Consumer Key', group: 'SERPRO', type: 'password', secret: true },
   { key: 'CONSUMER_SECRET', label: 'Consumer Secret', group: 'SERPRO', type: 'password', secret: true },
   { key: 'CERTIFICADO_SENHA', label: 'Senha do Certificado PJ (PFX)', group: 'SERPRO', type: 'password', secret: true },
@@ -85,8 +85,8 @@ const CONFIG_FIELDS: ConfigField[] = [
   { key: 'SCI_TIMEOUT_MS', label: 'Timeout (ms)', group: 'Banco de Dados', type: 'number', default: '30000', subgroup: 'firebird', colSpan: 2 },
 
   // Auth
-  { key: 'BETTER_AUTH_SECRET', label: 'JWT Secret', group: 'Autenticacao', type: 'password', secret: true, help: 'Minimo 32 caracteres' },
-  { key: 'BETTER_AUTH_URL', label: 'Auth URL', group: 'Autenticacao', type: 'text', placeholder: 'http://localhost:4000' },
+  { key: 'BETTER_AUTH_SECRET', label: 'JWT Secret', group: 'Autenticação', type: 'password', secret: true, help: 'Mínimo 32 caracteres' },
+  { key: 'BETTER_AUTH_URL', label: 'Auth URL', group: 'Autenticação', type: 'text', placeholder: 'http://localhost:4000' },
 
   // SMTP
   { key: 'SMTP_HOST', label: 'Host SMTP', group: 'E-mail (SMTP)', type: 'text', placeholder: 'smtp.gmail.com', help: 'Servidor de envio de e-mails' },
@@ -114,7 +114,7 @@ const CONFIG_FIELDS: ConfigField[] = [
   // WhatsApp — Twilio (legado, opcional)
   { key: 'TWILIO_ACCOUNT_SID', label: 'Account SID (Twilio)', group: 'WhatsApp', type: 'text' },
   { key: 'TWILIO_AUTH_TOKEN', label: 'Auth Token (Twilio)', group: 'WhatsApp', type: 'password', secret: true },
-  { key: 'TWILIO_WHATSAPP_FROM', label: 'Numero WhatsApp (Twilio)', group: 'WhatsApp', type: 'text', placeholder: '+5527999078863' },
+  { key: 'TWILIO_WHATSAPP_FROM', label: 'Número WhatsApp (Twilio)', group: 'WhatsApp', type: 'text', placeholder: '+5527999078863' },
 
   // Captcha Providers
   { key: 'CAPTCHA_2CAPTCHA_API_KEY', label: 'API Key (2Captcha)', group: 'Captcha', type: 'password', secret: true, help: 'Chave da API do 2captcha.com — usado para resolver hCaptcha, reCAPTCHA e captchas de imagem' },
@@ -360,7 +360,9 @@ export class AdminService {
       if (log.documento && !entry.docs.has(log.documento)) { entry.docs.add(log.documento); entry.unique++ }
     }
 
-    const priceMap = new Map(pricing.map(p => [p.source, p]))
+    // Preço por (source, operation) com fallback p/ (source, null) — usado só p/
+    // logs antigos sem custo congelado.
+    const priceByKey = new Map(pricing.map(p => [`${p.source}::${p.operation ?? ''}`, p]))
     const daily = Array.from(dailyMap.values())
       .sort((a, b) => b.date.localeCompare(a.date))
       .map(d => ({ date: d.date, unique: d.unique, total: d.total }))
@@ -368,19 +370,23 @@ export class AdminService {
     const totalRequests = logs.length
     const uniqueDocs = new Set(logs.filter(l => l.documento).map(l => l.documento)).size
     const totalCost = logs.reduce((sum, l) => {
-      const p = priceMap.get(l.source)
+      // Custo CONGELADO na hora da chamada é a fonte da verdade.
+      if (l.custo != null) return sum + l.custo
+      const p = priceByKey.get(`${l.source}::${l.operation ?? ''}`) ?? priceByKey.get(`${l.source}::`)
       return sum + (p ? p.unitPrice * p.multiplier : 0)
     }, 0)
 
     return { totalRequests, uniqueDocuments: uniqueDocs, totalCost: Math.round(totalCost * 100) / 100, sources: sources.map(s => s.source), pricing, daily }
   }
 
-  async savePricing(source: string, unitPrice: number, multiplier: number, currency: string) {
-    return prisma.apiPricing.upsert({
-      where: { source },
-      create: { source, unitPrice, multiplier, currency },
-      update: { unitPrice, multiplier, currency },
-    })
+  async savePricing(source: string, operation: string | null, unitPrice: number, multiplier: number, currency: string) {
+    // Upsert manual: o compound unique (source, operation) tem `operation` nullable,
+    // e o Prisma não aceita where-unique com coluna nula. findFirst + update/create.
+    const existing = await prisma.apiPricing.findFirst({ where: { source, operation } })
+    if (existing) {
+      return prisma.apiPricing.update({ where: { id: existing.id }, data: { unitPrice, multiplier, currency } })
+    }
+    return prisma.apiPricing.create({ data: { source, operation, unitPrice, multiplier, currency } })
   }
 
   // ============================================================

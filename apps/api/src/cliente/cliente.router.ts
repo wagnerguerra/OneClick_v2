@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
-import { router, readProcedure, writeProcedure, deleteProcedure, protectedProcedure, writeSubProcedure, deleteSubProcedure } from '../trpc/trpc.service'
+import { router, readProcedure, writeProcedure, protectedProcedure, writeSubProcedure, deleteSubProcedure } from '../trpc/trpc.service'
 import { createClienteSchema, updateClienteSchema, listClienteSchema } from '@saas/types'
 import { ClienteService } from './cliente.service'
 import { LegacyImportService } from './legacy-import.service'
@@ -54,32 +54,32 @@ export function createClienteRouter(
       .query(({ input, ctx }) => clienteService.getById(input.id, ctx.isMaster, ctx.empresaId)),
 
     // Criar
-    create: writeProcedure(MODULE)
+    create: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(createClienteSchema)
       .mutation(({ input, ctx }) => clienteService.create(input, ctx.userId, ctx.empresaId)),
 
     // Atualizar
-    update: writeProcedure(MODULE)
+    update: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ id: z.string(), data: updateClienteSchema }))
       .mutation(({ input, ctx }) => clienteService.update(input.id, input.data, ctx.userId, ctx.isMaster, ctx.empresaId)),
 
     // Soft delete (mover para lixeira)
-    delete: deleteProcedure(MODULE)
+    delete: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => clienteService.delete(input.id, ctx.userId, ctx.isMaster, ctx.empresaId)),
 
     // Restaurar da lixeira
-    restore: writeProcedure(MODULE)
+    restore: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => clienteService.restore(input.id, ctx.userId, ctx.isMaster, ctx.empresaId)),
 
     // Excluir permanentemente
-    deletePermanent: deleteProcedure(MODULE)
+    deletePermanent: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => clienteService.deletePermanent(input.id, ctx.isMaster, ctx.empresaId)),
 
     // Esvaziar lixeira
-    emptyTrash: deleteProcedure(MODULE)
+    emptyTrash: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .mutation(({ ctx }) => clienteService.emptyTrash(ctx.isMaster, ctx.empresaId)),
 
     // Log de auditoria
@@ -108,7 +108,7 @@ export function createClienteRouter(
         )
       }),
 
-    createOpcao: writeProcedure(MODULE)
+    createOpcao: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ tipo: z.string(), valor: z.string().min(1) }))
       .mutation(async ({ input }) => {
         const max = await prisma.$queryRawUnsafe<Array<{ m: number }>>(`SELECT COALESCE(MAX(ordem), 0)::int as m FROM opcoes_cadastro WHERE tipo = $1`, input.tipo)
@@ -119,7 +119,7 @@ export function createClienteRouter(
         return { ok: true }
       }),
 
-    updateOpcao: writeProcedure(MODULE)
+    updateOpcao: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ id: z.string(), valor: z.string().optional(), ordem: z.number().optional() }))
       .mutation(async ({ input }) => {
         if (input.valor !== undefined) await prisma.$executeRawUnsafe(`UPDATE opcoes_cadastro SET valor = $1 WHERE id = $2`, input.valor, input.id)
@@ -127,7 +127,7 @@ export function createClienteRouter(
         return { ok: true }
       }),
 
-    deleteOpcao: deleteProcedure(MODULE)
+    deleteOpcao: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ id: z.string() }))
       .mutation(async ({ input }) => {
         await prisma.$executeRawUnsafe(`DELETE FROM opcoes_cadastro WHERE id = $1`, input.id)
@@ -139,7 +139,7 @@ export function createClienteRouter(
       .query(({ ctx }) => clienteService.getFilterOptions(ctx.isMaster, ctx.empresaId)),
 
     // Importação em lote
-    importBulk: writeProcedure(MODULE)
+    importBulk: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ items: z.array(createClienteSchema) }))
       .mutation(({ input, ctx }) => clienteService.bulkCreate(input.items, ctx.userId, ctx.empresaId)),
 
@@ -177,6 +177,23 @@ export function createClienteRouter(
     removeArquivo: deleteSubProcedure(MODULE, 'manage_files', 'Incluir, editar e excluir arquivos do cliente')
       .input(z.object({ arquivoId: z.string() }))
       .mutation(({ input }) => clienteService.removeArquivo(input.arquivoId)),
+
+    // === REGISTRO DE INSCRIÇÕES (estaduais — N por cliente, migrado do legado) ===
+    listInscricoes: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => clienteService.listInscricoes(input.clienteId)),
+
+    addInscricao: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
+      .input(z.object({ clienteId: z.string(), estado: z.string().trim().min(2).max(2), inscricao: z.string().trim().min(1), descricao: z.string().trim().optional() }))
+      .mutation(({ input }) => clienteService.addInscricao(input.clienteId, input.estado, input.inscricao, input.descricao)),
+
+    updateInscricao: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
+      .input(z.object({ id: z.string(), estado: z.string().trim().min(2).max(2), inscricao: z.string().trim().min(1), descricao: z.string().trim().optional() }))
+      .mutation(({ input }) => clienteService.updateInscricao(input.id, input.estado, input.inscricao, input.descricao)),
+
+    removeInscricao: deleteSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => clienteService.removeInscricao(input.id)),
 
     // === ATIVIDADES E BENEFÍCIOS (#5/#6) ===
     // Leitura livre (qualquer um com read no módulo). Mutações gateadas pela
@@ -219,7 +236,7 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.listContatos(input.clienteId)),
 
-    addContato: writeProcedure(MODULE)
+    addContato: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({
         clienteId: z.string(),
         nome: z.string().min(1),
@@ -232,7 +249,7 @@ export function createClienteRouter(
       }))
       .mutation(({ input }) => clienteService.addContato(input.clienteId, input)),
 
-    updateContato: writeProcedure(MODULE)
+    updateContato: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({
         contatoId: z.string(),
         nome: z.string().optional(),
@@ -245,11 +262,11 @@ export function createClienteRouter(
       }))
       .mutation(({ input }) => clienteService.updateContato(input.contatoId, input)),
 
-    removeContato: deleteProcedure(MODULE)
+    removeContato: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ contatoId: z.string() }))
       .mutation(({ input }) => clienteService.removeContato(input.contatoId)),
 
-    setPrincipalContato: writeProcedure(MODULE)
+    setPrincipalContato: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ contatoId: z.string() }))
       .mutation(({ input }) => clienteService.setPrincipalContato(input.contatoId)),
 
@@ -258,7 +275,7 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input, ctx }) => clienteService.getContratoParams(input.clienteId, ctx.empresaId)),
 
-    saveContratoParams: writeProcedure(MODULE)
+    saveContratoParams: writeSubProcedure(MODULE, 'manage_contracts', 'Gerenciar contratos dos clientes')
       .input(z.object({
         clienteId: z.string(),
         honorario: z.number().default(0),
@@ -282,24 +299,24 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.listHistoricos(input.clienteId)),
 
-    createHistorico: writeProcedure(MODULE)
+    createHistorico: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ clienteId: z.string(), mensagem: z.string().min(1), tipo: z.enum(['equipe', 'cliente']).default('equipe') }))
       .mutation(({ input, ctx }) => clienteService.createHistorico(input.clienteId, ctx.userId, input.mensagem, input.tipo)),
 
-    updateHistorico: writeProcedure(MODULE)
+    updateHistorico: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ id: z.string(), mensagem: z.string().min(1) }))
       .mutation(({ input }) => clienteService.updateHistorico(input.id, input.mensagem)),
 
-    deleteHistorico: deleteProcedure(MODULE)
+    deleteHistorico: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => clienteService.deleteHistorico(input.id)),
 
     // === SERVIÇOS (ÁREAS CONTRATADAS) ===
     servicosListar: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
-      .query(({ input }) => clienteService.listServicos(input.clienteId)),
+      .query(({ input, ctx }) => clienteService.listServicos(input.clienteId, ctx.empresaId ?? null)),
 
-    servicosSalvar: writeProcedure(MODULE)
+    servicosSalvar: writeSubProcedure(MODULE, 'manage_services', 'Gerenciar serviços contratados')
       .input(z.object({
         clienteId: z.string(),
         items: z.array(z.object({
@@ -313,11 +330,22 @@ export function createClienteRouter(
       }))
       .mutation(({ input, ctx }) => clienteService.saveServicos(input.clienteId, input.items, ctx.userId, ctx.isMaster)),
 
+    // Atualiza só o responsável/substituto de UMA área (popover do card de
+    // Responsáveis por área, na aba Obrigações). Preserva os demais campos.
+    setAreaResponsavel: writeSubProcedure(MODULE, 'manage_responsible', 'Gerenciar responsáveis pelos serviços')
+      .input(z.object({
+        clienteId: z.string(),
+        areaId: z.string(),
+        responsavelId: z.string().nullable(),
+        substitutoId: z.string().nullable(),
+      }))
+      .mutation(({ input }) => clienteService.setAreaResponsavel(input.clienteId, input.areaId, input.responsavelId, input.substitutoId)),
+
     servicosGetParametros: readProcedure(MODULE)
       .input(z.object({ clienteAreaContratadaId: z.string() }))
       .query(({ input }) => clienteService.getParametros(input.clienteAreaContratadaId)),
 
-    servicosSaveParametros: writeProcedure(MODULE)
+    servicosSaveParametros: writeSubProcedure(MODULE, 'manage_services', 'Gerenciar serviços contratados')
       .input(z.object({
         clienteAreaContratadaId: z.string(),
         params: z.array(z.object({
@@ -333,28 +361,28 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input, ctx }) => clienteService.getClientesParaCopiarEstrutura(input.clienteId, ctx.empresaId)),
 
-    servicosCopiarEstrutura: writeProcedure(MODULE)
+    servicosCopiarEstrutura: writeSubProcedure(MODULE, 'manage_services', 'Gerenciar serviços contratados')
       .input(z.object({ fromClienteId: z.string(), toClienteAreaContratadaId: z.string() }))
       .mutation(({ input }) => clienteService.copiarEstrutura(input.fromClienteId, input.toClienteAreaContratadaId)),
 
     // === PARTICULARIDADES ===
     particularidadesListar: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
-      .query(({ input }) => clienteService.listParticularidades(input.clienteId)),
+      .query(({ input, ctx }) => clienteService.listParticularidades(input.clienteId, ctx.userId, !!(ctx.isMaster || ctx.isEmpresaMaster))),
 
     particularidadesSalvar: writeProcedure(MODULE)
       .input(z.object({
         clienteAreaContratadaId: z.string(),
         texto: z.string(),
       }))
-      .mutation(({ input, ctx }) => clienteService.saveParticularidade(input.clienteAreaContratadaId, input.texto, ctx.userId)),
+      .mutation(({ input, ctx }) => clienteService.saveParticularidade(input.clienteAreaContratadaId, input.texto, ctx.userId, !!(ctx.isMaster || ctx.isEmpresaMaster))),
 
     // === ACESSOS (Legalização) ===
     listAcessos: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.listAcessos(input.clienteId)),
 
-    addAcesso: writeProcedure(MODULE)
+    addAcesso: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({
         clienteId: z.string(),
         portal: z.string().min(1),
@@ -364,7 +392,7 @@ export function createClienteRouter(
       }))
       .mutation(({ input }) => clienteService.addAcesso(input.clienteId, input)),
 
-    updateAcesso: writeProcedure(MODULE)
+    updateAcesso: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({
         id: z.string(),
         portal: z.string().optional(),
@@ -374,7 +402,7 @@ export function createClienteRouter(
       }))
       .mutation(({ input }) => clienteService.updateAcesso(input.id, input)),
 
-    removeAcesso: deleteProcedure(MODULE)
+    removeAcesso: deleteSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => clienteService.removeAcesso(input.id)),
 
@@ -383,7 +411,7 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.listVencimentos(input.clienteId)),
 
-    addVencimento: writeProcedure(MODULE)
+    addVencimento: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({
         clienteId: z.string(),
         descricao: z.string().min(1),
@@ -393,11 +421,11 @@ export function createClienteRouter(
       }))
       .mutation(({ input }) => clienteService.addVencimento(input.clienteId, input)),
 
-    toggleVencimento: writeProcedure(MODULE)
+    toggleVencimento: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => clienteService.toggleVencimento(input.id)),
 
-    removeVencimento: deleteProcedure(MODULE)
+    removeVencimento: deleteSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => clienteService.removeVencimento(input.id)),
 
@@ -406,7 +434,7 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.listAndamentos(input.clienteId)),
 
-    addAndamento: writeProcedure(MODULE)
+    addAndamento: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({
         clienteId: z.string(),
         descricao: z.string().min(1),
@@ -418,11 +446,11 @@ export function createClienteRouter(
       }))
       .mutation(({ input, ctx }) => clienteService.addAndamento(input.clienteId, input, ctx.userId)),
 
-    updateAndamentoStatus: writeProcedure(MODULE)
+    updateAndamentoStatus: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string(), status: z.string() }))
       .mutation(({ input }) => clienteService.updateAndamentoStatus(input.id, input.status)),
 
-    removeAndamento: deleteProcedure(MODULE)
+    removeAndamento: deleteSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => clienteService.removeAndamento(input.id)),
 
@@ -431,7 +459,7 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.listCnaes(input.clienteId)),
 
-    addCnae: writeProcedure(MODULE)
+    addCnae: writeSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
       .input(z.object({
         clienteId: z.string(),
         codigo: z.string().min(1),
@@ -440,7 +468,7 @@ export function createClienteRouter(
       }))
       .mutation(({ input }) => clienteService.addCnae(input.clienteId, input)),
 
-    removeCnae: deleteProcedure(MODULE)
+    removeCnae: deleteSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => clienteService.removeCnae(input.id)),
 
@@ -449,7 +477,7 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.listObrigacoes(input.clienteId)),
 
-    addObrigacao: writeProcedure(MODULE)
+    addObrigacao: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({
         clienteId: z.string(), nome: z.string().min(1),
         tipo: z.string().default('fixa'), periodicidade: z.string().default('mensal'),
@@ -458,15 +486,15 @@ export function createClienteRouter(
       }))
       .mutation(({ input }) => clienteService.addObrigacao(input.clienteId, input)),
 
-    updateObrigacaoStatus: writeProcedure(MODULE)
+    updateObrigacaoStatus: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string(), status: z.string() }))
       .mutation(({ input }) => clienteService.updateObrigacaoStatus(input.id, input.status)),
 
-    toggleObrigacaoAtivo: writeProcedure(MODULE)
+    toggleObrigacaoAtivo: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => clienteService.toggleObrigacaoAtivo(input.id)),
 
-    removeObrigacao: deleteProcedure(MODULE)
+    removeObrigacao: deleteSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => clienteService.removeObrigacao(input.id)),
 
@@ -475,7 +503,7 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.listProtocolos(input.clienteId)),
 
-    addProtocolo: writeProcedure(MODULE)
+    addProtocolo: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({
         clienteId: z.string(), orgao: z.string().min(1),
         tipo: z.string().default('consulta'), protocolo: z.string().min(1),
@@ -483,11 +511,11 @@ export function createClienteRouter(
       }))
       .mutation(({ input, ctx }) => clienteService.addProtocolo(input.clienteId, input, ctx.userId)),
 
-    updateProtocoloStatus: writeProcedure(MODULE)
+    updateProtocoloStatus: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string(), status: z.string(), resultado: z.string().optional() }))
       .mutation(({ input }) => clienteService.updateProtocoloStatus(input.id, input.status, input.resultado)),
 
-    removeProtocolo: deleteProcedure(MODULE)
+    removeProtocolo: deleteSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => clienteService.removeProtocolo(input.id)),
 
@@ -496,7 +524,7 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.listOcorrencias(input.clienteId)),
 
-    addOcorrencia: writeProcedure(MODULE)
+    addOcorrencia: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({
         clienteId: z.string(), titulo: z.string().min(1),
         tipo: z.string().default('reclamacao'), descricao: z.string().optional(),
@@ -505,11 +533,11 @@ export function createClienteRouter(
       }))
       .mutation(({ input, ctx }) => clienteService.addOcorrencia(input.clienteId, input, ctx.userId)),
 
-    resolveOcorrencia: writeProcedure(MODULE)
+    resolveOcorrencia: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ id: z.string(), resolucao: z.string().min(1) }))
       .mutation(({ input }) => clienteService.resolveOcorrencia(input.id, input.resolucao)),
 
-    removeOcorrencia: deleteProcedure(MODULE)
+    removeOcorrencia: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => clienteService.removeOcorrencia(input.id)),
 
@@ -518,7 +546,7 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.biListCategorias(input.clienteId)),
 
-    biSaveCategorias: writeProcedure(MODULE)
+    biSaveCategorias: writeSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
       .input(z.object({
         clienteId: z.string(),
         categorias: z.array(z.object({
@@ -532,7 +560,7 @@ export function createClienteRouter(
       }))
       .mutation(({ input }) => clienteService.biSaveCategorias(input.clienteId, input.categorias)),
 
-    biDeleteCategoria: deleteProcedure(MODULE)
+    biDeleteCategoria: deleteSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
       .input(z.object({ clienteId: z.string(), conta: z.string() }))
       .mutation(({ input }) => clienteService.biDeleteCategoria(input.clienteId, input.conta)),
 
@@ -547,7 +575,7 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.biGetPeriodosDisponiveis(input.clienteId)),
 
-    biImportLinhas: writeProcedure(MODULE)
+    biImportLinhas: writeSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
       .input(z.object({
         clienteId: z.string(), periodo: z.string(),
         linhas: z.array(z.object({
@@ -558,7 +586,7 @@ export function createClienteRouter(
       }))
       .mutation(({ input }) => clienteService.biImportLinhas(input.clienteId, input.periodo, input.linhas)),
 
-    biDeletePeriodo: deleteProcedure(MODULE)
+    biDeletePeriodo: deleteSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
       .input(z.object({ clienteId: z.string(), periodo: z.string() }))
       .mutation(({ input }) => clienteService.biDeletePeriodo(input.clienteId, input.periodo)),
 
@@ -566,7 +594,7 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.biGetOrCreateLink(input.clienteId)),
 
-    biDeleteLink: deleteProcedure(MODULE)
+    biDeleteLink: deleteSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
       .input(z.object({ clienteId: z.string() }))
       .mutation(({ input }) => clienteService.biDeleteLink(input.clienteId)),
 
@@ -629,7 +657,7 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string(), datai: z.string(), dataf: z.string() }))
       .query(({ input, ctx }) => clienteService.getMetricasSnapshot(input.clienteId, ctx.empresaId, input.datai, input.dataf)),
 
-    atualizarIdSistemaSci: writeProcedure(MODULE)
+    atualizarIdSistemaSci: writeSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
       .input(z.object({ clienteId: z.string(), force: z.boolean().default(false) }))
       .mutation(async ({ input, ctx }) => {
         const cliente = await clienteService.getById(input.clienteId, ctx.isMaster, ctx.empresaId)
@@ -671,10 +699,10 @@ export function createClienteRouter(
       }),
 
     // === IMPORTAÇÃO DO LEGADO ===
-    legacyPreview: writeProcedure(MODULE)
+    legacyPreview: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .query(() => legacyImportService.previewLegacy()),
 
-    legacyImport: writeProcedure(MODULE)
+    legacyImport: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .mutation(({ ctx }) => legacyImportService.importFromLegacy(ctx.empresaId, ctx.userId)),
 
     // === INTEGRAÇÕES ===
@@ -693,7 +721,7 @@ export function createClienteRouter(
         .query(({ input }) => integrationService.getJobLogs(input.jobId, input.offset)),
 
       // 1. Cadastrar das Consultas
-      cadastrarDasConsultas: writeProcedure(MODULE)
+      cadastrarDasConsultas: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
         .mutation(({ ctx }) => integrationService.cadastrarDasConsultas(ctx.empresaId)),
 
       // 2. Cadastrar pelo CNPJ
@@ -701,12 +729,12 @@ export function createClienteRouter(
         .input(z.object({ cnpj: z.string().min(14) }))
         .query(({ input }) => integrationService.buscarDadosCnpj(input.cnpj)),
 
-      cadastrarPeloCnpj: writeProcedure(MODULE)
+      cadastrarPeloCnpj: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
         .input(z.object({ cnpj: z.string().min(14) }))
         .mutation(({ input, ctx }) => integrationService.cadastrarPeloCnpj(input.cnpj, ctx.empresaId)),
 
       // 3. Importar clientes (texto/CSV)
-      importarJob: writeProcedure(MODULE)
+      importarJob: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
         .input(z.object({
           clientes: z.array(z.object({
             documento: z.string(),
@@ -724,7 +752,7 @@ export function createClienteRouter(
         )),
 
       // 4. SCI fiscal lote
-      fiscalSciLote: writeProcedure(MODULE)
+      fiscalSciLote: writeSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
         .input(z.object({
           limit: z.number().min(1).max(500).default(50),
           force: z.boolean().default(false),
@@ -733,7 +761,7 @@ export function createClienteRouter(
         .mutation(({ input, ctx }) => integrationService.atualizarFiscalSciLote(input, ctx.empresaId)),
 
       // 5. OneClick lote (importar do legado com opções)
-      oneclickJob: writeProcedure(MODULE)
+      oneclickJob: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
         .input(z.object({
           limit: z.number().min(1).max(10000).default(50),
           allClients: z.boolean().default(false),
@@ -760,7 +788,7 @@ export function createClienteRouter(
         .mutation(({ input, ctx }) => integrationService.iniciarImportacaoOneClickJob(input, ctx.empresaId)),
 
       // 6. ID Sistema SCI (lote)
-      idSistemaSciLote: writeProcedure(MODULE)
+      idSistemaSciLote: writeSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
         .input(z.object({
           limit: z.number().min(1).max(500).default(50),
           force: z.boolean().default(false),
@@ -772,7 +800,7 @@ export function createClienteRouter(
         .input(z.object({ filtros: filtrosSchema }))
         .query(({ input, ctx }) => integrationService.receitawsPreview(input.filtros, ctx.empresaId)),
 
-      receitawsJob: writeProcedure(MODULE)
+      receitawsJob: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
         .input(z.object({ filtros: filtrosSchema }))
         .mutation(({ input, ctx }) => integrationService.receitawsIniciarJob(input.filtros, ctx.empresaId)),
 
@@ -781,7 +809,7 @@ export function createClienteRouter(
         .input(z.object({ filtros: filtrosSchema }))
         .query(({ input, ctx }) => integrationService.serproCnpjPreview(input.filtros, ctx.empresaId)),
 
-      serproCnpjJob: writeProcedure(MODULE)
+      serproCnpjJob: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
         .input(z.object({
           filtros: filtrosSchema,
           atualizarSocios: z.boolean().default(true),
@@ -806,7 +834,7 @@ export function createClienteRouter(
         )
       }),
 
-    dteAddMensagem: writeProcedure(MODULE)
+    dteAddMensagem: writeSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
       .input(z.object({ clienteId: z.string(), tipo: z.string().optional(), titulo: z.string(), dataMensagem: z.string().optional(), observacao: z.string().optional() }))
       .mutation(async ({ input }) => {
         await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS cliente_dte_mensagens (
@@ -821,7 +849,7 @@ export function createClienteRouter(
         return { ok: true }
       }),
 
-    dteDeleteMensagem: deleteProcedure(MODULE)
+    dteDeleteMensagem: deleteSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
       .input(z.object({ id: z.string() }))
       .mutation(async ({ input }) => {
         await prisma.$executeRawUnsafe(`DELETE FROM cliente_dte_mensagens WHERE id = $1`, input.id)
@@ -839,7 +867,7 @@ export function createClienteRouter(
       }),
 
     // ── Import CNAEs via Receita Federal ───────────────
-    importCnaes: writeProcedure(MODULE)
+    importCnaes: writeSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
       .input(z.object({ clienteId: z.string(), documento: z.string() }))
       .mutation(async ({ input }) => {
         const doc = input.documento.replace(/\D/g, '')
@@ -900,7 +928,7 @@ export function createClienteRouter(
       }),
 
     // ── Import Sócios do OneClick Legado ────────────────
-    importSociosOneclick: writeProcedure(MODULE)
+    importSociosOneclick: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ clienteId: z.string(), documento: z.string(), force: z.boolean().default(false) }))
       .mutation(async ({ input }) => {
         const doc = input.documento.replace(/\D/g, '')
@@ -967,7 +995,7 @@ export function createClienteRouter(
       }),
 
     // ── Import OneClick Legado ─────────────────────────
-    importOneclick: writeProcedure(MODULE)
+    importOneclick: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ clienteId: z.string(), documento: z.string() }))
       .mutation(async ({ input }) => {
         if (!importOneclickService) throw new Error('Serviço de importação OneClick não disponível')
@@ -1042,14 +1070,14 @@ export function createClienteRouter(
       }),
 
     // ── Enriquecimento de CNAE (BrasilAPI → SERPRO fallback) ─────────
-    enriquecerCnae: writeProcedure(MODULE)
+    enriquecerCnae: writeSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
       .input(z.object({ clienteId: z.string() }))
       .mutation(({ input }) => {
         if (!enriquecimentoService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço de enriquecimento indisponível.' })
         return enriquecimentoService.enriquecerCnae(input.clienteId)
       }),
 
-    enriquecerCnaeBulk: writeProcedure(MODULE)
+    enriquecerCnaeBulk: writeSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
       .input(z.object({
         apenasSemCnae: z.boolean().default(true),
         limite: z.coerce.number().int().min(1).max(2000).optional(),
@@ -1060,7 +1088,7 @@ export function createClienteRouter(
       }),
 
     // ── Sincronização de responsáveis (via Acessórias) ────────────
-    sincronizarResponsaveis: writeProcedure(MODULE)
+    sincronizarResponsaveis: writeSubProcedure(MODULE, 'manage_responsible', 'Gerenciar responsáveis pelos serviços')
       .input(z.object({ mesesHistorico: z.coerce.number().int().min(1).max(60).optional() }).optional())
       .mutation(({ input, ctx }) => {
         if (!sincronizarResponsaveisService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })

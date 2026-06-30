@@ -2008,9 +2008,14 @@ export class HelpdeskService {
     // DIRETOR/COORDENADOR/empresaMaster continuam VENDO todos os tickets
     // (canAtuarAgente), mas não devem aparecer como opção de responsável
     // — eles não tratam tickets, só supervisionam.
-    const where: Record<string, unknown> = { isActive: true }
-    if (ticket.empresaId) {
-      where.OR = [{ empresaId: ticket.empresaId }, { empresaId: null }]
+    // Isolamento multi-tenant: candidatos a responsável apenas da empresa do
+    // ticket (+ contas globais sem empresa, ex.: agentes de suporte da plataforma).
+    // Sem empresa no ticket → default-deny: nunca lista usuários de outro tenant.
+    const where: Record<string, unknown> = {
+      isActive: true,
+      OR: ticket.empresaId
+        ? [{ empresaId: ticket.empresaId }, { empresaId: null }]
+        : [{ empresaId: null }],
     }
     const users = await prisma.user.findMany({
       where,

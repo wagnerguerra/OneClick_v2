@@ -1222,6 +1222,84 @@
       border-radius: 4px;
       padding: 3px 6px;
     }
+    .deploy-pr-panel {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-card);
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+    .deploy-pr-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .deploy-pr-titlebar {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .deploy-pr-list {
+      display: grid;
+      gap: 8px;
+      max-height: clamp(220px, 32vh, 390px);
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .deploy-pr-card {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: start;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: var(--bg-surface);
+    }
+    .deploy-pr-card.is-selected {
+      border-color: rgba(14,165,233,0.55);
+      background: rgba(14,165,233,0.10);
+    }
+    .deploy-pr-card input { accent-color: var(--sky); margin-top: 2px; }
+    .deploy-pr-main { min-width: 0; }
+    .deploy-pr-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .deploy-pr-meta {
+      margin-top: 3px;
+      font-size: 11px;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .deploy-pr-commits {
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+      display: grid;
+      gap: 2px;
+    }
+    .deploy-pr-badge {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--sky);
+      border: 1px solid rgba(14,165,233,0.35);
+      border-radius: 4px;
+      padding: 3px 6px;
+      white-space: nowrap;
+    }
     .deploy-target-sha {
       color: #10b981;
       font-weight: 700;
@@ -1669,6 +1747,19 @@
         </div>
 
         <div id="deployProjectsBox" class="deploy-project-grid"></div>
+
+        <div class="deploy-pr-panel" id="deployPrPanel">
+          <div class="deploy-pr-head">
+            <div>
+              <div class="deploy-pr-titlebar">Pull Requests do GitHub <span id="deployPrCount" class="deploy-project-badge">-</span></div>
+              <div class="settings-hint" id="deployPrHint">Selecione PRs para publicar código ainda não mergeado.</div>
+            </div>
+            <button class="btn btn-sm" onclick="deployLoadPrs()">Carregar PRs</button>
+          </div>
+          <div id="deployPrList" class="deploy-pr-list">
+            <div style="color:var(--text-muted);font-size:12px;padding:4px;">Clique em Carregar PRs para consultar o GitHub.</div>
+          </div>
+        </div>
 
         <!-- Status cards -->
         <div class="card" id="deployStatusCard" style="padding:12px;margin-bottom:8px;">
@@ -3584,7 +3675,7 @@
 
   <!-- ════════ Deploy ════════ -->
   <script>
-    let deployState = { status: null, running: false, selectedCommitShas: [], selectionInitialized: false, selectedProjects: ['core'], targetShas: {} }
+    let deployState = { status: null, running: false, selectedCommitShas: [], selectionInitialized: false, selectedProjects: ['core'], targetShas: {}, prs: [], prTargets: {} }
 
     function deploySetBadge(text, status) {
       const b = document.getElementById('navDeployBadge')
@@ -3608,6 +3699,87 @@
 
     function deployProjectActionCount(p) {
       return (p.pendingPush?.length || 0) + (p.pendingDeploy?.length || 0) + ((p.localDirty || 0) > 0 ? 1 : 0)
+    }
+
+    function deployPrProjectId(pr) {
+      return pr.projectId || (pr.baseRef === 'app-mobile' ? 'app' : 'core')
+    }
+
+    function deploySelectedPrs() {
+      return Object.values(deployState.prTargets || {}).filter(Boolean)
+    }
+
+    async function deployLoadPrs() {
+      const list = document.getElementById('deployPrList')
+      const count = document.getElementById('deployPrCount')
+      const hint = document.getElementById('deployPrHint')
+      if (!list) return
+      list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:4px;">Consultando GitHub...</div>'
+      if (count) count.textContent = '...'
+      try {
+        const r = await window.api.deployListPrs()
+        if (!r.ok) {
+          list.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:4px;">${escapeHtml(r.error || 'Falha ao consultar PRs')}</div>`
+          if (count) count.textContent = 'erro'
+          if (hint) hint.textContent = 'Configure GITHUB_REPO/GITHUB_TOKEN no .deploy.local se necessário.'
+          return
+        }
+        deployState.prs = r.prs || []
+        if (count) count.textContent = String(deployState.prs.length)
+        if (hint) hint.textContent = `${r.repo}${r.tokenConfigured ? '' : ' · sem token, sujeito ao limite público da API'}`
+        deployRenderPrs()
+      } catch (e) {
+        list.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:4px;">${escapeHtml(e.message)}</div>`
+        if (count) count.textContent = 'erro'
+      }
+    }
+
+    function deployRenderPrs() {
+      const list = document.getElementById('deployPrList')
+      if (!list) return
+      const prs = deployState.prs || []
+      if (!prs.length) {
+        list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:4px;">Nenhum PR aberto encontrado.</div>'
+        return
+      }
+      list.innerHTML = ''
+      for (const pr of prs) {
+        const projectId = deployPrProjectId(pr)
+        const selected = deployState.prTargets?.[projectId]?.number === pr.number
+        const card = document.createElement('label')
+        card.className = 'deploy-pr-card' + (selected ? ' is-selected' : '')
+        const commits = (pr.commits || []).slice(-3).map(c => (
+          `<div><span style="color:var(--sky);font-weight:800;">${escapeHtml(c.short || String(c.sha).slice(0, 7))}</span> ${escapeHtml(c.msg || '')}</div>`
+        )).join('')
+        card.innerHTML = `
+          <input type="checkbox" ${selected ? 'checked' : ''}>
+          <div class="deploy-pr-main">
+            <div class="deploy-pr-title">#${pr.number} ${escapeHtml(pr.title || '')}</div>
+            <div class="deploy-pr-meta">${escapeHtml(pr.author || '')} · ${escapeHtml(pr.headRef || '')} → ${escapeHtml(pr.baseRef || '')} · ${escapeHtml(pr.projectLabel || projectId)}</div>
+            <div class="deploy-pr-commits">${commits || '<div>(sem commits)</div>'}</div>
+          </div>
+          <span class="deploy-pr-badge">${escapeHtml(pr.projectLabel || projectId)}</span>
+        `
+        const input = card.querySelector('input')
+        input.addEventListener('change', () => {
+          const next = { ...(deployState.prTargets || {}) }
+          if (input.checked) {
+            next[projectId] = pr
+            const projects = new Set(deployState.selectedProjects || ['core'])
+            projects.add(projectId)
+            deployState.selectedProjects = [...projects]
+            deployState.targetShas[projectId] = pr.headSha
+          } else {
+            delete next[projectId]
+            delete deployState.targetShas[projectId]
+          }
+          deployState.prTargets = next
+          deployRenderPrs()
+          deployRenderProjects(deployState.status)
+          deployUpdateSelectionHint()
+        })
+        list.appendChild(card)
+      }
     }
 
     function deployRenderProjects(status) {
@@ -3803,6 +3975,8 @@
       const selectedProjects = (status.projects || []).filter(p => (deployState.selectedProjects || []).includes(p.id))
       const extraProjects = selectedProjects.filter(p => p.id !== 'core')
       if (extraProjects.length) parts.push(`${extraProjects.length} projeto(s) extra`)
+      const selectedPrs = deploySelectedPrs()
+      if (selectedPrs.length) parts.push(`${selectedPrs.length} PR(s) selecionado(s)`)
       hint.textContent = parts.length ? parts.join(' + ') : 'Sem mudanças pra publicar'
       hint.style.color = parts.length ? 'var(--text-muted)' : '#16a34a'
     }
@@ -3912,7 +4086,8 @@
         const selectedCommits = deploySelectedCommits(r)
         const selectedProjectStatuses = (r.projects || []).filter(p => (deployState.selectedProjects || []).includes(p.id))
         const extraProjectPending = selectedProjectStatuses.some(p => p.id !== 'core' && deployProjectActionCount(p) > 0)
-        const hasPending = selectedCommits.length > 0 || extraProjectPending
+        const selectedPrs = deploySelectedPrs()
+        const hasPending = selectedCommits.length > 0 || extraProjectPending || selectedPrs.length > 0
         const hasDirty = (r.localDirty || 0) > 0
         if (deployState.running) {
           btn.disabled = true
@@ -3926,6 +4101,7 @@
           if (hasDirty) parts.push(`1 commit novo (${r.localDirty} arquivos)`)
           if (selectedCommits.length) parts.push(`${selectedCommits.length} commit(s) selecionado(s)`)
           if (extraProjectPending) parts.push('deploy extra selecionado')
+          if (selectedPrs.length) parts.push(`${selectedPrs.length} PR(s) selecionado(s)`)
           deployUpdateSelectionHint()
         } else {
           btn.disabled = true
@@ -4066,14 +4242,18 @@
       const totalCommits = selectedCommits.length
       const commitList = selectedCommits
         .map(c => `  • [${c.projectLabel || c.projectId || 'Core/API/Web'}] ${(c.short || c.sha.slice(0, 7))} ${c.msg}`).join('\n')
+      const selectedPrs = deploySelectedPrs()
+      const prList = selectedPrs
+        .map(pr => `  • [${pr.projectLabel || pr.projectId}] #${pr.number} ${pr.title}`).join('\n')
       const projectList = (s.projects || [{ id: 'core', label: 'Core/API/Web' }])
         .filter(p => selectedProjects.includes(p.id))
         .map(p => `  • ${p.label || p.id}`).join('\n')
       const schemaWarn = s.schemaChanged ? '\n\n⚠ Schema.prisma MUDOU — db push --accept-data-loss será executado!' : ''
-      const ok = confirm(`Publicar nos projetos:\n\n${projectList}\n\nCommits selecionados (${totalCommits}):\n\n${commitList || '  • nenhum commit selecionado'}${schemaWarn}\n\nConfirmar?`)
+      const prWarn = selectedPrs.length ? '\n\n⚠ PR selecionado: isto publica código ainda não mergeado na branch principal.' : ''
+      const ok = confirm(`Publicar nos projetos:\n\n${projectList}\n\nPRs selecionados (${selectedPrs.length}):\n\n${prList || '  • nenhum PR selecionado'}\n\nCommits selecionados (${totalCommits}):\n\n${commitList || '  • nenhum commit selecionado'}${schemaWarn}${prWarn}\n\nConfirmar?`)
       if (!ok) return
 
-      await deployRunPipeline(null, { targetSha: deployState.targetSha, targetShas: deployState.targetShas, targets: selectedProjects })
+      await deployRunPipeline(null, { targetSha: deployState.targetSha, targetShas: deployState.targetShas, prTargets: deployState.prTargets, targets: selectedProjects })
     }
 
     function deployCommitCancel() {
@@ -4090,7 +4270,7 @@
       const schemaWarn = s?.schemaChanged ? '\n\n⚠ Schema.prisma MUDOU — db push --accept-data-loss será executado!' : ''
       if (schemaWarn && !confirm(`Confirma o deploy?${schemaWarn}`)) return
       document.getElementById('deployCommitModal').style.display = 'none'
-      await deployRunPipeline(msg, { targetSha: deployState.targetSha, targetShas: deployState.targetShas, targets: deployState.selectedProjects || ['core'] })
+      await deployRunPipeline(msg, { targetSha: deployState.targetSha, targetShas: deployState.targetShas, prTargets: deployState.prTargets, targets: deployState.selectedProjects || ['core'] })
     }
 
     async function deployRunPipeline(commitMessage, options = {}) {
@@ -4157,6 +4337,7 @@
           ...(commitMessage ? { commitMessage } : {}),
           ...(options.targetSha ? { targetSha: options.targetSha } : {}),
           ...(options.targetShas ? { targetShas: options.targetShas } : {}),
+          ...(options.prTargets ? { prTargets: options.prTargets } : {}),
           ...(options.targets ? { targets: options.targets } : {}),
         }
         const r = await window.api.deployExecute(payload)

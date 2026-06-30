@@ -20,6 +20,9 @@ export function SidebarItem({ label, href, icon: Icon, collapsed, groupHex }: Si
   const content = (
     <Link
       href={href}
+      // a11y: quando recolhido o link é só ícone (sem o <span> de texto) — o
+      // aria-label garante o nome acessível (a Tooltip do Radix só descreve).
+      aria-label={label}
       className={cn(
         'sidebar-group-btn flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer',
         isActive

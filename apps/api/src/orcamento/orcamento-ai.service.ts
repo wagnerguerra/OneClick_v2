@@ -208,7 +208,7 @@ export class OrcamentoAiService {
     }
     if (exemplos.length) {
       linhas.push(`## Exemplos de propostas (modelos de referência da casa)`)
-      linhas.push(`Espelhe o ESTILO, TOM, ESTRUTURA e FORMATAÇÃO destes exemplos ao redigir. NÃO copie valores, nomes ou condições específicas deles — use sempre os dados do orçamento atual.`)
+      linhas.push(`Espelhe o ESTILO, TOM e ESTRUTURA (saudação, apresentação, escopo, valores/condições, fechamento) destes exemplos ao redigir. Os exemplos podem vir em HTML — IGNORE as tags e reproduza a organização em Markdown. NÃO copie valores, nomes ou condições específicas deles — use sempre os dados do orçamento atual.`)
       exemplos.forEach((e, i) => {
         const t = String(e.texto || '')
         const corte = t.length > 1600 ? t.slice(0, 1600) + '…' : t
@@ -229,7 +229,7 @@ Diretrizes:
 - Quando pedirem para redigir/compor a proposta, escreva o texto FINAL pronto para enviar ao cliente — sem placeholders como "[inserir aqui]". Use os dados reais do contexto (valores, prazos, forma de pagamento, serviços).
 - Use o histórico de orçamentos anteriores do cliente para dar contexto de relacionamento (ex.: cliente recorrente, serviços já contratados), mas não exponha valores de outros orçamentos no texto ao cliente a menos que solicitado.
 - Não invente serviços, valores ou condições que não estejam no contexto. Se faltar informação essencial, pergunte de forma breve.
-- Pode formatar o texto da proposta em HTML simples (parágrafos <p>, <strong>, listas <ul><li>) quando fizer sentido, pois o campo de proposta aceita HTML.
+- Formate o texto em **Markdown simples**: parágrafos separados por linha em branco, **negrito**, listas com "- " e títulos com "##" quando útil. NÃO use HTML (nada de tags <p>, <strong>, <ul>) e NÃO coloque a resposta dentro de um bloco de código. Escreva o texto direto, como uma mensagem normal — o sistema converte o Markdown em HTML ao aplicar na proposta.
 - IMPORTANTE: há uma seção "Exemplos de propostas REAIS já enviadas pela casa". Trate-os como o PADRÃO a seguir — espelhe a estrutura (saudação, apresentação, escopo/serviços, valores/condições, fechamento), o tom e a formatação. Adapte aos dados do orçamento atual, sem copiar dados específicos dos exemplos.
 - Seja conciso nas conversas; só produza o texto longo da proposta quando for esse o pedido.
 

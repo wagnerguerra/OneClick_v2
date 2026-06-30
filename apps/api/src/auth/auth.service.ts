@@ -101,6 +101,14 @@ export class AuthService {
             required: false,
             input: false,
           },
+          // Empresa ATIVA (server-authoritative). Lida fresh a cada getSession
+          // (cookieCache desabilitado). Resolve o contexto de empresa no servidor
+          // — não confiar no localStorage do cliente. F-012.
+          activeEmpresaId: {
+            type: 'string',
+            required: false,
+            input: false,
+          },
         },
       },
       plugins: [

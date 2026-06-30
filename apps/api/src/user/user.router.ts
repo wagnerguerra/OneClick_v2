@@ -83,7 +83,30 @@ export function createUserRouter(userService: UserService) {
 
     // getMyPermissions permanece como protectedProcedure — todo usuário pode consultar suas próprias permissões
     getMyPermissions: protectedProcedure
-      .query(({ ctx }) => userService.getMyPermissions(ctx.userId)),
+      .query(({ ctx }) => userService.getMyPermissions(ctx.userId, ctx.empresaId)),
+
+    // Quem tem acesso a um módulo/tela (genérico). protectedProcedure — quem
+    // já está na tela pode ver os colegas com acesso. Escopo por empresa.
+    comAcessoAoModulo: protectedProcedure
+      .input(z.object({ moduleSlug: z.string().min(1), subPermission: z.string().optional() }))
+      .query(({ input, ctx }) =>
+        userService.comAcessoAoModulo(input.moduleSlug, ctx.isMaster ?? false, ctx.empresaId, input.subPermission),
+      ),
+
+    // Revogar acesso de um usuário num módulo (botão "Quem tem acesso").
+    // subKey → desliga só a sub-permissão; nivel → mexe no acesso de módulo.
+    // Gerência de permissão → exige escrita no módulo 'usuarios' (master/
+    // empresaMaster passam direto).
+    revogarAcessoModulo: writeProcedure('usuarios')
+      .input(z.object({
+        userId: z.string(),
+        moduleSlug: z.string().min(1),
+        nivel: z.enum(['read', 'write', 'delete']).optional(),
+        subKey: z.string().optional(),
+      }))
+      .mutation(({ input }) =>
+        userService.revogarAcessoModulo(input.userId, input.moduleSlug, { nivel: input.nivel, subKey: input.subKey }),
+      ),
 
     // Carteira de clientes do próprio usuário logado — não exige permissão "usuarios"
     getMyAssignedClients: protectedProcedure

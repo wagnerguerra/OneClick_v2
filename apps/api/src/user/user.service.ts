@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
 import type { Prisma } from '@saas/db'
 import type { CreateUserInput, UpdateUserInput, ListUserInput } from '@saas/types'
+import { PLATFORM_ADMIN_MODULES } from '@saas/types'
 import { hashPassword, verifyPassword } from 'better-auth/crypto'
 import { PermissionsEventsService } from '../permissions-events/permissions-events.service'
 import { invalidateUserPermissionsCache } from '../trpc/trpc.service'
@@ -53,6 +54,7 @@ export class UserService {
         select: {
           id: true,
           name: true,
+          image: true,
           email: true,
           role: true,
           profile: true,
@@ -83,6 +85,79 @@ export class UserService {
     }))
 
     return buildPaginatedResponse(data, total, page, limit)
+  }
+
+  /**
+   * Lista quem tem acesso a um módulo (tela). Retorna dois grupos:
+   *  - acessoTotal: master global e donos do tenant (empresaMaster) — enxergam
+   *    tudo sem precisar de linha em UserPermission.
+   *  - comPermissao: usuários com permissão no módulo.
+   *
+   * Dois modos:
+   *  - módulo (padrão): lista quem tem canRead, com o nível (leitura/escrita/
+   *    exclusão).
+   *  - sub-permissão (subPermission informado): lista quem tem aquela sub-
+   *    permissão específica ligada (ex.: 'manage_tipos'). Útil quando a tela é
+   *    governada por uma sub-permissão, não pelo módulo inteiro.
+   * Escopo: não-master vê só usuários da própria empresa (igual ao list).
+   */
+  async comAcessoAoModulo(moduleSlug: string, callerIsMaster = false, callerEmpresaId?: string, subPermission?: string) {
+    const where: Prisma.UserWhereInput = {
+      isActive: true,
+      ...(!callerIsMaster && callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
+    }
+
+    const users = await prisma.user.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        role: true,
+        isMaster: true,
+        isEmpresaMaster: true,
+        cargo: { select: { name: true } },
+        area: { select: { name: true } },
+        permissions: {
+          where: { moduleSlug },
+          select: { canRead: true, canWrite: true, canDelete: true, subPermissions: true },
+        },
+      },
+    })
+
+    const acessoTotal: Array<Record<string, unknown>> = []
+    const comPermissao: Array<Record<string, unknown>> = []
+
+    for (const u of users) {
+      const base = {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        image: u.image,
+        role: u.role,
+        cargo: u.cargo?.name ?? null,
+        area: u.area?.name ?? null,
+      }
+      if (u.isMaster || u.isEmpresaMaster) {
+        acessoTotal.push({ ...base, tipo: u.isMaster ? 'MASTER' : 'EMPRESA_MASTER' })
+        continue
+      }
+      const perm = u.permissions[0]
+      if (!perm?.canRead) continue
+
+      if (subPermission) {
+        const subs = (perm.subPermissions ?? {}) as Record<string, boolean>
+        if (subs[subPermission] === true) {
+          comPermissao.push({ ...base, sub: true })
+        }
+      } else {
+        comPermissao.push({ ...base, canRead: perm.canRead, canWrite: perm.canWrite, canDelete: perm.canDelete })
+      }
+    }
+
+    return { acessoTotal, comPermissao, total: acessoTotal.length + comPermissao.length, mode: subPermission ? 'sub' : 'module' }
   }
 
   async getById(id: string, callerIsMaster = false, callerEmpresaId?: string) {
@@ -310,6 +385,39 @@ export class UserService {
   }
 
   /**
+   * Revoga acesso de um usuário num módulo (botão "Quem tem acesso").
+   *
+   * Modo sub-permissão (subKey informado): desliga só aquela sub-permissão
+   * (ex.: 'manage_tipos') — NÃO mexe no acesso ao módulo. Usado quando a tela é
+   * governada por uma sub-permissão.
+   *
+   * Modo módulo (nivel informado): cascata coerente:
+   *  - 'delete' → tira só exclusão.
+   *  - 'write'  → tira escrita E exclusão.
+   *  - 'read'   → remove o acesso ao módulo por completo (apaga a linha).
+   * Não mexe em master/empresaMaster (eles não têm linha em UserPermission).
+   */
+  async revogarAcessoModulo(userId: string, moduleSlug: string, opts: { nivel?: 'read' | 'write' | 'delete'; subKey?: string }) {
+    const where = { userId_moduleSlug: { userId, moduleSlug } }
+
+    if (opts.subKey) {
+      const perm = await prisma.userPermission.findUnique({ where, select: { subPermissions: true } })
+      const subs = { ...((perm?.subPermissions ?? {}) as Record<string, boolean>) }
+      subs[opts.subKey] = false
+      await prisma.userPermission.update({ where, data: { subPermissions: subs } })
+    } else if (opts.nivel === 'read') {
+      await prisma.userPermission.deleteMany({ where: { userId, moduleSlug } })
+    } else if (opts.nivel === 'write') {
+      await prisma.userPermission.update({ where, data: { canWrite: false, canDelete: false } })
+    } else if (opts.nivel === 'delete') {
+      await prisma.userPermission.update({ where, data: { canDelete: false } })
+    }
+
+    this.notifyPermissionsChanged(userId)
+    return { success: true }
+  }
+
+  /**
    * Soft delete: desativa o usuário. Hard delete não é seguro porque o User tem
    * FKs em vários módulos (eventos da agenda, permissões, sessions, etc.).
    * Desativa sessões ativas pra cortar o acesso imediato.
@@ -410,7 +518,7 @@ export class UserService {
     }))
   }
 
-  async getMyPermissions(userId: string) {
+  async getMyPermissions(userId: string, activeEmpresaId?: string | null) {
     const user = await prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: {
@@ -428,12 +536,24 @@ export class UserService {
       },
     })
 
+    // Controle de acesso de PLATAFORMA (F-009): módulos de config de sistema
+    // (configuracoes/metricas/backup-restore) NUNCA são concedidos a não-master,
+    // mesmo que existam grants antigos no banco (onboarding legado concedia tudo).
+    // O servidor (masterProcedure no tRPC + middleware nas rotas) é o boundary
+    // real; aqui garantimos que getMyPermissions não exponha canWrite indevido.
+    const platformAdmin = new Set<string>(PLATFORM_ADMIN_MODULES)
+    const permissions = user.isMaster
+      ? user.permissions
+      : user.permissions.filter((p) => !platformAdmin.has(p.moduleSlug))
+
     return {
       isMaster: user.isMaster,
       isEmpresaMaster: user.isEmpresaMaster,
       role: user.role,
-      empresaId: user.empresaId,
-      permissions: user.permissions,
+      // Empresa ATIVA resolvida no servidor (ctx) — não a home fixa nem o
+      // localStorage. Para não-master é sempre a home; master segue a ativa. F-012.
+      empresaId: activeEmpresaId ?? user.empresaId,
+      permissions,
     }
   }
 

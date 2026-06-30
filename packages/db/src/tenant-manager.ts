@@ -16,6 +16,7 @@ const TENANT_TABLES = [
   'cliente_events',
   'cliente_arquivos',
   'cliente_contatos',
+  'cliente_inscricoes',
   'cliente_contrato_params',
   'cliente_erp_snapshots',
   'cliente_historicos',

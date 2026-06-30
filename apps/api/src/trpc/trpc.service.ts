@@ -13,6 +13,8 @@ import { OnboardingService } from '../onboarding/onboarding.service'
 import { createOnboardingRouter } from '../onboarding/onboarding.router'
 import { AdminService } from '../admin/admin.service'
 import { createAdminRouter } from '../admin/admin.router'
+import { AdminTenantService } from '../admin-tenant/admin-tenant.service'
+import { createAdminTenantRouter } from '../admin-tenant/admin-tenant.router'
 import { ClienteService } from '../cliente/cliente.service'
 import { ClienteEnriquecimentoService } from '../cliente/cliente-enriquecimento.service'
 import { SincronizarResponsaveisService } from '../cliente/sincronizar-responsaveis.service'
@@ -154,6 +156,16 @@ import { createNfseRouter } from '../nfse/nfse.router'
 import { createMinhasObrigacoesRouter } from '../minhas-obrigacoes/minhas-obrigacoes.router'
 import { AuthService } from '../auth/auth.service'
 
+/**
+ * Estado de billing do tenant, calculado no createContext.
+ * - ACTIVE: assinatura paga ativa, OU trial vigente não é o foco (acesso liberado),
+ *   OU tenant antigo isento (trialEndsAt NULL), OU master global.
+ * - TRIAL: período de teste vigente (acesso liberado, mas com aviso/contagem).
+ * - TRIAL_EXPIRED: trial acabou sem assinatura → bloqueia features.
+ * - SUSPENDED: tenant suspenso manualmente pelo master → bloqueia features.
+ */
+export type BillingState = 'ACTIVE' | 'TRIAL' | 'TRIAL_EXPIRED' | 'SUSPENDED'
+
 export interface TrpcContext {
   tenantId?: string
   tenantSchema?: string
@@ -161,6 +173,25 @@ export interface TrpcContext {
   empresaId?: string
   isMaster?: boolean
   isEmpresaMaster?: boolean
+  billingState?: BillingState
+  trialEndsAt?: Date
+}
+
+/**
+ * Bloqueia features quando o trial expirou ou o tenant foi suspenso. Chamado no
+ * início de TODA permission-procedure (readProcedure/writeProcedure/...), ANTES
+ * do bypass de master/empresaMaster — assim o dono do tenant (isEmpresaMaster)
+ * também é barrado ao fim do trial. O master GLOBAL nunca cai aqui porque o
+ * createContext já devolve billingState='ACTIVE' pra ele.
+ * A mensagem é um código legível pelo front (redireciona p/ a tela de planos).
+ */
+export function assertTenantActive(ctx: TrpcContext) {
+  if (ctx.billingState === 'TRIAL_EXPIRED') {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'TRIAL_EXPIRED' })
+  }
+  if (ctx.billingState === 'SUSPENDED') {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'SUSPENDED' })
+  }
 }
 
 interface UserPermissionRow {
@@ -217,6 +248,55 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   return next({ ctx: { ...ctx, userId: ctx.userId } })
 })
 
+/**
+ * Procedure restrita ao MASTER GLOBAL da plataforma (`isMaster`).
+ * Diferente das permission-procedures, NÃO libera para `isEmpresaMaster` —
+ * usado em módulos de administração global multi-tenant (ex.: gestão de
+ * empresas/tenants), que jamais devem ser acessíveis por admins de tenant.
+ */
+export const masterProcedure = t.procedure.use(({ ctx, next }) => {
+  if (!ctx.userId) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+  }
+  if (!ctx.isMaster) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Acesso restrito ao administrador da plataforma' })
+  }
+  return next({ ctx: { ...ctx, userId: ctx.userId } })
+})
+
+/**
+ * Valida/normaliza um `empresaId` recebido do CLIENTE contra a sessão (F-012).
+ * Procedures que aceitam empresaId no input NUNCA devem confiar no valor cru —
+ * a "empresa ativa" do cliente pode estar divergente (id antigo no localStorage)
+ * ou forjada, permitindo ler/gravar dados de OUTRO tenant.
+ *
+ * - Não-master: SEMPRE a própria empresa da sessão. Um `inputEmpresaId`
+ *   divergente é rejeitado (FORBIDDEN).
+ * - Master (admin de plataforma): pode operar sobre a empresa informada
+ *   (navegação multi-empresa); cai pra `ctx.empresaId` quando ausente.
+ *
+ * `scopedEmpresaIdOpt` permite ausência (retorna null); `scopedEmpresaId` exige.
+ */
+export function scopedEmpresaIdOpt(
+  ctx: { isMaster?: boolean; empresaId?: string },
+  inputEmpresaId?: string | null,
+): string | null {
+  if (ctx.isMaster) return inputEmpresaId ?? ctx.empresaId ?? null
+  if (inputEmpresaId != null && inputEmpresaId !== ctx.empresaId) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Empresa fora do seu acesso.' })
+  }
+  return ctx.empresaId ?? null
+}
+
+export function scopedEmpresaId(
+  ctx: { isMaster?: boolean; empresaId?: string },
+  inputEmpresaId?: string | null,
+): string {
+  const id = scopedEmpresaIdOpt(ctx, inputEmpresaId)
+  if (!id) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Empresa não selecionada' })
+  return id
+}
+
 // ── Permission-based procedures ─────────────────────────────
 // isMaster e isEmpresaMaster sempre têm acesso total.
 // Outros usuários precisam da permissão correspondente no módulo.
@@ -226,6 +306,7 @@ function createPermissionMiddleware(moduleSlug: string, action: 'canRead' | 'can
     if (!ctx.userId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
     }
+    assertTenantActive(ctx)
 
     // Master e EmpresaMaster têm acesso total
     if (ctx.isMaster || ctx.isEmpresaMaster) {
@@ -273,6 +354,7 @@ export function readProcedureAnyOf(...moduleSlugs: string[]) {
     if (!ctx.userId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
     }
+    assertTenantActive(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) {
       return next({ ctx: { ...ctx, userId: ctx.userId } })
     }
@@ -319,6 +401,7 @@ function createSocioMiddleware(action: 'canWrite' | 'canDelete') {
     if (!ctx.userId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
     }
+    assertTenantActive(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) {
       return next({ ctx: { ...ctx, userId: ctx.userId } })
     }
@@ -360,6 +443,7 @@ function createSubPermissionMiddleware(moduleSlug: string, subKey: string, label
     if (!ctx.userId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
     }
+    assertTenantActive(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) {
       return next({ ctx: { ...ctx, userId: ctx.userId } })
     }
@@ -390,6 +474,33 @@ export function readSubProcedure(moduleSlug: string, subKey: string, label: stri
     .use(createSubPermissionMiddleware(moduleSlug, subKey, label))
 }
 
+/**
+ * Procedure de leitura que exige QUALQUER UMA das sub-permissões informadas.
+ * Útil quando uma permissão mais ampla implica outra (ex.: quem pode
+ * "configurar o funil" também pode "acessar o funil"), evitando estados
+ * quebrados (ter a de editar mas não a de ver). Master/EmpresaMaster passam.
+ */
+export function readSubAnyProcedure(moduleSlug: string, subKeys: string[], label: string) {
+  return t.procedure.use(createPermissionMiddleware(moduleSlug, 'canRead')).use(
+    t.middleware(async ({ ctx, next }) => {
+      if (!ctx.userId) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+      }
+      assertTenantActive(ctx)
+      if (ctx.isMaster || ctx.isEmpresaMaster) {
+        return next({ ctx: { ...ctx, userId: ctx.userId } })
+      }
+      const permissions = await getUserPermissions(ctx.userId)
+      const modulePerm = permissions.find(p => p.moduleSlug === moduleSlug)
+      const subs = (modulePerm?.subPermissions ?? {}) as Record<string, boolean>
+      if (!subKeys.some(k => subs[k] === true)) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: `Sem permissão para: ${label}` })
+      }
+      return next({ ctx: { ...ctx, userId: ctx.userId } })
+    }),
+  )
+}
+
 /** Procedure que exige permissão de exclusão + sub-permissão específica */
 export function deleteSubProcedure(moduleSlug: string, subKey: string, label: string) {
   return t.procedure
@@ -409,6 +520,7 @@ async function ehLiderDeSetor(userId: string): Promise<boolean> {
 export function readOrLiderProcedure(moduleSlug: string) {
   return t.procedure.use(async ({ ctx, next }) => {
     if (!ctx.userId) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+    assertTenantActive(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) return next({ ctx: { ...ctx, userId: ctx.userId } })
     if (await ehLiderDeSetor(ctx.userId)) return next({ ctx: { ...ctx, userId: ctx.userId } })
     const perms = await getUserPermissions(ctx.userId)
@@ -422,6 +534,7 @@ export function readOrLiderProcedure(moduleSlug: string) {
 export function writeSubOrLiderProcedure(moduleSlug: string, subKey: string, label: string) {
   return t.procedure.use(async ({ ctx, next }) => {
     if (!ctx.userId) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+    assertTenantActive(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) return next({ ctx: { ...ctx, userId: ctx.userId } })
     if (await ehLiderDeSetor(ctx.userId)) return next({ ctx: { ...ctx, userId: ctx.userId } })
     const perms = await getUserPermissions(ctx.userId)
@@ -444,6 +557,7 @@ export class TrpcService {
     @Inject(CargoService) private readonly cargoService: CargoService,
     @Inject(OnboardingService) private readonly onboardingService: OnboardingService,
     @Inject(AdminService) private readonly adminService: AdminService,
+    @Inject(AdminTenantService) private readonly adminTenantService: AdminTenantService,
     @Inject(ClienteService) private readonly clienteService: ClienteService,
     @Inject(ImportOneclickService) private readonly importOneclickService: ImportOneclickService,
     @Inject(ClienteEnriquecimentoService) private readonly clienteEnriquecimentoService: ClienteEnriquecimentoService,
@@ -559,6 +673,7 @@ export class TrpcService {
       nfse: createNfseRouter(this.nfseDistService),
       onboarding: createOnboardingRouter(this.onboardingService),
       admin: createAdminRouter(this.adminService),
+      adminTenant: createAdminTenantRouter(this.adminTenantService),
       cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService),
       billing: createBillingRouter(this.stripeService),
       colaborador: createColaboradorRouter(this.colaboradorService),

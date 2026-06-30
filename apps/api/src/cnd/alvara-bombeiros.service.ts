@@ -94,44 +94,9 @@ export class AlvaraBombeirosService {
   }
 
   private async ensureTable() {
+    // Schema garantido por migração manual_2026_06_26_cnd_dte_tables.sql (R2-002).
+    // Sem DDL no caminho de request — os métodos apenas LEEM.
     if (this.tableChecked) return
-    try {
-      const exists = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
-        `SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'alvaras_bombeiros')`,
-      )
-      if (exists[0]?.exists) {
-        // Garante que a coluna pdf_base64 existe (adicionada lazy posteriormente
-        // — sem isso o compilar-certidoes loga prisma:error mesmo com .catch())
-        await prisma.$executeRawUnsafe(`ALTER TABLE alvaras_bombeiros ADD COLUMN IF NOT EXISTS pdf_base64 TEXT`).catch(() => {})
-        this.tableChecked = true
-        return
-      }
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS alvaras_bombeiros (
-          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-          alvara_id INT,
-          documento TEXT,
-          razao_social TEXT,
-          nome_fantasia TEXT,
-          endereco TEXT,
-          municipio TEXT,
-          bairro TEXT,
-          status TEXT,
-          codigo_validacao TEXT,
-          data_inicio_validade TEXT,
-          data_fim_validade TEXT,
-          ocupacao TEXT,
-          cliente_id TEXT,
-          user_id TEXT,
-          pdf_base64 TEXT,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-      `)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_alv_documento ON alvaras_bombeiros (documento)`)
-      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_alv_cliente ON alvaras_bombeiros (cliente_id)`)
-    } catch (e) {
-      if (!(e as Error).message?.includes('already exists')) throw e
-    }
     this.tableChecked = true
   }
 
@@ -357,9 +322,8 @@ export class AlvaraBombeirosService {
 
       await browser.close()
 
-      // Salvar PDF no banco para cache
+      // Salvar PDF no banco para cache (coluna garantida pela migração — sem DDL aqui)
       if (pdfBase64) {
-        await prisma.$executeRawUnsafe(`ALTER TABLE alvaras_bombeiros ADD COLUMN IF NOT EXISTS pdf_base64 TEXT`).catch(() => {})
         await prisma.$executeRawUnsafe(`UPDATE alvaras_bombeiros SET pdf_base64 = $1 WHERE alvara_id = $2`, pdfBase64, alvaraId)
       }
 

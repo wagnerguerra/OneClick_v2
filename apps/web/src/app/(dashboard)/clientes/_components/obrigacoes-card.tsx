@@ -6,6 +6,7 @@ import { Button, Card, Badge, Input, Label, Select, SelectTrigger, SelectContent
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { useClientesPerms } from './use-clientes-perms'
 
 interface Obrigacao {
   id: string; nome: string; tipo: string; periodicidade: string
@@ -20,6 +21,7 @@ const PERIOD_LABELS: Record<string, string> = { mensal: 'Mensal', trimestral: 'T
 const STATUS_COLORS: Record<string, string> = { pendente: 'bg-amber-100 text-amber-700', em_andamento: 'bg-sky-100 text-sky-700', concluida: 'bg-emerald-100 text-emerald-700', atrasada: 'bg-red-100 text-red-700' }
 
 export function ObrigacoesCard({ clienteId }: { clienteId: string }) {
+  const { canManageRegistration } = useClientesPerms()
   const [items, setItems] = useState<Obrigacao[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
@@ -71,7 +73,7 @@ export function ObrigacoesCard({ clienteId }: { clienteId: string }) {
           <h4 className="text-sm font-semibold flex items-center gap-2"><ListChecks className="h-4 w-4 text-emerald-600" /> Obrigacoes</h4>
           <p className="text-[11px] text-muted-foreground mt-0.5">{items.filter(i => i.ativo).length} obrigacoes ativas</p>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={() => setAdding(!adding)} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Adicionar</Button>
+        {canManageRegistration && <Button type="button" variant="outline" size="sm" onClick={() => setAdding(!adding)} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Adicionar</Button>}
       </div>
 
       {adding && (

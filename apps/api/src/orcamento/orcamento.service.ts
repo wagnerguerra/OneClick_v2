@@ -1866,7 +1866,18 @@ export class OrcamentoService {
 
     // Atualizar status para ENVIADO se ainda nao estiver
     if (orc.status !== 'ENVIADO') {
-      await prisma.orcamento.update({ where: { id }, data: { status: 'ENVIADO' } })
+      await prisma.orcamento.update({
+        where: { id },
+        // Grava o marco "Enviado" (dt_enviado) — sem isso o "Enviado" some da
+        // timeline (Datas Importantes). Preserva a 1a data em re-envios.
+        data: { status: 'ENVIADO', ...(orc.dtEnviado ? {} : { dtEnviado: new Date() }) },
+      })
+      // Registra o marco de status na timeline (alem do evento 'envio' abaixo),
+      // pra a aba Timeline e o painel Datas Importantes mostrarem "Enviado".
+      await this.addEvento(
+        id, userId, 'status_change', orc.status, 'ENVIADO',
+        `Status alterado de ${STATUS_LABELS[orc.status] || orc.status} para Enviado`,
+      )
     }
 
     const descricaoEvento = emails.size > 0
@@ -1893,7 +1904,7 @@ export class OrcamentoService {
 
     const novoStatus = decisao.tipo === 'APROVADO' ? 'APROVADO' : 'ENCERRADO'
 
-    return prisma.orcamento.update({
+    const updated = await prisma.orcamento.update({
       where: { token },
       data: {
         decisaoTipo: decisao.tipo,
@@ -1902,8 +1913,17 @@ export class OrcamentoService {
         decisaoCpf: decisao.cpf || null,
         decisaoObs: decisao.observacao || null,
         status: novoStatus as any,
+        // Grava o marco da decisão (timeline) — sem isso Aprovado/Encerrado não
+        // aparece quando o cliente decide pelo link público.
+        ...(novoStatus === 'APROVADO' ? { dtAprovado: new Date() } : { dtEncerrado: new Date() }),
       },
     })
+    // Registra o status_change na timeline (decisão do cliente pelo link).
+    await this.addEvento(
+      orc.id, null, 'status_change', orc.status, novoStatus,
+      `Decisão do cliente (${decisao.nome}): ${novoStatus === 'APROVADO' ? 'Aprovado' : 'Recusado'}`,
+    )
+    return updated
   }
 
   // ── Itens ─────────────────────────────────────────────────
@@ -2453,6 +2473,454 @@ export class OrcamentoService {
     return { funil, total, valorTotal, taxaConversao }
   }
 
+  /**
+   * Indicadores de Orçamentos (recriação do dashboard legado): KPIs por estágio
+   * × tipo (mensal/extra), donuts, listas (aprovados/liberados/reprovados) e
+   * série de 12 meses. Período = [dataInicio, dataFim] (default mês anterior).
+   */
+  async reportIndicadores(empresaId: string | undefined, dataInicio: string, dataFim: string) {
+    const ini = new Date(`${dataInicio}T00:00:00`)
+    const fim = new Date(`${dataFim}T23:59:59.999`)
+    const base: Prisma.OrcamentoWhereInput = { arquivado: false, ...(empresaId ? { empresaId } : {}) }
+    const periodo = (campo: 'dtEnviado' | 'dtAprovado' | 'dtLiberado' | 'dtCancelado'): Prisma.OrcamentoWhereInput =>
+      ({ ...base, [campo]: { gte: ini, lte: fim } })
+
+    // Classificação mensal/extra pela natureza do SERVIÇO (não pelo campo tipo
+    // estático, que não é atualizado pela transição extra→mensal do fluxo).
+    // Regra: orçamento com ≥1 item SERVICO de um Servico recorrenteMensal=true
+    // conta como MENSAL; se não tiver itens de serviço, usa o campo `tipo`.
+    const recorrentes = await prisma.servico.findMany({
+      where: { recorrenteMensal: true, ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}) },
+      select: { id: true },
+    })
+    const recorrenteSet = new Set(recorrentes.map(s => s.id))
+    const ehMensal = (itens: { tipo: string; catalogoId: string | null }[], tipoFallback: string | null) => {
+      const servicos = itens.filter(it => it.tipo === 'SERVICO' && it.catalogoId)
+      if (servicos.length === 0) return tipoFallback === 'SERVICO_MENSAL'
+      return servicos.some(it => recorrenteSet.has(it.catalogoId!))
+    }
+
+    const stageSelect = {
+      id: true, numero: true, tipo: true, totalGeral: true, clienteId: true,
+      itens: { select: { descricao: true, tipo: true, catalogoId: true }, orderBy: { createdAt: 'asc' } },
+    } as const
+    const [oEnviados, oAprovados, oLiberados, oReprovados] = await Promise.all([
+      prisma.orcamento.findMany({ where: periodo('dtEnviado'), select: { ...stageSelect, dtEnviado: true } }),
+      prisma.orcamento.findMany({ where: periodo('dtAprovado'), select: { ...stageSelect, dtAprovado: true } }),
+      prisma.orcamento.findMany({ where: { ...periodo('dtLiberado'), status: 'LIBERADO' }, select: { ...stageSelect, dtLiberado: true } }),
+      prisma.orcamento.findMany({ where: periodo('dtCancelado'), select: { ...stageSelect, dtCancelado: true } }),
+    ])
+
+    type Row = { id: string; numero: number; tipo: string | null; totalGeral: Prisma.Decimal; clienteId: string | null; itens: { descricao: string; tipo: string; catalogoId: string | null }[] }
+    const agg = (rows: Row[]) => {
+      const m = { count: 0, valor: 0 }, e = { count: 0, valor: 0 }
+      for (const o of rows) {
+        const v = Number(o.totalGeral)
+        if (ehMensal(o.itens, o.tipo)) { m.count++; m.valor += v } else { e.count++; e.valor += v }
+      }
+      return { mensal: m, extra: e }
+    }
+    const env = agg(oEnviados), apr = agg(oAprovados), lib = agg(oLiberados)
+    const reprovadosValor = oReprovados.reduce((s, o) => s + Number(o.totalGeral), 0)
+
+    const kpis = {
+      enviadosMensal: env.mensal,
+      enviadosExtra: env.extra,
+      aprovadosMensal: apr.mensal,
+      aprovadosExtra: apr.extra,
+      conversaoMensal: env.mensal.count > 0 ? Math.round((apr.mensal.count / env.mensal.count) * 100) : 0,
+      conversaoExtra: env.extra.count > 0 ? Math.round((apr.extra.count / env.extra.count) * 100) : 0,
+      reprovados: { count: oReprovados.length, valor: reprovadosValor },
+      totalEnviados: { count: env.mensal.count + env.extra.count, valor: env.mensal.valor + env.extra.valor },
+      totalAprovados: { count: apr.mensal.count + apr.extra.count, valor: apr.mensal.valor + apr.extra.valor },
+    }
+
+    const donutEstagios = { aprovados: apr.mensal.count + apr.extra.count, liberados: lib.mensal.count + lib.extra.count, reprovados: oReprovados.length }
+    const donutTipo = { mensal: apr.mensal.count, extra: apr.extra.count }
+
+    // Listas — cliente resolvido por id (Orcamento não tem relação `cliente`)
+    const clienteIds = [...new Set([...oAprovados, ...oLiberados, ...oReprovados].map(o => o.clienteId).filter(Boolean))] as string[]
+    const clientes = clienteIds.length
+      ? await prisma.cliente.findMany({ where: { id: { in: clienteIds } }, select: { id: true, razaoSocial: true, nomeFantasia: true } }).catch(() => [])
+      : []
+    const clienteMap = new Map(clientes.map(c => [c.id, c]))
+
+    const mapItem = (o: Row, data: Date | null | undefined) => {
+      const c = o.clienteId ? clienteMap.get(o.clienteId) : null
+      const mensal = ehMensal(o.itens, o.tipo)
+      const primeiro = o.itens.find(it => it.tipo === 'SERVICO') ?? o.itens[0]
+      return {
+        id: o.id,
+        numero: o.numero,
+        data: data ? data.toISOString() : null,
+        cliente: c?.razaoSocial || c?.nomeFantasia || '—',
+        tipo: mensal ? 'Serviço mensal' : 'Serviço extra',
+        tipoKey: mensal ? 'SERVICO_MENSAL' : 'SERVICO_EXTRA',
+        primeiroItem: primeiro?.descricao ? primeiro.descricao.toUpperCase() : '',
+        qtdExtra: o.itens.length > 1 ? o.itens.length - 1 : 0,
+        valor: Number(o.totalGeral),
+      }
+    }
+    const ordenar = (rows: ReturnType<typeof mapItem>[]) =>
+      rows.sort((a, b) => (a.tipoKey === b.tipoKey ? a.numero - b.numero : a.tipoKey === 'SERVICO_MENSAL' ? -1 : 1))
+    const listas = {
+      aprovados: ordenar(oAprovados.map(o => mapItem(o, o.dtAprovado))),
+      liberados: ordenar(oLiberados.map(o => mapItem(o, o.dtLiberado))),
+      reprovados: ordenar(oReprovados.map(o => mapItem(o, o.dtCancelado))),
+    }
+
+    // Série dos últimos 12 meses (por createdAt), classificada pelos serviços
+    const desde = new Date()
+    desde.setMonth(desde.getMonth() - 11)
+    desde.setDate(1)
+    desde.setHours(0, 0, 0, 0)
+    const ult12 = await prisma.orcamento.findMany({
+      where: { ...base, createdAt: { gte: desde } },
+      select: { createdAt: true, tipo: true, itens: { select: { tipo: true, catalogoId: true } } },
+    })
+    const buckets: { mes: string; mensal: number; extra: number }[] = []
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(desde)
+      d.setMonth(desde.getMonth() + i)
+      buckets.push({ mes: `${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`, mensal: 0, extra: 0 })
+    }
+    const idxMes = new Map(buckets.map((b, i) => [b.mes, i]))
+    for (const o of ult12) {
+      const key = `${String(o.createdAt.getMonth() + 1).padStart(2, '0')}-${o.createdAt.getFullYear()}`
+      const i = idxMes.get(key)
+      if (i === undefined) continue
+      if (ehMensal(o.itens, o.tipo)) buckets[i]!.mensal++
+      else buckets[i]!.extra++
+    }
+
+    return { periodo: { dataInicio, dataFim }, kpis, donutEstagios, donutTipo, listas, serie12m: buckets }
+  }
+
+  /**
+   * Funil comercial unificado (macro): volume por estágio da jornada
+   * Lead → Oportunidade → Orçamento enviado → aprovado → Contrato, com taxa de
+   * conversão entre estágios consecutivos. Filtra por createdAt nos últimos
+   * `dias` (ou todo o período se não informado).
+   */
+  async reportFunilComercial(empresaId?: string, dias?: number) {
+    const cutoff = dias ? new Date(Date.now() - dias * 86400000) : undefined
+    const emp: Prisma.OrcamentoWhereInput = empresaId ? { empresaId } : {}
+    const desdeCreated = cutoff ? { createdAt: { gte: cutoff } } : {}
+
+    const [leads, oportunidades, orcEnviados, orcAprovados, contratos] = await Promise.all([
+      prisma.leadSessao.count({ where: { ...(empresaId ? { empresaId } : {}), ...desdeCreated } }),
+      prisma.oportunidade.count({ where: { ...(empresaId ? { empresaId } : {}), ...desdeCreated } }),
+      prisma.orcamento.count({ where: { ...emp, arquivado: false, dtEnviado: cutoff ? { gte: cutoff } : { not: null } } }),
+      prisma.orcamento.count({ where: { ...emp, arquivado: false, dtAprovado: cutoff ? { gte: cutoff } : { not: null } } }),
+      prisma.contrato.count({ where: { ...(empresaId ? { empresaId } : {}), ...desdeCreated, status: { not: 'RASCUNHO' } } }),
+    ])
+
+    const stage = (label: string, count: number, prev: number | null) => ({
+      label, count, conversao: prev !== null && prev > 0 ? Math.round((count / prev) * 100) : null,
+    })
+    const funil = [
+      stage('Leads (captação)', leads, null),
+      stage('Oportunidades', oportunidades, leads),
+      stage('Orçamentos enviados', orcEnviados, oportunidades),
+      stage('Orçamentos aprovados', orcAprovados, orcEnviados),
+      stage('Contratos efetivados', contratos, orcAprovados),
+    ]
+    return { funil, dias: dias ?? null }
+  }
+
+  /**
+   * MRR recorrente vs. receita avulsa.
+   * - MRR atual: honorário mensal somado da carteira de contratos ativos
+   *   (VIGENTE + ASSINADO) — a base de receita recorrente já contratada.
+   * - Vendas no período (orçamentos aprovados por dtAprovado): separadas em
+   *   RECORRENTE (≥1 serviço recorrenteMensal=true) vs. AVULSA (pontual), com mix %.
+   * - Série de 12 meses: valor aprovado por mês, recorrente vs. avulso.
+   * Classificação pela natureza do SERVIÇO (recorrenteMensal), não pelo campo
+   * `tipo` estático — mesma regra do reportIndicadores.
+   */
+  async reportMrrAvulso(empresaId?: string, dias?: number) {
+    const emp: Prisma.OrcamentoWhereInput = empresaId ? { empresaId } : {}
+    const cutoff = dias ? new Date(Date.now() - dias * 86400000) : undefined
+
+    const recorrentes = await prisma.servico.findMany({
+      where: { recorrenteMensal: true, ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}) },
+      select: { id: true },
+    })
+    const recorrenteSet = new Set(recorrentes.map(s => s.id))
+    const ehMensal = (itens: { tipo: string; catalogoId: string | null }[], tipoFallback: string | null) => {
+      const servicos = itens.filter(it => it.tipo === 'SERVICO' && it.catalogoId)
+      if (servicos.length === 0) return tipoFallback === 'SERVICO_MENSAL'
+      return servicos.some(it => recorrenteSet.has(it.catalogoId!))
+    }
+
+    // Série dos últimos 12 meses por dtAprovado (independe do período dos cards)
+    const desde = new Date()
+    desde.setMonth(desde.getMonth() - 11)
+    desde.setDate(1)
+    desde.setHours(0, 0, 0, 0)
+
+    const orcSelect = { totalGeral: true, tipo: true, dtAprovado: true, itens: { select: { tipo: true, catalogoId: true } } } as const
+    const [mrrAgg, aprovados, ult12] = await Promise.all([
+      prisma.contrato.aggregate({
+        where: { ...(empresaId ? { empresaId } : {}), status: { in: ['VIGENTE', 'ASSINADO'] } },
+        _sum: { honorarioMensal: true },
+        _count: { _all: true },
+      }),
+      prisma.orcamento.findMany({
+        where: { ...emp, arquivado: false, dtAprovado: cutoff ? { gte: cutoff } : { not: null } },
+        select: orcSelect,
+      }),
+      prisma.orcamento.findMany({
+        where: { ...emp, arquivado: false, dtAprovado: { gte: desde } },
+        select: orcSelect,
+      }),
+    ])
+
+    const mrrAtual = Number(mrrAgg._sum.honorarioMensal ?? 0)
+    const contratosRecorrentes = mrrAgg._count._all
+
+    // Vendas aprovadas no período → recorrente vs. avulso
+    const rec = { count: 0, valor: 0 }, av = { count: 0, valor: 0 }
+    for (const o of aprovados) {
+      const v = Number(o.totalGeral)
+      if (ehMensal(o.itens, o.tipo)) { rec.count++; rec.valor += v } else { av.count++; av.valor += v }
+    }
+    const totalValor = rec.valor + av.valor
+    const periodo = {
+      recorrente: rec,
+      avulso: av,
+      totalValor,
+      pctRecorrente: totalValor > 0 ? Math.round((rec.valor / totalValor) * 100) : 0,
+      pctAvulso: totalValor > 0 ? Math.round((av.valor / totalValor) * 100) : 0,
+    }
+
+    // Série 12 meses (valor aprovado por mês)
+    const buckets: { mes: string; recorrente: number; avulso: number }[] = []
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(desde)
+      d.setMonth(desde.getMonth() + i)
+      buckets.push({ mes: `${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`, recorrente: 0, avulso: 0 })
+    }
+    const idxMes = new Map(buckets.map((b, i) => [b.mes, i]))
+    for (const o of ult12) {
+      if (!o.dtAprovado) continue
+      const key = `${String(o.dtAprovado.getMonth() + 1).padStart(2, '0')}-${o.dtAprovado.getFullYear()}`
+      const i = idxMes.get(key)
+      if (i === undefined) continue
+      const v = Number(o.totalGeral)
+      if (ehMensal(o.itens, o.tipo)) buckets[i]!.recorrente += v
+      else buckets[i]!.avulso += v
+    }
+
+    return {
+      mrrAtual,
+      mrrAnualizado: mrrAtual * 12,
+      contratosRecorrentes,
+      ticketMedioMrr: contratosRecorrentes > 0 ? mrrAtual / contratosRecorrentes : 0,
+      periodo,
+      serie12m: buckets,
+      dias: dias ?? null,
+    }
+  }
+
+  /**
+   * Ranking de vendedores (responsáveis).
+   * Por responsavelId, no período (orçamentos por dtEnviado/dtAprovado;
+   * contratos por createdAt): orçamentos enviados, aprovados, valor aprovado,
+   * taxa de aprovação, contratos efetivados e MRR gerado. Ordenado por valor
+   * aprovado. Sem responsável agregado em "Sem responsável".
+   */
+  async reportRankingVendedores(empresaId?: string, dias?: number) {
+    const emp: Prisma.OrcamentoWhereInput = empresaId ? { empresaId } : {}
+    const cutoff = dias ? new Date(Date.now() - dias * 86400000) : undefined
+
+    const [enviadosGrp, aprovadosGrp, contratosGrp] = await Promise.all([
+      prisma.orcamento.groupBy({
+        by: ['responsavelId'],
+        where: { ...emp, arquivado: false, dtEnviado: cutoff ? { gte: cutoff } : { not: null } },
+        _count: { _all: true },
+      }),
+      prisma.orcamento.groupBy({
+        by: ['responsavelId'],
+        where: { ...emp, arquivado: false, dtAprovado: cutoff ? { gte: cutoff } : { not: null } },
+        _count: { _all: true },
+        _sum: { totalGeral: true },
+      }),
+      prisma.contrato.groupBy({
+        by: ['responsavelId'],
+        where: { ...(empresaId ? { empresaId } : {}), status: { notIn: ['RASCUNHO', 'CANCELADO'] }, ...(cutoff ? { createdAt: { gte: cutoff } } : {}) },
+        _count: { _all: true },
+        _sum: { honorarioMensal: true },
+      }),
+    ])
+
+    type Acc = { enviados: number; aprovados: number; valorAprovado: number; contratos: number; mrr: number }
+    const mapa = new Map<string | null, Acc>()
+    const get = (id: string | null): Acc => {
+      let a = mapa.get(id)
+      if (!a) { a = { enviados: 0, aprovados: 0, valorAprovado: 0, contratos: 0, mrr: 0 }; mapa.set(id, a) }
+      return a
+    }
+    for (const g of enviadosGrp) get(g.responsavelId).enviados += g._count._all
+    for (const g of aprovadosGrp) {
+      const a = get(g.responsavelId)
+      a.aprovados += g._count._all
+      a.valorAprovado += Number(g._sum.totalGeral ?? 0)
+    }
+    for (const g of contratosGrp) {
+      const a = get(g.responsavelId)
+      a.contratos += g._count._all
+      a.mrr += Number(g._sum.honorarioMensal ?? 0)
+    }
+
+    // Resolve nomes dos responsáveis
+    const ids = [...mapa.keys()].filter((k): k is string => !!k)
+    const users = ids.length
+      ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, image: true } }).catch(() => [])
+      : []
+    const userMap = new Map(users.map(u => [u.id, u]))
+
+    const ranking = [...mapa.entries()].map(([id, a]) => {
+      const u = id ? userMap.get(id) : null
+      return {
+        id: id ?? 'sem-responsavel',
+        nome: u?.name ?? 'Sem responsável',
+        image: u?.image ?? null,
+        enviados: a.enviados,
+        aprovados: a.aprovados,
+        valorAprovado: a.valorAprovado,
+        taxaAprovacao: a.enviados > 0 ? Math.round((a.aprovados / a.enviados) * 100) : 0,
+        ticketMedio: a.aprovados > 0 ? a.valorAprovado / a.aprovados : 0,
+        contratos: a.contratos,
+        mrr: a.mrr,
+      }
+    }).sort((x, y) => y.valorAprovado - x.valorAprovado)
+
+    const totais = ranking.reduce((t, r) => ({
+      enviados: t.enviados + r.enviados,
+      aprovados: t.aprovados + r.aprovados,
+      valorAprovado: t.valorAprovado + r.valorAprovado,
+      contratos: t.contratos + r.contratos,
+      mrr: t.mrr + r.mrr,
+    }), { enviados: 0, aprovados: 0, valorAprovado: 0, contratos: 0, mrr: 0 })
+
+    return { ranking, totais, dias: dias ?? null }
+  }
+
+  /**
+   * Descontos & margem (orçamentos aprovados no período por dtAprovado).
+   * - Desconto: bruto (serviços+taxas+despesas), desconto concedido, % médio,
+   *   % de orçamentos com desconto, distribuição por faixa de desconto.
+   * - Margem: composição do bruto entre receita de serviços (honorários) e
+   *   repasses (taxas+despesas) → margem de serviço %.
+   * - Top maiores descontos e desconto médio por vendedor.
+   */
+  async reportDescontosMargem(empresaId?: string, dias?: number) {
+    const emp: Prisma.OrcamentoWhereInput = empresaId ? { empresaId } : {}
+    const cutoff = dias ? new Date(Date.now() - dias * 86400000) : undefined
+
+    const rows = await prisma.orcamento.findMany({
+      where: { ...emp, arquivado: false, dtAprovado: cutoff ? { gte: cutoff } : { not: null } },
+      select: {
+        id: true, numero: true, clienteId: true, responsavelId: true,
+        totalServicos: true, totalTaxas: true, totalDespesas: true,
+        descontoAplicado: true, descontoValor: true, descontoPct: true, totalGeral: true,
+      },
+    })
+
+    const n = (v: Prisma.Decimal | number | null) => Number(v ?? 0)
+    const calc = (o: typeof rows[number]) => {
+      const bruto = n(o.totalServicos) + n(o.totalTaxas) + n(o.totalDespesas)
+      let desconto = n(o.descontoAplicado)
+      if (desconto <= 0) {
+        const dv = n(o.descontoValor)
+        desconto = dv > 0 ? dv : (n(o.descontoPct) > 0 ? bruto * n(o.descontoPct) / 100 : 0)
+      }
+      const pct = bruto > 0 ? (desconto / bruto) * 100 : 0
+      return { bruto, desconto, pct, liquido: n(o.totalGeral), servicos: n(o.totalServicos), repasses: n(o.totalTaxas) + n(o.totalDespesas) }
+    }
+
+    let brutoTotal = 0, descTotal = 0, liquidoTotal = 0, servicosTotal = 0, repassesTotal = 0, comDesconto = 0
+    const faixasDef = [
+      { label: 'Sem desconto', test: (p: number) => p <= 0.0001 },
+      { label: 'Até 5%', test: (p: number) => p > 0.0001 && p <= 5 },
+      { label: '5% – 10%', test: (p: number) => p > 5 && p <= 10 },
+      { label: '10% – 20%', test: (p: number) => p > 10 && p <= 20 },
+      { label: 'Acima de 20%', test: (p: number) => p > 20 },
+    ]
+    const faixas = faixasDef.map(f => ({ label: f.label, count: 0 }))
+    type Vend = { desconto: number; bruto: number; count: number }
+    const porVend = new Map<string | null, Vend>()
+    const detalhados = rows.map(o => {
+      const c = calc(o)
+      brutoTotal += c.bruto; descTotal += c.desconto; liquidoTotal += c.liquido
+      servicosTotal += c.servicos; repassesTotal += c.repasses
+      if (c.desconto > 0.005) comDesconto++
+      const fi = faixasDef.findIndex(f => f.test(c.pct))
+      if (fi >= 0) faixas[fi]!.count++
+      let v = porVend.get(o.responsavelId)
+      if (!v) { v = { desconto: 0, bruto: 0, count: 0 }; porVend.set(o.responsavelId, v) }
+      v.desconto += c.desconto; v.bruto += c.bruto; v.count++
+      return { id: o.id, numero: o.numero, clienteId: o.clienteId, responsavelId: o.responsavelId, ...c }
+    })
+
+    // Resolve nomes de clientes e vendedores
+    const clienteIds = [...new Set(detalhados.map(d => d.clienteId).filter(Boolean))] as string[]
+    const userIds = [...new Set([...porVend.keys()].filter((k): k is string => !!k))]
+    const [clientes, users] = await Promise.all([
+      clienteIds.length ? prisma.cliente.findMany({ where: { id: { in: clienteIds } }, select: { id: true, razaoSocial: true, nomeFantasia: true } }).catch(() => []) : [],
+      userIds.length ? prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } }).catch(() => []) : [],
+    ])
+    const clienteMap = new Map(clientes.map(c => [c.id, c]))
+    const userMap = new Map(users.map(u => [u.id, u.name]))
+
+    const topDescontos = [...detalhados]
+      .filter(d => d.desconto > 0.005)
+      .sort((a, b) => b.pct - a.pct)
+      .slice(0, 8)
+      .map(d => {
+        const c = d.clienteId ? clienteMap.get(d.clienteId) : null
+        return {
+          id: d.id, numero: d.numero,
+          cliente: c?.razaoSocial || c?.nomeFantasia || '—',
+          vendedor: d.responsavelId ? (userMap.get(d.responsavelId) ?? 'Sem responsável') : 'Sem responsável',
+          bruto: d.bruto, desconto: d.desconto, pct: Math.round(d.pct * 10) / 10, liquido: d.liquido,
+        }
+      })
+
+    const porVendedor = [...porVend.entries()]
+      .map(([id, v]) => ({
+        id: id ?? 'sem-responsavel',
+        nome: id ? (userMap.get(id) ?? 'Sem responsável') : 'Sem responsável',
+        count: v.count,
+        desconto: v.desconto,
+        descontoMedioPct: v.bruto > 0 ? Math.round((v.desconto / v.bruto) * 1000) / 10 : 0,
+      }))
+      .sort((a, b) => b.descontoMedioPct - a.descontoMedioPct)
+
+    const totalAprovados = rows.length
+    return {
+      kpis: {
+        brutoTotal,
+        descTotal,
+        liquidoTotal,
+        descontoMedioPct: brutoTotal > 0 ? Math.round((descTotal / brutoTotal) * 1000) / 10 : 0,
+        totalAprovados,
+        comDesconto,
+        pctComDesconto: totalAprovados > 0 ? Math.round((comDesconto / totalAprovados) * 100) : 0,
+      },
+      margem: {
+        servicos: servicosTotal,
+        repasses: repassesTotal,
+        margemServicoPct: brutoTotal > 0 ? Math.round((servicosTotal / brutoTotal) * 1000) / 10 : 0,
+      },
+      faixas,
+      topDescontos,
+      porVendedor,
+      dias: dias ?? null,
+    }
+  }
+
   /** Atrasados — envio e aprovacao alem do prazo configurado */
   async reportAtrasados(empresaId?: string) {
     const where: any = { arquivado: false }
@@ -2854,6 +3322,34 @@ export class OrcamentoService {
       `DELETE FROM orcamento_ia_mensagem WHERE orcamento_id = $1 AND user_id IS NOT DISTINCT FROM $2`,
       orcamentoId, userId ?? null,
     ).catch(() => {})
+    return { ok: true }
+  }
+
+  // ── Sugestões (ações rápidas) do assistente de IA — editáveis em Configurações ──
+  async listIaSugestoes(empresaId?: string) {
+    return prisma.$queryRawUnsafe<{ id: string; label: string; prompt: string; ordem: number }[]>(
+      `SELECT id, label, prompt, ordem FROM orcamento_ia_sugestao
+        WHERE empresa_id IS NOT DISTINCT FROM $1
+        ORDER BY ordem ASC, created_at ASC`,
+      empresaId ?? null,
+    ).catch(() => [] as { id: string; label: string; prompt: string; ordem: number }[])
+  }
+
+  async saveIaSugestoes(empresaId: string | undefined, items: { label: string; prompt: string }[]) {
+    // Lista pequena e reordenável → replace-all por empresa, mantendo a ordem recebida.
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`DELETE FROM orcamento_ia_sugestao WHERE empresa_id IS NOT DISTINCT FROM $1`, empresaId ?? null)
+      for (let i = 0; i < items.length; i++) {
+        const label = (items[i]?.label ?? '').trim()
+        const prompt = (items[i]?.prompt ?? '').trim()
+        if (!label || !prompt) continue
+        await tx.$executeRawUnsafe(
+          `INSERT INTO orcamento_ia_sugestao (id, label, prompt, ordem, empresa_id)
+           VALUES (gen_random_uuid()::text, $1, $2, $3, $4)`,
+          label, prompt, i, empresaId ?? null,
+        )
+      }
+    })
     return { ok: true }
   }
 

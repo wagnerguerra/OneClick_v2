@@ -37,8 +37,11 @@ export default function OnboardingPage() {
     if (!session) { router.push('/login'); return }
 
     trpc.onboarding.needsOnboarding.query()
-      .then((needs) => {
-        if (!needs) router.push('/dashboard')
+      .then((needs: boolean) => {
+        // Navegação dura (não router.push): a sessão do better-auth no cliente
+        // ainda está em cache com empresaId vazio. Soft-nav faria o guard do
+        // dashboard devolver pra cá → loop. O reload re-busca a sessão fresh.
+        if (!needs) window.location.href = '/dashboard'
         else setChecking(false)
       })
       .catch(() => setChecking(false))
@@ -64,7 +67,10 @@ export default function OnboardingPage() {
     try {
       await trpc.onboarding.createEmpresa.mutate(data)
       await alerts.success('Empresa criada!', 'Bem-vindo ao OneClick ERP. Seu ambiente está pronto.')
-      router.push('/dashboard')
+      // Navegação dura: empresaId acabou de ser gravado server-side (via Prisma),
+      // mas a sessão do better-auth no cliente ainda não reflete isso. Sem reload,
+      // o guard do dashboard veria !hasEmpresa e devolveria pro /onboarding (loop).
+      window.location.href = '/dashboard'
     } catch (e) {
       alerts.error('Erro', (e as Error).message ?? 'Não foi possível criar a empresa.')
     } finally { setSaving(false) }
