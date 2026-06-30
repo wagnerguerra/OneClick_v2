@@ -129,6 +129,7 @@ export function createAgendaRouter(
         tipoId: z.string(),
         empresaId: z.string().nullable().optional(),
         oportunidadeId: z.string().nullable().optional(),
+        oportunidadeIds: z.array(z.string()).optional(),
         participanteIds: z.array(z.string()).optional(),
         participantesAvulsos: z.array(z.string()).optional(),
         recorrencia: z.enum(['NENHUMA', 'DIARIA', 'SEMANAL', 'MENSAL', 'ANUAL']).optional(),
@@ -165,6 +166,7 @@ export function createAgendaRouter(
           tipoId: z.string().optional(),
           empresaId: z.string().nullable().optional(),
           oportunidadeId: z.string().nullable().optional(),
+          oportunidadeIds: z.array(z.string()).optional(),
           participanteIds: z.array(z.string()).optional(),
           participantesAvulsos: z.array(z.string()).optional(),
           // Opt-in: só notifica participantes por e-mail quando marcado (default false).

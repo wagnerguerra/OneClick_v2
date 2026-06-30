@@ -76,6 +76,8 @@ interface CreateEventoInput {
   tipoId: string
   empresaId?: string | null
   oportunidadeId?: string | null
+  // Vários cards do CRM por evento. O 1º é o principal (espelha oportunidadeId).
+  oportunidadeIds?: string[]
   participanteIds?: string[]
   participantesAvulsos?: string[]
   recorrencia?: 'NENHUMA' | 'DIARIA' | 'SEMANAL' | 'MENSAL' | 'ANUAL'
@@ -107,6 +109,8 @@ interface UpdateEventoInput {
   tipoId?: string
   empresaId?: string | null
   oportunidadeId?: string | null
+  // Vários cards do CRM por evento. O 1º é o principal (espelha oportunidadeId).
+  oportunidadeIds?: string[]
   participanteIds?: string[]
   participantesAvulsos?: string[]
   notificar?: boolean
@@ -628,26 +632,94 @@ export class AgendaService {
       },
     }).then(async (ev) => {
       // Anotações e anexos do evento (resolvidos do evento OU da oportunidade
-      // vinculada — ver listAnotacoes/listAnexos). Carregados junto pra o modal.
+      // PRINCIPAL vinculada — ver listAnotacoes/listAnexos). Carregados junto.
       const [anot, anex] = await Promise.all([this.listAnotacoes(ev.id), this.listAnexos(ev.id)])
       const base = { ...ev, anotacoes: anot.anotacoes, anexos: anex.anexos }
-      if (!base.oportunidade) return base
-      // `responsavelId` e `clienteId` não são relations no schema da Oportunidade
-      // (resolvidos manualmente) — então enriquecemos responsável e cliente aqui.
-      const [resp, cliente] = await Promise.all([
-        base.oportunidade.responsavelId
-          ? prisma.user
-              .findUnique({ where: { id: base.oportunidade.responsavelId }, select: { id: true, name: true } })
-              .catch(() => null)
-          : Promise.resolve(null),
-        base.oportunidade.clienteId
-          ? prisma.cliente
-              .findUnique({ where: { id: base.oportunidade.clienteId }, select: { id: true, razaoSocial: true, documento: true } })
-              .catch(() => null)
-          : Promise.resolve(null),
-      ])
-      return { ...base, oportunidade: { ...base.oportunidade, responsavel: resp, cliente } }
+      // Todos os cards do CRM vinculados (principal + extras), na ordem do baralho.
+      // O principal (índice 0) espelha `oportunidadeId` e governa anotações/anexos.
+      const ids = await this.linkedOportunidadeIds(ev.id)
+      const cards = await this.enrichCards(ids)
+      return { ...base, oportunidade: cards[0] ?? null, oportunidades: cards }
     })
+  }
+
+  // ── Vínculos N:N evento ↔ cards do CRM ──────────────────────────────────────
+  // Acesso à tabela de junção e à coluna `numero` via SQL raw: o client Prisma
+  // local pode estar desatualizado (lock de DLL no Windows). Colunas/tabela
+  // existem no schema e em prod (prisma db push no deploy).
+
+  /** IDs dos cards vinculados ao evento, na ordem do baralho (principal primeiro). */
+  private async linkedOportunidadeIds(eventoId: string): Promise<string[]> {
+    try {
+      const rows = await prisma.$queryRawUnsafe<Array<{ oportunidade_id: string }>>(
+        `SELECT oportunidade_id FROM agenda_evento_oportunidades WHERE evento_id = $1 ORDER BY ordem ASC, created_at ASC`,
+        eventoId,
+      )
+      if (rows.length) return rows.map((r) => r.oportunidade_id)
+    } catch { /* tabela pode não existir ainda (pré-migração) */ }
+    // Fallback: o principal do próprio evento (eventos anteriores ao backfill).
+    const ev = await prisma.agendaEvento.findUnique({ where: { id: eventoId }, select: { oportunidadeId: true } }).catch(() => null)
+    return ev?.oportunidadeId ? [ev.oportunidadeId] : []
+  }
+
+  /** Enriquece os cards (mesma forma do painel) preservando a ORDEM dos ids. */
+  private async enrichCards(ids: string[]) {
+    if (!ids.length) return []
+    const ops = await prisma.oportunidade.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true, titulo: true, descricao: true, valor: true, razaoSocial: true,
+        cpfCnpj: true, atividade: true, origem: true, motivoPerda: true,
+        previsaoFechamento: true, createdAt: true, updatedAt: true, clienteId: true,
+        responsavelId: true, contatoNome: true, contatoCargo: true, contatoTelefone: true,
+        contatoEmail: true,
+        etapa: { select: { id: true, nome: true, cor: true } },
+        tags: { select: { tag: { select: { id: true, nome: true, cor: true } } } },
+        _count: { select: { tarefas: true, mensagens: true, arquivos: true } },
+      },
+    })
+    // numero via raw (client pode estar stale)
+    const numeroMap = new Map<string, number | null>()
+    try {
+      const rows = await prisma.$queryRawUnsafe<Array<{ id: string; numero: number | null }>>(
+        `SELECT id, numero FROM oportunidades WHERE id IN (${ids.map((_, i) => `$${i + 1}`).join(',')})`,
+        ...ids,
+      )
+      for (const r of rows) numeroMap.set(r.id, r.numero)
+    } catch { /* coluna pode não existir ainda */ }
+    // responsável + cliente (não são relations no schema da Oportunidade)
+    const respIds = [...new Set(ops.map((o) => o.responsavelId).filter(Boolean))] as string[]
+    const cliIds = [...new Set(ops.map((o) => o.clienteId).filter(Boolean))] as string[]
+    const [resps, clientes] = await Promise.all([
+      respIds.length ? prisma.user.findMany({ where: { id: { in: respIds } }, select: { id: true, name: true } }).catch(() => []) : Promise.resolve([]),
+      cliIds.length ? prisma.cliente.findMany({ where: { id: { in: cliIds } }, select: { id: true, razaoSocial: true, documento: true } }).catch(() => []) : Promise.resolve([]),
+    ])
+    const respMap = new Map(resps.map((r) => [r.id, r]))
+    const cliMap = new Map(clientes.map((c) => [c.id, c]))
+    const byId = new Map(ops.map((o) => [o.id, {
+      ...o,
+      numero: numeroMap.get(o.id) ?? null,
+      responsavel: o.responsavelId ? respMap.get(o.responsavelId) ?? null : null,
+      cliente: o.clienteId ? cliMap.get(o.clienteId) ?? null : null,
+    }]))
+    // Preserva a ordem do baralho e descarta ids inexistentes.
+    return ids.map((id) => byId.get(id)).filter((c): c is NonNullable<typeof c> => !!c)
+  }
+
+  /** Sincroniza a tabela de junção do evento com a lista de cards (ordem = baralho). */
+  private async syncEventoOportunidades(eventoId: string, ids: string[]) {
+    const limpos = [...new Set(ids.filter(Boolean))]
+    try {
+      await prisma.$executeRawUnsafe(`DELETE FROM agenda_evento_oportunidades WHERE evento_id = $1`, eventoId)
+      for (let i = 0; i < limpos.length; i++) {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO agenda_evento_oportunidades (id, evento_id, oportunidade_id, ordem, created_at)
+           VALUES ($1, $2, $3, $4, now())
+           ON CONFLICT (evento_id, oportunidade_id) DO UPDATE SET ordem = EXCLUDED.ordem`,
+          generateUUID(), eventoId, limpos[i], i,
+        )
+      }
+    } catch { /* tabela pode não existir ainda (pré-migração) — vínculo principal ainda fica no oportunidadeId */ }
   }
 
   /**
@@ -665,7 +737,7 @@ export class AgendaService {
         { razaoSocial: { contains: termo, mode: 'insensitive' } },
       ]
     }
-    return prisma.oportunidade.findMany({
+    const ops = await prisma.oportunidade.findMany({
       where,
       select: {
         id: true,
@@ -676,6 +748,18 @@ export class AgendaService {
       orderBy: { updatedAt: 'desc' },
       take: 20,
     })
+    // numero via raw (client local pode estar stale)
+    const numeroMap = new Map<string, number | null>()
+    if (ops.length) {
+      try {
+        const rows = await prisma.$queryRawUnsafe<Array<{ id: string; numero: number | null }>>(
+          `SELECT id, numero FROM oportunidades WHERE id IN (${ops.map((_, i) => `$${i + 1}`).join(',')})`,
+          ...ops.map((o) => o.id),
+        )
+        for (const r of rows) numeroMap.set(r.id, r.numero)
+      } catch { /* coluna pode não existir ainda */ }
+    }
+    return ops.map((o) => ({ ...o, numero: numeroMap.get(o.id) ?? null }))
   }
 
   // ===== Anotações & Anexos do evento ========================================
@@ -857,9 +941,15 @@ export class AgendaService {
       titulo, descricao, data, dataFim, horaInicio, horaFim, diaInteiro,
       local, contato, link, presenca, particular, editavel,
       sala, salaId, garagem, vagas, equipamentos, arrumarSala, isTarefa,
-      tipoId, oportunidadeId, participanteIds, participantesAvulsos,
+      tipoId, oportunidadeId, oportunidadeIds, participanteIds, participantesAvulsos,
       recorrencia, recorrenciaVezes, notificar,
     } = input
+
+    // Cards do CRM: aceita lista (novo) ou o campo único legado. 1º = principal.
+    const oppIds = (oportunidadeIds && oportunidadeIds.length)
+      ? [...new Set(oportunidadeIds.filter(Boolean))]
+      : (oportunidadeId ? [oportunidadeId] : [])
+    const principalOpp = oppIds[0] ?? null
 
     // Bloqueia agendamento em data passada (só no create — editar evento antigo
     // continua permitido). Compara YYYY-MM-DD pra ignorar timezone.
@@ -933,12 +1023,15 @@ export class AgendaService {
           criadorId: userId,
           // Carimba SEMPRE a empresa da sessão (tenant) — não o input do cliente.
           empresaId: ctxEmpresaId ?? null,
-          oportunidadeId: oportunidadeId || null,
+          oportunidadeId: principalOpp,
           recorrencia: rec as never,
           recorrenciaVezes: isRecurrent ? vezes : null,
           lote,
         },
       })
+
+      // Vínculos N:N com os cards do CRM (principal + extras).
+      if (oppIds.length > 0) await this.syncEventoOportunidades(evento.id, oppIds)
 
       // Participantes (por usuário) — usa exatamente o que veio do frontend.
       // O form já pré-seleciona o criador ao abrir, mas se ele se remover da
@@ -1041,7 +1134,12 @@ export class AgendaService {
     if (data.tipoId !== undefined) updateData.tipoId = data.tipoId
     // empresaId do evento é IMUTÁVEL (definido no create = tenant). Ignorado no
     // update — não permitir mover um evento entre tenants via cliente. F-013.
-    if (data.oportunidadeId !== undefined) updateData.oportunidadeId = data.oportunidadeId || null
+    // Cards do CRM: aceita lista (novo) ou o campo único legado. null = não mexer.
+    const newOppIds: string[] | null = data.oportunidadeIds !== undefined
+      ? [...new Set(data.oportunidadeIds.filter(Boolean))]
+      : (data.oportunidadeId !== undefined ? (data.oportunidadeId ? [data.oportunidadeId] : []) : null)
+    const newPrincipal = newOppIds ? (newOppIds[0] ?? null) : undefined
+    if (newPrincipal !== undefined) updateData.oportunidadeId = newPrincipal
 
     const updated = await prisma.agendaEvento.update({
       where: { id },
@@ -1081,9 +1179,11 @@ export class AgendaService {
     // anotações/anexos PRÓPRIOS do evento são migrados pra oportunidade (merge).
     // Ao DESVINCULAR, os dados permanecem na oportunidade (decisão do produto) —
     // só registramos no histórico (agenda_logs).
-    if (data.oportunidadeId !== undefined) {
+    if (newOppIds !== null) {
+      // Sincroniza a tabela de junção (principal + extras) com a nova lista.
+      await this.syncEventoOportunidades(id, newOppIds)
       const oldOpp = evento.oportunidadeId
-      const newOpp = data.oportunidadeId || null
+      const newOpp = newPrincipal ?? null
       if (newOpp && newOpp !== oldOpp) {
         const mig = await this.migrarAnotacoesAnexosParaOportunidade(id, newOpp)
         await prisma.agendaLog.create({

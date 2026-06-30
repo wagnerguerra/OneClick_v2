@@ -2678,10 +2678,15 @@ model AgendaEvento {
   criador   User       @relation("EventoCriador", fields: [criadorId], references: [id])
   empresaId String?    @map("empresa_id")
 
-  // Vínculo opcional com um card do CRM (Oportunidade). onDelete: SetNull para que
-  // excluir a oportunidade apenas desvincule, sem apagar o evento da agenda.
+  // Vínculo com o card PRINCIPAL do CRM (Oportunidade). É o card cujas
+  // anotações/anexos são compartilhadas com o evento (merge). onDelete: SetNull
+  // para que excluir a oportunidade apenas desvincule, sem apagar o evento.
   oportunidadeId String?       @map("oportunidade_id")
   oportunidade   Oportunidade? @relation("OportunidadeAgendaEventos", fields: [oportunidadeId], references: [id], onDelete: SetNull)
+
+  // Cards ADICIONAIS do CRM vinculados ao evento (N:N). Inclui o principal —
+  // a tabela de junção guarda TODOS os vínculos; `oportunidadeId` aponta o principal.
+  oportunidadesVinc AgendaEventoOportunidade[]
 
   participantes AgendaParticipante[]
   logs          AgendaLog[]
@@ -2703,6 +2708,24 @@ model AgendaEvento {
   @@index([salaId])
   @@index([oportunidadeId])
   @@map("agenda_eventos")
+}
+
+// Junção N:N evento ↔ card do CRM. Permite vincular VÁRIOS cards a um evento.
+// A `ordem` define a sequência exibida no "baralho"; o primeiro (ordem 0) é o
+// principal e espelha o `oportunidadeId` do evento.
+model AgendaEventoOportunidade {
+  id             String       @id @default(cuid())
+  eventoId       String       @map("evento_id")
+  evento         AgendaEvento @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  oportunidadeId String       @map("oportunidade_id")
+  oportunidade   Oportunidade @relation(fields: [oportunidadeId], references: [id], onDelete: Cascade)
+  ordem          Int          @default(0)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@unique([eventoId, oportunidadeId])
+  @@index([eventoId])
+  @@index([oportunidadeId])
+  @@map("agenda_evento_oportunidades")
 }
 
 model AgendaParticipante {
@@ -2959,6 +2982,9 @@ model Oportunidade {
   contatoEmail       String?   @map("contato_email")
   empresaId          String?   @map("empresa_id")
   ordem              Int       @default(0)
+  // Número sequencial por empresa (#1, #2...) — identificador humano do card,
+  // usado pra cruzar com a agenda. Gerado na criação; backfill via SQL cirúrgico.
+  numero             Int?
   isActive           Boolean   @default(true) @map("is_active")
   // Funil de captação por IA: pontuação/temperatura do lead (urgência).
   score              Int?
@@ -2976,10 +3002,13 @@ model Oportunidade {
 
   // Eventos da agenda vinculados a esta oportunidade (vínculo bidirecional)
   agendaEventos AgendaEvento[] @relation("OportunidadeAgendaEventos")
+  // Vínculos N:N com eventos da agenda (vários cards por evento) — ver AgendaEventoOportunidade.
+  agendaVinculos AgendaEventoOportunidade[]
 
   @@index([etapaId])
   @@index([clienteId])
   @@index([empresaId])
+  @@index([empresaId, numero])
   @@map("oportunidades")
 }
 

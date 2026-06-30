@@ -113,7 +113,7 @@ function ConversaIATab({ oportunidadeId }: { oportunidadeId: string }) {
 
 interface Etapa { id: string; nome: string; ordem: number; cor: string; probabilidade: number; ehGanho: boolean; ehPerda: boolean; slaDias: number | null; _count: { oportunidades: number } }
 
-interface Oportunidade { id: string; titulo: string; descricao: string | null; valor: number | null; origem: string | null; temperatura?: string | null; score?: number | null; previsaoFechamento: string | null; createdAt: string; updatedAt: string; etapaId: string; clienteId: string | null; responsavelId: string | null; etapa: Etapa; cliente?: { id: string; razaoSocial: string } | null; responsavel?: { id: string; name: string } | null; _count?: { tarefas: number; mensagens: number; arquivos: number; agendaEventos?: number } }
+interface Oportunidade { id: string; numero?: number | null; titulo: string; descricao: string | null; valor: number | null; origem: string | null; temperatura?: string | null; score?: number | null; previsaoFechamento: string | null; createdAt: string; updatedAt: string; etapaId: string; clienteId: string | null; responsavelId: string | null; etapa: Etapa; cliente?: { id: string; razaoSocial: string } | null; responsavel?: { id: string; name: string } | null; _count?: { tarefas: number; mensagens: number; arquivos: number; agendaEventos?: number } }
 
 interface OportunidadeDetail extends Oportunidade { tarefas: Tarefa[]; mensagens: Mensagem[]; arquivos: Arquivo[]; eventos: Evento[] }
 
@@ -1018,7 +1018,10 @@ export default function CrmPage() {
               <TableBody>
                 {filteredOps.map(op => (
                   <TableRow key={op.id} className="cursor-pointer whitespace-nowrap hover:bg-muted/50" onClick={() => openDetail(op.id)}>
-                    <TableCell className="font-medium text-sm truncate max-w-[300px]">{op.titulo}</TableCell>
+                    <TableCell className="font-medium text-sm truncate max-w-[300px]">
+                      {op.numero != null && <span className="text-muted-foreground/70 font-bold tabular-nums mr-1.5">#{op.numero}</span>}
+                      {op.titulo}
+                    </TableCell>
                     <TableCell>
                       <Badge className="text-[10px] px-1.5 py-0.5 text-white" style={{ backgroundColor: op.etapa.cor }}>{op.etapa.nome}</Badge>
                     </TableCell>
@@ -2021,7 +2024,10 @@ function KanbanCardContent({ op, etapas, onMover, onDelete, diasDesde, showMenu,
               {empresaCliente}
             </p>
           )}
-          <h4 className="text-[13px] font-semibold leading-tight line-clamp-2">{op.titulo}</h4>
+          <h4 className="text-[13px] font-semibold leading-tight line-clamp-2">
+            {op.numero != null && <span className="text-muted-foreground/70 font-bold tabular-nums mr-1">#{op.numero}</span>}
+            {op.titulo}
+          </h4>
         </div>
         <div className="flex items-center gap-0.5 shrink-0 -mr-1 -mt-0.5">
           <div className="h-6 w-6">

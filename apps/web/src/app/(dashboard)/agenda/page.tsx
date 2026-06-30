@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Plus, Loader2, Calendar, Clock,
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
   Repeat, Lock, History, Settings, Palette, Check, DoorOpen,
-  Bell, Mail, CheckSquare, Square, ListTodo, Search, Target, ArrowRight, Link2, ExternalLink,
+  Bell, Mail, CheckSquare, Square, ListTodo, Search, Target, ArrowRight, ArrowUp, Link2, ExternalLink,
   StickyNote, Paperclip, Send, Upload, FileBarChart, Sparkles,
 } from 'lucide-react'
 import {
@@ -82,31 +82,37 @@ interface AgendaEvento {
     nomeAvulso: string | null
     usuario: { id: string; name: string; image?: string | null } | null
   }>
-  // Presente apenas no retorno do getById (detalhe) quando o evento está vinculado a um card do CRM
-  oportunidade?: {
-    id: string
-    titulo: string
-    descricao: string | null
-    valor: string | number | null
-    razaoSocial: string | null
-    cpfCnpj: string | null
-    atividade: string | null
-    origem: string | null
-    motivoPerda: string | null
-    previsaoFechamento: string | null
-    createdAt: string | null
-    updatedAt: string | null
-    clienteId: string | null
-    contatoNome: string | null
-    contatoCargo: string | null
-    contatoTelefone: string | null
-    contatoEmail: string | null
-    etapa: { id: string; nome: string; cor: string } | null
-    responsavel: { id: string; name: string } | null
-    cliente: { id: string; razaoSocial: string; documento: string } | null
-    tags: Array<{ tag: { id: string; nome: string; cor: string } }>
-    _count: { tarefas: number; mensagens: number; arquivos: number }
-  } | null
+  // Presente apenas no retorno do getById (detalhe). `oportunidade` = card PRINCIPAL
+  // (compat); `oportunidades` = todos os cards vinculados (baralho), principal primeiro.
+  oportunidade?: OportunidadeCard | null
+  oportunidades?: OportunidadeCard[]
+}
+
+// Card do CRM enriquecido (painel/baralho do detalhe do evento).
+interface OportunidadeCard {
+  id: string
+  numero: number | null
+  titulo: string
+  descricao: string | null
+  valor: string | number | null
+  razaoSocial: string | null
+  cpfCnpj: string | null
+  atividade: string | null
+  origem: string | null
+  motivoPerda: string | null
+  previsaoFechamento: string | null
+  createdAt: string | null
+  updatedAt: string | null
+  clienteId: string | null
+  contatoNome: string | null
+  contatoCargo: string | null
+  contatoTelefone: string | null
+  contatoEmail: string | null
+  etapa: { id: string; nome: string; cor: string } | null
+  responsavel: { id: string; name: string } | null
+  cliente: { id: string; razaoSocial: string; documento: string } | null
+  tags: Array<{ tag: { id: string; nome: string; cor: string } }>
+  _count: { tarefas: number; mensagens: number; arquivos: number }
 }
 
 // Exibição da sala a partir do texto livre. Nome real vem do vínculo; quando só há
@@ -115,6 +121,7 @@ const salaTexto = (s?: string | null) => { const t = (s ?? '').trim(); if (!t) r
 
 interface OportunidadeBusca {
   id: string
+  numero?: number | null
   titulo: string
   razaoSocial: string | null
   etapa: { nome: string; cor: string } | null
@@ -342,7 +349,9 @@ export default function AgendaPage() {
 
   // Vínculo com card do CRM (Item 4). Guarda a oportunidade selecionada pra
   // exibir título/cliente nos chips do form sem precisar refetch.
-  const [oportunidadeVinc, setOportunidadeVinc] = useState<OportunidadeBusca | null>(null)
+  // Cards do CRM vinculados ao evento (vários). O 1º é o principal — espelha
+  // oportunidadeId e governa as abas Anotações/Anexos (compartilhadas com o card).
+  const [oportunidadesVinc, setOportunidadesVinc] = useState<OportunidadeBusca[]>([])
   const [opBuscaOpen, setOpBuscaOpen] = useState(false)
   const [opBuscaQuery, setOpBuscaQuery] = useState('')
   const [opBuscaResults, setOpBuscaResults] = useState<OportunidadeBusca[]>([])
@@ -364,6 +373,8 @@ export default function AgendaPage() {
   const [editandoAnotacaoTexto, setEditandoAnotacaoTexto] = useState('')
   // Aba ativa na PRÉVIA (modo view): Detalhes / Anotações / Anexos / Histórico.
   const [viewTab, setViewTab] = useState<'detalhes' | 'anotacoes' | 'anexos' | 'historico'>('detalhes')
+  // Card selecionado no "baralho" de oportunidades do detalhe (null = o principal).
+  const [deckSelId, setDeckSelId] = useState<string | null>(null)
 
   const carregarAnotacoesAnexos = useCallback(async (eventoId: string) => {
     try {
@@ -906,7 +917,7 @@ export default function AgendaPage() {
     })
     setAvulsoInput('')
     setLembretesForm([])
-    setOportunidadeVinc(null)
+    setOportunidadesVinc([])
     // Evento novo ainda não existe — sem anotações/anexos até salvar.
     setEventoAnotacoes([]); setEventoAnexos([]); setEventoVinculado(false); setNovaAnotacao('')
     setModalOpen(true)
@@ -919,6 +930,7 @@ export default function AgendaPage() {
     setModalOpen(true)
     // Anotações/anexos (do evento ou da oportunidade vinculada) — também na prévia.
     setViewTab('detalhes')
+    setDeckSelId(null)
     setNovaAnotacao(''); setEditandoAnotacaoId(null); setEditandoAnotacaoTexto('')
     setEventoAnotacoes([]); setEventoAnexos([]); setEventoVinculado(false)
     void carregarAnotacoesAnexos(ev.id)
@@ -972,20 +984,29 @@ export default function AgendaPage() {
     })
     setAvulsoInput('')
     setLembretesForm([])
-    // Vínculo com card do CRM: usa a oportunidade já vinda do getById (se houver),
-    // ou monta um chip mínimo a partir do oportunidadeId pra exibir enquanto edita.
-    if (ev.oportunidade) {
-      setOportunidadeVinc({
-        id: ev.oportunidade.id,
-        titulo: ev.oportunidade.titulo,
-        razaoSocial: ev.oportunidade.razaoSocial,
-        etapa: ev.oportunidade.etapa ? { nome: ev.oportunidade.etapa.nome, cor: ev.oportunidade.etapa.cor } : null,
-      })
+    // Cards do CRM vinculados: usa o array `oportunidades` do getById (se houver),
+    // senão cai pro principal único (ev.oportunidade / ev.oportunidadeId) e refaz o
+    // getById pra trazer TODOS os cards (a lista do calendário não inclui o N:N).
+    const mapCard = (o: OportunidadeCard): OportunidadeBusca => ({
+      id: o.id, numero: o.numero, titulo: o.titulo, razaoSocial: o.razaoSocial,
+      etapa: o.etapa ? { nome: o.etapa.nome, cor: o.etapa.cor } : null,
+    })
+    if (ev.oportunidades && ev.oportunidades.length) {
+      setOportunidadesVinc(ev.oportunidades.map(mapCard))
+    } else if (ev.oportunidade) {
+      setOportunidadesVinc([mapCard(ev.oportunidade)])
     } else if (ev.oportunidadeId) {
-      setOportunidadeVinc({ id: ev.oportunidadeId, titulo: 'Card vinculado', razaoSocial: null, etapa: null })
+      setOportunidadesVinc([{ id: ev.oportunidadeId, titulo: 'Card vinculado', razaoSocial: null, etapa: null }])
     } else {
-      setOportunidadeVinc(null)
+      setOportunidadesVinc([])
     }
+    trpc.agenda.getById.query({ id: ev.id })
+      .then((full: unknown) => {
+        const f = full as AgendaEvento
+        if (f.oportunidades) setOportunidadesVinc(f.oportunidades.map(mapCard))
+        setSelectedEvento(prev => (prev && prev.id === f.id ? { ...prev, ...f } : prev))
+      })
+      .catch(() => {})
     trpc.agenda.lembrete.list.query({ eventoId: ev.id })
       .then((r: unknown) => {
         const arr = r as Array<{ canal: 'POPUP' | 'EMAIL'; minutosAntes: number }>
@@ -1091,7 +1112,7 @@ export default function AgendaPage() {
           arrumarSala: form.arrumarSala,
           isTarefa: form.isTarefa,
           tipoId: form.tipoId,
-          oportunidadeId: form.oportunidadeId || null,
+          oportunidadeIds: oportunidadesVinc.map(o => o.id),
           recorrencia: form.recorrencia as 'NENHUMA' | 'DIARIA' | 'SEMANAL' | 'MENSAL' | 'ANUAL',
           recorrenciaVezes: form.recorrencia !== 'NENHUMA' ? form.recorrenciaVezes : undefined,
           participanteIds: form.participanteIds,
@@ -1128,7 +1149,7 @@ export default function AgendaPage() {
             arrumarSala: form.arrumarSala,
             isTarefa: form.isTarefa,
             tipoId: form.tipoId,
-            oportunidadeId: form.oportunidadeId || null,
+            oportunidadeIds: oportunidadesVinc.map(o => o.id),
             participanteIds: form.participanteIds,
             participantesAvulsos: form.participantesAvulsos,
             notificar: form.notificar,
@@ -2111,7 +2132,12 @@ export default function AgendaPage() {
               const dataFim = ev.dataFim ? new Date(ev.dataFim) : null
               const presencaDef = PRESENCA_LABELS[ev.presenca]
               const PresencaIcon = presencaDef?.icon ?? Building2
-              const op = ev.oportunidade
+              // Baralho de cards do CRM: array `oportunidades` (principal primeiro),
+              // com fallback pro vínculo único legado. `op` = card selecionado.
+              const deckCards = (ev.oportunidades && ev.oportunidades.length)
+                ? ev.oportunidades
+                : (ev.oportunidade ? [ev.oportunidade] : [])
+              const op = deckCards.find(c => c.id === deckSelId) ?? deckCards[0] ?? null
               // Período / horário formatado
               const mesmoDia = !dataFim || dataFim.toISOString().slice(0, 10) === dataIni.toISOString().slice(0, 10)
               const dataIniStr = `${String(dataIni.getUTCDate()).padStart(2, '0')}/${String(dataIni.getUTCMonth() + 1).padStart(2, '0')}/${dataIni.getUTCFullYear()}`
@@ -2346,13 +2372,66 @@ export default function AgendaPage() {
 
                   {/* ============ COLUNA DIREITA (oportunidade do CRM) ============ */}
                   {op && (
-                    <div className="lg:min-h-0 lg:overflow-y-auto nice-scrollbar self-start lg:self-stretch">
+                    <div className="lg:min-h-0 lg:overflow-y-auto nice-scrollbar self-start lg:self-stretch space-y-3">
+                      {/* Baralho de cards — cartas empilhadas; passar o mouse no header
+                          levanta a carta mostrando o título; clique seleciona (detalhes
+                          abaixo). Só aparece quando há mais de um card vinculado. */}
+                      {deckCards.length > 1 && (
+                        <div className="pt-1">
+                          <p className="text-[10px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                            <Link2 className="h-3.5 w-3.5" />
+                            {deckCards.length} cards vinculados
+                          </p>
+                          <div className="px-1">
+                            {deckCards.map((card, idx) => {
+                              const active = card.id === op.id
+                              return (
+                                <button
+                                  key={card.id}
+                                  type="button"
+                                  onClick={() => setDeckSelId(card.id)}
+                                  style={{ zIndex: active ? 30 : idx + 1 }}
+                                  className={cn(
+                                    'relative block w-full text-left rounded-xl border px-3 py-2.5 transition-all duration-200',
+                                    idx > 0 && '-mt-2.5',
+                                    'hover:-translate-y-1.5 hover:shadow-lg hover:z-40',
+                                    active
+                                      ? 'border-violet-500/60 bg-violet-500/15 shadow-md ring-1 ring-violet-500/30'
+                                      : 'border-violet-500/25 bg-card hover:bg-violet-500/5',
+                                  )}
+                                  title={card.titulo}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    {card.numero != null && (
+                                      <span className="shrink-0 text-[12px] font-bold tabular-nums text-violet-600 dark:text-violet-400">#{card.numero}</span>
+                                    )}
+                                    <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-foreground">{card.titulo}</span>
+                                    {idx === 0 && (
+                                      <span className="shrink-0 rounded-full bg-violet-500/15 text-violet-700 dark:text-violet-300 px-1.5 py-0 text-[9px] font-bold uppercase tracking-wider">Principal</span>
+                                    )}
+                                    {card.etapa && (
+                                      <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${card.etapa.cor}22`, color: card.etapa.cor }}>{card.etapa.nome}</span>
+                                    )}
+                                  </div>
+                                  {(card.cliente?.razaoSocial || card.razaoSocial) && (
+                                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">{card.cliente?.razaoSocial ?? card.razaoSocial}</p>
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 dark:bg-violet-500/10 overflow-hidden">
                         <div className="px-4 py-2.5 border-b border-violet-500/20 flex items-center gap-2 bg-violet-500/10">
                           <Target className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
                           <span className="text-[11px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider">
                             Detalhes da oportunidade
                           </span>
+                          {op.numero != null && (
+                            <span className="ml-auto text-[11px] font-bold tabular-nums text-violet-600 dark:text-violet-400">#{op.numero}</span>
+                          )}
                         </div>
                         <div className="px-4 py-3.5 space-y-3.5">
                           {/* Título + cliente */}
@@ -2856,7 +2935,7 @@ export default function AgendaPage() {
 
                 {/* COLUNA DIREITA — dados principais, organizados em abas (Geral / Lembretes e CRM).
                     Apenas agrupamento visual: todos os campos seguem controlados pelo mesmo `form`/handlers.
-                    O estado vive em `form`/`lembretesForm`/`oportunidadeVinc`, então o submit lê tudo
+                    O estado vive em `form`/`lembretesForm`/`oportunidadesVinc`, então o submit lê tudo
                     independentemente de qual aba está visível (Radix Tabs desmonta o conteúdo inativo,
                     mas como nada depende do DOM montado, não há perda de dados). */}
                 <div className="flex-1 min-w-0">
@@ -3172,74 +3251,106 @@ export default function AgendaPage() {
 
                     {/* ABA: VINCULAÇÕES — Card do CRM (e, no futuro, outros vínculos) */}
                     <TabsContent value="vinculacoes" className="mt-0 flex-1 overflow-y-auto nice-scrollbar pr-1 space-y-3 focus-visible:outline-none">
-                  {/* Vincular card do CRM */}
+                  {/* Vincular cards do CRM — vários por evento. O 1º é o principal. */}
                   <div className="space-y-1.5">
                     <Label className="text-xs flex items-center gap-1.5">
                       <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
-                      Card do CRM (opcional)
+                      Cards do CRM (opcional)
                     </Label>
-                    {oportunidadeVinc ? (
-                      <div className="flex items-center gap-2 rounded-md border border-violet-500/30 bg-violet-500/5 dark:bg-violet-500/10 px-2.5 py-1.5">
-                        <Target className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[12px] font-medium truncate">{oportunidadeVinc.titulo}</p>
-                          {(oportunidadeVinc.razaoSocial || oportunidadeVinc.etapa) && (
-                            <p className="text-[10px] text-muted-foreground truncate">
-                              {[oportunidadeVinc.razaoSocial, oportunidadeVinc.etapa?.nome].filter(Boolean).join(' · ')}
-                            </p>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => { setOportunidadeVinc(null); setForm(f => ({ ...f, oportunidadeId: '' })) }}
-                          className="text-muted-foreground hover:text-red-500 shrink-0"
-                          aria-label="Desvincular card do CRM"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div ref={opBuscaRef} className="relative w-full">
-                        <button
-                          type="button"
-                          onClick={() => { setOpBuscaOpen(o => !o); setOpBuscaQuery('') }}
-                          className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                        >
-                          <span className="text-muted-foreground truncate">Vincular a uma oportunidade...</span>
-                          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
-                        </button>
-                        {opBuscaOpen && (
-                          <div className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-md">
-                            <div className="p-1.5 border-b bg-popover sticky top-0">
-                              <Input
-                                autoFocus
-                                value={opBuscaQuery}
-                                onChange={e => setOpBuscaQuery(e.target.value)}
-                                placeholder="Buscar por título ou cliente..."
-                                className="h-7 text-xs"
-                              />
-                            </div>
-                            <div className="max-h-56 overflow-y-auto py-1">
-                              {opBuscaLoading ? (
-                                <p className="px-3 py-3 text-xs text-muted-foreground text-center flex items-center justify-center gap-2">
-                                  <Loader2 className="h-3 w-3 animate-spin" />Buscando...
+
+                    {/* Cards já vinculados — o primeiro é o principal (anotações/anexos) */}
+                    {oportunidadesVinc.length > 0 && (
+                      <div className="space-y-1.5">
+                        {oportunidadesVinc.map((card, idx) => (
+                          <div key={card.id} className="flex items-center gap-2 rounded-md border border-violet-500/30 bg-violet-500/5 dark:bg-violet-500/10 px-2.5 py-1.5">
+                            <Target className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] font-medium truncate flex items-center gap-1.5">
+                                {card.numero != null && (
+                                  <span className="text-violet-600 dark:text-violet-400 font-bold tabular-nums shrink-0">#{card.numero}</span>
+                                )}
+                                <span className="truncate">{card.titulo}</span>
+                                {idx === 0 && (
+                                  <span className="shrink-0 rounded-full bg-violet-500/15 text-violet-700 dark:text-violet-300 px-1.5 py-0 text-[9px] font-bold uppercase tracking-wider">Principal</span>
+                                )}
+                              </p>
+                              {(card.razaoSocial || card.etapa) && (
+                                <p className="text-[10px] text-muted-foreground truncate">
+                                  {[card.razaoSocial, card.etapa?.nome].filter(Boolean).join(' · ')}
                                 </p>
-                              ) : opBuscaResults.length === 0 ? (
-                                <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhuma oportunidade encontrada</p>
-                              ) : opBuscaResults.map(op => (
+                              )}
+                            </div>
+                            {idx !== 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setOportunidadesVinc(prev => { const next = [...prev]; const [m] = next.splice(idx, 1); return m ? [m, ...next] : prev })}
+                                className="text-muted-foreground hover:text-violet-600 shrink-0"
+                                title="Tornar principal (compartilha Anotações/Anexos)"
+                              >
+                                <ArrowUp className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setOportunidadesVinc(prev => prev.filter(c => c.id !== card.id))}
+                              className="text-muted-foreground hover:text-red-500 shrink-0"
+                              aria-label="Desvincular card do CRM"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Picker — adiciona outro card (exclui os já vinculados) */}
+                    <div ref={opBuscaRef} className="relative w-full">
+                      <button
+                        type="button"
+                        onClick={() => { setOpBuscaOpen(o => !o); setOpBuscaQuery('') }}
+                        className="flex h-8 w-full items-center justify-between rounded-md border border-dashed border-input bg-transparent px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring hover:border-violet-500/50"
+                      >
+                        <span className="text-muted-foreground truncate flex items-center gap-1.5">
+                          <Plus className="h-3.5 w-3.5" />
+                          {oportunidadesVinc.length ? 'Vincular outro card...' : 'Vincular a uma oportunidade...'}
+                        </span>
+                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
+                      </button>
+                      {opBuscaOpen && (
+                        <div className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-md">
+                          <div className="p-1.5 border-b bg-popover sticky top-0">
+                            <Input
+                              autoFocus
+                              value={opBuscaQuery}
+                              onChange={e => setOpBuscaQuery(e.target.value)}
+                              placeholder="Buscar por título ou cliente..."
+                              className="h-7 text-xs"
+                            />
+                          </div>
+                          <div className="max-h-56 overflow-y-auto py-1">
+                            {opBuscaLoading ? (
+                              <p className="px-3 py-3 text-xs text-muted-foreground text-center flex items-center justify-center gap-2">
+                                <Loader2 className="h-3 w-3 animate-spin" />Buscando...
+                              </p>
+                            ) : (() => {
+                              const disponiveis = opBuscaResults.filter(op => !oportunidadesVinc.some(c => c.id === op.id))
+                              return disponiveis.length === 0 ? (
+                                <p className="px-3 py-3 text-xs text-muted-foreground text-center">
+                                  {opBuscaResults.length ? 'Todos os resultados já vinculados' : 'Nenhuma oportunidade encontrada'}
+                                </p>
+                              ) : disponiveis.map(op => (
                                 <button
                                   key={op.id}
                                   type="button"
-                                  onClick={() => {
-                                    setOportunidadeVinc(op)
-                                    setForm(f => ({ ...f, oportunidadeId: op.id }))
-                                    setOpBuscaOpen(false)
-                                  }}
+                                  onClick={() => { setOportunidadesVinc(prev => [...prev, op]); setOpBuscaOpen(false) }}
                                   className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
                                 >
                                   <Target className="h-3.5 w-3.5 text-violet-500 shrink-0" />
                                   <span className="min-w-0 flex-1">
-                                    <span className="block truncate font-medium">{op.titulo}</span>
+                                    <span className="block truncate font-medium">
+                                      {op.numero != null && <span className="text-violet-600 dark:text-violet-400 font-bold">#{op.numero} </span>}
+                                      {op.titulo}
+                                    </span>
                                     {(op.razaoSocial || op.etapa) && (
                                       <span className="block truncate text-[10px] text-muted-foreground">
                                         {[op.razaoSocial, op.etapa?.nome].filter(Boolean).join(' · ')}
@@ -3247,11 +3358,17 @@ export default function AgendaPage() {
                                     )}
                                   </span>
                                 </button>
-                              ))}
-                            </div>
+                              ))
+                            })()}
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {oportunidadesVinc.length > 1 && (
+                      <p className="text-[10px] text-muted-foreground leading-snug">
+                        O card <strong className="text-violet-600 dark:text-violet-400">Principal</strong> (primeiro) compartilha as abas <strong>Anotações</strong> e <strong>Anexos</strong> com o evento. Os demais são vínculos de referência.
+                      </p>
                     )}
                   </div>
                     </TabsContent>

@@ -223,8 +223,21 @@ export class CrmService {
         } catch { /* coluna pode nao existir ainda */ }
       }
 
+      // Número sequencial (#N) de cada card — coluna nova, via raw (client stale).
+      const numeroMap = new Map<string, number | null>()
+      if (opIds.length > 0) {
+        try {
+          const rows = await prisma.$queryRawUnsafe<Array<{ id: string; numero: number | null }>>(
+            `SELECT id, numero FROM oportunidades WHERE id IN (${opIds.map((_, i) => `$${i + 1}`).join(',')})`,
+            ...opIds,
+          )
+          for (const r of rows) numeroMap.set(r.id, r.numero)
+        } catch { /* coluna pode não existir ainda */ }
+      }
+
       let result = ops.map(o => ({
         ...o,
+        numero: numeroMap.get(o.id) ?? null,
         responsavel: o.responsavelId ? userMap.get(o.responsavelId) || null : null,
         orcamento: orcamentoMap.get(o.id) || null,
         campanha: campanhaMap.get(o.id) || null,
@@ -411,6 +424,16 @@ export class CrmService {
       },
       include: { etapa: true },
     })
+    // Número sequencial por empresa (#1, #2...) — identificador humano do card,
+    // usado pra cruzar com a agenda. Atribuído num único statement (subquery
+    // MAX+1) via raw, pois o client local pode estar stale. `IS NOT DISTINCT FROM`
+    // trata empresa NULL. Backfill dos antigos é feito por SQL cirúrgico no deploy.
+    await prisma.$executeRawUnsafe(
+      `UPDATE oportunidades SET numero = (
+         SELECT COALESCE(MAX(numero), 0) + 1 FROM oportunidades WHERE empresa_id IS NOT DISTINCT FROM $2
+       ) WHERE id = $1`,
+      oportunidade.id, empresaId || null,
+    ).catch(() => { /* coluna ausente em ambiente sem migração ainda */ })
     // Campos novos (nome fantasia + CNAE) via SQL raw — client Prisma local pode
     // estar desatualizado (lock de DLL no Windows); colunas existem no schema/prod.
     if (input.nomeFantasia || input.cnaeCodigo || input.cnaeDescricao) {
