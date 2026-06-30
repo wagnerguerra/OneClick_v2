@@ -1724,6 +1724,16 @@ function registerIpcHandlers() {
     return (r.stdout || '').replace(/\r?\n+$/, '')
   }
 
+  // Branch default do repositório (trunk). Usa origin/HEAD; cai pra main/master.
+  function detectDefaultBranch(cwd) {
+    const ref = gitOutput(['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'], cwd)
+    const m = ref.match(/refs\/remotes\/origin\/(.+)$/)
+    if (m) return m[1]
+    if (gitExitCode(['rev-parse', '--verify', 'origin/main'], cwd) === 0) return 'main'
+    if (gitExitCode(['rev-parse', '--verify', 'origin/master'], cwd) === 0) return 'master'
+    return null
+  }
+
   function gitStatusForDeployProject(def, cfg) {
     const cwd = def.cwd
     if (!cwd || !fs.existsSync(cwd)) {
@@ -1767,13 +1777,33 @@ function registerIpcHandlers() {
     const hasRemoteBranch = gitExitCode(['rev-parse', '--verify', `origin/${deployBranch}`], cwd) === 0
     const remoteSha = hasRemoteBranch ? gitOutput(['rev-parse', `origin/${deployBranch}`], cwd) : ''
     const remoteShort = hasRemoteBranch ? gitOutput(['rev-parse', '--short', `origin/${deployBranch}`], cwd) : ''
-    const pendingPushRange = hasRemoteBranch ? `origin/${deployBranch}..HEAD` : 'HEAD'
-    const pendingPush = gitOutput(['log', pendingPushRange, '--format=%H%x09%h%x09%s'], cwd)
-      .split('\n').filter(Boolean)
-      .map(l => {
-        const [sha, short, ...msgParts] = l.split('\t')
-        return { sha, short, msg: msgParts.join('\t') }
-      })
+    // Commits locais ainda não publicados — comparados por CONTEÚDO contra o
+    // trunk (default branch / main) via `git cherry`, não por SHA contra a
+    // origem da branch atual. Evita falso "não pushado" quando se trabalha numa
+    // branch que entra no main via PR/cherry-pick (o patch já está lá com SHA
+    // diferente) ou quando a branch local nunca foi empurrada pra própria origem.
+    // `git cherry` marca "-" os commits cujo patch já está no trunk e "+" os
+    // genuinamente novos; ancestrais do trunk nem aparecem.
+    const trunkBranch = def.branch || detectDefaultBranch(cwd) || 'main'
+    const hasTrunk = gitExitCode(['rev-parse', '--verify', `origin/${trunkBranch}`], cwd) === 0
+    let pendingPush
+    if (hasTrunk) {
+      pendingPush = gitOutput(['cherry', '-v', `origin/${trunkBranch}`, 'HEAD'], cwd)
+        .split('\n').filter(l => l.startsWith('+ '))
+        .map(l => {
+          const m = l.match(/^\+\s+(\S+)\s+([\s\S]*)$/)
+          const sha = m ? m[1] : ''
+          return { sha, short: sha.slice(0, 7), msg: m ? m[2] : '' }
+        })
+        .filter(c => c.sha)
+    } else {
+      pendingPush = gitOutput(['log', hasRemoteBranch ? `origin/${deployBranch}..HEAD` : 'HEAD', '--format=%H%x09%h%x09%s'], cwd)
+        .split('\n').filter(Boolean)
+        .map(l => {
+          const [sha, short, ...msgParts] = l.split('\t')
+          return { sha, short, msg: msgParts.join('\t') }
+        })
+    }
 
     let vpsSha = ''
     let vpsShort = ''
