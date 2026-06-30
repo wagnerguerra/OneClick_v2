@@ -339,6 +339,23 @@ export const GROUP_HEX: Record<string, string> = {
 
 const DEFAULT_HEX = '#5ea3cb'
 
+// Label do grupo (PT) → slug da CSS var (--mod-<slug>). Mantém em sync com o
+// design system (theme.service.ts / module-colors.tsx).
+const GROUP_SLUG: Record<string, string> = {
+  'Cadastros': 'cadastros', 'Comercial': 'comercial', 'Administrativo': 'administrativo',
+  'Legalização': 'legalizacao', 'Trabalhista': 'trabalhista', 'Fiscal': 'fiscal',
+  'Contábil': 'contabil', 'TI': 'ti', 'Qualidade': 'qualidade', 'Configurações': 'configuracoes',
+}
+
+/** Cor do grupo como CSS var (`var(--mod-<slug>, <fallback hex>)`) — assim abas,
+ *  cabeçalhos e badges seguem o design system em vez de hex fixo. Funciona em
+ *  qualquer `style` inline (color, backgroundColor, color-mix). */
+function groupColorVar(label: string): string {
+  const fallback = GROUP_HEX[label] ?? DEFAULT_HEX
+  const slug = GROUP_SLUG[label]
+  return slug ? `var(--mod-${slug}, ${fallback})` : fallback
+}
+
 /**
  * Retorna a cor hex do grupo ao qual a rota pertence (procura no `navigation`).
  * Faz match exato primeiro; depois prefix match (ex: /clientes/123 → /clientes).
@@ -348,8 +365,8 @@ export function getGroupHexForHref(href: string): string {
   const pathClean = href.split('?')[0]!.split('#')[0]
   for (const group of navigation) {
     for (const item of group.items) {
-      if (item.href === pathClean) return GROUP_HEX[group.label] ?? DEFAULT_HEX
-      if (item.subItems?.some(s => s.href === pathClean)) return GROUP_HEX[group.label] ?? DEFAULT_HEX
+      if (item.href === pathClean) return groupColorVar(group.label)
+      if (item.subItems?.some(s => s.href === pathClean)) return groupColorVar(group.label)
     }
   }
   // Prefix match: /clientes/abc → /clientes
@@ -358,8 +375,8 @@ export function getGroupHexForHref(href: string): string {
   const primeiroSegmento = `/${segments[0]}`
   for (const group of navigation) {
     for (const item of group.items) {
-      if (item.href === primeiroSegmento) return GROUP_HEX[group.label] ?? DEFAULT_HEX
-      if (item.subItems?.some(s => s.href === primeiroSegmento)) return GROUP_HEX[group.label] ?? DEFAULT_HEX
+      if (item.href === primeiroSegmento) return groupColorVar(group.label)
+      if (item.subItems?.some(s => s.href === primeiroSegmento)) return groupColorVar(group.label)
     }
   }
   return DEFAULT_HEX

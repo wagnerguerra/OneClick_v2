@@ -13,7 +13,7 @@ import { FolhaImportTab } from './_components/folha-import'
 import { FolhaLancamentosTab } from './_components/folha-lancamentos'
 import { FolhaExportTab } from './_components/folha-export'
 
-const MODULE_COLOR = 'var(--mod-trabalhista, #8b5cf6)'
+const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
 
 interface ClienteOption { id: string; razaoSocial: string; documento: string }
 
@@ -65,7 +65,7 @@ export default function FolhaPagamentoPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, #6d28d9)` }}>
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
             <FileSpreadsheet className="h-6 w-6" />
           </div>
           <div>

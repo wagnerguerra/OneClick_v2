@@ -18,7 +18,7 @@ import { BiMatriz } from './_components/bi-matriz'
 import { BiAnalise } from './_components/bi-analise'
 import { BiGerenciar } from './_components/bi-gerenciar'
 
-const MODULE_COLOR = 'var(--mod-contabil, #8b5cf6)'
+const MODULE_COLOR = 'var(--mod-contabil, #a78bfa)'
 
 interface ClienteOption {
   id: string
@@ -157,7 +157,7 @@ export default function BiFaturamentoPage() {
         <div className="flex items-center gap-4">
           <div
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, #6d28d9)` }}
+            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
           >
             <BarChart3 className="h-6 w-6" />
           </div>
