@@ -3970,12 +3970,16 @@
     function deploySetTargetFromSelection(status, projectId) {
       const queue = deployCommitQueue(status, projectId)
       const selected = new Set(deployState.selectedCommitShas || [])
-      let lastSelectedIdx = -1
+      // Alvo = commit selecionado mais NOVO (mais próximo do HEAD). A fila vem
+      // newest-first, então é o PRIMEIRO selecionado. Deployar o mais novo já
+      // inclui todos os ancestrais selecionados (histórico linear). Antes pegava
+      // o ÚLTIMO (mais antigo), deployando só 1 commit e deixando os novos pra trás.
+      let firstSelectedIdx = -1
       queue.forEach((c, idx) => {
-        if (selected.has(deployCommitKey(c))) lastSelectedIdx = idx
+        if (firstSelectedIdx < 0 && selected.has(deployCommitKey(c))) firstSelectedIdx = idx
       })
 
-      if (lastSelectedIdx < 0) {
+      if (firstSelectedIdx < 0) {
         if (projectId) delete deployState.targetShas[projectId]
         if (!projectId || projectId === 'core') {
           deployState.targetSha = null
@@ -3984,7 +3988,7 @@
         return
       }
 
-      const target = queue[lastSelectedIdx]
+      const target = queue[firstSelectedIdx]
       deployState.targetShas[target.projectId] = target.sha
       if (target.projectId === 'core') {
         deployState.targetSha = target.sha
