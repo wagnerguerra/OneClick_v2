@@ -2238,11 +2238,17 @@ function registerIpcHandlers() {
       }
       deployEmit(10, 'push', `✓ Envio ao GitHub concluído (${targetSha.slice(0, 7)})`, 'ok')
 
-      // ─── Stage 2: SSH git pull ─────────────────────
+      // ─── Stage 2: SSH atualiza código (git reset --hard no ref) ───
       deployEmit(15, 'pull', '→ Atualizando código na VPS...', 'info')
       deployCheckAbort('pull', 15)
       deployCurrentStep = 'pull'
-      const pull = await sshExec(cfg, `cd /opt/oneclick-src && git fetch origin ${coreDeployBranch} 2>&1 && git merge --ff-only ${targetSha} 2>&1`, (line) => deployEmit(20, 'pull', line, 'info'))
+      // A VPS é ALVO de deploy: deve espelhar exatamente o ref publicado (ela não
+      // autora commits). `git reset --hard <sha>` evita o "Not possible to
+      // fast-forward, aborting" que ocorre quando o checkout da VPS divergiu do
+      // branch de deploy (ex.: PR partido de uma base antiga). Preserva HEAD@{1}
+      // (usado na detecção de mudança de schema abaixo) e não remove arquivos
+      // untracked (.env, uploads) — só reescreve os arquivos versionados.
+      const pull = await sshExec(cfg, `cd /opt/oneclick-src && git fetch origin ${coreDeployBranch} 2>&1 && git reset --hard ${targetSha} 2>&1`, (line) => deployEmit(20, 'pull', line, 'info'))
       if (pull.code !== 0) {
         deployEmit(25, 'pull', `✗ ${(pull.stderr || pull.stdout || '').slice(0, 300)}`, 'err')
         deployRunning = false
@@ -2432,7 +2438,7 @@ function registerIpcHandlers() {
         const appRemoteUrlQ = shellQuote(appRemoteUrl)
         const appPullCmd = [
           `if [ -e ${appRemoteDirQ} ] && [ ! -d ${appRemoteDirQ}/.git ]; then echo "Diretório ${appDef.remoteDir} existe, mas não é um repositório Git"; exit 1; fi`,
-          `if [ ! -d ${appRemoteDirQ}/.git ]; then git clone --branch ${shellQuote(appDeployBranch)} --single-branch ${appRemoteUrlQ} ${appRemoteDirQ}; else cd ${appRemoteDirQ} && git fetch origin ${shellQuote(appDeployBranch)} 2>&1 && git merge --ff-only ${appTargetSha} 2>&1; fi`,
+          `if [ ! -d ${appRemoteDirQ}/.git ]; then git clone --branch ${shellQuote(appDeployBranch)} --single-branch ${appRemoteUrlQ} ${appRemoteDirQ}; else cd ${appRemoteDirQ} && git fetch origin ${shellQuote(appDeployBranch)} 2>&1 && git reset --hard ${appTargetSha} 2>&1; fi`,
         ].join(' && ')
         const appPull = await sshExec(cfg, appPullCmd, (line) => deployEmit(98, 'pull', `[app] ${line}`, 'info'))
         if (appPull.code !== 0) {
