@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { ArrowRight, Wrench } from 'lucide-react'
 import { Card, cn } from '@saas/ui'
-import { toolsByArea, FERRAMENTAS_COLOR, type ToolArea } from '../_config/catalog'
+import { toolsByArea, colorForArea, type ToolArea } from '../_config/catalog'
 
 const GLASS = 'border border-border/50 bg-card/70 backdrop-blur-xl shadow-lg shadow-black/[0.04] dark:shadow-black/20'
 
@@ -21,7 +21,7 @@ const AREA_META: Record<ToolArea, { title: string; subtitle: string }> = {
 export function ToolsHub({ area }: { area: ToolArea }) {
   const meta = AREA_META[area]
   const tools = toolsByArea(area)
-  const color = FERRAMENTAS_COLOR // identidade Ferramentas (umbrella) no hub; tools tingem pelo bloco
+  const color = colorForArea(area) // cor do BLOCO (fiscal/contábil) conforme design system
   const accent = { background: `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 78%, #000))` } as const
 
   return (
