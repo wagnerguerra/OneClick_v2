@@ -150,6 +150,12 @@ interface Orcamento {
   paralizadoEm?: string | null
   paralizadoPor?: string | null
   paralizadoMotivo?: string | null
+  // Resposta do cliente pelo link público (registrarDecisao)
+  decisaoTipo?: string | null
+  decisaoEm?: string | null
+  decisaoNome?: string | null
+  decisaoCpf?: string | null
+  decisaoObs?: string | null
   // Auditoria
   reaberturasCount?: number
   createdAt: string
@@ -1993,6 +1999,46 @@ export default function OrcamentoDetailPage() {
       {/* Layout 2 colunas: principal + sidebar */}
       <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0">
+          {/* Resposta do cliente pelo link público (nome/CPF/observação/quando) */}
+          {orc.decisaoTipo && (
+            <Card className={cn('mb-5 border', orc.decisaoTipo === 'APROVADO'
+              ? 'border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/40'
+              : 'border-rose-200 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/40')}>
+              <CardHeader className="border-b border-border/40 px-5 py-3 flex flex-row items-center gap-2">
+                {orc.decisaoTipo === 'APROVADO'
+                  ? <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  : <ThumbsDown className="h-4 w-4 text-rose-600 dark:text-rose-400" />}
+                <h3 className="text-sm font-semibold flex-1">Resposta do cliente pelo link</h3>
+                <Badge className={cn('text-[10px]', orc.decisaoTipo === 'APROVADO'
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                  : 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300')}>
+                  {orc.decisaoTipo === 'APROVADO' ? 'Aprovado' : 'Recusado'}
+                </Badge>
+              </CardHeader>
+              <CardContent className="px-5 py-4 space-y-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Nome</p>
+                    <p className="text-foreground font-medium">{orc.decisaoNome || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">CPF</p>
+                    <p className="text-foreground font-medium tabular-nums">{orc.decisaoCpf ? orc.decisaoCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Data / hora</p>
+                    <p className="text-foreground font-medium tabular-nums">{orc.decisaoEm ? new Date(orc.decisaoEm).toLocaleString('pt-BR') : '—'}</p>
+                  </div>
+                </div>
+                {orc.decisaoObs && (
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Observação do cliente</p>
+                    <p className="text-foreground bg-background/60 rounded-md border border-border/60 p-2.5 whitespace-pre-wrap">{orc.decisaoObs}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
           {/* === TAB: DETALHES (Card com pills verticais) === */}
           <TabsContent value="detalhes" className="mt-0">
             <Card>
