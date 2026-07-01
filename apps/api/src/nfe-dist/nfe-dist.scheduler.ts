@@ -37,7 +37,9 @@ import {
 import { loadSchedulerConfig } from '../agendamento/scheduler-config.helper'
 
 const DEFAULT_TIMEZONE = 'America/Sao_Paulo'
-const MANUAL_POLL_INTERVAL_MS = 60_000
+// Poll das solicitações manuais (busca sob demanda pela UI) — 20s pra o usuário
+// não esperar muito depois de clicar "Buscar notas".
+const MANUAL_POLL_INTERVAL_MS = 20_000
 const CONFIG_POLL_INTERVAL_MS = 30_000
 
 // TODO: trocar `unknown` pela interface real quando NfeDistService existir.

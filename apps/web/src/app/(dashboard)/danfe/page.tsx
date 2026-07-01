@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
-  FileText, Upload, Loader2, Search,
+  FileText, Upload, Loader2, Search, Download,
   FileCheck2, CircleX, Coins, History, LayoutGrid,
   Building2, ChevronRight, AlertCircle, Clock,
 } from 'lucide-react'
@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BuscarNotasModal } from './_components/buscar-notas-modal'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -53,6 +54,7 @@ export default function DanfePage() {
   const [loading, setLoading] = useState(false)
   const [busca, setBusca] = useState('')
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [buscarOpen, setBuscarOpen] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -111,6 +113,9 @@ export default function DanfePage() {
               <Clock className="h-3.5 w-3.5" /> Agendamento
             </Button>
           </Link>
+          <Button variant="outline" size="sm" onClick={() => setBuscarOpen(true)} className="gap-1.5">
+            <Download className="h-3.5 w-3.5" /> Buscar notas
+          </Button>
           <Button size="sm" onClick={() => setUploadOpen(true)} className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }}>
             <Upload className="h-3.5 w-3.5" /> Upload XML
           </Button>
@@ -212,6 +217,8 @@ export default function DanfePage() {
       </Card>
 
       <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} onSuccess={() => { void fetchData(); void fetchStats() }} />
+
+      <BuscarNotasModal open={buscarOpen} onOpenChange={(o) => { setBuscarOpen(o); if (!o) { void fetchData(); void fetchStats() } }} />
     </div>
   )
 }
