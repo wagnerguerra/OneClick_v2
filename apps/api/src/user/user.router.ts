@@ -45,7 +45,10 @@ export function createUserRouter(userService: UserService) {
         userService.toggleMaster(input.id, ctx.userId, ctx.isMaster ?? false),
       ),
 
-    listForSelect: readProcedure(MODULE)
+    // Lookup de colaboradores (id/nome/área, escopado por empresa) — fonte de
+    // selects em vários módulos (serviços, orçamentos, atribuições…). protectedProcedure
+    // p/ não travar quem tem acesso a esses módulos mas não ao módulo Usuários.
+    listForSelect: protectedProcedure
       .query(({ ctx }) =>
         userService.listForSelect(ctx.isMaster ?? false, ctx.empresaId),
       ),
