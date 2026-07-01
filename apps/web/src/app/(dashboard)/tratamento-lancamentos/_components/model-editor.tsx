@@ -72,7 +72,7 @@ const MAP_FIELDS: Array<{ key: keyof TreatmentDefinition['columnMapping']; label
   { key: 'descricao', label: 'Descrição do lançamento', req: true },
   { key: 'valor', label: 'Valor', req: true },
   { key: 'data', label: 'Data', req: true },
-  { key: 'participante', label: 'Participante', hint: 'Opcional — usado no histórico do SCI' },
+  { key: 'participante', label: 'Nome do participante', hint: 'Opcional — usado no histórico do SCI' },
   { key: 'numeroNf', label: 'Número da NF', hint: 'Opcional' },
   { key: 'documento', label: 'CNPJ/CPF', hint: 'Opcional — pré-selecionado se houver coluna "CNPJ"' },
 ]
@@ -107,6 +107,10 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   // Detecção de alterações não salvas.
   const baselineRef = useRef<string>('')
   const dirtyRef = useRef(false)
+
+  // Arquivo-exemplo vindo do fluxo principal — guardado p/ devolver na volta
+  // (reaproveitar o arquivo + pré-selecionar o modelo criado no fluxo principal).
+  const exemploRef = useRef<{ fileBase64: string; filename: string } | null>(null)
 
   // Wizard (apenas no modo criação): etapa atual e etapa máxima já alcançada.
   const [step, setStep] = useState(0)
@@ -152,6 +156,8 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       sessionStorage.removeItem('tl:exemplo')
       const parsed = JSON.parse(raw) as { fileBase64?: string; filename?: string }
       if (parsed.fileBase64 && parsed.filename) {
+        // Guarda p/ devolver ao fluxo principal na volta (reaproveitar o arquivo).
+        exemploRef.current = { fileBase64: parsed.fileBase64, filename: parsed.filename }
         // Arquivo já vem carregado na 1ª etapa ("Dados do Modelo"); o usuário
         // ainda precisa informar o nome, então não pulamos a etapa.
         void loadPreview(parsed.fileBase64, parsed.filename)
@@ -395,17 +401,31 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     setSaving(true)
     const definition: TreatmentDefinition = def
     try {
+      let savedModelId: string | null = null
       if (mode === 'edit' && modelId) {
         const res = await trpc.tratamentoLancamentos.update.mutate({
           id: modelId,
           data: { nome, isActive, definition, note: note || undefined },
         })
         await alerts.success('Modelo salvo', res.versionCreated ? 'As alterações foram salvas (nova versão gerada).' : 'As alterações foram salvas.')
+        savedModelId = modelId
       } else {
-        await trpc.tratamentoLancamentos.create.mutate({ nome, isActive, definition, note: note || undefined })
+        const created = await trpc.tratamentoLancamentos.create.mutate({ nome, isActive, definition, note: note || undefined })
         await alerts.success('Modelo criado', `"${nome}" foi criado com sucesso.`)
+        savedModelId = created.id
       }
       dirtyRef.current = false
+      // Se veio do fluxo principal, devolve o modelo salvo (criado OU editado) + o
+      // arquivo-exemplo para o fluxo reaproveitar (pré-seleciona o modelo e restaura o arquivo).
+      if (savedModelId && backHref === '/tratamento-lancamentos') {
+        try {
+          sessionStorage.setItem('tl:retornoFluxo', JSON.stringify({
+            modelId: savedModelId,
+            fileBase64: exemploRef.current?.fileBase64,
+            filename: exemploRef.current?.filename,
+          }))
+        } catch { /* ignore */ }
+      }
       router.push(backHref)
     } catch {
       alerts.error('Erro ao salvar', 'Não foi possível salvar o Modelo. Revise os campos e tente novamente.')
@@ -461,7 +481,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1.5">
           <Label className="text-[13px] font-semibold">Nome do modelo <span className="text-destructive">*</span></Label>
-          <Input className="h-9 text-sm bg-card" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Banco do Brasil — Conta 12345" />
+          <Input className="h-9 text-sm bg-card" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: nome da empresa, nome do banco..." />
         </div>
         {/* "Ativo" só na edição — na criação o modelo nasce sempre ativo. */}
         {mode === 'edit' && (
@@ -557,13 +577,17 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     <Card className="p-5 space-y-4">
       <StepHeader
         icon={Landmark} color="bg-cyan-500" title="Contas correntes"
-        hint="Se o arquivo traz lançamentos de mais de um banco/conta, escolha 'Várias contas' e indique a coluna que identifica a conta — então informe o número de cada uma. Caso contrário, informe uma única conta."
+        hint="Se o arquivo traz lançamentos de mais de um banco/conta, escolha 'Várias contas' e indique a coluna que identifica a conta — então informe a conta contábil de cada uma. Caso contrário, informe uma única conta contábil."
       />
       <div className="space-y-2">
         <p className="text-[13px] font-semibold text-foreground">Este documento é referente a:</p>
-        <Toggle
+        <ModeCards
+          accent="cyan"
           value={def.contasCorrentes.modo}
-          options={[{ value: 'UNICA', label: 'Uma conta corrente' }, { value: 'MULTIPLAS', label: 'Várias contas correntes' }]}
+          options={[
+            { value: 'UNICA', label: 'Uma conta corrente' },
+            { value: 'MULTIPLAS', label: 'Várias contas correntes' },
+          ]}
           onChange={(v) => setCcModo(v as 'UNICA' | 'MULTIPLAS')}
         />
       </div>
@@ -601,11 +625,18 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         icon={ArrowLeftRight} color="bg-amber-500" title="Definição de Débito / Crédito"
         hint="O sistema precisa saber se cada lançamento é um débito ou um crédito. Escolha se essa informação vem de uma coluna da planilha ou das descrições dos lançamentos."
       />
-      <Toggle
-        value={def.debitoCredito.tipo}
-        options={[{ value: 'COLUNA', label: 'Por coluna' }, { value: 'DESCRICAO', label: 'Pela descrição' }]}
-        onChange={(v) => setDcTipo(v as 'COLUNA' | 'DESCRICAO')}
-      />
+      <div className="space-y-2">
+        <p className="text-[13px] font-semibold text-foreground">O tipo (débito ou crédito) é definido:</p>
+        <ModeCards
+          accent="amber"
+          value={def.debitoCredito.tipo}
+          options={[
+            { value: 'COLUNA', label: 'Por coluna' },
+            { value: 'DESCRICAO', label: 'Pela descrição' },
+          ]}
+          onChange={(v) => setDcTipo(v as 'COLUNA' | 'DESCRICAO')}
+        />
+      </div>
       {def.debitoCredito.tipo === 'COLUNA' ? (
         headers.length === 0 ? (
           <EmptyHint>Envie um arquivo de exemplo para listar as colunas.</EmptyHint>
@@ -635,11 +666,18 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         icon={Network} color="bg-rose-500" title="Mapeamento de contas de contrapartida"
         hint="Informe a conta contábil de contrapartida de cada lançamento. Você pode mapear por palavra-chave encontrada na descrição, ou definir uma conta para cada descrição."
       />
-      <Toggle
-        value={def.contrapartida.modo}
-        options={[{ value: 'DESCRICAO', label: 'Por descrição' }, { value: 'PALAVRA_CHAVE', label: 'Por palavra-chave' }]}
-        onChange={(v) => setCpModo(v as 'PALAVRA_CHAVE' | 'DESCRICAO')}
-      />
+      <div className="space-y-2">
+        <p className="text-[13px] font-semibold text-foreground">Como mapear a contrapartida:</p>
+        <ModeCards
+          accent="rose"
+          value={def.contrapartida.modo}
+          options={[
+            { value: 'DESCRICAO', label: 'Por descrição' },
+            { value: 'PALAVRA_CHAVE', label: 'Por palavra-chave' },
+          ]}
+          onChange={(v) => setCpModo(v as 'PALAVRA_CHAVE' | 'DESCRICAO')}
+        />
+      </div>
 
       {def.contrapartida.modo === 'PALAVRA_CHAVE' ? (
         <ContrapartidaPalavraChave def={def} setDef={setDef} dcByDescricao={dcByDescricao} />
@@ -850,22 +888,55 @@ function Stepper({ labels, current, maxStep, onGo }: { labels: string[]; current
   )
 }
 
-function Toggle({ value, options, onChange }: { value: string; options: Array<{ value: string; label: string }>; onChange: (v: string) => void }) {
+// Cores de destaque do card ativo, por etapa (classes estáticas p/ o Tailwind enxergar).
+const MODE_ACCENT = {
+  cyan: { border: 'border-cyan-500', ring: 'ring-cyan-500/25', bg: 'bg-cyan-500/5', dot: 'bg-cyan-500', text: 'text-cyan-700 dark:text-cyan-300' },
+  amber: { border: 'border-amber-500', ring: 'ring-amber-500/25', bg: 'bg-amber-500/5', dot: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300' },
+  rose: { border: 'border-rose-500', ring: 'ring-rose-500/25', bg: 'bg-rose-500/5', dot: 'bg-rose-500', text: 'text-rose-700 dark:text-rose-300' },
+} as const
+
+/**
+ * Seletor EXCLUSIVO (radio-cards) das etapas de 2 modos. Cada opção é um card com
+ * bolinha de radio; só um fica ativo (destacado com a cor da etapa). Deixa claro
+ * que é "um OU outro" — em testes com usuários o segmented control antigo parecia
+ * abas, dando a impressão de que as duas precisavam ser preenchidas.
+ */
+function ModeCards({ value, options, onChange, accent }: {
+  value: string
+  options: Array<{ value: string; label: string; hint?: string }>
+  onChange: (v: string) => void
+  accent: keyof typeof MODE_ACCENT
+}) {
+  const A = MODE_ACCENT[accent]
   return (
-    <div className="inline-flex rounded-[2px] border border-border/60 bg-muted/20 p-0.5">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          onClick={() => onChange(o.value)}
-          className={cn(
-            'px-3 py-1.5 text-xs font-medium rounded-[2px] transition-colors',
-            value === o.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
+    <div role="radiogroup" className="grid gap-2 sm:grid-cols-2 max-w-2xl">
+      {options.map((o) => {
+        const active = value === o.value
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              'flex items-start gap-2.5 rounded-[4px] border px-3 py-2.5 text-left transition-colors',
+              active ? cn(A.border, A.bg, 'ring-1', A.ring) : 'border-border/60 bg-muted/20 hover:bg-muted/40',
+            )}
+          >
+            <span className={cn(
+              'mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
+              active ? A.border : 'border-muted-foreground/40',
+            )}>
+              {active && <span className={cn('h-2 w-2 rounded-full', A.dot)} />}
+            </span>
+            <span>
+              <span className={cn('block text-xs font-medium', active ? A.text : 'text-foreground')}>{o.label}</span>
+              {o.hint && <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">{o.hint}</span>}
+            </span>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -967,7 +1038,7 @@ function ContasCorrentesMap({ def, setDef, coluna, getDistinct }: { def: Treatme
   if (!valores.length) return <EmptyHint>Envie o arquivo para listar os valores distintos desta coluna.</EmptyHint>
   return (
     <div className="space-y-2">
-      <p className="text-[12px] text-muted-foreground">Para cada valor da coluna, informe o número da conta corrente:</p>
+      <p className="text-[12px] text-muted-foreground">Para cada valor da coluna, informe a conta contábil:</p>
       <div className="grid gap-2 sm:grid-cols-2">
         {valores.map((val) => {
           const cur = mapa.find((m) => m.valor === val)?.conta ?? ''
@@ -1007,7 +1078,7 @@ function ContrapartidaPalavraChave({ def, setDef, dcByDescricao }: { def: Treatm
 
   return (
     <div className="space-y-2">
-      <p className="text-[12px] text-muted-foreground">A 1ª palavra-chave encontrada na descrição (esquerda → direita) define a conta.</p>
+      <p className="text-[12px] text-muted-foreground">A 1ª palavra-chave encontrada na descrição define a conta.</p>
       {itens.length > 0 && (
         <div className="hidden sm:flex items-center gap-2 px-2 text-[11px] font-medium text-muted-foreground">
           <span className="flex-1 min-w-[140px]">Palavra-chave</span>

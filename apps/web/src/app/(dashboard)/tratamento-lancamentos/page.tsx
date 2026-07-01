@@ -15,7 +15,6 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { DetectedRowsStatus } from './_components/detected-rows-status'
 import { fileToBase64 } from '@/lib/file'
-import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
@@ -56,17 +55,55 @@ export default function TratamentoLancamentosPage() {
   const [fileBase64, setFileBase64] = useState<string | null>(null)
   const [reading, setReading] = useState(false)
   const [detectedRows, setDetectedRows] = useState<number | null>(null)
+  // Modelo a pré-selecionar ao voltar do wizard (aplicado quando a lista carrega).
+  const pendingModelIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     let active = true
     ;(async () => {
       try {
         const list = await trpc.tratamentoLancamentos.listForSelect.query()
-        if (active) setModels(list as ModelOption[])
+        if (!active) return
+        setModels(list as ModelOption[])
+        // Pré-seleciona o modelo recém-criado no wizard, se voltou por esse fluxo.
+        const pending = pendingModelIdRef.current
+        if (pending && (list as ModelOption[]).some((m) => m.id === pending)) {
+          setModelId(pending)
+          pendingModelIdRef.current = null
+        }
       } catch { /* silencioso */ }
     })()
     return () => { active = false }
   }, [])
+
+  // Reaproveita um arquivo já lido (base64) sem passar pelo input de seleção.
+  const restoreFile = useCallback(async (base64: string, filename: string) => {
+    setResult(null); setDetectedRows(null)
+    setReading(true)
+    try {
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+      setFile(new File([bytes], filename))
+      setFileBase64(base64)
+      const res = await trpc.tratamentoLancamentos.preview.mutate({ fileBase64: base64, filename })
+      setDetectedRows(res.totalRows)
+    } catch {
+      // Se o preview falhar, mantém o arquivo restaurado mesmo assim.
+    } finally {
+      setReading(false)
+    }
+  }, [])
+
+  // Volta do wizard: consome o payload de retorno (arquivo + modelo criado).
+  useEffect(() => {
+    let raw: string | null = null
+    try { raw = sessionStorage.getItem('tl:retornoFluxo'); if (raw) sessionStorage.removeItem('tl:retornoFluxo') } catch { /* ignore */ }
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw) as { modelId?: string; fileBase64?: string; filename?: string }
+      if (parsed.modelId) pendingModelIdRef.current = parsed.modelId
+      if (parsed.fileBase64 && parsed.filename) void restoreFile(parsed.fileBase64, parsed.filename)
+    } catch { /* ignore */ }
+  }, [restoreFile])
 
   async function pickFile(f: File | undefined | null) {
     if (!f) return
@@ -132,6 +169,15 @@ export default function TratamentoLancamentosPage() {
   const pend = result?.pendencias ?? []
   const pendPorTipo = pend.reduce<Record<string, number>>((a, p) => { a[p.tipo] = (a[p.tipo] ?? 0) + 1; return a }, {})
 
+  // Quando a conversão retorna pendências, rola até o início da listagem — em telas
+  // menores ela pode nascer fora da área visível.
+  const pendenciasRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (result && !result.fileBase64 && (result.pendencias?.length ?? 0) > 0) {
+      pendenciasRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [result])
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -151,7 +197,6 @@ export default function TratamentoLancamentosPage() {
               <Settings2 className="h-4 w-4" /> Gerenciar modelos
             </Button>
           )}
-          <BackButton href="/dashboard" label="Voltar" />
         </div>
       </div>
 
@@ -214,14 +259,13 @@ export default function TratamentoLancamentosPage() {
 
           {/* 2. Modelo */}
           <StepBlock num={2} icon={FileCog} title="Modelo de Tratamento" color="#8b5cf6" className="py-6">
-            <Select value={modelId} onValueChange={(v) => { setModelId(v); setResult(null) }}>
-              <SelectTrigger className="h-9 text-sm bg-card max-w-md"><SelectValue placeholder="Selecione o modelo" /></SelectTrigger>
+            <Select value={modelId} onValueChange={(v) => { setModelId(v); setResult(null) }} disabled={models.length === 0}>
+              <SelectTrigger className="h-9 text-sm bg-card max-w-md"><SelectValue placeholder={models.length === 0 ? 'Nenhum modelo cadastrado' : 'Selecione o modelo'} /></SelectTrigger>
               <SelectContent>
                 {models.map((m) => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}
               </SelectContent>
             </Select>
-            <div className="flex items-center gap-2 text-[11px]">
-              {models.length === 0 && <span className="text-muted-foreground">Nenhum modelo cadastrado.</span>}
+            <div className="flex flex-col items-start gap-1.5 text-[11px]">
               {canManage && (
                 <button className="text-sm text-primary underline" onClick={goCreateModel}>
                   + Criar novo modelo{file ? ' a partir do arquivo enviado' : ''}
@@ -261,7 +305,7 @@ export default function TratamentoLancamentosPage() {
 
         {/* Resultado: pendências */}
         {result && !result.fileBase64 && pend.length > 0 && (
-          <Card className="p-5 border-rose-300 dark:border-rose-900/50">
+          <Card ref={pendenciasRef} className="p-5 border-rose-300 dark:border-rose-900/50 scroll-mt-[110px]">
             <div className="space-y-4">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
