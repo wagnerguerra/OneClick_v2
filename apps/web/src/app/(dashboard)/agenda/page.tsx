@@ -2942,11 +2942,13 @@ export default function AgendaPage() {
                   {/* min-h fixa a altura do conteúdo pra o modal não encolher ao trocar de aba */}
                   {/* Abas verticais (pills laterais) — padrão de /configuracoes */}
                   <Tabs defaultValue="geral" className="w-full h-[62vh] flex flex-col overflow-hidden">
-                    <TabsList className="flex items-center justify-start gap-0 shrink-0 h-auto p-0 bg-transparent border-b border-border rounded-none w-full">
+                    {/* boxShadow inline sobrepõe a regra global `[role="tablist"]`
+                        (globals.css §Nav tabs) — remove a sombra só nesta barra. */}
+                    <TabsList style={{ boxShadow: 'none' }} className="flex items-center justify-start gap-0 shrink-0 h-auto p-0 bg-transparent border-b border-border rounded-none w-full">
                       {[
                         { value: 'geral', label: 'Geral', icon: Calendar },
-                        { value: 'lembretes', label: 'Lembretes', icon: Bell },
-                        { value: 'vinculacoes', label: 'Vinculações', icon: Link2 },
+                        { value: 'lembretes', label: `Lembretes${lembretesForm.length > 0 ? ` (${lembretesForm.length})` : ''}`, icon: Bell },
+                        { value: 'vinculacoes', label: `Vinculações${oportunidadesVinc.length > 0 ? ` (${oportunidadesVinc.length})` : ''}`, icon: Link2 },
                         { value: 'anotacoes', label: `Anotações${eventoAnotacoes.length > 0 ? ` (${eventoAnotacoes.length})` : ''}`, icon: StickyNote },
                         { value: 'anexos', label: `Anexos${eventoAnexos.length > 0 ? ` (${eventoAnexos.length})` : ''}`, icon: Paperclip },
                       ].map(t => (
