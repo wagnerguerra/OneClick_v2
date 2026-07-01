@@ -54,12 +54,22 @@ const DIST = ['donut', 'bar']
 const SERIES = ['bar', 'line']
 const TABLE = ['table', 'list']
 
-// ── Helpers VPS (formatação de bytes/uptime) ──────────────────────
+// ── Helpers VPS (formatação de bytes/uptime + níveis de alerta) ───
 const gb1 = (b?: number | null): number | null => (b == null ? null : Math.round((b / 1e9) * 10) / 10)
 const fmtUptime = (sec?: number | null): string => {
   if (!sec) return '—'
   const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600)
   return d > 0 ? `${d}d ${h}h` : `${h}h`
+}
+// Nível por faixa de USO (%): ≥90 crítico, ≥75 atenção. O front mapeia p/ cor.
+type Nivel = 'ok' | 'warn' | 'crit'
+const usoLevel = (pct?: number | null): Nivel | undefined =>
+  pct == null ? undefined : pct >= 90 ? 'crit' : pct >= 75 ? 'warn' : 'ok'
+// Load average relativo aos núcleos: ≥1.5×cores crítico, ≥1× atenção.
+const loadLevel = (load?: number | null, cores?: number | null): Nivel | undefined => {
+  if (load == null || !cores) return undefined
+  const r = load / cores
+  return r >= 1.5 ? 'crit' : r >= 1 ? 'warn' : 'ok'
 }
 
 // ── Helpers de derivação comercial ────────────────────────────────
@@ -210,15 +220,15 @@ export const METRIC_CATALOG: MetricDef[] = [
   // Fonte lida localmente na API (que roda NA VPS): CPU/memória via `os`, disco
   // via `df`, portas via TCP. Só master enxerga (gate na fonte `vps`).
   { id: 'vps.cpu', label: 'CPU — uso (%)', modulo: 'vps', kind: 'percent', source: 'vps', visuals: KPI,
-    extract: (s) => ({ value: s?.cpu?.pct ?? null, sub: s?.cpu ? `${s.cpu.cores} núcleos · load ${(s.cpu.loadavg1 ?? 0).toFixed(2)}` : undefined }) },
+    extract: (s) => ({ value: s?.cpu?.pct ?? null, sub: s?.cpu ? `${s.cpu.cores} núcleos · load ${(s.cpu.loadavg1 ?? 0).toFixed(2)}` : undefined, level: usoLevel(s?.cpu?.pct ?? null) }) },
   { id: 'vps.memoria', label: 'Memória — uso (%)', modulo: 'vps', kind: 'percent', source: 'vps', visuals: KPI,
-    extract: (s) => ({ value: s?.mem?.pct ?? null, sub: s?.mem ? `${gb1(s.mem.usedBytes)} / ${gb1(s.mem.totalBytes)} GB` : undefined }) },
+    extract: (s) => ({ value: s?.mem?.pct ?? null, sub: s?.mem ? `${gb1(s.mem.usedBytes)} / ${gb1(s.mem.totalBytes)} GB` : undefined, level: usoLevel(s?.mem?.pct ?? null) }) },
   { id: 'vps.disco', label: 'Disco — uso (%)', modulo: 'vps', kind: 'percent', source: 'vps', visuals: KPI,
-    extract: (s) => ({ value: s?.disk?.pct ?? null, sub: s?.disk ? `${gb1(s.disk.usedBytes)} / ${gb1(s.disk.totalBytes)} GB · livre ${gb1(s.disk.freeBytes)} GB` : 'indisponível' }) },
+    extract: (s) => ({ value: s?.disk?.pct ?? null, sub: s?.disk ? `${gb1(s.disk.usedBytes)} / ${gb1(s.disk.totalBytes)} GB · livre ${gb1(s.disk.freeBytes)} GB` : 'indisponível', level: usoLevel(s?.disk?.pct ?? null) }) },
   { id: 'vps.uptime', label: 'Uptime (dias no ar)', modulo: 'vps', kind: 'number', source: 'vps', visuals: KPI,
     extract: (s) => ({ value: s?.uptimeSec != null ? Math.floor(s.uptimeSec / 86400) : null, sub: s ? `${fmtUptime(s.uptimeSec)} · ${s.hostname}` : undefined }) },
   { id: 'vps.load', label: 'Load average (1 min)', modulo: 'vps', kind: 'number', source: 'vps', visuals: KPI,
-    extract: (s) => ({ value: s?.cpu ? Math.round((s.cpu.loadavg1 ?? 0) * 100) / 100 : null, sub: s?.cpu ? `${s.cpu.cores} núcleos` : undefined }) },
+    extract: (s) => ({ value: s?.cpu ? Math.round((s.cpu.loadavg1 ?? 0) * 100) / 100 : null, sub: s?.cpu ? `${s.cpu.cores} núcleos` : undefined, level: loadLevel(s?.cpu?.loadavg1, s?.cpu?.cores) }) },
   { id: 'vps.memoriaDist', label: 'Memória (usada × livre)', modulo: 'vps', kind: 'distribution', source: 'vps', visuals: DIST,
     extract: (s) => ({ items: s?.mem ? [{ name: 'Usada', value: gb1(s.mem.usedBytes), color: '#fb7185' }, { name: 'Livre', value: gb1(s.mem.freeBytes), color: '#34d399' }] : [] }) },
   { id: 'vps.discoDist', label: 'Disco (usado × livre)', modulo: 'vps', kind: 'distribution', source: 'vps', visuals: DIST,
@@ -249,7 +259,9 @@ export const METRIC_CATALOG: MetricDef[] = [
     extract: (s) => {
       const d = s?.docker
       if (!Array.isArray(d)) return { value: null, sub: 'Docker indisponível' }
-      return { value: d.filter((c: any) => c.up).length, sub: `de ${d.length} containers` }
+      const up = d.filter((c: any) => c.up).length
+      const level: Nivel = up === 0 && d.length > 0 ? 'crit' : up < d.length ? 'warn' : 'ok'
+      return { value: up, sub: `de ${d.length} containers`, level }
     } },
   { id: 'vps.docker', label: 'Containers do Docker', modulo: 'vps', kind: 'table', source: 'vps', visuals: TABLE,
     extract: (s) => ({

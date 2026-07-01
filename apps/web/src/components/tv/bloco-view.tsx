@@ -58,6 +58,8 @@ export function BlocoView({ bloco, data }: { bloco: any; data: Record<string, an
   const label = bloco.config?.label ?? d?.label ?? ''
   const color = bloco.config?.color || accent
   const Icon = resolveIcon(bloco.config?.icon ?? d?.icon)
+  // Cor por faixa de uso (metric-catalog: level) — deixa o KPI "vivo".
+  const nivelColor = d?.level === 'crit' ? '#f87171' : d?.level === 'warn' ? '#fbbf24' : color
 
   if (d == null) {
     return <Panel title={label} icon={Icon} className="h-full"><Empty /></Panel>
@@ -67,8 +69,13 @@ export function BlocoView({ bloco, data }: { bloco: any; data: Record<string, an
     case 'kpi':
       return (
         <div className="relative overflow-hidden rounded-[1.4vw] border border-white/10 bg-white/[0.035] p-[1.6vw] h-full flex flex-col justify-center">
-          {Icon && <Icon className="absolute top-[1.3vw] right-[1.3vw] h-[2.8vw] w-[2.8vw] opacity-20" style={{ color }} />}
-          <Metric label={label} value={fmtKpi(d)} sub={d.sub} color={color} size={bloco.config?.size ?? 'lg'} />
+          {Icon && (
+            <Icon
+              className={`absolute top-[1.3vw] right-[1.3vw] h-[2.8vw] w-[2.8vw] ${d.level === 'crit' ? 'opacity-40 animate-pulse' : d.level === 'warn' ? 'opacity-35' : 'opacity-20'}`}
+              style={{ color: nivelColor }}
+            />
+          )}
+          <Metric label={label} value={fmtKpi(d)} sub={d.sub} color={nivelColor} size={bloco.config?.size ?? 'lg'} />
           {d.comparacao && <ComparacaoBadge variacaoPct={d.comparacao.variacaoPct} />}
         </div>
       )
