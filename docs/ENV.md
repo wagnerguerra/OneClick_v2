@@ -73,6 +73,38 @@ API_URL=http://localhost:4000
 ADMIN_API_KEY=
 ```
 
+## Painéis de TV — monitor da VPS (fonte `vps`)
+Métricas do servidor (CPU/memória/disco/uptime), portas/serviços e containers do
+Docker nos Painéis de Gestão à Vista. Só master/empresa-master resolve. Tudo opcional.
+```env
+# Portas EXTRAS a monitorar por TCP (as core — API/Web/Postgres/Redis — são
+# checadas pelas conexões reais do app). Formato "Nome:host:porta" ou "Nome:porta".
+PAINEL_VPS_PORTAS=
+PAINEL_VPS_HOST=127.0.0.1          # host default das portas extras
+PAINEL_VPS_DISK_MOUNT=/            # ponto de montagem lido pelo `df`
+
+# Docker (bloco de containers). RECOMENDADO: docker-socket-proxy READ-ONLY por TCP
+# (a API NÃO toca o socket real — só lista containers). Sem isso, cai pro socket
+# unix, que exige montar /var/run/docker.sock no container (dá root no host!).
+DOCKER_HOST=tcp://docker-proxy:2375
+# DOCKER_SOCK=/var/run/docker.sock  # alternativa (menos segura) ao proxy
+```
+Compose (produção, no serviço `api` — adicionar em `/opt/oneclick/docker-compose.yml`):
+```yaml
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1            # libera só GET /containers/* (leitura); resto negado
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # sem `ports:` — fica só na rede interna do compose
+  api:
+    environment:
+      DOCKER_HOST: tcp://docker-proxy:2375
+    # (api e docker-proxy precisam estar na MESMA rede docker)
+```
+
 ## Sistema Legado (referência)
 - **Código-fonte**: `C:\Users\wagner\Desktop\PROJETOS\SERPRO2`
 - **Stack**: Node.js + Vanilla JS + Bootstrap 5 + MySQL

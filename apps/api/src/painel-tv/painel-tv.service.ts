@@ -259,11 +259,25 @@ export class PainelTvService {
     }
   }
 
-  /** GET no Docker Engine API pelo unix socket (sem lib externa; Node fala HTTP no socket). */
+  /**
+   * GET no Docker Engine API (sem lib externa). Conexão, em ordem de preferência:
+   *   1) DOCKER_HOST=tcp://docker-proxy:2375 → via docker-socket-proxy READ-ONLY
+   *      (RECOMENDADO: a API não toca o socket real; só consegue LISTAR containers).
+   *   2) DOCKER_HOST=unix:///caminho  ou  DOCKER_SOCK=/caminho  → socket específico.
+   *   3) fallback: /var/run/docker.sock (exige montar o socket — dá root no host!).
+   */
   private dockerApi<T = any>(apiPath: string): Promise<T> {
-    const socketPath = process.env.DOCKER_SOCK || '/var/run/docker.sock'
+    const dh = (process.env.DOCKER_HOST || '').trim()
+    let opts: http.RequestOptions
+    if (dh.startsWith('tcp://')) {
+      const u = new URL(dh.replace(/^tcp:\/\//, 'http://'))
+      opts = { host: u.hostname, port: Number(u.port) || 2375, path: apiPath, method: 'GET', timeout: 3000 }
+    } else {
+      const socketPath = dh.startsWith('unix://') ? dh.slice('unix://'.length) : (process.env.DOCKER_SOCK || '/var/run/docker.sock')
+      opts = { socketPath, path: apiPath, method: 'GET', timeout: 3000 }
+    }
     return new Promise((resolve, reject) => {
-      const req = http.request({ socketPath, path: apiPath, method: 'GET', timeout: 3000 }, (res) => {
+      const req = http.request(opts, (res) => {
         let body = ''
         res.setEncoding('utf8')
         res.on('data', (c) => { body += c })
@@ -279,8 +293,10 @@ export class PainelTvService {
   }
 
   /**
-   * Lista os containers do Docker via socket. Retorna null se o socket não estiver
-   * montado no container da API (precisa de -v /var/run/docker.sock no compose).
+   * Lista os containers do Docker. Fonte definida por DOCKER_HOST/DOCKER_SOCK
+   * (ver dockerApi — recomendado: docker-socket-proxy read-only). Retorna null se
+   * o Docker não estiver acessível (ex.: proxy fora ou socket não montado) — o
+   * bloco então mostra "Docker indisponível" sem quebrar.
    */
   private async dockerContainers(): Promise<Array<{ nome: string; up: boolean; status: string; imagem: string }> | null> {
     try {
