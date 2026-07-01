@@ -47,6 +47,29 @@ export function createNfseDistRouter(svc: NfseDistService) {
       .input(z.object({ clienteId: z.string(), nsu: z.string() }))
       .mutation(({ input }) => svc.resincronizarDesdeNsu(input.clienteId, input.nsu)),
 
+    /** Clientes com NFS-e Distribuição habilitada — pro seletor da busca sob demanda.
+     *  Campos normalizados (ultimoNsu/syncStatus/…) iguais ao nfe-dist. */
+    listEnabled: readProcedure(MODULE)
+      .query(async ({ ctx }) => {
+        const rows = await prisma.cliente.findMany({
+          where: {
+            nfseDistEnabled: true,
+            deletedAt: null,
+            ...(ctx.isMaster ? {} : { empresaId: ctx.empresaId }),
+          },
+          select: {
+            id: true, razaoSocial: true, nomeFantasia: true, documento: true,
+            nfseDistUltimoNsu: true, nfseDistSyncedAt: true, nfseDistSyncStatus: true, nfseDistSyncRequestedAt: true,
+          },
+          orderBy: { razaoSocial: 'asc' },
+        })
+        return rows.map((c) => ({
+          id: c.id, razaoSocial: c.razaoSocial, nomeFantasia: c.nomeFantasia, documento: c.documento,
+          ultimoNsu: c.nfseDistUltimoNsu != null ? c.nfseDistUltimoNsu.toString() : null,
+          syncStatus: c.nfseDistSyncStatus, syncRequestedAt: c.nfseDistSyncRequestedAt, syncedAt: c.nfseDistSyncedAt,
+        }))
+      }),
+
     /** Progresso em tempo real (polling pela UI). */
     getProgressoAtual: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))

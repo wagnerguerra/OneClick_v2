@@ -51,7 +51,8 @@ export function createNfeDistRouter(svc: NfeDistService) {
       .input(z.object({ clienteId: z.string(), nsu: z.string() }))
       .mutation(({ input }) => svc.resincronizarDesdeNsu(input.clienteId, input.nsu)),
 
-    /** Clientes com NFe Distribuição habilitada — pro seletor da busca sob demanda. */
+    /** Clientes com NFe Distribuição habilitada — pro seletor da busca sob demanda.
+     *  Campos normalizados (ultimoNsu/syncStatus/…) pra a UI ser agnóstica de fonte. */
     listEnabled: readProcedure(MODULE)
       .query(async ({ ctx }) => {
         const rows = await prisma.cliente.findMany({
@@ -67,8 +68,9 @@ export function createNfeDistRouter(svc: NfeDistService) {
           orderBy: { razaoSocial: 'asc' },
         })
         return rows.map((c) => ({
-          ...c,
-          nfeDistUltimoNsu: c.nfeDistUltimoNsu != null ? c.nfeDistUltimoNsu.toString() : null,
+          id: c.id, razaoSocial: c.razaoSocial, nomeFantasia: c.nomeFantasia, documento: c.documento,
+          ultimoNsu: c.nfeDistUltimoNsu != null ? c.nfeDistUltimoNsu.toString() : null,
+          syncStatus: c.nfeDistSyncStatus, syncRequestedAt: c.nfeDistSyncRequestedAt, syncedAt: c.nfeDistSyncedAt,
         }))
       }),
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { Search, Loader2, CheckCircle2, XCircle, Building2, Download, ExternalLink, Clock } from 'lucide-react'
+import { Search, Loader2, CheckCircle2, XCircle, Building2, Download, ExternalLink, Clock, Landmark, Briefcase } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Button, Input, cn,
 } from '@saas/ui'
@@ -12,17 +12,34 @@ import { alerts } from '@/lib/alerts'
 
 const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
 
+type Fonte = 'nfe' | 'nfse'
+const FONTES: { k: Fonte; label: string; icon: typeof Landmark; requestedField: string; statusField: string }[] = [
+  { k: 'nfe', label: 'NFe SEFAZ', icon: Landmark, requestedField: 'nfeDistSyncRequestedAt', statusField: 'nfeDistSyncStatus' },
+  { k: 'nfse', label: 'NFS-e Nacional', icon: Briefcase, requestedField: 'nfseDistSyncRequestedAt', statusField: 'nfseDistSyncStatus' },
+]
+
 interface EnabledCliente {
   id: string
   razaoSocial: string
   nomeFantasia: string | null
   documento: string
-  nfeDistUltimoNsu: string | null
-  nfeDistSyncStatus: string | null
-  nfeDistSyncRequestedAt: string | null
-  nfeDistSyncedAt: string | null
+  ultimoNsu: string | null
+  syncStatus: string | null
+  syncRequestedAt: string | null
+  syncedAt: string | null
 }
 interface Progresso { etapa: string; mensagem: string; atual: number; total: number; pct: number }
+
+// Router (nfeDist/nfseDist) tipado no formato que o modal usa — ambos têm as mesmas procedures.
+interface DistRouter {
+  listEnabled: { query: () => Promise<EnabledCliente[]> }
+  solicitarSync: { mutate: (i: { clienteId: string }) => Promise<void> }
+  getProgressoAtual: { query: (i: { clienteId: string }) => Promise<Progresso | null> }
+  status: { query: (i: { clienteId: string }) => Promise<Record<string, unknown> | null> }
+}
+function routerDe(fonte: Fonte): DistRouter {
+  return (fonte === 'nfe' ? trpc.nfeDist : trpc.nfseDist) as unknown as DistRouter
+}
 
 function fmtCnpj(doc: string): string {
   const d = doc.replace(/\D/g, '')
@@ -31,11 +48,12 @@ function fmtCnpj(doc: string): string {
 }
 
 /**
- * Busca sob demanda de notas de UM cliente no Portal Nacional (SEFAZ NFe
- * Distribuição DFe). Dispara `solicitarSync` e acompanha o progresso por polling
- * (`getProgressoAtual` + `status`). O scheduler processa em até ~20s.
+ * Busca sob demanda de notas de UM cliente, escolhendo a fonte: NFe (SEFAZ
+ * Distribuição DFe) ou NFS-e (Portal Nacional). Dispara `solicitarSync` da fonte
+ * escolhida e acompanha o progresso por polling. O scheduler processa em ~20s.
  */
 export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  const [fonte, setFonte] = useState<Fonte>('nfe')
   const [clientes, setClientes] = useState<EnabledCliente[]>([])
   const [loading, setLoading] = useState(false)
   const [busca, setBusca] = useState('')
@@ -47,52 +65,48 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
   const vistoNaFila = useRef(false)
   const iniciadoEm = useRef(0)
 
+  const fonteAtual = FONTES.find((f) => f.k === fonte)!
   const pararPoll = useCallback(() => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } }, [])
 
-  const resetar = useCallback(() => {
-    pararPoll(); setSel(null); setBusca(''); setFase('select'); setProgresso(null); setResultado(null)
-    vistoNaFila.current = false
-  }, [pararPoll])
-
-  const carregar = useCallback(async () => {
-    setLoading(true)
+  const carregar = useCallback(async (f: Fonte) => {
+    setLoading(true); setSel(null)
     try {
-      const r = await (trpc.nfeDist as { listEnabled: { query: () => Promise<EnabledCliente[]> } }).listEnabled.query()
+      const r = await routerDe(f).listEnabled.query()
       setClientes(r)
-    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    } catch (e) { setClientes([]); alerts.error('Erro', (e as Error).message) }
     finally { setLoading(false) }
   }, [])
 
+  // Ao abrir OU trocar de fonte: volta ao seletor e recarrega a lista da fonte.
   useEffect(() => {
-    if (open) { resetar(); void carregar() }
-    else pararPoll()
+    if (!open) { pararPoll(); return }
+    pararPoll(); setBusca(''); setFase('select'); setProgresso(null); setResultado(null); vistoNaFila.current = false
+    void carregar(fonte)
     return () => pararPoll()
-  }, [open, carregar, resetar, pararPoll])
+  }, [open, fonte, carregar, pararPoll])
 
-  const iniciarPoll = useCallback((clienteId: string) => {
+  const iniciarPoll = useCallback((clienteId: string, f: Fonte) => {
     iniciadoEm.current = Date.now()
+    const def = FONTES.find((x) => x.k === f)!
+    const nd = routerDe(f)
     const tick = async () => {
       try {
-        const nd = trpc.nfeDist as {
-          getProgressoAtual: { query: (i: { clienteId: string }) => Promise<Progresso | null> }
-          status: { query: (i: { clienteId: string }) => Promise<{ nfeDistSyncRequestedAt: string | null; nfeDistSyncStatus: string | null; nfeDistUltimoNsu: string | null } | null> }
-        }
         const [prog, st] = await Promise.all([
           nd.getProgressoAtual.query({ clienteId }),
           nd.status.query({ clienteId }),
         ])
         setProgresso(prog)
-        if (st?.nfeDistSyncRequestedAt) vistoNaFila.current = true
-        // Concluído: a flag de solicitação foi limpa (scheduler terminou de processar).
-        const terminou = vistoNaFila.current && !st?.nfeDistSyncRequestedAt
+        const requestedAt = st?.[def.requestedField] as string | null | undefined
+        if (requestedAt) vistoNaFila.current = true
+        const terminou = vistoNaFila.current && !requestedAt
         const estourou = Date.now() - iniciadoEm.current > 4 * 60_000
         if (terminou || estourou) {
           pararPoll()
           setFase('done')
-          const stt = st?.nfeDistSyncStatus ?? ''
+          const stt = (st?.[def.statusField] as string | null) ?? ''
           setResultado(estourou
             ? { mensagem: 'A busca demorou mais que o esperado — verifique a galeria em instantes.', ok: true }
-            : { mensagem: stt === 'erro' ? 'A SEFAZ retornou erro nesta consulta.' : 'Busca concluída. As notas novas já estão na galeria.', ok: stt !== 'erro' })
+            : { mensagem: stt === 'erro' ? 'A consulta retornou erro.' : 'Busca concluída. As notas novas já estão na galeria.', ok: stt !== 'erro' })
         }
       } catch { /* mantém o poll */ }
     }
@@ -104,8 +118,8 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
     if (!sel) return
     setFase('processando'); setProgresso(null); vistoNaFila.current = false
     try {
-      await (trpc.nfeDist as { solicitarSync: { mutate: (i: { clienteId: string }) => Promise<void> } }).solicitarSync.mutate({ clienteId: sel.id })
-      iniciarPoll(sel.id)
+      await routerDe(fonte).solicitarSync.mutate({ clienteId: sel.id })
+      iniciarPoll(sel.id, fonte)
     } catch (e) {
       setFase('done')
       setResultado({ mensagem: (e as Error).message, ok: false })
@@ -119,11 +133,30 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
     <Dialog open={open} onOpenChange={(o) => { if (!o && fase === 'processando') return; onOpenChange(o) }}>
       <DialogContent className="sm:max-w-[540px]">
         <DialogHeaderIcon icon={Download} color="sky">
-          <DialogTitle>Buscar notas no Portal Nacional</DialogTitle>
-          <DialogDescription>Consulta a SEFAZ (NFe Distribuição) de um cliente sob demanda.</DialogDescription>
+          <DialogTitle>Buscar notas sob demanda</DialogTitle>
+          <DialogDescription>Consulta {fonte === 'nfe' ? 'a SEFAZ (NFe Distribuição)' : 'o Portal Nacional (NFS-e)'} de um cliente.</DialogDescription>
         </DialogHeaderIcon>
 
-        <DialogBody className="min-h-[280px]">
+        <DialogBody className="min-h-[320px] space-y-3">
+          {/* Seletor de fonte — igual ao agendamento (NFe SEFAZ / NFS-e Nacional) */}
+          <div className="flex items-center gap-1 border-b border-border">
+            {FONTES.map((f) => {
+              const active = fonte === f.k
+              return (
+                <button
+                  key={f.k}
+                  type="button"
+                  disabled={fase === 'processando'}
+                  onClick={() => setFonte(f.k)}
+                  className={cn('inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors disabled:opacity-50',
+                    active ? 'border-sky-500 text-sky-600 dark:text-sky-400' : 'border-transparent text-muted-foreground hover:text-foreground')}
+                >
+                  <f.icon className="h-3.5 w-3.5" /> {f.label}
+                </button>
+              )
+            })}
+          </div>
+
           {fase === 'select' && (
             <div className="space-y-3">
               <div className="relative">
@@ -135,7 +168,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
                   <div className="flex items-center justify-center py-10 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>
                 ) : filtrados.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-10">
-                    {clientes.length === 0 ? 'Nenhum cliente com NFe Distribuição habilitada. Habilite no cadastro do cliente (aba Fiscal).' : 'Nenhum cliente bate com a busca.'}
+                    {clientes.length === 0 ? `Nenhum cliente com ${fonteAtual.label} habilitada. Habilite no cadastro do cliente (aba Fiscal).` : 'Nenhum cliente bate com a busca.'}
                   </p>
                 ) : filtrados.map((c) => (
                   <button
@@ -148,7 +181,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
                     <span className="h-8 w-8 rounded-md bg-muted flex items-center justify-center shrink-0"><Building2 className="h-4 w-4 text-muted-foreground" /></span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-medium truncate">{c.razaoSocial}</span>
-                      <span className="block text-[11px] text-muted-foreground font-mono">{fmtCnpj(c.documento)} · último NSU {c.nfeDistUltimoNsu ?? '0'}</span>
+                      <span className="block text-[11px] text-muted-foreground font-mono">{fmtCnpj(c.documento)} · último NSU {c.ultimoNsu ?? '0'}</span>
                     </span>
                     {sel?.id === c.id && <CheckCircle2 className="h-4 w-4 text-sky-500 shrink-0" />}
                   </button>
@@ -209,7 +242,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
           )}
           {fase === 'done' && (
             <>
-              <Button variant="outline" onClick={resetar}>Buscar outro</Button>
+              <Button variant="outline" onClick={() => { setFase('select'); setSel(null); setResultado(null); setProgresso(null) }}>Buscar outro</Button>
               <Button onClick={() => onOpenChange(false)}>Fechar</Button>
             </>
           )}
