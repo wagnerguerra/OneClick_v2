@@ -2,6 +2,10 @@ import { Injectable, Inject } from '@nestjs/common'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 import { randomUUID } from 'crypto'
+import * as os from 'os'
+import * as net from 'net'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
 import { CrmService } from '../crm/crm.service'
 import { OrcamentoService } from '../orcamento/orcamento.service'
 import { ContratoService } from '../contrato/contrato.service'
@@ -13,6 +17,7 @@ export interface ResolveCtx {
   empresaId?: string | null
   userId?: string
   isMaster?: boolean
+  isEmpresaMaster?: boolean
   periodoDias?: number
   janela?: { inicio: Date; fim: Date }
 }
@@ -20,6 +25,8 @@ export interface ResolveCtx {
 function safe<T>(p: Promise<T>): Promise<T | null> {
   return p.then((r) => r).catch(() => null)
 }
+
+const execFileP = promisify(execFile)
 
 function mapPainel(r: any) {
   return {
@@ -216,7 +223,95 @@ export class PainelTvService {
     if (name === 'helpdesk') {
       return safe(this.helpdesk.getDashboard(ctx.empresaId ?? null, { inicio: inicio.toISOString(), fim: fim.toISOString() }))
     }
+    if (name === 'vps') {
+      return safe(this.buildVpsReport(ctx))
+    }
     return null
+  }
+
+  // ── Fonte VPS (status do servidor) ──────────────────────────────
+  // A API roda NA VPS, então lê métricas locais: CPU/memória via `os`, disco via
+  // `df`, portas via TCP. Gate infra: só master/empresa-master enxerga.
+  // Config opcional por env:
+  //   PAINEL_VPS_PORTAS="API:4000,Web:3000,PostgreSQL:5432,Redis:6379"
+  //   PAINEL_VPS_DISK_MOUNT="/"   PAINEL_VPS_HOST="127.0.0.1"
+  private async buildVpsReport(ctx: ResolveCtx): Promise<any> {
+    if (!(ctx.isMaster || ctx.isEmpresaMaster)) return null
+    const host = process.env.PAINEL_VPS_HOST || '127.0.0.1'
+    const totalMem = os.totalmem()
+    const freeMem = os.freemem()
+    const usedMem = totalMem - freeMem
+    const portasDef = this.parsePortas()
+    const [cpuPct, disk, portasUp] = await Promise.all([
+      this.cpuPercent(),
+      this.diskUsage(process.env.PAINEL_VPS_DISK_MOUNT || '/'),
+      Promise.all(portasDef.map((p) => this.checkPort(host, p.porta))),
+    ])
+    return {
+      hostname: os.hostname(),
+      uptimeSec: Math.round(os.uptime()),
+      cpu: { pct: cpuPct, cores: os.cpus().length, loadavg1: os.loadavg()[0] ?? 0 },
+      mem: { totalBytes: totalMem, usedBytes: usedMem, freeBytes: freeMem, pct: Math.round((usedMem / totalMem) * 100) },
+      disk,
+      portas: portasDef.map((p, i) => ({ nome: p.nome, porta: p.porta, up: portasUp[i] })),
+    }
+  }
+
+  private cpuTimes() {
+    let idle = 0, total = 0
+    for (const c of os.cpus()) {
+      for (const t of Object.values(c.times)) total += t
+      idle += c.times.idle
+    }
+    return { idle, total }
+  }
+
+  /** Uso de CPU (%) por amostragem de ~200ms dos contadores de tempo. */
+  private async cpuPercent(): Promise<number> {
+    const a = this.cpuTimes()
+    await new Promise((r) => setTimeout(r, 200))
+    const b = this.cpuTimes()
+    const idle = b.idle - a.idle
+    const total = b.total - a.total
+    return total > 0 ? Math.max(0, Math.min(100, Math.round((1 - idle / total) * 100))) : 0
+  }
+
+  /** Uso de disco via `df -P -k <mount>` (POSIX; null em SO sem df/erro). */
+  private async diskUsage(mount: string): Promise<{ totalBytes: number; usedBytes: number; freeBytes: number; pct: number; mount: string } | null> {
+    try {
+      const { stdout } = await execFileP('df', ['-P', '-k', mount], { timeout: 4000 })
+      const lines = stdout.trim().split('\n')
+      const parts = (lines[lines.length - 1] ?? '').trim().split(/\s+/)
+      // Filesystem 1024-blocks Used Available Capacity Mounted-on
+      const totalK = Number(parts[1]); const usedK = Number(parts[2]); const availK = Number(parts[3])
+      if (!Number.isFinite(totalK) || totalK <= 0) return null
+      const totalBytes = totalK * 1024, usedBytes = usedK * 1024, freeBytes = availK * 1024
+      return { totalBytes, usedBytes, freeBytes, pct: Math.round((usedBytes / totalBytes) * 100), mount }
+    } catch { return null }
+  }
+
+  /** Testa uma porta TCP (127.0.0.1 por padrão) — true se conectar. */
+  private checkPort(host: string, port: number, timeoutMs = 1200): Promise<boolean> {
+    return new Promise((resolve) => {
+      const sock = new net.Socket()
+      let done = false
+      const finish = (up: boolean) => { if (done) return; done = true; sock.destroy(); resolve(up) }
+      sock.setTimeout(timeoutMs)
+      sock.once('connect', () => finish(true))
+      sock.once('timeout', () => finish(false))
+      sock.once('error', () => finish(false))
+      sock.connect(port, host)
+    })
+  }
+
+  /** Lista de portas a monitorar (env PAINEL_VPS_PORTAS ou default do stack). */
+  private parsePortas(): Array<{ nome: string; porta: number }> {
+    const raw = (process.env.PAINEL_VPS_PORTAS || '').trim()
+    const def = 'API:4000,Web:3000,PostgreSQL:5432,Redis:6379'
+    return (raw || def).split(',').map((s) => {
+      const [nome, p] = s.split(':')
+      return { nome: (nome || '').trim(), porta: Number((p || '').trim()) }
+    }).filter((x) => x.nome && Number.isFinite(x.porta) && x.porta > 0).slice(0, 20)
   }
 
   // ── Escrita (CRUD) — master only (gateado no router) ────────────

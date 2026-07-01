@@ -304,8 +304,8 @@ export default function PainelEditorPage() {
                 <optgroup label="✨ Personalizada">
                   <option value="__custom__">Métrica personalizada (montar do zero)</option>
                 </optgroup>
-                {['comercial', 'helpdesk'].map((mod) => (
-                  <optgroup key={mod} label={mod === 'comercial' ? 'Comercial' : 'Helpdesk / TI'}>
+                {['comercial', 'helpdesk', 'vps'].map((mod) => (
+                  <optgroup key={mod} label={mod === 'comercial' ? 'Comercial' : mod === 'helpdesk' ? 'Helpdesk / TI' : 'VPS / Servidor'}>
                     {catalogo.filter((m) => m.modulo === mod).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                   </optgroup>
                 ))}

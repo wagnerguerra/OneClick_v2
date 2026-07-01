@@ -20,7 +20,7 @@ import {
 export type MetricKind =
   | 'number' | 'currency' | 'percent' | 'duration' | 'rating'
   | 'distribution' | 'series' | 'table'
-export type SourceName = 'comercial' | 'helpdesk'
+export type SourceName = 'comercial' | 'helpdesk' | 'vps'
 
 export interface MetricDef {
   id: string
@@ -52,6 +52,14 @@ const KPI = ['kpi']
 const DIST = ['donut', 'bar']
 const SERIES = ['bar', 'line']
 const TABLE = ['table', 'list']
+
+// ── Helpers VPS (formatação de bytes/uptime) ──────────────────────
+const gb1 = (b?: number | null): number | null => (b == null ? null : Math.round((b / 1e9) * 10) / 10)
+const fmtUptime = (sec?: number | null): string => {
+  if (!sec) return '—'
+  const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600)
+  return d > 0 ? `${d}d ${h}h` : `${h}h`
+}
 
 // ── Helpers de derivação comercial ────────────────────────────────
 function crmAtivas(src: any): any[] {
@@ -196,6 +204,46 @@ export const METRIC_CATALOG: MetricDef[] = [
     extract: (s) => ({ items: (s?.porTipo ?? []).filter((x: any) => (x.total ?? 0) > 0).map((x: any, i: number) => ({ name: HELPDESK_TIPO_LABELS[x.tipo] ?? x.tipo, value: x.total, color: PALETTE[i % PALETTE.length] })) }) },
   { id: 'helpdesk.csatDist', label: 'Distribuição de CSAT (1–5)', modulo: 'helpdesk', kind: 'distribution', source: 'helpdesk', visuals: DIST,
     extract: (s) => ({ items: (s?.csatDist ?? []).map((x: any) => ({ name: `${x.nota}★`, value: x.total, color: CSAT_COR[x.nota] ?? '#94a3b8' })) }) },
+
+  // ── VPS / SERVIDOR ─────────────────────────────────────────────
+  // Fonte lida localmente na API (que roda NA VPS): CPU/memória via `os`, disco
+  // via `df`, portas via TCP. Só master enxerga (gate na fonte `vps`).
+  { id: 'vps.cpu', label: 'CPU — uso (%)', modulo: 'vps', kind: 'percent', source: 'vps', visuals: KPI,
+    extract: (s) => ({ value: s?.cpu?.pct ?? null, sub: s?.cpu ? `${s.cpu.cores} núcleos · load ${(s.cpu.loadavg1 ?? 0).toFixed(2)}` : undefined }) },
+  { id: 'vps.memoria', label: 'Memória — uso (%)', modulo: 'vps', kind: 'percent', source: 'vps', visuals: KPI,
+    extract: (s) => ({ value: s?.mem?.pct ?? null, sub: s?.mem ? `${gb1(s.mem.usedBytes)} / ${gb1(s.mem.totalBytes)} GB` : undefined }) },
+  { id: 'vps.disco', label: 'Disco — uso (%)', modulo: 'vps', kind: 'percent', source: 'vps', visuals: KPI,
+    extract: (s) => ({ value: s?.disk?.pct ?? null, sub: s?.disk ? `${gb1(s.disk.usedBytes)} / ${gb1(s.disk.totalBytes)} GB · livre ${gb1(s.disk.freeBytes)} GB` : 'indisponível' }) },
+  { id: 'vps.uptime', label: 'Uptime (dias no ar)', modulo: 'vps', kind: 'number', source: 'vps', visuals: KPI,
+    extract: (s) => ({ value: s?.uptimeSec != null ? Math.floor(s.uptimeSec / 86400) : null, sub: s ? `${fmtUptime(s.uptimeSec)} · ${s.hostname}` : undefined }) },
+  { id: 'vps.load', label: 'Load average (1 min)', modulo: 'vps', kind: 'number', source: 'vps', visuals: KPI,
+    extract: (s) => ({ value: s?.cpu ? Math.round((s.cpu.loadavg1 ?? 0) * 100) / 100 : null, sub: s?.cpu ? `${s.cpu.cores} núcleos` : undefined }) },
+  { id: 'vps.memoriaDist', label: 'Memória (usada × livre)', modulo: 'vps', kind: 'distribution', source: 'vps', visuals: DIST,
+    extract: (s) => ({ items: s?.mem ? [{ name: 'Usada', value: gb1(s.mem.usedBytes), color: '#fb7185' }, { name: 'Livre', value: gb1(s.mem.freeBytes), color: '#34d399' }] : [] }) },
+  { id: 'vps.discoDist', label: 'Disco (usado × livre)', modulo: 'vps', kind: 'distribution', source: 'vps', visuals: DIST,
+    extract: (s) => ({ items: s?.disk ? [{ name: 'Usado', value: gb1(s.disk.usedBytes), color: '#f97316' }, { name: 'Livre', value: gb1(s.disk.freeBytes), color: '#22d3ee' }] : [] }) },
+  { id: 'vps.recursos', label: 'Recursos do servidor (resumo)', modulo: 'vps', kind: 'table', source: 'vps', visuals: TABLE,
+    extract: (s) => ({
+      columns: [
+        { key: 'recurso', label: 'Recurso' },
+        { key: 'uso', label: 'Uso', align: 'center', kind: 'percent' },
+        { key: 'detalhe', label: 'Detalhe', align: 'right' },
+      ],
+      rows: s ? [
+        { recurso: 'CPU', uso: s.cpu?.pct ?? null, detalhe: `${s.cpu?.cores ?? '—'} núcleos` },
+        { recurso: 'Memória', uso: s.mem?.pct ?? null, detalhe: `${gb1(s.mem?.usedBytes)} / ${gb1(s.mem?.totalBytes)} GB` },
+        ...(s.disk ? [{ recurso: 'Disco', uso: s.disk.pct, detalhe: `${gb1(s.disk.usedBytes)} / ${gb1(s.disk.totalBytes)} GB` }] : []),
+      ] : [],
+    }) },
+  { id: 'vps.portas', label: 'Portas / serviços (status)', modulo: 'vps', kind: 'table', source: 'vps', visuals: TABLE,
+    extract: (s) => ({
+      columns: [
+        { key: 'nome', label: 'Serviço' },
+        { key: 'porta', label: 'Porta', align: 'center' },
+        { key: 'status', label: 'Status', align: 'right', kind: 'status' },
+      ],
+      rows: (s?.portas ?? []).map((p: any) => ({ nome: p.nome, porta: p.porta, status: p.up })),
+    }) },
 ]
 
 // Métricas de FLUXO (contadas/medidas dentro de um período) — únicas onde

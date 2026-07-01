@@ -183,6 +183,19 @@ function CellView({ col, row, accent }: { col: any; row: any; accent: string }) 
       </span>
     )
   }
+  if (col.kind === 'status') {
+    // Status de porta/serviço: valor booleano (up) ou 'Online'/'Offline'.
+    const up = v === true || v === 'Online' || v === 'online' || v === 'up'
+    const cor = up ? '#34d399' : '#f87171'
+    return (
+      <span className={alignCls(col.align)}>
+        <span className="inline-flex items-center gap-[0.5vw] px-[0.7vw] py-[0.2vw] rounded-full text-[1vw] font-semibold" style={{ background: `${cor}22`, color: cor }}>
+          <span className="h-[0.8vw] w-[0.8vw] rounded-full" style={{ background: cor }} />
+          {up ? 'Online' : 'Offline'}
+        </span>
+      </span>
+    )
+  }
   if (col.kind === 'prioridade') {
     const cor = HELPDESK_PRIORIDADE_COLORS[v as keyof typeof HELPDESK_PRIORIDADE_COLORS] ?? '#888'
     const lbl = HELPDESK_PRIORIDADE_LABELS[v as keyof typeof HELPDESK_PRIORIDADE_LABELS] ?? v

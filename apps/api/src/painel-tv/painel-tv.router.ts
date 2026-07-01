@@ -27,7 +27,7 @@ export function createPainelTvRouter(svc: PainelTvService) {
     // Exibição (TV): qualquer usuário logado; as fontes gateiam por módulo.
     getBySlug: protectedProcedure.input(z.object({ slug: z.string() })).query(({ input }) => svc.getBySlug(input.slug)),
     resolve: protectedProcedure.input(z.object({ slug: z.string() }))
-      .query(({ input, ctx }) => svc.resolve(input.slug, { empresaId: ctx.empresaId, userId: ctx.userId, isMaster: ctx.isMaster })),
+      .query(({ input, ctx }) => svc.resolve(input.slug, { empresaId: ctx.empresaId, userId: ctx.userId, isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster })),
 
     // ── Painel CRUD ──
     createPainel: masterProcedure.input(z.object({
