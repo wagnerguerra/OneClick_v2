@@ -37,7 +37,7 @@ export function createPainelTvRouter(svc: PainelTvService) {
       icon: z.string().nullable().optional(),
       slideMs: z.number().int().min(3000).max(120000).optional(),
       periodoDias: z.number().int().min(1).max(365).optional(),
-    })).mutation(({ input }) => svc.createPainel(input)),
+    })).mutation(({ input, ctx }) => svc.createPainel({ ...input, empresaId: ctx.empresaId })),
 
     updatePainel: masterProcedure.input(z.object({
       id: z.string(),
@@ -51,7 +51,7 @@ export function createPainelTvRouter(svc: PainelTvService) {
         periodoDias: z.number().int().min(1).max(365).optional(),
         ordem: z.number().int().optional(),
       }),
-    })).mutation(({ input }) => svc.updatePainel(input.id, input.data)),
+    })).mutation(({ input, ctx }) => svc.updatePainel(input.id, input.data, ctx.empresaId)),
 
     deletePainel: masterProcedure.input(z.object({ id: z.string() })).mutation(({ input }) => svc.deletePainel(input.id)),
 

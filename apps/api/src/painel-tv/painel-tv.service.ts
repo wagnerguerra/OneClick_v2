@@ -20,6 +20,7 @@ export interface ResolveCtx {
   userId?: string
   isMaster?: boolean
   isEmpresaMaster?: boolean
+  allowVps?: boolean // pode ver a fonte `vps` (infra) — calculado no resolve
   periodoDias?: number
   janela?: { inicio: Date; fim: Date }
 }
@@ -120,6 +121,10 @@ export class PainelTvService {
   async resolve(slug: string, ctx: ResolveCtx) {
     const painel = await this.getBySlug(slug)
     if (!painel) throw new TRPCError({ code: 'NOT_FOUND', message: 'Painel não encontrado' })
+
+    // Fonte VPS (infra): master/empresa-master OU usuários da MESMA empresa do
+    // painel. Painel sem empresa (empresaId null) segue master-only.
+    ctx.allowVps = !!(ctx.isMaster || ctx.isEmpresaMaster || (painel.empresaId && painel.empresaId === ctx.empresaId))
 
     const painelPeriodo = painel.periodoDias ?? 30
     const blocos: any[] = painel.folhas.flatMap((f: any) => f.blocos)
@@ -238,7 +243,7 @@ export class PainelTvService {
   //   PAINEL_VPS_PORTAS="API:4000,Web:3000,PostgreSQL:5432,Redis:6379"
   //   PAINEL_VPS_DISK_MOUNT="/"   PAINEL_VPS_HOST="127.0.0.1"
   private async buildVpsReport(ctx: ResolveCtx): Promise<any> {
-    if (!(ctx.isMaster || ctx.isEmpresaMaster)) return null
+    if (!ctx.allowVps) return null
     const totalMem = os.totalmem()
     const freeMem = os.freemem()
     const usedMem = totalMem - freeMem
@@ -453,7 +458,7 @@ export class PainelTvService {
     return this.getById(id)
   }
 
-  async updatePainel(id: string, d: Partial<{ slug: string; nome: string; accent: string; icon: string | null; ativo: boolean; slideMs: number; periodoDias: number; ordem: number }>) {
+  async updatePainel(id: string, d: Partial<{ slug: string; nome: string; accent: string; icon: string | null; ativo: boolean; slideMs: number; periodoDias: number; ordem: number }>, ctxEmpresaId?: string | null) {
     const sets: string[] = []
     const params: any[] = []
     const add = (col: string, val: any) => { params.push(val); sets.push(`${col} = $${params.length}`) }
@@ -465,6 +470,9 @@ export class PainelTvService {
     if (d.slideMs !== undefined) add('slide_ms', d.slideMs)
     if (d.periodoDias !== undefined) add('periodo_dias', d.periodoDias)
     if (d.ordem !== undefined) add('ordem', d.ordem)
+    // Amarra o painel à empresa do master (só se ainda estiver sem empresa) —
+    // habilita a fonte VPS pra usuários da mesma empresa. COALESCE = não sobrescreve.
+    if (ctxEmpresaId) { params.push(ctxEmpresaId); sets.push(`empresa_id = COALESCE(empresa_id, $${params.length})`) }
     if (sets.length) {
       params.push(id)
       await prisma.$executeRawUnsafe(`UPDATE tv_painel SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${params.length}`, ...params)
