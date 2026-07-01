@@ -382,7 +382,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {documento && (
             <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); void importarOneClickFluxo() }}>
-              <Download className="h-3 w-3" />Importar OneClick
+              <Download className="h-3 w-3" />Importar
             </Button>
           )}
           <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
@@ -910,19 +910,6 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
                   <h4 className="text-[13px] font-semibold text-foreground">CNAE (Receita Federal / Serpro)</h4>
                   <div className="flex items-center gap-1.5">
-                    {clienteId && documento && (
-                      <Button type="button" variant="outline" size="sm" className="h-7 text-[11px] gap-1" onClick={async (e) => {
-                        e.preventDefault(); e.stopPropagation()
-                        try {
-                          setCnaesLoading(true)
-                          const r = await (trpc.cliente as any).importCnaes.mutate({ clienteId, documento }) as { message: string }
-                          alerts.success('CNAE', r.message)
-                          const data = await (trpc.cliente as any).listCnaes.query({ clienteId }) as typeof cnaes
-                          setCnaes(data)
-                        } catch (err) { alerts.error('Erro', (err as Error).message) }
-                        finally { setCnaesLoading(false) }
-                      }}><Download className="h-3 w-3" />Buscar CNAE</Button>
-                    )}
                     {clienteId && canManageFiscal && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); addCnae() }} className="gap-1.5 h-7 text-[11px]"><Plus className="h-3 w-3" /> Manual</Button>}
                   </div>
                 </div>
@@ -931,7 +918,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 {cnaesLoading ? (
                   <div className="flex items-center justify-center py-8 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando...</div>
                 ) : cnaes.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">Use "Buscar CNAE" para carregar os dados da Receita Federal.</p>
+                  <p className="text-sm text-muted-foreground text-center py-8">Use o botão <strong>Importar</strong> (no topo) para carregar os CNAEs da Receita Federal.</p>
                 ) : (
                   <div className="rounded-lg border overflow-hidden">
                     <table className="w-full text-xs">
