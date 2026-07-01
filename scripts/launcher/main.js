@@ -1615,6 +1615,75 @@ function registerIpcHandlers() {
     }
   }
 
+  // ── Import do cadastro legado (OneClick v1 / MySQL) via a mesma ponte ──
+  // O SM (na LAN) lê o MySQL legado e devolve as linhas cruas; a API aplica.
+  // Config do banco vem de launcher-settings.json → `legacyDb` (host/port/user/
+  // password/database), com fallback pros envs LEGACY_DB_* e defaults.
+  function legacyDbConfig() {
+    const s = (loadSettings().legacyDb) || {}
+    return {
+      host: s.host || process.env.LEGACY_DB_HOST || 'localhost',
+      port: Number(s.port || process.env.LEGACY_DB_PORT || 3306),
+      user: s.user || process.env.LEGACY_DB_USER || 'root',
+      password: s.password != null ? s.password : (process.env.LEGACY_DB_PASSWORD || ''),
+      database: s.database || process.env.LEGACY_DB_NAME || 'oneclick_fiscal_serpro',
+      connectTimeout: 8000,
+    }
+  }
+
+  async function lerClienteLegado(payload) {
+    const cnpj = String((payload && payload.cnpj) || '').replace(/\D/g, '')
+    if (cnpj.length !== 14) throw new Error('CNPJ inválido — importação apenas para 14 dígitos')
+    // eslint-disable-next-line global-require
+    const mysql = require('mysql2/promise')
+    const conn = await mysql.createConnection(legacyDbConfig())
+    try {
+      const [cliRows] = await conn.query(
+        `SELECT id FROM clientes WHERE REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = ? LIMIT 1`, [cnpj])
+      const serpro2Id = cliRows && cliRows[0] && cliRows[0].id
+      if (!serpro2Id) return { found: false }
+      const [popRows] = await conn.query(
+        `SELECT inscricao_estadual, inscricao_municipal, nire, rg_edificacao, codigo_simples,
+                bombeiros_tipo, bombeiros_metragem, bombeiros_rota, bombeiros_projeto,
+                bombeiros_capacidade, bombeiros_referencia, latitude, longitude, cnae, acesso_siat
+         FROM cliente_legalizacao_pop WHERE cliente_id = ? LIMIT 1`, [serpro2Id])
+      const [acessos] = await conn.query(
+        `SELECT tipo, link, usuario, senha FROM cliente_legalizacao_acessos WHERE cliente_id = ?`, [serpro2Id])
+      const [vencimentos] = await conn.query(
+        `SELECT tipo_alvara, vencimento, observacoes FROM cliente_legalizacao_vencimentos WHERE cliente_id = ?`, [serpro2Id])
+      const [andamentos] = await conn.query(
+        `SELECT tipo, titulo, vencimento, descricao_html FROM cliente_legalizacao_andamentos WHERE cliente_id = ?`, [serpro2Id])
+      const [socios] = await conn.query(
+        `SELECT nome, documento, qualificacao, percentual_participacao, valor_participacao, representante_nome, representante_qualificacao
+         FROM clientes_socios WHERE cliente_id = ? AND ativo = 1`, [serpro2Id])
+      return {
+        found: true,
+        pop: (popRows && popRows[0]) || null,
+        acessos: acessos || [],
+        vencimentos: vencimentos || [],
+        andamentos: andamentos || [],
+        socios: socios || [],
+      }
+    } finally { try { await conn.end() } catch {} }
+  }
+
+  async function processarClienteImportRequest(baseUrl, event) {
+    const { requestId, payload } = event
+    if (!requestId || !payload) return
+    console.log(`[ClienteImport] Recebido ${requestId} — cnpj=${payload.cnpj}`)
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('contrato-sync-event', { type: 'cliente-import-started', requestId })
+    try {
+      const dados = await lerClienteLegado(payload)
+      await postarContratoCallback(baseUrl, requestId, { dados })
+      console.log(`[ClienteImport] ✓ ${requestId} concluído`)
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('contrato-sync-event', { type: 'cliente-import-completed', requestId })
+    } catch (e) {
+      console.warn(`[ClienteImport] ✗ ${requestId}: ${e.message}`)
+      try { await postarContratoCallback(baseUrl, requestId, { erro: e.message }) } catch {}
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('contrato-sync-event', { type: 'cliente-import-failed', requestId, erro: e.message })
+    }
+  }
+
   async function contratoSyncStreamStart(baseUrl) {
     contratoSyncStreamStop()
     const cookieStr = biSyncCookies.get(baseUrl) || ''
@@ -1656,6 +1725,8 @@ function registerIpcHandlers() {
             if (json.type === 'contrato-erp-request') {
               // Dispatcha em background — não bloqueia o reader do SSE
               processarContratoErpRequest(baseUrl, json).catch(() => {})
+            } else if (json.type === 'cliente-import-request') {
+              processarClienteImportRequest(baseUrl, json).catch(() => {})
             } else if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send('contrato-sync-event', json)
             }
