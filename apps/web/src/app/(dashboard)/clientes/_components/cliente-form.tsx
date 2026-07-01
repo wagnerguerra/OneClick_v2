@@ -24,7 +24,7 @@ import {
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { OrcamentosLegadoSection } from '@/components/orcamento/orcamentos-legado-section'
+import { OrcamentosTab } from './orcamentos-tab'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -1575,21 +1575,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
           )}
 
           {activeTab === 'orcamentos' && (
-            <div className="-m-5">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
-                <h4 className="text-[13px] font-semibold text-foreground">Orçamentos</h4>
-                <Button type="button" variant="outline" size="sm"><Plus className="h-3.5 w-3.5" /> Novo Orçamento</Button>
-              </div>
-              <div className="p-5 space-y-5">
-                {/* Sistema novo — ainda sem orçamentos vinculados aqui */}
-                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
-                  <FileBarChart className="h-10 w-10 mb-2 opacity-20" />
-                  <p className="text-sm">Nenhum orçamento no sistema novo.</p>
-                </div>
-                {/* Histórico de orçamentos do sistema legado (só leitura) */}
-                {clienteId && <OrcamentosLegadoSection clienteId={clienteId} />}
-              </div>
-            </div>
+            <OrcamentosTab clienteId={clienteId} />
           )}
 
           {activeTab === 'historicos' && (
