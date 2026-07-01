@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
+import { router, readProcedure, writeProcedure, deleteProcedure, protectedProcedure } from '../trpc/trpc.service'
 import { createAreaSchema, updateAreaSchema, listAreaSchema } from '@saas/types'
 import { AreaService } from './area.service'
 
@@ -27,7 +27,11 @@ export function createAreaRouter(areaService: AreaService) {
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => areaService.delete(input.id, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
-    listForSelect: readProcedure(MODULE)
+    // Lookup leve (id/nome, escopado por empresa) usado como fonte de selects em
+    // vários módulos (serviços, etc.). protectedProcedure — não exige permissão do
+    // módulo 'areas', igual ao cliente.listForSelect. (Antes: readProcedure travava
+    // quem tinha acesso a serviços mas não a áreas → select "Área" vinha vazio.)
+    listForSelect: protectedProcedure
       .query(({ ctx }) => areaService.listForSelect(ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
     importBulk: writeProcedure(MODULE)
