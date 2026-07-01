@@ -2138,6 +2138,8 @@ export default function AgendaPage() {
                 ? ev.oportunidades
                 : (ev.oportunidade ? [ev.oportunidade] : [])
               const op = deckCards.find(c => c.id === deckSelId) ?? deckCards[0] ?? null
+              const deckPrincipalId = deckCards[0]?.id       // 1º card = principal
+              const deckBack = op ? deckCards.filter(c => c.id !== op.id) : [] // cartas de trás
               // Período / horário formatado
               const mesmoDia = !dataFim || dataFim.toISOString().slice(0, 10) === dataIni.toISOString().slice(0, 10)
               const dataIniStr = `${String(dataIni.getUTCDate()).padStart(2, '0')}/${String(dataIni.getUTCMonth() + 1).padStart(2, '0')}/${dataIni.getUTCFullYear()}`
@@ -2372,66 +2374,50 @@ export default function AgendaPage() {
 
                   {/* ============ COLUNA DIREITA (oportunidade do CRM) ============ */}
                   {op && (
-                    <div className="lg:min-h-0 lg:overflow-y-auto nice-scrollbar self-start lg:self-stretch space-y-3">
-                      {/* Baralho de cards — pilha de cartas: as de trás ficam quase
-                          escondidas, só o topo do header espiando; passar o mouse
-                          "levanta" a carta e a traz pra frente, revelando o título.
-                          A carta selecionada fica à frente (detalhes no painel abaixo).
-                          Só aparece quando há mais de um card vinculado. */}
+                    <div className="lg:min-h-0 lg:overflow-y-auto nice-scrollbar self-start lg:self-stretch">
+                      {/* Baralho: as cartas de TRÁS (não selecionadas) aparecem só como
+                          uma "pontinha" do header espiando por cima; a carta da FRENTE é o
+                          painel de detalhes completo, com fundo opaco (bg-card) que oculta
+                          as de trás. Hover levanta a carta de trás; clique a seleciona
+                          (ela vira a da frente). Sem duplicar a carta selecionada. */}
                       {deckCards.length > 1 && (
-                        <div className="pt-1">
-                          <p className="text-[10px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                            <Link2 className="h-3.5 w-3.5" />
-                            {deckCards.length} cards vinculados
-                          </p>
-                          {(() => {
-                            const principalId = deckCards[0]?.id
-                            // Ordem de pintura: cartas de trás primeiro, a selecionada por
-                            // último (fica à frente, totalmente visível).
-                            const pile = [...deckCards.filter(c => c.id !== op.id), op]
-                            return (
-                              <div className="px-1 pb-1">
-                                {pile.map((card, idx) => {
-                                  const isFront = card.id === op.id
-                                  return (
-                                    <button
-                                      key={card.id}
-                                      type="button"
-                                      onClick={() => setDeckSelId(card.id)}
-                                      // Sobreposição forte (−22px) deixa só ~18px do topo
-                                      // de cada carta de trás à mostra. z-index crescente =
-                                      // a de baixo pinta por cima (a selecionada é a última).
-                                      style={{ marginTop: idx === 0 ? 0 : -22, zIndex: idx + 1 }}
-                                      className={cn(
-                                        'relative block w-full text-left rounded-xl border px-3 py-2.5 shadow-sm transition-all duration-200 focus:outline-none focus-visible:z-[60] focus-visible:ring-1 focus-visible:ring-violet-500/40',
-                                        isFront
-                                          ? 'border-violet-500/60 bg-violet-500/12 ring-1 ring-violet-500/30 cursor-default'
-                                          : 'border-violet-500/25 bg-card hover:-translate-y-2 hover:z-[60] hover:shadow-lg hover:border-violet-500/50 cursor-pointer',
-                                      )}
-                                      title={card.titulo}
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        {card.numero != null && (
-                                          <span className="shrink-0 text-[12px] font-bold tabular-nums text-violet-600 dark:text-violet-400">#{card.numero}</span>
-                                        )}
-                                        <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-foreground">{card.titulo}</span>
-                                        {card.id === principalId && (
-                                          <span className="shrink-0 rounded-full bg-violet-500/15 text-violet-700 dark:text-violet-300 px-1.5 py-0 text-[9px] font-bold uppercase tracking-wider">Principal</span>
-                                        )}
-                                        {card.etapa && (
-                                          <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${card.etapa.cor}22`, color: card.etapa.cor }}>{card.etapa.nome}</span>
-                                        )}
-                                      </div>
-                                    </button>
-                                  )
-                                })}
-                              </div>
-                            )
-                          })()}
-                        </div>
+                        <p className="text-[10px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                          <Link2 className="h-3.5 w-3.5" />
+                          {deckCards.length} cards vinculados
+                        </p>
                       )}
+                      <div className="relative">
+                        {/* Pontinhas das cartas de trás — empilhadas, opacas, só o topo
+                            do header à mostra (as seguintes cobrem as anteriores). */}
+                        {deckBack.map((card, i) => (
+                          <button
+                            key={card.id}
+                            type="button"
+                            onClick={() => setDeckSelId(card.id)}
+                            style={{ marginTop: i === 0 ? 0 : -16, zIndex: i + 1 }}
+                            className="relative block w-full text-left rounded-xl border border-violet-500/30 bg-card px-3 py-2.5 shadow-sm transition-all duration-200 hover:-translate-y-1.5 hover:z-[60] hover:shadow-lg hover:border-violet-500/50 cursor-pointer focus:outline-none focus-visible:z-[60] focus-visible:ring-1 focus-visible:ring-violet-500/40"
+                            title={`Ver detalhes de ${card.titulo}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              {card.numero != null && (
+                                <span className="shrink-0 text-[12px] font-bold tabular-nums text-violet-600 dark:text-violet-400">#{card.numero}</span>
+                              )}
+                              <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-foreground">{card.titulo}</span>
+                              {card.id === deckPrincipalId && (
+                                <span className="shrink-0 rounded-full bg-violet-500/15 text-violet-700 dark:text-violet-300 px-1.5 py-0 text-[9px] font-bold uppercase tracking-wider">Principal</span>
+                              )}
+                              {card.etapa && (
+                                <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${card.etapa.cor}22`, color: card.etapa.cor }}>{card.etapa.nome}</span>
+                              )}
+                            </div>
+                          </button>
+                        ))}
 
-                      <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 dark:bg-violet-500/10 overflow-hidden">
+                      {/* Carta da FRENTE = detalhes completos; fundo opaco (bg-card)
+                          oculta as cartas de trás, deixando só a pontinha delas. */}
+                      <div
+                        style={{ marginTop: deckBack.length ? -16 : 0, zIndex: 50 }}
+                        className="relative rounded-xl border border-violet-500/40 bg-card shadow-lg overflow-hidden">
                         <div className="px-4 py-2.5 border-b border-violet-500/20 flex items-center gap-2 bg-violet-500/10">
                           <Target className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
                           <span className="text-[11px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider">
@@ -2441,7 +2427,7 @@ export default function AgendaPage() {
                             <span className="ml-auto text-[11px] font-bold tabular-nums text-violet-600 dark:text-violet-400">#{op.numero}</span>
                           )}
                         </div>
-                        <div className="px-4 py-3.5 space-y-3.5">
+                        <div className="px-4 py-3.5 space-y-3.5 bg-violet-500/5 dark:bg-violet-500/[0.07]">
                           {/* Título + cliente */}
                           <div>
                             <p className="text-[15px] font-semibold text-foreground leading-tight break-words">{op.titulo}</p>
@@ -2574,6 +2560,7 @@ export default function AgendaPage() {
                             </Link>
                           )}
                         </div>
+                      </div>
                       </div>
                     </div>
                   )}
