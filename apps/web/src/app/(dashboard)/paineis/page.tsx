@@ -9,15 +9,15 @@ import {
   Button, Input, Card, Badge,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-  Dialog, DialogContent, DialogBody, DialogFooter,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
-import { PageHeader } from '@/components/page-header'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
-const MOD_COLOR = '#6366f1' // indigo — Gestão à Vista
+// Cor do grupo "Configurações" (sidebar) via CSS var — themeable + dark-mode.
+const MOD_COLOR = 'var(--mod-configuracoes, #fb923c)'
 
 function slugify(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -91,13 +91,22 @@ export default function PaineisPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        color={MOD_COLOR}
-        icon={Monitor}
-        title="Painéis de Gestão à Vista"
-        subtitle="Crie e edite os painéis exibidos nas TVs dos setores"
-        actions={<Button onClick={abrirNovo} style={{ backgroundColor: MOD_COLOR }} className="text-white"><Plus className="h-4 w-4 mr-1.5" /> Novo painel</Button>}
-      />
+      {/* Header inline (padrão de módulo — /orcamentos, /crm). NÃO usar PageHeader
+          aqui: ele é a capa sangrada de páginas de detalhe [id]. */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MOD_COLOR}, color-mix(in srgb, ${MOD_COLOR} 87%, transparent))` }}>
+            <Monitor className="h-6 w-6" />
+          </div>
+          <div>
+            <h1>Painéis de Gestão à Vista</h1>
+            <p className="text-sm text-muted-foreground">Crie e edite os painéis exibidos nas TVs dos setores</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="success" size="sm" onClick={abrirNovo}><Plus className="h-4 w-4 mr-1.5" /> Novo painel</Button>
+        </div>
+      </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: MOD_COLOR }} /></div>
@@ -105,7 +114,7 @@ export default function PaineisPage() {
         <Card className="p-10 text-center">
           <Tv className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-40" />
           <p className="text-sm text-muted-foreground mb-4">Nenhum painel ainda.</p>
-          <Button onClick={abrirNovo} variant="outline"><Plus className="h-4 w-4 mr-1.5" /> Criar o primeiro</Button>
+          <Button onClick={abrirNovo} variant="success" size="sm"><Plus className="h-4 w-4 mr-1.5" /> Criar o primeiro</Button>
         </Card>
       ) : (
         <Card className="overflow-hidden">
@@ -131,19 +140,19 @@ export default function PaineisPage() {
                   <TableCell className="text-xs text-muted-foreground font-mono">/tv/{p.slug}</TableCell>
                   <TableCell className="text-xs text-center">{p.folhasCount}</TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="secondary" className="text-[10px]" style={p.ativo ? { backgroundColor: '#d1fae5', color: '#065f46' } : undefined}>
+                    <Badge variant="secondary" className={`text-[10px] ${p.ativo ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : ''}`}>
                       {p.ativo ? 'Ativo' : 'Inativo'}
                     </Badge>
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>
+                        <Button variant="outline" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => router.push(`/paineis/${p.id}`)}><Pencil className="h-4 w-4 mr-2" /> Editar</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => window.open(`/tv/${p.slug}`, '_blank')}><Tv className="h-4 w-4 mr-2" /> Abrir na TV</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => excluir(p)} className="text-red-600"><Trash2 className="h-4 w-4 mr-2" /> Excluir</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => excluir(p)} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 mr-2" /> Excluir</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -157,7 +166,10 @@ export default function PaineisPage() {
       {/* Modal: novo painel */}
       <Dialog open={novoOpen} onOpenChange={setNovoOpen}>
         <DialogContent>
-          <DialogHeaderIcon icon={Monitor} color={MOD_COLOR} title="Novo painel" description="Defina os dados básicos. Você adiciona folhas e blocos no editor." />
+          <DialogHeaderIcon icon={Monitor} color="emerald">
+            <DialogTitle>Novo painel</DialogTitle>
+            <DialogDescription>Defina os dados básicos. Você adiciona folhas e blocos no editor.</DialogDescription>
+          </DialogHeaderIcon>
           <DialogBody className="space-y-4">
             <Campo label="Nome">
               <Input value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value, slug: slugTocado ? f.slug : slugify(e.target.value) }))} placeholder="Ex.: Painel Financeiro" className="h-9 text-sm" />
@@ -179,7 +191,7 @@ export default function PaineisPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNovoOpen(false)} disabled={salvando}>Cancelar</Button>
-            <Button onClick={criar} disabled={salvando} style={{ backgroundColor: MOD_COLOR }} className="text-white">
+            <Button onClick={criar} disabled={salvando} variant="success">
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Criar e editar'}
             </Button>
           </DialogFooter>
