@@ -28,7 +28,7 @@ export interface TvSlide {
 
 // Fundo dos painéis é escuro: um accent muito escuro deixa o número KPI ilegível
 // (preto no preto). Se a luminância do accent for baixa demais, cai pra branco.
-function corLegivel(hex?: string): string {
+export function corLegivel(hex?: string): string {
   if (!hex) return '#fff'
   const m = /^#?([0-9a-fA-F]{6})$/.exec(hex.trim())
   if (!m || !m[1]) return hex
@@ -59,7 +59,7 @@ export function Panel({ title, icon: Icon, children, className = '' }: {
     <div className={`rounded-[1.4vw] border border-white/10 bg-white/[0.035] p-[1.6vw] flex flex-col ${className}`}>
       {title && (
         <div className="flex items-center gap-[0.7vw] mb-[1.2vw]">
-          {Icon && <Icon className="h-[1.8vw] w-[1.8vw]" style={{ color: accent }} />}
+          {Icon && <Icon className="h-[1.8vw] w-[1.8vw]" style={{ color: corLegivel(accent) }} />}
           <h3 className="text-[1.5vw] font-bold text-white/90">{title}</h3>
         </div>
       )}

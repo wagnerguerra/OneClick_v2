@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { HELPDESK_PRIORIDADE_COLORS, HELPDESK_PRIORIDADE_LABELS } from '@saas/types'
 import { resolveAssetUrl } from '@/lib/api-url'
-import { Metric, Panel, LegendList, AXIS, useAccent } from './kiosk'
+import { Metric, Panel, LegendList, AXIS, useAccent, corLegivel } from './kiosk'
 
 const PALETTE = ['#fb7185', '#60a5fa', '#34d399', '#fbbf24', '#a78bfa', '#f97316', '#22d3ee', '#f472b6']
 
@@ -71,8 +71,8 @@ export function BlocoView({ bloco, data }: { bloco: any; data: Record<string, an
         <div className="relative overflow-hidden rounded-[1.4vw] border border-white/10 bg-white/[0.035] p-[1.6vw] h-full flex flex-col justify-center">
           {Icon && (
             <Icon
-              className={`absolute top-[1.3vw] right-[1.3vw] h-[2.8vw] w-[2.8vw] ${d.level === 'crit' ? 'opacity-40 animate-pulse' : d.level === 'warn' ? 'opacity-35' : 'opacity-20'}`}
-              style={{ color: nivelColor }}
+              className={`absolute top-[1.3vw] right-[1.3vw] h-[2.8vw] w-[2.8vw] ${d.level === 'crit' ? 'opacity-60 animate-pulse' : d.level === 'warn' ? 'opacity-50' : 'opacity-35'}`}
+              style={{ color: corLegivel(nivelColor) }}
             />
           )}
           <Metric label={label} value={fmtKpi(d)} sub={d.sub} color={nivelColor} size={bloco.config?.size ?? 'lg'} />
