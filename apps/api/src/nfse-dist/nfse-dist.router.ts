@@ -75,6 +75,23 @@ export function createNfseDistRouter(svc: NfseDistService) {
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => svc.getProgressoAtual(input.clienteId)),
 
+    /** Resultado da última execução de sync (pro modal mostrar quantas notas vieram). */
+    ultimaExecucao: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(async ({ input }) => {
+        const log = await prisma.driveSyncLog.findFirst({
+          where: { clienteId: input.clienteId, tipo: 'nfse-nacional' },
+          orderBy: { iniciadoEm: 'desc' },
+          select: { arquivosOk: true, arquivosIgnorados: true, arquivosErro: true, arquivosVistos: true, status: true, finalizadoEm: true, erroMensagem: true },
+        })
+        if (!log) return null
+        return {
+          novas: log.arquivosOk, ignoradas: log.arquivosIgnorados, erro: log.arquivosErro,
+          vistos: log.arquivosVistos, status: log.status,
+          em: log.finalizadoEm ? log.finalizadoEm.toISOString() : null, erroMensagem: log.erroMensagem,
+        }
+      }),
+
     /** Retorna estado atual da config NFS-e Dist do cliente. */
     status: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))

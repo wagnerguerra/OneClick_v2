@@ -30,12 +30,17 @@ interface EnabledCliente {
 }
 interface Progresso { etapa: string; mensagem: string; atual: number; total: number; pct: number }
 
+interface UltimaExecucao {
+  novas: number; ignoradas: number; erro: number; vistos: number
+  status: string; em: string | null; erroMensagem: string | null
+}
 // Router (nfeDist/nfseDist) tipado no formato que o modal usa — ambos têm as mesmas procedures.
 interface DistRouter {
   listEnabled: { query: () => Promise<EnabledCliente[]> }
   solicitarSync: { mutate: (i: { clienteId: string }) => Promise<void> }
   getProgressoAtual: { query: (i: { clienteId: string }) => Promise<Progresso | null> }
   status: { query: (i: { clienteId: string }) => Promise<Record<string, unknown> | null> }
+  ultimaExecucao: { query: (i: { clienteId: string }) => Promise<UltimaExecucao | null> }
 }
 function routerDe(fonte: Fonte): DistRouter {
   return (fonte === 'nfe' ? trpc.nfeDist : trpc.nfseDist) as unknown as DistRouter
@@ -60,7 +65,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
   const [sel, setSel] = useState<EnabledCliente | null>(null)
   const [fase, setFase] = useState<'select' | 'processando' | 'done'>('select')
   const [progresso, setProgresso] = useState<Progresso | null>(null)
-  const [resultado, setResultado] = useState<{ mensagem: string; ok: boolean } | null>(null)
+  const [resultado, setResultado] = useState<{ mensagem: string; ok: boolean; novas: number | null } | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const vistoNaFila = useRef(false)
   const iniciadoEm = useRef(0)
@@ -102,11 +107,20 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
         const estourou = Date.now() - iniciadoEm.current > 4 * 60_000
         if (terminou || estourou) {
           pararPoll()
-          setFase('done')
           const stt = (st?.[def.statusField] as string | null) ?? ''
-          setResultado(estourou
-            ? { mensagem: 'A busca demorou mais que o esperado — verifique a galeria em instantes.', ok: true }
-            : { mensagem: stt === 'erro' ? 'A consulta retornou erro.' : 'Busca concluída. As notas novas já estão na galeria.', ok: stt !== 'erro' })
+          // Lê o resultado da última execução (persistido no DriveSyncLog) pra mostrar quantas notas vieram.
+          let ex: UltimaExecucao | null = null
+          try { ex = await nd.ultimaExecucao.query({ clienteId }) } catch { /* segue sem contagem */ }
+          setFase('done')
+          if (estourou) {
+            setResultado({ mensagem: 'A busca demorou mais que o esperado — verifique a galeria em instantes.', ok: true, novas: null })
+          } else if (stt === 'erro' || ex?.status === 'error') {
+            setResultado({ mensagem: ex?.erroMensagem || 'A consulta retornou erro.', ok: false, novas: null })
+          } else {
+            const n = ex?.novas ?? 0
+            const extra = ex && ex.ignoradas > 0 ? ` · ${ex.ignoradas} já existente(s)` : ''
+            setResultado({ mensagem: (n > 0 ? 'As notas novas já estão na galeria.' : 'Nenhuma nota nova nesta consulta.') + extra, ok: true, novas: n })
+          }
         }
       } catch { /* mantém o poll */ }
     }
@@ -122,7 +136,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
       iniciarPoll(sel.id, fonte)
     } catch (e) {
       setFase('done')
-      setResultado({ mensagem: (e as Error).message, ok: false })
+      setResultado({ mensagem: (e as Error).message, ok: false, novas: null })
     }
   }
 
@@ -213,8 +227,14 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
           )}
 
           {fase === 'done' && resultado && (
-            <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
+            <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
               {resultado.ok ? <CheckCircle2 className="h-10 w-10 text-emerald-500" /> : <XCircle className="h-10 w-10 text-rose-500" />}
+              {resultado.ok && resultado.novas != null && (
+                <div className="flex flex-col items-center">
+                  <span className="text-4xl font-bold tabular-nums" style={{ color: MODULE_COLOR }}>{resultado.novas}</span>
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">nota{resultado.novas === 1 ? '' : 's'} obtida{resultado.novas === 1 ? '' : 's'}</span>
+                </div>
+              )}
               <div>
                 <p className="text-sm font-medium">{sel?.razaoSocial}</p>
                 <p className={cn('text-sm mt-1', resultado.ok ? 'text-muted-foreground' : 'text-rose-600 dark:text-rose-400')}>{resultado.mensagem}</p>
