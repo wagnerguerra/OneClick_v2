@@ -90,7 +90,12 @@ export class ContratoSyncService {
    * Pedido de import do cadastro legado (registros/acessos/vencimentos/sócios)
    * pelo Launcher, que lê o MySQL local e devolve as linhas via callback.
    */
-  async requestClienteImport(cnpj: string, timeoutMs = TIMEOUT_DEFAULT_MS): Promise<Record<string, unknown>> {
+  async requestClienteImport(cnpj: string, timeoutMs = 20_000): Promise<Record<string, unknown>> {
+    // Falha rápido e claro se NENHUM Service Manager está escutando o SSE — evita
+    // esperar o timeout inteiro (e o proxy estourar em 500) quando o SM está fechado.
+    if (this.subject.observers.length === 0) {
+      throw new Error('Service Manager não está conectado. Abra o Service Manager no PC do escritório — ele faz a ponte com o cadastro legado (OneClick v1).')
+    }
     const requestId = randomUUID()
     return new Promise<Record<string, unknown>>((resolve, reject) => {
       const timer = setTimeout(() => {
