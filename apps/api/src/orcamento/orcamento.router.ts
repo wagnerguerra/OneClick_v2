@@ -288,6 +288,7 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         email_novo: z.string(),
         email_comercial: z.string(),
         email_financeiro: z.string(),
+        email_aprovacao: z.string(),
         texto_padrao: z.string(),
         texto_apresentacao: z.string(),
       }))

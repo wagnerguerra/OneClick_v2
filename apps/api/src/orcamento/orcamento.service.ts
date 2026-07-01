@@ -1578,6 +1578,7 @@ export class OrcamentoService {
 
     const emailFinanceiro = this.parseEmails(config.emailFinanceiro)
     const emailComercial = this.parseEmails(config.emailComercial)
+    const emailAprovacao = this.parseEmails(config.emailAprovacao)
     const emailsContatos = this.parseEmails(orc.emailsContatos)
 
     // Resumo padronizado (header + cliente + datas) reusado em todos os emails
@@ -1692,7 +1693,9 @@ export class OrcamentoService {
     // ── -> APROVADO ──
     if (novoStatus === 'APROVADO') {
       await enviarEmail({
-        to: [...emailComercial, ...emailFinanceiro],
+        // + emailAprovacao: pessoas a notificar especificamente em aprovações
+        // (config "Notificar aprovações de orçamento para").
+        to: [...emailComercial, ...emailFinanceiro, ...emailAprovacao],
         subject: `✓ Orçamento ${numero} aprovado · ${clienteNome}`,
         preheader: `Boas notícias! ${clienteNome} aprovou o orçamento ${numero}.`,
         heroAccent: '#10b981',
@@ -1923,6 +1926,11 @@ export class OrcamentoService {
       orc.id, null, 'status_change', orc.status, novoStatus,
       `Decisão do cliente (${decisao.nome}): ${novoStatus === 'APROVADO' ? 'Aprovado' : 'Recusado'}`,
     )
+    // Dispara as notificações internas (comercial/financeiro + aprovações) — antes
+    // o fluxo do link público não notificava ninguém, só o de status direto. Agora
+    // aprovação/recusa pelo link avisa os mesmos destinatários. Best-effort.
+    this.notificarMudancaStatus(orc.id, orc.status, novoStatus, undefined, { notificarCliente: false })
+      .catch((e) => console.warn('[Orcamento] Falha ao notificar decisão do cliente:', (e as Error).message))
     return updated
   }
 
@@ -3098,6 +3106,7 @@ export class OrcamentoService {
       emailNovo: config.email_novo || '',
       emailComercial: config.email_comercial || '',
       emailFinanceiro: config.email_financeiro || '',
+      emailAprovacao: config.email_aprovacao || '',
       textoPadrao: config.texto_padrao || '',
       textoApresentacao: config.texto_apresentacao || '',
       headerCover: config.header_cover || '',

@@ -24,6 +24,7 @@ interface ConfigState {
   emailNovo: string
   emailComercial: string
   emailFinanceiro: string
+  emailAprovacao: string
   textoPadrao: string
   textoApresentacao: string
 }
@@ -38,6 +39,7 @@ const DEFAULT_CONFIG: ConfigState = {
   emailNovo: '',
   emailComercial: '',
   emailFinanceiro: '',
+  emailAprovacao: '',
   textoPadrao: '',
   textoApresentacao: '',
 }
@@ -102,6 +104,7 @@ export default function OrcamentosConfiguracoesPage() {
         email_novo: config.emailNovo,
         email_comercial: config.emailComercial,
         email_financeiro: config.emailFinanceiro,
+        email_aprovacao: config.emailAprovacao,
         texto_padrao: config.textoPadrao,
         texto_apresentacao: config.textoApresentacao,
       })
@@ -259,6 +262,11 @@ export default function OrcamentosConfiguracoesPage() {
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground block">Notificar novos orçamentos para</label>
                     <Input value={config.emailNovo} onChange={e => setConfig(c => ({ ...c, emailNovo: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground block">Notificar aprovações de orçamento para</label>
+                    <Input value={config.emailAprovacao} onChange={e => setConfig(c => ({ ...c, emailAprovacao: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm" />
+                    <p className="text-[11px] text-muted-foreground">Avisados quando um orçamento é aprovado — pelo link do cliente ou direto no sistema.</p>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground block">E-mail da área comercial</label>
