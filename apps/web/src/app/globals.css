@@ -115,6 +115,13 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Baralho de cards vinculados (agenda): carta "deslizando" pra frente ao trocar */
+@keyframes deckCardForward {
+  0%   { opacity: 0; transform: translateY(14px) scale(0.975); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 /* ═══════════════════════════════════════════════════════════════
  * Theme color override por bloco — quando a página tem a classe
  * `.mod-<slug>` no wrapper, sobrescreve a paleta Tailwind correspondente

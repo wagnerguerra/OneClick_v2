@@ -2394,11 +2394,11 @@ export default function AgendaPage() {
                             key={card.id}
                             type="button"
                             onClick={() => setDeckSelId(card.id)}
-                            style={{ marginTop: i === 0 ? 0 : -16, zIndex: i + 1 }}
-                            // Escala < 1 (origem no topo) recua a carta de trás: a da
-                            // frente sobra nas laterais, dando o efeito de "carta atrás".
-                            // Hover volta ao tamanho + levanta + traz pra frente.
-                            className="relative block w-full text-left rounded-xl border border-violet-500/30 bg-card px-3 py-2.5 shadow-sm origin-top scale-[0.955] transition-all duration-200 hover:scale-100 hover:-translate-y-1.5 hover:z-[60] hover:shadow-lg hover:border-violet-500/50 cursor-pointer focus:outline-none focus-visible:z-[60] focus-visible:ring-1 focus-visible:ring-violet-500/40"
+                            style={{ marginTop: i === 0 ? 0 : -18, zIndex: i + 1 }}
+                            // Mesma largura da carta da frente. Arredondado só no topo e
+                            // sem borda inferior: o resto encaixa SOB a carta da frente,
+                            // parecendo o topo de uma carta na pilha (não uma pílula solta).
+                            className="relative block w-full text-left rounded-t-xl border border-b-0 border-violet-500/30 bg-card px-3 py-2.5 transition-colors duration-150 hover:bg-violet-500/[0.06] hover:border-violet-500/45 cursor-pointer focus:outline-none focus-visible:z-[60] focus-visible:ring-1 focus-visible:ring-violet-500/40"
                             title={`Ver detalhes de ${card.titulo}`}
                           >
                             <div className="flex items-center gap-2">
@@ -2421,7 +2421,7 @@ export default function AgendaPage() {
                           `key={op.id}` + animação = efeito de "nova carta" ao trocar. */}
                       <div
                         key={op.id}
-                        style={{ marginTop: deckBack.length ? -16 : 0, zIndex: 50, animation: deckCards.length > 1 ? 'fadeSlideIn 0.22s ease-out' : undefined }}
+                        style={{ marginTop: deckBack.length ? -18 : 0, zIndex: 50, animation: deckCards.length > 1 ? 'deckCardForward 0.3s cubic-bezier(0.22, 1, 0.36, 1)' : undefined }}
                         className="relative rounded-xl border border-violet-500/40 bg-card shadow-lg overflow-hidden">
                         <div className="px-4 py-2.5 border-b border-violet-500/20 flex items-center gap-2 bg-violet-500/10">
                           <Target className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
