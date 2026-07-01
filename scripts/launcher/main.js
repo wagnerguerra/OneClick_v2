@@ -2356,8 +2356,31 @@ function registerIpcHandlers() {
           deployRunning = false
           return { ok: false, error: 'Falha ao buscar PR no GitHub: ' + msg.slice(0, 200) }
         }
-        targetSha = gitOutput(['rev-parse', 'FETCH_HEAD'])
-        coreDeployBranch = `deploy/pr-${corePrTarget.number}-core`
+        const prSha = gitOutput(['rev-parse', 'FETCH_HEAD'])
+        // ANTES: targetSha = head CRU do PR + `reset --hard` na VPS → como o PR parte
+        // de uma base antiga, isso APAGAVA o que você já tinha deployado (que vive na
+        // sua branch, não no PR). AGORA: integramos o PR POR CIMA da sua branch de
+        // deploy (a "fila"), então o ref publicado = seu trabalho + PR. `merge --no-ff`
+        // preserva os SHAs originais do PR — o merge no main no fim do deploy
+        // (githubMergePr) reconhece esses commits e não duplica.
+        if (gitExitCode(['merge-base', '--is-ancestor', prSha, 'HEAD']) === 0) {
+          deployEmit(6, 'push', `· PR #${corePrTarget.number} já integrado na sua branch`, 'info')
+        } else {
+          deployEmit(6, 'push', `→ Integrando PR #${corePrTarget.number} na sua branch (${localBranch})...`, 'info')
+          const prMsg = `deploy: integra PR #${corePrTarget.number}${corePrTarget.title ? ` — ${String(corePrTarget.title).slice(0, 80)}` : ''}`
+          const mergePr = await gitExec(['merge', '--no-ff', '-m', prMsg, prSha], (line) => deployEmit(6, 'push', line, 'info'), 60000)
+          if (mergePr.code !== 0) {
+            // Conflito: aborta pra não deixar a árvore suja e avisa — você resolve à mão.
+            await gitExec(['merge', '--abort'], null, 15000)
+            deployRunning = false
+            const msg = (mergePr.stdout || mergePr.stderr || '').slice(0, 200)
+            deployEmit(7, 'push', `✗ Conflito ao integrar o PR #${corePrTarget.number}`, 'err')
+            return { ok: false, error: `Conflito ao integrar o PR #${corePrTarget.number} na sua branch (${localBranch}). Resolva manualmente (merge do PR) e refaça o deploy. ${msg}` }
+          }
+        }
+        // Deploya a SUA branch (agora com o PR por cima), não uma deploy/pr-* isolada.
+        targetSha = gitOutput(['rev-parse', 'HEAD'])
+        coreDeployBranch = localBranch
       }
       const remoteShaBeforePush = gitOutput(['rev-parse', `origin/${coreDeployBranch}`])
       if (!targetSha) targetSha = gitOutput(['rev-parse', 'HEAD'])
@@ -2568,8 +2591,23 @@ function registerIpcHandlers() {
             deployRunning = false
             return { ok: false, error: 'Falha ao buscar PR no App Mobile: ' + (fetchAppPr.stderr || fetchAppPr.stdout || fetchAppPr.error || '').slice(0, 200) }
           }
-          requestedAppSha = gitOutput(['rev-parse', 'FETCH_HEAD'], appCwd)
-          appDeployBranch = `deploy/pr-${appPrTarget.number}-app`
+          // Mesma lógica do core: integra o PR POR CIMA da branch de deploy do app
+          // (merge --no-ff) em vez de resetar pro head cru — não perde o já publicado.
+          const appPrSha = gitOutput(['rev-parse', 'FETCH_HEAD'], appCwd)
+          if (gitExitCode(['merge-base', '--is-ancestor', appPrSha, 'HEAD'], appCwd) === 0) {
+            deployEmit(96, 'pull', `· [app] PR #${appPrTarget.number} já integrado na branch`, 'info')
+          } else {
+            deployEmit(96, 'pull', `→ [app] Integrando PR #${appPrTarget.number} na branch (${appBranch})...`, 'info')
+            const appPrMsg = `deploy: integra PR #${appPrTarget.number}${appPrTarget.title ? ` — ${String(appPrTarget.title).slice(0, 80)}` : ''}`
+            const mergeAppPr = await gitExec(['merge', '--no-ff', '-m', appPrMsg, appPrSha], (line) => deployEmit(96, 'pull', `[app] ${line}`, 'info'), 60000, appCwd)
+            if (mergeAppPr.code !== 0) {
+              await gitExec(['merge', '--abort'], null, 15000, appCwd)
+              deployRunning = false
+              return { ok: false, error: `Conflito ao integrar o PR #${appPrTarget.number} no App Mobile (${appBranch}). Resolva manualmente e refaça o deploy.` }
+            }
+          }
+          requestedAppSha = gitOutput(['rev-parse', 'HEAD'], appCwd)
+          appDeployBranch = appBranch
         }
         if (requestedAppSha && !/^[0-9a-f]{7,40}$/i.test(requestedAppSha)) {
           deployRunning = false
