@@ -64,13 +64,15 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   const atualizarEtapa = (key: string, patch: Partial<ImportStep>) =>
     setImportSteps((prev) => prev?.map((s) => (s.key === key ? { ...s, ...patch } : s)) ?? null)
 
-  // Fluxo consolidado: legado (registros+acessos+vencimentos+andamentos+sócios)
-  // via a ponte do Service Manager + CNAE (SERPRO). Mostra progresso por etapa.
+  // Fluxo consolidado do "Importar": (1) cadastro legado via ponte do Service
+  // Manager, (2) QSA — sócios oficiais da Receita/SERPRO (modo mesclar), (3) CNAE
+  // da Receita. Mostra progresso por etapa.
   const importarOneClickFluxo = async () => {
     if (!clienteId || !documento) return
     setImportDone(false)
     setImportSteps([
       { key: 'legado', label: 'Importando cadastro do OneClick (registros, acessos, sócios…)', status: 'running' },
+      { key: 'qsa', label: 'Sincronizando sócios da Receita (QSA)', status: 'pending' },
       { key: 'cnae', label: 'Buscando CNAE na Receita Federal', status: 'pending' },
     ])
     // 1) Legado via Service Manager (ponte — só lê na LAN e devolve; a API aplica)
@@ -80,7 +82,15 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
     } catch (e) {
       atualizarEtapa('legado', { status: 'error', detail: (e as Error).message })
     }
-    // 2) CNAE (SERPRO — independente do legado)
+    // 2) QSA — quadro societário oficial da Receita (mescla, não substitui)
+    atualizarEtapa('qsa', { status: 'running' })
+    try {
+      const q = await (trpc.socio as { importQsa: { mutate: (i: { clienteId: string; documento: string; force: boolean }) => Promise<{ message: string }> } }).importQsa.mutate({ clienteId, documento, force: false })
+      atualizarEtapa('qsa', { status: 'done', detail: q.message })
+    } catch (e) {
+      atualizarEtapa('qsa', { status: 'error', detail: (e as Error).message })
+    }
+    // 3) CNAE (SERPRO — independente do legado)
     atualizarEtapa('cnae', { status: 'running' })
     try {
       const c = await (trpc.cliente as { importCnaes: { mutate: (i: { clienteId: string; documento: string }) => Promise<{ message: string }> } }).importCnaes.mutate({ clienteId, documento })
@@ -91,6 +101,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
     setImportDone(true)
     // Zera as pills → os useEffects por aba refazem o fetch (a ativa na hora).
     setSocios([]); setAcessos([]); setVencimentos([]); setAndamentos([]); setCnaes([]); setCertidoes([])
+    ;(trpc.cliente as { getCapitalSocial: { query: (i: { clienteId: string }) => Promise<{ capitalSocial: number | null }> } }).getCapitalSocial.query({ clienteId }).then((cs) => setCapitalSocial(cs.capitalSocial)).catch(() => {})
   }
   const [socios, setSocios] = useState<Socio[]>([])
   const [sociosLoading, setSociosLoading] = useState(false)
@@ -577,51 +588,6 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                         >
                           <Plus className="h-3 w-3" />Novo Sócio
                         </Button>
-                      )}
-                      {documento && (
-                      <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
-                        onClick={async (e) => {
-                          e.preventDefault(); e.stopPropagation()
-                          const { value } = await alerts.custom({
-                            title: 'Importar Sócios',
-                            html: `
-                              <div style="text-align:left">
-                                <p style="font-size:13px;color:#64748b;margin-bottom:16px">Consulta o quadro societário (QSA) diretamente na Receita Federal via API SERPRO, incluindo participações e qualificações.</p>
-                                <div style="display:flex;flex-direction:column;gap:8px">
-                                  <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='#10b981';this.style.background='#f0fdf4'" onmouseout="if(!this.querySelector('input').checked){this.style.borderColor='#e2e8f0';this.style.background='transparent'}" onclick="this.parentElement.querySelectorAll('label').forEach(l=>{l.style.borderColor='#e2e8f0';l.style.background='transparent'});this.style.borderColor='#10b981';this.style.background='#f0fdf4'">
-                                    <input type="radio" name="swal-mode" value="merge" checked style="margin-top:2px;accent-color:#10b981" />
-                                    <div>
-                                      <div style="font-size:13px;font-weight:600;color:#1e293b">Mesclar</div>
-                                      <div style="font-size:11px;color:#94a3b8;margin-top:2px">Mantém os sócios existentes e adiciona apenas os novos</div>
-                                    </div>
-                                  </label>
-                                  <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='#ef4444';this.style.background='#fef2f2'" onmouseout="if(!this.querySelector('input').checked){this.style.borderColor='#e2e8f0';this.style.background='transparent'}" onclick="this.parentElement.querySelectorAll('label').forEach(l=>{l.style.borderColor='#e2e8f0';l.style.background='transparent'});this.style.borderColor='#ef4444';this.style.background='#fef2f2'">
-                                    <input type="radio" name="swal-mode" value="replace" style="margin-top:2px;accent-color:#ef4444" />
-                                    <div>
-                                      <div style="font-size:13px;font-weight:600;color:#1e293b">Substituir</div>
-                                      <div style="font-size:11px;color:#94a3b8;margin-top:2px">Remove todos os sócios atuais e importa novamente da Receita</div>
-                                    </div>
-                                  </label>
-                                </div>
-                              </div>`,
-                            confirmButtonText: 'Importar Sócios',
-                            showCancelButton: true, cancelButtonText: 'Cancelar',
-                            preConfirm: () => (document.querySelector('input[name="swal-mode"]:checked') as HTMLInputElement)?.value || 'merge',
-                          })
-                          if (!value) return
-                          const force = value === 'replace'
-                          try {
-                            setSociosLoading(true)
-                            const r = await (trpc.socio as any).importQsa.mutate({ clienteId, documento, force }) as { message: string }
-                            alerts.success('Importar Sócios', r.message)
-                            const data = await (trpc.socio as any).listByCliente.query({ clienteId }) as typeof socios
-                            setSocios(data)
-                            ;(trpc.cliente as any).getCapitalSocial.query({ clienteId }).then((cs: { capitalSocial: number | null }) => setCapitalSocial(cs.capitalSocial)).catch(() => {})
-                          } catch (err) { alerts.error('Erro', (err as Error).message) }
-                          finally { setSociosLoading(false) }
-                        }}>
-                        <Download className="h-3 w-3" />Importar Sócios
-                      </Button>
                       )}
                     </div>
                   )}
