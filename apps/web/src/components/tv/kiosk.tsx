@@ -26,6 +26,18 @@ export interface TvSlide {
 
 // ── Primitivas visuais (escala em vw) ─────────────────────────────────────
 
+// Fundo dos painéis é escuro: um accent muito escuro deixa o número KPI ilegível
+// (preto no preto). Se a luminância do accent for baixa demais, cai pra branco.
+function corLegivel(hex?: string): string {
+  if (!hex) return '#fff'
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex.trim())
+  if (!m || !m[1]) return hex
+  const n = parseInt(m[1], 16)
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b // 0–255
+  return lum < 75 ? '#fff' : hex
+}
+
 export function Metric({ label, value, sub, color, size = 'md' }: {
   label: string; value: string | number; sub?: string; color?: string; size?: 'hero' | 'lg' | 'md'
 }) {
@@ -33,7 +45,7 @@ export function Metric({ label, value, sub, color, size = 'md' }: {
   return (
     <div>
       <div className="text-[0.95vw] uppercase tracking-[0.12em] text-white/45 font-semibold">{label}</div>
-      <div className={`${cls} font-bold leading-none tabular-nums mt-[0.3vw]`} style={{ color: color ?? '#fff' }}>{value}</div>
+      <div className={`${cls} font-bold leading-none tabular-nums mt-[0.3vw]`} style={{ color: corLegivel(color) }}>{value}</div>
       {sub && <div className="text-[0.9vw] text-white/40 mt-[0.5vw]">{sub}</div>}
     </div>
   )

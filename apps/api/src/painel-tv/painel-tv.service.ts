@@ -4,6 +4,7 @@ import { prisma } from '@saas/db'
 import { randomUUID } from 'crypto'
 import * as os from 'os'
 import * as net from 'net'
+import Redis from 'ioredis'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { CrmService } from '../crm/crm.service'
@@ -237,15 +238,13 @@ export class PainelTvService {
   //   PAINEL_VPS_DISK_MOUNT="/"   PAINEL_VPS_HOST="127.0.0.1"
   private async buildVpsReport(ctx: ResolveCtx): Promise<any> {
     if (!(ctx.isMaster || ctx.isEmpresaMaster)) return null
-    const host = process.env.PAINEL_VPS_HOST || '127.0.0.1'
     const totalMem = os.totalmem()
     const freeMem = os.freemem()
     const usedMem = totalMem - freeMem
-    const portasDef = this.parsePortas()
-    const [cpuPct, disk, portasUp] = await Promise.all([
+    const [cpuPct, disk, portas] = await Promise.all([
       this.cpuPercent(),
       this.diskUsage(process.env.PAINEL_VPS_DISK_MOUNT || '/'),
-      Promise.all(portasDef.map((p) => this.checkPort(host, p.porta))),
+      this.checkServicos(),
     ])
     return {
       hostname: os.hostname(),
@@ -253,7 +252,7 @@ export class PainelTvService {
       cpu: { pct: cpuPct, cores: os.cpus().length, loadavg1: os.loadavg()[0] ?? 0 },
       mem: { totalBytes: totalMem, usedBytes: usedMem, freeBytes: freeMem, pct: Math.round((usedMem / totalMem) * 100) },
       disk,
-      portas: portasDef.map((p, i) => ({ nome: p.nome, porta: p.porta, up: portasUp[i] })),
+      portas,
     }
   }
 
@@ -304,14 +303,82 @@ export class PainelTvService {
     })
   }
 
-  /** Lista de portas a monitorar (env PAINEL_VPS_PORTAS ou default do stack). */
-  private parsePortas(): Array<{ nome: string; porta: number }> {
+  /**
+   * Status dos serviços do stack. IMPORTANTE: a API roda DENTRO de um container
+   * Docker, então sondar 127.0.0.1:<porta> só enxerga o PRÓPRIO container (só a
+   * porta da API responderia — Postgres/Redis/Web ficam em outros containers).
+   * Por isso checamos pelos CANAIS REAIS do app: Postgres via Prisma, Redis via
+   * ioredis, Web via HTTP. Portas extras podem ser sondadas por TCP via env
+   * PAINEL_VPS_PORTAS ("Nome:host:porta" ou "Nome:porta").
+   */
+  private async checkServicos(): Promise<Array<{ nome: string; porta: number; up: boolean }>> {
+    const apiPort = Number(process.env.PORT) || 4000
+    const [pg, redis, web, extras] = await Promise.all([
+      this.pingPostgres(),
+      this.pingRedis(),
+      this.pingWeb(),
+      this.checkExtraPortas(),
+    ])
+    return [
+      { nome: 'API', porta: apiPort, up: true },
+      { nome: 'Web', porta: this.urlPort(process.env.NEXT_PUBLIC_APP_URL, 3000, true), up: web },
+      { nome: 'PostgreSQL', porta: this.urlPort(process.env.DATABASE_URL, 5432), up: pg },
+      { nome: 'Redis', porta: this.urlPort(process.env.REDIS_URL, 6379), up: redis },
+      ...extras,
+    ]
+  }
+
+  /** Postgres no ar? Usa a própria conexão do app (Prisma). */
+  private async pingPostgres(): Promise<boolean> {
+    try { await prisma.$queryRawUnsafe('SELECT 1'); return true } catch { return false }
+  }
+
+  /** Redis no ar? Conexão efêmera via REDIS_URL (não bloqueia se estiver fora). */
+  private async pingRedis(): Promise<boolean> {
+    const url = process.env.REDIS_URL || 'redis://127.0.0.1:6379'
+    const r = new Redis(url, { lazyConnect: true, connectTimeout: 1500, maxRetriesPerRequest: 1, retryStrategy: () => null, enableOfflineQueue: false })
+    try { await r.connect(); return (await r.ping()) === 'PONG' }
+    catch { return false }
+    finally { try { r.disconnect() } catch { /* noop */ } }
+  }
+
+  /** Web no ar? HTTP na URL pública (qualquer resposta = servidor respondendo). */
+  private async pingWeb(): Promise<boolean> {
+    const url = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL
+    if (!url) return false
+    try {
+      await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(2500), redirect: 'manual' })
+      return true
+    } catch {
+      try { await fetch(url, { method: 'GET', signal: AbortSignal.timeout(2500) }); return true } catch { return false }
+    }
+  }
+
+  /** Porta a partir de uma URL (só p/ exibição). `web` mostra a porta interna se a URL for https sem porta. */
+  private urlPort(url: string | undefined, def: number, web = false): number {
+    try {
+      if (url) {
+        const u = new URL(url)
+        if (u.port) return Number(u.port)
+        if (web) return def
+      }
+    } catch { /* url inválida */ }
+    return def
+  }
+
+  /** Portas extras via env PAINEL_VPS_PORTAS ("Nome:host:porta" ou "Nome:porta") — sondagem TCP. */
+  private async checkExtraPortas(): Promise<Array<{ nome: string; porta: number; up: boolean }>> {
     const raw = (process.env.PAINEL_VPS_PORTAS || '').trim()
-    const def = 'API:4000,Web:3000,PostgreSQL:5432,Redis:6379'
-    return (raw || def).split(',').map((s) => {
-      const [nome, p] = s.split(':')
-      return { nome: (nome || '').trim(), porta: Number((p || '').trim()) }
+    if (!raw) return []
+    const defHost = process.env.PAINEL_VPS_HOST || '127.0.0.1'
+    const defs = raw.split(',').map((s) => {
+      const parts = s.split(':').map((x) => x.trim())
+      const nome = parts[0] ?? ''
+      if (parts.length >= 3) return { nome, host: parts[1] ?? defHost, porta: Number(parts[2]) }
+      return { nome, host: defHost, porta: Number(parts[1]) }
     }).filter((x) => x.nome && Number.isFinite(x.porta) && x.porta > 0).slice(0, 20)
+    const ups = await Promise.all(defs.map((d) => this.checkPort(d.host, d.porta)))
+    return defs.map((d, i) => ({ nome: d.nome, porta: d.porta, up: ups[i] ?? false }))
   }
 
   // ── Escrita (CRUD) — master only (gateado no router) ────────────
