@@ -11,6 +11,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { ImportStatusModal, type ImportStep } from './import-status-modal'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useClientesPerms } from './use-clientes-perms'
@@ -57,6 +58,40 @@ interface Vencimento { id: string; descricao: string; data_vencimento: string; a
 export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoCardProps) {
   const { canManageRegistration, canManageFiscal } = useClientesPerms()
   const [activeTab, setActiveTab] = useState('pop')
+  // Importação OneClick (via Service Manager) com indicador de status por etapa.
+  const [importSteps, setImportSteps] = useState<ImportStep[] | null>(null)
+  const [importDone, setImportDone] = useState(false)
+  const atualizarEtapa = (key: string, patch: Partial<ImportStep>) =>
+    setImportSteps((prev) => prev?.map((s) => (s.key === key ? { ...s, ...patch } : s)) ?? null)
+
+  // Fluxo consolidado: legado (registros+acessos+vencimentos+andamentos+sócios)
+  // via a ponte do Service Manager + CNAE (SERPRO). Mostra progresso por etapa.
+  const importarOneClickFluxo = async () => {
+    if (!clienteId || !documento) return
+    setImportDone(false)
+    setImportSteps([
+      { key: 'legado', label: 'Importando cadastro do OneClick (registros, acessos, sócios…)', status: 'running' },
+      { key: 'cnae', label: 'Buscando CNAE na Receita Federal', status: 'pending' },
+    ])
+    // 1) Legado via Service Manager (ponte — só lê na LAN e devolve; a API aplica)
+    try {
+      const r = await (trpc.cliente as { importOneclickViaLauncher: { mutate: (i: { clienteId: string; documento: string }) => Promise<{ message: string }> } }).importOneclickViaLauncher.mutate({ clienteId, documento })
+      atualizarEtapa('legado', { status: 'done', detail: r.message })
+    } catch (e) {
+      atualizarEtapa('legado', { status: 'error', detail: (e as Error).message })
+    }
+    // 2) CNAE (SERPRO — independente do legado)
+    atualizarEtapa('cnae', { status: 'running' })
+    try {
+      const c = await (trpc.cliente as { importCnaes: { mutate: (i: { clienteId: string; documento: string }) => Promise<{ message: string }> } }).importCnaes.mutate({ clienteId, documento })
+      atualizarEtapa('cnae', { status: 'done', detail: c.message })
+    } catch (e) {
+      atualizarEtapa('cnae', { status: 'error', detail: (e as Error).message })
+    }
+    setImportDone(true)
+    // Zera as pills → os useEffects por aba refazem o fetch (a ativa na hora).
+    setSocios([]); setAcessos([]); setVencimentos([]); setAndamentos([]); setCnaes([]); setCertidoes([])
+  }
   const [socios, setSocios] = useState<Socio[]>([])
   const [sociosLoading, setSociosLoading] = useState(false)
   const [capitalSocial, setCapitalSocial] = useState<number | null>(null)
@@ -346,19 +381,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         {clienteId && (<div className="flex items-center gap-1.5">
           {documento && (
             <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
-              onClick={async (e) => {
-                e.preventDefault(); e.stopPropagation()
-                try {
-                  const r = await (trpc.cliente as any).importOneclick.mutate({ clienteId, documento }) as { message: string }
-                  alerts.success('Importar OneClick', r.message)
-                  // Recarregar todos os dados das pills
-                  setSocios([]); setAcessos([]); setVencimentos([]); setAndamentos([]); setCnaes([]); setCertidoes([])
-                  // Forçar reload da pill ativa
-                  if (activeTab === 'acessos') { ;(trpc.cliente as any).listAcessos.query({ clienteId }).then((d: typeof acessos) => setAcessos(d)).catch(() => {}) }
-                  if (activeTab === 'vencimentos') { ;(trpc.cliente as any).listVencimentos.query({ clienteId }).then((d: typeof vencimentos) => setVencimentos(d)).catch(() => {}) }
-                  if (activeTab === 'andamentos') { ;(trpc.cliente as any).listAndamentos.query({ clienteId }).then((d: typeof andamentos) => setAndamentos(d)).catch(() => {}) }
-                } catch (err) { alerts.error('Erro', (err as Error).message) }
-              }}>
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); void importarOneClickFluxo() }}>
               <Download className="h-3 w-3" />Importar OneClick
             </Button>
           )}
@@ -1339,6 +1362,16 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           const data = await (trpc.socio as any).listByCliente.query({ clienteId }) as Socio[]
           setSocios(data)
         }}
+      />
+    )}
+
+    {/* Progresso da importação OneClick (via Service Manager) */}
+    {importSteps && (
+      <ImportStatusModal
+        open={importSteps !== null}
+        done={importDone}
+        steps={importSteps}
+        onClose={() => { setImportSteps(null); setImportDone(false) }}
       />
     )}
     </>
