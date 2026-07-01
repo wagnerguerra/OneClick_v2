@@ -24,12 +24,19 @@ import { randomUUID } from 'crypto'
 export type ContratoSyncEvent =
   | { type: 'ping'; timestamp: number }
   | { type: 'contrato-erp-request'; requestId: string; payload: ContratoErpPayload; timestamp: number }
+  // Import do cadastro legado (OneClick v1 / MySQL db_intranet) via Launcher —
+  // o SM lê o MySQL local (LAN) e devolve as linhas cruas; a API aplica.
+  | { type: 'cliente-import-request'; requestId: string; payload: ClienteImportPayload; timestamp: number }
 
 export interface ContratoErpPayload {
   cnpj: string
   datai: string  // YYYY-MM-DD
   dataf: string  // YYYY-MM-DD
   indicadores?: string[]
+}
+
+export interface ClienteImportPayload {
+  cnpj: string // só dígitos
 }
 
 interface PendingRequest {
@@ -76,6 +83,25 @@ export class ContratoSyncService {
         payload,
         timestamp: Date.now(),
       })
+    })
+  }
+
+  /**
+   * Pedido de import do cadastro legado (registros/acessos/vencimentos/sócios)
+   * pelo Launcher, que lê o MySQL local e devolve as linhas via callback.
+   */
+  async requestClienteImport(cnpj: string, timeoutMs = TIMEOUT_DEFAULT_MS): Promise<Record<string, unknown>> {
+    const requestId = randomUUID()
+    return new Promise<Record<string, unknown>>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(requestId)
+        reject(new Error(
+          `Launcher local não respondeu em ${Math.round(timeoutMs / 1000)}s. ` +
+          `Verifique se o Service Manager está aberto e conectado.`,
+        ))
+      }, timeoutMs)
+      this.pending.set(requestId, { resolve, reject, timer, startedAt: Date.now() })
+      this.subject.next({ type: 'cliente-import-request', requestId, payload: { cnpj }, timestamp: Date.now() })
     })
   }
 

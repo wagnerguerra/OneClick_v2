@@ -994,12 +994,26 @@ export function createClienteRouter(
         } finally { try { await conn.end() } catch { /* */ } }
       }),
 
-    // ── Import OneClick Legado ─────────────────────────
+    // ── Import OneClick Legado (direto — só na LAN) ────
     importOneclick: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ clienteId: z.string(), documento: z.string() }))
       .mutation(async ({ input }) => {
         if (!importOneclickService) throw new Error('Serviço de importação OneClick não disponível')
         return importOneclickService.importar(input.clienteId, input.documento)
+      }),
+
+    // ── Import OneClick via Service Manager (ponte p/ o legado na LAN) ──
+    // O SM (na LAN) lê o MySQL legado e devolve as linhas; a API só aplica.
+    // Incorpora registros + acessos + vencimentos + andamentos + SÓCIOS.
+    importOneclickViaLauncher: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ clienteId: z.string(), documento: z.string() }))
+      .mutation(async ({ input }) => {
+        if (!importOneclickService) throw new Error('Serviço de importação OneClick não disponível')
+        if (!contratoSyncService) throw new Error('Service Manager não conectado (ponte indisponível)')
+        const cnpj = input.documento.replace(/\D/g, '')
+        if (cnpj.length !== 14) throw new Error('CNPJ inválido — importação apenas para 14 dígitos')
+        const dados = (await contratoSyncService.requestClienteImport(cnpj)) as unknown as import('./import-oneclick.service').ImportLegadoDados
+        return importOneclickService.aplicar(input.clienteId, dados)
       }),
 
     // ── Resumo Legalização (para impressão) ─────────────
