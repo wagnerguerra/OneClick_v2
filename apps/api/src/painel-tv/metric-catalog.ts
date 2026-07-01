@@ -244,6 +244,21 @@ export const METRIC_CATALOG: MetricDef[] = [
       ],
       rows: (s?.portas ?? []).map((p: any) => ({ nome: p.nome, porta: p.porta, status: p.up })),
     }) },
+  { id: 'vps.dockerUp', label: 'Containers no ar', modulo: 'vps', kind: 'number', source: 'vps', visuals: KPI,
+    extract: (s) => {
+      const d = s?.docker
+      if (!Array.isArray(d)) return { value: null, sub: 'Docker indisponível' }
+      return { value: d.filter((c: any) => c.up).length, sub: `de ${d.length} containers` }
+    } },
+  { id: 'vps.docker', label: 'Containers do Docker', modulo: 'vps', kind: 'table', source: 'vps', visuals: TABLE,
+    extract: (s) => ({
+      columns: [
+        { key: 'nome', label: 'Container' },
+        { key: 'status', label: 'Status' },
+        { key: 'up', label: 'Estado', align: 'right', kind: 'status', onLabel: 'Ativo', offLabel: 'Parado' },
+      ],
+      rows: (Array.isArray(s?.docker) ? s.docker : []).map((c: any) => ({ nome: c.nome, status: c.status, up: c.up })),
+    }) },
 ]
 
 // Métricas de FLUXO (contadas/medidas dentro de um período) — únicas onde

@@ -184,14 +184,16 @@ function CellView({ col, row, accent }: { col: any; row: any; accent: string }) 
     )
   }
   if (col.kind === 'status') {
-    // Status de porta/serviço: valor booleano (up) ou 'Online'/'Offline'.
+    // Status booleano (up). Rótulos customizáveis via col.onLabel/col.offLabel
+    // (ex.: Ativo/Parado p/ containers; default Online/Offline p/ portas).
     const up = v === true || v === 'Online' || v === 'online' || v === 'up'
     const cor = up ? '#34d399' : '#f87171'
+    const label = up ? (col.onLabel ?? 'Online') : (col.offLabel ?? 'Offline')
     return (
       <span className={alignCls(col.align)}>
         <span className="inline-flex items-center gap-[0.5vw] px-[0.7vw] py-[0.2vw] rounded-full text-[1vw] font-semibold" style={{ background: `${cor}22`, color: cor }}>
           <span className="h-[0.8vw] w-[0.8vw] rounded-full" style={{ background: cor }} />
-          {up ? 'Online' : 'Offline'}
+          {label}
         </span>
       </span>
     )

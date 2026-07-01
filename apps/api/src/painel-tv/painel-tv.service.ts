@@ -4,6 +4,7 @@ import { prisma } from '@saas/db'
 import { randomUUID } from 'crypto'
 import * as os from 'os'
 import * as net from 'net'
+import * as http from 'http'
 import Redis from 'ioredis'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
@@ -241,10 +242,11 @@ export class PainelTvService {
     const totalMem = os.totalmem()
     const freeMem = os.freemem()
     const usedMem = totalMem - freeMem
-    const [cpuPct, disk, portas] = await Promise.all([
+    const [cpuPct, disk, portas, docker] = await Promise.all([
       this.cpuPercent(),
       this.diskUsage(process.env.PAINEL_VPS_DISK_MOUNT || '/'),
       this.checkServicos(),
+      this.dockerContainers(),
     ])
     return {
       hostname: os.hostname(),
@@ -253,7 +255,46 @@ export class PainelTvService {
       mem: { totalBytes: totalMem, usedBytes: usedMem, freeBytes: freeMem, pct: Math.round((usedMem / totalMem) * 100) },
       disk,
       portas,
+      docker,
     }
+  }
+
+  /** GET no Docker Engine API pelo unix socket (sem lib externa; Node fala HTTP no socket). */
+  private dockerApi<T = any>(apiPath: string): Promise<T> {
+    const socketPath = process.env.DOCKER_SOCK || '/var/run/docker.sock'
+    return new Promise((resolve, reject) => {
+      const req = http.request({ socketPath, path: apiPath, method: 'GET', timeout: 3000 }, (res) => {
+        let body = ''
+        res.setEncoding('utf8')
+        res.on('data', (c) => { body += c })
+        res.on('end', () => {
+          if ((res.statusCode ?? 500) >= 400) { reject(new Error(`docker ${res.statusCode}`)); return }
+          try { resolve(JSON.parse(body) as T) } catch (e) { reject(e as Error) }
+        })
+      })
+      req.on('error', reject)
+      req.on('timeout', () => { req.destroy(); reject(new Error('docker timeout')) })
+      req.end()
+    })
+  }
+
+  /**
+   * Lista os containers do Docker via socket. Retorna null se o socket não estiver
+   * montado no container da API (precisa de -v /var/run/docker.sock no compose).
+   */
+  private async dockerContainers(): Promise<Array<{ nome: string; up: boolean; status: string; imagem: string }> | null> {
+    try {
+      const list = await this.dockerApi<any[]>('/containers/json?all=1')
+      if (!Array.isArray(list)) return null
+      return list
+        .map((c) => ({
+          nome: String(c.Names?.[0] ?? c.Id ?? '?').replace(/^\//, '').slice(0, 40),
+          up: c.State === 'running',
+          status: String(c.Status ?? c.State ?? ''),
+          imagem: (String(c.Image ?? '').split('@')[0] ?? '').slice(0, 40),
+        }))
+        .sort((a, b) => (a.up === b.up ? a.nome.localeCompare(b.nome) : a.up ? -1 : 1))
+    } catch { return null }
   }
 
   private cpuTimes() {
