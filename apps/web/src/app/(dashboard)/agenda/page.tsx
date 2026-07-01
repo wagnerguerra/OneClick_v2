@@ -2373,53 +2373,61 @@ export default function AgendaPage() {
                   {/* ============ COLUNA DIREITA (oportunidade do CRM) ============ */}
                   {op && (
                     <div className="lg:min-h-0 lg:overflow-y-auto nice-scrollbar self-start lg:self-stretch space-y-3">
-                      {/* Baralho de cards — cartas empilhadas; passar o mouse no header
-                          levanta a carta mostrando o título; clique seleciona (detalhes
-                          abaixo). Só aparece quando há mais de um card vinculado. */}
+                      {/* Baralho de cards — pilha de cartas: as de trás ficam quase
+                          escondidas, só o topo do header espiando; passar o mouse
+                          "levanta" a carta e a traz pra frente, revelando o título.
+                          A carta selecionada fica à frente (detalhes no painel abaixo).
+                          Só aparece quando há mais de um card vinculado. */}
                       {deckCards.length > 1 && (
                         <div className="pt-1">
-                          <p className="text-[10px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                          <p className="text-[10px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                             <Link2 className="h-3.5 w-3.5" />
                             {deckCards.length} cards vinculados
                           </p>
-                          <div className="px-1">
-                            {deckCards.map((card, idx) => {
-                              const active = card.id === op.id
-                              return (
-                                <button
-                                  key={card.id}
-                                  type="button"
-                                  onClick={() => setDeckSelId(card.id)}
-                                  style={{ zIndex: active ? 30 : idx + 1 }}
-                                  className={cn(
-                                    'relative block w-full text-left rounded-xl border px-3 py-2.5 transition-all duration-200',
-                                    idx > 0 && '-mt-2.5',
-                                    'hover:-translate-y-1.5 hover:shadow-lg hover:z-40',
-                                    active
-                                      ? 'border-violet-500/60 bg-violet-500/15 shadow-md ring-1 ring-violet-500/30'
-                                      : 'border-violet-500/25 bg-card hover:bg-violet-500/5',
-                                  )}
-                                  title={card.titulo}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    {card.numero != null && (
-                                      <span className="shrink-0 text-[12px] font-bold tabular-nums text-violet-600 dark:text-violet-400">#{card.numero}</span>
-                                    )}
-                                    <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-foreground">{card.titulo}</span>
-                                    {idx === 0 && (
-                                      <span className="shrink-0 rounded-full bg-violet-500/15 text-violet-700 dark:text-violet-300 px-1.5 py-0 text-[9px] font-bold uppercase tracking-wider">Principal</span>
-                                    )}
-                                    {card.etapa && (
-                                      <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${card.etapa.cor}22`, color: card.etapa.cor }}>{card.etapa.nome}</span>
-                                    )}
-                                  </div>
-                                  {(card.cliente?.razaoSocial || card.razaoSocial) && (
-                                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">{card.cliente?.razaoSocial ?? card.razaoSocial}</p>
-                                  )}
-                                </button>
-                              )
-                            })}
-                          </div>
+                          {(() => {
+                            const principalId = deckCards[0]?.id
+                            // Ordem de pintura: cartas de trás primeiro, a selecionada por
+                            // último (fica à frente, totalmente visível).
+                            const pile = [...deckCards.filter(c => c.id !== op.id), op]
+                            return (
+                              <div className="px-1 pb-1">
+                                {pile.map((card, idx) => {
+                                  const isFront = card.id === op.id
+                                  return (
+                                    <button
+                                      key={card.id}
+                                      type="button"
+                                      onClick={() => setDeckSelId(card.id)}
+                                      // Sobreposição forte (−22px) deixa só ~18px do topo
+                                      // de cada carta de trás à mostra. z-index crescente =
+                                      // a de baixo pinta por cima (a selecionada é a última).
+                                      style={{ marginTop: idx === 0 ? 0 : -22, zIndex: idx + 1 }}
+                                      className={cn(
+                                        'relative block w-full text-left rounded-xl border px-3 py-2.5 shadow-sm transition-all duration-200 focus:outline-none focus-visible:z-[60] focus-visible:ring-1 focus-visible:ring-violet-500/40',
+                                        isFront
+                                          ? 'border-violet-500/60 bg-violet-500/12 ring-1 ring-violet-500/30 cursor-default'
+                                          : 'border-violet-500/25 bg-card hover:-translate-y-2 hover:z-[60] hover:shadow-lg hover:border-violet-500/50 cursor-pointer',
+                                      )}
+                                      title={card.titulo}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        {card.numero != null && (
+                                          <span className="shrink-0 text-[12px] font-bold tabular-nums text-violet-600 dark:text-violet-400">#{card.numero}</span>
+                                        )}
+                                        <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-foreground">{card.titulo}</span>
+                                        {card.id === principalId && (
+                                          <span className="shrink-0 rounded-full bg-violet-500/15 text-violet-700 dark:text-violet-300 px-1.5 py-0 text-[9px] font-bold uppercase tracking-wider">Principal</span>
+                                        )}
+                                        {card.etapa && (
+                                          <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${card.etapa.cor}22`, color: card.etapa.cor }}>{card.etapa.nome}</span>
+                                        )}
+                                      </div>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            )
+                          })()}
                         </div>
                       )}
 
