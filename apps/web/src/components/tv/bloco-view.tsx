@@ -4,11 +4,27 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
   PieChart, Pie, Cell, LabelList,
 } from 'recharts'
+import {
+  Cpu, MemoryStick, HardDrive, Clock, Activity, Server, Network, Container,
+  Coins, Filter, Percent, Target, FileText, AlarmClock, Landmark, CalendarClock,
+  TrendingUp, Users, Inbox, PlusCircle, CheckCircle, ShieldCheck, Star, Timer,
+  ListChecks, Flag, Tags, RotateCcw, type LucideIcon,
+} from 'lucide-react'
 import { HELPDESK_PRIORIDADE_COLORS, HELPDESK_PRIORIDADE_LABELS } from '@saas/types'
 import { resolveAssetUrl } from '@/lib/api-url'
 import { Metric, Panel, LegendList, AXIS, useAccent } from './kiosk'
 
 const PALETTE = ['#fb7185', '#60a5fa', '#34d399', '#fbbf24', '#a78bfa', '#f97316', '#22d3ee', '#f472b6']
+
+// Registro de ícones (lucide) usados pelos blocos. O nome vem da métrica
+// (metric-catalog: ICON_BY_ID) ou de bloco.config.icon. Ausente → sem ícone.
+const ICONS: Record<string, LucideIcon> = {
+  Cpu, MemoryStick, HardDrive, Clock, Activity, Server, Network, Container,
+  Coins, Filter, Percent, Target, FileText, AlarmClock, Landmark, CalendarClock,
+  TrendingUp, Users, Inbox, PlusCircle, CheckCircle, ShieldCheck, Star, Timer,
+  ListChecks, Flag, Tags, RotateCcw,
+}
+const resolveIcon = (name?: string): LucideIcon | undefined => (name ? ICONS[name] : undefined)
 
 // ── Formatadores ──────────────────────────────────────────────────
 const fmtMoeda = (v: number) =>
@@ -41,15 +57,17 @@ export function BlocoView({ bloco, data }: { bloco: any; data: Record<string, an
   const d = data?.[bloco.id] ?? data?.[bloco.metricId] // fallback p/ compat
   const label = bloco.config?.label ?? d?.label ?? ''
   const color = bloco.config?.color || accent
+  const Icon = resolveIcon(bloco.config?.icon ?? d?.icon)
 
   if (d == null) {
-    return <Panel title={label} className="h-full"><Empty /></Panel>
+    return <Panel title={label} icon={Icon} className="h-full"><Empty /></Panel>
   }
 
   switch (bloco.visual) {
     case 'kpi':
       return (
-        <div className="rounded-[1.4vw] border border-white/10 bg-white/[0.035] p-[1.6vw] h-full flex flex-col justify-center">
+        <div className="relative overflow-hidden rounded-[1.4vw] border border-white/10 bg-white/[0.035] p-[1.6vw] h-full flex flex-col justify-center">
+          {Icon && <Icon className="absolute top-[1.3vw] right-[1.3vw] h-[2.8vw] w-[2.8vw] opacity-20" style={{ color }} />}
           <Metric label={label} value={fmtKpi(d)} sub={d.sub} color={color} size={bloco.config?.size ?? 'lg'} />
           {d.comparacao && <ComparacaoBadge variacaoPct={d.comparacao.variacaoPct} />}
         </div>
@@ -58,7 +76,7 @@ export function BlocoView({ bloco, data }: { bloco: any; data: Record<string, an
     case 'donut': {
       const items = (d.items ?? []).map((it: any, i: number) => ({ ...it, fill: it.color || PALETTE[i % PALETTE.length] }))
       return (
-        <Panel title={label} className="h-full">
+        <Panel title={label} icon={Icon} className="h-full">
           <div className="grid grid-cols-2 gap-[1.2vw] flex-1 min-h-0">
             {items.length ? (
               <>
@@ -80,7 +98,7 @@ export function BlocoView({ bloco, data }: { bloco: any; data: Record<string, an
     case 'bar': {
       const isSeries = Array.isArray(d.points)
       return (
-        <Panel title={label} className="h-full">
+        <Panel title={label} icon={Icon} className="h-full">
           <div className="flex-1 min-h-0">
             {isSeries ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -114,7 +132,7 @@ export function BlocoView({ bloco, data }: { bloco: any; data: Record<string, an
 
     case 'line':
       return (
-        <Panel title={label} className="h-full">
+        <Panel title={label} icon={Icon} className="h-full">
           <div className="flex-1 min-h-0">
             {d.points?.length ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -136,13 +154,13 @@ export function BlocoView({ bloco, data }: { bloco: any; data: Record<string, an
     case 'table':
     case 'list':
       return (
-        <Panel title={label} className="h-full">
+        <Panel title={label} icon={Icon} className="h-full">
           <TableViz columns={d.columns ?? []} rows={d.rows ?? []} accent={accent} />
         </Panel>
       )
 
     default:
-      return <Panel title={label} className="h-full"><Empty /></Panel>
+      return <Panel title={label} icon={Icon} className="h-full"><Empty /></Panel>
   }
 }
 

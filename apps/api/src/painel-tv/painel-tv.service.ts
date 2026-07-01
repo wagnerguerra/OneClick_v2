@@ -191,7 +191,7 @@ export class PainelTvService {
         if (Array.isArray(ex.items)) ex.items = ex.items.slice(0, limite)
         if (Array.isArray(ex.rows)) ex.rows = ex.rows.slice(0, limite)
       }
-      const payload: any = { kind: def.kind, label: def.label, ...ex }
+      const payload: any = { kind: def.kind, label: def.label, icon: def.icon, ...ex }
       if (isComparavel(b, def)) {
         let prevEx: any
         try { prevEx = def.extract(results[`prev|${def.source}|${periodo}`]) ?? {} } catch { prevEx = {} }

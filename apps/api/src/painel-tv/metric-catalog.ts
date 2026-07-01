@@ -30,6 +30,7 @@ export interface MetricDef {
   source: SourceName
   visuals: string[] // visuais permitidos p/ este kind
   comparavel?: boolean // métrica de FLUXO (faz sentido comparar c/ período anterior)
+  icon?: string // nome do ícone (lucide) exibido no bloco — ver registro no bloco-view
   extract: (src: any) => any
 }
 
@@ -271,9 +272,37 @@ const COMPARAVEL_IDS = new Set<string>([
 ])
 METRIC_CATALOG.forEach((m) => { if (COMPARAVEL_IDS.has(m.id)) m.comparavel = true })
 
+// Ícone (lucide) por métrica — enriquece os blocos. Os nomes precisam existir no
+// registro do front (bloco-view: ICONS). Fácil de estender: basta mapear o id.
+const ICON_BY_ID: Record<string, string> = {
+  // VPS
+  'vps.cpu': 'Cpu', 'vps.memoria': 'MemoryStick', 'vps.disco': 'HardDrive',
+  'vps.uptime': 'Clock', 'vps.load': 'Activity', 'vps.memoriaDist': 'MemoryStick',
+  'vps.discoDist': 'HardDrive', 'vps.recursos': 'Server', 'vps.portas': 'Network',
+  'vps.dockerUp': 'Container', 'vps.docker': 'Container',
+  // Comercial
+  'comercial.mrr': 'Coins', 'comercial.pipeline': 'Filter', 'comercial.conversao': 'Percent',
+  'comercial.oportunidades': 'Target', 'comercial.orcEmAberto': 'FileText',
+  'comercial.orcValorPendente': 'FileText', 'comercial.taxaAprovacao': 'Percent',
+  'comercial.orcAtrasados': 'AlarmClock', 'comercial.vigentes': 'Landmark',
+  'comercial.aVencer30': 'CalendarClock', 'comercial.funil': 'Filter',
+  'comercial.orcStatus': 'FileText', 'comercial.contratoStatus': 'Landmark',
+  'comercial.evolucaoContratos': 'TrendingUp', 'comercial.desempenho': 'Users',
+  'comercial.aVencer': 'CalendarClock', 'comercial.contratosTotal': 'Landmark',
+  'comercial.orcValorTotal': 'Coins',
+  // Helpdesk
+  'helpdesk.backlog': 'Inbox', 'helpdesk.atrasados': 'AlarmClock', 'helpdesk.criados': 'PlusCircle',
+  'helpdesk.resolvidos': 'CheckCircle', 'helpdesk.sla': 'ShieldCheck', 'helpdesk.csat': 'Star',
+  'helpdesk.mttr': 'Timer', 'helpdesk.porStatus': 'ListChecks', 'helpdesk.porPrioridade': 'Flag',
+  'helpdesk.serie': 'TrendingUp', 'helpdesk.porCategoria': 'Tags', 'helpdesk.porAgente': 'Users',
+  'helpdesk.slaEstourados': 'AlarmClock', 'helpdesk.tfr': 'Timer', 'helpdesk.reabertura': 'RotateCcw',
+  'helpdesk.porTipo': 'Tags', 'helpdesk.csatDist': 'Star',
+}
+METRIC_CATALOG.forEach((m) => { const ic = ICON_BY_ID[m.id]; if (ic) m.icon = ic })
+
 export const METRIC_BY_ID: Record<string, MetricDef> = Object.fromEntries(METRIC_CATALOG.map((m) => [m.id, m]))
 
 /** Catálogo enxuto p/ a UI do builder (sem as funções extract). */
 export function catalogForUi() {
-  return METRIC_CATALOG.map(({ id, label, modulo, kind, visuals, comparavel }) => ({ id, label, modulo, kind, visuals, comparavel: !!comparavel }))
+  return METRIC_CATALOG.map(({ id, label, modulo, kind, visuals, comparavel, icon }) => ({ id, label, modulo, kind, visuals, comparavel: !!comparavel, icon }))
 }
