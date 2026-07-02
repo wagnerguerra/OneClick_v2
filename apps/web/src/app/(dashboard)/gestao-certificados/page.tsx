@@ -121,6 +121,7 @@ export default function GestaoCertificadosPage() {
   const [excluindoLote, setExcluindoLote] = useState(false)
   const [varrendo, setVarrendo] = useState(false)
   const [atualizandoSino, setAtualizandoSino] = useState(false)
+  const [backfillando, setBackfillando] = useState(false)
 
   // Modais
   const [novoOpen, setNovoOpen] = useState(false)
@@ -276,6 +277,22 @@ export default function GestaoCertificadosPage() {
     })
   }
 
+  async function handleBackfillObservacoes() {
+    if (!empresaIdAtual) { alerts.error('Erro', 'Empresa não identificada.'); return }
+    setBackfillando(true)
+    try {
+      const r = await (trpc.certificadoDigital as any).legacyImportBackfillObservacoes.mutate({ empresaId: empresaIdAtual }) as { total: number; atualizados: number }
+      await alerts.success('Observações atualizadas', r.atualizados === 0
+        ? `Nada a atualizar — os ${r.total} certificado(s) já estão com as observações do legado.`
+        : `${r.atualizados} de ${r.total} certificado(s) tiveram as observações atualizadas com os detalhes do legado.`)
+      fetchData(true)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setBackfillando(false)
+    }
+  }
+
   async function handleAtualizarSino() {
     setAtualizandoSino(true)
     try {
@@ -406,6 +423,17 @@ export default function GestaoCertificadosPage() {
                 title="Importar certificados do OneClick V1"
               >
                 <DatabaseBackup className="h-4 w-4" /> Importar do Legado
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBackfillObservacoes}
+                disabled={backfillando}
+                className="gap-1.5"
+                title="Atualiza as observações dos certificados já importados com a descrição/senha e o nome do arquivo do legado"
+              >
+                {backfillando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {backfillando ? 'Atualizando...' : 'Atualizar Obs. do Legado'}
               </Button>
               </>
           )}

@@ -255,6 +255,17 @@ export function createCertificadoDigitalRouter(
         return legacyImportService.startImport(input.jobId, ctx.userId)
       }),
 
+    // Backfill: atualiza as observações dos certificados JÁ importados com a
+    // descrição/nome do arquivo do legado (pros que vieram antes deste ajuste).
+    legacyImportBackfillObservacoes: protectedProcedure
+      .input(z.object({ empresaId: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        if (!(ctx.isMaster || ctx.isEmpresaMaster)) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas master/empresa-master' })
+        }
+        return legacyImportService.backfillObservacoes(scopedEmpresaId(ctx, input.empresaId))
+      }),
+
     // ── Importação em lote (drop de arquivos PFX) ────────────
     // Workflow:
     //   1) bulkImportStartPreview → recebe arquivos + senha padrão, retorna jobId

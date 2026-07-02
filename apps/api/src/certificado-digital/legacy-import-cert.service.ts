@@ -665,6 +665,64 @@ export class LegacyImportCertService {
     }
   }
 
+  /**
+   * Backfill: atualiza as observações dos certificados JÁ importados (que ficaram
+   * só com "Importado do OneClick V1 (legacyId=X)."), levando a descrição/notas e o
+   * nome do arquivo do legado. Idempotente — só grava se a observação mudou.
+   */
+  async backfillObservacoes(empresaId: string): Promise<{ total: number; atualizados: number }> {
+    const conn = await this.getLegacyConnection()
+    try {
+      // Lê id → descrição/nome do arquivo do legado (tenta V1, cai pra SERPRO2).
+      const legadoMap = new Map<number, { descricao: string | null; nomeArquivo: string | null }>()
+      let rows: mysql.RowDataPacket[]
+      try {
+        ;[rows] = await conn.execute<mysql.RowDataPacket[]>(
+          `SELECT a.id AS id, a.descricao AS descricao, a.arquivo AS nomeArquivo
+           FROM cad_cli_files a WHERE a.tipo = '6' AND a.ativo = 1`,
+        )
+      } catch {
+        ;[rows] = await conn.execute<mysql.RowDataPacket[]>(
+          `SELECT a.id AS id, a.notas AS descricao, a.nome_original AS nomeArquivo
+           FROM clientes_arquivos a WHERE a.is_certificado = 1`,
+        )
+      }
+      for (const r of rows as unknown as Array<{ id: number; descricao: string | null; nomeArquivo: string | null }>) {
+        legadoMap.set(Number(r.id), {
+          descricao: stripHtmlSenha(r.descricao),
+          nomeArquivo: r.nomeArquivo ? String(r.nomeArquivo).trim() : null,
+        })
+      }
+
+      // Certificados do v2 (dessa empresa) importados do V1 — têm "legacyId=" na observação.
+      const certs = await prisma.certificadoDigital.findMany({
+        where: { empresaId, observacoes: { contains: 'legacyId=' } },
+        select: { id: true, observacoes: true },
+      })
+      let atualizados = 0
+      for (const cert of certs) {
+        const m = (cert.observacoes || '').match(/legacyId=(\d+)/)
+        if (!m) continue
+        const leg = legadoMap.get(Number(m[1]))
+        if (!leg || (!leg.descricao && !leg.nomeArquivo)) continue
+        const novaObs = this.montarObservacoesImport({
+          legacyId: Number(m[1]),
+          arquivoNome: '', caminhoLegado: '', cnpjLegado: null, razaoLegado: null,
+          dtVencimento: null, status: 'ok', vincularA: null, mensagem: '',
+          descricaoLegado: leg.descricao || undefined,
+          nomeArquivoLegado: leg.nomeArquivo || undefined,
+        })
+        if (novaObs !== (cert.observacoes || '')) {
+          await prisma.certificadoDigital.update({ where: { id: cert.id }, data: { observacoes: novaObs } })
+          atualizados++
+        }
+      }
+      return { total: certs.length, atualizados }
+    } finally {
+      await conn.end().catch(() => null)
+    }
+  }
+
   // ── Processamento de um item (preview) ────────────────────
 
   private async processarItem(
