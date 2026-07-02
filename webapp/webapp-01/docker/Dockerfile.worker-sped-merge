@@ -1,0 +1,29 @@
+# Build a partir da pasta pai (webapp-01 e engines/ — sped + sped-merge):
+# docker compose --profile sped build worker-sped-merge
+FROM node:22-bookworm-slim AS build-js
+WORKDIR /workspace/webapp-01
+COPY webapp-01/package.json webapp-01/package-lock.json ./
+COPY webapp-01/tsconfig.base.json ./
+COPY webapp-01/packages ./packages
+COPY webapp-01/apps ./apps
+COPY webapp-01/frontend ./frontend
+RUN npm ci --workspaces --include-workspace-root 2>/dev/null || npm install --workspaces --include-workspace-root
+RUN npm run build -w @webapp/contracts && npm run build -w @webapp/worker-sped-merge-bridge
+
+FROM node:22-bookworm-slim
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 python3-venv \
+  && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=build-js /workspace/webapp-01/package.json ./
+COPY --from=build-js /workspace/webapp-01/node_modules ./node_modules
+COPY --from=build-js /workspace/webapp-01/packages ./packages
+COPY --from=build-js /workspace/webapp-01/apps/worker-sped-merge-bridge ./apps/worker-sped-merge-bridge
+COPY engines/sped/sped_engine /app/engines/sped/sped_engine
+COPY engines/sped-merge /app/engines/sped-merge
+RUN python3 -m venv /opt/sped-merge \
+  && /opt/sped-merge/bin/pip install --no-cache-dir -r /app/engines/sped-merge/requirements.txt
+ENV NODE_ENV=production
+ENV SPED_MERGE_DIR=/app/engines/sped-merge
+ENV PYTHON_CMD=/opt/sped-merge/bin/python
+CMD ["node", "apps/worker-sped-merge-bridge/dist/index.js"]

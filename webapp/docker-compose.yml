@@ -1,0 +1,201 @@
+# Stack única do monorepo (webapp-01 + workers que embutem as engines/).
+# Da raiz webapp:  docker compose up -d --build
+#
+# Services CORE (sobem por padrao):  redis, api, worker (NFE), worker-sci-consolidado
+# Profiles disponiveis:               sped, comparacao, nfse, gnre
+# Para subir tudo:
+#   docker compose --profile sped --profile comparacao --profile nfse --profile gnre up -d
+#
+# Mapa worker -> engine (ver docs/ARCHITECTURE.md):
+#   worker-sci-consolidado     -> engines/sci-consolidado       (SCI -> Excel)
+#   worker-sped                -> engines/sped/sped_engine       (SPED -> XLSX)
+#   worker-sped-merge          -> engines/sped-merge             (XLSX -> SPED)
+#   worker-comparacao-planilhas -> engines/comparacao-planilhas  (Comparador Planilhas)
+#   worker-comparacao-nfse     -> engines/comparacao-nfse        (Comparador NFS-e, Gemini OCR)
+#   worker-gnre                -> engines/gnre                   (Extrator GNRE)
+#   worker-sci-portal-nacional -> engines/sci-portal-nacional    (Conciliador NFS-e, Node engine)
+#
+# Bind mount ./temp_jobs:/data/jobs e' compartilhado por todos: a API grava em
+# /data/jobs/<id>/... (caminho do container), que aparece no host Windows em
+# D:/aplicativos/webapp/temp_jobs/<id>/...
+#
+# Variaveis de ambiente: lidas de ./.env (env_file). Variaveis tecnicas
+# fixas (REDIS_URL interno, TEMP_JOBS_ROOT no volume) ficam em `environment`
+# e sobrescrevem o que vier do .env — esses caminhos so fazem sentido dentro
+# do container.
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      # Host 6381 -> container 6379. A porta 6379 do host fica para o OneClick V2.
+      # Dentro da rede Docker os servicos continuam falando com redis:6379.
+      - "6381:6379"
+    volumes:
+      - redis-data:/data
+
+  api:
+    build:
+      context: ./webapp-01
+      dockerfile: docker/Dockerfile
+      target: api
+    # Nome fixo para o OneClick V2 alcancar por DNS na rede `fiscal_net`
+    # (evita colisao com o servico `api` do proprio OneClick).
+    container_name: webapp-api
+    ports:
+      # Acesso direto/dev. Em PRODUCAO o OneClick NAO usa esta porta — ele alcanca
+      # `webapp-api:8000` pela rede `fiscal_net`. No deploy, restrinja/bloqueie a
+      # 8000 externamente (o webapp nao tem auth propria; fica atras do OneClick).
+      - "8000:8000"
+    env_file:
+      - ./.env
+    environment:
+      PORT: "8000"
+      REDIS_URL: redis://redis:6379
+      TEMP_JOBS_ROOT: /data/jobs
+      # SQLite do cadastro de clientes/fornecedores (Editor de Extrato), em volume
+      # persistente para sobreviver a rebuild/restart do container.
+      EXTRATO_DB_PATH: /data/extrato/extrato.db
+    volumes:
+      - ./temp_jobs:/data/jobs
+      - extrato-data:/data/extrato
+    networks:
+      - default        # rede interna do webapp (fala com redis/workers)
+      - fiscal_net      # compartilhada com o OneClick V2 (criada automaticamente; ver bloco networks)
+    depends_on:
+      - redis
+
+  worker:
+    build:
+      context: ./webapp-01
+      dockerfile: docker/Dockerfile
+      target: worker
+    env_file:
+      - ./.env
+    environment:
+      REDIS_URL: redis://redis:6379
+      TEMP_JOBS_ROOT: /data/jobs
+    volumes:
+      - ./temp_jobs:/data/jobs
+    depends_on:
+      - redis
+
+  worker-sci-consolidado:
+    build:
+      context: .
+      dockerfile: webapp-01/docker/Dockerfile.worker-sci-consolidado
+    env_file:
+      - ./.env
+    environment:
+      REDIS_URL: redis://redis:6379
+      TEMP_JOBS_ROOT: /data/jobs
+    volumes:
+      - ./temp_jobs:/data/jobs
+    depends_on:
+      - redis
+
+  worker-sped:
+    profiles: ["sped"]
+    build:
+      context: .
+      dockerfile: webapp-01/docker/Dockerfile.worker-sped
+    env_file:
+      - ./.env
+    environment:
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ./temp_jobs:/data/jobs
+    depends_on:
+      - redis
+
+  worker-sped-merge:
+    profiles: ["sped"]
+    build:
+      context: .
+      dockerfile: webapp-01/docker/Dockerfile.worker-sped-merge
+    env_file:
+      - ./.env
+    environment:
+      REDIS_URL: redis://redis:6379
+      TEMP_JOBS_ROOT: /data/jobs
+    volumes:
+      - ./temp_jobs:/data/jobs
+    depends_on:
+      - redis
+
+  worker-comparacao-planilhas:
+    profiles: ["comparacao"]
+    build:
+      context: .
+      dockerfile: webapp-01/docker/Dockerfile.worker-comparacao
+    env_file:
+      - ./.env
+    environment:
+      REDIS_URL: redis://redis:6379
+      TEMP_JOBS_ROOT: /data/jobs
+    volumes:
+      - ./temp_jobs:/data/jobs
+    depends_on:
+      - redis
+
+  worker-sci-portal-nacional:
+    profiles: ["comparacao"]
+    build:
+      context: .
+      dockerfile: webapp-01/docker/Dockerfile.worker-sci-portal-nacional
+    env_file:
+      - ./.env
+    environment:
+      REDIS_URL: redis://redis:6379
+      TEMP_JOBS_ROOT: /data/jobs
+      SCI_PORTAL_DIR: /app/engines/sci-portal-nacional
+    volumes:
+      - ./temp_jobs:/data/jobs
+    depends_on:
+      - redis
+
+  worker-comparacao-nfse:
+    profiles: ["nfse"]
+    build:
+      context: .
+      dockerfile: webapp-01/docker/Dockerfile.worker-comparacao-nfse
+    env_file:
+      - ./.env
+    environment:
+      REDIS_URL: redis://redis:6379
+      TEMP_JOBS_ROOT: /data/jobs
+    volumes:
+      - ./temp_jobs:/data/jobs
+    depends_on:
+      - redis
+
+  worker-gnre:
+    profiles: ["gnre"]
+    build:
+      context: .
+      dockerfile: webapp-01/docker/Dockerfile.worker-gnre
+    env_file:
+      - ./.env
+    environment:
+      REDIS_URL: redis://redis:6379
+      TEMP_JOBS_ROOT: /data/jobs
+      GNRE_DB_PATH: /data/gnre/gnre.db
+    volumes:
+      - ./temp_jobs:/data/jobs
+      - gnre-data:/data/gnre
+    depends_on:
+      - redis
+
+networks:
+  # Rede compartilhada com o OneClick V2: o gateway das ferramentas fiscais/
+  # contabeis alcanca a API por http://webapp-api:8000. `name:` fixa o nome
+  # (sem prefixo do projeto) e o compose a CRIA automaticamente se faltar —
+  # nada muda no dev local. No deploy (VPS), o `oneclick-api` entra nela pelo
+  # docker-compose.override.yml do OneClick declarando-a como external.
+  fiscal_net:
+    name: fiscal_net
+
+volumes:
+  redis-data:
+  gnre-data:
+  extrato-data:
