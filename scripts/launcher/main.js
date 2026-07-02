@@ -1542,11 +1542,30 @@ function registerIpcHandlers() {
   // launcher executa, posta callback, e a VPS resolve a Promise do tRPC.
   // ════════════════════════════════════════════════════════
   let contratoSyncStreamCtrl = null
+  let contratoSyncActive = false          // true enquanto o stream deve ficar vivo (auto-reconecta)
+  let contratoSyncReconnectTimer = null
+  let contratoSyncBaseUrl = ''            // baseUrl atual pra reconectar
+
+  // Stop EXPLÍCITO (logout/quit): desativa e cancela reconexão.
   function contratoSyncStreamStop() {
+    contratoSyncActive = false
+    if (contratoSyncReconnectTimer) { clearTimeout(contratoSyncReconnectTimer); contratoSyncReconnectTimer = null }
     if (contratoSyncStreamCtrl) {
       try { contratoSyncStreamCtrl.abort() } catch {}
       contratoSyncStreamCtrl = null
     }
+  }
+
+  // Agenda reconexão se o stream deve continuar vivo (não foi parado explicitamente).
+  function contratoSyncAgendarReconexao() {
+    if (!contratoSyncActive || contratoSyncReconnectTimer) return
+    contratoSyncReconnectTimer = setTimeout(() => {
+      contratoSyncReconnectTimer = null
+      if (contratoSyncActive && contratoSyncBaseUrl) {
+        console.log('[ContratoSync] Reconectando SSE...')
+        contratoSyncStreamStart(contratoSyncBaseUrl).catch(() => {})
+      }
+    }, 5000)
   }
 
   async function executarSciMetricsLocal(payload) {
@@ -1731,9 +1750,13 @@ function registerIpcHandlers() {
   }
 
   async function contratoSyncStreamStart(baseUrl) {
-    contratoSyncStreamStop()
+    // Aborta o stream anterior SEM desativar (permite reconexão automática).
+    if (contratoSyncReconnectTimer) { clearTimeout(contratoSyncReconnectTimer); contratoSyncReconnectTimer = null }
+    if (contratoSyncStreamCtrl) { try { contratoSyncStreamCtrl.abort() } catch {}; contratoSyncStreamCtrl = null }
+    contratoSyncActive = true
+    contratoSyncBaseUrl = baseUrl
     const cookieStr = biSyncCookies.get(baseUrl) || ''
-    if (!cookieStr) return
+    if (!cookieStr) { contratoSyncActive = false; return }
     contratoSyncStreamCtrl = new AbortController()
     const url = `${baseUrl}/api/contratos-sync/eventos`
     try {
@@ -1752,6 +1775,7 @@ function registerIpcHandlers() {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('contrato-sync-event', { type: '__error', status: resp.status })
         }
+        contratoSyncAgendarReconexao()  // API pode estar reiniciando (deploy) — tenta de novo
         return
       }
       const reader = resp.body.getReader()
@@ -1781,11 +1805,14 @@ function registerIpcHandlers() {
           } catch { /* skip malformed */ }
         }
       }
+      // Stream fechou pelo servidor (done) — reconecta se ainda ativo.
+      contratoSyncAgendarReconexao()
     } catch (e) {
       if (e.name !== 'AbortError') {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('contrato-sync-event', { type: '__error', message: e.message })
         }
+        contratoSyncAgendarReconexao()  // erro de rede/terminated — reconecta
       }
     }
   }
