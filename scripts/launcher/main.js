@@ -2390,6 +2390,33 @@ function registerIpcHandlers() {
       if (gitExitCode(['cat-file', '-e', `${targetSha}^{commit}`]) !== 0) {
         return { ok: false, error: 'Commit selecionado não existe no repositório local.' }
       }
+      // ── Auto-integra o <branch> remoto antes do push ──────────────────────────
+      // Quando um PR de colega já entrou no origin/<branch>, o push do seu deploy
+      // seria rejeitado (non-fast-forward). Integramos aqui (merge — preserva os
+      // SHAs e lida com merge commits) pra o push virar fast-forward, trazendo o PR
+      // do colega junto. Conflito real → aborta e avisa. Só quando publicando o
+      // topo (HEAD) da própria branch de deploy.
+      if (coreDeployBranch === localBranch) {
+        await gitExec(['fetch', 'origin', coreDeployBranch], null, 30000)
+        const remoteBranchSha = gitOutput(['rev-parse', `origin/${coreDeployBranch}`])
+        const headSha = gitOutput(['rev-parse', 'HEAD'])
+        const remoteAhead = remoteBranchSha && gitExitCode(['merge-base', '--is-ancestor', remoteBranchSha, targetSha]) !== 0
+        if (remoteAhead && targetSha === headSha) {
+          deployEmit(8, 'push', `→ ${coreDeployBranch} remoto à frente (PR de colega) — integrando...`, 'info')
+          const integ = await gitExec(['merge', '--no-edit', `origin/${coreDeployBranch}`], (line) => deployEmit(8, 'push', line, 'info'), 60000)
+          if (integ.code !== 0) {
+            await gitExec(['merge', '--abort'], null, 15000)
+            deployRunning = false
+            deployEmit(9, 'push', `✗ Conflito ao integrar o ${coreDeployBranch} remoto`, 'err')
+            return { ok: false, error: `Conflito ao integrar o "${coreDeployBranch}" remoto (provável PR de colega no mesmo arquivo). Resolva com "git pull origin ${coreDeployBranch}" e refaça o deploy.` }
+          }
+          targetSha = gitOutput(['rev-parse', 'HEAD'])
+          deployEmit(9, 'push', `✓ ${coreDeployBranch} remoto integrado (${targetSha.slice(0, 7)})`, 'ok')
+        } else if (remoteAhead) {
+          deployRunning = false
+          return { ok: false, error: `O "${coreDeployBranch}" remoto está à frente (PR de colega), mas você está publicando um commit específico (não o topo). Rode "git pull --rebase origin ${coreDeployBranch}" e tente de novo.` }
+        }
+      }
       // Timeout 60s — se Git Credential Manager pedir popup, mata em 60s ao invés de travar.
       const targetAlreadyRemote = remoteShaBeforePush && gitExitCode(['merge-base', '--is-ancestor', targetSha, remoteShaBeforePush]) === 0
       const pushResult = targetAlreadyRemote
@@ -2613,7 +2640,7 @@ function registerIpcHandlers() {
           deployRunning = false
           return { ok: false, error: 'Commit selecionado do App Mobile invalido.' }
         }
-        const appTargetSha = requestedAppSha || gitOutput(['rev-parse', 'HEAD'], appCwd)
+        let appTargetSha = requestedAppSha || gitOutput(['rev-parse', 'HEAD'], appCwd)
         if (!appPrTarget?.number && gitExitCode(['merge-base', '--is-ancestor', appTargetSha, 'HEAD'], appCwd) !== 0) {
           deployRunning = false
           return { ok: false, error: 'Commit selecionado do App Mobile não pertence ao histórico local.' }
@@ -2621,6 +2648,26 @@ function registerIpcHandlers() {
         if (gitExitCode(['cat-file', '-e', `${appTargetSha}^{commit}`], appCwd) !== 0) {
           deployRunning = false
           return { ok: false, error: 'Commit selecionado do App Mobile não existe no repositório local.' }
+        }
+        // Auto-integra o branch remoto do app antes do push (mesma lógica do core).
+        if (appDeployBranch === appBranch) {
+          await gitExec(['fetch', 'origin', appDeployBranch], null, 30000, appCwd)
+          const appRemoteSha = gitOutput(['rev-parse', `origin/${appDeployBranch}`], appCwd)
+          const appHeadSha = gitOutput(['rev-parse', 'HEAD'], appCwd)
+          const appRemoteAhead = appRemoteSha && gitExitCode(['merge-base', '--is-ancestor', appRemoteSha, appTargetSha], appCwd) !== 0
+          if (appRemoteAhead && appTargetSha === appHeadSha) {
+            deployEmit(96, 'pull', `→ [app] ${appDeployBranch} remoto à frente — integrando...`, 'info')
+            const appInteg = await gitExec(['merge', '--no-edit', `origin/${appDeployBranch}`], (line) => deployEmit(96, 'pull', `[app] ${line}`, 'info'), 60000, appCwd)
+            if (appInteg.code !== 0) {
+              await gitExec(['merge', '--abort'], null, 15000, appCwd)
+              deployRunning = false
+              return { ok: false, error: `Conflito ao integrar o "${appDeployBranch}" remoto do App Mobile. Resolva com "git pull origin ${appDeployBranch}" e refaça o deploy.` }
+            }
+            appTargetSha = gitOutput(['rev-parse', 'HEAD'], appCwd)
+          } else if (appRemoteAhead) {
+            deployRunning = false
+            return { ok: false, error: `O "${appDeployBranch}" remoto do App Mobile está à frente, mas você publica um commit específico. Rode "git pull --rebase origin ${appDeployBranch}" e tente de novo.` }
+          }
         }
         const appPush = await gitExec(['push', 'origin', `${appTargetSha}:refs/heads/${appDeployBranch}`], (line) => deployEmit(97, 'push', `[app] ${line}`, 'info'), 60000, appCwd)
         if (appPush.code !== 0) {
