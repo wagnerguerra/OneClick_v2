@@ -135,33 +135,27 @@ export class SciService {
     return parsed
   }
 
-  /**
-   * Calcula parametros sugeridos: media 3 meses a partir da data de entrada.
-   */
-  async calcularParametrosSugeridos(cnpj: string): Promise<{
-    parametros: Record<string, number>
-    periodo: { datai: string; dataf: string }
-    origem: string
-  }> {
-    // Usar ultimo mes completo como referencia
-    // Ex: hoje 09/04/2026 -> periodo = 2026-03-01 a 2026-03-31
+  /** Período de referência dos parâmetros sugeridos: último mês completo. */
+  periodoSugerido(): { datai: string; dataf: string } {
     const now = new Date()
     const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0)
-
     const datai = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}-01`
     const dataf = `${lastMonthEnd.getFullYear()}-${String(lastMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(lastMonthEnd.getDate()).padStart(2, '0')}`
+    return { datai, dataf }
+  }
 
-    const metrics = await this.buscarMetricasSci(cnpj, datai, dataf)
-
-    // Funcao de media
+  /** Calcula os parâmetros a partir das métricas já obtidas (local OU via ponte). */
+  calcularParametrosDeMetricas(
+    metrics: Record<string, unknown>,
+    periodo: { datai: string; dataf: string },
+  ): { parametros: Record<string, number>; periodo: { datai: string; dataf: string }; origem: string } {
     const avg = (rows: unknown[], asInteger = true): number => {
       if (!Array.isArray(rows) || rows.length === 0) return 0
       const sum = (rows as Array<Record<string, unknown>>).reduce((s, r) => s + (Number(r.movimentacao) || 0), 0)
       const a = sum / rows.length
       return asInteger ? Math.round(a) : Number(a.toFixed(2))
     }
-
     return {
       parametros: {
         lancamentos: avg(metrics.lancamentos as unknown[] || [], true),
@@ -172,9 +166,23 @@ export class SciService {
         nfTomado: avg(metrics.nf_tomado as unknown[] || [], true),
         funcionarios: avg(metrics.vidas as unknown[] || [], true),
       },
-      periodo: { datai, dataf },
+      periodo,
       origem: 'sci_media_3m',
     }
+  }
+
+  /**
+   * Calcula parametros sugeridos: media do último mês completo. (Conexão direta —
+   * o fallback pra ponte do Launcher é feito no router getParametrosSugeridos.)
+   */
+  async calcularParametrosSugeridos(cnpj: string): Promise<{
+    parametros: Record<string, number>
+    periodo: { datai: string; dataf: string }
+    origem: string
+  }> {
+    const periodo = this.periodoSugerido()
+    const metrics = await this.buscarMetricasSci(cnpj, periodo.datai, periodo.dataf)
+    return this.calcularParametrosDeMetricas(metrics, periodo)
   }
 
   /**

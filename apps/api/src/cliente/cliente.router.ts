@@ -609,7 +609,20 @@ export function createClienteRouter(
         const cliente = await clienteService.getById(input.clienteId, ctx.isMaster, ctx.empresaId)
         const cnpj = (cliente.documento || '').replace(/\D/g, '')
         if (cnpj.length !== 14) throw new Error('Apenas clientes CNPJ podem obter parametros do SCI.')
-        return sciService.calcularParametrosSugeridos(cnpj)
+        // Métricas via SCI local; se indisponível (ex.: VPS sem python/Firebird),
+        // cai pra ponte do Launcher — igual ao buscarMetricasSci.
+        const periodo = sciService.periodoSugerido()
+        let metricas: Record<string, unknown>
+        try {
+          metricas = await sciService.buscarMetricasSci(cnpj, periodo.datai, periodo.dataf)
+        } catch (err) {
+          const msg = (err as Error).message || ''
+          const sciUnreachable = /ENOENT|conn|connect|refused|timeout|Firebird|python|Não foi possível conectar/i.test(msg)
+          if (!sciUnreachable || !contratoSyncService) throw err
+          console.log(`[Cliente] SCI local indisponível p/ parâmetros, pedindo ao Launcher: ${msg.slice(0, 100)}`)
+          metricas = await contratoSyncService.requestErpRemote({ cnpj, datai: periodo.datai, dataf: periodo.dataf })
+        }
+        return sciService.calcularParametrosDeMetricas(metricas, periodo)
       }),
 
     buscarMetricasSci: readProcedure(MODULE)
