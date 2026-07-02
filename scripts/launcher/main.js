@@ -1741,7 +1741,8 @@ function registerIpcHandlers() {
     console.log(`[CertDescricoes] Recebido ${requestId}`)
     try {
       const descricoes = await lerCertDescricoes(payload)
-      await postarContratoCallback(baseUrl, requestId, { descricoes })
+      // O callback exige o wrapper { dados } (resolveRemoteRequest usa body.dados).
+      await postarContratoCallback(baseUrl, requestId, { dados: { descricoes } })
       console.log(`[CertDescricoes] ✓ ${requestId} — ${descricoes.length} descrição(ões)`)
     } catch (e) {
       console.warn(`[CertDescricoes] ✗ ${requestId}: ${e.message}`)
