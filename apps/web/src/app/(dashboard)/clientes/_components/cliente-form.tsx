@@ -1712,6 +1712,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
     try {
       const result = await trpc.cliente.getParametrosSugeridos.query({ clienteId }) as {
         parametros: Record<string, number>; periodo: { datai: string; dataf: string }; origem: string
+        mesesUsados?: string[]
       }
       setParams(prev => ({
         ...prev,
@@ -1723,7 +1724,10 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
         nfTomado: result.parametros.nfTomado ?? prev.nfTomado,
         funcionarios: result.parametros.funcionarios ?? prev.funcionarios,
       }))
-      setSuggestedInfo(`Dados obtidos do SCI (${result.origem}). Periodo: ${result.periodo.datai} a ${result.periodo.dataf}`)
+      const meses = result.mesesUsados ?? []
+      setSuggestedInfo(meses.length > 0
+        ? `Média dos últimos meses com movimento: ${meses.join(', ')}.`
+        : `Sem movimento no período consultado (${result.periodo.datai} a ${result.periodo.dataf}) — parâmetros vieram zerados.`)
     } catch (e) {
       alerts.error('Erro ao obter parametros', (e as Error).message || 'Nao foi possivel consultar o SCI.')
     } finally { setFetchingSuggested(false) }

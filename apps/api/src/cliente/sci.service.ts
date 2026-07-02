@@ -161,31 +161,46 @@ export class SciService {
   calcularParametrosDeMetricas(
     metrics: Record<string, unknown>,
     periodo: { datai: string; dataf: string },
-  ): { parametros: Record<string, number>; periodo: { datai: string; dataf: string }; origem: string } {
-    const media = (rows: unknown[], asInteger = true): number => {
-      if (!Array.isArray(rows)) return 0
+  ): {
+    parametros: Record<string, number>
+    periodo: { datai: string; dataf: string }
+    origem: string
+    mesesPorMetrica: Record<string, string[]>
+    mesesUsados: string[]
+  } {
+    const mesesPorMetrica: Record<string, string[]> = {}
+    const usados = new Map<number, { ano: number; mes: number }>() // dedup por AAAAMM
+    const fmt = (r: Record<string, unknown>) => `${String(Number(r.mes)).padStart(2, '0')}/${Number(r.ano)}`
+
+    const media = (key: string, rows: unknown[], asInteger = true): number => {
+      if (!Array.isArray(rows)) { mesesPorMetrica[key] = []; return 0 }
       const comMov = (rows as Array<Record<string, unknown>>)
         .filter((r) => Number(r.movimentacao) > 0)
         .sort((a, b) => (Number(b.ano) - Number(a.ano)) || (Number(b.mes) - Number(a.mes)))
         .slice(0, this.paramsMesesMedia)
+      mesesPorMetrica[key] = comMov.map(fmt)
+      for (const r of comMov) usados.set(Number(r.ano) * 100 + Number(r.mes), { ano: Number(r.ano), mes: Number(r.mes) })
       if (comMov.length === 0) return 0
       const sum = comMov.reduce((s, r) => s + (Number(r.movimentacao) || 0), 0)
       const a = sum / comMov.length
       return asInteger ? Math.round(a) : Number(a.toFixed(2))
     }
-    return {
-      parametros: {
-        lancamentos: media(metrics.lancamentos as unknown[] || [], true),
-        faturamento: media(metrics.faturamento as unknown[] || [], false),
-        nfEntrada: media(metrics.nf_entrada as unknown[] || [], true),
-        nfSaida: media(metrics.nf_saida as unknown[] || [], true),
-        nfPrestado: media(metrics.nf_prestado as unknown[] || [], true),
-        nfTomado: media(metrics.nf_tomado as unknown[] || [], true),
-        funcionarios: media(metrics.vidas as unknown[] || [], true),
-      },
-      periodo,
-      origem: 'sci_media_ultimos_com_mov',
+
+    const parametros = {
+      lancamentos: media('lancamentos', metrics.lancamentos as unknown[] || [], true),
+      faturamento: media('faturamento', metrics.faturamento as unknown[] || [], false),
+      nfEntrada: media('nfEntrada', metrics.nf_entrada as unknown[] || [], true),
+      nfSaida: media('nfSaida', metrics.nf_saida as unknown[] || [], true),
+      nfPrestado: media('nfPrestado', metrics.nf_prestado as unknown[] || [], true),
+      nfTomado: media('nfTomado', metrics.nf_tomado as unknown[] || [], true),
+      funcionarios: media('funcionarios', metrics.vidas as unknown[] || [], true),
     }
+    // Resumo: meses distintos que entraram em alguma métrica, mais recentes primeiro.
+    const mesesUsados = [...usados.values()]
+      .sort((a, b) => (b.ano - a.ano) || (b.mes - a.mes))
+      .map((d) => `${String(d.mes).padStart(2, '0')}/${d.ano}`)
+
+    return { parametros, periodo, origem: 'sci_media_ultimos_com_mov', mesesPorMetrica, mesesUsados }
   }
 
   /**
