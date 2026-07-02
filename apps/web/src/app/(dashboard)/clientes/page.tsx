@@ -107,9 +107,15 @@ export default function ClientesPage() {
   const openOpcoesModal = () => { setOpcoesModal(true); loadOpcoes(opcoesTab) }
 
   const handleAddOpcao = async () => {
-    if (!novaOpcao.trim()) return
+    const valor = novaOpcao.trim()
+    if (!valor) return
+    // Feedback imediato — não permite duplicata (case-insensitive) já no cliente.
+    if (opcoes.some(o => o.valor.trim().toLowerCase() === valor.toLowerCase())) {
+      alerts.error('Duplicado', `"${valor}" já está cadastrado nesta lista.`)
+      return
+    }
     try {
-      await (trpc.cliente as any).createOpcao.mutate({ tipo: opcoesTab, valor: novaOpcao.trim() })
+      await (trpc.cliente as any).createOpcao.mutate({ tipo: opcoesTab, valor })
       setNovaOpcao('')
       loadOpcoes(opcoesTab)
     } catch (err) { alerts.error('Erro', (err as Error).message) }
@@ -119,7 +125,12 @@ export default function ClientesPage() {
     try { await (trpc.cliente as any).updateOpcao.mutate({ id, valor }) } catch { /* */ }
   }
 
-  const handleDeleteOpcao = async (id: string, valor: string) => {
+  const handleDeleteOpcao = async (id: string, valor: string, count = 0) => {
+    // Bloqueio imediato — não exclui se houver clientes vinculados.
+    if (count > 0) {
+      alerts.error('Não é possível excluir', `"${valor}" tem ${count} cliente(s) vinculado(s). Reatribua-os antes de excluir.`)
+      return
+    }
     const ok = await alerts.confirmDelete(valor)
     if (!ok) return
     try {
@@ -880,7 +891,7 @@ export default function ClientesPage() {
             {(() => {
               const filtradas = opcoes.filter(o => !opcoesBusca || o.valor.toLowerCase().includes(opcoesBusca.toLowerCase()))
               return (
-                <div className="max-h-[50vh] overflow-y-auto divide-y divide-border/50 -mx-1">
+                <div className="h-[50vh] overflow-y-auto divide-y divide-border/50 -mx-1">
                   {opcoesLoading ? (
                     <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
                   ) : opcoes.length === 0 ? (
@@ -900,7 +911,7 @@ export default function ClientesPage() {
                           {op.count}
                         </span>
                       ) : null}
-                      <button type="button" className="shrink-0 p-1 rounded text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all" onClick={() => handleDeleteOpcao(op.id, op.valor)} title="Excluir">
+                      <button type="button" className="shrink-0 p-1 rounded text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all" onClick={() => handleDeleteOpcao(op.id, op.valor, op.count || 0)} title="Excluir">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>

@@ -106,15 +106,26 @@ export function createClienteRouter(
         const rows = await prisma.$queryRawUnsafe<Array<{ id: string; tipo: string; valor: string; ordem: number }>>(
           `SELECT id, tipo, valor, ordem FROM opcoes_cadastro WHERE tipo = $1 AND ativo = true ORDER BY ordem ASC`, input.tipo,
         )
-        // Contagem de clientes vinculados por opção — só p/ tipos que são coluna
-        // direta em `clientes` (GRUPO/ORIGEM). `col` é whitelist (não vem do input).
-        const col = input.tipo === 'GRUPO' ? 'grupo' : input.tipo === 'ORIGEM' ? 'origem' : null
-        if (!col) return rows.map(r => ({ ...r, count: 0 }))
-        const counts = await prisma.$queryRawUnsafe<Array<{ chave: string; n: number }>>(
-          `SELECT LOWER(TRIM(${col})) AS chave, COUNT(*)::int AS n
-           FROM clientes WHERE ${col} IS NOT NULL AND TRIM(${col}) <> '' AND deleted_at IS NULL
-           GROUP BY LOWER(TRIM(${col}))`,
-        )
+        // Contagem de clientes vinculados por opção. GRUPO/ORIGEM = coluna direta
+        // em `clientes`; ATIVIDADE = relação `cliente_atividades` (por valor).
+        // `col` é whitelist (nunca vem do input) — sem risco de injeção.
+        let counts: Array<{ chave: string; n: number }> = []
+        if (input.tipo === 'GRUPO' || input.tipo === 'ORIGEM') {
+          const col = input.tipo === 'GRUPO' ? 'grupo' : 'origem'
+          counts = await prisma.$queryRawUnsafe<Array<{ chave: string; n: number }>>(
+            `SELECT LOWER(TRIM(${col})) AS chave, COUNT(*)::int AS n
+             FROM clientes WHERE ${col} IS NOT NULL AND TRIM(${col}) <> '' AND deleted_at IS NULL
+             GROUP BY LOWER(TRIM(${col}))`,
+          )
+        } else if (input.tipo === 'ATIVIDADE') {
+          counts = await prisma.$queryRawUnsafe<Array<{ chave: string; n: number }>>(
+            `SELECT LOWER(TRIM(ca.valor)) AS chave, COUNT(DISTINCT ca.cliente_id)::int AS n
+             FROM cliente_atividades ca JOIN clientes c ON c.id = ca.cliente_id AND c.deleted_at IS NULL
+             WHERE ca.valor IS NOT NULL AND TRIM(ca.valor) <> '' GROUP BY LOWER(TRIM(ca.valor))`,
+          )
+        } else {
+          return rows.map(r => ({ ...r, count: 0 }))
+        }
         const map = new Map(counts.map(c => [c.chave, Number(c.n)]))
         return rows.map(r => ({ ...r, count: map.get(r.valor.toLowerCase().trim()) ?? 0 }))
       }),
@@ -122,10 +133,17 @@ export function createClienteRouter(
     createOpcao: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ tipo: z.string(), valor: z.string().min(1) }))
       .mutation(async ({ input }) => {
+        const valor = input.valor.trim()
+        if (!valor) throw new Error('Informe um valor.')
+        // Não permite duplicata (mesmo tipo, comparação case-insensitive + trim).
+        const existe = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+          `SELECT id FROM opcoes_cadastro WHERE tipo = $1 AND LOWER(TRIM(valor)) = LOWER(TRIM($2)) LIMIT 1`, input.tipo, valor,
+        )
+        if (existe.length > 0) throw new Error(`"${valor}" já está cadastrado nesta lista.`)
         const max = await prisma.$queryRawUnsafe<Array<{ m: number }>>(`SELECT COALESCE(MAX(ordem), 0)::int as m FROM opcoes_cadastro WHERE tipo = $1`, input.tipo)
         const ordem = (max[0]?.m || 0) + 1
         await prisma.$executeRawUnsafe(
-          `INSERT INTO opcoes_cadastro (id, tipo, valor, ordem) VALUES (gen_random_uuid()::text, $1, $2, $3)`, input.tipo, input.valor, ordem,
+          `INSERT INTO opcoes_cadastro (id, tipo, valor, ordem) VALUES (gen_random_uuid()::text, $1, $2, $3)`, input.tipo, valor, ordem,
         )
         return { ok: true }
       }),
@@ -141,6 +159,29 @@ export function createClienteRouter(
     deleteOpcao: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ id: z.string() }))
       .mutation(async ({ input }) => {
+        // Bloqueia exclusão se houver clientes vinculados a esta opção.
+        const opc = await prisma.$queryRawUnsafe<Array<{ tipo: string; valor: string }>>(
+          `SELECT tipo, valor FROM opcoes_cadastro WHERE id = $1 LIMIT 1`, input.id,
+        )
+        const o = opc[0]
+        if (o) {
+          let n = 0
+          if (o.tipo === 'GRUPO' || o.tipo === 'ORIGEM') {
+            const col = o.tipo === 'GRUPO' ? 'grupo' : 'origem'
+            const r = await prisma.$queryRawUnsafe<Array<{ n: number }>>(
+              `SELECT COUNT(*)::int AS n FROM clientes WHERE LOWER(TRIM(${col})) = LOWER(TRIM($1)) AND deleted_at IS NULL`, o.valor,
+            )
+            n = Number(r[0]?.n || 0)
+          } else if (o.tipo === 'ATIVIDADE') {
+            const r = await prisma.$queryRawUnsafe<Array<{ n: number }>>(
+              `SELECT COUNT(DISTINCT ca.cliente_id)::int AS n FROM cliente_atividades ca
+               JOIN clientes c ON c.id = ca.cliente_id AND c.deleted_at IS NULL
+               WHERE LOWER(TRIM(ca.valor)) = LOWER(TRIM($1))`, o.valor,
+            )
+            n = Number(r[0]?.n || 0)
+          }
+          if (n > 0) throw new Error(`Não é possível excluir "${o.valor}": ${n} cliente(s) vinculado(s).`)
+        }
         await prisma.$executeRawUnsafe(`DELETE FROM opcoes_cadastro WHERE id = $1`, input.id)
         return { ok: true }
       }),
