@@ -89,12 +89,14 @@ export default function ClientesPage() {
   // Gerenciador de opcoes (Atividade, Origem)
   const [opcoesModal, setOpcoesModal] = useState(false)
   const [opcoesTab, setOpcoesTab] = useState<'ATIVIDADE' | 'ORIGEM' | 'GRUPO'>('ATIVIDADE')
-  const [opcoes, setOpcoes] = useState<Array<{ id: string; tipo: string; valor: string; ordem: number }>>([])
+  const [opcoes, setOpcoes] = useState<Array<{ id: string; tipo: string; valor: string; ordem: number; count?: number }>>([])
   const [opcoesLoading, setOpcoesLoading] = useState(false)
   const [novaOpcao, setNovaOpcao] = useState('')
+  const [opcoesBusca, setOpcoesBusca] = useState('')
 
   const loadOpcoes = useCallback(async (tipo: string) => {
     setOpcoesLoading(true)
+    setOpcoesBusca('')
     try {
       const data = await (trpc.cliente as any).listOpcoes.query({ tipo }) as typeof opcoes
       setOpcoes(data)
@@ -852,14 +854,14 @@ export default function ClientesPage() {
 
       {/* Gerenciador de Opcoes (Atividade / Origem) */}
       <Dialog open={opcoesModal} onOpenChange={setOpcoesModal}>
-        <DialogContent className="max-w-[500px]">
+        <DialogContent className="max-w-[620px]">
           <DialogHeaderIcon icon={Settings2} color="emerald">
             <DialogTitle className="text-[15px]">Opcoes de Cadastro</DialogTitle>
             <DialogDescription className="text-[11px]">Gerencie as opcoes dos campos Atividade, Origem e Grupo</DialogDescription>
           </DialogHeaderIcon>
           <DialogBody>
             {/* Tabs */}
-            <div className="flex gap-1 mb-4 border-b">
+            <div className="flex gap-1 mb-3 border-b">
               {(['ATIVIDADE', 'ORIGEM', 'GRUPO'] as const).map(tab => (
                 <button key={tab} type="button"
                   className={cn('px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px', opcoesTab === tab ? 'border-emerald-500 text-emerald-700' : 'border-transparent text-muted-foreground hover:text-foreground')}
@@ -869,26 +871,43 @@ export default function ClientesPage() {
                 </button>
               ))}
             </div>
-            {/* Lista */}
-            <div className="space-y-2 max-h-[40vh] overflow-y-auto">
-              {opcoesLoading ? (
-                <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-              ) : opcoes.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-6">Nenhuma opcao cadastrada</p>
-              ) : opcoes.map(op => (
-                <div key={op.id} className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/30">
-                  <Input
-                    value={op.valor}
-                    onChange={e => setOpcoes(prev => prev.map(o => o.id === op.id ? { ...o, valor: e.target.value } : o))}
-                    onBlur={() => handleUpdateOpcao(op.id, op.valor)}
-                    className="h-8 text-sm flex-1"
-                  />
-                  <button type="button" className="text-muted-foreground hover:text-destructive shrink-0" onClick={() => handleDeleteOpcao(op.id, op.valor)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
+            {/* Filtro */}
+            <div className="relative mb-2">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input placeholder="Filtrar..." value={opcoesBusca} onChange={e => setOpcoesBusca(e.target.value)} className="h-8 text-sm pl-8" />
             </div>
+            {/* Lista — compacta, sem molduras (inputs viram texto editável) */}
+            {(() => {
+              const filtradas = opcoes.filter(o => !opcoesBusca || o.valor.toLowerCase().includes(opcoesBusca.toLowerCase()))
+              return (
+                <div className="max-h-[50vh] overflow-y-auto divide-y divide-border/50 -mx-1">
+                  {opcoesLoading ? (
+                    <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+                  ) : opcoes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-6">Nenhuma opcao cadastrada</p>
+                  ) : filtradas.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-6">Nenhum resultado para &quot;{opcoesBusca}&quot;</p>
+                  ) : filtradas.map(op => (
+                    <div key={op.id} className="group flex items-center gap-1 px-1">
+                      <Input
+                        value={op.valor}
+                        onChange={e => setOpcoes(prev => prev.map(o => o.id === op.id ? { ...o, valor: e.target.value } : o))}
+                        onBlur={() => handleUpdateOpcao(op.id, op.valor)}
+                        className="h-7 text-sm flex-1 border-0 bg-transparent shadow-none px-2 rounded hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-1"
+                      />
+                      {op.count ? (
+                        <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums px-1.5 py-0.5 rounded bg-muted/60" title={`${op.count} cliente(s) neste grupo`}>
+                          {op.count}
+                        </span>
+                      ) : null}
+                      <button type="button" className="shrink-0 p-1 rounded text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all" onClick={() => handleDeleteOpcao(op.id, op.valor)} title="Excluir">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
             {/* Adicionar */}
             <div className="flex items-center gap-2 mt-3 pt-3 border-t">
               <Input placeholder={opcoesTab === 'ATIVIDADE' ? 'Nova atividade...' : opcoesTab === 'ORIGEM' ? 'Nova origem...' : 'Novo grupo...'} value={novaOpcao} onChange={e => setNovaOpcao(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddOpcao() }} className="h-8 text-sm flex-1" />

@@ -103,9 +103,20 @@ export function createClienteRouter(
     listOpcoes: readProcedure(MODULE)
       .input(z.object({ tipo: z.string() }))
       .query(async ({ input }) => {
-        return prisma.$queryRawUnsafe<Array<{ id: string; tipo: string; valor: string; ordem: number }>>(
+        const rows = await prisma.$queryRawUnsafe<Array<{ id: string; tipo: string; valor: string; ordem: number }>>(
           `SELECT id, tipo, valor, ordem FROM opcoes_cadastro WHERE tipo = $1 AND ativo = true ORDER BY ordem ASC`, input.tipo,
         )
+        // Contagem de clientes vinculados por opção — só p/ tipos que são coluna
+        // direta em `clientes` (GRUPO/ORIGEM). `col` é whitelist (não vem do input).
+        const col = input.tipo === 'GRUPO' ? 'grupo' : input.tipo === 'ORIGEM' ? 'origem' : null
+        if (!col) return rows.map(r => ({ ...r, count: 0 }))
+        const counts = await prisma.$queryRawUnsafe<Array<{ chave: string; n: number }>>(
+          `SELECT LOWER(TRIM(${col})) AS chave, COUNT(*)::int AS n
+           FROM clientes WHERE ${col} IS NOT NULL AND TRIM(${col}) <> '' AND deleted_at IS NULL
+           GROUP BY LOWER(TRIM(${col}))`,
+        )
+        const map = new Map(counts.map(c => [c.chave, Number(c.n)]))
+        return rows.map(r => ({ ...r, count: map.get(r.valor.toLowerCase().trim()) ?? 0 }))
       }),
 
     createOpcao: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
