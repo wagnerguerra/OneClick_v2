@@ -6,6 +6,7 @@ import { CertificadoDigitalService } from './certificado-digital.service'
 import { LegacyImportCertService } from './legacy-import-cert.service'
 import { BulkImportCertService } from './bulk-import-cert.service'
 import { AuthService } from '../auth/auth.service'
+import type { ContratoSyncService } from '../cliente/contrato-sync.service'
 
 const MODULE = 'gestao-certificados'
 
@@ -64,6 +65,7 @@ export function createCertificadoDigitalRouter(
   authService: AuthService,
   legacyImportService: LegacyImportCertService,
   bulkImportService: BulkImportCertService,
+  contratoSyncService: ContratoSyncService,
 ) {
   return router({
 
@@ -263,7 +265,7 @@ export function createCertificadoDigitalRouter(
         if (!(ctx.isMaster || ctx.isEmpresaMaster)) {
           throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas master/empresa-master' })
         }
-        return legacyImportService.backfillObservacoes(scopedEmpresaId(ctx, input.empresaId))
+        return legacyImportService.backfillObservacoes(scopedEmpresaId(ctx, input.empresaId), contratoSyncService)
       }),
 
     // ── Importação em lote (drop de arquivos PFX) ────────────

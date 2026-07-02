@@ -1684,6 +1684,52 @@ function registerIpcHandlers() {
     }
   }
 
+  // ── Backfill de descrições de certificados (OneClick V1) ──────────────────
+  // Lê o MySQL legado (creds vêm no payload, resolvidas pela API) e devolve
+  // [{ id, descricao, nomeArquivo }] dos arquivos de certificado. A API atualiza
+  // as observações dos certs. Tenta o schema V1 (cad_cli_files) e cai pro SERPRO2.
+  async function lerCertDescricoes(payload) {
+    const db = payload && payload.db
+    if (!db || !db.host || !db.database) throw new Error('Config do banco legado ausente no pedido')
+    // eslint-disable-next-line global-require
+    const mysql = require('mysql2/promise')
+    const conn = await mysql.createConnection({
+      host: db.host, port: Number(db.port || 3306), user: db.user, password: db.password || '',
+      database: db.database, charset: 'utf8mb4', connectTimeout: 10000,
+    })
+    try {
+      let rows
+      try {
+        [rows] = await conn.query(
+          `SELECT a.id AS id, a.descricao AS descricao, a.arquivo AS nomeArquivo
+           FROM cad_cli_files a WHERE a.tipo = '6' AND a.ativo = 1`)
+      } catch {
+        [rows] = await conn.query(
+          `SELECT a.id AS id, a.notas AS descricao, a.nome_original AS nomeArquivo
+           FROM clientes_arquivos a WHERE a.is_certificado = 1`)
+      }
+      return (rows || []).map((r) => ({
+        id: Number(r.id),
+        descricao: r.descricao != null ? String(r.descricao) : null,
+        nomeArquivo: r.nomeArquivo != null ? String(r.nomeArquivo) : null,
+      }))
+    } finally { try { await conn.end() } catch {} }
+  }
+
+  async function processarCertDescricoesRequest(baseUrl, event) {
+    const { requestId, payload } = event
+    if (!requestId) return
+    console.log(`[CertDescricoes] Recebido ${requestId}`)
+    try {
+      const descricoes = await lerCertDescricoes(payload)
+      await postarContratoCallback(baseUrl, requestId, { descricoes })
+      console.log(`[CertDescricoes] ✓ ${requestId} — ${descricoes.length} descrição(ões)`)
+    } catch (e) {
+      console.warn(`[CertDescricoes] ✗ ${requestId}: ${e.message}`)
+      try { await postarContratoCallback(baseUrl, requestId, { erro: e.message }) } catch {}
+    }
+  }
+
   async function contratoSyncStreamStart(baseUrl) {
     contratoSyncStreamStop()
     const cookieStr = biSyncCookies.get(baseUrl) || ''
@@ -1727,6 +1773,8 @@ function registerIpcHandlers() {
               processarContratoErpRequest(baseUrl, json).catch(() => {})
             } else if (json.type === 'cliente-import-request') {
               processarClienteImportRequest(baseUrl, json).catch(() => {})
+            } else if (json.type === 'cert-descricoes-request') {
+              processarCertDescricoesRequest(baseUrl, json).catch(() => {})
             } else if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send('contrato-sync-event', json)
             }

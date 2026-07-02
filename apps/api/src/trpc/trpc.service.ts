@@ -707,7 +707,7 @@ export class TrpcService {
       contrato: createContratoRouter(this.contratoService),
       notification: createNotificationRouter(this.notificationService),
       tabs: createTabsRouter(this.tabsService),
-      certificadoDigital: createCertificadoDigitalRouter(this.certificadoDigitalService, this.authServiceForCert, this.legacyImportCertService, this.bulkImportCertService),
+      certificadoDigital: createCertificadoDigitalRouter(this.certificadoDigitalService, this.authServiceForCert, this.legacyImportCertService, this.bulkImportCertService, this.contratoSyncService),
       dashboardLayout: createDashboardLayoutRouter(this.dashboardLayoutService, this.dashboardLayoutEventsService),
       presence: createPresenceRouter(),
       chat: createChatRouter(this.chatService),

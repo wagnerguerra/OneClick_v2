@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto'
 import { encryptPassword, serializeCipher, sha256Hex } from './crypto.helper'
 import { parsePfx, type PfxInfo } from './pfx-parser'
 import { CertificadoDigitalService } from './certificado-digital.service'
+import type { ContratoSyncService } from '../cliente/contrato-sync.service'
 
 const STORAGE_ROOT = path.resolve(process.cwd(), 'uploads', 'certificados')
 
@@ -492,7 +493,9 @@ export class LegacyImportCertService {
    * (keys OCK_V1_DB_*). Fallback pras env vars OCK_V1_DB_* e por último as
    * antigas LEGACY_DB_* (compat com setup local SERPRO2).
    */
-  private async getLegacyConnection() {
+  /** Resolve as credenciais do OCK_V1 (SystemConfig → env). Usado pela conexão
+   *  direta (rodando na LAN) e pela ponte do SM (creds enviadas pro Launcher). */
+  async getLegacyDbConfig(): Promise<{ host: string; port: number; user: string; password: string; database: string }> {
     const configs = await prisma.systemConfig.findMany({
       where: { key: { in: ['OCK_V1_DB_HOST', 'OCK_V1_DB_PORT', 'OCK_V1_DB_USER', 'OCK_V1_DB_PASSWORD', 'OCK_V1_DB_NAME'] } },
     })
@@ -507,9 +510,13 @@ export class LegacyImportCertService {
     if (!host || !user || !database) {
       throw new Error('Conexão com o banco OneClick V1 não configurada. Configure em Configurações → Banco de Dados → OneClick v1.')
     }
+    return { host, port, user, password, database }
+  }
 
+  private async getLegacyConnection() {
+    const c = await this.getLegacyDbConfig()
     return mysql.createConnection({
-      host, user, password, database, port,
+      host: c.host, user: c.user, password: c.password, database: c.database, port: c.port,
       charset: 'utf8mb4',
       connectTimeout: 10000,
     })
@@ -670,57 +677,45 @@ export class LegacyImportCertService {
    * só com "Importado do OneClick V1 (legacyId=X)."), levando a descrição/notas e o
    * nome do arquivo do legado. Idempotente — só grava se a observação mudou.
    */
-  async backfillObservacoes(empresaId: string): Promise<{ total: number; atualizados: number }> {
-    const conn = await this.getLegacyConnection()
-    try {
-      // Lê id → descrição/nome do arquivo do legado (tenta V1, cai pra SERPRO2).
-      const legadoMap = new Map<number, { descricao: string | null; nomeArquivo: string | null }>()
-      let rows: mysql.RowDataPacket[]
-      try {
-        ;[rows] = await conn.execute<mysql.RowDataPacket[]>(
-          `SELECT a.id AS id, a.descricao AS descricao, a.arquivo AS nomeArquivo
-           FROM cad_cli_files a WHERE a.tipo = '6' AND a.ativo = 1`,
-        )
-      } catch {
-        ;[rows] = await conn.execute<mysql.RowDataPacket[]>(
-          `SELECT a.id AS id, a.notas AS descricao, a.nome_original AS nomeArquivo
-           FROM clientes_arquivos a WHERE a.is_certificado = 1`,
-        )
-      }
-      for (const r of rows as unknown as Array<{ id: number; descricao: string | null; nomeArquivo: string | null }>) {
-        legadoMap.set(Number(r.id), {
-          descricao: stripHtmlSenha(r.descricao),
-          nomeArquivo: r.nomeArquivo ? String(r.nomeArquivo).trim() : null,
-        })
-      }
+  async backfillObservacoes(empresaId: string, contratoSync: ContratoSyncService): Promise<{ total: number; atualizados: number }> {
+    // O MySQL legado só é acessível na LAN. Pedimos as descrições pela ponte do
+    // Service Manager (que roda na LAN) — a API só resolve as creds e atualiza os certs.
+    const db = await this.getLegacyDbConfig()
+    const resp = await contratoSync.requestCertDescricoes({ db })
+    const descricoes = (resp?.descricoes as Array<{ id: number; descricao: string | null; nomeArquivo: string | null }> | undefined) ?? []
 
-      // Certificados do v2 (dessa empresa) importados do V1 — têm "legacyId=" na observação.
-      const certs = await prisma.certificadoDigital.findMany({
-        where: { empresaId, observacoes: { contains: 'legacyId=' } },
-        select: { id: true, observacoes: true },
+    const legadoMap = new Map<number, { descricao: string | null; nomeArquivo: string | null }>()
+    for (const r of descricoes) {
+      legadoMap.set(Number(r.id), {
+        descricao: stripHtmlSenha(r.descricao),
+        nomeArquivo: r.nomeArquivo ? String(r.nomeArquivo).trim() : null,
       })
-      let atualizados = 0
-      for (const cert of certs) {
-        const m = (cert.observacoes || '').match(/legacyId=(\d+)/)
-        if (!m) continue
-        const leg = legadoMap.get(Number(m[1]))
-        if (!leg || (!leg.descricao && !leg.nomeArquivo)) continue
-        const novaObs = this.montarObservacoesImport({
-          legacyId: Number(m[1]),
-          arquivoNome: '', caminhoLegado: '', cnpjLegado: null, razaoLegado: null,
-          dtVencimento: null, status: 'ok', vincularA: null, mensagem: '',
-          descricaoLegado: leg.descricao || undefined,
-          nomeArquivoLegado: leg.nomeArquivo || undefined,
-        })
-        if (novaObs !== (cert.observacoes || '')) {
-          await prisma.certificadoDigital.update({ where: { id: cert.id }, data: { observacoes: novaObs } })
-          atualizados++
-        }
-      }
-      return { total: certs.length, atualizados }
-    } finally {
-      await conn.end().catch(() => null)
     }
+
+    // Certificados do v2 (dessa empresa) importados do V1 — têm "legacyId=" na observação.
+    const certs = await prisma.certificadoDigital.findMany({
+      where: { empresaId, observacoes: { contains: 'legacyId=' } },
+      select: { id: true, observacoes: true },
+    })
+    let atualizados = 0
+    for (const cert of certs) {
+      const m = (cert.observacoes || '').match(/legacyId=(\d+)/)
+      if (!m) continue
+      const leg = legadoMap.get(Number(m[1]))
+      if (!leg || (!leg.descricao && !leg.nomeArquivo)) continue
+      const novaObs = this.montarObservacoesImport({
+        legacyId: Number(m[1]),
+        arquivoNome: '', caminhoLegado: '', cnpjLegado: null, razaoLegado: null,
+        dtVencimento: null, status: 'ok', vincularA: null, mensagem: '',
+        descricaoLegado: leg.descricao || undefined,
+        nomeArquivoLegado: leg.nomeArquivo || undefined,
+      })
+      if (novaObs !== (cert.observacoes || '')) {
+        await prisma.certificadoDigital.update({ where: { id: cert.id }, data: { observacoes: novaObs } })
+        atualizados++
+      }
+    }
+    return { total: certs.length, atualizados }
   }
 
   // ── Processamento de um item (preview) ────────────────────

@@ -27,6 +27,9 @@ export type ContratoSyncEvent =
   // Import do cadastro legado (OneClick v1 / MySQL db_intranet) via Launcher —
   // o SM lê o MySQL local (LAN) e devolve as linhas cruas; a API aplica.
   | { type: 'cliente-import-request'; requestId: string; payload: ClienteImportPayload; timestamp: number }
+  // Backfill de observações de certificados — o SM lê as descrições/nome dos
+  // arquivos no MySQL legado (OneClick V1) e devolve; a API atualiza os certs.
+  | { type: 'cert-descricoes-request'; requestId: string; payload: CertDescricoesPayload; timestamp: number }
 
 export interface ContratoErpPayload {
   cnpj: string
@@ -37,6 +40,11 @@ export interface ContratoErpPayload {
 
 export interface ClienteImportPayload {
   cnpj: string // só dígitos
+}
+
+export interface CertDescricoesPayload {
+  // Creds do OCK_V1 (resolvidas na API); o SM conecta na LAN e lê as descrições.
+  db: { host: string; port: number; user: string; password: string; database: string }
 }
 
 interface PendingRequest {
@@ -107,6 +115,25 @@ export class ContratoSyncService {
       }, timeoutMs)
       this.pending.set(requestId, { resolve, reject, timer, startedAt: Date.now() })
       this.subject.next({ type: 'cliente-import-request', requestId, payload: { cnpj }, timestamp: Date.now() })
+    })
+  }
+
+  /**
+   * Pede ao Launcher as descrições/nome dos arquivos de certificado no MySQL
+   * legado (backfill de observações). O SM lê e devolve [{ id, descricao, nomeArquivo }].
+   */
+  async requestCertDescricoes(payload: CertDescricoesPayload, timeoutMs = 45_000): Promise<Record<string, unknown>> {
+    if (this.subject.observers.length === 0) {
+      throw new Error('Service Manager não está conectado. Abra o Service Manager no PC do escritório — ele faz a ponte com o MySQL legado (LAN).')
+    }
+    const requestId = randomUUID()
+    return new Promise<Record<string, unknown>>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(requestId)
+        reject(new Error(`Launcher local não respondeu em ${Math.round(timeoutMs / 1000)}s. Verifique se o Service Manager está aberto e conectado.`))
+      }, timeoutMs)
+      this.pending.set(requestId, { resolve, reject, timer, startedAt: Date.now() })
+      this.subject.next({ type: 'cert-descricoes-request', requestId, payload, timestamp: Date.now() })
     })
   }
 
