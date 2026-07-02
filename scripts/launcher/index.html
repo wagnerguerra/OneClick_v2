@@ -1727,7 +1727,10 @@
             </div>
             <div class="page-subtitle">Monitoramento de pastas locais — XMLs de NFe enviados automaticamente pra API</div>
           </div>
-          <div style="display:flex;gap:8px;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);cursor:pointer;margin-right:4px;">
+              <input id="nfeAutoStart" type="checkbox" onchange="nfeSaveAutoStart()" /> Iniciar automaticamente ao abrir
+            </label>
             <button class="btn btn-blue" id="nfeRefreshBtn" onclick="nfeRefresh()">&#8635; Atualizar</button>
             <button class="btn btn-solid-green" id="nfeStartBtn" onclick="nfeStart()">&#9654; Iniciar</button>
             <button class="btn btn-solid-red" id="nfeStopBtn" onclick="nfeStop()" style="display:none;">&#9632; Parar</button>
@@ -2043,6 +2046,9 @@
             <button onclick="biSyncLogout()" id="biSyncLogoutBtn" style="display:none;background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border);padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;">
               Sair
             </button>
+            <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);cursor:pointer;margin-left:4px;">
+              <input id="biSyncAutoConnect" type="checkbox" onchange="biSyncSaveAutoConnect()" /> Conectar automaticamente ao iniciar
+            </label>
             <span id="biSyncAuthStatus" style="font-size:11px;color:var(--text-muted);"></span>
           </div>
 
@@ -3418,6 +3424,15 @@
         window.api.contratoSyncStreamStart(url)
         biSyncAppendLog('Contratos: pronto pra responder consultas remotas', 'ok')
       }
+      // Persiste as credenciais se a auto-conexão está marcada; e inicia o NFe
+      // Watcher se marcado pra auto-start (ele depende do login pra falar com a API).
+      try {
+        if (document.getElementById('biSyncAutoConnect')?.checked) biSyncSaveCreds()
+        if (localStorage.getItem('oc-nfe-auto') === '1' && typeof nfeStart === 'function') {
+          biSyncAppendLog('NFe Watcher: iniciando automaticamente…', 'info')
+          nfeStart()
+        }
+      } catch (_) { /* noop */ }
     }
 
     // Listener global de eventos SSE (instalado uma vez no boot)
@@ -3476,7 +3491,50 @@
       document.getElementById('biSyncFormCard').style.display = 'none'
       document.getElementById('biSyncLogCard').style.display = 'none'
       biSyncSetBadge('offline')
+      // Logout explícito desliga a auto-conexão (senão reconectaria no próximo boot).
+      localStorage.setItem('oc-bisync-auto', '0')
+      localStorage.removeItem('oc-bisync-creds')
+      const acEl = document.getElementById('biSyncAutoConnect'); if (acEl) acEl.checked = false
     }
+
+    // ── Auto-conexão (VPS) e auto-start (NFe Watcher) — persistência local ──
+    function biSyncSaveCreds() {
+      localStorage.setItem('oc-bisync-creds', JSON.stringify({
+        url: (document.getElementById('biSyncUrl').value || '').trim(),
+        email: (document.getElementById('biSyncEmail').value || '').trim(),
+        password: document.getElementById('biSyncPassword').value || '',
+      }))
+    }
+    function biSyncSaveAutoConnect() {
+      const on = document.getElementById('biSyncAutoConnect').checked
+      localStorage.setItem('oc-bisync-auto', on ? '1' : '0')
+      if (on) biSyncSaveCreds()
+      else localStorage.removeItem('oc-bisync-creds')
+    }
+    function nfeSaveAutoStart() {
+      localStorage.setItem('oc-nfe-auto', document.getElementById('nfeAutoStart').checked ? '1' : '0')
+    }
+    // Restaura os estados e, se marcado, conecta na VPS automaticamente ao abrir o SM.
+    ;(function biSyncBootAutoConnect() {
+      try {
+        const nfeEl = document.getElementById('nfeAutoStart')
+        if (nfeEl) nfeEl.checked = localStorage.getItem('oc-nfe-auto') === '1'
+        const autoConn = localStorage.getItem('oc-bisync-auto') === '1'
+        const acEl = document.getElementById('biSyncAutoConnect')
+        if (acEl) acEl.checked = autoConn
+        let creds = null
+        try { creds = JSON.parse(localStorage.getItem('oc-bisync-creds') || 'null') } catch (_) { creds = null }
+        if (creds) {
+          if (creds.url) document.getElementById('biSyncUrl').value = creds.url
+          if (creds.email) document.getElementById('biSyncEmail').value = creds.email
+          if (creds.password) document.getElementById('biSyncPassword').value = creds.password
+        }
+        if (autoConn && creds && creds.email && creds.password) {
+          biSyncAppendLog('Conectando automaticamente…', 'info')
+          setTimeout(() => { try { biSyncLogin() } catch (_) {} }, 300)
+        }
+      } catch (_) { /* noop */ }
+    })()
 
     async function biSyncLoadClientes() {
       const input = document.getElementById('biSyncClienteInput')
