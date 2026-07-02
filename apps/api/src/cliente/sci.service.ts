@@ -26,6 +26,10 @@ export class SciService {
   private readonly metricsPath = path.resolve(process.cwd(), 'src', 'cliente', 'sci_metrics.py')
   private readonly python = process.env.SCI_PYTHON || 'python'
   private readonly timeoutMs = Number(process.env.SCI_TIMEOUT_MS || 30000)
+  // Parâmetros sugeridos: olha até N meses pra trás e faz a média dos M meses mais
+  // recentes COM movimento (evita zerar quando o cliente está parado recentemente).
+  private readonly paramsLookbackMeses = Number(process.env.SCI_PARAMS_LOOKBACK_MESES || 12)
+  private readonly paramsMesesMedia = Number(process.env.SCI_PARAMS_MESES_MEDIA || 3)
 
   /**
    * Busca o ID do cliente no SCI (BDCODEMP) pelo CNPJ.
@@ -135,39 +139,52 @@ export class SciService {
     return parsed
   }
 
-  /** Período de referência dos parâmetros sugeridos: último mês completo. */
+  /** Janela de referência dos parâmetros sugeridos: últimos N meses completos
+   *  (pra ter de onde tirar os últimos meses COM movimento se o cliente parou). */
   periodoSugerido(): { datai: string; dataf: string } {
     const now = new Date()
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0)
-    const datai = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}-01`
-    const dataf = `${lastMonthEnd.getFullYear()}-${String(lastMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(lastMonthEnd.getDate()).padStart(2, '0')}`
+    // fim = último dia do último mês COMPLETO
+    const fim = new Date(now.getFullYear(), now.getMonth(), 0)
+    // início = primeiro dia, (lookback-1) meses antes do mês de `fim`
+    const ini = new Date(fim.getFullYear(), fim.getMonth() - (this.paramsLookbackMeses - 1), 1)
+    const datai = `${ini.getFullYear()}-${String(ini.getMonth() + 1).padStart(2, '0')}-01`
+    const dataf = `${fim.getFullYear()}-${String(fim.getMonth() + 1).padStart(2, '0')}-${String(fim.getDate()).padStart(2, '0')}`
     return { datai, dataf }
   }
 
-  /** Calcula os parâmetros a partir das métricas já obtidas (local OU via ponte). */
+  /**
+   * Calcula os parâmetros a partir das métricas já obtidas (local OU via ponte).
+   * Por métrica, faz a média dos `paramsMesesMedia` meses MAIS RECENTES com
+   * movimento (> 0) — ignora meses zerados. Assim, cliente parado nos últimos
+   * meses ainda pega o último período em que de fato movimentou.
+   */
   calcularParametrosDeMetricas(
     metrics: Record<string, unknown>,
     periodo: { datai: string; dataf: string },
   ): { parametros: Record<string, number>; periodo: { datai: string; dataf: string }; origem: string } {
-    const avg = (rows: unknown[], asInteger = true): number => {
-      if (!Array.isArray(rows) || rows.length === 0) return 0
-      const sum = (rows as Array<Record<string, unknown>>).reduce((s, r) => s + (Number(r.movimentacao) || 0), 0)
-      const a = sum / rows.length
+    const media = (rows: unknown[], asInteger = true): number => {
+      if (!Array.isArray(rows)) return 0
+      const comMov = (rows as Array<Record<string, unknown>>)
+        .filter((r) => Number(r.movimentacao) > 0)
+        .sort((a, b) => (Number(b.ano) - Number(a.ano)) || (Number(b.mes) - Number(a.mes)))
+        .slice(0, this.paramsMesesMedia)
+      if (comMov.length === 0) return 0
+      const sum = comMov.reduce((s, r) => s + (Number(r.movimentacao) || 0), 0)
+      const a = sum / comMov.length
       return asInteger ? Math.round(a) : Number(a.toFixed(2))
     }
     return {
       parametros: {
-        lancamentos: avg(metrics.lancamentos as unknown[] || [], true),
-        faturamento: avg(metrics.faturamento as unknown[] || [], false),
-        nfEntrada: avg(metrics.nf_entrada as unknown[] || [], true),
-        nfSaida: avg(metrics.nf_saida as unknown[] || [], true),
-        nfPrestado: avg(metrics.nf_prestado as unknown[] || [], true),
-        nfTomado: avg(metrics.nf_tomado as unknown[] || [], true),
-        funcionarios: avg(metrics.vidas as unknown[] || [], true),
+        lancamentos: media(metrics.lancamentos as unknown[] || [], true),
+        faturamento: media(metrics.faturamento as unknown[] || [], false),
+        nfEntrada: media(metrics.nf_entrada as unknown[] || [], true),
+        nfSaida: media(metrics.nf_saida as unknown[] || [], true),
+        nfPrestado: media(metrics.nf_prestado as unknown[] || [], true),
+        nfTomado: media(metrics.nf_tomado as unknown[] || [], true),
+        funcionarios: media(metrics.vidas as unknown[] || [], true),
       },
       periodo,
-      origem: 'sci_media_3m',
+      origem: 'sci_media_ultimos_com_mov',
     }
   }
 
