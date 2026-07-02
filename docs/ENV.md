@@ -62,6 +62,20 @@ NFSE_DIST_ENABLED=false           # habilita cron diário NFS-e Nacional
 NFSE_DIST_CRON=45 3 * * *         # default 03:45 America/Sao_Paulo
 ```
 
+## Ferramentas (gateway do webapp)
+As 8 ferramentas *job-based* (SPED, NFe, GNRE, comparadores, SCI…) fazem proxy server-to-server para a
+API Fastify do webapp (`/api/v1`) — o browser nunca fala com o webapp. `nfse-pdf`/`extrato-edit` rodam no
+browser (extrato-edit usa o webapp só para o cadastro SQLite).
+```env
+WEBAPP_API_URL=http://webapp-api:8000
+```
+- **Dev/LAN:** URL do webapp local (ex.: `http://localhost:8000` ou `http://192.168.0.47:8000`).
+- **Produção (VPS):** por **nome de container** na rede Docker compartilhada (`fiscal_net`), ex.
+  `http://webapp-api:8000` — mesmo padrão do `DATABASE_URL` (`n8n-postgres-1:5432`). **Não** use IP de LAN,
+  `host.docker.internal` nem porta de host: o webapp não tem auth própria, fica só atrás do OneClick.
+- Se ausente, o gateway (`apps/api/src/ferramentas/webapp-gateway.service.ts`) usa o default
+  `http://192.168.0.47:8000`.
+
 ## App
 ```env
 NEXT_PUBLIC_APP_URL=http://localhost:3000
