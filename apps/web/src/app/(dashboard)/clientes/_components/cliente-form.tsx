@@ -201,9 +201,11 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
   const tipoDocumento = watch('tipoDocumento')
   const watchedValues = watch()
   const [opcoesOrigem, setOpcoesOrigem] = useState<Array<{ id: string; valor: string }>>([])
+  const [opcoesGrupo, setOpcoesGrupo] = useState<Array<{ id: string; valor: string }>>([])
 
   useEffect(() => {
     ;(trpc.cliente as any).listOpcoes.query({ tipo: 'ORIGEM' }).then((data: Array<{ id: string; valor: string }>) => setOpcoesOrigem(data)).catch(() => {})
+    ;(trpc.cliente as any).listOpcoes.query({ tipo: 'GRUPO' }).then((data: Array<{ id: string; valor: string }>) => setOpcoesGrupo(data)).catch(() => {})
   }, [])
   const [cnpjCard, setCnpjCard] = useState<CnpjCardData | null>(null)
   const [cnpjCardLoading, setCnpjCardLoading] = useState(false)
@@ -594,7 +596,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   watchedValues={watchedValues} tipoDocumento={tipoDocumento}
                   buscarCnpj={buscarCnpj} buscarCep={buscarCep}
                   consultarCartaoCnpj={consultarCartaoCnpj} cnpjCard={cnpjCard} cnpjCardLoading={cnpjCardLoading} setCnpjCard={setCnpjCard}
-                  opcoesOrigem={opcoesOrigem} canEdit={canEditDetails}
+                  opcoesOrigem={opcoesOrigem} opcoesGrupo={opcoesGrupo} canEdit={canEditDetails}
                 />
               </TabsContent>
 
@@ -607,7 +609,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   chatMsg={chatMsg} setChatMsg={setChatMsg}
                   chatAsCliente={chatAsCliente} setChatAsCliente={setChatAsCliente}
                   clienteId={clienteId}
-                  opcoesOrigem={opcoesOrigem} canEdit={canManageCommercial}
+                  opcoesOrigem={opcoesOrigem} opcoesGrupo={opcoesGrupo} canEdit={canManageCommercial}
                 />
               </TabsContent>
 
@@ -762,7 +764,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
 /* ================================================================== */
 /* DetalhesCard — pills laterais (padrão igual ComercialCard)         */
 /* ================================================================== */
-function DetalhesCard({ register, control, watch, errors, setValue, clienteId, watchedValues, tipoDocumento, buscarCnpj, buscarCep, consultarCartaoCnpj, cnpjCard, cnpjCardLoading, setCnpjCard, opcoesOrigem, canEdit }: {
+function DetalhesCard({ register, control, watch, errors, setValue, clienteId, watchedValues, tipoDocumento, buscarCnpj, buscarCep, consultarCartaoCnpj, cnpjCard, cnpjCardLoading, setCnpjCard, opcoesOrigem, opcoesGrupo, canEdit }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
@@ -778,6 +780,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   cnpjCardLoading: boolean
   setCnpjCard: (v: CnpjCardData | null) => void
   opcoesOrigem: Array<{ id: string; valor: string }>
+  opcoesGrupo: Array<{ id: string; valor: string }>
   canEdit: boolean
 }) {
   const [activeTab, setActiveTab] = useState('dados')
@@ -920,7 +923,17 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                 </div>
                 <div className="col-span-12 md:col-span-5 space-y-1.5">
                   <Label>Grupo Empresarial</Label>
-                  <Input placeholder="Ex: EMPRESA ÚNICA" {...register('grupo')} />
+                  <Controller control={control} name="grupo" render={({ field }) => {
+                    const opts = opcoesGrupo.map((o) => o.valor)
+                    const cur = field.value || ''
+                    const merged = cur && !opts.includes(cur) ? [cur, ...opts] : opts
+                    return (
+                      <Select value={cur} onValueChange={field.onChange}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>{merged.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
+                      </Select>
+                    )
+                  }} />
                 </div>
                 <div className="col-span-12 md:col-span-3 space-y-1.5">
                   <Label>Data de Início</Label>
@@ -1412,7 +1425,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   )
 }
 
-function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem, canEdit }: {
+function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem, opcoesGrupo, canEdit }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
@@ -1421,6 +1434,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
   chatAsCliente: boolean; setChatAsCliente: (v: boolean) => void
   clienteId?: string
   opcoesOrigem: Array<{ id: string; valor: string }>
+  opcoesGrupo: Array<{ id: string; valor: string }>
   canEdit: boolean
 }) {
   const [activeTab, setActiveTab] = useState('cadastros')
@@ -1512,10 +1526,17 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
               <div className="p-5 grid grid-cols-12 gap-3">
                 <div className="col-span-12 md:col-span-6 space-y-1.5">
                   <Label>Grupo Empresarial</Label>
-                  <div className="flex" style={{ borderRadius: '0.25rem', overflow: 'hidden' }}>
-                    <Input placeholder="Ex: EMPRESA ÚNICA" {...register('grupo')} style={{ borderRadius: '0.25rem 0 0 0.25rem', borderRight: 'none' }} />
-                    <button type="button" className="shrink-0 whitespace-nowrap" style={{ padding: '0.55rem 0.75rem', fontSize: '.77rem', fontWeight: 500, backgroundColor: '#fff', color: '#212529', border: '1px solid #ced4da', borderLeft: 'none', borderRadius: '0 0.25rem 0.25rem 0', cursor: 'pointer' }}>+ Novo</button>
-                  </div>
+                  <Controller control={control} name="grupo" render={({ field }) => {
+                    const opts = opcoesGrupo.map((o) => o.valor)
+                    const cur = field.value || ''
+                    const merged = cur && !opts.includes(cur) ? [cur, ...opts] : opts
+                    return (
+                      <Select value={cur} onValueChange={field.onChange}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>{merged.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
+                      </Select>
+                    )
+                  }} />
                 </div>
                 <div className="col-span-6 md:col-span-3 space-y-1.5">
                   <Label>Data Entrada</Label>

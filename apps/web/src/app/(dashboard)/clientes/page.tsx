@@ -88,7 +88,7 @@ export default function ClientesPage() {
 
   // Gerenciador de opcoes (Atividade, Origem)
   const [opcoesModal, setOpcoesModal] = useState(false)
-  const [opcoesTab, setOpcoesTab] = useState<'ATIVIDADE' | 'ORIGEM'>('ATIVIDADE')
+  const [opcoesTab, setOpcoesTab] = useState<'ATIVIDADE' | 'ORIGEM' | 'GRUPO'>('ATIVIDADE')
   const [opcoes, setOpcoes] = useState<Array<{ id: string; tipo: string; valor: string; ordem: number }>>([])
   const [opcoesLoading, setOpcoesLoading] = useState(false)
   const [novaOpcao, setNovaOpcao] = useState('')
@@ -855,17 +855,17 @@ export default function ClientesPage() {
         <DialogContent className="max-w-[500px]">
           <DialogHeaderIcon icon={Settings2} color="emerald">
             <DialogTitle className="text-[15px]">Opcoes de Cadastro</DialogTitle>
-            <DialogDescription className="text-[11px]">Gerencie as opcoes dos campos Atividade e Origem</DialogDescription>
+            <DialogDescription className="text-[11px]">Gerencie as opcoes dos campos Atividade, Origem e Grupo</DialogDescription>
           </DialogHeaderIcon>
           <DialogBody>
             {/* Tabs */}
             <div className="flex gap-1 mb-4 border-b">
-              {(['ATIVIDADE', 'ORIGEM'] as const).map(tab => (
+              {(['ATIVIDADE', 'ORIGEM', 'GRUPO'] as const).map(tab => (
                 <button key={tab} type="button"
                   className={cn('px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px', opcoesTab === tab ? 'border-emerald-500 text-emerald-700' : 'border-transparent text-muted-foreground hover:text-foreground')}
                   onClick={() => { setOpcoesTab(tab); loadOpcoes(tab) }}
                 >
-                  {tab === 'ATIVIDADE' ? 'Atividades' : 'Origens'}
+                  {tab === 'ATIVIDADE' ? 'Atividades' : tab === 'ORIGEM' ? 'Origens' : 'Grupos'}
                 </button>
               ))}
             </div>
@@ -891,7 +891,7 @@ export default function ClientesPage() {
             </div>
             {/* Adicionar */}
             <div className="flex items-center gap-2 mt-3 pt-3 border-t">
-              <Input placeholder={opcoesTab === 'ATIVIDADE' ? 'Nova atividade...' : 'Nova origem...'} value={novaOpcao} onChange={e => setNovaOpcao(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddOpcao() }} className="h-8 text-sm flex-1" />
+              <Input placeholder={opcoesTab === 'ATIVIDADE' ? 'Nova atividade...' : opcoesTab === 'ORIGEM' ? 'Nova origem...' : 'Novo grupo...'} value={novaOpcao} onChange={e => setNovaOpcao(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddOpcao() }} className="h-8 text-sm flex-1" />
               <Button size="sm" variant="outline" className="h-8 gap-1 shrink-0" onClick={handleAddOpcao} disabled={!novaOpcao.trim()}>
                 <Plus className="h-3.5 w-3.5" /> Adicionar
               </Button>
