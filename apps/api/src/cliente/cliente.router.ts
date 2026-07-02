@@ -679,7 +679,26 @@ export function createClienteRouter(
         try {
           sciResult = await sciService.buscarIdSistemaPorCnpj(doc)
         } catch (e) {
-          throw new Error(`Erro ao conectar ao SCI: ${(e as Error).message}`)
+          // SCI local indisponível (ex.: em produção a VPS não tem python/Firebird)
+          // → fallback pra Launcher local via SSE, igual ao buscarMetricasSci.
+          const msg = (e as Error).message || ''
+          const sciUnreachable = /ENOENT|conn|connect|refused|timeout|Firebird|python|Não foi possível conectar/i.test(msg)
+          if (!sciUnreachable || !contratoSyncService) throw new Error(`Erro ao conectar ao SCI: ${msg}`)
+          console.log(`[Cliente] SCI local indisponível p/ ID Sistema, pedindo ao Launcher: ${msg.slice(0, 100)}`)
+          const remoto = await contratoSyncService.requestSciIdSistema(doc)
+          if (remoto && remoto.error) {
+            if (String(remoto.error).includes('Nao encontrado')) sciResult = null
+            else throw new Error(String(remoto.error))
+          } else if (remoto && remoto.id_cliente) {
+            sciResult = {
+              idCliente: Number(remoto.id_cliente),
+              razaoSocial: String(remoto.razao_social || '').trim(),
+              cnpj: doc,
+              metodo: String(remoto.metodo || 'launcher'),
+            }
+          } else {
+            sciResult = null
+          }
         }
 
         if (!sciResult || !sciResult.idCliente) {

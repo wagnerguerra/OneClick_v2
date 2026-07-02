@@ -30,6 +30,8 @@ export type ContratoSyncEvent =
   // Backfill de observações de certificados — o SM lê as descrições/nome dos
   // arquivos no MySQL legado (OneClick V1) e devolve; a API atualiza os certs.
   | { type: 'cert-descricoes-request'; requestId: string; payload: CertDescricoesPayload; timestamp: number }
+  // Busca do ID Sistema (SCI/BDCODEMP) por CNPJ — o SM roda sci_id_sistema.py local.
+  | { type: 'sci-id-sistema-request'; requestId: string; payload: { cnpj: string }; timestamp: number }
 
 export interface ContratoErpPayload {
   cnpj: string
@@ -134,6 +136,25 @@ export class ContratoSyncService {
       }, timeoutMs)
       this.pending.set(requestId, { resolve, reject, timer, startedAt: Date.now() })
       this.subject.next({ type: 'cert-descricoes-request', requestId, payload, timestamp: Date.now() })
+    })
+  }
+
+  /**
+   * Pede ao Launcher o ID Sistema (SCI/BDCODEMP) de um CNPJ — o SM roda o
+   * sci_id_sistema.py local (Firebird na LAN) e devolve o JSON cru do script.
+   */
+  async requestSciIdSistema(cnpj: string, timeoutMs = TIMEOUT_DEFAULT_MS): Promise<Record<string, unknown>> {
+    if (this.subject.observers.length === 0) {
+      throw new Error('Service Manager não está conectado. Abra o Service Manager no PC do escritório — ele faz a ponte com o SCI (Firebird na LAN).')
+    }
+    const requestId = randomUUID()
+    return new Promise<Record<string, unknown>>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(requestId)
+        reject(new Error(`Launcher local não respondeu em ${Math.round(timeoutMs / 1000)}s. Verifique se o Service Manager está aberto e conectado.`))
+      }, timeoutMs)
+      this.pending.set(requestId, { resolve, reject, timer, startedAt: Date.now() })
+      this.subject.next({ type: 'sci-id-sistema-request', requestId, payload: { cnpj }, timestamp: Date.now() })
     })
   }
 

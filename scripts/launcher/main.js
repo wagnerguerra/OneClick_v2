@@ -1634,6 +1634,38 @@ function registerIpcHandlers() {
     }
   }
 
+  // Busca do ID Sistema (SCI/BDCODEMP) por CNPJ — roda sci_id_sistema.py local.
+  async function executarSciIdSistemaLocal(payload) {
+    const cnpj = String((payload && payload.cnpj) || '').replace(/\D/g, '')
+    const sciScript = path.join(projectRoot, 'apps', 'api', 'src', 'cliente', 'sci_id_sistema.py')
+    const result = spawnSync('python', [sciScript, cnpj], {
+      cwd: path.dirname(sciScript),
+      encoding: 'buffer',
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      timeout: 60000,
+      windowsHide: true,
+    })
+    if (result.error) throw new Error(result.error.message)
+    const stdout = (result.stdout || Buffer.from('')).toString('utf8').trim()
+    const stderr = (result.stderr || Buffer.from('')).toString('utf8').trim()
+    if (!stdout) throw new Error(stderr || 'sci_id_sistema.py sem resposta')
+    try { return JSON.parse(stdout) } catch (e) { throw new Error(`JSON inválido: ${e.message}`) }
+  }
+
+  async function processarSciIdSistemaRequest(baseUrl, event) {
+    const { requestId, payload } = event
+    if (!requestId || !payload) return
+    console.log(`[SciIdSistema] Recebido ${requestId} — cnpj=${payload.cnpj}`)
+    try {
+      const dados = await executarSciIdSistemaLocal(payload)
+      await postarContratoCallback(baseUrl, requestId, { dados })
+      console.log(`[SciIdSistema] ✓ ${requestId} concluído`)
+    } catch (e) {
+      console.warn(`[SciIdSistema] ✗ ${requestId}: ${e.message}`)
+      try { await postarContratoCallback(baseUrl, requestId, { erro: e.message }) } catch {}
+    }
+  }
+
   // ── Import do cadastro legado (OneClick v1 / MySQL) via a mesma ponte ──
   // O SM (na LAN) lê o MySQL legado e devolve as linhas cruas; a API aplica.
   // Config do banco vem de launcher-settings.json → `legacyDb` (host/port/user/
@@ -1800,6 +1832,8 @@ function registerIpcHandlers() {
               processarClienteImportRequest(baseUrl, json).catch(() => {})
             } else if (json.type === 'cert-descricoes-request') {
               processarCertDescricoesRequest(baseUrl, json).catch(() => {})
+            } else if (json.type === 'sci-id-sistema-request') {
+              processarSciIdSistemaRequest(baseUrl, json).catch(() => {})
             } else if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send('contrato-sync-event', json)
             }
