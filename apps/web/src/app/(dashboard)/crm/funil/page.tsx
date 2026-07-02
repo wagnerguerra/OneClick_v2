@@ -24,6 +24,7 @@ interface Cfg {
   limiarMedio: number; limiarAlto: number
   mensagemBoasVindas: string | null; avisoLgpd: string | null; whatsappComercial: string | null
   tipoEventoReuniaoId: string | null; corPrimaria: string | null; regrasFinalizacao: string | null
+  roteador?: boolean; descricaoRoteamento?: string | null
   _total?: number; _registrados?: number
 }
 
@@ -84,6 +85,7 @@ export default function CrmFunilPage() {
       mensagemBoasVindas: base?.mensagemBoasVindas ?? null, avisoLgpd: base?.avisoLgpd ?? null,
       whatsappComercial: base?.whatsappComercial ?? null, tipoEventoReuniaoId: base?.tipoEventoReuniaoId ?? null,
       corPrimaria: base?.corPrimaria ?? '#10b981', regrasFinalizacao: base?.regrasFinalizacao ?? null,
+      roteador: false, descricaoRoteamento: null,
     })
   }
 
@@ -99,6 +101,7 @@ export default function CrmFunilPage() {
         mensagemBoasVindas: cfg.mensagemBoasVindas, avisoLgpd: cfg.avisoLgpd,
         whatsappComercial: cfg.whatsappComercial, tipoEventoReuniaoId: cfg.tipoEventoReuniaoId,
         corPrimaria: cfg.corPrimaria || null, regrasFinalizacao: cfg.regrasFinalizacao || null,
+        roteador: cfg.roteador ?? false, descricaoRoteamento: cfg.descricaoRoteamento || null,
       })
       alerts.success('Salvo', 'Campanha atualizada.')
       carregar(cfg.slug)
@@ -267,8 +270,23 @@ export default function CrmFunilPage() {
                     <Button variant="outline" size="sm" onClick={copiarLink} disabled={!cfg.slug} className="gap-1.5"><Copy className="h-4 w-4" /> Copiar</Button>
                     {linkPublico && <a href={linkPublico} target="_blank" rel="noreferrer"><Button variant="outline" size="sm" className="gap-1.5"><ExternalLink className="h-4 w-4" /> Abrir</Button></a>}
                     <label className="flex items-center gap-1.5 text-xs ml-2"><Switch checked={cfg.ativo} onCheckedChange={v => upd({ ativo: v })} /> Ativa</label>
+                    <label className="flex items-center gap-1.5 text-xs ml-2" title="A IA identifica a intenção e encaminha para a trilha certa (chat único no site)."><Switch checked={!!cfg.roteador} onCheckedChange={v => upd({ roteador: v })} /> Recepção (roteia)</label>
                   </div>
                 </div>
+
+                {cfg.roteador && (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/40 p-3 text-[12px] text-emerald-800 dark:text-emerald-300">
+                    <strong>Modo Recepção.</strong> Esta campanha é o ponto de entrada único (ex.: o chat do site). A IA faz a triagem, identifica a intenção e <strong>encaminha o lead para a trilha certa</strong> (usando a &quot;descrição de roteamento&quot; de cada trilha), ou trata como fora de escopo (currículo/suporte/spam). A trilha e a rubrica abaixo <em>não</em> são usadas neste modo.
+                  </div>
+                )}
+
+                {!cfg.roteador && (
+                  <div className="space-y-1.5">
+                    <Label className="text-[13px] font-semibold">Quando encaminhar para esta trilha (usado pela Recepção)</Label>
+                    <p className="text-[11px] text-muted-foreground">Uma frase-gatilho pra IA da Recepção reconhecer e rotear pra cá. Ex.: &quot;Empresa querendo economizar com benefícios/incentivos fiscais (ICMS, créditos).&quot;</p>
+                    <textarea className="w-full min-h-[60px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.descricaoRoteamento ?? ''} onChange={e => upd({ descricaoRoteamento: e.target.value })} placeholder="Deixe em branco se esta trilha não deve receber leads pela Recepção." />
+                  </div>
+                )}
 
                 {/* Condução da IA */}
                 <div className="space-y-1.5">

@@ -16,6 +16,9 @@ export const salvarFunilConfigSchema = z.object({
   tipoEventoReuniaoId: z.string().nullable().optional(),
   corPrimaria: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Cor inválida (use #RRGGBB)').nullable().optional(),
   regrasFinalizacao: z.string().nullable().optional(),
+  // Roteador: config-hub "Recepção" (a IA triágil e encaminha) + frase-gatilho da trilha
+  roteador: z.boolean().optional(),
+  descricaoRoteamento: z.string().nullable().optional(),
 })
 export type SalvarFunilConfigInput = z.infer<typeof salvarFunilConfigSchema>
 

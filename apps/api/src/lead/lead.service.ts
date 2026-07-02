@@ -72,7 +72,8 @@ export class LeadService {
   private static readonly CONFIG_COLS =
     `id, slug, nome, ativo, trilha_prompt AS "trilhaPrompt", rubrica, limiar_medio AS "limiarMedio", limiar_alto AS "limiarAlto",
      mensagem_boas_vindas AS "mensagemBoasVindas", aviso_lgpd AS "avisoLgpd", whatsapp_comercial AS "whatsappComercial",
-     tipo_evento_reuniao_id AS "tipoEventoReuniaoId", cor_primaria AS "corPrimaria", regras_finalizacao AS "regrasFinalizacao"`
+     tipo_evento_reuniao_id AS "tipoEventoReuniaoId", cor_primaria AS "corPrimaria", regras_finalizacao AS "regrasFinalizacao",
+     roteador, descricao_roteamento AS "descricaoRoteamento"`
 
   /** Config de uma campanha. Por `slug` quando informado; senão a 1ª da empresa (compat). */
   async getConfig(empresaId?: string | null, slug?: string | null) {
@@ -94,7 +95,18 @@ export class LeadService {
       avisoLgpd: 'Ao continuar, você concorda que usaremos seus dados para entrar em contato sobre nossos serviços.',
       whatsappComercial: null, tipoEventoReuniaoId: null, corPrimaria: '#10b981',
       regrasFinalizacao: LeadService.REGRAS_FINALIZACAO_PADRAO,
+      roteador: false, descricaoRoteamento: null,
     }
+  }
+
+  /** Trilhas ativas (não-roteadoras) da empresa — alimentam o prompt do roteador. */
+  private async listTrilhasParaRoteador(empresaId?: string | null): Promise<Array<{ slug: string; nome: string; descricaoRoteamento: string | null }>> {
+    return prisma.$queryRawUnsafe<Array<{ slug: string; nome: string; descricaoRoteamento: string | null }>>(
+      `SELECT slug, COALESCE(nome, slug) AS nome, descricao_roteamento AS "descricaoRoteamento"
+         FROM lead_funil_config
+        WHERE ativo=true AND roteador=false AND empresa_id IS NOT DISTINCT FROM $1
+        ORDER BY nome ASC`, empresaId ?? null,
+    ).catch(() => [])
   }
 
   /** Lista todas as campanhas (funis) da empresa, com contagem de sessões/registrados. */
@@ -138,18 +150,21 @@ export class LeadService {
     if (existing[0]) {
       await prisma.$executeRawUnsafe(
         `UPDATE lead_funil_config SET slug=$2, nome=$3, ativo=$4, trilha_prompt=$5, rubrica=$6, limiar_medio=$7, limiar_alto=$8,
-           mensagem_boas_vindas=$9, aviso_lgpd=$10, whatsapp_comercial=$11, tipo_evento_reuniao_id=$12, cor_primaria=$13, regras_finalizacao=$14, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
+           mensagem_boas_vindas=$9, aviso_lgpd=$10, whatsapp_comercial=$11, tipo_evento_reuniao_id=$12, cor_primaria=$13, regras_finalizacao=$14,
+           roteador=$15, descricao_roteamento=$16, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
         existing[0].id, input.slug, input.nome ?? null, input.ativo ?? true, input.trilhaPrompt, input.rubrica, input.limiarMedio, input.limiarAlto,
         input.mensagemBoasVindas ?? null, input.avisoLgpd ?? null, input.whatsappComercial ?? null, input.tipoEventoReuniaoId ?? null, input.corPrimaria ?? null, input.regrasFinalizacao ?? null,
+        input.roteador ?? false, input.descricaoRoteamento ?? null,
       )
       return { id: existing[0].id }
     }
     const id = randomUUID()
     await prisma.$executeRawUnsafe(
-      `INSERT INTO lead_funil_config (id, empresa_id, slug, nome, ativo, trilha_prompt, rubrica, limiar_medio, limiar_alto, mensagem_boas_vindas, aviso_lgpd, whatsapp_comercial, tipo_evento_reuniao_id, cor_primaria, regras_finalizacao, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      `INSERT INTO lead_funil_config (id, empresa_id, slug, nome, ativo, trilha_prompt, rubrica, limiar_medio, limiar_alto, mensagem_boas_vindas, aviso_lgpd, whatsapp_comercial, tipo_evento_reuniao_id, cor_primaria, regras_finalizacao, roteador, descricao_roteamento, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       id, empresaId ?? null, input.slug, input.nome ?? null, input.ativo ?? true, input.trilhaPrompt, input.rubrica, input.limiarMedio, input.limiarAlto,
       input.mensagemBoasVindas ?? null, input.avisoLgpd ?? null, input.whatsappComercial ?? null, input.tipoEventoReuniaoId ?? null, input.corPrimaria ?? null, input.regrasFinalizacao ?? null,
+      input.roteador ?? false, input.descricaoRoteamento ?? null,
     )
     return { id }
   }
@@ -229,7 +244,33 @@ export class LeadService {
     return rows[0] ?? null
   }
 
-  private systemPrompt(cfg: any, jaRegistrado = false): string {
+  // Regra comum de fora-de-escopo — pessoas que não são lead comercial.
+  private static readonly FORA_ESCOPO_REGRA =
+    'Se perceber que a pessoa NÃO é um lead comercial — está procurando emprego/enviando currículo, é um cliente atual com dúvida/suporte, ou é spam/assunto sem relação — chame a tool "rotear_trilha" com a "intencao" correta (curriculo | suporte | spam | outro) e trate cordialmente SEM coletar dados comerciais nem chamar "qualificar_lead":\n' +
+    '- curriculo: informe com gentileza que vagas/currículos são tratados pelo RH e oriente o canal certo; não registre como lead.\n' +
+    '- suporte: oriente o canal de suporte/atendimento ao cliente.\n' +
+    '- spam/outro: agradeça e encerre com cordialidade.'
+
+  private systemPrompt(cfg: any, jaRegistrado = false, trilhas: Array<{ slug: string; nome: string; descricaoRoteamento: string | null }> = []): string {
+    // ── Modo ROTEADOR (config-hub "Recepção") ──
+    if (cfg.roteador) {
+      const lista = trilhas.length
+        ? trilhas.map(t => `- ${t.nome} (slug: ${t.slug})${t.descricaoRoteamento ? `: ${t.descricaoRoteamento}` : ''}`).join('\n')
+        : '(nenhuma trilha configurada — trate como atendimento comercial geral)'
+      return `Você é a recepção do atendimento virtual de um escritório de contabilidade brasileiro. Converse em português do Brasil, natural e cordial, UMA pergunta por vez — nunca ofereça menus numerados.
+
+Seu papel: em 1 a 3 mensagens, entender o que a pessoa quer e ENCAMINHAR para a trilha certa (chamando a tool "rotear_trilha"). Não anuncie o encaminhamento — apenas conduza; a conversa continua naturalmente na trilha escolhida.
+
+## Trilhas disponíveis
+${lista}
+
+REGRAS:
+- Faça perguntas curtas pra identificar a intenção. Assim que reconhecer a trilha certa, chame "rotear_trilha" com { "trilhaSlug": "<slug da trilha>", "intencao": "lead_comercial" }. Não invente trilha fora da lista; na dúvida entre duas, faça mais uma pergunta ou escolha a mais próxima.
+- ${LeadService.FORA_ESCOPO_REGRA}
+- Não invente informações. Seja breve e acolhedor.`
+    }
+
+    // ── Modo TRILHA (atendimento comercial normal) ──
     return `Você é um atendente comercial virtual de um escritório de contabilidade brasileiro, atendendo um possível cliente (lead) que veio de uma campanha. Converse em português do Brasil, de forma natural, cordial e objetiva — NUNCA ofereça menus ou opções numeradas; faça a conversa fluir como um humano.
 
 REGRAS:
@@ -237,6 +278,7 @@ REGRAS:
 - Sempre que descobrir ou atualizar dados do lead, chame a tool "qualificar_lead" com TODOS os dados que você já sabe + uma pontuação (score 0-100) conforme a rubrica. Marque "prontoParaRegistrar" como true assim que tiver pelo menos o NOME e um CONTATO (e-mail ou telefone).
 - Não invente informações. Se o lead informar um CNPJ, peça confirmação e siga.
 - Mantenha o foco no atendimento comercial; não responda assuntos fora desse escopo.
+- ${LeadService.FORA_ESCOPO_REGRA}
 - Conduza a conversa pela trilha INTEIRA antes de encerrar: descubra o serviço de interesse, o faturamento aproximado e a urgência (e o CNPJ/ramo, se houver). Uma pergunta por vez. NÃO encerre a conversa só porque já tem o nome e o contato — continue qualificando.
 - O registro é AUTOMÁTICO e INSTANTÂNEO (acontece nos bastidores quando você chama a tool com nome + contato). NUNCA diga que está "registrando", "só um segundo" ou "aguarde", e não peça paciência.
 - Só quando você CONCLUIR a qualificação e já tiver orientado o lead: finalize de forma definitiva e calorosa e marque "encerrar": true na tool. Enquanto a conversa continuar, mantenha "encerrar": false (ou omita).
@@ -269,43 +311,82 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
     },
   }
 
+  // Roteamento (recepção) + classificação de intenção (fora de escopo).
+  private readonly TOOL_ROTEAR = {
+    name: 'rotear_trilha',
+    description: 'Encaminha a conversa para a trilha de atendimento certa, OU classifica a pessoa como fora do escopo comercial (currículo/suporte/spam).',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        trilhaSlug: { type: 'string', description: 'slug EXATO da trilha escolhida (quando é lead comercial que se encaixa numa das trilhas listadas)' },
+        intencao: {
+          type: 'string',
+          enum: ['lead_comercial', 'curriculo', 'suporte', 'spam', 'outro'],
+          description: 'lead_comercial = seguir na trilha; os demais = fora do escopo comercial (não registrar como lead)',
+        },
+      },
+      required: ['intencao'],
+    },
+  }
+
   /** Chat com streaming. Conversa fluida + extração via tool. */
   async chatStream(token: string, mensagens: LeadChatMsg[], onEvent: (e: StreamEvent) => void): Promise<void> {
     const client = this.getClient()
     if (!client) { onEvent({ type: 'error', message: 'Atendimento indisponível no momento.' }); return }
     const sessao = await this.sessaoPorToken(token)
     if (!sessao) { onEvent({ type: 'error', message: 'Sessão inválida.' }); return }
-    const cfgRows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT trilha_prompt AS "trilhaPrompt", rubrica, limiar_medio AS "limiarMedio", limiar_alto AS "limiarAlto", regras_finalizacao AS "regrasFinalizacao" FROM lead_funil_config WHERE slug=$1 LIMIT 1`, sessao.slug)
-    const cfg = cfgRows[0] ?? await this.getConfig(sessao.empresaId)
+    // Config completa (com flag roteador). Pode TROCAR no meio do turno se a IA rotear.
+    let cfg = await this.getConfig(sessao.empresaId, sessao.slug)
+    let slugAtual: string = sessao.slug || cfg.slug || 'atendimento'
+    let trilhas = cfg.roteador ? await this.listTrilhasParaRoteador(sessao.empresaId) : []
+    const trilhasSlugs = new Set(trilhas.map(t => t.slug))
 
     let resposta = ''
     let toolInput: LeadDados & { score?: number; prontoParaRegistrar?: boolean; encerrar?: boolean } = {}
+    let foraEscopo = false
+    let intencao: string | null = null
     try {
-      // Loop de tool-use: ao chamar a tool, devolvemos tool_result e deixamos o
-      // modelo CONTINUAR (senão ele encerra o turno com um texto curto tipo
-      // "Ótimo!" esperando o resultado, e o lead fica sem resposta de verdade).
+      // Loop de tool-use: devolvemos tool_result e deixamos o modelo CONTINUAR.
       const convo: any[] = mensagens.map(m => ({ role: m.role, content: m.content }))
       let rodadas = 0
-      while (rodadas++ < 4) {
+      while (rodadas++ < 5) {
+        // Roteador só oferece rotear_trilha; trilha normal oferece as duas (permite
+        // re-rotear/marcar fora de escopo no meio da conversa).
+        const tools = cfg.roteador ? [this.TOOL_ROTEAR] : [this.TOOL, this.TOOL_ROTEAR]
         const stream = client.messages.stream({
           model: this.MODEL,
           max_tokens: 1200,
-          system: this.systemPrompt(cfg, sessao.status === 'registrado'),
-          tools: [this.TOOL],
+          system: this.systemPrompt(cfg, sessao.status === 'registrado', trilhas),
+          tools,
           messages: convo,
         })
         stream.on('text', (delta) => { if (delta) { resposta += delta; onEvent({ type: 'text', text: delta }) } })
         const final = await stream.finalMessage()
-        const toolUses = final.content.filter((b: any) => b.type === 'tool_use')
+        const toolUses = final.content.filter((b: any) => b.type === 'tool_use') as any[]
+        const results: any[] = []
         for (const tu of toolUses) {
-          if (tu.name === 'qualificar_lead') toolInput = { ...toolInput, ...(tu.input as object) }
+          if (tu.name === 'qualificar_lead') {
+            toolInput = { ...toolInput, ...(tu.input as object) }
+            results.push({ type: 'tool_result', tool_use_id: tu.id, content: 'Dados recebidos e registrados com sucesso.' })
+          } else if (tu.name === 'rotear_trilha') {
+            const inp = (tu.input ?? {}) as { trilhaSlug?: string; intencao?: string }
+            if (inp.intencao && inp.intencao !== 'lead_comercial') {
+              foraEscopo = true; intencao = inp.intencao
+              results.push({ type: 'tool_result', tool_use_id: tu.id, content: 'Classificado como fora do escopo comercial — oriente a pessoa conforme a intenção e NÃO colete dados comerciais.' })
+            } else if (inp.trilhaSlug && trilhasSlugs.has(inp.trilhaSlug)) {
+              slugAtual = inp.trilhaSlug
+              cfg = await this.getConfig(sessao.empresaId, slugAtual)
+              trilhas = []
+              results.push({ type: 'tool_result', tool_use_id: tu.id, content: `Encaminhado para a trilha "${slugAtual}". Continue o atendimento nessa trilha, naturalmente, sem anunciar o encaminhamento.` })
+            } else {
+              results.push({ type: 'tool_result', tool_use_id: tu.id, content: 'Trilha não reconhecida — faça mais uma pergunta pra identificar a trilha certa.' })
+            }
+          }
         }
         if (final.stop_reason !== 'tool_use' || !toolUses.length) break
-        // separador visual entre o que já foi dito e a continuação
         if (resposta && !/\s$/.test(resposta)) { resposta += '\n\n'; onEvent({ type: 'text', text: '\n\n' }) }
         convo.push({ role: 'assistant', content: final.content })
-        convo.push({ role: 'user', content: toolUses.map((tu: any) => ({ type: 'tool_result', tool_use_id: tu.id, content: 'Dados recebidos e registrados com sucesso.' })) })
+        convo.push({ role: 'user', content: results })
       }
     } catch (e) {
       onEvent({ type: 'error', message: (e as Error).message }); return
@@ -316,20 +397,22 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
     if (ultUser) await this.salvarMsg(sessao.id, 'user', ultUser.content)
     if (resposta.trim()) await this.salvarMsg(sessao.id, 'assistant', resposta)
 
-    // Atualiza dados + score/temperatura
+    // Atualiza dados + score/temperatura + slug (pode ter mudado no roteamento).
     const dadosAtual: LeadDados = { ...(sessao.dados ?? {}), ...toolInput }
     delete (dadosAtual as any).score; delete (dadosAtual as any).prontoParaRegistrar; delete (dadosAtual as any).encerrar
-    const score = typeof toolInput.score === 'number' ? Math.max(0, Math.min(100, toolInput.score)) : (sessao.score ?? null)
+    if (foraEscopo) (dadosAtual as any).intencao = intencao
+    const score = foraEscopo ? null : (typeof toolInput.score === 'number' ? Math.max(0, Math.min(100, toolInput.score)) : (sessao.score ?? null))
     const temperatura = score == null ? null : score >= (cfg.limiarAlto ?? 70) ? 'quente' : score >= (cfg.limiarMedio ?? 40) ? 'morno' : 'frio'
+    const statusFinal = sessao.status === 'registrado' ? 'registrado' : (foraEscopo ? 'fora_escopo' : (sessao.status ?? 'em_andamento'))
     await prisma.$executeRawUnsafe(
-      `UPDATE lead_sessao SET dados=$2::jsonb, score=$3, temperatura=$4, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
-      sessao.id, JSON.stringify(dadosAtual), score, temperatura,
+      `UPDATE lead_sessao SET dados=$2::jsonb, score=$3, temperatura=$4, slug=$5, status=$6, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
+      sessao.id, JSON.stringify(dadosAtual), score, temperatura, slugAtual, statusFinal,
     )
 
-    // Registro SILENCIOSO assim que houver nome + contato (não encerra a conversa).
+    // Registro SILENCIOSO só se for lead comercial (não fora de escopo) com nome + contato.
     const temContato = !!dadosAtual.nome && (!!dadosAtual.email || !!dadosAtual.telefone)
-    if (sessao.status !== 'registrado' && temContato) {
-      await this.registrarNoCrm(sessao.id, dadosAtual, score, temperatura, sessao.empresaId, sessao.slug).catch(() => {})
+    if (!foraEscopo && sessao.status !== 'registrado' && temContato) {
+      await this.registrarNoCrm(sessao.id, dadosAtual, score, temperatura, sessao.empresaId, slugAtual).catch(() => {})
     }
     // Fechamento (CTA de encerramento) só quando a IA sinaliza que concluiu a qualificação.
     if (toolInput.encerrar) {

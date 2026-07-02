@@ -3030,6 +3030,8 @@ model LeadFunilConfig {
   tipoEventoReuniaoId String?  @map("tipo_evento_reuniao_id")
   corPrimaria         String?  @map("cor_primaria") // cor da marca do tenant no chat público
   regrasFinalizacao   String?  @map("regras_finalizacao") @db.Text // política de encerramento (injetada no prompt)
+  roteador            Boolean  @default(false) // config-hub "Recepção": a IA triágil e encaminha pra trilha certa
+  descricaoRoteamento String?  @map("descricao_roteamento") @db.Text // "quando encaminhar pra cá" (usado pelo roteador)
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
