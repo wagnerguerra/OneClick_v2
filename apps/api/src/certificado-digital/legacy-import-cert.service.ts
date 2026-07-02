@@ -89,6 +89,9 @@ export interface PreviewItem {
   clienteRazao?: string
   pfxInfo?: PfxInfo
   senhaUsada?: string  // só pra debug — não retornado em produção
+  // Detalhes do arquivo no legado — levados pras observações do certificado no v2
+  descricaoLegado?: string   // notas/descrição (ex: "SENHA: wiz314181")
+  nomeArquivoLegado?: string // nome original do arquivo no legado
 }
 
 interface LogEntry {
@@ -437,7 +440,7 @@ export class LegacyImportCertService {
             status: item.pfxInfo.expiraEm < new Date() ? 'EXPIRADO' : 'ATIVO',
             senhaCifrada,
             arquivoHash,
-            observacoes: `Importado do OneClick V1 (legacyId=${item.legacyId}).`,
+            observacoes: this.montarObservacoesImport(item),
             createdBy: userId || null,
           },
         })
@@ -620,7 +623,7 @@ export class LegacyImportCertService {
             status: item.pfxInfo.expiraEm < new Date() ? 'EXPIRADO' : 'ATIVO',
             senhaCifrada,
             arquivoHash,
-            observacoes: `Importado do OneClick V1 (legacyId=${item.legacyId}). ${item.mensagem || ''}`.trim(),
+            observacoes: this.montarObservacoesImport(item),
             createdBy: userId || null,
           },
         })
@@ -684,6 +687,8 @@ export class LegacyImportCertService {
       status: 'ok',
       vincularA: null,
       mensagem: '',
+      descricaoLegado: row.descricao ? String(row.descricao).trim() : undefined,
+      nomeArquivoLegado: (row.nomeOriginal || row.arquivo) ? String(row.nomeOriginal || row.arquivo).trim() : undefined,
     }
 
     // 1. Tenta match: primeiro como cliente, depois como própria empresa
@@ -831,6 +836,15 @@ export class LegacyImportCertService {
       pfxInfo,
       senhaUsada,
     }
+  }
+
+  /** Monta as observações do certificado importado, levando os detalhes do arquivo
+   *  do legado (nome original + descrição/notas — ex: "SENHA: wiz314181") pro v2. */
+  private montarObservacoesImport(item: PreviewItem): string {
+    const partes: string[] = [`Importado do OneClick V1 (legacyId=${item.legacyId}).`]
+    if (item.nomeArquivoLegado) partes.push(`Arquivo original: ${item.nomeArquivoLegado}`)
+    if (item.descricaoLegado) partes.push(item.descricaoLegado)
+    return partes.join('\n')
   }
 
   /**
