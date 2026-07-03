@@ -221,7 +221,9 @@ export default function AgendaPage() {
   const agendaPerm = permissions.find(p => p.moduleSlug === 'agenda')
   const subPerms = (agendaPerm?.subPermissions ?? {}) as Record<string, boolean>
   const canManageTipos = isMaster || subPerms.manage_tipos === true
-  const canManageRecorrencia = isMaster || subPerms.manage_recorrencia === true
+  // Recorrência (Repetir) é um recurso básico de agenda — disponível a todos na
+  // criação (o backend não gateia por permissão). Antes ficava restrito a master/
+  // manage_recorrencia, o que escondia o campo pra usuários comuns.
   // `manage_participantes` controla a edição avançada de participantes (em eventos
   // de outros usuários, por exemplo). O campo no formulário de criação fica
   // sempre disponível — quem cria evento naturalmente convida participantes.
@@ -2813,7 +2815,7 @@ export default function AgendaPage() {
                   {/* Recorrência (apenas criação) — opções contextualizadas pela data do evento,
                       estilo Google Calendar. Cada preset traz um default sensato de N° de
                       repetições; user pode ajustar livremente embaixo. */}
-                  {modalMode === 'create' && canManageRecorrencia && (() => {
+                  {modalMode === 'create' && (() => {
                     const d = form.data ? parseDate(form.data) : new Date()
                     const dia = d.getDate()
                     const mesNum = String(d.getMonth() + 1).padStart(2, '0')
