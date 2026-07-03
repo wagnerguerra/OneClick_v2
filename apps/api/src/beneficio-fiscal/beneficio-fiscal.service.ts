@@ -59,7 +59,7 @@ export class BeneficioFiscalService {
               (SELECT count(*)::int FROM beneficio_fiscal_cliente v WHERE v.catalogo_id = c.id AND v.ativo = true) AS "emUso"
          FROM beneficio_fiscal_catalogo c
          LEFT JOIN servicos s ON s.id = c.servico_id
-        WHERE ($1::text IS NULL OR c.empresa_id = $1)
+        WHERE (c.empresa_id IS NULL OR $1::text IS NULL OR c.empresa_id = $1)
           ${incluirInativos ? '' : 'AND c.ativo = true'}
         ORDER BY c.nome ASC`,
       empresaId ?? null,
