@@ -93,13 +93,16 @@ export class BeneficioFiscalService {
     return rows.map(r => ({ ...r, valorPadrao: r.valorPadrao != null ? Number(r.valorPadrao) : null }))
   }
 
-  async createCatalogo(input: CatalogoInput, empresaId?: string | null) {
+  async createCatalogo(input: CatalogoInput, _empresaId?: string | null) {
     const id = randomUUID()
+    // Catálogo é sempre GLOBAL (empresa_id = NULL) — dado de referência compartilhado,
+    // visível a todas as empresas/usuários. Ignora o empresaId do contexto de propósito
+    // (senão itens criados por não-master ficariam presos à empresa e sumiriam pros demais).
     await prisma.$executeRawUnsafe(
       `INSERT INTO beneficio_fiscal_catalogo (id, nome, servico_id, notifica_vencimento_dias, obs, ativo, empresa_id, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+       VALUES ($1,$2,$3,$4,$5,$6,NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       id, input.nome, input.servicoId ?? null, input.notificaVencimentoDias ?? null,
-      input.obs ?? null, input.ativo ?? true, empresaId ?? null,
+      input.obs ?? null, input.ativo ?? true,
     )
     return { id }
   }
