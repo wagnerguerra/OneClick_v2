@@ -1758,11 +1758,6 @@ export default function OrcamentoDetailPage() {
               </p>
               <div className="flex flex-wrap gap-2 mt-2.5">
                 <StatusBadge status={orc.status} />
-                {orc.tipo && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300 px-3 py-1 text-xs font-medium uppercase border border-slate-200 dark:border-slate-700">
-                    {orc.tipo}
-                  </span>
-                )}
                 {orc.paralizado && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-3 py-1 text-xs font-medium uppercase">
                     <Pause className="h-3 w-3" /> Paralizado
