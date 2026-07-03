@@ -135,12 +135,13 @@ export function createCertificadoDigitalRouter(
 
     // ── Operações sensíveis (requerem reauth) ────────────
 
+    // Download do .pfx — não exige reauth nem motivo (decisão de produto). Continua
+    // gated pela sub-permissão download_arquivo e registrado na trilha de auditoria.
     downloadPfx: writeProcedure(MODULE)
-      .input(z.object({ id: z.string(), senhaUser: z.string().min(1), motivo: z.string().min(3) }))
+      .input(z.object({ id: z.string() }))
       .mutation(async ({ input, ctx }) => {
         await assertSubPerm(ctx, 'download_arquivo', 'Baixar arquivo PFX')
-        await assertReauth(authService, ctx.userId!, input.senhaUser)
-        const buffer = await certService.downloadPfx(input.id, input.motivo, { userId: ctx.userId })
+        const buffer = await certService.downloadPfx(input.id, 'Download pelo cadastro do cliente', { userId: ctx.userId })
         return { pfxBase64: buffer.toString('base64') }
       }),
 
