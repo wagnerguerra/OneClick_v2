@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Trash2, Copy,
+  Plus, Pencil, Trash2, Copy, History, MoreVertical,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
   FileSpreadsheet,
@@ -12,12 +12,14 @@ import {
   Button, Input, Badge,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Card, Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { VersionHistoryDialog } from '../_components/version-history-dialog'
 
 interface TreatmentModelRow {
   id: string
@@ -43,6 +45,8 @@ export default function ModelosTratamentoPage() {
     data: TreatmentModelRow[]; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean
   } | null>(null)
   const [loading, setLoading] = useState(true)
+  // Modelo cujo histórico de versões está aberto (null = fechado).
+  const [historyModel, setHistoryModel] = useState<{ id: string; nome: string } | null>(null)
   const router = useRouter()
 
   // Gerenciar Modelos é restrito à sub-permissão "gerenciar_modelos".
@@ -237,12 +241,24 @@ export default function ModelosTratamentoPage() {
                       <Button variant="soft-info" size="icon-sm" onClick={() => openEdit(row)} title="Editar">
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="soft" size="icon-sm" onClick={() => handleDuplicate(row.id, row.nome)} title="Duplicar">
-                        <Copy className="h-3.5 w-3.5" />
-                      </Button>
                       <Button variant="soft-destructive" size="icon-sm" onClick={() => handleDelete(row.id, row.nome)} title="Excluir">
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="soft" size="icon-sm" title="Mais ações">
+                            <MoreVertical className="h-3.5 w-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem onClick={() => handleDuplicate(row.id, row.nome)}>
+                            <Copy className="h-4 w-4" />Duplicar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setHistoryModel({ id: row.id, nome: row.nome })}>
+                            <History className="h-4 w-4" />Ver histórico
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -283,6 +299,17 @@ export default function ModelosTratamentoPage() {
           </div>
         )}
       </Card>
+
+      {historyModel && (
+        <VersionHistoryDialog
+          modelId={historyModel.id}
+          modelNome={historyModel.nome}
+          open
+          onOpenChange={(o) => { if (!o) setHistoryModel(null) }}
+          canManage={canManage}
+          onRestored={fetchModels}
+        />
+      )}
     </div>
   )
 }

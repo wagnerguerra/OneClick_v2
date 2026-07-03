@@ -148,6 +148,12 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     if (mode === 'create') baselineRef.current = serializeForm('', true, EMPTY_TREATMENT_DEFINITION)
   }, [mode])
 
+  // A cada mudança de etapa do wizard, volta ao topo da página (a etapa de
+  // revisão, mais longa, vinha começando scrollada pra baixo).
+  useEffect(() => {
+    if (mode === 'create') window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [mode, step])
+
   // Reaproveita o arquivo-exemplo enviado no fluxo principal (criação ou edição).
   useEffect(() => {
     try {
@@ -175,6 +181,41 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     }
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [])
+
+  // Guarda o botão "voltar" do navegador (SPA não dispara beforeunload nele).
+  // Um estado-sentinela intercepta o 1º "voltar": o popstate cai aqui, com a
+  // página ainda montada. Sem alterações → sai; com alterações → confirma antes.
+  // A saída real usa o router (mesmo destino do botão Sair/Voltar) — mexer no
+  // histórico à mão (history.back/go) é frágil com o App Router e engolia o
+  // clique; e passar `null` no pushState zerava o state do Next (quebrava
+  // título/ícone da aba).
+  useEffect(() => {
+    let leaving = false
+    // Preserva o state do Next no sentinela (não passar null).
+    const primeSentinel = () => window.history.pushState(window.history.state, '', window.location.href)
+    primeSentinel()
+    async function onPopState() {
+      if (leaving) return
+      if (!dirtyRef.current) {
+        leaving = true
+        window.removeEventListener('popstate', onPopState)
+        router.push(backHref)
+        return
+      }
+      const ok = await confirmarSaidaSemSalvar()
+      if (ok) {
+        leaving = true
+        window.removeEventListener('popstate', onPopState)
+        router.push(backHref)
+      } else {
+        // Cancelou: re-arma o sentinela para continuar guardando.
+        primeSentinel()
+      }
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Colunas disponíveis: do arquivo enviado, ou derivadas da definição salva.
@@ -263,12 +304,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
 
   async function handleBack() {
     if (dirtyRef.current) {
-      const ok = await alerts.confirm({
-        title: 'Sair sem salvar?',
-        text: 'Há alterações não salvas neste modelo. Se sair agora, elas serão perdidas.',
-        confirmText: 'Sair sem salvar',
-        icon: 'warning',
-      })
+      const ok = await confirmarSaidaSemSalvar()
       if (!ok) return
     }
     router.push(backHref)
@@ -279,6 +315,10 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     const p: string[] = []
     if (!nome.trim() || nome.trim().length < 2) p.push('Informe um <b>nome</b> para o modelo (mínimo 2 caracteres).')
     return p
+  }
+  function probArquivo(): string[] {
+    // `preview` só existe quando um arquivo foi enviado e a tabela foi lida.
+    return preview ? [] : ['Envie um <b>arquivo de exemplo</b> para continuar.']
   }
   function probDePara(): string[] {
     const p: string[] = []
@@ -369,10 +409,10 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   }
 
   // Validadores por índice de etapa do wizard (ordem: Dados do Modelo, Colunas,
-  // Contas correntes, Débito/Crédito + Contrapartida). O arquivo de exemplo (na
-  // 1ª etapa) não tem campo obrigatório — só o nome (probDados).
+  // Contas correntes, Débito/Crédito + Contrapartida). Na 1ª etapa é obrigatório
+  // o arquivo de exemplo (probArquivo) e o nome (probDados).
   const STEP_VALIDATORS: Array<(() => string[]) | null> = [
-    probDados,
+    () => [...probArquivo(), ...probDados()],
     probDePara,
     probContasCorrentes,
     () => [...probDC(), ...probContrapartida()],
@@ -596,8 +636,9 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
           <Label className="text-[13px] font-semibold">Conta corrente <span className="text-destructive">*</span></Label>
           <Input
             className="h-9 text-sm bg-card"
+            inputMode="numeric"
             value={def.contasCorrentes.unica}
-            onChange={(e) => setCcUnica(semSeparador(e.target.value))}
+            onChange={(e) => setCcUnica(soDigitos(e.target.value))}
             placeholder="Número da conta corrente"
           />
         </div>
@@ -709,7 +750,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       {secContasCorrentes}
       {secDC}
       {secContrapartida}
-      {secNota}
+      {mode === 'edit' && secNota}
     </>
   )
 
@@ -726,7 +767,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
 
     return (
       <TooltipProvider>
-        <div className="space-y-6">
+        <div className="space-y-6 pb-24">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <PageHeaderIcon module="contabil" icon={FileSpreadsheet} />
@@ -756,25 +797,17 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
             currentStep.node
           )}
 
-          <div className="flex items-center justify-between border-t border-border/60 pt-4">
-            {step > 0 ? (
-              <Button variant="outline" size="sm" onClick={() => setStep((s) => Math.max(0, s - 1))}>
-                <ArrowLeft className="h-4 w-4" /> Etapa anterior
-              </Button>
-            ) : (
-              <span />
-            )}
-            {isReview ? (
-              <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Criar modelo
-              </Button>
-            ) : (
-              <Button variant="success" size="sm" onClick={advanceStep}>
-                Avançar <ArrowRight className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
         </div>
+        {/* Barra de ação flutuante central — "Etapa anterior" + ação primária
+            juntos, na zona livre (o FAB do sistema fica no canto direito). */}
+        <FloatingActionBar
+          onBack={step > 0 ? () => setStep((s) => Math.max(0, s - 1)) : undefined}
+          primaryLabel={isReview ? 'Salvar modelo' : 'Avançar'}
+          primaryIcon={isReview ? Save : ArrowRight}
+          primaryIconRight={!isReview}
+          onPrimary={isReview ? handleSave : advanceStep}
+          loading={isReview ? saving : false}
+        />
       </TooltipProvider>
     )
   }
@@ -782,7 +815,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   // ---- Modo EDIÇÃO: visão geral (todas as seções) -------------------------
   return (
     <TooltipProvider>
-      <div className="space-y-6">
+      <div className="space-y-6 pb-24">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <PageHeaderIcon module="contabil" icon={FileSpreadsheet} />
@@ -797,13 +830,12 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
                 <History className="h-4 w-4" /> Histórico
               </Button>
             )}
-            <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
-            </Button>
             <Button variant="outline" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4" /> Voltar</Button>
           </div>
         </div>
         {overview}
+        {/* Salvar flutuante — sempre acessível, sem rolar até o topo. */}
+        <FloatingActionBar primaryLabel="Salvar alterações" onPrimary={handleSave} loading={saving} />
         {modelId && (
           <VersionHistoryDialog
             modelId={modelId}
@@ -822,6 +854,58 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
 // ============================================================
 // Subcomponentes
 // ============================================================
+
+/**
+ * Ação primária (Salvar / Criar modelo) fixada no rodapé, sempre acessível na
+ * visão geral do modelo — sem precisar rolar até o topo. Fica no centro-baixo
+ * da tela para não colidir com o FAB "Fale com a TI" (canto inferior direito)
+ * nem com o rail de tarefas. z-40 mantém abaixo de modais/alertas (z-50).
+ */
+function FloatingActionBar({
+  primaryLabel, onPrimary, loading = false, primaryIcon: Icon = Save, primaryIconRight = false, onBack,
+}: {
+  primaryLabel: string; onPrimary: () => void; loading?: boolean
+  primaryIcon?: LucideIcon; primaryIconRight?: boolean; onBack?: () => void
+}) {
+  // Anima a entrada: monta "escondida" (deslocada + transparente) e no próximo
+  // frame passa para o estado visível, deixando a transição do CSS rolar.
+  // Mesmo padrão do FAB — usa só utilitários core do Tailwind (sem plugin).
+  const [shown, setShown] = useState(false)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)))
+    return () => cancelAnimationFrame(id)
+  }, [])
+  const glyph = loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />
+  return (
+    <div
+      className={cn(
+        'fixed inset-x-0 bottom-6 z-40 flex items-center justify-center gap-2 pointer-events-none',
+        'transition-all duration-500 ease-out will-change-transform',
+        shown ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+      )}
+    >
+      {onBack && (
+        <Button
+          variant="outline"
+          onClick={onBack}
+          className="pointer-events-auto h-11 gap-2 rounded-full bg-card px-5 text-sm font-semibold shadow-lg shadow-black/20 ring-1 ring-black/5 transition-all duration-100 active:scale-95"
+        >
+          <ArrowLeft className="h-4 w-4" /> Etapa anterior
+        </Button>
+      )}
+      <Button
+        variant="success"
+        onClick={onPrimary}
+        disabled={loading}
+        className="pointer-events-auto h-11 gap-2 rounded-full px-6 text-sm font-semibold shadow-lg shadow-black/25 ring-1 ring-black/5 transition-all duration-100 active:scale-95"
+      >
+        {!primaryIconRight && glyph}
+        {primaryLabel}
+        {primaryIconRight && glyph}
+      </Button>
+    </div>
+  )
+}
 
 /** Ajuda colapsada: "?" que revela o texto no hover. */
 function HelpTip({ text, side = 'top' }: { text: string; side?: 'top' | 'right' | 'bottom' | 'left' }) {
@@ -1048,8 +1132,9 @@ function ContasCorrentesMap({ def, setDef, coluna, getDistinct }: { def: Treatme
               <Input
                 className={cn('h-8 w-[150px] text-xs bg-card', !cur.trim() && 'border-r-2 border-r-destructive')}
                 placeholder="Conta corrente"
+                inputMode="numeric"
                 value={cur}
-                onChange={(e) => setOne(val, semSeparador(e.target.value))}
+                onChange={(e) => setOne(val, soDigitos(e.target.value))}
               />
             </div>
           )
@@ -1094,7 +1179,7 @@ function ContrapartidaPalavraChave({ def, setDef, dcByDescricao }: { def: Treatm
         {itens.map((it, i) => (
           <div key={i} className="flex flex-wrap items-center gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-2 py-1.5">
             <Input className="h-8 text-xs bg-card flex-1 min-w-[140px]" placeholder="Palavra-chave" value={it.palavraChave} onChange={(e) => update(i, { palavraChave: e.target.value })} />
-            <Input className={cn('h-8 text-xs bg-card w-[120px]', !it.conta.trim() && 'border-r-2 border-r-destructive')} placeholder="Conta" value={it.conta} onChange={(e) => update(i, { conta: semSeparador(e.target.value) })} />
+            <Input className={cn('h-8 text-xs bg-card w-[120px]', !it.conta.trim() && 'border-r-2 border-r-destructive')} placeholder="Conta" inputMode="numeric" value={it.conta} onChange={(e) => update(i, { conta: soDigitos(e.target.value) })} />
             <Input className="h-8 text-xs bg-card flex-1 min-w-[140px]" placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => update(i, { historicoFixo: semSeparador(e.target.value) })} />
             {dcByDescricao && (
               <Select value={it.direcao ?? ''} onValueChange={(v) => update(i, { direcao: v as Direcao })}>
@@ -1160,7 +1245,7 @@ function ContrapartidaDescricao({ def, setDef, dcByDescricao, descricaoColuna, g
             {itens.map((it, i) => (
               <TableRow key={it.descricao + i}>
                 <TableCell className="text-sm max-w-[280px] truncate" title={it.descricao}>{it.descricao}</TableCell>
-                <TableCell><Input className={cn('h-8 text-xs bg-card', !it.conta.trim() && 'border-r-2 border-r-destructive')} placeholder="Conta" value={it.conta} onChange={(e) => update(i, { conta: semSeparador(e.target.value) })} /></TableCell>
+                <TableCell><Input className={cn('h-8 text-xs bg-card', !it.conta.trim() && 'border-r-2 border-r-destructive')} placeholder="Conta" inputMode="numeric" value={it.conta} onChange={(e) => update(i, { conta: soDigitos(e.target.value) })} /></TableCell>
                 <TableCell><Input className="h-8 text-xs bg-card" placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => update(i, { historicoFixo: semSeparador(e.target.value) })} /></TableCell>
                 {dcByDescricao && (
                   <TableCell>
@@ -1186,8 +1271,29 @@ function ContrapartidaDescricao({ def, setDef, dcByDescricao, descricaoColuna, g
  * (separada por vírgula, sem escape). Enforce no front nos campos digitados —
  * o backend ainda saneia como rede de segurança (inclui dados vindos do arquivo).
  */
+/**
+ * Diálogo único de "sair sem salvar" — fonte de verdade da mensagem, usada por
+ * todos os caminhos de saída (botão Sair/Voltar e botão "voltar" do navegador).
+ */
+function confirmarSaidaSemSalvar(): Promise<boolean> {
+  return alerts.confirm({
+    title: 'Sair sem salvar?',
+    text: 'Há alterações não salvas neste modelo. Se sair agora, elas serão perdidas.',
+    confirmText: 'Sair sem salvar',
+    icon: 'warning',
+  })
+}
+
 function semSeparador(s: string): string {
   return s.replace(/[,\r\n]/g, '')
+}
+
+/**
+ * Campos de número de conta (contas correntes e contrapartida) só aceitam dígitos.
+ * Remove qualquer caractere não numérico enquanto o usuário digita.
+ */
+function soDigitos(s: string): string {
+  return s.replace(/\D/g, '')
 }
 
 /** Escapa HTML de valores do usuário antes de embutir nas mensagens (SweetAlert html). */
