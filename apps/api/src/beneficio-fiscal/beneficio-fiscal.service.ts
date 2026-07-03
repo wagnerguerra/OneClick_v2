@@ -191,7 +191,7 @@ export class BeneficioFiscalService {
     await prisma.$executeRawUnsafe(
       `INSERT INTO beneficio_fiscal_cliente
          (id, cliente_id, catalogo_id, data_vencimento, portaria, processo, obs, ativo, empresa_id, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+       VALUES ($1,$2,$3,$4::date,$5,$6,$7,$8,$9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       id, input.clienteId, input.catalogoId, input.dataVencimento || null,
       input.portaria ?? null, input.processo ?? null, input.obs ?? null,
       input.ativo ?? true, empresaId ?? null,
@@ -202,7 +202,7 @@ export class BeneficioFiscalService {
   async updateVinculo(id: string, input: Partial<VinculoInput>) {
     await prisma.$executeRawUnsafe(
       `UPDATE beneficio_fiscal_cliente SET
-         data_vencimento = $2,
+         data_vencimento = $2::date,
          portaria = $3,
          processo = $4,
          obs = $5,
