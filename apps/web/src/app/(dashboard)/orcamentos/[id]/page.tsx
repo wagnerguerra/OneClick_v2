@@ -1257,6 +1257,15 @@ export default function OrcamentoDetailPage() {
     navigator.clipboard.writeText(link).then(() => alerts.success('Copiado', 'Link copiado para a área de transferência'))
   }
 
+  function copiarEmails() {
+    const lista = (formEmails || '').split(/[,;]/).map(s => s.trim()).filter(Boolean)
+    if (lista.length === 0) { alerts.error('Nada a copiar', 'Nenhum e-mail cadastrado.'); return }
+    navigator.clipboard.writeText(lista.join(', ')).then(
+      () => alerts.success('Copiado', `${lista.length} e-mail(s) copiado(s).`),
+      () => alerts.error('Erro', 'Não foi possível copiar.'),
+    )
+  }
+
   // ── Workflow estendido (paralizar, retomar, reabrir, editar datas) ──
 
   async function handleParalizar() {
@@ -2144,7 +2153,14 @@ export default function OrcamentoDetailPage() {
 
                         {/* Linha 3: E-mails (full-width) — campo expansível com chips */}
                         <div className="col-span-12 space-y-1.5">
-                          <Label className="text-[13px] font-semibold text-foreground">E-mails dos Contatos</Label>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[13px] font-semibold text-foreground">E-mails dos Contatos</Label>
+                            <div className="flex items-center gap-1">
+                              <Button type="button" variant="ghost" size="xs" className="h-6 gap-1 text-[11px] text-muted-foreground" onClick={copiarEmails} title="Copiar os e-mails">
+                                <CopyIcon className="h-3.5 w-3.5" /> Copiar
+                              </Button>
+                            </div>
+                          </div>
                           <EmailChipsInput
                             value={formEmails}
                             onChange={setFormEmails}
