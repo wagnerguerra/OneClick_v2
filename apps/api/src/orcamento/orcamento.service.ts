@@ -829,6 +829,33 @@ export class OrcamentoService {
 
   // ── Status Workflow ───────────────────────────────────────
 
+  /**
+   * Cancela em cascata os processos/execuções ainda ABERTOS que foram disparados
+   * por este orçamento na aprovação. Processos/execuções já CONCLUÍDOS/CANCELADOS
+   * são preservados. Idempotente (chamável de novo sem efeito colateral).
+   */
+  private async cancelarServicosDoOrcamento(orcamentoId: string, motivo: string, userId?: string) {
+    // 1) Processos abertos do orçamento → cancelar já cascateia as execuções.
+    //    (ProcessoStatus só tem EM_ANDAMENTO/CONCLUIDO/CANCELADO.)
+    const processos = await prisma.processo.findMany({
+      where: { orcamentoId, status: 'EM_ANDAMENTO' },
+      select: { id: true },
+    })
+    for (const p of processos) {
+      await this.processoService.cancelar(p.id, motivo, userId)
+        .catch(e => console.warn('[Orcamento] Falha ao cancelar processo', p.id, (e as Error).message))
+    }
+    // 2) Execuções abertas sem processo (ou que sobraram) vinculadas ao orçamento.
+    const orfas = await prisma.servicoExecucao.updateMany({
+      where: { orcamentoId, status: { in: ['EM_ANDAMENTO', 'AGUARDANDO_INICIO'] } },
+      data: { status: 'CANCELADO', concluidoEm: new Date() },
+    })
+    if (processos.length > 0 || orfas.count > 0) {
+      console.log(`[Orcamento] Serviços cancelados p/ orçamento ${orcamentoId}: ${processos.length} processo(s) + ${orfas.count} execução(ões) órfã(s).`)
+    }
+    return { processos: processos.length, execucoesOrfas: orfas.count }
+  }
+
   async changeStatus(id: string, novoStatus: string, userId?: string, opts?: { skipNotifications?: boolean; notificarCliente?: boolean }) {
     const orc = await prisma.orcamento.findUnique({ where: { id } })
     if (!orc) throw new Error('Orçamento não encontrado')
@@ -874,6 +901,14 @@ export class OrcamentoService {
     }
 
     const updated = await prisma.orcamento.update({ where: { id }, data })
+
+    // Ao ENCERRAR (cancelar) um orçamento, cancela em cascata os serviços/processos
+    // ainda abertos que foram disparados na aprovação. Sem efeito se nunca foi aprovado
+    // (nenhum processo vinculado) ou se já finalizou (processos concluídos são preservados).
+    if (novoStatus === 'ENCERRADO') {
+      await this.cancelarServicosDoOrcamento(id, `Orçamento #${orc.numero} encerrado`, userId)
+        .catch(e => console.warn('[Orcamento] Falha ao cancelar serviços do orçamento encerrado:', (e as Error).message))
+    }
 
     // Notificações do sino de "novo orçamento criado pelo CRM" só fazem sentido
     // enquanto o orçamento está em NOVO. Ao sair desse status (Comercial pegou
