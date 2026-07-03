@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
-import { router, readProcedure, writeProcedure, protectedProcedure, writeSubProcedure, deleteSubProcedure } from '../trpc/trpc.service'
+import { router, readProcedure, writeProcedure, protectedProcedure, writeSubProcedure, deleteSubProcedure, writeSubOrModuleWrite } from '../trpc/trpc.service'
 import { createClienteSchema, updateClienteSchema, listClienteSchema } from '@saas/types'
 import { ClienteService } from './cliente.service'
 import { LegacyImportService } from './legacy-import.service'
@@ -255,15 +255,17 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.listAtividades(input.clienteId)),
 
-    addAtividade: writeSubProcedure(MODULE, 'manage_activities_benefits', 'Gerenciar atividades e benefícios fiscais')
+    // Atividades: seção unificada "Atividades e Benefícios" — quem gerencia atividades
+    // (clientes.manage_activities_benefits) OU benefícios (beneficios-fiscais.canWrite) pode mexer.
+    addAtividade: writeSubOrModuleWrite(MODULE, 'manage_activities_benefits', 'beneficios-fiscais', 'Gerenciar atividades e benefícios fiscais')
       .input(z.object({ clienteId: z.string(), valor: z.string().min(1) }))
       .mutation(({ input }) => clienteService.addAtividade(input.clienteId, input.valor)),
 
-    updateAtividade: writeSubProcedure(MODULE, 'manage_activities_benefits', 'Gerenciar atividades e benefícios fiscais')
+    updateAtividade: writeSubOrModuleWrite(MODULE, 'manage_activities_benefits', 'beneficios-fiscais', 'Gerenciar atividades e benefícios fiscais')
       .input(z.object({ id: z.string(), valor: z.string().min(1) }))
       .mutation(({ input }) => clienteService.updateAtividade(input.id, input.valor)),
 
-    removeAtividade: deleteSubProcedure(MODULE, 'manage_activities_benefits', 'Gerenciar atividades e benefícios fiscais')
+    removeAtividade: writeSubOrModuleWrite(MODULE, 'manage_activities_benefits', 'beneficios-fiscais', 'Gerenciar atividades e benefícios fiscais')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => clienteService.removeAtividade(input.id)),
 

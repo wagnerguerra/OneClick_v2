@@ -2956,6 +2956,8 @@ function bfFmtData(d: string | null): string {
 function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
   const { canManageActivitiesBenefits } = useClientesPerms()
   const bfPerms = useBeneficioFiscalPerms()
+  // Seção unificada: quem gerencia atividades OU benefícios pode mexer nas atividades.
+  const canManageAtiv = canManageActivitiesBenefits || bfPerms.canWrite
   const [atividades, setAtividades] = useState<AtivBenefItem[]>([])
   // Benefícios agora vêm do módulo estruturado Benefícios Fiscais (catálogo + vencimento).
   const [beneficios, setBeneficios] = useState<BFItem[]>([])
@@ -3066,7 +3068,7 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {canManageActivitiesBenefits && (
+              {canManageAtiv && (
                 <DropdownMenuItem onClick={() => setModal({ kind: 'atividade', valor: '' })}>
                   <Activity className="h-3.5 w-3.5" /> Atividade
                 </DropdownMenuItem>
@@ -3104,13 +3106,13 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
                     style={{ borderColor: `color-mix(in srgb, ${MODULE_COLOR_CLIENTES} 35%, transparent)`, color: MODULE_COLOR_CLIENTES, backgroundColor: `color-mix(in srgb, ${MODULE_COLOR_CLIENTES} 10%, transparent)` }}
                   >
                     <span
-                      className={canManageActivitiesBenefits ? 'cursor-pointer' : ''}
-                      onClick={() => canManageActivitiesBenefits && setModal({ kind: 'atividade', id: a.id, valor: a.valor })}
-                      title={canManageActivitiesBenefits ? 'Editar atividade' : undefined}
+                      className={canManageAtiv ? 'cursor-pointer' : ''}
+                      onClick={() => canManageAtiv && setModal({ kind: 'atividade', id: a.id, valor: a.valor })}
+                      title={canManageAtiv ? 'Editar atividade' : undefined}
                     >
                       {a.valor}
                     </span>
-                    {canManageActivitiesBenefits && (
+                    {canManageAtiv && (
                       <button
                         type="button"
                         onClick={() => handleRemove(a.id, a.valor)}

@@ -510,6 +510,28 @@ export function deleteSubProcedure(moduleSlug: string, subKey: string, label: st
     .use(createSubPermissionMiddleware(moduleSlug, subKey, label))
 }
 
+/**
+ * Passa se: master/empresaMaster, OU tem a sub-permissão `subKey` (com canWrite) no
+ * módulo `subModule`, OU tem canWrite no módulo alternativo `altModule`. Usado quando
+ * uma seção é gerenciada por permissões de DOIS módulos (ex.: "Atividades e Benefícios":
+ * atividades[clientes.manage_activities_benefits] & benefícios[beneficios-fiscais.canWrite]),
+ * pra quem gerencia um lado também poder gerenciar o outro.
+ */
+export function writeSubOrModuleWrite(subModule: string, subKey: string, altModule: string, label: string) {
+  return t.procedure.use(async ({ ctx, next }) => {
+    if (!ctx.userId) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+    assertTenantActive(ctx)
+    if (ctx.isMaster || ctx.isEmpresaMaster) return next({ ctx: { ...ctx, userId: ctx.userId } })
+    const permissions = await getUserPermissions(ctx.userId)
+    const subMod = permissions.find(p => p.moduleSlug === subModule)
+    const subs = (subMod?.subPermissions ?? {}) as Record<string, boolean>
+    const okSub = !!subMod?.canWrite && subs[subKey] === true
+    const okAlt = !!permissions.find(p => p.moduleSlug === altModule)?.canWrite
+    if (!okSub && !okAlt) throw new TRPCError({ code: 'FORBIDDEN', message: `Sem permissão para: ${label}` })
+    return next({ ctx: { ...ctx, userId: ctx.userId } })
+  })
+}
+
 // Tipos de colaborador que lideram o próprio setor — acesso liberado por tipo
 // (sem precisar conceder a permissão manualmente). Usado p/ os apontamentos.
 const ROLES_LIDER_SETOR = ['GESTOR', 'COORDENADOR', 'DIRETOR']
