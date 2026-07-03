@@ -120,8 +120,14 @@ export default function CrmFunilPage() {
     } catch (e) { alerts.error('Não foi possível excluir', (e as Error).message) }
   }
 
-  const linkPublico = cfg?.slug ? `${(process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')}/atendimento/${cfg.slug}` : ''
+  const appBase = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+  const linkPublico = cfg?.slug ? `${appBase}/atendimento/${cfg.slug}` : ''
   async function copiarLink() { try { await navigator.clipboard.writeText(linkPublico); alerts.success('Copiado', 'Link da campanha copiado.') } catch { /* */ } }
+
+  const embedSnippet = cfg?.slug
+    ? `<script src="${appBase}/embed/atendimento.js" data-slug="${cfg.slug}" data-cor="${cfg.corPrimaria || '#10b981'}" async></script>`
+    : ''
+  async function copiarEmbed() { try { await navigator.clipboard.writeText(embedSnippet); alerts.success('Copiado', 'Código do widget copiado. Cole antes do </body> do seu site.') } catch { /* */ } }
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
 
@@ -271,6 +277,16 @@ export default function CrmFunilPage() {
                     {linkPublico && <a href={linkPublico} target="_blank" rel="noreferrer"><Button variant="outline" size="sm" className="gap-1.5"><ExternalLink className="h-4 w-4" /> Abrir</Button></a>}
                     <label className="flex items-center gap-1.5 text-xs ml-2"><Switch checked={cfg.ativo} onCheckedChange={v => upd({ ativo: v })} /> Ativa</label>
                     <label className="flex items-center gap-1.5 text-xs ml-2" title="A IA identifica a intenção e encaminha para a trilha certa (chat único no site)."><Switch checked={!!cfg.roteador} onCheckedChange={v => upd({ roteador: v })} /> Recepção (roteia)</label>
+                  </div>
+                </div>
+
+                {/* Incorporar no site (widget flutuante) */}
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                  <Label className="text-[12px] font-semibold">Incorporar no site (botão de chat)</Label>
+                  <p className="text-[11px] text-muted-foreground">Cole este código antes do <code>&lt;/body&gt;</code> do seu site — ele adiciona um botão flutuante de chat que abre este atendimento{cfg.roteador ? ' (Recepção — a IA identifica a trilha)' : ''}.</p>
+                  <div className="flex flex-wrap items-start gap-2">
+                    <textarea className="h-16 text-[11px] font-mono flex-1 min-w-[240px] rounded-md border border-input bg-card px-2 py-1.5 resize-none" value={embedSnippet} readOnly onFocus={e => e.currentTarget.select()} placeholder="Salve a campanha para gerar o código" />
+                    <Button variant="outline" size="sm" onClick={copiarEmbed} disabled={!cfg.slug} className="gap-1.5"><Copy className="h-4 w-4" /> Copiar código</Button>
                   </div>
                 </div>
 
