@@ -88,7 +88,7 @@ export default function ClientesPage() {
 
   // Gerenciador de opcoes (Atividade, Origem)
   const [opcoesModal, setOpcoesModal] = useState(false)
-  const [opcoesTab, setOpcoesTab] = useState<'ATIVIDADE' | 'ORIGEM' | 'GRUPO'>('ATIVIDADE')
+  const [opcoesTab, setOpcoesTab] = useState<'ATIVIDADE' | 'ORIGEM' | 'GRUPO' | 'BENEFICIO'>('ATIVIDADE')
   const [opcoes, setOpcoes] = useState<Array<{ id: string; tipo: string; valor: string; ordem: number; count?: number }>>([])
   const [opcoesLoading, setOpcoesLoading] = useState(false)
   const [novaOpcao, setNovaOpcao] = useState('')
@@ -98,8 +98,14 @@ export default function ClientesPage() {
     setOpcoesLoading(true)
     setOpcoesBusca('')
     try {
-      const data = await (trpc.cliente as any).listOpcoes.query({ tipo }) as typeof opcoes
-      setOpcoes(data)
+      if (tipo === 'BENEFICIO') {
+        // Catálogo de benefícios fiscais (tipos). count = clientes usando (emUso).
+        const cat = await (trpc as any).beneficioFiscal.listCatalogo.query({ incluirInativos: true }) as Array<{ id: string; nome: string; emUso?: number }>
+        setOpcoes(cat.map(c => ({ id: c.id, tipo: 'BENEFICIO', valor: c.nome, ordem: 0, count: c.emUso || 0 })))
+      } else {
+        const data = await (trpc.cliente as any).listOpcoes.query({ tipo }) as typeof opcoes
+        setOpcoes(data)
+      }
     } catch { /* */ }
     finally { setOpcoesLoading(false) }
   }, [])
@@ -115,14 +121,24 @@ export default function ClientesPage() {
       return
     }
     try {
-      await (trpc.cliente as any).createOpcao.mutate({ tipo: opcoesTab, valor })
+      if (opcoesTab === 'BENEFICIO') {
+        await (trpc as any).beneficioFiscal.createCatalogo.mutate({ nome: valor })
+      } else {
+        await (trpc.cliente as any).createOpcao.mutate({ tipo: opcoesTab, valor })
+      }
       setNovaOpcao('')
       loadOpcoes(opcoesTab)
     } catch (err) { alerts.error('Erro', (err as Error).message) }
   }
 
   const handleUpdateOpcao = async (id: string, valor: string) => {
-    try { await (trpc.cliente as any).updateOpcao.mutate({ id, valor }) } catch { /* */ }
+    try {
+      if (opcoesTab === 'BENEFICIO') {
+        await (trpc as any).beneficioFiscal.updateCatalogo.mutate({ id, nome: valor })
+      } else {
+        await (trpc.cliente as any).updateOpcao.mutate({ id, valor })
+      }
+    } catch { /* */ }
   }
 
   const handleDeleteOpcao = async (id: string, valor: string, count = 0) => {
@@ -134,7 +150,11 @@ export default function ClientesPage() {
     const ok = await alerts.confirmDelete(valor)
     if (!ok) return
     try {
-      await (trpc.cliente as any).deleteOpcao.mutate({ id })
+      if (opcoesTab === 'BENEFICIO') {
+        await (trpc as any).beneficioFiscal.removeCatalogo.mutate({ id })
+      } else {
+        await (trpc.cliente as any).deleteOpcao.mutate({ id })
+      }
       setOpcoes(prev => prev.filter(o => o.id !== id))
     } catch (err) { alerts.error('Erro', (err as Error).message) }
   }
@@ -868,17 +888,17 @@ export default function ClientesPage() {
         <DialogContent className="max-w-[620px]">
           <DialogHeaderIcon icon={Settings2} color="emerald">
             <DialogTitle className="text-[15px]">Opcoes de Cadastro</DialogTitle>
-            <DialogDescription className="text-[11px]">Gerencie as opcoes dos campos Atividade, Origem e Grupo</DialogDescription>
+            <DialogDescription className="text-[11px]">Gerencie as opcoes dos campos Atividade, Origem, Grupo e o catálogo de Benefícios</DialogDescription>
           </DialogHeaderIcon>
           <DialogBody>
             {/* Tabs */}
             <div className="flex gap-1 mb-3 border-b">
-              {(['ATIVIDADE', 'ORIGEM', 'GRUPO'] as const).map(tab => (
+              {(['ATIVIDADE', 'ORIGEM', 'GRUPO', 'BENEFICIO'] as const).map(tab => (
                 <button key={tab} type="button"
                   className={cn('px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px', opcoesTab === tab ? 'border-emerald-500 text-emerald-700' : 'border-transparent text-muted-foreground hover:text-foreground')}
                   onClick={() => { setOpcoesTab(tab); loadOpcoes(tab) }}
                 >
-                  {tab === 'ATIVIDADE' ? 'Atividades' : tab === 'ORIGEM' ? 'Origens' : 'Grupos'}
+                  {tab === 'ATIVIDADE' ? 'Atividades' : tab === 'ORIGEM' ? 'Origens' : tab === 'GRUPO' ? 'Grupos' : 'Benefícios'}
                 </button>
               ))}
             </div>
@@ -907,7 +927,7 @@ export default function ClientesPage() {
                         className="h-7 text-sm flex-1 border-0 bg-transparent shadow-none px-2 rounded hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-1"
                       />
                       {op.count ? (
-                        <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums px-1.5 py-0.5 rounded bg-muted/60" title={`${op.count} cliente(s) neste grupo`}>
+                        <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums px-1.5 py-0.5 rounded bg-muted/60" title={`${op.count} cliente(s) vinculado(s)`}>
                           {op.count}
                         </span>
                       ) : null}
@@ -921,7 +941,7 @@ export default function ClientesPage() {
             })()}
             {/* Adicionar */}
             <div className="flex items-center gap-2 mt-3 pt-3 border-t">
-              <Input placeholder={opcoesTab === 'ATIVIDADE' ? 'Nova atividade...' : opcoesTab === 'ORIGEM' ? 'Nova origem...' : 'Novo grupo...'} value={novaOpcao} onChange={e => setNovaOpcao(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddOpcao() }} className="h-8 text-sm flex-1" />
+              <Input placeholder={opcoesTab === 'ATIVIDADE' ? 'Nova atividade...' : opcoesTab === 'ORIGEM' ? 'Nova origem...' : opcoesTab === 'GRUPO' ? 'Novo grupo...' : 'Novo benefício...'} value={novaOpcao} onChange={e => setNovaOpcao(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddOpcao() }} className="h-8 text-sm flex-1" />
               <Button size="sm" variant="outline" className="h-8 gap-1 shrink-0" onClick={handleAddOpcao} disabled={!novaOpcao.trim()}>
                 <Plus className="h-3.5 w-3.5" /> Adicionar
               </Button>
