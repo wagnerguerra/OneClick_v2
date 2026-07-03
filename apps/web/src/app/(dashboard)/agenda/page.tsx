@@ -1146,8 +1146,11 @@ export default function AgendaPage() {
             presenca: form.presenca as 'PRESENCIAL' | 'ONLINE' | 'HIBRIDO',
             particular: form.particular,
             editavel: form.editavel,
-            sala: form.sala || undefined,
-            salaId: form.salaId || undefined,
+            // `|| null` (não `undefined`): ao mover pra "Outro local" (salaId=''),
+            // precisamos LIMPAR a FK no banco — senão a sala antiga continua
+            // ocupada e o conflito persiste. undefined = "não mexe".
+            sala: form.sala || null,
+            salaId: form.salaId || null,
             arrumarSala: form.arrumarSala,
             isTarefa: form.isTarefa,
             tipoId: form.tipoId,
