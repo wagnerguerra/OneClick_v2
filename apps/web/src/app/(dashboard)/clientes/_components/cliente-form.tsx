@@ -2989,7 +2989,9 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
 
   useEffect(() => {
     load()
-    ;(trpc.cliente as any).listOpcoes.query({ tipo: 'CLIENTE_ATIVIDADE' }).then((d: OpcaoItem[]) => setOptAtividade(d)).catch(() => {})
+    // Catálogo de atividades = tipo 'ATIVIDADE' (gerenciado em Opções de Cadastro → aba
+    // Atividades). Antes lia 'CLIENTE_ATIVIDADE', que nada popula → select sempre vazio.
+    ;(trpc.cliente as any).listOpcoes.query({ tipo: 'ATIVIDADE' }).then((d: OpcaoItem[]) => setOptAtividade(d)).catch(() => {})
     ;(trpc as any).beneficioFiscal.listCatalogo.query().then((c: { id: string; nome: string; ativo: boolean }[]) => setCatBenef(c)).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clienteId])
@@ -3084,30 +3086,39 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
       ) : (atividades.length === 0 && beneficios.length === 0) ? (
         <p className="text-xs text-muted-foreground">Sem registro</p>
       ) : (
-        <div className="space-y-4">
-          {/* Atividades */}
+        <div className="space-y-3.5">
+          {/* Atividades — chips que quebram linha (compacto) */}
           <div>
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
               <Activity className="h-3 w-3" /> Atividades
+              {atividades.length > 0 && <span className="text-[10px] font-normal text-muted-foreground/60">({atividades.length})</span>}
             </p>
             {atividades.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nenhuma atividade.</p>
+              <p className="text-[11px] text-muted-foreground/70 italic">Nenhuma atividade.</p>
             ) : (
-              <div className="space-y-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 {atividades.map((a) => (
-                  <div key={a.id} className="flex items-center gap-2 group">
-                    <Badge
-                      variant="secondary"
-                      className="text-[11px] font-medium border"
-                      style={{ borderColor: MODULE_COLOR_CLIENTES, color: MODULE_COLOR_CLIENTES, backgroundColor: 'color-mix(in srgb, var(--mod-cadastros, #10b981) 12%, transparent)' }}
+                  <div
+                    key={a.id}
+                    className="group/chip inline-flex items-center gap-1 rounded-full border pl-2.5 pr-1 py-0.5 text-[11px] font-medium transition-colors"
+                    style={{ borderColor: `color-mix(in srgb, ${MODULE_COLOR_CLIENTES} 35%, transparent)`, color: MODULE_COLOR_CLIENTES, backgroundColor: `color-mix(in srgb, ${MODULE_COLOR_CLIENTES} 10%, transparent)` }}
+                  >
+                    <span
+                      className={canManageActivitiesBenefits ? 'cursor-pointer' : ''}
+                      onClick={() => canManageActivitiesBenefits && setModal({ kind: 'atividade', id: a.id, valor: a.valor })}
+                      title={canManageActivitiesBenefits ? 'Editar atividade' : undefined}
                     >
                       {a.valor}
-                    </Badge>
+                    </span>
                     {canManageActivitiesBenefits && (
-                      <AtivBenefActions
-                        onEdit={() => setModal({ kind: 'atividade', id: a.id, valor: a.valor })}
-                        onDelete={() => handleRemove(a.id, a.valor)}
-                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemove(a.id, a.valor)}
+                        title="Remover"
+                        className="shrink-0 rounded-full p-0.5 opacity-40 hover:opacity-100 hover:bg-rose-500/15 hover:text-rose-600 transition"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     )}
                   </div>
                 ))}
@@ -3115,32 +3126,33 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
             )}
           </div>
 
-          {/* Benefícios Fiscais (estruturado — módulo Benefícios Fiscais / bloco Legalização) */}
+          {/* Benefícios Fiscais — mini-cards com hierarquia (módulo Benefícios Fiscais / bloco Legalização) */}
           {(bfPerms.canRead || bfPerms.canWrite || canManageActivitiesBenefits) && (
           <div>
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
               <Percent className="h-3 w-3" /> Benefícios Fiscais
+              {beneficios.length > 0 && <span className="text-[10px] font-normal text-muted-foreground/60">({beneficios.length})</span>}
             </p>
             {beneficios.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nenhum benefício fiscal.</p>
+              <p className="text-[11px] text-muted-foreground/70 italic">Nenhum benefício fiscal.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {beneficios.map((b) => (
-                  <div key={b.id} className="flex items-start gap-2 group">
-                    <div className="flex-1 min-w-0">
+                  <div key={b.id} className="group flex items-start gap-2 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5 hover:bg-muted/50 transition-colors">
+                    <div className="flex-1 min-w-0 space-y-0.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge variant="outline" className="text-[11px] font-medium">{b.beneficioNome}</Badge>
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ color: BF_STATUS_COR[b.status], backgroundColor: BF_STATUS_COR[b.status] + '18' }}>
+                        <span className="text-[12px] font-semibold text-foreground truncate">{b.beneficioNome}</span>
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0" style={{ color: BF_STATUS_COR[b.status], backgroundColor: BF_STATUS_COR[b.status] + '18' }}>
                           {bfFmtData(b.dataVencimento)}
                         </span>
-                        {b.orcamentoId && (
-                          <a href={`/orcamentos/${b.orcamentoId}`} className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5">
-                            Orç. #{b.orcamentoNumero}<ExternalLink className="h-2.5 w-2.5" />
-                          </a>
-                        )}
                       </div>
                       {(b.portaria || b.processo) && (
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{[b.portaria, b.processo].filter(Boolean).join(' · ')}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{[b.portaria, b.processo].filter(Boolean).join(' · ')}</p>
+                      )}
+                      {b.orcamentoId && (
+                        <a href={`/orcamentos/${b.orcamentoId}`} className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5">
+                          Orç. #{b.orcamentoNumero}<ExternalLink className="h-2.5 w-2.5" />
+                        </a>
                       )}
                     </div>
                     {(bfPerms.canWrite || bfPerms.canDelete) && (
