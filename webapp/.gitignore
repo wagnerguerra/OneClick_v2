@@ -1,0 +1,30 @@
+# Dependências e build (Node)
+node_modules/
+**/node_modules/
+**/dist/
+*.tsbuildinfo
+
+# Ambiente e jobs locais
+.env
+.env.local
+**/temp_jobs/
+coverage/
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+.venv/
+**/venv/
+
+# SPED / PyInstaller (engines/sped)
+engines/sped/sped_engine/build/
+
+# Logs e SO
+*.log
+.DS_Store
+Thumbs.db
+
+# Amostras locais / insumos (não versionar dados fiscais reais)
+/exemplo/
+NFS-e  Logo.png
