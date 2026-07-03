@@ -3356,6 +3356,8 @@ model OrcamentoMensagem {
   // Visibilidade — vazio = todos veem
   acessoUsuarios     String[]  @default([]) @map("acesso_usuarios")
   restritoFinanceiro Boolean   @default(false) @map("restrito_financeiro")
+  viaEmail           Boolean   @default(false) @map("via_email") // enviada/recebida por e-mail
+  autorExterno       String?   @map("autor_externo") // remetente externo (cliente) quando userId é null
   createdAt          DateTime  @default(now()) @map("created_at")
   editadoEm          DateTime? @map("editado_em")
   parentId           String?   @map("parent_id")

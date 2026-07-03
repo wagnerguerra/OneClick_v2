@@ -824,6 +824,13 @@ export default function OrcamentoDetailPage() {
   const [formContatos, setFormContatos] = useState('')
   const [formEmails, setFormEmails] = useState('')
 
+  // Enviar e-mail ao cliente (item 2)
+  const [emailModalOpen, setEmailModalOpen] = useState(false)
+  const [emailPara, setEmailPara] = useState('')
+  const [emailAssunto, setEmailAssunto] = useState('')
+  const [emailCorpo, setEmailCorpo] = useState('')
+  const [emailEnviando, setEmailEnviando] = useState(false)
+
   // Item form
   const [itemTipo, setItemTipo] = useState('')
   const [itemDescricao, setItemDescricao] = useState('')
@@ -1264,6 +1271,31 @@ export default function OrcamentoDetailPage() {
       () => alerts.success('Copiado', `${lista.length} e-mail(s) copiado(s).`),
       () => alerts.error('Erro', 'Não foi possível copiar.'),
     )
+  }
+
+  function abrirEnviarEmail() {
+    setEmailPara(formEmails || (orc?.cliente?.email ?? ''))
+    setEmailAssunto(`Orçamento #${String(orc?.numero ?? '').padStart(4, '0')} — ${orc?.cliente?.razaoSocial ?? ''}`.trim())
+    setEmailCorpo('')
+    setEmailModalOpen(true)
+  }
+
+  async function enviarEmail() {
+    if (!id) return
+    const para = (emailPara || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean)
+    if (para.length === 0) { alerts.error('Sem destinatário', 'Informe ao menos um e-mail.'); return }
+    if (!emailAssunto.trim()) { alerts.error('Sem assunto', 'Informe o assunto.'); return }
+    if (!emailCorpo.trim()) { alerts.error('Sem conteúdo', 'Escreva a mensagem.'); return }
+    setEmailEnviando(true)
+    try {
+      const corpoHtml = emailCorpo.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')
+      await (trpc.orcamento as any).enviarEmailCliente.mutate({ orcamentoId: id, para, assunto: emailAssunto.trim(), corpoHtml })
+      alerts.success('E-mail enviado', 'O e-mail foi enviado e registrado nas mensagens. A resposta do cliente virá pra cá.')
+      setEmailModalOpen(false)
+      void fetchOrc(true)
+    } catch (e) {
+      alerts.error('Erro ao enviar', (e as Error).message)
+    } finally { setEmailEnviando(false) }
   }
 
   // ── Workflow estendido (paralizar, retomar, reabrir, editar datas) ──
@@ -2158,6 +2190,9 @@ export default function OrcamentoDetailPage() {
                             <div className="flex items-center gap-1">
                               <Button type="button" variant="ghost" size="xs" className="h-6 gap-1 text-[11px] text-muted-foreground" onClick={copiarEmails} title="Copiar os e-mails">
                                 <CopyIcon className="h-3.5 w-3.5" /> Copiar
+                              </Button>
+                              <Button type="button" variant="ghost" size="xs" className="h-6 gap-1 text-[11px] text-muted-foreground" onClick={abrirEnviarEmail} title="Enviar e-mail ao cliente">
+                                <Send className="h-3.5 w-3.5" /> Enviar e-mail
                               </Button>
                             </div>
                           </div>
@@ -3094,6 +3129,40 @@ export default function OrcamentoDetailPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Enviar e-mail ao cliente (item 2) */}
+      <Dialog open={emailModalOpen} onOpenChange={(o) => { if (!emailEnviando) setEmailModalOpen(o) }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeaderIcon icon={Send} color="sky">
+            <DialogTitle>Enviar e-mail ao cliente</DialogTitle>
+            <DialogDescription>
+              O envio fica registrado nas mensagens do orçamento. Quando o cliente responder, a resposta volta pra cá e o comercial é notificado.
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Para</Label>
+              <Input value={emailPara} onChange={e => setEmailPara(e.target.value)} placeholder="e-mails separados por vírgula" className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Assunto</Label>
+              <Input value={emailAssunto} onChange={e => setEmailAssunto(e.target.value)} className="h-9 text-sm" />
+              <p className="text-[11px] text-muted-foreground">Um marcador (#ORC…) é adicionado automaticamente pra vincular a resposta a este orçamento — não remova.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Mensagem</Label>
+              <textarea className="w-full min-h-[160px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={emailCorpo} onChange={e => setEmailCorpo(e.target.value)} placeholder="Escreva a mensagem para o cliente..." />
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(false)} disabled={emailEnviando}>Cancelar</Button>
+            <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={enviarEmail} disabled={emailEnviando}>
+              {emailEnviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              Enviar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   )
 }
@@ -3119,7 +3188,9 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
   isReply?: boolean
 }) {
   const autor = msg.usuario || (msg.userId ? usuarios.find(u => u.id === msg.userId) : null)
-  const nome = autor?.name || 'Usuário'
+  const autorExterno = (msg as { autorExterno?: string | null }).autorExterno
+  const viaEmail = (msg as { viaEmail?: boolean }).viaEmail
+  const nome = autor?.name || autorExterno || 'Usuário'
   const iniciais = nome.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?'
   const data = new Date(msg.createdAt)
   const dataAbsoluta = data.toLocaleString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -3222,6 +3293,8 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
         <div className="flex items-center justify-between gap-2 mb-1">
           <div className="flex items-baseline gap-2 flex-wrap min-w-0">
             <span className="text-sm font-semibold text-foreground truncate">{nome}</span>
+            {autorExterno && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">cliente · e-mail</span>}
+            {viaEmail && !autorExterno && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">enviado por e-mail</span>}
             <span className="text-[11px] text-muted-foreground" title={dataAbsoluta}>{dataRelativa}</span>
             {editadoAbsoluto && (
               <span

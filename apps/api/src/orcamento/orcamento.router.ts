@@ -347,6 +347,17 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         parentId: input.parentId,
       })),
 
+    // Envia e-mail ao cliente pelo detalhe do orçamento (registra como mensagem;
+    // a resposta volta pelo inbound e vira mensagem também).
+    enviarEmailCliente: writeProcedure(MODULE)
+      .input(z.object({
+        orcamentoId: z.string(),
+        para: z.array(z.string().email()).min(1),
+        assunto: z.string().min(1),
+        corpoHtml: z.string().min(1),
+      }))
+      .mutation(({ input, ctx }) => orcamentoService.enviarEmailCliente(input.orcamentoId, ctx.userId || '', input.para, input.assunto, input.corpoHtml)),
+
     updateMensagemAcesso: writeProcedure(MODULE)
       .input(z.object({
         id: z.string(),

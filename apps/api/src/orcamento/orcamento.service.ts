@@ -2045,6 +2045,98 @@ export class OrcamentoService {
     return created
   }
 
+  // ── E-mail ao cliente (envio pelo detalhe) + captura da resposta (inbound) ──
+
+  /** Endereço inbound do Resend (reusa o do HelpDesk) — Reply-To das respostas. */
+  private async inboundReplyTo(): Promise<string | null> {
+    const cfg = await prisma.systemConfig.findUnique({ where: { key: 'helpdesk.inbound_email' } }).catch(() => null)
+    const v = (cfg?.value || '').trim()
+    return v || null
+  }
+
+  /**
+   * Envia um e-mail ao cliente a partir do detalhe do orçamento e registra como
+   * mensagem. Coloca o marcador #ORCNNNN no assunto e Reply-To no inbound, pra a
+   * resposta do cliente ser capturada e vinculada de volta ao orçamento.
+   */
+  async enviarEmailCliente(orcamentoId: string, userId: string, para: string[], assunto: string, corpoHtml: string) {
+    const orc = await prisma.orcamento.findUnique({ where: { id: orcamentoId } })
+    if (!orc) throw new Error('Orçamento não encontrado')
+    const destinatarios = [...new Set((para || []).map(e => e.trim()).filter(Boolean))]
+    if (destinatarios.length === 0) throw new Error('Informe ao menos um destinatário.')
+    const numero = `#ORC${String(orc.numero).padStart(4, '0')}`
+    const empresa = orc.empresaId
+      ? await prisma.empresa.findUnique({ where: { id: orc.empresaId }, select: { razaoSocial: true, nomeFantasia: true, logoUrl: true } }).catch(() => null)
+      : null
+    const empresaNome = empresa?.nomeFantasia || empresa?.razaoSocial || 'Empresa'
+    const replyTo = await this.inboundReplyTo()
+    const assuntoLimpo = (assunto || '').trim() || `Orçamento ${numero}`
+    const subject = /#ORC\d+/i.test(assuntoLimpo) ? assuntoLimpo : `${assuntoLimpo} [${numero}]`
+    const html = this.buildEmailLayout({
+      empresaNome, logoUrl: empresa?.logoUrl,
+      preheader: `Orçamento ${numero}`,
+      heroAccent: '#10b981', heroTitle: assuntoLimpo,
+      bodyHtml: corpoHtml,
+    })
+    await this.emailService.sendMail({ to: destinatarios, subject, html, ...(replyTo ? { replyTo } : {}) })
+    // Registra como mensagem (via_email) — insert raw por causa das colunas novas.
+    const corpoMsg = `<p style="color:#64748b;font-size:12px;margin:0 0 8px">📧 E-mail enviado para: ${destinatarios.join(', ')}</p>${corpoHtml}`
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO orcamento_mensagens (id, orcamento_id, user_id, mensagem, via_email, created_at) VALUES (gen_random_uuid()::text, $1, $2, $3, true, NOW())`,
+      orcamentoId, userId, corpoMsg,
+    )
+    await this.addEvento(orcamentoId, userId, 'notificacao', null, null, `E-mail enviado ao cliente (${destinatarios.join(', ')})`).catch(() => {})
+    return { ok: true }
+  }
+
+  /**
+   * Captura a RESPOSTA do cliente (via inbound do HelpDesk, marcador #ORCNNNN):
+   * registra como mensagem (autor externo) e notifica o comercial (e-mail + sino).
+   */
+  async registrarRespostaCliente(numero: number, remetente: { email: string; nome?: string | null }, corpoHtml: string) {
+    const orc = await prisma.orcamento.findFirst({ where: { numero }, orderBy: { createdAt: 'desc' } })
+    if (!orc) throw new Error(`Orçamento #${numero} não encontrado`)
+    const autor = (remetente.nome || remetente.email || 'Cliente').trim()
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO orcamento_mensagens (id, orcamento_id, user_id, mensagem, via_email, autor_externo, created_at) VALUES (gen_random_uuid()::text, $1, NULL, $2, true, $3, NOW())`,
+      orc.id, corpoHtml || '(sem conteúdo)', autor,
+    )
+    await this.addEvento(orc.id, null, 'mensagem', null, null, `Resposta do cliente por e-mail (${autor})`).catch(() => {})
+    await this.notificarRespostaCliente(orc, autor, corpoHtml).catch(e => console.warn('[Orcamento] Falha ao notificar resposta do cliente:', (e as Error).message))
+    return { orcamentoId: orc.id, numero: orc.numero }
+  }
+
+  /** Notifica o comercial (sino p/ responsável+solicitante, e-mail p/ emailComercial+responsável). */
+  private async notificarRespostaCliente(orc: { id: string; numero: number; empresaId: string | null; responsavelId: string | null; solicitanteId: string | null }, autor: string, corpoHtml: string) {
+    const numero = `#ORC${String(orc.numero).padStart(4, '0')}`
+    const link = `/orcamentos/${orc.id}`
+    // Sino: responsável + solicitante
+    const userIds = [...new Set([orc.responsavelId, orc.solicitanteId].filter(Boolean))] as string[]
+    for (const uid of userIds) {
+      await this.notificationService.criar({ userId: uid, titulo: `Resposta do cliente — Orçamento ${numero}`, mensagem: `${autor} respondeu por e-mail.`, tipo: 'info', link, origem: 'orcamento' }).catch(() => {})
+    }
+    // E-mail: área comercial (config) + responsável
+    const config = await this.getConfig(orc.empresaId || undefined)
+    const emailComercial = this.parseEmails(config.emailComercial)
+    const respEmail = orc.responsavelId
+      ? (await prisma.user.findUnique({ where: { id: orc.responsavelId }, select: { email: true } }).catch(() => null))?.email
+      : null
+    const dest = [...new Set([...emailComercial, ...(respEmail ? [respEmail] : [])].filter(Boolean))]
+    if (dest.length === 0) return
+    const empresa = orc.empresaId
+      ? await prisma.empresa.findUnique({ where: { id: orc.empresaId }, select: { razaoSocial: true, nomeFantasia: true, logoUrl: true } }).catch(() => null)
+      : null
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const html = this.buildEmailLayout({
+      empresaNome: empresa?.nomeFantasia || empresa?.razaoSocial || 'Empresa', logoUrl: empresa?.logoUrl,
+      preheader: `${autor} respondeu o orçamento ${numero}`,
+      heroAccent: '#0ea5e9', heroTitle: 'Resposta do cliente', heroSubtitle: numero,
+      bodyHtml: `<p><strong>${autor}</strong> respondeu por e-mail:</p><div style="background:#f8fafc;border-left:3px solid #0ea5e9;padding:12px 16px;margin:12px 0;border-radius:4px">${corpoHtml}</div>`,
+      ctaLabel: 'Abrir orçamento', ctaUrl: `${baseUrl}${link}`,
+    })
+    await this.emailService.sendMail({ to: dest, subject: `↩ Resposta do cliente — Orçamento ${numero}`, html }).catch(() => {})
+  }
+
   /**
    * Envia o conteudo HTML da mensagem por email aos usuarios selecionados.
    * Usa o mesmo layout padrao dos demais emails do modulo (verde + branding da empresa).
