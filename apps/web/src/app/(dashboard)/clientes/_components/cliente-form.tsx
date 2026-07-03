@@ -2971,7 +2971,9 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
   const [savingBenef, setSavingBenef] = useState(false)
 
   function loadBenef() {
-    if (!bfPerms.canRead) { setBeneficios([]); return }
+    // Carrega sempre — o backend autoriza por 'clientes' OU 'beneficios-fiscais'.
+    // (Antes travava em bfPerms.canRead, escondendo os benefícios de quem gerencia
+    //  o cliente mas não tem acesso ao módulo Benefícios.)
     ;(trpc as any).beneficioFiscal.list.query({ clienteId }).then((b: BFItem[]) => setBeneficios(b)).catch(() => {})
   }
 
@@ -2988,9 +2990,7 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
   useEffect(() => {
     load()
     ;(trpc.cliente as any).listOpcoes.query({ tipo: 'CLIENTE_ATIVIDADE' }).then((d: OpcaoItem[]) => setOptAtividade(d)).catch(() => {})
-    if (bfPerms.canRead) {
-      ;(trpc as any).beneficioFiscal.listCatalogo.query().then((c: { id: string; nome: string; ativo: boolean }[]) => setCatBenef(c)).catch(() => {})
-    }
+    ;(trpc as any).beneficioFiscal.listCatalogo.query().then((c: { id: string; nome: string; ativo: boolean }[]) => setCatBenef(c)).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clienteId])
 
@@ -3116,7 +3116,7 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
           </div>
 
           {/* Benefícios Fiscais (estruturado — módulo Benefícios Fiscais / bloco Legalização) */}
-          {bfPerms.canRead && (
+          {(bfPerms.canRead || bfPerms.canWrite || canManageActivitiesBenefits) && (
           <div>
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
               <Percent className="h-3 w-3" /> Benefícios Fiscais

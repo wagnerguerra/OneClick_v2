@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import {
-  router, readProcedure, writeProcedure, writeSubProcedure, deleteSubProcedure,
+  router, readProcedure, readProcedureAnyOf, writeProcedure, writeSubProcedure, deleteSubProcedure,
 } from '../trpc/trpc.service'
 import {
   createBeneficioCatalogoSchema, updateBeneficioCatalogoSchema,
@@ -17,7 +17,10 @@ export function createBeneficioFiscalRouter(service: BeneficioFiscalService) {
     dashboard: readProcedure(MODULE)
       .query(({ ctx }) => service.dashboard(ctx.empresaId)),
 
-    list: readProcedure(MODULE)
+    // list + listCatalogo também são usados no cadastro do cliente (aba Benefícios),
+    // então autorizam por 'beneficios-fiscais' OU 'clientes' (quem gerencia o cliente
+    // precisa ver o catálogo/benefícios mesmo sem acesso ao módulo Benefícios).
+    list: readProcedureAnyOf('beneficios-fiscais', 'clientes')
       .input(listBeneficioSchema.optional())
       .query(({ input, ctx }) => service.list(input ?? {}, ctx.empresaId)),
 
@@ -29,7 +32,7 @@ export function createBeneficioFiscalRouter(service: BeneficioFiscalService) {
     servicoOpcoes: readProcedure(MODULE)
       .query(({ ctx }) => service.servicoOpcoes(ctx.empresaId)),
 
-    listCatalogo: readProcedure(MODULE)
+    listCatalogo: readProcedureAnyOf('beneficios-fiscais', 'clientes')
       .input(z.object({ incluirInativos: z.boolean().optional() }).optional())
       .query(({ input, ctx }) => service.listCatalogo(ctx.empresaId, input?.incluirInativos ?? false)),
 
