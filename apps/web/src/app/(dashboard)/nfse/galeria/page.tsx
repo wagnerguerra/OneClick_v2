@@ -88,7 +88,7 @@ export default function NfseGaleriaPage() {
   // Lista de clientes — se ?cliente=X na URL, usa esse como ativo
   useEffect(() => {
     setLoadingClientes(true)
-    // TODO: criar endpoints tRPC nfse.*
+    
     ;(trpc as any).nfse.listClientesComNotas.query()
       .then((rows: ClienteCount[]) => {
         setClientes(rows)
@@ -108,7 +108,7 @@ export default function NfseGaleriaPage() {
     setLoadingNotas(true)
     setSelecionado(null)
     try {
-      // TODO: criar endpoints tRPC nfse.*
+      
       const r = await (trpc as any).nfse.listGaleriaPorCliente.query({ clienteId, limit: 500 })
       const lista = r.data as NfseRow[]
       setNotas(lista)
@@ -466,7 +466,7 @@ export default function NfseGaleriaPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    {/* TODO: criar rota REST /api/nfse/:id/pdf */}
+                    
                     <Button
                       variant="outline"
                       size="icon-sm"

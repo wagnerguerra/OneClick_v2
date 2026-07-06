@@ -4,12 +4,13 @@
  * Página de listagem de NFS-e (Nota Fiscal de Serviço Eletrônica) — padrão Nacional.
  *
  * Layout idêntico ao de /danfe (NFe modelo 55) por consistência visual.
- * Endpoints tRPC ainda NÃO existem — todos os fetchs estão como TODO comentado.
- * A tabela renderiza estado vazio com instruções até a sincronização ser ativada.
+ * Dados via tRPC nfse.listClientesComNotas + nfse.getStats (mesmo padrão do /danfe).
  */
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { trpc } from '@/lib/trpc'
+import { alerts } from '@/lib/alerts'
 import {
   Receipt, Upload, Loader2, Search,
   FileCheck2, CircleX, Coins, LayoutGrid,
@@ -59,14 +60,30 @@ function fmtCnpj(doc: string): string {
 }
 
 export default function NFSePage() {
-  // TODO: trocar pelos hooks do tRPC quando o router de nfse for criado:
-  //   const { data: clientes = [], isLoading } = trpc.nfse.listClientesComNFSe.useQuery()
-  //   const { data: stats } = trpc.nfse.getStats.useQuery()
-  const clientes: ClienteAgregadoNFSe[] = []
-  const stats: NFSeStats | null = null
-  const loading = false
-
+  const [clientes, setClientes] = useState<ClienteAgregadoNFSe[]>([])
+  const [stats, setStats] = useState<NFSeStats | null>(null)
+  const [loading, setLoading] = useState(false)
   const [busca, setBusca] = useState('')
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const r = await (trpc.nfse as any).listClientesComNotas.query()
+      setClientes(r as ClienteAgregadoNFSe[])
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally { setLoading(false) }
+  }, [])
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const s = await (trpc.nfse as any).getStats.query()
+      setStats(s as NFSeStats)
+    } catch { /* silent */ }
+  }, [])
+
+  useEffect(() => { void fetchData() }, [fetchData])
+  useEffect(() => { void fetchStats() }, [fetchStats])
 
   const clientesFiltrados = clientes.filter((c) =>
     !busca ||

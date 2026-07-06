@@ -11,6 +11,19 @@ const MODULE = 'cliente'
 
 export function createNfseRouter(distSvc: NfseDistService) {
   return router({
+    /** Cards de resumo da tela /nfse: total, por status e do mês corrente. [QA #44] */
+    getStats: readProcedure(MODULE).query(async () => {
+      const inicioMes = new Date()
+      inicioMes.setDate(1); inicioMes.setHours(0, 0, 0, 0)
+      const [total, emitidas, canceladas, mes] = await Promise.all([
+        prisma.notaServicoImportada.count(),
+        prisma.notaServicoImportada.count({ where: { status: 'EMITIDA' } }),
+        prisma.notaServicoImportada.count({ where: { status: 'CANCELADA' } }),
+        prisma.notaServicoImportada.count({ where: { dataEmissao: { gte: inicioMes } } }),
+      ])
+      return { total, emitidas, canceladas, mes }
+    }),
+
     /**
      * Agrega NotaServicoImportada por cliente — retorno equivalente ao
      * `danfe.listClientesComDanfes` mas pra NFS-e.
