@@ -18,7 +18,10 @@ FROM (
     FROM agenda_tipos
   WINDOW w AS (
     PARTITION BY lower(btrim(nome))
-    ORDER BY (id LIKE 'agtipo_g_%') DESC, is_active DESC, created_at ASC
+    -- ATIVO tem prioridade sobre o default global: um global soft-deletado não
+    -- deve "engolir" um duplicado ativo (foi o que sumiu com o "Férias" — o
+    -- canônico escolhido estava inativo e o tipo desapareceu das opções).
+    ORDER BY is_active DESC, (id LIKE 'agtipo_g_%') DESC, created_at ASC
   )
 ) r
 WHERE rn > 1;

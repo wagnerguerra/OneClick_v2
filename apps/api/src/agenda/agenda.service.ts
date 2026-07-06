@@ -431,9 +431,33 @@ export class AgendaService {
         nome: { equals: nomeLimpo, mode: 'insensitive' },
         OR: [{ empresaId: null }, { empresaId: ctxEmpresaId }],
       },
-      select: { id: true },
+      select: { id: true, isActive: true },
     }).catch(() => null)
-    if (existente) throw new Error(`Já existe um tipo de evento chamado "${nomeLimpo}".`)
+    if (existente?.isActive) throw new Error(`Já existe um tipo de evento chamado "${nomeLimpo}".`)
+    if (existente) {
+      // Existe mas está EXCLUÍDO (soft delete): recadastrar REATIVA o tipo com a
+      // config nova — preserva os vínculos dos eventos antigos. Sem isto, o nome
+      // ficava num limbo: some das opções (listTipos filtra ativos) e o dedup
+      // bloqueava o recadastro ("já existe").
+      const reativado = await prisma.agendaTipo.update({
+        where: { id: existente.id },
+        data: {
+          isActive: true,
+          nome: nomeLimpo,
+          cor: data.cor ?? '#3b82f6',
+          corBorda: data.corBorda ?? '#2563eb',
+          corTexto: data.corTexto ?? '#ffffff',
+          bloqueiaAgenda: data.bloqueiaAgenda ?? false,
+          permiteModalidade: data.permiteModalidade ?? false,
+          permiteSala: data.permiteSala ?? false,
+          permiteGaragem: data.permiteGaragem ?? false,
+          permiteEquipamentos: data.permiteEquipamentos ?? false,
+          salasPermitidas: data.salasPermitidas ?? [],
+        },
+      })
+      await this.logTipo(reativado.id, reativado.nome, userId, 'CRIOU')
+      return reativado
+    }
     const tipo = await prisma.agendaTipo.create({
       data: {
         empresaId: ctxEmpresaId,  // tipo criado é DO tenant (não global). F-013.
