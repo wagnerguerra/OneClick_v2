@@ -198,7 +198,7 @@ function ProgressDisplay({ progress, title, extraFields, logs }: {
       {logs && logs.length > 0 && (
         <div className="mt-3">
           <div className="text-[11px] font-semibold text-muted-foreground mb-1">Log de importacao ({logs.length} registros)</div>
-          <div className="rounded-md border bg-[#0b1020] text-[11px] font-mono max-h-[250px] overflow-y-auto p-2 space-y-px">
+          <div className="rounded-md border bg-slate-900 dark:bg-slate-950 text-[11px] font-mono max-h-[250px] overflow-y-auto p-2 space-y-px">
             {logs.map((log, i) => (
               <div key={i} className={cn(
                 'flex gap-2 px-1 py-0.5 rounded-sm',

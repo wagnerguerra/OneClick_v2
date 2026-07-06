@@ -81,7 +81,7 @@ function borderColorByStatus(st: 'ok' | 'igual' | 'defasado' | 'sem'): string {
   if (st === 'ok') return 'rgba(16,185,129,0.5)'
   if (st === 'igual') return 'rgba(245,158,11,0.5)'
   if (st === 'defasado') return 'rgba(239,68,68,0.5)'
-  return 'rgba(0,0,0,0.08)'
+  return 'var(--border)'
 }
 
 // Helper: último mês das rows (mais recente cronologicamente)
@@ -169,7 +169,7 @@ export function ContratoChartModal({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between shrink-0">
+          <div className="px-5 py-3 border-b border-border flex items-center justify-between shrink-0">
             <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
               <FileBarChart className="h-4 w-4 text-muted-foreground" /> Gráficos — Contrato x ERP
             </h4>
@@ -182,7 +182,7 @@ export function ContratoChartModal({
           </div>
 
           {/* Filtros + Checkboxes */}
-          <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] shrink-0 space-y-2">
+          <div className="px-5 py-3 border-b border-border shrink-0 space-y-2">
             <div className="flex items-end gap-3 flex-wrap">
               <div className="space-y-1"><Label>Início</Label><Input type="date" value={chartDatei} onChange={(e) => setChartDatei(e.target.value)} className="h-8" /></div>
               <div className="space-y-1"><Label>Fim</Label><Input type="date" value={chartDatef} onChange={(e) => setChartDatef(e.target.value)} className="h-8" /></div>
@@ -230,9 +230,9 @@ export function ContratoChartModal({
                         className="rounded border-l-4 p-3 bg-card"
                         style={{
                           borderLeftColor: borderColorByStatus(card.status),
-                          borderTop: '1px solid rgba(0,0,0,0.04)',
-                          borderRight: '1px solid rgba(0,0,0,0.04)',
-                          borderBottom: '1px solid rgba(0,0,0,0.04)',
+                          borderTop: '1px solid var(--border)',
+                          borderRight: '1px solid var(--border)',
+                          borderBottom: '1px solid var(--border)',
                         }}
                       >
                         <p className="text-[10px] text-muted-foreground uppercase font-semibold">{card.label}</p>
@@ -295,7 +295,7 @@ export function ContratoChartModal({
           </div>
 
           {/* Footer */}
-          <div className="px-5 py-3 border-t border-[rgba(0,0,0,0.08)] flex justify-end shrink-0">
+          <div className="px-5 py-3 border-t border-border flex justify-end shrink-0">
             <Button type="button" variant="outline" size="sm" onClick={onClose}>Fechar</Button>
           </div>
         </div>

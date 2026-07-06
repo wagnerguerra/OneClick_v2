@@ -384,7 +384,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   return (
     <>
     <Card>
-      <div className="flex items-center justify-between border-b border-[rgba(0,0,0,0.08)] px-5 py-3">
+      <div className="flex items-center justify-between border-b border-border px-5 py-3">
         <div className="flex items-center gap-2">
           <Shield className="h-4 w-4 text-emerald-600" />
           <h5 className="text-[13px] font-semibold">Legalização</h5>
@@ -506,7 +506,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'pop' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <div className="px-5 py-3 border-b border-border">
                   <h4 className="text-[13px] font-semibold text-foreground">POP: Registros Gerais</h4>
                 </div>
               </div>
@@ -537,7 +537,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 </div>
 
                 {/* Separador Bombeiros */}
-                <div className="col-span-12 -mx-5 border-t border-[rgba(0,0,0,0.08)] mt-2" />
+                <div className="col-span-12 -mx-5 border-t border-border mt-2" />
                 <div className="col-span-12 -mx-5 px-5 py-2">
                   <h4 className="text-[13px] font-semibold text-foreground">Corpo de Bombeiros</h4>
                 </div>
@@ -570,7 +570,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'socios' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                   <div>
                     <h4 className="text-[13px] font-semibold text-foreground">Sócios vinculados</h4>
                     <div className="flex items-center gap-3">
@@ -691,7 +691,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'acessos' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                   <h4 className="text-[13px] font-semibold text-foreground">Acessos a Portais</h4>
                   <div className="flex items-center gap-1.5">
                     {acessos.length > 0 && (
@@ -750,7 +750,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'vencimentos' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                   <h4 className="text-[13px] font-semibold text-foreground">Vencimentos e Prazos</h4>
                   <div className="flex items-center gap-1.5">
                     {vencimentos.length > 0 && (
@@ -820,7 +820,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'andamentos' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                   <h4 className="text-[13px] font-semibold text-foreground">Registro de Andamentos</h4>
                   {clienteId && canManageRegistration && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openAndModal() }} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Adicionar</Button>}
                 </div>
@@ -873,7 +873,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'cnaes' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                   <h4 className="text-[13px] font-semibold text-foreground">CNAE (Receita Federal / Serpro)</h4>
                   <div className="flex items-center gap-1.5">
                     {clienteId && canManageFiscal && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); addCnae() }} className="gap-1.5 h-7 text-[11px]"><Plus className="h-3 w-3" /> Manual</Button>}
@@ -923,7 +923,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'certidoes' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                   <h4 className="text-[13px] font-semibold text-foreground">CND's e Alvarás</h4>
                   {clienteId && (
                     <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1"
@@ -1026,7 +1026,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'certificados' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                   <div>
                     <h4 className="text-[13px] font-semibold text-foreground">Certificado Digital</h4>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -1115,7 +1115,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'dte' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                   <h4 className="text-[13px] font-semibold text-foreground">DT-e — Domicílio Tributário Eletrônico</h4>
                   {clienteId && canManageFiscal && (
                     <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
@@ -1182,7 +1182,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           {activeTab === 'links' && (
             <>
               <div className="-m-0">
-                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <div className="px-5 py-3 border-b border-border">
                   <h4 className="text-[13px] font-semibold text-foreground">Links Rapidos</h4>
                 </div>
               </div>

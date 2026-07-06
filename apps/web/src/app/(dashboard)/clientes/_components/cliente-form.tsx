@@ -818,7 +818,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                       ? 'text-white shadow-sm'
                       : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground'
                   )}
-                  style={activeTab === tab.key ? { backgroundColor: '#10b981' } : undefined}
+                  style={activeTab === tab.key ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   {tab.label}
@@ -835,7 +835,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
           {/* ---- SUB-TAB: DADOS GERAIS (tela única — igual ao v1) ---- */}
           {activeTab === 'dados' && (
             <div className="-m-5">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-border">
                 <h4 className="text-[13px] font-semibold text-foreground">Dados Gerais</h4>
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
@@ -869,7 +869,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                         className="rounded-r-none border-r-0"
                       />
                     )} />
-                    <button type="button" className="shrink-0 rounded-none border border-l-0 border-r-0 border-[#5ea3cb] h-9 px-3 text-[12px] font-medium bg-[#5ea3cb] text-white cursor-pointer hover:bg-[#4d8fb5]" onClick={() => buscarCnpj()}>
+                    <button type="button" className="shrink-0 rounded-none border border-l-0 border-r-0 border-sky-500 h-9 px-3 text-[12px] font-medium bg-sky-500 text-white cursor-pointer hover:bg-sky-600" onClick={() => buscarCnpj()}>
                       Completar
                     </button>
                     <button type="button" className="shrink-0 rounded-r-[0.25rem] border border-l-0 border-input h-9 px-3 text-[12px] font-medium cursor-pointer hover:bg-accent flex items-center gap-1" onClick={() => consultarCartaoCnpj()} disabled={cnpjCardLoading}>
@@ -962,7 +962,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
 
                 {/* Subtítulo Endereço */}
                 <div className="col-span-12 -mx-5 mt-1">
-                  <div className="px-5 py-2 border-t border-[rgba(0,0,0,0.08)]">
+                  <div className="px-5 py-2 border-t border-border">
                     <h4 className="text-[13px] font-semibold text-foreground">Endereço</h4>
                   </div>
                 </div>
@@ -999,7 +999,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
 
                 {/* Google Maps */}
                 <div className="col-span-12 -mx-5 mt-1">
-                  <div className="px-5 py-2 border-t border-[rgba(0,0,0,0.08)]">
+                  <div className="px-5 py-2 border-t border-border">
                     <h4 className="text-[13px] font-semibold text-foreground">Posição no Google Maps</h4>
                   </div>
                 </div>
@@ -1016,7 +1016,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
 
                 {/* Subtítulo Observações */}
                 <div className="col-span-12 -mx-5 mt-1">
-                  <div className="px-5 py-2 border-t border-[rgba(0,0,0,0.08)]">
+                  <div className="px-5 py-2 border-t border-border">
                     <h4 className="text-[13px] font-semibold text-foreground">Observações</h4>
                   </div>
                 </div>
@@ -1043,7 +1043,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
           {/* ---- SUB-TAB: INTEGRAÇÕES ---- */}
           {activeTab === 'integracoes' && (
             <div className="-m-5">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-border">
                 <h4 className="text-[13px] font-semibold text-foreground">Integrações com Sistemas Externos</h4>
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
@@ -1056,7 +1056,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                       type="button"
                       title="Importar ID do SCI pelo CNPJ"
                       className="shrink-0 flex items-center gap-1.5"
-                      style={{ padding: '0.55rem 0.75rem', fontSize: '.77rem', fontWeight: 500, backgroundColor: '#5ea3cb', color: '#fff', border: '1px solid #5ea3cb', borderLeft: 'none', borderRadius: '0 0.25rem 0.25rem 0', cursor: 'pointer' }}
+                      style={{ padding: '0.55rem 0.75rem', fontSize: '.77rem', fontWeight: 500, backgroundColor: '#0ea5e9', color: '#fff', border: '1px solid #0ea5e9', borderLeft: 'none', borderRadius: '0 0.25rem 0.25rem 0', cursor: 'pointer' }}
                       onClick={async () => {
                         if (!clienteId) { alerts.error('Salve o cliente', 'Salve o cliente antes de importar o ID SCI.'); return }
                         const currentId = watch('idSistema')
@@ -1102,7 +1102,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
 
                 {/* Subtítulo Omie */}
                 <div className="col-span-12 -mx-5 mt-1">
-                  <div className="px-5 py-2 border-t border-[rgba(0,0,0,0.08)]">
+                  <div className="px-5 py-2 border-t border-border">
                     <h4 className="text-[13px] font-semibold text-foreground">Omie ERP</h4>
                   </div>
                 </div>
@@ -1130,7 +1130,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
 
                 {/* Subtítulo Acessórias */}
                 <div className="col-span-12 -mx-5 mt-1">
-                  <div className="px-5 py-2 border-t border-[rgba(0,0,0,0.08)]">
+                  <div className="px-5 py-2 border-t border-border">
                     <h4 className="text-[13px] font-semibold text-foreground">Acessórias</h4>
                   </div>
                 </div>
@@ -1505,7 +1505,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
                       ? 'text-white shadow-sm'
                       : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground'
                   )}
-                  style={activeTab === tab.key ? { backgroundColor: '#10b981' } : undefined}
+                  style={activeTab === tab.key ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   {tab.label}
@@ -1520,7 +1520,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
         <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
           {activeTab === 'cadastros' && (
             <div className="-m-5">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-border">
                 <h4 className="text-[13px] font-semibold text-foreground">Dados Comerciais</h4>
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
@@ -1574,7 +1574,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
                   )} />
                 </div>
                 <div className="col-span-12 -mx-5 mt-1">
-                  <div className="px-5 py-2 border-t border-[rgba(0,0,0,0.08)]">
+                  <div className="px-5 py-2 border-t border-border">
                     <h4 className="text-[13px] font-semibold text-foreground">Observações gerais</h4>
                   </div>
                 </div>
@@ -1601,7 +1601,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
 
           {activeTab === 'historicos' && (
             <div className="-m-5">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-border">
                 <h4 className="text-[13px] font-semibold text-foreground">Histórico de negociações</h4>
               </div>
               <div className="p-5">
@@ -1623,7 +1623,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
                           h.tipo === 'cliente'
                             ? 'bg-white border border-border/60 dark:bg-gray-800'
                             : 'text-white'
-                        )} style={h.tipo !== 'cliente' ? { backgroundColor: '#10b981' } : undefined}>
+                        )} style={h.tipo !== 'cliente' ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}>
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-[10px] font-semibold" style={h.tipo !== 'cliente' ? { color: 'rgba(255,255,255,0.8)' } : { color: '#495057' }}>
                               {h.tipo === 'cliente' ? 'Cliente' : (h.user?.name || 'Equipe')}
@@ -1658,7 +1658,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
                       <Checkbox checked={chatAsCliente} onCheckedChange={(v) => setChatAsCliente(!!v)} />
                       Registrar como fala do cliente
                     </label>
-                    <Button type="button" size="sm" disabled={!chatMsg.trim() || histSending} onClick={sendHistorico} style={{ backgroundColor: '#10b981', color: '#fff' }}>
+                    <Button type="button" size="sm" disabled={!chatMsg.trim() || histSending} onClick={sendHistorico} style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }}>
                       {histSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                       {histSending ? 'Enviando...' : 'Enviar'}
                     </Button>
@@ -1899,7 +1899,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
   return (
     <>
       <div className="-m-5">
-        <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+        <div className="px-5 py-3 border-b border-border">
           <h4 className="text-[13px] font-semibold text-foreground">Contratos</h4>
         </div>
         <div className="p-5 grid gap-4 sm:grid-cols-3">
@@ -1908,7 +1908,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
             <h4 className="font-semibold text-xs mb-1">Parametros</h4>
             <p className="text-[10px] text-muted-foreground mb-3">Parametros do contrato para acompanhamento no grafico.</p>
             <div className="flex flex-col gap-2 w-full">
-              <Button type="button" size="sm" onClick={openParamModal} style={{ backgroundColor: '#10b981', color: '#fff' }} className="w-full">→ Atualizar Parametros</Button>
+              <Button type="button" size="sm" onClick={openParamModal} style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }} className="w-full">→ Atualizar Parametros</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => setShowErpModal(true)} className="w-full"><ExternalLink className="h-3 w-3" /> Verificar no ERP</Button>
             </div>
           </div>
@@ -1922,7 +1922,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted mb-3"><File className="h-6 w-6 text-muted-foreground" /></div>
             <h4 className="font-semibold text-xs mb-1">Arquivos</h4>
             <p className="text-[10px] text-muted-foreground mb-3">Contratos, aditivos e documentos.</p>
-            <Button type="button" size="sm" onClick={openFilesModal} style={{ backgroundColor: '#10b981', color: '#fff' }}>
+            <Button type="button" size="sm" onClick={openFilesModal} style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }}>
               → Gerenciar Arquivos {filesLoaded && files.length > 0 && <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-white/30 px-1 text-[10px]">{files.length}</span>}
             </Button>
           </div>
@@ -1936,7 +1936,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-card rounded-lg shadow-xl w-full max-w-lg modal-content" onClick={(e) => e.stopPropagation()}>
               {/* Header */}
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+              <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                 <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
                   <FileText className="h-4 w-4 text-muted-foreground" /> Parametros do Contrato
                 </h4>
@@ -1997,14 +1997,14 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                 )}
               </div>
               {/* Footer */}
-              <div className="px-5 py-3 border-t border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+              <div className="px-5 py-3 border-t border-border flex items-center justify-between">
                 <Button type="button" variant="outline" size="sm" onClick={fetchSuggested} disabled={fetchingSuggested || loadingParams}>
                   {fetchingSuggested ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />}
                   {fetchingSuggested ? 'Consultando SCI...' : 'Obter parametros iniciais'}
                 </Button>
                 <div className="flex gap-2">
                   <Button type="button" variant="outline" size="sm" onClick={() => setShowParamModal(false)}>Fechar</Button>
-                  <Button type="button" size="sm" onClick={saveParams} disabled={savingParams || loadingParams} style={{ backgroundColor: '#10b981', color: '#fff' }}>
+                  <Button type="button" size="sm" onClick={saveParams} disabled={savingParams || loadingParams} style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }}>
                     {savingParams ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                     {savingParams ? 'Salvando...' : 'Salvar'}
                   </Button>
@@ -2022,14 +2022,14 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-card rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col modal-content" onClick={(e) => e.stopPropagation()}>
               {/* Header */}
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between shrink-0">
+              <div className="px-5 py-3 border-b border-border flex items-center justify-between shrink-0">
                 <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
                   <ExternalLink className="h-4 w-4 text-muted-foreground" /> Verificar no ERP (SCI)
                 </h4>
                 <button type="button" onClick={() => !erpLoading && setShowErpModal(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
               </div>
               {/* Filtros */}
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] shrink-0">
+              <div className="px-5 py-3 border-b border-border shrink-0">
                 <div className="grid grid-cols-12 gap-3 items-end">
                   <div className="col-span-4 space-y-1.5">
                     <Label>Data Inicial</Label>
@@ -2040,7 +2040,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                     <Input type="date" value={erpDatef} onChange={(e) => setErpDatef(e.target.value)} />
                   </div>
                   <div className="col-span-4">
-                    <Button type="button" size="sm" onClick={runErpVerification} disabled={erpLoading} className="w-full" style={{ backgroundColor: '#10b981', color: '#fff' }}>
+                    <Button type="button" size="sm" onClick={runErpVerification} disabled={erpLoading} className="w-full" style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }}>
                       {erpLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />}
                       {erpLoading ? 'Consultando...' : 'Consultar'}
                     </Button>
@@ -2130,7 +2130,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                 )}
               </div>
               {/* Footer */}
-              <div className="px-5 py-3 border-t border-[rgba(0,0,0,0.08)] flex justify-end shrink-0">
+              <div className="px-5 py-3 border-t border-border flex justify-end shrink-0">
                 <Button type="button" variant="outline" size="sm" onClick={() => setShowErpModal(false)}>Fechar</Button>
               </div>
             </div>
@@ -2145,7 +2145,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-card rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col modal-content" onClick={(e) => e.stopPropagation()}>
               {/* Header */}
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between shrink-0">
+              <div className="px-5 py-3 border-b border-border flex items-center justify-between shrink-0">
                 <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
                   <File className="h-4 w-4 text-muted-foreground" /> Arquivos do Contrato
                   {files.length > 0 && <span className="text-[10px] font-normal text-muted-foreground">({files.length})</span>}
@@ -2153,7 +2153,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                 <button type="button" onClick={() => setShowFilesModal(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
               </div>
               {/* Upload area */}
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] shrink-0">
+              <div className="px-5 py-3 border-b border-border shrink-0">
                 <div
                   className="flex flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-border/60 px-4 py-5 cursor-pointer hover:border-emerald-400/50 transition-colors"
                   onClick={handleFileClick}
@@ -2229,7 +2229,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                 )}
               </div>
               {/* Footer */}
-              <div className="px-5 py-3 border-t border-[rgba(0,0,0,0.08)] flex items-center justify-between shrink-0">
+              <div className="px-5 py-3 border-t border-border flex items-center justify-between shrink-0">
                 <span className="text-[10px] text-muted-foreground">{files.length} arquivo(s)</span>
                 <Button type="button" variant="outline" size="sm" onClick={() => setShowFilesModal(false)}>Fechar</Button>
               </div>
@@ -2456,7 +2456,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
                       ? 'text-white shadow-sm'
                       : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground'
                   )}
-                  style={activeTab === tab.key ? { backgroundColor: '#10b981' } : undefined}
+                  style={activeTab === tab.key ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   {tab.label}
@@ -2471,7 +2471,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
         <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
           {activeTab === 'dados' && (
             <div className="-m-5">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-border">
                 <h4 className="text-[13px] font-semibold text-foreground">Dados Fiscais</h4>
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
@@ -2503,7 +2503,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
 
               {/* Registro de Inscrições — mesmo padrão visual de "Dados Fiscais"
                   (header-bar full-width + conteúdo em p-5). */}
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] dark:border-border">
+              <div className="px-5 py-3 border-b border-border dark:border-border">
                 <h4 className="text-[13px] font-semibold text-foreground">Registro de Inscrições</h4>
               </div>
               <div className="p-5">
@@ -2518,7 +2518,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
 
           {activeTab === 'situacao' && (
             <div className="-m-5">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-border">
                 <h4 className="text-[13px] font-semibold text-foreground">Situação Fiscal (SERPRO)</h4>
               </div>
               <div className="p-5">
@@ -2536,7 +2536,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
 
           {activeTab === 'caixapostal' && (
             <div className="-m-5">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-border">
                 <h4 className="text-[13px] font-semibold text-foreground">Caixa Postal e-CAC</h4>
               </div>
               <div className="p-5">
@@ -2554,7 +2554,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
 
           {activeTab === 'drive' && (
             <div className="-m-5">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-border">
                 <h4 className="text-[13px] font-semibold text-foreground">Monitorar XML — captura automática de NFe</h4>
               </div>
               <div className="p-5">
@@ -2572,7 +2572,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
 
           {activeTab === 'atalhos' && (
             <div className="-m-5">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-border">
                 <h4 className="text-[13px] font-semibold text-foreground">Atalhos Fiscais</h4>
               </div>
               <div className="p-5 space-y-2">
@@ -2689,7 +2689,7 @@ function SituacaoFiscalCard({ clienteId, documento }: { clienteId: string; docum
       ) : (
         <div className="space-y-2 max-h-[300px] overflow-y-auto">
           {consultas.map(c => (
-            <div key={c.id} className="flex items-center justify-between p-3 rounded-lg border border-[rgba(0,0,0,0.08)] bg-muted/10">
+            <div key={c.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/10">
               <div className="flex items-center gap-3">
                 {c.sucesso ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> : <XCircle className="h-4 w-4 text-red-400 shrink-0" />}
                 <div>
@@ -3798,7 +3798,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
   if (!clienteId) {
     return (
       <div className="-m-5">
-        <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+        <div className="px-5 py-3 border-b border-border">
           <h4 className="text-[13px] font-semibold text-foreground">Contatos do Cliente</h4>
         </div>
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -3811,7 +3811,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
 
   return (
     <div className="-m-5">
-      <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+      <div className="px-5 py-3 border-b border-border flex items-center justify-between">
         <h4 className="text-[13px] font-semibold text-foreground">Contatos do Cliente</h4>
         <Button type="button" variant="outline" size="sm" onClick={startAdd}>
           <Plus className="h-3.5 w-3.5" /> Novo Contato
@@ -3910,7 +3910,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-[rgba(0,0,0,0.08)]">
+                <tr className="border-b border-border">
                   <th className="text-left py-2.5 px-3 font-semibold w-[40px]"></th>
                   <th className="text-left py-2.5 px-3 font-semibold">Nome</th>
                   <th className="text-left py-2.5 px-3 font-semibold">Cargo</th>
@@ -3924,7 +3924,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
               <tbody>
                 {contatos.map((c) => (
                   <tr key={c.id} className={cn(
-                    'border-b border-[rgba(0,0,0,0.05)] group transition-colors',
+                    'border-b border-border group transition-colors',
                     c.principal ? 'bg-emerald-50/60' : 'hover:bg-muted/30'
                   )}>
                     {/* Estrela principal */}

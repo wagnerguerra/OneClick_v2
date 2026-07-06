@@ -481,8 +481,8 @@ export default function ClientesPage() {
                 className={cn(
                   'flex items-center gap-1.5 rounded-[3px] px-2.5 py-[3px] text-[10px] font-semibold transition-all',
                   onlyMensal
-                    ? 'bg-[#5ea3cb] text-white shadow-sm'
-                    : 'bg-transparent text-muted-foreground border border-border/60 hover:border-[#5ea3cb] hover:text-[#5ea3cb]',
+                    ? 'bg-sky-500 text-white shadow-sm'
+                    : 'bg-transparent text-muted-foreground border border-border/60 hover:border-sky-500 hover:text-sky-500',
                 )}
               >
                 Somente Mensais
