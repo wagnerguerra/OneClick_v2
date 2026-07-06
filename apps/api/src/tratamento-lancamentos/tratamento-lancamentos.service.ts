@@ -316,9 +316,9 @@ export class TratamentoLancamentosService {
    * Extrai a tabela de um arquivo-exemplo (base64) para o wizard montar o
    * de/para e os SELECT DISTINCT. Operação pura (sem banco/tenant).
    */
-  preview(input: PreviewArquivoInput) {
+  async preview(input: PreviewArquivoInput) {
     const buffer = Buffer.from(input.fileBase64, 'base64')
-    const t = extractTabela({ buffer, filename: input.filename })
+    const t = await extractTabela({ buffer, filename: input.filename })
     return {
       headers: t.headers,
       rows: t.rows.slice(0, PREVIEW_MAX_ROWS),
@@ -335,7 +335,7 @@ export class TratamentoLancamentosService {
    */
   async convert(input: ConvertInput, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
     const buffer = Buffer.from(input.fileBase64, 'base64')
-    const table = extractTabela({ buffer, filename: input.filename })
+    const table = await extractTabela({ buffer, filename: input.filename })
 
     const model = await scoped(tenantSchema, async (db) => {
       const m = await db.treatmentModel.findUniqueOrThrow({ where: { id: input.modelId } })

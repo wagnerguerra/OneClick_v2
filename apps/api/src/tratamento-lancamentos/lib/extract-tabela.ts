@@ -4,8 +4,10 @@ import * as XLSX from 'xlsx'
 // Extração dinâmica de tabela de arquivos tabelados (.xlsx/.xls/.csv).
 //
 // Interface ÚNICA do pipeline: tudo a jusante (de/para → pendências → SCI)
-// consome `ExtractedTable`. A futura extração via IA (PDF/imagem) será apenas
-// OUTRA implementação que devolve o mesmo formato — sem tocar no resto.
+// consome `ExtractedTable`. Outras fontes são apenas OUTRAS implementações que
+// devolvem o mesmo formato — sem tocar no resto: PDFs com texto são extraídos
+// deterministicamente (ver pdf-extract.ts); PDFs escaneados/imagens ficam para
+// o fallback via IA (TODO(IA) em `extractTabela`).
 //
 // Dois modos (auto-detectados):
 //  • TABELA ÚNICA: uma região contígua de linhas cheias (o caso comum).
@@ -70,8 +72,9 @@ function isMostlyText(row: CellValue[]): boolean {
   return textCount > filled.length / 2
 }
 
-/** Nome de coluna por posição (A, B, ..., Z, AA, ...) para colunas sem cabeçalho. */
-function colLetter(i: number): string {
+/** Nome de coluna por posição (A, B, ..., Z, AA, ...) para colunas sem cabeçalho.
+ *  Padrão único de nomes genéricos — usado também no extrator de PDF. */
+export function colLetter(i: number): string {
   let s = ''
   let n = i
   do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1 } while (n >= 0)
@@ -334,13 +337,54 @@ export function extractTabelaFromMatrix(matrix: Matrix, sheetName: string): Extr
 }
 
 /**
- * Extrai a tabela de lançamentos de um arquivo tabelado.
- * TODO(IA): para formatos não-tabelados (PDF/imagem), implementar uma extração
- * alternativa que devolva o mesmo `ExtractedTable` (Gemini/Anthropic) — a
- * fronteira do pipeline é esta função.
+ * Fronteira ÚNICA de extração: recebe o arquivo e devolve `ExtractedTable`,
+ * despachando por tipo:
+ *  • .xlsx/.xls/.csv → extração tabelada (SheetJS), síncrona.
+ *  • .pdf            → reconstrução determinística por coordenadas (pdf-extract).
+ *
+ * TODO(IA): PDFs ESCANEADOS (sem camada de texto) e IMAGENS não têm texto
+ * posicionado — a extração determinística falha (0 linhas). O fallback via IA
+ * (Gemini/Anthropic) deve ser plugado AQUI, devolvendo o mesmo `ExtractedTable`,
+ * sem tocar no restante do pipeline.
  */
-export function extractTabela(input: ExtractInput): ExtractedTable {
-  const wb = XLSX.read(input.buffer, { type: 'buffer', cellDates: true })
+export async function extractTabela(input: ExtractInput): Promise<ExtractedTable> {
+  const ext = input.filename.toLowerCase().split('.').pop() ?? ''
+
+  if (ext === 'pdf') {
+    // Import tardio evita ciclo de módulo e só carrega o pdf-parse quando há PDF.
+    const { extractPdfTable } = await import('./pdf-extract')
+    return dropEmptyColumns(await extractPdfTable(input.buffer))
+    // TODO(IA): se `extractPdfTable` devolver 0 linhas (PDF escaneado/imagem),
+    // tentar a extração via IA aqui antes de propagar o erro ao usuário.
+  }
+
+  return dropEmptyColumns(extractTabelaXlsx(input.buffer))
+}
+
+/**
+ * Remove colunas 100% vazias (todas as células null/vazias) do resultado —
+ * títulos/ruído que viraram coluna não poluem o de/para. Vale para QUALQUER
+ * fonte (xlsx/csv/pdf), já que roda na fronteira `extractTabela`.
+ */
+export function dropEmptyColumns(table: ExtractedTable): ExtractedTable {
+  const hasValue = (c: CellValue): boolean => c !== null && c !== undefined && String(c).trim() !== ''
+  const keep = table.headers.filter((h) => table.rows.some((r) => hasValue(r[h] ?? null)))
+  if (keep.length === table.headers.length) return table
+
+  const rows = table.rows.map((r) => {
+    const o: Record<string, CellValue> = {}
+    for (const h of keep) o[h] = r[h] ?? null
+    return o
+  })
+  const sectionColumn = table.meta.sectionColumn && keep.includes(table.meta.sectionColumn)
+    ? table.meta.sectionColumn
+    : undefined
+  return { headers: keep, rows, meta: { ...table.meta, sectionColumn } }
+}
+
+/** Extração de arquivos tabelados (.xlsx/.xls/.csv) via SheetJS. */
+function extractTabelaXlsx(buffer: Buffer): ExtractedTable {
+  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true })
   if (wb.SheetNames.length === 0) throw new Error('Arquivo sem planilhas.')
 
   // Seleciona a aba de maior bloco contíguo preenchido.

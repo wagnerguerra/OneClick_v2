@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  FileSpreadsheet, Upload, Download, Loader2, AlertTriangle, CheckCircle2, Pencil, FileText, Image as ImageIcon, Settings2, FileCog, type LucideIcon,
+  FileSpreadsheet, Upload, Download, Loader2, AlertTriangle, CheckCircle2, Pencil, Image as ImageIcon, Settings2, FileCog, type LucideIcon,
 } from 'lucide-react'
 import {
   Button, Card, Badge,
@@ -32,7 +32,7 @@ const PENDENCIA_LABELS: Record<string, string> = {
   VALOR_INVALIDO: 'Valor não numérico',
 }
 const MAX_PENDENCIAS_VISIVEIS = 200
-const ACCEPT = ['.xlsx', '.xls', '.csv']
+const ACCEPT = ['.xlsx', '.xls', '.csv', '.pdf']
 const extOk = (name: string) => ACCEPT.some((e) => name.toLowerCase().endsWith(e))
 
 export default function TratamentoLancamentosPage() {
@@ -107,7 +107,7 @@ export default function TratamentoLancamentosPage() {
 
   async function pickFile(f: File | undefined | null) {
     if (!f) return
-    if (!extOk(f.name)) { alerts.error('Formato não suportado', 'Envie um arquivo .xlsx, .xls ou .csv.'); return }
+    if (!extOk(f.name)) { alerts.error('Formato não suportado', 'Envie um arquivo .xlsx, .xls, .csv ou .pdf.'); return }
     setFile(f); setResult(null); setDetectedRows(null); setFileBase64(null)
     setReading(true)
     try {
@@ -209,7 +209,7 @@ export default function TratamentoLancamentosPage() {
             <input
               ref={fileRef}
               type="file"
-              accept=".xlsx,.xls,.csv"
+              accept=".xlsx,.xls,.csv,.pdf"
               className="hidden"
               onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = '' }}
             />
@@ -238,11 +238,11 @@ export default function TratamentoLancamentosPage() {
               ) : (
                 <>
                   <p className="text-sm font-medium text-foreground">Arraste o arquivo de lançamentos aqui</p>
-                  <p className="text-xs text-muted-foreground">ou clique para selecionar — .xlsx, .xls, .csv</p>
+                  <p className="text-xs text-muted-foreground">ou clique para selecionar — .xlsx, .xls, .csv, .pdf</p>
                 </>
               )}
               <span className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground/60">
-                <FileText className="h-3.5 w-3.5" /><ImageIcon className="h-3.5 w-3.5" /> PDF / imagem — em breve
+                <ImageIcon className="h-3.5 w-3.5" /> Suporte a imagens em breve
               </span>
             </div>
             {reading && (
