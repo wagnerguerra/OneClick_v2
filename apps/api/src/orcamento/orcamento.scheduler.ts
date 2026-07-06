@@ -44,5 +44,12 @@ export class OrcamentoScheduler implements OnModuleInit, OnModuleDestroy {
     } catch (e) {
       console.error('[OrcamentoScheduler] Erro (atrasos de área):', (e as Error).message)
     }
+    // [QA #46a] Lembrete de validade vencendo → agenda + sino + e-mail.
+    try {
+      const v = await this.orcamentoService.notificarValidadeVencendo()
+      if (v.notificados > 0) console.log(`[OrcamentoScheduler] Validade vencendo: verificados=${v.verificados} notificados=${v.notificados}`)
+    } catch (e) {
+      console.error('[OrcamentoScheduler] Erro (validade vencendo):', (e as Error).message)
+    }
   }
 }

@@ -938,6 +938,17 @@ export class OrcamentoService {
     if (novoStatus === 'ENCERRADO') {
       await this.cancelarServicosDoOrcamento(id, `Orçamento #${orc.numero} encerrado`, userId)
         .catch(e => console.warn('[Orcamento] Falha ao cancelar serviços do orçamento encerrado:', (e as Error).message))
+      // [QA #46b] Follow-up pós-recusa (só quando é recusa real, antes de FINALIZADO).
+      if (statusAtual !== 'FINALIZADO' && !opts?.skipNotifications) {
+        await this.criarFollowUpRecusa(orc)
+          .catch(e => console.warn('[Orcamento] Falha ao agendar follow-up de recusa:', (e as Error).message))
+      }
+    }
+
+    // [QA #46a] Ao sair do estado ENVIADO (resolvido), desativa o evento de
+    // validade pendente na agenda — não faz sentido lembrar de algo já decidido.
+    if (statusAtual === 'ENVIADO' && novoStatus !== 'ENVIADO') {
+      await this.desativarEventosOrc(id, '#ORCVAL')
     }
 
     // [QA #15] Reflete o desfecho no card do CRM (prisma direto — sem ciclo de DI):
@@ -3298,6 +3309,13 @@ export class OrcamentoService {
       textoPadrao: config.texto_padrao || '',
       textoApresentacao: config.texto_apresentacao || '',
       headerCover: config.header_cover || '',
+      // [QA #46] Lembrete de validade + follow-up pós-recusa.
+      lembreteValidadeAtivo: (config.lembrete_validade_ativo ?? '1') === '1',
+      lembreteValidadeDiasAntes: parseInt(config.lembrete_validade_dias_antes || '7'),
+      followupRecusaAtivo: (config.followup_recusa_ativo ?? '1') === '1',
+      followupRecusaDias: parseInt(config.followup_recusa_dias || '3'),
+      followupTipoEventoId: config.followup_tipo_evento_id || '',
+      emailLembretes: config.email_lembretes || '',
     }
   }
 
@@ -3323,6 +3341,192 @@ export class OrcamentoService {
       }
     }
     return { ok: true }
+  }
+
+  // ============================================================
+  // [QA #46] Lembrete de validade + follow-up pós-recusa
+  // ============================================================
+
+  /**
+   * Resolve os destinatários dos lembretes: e-mails da config (literais) +
+   * usuários do sistema com esses e-mails (pro sino/participantes). Se nenhum
+   * usuário casar, cai pro responsável do orçamento. Reusa o parseEmails do módulo.
+   */
+  private async resolverDestinatariosLembrete(emailLembretes: string, responsavelId?: string | null): Promise<{ userIds: string[]; emails: string[] }> {
+    const emails = Array.from(new Set(this.parseEmails(emailLembretes).map(e => e.toLowerCase())))
+    const users = emails.length > 0
+      ? await prisma.user.findMany({ where: { email: { in: emails }, isActive: true }, select: { id: true } })
+      : []
+    const userIds = new Set(users.map(u => u.id))
+    if (userIds.size === 0 && responsavelId) userIds.add(responsavelId)
+    return { userIds: Array.from(userIds), emails }
+  }
+
+  /** Escolhe o tipo de evento: o configurado (se ainda ativo) ou o 1º ativo. */
+  private async pickTipoAgenda(configuredId?: string | null): Promise<string | null> {
+    if (configuredId) {
+      const t = await prisma.agendaTipo.findFirst({ where: { id: configuredId, isActive: true }, select: { id: true } })
+      if (t) return t.id
+    }
+    const first = await prisma.agendaTipo.findFirst({ where: { isActive: true }, orderBy: { createdAt: 'asc' }, select: { id: true } })
+    return first?.id ?? null
+  }
+
+  /** Data (UTC midnight) somando `dias` corridos a `base`. */
+  private dataMais(base: Date, dias: number): Date {
+    const d = new Date(base)
+    d.setDate(d.getDate() + dias)
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+  }
+
+  /**
+   * Cria um evento na agenda ligado a um orçamento, idempotente por marcador
+   * (`#ORCVAL-{id}` / `#ORCFUP-{id}` embutido na descrição). Sem tipo ou sem
+   * criador válido, apenas loga e ignora (não quebra o fluxo do orçamento).
+   */
+  private async criarEventoAgendaOrc(params: {
+    marcador: string; titulo: string; data: Date; descricao: string
+    participantesIds: string[]; empresaId?: string | null; tipoConfigId?: string | null
+  }): Promise<void> {
+    const jaExiste = await prisma.agendaEvento.findFirst({
+      where: { descricao: { contains: params.marcador }, isActive: true }, select: { id: true },
+    })
+    if (jaExiste) return
+    const tipoId = await this.pickTipoAgenda(params.tipoConfigId)
+    const criadorId = params.participantesIds[0]
+    if (!tipoId || !criadorId) {
+      console.warn(`[Orcamento] Evento de agenda ignorado (sem tipo/criador): ${params.marcador}`)
+      return
+    }
+    await prisma.agendaEvento.create({
+      data: {
+        titulo: params.titulo,
+        descricao: `${params.descricao}\n\n${params.marcador}`,
+        data: params.data,
+        diaInteiro: true,
+        isTarefa: true,
+        tipoId,
+        criadorId,
+        empresaId: params.empresaId ?? null,
+        participantes: { create: params.participantesIds.map(uid => ({ usuarioId: uid })) },
+      },
+    })
+  }
+
+  /** Desativa os eventos de agenda vinculados a um orçamento por prefixo de marcador. */
+  private async desativarEventosOrc(orcamentoId: string, marcadorPrefix: string): Promise<void> {
+    await prisma.agendaEvento.updateMany({
+      where: { descricao: { contains: `${marcadorPrefix}-${orcamentoId}` }, isActive: true },
+      data: { isActive: false },
+    }).catch(() => null)
+  }
+
+  /**
+   * [QA #46a] Varre orçamentos ENVIADO cuja validade (dtEnviado + validadeDias)
+   * vence em ≤ `lembreteValidadeDiasAntes` e ainda não venceu: cria evento na
+   * agenda (na data do vencimento), sino e e-mail pros destinatários da config.
+   */
+  async notificarValidadeVencendo(opts?: { empresaId?: string }): Promise<{ verificados: number; notificados: number }> {
+    const cfg = await this.getConfig(opts?.empresaId)
+    if (!cfg.lembreteValidadeAtivo) return { verificados: 0, notificados: 0 }
+
+    const where: any = { arquivado: false, status: 'ENVIADO', dtEnviado: { not: null } }
+    if (opts?.empresaId) where.empresaId = opts.empresaId
+    const orcs = await prisma.orcamento.findMany({
+      where,
+      select: { id: true, numero: true, clienteId: true, empresaId: true, responsavelId: true, solicitanteId: true, dtEnviado: true, validadeDias: true },
+    })
+
+    const hoje = new Date()
+    const hojeUTC = Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate())
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+    let notificados = 0
+
+    for (const o of orcs) {
+      if (!o.dtEnviado) continue
+      const validadeAte = this.dataMais(o.dtEnviado, o.validadeDias)
+      const diasRestantes = Math.round((validadeAte.getTime() - hojeUTC) / 86400000)
+      if (diasRestantes < 0 || diasRestantes > cfg.lembreteValidadeDiasAntes) continue
+
+      const clienteNome = o.clienteId
+        ? (await prisma.cliente.findUnique({ where: { id: o.clienteId }, select: { razaoSocial: true } }))?.razaoSocial ?? 'cliente'
+        : 'sem cliente'
+      const { userIds, emails } = await this.resolverDestinatariosLembrete(cfg.emailLembretes, o.responsavelId ?? o.solicitanteId)
+      if (userIds.length === 0 && emails.length === 0) continue
+
+      const link = `/orcamentos/${o.id}`
+      const titulo = `Validade do orçamento #${o.numero} ${diasRestantes === 0 ? 'vence hoje' : `vence em ${diasRestantes} dia${diasRestantes > 1 ? 's' : ''}`}`
+      const mensagem = `${clienteNome} — proposta enviada, validade termina em ${validadeAte.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}.`
+
+      // Agenda (na data do vencimento) — dedupe por marcador.
+      await this.criarEventoAgendaOrc({
+        marcador: `#ORCVAL-${o.id}`, titulo, data: validadeAte,
+        descricao: `${mensagem}\nAbrir: ${appUrl}${link}`,
+        participantesIds: userIds, empresaId: o.empresaId, tipoConfigId: cfg.followupTipoEventoId,
+      }).catch(e => console.warn('[Orcamento] Falha ao criar evento de validade:', (e as Error).message))
+
+      // Sino (dedupe por link não-lido).
+      for (const uid of userIds) {
+        const existe = await prisma.notification.findFirst({ where: { userId: uid, link, lida: false, origem: 'orcamentos' }, select: { id: true } })
+        if (existe) {
+          await prisma.notification.update({ where: { id: existe.id }, data: { titulo, mensagem, tipo: 'warning', createdAt: new Date() } }).catch(() => null)
+        } else {
+          await prisma.notification.create({ data: { userId: uid, titulo, mensagem, tipo: 'warning', link, origem: 'orcamentos', empresaId: o.empresaId } }).catch(() => null)
+        }
+      }
+
+      // E-mail (best-effort).
+      if (emails.length > 0) {
+        this.emailService.sendMail({
+          to: emails, subject: titulo,
+          html: `<p>${mensagem}</p><p><a href="${appUrl}${link}">Abrir orçamento #${o.numero}</a></p>`,
+        }).catch(() => {})
+      }
+      notificados++
+    }
+
+    return { verificados: orcs.length, notificados }
+  }
+
+  /**
+   * [QA #46b] Follow-up pós-recusa: chamado do changeStatus quando o orçamento é
+   * ENCERRADO (recusa real). Cria evento na agenda em `hoje + followupRecusaDias`,
+   * sino imediato e e-mail pros destinatários da config.
+   */
+  private async criarFollowUpRecusa(orc: { id: string; numero: number; clienteId: string | null; empresaId: string | null; responsavelId: string | null; solicitanteId: string | null }): Promise<void> {
+    const cfg = await this.getConfig(orc.empresaId ?? undefined)
+    if (!cfg.followupRecusaAtivo) return
+
+    const clienteNome = orc.clienteId
+      ? (await prisma.cliente.findUnique({ where: { id: orc.clienteId }, select: { razaoSocial: true } }))?.razaoSocial ?? 'cliente'
+      : 'sem cliente'
+    const { userIds, emails } = await this.resolverDestinatariosLembrete(cfg.emailLembretes, orc.responsavelId ?? orc.solicitanteId)
+    if (userIds.length === 0 && emails.length === 0) return
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+    const link = `/orcamentos/${orc.id}`
+    const dataFollow = this.dataMais(new Date(), cfg.followupRecusaDias)
+    const titulo = `Follow-up: orçamento #${orc.numero} recusado`
+    const mensagem = `${clienteNome} — retomar contato após a recusa (follow-up agendado para ${dataFollow.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}).`
+
+    await this.criarEventoAgendaOrc({
+      marcador: `#ORCFUP-${orc.id}`, titulo, data: dataFollow,
+      descricao: `${mensagem}\nAbrir: ${appUrl}${link}`,
+      participantesIds: userIds, empresaId: orc.empresaId, tipoConfigId: cfg.followupTipoEventoId,
+    }).catch(e => console.warn('[Orcamento] Falha ao criar evento de follow-up:', (e as Error).message))
+
+    // Sino imediato avisando que há follow-up marcado.
+    if (userIds.length > 0) {
+      await this.notificationService.criarParaUsers(userIds, {
+        titulo, mensagem, tipo: 'info', link, origem: 'orcamentos', empresaId: orc.empresaId,
+      }).catch(() => null)
+    }
+    if (emails.length > 0) {
+      this.emailService.sendMail({
+        to: emails, subject: titulo,
+        html: `<p>${mensagem}</p><p><a href="${appUrl}${link}">Abrir orçamento #${orc.numero}</a></p>`,
+      }).catch(() => {})
+    }
   }
 
   // ============================================================

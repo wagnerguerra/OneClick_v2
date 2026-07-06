@@ -27,6 +27,13 @@ interface ConfigState {
   emailAprovacao: string
   textoPadrao: string
   textoApresentacao: string
+  // [QA #46] Lembrete de validade + follow-up pós-recusa
+  lembreteValidadeAtivo: boolean
+  lembreteValidadeDiasAntes: number
+  followupRecusaAtivo: boolean
+  followupRecusaDias: number
+  followupTipoEventoId: string
+  emailLembretes: string
 }
 
 const DEFAULT_CONFIG: ConfigState = {
@@ -42,6 +49,12 @@ const DEFAULT_CONFIG: ConfigState = {
   emailAprovacao: '',
   textoPadrao: '',
   textoApresentacao: '',
+  lembreteValidadeAtivo: true,
+  lembreteValidadeDiasAntes: 7,
+  followupRecusaAtivo: true,
+  followupRecusaDias: 3,
+  followupTipoEventoId: '',
+  emailLembretes: '',
 }
 
 type TabKey = 'prazos' | 'numeracao' | 'emails' | 'textos' | 'areas' | 'modelos' | 'ia' | 'pesquisa'
@@ -63,6 +76,7 @@ export default function OrcamentosConfiguracoesPage() {
   const [saving, setSaving] = useState(false)
   const [config, setConfig] = useState<ConfigState>(DEFAULT_CONFIG)
   const [activeTab, setActiveTab] = useState<TabKey>('prazos')
+  const [tiposEvento, setTiposEvento] = useState<Array<{ id: string; nome: string }>>([])
 
   // Acesso: master/empresa-master OU sub-permissão 'acessar_configuracoes'.
   const { isMaster, isEmpresaMaster, permissions, loading: permsLoading } = useUserPermissions()
@@ -83,6 +97,8 @@ export default function OrcamentosConfiguracoesPage() {
       try {
         const data = await (trpc.orcamento as any).getConfig.query()
         setConfig({ ...DEFAULT_CONFIG, ...data })
+        const tipos = await (trpc.agenda as any).listTipos.query().catch(() => [])
+        setTiposEvento((tipos as Array<{ id: string; nome: string }>).map(t => ({ id: t.id, nome: t.nome })))
       } catch {
         alerts.error('Erro', 'Falha ao carregar configurações')
       } finally {
@@ -107,6 +123,12 @@ export default function OrcamentosConfiguracoesPage() {
         email_aprovacao: config.emailAprovacao,
         texto_padrao: config.textoPadrao,
         texto_apresentacao: config.textoApresentacao,
+        lembrete_validade_ativo: config.lembreteValidadeAtivo ? '1' : '0',
+        lembrete_validade_dias_antes: String(config.lembreteValidadeDiasAntes),
+        followup_recusa_ativo: config.followupRecusaAtivo ? '1' : '0',
+        followup_recusa_dias: String(config.followupRecusaDias),
+        followup_tipo_evento_id: config.followupTipoEventoId,
+        email_lembretes: config.emailLembretes,
       })
       alerts.success('Salvo', 'Configurações atualizadas')
     } catch {
@@ -235,6 +257,47 @@ export default function OrcamentosConfiguracoesPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* [QA #46] Lembretes automáticos */}
+                  <div className="pt-2 -mx-5 px-5 border-t border-border">
+                    <h3 className="text-[13px] font-semibold text-foreground pt-3 pb-1">Lembretes automáticos</h3>
+                    <p className="text-[11px] text-muted-foreground pb-3">Avisos na agenda, no sino e por e-mail para os destinatários definidos na aba Notificações.</p>
+
+                    <div className="flex items-center gap-3 mb-3">
+                      <input type="checkbox" id="lembValidade" checked={config.lembreteValidadeAtivo}
+                        onChange={e => setConfig(c => ({ ...c, lembreteValidadeAtivo: e.target.checked }))} className="h-4 w-4 rounded border-border" />
+                      <label htmlFor="lembValidade" className="text-sm cursor-pointer">Lembrar quando a validade do orçamento estiver vencendo</label>
+                    </div>
+                    <div className="flex items-center gap-3 mb-4">
+                      <input type="checkbox" id="followRecusa" checked={config.followupRecusaAtivo}
+                        onChange={e => setConfig(c => ({ ...c, followupRecusaAtivo: e.target.checked }))} className="h-4 w-4 rounded border-border" />
+                      <label htmlFor="followRecusa" className="text-sm cursor-pointer">Agendar follow-up automático quando um orçamento for recusado</label>
+                    </div>
+
+                    <div className="grid grid-cols-12 gap-3">
+                      <div className="col-span-12 sm:col-span-3 space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground block">Avisar validade com antecedência de</label>
+                        <div className="flex items-center gap-2">
+                          <Input type="number" min={0} disabled={!config.lembreteValidadeAtivo} value={config.lembreteValidadeDiasAntes} onChange={e => setConfig(c => ({ ...c, lembreteValidadeDiasAntes: parseInt(e.target.value) || 0 }))} className="h-9 text-sm flex-1" />
+                          <span className="text-xs text-muted-foreground">dias</span>
+                        </div>
+                      </div>
+                      <div className="col-span-12 sm:col-span-3 space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground block">Follow-up após a recusa em</label>
+                        <div className="flex items-center gap-2">
+                          <Input type="number" min={0} disabled={!config.followupRecusaAtivo} value={config.followupRecusaDias} onChange={e => setConfig(c => ({ ...c, followupRecusaDias: parseInt(e.target.value) || 0 }))} className="h-9 text-sm flex-1" />
+                          <span className="text-xs text-muted-foreground">dias</span>
+                        </div>
+                      </div>
+                      <div className="col-span-12 sm:col-span-6 space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground block">Tipo de evento na agenda</label>
+                        <select value={config.followupTipoEventoId} onChange={e => setConfig(c => ({ ...c, followupTipoEventoId: e.target.value }))} className="h-9 text-sm w-full rounded-md border border-border bg-background px-3">
+                          <option value="">Padrão (1º tipo ativo)</option>
+                          {tiposEvento.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -275,6 +338,11 @@ export default function OrcamentosConfiguracoesPage() {
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground block">E-mail da área financeira</label>
                     <Input value={config.emailFinanceiro} onChange={e => setConfig(c => ({ ...c, emailFinanceiro: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm" />
+                  </div>
+                  <div className="space-y-1.5 pt-2 border-t border-border">
+                    <label className="text-xs font-medium text-muted-foreground block pt-2">Lembretes de validade e follow-up</label>
+                    <Input value={config.emailLembretes} onChange={e => setConfig(c => ({ ...c, emailLembretes: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm" />
+                    <p className="text-[11px] text-muted-foreground">Quem recebe os lembretes de validade vencendo e os follow-ups de recusa (e-mail; quem for usuário do sistema também recebe no sino e vira participante do evento na agenda). Configure o que avisar na aba Prazos.</p>
                   </div>
                 </div>
               )}
