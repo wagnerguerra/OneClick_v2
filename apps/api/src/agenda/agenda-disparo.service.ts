@@ -306,6 +306,8 @@ export class AgendaDisparoService implements OnModuleInit {
     })
     if (!user?.email) throw new Error(`Destinatário ${destinatarioId} sem email`)
 
+    // Convenção do módulo: AgendaEvento.data é gravado como meia-noite UTC do
+    // dia-calendário (create usa new Date('YYYY-MM-DD')) — este parse casa 1:1. [QA #5]
     const eventDate = new Date(dataYyyyMmDd)
 
     // Busca eventos do dia DA EMPRESA do destinatário (isolamento multi-tenant —
@@ -336,7 +338,8 @@ export class AgendaDisparoService implements OnModuleInit {
     const diaSemana = this.diaSemanaExt(eventDate)
 
     // Modelo configurável (PARALELO): só usa quando `ativo`; senão mantém o HTML atual (fallback).
-    const tpl = await this.templateService.getTemplate(null).catch(() => null)
+    // [QA #7] Template da EMPRESA do destinatário, com fallback pro global (NULL).
+    const tpl = await this.templateService.getTemplate(user.empresaId ?? null).catch(() => null)
 
     // Vencimentos de obrigação acessória do dia → pseudo-eventos, SÓ quando o
     // template está ativo E algum grupo tem o badge OBRIGACAO_ACESSORIA. Eles

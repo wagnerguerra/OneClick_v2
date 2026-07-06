@@ -115,5 +115,23 @@ BEGIN
     UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
       notas = 'Corrigido junto com o deploy inicial do relatório: evento particular dispara lembrete só pro criador (POPUP/SSE, push e e-mail derivam da mesma lista de destinatários) — mesma regra do disparo diário.'
     WHERE id = 'qa_ag26_a3';
+    UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
+      notas = 'Corrigido junto com o deploy inicial: deleteLote exige dono da série OU master/sub-perm (mesma regra do delete individual).'
+    WHERE id = 'qa_ag26_m1';
+    UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
+      notas = 'Corrigido junto com o deploy inicial: o bug real era o Google sync usar o timezone do SERVIDOR (toTimeString → UTC no docker, horários deslocados 3h) — agora converte via Intl America/Sao_Paulo. Os demais pontos flagados seguem a convenção do módulo (data = meia-noite UTC do dia-calendário) e estavam consistentes; convenção documentada em comentário.'
+    WHERE id = 'qa_ag26_m2';
+    UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
+      notas = 'Corrigido junto com o deploy inicial: delete + createMany de participantes agora rodam em prisma.$transaction.'
+    WHERE id = 'qa_ag26_m3';
+    UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
+      notas = 'Corrigido junto com o deploy inicial: getTemplate prefere o template da empresa e cai no global (NULL); o disparo passa o empresaId do destinatário.'
+    WHERE id = 'qa_ag26_m4';
+    UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
+      notas = 'Corrigido junto com o deploy inicial: tabela google_calendar_tokens criada via SQL cirúrgico (add_google_calendar_tokens.sql); CREATE TABLE removido do runtime.'
+    WHERE id = 'qa_ag26_m5';
+    UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
+      notas = 'Corrigido junto com o deploy inicial: e-mails de lembrete enviados em paralelo (Promise.all com catch individual).'
+    WHERE id = 'qa_ag26_m6';
   END IF;
 END $$;

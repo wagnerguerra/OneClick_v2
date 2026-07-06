@@ -154,9 +154,15 @@ export class AgendaEmailTemplateService {
               card_modo AS "cardModo", card_elementos AS "cardElementos",
               mostrar_outros AS "mostrarOutros", nome_grupo_outros AS "nomeGrupoOutros",
               nome_grupo_particulares AS "nomeGrupoParticulares", cor_particulares AS "corParticulares"
-         FROM agenda_email_template WHERE ($1::text IS NULL OR empresa_id = $1) ORDER BY created_at ASC LIMIT 1`,
+         FROM agenda_email_template
+        WHERE (empresa_id IS NULL OR $1::text IS NULL OR empresa_id = $1)
+        ORDER BY CASE WHEN $1::text IS NOT NULL AND empresa_id = $1 THEN 0 ELSE 1 END, created_at ASC
+        LIMIT 1`,
       empresaId ?? null,
     )) as EmailTemplate[]
+    // [QA #7] Prefere o template DA EMPRESA; sem um, cai no GLOBAL (empresa_id NULL,
+    // que é onde a UI de configuração salva hoje). Antes, getTemplate(null) pegava
+    // sempre o mais antigo, ignorando qualquer template por empresa.
     let template = rows[0]
     if (!template) {
       const id = randomUUID(); const d = tplDefaults()

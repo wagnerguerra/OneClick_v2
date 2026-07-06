@@ -287,19 +287,16 @@ export class AgendaLembreteService implements OnModuleInit {
       const attachments = LOGO_BUFFER
         ? [{ filename: 'logo.png', content: LOGO_BUFFER, cid: 'logo' }]
         : undefined
-      for (const u of users) {
-        if (!u.email) continue
-        try {
-          await this.emailService.sendMail({
-            to: u.email,
-            subject: `Lembrete: ${lembrete.evento.titulo}`,
-            html: this.renderEmailHtml(lembrete.evento, lembrete.minutosAntes, u.name, !!LOGO_BUFFER),
-            attachments,
-          })
-        } catch (e) {
-          console.error(`[AgendaLembrete] Email pra ${u.email} falhou:`, (e as Error).message)
-        }
-      }
+      // [QA #9] Envio em paralelo (era sequencial: N destinatários = N esperas).
+      // Falha individual não derruba os demais.
+      await Promise.all(users.filter(u => !!u.email).map(u =>
+        this.emailService.sendMail({
+          to: u.email!,
+          subject: `Lembrete: ${lembrete.evento.titulo}`,
+          html: this.renderEmailHtml(lembrete.evento, lembrete.minutosAntes, u.name, !!LOGO_BUFFER),
+          attachments,
+        }).catch((e: Error) => console.error(`[AgendaLembrete] Email pra ${u.email} falhou:`, e.message)),
+      ))
     }
 
     await prisma.agendaLembrete.update({ where: { id: lembrete.id }, data: { ultimoDisparoEm: new Date() } })

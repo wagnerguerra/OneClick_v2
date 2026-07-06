@@ -1128,33 +1128,23 @@ export class AgendaService {
       data: updateData,
     })
 
-    // Recreate participants if provided
+    // Recreate participants if provided — numa TRANSAÇÃO: sem ela, um erro entre
+    // o delete e os creates deixava o evento sem participantes. [QA #6]
     if (data.participanteIds !== undefined || data.participantesAvulsos !== undefined) {
-      // Remove existing active participants
-      await prisma.agendaParticipante.deleteMany({
-        where: { eventoId: id },
-      })
-
-      // Create user-based participants
-      if (data.participanteIds && data.participanteIds.length > 0) {
-        await prisma.agendaParticipante.createMany({
-          data: data.participanteIds.map((uid) => ({
-            eventoId: id,
-            usuarioId: uid,
-          })),
-          skipDuplicates: true,
-        })
-      }
-
-      // Create avulso participants
-      if (data.participantesAvulsos && data.participantesAvulsos.length > 0) {
-        await prisma.agendaParticipante.createMany({
-          data: data.participantesAvulsos.map((nome) => ({
-            eventoId: id,
-            nomeAvulso: nome,
-          })),
-        })
-      }
+      await prisma.$transaction([
+        prisma.agendaParticipante.deleteMany({ where: { eventoId: id } }),
+        ...(data.participanteIds && data.participanteIds.length > 0
+          ? [prisma.agendaParticipante.createMany({
+              data: data.participanteIds.map((uid) => ({ eventoId: id, usuarioId: uid })),
+              skipDuplicates: true,
+            })]
+          : []),
+        ...(data.participantesAvulsos && data.participantesAvulsos.length > 0
+          ? [prisma.agendaParticipante.createMany({
+              data: data.participantesAvulsos.map((nome) => ({ eventoId: id, nomeAvulso: nome })),
+            })]
+          : []),
+      ])
     }
 
     // Transição de vínculo com o CRM: ao VINCULAR (ou trocar de card), as
@@ -1236,8 +1226,16 @@ export class AgendaService {
   async deleteLote(lote: string, userId: string) {
     const eventos = await prisma.agendaEvento.findMany({
       where: { lote, isActive: true },
-      select: { id: true },
+      select: { id: true, criadorId: true },
     })
+    if (eventos.length === 0) return { deleted: 0 }
+
+    // [QA #4] Mesma regra do delete individual: dono da série, MASTER ou sub-perm
+    // delete_eventos/editar_todos_eventos. Antes, qualquer canDelete do módulo
+    // apagava séries de outras pessoas.
+    if (eventos.some(e => e.criadorId !== userId) && !(await this.userPodeExcluir(userId))) {
+      throw new Error('Você não tem permissão para excluir esta série de eventos.')
+    }
 
     for (const evento of eventos) {
       await prisma.agendaLog.create({

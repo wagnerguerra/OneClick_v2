@@ -38,20 +38,8 @@ export class AgendaGoogleService {
     const oauth2Client = await this.getOAuthClient()
     const { tokens } = await oauth2Client.getToken(code)
 
-    // Store tokens in a table - use raw SQL to create/update google_calendar_tokens
-    // Table: google_calendar_tokens (id, user_id UNIQUE, access_token, refresh_token, expires_at, created_at, updated_at)
-    await prisma.$executeRawUnsafe(
-      `CREATE TABLE IF NOT EXISTS google_calendar_tokens (
-        id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-        user_id TEXT NOT NULL UNIQUE,
-        access_token TEXT NOT NULL,
-        refresh_token TEXT,
-        expires_at TIMESTAMP,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      )`
-    )
-
+    // Tabela google_calendar_tokens criada no deploy (add_google_calendar_tokens.sql) —
+    // schema não nasce mais em runtime. [QA #8]
     const expiresAt = tokens.expiry_date ? new Date(tokens.expiry_date) : null
 
     // Upsert
@@ -77,18 +65,6 @@ export class AgendaGoogleService {
   // Check if user has Google Calendar connected
   async getConnectionStatus(userId: string): Promise<{ connected: boolean; email?: string }> {
     try {
-      await prisma.$executeRawUnsafe(
-        `CREATE TABLE IF NOT EXISTS google_calendar_tokens (
-          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-          user_id TEXT NOT NULL UNIQUE,
-          access_token TEXT NOT NULL,
-          refresh_token TEXT,
-          expires_at TIMESTAMP,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        )`
-      )
-
       const rows = await prisma.$queryRawUnsafe<Array<{ access_token: string; refresh_token: string | null }>>(
         'SELECT access_token, refresh_token FROM google_calendar_tokens WHERE user_id = $1', userId
       )
@@ -282,17 +258,24 @@ export class AgendaGoogleService {
         })
 
         const isDayEvent = !!gEvent.start?.date
-        const startDate = isDayEvent
+        const startInstant = isDayEvent
           ? new Date(gEvent.start!.date!)
           : new Date(gEvent.start!.dateTime!)
+
+        // [QA #5] Converte pra data/hora de BRASÍLIA seguindo a convenção do módulo
+        // (data = meia-noite UTC do dia-calendário; hora = string HH:MM local BR).
+        // Antes usava toTimeString() (timezone do SERVIDOR — UTC no docker), que
+        // deslocava os horários em 3h e podia mudar o dia do evento.
+        const brDia = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
+        const brHora = (d: Date) => new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false }).format(d)
 
         const eventData = {
           titulo: gEvent.summary,
           descricao: gEvent.description || null,
-          data: startDate,
+          data: isDayEvent ? startInstant : new Date(brDia(startInstant)),
           diaInteiro: isDayEvent,
-          horaInicio: isDayEvent ? null : startDate.toTimeString().slice(0, 5),
-          horaFim: isDayEvent ? null : (gEvent.end?.dateTime ? new Date(gEvent.end.dateTime).toTimeString().slice(0, 5) : null),
+          horaInicio: isDayEvent ? null : brHora(startInstant),
+          horaFim: isDayEvent ? null : (gEvent.end?.dateTime ? brHora(new Date(gEvent.end.dateTime)) : null),
           local: gEvent.location || null,
           link: gEvent.hangoutLink || null,
           googleId: gEvent.id,
