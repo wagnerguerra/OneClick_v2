@@ -65,7 +65,7 @@ export function createCrmRouter(crmService: CrmService, importComercialService?:
 
     delete: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => crmService.delete(input.id)),
+      .mutation(({ input, ctx }) => crmService.delete(input.id, ctx.userId)),
 
     // ── Tarefas ────────────────────────────────────────────
     addTarefa: writeProcedure(MODULE)

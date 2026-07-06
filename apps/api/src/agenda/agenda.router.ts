@@ -175,7 +175,7 @@ export function createAgendaRouter(
     // === OPORTUNIDADES (CRM) — seletor leve pra vincular um evento a um card ===
     buscarOportunidades: readProcedure(MODULE)
       .input(z.object({ search: z.string().optional() }).optional())
-      .query(({ input, ctx }) => service.buscarOportunidades(input?.search, ctx.isMaster ?? false, ctx.empresaId)),
+      .query(({ input, ctx }) => service.buscarOportunidades(input?.search, ctx.isMaster ?? false, ctx.empresaId, ctx.userId)),
 
     // === ANOTAÇÕES & ANEXOS DO EVENTO ===
     // Gravam no evento OU na oportunidade vinculada (merge) — ver agenda.service.

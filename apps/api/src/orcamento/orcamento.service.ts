@@ -834,7 +834,8 @@ export class OrcamentoService {
    * por este orçamento na aprovação. Processos/execuções já CONCLUÍDOS/CANCELADOS
    * são preservados. Idempotente (chamável de novo sem efeito colateral).
    */
-  private async cancelarServicosDoOrcamento(orcamentoId: string, motivo: string, userId?: string) {
+  // Público: também usado pela cascata do CRM ao excluir oportunidade. [QA #17]
+  async cancelarServicosDoOrcamento(orcamentoId: string, motivo: string, userId?: string) {
     // 1) Processos abertos do orçamento → cancelar já cascateia as execuções.
     //    (ProcessoStatus só tem EM_ANDAMENTO/CONCLUIDO/CANCELADO.)
     const processos = await prisma.processo.findMany({
@@ -854,6 +855,35 @@ export class OrcamentoService {
       console.log(`[Orcamento] Serviços cancelados p/ orçamento ${orcamentoId}: ${processos.length} processo(s) + ${orfas.count} execução(ões) órfã(s).`)
     }
     return { processos: processos.length, execucoesOrfas: orfas.count }
+  }
+
+  /**
+   * [QA #15] Move o card do CRM pra etapa de ganho/perda conforme o desfecho do
+   * orçamento. Direto no prisma (sem CrmService — evitaria ciclo de DI). Guardas:
+   * não mexe se o card já está em etapa compatível, e NUNCA rebaixa um card
+   * ganho pra perda automaticamente (isso é decisão humana).
+   */
+  private async sincronizarEtapaCrm(oportunidadeId: string, alvo: 'ganho' | 'perda', numeroOrc: number, userId?: string) {
+    const op = await prisma.oportunidade.findUnique({
+      where: { id: oportunidadeId },
+      select: { id: true, etapaId: true, empresaId: true, etapa: { select: { ehGanho: true, ehPerda: true } } },
+    })
+    if (!op) return
+    if (alvo === 'ganho' && op.etapa?.ehGanho) return
+    if (alvo === 'perda' && (op.etapa?.ehPerda || op.etapa?.ehGanho)) return
+    const etapa = await prisma.crmEtapa.findFirst({
+      where: { ...(alvo === 'ganho' ? { ehGanho: true } : { ehPerda: true }), OR: [{ empresaId: op.empresaId }, { empresaId: null }] },
+      orderBy: { ordem: 'asc' },
+      select: { id: true, nome: true },
+    })
+    if (!etapa || etapa.id === op.etapaId) return
+    await prisma.oportunidade.update({ where: { id: op.id }, data: { etapaId: etapa.id } })
+    await prisma.oportunidadeEvento.create({
+      data: {
+        oportunidadeId: op.id, userId: userId ?? null, tipo: 'etapa',
+        descricao: `Movido para "${etapa.nome}" — orçamento #${numeroOrc} ${alvo === 'ganho' ? 'aprovado' : 'encerrado'}`,
+      },
+    }).catch(() => null)
   }
 
   async changeStatus(id: string, novoStatus: string, userId?: string, opts?: { skipNotifications?: boolean; notificarCliente?: boolean }) {
@@ -908,6 +938,14 @@ export class OrcamentoService {
     if (novoStatus === 'ENCERRADO') {
       await this.cancelarServicosDoOrcamento(id, `Orçamento #${orc.numero} encerrado`, userId)
         .catch(e => console.warn('[Orcamento] Falha ao cancelar serviços do orçamento encerrado:', (e as Error).message))
+    }
+
+    // [QA #15] Reflete o desfecho no card do CRM (prisma direto — sem ciclo de DI):
+    // APROVADO → etapa de ganho; ENCERRADO antes de FINALIZADO → etapa de perda
+    // (encerrar após FINALIZADO é fim natural do ciclo, não perda).
+    if (orc.oportunidadeId && (novoStatus === 'APROVADO' || (novoStatus === 'ENCERRADO' && statusAtual !== 'FINALIZADO'))) {
+      await this.sincronizarEtapaCrm(orc.oportunidadeId, novoStatus === 'APROVADO' ? 'ganho' : 'perda', orc.numero, userId)
+        .catch(e => console.warn('[Orcamento] Falha ao sincronizar etapa do CRM:', (e as Error).message))
     }
 
     // Notificações do sino de "novo orçamento criado pelo CRM" só fazem sentido

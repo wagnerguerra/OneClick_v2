@@ -458,8 +458,26 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
       contatoEmail: dados.email ?? null,
       contatoTelefone: dados.telefone ?? null,
       campanhaSlug: campanhaSlug ?? null,
-    } as any, undefined, empresaId ?? undefined).catch(() => null)
-    if (!op?.id) return
+    } as any, undefined, empresaId ?? undefined).catch((e: Error) => {
+      console.error('[Lead] FALHA ao registrar oportunidade no CRM:', e.message)
+      return null
+    })
+    if (!op?.id) {
+      // [QA #22] Nunca perder lead em silêncio: se a criação falhou, avisa o
+      // comercial (fallback: masters) pra registrar manualmente.
+      const comercial = await this.resolverComercial(empresaId)
+      const alvo = comercial.length
+        ? comercial
+        : (await prisma.user.findMany({ where: { isMaster: true, isActive: true }, select: { id: true } }).catch(() => [] as Array<{ id: string }>)).map(u => u.id)
+      if (alvo.length) {
+        await this.notificationService.criarParaUsers(alvo, {
+          titulo: 'Falha ao registrar lead no CRM',
+          mensagem: `Lead "${dados.nome ?? razaoSocial ?? 'sem nome'}" qualificado pelo chat NÃO foi registrado no funil — registre manualmente (contato: ${[dados.email, dados.telefone].filter(Boolean).join(' · ') || '—'}).`,
+          tipo: 'error', origem: 'lead-ia', empresaId,
+        }).catch(() => {})
+      }
+      return
+    }
     await prisma.$executeRawUnsafe(`UPDATE oportunidades SET score=$2, temperatura=$3 WHERE id=$1`, op.id, score, temperatura).catch(() => {})
     await prisma.$executeRawUnsafe(`UPDATE lead_sessao SET status='registrado', oportunidade_id=$2, cliente_id=$3, updated_at=CURRENT_TIMESTAMP WHERE id=$1`, sessaoId, op.id, (op as any).clienteId ?? null).catch(() => {})
   }

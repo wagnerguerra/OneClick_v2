@@ -5,6 +5,7 @@ import { OrcamentoService } from '../orcamento/orcamento.service'
 import { CrmEventsService } from './crm-events.service'
 import { NotificationService } from '../notification/notification.service'
 import { CnpjService } from '../cnpj/cnpj.service'
+import { dataBrKey } from '../agenda/data-br.util'
 
 const DEFAULT_ETAPAS = [
   { nome: 'Deal Aberto', ordem: 1, cor: '#818cf8', probabilidade: 10, ehGanho: false, ehPerda: false },
@@ -527,7 +528,20 @@ export class CrmService {
         where: { oportunidadeId: id },
         select: { id: true, numero: true },
       })
-      if (!existente) {
+      if (!existente && !oportunidade.clienteId) {
+        // [QA #18] Sem cliente vinculado o orçamento nasceria inválido (a UI exige
+        // Cliente* e o envio fica bloqueado). Não gera; avisa quem moveu o card.
+        this.addEvento(id, userId, 'orcamento', 'Orçamento NÃO gerado: vincule um cliente à oportunidade antes de movê-la para a etapa de orçamento.')
+        if (userId) {
+          await this.notificationService.criar({
+            userId,
+            titulo: 'Orçamento não gerado',
+            mensagem: `Card "${oportunidade.titulo}": vincule um cliente à oportunidade para gerar o orçamento.`,
+            tipo: 'warning', link: `/crm`, origem: 'orcamentos',
+            empresaId: empresaId || oportunidade.empresaId || null,
+          }).catch(() => {})
+        }
+      } else if (!existente) {
         // Solicitante = usuario que registrou o CRM (criou a oportunidade), nao quem moveu a etapa.
         // Buscamos no log de eventos o registro de criacao; se nao houver, caimos para o userId atual.
         const eventoCriacao = await prisma.oportunidadeEvento.findFirst({
@@ -536,13 +550,51 @@ export class CrmService {
           select: { userId: true },
         }).catch(() => null)
         const solicitanteId = eventoCriacao?.userId || userId
+        // [QA #16] Prefill: contato/e-mail que o CRM já conhece vão pro orçamento
+        // (antes o comercial redigitava tudo).
+        const contatoPartes = [oportunidade.contatoNome, oportunidade.contatoTelefone].filter(Boolean)
         const novoOrc = await this.orcamentoService.create({
           oportunidadeId: id,
           clienteId: oportunidade.clienteId || undefined,
           solicitanteId: solicitanteId || undefined,
+          validadeDias: 90,
+          contatos: contatoPartes.length ? contatoPartes.join(' · ') : undefined,
+          emailsContatos: oportunidade.contatoEmail || undefined,
           observacoes: `Orcamento gerado automaticamente a partir da oportunidade "${oportunidade.titulo}"`,
         }, userId, empresaId || oportunidade.empresaId || undefined)
         orcamentoCriado = { id: novoOrc.id, numero: novoOrc.numero }
+      }
+    }
+
+    // [QA #15] Sincroniza os orçamentos vinculados com o desfecho do card:
+    // - Etapa de PERDA → encerra os orçamentos abertos (o changeStatus ENCERRADO
+    //   já cancela serviços/processos em cascata).
+    // - Etapa de GANHO → NÃO aprova automaticamente (aprovação dispara serviços
+    //   e tem consequências contratuais); avisa quem moveu se houver pendente.
+    if (oportunidade.etapa.ehPerda) {
+      const abertos = await prisma.orcamento.findMany({
+        where: { oportunidadeId: id, status: { in: ['NOVO', 'A_ENVIAR', 'ENVIADO', 'APROVADO', 'LIBERADO'] } },
+        select: { id: true, numero: true },
+      }).catch(() => [] as Array<{ id: string; numero: number }>)
+      for (const o of abertos) {
+        await this.orcamentoService.changeStatus(o.id, 'ENCERRADO', userId, { skipNotifications: true })
+          .then(() => this.addEvento(id, userId, 'orcamento', `Orçamento #${o.numero} encerrado automaticamente (card perdido)`))
+          .catch(e => console.warn('[CRM] Falha ao encerrar orçamento', o.numero, (e as Error).message))
+      }
+    } else if (oportunidade.etapa.ehGanho && userId) {
+      const pendentes = await prisma.orcamento.findMany({
+        where: { oportunidadeId: id, status: { in: ['NOVO', 'A_ENVIAR', 'ENVIADO'] } },
+        select: { id: true, numero: true },
+      }).catch(() => [] as Array<{ id: string; numero: number }>)
+      for (const o of pendentes) {
+        await this.notificationService.criar({
+          userId,
+          titulo: `Card ganho — orçamento #${o.numero} pendente`,
+          mensagem: 'A oportunidade foi ganha, mas o orçamento vinculado ainda não foi aprovado. Atualize o status dele.',
+          tipo: 'warning',
+          link: `/orcamentos/${o.id}`,
+          origem: 'orcamentos',
+        }).catch(() => {})
       }
     }
 
@@ -578,18 +630,46 @@ export class CrmService {
     return { ok: true }
   }
 
-  async delete(id: string) {
+  async delete(id: string, userId?: string) {
     // Cascata: deleta orçamentos vinculados a esta oportunidade antes de
     // apagar o card — flag `cascataDoCrm` bypassa a proteção em orcamento.delete.
     const orcamentos = await prisma.orcamento.findMany({
       where: { oportunidadeId: id },
-      select: { id: true },
-    }).catch(() => [] as Array<{ id: string }>)
+      select: { id: true, numero: true },
+    }).catch(() => [] as Array<{ id: string; numero: number }>)
     for (const orc of orcamentos) {
+      // [QA #17] Cancela serviços/processos disparados na aprovação ANTES de
+      // deletar o orçamento — sem isto ficavam rodando órfãos.
+      await this.orcamentoService.cancelarServicosDoOrcamento(orc.id, `Oportunidade excluída no CRM (orçamento #${orc.numero})`, userId)
+        .catch(e => console.warn('[CRM] Falha ao cancelar serviços do orçamento', orc.numero, (e as Error).message))
       // Limpa também as notificações de sino vinculadas àquele orçamento
       await this.notificationService.removerPorLink(`/orcamentos/${orc.id}`)
       await this.orcamentoService.delete(orc.id, { cascataDoCrm: true })
     }
+
+    // [QA #20] Eventos de agenda vinculados: FUTUROS são desativados (com log +
+    // sino pro criador); passados ficam como histórico. A FK SetNull limpa o vínculo.
+    const eventosFuturos = await prisma.agendaEvento.findMany({
+      where: { oportunidadeId: id, isActive: true, data: { gte: new Date(dataBrKey()) } },
+      select: { id: true, titulo: true, criadorId: true },
+    }).catch(() => [] as Array<{ id: string; titulo: string; criadorId: string }>)
+    for (const ev of eventosFuturos) {
+      await prisma.agendaEvento.update({ where: { id: ev.id }, data: { isActive: false } }).catch(() => {})
+      if (userId) {
+        await prisma.agendaLog.create({
+          data: { eventoId: ev.id, usuarioId: userId, acao: 'excluido', detalhes: 'Oportunidade vinculada foi excluída do CRM' },
+        }).catch(() => {})
+      }
+      if (ev.criadorId && ev.criadorId !== userId) {
+        await this.notificationService.criar({
+          userId: ev.criadorId,
+          titulo: 'Evento da agenda cancelado',
+          mensagem: `"${ev.titulo}" foi cancelado: a oportunidade vinculada foi excluída do CRM.`,
+          tipo: 'warning', link: '/agenda', origem: 'agenda',
+        }).catch(() => {})
+      }
+    }
+
     const result = await prisma.oportunidade.delete({ where: { id } })
     this.crmEvents.emit({ type: 'delete', oportunidadeId: id })
     return result

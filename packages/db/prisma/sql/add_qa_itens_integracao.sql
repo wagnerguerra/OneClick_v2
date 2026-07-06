@@ -77,10 +77,37 @@ BEGIN
      'apps/api/src/orcamento/orcamento.scheduler.ts (só trata atrasos de status)',
      'Avaliar: lembrete de validade vencendo + follow-up automático pós-recusa.',
      'Auditoria integração 07/07/2026'),
+
     ('qa_int26_b7', 'crm↔orcamentos', 'BAIXA', 'Reabrir orçamento para NOVO não restaura o sino do comercial',
      'O sino de "novo orçamento" é removido quando o status sai de NOVO; no reabrir de volta pra NOVO ele não é recriado — quem não viu na 1ª vez não fica sabendo.',
      'apps/api/src/orcamento/orcamento.service.ts (reabrir)',
      'Re-disparar a notificação (fire-and-forget) quando reabrir cair em NOVO.',
      'Auditoria integração 07/07/2026');
+
+    -- Itens corrigidos no mesmo deploy do seed (fixes acompanham este SQL).
+    UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(),
+      notas='Corrigido: sincronização nos dois sentidos. Card PERDA→encerra orçamentos abertos (cascata de serviços inclusa); GANHO→avisa quem moveu se houver orçamento pendente (aprovação não é automatizada — dispara serviços/contratos). Orçamento APROVADO→card vai pra etapa de ganho; ENCERRADO (antes de FINALIZADO)→etapa de perda. Guardas contra rebaixar card ganho e contra loop.'
+    WHERE id='qa_int26_a1';
+    UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(),
+      notas='Corrigido: orçamento gerado pelo funil herda contato (nome · telefone) e e-mail da oportunidade (+ validadeDias explícito).'
+    WHERE id='qa_int26_m1';
+    UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(),
+      notas='Corrigido: crm.delete chama cancelarServicosDoOrcamento (agora público) antes de deletar cada orçamento da cascata.'
+    WHERE id='qa_int26_m2';
+    UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(),
+      notas='Corrigido: sem cliente vinculado o orçamento NÃO é gerado — evento no card + sino pra quem moveu, com instrução de vincular o cliente.'
+    WHERE id='qa_int26_m3';
+    UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(),
+      notas='Corrigido: buscarOportunidades exige crm.canRead (não-master); sem permissão devolve lista vazia (seletor gracioso, sem erro).'
+    WHERE id='qa_int26_m4';
+    UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(),
+      notas='Corrigido: crm.delete desativa eventos FUTUROS vinculados (log + sino pro criador); passados ficam como histórico.'
+    WHERE id='qa_int26_m5';
+    UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(),
+      notas='Corrigido: migração de anotações/anexos e sync de vínculos em $transaction (pares copiar+apagar atômicos).'
+    WHERE id='qa_int26_m6';
+    UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(),
+      notas='Corrigido: falha no registro do lead agora loga + notifica o comercial (fallback: masters) com os contatos do lead pra registro manual.'
+    WHERE id='qa_int26_m7';
   END IF;
 END $$;

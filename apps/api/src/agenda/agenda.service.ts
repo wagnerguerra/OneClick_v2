@@ -693,15 +693,17 @@ export class AgendaService {
   private async syncEventoOportunidades(eventoId: string, ids: string[]) {
     const limpos = [...new Set(ids.filter(Boolean))]
     try {
-      await prisma.$executeRawUnsafe(`DELETE FROM agenda_evento_oportunidades WHERE evento_id = $1`, eventoId)
-      for (let i = 0; i < limpos.length; i++) {
-        await prisma.$executeRawUnsafe(
+      // [QA #21] Delete + inserts numa transação: falha no meio não deixa o
+      // evento sem vínculos (antes o DELETE podia aplicar e os INSERTs não).
+      await prisma.$transaction([
+        prisma.$executeRawUnsafe(`DELETE FROM agenda_evento_oportunidades WHERE evento_id = $1`, eventoId),
+        ...limpos.map((oid, i) => prisma.$executeRawUnsafe(
           `INSERT INTO agenda_evento_oportunidades (id, evento_id, oportunidade_id, ordem, created_at)
            VALUES ($1, $2, $3, $4, now())
            ON CONFLICT (evento_id, oportunidade_id) DO UPDATE SET ordem = EXCLUDED.ordem`,
-          generateUUID(), eventoId, limpos[i], i,
-        )
-      }
+          generateUUID(), eventoId, oid, i,
+        )),
+      ])
     } catch { /* tabela pode não existir ainda (pré-migração) — vínculo principal ainda fica no oportunidadeId */ }
   }
 
@@ -710,7 +712,17 @@ export class AgendaService {
    * CRM. Filtra por empresa do usuário (a menos que MASTER) e por texto livre no
    * título / razão social. Retorna no máximo 20 resultados.
    */
-  async buscarOportunidades(search: string | undefined, isMaster: boolean, empresaId?: string | null) {
+  async buscarOportunidades(search: string | undefined, isMaster: boolean, empresaId?: string | null, userId?: string) {
+    // [QA #19] Dados de oportunidade (título/razão social/etapa) são do módulo CRM —
+    // quem só tem agenda não deve enumerá-los. Sem crm.canRead, devolve lista vazia
+    // (gracioso: o seletor de vínculo simplesmente não mostra cards).
+    if (!isMaster && userId) {
+      const permCrm = await prisma.userPermission.findFirst({
+        where: { userId, moduleSlug: 'crm', canRead: true },
+        select: { userId: true },
+      }).catch(() => null)
+      if (!permCrm) return []
+    }
     const where: Prisma.OportunidadeWhereInput = { isActive: true }
     if (!isMaster && empresaId) where.empresaId = empresaId
     const termo = (search ?? '').trim()
@@ -771,20 +783,26 @@ export class AgendaService {
       prisma.agendaEventoAnotacao.findMany({ where: { eventoId } }),
       prisma.agendaEventoAnexo.findMany({ where: { eventoId } }),
     ])
+    // [QA #21] Cada par copiar+apagar roda em transação — sem ela, o create podia
+    // aplicar e o delete não (duplicando o dado no próximo vínculo), ou vice-versa.
     if (anotacoes.length) {
-      await prisma.oportunidadeMensagem.createMany({
-        data: anotacoes.map((a) => ({ oportunidadeId, userId: a.userId, mensagem: a.texto, createdAt: a.createdAt })),
-      })
-      await prisma.agendaEventoAnotacao.deleteMany({ where: { eventoId } })
+      await prisma.$transaction([
+        prisma.oportunidadeMensagem.createMany({
+          data: anotacoes.map((a) => ({ oportunidadeId, userId: a.userId, mensagem: a.texto, createdAt: a.createdAt })),
+        }),
+        prisma.agendaEventoAnotacao.deleteMany({ where: { eventoId } }),
+      ])
     }
     if (anexos.length) {
-      await prisma.oportunidadeArquivo.createMany({
-        data: anexos.map((a) => ({
-          oportunidadeId, fileName: a.fileName, fileUrl: a.fileUrl,
-          fileSize: a.fileSize, mimeType: a.mimeType, userId: a.userId, createdAt: a.createdAt,
-        })),
-      })
-      await prisma.agendaEventoAnexo.deleteMany({ where: { eventoId } })
+      await prisma.$transaction([
+        prisma.oportunidadeArquivo.createMany({
+          data: anexos.map((a) => ({
+            oportunidadeId, fileName: a.fileName, fileUrl: a.fileUrl,
+            fileSize: a.fileSize, mimeType: a.mimeType, userId: a.userId, createdAt: a.createdAt,
+          })),
+        }),
+        prisma.agendaEventoAnexo.deleteMany({ where: { eventoId } }),
+      ])
     }
     return { anotacoes: anotacoes.length, anexos: anexos.length }
   }
