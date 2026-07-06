@@ -682,7 +682,11 @@ export class IntegrationService {
                   p.socios_importados = sociosImportados
                 }
               }
-            } catch { /* ignorar erros de sócios */ }
+            } catch (e) {
+              // [QA #33] não engole silenciosamente: reporta qual cliente teve
+              // falha nos sócios (o cliente em si já foi importado — best-effort).
+              job.logs.push({ documento: doc, razaoSocial: razao, status: 'skipped', message: `Sócios não importados: ${(e as Error).message}` })
+            }
           }
 
           // Importar serviços contratados (áreas + responsáveis)
@@ -717,7 +721,10 @@ export class IntegrationService {
                 )
                 servicosImportados++
               }
-            } catch { /* ignorar erros de serviços */ }
+            } catch (e) {
+              // [QA #33] reporta falha nos serviços contratados sem derrubar o cliente.
+              job.logs.push({ documento: doc, razaoSocial: razao, status: 'skipped', message: `Serviços não importados: ${(e as Error).message}` })
+            }
           }
         } catch (e) {
           failedCount++

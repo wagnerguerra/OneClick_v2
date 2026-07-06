@@ -167,10 +167,12 @@ export class LegacyImportService {
             })
             results.updated++
           } else {
-            // Criar
-            const cliente = await prisma.cliente.create({ data })
-            await prisma.clienteEvent.create({
-              data: { clienteId: cliente.id, userId: userId || null, type: 'imported', version: 1 },
+            // Criar — [QA #33] cliente + evento na mesma transação (atômico).
+            await prisma.$transaction(async (tx) => {
+              const cliente = await tx.cliente.create({ data })
+              await tx.clienteEvent.create({
+                data: { clienteId: cliente.id, userId: userId || null, type: 'imported', version: 1 },
+              })
             })
             results.imported++
           }

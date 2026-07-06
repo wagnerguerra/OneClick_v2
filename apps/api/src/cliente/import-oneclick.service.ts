@@ -204,7 +204,7 @@ export class ImportOneclickService {
           clienteId,
           observacoes: `Importado do OneClick — ${s.qualificacao || ''}${s.representante_nome ? ' | Rep: ' + s.representante_nome : ''}`,
         },
-      }).then(() => { sociosCount++ }).catch(() => {})
+      }).then(() => { sociosCount++ }).catch((e) => { console.error('[ImportOneClick] Erro sócio:', nome, (e as Error).message) })
     }
 
     const parts: string[] = []
