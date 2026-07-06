@@ -158,13 +158,16 @@ export class ClienteService {
     }
 
     const where: Prisma.ClienteWhereInput = {
-      deletedAt: null,
       ...(isLead !== undefined ? { isLead } : {}),
       ...empresaFilter(isMaster, empresaId),
       ...(situacao ? { situacao } : {}),
       // Status: por padrão a lista OCULTA clientes INATIVA — eles só aparecem
       // quando o usuário filtra explicitamente por um status (inclusive INATIVA).
-      ...(status ? { status } : { status: { not: 'INATIVA' } }),
+      // Clientes da LIXEIRA (deletedAt) são tratados como INATIVOS: entram no
+      // filtro "Inativo" junto com status=INATIVA e ficam fora dos demais casos.
+      ...(status === 'INATIVA'
+        ? { OR: [{ status: 'INATIVA' as never }, { deletedAt: { not: null } }] }
+        : { deletedAt: null, ...(status ? { status } : { status: { not: 'INATIVA' } }) }),
       ...(tributacao ? { tributacao } : {}),
       ...(grupo ? { grupo } : {}),
       ...(cidade ? { cidade } : {}),
