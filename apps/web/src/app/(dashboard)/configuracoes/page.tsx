@@ -7,7 +7,7 @@ import {
   Landmark, Globe, MessageSquare, Bot, Brain, Calendar,
   Key, Clock, type LucideIcon, Zap, CheckCircle2, XCircle,
   Play, Terminal, Bookmark, FolderOpen, Trash2, ChevronDown, Search, Pencil, Check, Maximize2, Minimize2,
-  FileSignature, Bell, Lock, Unlock, Headphones, FolderKanban, HardDriveDownload,
+  FileSignature, Bell, Lock, Unlock, Headphones, FolderKanban, HardDriveDownload, ClipboardCheck,
 } from 'lucide-react'
 import { Button, Input, Label, Card, CardHeader, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -15,6 +15,7 @@ import { alerts } from '@/lib/alerts'
 import { useRouter } from 'next/navigation'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { CalendarioSection } from './_components/calendario-section'
+import { QaSection } from './_components/qa-section'
 import { GruposObrigacaoSection } from './_components/grupos-obrigacao-section'
 import { GoogleBackupSection } from './_components/google-backup-section'
 import { HelpdeskIaSection } from './_components/helpdesk-ia-section'
@@ -48,6 +49,7 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
   'Acessórias': Zap,
   'Calendário': Calendar,
   'Templates de Obrigações': FolderKanban,
+  'Relatório de QA': ClipboardCheck,
 }
 
 // Pill especial — não tem campos cadastrados via getCampos, é injetada
@@ -56,6 +58,7 @@ const NOTIFICATIONS_GROUP = 'Notificações'
 const HELPDESK_GROUP = 'Helpdesk'
 const CALENDARIO_GROUP = 'Calendário'
 const GRUPOS_OBRIGACAO_GROUP = 'Templates de Obrigações'
+const QA_GROUP = 'Relatório de QA'
 
 interface OrigemNotif {
   origem: string
@@ -275,7 +278,7 @@ export default function ConfiguracoesPage() {
       setFields(campos.fields as ConfigField[])
       // Adiciona pill virtual "Notificações" no fim — não tem campos via getCampos,
       // é tratada com renderer próprio (toggles por origem).
-      const allGroups = [...(campos.groups as string[]), NOTIFICATIONS_GROUP, HELPDESK_GROUP, CALENDARIO_GROUP, GRUPOS_OBRIGACAO_GROUP]
+      const allGroups = [...(campos.groups as string[]), NOTIFICATIONS_GROUP, HELPDESK_GROUP, CALENDARIO_GROUP, GRUPOS_OBRIGACAO_GROUP, QA_GROUP]
         .sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }))
       setGroups(allGroups)
       const v: Record<string, string> = {}
@@ -1419,6 +1422,11 @@ export default function ConfiguracoesPage() {
               /* PILL ESPECIAL: TEMPLATES DE OBRIGAÇÕES                       */
               /* ============================================================ */
               <GruposObrigacaoSection />
+            ) : activeGroup === QA_GROUP ? (
+              /* ============================================================ */
+              /* PILL ESPECIAL: RELATÓRIO DE QA — achados de auditoria        */
+              /* ============================================================ */
+              <QaSection />
             ) : (
               /* ============================================================ */
               /* GRUPOS NORMAIS (comportamento padrão)                        */
