@@ -1,15 +1,8 @@
 /**
  * NfeDistScheduler — agendador da sincronização diária de NFe via SEFAZ.
  *
- * Pendências de wire-up (ainda não feitas — outro agente está implementando):
- *   1. Criar `NfeDistService` em `apps/api/src/nfe-dist/nfe-dist.service.ts`
- *      com método público `processarCliente(clienteId: string): Promise<void>`.
- *   2. Criar `NfeDistModule` em `apps/api/src/nfe-dist/nfe-dist.module.ts`
- *      exportando o service via provider com token `'NfeDistService'`
- *      (ex.: `{ provide: 'NfeDistService', useClass: NfeDistService }`).
- *   3. Registrar `NfeDistModule` no `AppModule`.
- *   4. Adicionar campos `nfeDistEnabled` (Boolean) e `nfeDistSyncRequestedAt`
- *      (DateTime?) no model `Cliente` do schema Prisma.
+ * Wire-up concluído: NfeDistService implementado e provido pelo NfeDistModule
+ * (token 'NfeDistService'); campos do Cliente e registro no AppModule feitos. [QA #42]
  *
  * Comportamento:
  *   - Cron diário (default 03:30 America/Sao_Paulo, configurável via `NFE_DIST_CRON`).
@@ -35,17 +28,13 @@ import {
   type ExecucaoClienteDetalhe,
 } from '../agendamento/scheduler-execution.helper'
 import { loadSchedulerConfig } from '../agendamento/scheduler-config.helper'
+import type { NfeDistService } from './nfe-dist.service'
 
 const DEFAULT_TIMEZONE = 'America/Sao_Paulo'
 // Poll das solicitações manuais (busca sob demanda pela UI) — 20s pra o usuário
 // não esperar muito depois de clicar "Buscar notas".
 const MANUAL_POLL_INTERVAL_MS = 20_000
 const CONFIG_POLL_INTERVAL_MS = 30_000
-
-// TODO: trocar `unknown` pela interface real quando NfeDistService existir.
-interface NfeDistServiceLike {
-  processarCliente(clienteId: string): Promise<void>
-}
 
 @Injectable()
 export class NfeDistScheduler implements OnModuleInit, OnModuleDestroy {
@@ -58,9 +47,9 @@ export class NfeDistScheduler implements OnModuleInit, OnModuleDestroy {
   private configAtual: { cron: string; enabled: boolean } = { cron: '', enabled: false }
 
   constructor(
-    // TODO: NfeDistService será implementado em paralelo e injetado por token.
+    // Token 'NfeDistService' (mesma classe) — import type evita ciclo de módulo.
     @Inject('NfeDistService')
-    private readonly nfeDistService: unknown,
+    private readonly nfeDistService: NfeDistService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -193,8 +182,8 @@ export class NfeDistScheduler implements OnModuleInit, OnModuleDestroy {
       for (const cliente of clientes) {
         const clienteInicio = Date.now()
         try {
-          // TODO: NfeDistService.processarCliente será implementado em paralelo.
-          await (this.nfeDistService as NfeDistServiceLike).processarCliente(
+          
+          await this.nfeDistService.processarCliente(
             cliente.id,
           )
           sucesso++
@@ -270,8 +259,8 @@ export class NfeDistScheduler implements OnModuleInit, OnModuleDestroy {
       for (const cliente of clientes) {
         const clienteInicio = Date.now()
         try {
-          // TODO: NfeDistService.processarCliente será implementado em paralelo.
-          await (this.nfeDistService as NfeDistServiceLike).processarCliente(
+          
+          await this.nfeDistService.processarCliente(
             cliente.id,
           )
           sucesso++

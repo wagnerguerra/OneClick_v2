@@ -1,15 +1,8 @@
 /**
  * NfseDistScheduler — agendador da sincronização diária de NFS-e Nacional.
  *
- * Pendências de wire-up (ainda não feitas — outro agente está implementando):
- *   1. Criar `NfseDistService` em `apps/api/src/nfse-dist/nfse-dist.service.ts`
- *      com método público `processarCliente(clienteId: string): Promise<void>`.
- *   2. Criar `NfseDistModule` em `apps/api/src/nfse-dist/nfse-dist.module.ts`
- *      exportando o service via provider com token `'NfseDistService'`
- *      (ex.: `{ provide: 'NfseDistService', useClass: NfseDistService }`).
- *   3. Registrar `NfseDistModule` no `AppModule`.
- *   4. Adicionar campos `nfseDistEnabled` (Boolean) e `nfseDistSyncRequestedAt`
- *      (DateTime?) no model `Cliente` do schema Prisma.
+ * Wire-up concluído: NfseDistService implementado e provido pelo NfseDistModule
+ * (token 'NfseDistService'); campos do Cliente e registro no AppModule feitos. [QA #43]
  *
  * Comportamento:
  *   - Cron diário (default 03:45 America/Sao_Paulo, configurável via `NFSE_DIST_CRON`).
@@ -35,15 +28,11 @@ import {
   type ExecucaoClienteDetalhe,
 } from '../agendamento/scheduler-execution.helper'
 import { loadSchedulerConfig } from '../agendamento/scheduler-config.helper'
+import type { NfseDistService } from './nfse-dist.service'
 
 const DEFAULT_TIMEZONE = 'America/Sao_Paulo'
 const MANUAL_POLL_INTERVAL_MS = 60_000
 const CONFIG_POLL_INTERVAL_MS = 30_000
-
-// TODO: trocar `unknown` pela interface real quando NfseDistService existir.
-interface NfseDistServiceLike {
-  processarCliente(clienteId: string): Promise<void>
-}
 
 @Injectable()
 export class NfseDistScheduler implements OnModuleInit, OnModuleDestroy {
@@ -55,9 +44,9 @@ export class NfseDistScheduler implements OnModuleInit, OnModuleDestroy {
   private configAtual: { cron: string; enabled: boolean } = { cron: '', enabled: false }
 
   constructor(
-    // TODO: NfseDistService será implementado em paralelo e injetado por token.
+    // Token 'NfseDistService' (mesma classe) — import type evita ciclo de módulo.
     @Inject('NfseDistService')
-    private readonly nfseDistService: unknown,
+    private readonly nfseDistService: NfseDistService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -181,8 +170,8 @@ export class NfseDistScheduler implements OnModuleInit, OnModuleDestroy {
       for (const cliente of clientes) {
         const clienteInicio = Date.now()
         try {
-          // TODO: NfseDistService.processarCliente será implementado em paralelo.
-          await (this.nfseDistService as NfseDistServiceLike).processarCliente(
+          
+          await this.nfseDistService.processarCliente(
             cliente.id,
           )
           sucesso++
@@ -252,8 +241,8 @@ export class NfseDistScheduler implements OnModuleInit, OnModuleDestroy {
       for (const cliente of clientes) {
         const clienteInicio = Date.now()
         try {
-          // TODO: NfseDistService.processarCliente será implementado em paralelo.
-          await (this.nfseDistService as NfseDistServiceLike).processarCliente(
+          
+          await this.nfseDistService.processarCliente(
             cliente.id,
           )
           sucesso++
