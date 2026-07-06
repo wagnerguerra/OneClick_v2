@@ -6,15 +6,6 @@ import { EmailService } from '../common/email.service'
 import { NotificationService } from '../notification/notification.service'
 import { AgendaConfigService } from './agenda-config.service'
 
-function decodeHtmlEntities(str: string | null | undefined): string | null {
-  if (!str) return null
-  return str
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCharCode(parseInt(n, 16)))
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&nbsp;/g, ' ')
-}
-
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0
@@ -125,18 +116,6 @@ interface ListEventosParams {
   empresaId?: string
 }
 
-export interface ImportProgress {
-  status: 'idle' | 'running' | 'done'
-  total: number
-  current: number
-  importados: number
-  ignorados: number
-  erros: number
-  participantes: number
-  currentEvento: string
-  items: Array<{ nome: string; status: 'importado' | 'ignorado' | 'erro'; erro?: string }>
-}
-
 @Injectable()
 export class AgendaService {
   constructor(
@@ -144,11 +123,6 @@ export class AgendaService {
     @Inject(NotificationService) private readonly notificationService: NotificationService,
     @Inject(AgendaConfigService) private readonly configService: AgendaConfigService,
   ) {}
-
-  private importProgress: ImportProgress = {
-    status: 'idle', total: 0, current: 0, importados: 0, ignorados: 0, erros: 0,
-    participantes: 0, currentEvento: '', items: [],
-  }
 
   /**
    * Bypass de propriedade: usuário com sub-perm `editar_todos_eventos` (ou MASTER
@@ -419,10 +393,6 @@ export class AgendaService {
     }))
 
     return { data, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) }
-  }
-
-  getImportProgress(): ImportProgress {
-    return { ...this.importProgress }
   }
 
   // ============================================================
@@ -1619,255 +1589,6 @@ export class AgendaService {
       select: { id: true, name: true, image: true },
       orderBy: { name: 'asc' },
     })
-  }
-
-  // ============================================================
-  // IMPORTAR TIPOS DO LEGADO (MySQL OneClick v1)
-  // ============================================================
-
-  async importTiposLegado(): Promise<{ importados: number; ignorados: number; erros: number }> {
-    // Conectar ao MySQL legado
-    const configs = await prisma.systemConfig.findMany({
-      where: { key: { in: ['OCK_V1_DB_HOST', 'OCK_V1_DB_PORT', 'OCK_V1_DB_USER', 'OCK_V1_DB_PASSWORD', 'OCK_V1_DB_NAME'] } },
-    })
-    const map = new Map(configs.map(c => [c.key, c.value]))
-
-    const host = map.get('OCK_V1_DB_HOST') || process.env.OCK_V1_DB_HOST
-    const port = Number(map.get('OCK_V1_DB_PORT') || process.env.OCK_V1_DB_PORT || '3306')
-    const user = map.get('OCK_V1_DB_USER') || process.env.OCK_V1_DB_USER
-    const password = map.get('OCK_V1_DB_PASSWORD') || process.env.OCK_V1_DB_PASSWORD
-    const database = map.get('OCK_V1_DB_NAME') || process.env.OCK_V1_DB_NAME
-
-    if (!host || !user || !database) {
-      throw new Error('Conexão com o banco OneClick v1 não configurada. Configure em Configurações → Banco de Dados → OneClick v1.')
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mysql2 = require('mysql2/promise')
-    const conn = await mysql2.createConnection({ host, port, user, password, database, connectTimeout: 10000 })
-
-    const [rows] = await conn.query(
-      'SELECT typeid, typename, typecolor, borda, texto, bloqueia_agenda FROM ger_cal_tip WHERE ativo = 1 ORDER BY typename'
-    )
-    await conn.end()
-
-    const tiposLegado = rows as Array<{
-      typeid: number; typename: string; typecolor: string; borda: string; texto: string; bloqueia_agenda: number | null
-    }>
-
-    let importados = 0, ignorados = 0, erros = 0
-
-    for (const t of tiposLegado) {
-      try {
-        // Verificar se já existe pelo nome
-        const existing = await prisma.agendaTipo.findFirst({
-          where: { nome: { equals: t.typename, mode: 'insensitive' } },
-        })
-        if (existing) { ignorados++; continue }
-
-        await prisma.agendaTipo.create({
-          data: {
-            nome: t.typename,
-            cor: t.typecolor || '#3b82f6',
-            corBorda: t.borda || '#2563eb',
-            corTexto: t.texto || '#ffffff',
-            bloqueiaAgenda: t.bloqueia_agenda === 1,
-          },
-        })
-        importados++
-      } catch {
-        erros++
-      }
-    }
-
-    return { importados, ignorados, erros }
-  }
-
-  // ============================================================
-  // IMPORTAR EVENTOS DO LEGADO (MySQL OneClick v1)
-  // ============================================================
-
-  async importEventosLegado(userId: string, apenasAtivos = true): Promise<{ message: string }> {
-    if (this.importProgress.status === 'running') throw new Error('Importação já em andamento.')
-
-    this.importProgress = { status: 'running', total: 0, current: 0, importados: 0, ignorados: 0, erros: 0, participantes: 0, currentEvento: 'Conectando...', items: [] }
-
-    // Executar em background (não bloqueia a resposta)
-    this.runImport(userId, apenasAtivos).catch(e => {
-      console.error('[Agenda] Falha na importação:', (e as Error).message)
-      this.importProgress.status = 'done'
-      this.importProgress.currentEvento = `Erro: ${(e as Error).message}`
-    })
-
-    return { message: 'Importação iniciada' }
-  }
-
-  private async runImport(userId: string, apenasAtivos: boolean) {
-    const configs = await prisma.systemConfig.findMany({
-      where: { key: { in: ['OCK_V1_DB_HOST', 'OCK_V1_DB_PORT', 'OCK_V1_DB_USER', 'OCK_V1_DB_PASSWORD', 'OCK_V1_DB_NAME'] } },
-    })
-    const cfgMap = new Map(configs.map(c => [c.key, c.value]))
-
-    const host = cfgMap.get('OCK_V1_DB_HOST') || process.env.OCK_V1_DB_HOST
-    const port = Number(cfgMap.get('OCK_V1_DB_PORT') || process.env.OCK_V1_DB_PORT || '3306')
-    const user = cfgMap.get('OCK_V1_DB_USER') || process.env.OCK_V1_DB_USER
-    const password = cfgMap.get('OCK_V1_DB_PASSWORD') || process.env.OCK_V1_DB_PASSWORD
-    const database = cfgMap.get('OCK_V1_DB_NAME') || process.env.OCK_V1_DB_NAME
-
-    if (!host || !user || !database) throw new Error('Conexão com o banco OneClick v1 não configurada.')
-
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mysql2 = require('mysql2/promise')
-    const conn = await mysql2.createConnection({ host, port, user, password, database, charset: 'utf8mb4', connectTimeout: 15000 })
-
-    this.importProgress.currentEvento = 'Buscando eventos...'
-
-    const [rows] = await conn.query(
-      `SELECT e.eveid, e.evenome, e.evedata, e.evehoraini, e.evehorafim, e.evedesc,
-              e.evelocal, e.evecontato, e.eveparticular, e.evemodifica, e.evecontrole,
-              e.evetipo, e.evelote, e.everepete, e.eveuser, e.eveativo,
-              e.sala, e.presencial, e.numparticipantes, e.link, e.garagem, e.vagas,
-              e.arrumar, e.equipamentos, e.id_google,
-              t.typename, t.typecolor, t.borda, t.texto,
-              u.cad_usu_nome, u.cad_usu_email
-       FROM ger_cal e
-       LEFT JOIN ger_cal_tip t ON e.evetipo = t.typeid
-       LEFT JOIN ger_cad_usu u ON e.eveuser = u.cad_usu_id
-       WHERE ${apenasAtivos ? "e.eveativo = '1'" : '1=1'}
-       ORDER BY e.evedata ASC`
-    )
-
-    this.importProgress.currentEvento = 'Buscando participantes...'
-
-    const [partRows] = await conn.query(
-      `SELECT p.id_evento, p.id_participante, p.nome_avulso, p.ativo,
-              u.cad_usu_nome, u.cad_usu_email
-       FROM ger_cal_participantes p
-       LEFT JOIN ger_cad_usu u ON p.id_participante = u.cad_usu_id
-       WHERE p.ativo = '1'`
-    )
-    await conn.end()
-
-    const eventos = rows as Array<Record<string, unknown>>
-    const participantesLegado = partRows as Array<Record<string, unknown>>
-    this.importProgress.total = eventos.length
-
-    const partMap = new Map<number, Array<Record<string, unknown>>>()
-    for (const p of participantesLegado) {
-      const evId = Number(p.id_evento)
-      if (!partMap.has(evId)) partMap.set(evId, [])
-      partMap.get(evId)!.push(p)
-    }
-
-    const tiposLocais = await prisma.agendaTipo.findMany({ where: { isActive: true } })
-    const tipoMap = new Map<string, string>()
-    for (const t of tiposLocais) tipoMap.set(t.nome.trim().toLowerCase(), t.id)
-
-    // Isolamento multi-tenant: casa participantes do legado apenas com usuários
-    // da empresa do importador (não vaza catálogo de usuários de outro tenant).
-    const importador = await prisma.user.findUnique({ where: { id: userId }, select: { empresaId: true } })
-    const usersLocais = await prisma.user.findMany({ where: { isActive: true, empresaId: importador?.empresaId ?? null }, select: { id: true, email: true, name: true } })
-    const userByEmail = new Map<string, string>()
-    const userByName = new Map<string, string>()
-    for (const u of usersLocais) {
-      if (u.email) userByEmail.set(u.email.toLowerCase(), u.id)
-      userByName.set(u.name.toLowerCase(), u.id)
-    }
-
-    for (const ev of eventos) {
-      const nomeEvento = decodeHtmlEntities(String(ev.evenome || 'Sem título')) || 'Sem título'
-      this.importProgress.current++
-      this.importProgress.currentEvento = nomeEvento
-
-      try {
-        const legacyId = String(ev.eveid)
-        const existing = await prisma.agendaEvento.findFirst({ where: { googleId: `legacy_${legacyId}` } })
-        if (existing) {
-          this.importProgress.ignorados++
-          this.importProgress.items.push({ nome: nomeEvento, status: 'ignorado' })
-          continue
-        }
-
-        const typenameLimpo = String(ev.typename || '').trim()
-        const tipoNome = typenameLimpo.toLowerCase()
-        let tipoId = tipoNome ? tipoMap.get(tipoNome) : undefined
-        if (!tipoId) {
-          if (typenameLimpo) {
-            // Dedup no BANCO (não só no map em memória) — inclui tipos inativos e
-            // normaliza espaços/caixa. Sem isto, um tipo existente que não estava no
-            // map (ex.: "Férias" arquivado) era RECRIADO, gerando duplicata.
-            const existente = await prisma.agendaTipo.findFirst({
-              where: { nome: { equals: typenameLimpo, mode: 'insensitive' } },
-              select: { id: true },
-            }).catch(() => null)
-            if (existente) {
-              tipoId = existente.id
-            } else {
-              const novo = await prisma.agendaTipo.create({ data: { nome: typenameLimpo, cor: String(ev.typecolor || '#3b82f6'), corBorda: String(ev.borda || '#2563eb'), corTexto: String(ev.texto || '#ffffff') } })
-              tipoId = novo.id
-            }
-            tipoMap.set(tipoNome, tipoId)
-          } else {
-            tipoId = tiposLocais[0]?.id
-            if (!tipoId) {
-              const geralExistente = await prisma.agendaTipo.findFirst({ where: { nome: { equals: 'Geral', mode: 'insensitive' } } }).catch(() => null)
-              const fb = geralExistente ?? await prisma.agendaTipo.create({ data: { nome: 'Geral', cor: '#6b7280', corBorda: '#4b5563', corTexto: '#ffffff' } })
-              tipoId = fb.id; tiposLocais.push(fb)
-            }
-          }
-        }
-
-        const criadorEmail = String(ev.cad_usu_email || '').toLowerCase()
-        const criadorNome = String(ev.cad_usu_nome || '').toLowerCase()
-        const criadorId = userByEmail.get(criadorEmail) || userByName.get(criadorNome) || userId
-
-        const presencaMap: Record<string, string> = { '1': 'PRESENCIAL', '2': 'ONLINE', '3': 'HIBRIDO' }
-        const presenca = presencaMap[String(ev.presencial)] || 'PRESENCIAL'
-        const recMap: Record<string, string> = { '0': 'NENHUMA', '1': 'DIARIA', '7': 'SEMANAL', '30': 'MENSAL', '365': 'ANUAL' }
-        const recorrencia = recMap[String(ev.everepete)] || 'NENHUMA'
-        const dataEvento = ev.evedata instanceof Date ? ev.evedata : new Date(String(ev.evedata))
-
-        const evento = await prisma.agendaEvento.create({
-          data: {
-            titulo: nomeEvento, descricao: decodeHtmlEntities(ev.evedesc ? String(ev.evedesc) : null), data: dataEvento,
-            horaInicio: ev.evehoraini ? String(ev.evehoraini).slice(0, 5) : null,
-            horaFim: ev.evehorafim ? String(ev.evehorafim).slice(0, 5) : null,
-            diaInteiro: !ev.evehoraini || String(ev.evehoraini) === '00:00',
-            local: decodeHtmlEntities(ev.evelocal ? String(ev.evelocal) : null), contato: decodeHtmlEntities(ev.evecontato ? String(ev.evecontato) : null),
-            link: ev.link ? String(ev.link) : null, presenca: presenca as never,
-            particular: String(ev.eveparticular) === '1', editavel: String(ev.evemodifica) !== '0',
-            sala: ev.sala ? String(ev.sala) : null, garagem: String(ev.garagem) === '1',
-            vagas: ev.vagas ? Number(ev.vagas) : null, equipamentos: String(ev.equipamentos) === '1' ? 'sim' : null,
-            isTarefa: String(ev.evecontrole) === '2', isActive: String(ev.eveativo) === '1',
-            recorrencia: recorrencia as never, lote: ev.evelote ? String(ev.evelote) : null,
-            googleId: `legacy_${legacyId}`, tipoId: tipoId!, criadorId,
-          },
-        })
-
-        const parts = partMap.get(Number(ev.eveid)) || []
-        for (const p of parts) {
-          try {
-            const pEmail = String(p.cad_usu_email || '').toLowerCase()
-            const pNome = String(p.cad_usu_nome || '').toLowerCase()
-            const pUserId = userByEmail.get(pEmail) || userByName.get(pNome)
-            const nomeAvulso = !pUserId && p.nome_avulso ? decodeHtmlEntities(String(p.nome_avulso)) : (!pUserId && p.cad_usu_nome ? decodeHtmlEntities(String(p.cad_usu_nome)) : null)
-            if (pUserId || nomeAvulso) {
-              await prisma.agendaParticipante.create({ data: { eventoId: evento.id, usuarioId: pUserId || null, nomeAvulso: pUserId ? null : nomeAvulso } })
-              this.importProgress.participantes++
-            }
-          } catch { /* duplicado */ }
-        }
-
-        this.importProgress.importados++
-        this.importProgress.items.push({ nome: nomeEvento, status: 'importado' })
-      } catch (e) {
-        this.importProgress.erros++
-        this.importProgress.items.push({ nome: nomeEvento, status: 'erro', erro: (e as Error).message })
-      }
-    }
-
-    this.importProgress.status = 'done'
-    this.importProgress.currentEvento = 'Concluído'
   }
 
   // ============================================================

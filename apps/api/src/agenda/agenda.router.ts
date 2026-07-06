@@ -80,16 +80,6 @@ export function createAgendaRouter(
         return service.listTipoEventos(input?.limit)
       }),
 
-    importTiposLegado: writeProcedure(MODULE)
-      .mutation(() => service.importTiposLegado()),
-
-    importEventosLegado: writeProcedure(MODULE)
-      .input(z.object({ apenasAtivos: z.boolean().default(true) }).optional())
-      .mutation(({ ctx, input }) => service.importEventosLegado(ctx.userId, input?.apenasAtivos ?? true)),
-
-    importProgress: readProcedure(MODULE)
-      .query(() => service.getImportProgress()),
-
     // === EVENTOS ===
     listEventos: readProcedure(MODULE)
       .input(z.object({
