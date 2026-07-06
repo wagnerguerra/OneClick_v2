@@ -438,47 +438,10 @@ export class ClienteService {
   }
 
   // ============================================================
-  // Excluir permanentemente
+  // Exclusão PERMANENTE removida (decisão de produto, 08/07/2026):
+  // cliente só é inativado (deletedAt → lixeira) e restaurado — nunca
+  // apagado da base. deletePermanent/emptyTrash deixaram de existir.
   // ============================================================
-  async deletePermanent(id: string, isMaster?: boolean, empresaId?: string) {
-    const cliente = await prisma.cliente.findUniqueOrThrow({ where: { id } })
-    if (!isMaster && empresaId && cliente.empresaId !== empresaId) {
-      throw new Error('Acesso negado')
-    }
-    return prisma.cliente.delete({ where: { id } })
-  }
-
-  // ============================================================
-  // Esvaziar lixeira
-  // ============================================================
-  async emptyTrash(isMaster?: boolean, empresaId?: string) {
-    const where: Prisma.ClienteWhereInput = {
-      deletedAt: { not: null },
-      ...empresaFilter(isMaster, empresaId),
-    }
-
-    const trashed = await prisma.cliente.findMany({
-      where,
-      select: { id: true, razaoSocial: true },
-    })
-
-    if (trashed.length === 0) return { deleted: 0, total: 0 }
-
-    let deleted = 0
-    const errors: string[] = []
-
-    for (const item of trashed) {
-      try {
-        await prisma.cliente.delete({ where: { id: item.id } })
-        deleted++
-      } catch (e) {
-        const msg = (e as Error).message?.slice(0, 200) || 'Erro desconhecido'
-        errors.push(`${item.razaoSocial}: ${msg}`)
-      }
-    }
-
-    return { deleted, total: trashed.length, errors: errors.length > 0 ? errors.slice(0, 20) : undefined }
-  }
 
   // ============================================================
   // Eventos (Log de auditoria)

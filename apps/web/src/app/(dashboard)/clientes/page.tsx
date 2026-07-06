@@ -316,24 +316,8 @@ export default function ClientesPage() {
     } catch { alerts.error('Erro', 'Não foi possível restaurar.') }
   }
 
-  async function handleEmptyTrash() {
-    const confirmed = await alerts.confirmDelete('TODOS os clientes da lixeira permanentemente')
-    if (!confirmed) return
-    try {
-      const result = await (trpc.cliente.emptyTrash as any).mutate() as { deleted: number; total: number; errors?: string[] }
-      if (result.errors && result.errors.length > 0) {
-        await alerts.error(
-          `${result.deleted}/${result.total} excluídos`,
-          `Alguns registros falharam:\n${result.errors.slice(0, 5).join('\n')}`
-        )
-      } else {
-        await alerts.success('Lixeira esvaziada', `${result.deleted} cliente${result.deleted !== 1 ? 's' : ''} excluído${result.deleted !== 1 ? 's' : ''} permanentemente.`)
-      }
-      fetchClientes()
-    } catch (e) {
-      alerts.error('Erro', (e as Error).message || 'Não foi possível esvaziar a lixeira.')
-    }
-  }
+  // Exclusão PERMANENTE removida (decisão de produto): cliente só é inativado
+  // (lixeira) e restaurado — nunca apagado da base.
 
   async function handleBulkDelete() {
     if (selected.size === 0) return
@@ -433,7 +417,7 @@ export default function ClientesPage() {
           <div>
             <h1>{trashMode ? 'Lixeira — Clientes' : 'Clientes'}</h1>
             <p className="text-sm text-muted-foreground">
-              {trashMode ? 'Clientes excluídos. Restaure ou exclua permanentemente.' : 'Gerencie os clientes cadastrados'}
+              {trashMode ? 'Clientes inativados. Restaure quando precisar — nada é excluído da base.' : 'Gerencie os clientes cadastrados'}
             </p>
           </div>
         </div>
@@ -473,9 +457,6 @@ export default function ClientesPage() {
           )}
           {trashMode && (
             <>
-              <Button variant="destructive" size="sm" onClick={handleEmptyTrash}>
-                <Trash2 className="h-4 w-4" />Esvaziar Lixeira
-              </Button>
               <Button variant="outline" size="sm" onClick={() => { setTrashMode(false); setPage(1) }}>
                 <ArrowUp className="h-4 w-4" />Voltar aos ativos
               </Button>

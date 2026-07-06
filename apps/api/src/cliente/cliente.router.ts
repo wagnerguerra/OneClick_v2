@@ -73,14 +73,9 @@ export function createClienteRouter(
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => clienteService.restore(input.id, ctx.userId, ctx.isMaster, ctx.empresaId)),
 
-    // Excluir permanentemente
-    deletePermanent: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
-      .input(z.object({ id: z.string() }))
-      .mutation(({ input, ctx }) => clienteService.deletePermanent(input.id, ctx.isMaster, ctx.empresaId)),
-
-    // Esvaziar lixeira
-    emptyTrash: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
-      .mutation(({ ctx }) => clienteService.emptyTrash(ctx.isMaster, ctx.empresaId)),
+    // Exclusão PERMANENTE de cliente foi removida do sistema (decisão de produto,
+    // 08/07/2026): cliente só é inativado (lixeira) e restaurado — nunca apagado
+    // da base. Os endpoints deletePermanent/emptyTrash deixaram de existir.
 
     // Log de auditoria
     getEvents: readProcedure(MODULE)
