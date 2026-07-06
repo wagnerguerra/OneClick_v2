@@ -1374,8 +1374,12 @@ export default function AgendaPage() {
         return { key: g.nome, nome: g.nome, cor: g.cor, icone: g.icone || '📅', items }
       })
       .filter(s => s.items.length > 0)
+    // Catch-all "Outros": só aparece se habilitado no modelo de e-mail — MESMA regra do
+    // disparo diário (agenda-email-template.render). Assim o resumo do dia fica idêntico
+    // ao e-mail. Sem esse gate, eventos de tipos não atribuídos apareciam num grupo extra
+    // (nomeGrupoOutros, ex.: "Compromissos Corporativos") mesmo com o catch-all desligado.
     const resto = dayModalEvents.filter(e => !usados.has(e.id))
-    if (resto.length > 0) secoes.push({ key: '__outros__', nome: agrupOutros.nome || 'Outros', cor: '#94a3b8', icone: '📌', items: resto })
+    if (resto.length > 0 && agrupOutros.mostrar) secoes.push({ key: '__outros__', nome: agrupOutros.nome || 'Outros', cor: '#94a3b8', icone: '📌', items: resto })
     return secoes
   }, [dayModalEvents, agrupGrupos, agrupOutros])
 
