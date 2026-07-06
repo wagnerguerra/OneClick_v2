@@ -119,6 +119,15 @@ interface OportunidadeCard {
 // o valor legado puramente numérico (ex.: "1"), rotula como "Sala 1".
 const salaTexto = (s?: string | null) => { const t = (s ?? '').trim(); if (!t) return ''; return /^\d+$/.test(t) ? `Sala ${t}` : t }
 
+// [QA #11] Texto contrastante pra pills com cor dinâmica de tipo — branco em fundo
+// escuro, quase-preto em fundo claro (antes era '#fff' fixo: sumia em cores claras).
+const textoContraste = (hex?: string | null) => {
+  const h = (hex ?? '').replace('#', '')
+  if (h.length < 6) return '#ffffff'
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16)
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 160 ? '#111827' : '#ffffff'
+}
+
 interface OportunidadeBusca {
   id: string
   numero?: number | null
@@ -1289,6 +1298,7 @@ export default function AgendaPage() {
   // ============================================================
 
   function openTipoNew() {
+    if (!canManageTipos) return // [QA #13] defesa em profundidade (o botão já é gateado)
     setTipoEditando(null)
     setTipoForm({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false, salasPermitidas: [] as string[] })
     setTipoPainelNovo(true)
@@ -1308,6 +1318,7 @@ export default function AgendaPage() {
   }
 
   async function handleSaveTipo() {
+    if (!canManageTipos) return // [QA #13]
     if (!tipoForm.nome.trim()) { alerts.error('Erro', 'Nome é obrigatório.'); return }
     setTipoSaving(true)
     try {
@@ -1326,6 +1337,7 @@ export default function AgendaPage() {
   }
 
   async function handleDeleteTipo(t: AgendaTipo) {
+    if (!canManageTipos) return // [QA #13]
     const ok = await alerts.confirm({ title: 'Excluir tipo', text: `Excluir "${t.nome}"?`, confirmText: 'Excluir', icon: 'warning' })
     if (!ok) return
     try {
@@ -2176,7 +2188,7 @@ export default function AgendaPage() {
                             <DropdownMenuTrigger asChild>
                               <button
                                 className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 mt-1 cursor-pointer transition hover:brightness-110 focus:outline-none"
-                                style={{ backgroundColor: corBorda, color: '#fff' }}
+                                style={{ backgroundColor: corBorda, color: textoContraste(corBorda) }}
                                 title="Alterar tipo do evento"
                               >
                                 {ev.tipo.nome}
@@ -2196,7 +2208,7 @@ export default function AgendaPage() {
                         ) : (
                           <span
                             className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 mt-1"
-                            style={{ backgroundColor: corBorda, color: '#fff' }}
+                            style={{ backgroundColor: corBorda, color: textoContraste(corBorda) }}
                           >
                             {ev.tipo.nome}
                           </span>

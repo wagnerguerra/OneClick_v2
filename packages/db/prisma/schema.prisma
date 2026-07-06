@@ -2795,6 +2795,7 @@ model AgendaTarefa {
   concluida      Boolean   @default(false)
   concluidaEm    DateTime? @map("concluida_em")
   prioridade     String    @default("NORMAL") // BAIXA | NORMAL | ALTA
+  isActive       Boolean   @default(true) @map("is_active") // soft-delete (paridade com eventos)
 
   criadorId      String    @map("criador_id")
   criador        User      @relation("TarefaCriador", fields: [criadorId], references: [id])

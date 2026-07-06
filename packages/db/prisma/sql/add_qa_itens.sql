@@ -133,5 +133,20 @@ BEGIN
     UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
       notas = 'Corrigido junto com o deploy inicial: e-mails de lembrete enviados em paralelo (Promise.all com catch individual).'
     WHERE id = 'qa_ag26_m6';
+    UPDATE qa_itens SET status = 'DESCARTADO', resolvido_em = now(),
+      notas = 'Descartado após análise: (a) o popup do SweetAlert NÃO é tematizado — fica claro também no dark mode, então os cinzas fixos estão corretos nesse contexto; (b) os cards do calendário usam ternário isDark intencional e comentado. Migrar pra tokens só arriscaria regressão visual sem ganho.'
+    WHERE id = 'qa_ag26_b1';
+    UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
+      notas = 'Corrigido junto com o deploy inicial: helper textoContraste(cor) — texto do badge do tipo escolhe branco/quase-preto por luminância (era #fff fixo).'
+    WHERE id = 'qa_ag26_b2';
+    UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
+      notas = 'Corrigido junto com o deploy inicial: tarefas com soft-delete (is_active, paridade com eventos); listagem exclui inativas; lembretes da tarefa excluída são removidos pra não seguirem disparando.'
+    WHERE id = 'qa_ag26_b3';
+    UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
+      notas = 'Corrigido junto com o deploy inicial: early-return por canManageTipos em openTipoNew/handleSaveTipo/handleDeleteTipo (defesa em profundidade; backend já gateava).'
+    WHERE id = 'qa_ag26_b4';
+    UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
+      notas = 'Corrigido junto com o deploy inicial: helper único data-br.util (dataBrKey/horaBrKey em América/São_Paulo) — de quebra corrigiu o hojeStr do create que usava o relógio do servidor (UTC no docker) e recusava eventos válidos entre 21h e 00h BR.'
+    WHERE id = 'qa_ag26_b5';
   END IF;
 END $$;

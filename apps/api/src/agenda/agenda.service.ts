@@ -5,6 +5,7 @@ import type { Prisma } from '@saas/db'
 import { EmailService } from '../common/email.service'
 import { NotificationService } from '../notification/notification.service'
 import { AgendaConfigService } from './agenda-config.service'
+import { dataBrKey } from './data-br.util'
 
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -934,11 +935,10 @@ export class AgendaService {
     const principalOpp = oppIds[0] ?? null
 
     // Bloqueia agendamento em data passada (só no create — editar evento antigo
-    // continua permitido). Compara YYYY-MM-DD pra ignorar timezone.
-    const hojeStr = (() => {
-      const h = new Date()
-      return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`
-    })()
+    // continua permitido). [QA #14] "Hoje" em BRASÍLIA via helper único — antes
+    // usava o relógio do servidor (UTC no docker), que entre 21h e 00h BR
+    // adiantava o dia e recusava eventos válidos.
+    const hojeStr = dataBrKey()
     if (data && data < hojeStr) {
       throw new Error('Não é possível agendar eventos em dias que já passaram.')
     }

@@ -115,6 +115,13 @@ export class AgendaTarefaService {
       if (filtros.dataFim) prazo.lte = new Date(filtros.dataFim + 'T23:59:59.999Z')
       where.prazo = prazo
     }
+    // [QA #12] Exclui as soft-deletadas. Filtro via notIn (raw) porque o client
+    // Prisma local fica stale no Windows (lock de DLL) e não conhece is_active;
+    // o conjunto de inativas é pequeno e indexado.
+    const inativas = (await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `SELECT id FROM agenda_tarefas WHERE is_active = false`,
+    )).map(r => r.id)
+    if (inativas.length > 0) where.id = { notIn: inativas }
     const tarefas = await prisma.agendaTarefa.findMany({
       where,
       orderBy: [{ concluida: 'asc' }, { prazo: 'asc' }],
@@ -189,7 +196,14 @@ export class AgendaTarefaService {
   }
 
   async delete(id: string) {
-    return prisma.agendaTarefa.delete({ where: { id } })
+    // [QA #12] Soft-delete (is_active=false), paridade com eventos — preserva o
+    // histórico. Lembretes são removidos de vez (dado derivado): sem isto, o tick
+    // continuaria disparando lembrete de tarefa "excluída".
+    await prisma.agendaTarefaLembrete.deleteMany({ where: { tarefaId: id } })
+    await prisma.$executeRawUnsafe(
+      `UPDATE agenda_tarefas SET is_active = false, updated_at = now() WHERE id = $1`, id,
+    )
+    return { id }
   }
 
   // ── Lembretes ────────────────────────────────────────────────────
