@@ -206,11 +206,11 @@ export function createClienteRouter(
         mimeType: z.string().optional(),
         vencimento: z.string().optional(),
       }))
-      .mutation(({ input, ctx }) => clienteService.addArquivo(input.clienteId, input, ctx.userId)),
+      .mutation(({ input, ctx }) => clienteService.addArquivo(input.clienteId, input, ctx.userId, ctx.isMaster, ctx.empresaId)),
 
     renameArquivo: writeSubProcedure(MODULE, 'manage_files', 'Incluir, editar e excluir arquivos do cliente')
       .input(z.object({ arquivoId: z.string(), fileName: z.string().min(1) }))
-      .mutation(({ input }) => clienteService.renameArquivo(input.arquivoId, input.fileName)),
+      .mutation(({ input, ctx }) => clienteService.renameArquivo(input.arquivoId, input.fileName, ctx.isMaster, ctx.empresaId)),
 
     // #2 — Editar arquivo (renomear + descrição/detalhes)
     updateArquivo: writeSubProcedure(MODULE, 'manage_files', 'Incluir, editar e excluir arquivos do cliente')
@@ -219,11 +219,11 @@ export function createClienteRouter(
         fileName: z.string().min(1).optional(),
         descricao: z.string().nullable().optional(),
       }))
-      .mutation(({ input }) => clienteService.updateArquivo(input.id, { fileName: input.fileName, descricao: input.descricao })),
+      .mutation(({ input, ctx }) => clienteService.updateArquivo(input.id, { fileName: input.fileName, descricao: input.descricao }, ctx.isMaster, ctx.empresaId)),
 
     removeArquivo: deleteSubProcedure(MODULE, 'manage_files', 'Incluir, editar e excluir arquivos do cliente')
       .input(z.object({ arquivoId: z.string() }))
-      .mutation(({ input }) => clienteService.removeArquivo(input.arquivoId)),
+      .mutation(({ input, ctx }) => clienteService.removeArquivo(input.arquivoId, ctx.isMaster, ctx.empresaId)),
 
     // === REGISTRO DE INSCRIÇÕES (estaduais — N por cliente, migrado do legado) ===
     listInscricoes: readProcedure(MODULE)
@@ -232,15 +232,15 @@ export function createClienteRouter(
 
     addInscricao: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ clienteId: z.string(), estado: z.string().trim().min(2).max(2), inscricao: z.string().trim().min(1), descricao: z.string().trim().optional() }))
-      .mutation(({ input }) => clienteService.addInscricao(input.clienteId, input.estado, input.inscricao, input.descricao)),
+      .mutation(({ input, ctx }) => clienteService.addInscricao(input.clienteId, input.estado, input.inscricao, input.descricao, ctx.isMaster, ctx.empresaId)),
 
     updateInscricao: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string(), estado: z.string().trim().min(2).max(2), inscricao: z.string().trim().min(1), descricao: z.string().trim().optional() }))
-      .mutation(({ input }) => clienteService.updateInscricao(input.id, input.estado, input.inscricao, input.descricao)),
+      .mutation(({ input, ctx }) => clienteService.updateInscricao(input.id, input.estado, input.inscricao, input.descricao, ctx.isMaster, ctx.empresaId)),
 
     removeInscricao: deleteSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => clienteService.removeInscricao(input.id)),
+      .mutation(({ input, ctx }) => clienteService.removeInscricao(input.id, ctx.isMaster, ctx.empresaId)),
 
     // === ATIVIDADES E BENEFÍCIOS (#5/#6) ===
     // Leitura livre (qualquer um com read no módulo). Mutações gateadas pela
@@ -254,15 +254,15 @@ export function createClienteRouter(
     // (clientes.manage_activities_benefits) OU benefícios (beneficios-fiscais.canWrite) pode mexer.
     addAtividade: writeSubOrModuleWrite(MODULE, 'manage_activities_benefits', 'beneficios-fiscais', 'Gerenciar atividades e benefícios fiscais')
       .input(z.object({ clienteId: z.string(), valor: z.string().min(1) }))
-      .mutation(({ input }) => clienteService.addAtividade(input.clienteId, input.valor)),
+      .mutation(({ input, ctx }) => clienteService.addAtividade(input.clienteId, input.valor, ctx.isMaster, ctx.empresaId)),
 
     updateAtividade: writeSubOrModuleWrite(MODULE, 'manage_activities_benefits', 'beneficios-fiscais', 'Gerenciar atividades e benefícios fiscais')
       .input(z.object({ id: z.string(), valor: z.string().min(1) }))
-      .mutation(({ input }) => clienteService.updateAtividade(input.id, input.valor)),
+      .mutation(({ input, ctx }) => clienteService.updateAtividade(input.id, input.valor, ctx.isMaster, ctx.empresaId)),
 
     removeAtividade: writeSubOrModuleWrite(MODULE, 'manage_activities_benefits', 'beneficios-fiscais', 'Gerenciar atividades e benefícios fiscais')
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => clienteService.removeAtividade(input.id)),
+      .mutation(({ input, ctx }) => clienteService.removeAtividade(input.id, ctx.isMaster, ctx.empresaId)),
 
     listBeneficios: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
@@ -270,15 +270,15 @@ export function createClienteRouter(
 
     addBeneficio: writeSubProcedure(MODULE, 'manage_activities_benefits', 'Gerenciar atividades e benefícios fiscais')
       .input(z.object({ clienteId: z.string(), valor: z.string().min(1) }))
-      .mutation(({ input }) => clienteService.addBeneficio(input.clienteId, input.valor)),
+      .mutation(({ input, ctx }) => clienteService.addBeneficio(input.clienteId, input.valor, ctx.isMaster, ctx.empresaId)),
 
     updateBeneficio: writeSubProcedure(MODULE, 'manage_activities_benefits', 'Gerenciar atividades e benefícios fiscais')
       .input(z.object({ id: z.string(), valor: z.string().min(1) }))
-      .mutation(({ input }) => clienteService.updateBeneficio(input.id, input.valor)),
+      .mutation(({ input, ctx }) => clienteService.updateBeneficio(input.id, input.valor, ctx.isMaster, ctx.empresaId)),
 
     removeBeneficio: deleteSubProcedure(MODULE, 'manage_activities_benefits', 'Gerenciar atividades e benefícios fiscais')
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => clienteService.removeBeneficio(input.id)),
+      .mutation(({ input, ctx }) => clienteService.removeBeneficio(input.id, ctx.isMaster, ctx.empresaId)),
 
     // === CONTATOS ===
     listContatos: readProcedure(MODULE)
@@ -296,7 +296,7 @@ export function createClienteRouter(
         principal: z.boolean().optional(),
         areaId: z.string().optional(),
       }))
-      .mutation(({ input }) => clienteService.addContato(input.clienteId, input)),
+      .mutation(({ input, ctx }) => clienteService.addContato(input.clienteId, input, ctx.isMaster, ctx.empresaId)),
 
     updateContato: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({
@@ -309,20 +309,20 @@ export function createClienteRouter(
         principal: z.boolean().optional(),
         areaId: z.string().nullable().optional(),
       }))
-      .mutation(({ input }) => clienteService.updateContato(input.contatoId, input)),
+      .mutation(({ input, ctx }) => clienteService.updateContato(input.contatoId, input, ctx.isMaster, ctx.empresaId)),
 
     removeContato: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ contatoId: z.string() }))
-      .mutation(({ input }) => clienteService.removeContato(input.contatoId)),
+      .mutation(({ input, ctx }) => clienteService.removeContato(input.contatoId, ctx.isMaster, ctx.empresaId)),
 
     setPrincipalContato: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ contatoId: z.string() }))
-      .mutation(({ input }) => clienteService.setPrincipalContato(input.contatoId)),
+      .mutation(({ input, ctx }) => clienteService.setPrincipalContato(input.contatoId, ctx.isMaster, ctx.empresaId)),
 
     // === PARÂMETROS DO CONTRATO ===
     getContratoParams: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
-      .query(({ input, ctx }) => clienteService.getContratoParams(input.clienteId, ctx.empresaId)),
+      .query(({ input, ctx }) => clienteService.getContratoParams(input.clienteId, ctx.empresaId, ctx.isMaster)),
 
     saveContratoParams: writeSubProcedure(MODULE, 'manage_contracts', 'Gerenciar contratos dos clientes')
       .input(z.object({
@@ -468,15 +468,15 @@ export function createClienteRouter(
         alertaDias: z.number().default(30),
         observacoes: z.string().optional(),
       }))
-      .mutation(({ input }) => clienteService.addVencimento(input.clienteId, input)),
+      .mutation(({ input, ctx }) => clienteService.addVencimento(input.clienteId, input, ctx.isMaster, ctx.empresaId)),
 
     toggleVencimento: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => clienteService.toggleVencimento(input.id)),
+      .mutation(({ input, ctx }) => clienteService.toggleVencimento(input.id, ctx.isMaster, ctx.empresaId)),
 
     removeVencimento: deleteSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => clienteService.removeVencimento(input.id)),
+      .mutation(({ input, ctx }) => clienteService.removeVencimento(input.id, ctx.isMaster, ctx.empresaId)),
 
     // === ANDAMENTOS (Legalização) ===
     listAndamentos: readProcedure(MODULE)
@@ -493,15 +493,15 @@ export function createClienteRouter(
         dataConclusao: z.string().optional(),
         observacoes: z.string().optional(),
       }))
-      .mutation(({ input, ctx }) => clienteService.addAndamento(input.clienteId, input, ctx.userId)),
+      .mutation(({ input, ctx }) => clienteService.addAndamento(input.clienteId, input, ctx.userId, ctx.isMaster, ctx.empresaId)),
 
     updateAndamentoStatus: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string(), status: z.string() }))
-      .mutation(({ input }) => clienteService.updateAndamentoStatus(input.id, input.status)),
+      .mutation(({ input, ctx }) => clienteService.updateAndamentoStatus(input.id, input.status, ctx.isMaster, ctx.empresaId)),
 
     removeAndamento: deleteSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => clienteService.removeAndamento(input.id)),
+      .mutation(({ input, ctx }) => clienteService.removeAndamento(input.id, ctx.isMaster, ctx.empresaId)),
 
     // === CNAEs (Legalização) ===
     listCnaes: readProcedure(MODULE)
@@ -515,11 +515,11 @@ export function createClienteRouter(
         descricao: z.string().optional(),
         principal: z.boolean().default(false),
       }))
-      .mutation(({ input }) => clienteService.addCnae(input.clienteId, input)),
+      .mutation(({ input, ctx }) => clienteService.addCnae(input.clienteId, input, ctx.isMaster, ctx.empresaId)),
 
     removeCnae: deleteSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => clienteService.removeCnae(input.id)),
+      .mutation(({ input, ctx }) => clienteService.removeCnae(input.id, ctx.isMaster, ctx.empresaId)),
 
     // === OBRIGAÇÕES ===
     listObrigacoes: readProcedure(MODULE)

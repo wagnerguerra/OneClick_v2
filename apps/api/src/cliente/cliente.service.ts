@@ -529,9 +529,33 @@ export class ClienteService {
   }
 
   // ============================================================
+  // Guard de sub-recursos [QA #30 IDOR multi-tenant + #31 lixeira]
+  // Valida que o cliente dono é do tenant do requisitante E não está na lixeira,
+  // antes de qualquer mutação de sub-recurso. Master ignora a empresa.
+  // ============================================================
+  /** Filtro do cliente PAI: fora da lixeira + do tenant (master ignora empresa). */
+  private clientePaiWhere(isMaster?: boolean, empresaId?: string | null): Prisma.ClienteWhereInput {
+    return { deletedAt: null, ...empresaFilter(isMaster, empresaId ?? undefined) }
+  }
+  /** Para métodos que recebem clienteId (add). Lança se cliente ausente/inativo/de outro tenant. */
+  private async assertClienteAtivo(clienteId: string, isMaster?: boolean, empresaId?: string | null): Promise<void> {
+    const ok = await prisma.cliente.findFirst({ where: { id: clienteId, ...this.clientePaiWhere(isMaster, empresaId) }, select: { id: true } })
+    if (!ok) throw new Error('Cliente não encontrado, inativo ou fora do seu acesso.')
+  }
+  /** Cláusula SQL "AND o filho pertence a um cliente ativo do tenant" p/ os sub-recursos raw.
+   *  Retorna { sql, params } onde `sql` usa $base, $base+1 (empresa). */
+  private tenantSqlGuard(base: number, isMaster?: boolean, empresaId?: string | null): { sql: string; empParam: string | null } {
+    return {
+      sql: `AND c.deleted_at IS NULL AND ($${base}::text IS NULL OR c.empresa_id = $${base})`,
+      empParam: isMaster ? null : (empresaId ?? '__none__'),
+    }
+  }
+
+  // ============================================================
   // ARQUIVOS
   // ============================================================
-  async addArquivo(clienteId: string, data: { fileName: string; fileUrl: string; fileSize?: number; mimeType?: string; vencimento?: string }, userId?: string) {
+  async addArquivo(clienteId: string, data: { fileName: string; fileUrl: string; fileSize?: number; mimeType?: string; vencimento?: string }, userId?: string, isMaster?: boolean, empresaId?: string | null) {
+    await this.assertClienteAtivo(clienteId, isMaster, empresaId)
     return prisma.clienteArquivo.create({
       data: {
         clienteId,
@@ -545,23 +569,29 @@ export class ClienteService {
     })
   }
 
-  async renameArquivo(arquivoId: string, fileName: string) {
-    return prisma.clienteArquivo.update({ where: { id: arquivoId }, data: { fileName } })
+  async renameArquivo(arquivoId: string, fileName: string, isMaster?: boolean, empresaId?: string | null) {
+    const r = await prisma.clienteArquivo.updateMany({ where: { id: arquivoId, cliente: this.clientePaiWhere(isMaster, empresaId) }, data: { fileName } })
+    if (r.count === 0) throw new Error('Arquivo não encontrado ou fora do seu acesso.')
+    return { id: arquivoId }
   }
 
   // #2 — Editar arquivo: renomear e/ou adicionar/editar descrição (detalhes)
-  async updateArquivo(arquivoId: string, data: { fileName?: string; descricao?: string | null }) {
-    return prisma.clienteArquivo.update({
-      where: { id: arquivoId },
+  async updateArquivo(arquivoId: string, data: { fileName?: string; descricao?: string | null }, isMaster?: boolean, empresaId?: string | null) {
+    const r = await prisma.clienteArquivo.updateMany({
+      where: { id: arquivoId, cliente: this.clientePaiWhere(isMaster, empresaId) },
       data: {
         ...(data.fileName !== undefined ? { fileName: data.fileName } : {}),
         ...(data.descricao !== undefined ? { descricao: data.descricao } : {}),
       },
     })
+    if (r.count === 0) throw new Error('Arquivo não encontrado ou fora do seu acesso.')
+    return { id: arquivoId }
   }
 
-  async removeArquivo(arquivoId: string) {
-    return prisma.clienteArquivo.delete({ where: { id: arquivoId } })
+  async removeArquivo(arquivoId: string, isMaster?: boolean, empresaId?: string | null) {
+    const r = await prisma.clienteArquivo.deleteMany({ where: { id: arquivoId, cliente: this.clientePaiWhere(isMaster, empresaId) } })
+    if (r.count === 0) throw new Error('Arquivo não encontrado ou fora do seu acesso.')
+    return { deleted: true }
   }
 
   async listArquivos(clienteId: string) {
@@ -582,21 +612,26 @@ export class ClienteService {
     })
   }
 
-  async addInscricao(clienteId: string, estado: string, inscricao: string, descricao?: string | null) {
+  async addInscricao(clienteId: string, estado: string, inscricao: string, descricao?: string | null, isMaster?: boolean, empresaId?: string | null) {
+    await this.assertClienteAtivo(clienteId, isMaster, empresaId)
     return prisma.clienteInscricao.create({
       data: { clienteId, estado: estado.toUpperCase(), inscricao: inscricao.trim(), descricao: descricao?.trim() || null },
     })
   }
 
-  async updateInscricao(id: string, estado: string, inscricao: string, descricao?: string | null) {
-    return prisma.clienteInscricao.update({
-      where: { id },
+  async updateInscricao(id: string, estado: string, inscricao: string, descricao?: string | null, isMaster?: boolean, empresaId?: string | null) {
+    const r = await prisma.clienteInscricao.updateMany({
+      where: { id, cliente: this.clientePaiWhere(isMaster, empresaId) },
       data: { estado: estado.toUpperCase(), inscricao: inscricao.trim(), descricao: descricao?.trim() || null },
     })
+    if (r.count === 0) throw new Error('Inscrição não encontrada ou fora do seu acesso.')
+    return { id }
   }
 
-  async removeInscricao(id: string) {
-    return prisma.clienteInscricao.delete({ where: { id } })
+  async removeInscricao(id: string, isMaster?: boolean, empresaId?: string | null) {
+    const r = await prisma.clienteInscricao.deleteMany({ where: { id, cliente: this.clientePaiWhere(isMaster, empresaId) } })
+    if (r.count === 0) throw new Error('Inscrição não encontrada ou fora do seu acesso.')
+    return { deleted: true }
   }
 
   // ============================================================
@@ -606,38 +641,49 @@ export class ClienteService {
     return prisma.clienteAtividade.findMany({ where: { clienteId }, orderBy: { createdAt: 'asc' } })
   }
 
-  async addAtividade(clienteId: string, valor: string) {
+  async addAtividade(clienteId: string, valor: string, isMaster?: boolean, empresaId?: string | null) {
+    await this.assertClienteAtivo(clienteId, isMaster, empresaId)
     return prisma.clienteAtividade.create({ data: { clienteId, valor } })
   }
 
-  async updateAtividade(id: string, valor: string) {
-    return prisma.clienteAtividade.update({ where: { id }, data: { valor } })
+  async updateAtividade(id: string, valor: string, isMaster?: boolean, empresaId?: string | null) {
+    const r = await prisma.clienteAtividade.updateMany({ where: { id, cliente: this.clientePaiWhere(isMaster, empresaId) }, data: { valor } })
+    if (r.count === 0) throw new Error('Atividade não encontrada ou fora do seu acesso.')
+    return { id }
   }
 
-  async removeAtividade(id: string) {
-    return prisma.clienteAtividade.delete({ where: { id } })
+  async removeAtividade(id: string, isMaster?: boolean, empresaId?: string | null) {
+    const r = await prisma.clienteAtividade.deleteMany({ where: { id, cliente: this.clientePaiWhere(isMaster, empresaId) } })
+    if (r.count === 0) throw new Error('Atividade não encontrada ou fora do seu acesso.')
+    return { deleted: true }
   }
 
   async listBeneficios(clienteId: string) {
     return prisma.clienteBeneficio.findMany({ where: { clienteId }, orderBy: { createdAt: 'asc' } })
   }
 
-  async addBeneficio(clienteId: string, valor: string) {
+  async addBeneficio(clienteId: string, valor: string, isMaster?: boolean, empresaId?: string | null) {
+    await this.assertClienteAtivo(clienteId, isMaster, empresaId)
     return prisma.clienteBeneficio.create({ data: { clienteId, valor } })
   }
 
-  async updateBeneficio(id: string, valor: string) {
-    return prisma.clienteBeneficio.update({ where: { id }, data: { valor } })
+  async updateBeneficio(id: string, valor: string, isMaster?: boolean, empresaId?: string | null) {
+    const r = await prisma.clienteBeneficio.updateMany({ where: { id, cliente: this.clientePaiWhere(isMaster, empresaId) }, data: { valor } })
+    if (r.count === 0) throw new Error('Benefício não encontrado ou fora do seu acesso.')
+    return { id }
   }
 
-  async removeBeneficio(id: string) {
-    return prisma.clienteBeneficio.delete({ where: { id } })
+  async removeBeneficio(id: string, isMaster?: boolean, empresaId?: string | null) {
+    const r = await prisma.clienteBeneficio.deleteMany({ where: { id, cliente: this.clientePaiWhere(isMaster, empresaId) } })
+    if (r.count === 0) throw new Error('Benefício não encontrado ou fora do seu acesso.')
+    return { deleted: true }
   }
 
   // ============================================================
   // CONTATOS
   // ============================================================
-  async addContato(clienteId: string, data: { nome: string; cargo?: string; telefone?: string; email?: string; observacoes?: string; principal?: boolean; areaId?: string }) {
+  async addContato(clienteId: string, data: { nome: string; cargo?: string; telefone?: string; email?: string; observacoes?: string; principal?: boolean; areaId?: string }, isMaster?: boolean, empresaId?: string | null) {
+    await this.assertClienteAtivo(clienteId, isMaster, empresaId)
     return prisma.clienteContato.create({
       data: {
         clienteId,
@@ -652,16 +698,20 @@ export class ClienteService {
     })
   }
 
-  async updateContato(contatoId: string, data: { nome?: string; cargo?: string; telefone?: string; email?: string; observacoes?: string; principal?: boolean; areaId?: string | null }) {
+  async updateContato(contatoId: string, data: { nome?: string; cargo?: string; telefone?: string; email?: string; observacoes?: string; principal?: boolean; areaId?: string | null }, isMaster?: boolean, empresaId?: string | null) {
     const updateData: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(data)) {
       if (value !== undefined) updateData[key] = typeof value === 'string' && value === '' ? null : value
     }
-    return prisma.clienteContato.update({ where: { id: contatoId }, data: updateData })
+    const r = await prisma.clienteContato.updateMany({ where: { id: contatoId, cliente: this.clientePaiWhere(isMaster, empresaId) }, data: updateData })
+    if (r.count === 0) throw new Error('Contato não encontrado ou fora do seu acesso.')
+    return { id: contatoId }
   }
 
-  async removeContato(contatoId: string) {
-    return prisma.clienteContato.delete({ where: { id: contatoId } })
+  async removeContato(contatoId: string, isMaster?: boolean, empresaId?: string | null) {
+    const r = await prisma.clienteContato.deleteMany({ where: { id: contatoId, cliente: this.clientePaiWhere(isMaster, empresaId) } })
+    if (r.count === 0) throw new Error('Contato não encontrado ou fora do seu acesso.')
+    return { deleted: true }
   }
 
   async listContatos(clienteId: string) {
@@ -672,8 +722,9 @@ export class ClienteService {
     })
   }
 
-  async setPrincipalContato(contatoId: string) {
-    const contato = await prisma.clienteContato.findUniqueOrThrow({ where: { id: contatoId } })
+  async setPrincipalContato(contatoId: string, isMaster?: boolean, empresaId?: string | null) {
+    const contato = await prisma.clienteContato.findFirst({ where: { id: contatoId, cliente: this.clientePaiWhere(isMaster, empresaId) } })
+    if (!contato) throw new Error('Contato não encontrado ou fora do seu acesso.')
     await prisma.$transaction([
       prisma.clienteContato.updateMany({ where: { clienteId: contato.clienteId }, data: { principal: false } }),
       prisma.clienteContato.update({ where: { id: contatoId }, data: { principal: true } }),
@@ -684,9 +735,11 @@ export class ClienteService {
   // ============================================================
   // PARÂMETROS DO CONTRATO
   // ============================================================
-  async getContratoParams(clienteId: string, empresaId?: string) {
-    // Retorna o mais recente (proteção contra duplicatas históricas; o save
-    // novo já garante linha única).
+  async getContratoParams(clienteId: string, empresaId?: string, isMaster?: boolean) {
+    // [QA #38] Valida o tenant do cliente dono (não confia só no empresaId do
+    // param, que pode vir undefined). Retorna o mais recente (proteção contra
+    // duplicatas históricas; o save novo já garante linha única).
+    await this.assertClienteAtivo(clienteId, isMaster, empresaId)
     return prisma.clienteContratoParam.findFirst({
       where: { clienteId, ...(empresaId ? { empresaId } : {}) },
       orderBy: { updatedAt: 'desc' },
@@ -1181,7 +1234,8 @@ export class ClienteService {
     )
   }
 
-  async addVencimento(clienteId: string, data: { descricao: string; dataVencimento: string; alertaDias?: number; observacoes?: string }) {
+  async addVencimento(clienteId: string, data: { descricao: string; dataVencimento: string; alertaDias?: number; observacoes?: string }, isMaster?: boolean, empresaId?: string | null) {
+    await this.assertClienteAtivo(clienteId, isMaster, empresaId)
     await prisma.$executeRawUnsafe(
       `INSERT INTO cliente_vencimentos (id, cliente_id, descricao, data_vencimento, alerta_dias, observacoes, created_at, updated_at)
        VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW(), NOW())`,
@@ -1190,13 +1244,22 @@ export class ClienteService {
     return { created: true }
   }
 
-  async toggleVencimento(id: string) {
-    await prisma.$executeRawUnsafe(`UPDATE cliente_vencimentos SET concluido = NOT concluido, updated_at = NOW() WHERE id = $1`, id)
+  async toggleVencimento(id: string, isMaster?: boolean, empresaId?: string | null) {
+    const g = this.tenantSqlGuard(2, isMaster, empresaId)
+    const n = await prisma.$executeRawUnsafe(
+      `UPDATE cliente_vencimentos v SET concluido = NOT concluido, updated_at = NOW()
+        FROM clientes c WHERE v.id = $1 AND v.cliente_id = c.id ${g.sql}`, id, g.empParam,
+    )
+    if (n === 0) throw new Error('Vencimento não encontrado ou fora do seu acesso.')
     return { toggled: true }
   }
 
-  async removeVencimento(id: string) {
-    await prisma.$executeRawUnsafe(`DELETE FROM cliente_vencimentos WHERE id = $1`, id)
+  async removeVencimento(id: string, isMaster?: boolean, empresaId?: string | null) {
+    const g = this.tenantSqlGuard(2, isMaster, empresaId)
+    const n = await prisma.$executeRawUnsafe(
+      `DELETE FROM cliente_vencimentos v USING clientes c WHERE v.id = $1 AND v.cliente_id = c.id ${g.sql}`, id, g.empParam,
+    )
+    if (n === 0) throw new Error('Vencimento não encontrado ou fora do seu acesso.')
     return { deleted: true }
   }
 
@@ -1213,7 +1276,8 @@ export class ClienteService {
     )
   }
 
-  async addAndamento(clienteId: string, data: { descricao: string; tipo?: string; status?: string; dataInicio?: string; dataConclusao?: string; observacoes?: string }, userId?: string) {
+  async addAndamento(clienteId: string, data: { descricao: string; tipo?: string; status?: string; dataInicio?: string; dataConclusao?: string; observacoes?: string }, userId?: string, isMaster?: boolean, empresaId?: string | null) {
+    await this.assertClienteAtivo(clienteId, isMaster, empresaId)
     await prisma.$executeRawUnsafe(
       `INSERT INTO cliente_andamentos (id, cliente_id, descricao, tipo, status, data_inicio, data_conclusao, observacoes, usuario_id, created_at, updated_at)
        VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`,
@@ -1225,16 +1289,26 @@ export class ClienteService {
     return { created: true }
   }
 
-  async updateAndamentoStatus(id: string, status: string) {
-    const dataConclusao = status === 'concluido' ? 'NOW()' : 'NULL'
-    await prisma.$executeRawUnsafe(
-      `UPDATE cliente_andamentos SET status = $1, data_conclusao = ${dataConclusao}, updated_at = NOW() WHERE id = $2`, status, id,
+  async updateAndamentoStatus(id: string, status: string, isMaster?: boolean, empresaId?: string | null) {
+    // [QA #39] data_conclusao parametrizado (CASE) em vez de interpolar NOW()/NULL na string.
+    const g = this.tenantSqlGuard(3, isMaster, empresaId)
+    const n = await prisma.$executeRawUnsafe(
+      `UPDATE cliente_andamentos a
+          SET status = $1,
+              data_conclusao = CASE WHEN $1 = 'concluido' THEN NOW() ELSE NULL END,
+              updated_at = NOW()
+         FROM clientes c WHERE a.id = $2 AND a.cliente_id = c.id ${g.sql}`, status, id, g.empParam,
     )
+    if (n === 0) throw new Error('Andamento não encontrado ou fora do seu acesso.')
     return { updated: true }
   }
 
-  async removeAndamento(id: string) {
-    await prisma.$executeRawUnsafe(`DELETE FROM cliente_andamentos WHERE id = $1`, id)
+  async removeAndamento(id: string, isMaster?: boolean, empresaId?: string | null) {
+    const g = this.tenantSqlGuard(2, isMaster, empresaId)
+    const n = await prisma.$executeRawUnsafe(
+      `DELETE FROM cliente_andamentos a USING clientes c WHERE a.id = $1 AND a.cliente_id = c.id ${g.sql}`, id, g.empParam,
+    )
+    if (n === 0) throw new Error('Andamento não encontrado ou fora do seu acesso.')
     return { deleted: true }
   }
 
@@ -1249,7 +1323,8 @@ export class ClienteService {
     )
   }
 
-  async addCnae(clienteId: string, data: { codigo: string; descricao?: string; principal?: boolean }) {
+  async addCnae(clienteId: string, data: { codigo: string; descricao?: string; principal?: boolean }, isMaster?: boolean, empresaId?: string | null) {
+    await this.assertClienteAtivo(clienteId, isMaster, empresaId)
     if (data.principal) {
       await prisma.$executeRawUnsafe(`UPDATE cliente_cnaes SET principal = false WHERE cliente_id = $1`, clienteId)
     }
@@ -1261,8 +1336,12 @@ export class ClienteService {
     return { created: true }
   }
 
-  async removeCnae(id: string) {
-    await prisma.$executeRawUnsafe(`DELETE FROM cliente_cnaes WHERE id = $1`, id)
+  async removeCnae(id: string, isMaster?: boolean, empresaId?: string | null) {
+    const g = this.tenantSqlGuard(2, isMaster, empresaId)
+    const n = await prisma.$executeRawUnsafe(
+      `DELETE FROM cliente_cnaes cn USING clientes c WHERE cn.id = $1 AND cn.cliente_id = c.id ${g.sql}`, id, g.empParam,
+    )
+    if (n === 0) throw new Error('CNAE não encontrado ou fora do seu acesso.')
     return { deleted: true }
   }
 
