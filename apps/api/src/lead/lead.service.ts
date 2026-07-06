@@ -552,12 +552,24 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
   }
 
   /** Get-or-create do tipo de evento dedicado às reuniões agendadas pelo chat. */
-  private async ensureTipoReuniaoLead(): Promise<string> {
-    const nome = 'Reunião com Lead'
-    const ex = await prisma.agendaTipo.findFirst({ where: { nome: { equals: nome, mode: 'insensitive' } }, select: { id: true } }).catch(() => null)
+  /**
+   * Resolve o tipo "Reunião com Lead" — NUNCA cria tipo novo (o sistema não deve gerar
+   * tipos de evento automaticamente). Ordem: "Reunião com Lead" por nome → qualquer tipo
+   * ativo que bloqueia agenda (fallback). O tipo "Reunião com Lead" é semeado nos defaults
+   * globais (add_agenda_tipo_sala_empresa.sql) e pode ser trocado em /crm/funil.
+   */
+  private async resolverTipoReuniaoLead(): Promise<string | null> {
+    const ex = await prisma.agendaTipo.findFirst({
+      where: { nome: { equals: 'Reunião com Lead', mode: 'insensitive' }, isActive: true },
+      select: { id: true },
+    }).catch(() => null)
     if (ex) return ex.id
-    const t = await this.agendaService.createTipo({ nome, cor: '#fb7185', corBorda: '#e11d48', corTexto: '#ffffff', bloqueiaAgenda: true })
-    return t.id
+    const fb = await prisma.agendaTipo.findFirst({
+      where: { isActive: true, bloqueiaAgenda: true },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    }).catch(() => null)
+    return fb?.id ?? null
   }
 
   private async resolverComercial(empresaId?: string | null): Promise<string[]> {
@@ -591,7 +603,8 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
     const dados: LeadDados = s.dados ?? {}
     // Tipo dedicado "Reunião com Lead" (config pode sobrescrever em /crm/funil).
     const cfgRows = await prisma.$queryRawUnsafe<any[]>(`SELECT tipo_evento_reuniao_id AS "tipoEventoReuniaoId" FROM lead_funil_config WHERE slug=$1 LIMIT 1`, s.slug)
-    const tipoId: string = cfgRows[0]?.tipoEventoReuniaoId || await this.ensureTipoReuniaoLead()
+    const tipoId = cfgRows[0]?.tipoEventoReuniaoId || await this.resolverTipoReuniaoLead()
+    if (!tipoId) throw new Error('Nenhum tipo de evento disponível para agendar. Cadastre "Reunião com Lead" na Agenda Corporativa.')
     const [h, m] = horaInicio.split(':').map(Number)
     const horaFim = `${String((h ?? 0) + 1).padStart(2, '0')}:${String(m ?? 0).padStart(2, '0')}`
     const criadorId = await this.ensureAiUser()

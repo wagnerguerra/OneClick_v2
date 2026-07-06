@@ -258,14 +258,19 @@ export class AgendaGoogleService {
     const events = res.data.items || []
     let created = 0, updated = 0, errors = 0
 
-    // Get or create a default tipo for Google events
+    // Tipo para eventos do Google — NÃO cria tipo novo (o sistema não deve gerar tipos
+    // de evento automaticamente). Usa "Google Calendar" se existir, senão o 1º tipo ativo.
     let googleTipo = await prisma.agendaTipo.findFirst({
       where: { nome: 'Google Calendar', isActive: true },
     })
     if (!googleTipo) {
-      googleTipo = await prisma.agendaTipo.create({
-        data: { nome: 'Google Calendar', cor: '#4285f4', corBorda: '#1a73e8', corTexto: '#ffffff' },
+      googleTipo = await prisma.agendaTipo.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: 'asc' },
       })
+    }
+    if (!googleTipo) {
+      throw new Error('Nenhum tipo de evento cadastrado na agenda para vincular os eventos do Google.')
     }
 
     for (const gEvent of events) {
