@@ -451,10 +451,22 @@ export class AgendaService {
   }
 
   async createTipo(data: { nome: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }, userId?: string, ctxEmpresaId: string | null = null) {
+    const nomeLimpo = (data.nome || '').trim()
+    if (!nomeLimpo) throw new Error('Informe o nome do tipo de evento.')
+    // Dedup por nome no escopo visível (global NULL + a própria empresa) — evita
+    // dois tipos com o mesmo nome (ex.: "Férias") no cadastro.
+    const existente = await prisma.agendaTipo.findFirst({
+      where: {
+        nome: { equals: nomeLimpo, mode: 'insensitive' },
+        OR: [{ empresaId: null }, { empresaId: ctxEmpresaId }],
+      },
+      select: { id: true },
+    }).catch(() => null)
+    if (existente) throw new Error(`Já existe um tipo de evento chamado "${nomeLimpo}".`)
     const tipo = await prisma.agendaTipo.create({
       data: {
         empresaId: ctxEmpresaId,  // tipo criado é DO tenant (não global). F-013.
-        nome: data.nome,
+        nome: nomeLimpo,
         cor: data.cor ?? '#3b82f6',
         corBorda: data.corBorda ?? '#2563eb',
         corTexto: data.corTexto ?? '#ffffff',
@@ -1749,7 +1761,7 @@ export class AgendaService {
 
     const tiposLocais = await prisma.agendaTipo.findMany({ where: { isActive: true } })
     const tipoMap = new Map<string, string>()
-    for (const t of tiposLocais) tipoMap.set(t.nome.toLowerCase(), t.id)
+    for (const t of tiposLocais) tipoMap.set(t.nome.trim().toLowerCase(), t.id)
 
     // Isolamento multi-tenant: casa participantes do legado apenas com usuários
     // da empresa do importador (não vaza catálogo de usuários de outro tenant).
@@ -1776,16 +1788,32 @@ export class AgendaService {
           continue
         }
 
-        const tipoNome = String(ev.typename || '').toLowerCase()
-        let tipoId = tipoMap.get(tipoNome)
+        const typenameLimpo = String(ev.typename || '').trim()
+        const tipoNome = typenameLimpo.toLowerCase()
+        let tipoId = tipoNome ? tipoMap.get(tipoNome) : undefined
         if (!tipoId) {
-          if (ev.typename) {
-            const novo = await prisma.agendaTipo.create({ data: { nome: String(ev.typename), cor: String(ev.typecolor || '#3b82f6'), corBorda: String(ev.borda || '#2563eb'), corTexto: String(ev.texto || '#ffffff') } })
-            tipoId = novo.id
+          if (typenameLimpo) {
+            // Dedup no BANCO (não só no map em memória) — inclui tipos inativos e
+            // normaliza espaços/caixa. Sem isto, um tipo existente que não estava no
+            // map (ex.: "Férias" arquivado) era RECRIADO, gerando duplicata.
+            const existente = await prisma.agendaTipo.findFirst({
+              where: { nome: { equals: typenameLimpo, mode: 'insensitive' } },
+              select: { id: true },
+            }).catch(() => null)
+            if (existente) {
+              tipoId = existente.id
+            } else {
+              const novo = await prisma.agendaTipo.create({ data: { nome: typenameLimpo, cor: String(ev.typecolor || '#3b82f6'), corBorda: String(ev.borda || '#2563eb'), corTexto: String(ev.texto || '#ffffff') } })
+              tipoId = novo.id
+            }
             tipoMap.set(tipoNome, tipoId)
           } else {
             tipoId = tiposLocais[0]?.id
-            if (!tipoId) { const fb = await prisma.agendaTipo.create({ data: { nome: 'Geral', cor: '#6b7280', corBorda: '#4b5563', corTexto: '#ffffff' } }); tipoId = fb.id; tiposLocais.push(fb) }
+            if (!tipoId) {
+              const geralExistente = await prisma.agendaTipo.findFirst({ where: { nome: { equals: 'Geral', mode: 'insensitive' } } }).catch(() => null)
+              const fb = geralExistente ?? await prisma.agendaTipo.create({ data: { nome: 'Geral', cor: '#6b7280', corBorda: '#4b5563', corTexto: '#ffffff' } })
+              tipoId = fb.id; tiposLocais.push(fb)
+            }
           }
         }
 
