@@ -466,7 +466,7 @@ export default function AgendaPage() {
       )}
       <div className="space-y-2">
         {eventoAnotacoes.map(a => {
-          const podeMexer = podeGerenciarRegistro(a.userId)
+          const podeMexer = podeGerenciarRegistro(a.user?.id) // [QA #2] o objeto expõe user.id (não userId)
           const editando = editandoAnotacaoId === a.id
           return (
             <div key={a.id} className="group rounded-md bg-muted/40 p-3">
@@ -532,7 +532,7 @@ export default function AgendaPage() {
       )}
       <div className="space-y-1.5">
         {eventoAnexos.map(x => {
-          const podeMexer = podeGerenciarRegistro(x.userId)
+          const podeMexer = podeGerenciarRegistro(x.user?.id) // [QA #2]
           return (
             <div key={x.id} className="group flex items-center gap-2 rounded-md bg-muted/40 px-3 py-2">
               <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />

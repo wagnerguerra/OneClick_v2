@@ -109,5 +109,8 @@ BEGIN
     UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
       notas = 'Corrigido junto com o deploy inicial do relatório: enviarAgendaDia filtra por empresaId do destinatário (mesma regra do listEventos; master vê tudo).'
     WHERE id = 'qa_ag26_a1';
+    UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
+      notas = 'Corrigido junto com o deploy inicial do relatório: podeGerenciarRegistro(a.user?.id / x.user?.id) — dono volta a editar/excluir as próprias anotações e anexos (backend já validava posse).'
+    WHERE id = 'qa_ag26_a2';
   END IF;
 END $$;
