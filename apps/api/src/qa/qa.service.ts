@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto'
  */
 export interface QaItem {
   id: string
+  numero: number
   modulo: string
   severidade: 'ALTA' | 'MEDIA' | 'BAIXA'
   titulo: string
@@ -23,7 +24,7 @@ export interface QaItem {
   resolvidoEm: Date | null
 }
 
-const COLS = `id, modulo, severidade, titulo, descricao, arquivo,
+const COLS = `id, numero, modulo, severidade, titulo, descricao, arquivo,
               fix_proposto AS "fixProposto", status, notas, origem,
               created_at AS "createdAt", updated_at AS "updatedAt", resolvido_em AS "resolvidoEm"`
 

@@ -302,17 +302,20 @@ export class AgendaDisparoService implements OnModuleInit {
   async enviarAgendaDia(destinatarioId: string, dataYyyyMmDd: string): Promise<void> {
     const user = await prisma.user.findUnique({
       where: { id: destinatarioId },
-      select: { id: true, name: true, email: true },
+      select: { id: true, name: true, email: true, empresaId: true, isMaster: true },
     })
     if (!user?.email) throw new Error(`Destinatário ${destinatarioId} sem email`)
 
     const eventDate = new Date(dataYyyyMmDd)
 
-    // Busca todos eventos do dia. Aplica filtro de privacidade depois.
+    // Busca eventos do dia DA EMPRESA do destinatário (isolamento multi-tenant —
+    // mesma regra do listEventos: não-master só vê a própria empresa; master vê tudo).
+    // Filtro de privacidade (particular) aplicado depois. [QA #1]
     const eventos = await prisma.agendaEvento.findMany({
       where: {
         isActive: true,
         data: eventDate,
+        ...(!user.isMaster && user.empresaId ? { empresaId: user.empresaId } : {}),
       },
       include: {
         tipo: true,

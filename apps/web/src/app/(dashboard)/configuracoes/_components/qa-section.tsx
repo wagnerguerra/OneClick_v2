@@ -20,6 +20,7 @@ import { ClipboardCheck, Plus, Trash2, Loader2, FileCode2, StickyNote, ChevronDo
 
 type QaItem = {
   id: string
+  numero: number
   modulo: string
   severidade: 'ALTA' | 'MEDIA' | 'BAIXA'
   titulo: string
@@ -119,7 +120,7 @@ export function QaSection() {
     if (filtroStatus === '__abertos__' && (i.status === 'CORRIGIDO' || i.status === 'DESCARTADO')) return false
     if (filtroStatus !== '__all__' && filtroStatus !== '__abertos__' && i.status !== filtroStatus) return false
     if (filtroSev !== '__all__' && i.severidade !== filtroSev) return false
-    if (busca && !`${i.titulo} ${i.descricao} ${i.modulo} ${i.arquivo}`.toLowerCase().includes(busca.toLowerCase())) return false
+    if (busca && !`#${i.numero} ${i.titulo} ${i.descricao} ${i.modulo} ${i.arquivo}`.toLowerCase().includes(busca.toLowerCase())) return false
     return true
   })
 
@@ -185,6 +186,7 @@ export function QaSection() {
               {/* Linha principal */}
               <div className="flex items-center gap-2 px-3 py-2 cursor-pointer select-none" onClick={() => { setExpandido(aberto ? null : item.id); if (!aberto) setNotasDraft(d => ({ ...d, [item.id]: item.notas ?? '' })) }}>
                 {aberto ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                <span className="text-[11px] font-mono font-semibold text-muted-foreground shrink-0 w-8">#{item.numero}</span>
                 <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0', SEV_STYLE[item.severidade])}>{SEV_LABEL[item.severidade]}</span>
                 <Badge variant="outline" className="text-[10px] shrink-0">{item.modulo}</Badge>
                 <span className={cn('text-[13px] font-medium flex-1 min-w-0 truncate', (item.status === 'CORRIGIDO' || item.status === 'DESCARTADO') && 'line-through text-muted-foreground')}>{item.titulo}</span>

@@ -26,6 +26,10 @@ CREATE TABLE IF NOT EXISTS qa_itens (
 CREATE INDEX IF NOT EXISTS qa_itens_status_idx ON qa_itens (status);
 CREATE INDEX IF NOT EXISTS qa_itens_modulo_idx ON qa_itens (modulo);
 
+-- Número sequencial da ocorrência (#1, #2, ...) — serial preenche as linhas
+-- existentes na ordem de inserção e numera as novas automaticamente.
+ALTER TABLE qa_itens ADD COLUMN IF NOT EXISTS numero serial;
+
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM qa_itens WHERE id LIKE 'qa_ag26_%') THEN
@@ -100,5 +104,10 @@ BEGIN
      'agenda.service.ts:938-942 · agenda-disparo.service.ts (formatDateKey) · agenda-lembrete.service.ts',
      'Extrair helper único de formatação de data BR.',
      'Auditoria /agenda 06/07/2026');
+
+    -- Itens já corrigidos no mesmo deploy do seed (o fix acompanha este SQL).
+    UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
+      notas = 'Corrigido junto com o deploy inicial do relatório: enviarAgendaDia filtra por empresaId do destinatário (mesma regra do listEventos; master vê tudo).'
+    WHERE id = 'qa_ag26_a1';
   END IF;
 END $$;
