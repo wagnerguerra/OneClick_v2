@@ -112,5 +112,8 @@ BEGIN
     UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
       notas = 'Corrigido junto com o deploy inicial do relatório: podeGerenciarRegistro(a.user?.id / x.user?.id) — dono volta a editar/excluir as próprias anotações e anexos (backend já validava posse).'
     WHERE id = 'qa_ag26_a2';
+    UPDATE qa_itens SET status = 'CORRIGIDO', resolvido_em = now(),
+      notas = 'Corrigido junto com o deploy inicial do relatório: evento particular dispara lembrete só pro criador (POPUP/SSE, push e e-mail derivam da mesma lista de destinatários) — mesma regra do disparo diário.'
+    WHERE id = 'qa_ag26_a3';
   END IF;
 END $$;

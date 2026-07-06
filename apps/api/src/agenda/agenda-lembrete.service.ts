@@ -101,7 +101,7 @@ export class AgendaLembreteService implements OnModuleInit {
           select: {
             id: true, titulo: true, data: true, horaInicio: true, horaFim: true,
             diaInteiro: true, local: true, link: true, presenca: true,
-            descricao: true, criadorId: true,
+            descricao: true, criadorId: true, particular: true,
             criador: { select: { name: true } },
             tipo: { select: { nome: true, cor: true } },
             participantes: { where: { isActive: true }, select: { usuarioId: true } },
@@ -237,16 +237,20 @@ export class AgendaLembreteService implements OnModuleInit {
       id: string; titulo: string; data: Date; horaInicio: string | null; horaFim: string | null
       diaInteiro: boolean; local: string | null; link: string | null
       presenca: 'PRESENCIAL' | 'ONLINE' | 'HIBRIDO'
-      descricao: string | null; criadorId: string
+      descricao: string | null; criadorId: string; particular: boolean
       criador: { name: string | null }
       tipo: { nome: string; cor: string }
       participantes: Array<{ usuarioId: string | null }>
     }
   }) {
-    const destinatarios = Array.from(new Set([
-      lembrete.evento.criadorId,
-      ...lembrete.evento.participantes.map(p => p.usuarioId).filter((id): id is string => !!id),
-    ]))
+    // Evento PARTICULAR: lembrete só pro criador — mesma regra de privacidade do
+    // disparo diário (e-mail "Agenda do dia"). [QA #3]
+    const destinatarios = lembrete.evento.particular
+      ? [lembrete.evento.criadorId]
+      : Array.from(new Set([
+          lembrete.evento.criadorId,
+          ...lembrete.evento.participantes.map(p => p.usuarioId).filter((id): id is string => !!id),
+        ]))
     if (destinatarios.length === 0) {
       await prisma.agendaLembrete.update({ where: { id: lembrete.id }, data: { ultimoDisparoEm: new Date() } })
       return
