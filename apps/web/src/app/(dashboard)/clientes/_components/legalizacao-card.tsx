@@ -14,6 +14,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { ImportStatusModal, type ImportStep } from './import-status-modal'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { toDateInputValue } from '@/lib/date'
 import { useClientesPerms } from './use-clientes-perms'
 import type { UseFormRegister } from 'react-hook-form'
 import type { CreateClienteInput } from '@saas/types'
@@ -280,7 +281,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   function openVncModal(vnc?: typeof vencimentos[0]) {
     if (vnc) {
       setVncEditId(vnc.id)
-      setVncForm({ descricao: vnc.descricao, dataVencimento: vnc.data_vencimento ? new Date(vnc.data_vencimento).toISOString().slice(0, 10) : '', observacoes: vnc.observacoes || '' })
+      setVncForm({ descricao: vnc.descricao, dataVencimento: toDateInputValue(vnc.data_vencimento), observacoes: vnc.observacoes || '' })
     } else {
       setVncEditId(null)
       setVncForm({ descricao: '', dataVencimento: '', observacoes: '' })

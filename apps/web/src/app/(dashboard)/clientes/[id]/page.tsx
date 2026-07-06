@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { trpc } from '@/lib/trpc'
+import { toDateInputValue } from '@/lib/date'
 import { ClienteForm } from '../_components/cliente-form'
 
 export default function EditClientePage() {
@@ -37,8 +38,8 @@ export default function EditClientePage() {
   const defaultValues = Object.fromEntries(
     Object.entries({
       ...cliente,
-      dataEntrada: cliente.dataEntrada ? new Date(cliente.dataEntrada as string).toISOString().slice(0, 10) : '',
-      dataSaida: cliente.dataSaida ? new Date(cliente.dataSaida as string).toISOString().slice(0, 10) : '',
+      dataEntrada: toDateInputValue(cliente.dataEntrada as string),
+      dataSaida: toDateInputValue(cliente.dataSaida as string),
     }).map(([k, v]) => [k, v === null ? undefined : v])
   )
 

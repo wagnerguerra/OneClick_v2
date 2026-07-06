@@ -73,6 +73,10 @@ export class IntegrationService {
     private readonly sciService: SciService,
   ) {}
 
+  // [QA #36] Lock em memória por empresa: impede que 2 execuções simultâneas
+  // (2 usuários / 2 abas) rodem o loop em paralelo e dobrem o custo SERPRO.
+  private readonly serproRunning = new Set<string>()
+
   // ── Job polling ──────────────────────────────────────────
 
   getJobStatus(jobId: string): JobProgress | null {
@@ -93,6 +97,12 @@ export class IntegrationService {
   // ── 1. Cadastrar das Consultas ───────────────────────────
 
   async cadastrarDasConsultas(empresaId?: string) {
+    const lockKey = empresaId ?? '__global__'
+    if (this.serproRunning.has(lockKey)) {
+      throw new Error('Já existe uma importação de consultas em andamento para esta empresa. Aguarde a conclusão.')
+    }
+    this.serproRunning.add(lockKey)
+    try {
     // Buscar documentos que têm consulta de situação fiscal mas não são clientes
     const consultas = await prisma.situacaoFiscal.findMany({
       where: empresaId ? { empresaId } : {},
@@ -151,6 +161,9 @@ export class IntegrationService {
     }
 
     return { cadastrados, erros, total: novos.length }
+    } finally {
+      this.serproRunning.delete(lockKey)
+    }
   }
 
   // ── 2. Cadastrar pelo CNPJ ──────────────────────────────

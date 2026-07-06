@@ -18,6 +18,7 @@ import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { toDateInputValue } from '@/lib/date'
 import { useSession } from '@/lib/auth-client'
 import { useClientesPerms } from './use-clientes-perms'
 
@@ -590,7 +591,7 @@ function EncerramentoDialog({ open, onClose, row, onSave }: {
   row: AreaRow
   onSave: (data: { dataEncerramento: string | null; observacoes: string | null }) => void
 }) {
-  const [data, setData] = useState(row.dataEncerramento ? new Date(row.dataEncerramento).toISOString().slice(0, 10) : '')
+  const [data, setData] = useState(toDateInputValue(row.dataEncerramento))
   const [obs, setObs] = useState(row.observacoes || '')
 
   function handleSave() {

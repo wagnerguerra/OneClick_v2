@@ -27,6 +27,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { OrcamentosTab } from './orcamentos-tab'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { toDateInputValue } from '@/lib/date'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { useClientesPerms } from './use-clientes-perms'
@@ -3159,7 +3160,7 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
                     </div>
                     {(bfPerms.canWrite || bfPerms.canDelete) && (
                       <AtivBenefActions
-                        onEdit={() => setModalBenef({ id: b.id, catalogoId: b.catalogoId, dataVencimento: b.dataVencimento ? new Date(b.dataVencimento).toISOString().slice(0, 10) : '', portaria: b.portaria ?? '', processo: b.processo ?? '', obs: b.obs ?? '' })}
+                        onEdit={() => setModalBenef({ id: b.id, catalogoId: b.catalogoId, dataVencimento: toDateInputValue(b.dataVencimento), portaria: b.portaria ?? '', processo: b.processo ?? '', obs: b.obs ?? '' })}
                         onDelete={() => handleRemoveBenef(b)}
                       />
                     )}

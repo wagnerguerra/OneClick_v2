@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { spawnSync } from 'child_process'
 import * as path from 'path'
 
@@ -21,6 +21,9 @@ export interface SciBalanceteLinha {
 
 @Injectable()
 export class SciService {
+  // [QA #35] stderr do Python (detalhes de conexão/SQL do Firebird) fica no log
+  // interno; o usuário recebe mensagem genérica.
+  private readonly logger = new Logger(SciService.name)
   private readonly scriptPath = path.resolve(process.cwd(), 'src', 'cliente', 'sci_id_sistema.py')
   // Copiado do SERPRO2 (erp_sci/sci_metrics.py - 459 linhas, testado)
   private readonly metricsPath = path.resolve(process.cwd(), 'src', 'cliente', 'sci_metrics.py')
@@ -66,7 +69,8 @@ export class SciService {
       const stderr = result.stderr.trim()
       // Ignorar warnings do Python, só tratar erros reais
       if (stderr.includes('Error') || stderr.includes('Traceback')) {
-        throw new Error(`Erro no SCI: ${stderr.split('\n').pop()}`)
+        this.logger.error(`[SCI id_sistema] stderr: ${stderr}`)
+        throw new Error('Falha ao consultar o SCI. Verifique a conexão com o Firebird e tente novamente.')
       }
     }
 
@@ -272,7 +276,8 @@ export class SciService {
 
     if (result.status !== 0) {
       const stderr = (result.stderr || '').trim()
-      throw new Error(`sci_balancete.py falhou (exit ${result.status}): ${stderr.slice(0, 300)}`)
+      this.logger.error(`[SCI balancete] exit=${result.status} stderr: ${stderr}`)
+      throw new Error('Falha ao gerar o balancete no SCI. Verifique a conexão com o Firebird.')
     }
 
     const stdout = (result.stdout || '').trim()

@@ -113,10 +113,12 @@ export class LegacyImportService {
             continue
           }
 
-          // Verificar se já existe no novo sistema
-          const existing = await prisma.cliente.findFirst({
-            where: { documento: { contains: documento } },
-          })
+          // Verificar se já existe no novo sistema. [QA #34] Match EXATO do
+          // documento normalizado — `contains` casava CNPJs por prefixo/substring
+          // (ex.: "12345" batia em "12345678901234", atualizando o cliente errado).
+          const existing = documento
+            ? await prisma.cliente.findFirst({ where: { documento } })
+            : null
 
           const situacao = SITUACAO_MAP[String(row.comercial_situacao || '').toUpperCase().trim()] || 'MENSAL'
           const tributacao = TRIBUTACAO_MAP[String(row.fiscal_tributacao || '').toUpperCase().trim()] || null
