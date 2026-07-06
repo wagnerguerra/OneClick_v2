@@ -1189,6 +1189,29 @@ export class OrcamentoService {
       ? `Reaberto de ${labelDe} para ${labelPara}${sufixoDatas}. Motivo: ${motivo}`
       : `Reaberto de ${labelDe} para ${labelPara}${sufixoDatas}`
     await this.addEvento(id, userId, 'reabertura', orc.status, novoStatus, descricao)
+
+    // [QA #29] Voltou pra NOVO num orçamento vindo do CRM: restaura o sino do
+    // comercial (ele é removido quando o status sai de NOVO — sem isto, quem não
+    // viu na primeira vez nunca fica sabendo que o orçamento voltou pra fila).
+    if (novoStatus === 'NOVO' && orc.oportunidadeId) {
+      const comercial = await prisma.user.findMany({
+        where: {
+          isActive: true, isAi: false,
+          area: { name: { equals: 'Comercial', mode: 'insensitive' } },
+          ...(updated.empresaId ? { OR: [{ empresaId: updated.empresaId }, { empresaId: null }] } : {}),
+        },
+        select: { id: true },
+      }).catch(() => [] as Array<{ id: string }>)
+      if (comercial.length) {
+        await this.notificationService.criarParaUsers(comercial.map(u => u.id), {
+          titulo: `Orçamento #${orc.numero} reaberto`,
+          mensagem: `O orçamento voltou para a fila (NOVO)${motivo ? ` — motivo: ${motivo}` : ''}. Abra para revisar.`,
+          tipo: 'info', link: `/orcamentos/${id}`, origem: 'orcamentos',
+          empresaId: updated.empresaId ?? null,
+        }).catch(() => {})
+      }
+    }
+
     this.emitEvent('kanban', { orcamentoId: id, empresaId: updated.empresaId, actorUserId: userId })
     return updated
   }

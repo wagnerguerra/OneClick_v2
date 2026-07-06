@@ -109,5 +109,25 @@ BEGIN
     UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(),
       notas='Corrigido: falha no registro do lead agora loga + notifica o comercial (fallback: masters) com os contatos do lead pra registro manual.'
     WHERE id='qa_int26_m7';
+    UPDATE qa_itens SET status='DESCARTADO', resolvido_em=now(),
+      notas='Descartado após verificação: no sucesso só roda o fluxo padrão da agenda (notificar:true → participantes); o sino do lead só dispara no CATCH (fallback de erro), e o aviso de card novo do CRM é evento distinto. Não há duplicação.'
+    WHERE id='qa_int26_b1';
+    UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(),
+      notas='Corrigido: comercial vazio → avisa os masters (sino) que a reunião foi criada sem participantes; a reunião ainda é criada.'
+    WHERE id='qa_int26_b2';
+    UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(),
+      notas='Corrigido: agendarReuniao valida se o card existe/está ativo antes de vincular; senão cria o evento sem vínculo.'
+    WHERE id='qa_int26_b3';
+    UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(),
+      notas='Corrigido: /agendar valida formato estrito (YYYY-MM-DD e HH:MM 00-23h) antes de tocar o service.'
+    WHERE id='qa_int26_b4';
+    UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(),
+      notas='Corrigido: isAi:false nas queries do comercial (crm.listarUsuariosComercial + lead.resolverComercial + sino de reabertura).'
+    WHERE id='qa_int26_b5';
+    UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(),
+      notas='Corrigido: reabrir para NOVO em orçamento vindo do CRM re-notifica a área Comercial (sino com motivo).'
+    WHERE id='qa_int26_b7';
+    -- qa_int26_b6 (validade→lembrete / follow-up pós-recusa) fica PENDENTE:
+    -- é feature nova, aguardando decisão de produto.
   END IF;
 END $$;

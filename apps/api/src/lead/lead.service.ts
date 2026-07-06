@@ -592,7 +592,9 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
 
   private async resolverComercial(empresaId?: string | null): Promise<string[]> {
     const users = await prisma.user.findMany({
-      where: { isActive: true, area: { name: { equals: 'Comercial', mode: 'insensitive' } }, ...(empresaId ? { empresaId } : {}) },
+      // [QA #27] isAi:false defensivo — hoje o usuário IA não tem área, mas se
+      // alguém o colocar na "Comercial", não deve receber sino/e-mail de lead.
+      where: { isActive: true, isAi: false, area: { name: { equals: 'Comercial', mode: 'insensitive' } }, ...(empresaId ? { empresaId } : {}) },
       select: { id: true },
     }).catch(() => [] as { id: string }[])
     return users.map(u => u.id)
@@ -629,13 +631,36 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
     const comercial = await this.resolverComercial(s.empresaId)
     const leadNome = dados.nome || dados.razaoSocial || 'Lead'
     const contatoLead = [dados.nome, dados.email, dados.telefone].filter(Boolean).join(' · ') || null
+
+    // [QA #24] Sem ninguém na área Comercial, a reunião nasceria sem participantes
+    // e ninguém saberia — avisa os masters (a reunião ainda é criada).
+    if (comercial.length === 0) {
+      console.warn('[Lead] Nenhum usuário na área Comercial — reunião de lead será criada sem participantes')
+      const masters = (await prisma.user.findMany({ where: { isMaster: true, isActive: true }, select: { id: true } }).catch(() => [] as Array<{ id: string }>)).map(u => u.id)
+      if (masters.length) {
+        await this.notificationService.criarParaUsers(masters, {
+          titulo: 'Reunião de lead sem participantes',
+          mensagem: `${leadNome} agendou ${data} ${horaInicio}, mas não há usuários na área "Comercial" para participar — verifique o organograma.`,
+          tipo: 'warning', origem: 'lead-ia', empresaId: s.empresaId,
+        }).catch(() => {})
+      }
+    }
+
+    // [QA #25] Vincula a oportunidade só se o card ainda existir e estiver ativo
+    // (pode ter sido excluído entre a qualificação e o agendamento).
+    let oportunidadeId = s.oportunidadeId ?? undefined
+    if (oportunidadeId) {
+      const op = await prisma.oportunidade.findFirst({ where: { id: oportunidadeId, isActive: true }, select: { id: true } }).catch(() => null)
+      if (!op) oportunidadeId = undefined
+    }
+
     try {
       const ev = await this.agendaService.create({
         titulo: `Reunião com lead — ${leadNome}`,
         descricao: `Reunião solicitada por lead da campanha.\nContato: ${contatoLead ?? '—'}\n${dados.resumo ?? ''}`.trim(),
         data, horaInicio, horaFim, tipoId,
         empresaId: s.empresaId ?? undefined,
-        oportunidadeId: s.oportunidadeId ?? undefined,
+        oportunidadeId,
         participanteIds: comercial,        // usuários do comercial
         participantesAvulsos: [leadNome],  // o próprio lead (contato externo)
         contato: contatoLead,

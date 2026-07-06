@@ -36,6 +36,7 @@ export class CrmService {
     const users = await prisma.user.findMany({
       where: {
         isActive: true,
+        isAi: false, // [QA #27] defensivo: usuário IA nunca recebe sino/e-mail de lead
         area: { name: { equals: 'Comercial', mode: 'insensitive' } },
         ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}),
       },

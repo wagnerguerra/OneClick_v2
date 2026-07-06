@@ -91,6 +91,10 @@ export class LeadController {
     if (!dentroDoLimite(`lead:agendar:${ip}`, 20, 3_600_000)) { res.status(429).json({ error: 'Muitas tentativas.' }); return }
     try {
       if (!body?.data || !body?.horaInicio) throw new Error('Informe data e horário.')
+      // [QA #26] Endpoint público: formato estrito antes de tocar o service.
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(body.data) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(body.horaInicio)) {
+        throw new Error('Data ou horário em formato inválido.')
+      }
       const r = await this.leadService.agendarReuniao(token, body.data, body.horaInicio)
       res.json(r)
     } catch (e) {
