@@ -21,8 +21,11 @@ UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(), notas='Corrigido: lo
 UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(), notas='Padronizado: helper @/lib/date (toDateInputValue/fmtDateBR) com extração de dia SEMPRE em UTC, aplicado nos 4 pontos. Nota: os toISOString().slice(0,10) já eram UTC (o off-by-one real seria com métodos locais) — ganho é padronização + intenção explícita p/ evitar regressão futura.' WHERE id='qa_cli26_m5' AND status='PENDENTE' AND notas IS NULL;
 UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(), notas='Corrigido de passagem (bloco Alta): getContratoParams valida o tenant via assertClienteAtivo.' WHERE id='qa_cli26_m6' AND status='PENDENTE' AND notas IS NULL;
 
--- ── Bloco BAIXA (/clientes) já resolvido de passagem ──
+-- ── Bloco BAIXA (/clientes) ──
 UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(), notas='Corrigido de passagem (reescrevi o método): data_conclusao via CASE WHEN $1=concluido parametrizado, sem interpolar NOW()/NULL na string SQL.' WHERE id='qa_cli26_b1' AND status='PENDENTE' AND notas IS NULL;
+UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(), notas='Corrigido: util documento.util (isValidCpf/isValidCnpj/isValidDocumento) com dígito verificador; create valida se documento informado (vazio segue permitido) e barra CPF/CNPJ inválido. Imports do legado usam outro caminho e não são afetados.' WHERE id='qa_cli26_b2' AND status='PENDENTE' AND notas IS NULL;
+UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(), notas='Corrigido: sync de categorias novas em 1 createMany (skipDuplicates) com dedup por conta, em vez de upsert 1-a-1 no loop. As linhas já usavam deleteMany+createMany.' WHERE id='qa_cli26_b3' AND status='PENDENTE' AND notas IS NULL;
+UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(), notas='Corrigido: termo usa profile.empresa (nomeFantasia||razaoSocial) via useCurrentUserProfile, com fallback "Sua Empresa" só se não houver empresa. Sai o nome real do tenant no documento impresso.' WHERE id='qa_pend26_07' AND status='PENDENTE' AND notas IS NULL;
 
 -- ── Recursos pendentes ALTA (NFe/NFSe) reavaliados ──
 UPDATE qa_itens SET status='CORRIGIDO', resolvido_em=now(), notas='Reavaliado: NÃO era stub. NfeDistService (538 linhas) existe, o NfeDistModule provê o token e o scheduler JÁ chama processarCliente — funcional. Só o typing estava frouxo (unknown + interface Like + TODO). Tipado com import type NfeDistService (evita ciclo), casts/TODOs removidos.' WHERE id='qa_pend26_01' AND status='PENDENTE' AND notas IS NULL;

@@ -3,6 +3,7 @@ import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
 import type { Prisma } from '@saas/db'
 import type { CreateClienteInput, UpdateClienteInput, ListClienteInput } from '@saas/types'
 import { BiSyncEventsService } from '../bi/bi-sync-events.service'
+import { isValidDocumento } from './documento.util'
 
 const FIELD_LABELS: Record<string, string> = {
   razaoSocial: 'Razão Social', nomeFantasia: 'Nome Fantasia', documento: 'Documento',
@@ -317,13 +318,19 @@ export class ClienteService {
   // Criar
   // ============================================================
   async create(input: CreateClienteInput, userId?: string, empresaId?: string) {
+    // [QA #40] Documento é opcional, mas se informado precisa ter DV válido
+    // (barra 00000000000000, sequências e dígito errado no cadastro manual).
+    const docLimpo = (input.documento || '').replace(/\D/g, '')
+    if (docLimpo && !isValidDocumento(docLimpo)) {
+      throw new Error('Documento inválido: verifique o CPF/CNPJ informado.')
+    }
     return prisma.$transaction(async (tx) => {
       const cliente = await tx.cliente.create({
         data: {
           razaoSocial: input.razaoSocial,
           nomeFantasia: input.nomeFantasia || null,
           // Documento opcional — armazena só dígitos; vazio é permitido.
-          documento: (input.documento || '').replace(/\D/g, ''),
+          documento: docLimpo,
           tipoDocumento: (input.tipoDocumento || 'CNPJ') as never,
           tipoCliente: input.tipoCliente || null,
           idSistema: input.idSistema || null,
@@ -1460,25 +1467,29 @@ export class ClienteService {
     })
     const existingSet = new Set(existingCats.map(c => c.conta))
 
+    // [QA #41] Categorias novas em UM createMany (era upsert 1-a-1 num loop).
+    // Como já filtramos por !existingSet, são todas novas — dedup por conta
+    // (o batch pode repetir) + skipDuplicates cobre corridas.
     const newCats = linhas.filter(l => !existingSet.has(l.conta))
+    let novasCategorias = 0
     if (newCats.length > 0) {
-      for (const l of newCats) {
-        const parts = l.conta.split('.')
-        const nivel = parts.length
-        const parentConta = parts.length > 1 ? parts.slice(0, -1).join('.') : null
-        await prisma.clienteBiCategoria.upsert({
-          where: { clienteId_conta: { clienteId, conta: l.conta } },
-          create: {
+      const seen = new Set<string>()
+      const data = newCats
+        .filter(l => (seen.has(l.conta) ? false : (seen.add(l.conta), true)))
+        .map(l => {
+          const parts = l.conta.split('.')
+          return {
             clienteId, conta: l.conta,
             nomeSci: l.nomeConta, nomeExibicao: l.nomeConta,
-            parentConta, nivel, tipo: 'real', ativo: true,
-          },
-          update: { nomeSci: l.nomeConta },
+            parentConta: parts.length > 1 ? parts.slice(0, -1).join('.') : null,
+            nivel: parts.length, tipo: 'real', ativo: true,
+          }
         })
-      }
+      const res = await prisma.clienteBiCategoria.createMany({ data, skipDuplicates: true })
+      novasCategorias = res.count
     }
 
-    return { imported: linhas.length, newCategories: newCats.length }
+    return { imported: linhas.length, newCategories: novasCategorias }
   }
 
   async biDeletePeriodo(clienteId: string, periodo: string) {

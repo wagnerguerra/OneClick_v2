@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { ArrowLeft, Printer, Loader2 } from 'lucide-react'
 import { Button } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
 function fmtBRL(v: number | string | null | undefined): string {
   if (v == null) return '—'
@@ -28,6 +29,7 @@ function fmtDate(v: string | Date | null | undefined): string {
 
 export default function TermoResponsabilidadePage() {
   const params = useParams<{ id: string }>()
+  const { profile } = useCurrentUserProfile()
   const [ativo, setAtivo] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -45,7 +47,7 @@ export default function TermoResponsabilidadePage() {
 
   const hoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
   const responsavel = ativo.responsavel
-  const empresaNome = 'Sua Empresa'  // FIXME: pegar de getMyProfile/empresa
+  const empresaNome = profile?.empresa?.nomeFantasia || profile?.empresa?.razaoSocial || 'Sua Empresa'
 
   return (
     <>
