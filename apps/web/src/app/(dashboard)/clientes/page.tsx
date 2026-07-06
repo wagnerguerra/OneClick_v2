@@ -417,7 +417,7 @@ export default function ClientesPage() {
           <div>
             <h1>{trashMode ? 'Lixeira — Clientes' : 'Clientes'}</h1>
             <p className="text-sm text-muted-foreground">
-              {trashMode ? 'Clientes inativados. Restaure quando precisar — nada é excluído da base.' : 'Gerencie os clientes cadastrados'}
+              {trashMode ? 'Lista de Clientes inativos.' : 'Gerencie os clientes cadastrados'}
             </p>
           </div>
         </div>
