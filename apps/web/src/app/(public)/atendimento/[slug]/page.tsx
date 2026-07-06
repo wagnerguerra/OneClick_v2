@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import { Loader2, Send, Sparkles, CheckCircle2, MessageCircle, CalendarClock, ArrowUp } from 'lucide-react'
+import { Loader2, Send, Sparkles, CheckCircle2, MessageCircle, CalendarClock, ArrowUp, X } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
 import { MarkdownView } from '@/components/ui/markdown-view'
@@ -29,6 +29,10 @@ export default function AtendimentoPublicoPage() {
   const slug = params?.slug as string
   const searchParams = useSearchParams()
   const origem = searchParams?.get('origem') || searchParams?.get('utm_source') || searchParams?.get('ref') || null
+  // [QA #47] Modo embed=1: renderizado dentro do widget (iframe). Chrome compacto
+  // + "X" interno que pede o fechamento ao script pai via postMessage.
+  const embed = searchParams?.get('embed') === '1'
+  const fecharWidget = () => { try { window.parent?.postMessage({ ocChat: 'close' }, '*') } catch { /* noop */ } }
 
   const [cfg, setCfg] = useState<ConfigPublica | null>(null)
   const [loadingCfg, setLoadingCfg] = useState(true)
@@ -236,9 +240,9 @@ export default function AtendimentoPublicoPage() {
 
   return (
     <div className="h-[100dvh] flex flex-col overflow-hidden" style={{ background: BG }}>
-      {/* ── Header fixo no topo, conteúdo centralizado ── */}
+      {/* ── Header fixo no topo, conteúdo centralizado (compacto em embed) ── */}
       <header className="shrink-0 border-b border-border/60 bg-card/70 backdrop-blur-md">
-        <div className="max-w-3xl mx-auto px-4 py-2.5 flex items-center gap-3">
+        <div className={`max-w-3xl mx-auto flex items-center gap-3 ${embed ? 'px-3 py-2' : 'px-4 py-2.5'}`}>
           {Marca}
           <div className="min-w-0">
             <p className="text-sm font-semibold truncate leading-tight">{cfg.empresaNome}</p>
@@ -246,6 +250,16 @@ export default function AtendimentoPublicoPage() {
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block" /> Atendimento online
             </p>
           </div>
+          {embed && (
+            <button
+              type="button"
+              onClick={fecharWidget}
+              aria-label="Fechar atendimento"
+              className="ml-auto shrink-0 grid place-items-center h-8 w-8 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
         </div>
       </header>
 
