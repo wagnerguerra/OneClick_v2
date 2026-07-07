@@ -46,6 +46,8 @@ interface Ticket {
   _count: { mensagens: number; anexos: number }
   /** Primeiro anexo de imagem do ticket — usado como capa do card no kanban. */
   capa: { id: string; fileName: string; fileUrl: string; mimeType: string | null } | null
+  /** Solicitante mandou a última mensagem pública ⇒ card destacado (aguarda o agente). */
+  aguardandoResposta?: boolean
   // Score da triagem IA (#HLP0083) — exibido como badge no card do kanban.
   // aiElegivel=true → atingiu o threshold (cor violeta), false → não elegível (cinza).
   aiScore?: number | null
@@ -681,10 +683,23 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
         // o overlay sutil da coluna no dark.
         // cursor-pointer indica "clicável" (ação primária = abrir ticket).
         // O drag continua funcionando mesmo com pointer — só muda a aparência.
-        'rounded-md bg-white dark:bg-[#1f242e] cursor-pointer group overflow-hidden border border-border/50',
+        'rounded-md bg-white dark:bg-[#1f242e] cursor-pointer group overflow-hidden border border-border/50 relative',
         dragging ? 'shadow-lg' : 'hover:shadow-md transition-shadow',
+        // Solicitante respondeu — destaca o card (bola do lado do agente).
+        ticket.aguardandoResposta && 'ring-2 ring-cyan-400 dark:ring-cyan-500 border-cyan-400/50 shadow-[0_0_0_3px] shadow-cyan-400/15',
       )}
     >
+      {/* Selo "nova resposta" — solicitante respondeu, aguarda o agente */}
+      {ticket.aguardandoResposta && (
+        <div className="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-cyan-500 text-white text-[9px] font-semibold px-1.5 py-0.5 shadow-sm">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white/80 opacity-75" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+          </span>
+          Respondeu
+        </div>
+      )}
+
       {/* Capa (opcional) — primeira imagem anexada, com padding e cantos arredondados */}
       {temCapa && (
         <div className="px-2 pt-2">

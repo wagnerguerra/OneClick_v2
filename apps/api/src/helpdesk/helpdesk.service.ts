@@ -453,6 +453,14 @@ export class HelpdeskService {
             take: 1,
             select: { id: true, fileName: true, fileUrl: true, mimeType: true },
           },
+          // Última mensagem PÚBLICA — pra destacar no kanban quando o
+          // solicitante respondeu (bola do lado do agente).
+          mensagens: {
+            where: { interna: false },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: { autorId: true },
+          },
         },
         orderBy: [{ prioridade: 'desc' }, { createdAt: 'desc' }],
         skip: (input.page - 1) * input.limit,
@@ -464,8 +472,13 @@ export class HelpdeskService {
     // mais explícito na UI e evita confusão com a lista completa de anexos
     // que aparece no detalhe do ticket.
     const mapped = items.map(t => {
-      const { anexos, ...rest } = t as typeof t & { anexos: Array<{ id: string; fileName: string; fileUrl: string; mimeType: string | null }> }
-      return { ...rest, capa: anexos[0] ?? null }
+      const { anexos, mensagens, ...rest } = t as typeof t & {
+        anexos: Array<{ id: string; fileName: string; fileUrl: string; mimeType: string | null }>
+        mensagens: Array<{ autorId: string | null }>
+      }
+      // Solicitante mandou a última mensagem pública ⇒ aguardando resposta do agente.
+      const aguardandoResposta = !!mensagens[0] && mensagens[0].autorId === rest.solicitanteId
+      return { ...rest, capa: anexos[0] ?? null, aguardandoResposta }
     })
 
     return {
