@@ -2050,7 +2050,11 @@ export class OrcamentoService {
     if (!orc) throw new Error('Orcamento nao encontrado')
     if (orc.decisaoTipo) throw new Error('Decisao ja registrada')
 
-    const novoStatus = decisao.tipo === 'APROVADO' ? 'APROVADO' : 'ENCERRADO'
+    const isAprovado = decisao.tipo === 'APROVADO'
+    const isRevisao = decisao.tipo === 'REVISAO_SOLICITADA'
+    // Aprovado → APROVADO; Recusado → ENCERRADO; Revisão NÃO encerra (o time
+    // revisa e reenvia) — mantém o status atual.
+    const novoStatus = isAprovado ? 'APROVADO' : isRevisao ? orc.status : 'ENCERRADO'
 
     const updated = await prisma.orcamento.update({
       where: { token },
@@ -2061,9 +2065,9 @@ export class OrcamentoService {
         decisaoCpf: decisao.cpf || null,
         decisaoObs: decisao.observacao || null,
         status: novoStatus as any,
-        // Grava o marco da decisão (timeline) — sem isso Aprovado/Encerrado não
-        // aparece quando o cliente decide pelo link público.
-        ...(novoStatus === 'APROVADO' ? { dtAprovado: new Date() } : { dtEncerrado: new Date() }),
+        // Marca a data só nos estados terminais (a revisão não tem marco de data).
+        ...(isAprovado ? { dtAprovado: new Date() } : {}),
+        ...(decisao.tipo === 'RECUSADO' ? { dtEncerrado: new Date() } : {}),
       },
     })
     // Dados de faturamento (colunas novas — via raw enquanto o client não regenera).
@@ -2076,7 +2080,9 @@ export class OrcamentoService {
     // Registra o status_change na timeline (decisão do cliente pelo link).
     await this.addEvento(
       orc.id, null, 'status_change', orc.status, novoStatus,
-      `Decisão do cliente (${decisao.nome}): ${novoStatus === 'APROVADO' ? 'Aprovado' : 'Recusado'}`,
+      isAprovado ? `Decisão do cliente (${decisao.nome}): Aprovado`
+        : isRevisao ? `Cliente (${decisao.nome}) solicitou revisão da proposta`
+        : `Decisão do cliente (${decisao.nome}): Recusado`,
     )
     // Dispara as notificações internas (comercial/financeiro + aprovações) — antes
     // o fluxo do link público não notificava ninguém, só o de status direto. Agora

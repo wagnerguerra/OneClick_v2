@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { CheckCircle2, XCircle, FileText, Loader2, Printer, Calendar, Building2, Phone, Mail, Paperclip, Download } from 'lucide-react'
+import { CheckCircle2, XCircle, FileText, Loader2, Printer, Calendar, Building2, Phone, Mail, Paperclip, Download, Pencil } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
 
@@ -78,7 +78,7 @@ export default function PublicOrcamentoPage() {
   const [error, setError] = useState<string | null>(null)
 
   // Decisao
-  const [decisaoModal, setDecisaoModal] = useState<'APROVADO' | 'RECUSADO' | null>(null)
+  const [decisaoModal, setDecisaoModal] = useState<'APROVADO' | 'RECUSADO' | 'REVISAO_SOLICITADA' | null>(null)
   const [modalClosing, setModalClosing] = useState(false)
   const fecharModal = () => { if (enviando) return; setModalClosing(true); setTimeout(() => { setDecisaoModal(null); setModalClosing(false) }, 160) }
   const [nome, setNome] = useState('')
@@ -126,6 +126,8 @@ export default function PublicOrcamentoPage() {
         tipo: decisaoModal!,
         mensagem: decisaoModal === 'APROVADO'
           ? 'Proposta aprovada com sucesso! Em breve nossa equipe entrará em contato.'
+          : decisaoModal === 'REVISAO_SOLICITADA'
+          ? 'Sua solicitação de revisão foi enviada. Vamos analisar e retornar em breve.'
           : 'Sua resposta foi registrada. Obrigado pelo retorno.',
       })
       setDecisaoModal(null)
@@ -164,10 +166,13 @@ export default function PublicOrcamentoPage() {
   const acoesCliente = (!decidido && !confirmacao) ? (
     <section className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6 mb-6 print:hidden">
       <h3 className="font-semibold mb-1">Pronto para responder?</h3>
-      <p className="text-sm text-muted-foreground mb-4">Aprove a proposta para iniciarmos o trabalho ou recuse para nos enviar seu retorno.</p>
+      <p className="text-sm text-muted-foreground mb-4">Aprove a proposta para iniciarmos o trabalho, solicite uma revisão ou recuse para nos enviar seu retorno.</p>
       <div className="flex flex-col sm:flex-row gap-3">
         <button onClick={() => setDecisaoModal('APROVADO')} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md font-semibold transition-colors">
           <CheckCircle2 className="h-5 w-5" /> Aprovar Proposta
+        </button>
+        <button onClick={() => setDecisaoModal('REVISAO_SOLICITADA')} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/50 text-amber-700 dark:text-amber-300 rounded-md font-semibold border border-amber-200 dark:border-amber-800/60 transition-colors">
+          <Pencil className="h-5 w-5" /> Solicitar Revisão
         </button>
         <button onClick={() => setDecisaoModal('RECUSADO')} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-md font-semibold border border-slate-200 dark:border-slate-600 transition-colors">
           <XCircle className="h-5 w-5" /> Recusar
@@ -178,10 +183,11 @@ export default function PublicOrcamentoPage() {
 
   return (
     <div className="print:p-0">
-      {/* Header — capa FULL-BLEED (bg de ponta a ponta, sem frame/card) */}
-      <header className="relative overflow-hidden print:border-b print:border-slate-200">
+      {/* Header — capa FULL-BLEED (bg de ponta a ponta, sem frame/card).
+          Cor base = fundo da imagem (#f4f4f4) p/ casar mesmo se a imagem não carregar. */}
+      <header className="relative overflow-hidden bg-[#f4f4f4] dark:bg-slate-900 print:border-b print:border-slate-200">
         <div className="absolute inset-0 bg-center bg-cover" style={{ backgroundImage: 'url(/materiais/view-bg.jpg)' }} />
-        <div className="absolute inset-0 bg-white/70 dark:bg-slate-900/80" />
+        <div className="absolute inset-0 bg-white/15 dark:bg-slate-900/70" />
         <div className="relative flex flex-col items-center text-center py-9 px-6 max-w-5xl mx-auto">
           <button
             onClick={() => window.print()}
@@ -210,16 +216,18 @@ export default function PublicOrcamentoPage() {
 
       {/* Confirmacao apos decisao */}
       {(confirmacao || decidido) && (
-        <div className={`bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6 mb-6 border-l-4 ${(confirmacao?.tipo || orc.decisaoTipo) === 'APROVADO' ? 'border-emerald-500' : 'border-rose-500'} print:hidden`}>
+        <div className={`bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6 mb-6 border-l-4 ${(confirmacao?.tipo || orc.decisaoTipo) === 'APROVADO' ? 'border-emerald-500' : (confirmacao?.tipo || orc.decisaoTipo) === 'REVISAO_SOLICITADA' ? 'border-amber-500' : 'border-rose-500'} print:hidden`}>
           <div className="flex items-start gap-3">
             {(confirmacao?.tipo || orc.decisaoTipo) === 'APROVADO' ? (
               <CheckCircle2 className="h-6 w-6 text-emerald-500 shrink-0" />
+            ) : (confirmacao?.tipo || orc.decisaoTipo) === 'REVISAO_SOLICITADA' ? (
+              <Pencil className="h-6 w-6 text-amber-500 shrink-0" />
             ) : (
               <XCircle className="h-6 w-6 text-rose-500 shrink-0" />
             )}
             <div className="flex-1">
               <h3 className="font-semibold mb-1">
-                {(confirmacao?.tipo || orc.decisaoTipo) === 'APROVADO' ? 'Proposta aprovada' : 'Decisão registrada'}
+                {(confirmacao?.tipo || orc.decisaoTipo) === 'APROVADO' ? 'Proposta aprovada' : (confirmacao?.tipo || orc.decisaoTipo) === 'REVISAO_SOLICITADA' ? 'Revisão solicitada' : 'Decisão registrada'}
               </h3>
               <p className="text-sm text-muted-foreground">
                 {confirmacao?.mensagem || `Resposta registrada por ${orc.decisaoNome} em ${orc.decisaoEm ? formatDate(orc.decisaoEm) : ''}`}
@@ -229,6 +237,9 @@ export default function PublicOrcamentoPage() {
         </div>
       )}
 
+      {/* Conteúdo em 2 colunas: proposta + itens à esquerda, anexos à direita */}
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+      <div className="flex-1 min-w-0">
       {/* Apresentacao + Cliente */}
       <section className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6 mb-6 print:shadow-none print:rounded-none">
         <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
@@ -315,8 +326,11 @@ export default function PublicOrcamentoPage() {
         </div>
       </section>
 
-      {/* Anexos públicos da proposta */}
+      </div>{/* fim coluna esquerda */}
+
+      {/* Anexos públicos — coluna direita, ao lado dos demais cards */}
       {!!orc.arquivos?.length && (
+        <aside className="w-full lg:w-80 shrink-0 lg:sticky lg:top-6">
         <section className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6 mb-6 print:shadow-none print:rounded-none print:border print:border-slate-200">
           <h3 className="font-semibold mb-3 flex items-center gap-2">
             <Paperclip className="h-4 w-4 text-muted-foreground" /> Anexos
@@ -338,7 +352,9 @@ export default function PublicOrcamentoPage() {
             ))}
           </div>
         </section>
+        </aside>
       )}
+      </div>{/* fim 2 colunas */}
 
       {/* Ações do cliente (base) */}
       {acoesCliente}
@@ -363,15 +379,19 @@ export default function PublicOrcamentoPage() {
             <div className="flex items-center gap-3 mb-4">
               {decisaoModal === 'APROVADO' ? (
                 <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+              ) : decisaoModal === 'REVISAO_SOLICITADA' ? (
+                <Pencil className="h-6 w-6 text-amber-500" />
               ) : (
                 <XCircle className="h-6 w-6 text-rose-500" />
               )}
               <h3 className="text-lg font-semibold">
-                {decisaoModal === 'APROVADO' ? 'Aprovar proposta' : 'Recusar proposta'}
+                {decisaoModal === 'APROVADO' ? 'Aprovar proposta' : decisaoModal === 'REVISAO_SOLICITADA' ? 'Solicitar Revisão da Proposta' : 'Recusar proposta'}
               </h3>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Para registrar sua decisao, informe seu nome completo abaixo.
+              {decisaoModal === 'REVISAO_SOLICITADA'
+                ? 'Informe seu nome e aponte abaixo os pontos que gostaria de revisar.'
+                : 'Para registrar sua decisao, informe seu nome completo abaixo.'}
             </p>
             <div className="space-y-3">
               <div>
@@ -427,7 +447,7 @@ export default function PublicOrcamentoPage() {
                   onChange={e => setObservacao(e.target.value)}
                   rows={3}
                   className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900"
-                  placeholder={decisaoModal === 'APROVADO' ? 'Comentários ou solicitações adicionais...' : 'Conte-nos por que está recusando...'}
+                  placeholder={decisaoModal === 'APROVADO' ? 'Comentários ou solicitações adicionais...' : decisaoModal === 'REVISAO_SOLICITADA' ? 'Aponte os detalhes que acha pertinente para a revisão da proposta...' : 'Conte-nos por que está recusando...'}
                 />
               </div>
             </div>
@@ -442,7 +462,7 @@ export default function PublicOrcamentoPage() {
               <button
                 onClick={handleDecisao}
                 disabled={enviando || !nome.trim()}
-                className={`px-4 py-2 text-sm text-white rounded-md font-semibold disabled:opacity-50 ${decisaoModal === 'APROVADO' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600'}`}
+                className={`px-4 py-2 text-sm text-white rounded-md font-semibold disabled:opacity-50 ${decisaoModal === 'APROVADO' ? 'bg-emerald-500 hover:bg-emerald-600' : decisaoModal === 'REVISAO_SOLICITADA' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-rose-500 hover:bg-rose-600'}`}
               >
                 {enviando ? <Loader2 className="h-4 w-4 animate-spin inline" /> : 'Confirmar'}
               </button>

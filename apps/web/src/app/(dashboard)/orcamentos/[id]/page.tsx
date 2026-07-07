@@ -2058,16 +2058,22 @@ export default function OrcamentoDetailPage() {
           {orc.decisaoTipo && (
             <Card className={cn('mb-5 border', orc.decisaoTipo === 'APROVADO'
               ? 'border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/40'
+              : orc.decisaoTipo === 'REVISAO_SOLICITADA'
+              ? 'border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/40'
               : 'border-rose-200 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/40')}>
               <CardHeader className="border-b border-border/40 px-5 py-3 flex flex-row items-center gap-2">
                 {orc.decisaoTipo === 'APROVADO'
                   ? <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  : orc.decisaoTipo === 'REVISAO_SOLICITADA'
+                  ? <Pencil className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   : <ThumbsDown className="h-4 w-4 text-rose-600 dark:text-rose-400" />}
                 <h3 className="text-sm font-semibold flex-1">Resposta do cliente pelo link</h3>
                 <Badge className={cn('text-[10px]', orc.decisaoTipo === 'APROVADO'
                   ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                  : orc.decisaoTipo === 'REVISAO_SOLICITADA'
+                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
                   : 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300')}>
-                  {orc.decisaoTipo === 'APROVADO' ? 'Aprovado' : 'Recusado'}
+                  {orc.decisaoTipo === 'APROVADO' ? 'Aprovado' : orc.decisaoTipo === 'REVISAO_SOLICITADA' ? 'Revisão solicitada' : 'Recusado'}
                 </Badge>
               </CardHeader>
               <CardContent className="px-5 py-4 space-y-3 text-sm">
