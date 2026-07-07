@@ -256,8 +256,15 @@ export class OrcamentoService {
       `SELECT decisao_cnpj_faturamento AS "decisaoCnpjFaturamento", decisao_email_financeiro AS "decisaoEmailFinanceiro" FROM orcamentos WHERE id = $1`, id,
     ).catch(() => [])
 
+    // Flag `publico` de cada arquivo (via raw — coluna ainda não no client).
+    const pubRows = await prisma.$queryRawUnsafe<Array<{ id: string; publico: boolean }>>(
+      `SELECT id, publico FROM orcamento_arquivos WHERE orcamento_id = $1`, id,
+    ).catch(() => [])
+    const pubMap = new Map(pubRows.map(r => [r.id, r.publico]))
+    const arquivos = orc.arquivos.map(a => ({ ...a, publico: pubMap.get(a.id) ?? false }))
+
     return {
-      ...orc, mensagens, eventos, cliente, empresa, solicitante, responsavel,
+      ...orc, arquivos, mensagens, eventos, cliente, empresa, solicitante, responsavel,
       decisaoCnpjFaturamento: fat[0]?.decisaoCnpjFaturamento ?? null,
       decisaoEmailFinanceiro: fat[0]?.decisaoEmailFinanceiro ?? null,
     }
@@ -289,7 +296,13 @@ export class OrcamentoService {
     // Configuracoes da empresa (texto de apresentacao, etc.)
     const config = await this.getConfig(orc.empresaId || undefined)
 
-    return { ...orc, cliente, empresa, config }
+    // Anexos PÚBLICOS (via raw enquanto o client não regenera a coluna `publico`).
+    const arquivos = await prisma.$queryRawUnsafe<Array<{ id: string; fileName: string; fileUrl: string; fileSize: number | null; mimeType: string | null }>>(
+      `SELECT id, file_name AS "fileName", file_url AS "fileUrl", file_size AS "fileSize", mime_type AS "mimeType"
+         FROM orcamento_arquivos WHERE orcamento_id = $1 AND publico = true ORDER BY created_at ASC`, orc.id,
+    ).catch(() => [])
+
+    return { ...orc, cliente, empresa, config, arquivos }
   }
 
   async create(input: CreateOrcamentoInput, userId?: string, empresaId?: string) {
@@ -2408,6 +2421,12 @@ export class OrcamentoService {
 
   async removeArquivo(id: string) {
     return prisma.orcamentoArquivo.delete({ where: { id } })
+  }
+
+  /** Alterna a visibilidade pública do anexo (via raw — coluna ainda não no client). */
+  async setArquivoPublico(id: string, publico: boolean) {
+    await prisma.$executeRawUnsafe(`UPDATE orcamento_arquivos SET publico = $1 WHERE id = $2`, publico, id)
+    return { id, publico }
   }
 
   // ── Eventos (audit trail) ─────────────────────────────────

@@ -3383,6 +3383,8 @@ model OrcamentoArquivo {
   fileSize    Int?     @map("file_size")
   mimeType    String?  @map("mime_type")
   userId      String?  @map("user_id")
+  // Anexo visível na proposta pública (link do cliente) quando true.
+  publico     Boolean  @default(false)
   createdAt   DateTime @default(now()) @map("created_at")
 
   orcamento Orcamento @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)

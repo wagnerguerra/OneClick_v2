@@ -401,6 +401,11 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => orcamentoService.removeArquivo(input.id)),
 
+    /** Marca um anexo como público (aparece na proposta do cliente) ou privado. */
+    setArquivoPublico: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), publico: z.boolean() }))
+      .mutation(({ input }) => orcamentoService.setArquivoPublico(input.id, input.publico)),
+
     // ── Relatorios ─────────────────────────────────────────
     reportFunil: readProcedure(MODULE)
       .input(z.object({ dias: z.number().optional() }).optional())
