@@ -8,7 +8,7 @@
  */
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { Database, Play, Loader2, AlertTriangle, Table2, ChevronRight, ChevronDown, KeyRound, Search, RefreshCw, Terminal, TableProperties, Rows3 } from 'lucide-react'
+import { Database, Play, Loader2, AlertTriangle, Table2, ChevronRight, ChevronDown, KeyRound, Search, RefreshCw, Terminal, TableProperties, Rows3, ArrowUp, ArrowDown } from 'lucide-react'
 import { Button } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
@@ -43,6 +43,7 @@ export default function SqlConsolePage() {
   // Aba Dados
   const [dadosResult, setDadosResult] = useState<RunResult | null>(null)
   const [dadosLoading, setDadosLoading] = useState(false)
+  const [dadosTotal, setDadosTotal] = useState<number | null>(null)
 
   // Aba Editor
   const [sql, setSql] = useState('SELECT * FROM clientes LIMIT 50;')
@@ -57,9 +58,12 @@ export default function SqlConsolePage() {
   useEffect(() => { if (profile?.isMaster) void carregarSchema() }, [profile?.isMaster, carregarSchema])
 
   const abrirDados = useCallback(async (table: string) => {
-    setSel(table); setAba('dados'); setDadosLoading(true); setDadosResult(null)
+    setSel(table); setAba('dados'); setDadosLoading(true); setDadosResult(null); setDadosTotal(null)
     setDadosResult(await runSql(`SELECT * FROM ${table} LIMIT 100;`))
     setDadosLoading(false)
+    // Total real de linhas (best-effort, depois do grid já aparecer).
+    const c = await runSql(`SELECT count(*)::int AS total FROM ${table};`)
+    if (c.ok && c.type === 'rows' && c.rows[0]) setDadosTotal(Number(c.rows[0].total))
   }, [])
 
   const executar = useCallback(async () => {
@@ -182,7 +186,11 @@ export default function SqlConsolePage() {
                   <Table2 className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} />
                   <span className="text-[13px] font-semibold font-mono">{sel}</span>
                   {dadosResult?.ok && dadosResult.type === 'rows' && (
-                    <span className="text-[11px] text-muted-foreground">— {dadosResult.rowCount} linha(s) · {dadosResult.ms} ms</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {dadosTotal !== null
+                        ? <>— {dadosTotal.toLocaleString('pt-BR')} linha(s){dadosTotal > dadosResult.rowCount ? ` · mostrando ${dadosResult.rowCount}` : ''} · {dadosResult.ms} ms</>
+                        : <>— {dadosResult.rowCount} linha(s) · {dadosResult.ms} ms</>}
+                    </span>
                   )}
                   <button onClick={() => abrirDados(sel)} title="Recarregar" className="ml-auto text-muted-foreground hover:text-foreground">
                     <RefreshCw className={`h-3.5 w-3.5 ${dadosLoading ? 'animate-spin' : ''}`} />
@@ -252,6 +260,22 @@ function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick:
 }
 
 function ResultGrid({ res, loading, empty }: { res: RunResult | null; loading?: boolean; empty: React.ReactNode }) {
+  const [sortCol, setSortCol] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  // Reseta a ordenação a cada novo resultado.
+  useEffect(() => { setSortCol(null); setSortDir('asc') }, [res])
+
+  const rows = useMemo(() => {
+    if (!res || res.ok === false || res.type !== 'rows' || !sortCol) return res && res.ok && res.type === 'rows' ? res.rows : []
+    const dir = sortDir === 'asc' ? 1 : -1
+    return [...res.rows].sort((a, b) => cmpVal(a[sortCol], b[sortCol]) * dir)
+  }, [res, sortCol, sortDir])
+
+  const clicarCol = (c: string) => {
+    if (sortCol === c) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortCol(c); setSortDir('asc') }
+  }
+
   if (loading && !res) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
   if (!res) return <div className="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground">{empty}</div>
   if (res.ok === false) {
@@ -274,22 +298,37 @@ function ResultGrid({ res, loading, empty }: { res: RunResult | null; loading?: 
       <table className="w-full text-[12px] border-collapse">
         <thead className="sticky top-0 z-10">
           <tr>{res.columns.map(c => (
-            <th key={c} className="text-left font-semibold px-3 py-2 border-b-2 whitespace-nowrap text-foreground" style={{ background: tint(12), borderColor: tint(35) }}>{c}</th>
+            <th key={c} onClick={() => clicarCol(c)}
+              className="text-left font-semibold px-3 py-2 border-b-2 whitespace-nowrap text-foreground cursor-pointer select-none hover:brightness-95"
+              style={{ background: tint(sortCol === c ? 22 : 12), borderColor: tint(35) }}>
+              <span className="inline-flex items-center gap-1">
+                {c}
+                {sortCol === c && (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" style={{ color: MODULE_COLOR }} /> : <ArrowDown className="h-3 w-3" style={{ color: MODULE_COLOR }} />)}
+              </span>
+            </th>
           ))}</tr>
         </thead>
         <tbody>
-          {res.rows.map((row, i) => (
+          {rows.map((row, i) => (
             <tr key={i} className="hover:bg-muted/40 transition-colors odd:bg-muted/15">
               {res.columns.map(c => (
                 <td key={c} className="px-3 py-1.5 border-b border-border/50 font-mono whitespace-nowrap max-w-[420px] truncate" title={fmt(row[c])}>{cell(row[c])}</td>
               ))}
             </tr>
           ))}
-          {res.rows.length === 0 && <tr><td colSpan={Math.max(1, res.columns.length)} className="px-3 py-4 text-center text-muted-foreground">Nenhuma linha.</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={Math.max(1, res.columns.length)} className="px-3 py-4 text-center text-muted-foreground">Nenhuma linha.</td></tr>}
         </tbody>
       </table>
     </div>
   )
+}
+
+/** Comparador estável: null por último; número numérico; resto por string (numeric). */
+function cmpVal(a: unknown, b: unknown): number {
+  if (a === null || a === undefined) return b === null || b === undefined ? 0 : 1
+  if (b === null || b === undefined) return -1
+  if (typeof a === 'number' && typeof b === 'number') return a - b
+  return String(a).localeCompare(String(b), 'pt-BR', { numeric: true })
 }
 
 function fmt(v: unknown): string {
