@@ -29,12 +29,37 @@ export class SqlConsoleService {
     return v
   }
 
-  /** Nome do banco (e usuário) do ambiente atual — mostrado no cabeçalho do console. */
-  async dbInfo(): Promise<{ database: string; usuario: string }> {
-    const rows = await prisma.$queryRawUnsafe<Array<{ database: string; usuario: string }>>(
-      `SELECT current_database() AS database, current_user AS usuario`,
+  /** Detalhes do banco do ambiente atual — nome no cabeçalho + modal de detalhes. */
+  async dbInfo(): Promise<{
+    database: string; usuario: string; versao: string; host: string | null;
+    porta: number | null; tamanho: string; encoding: string; tabelas: number;
+    conexoes: number; inicioServidor: string | null
+  }> {
+    const rows = await prisma.$queryRawUnsafe<Array<{
+      database: string; usuario: string; versao: string; host: string | null;
+      porta: number | null; tamanho: string; encoding: string; tabelas: number;
+      conexoes: number; inicio_servidor: string | null
+    }>>(
+      `SELECT
+         current_database() AS database,
+         current_user       AS usuario,
+         version()          AS versao,
+         inet_server_addr()::text AS host,
+         inet_server_port() AS porta,
+         pg_size_pretty(pg_database_size(current_database())) AS tamanho,
+         current_setting('server_encoding') AS encoding,
+         (SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE')::int AS tabelas,
+         (SELECT count(*) FROM pg_stat_activity WHERE datname = current_database())::int AS conexoes,
+         to_char(pg_postmaster_start_time(), 'DD/MM/YYYY HH24:MI') AS inicio_servidor`,
     )
-    return rows[0] ?? { database: '?', usuario: '?' }
+    const r = rows[0]
+    if (!r) return { database: '?', usuario: '?', versao: '?', host: null, porta: null, tamanho: '?', encoding: '?', tabelas: 0, conexoes: 0, inicioServidor: null }
+    return {
+      database: r.database, usuario: r.usuario, versao: r.versao, host: r.host,
+      porta: r.porta != null ? Number(r.porta) : null, tamanho: r.tamanho,
+      encoding: r.encoding, tabelas: Number(r.tabelas), conexoes: Number(r.conexoes),
+      inicioServidor: r.inicio_servidor,
+    }
   }
 
   /** Estrutura do banco (schema public): tabelas + colunas, pra árvore tipo DBeaver. */

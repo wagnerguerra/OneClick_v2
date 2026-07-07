@@ -10,9 +10,16 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Database, Play, Loader2, AlertTriangle, Table2, ChevronRight, ChevronDown, KeyRound, Search, RefreshCw, Terminal, TableProperties, Rows3, ArrowUp, ArrowDown } from 'lucide-react'
-import { Button } from '@saas/ui'
+import { Button, Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+
+type DbInfo = {
+  database: string; usuario: string; versao: string; host: string | null
+  porta: number | null; tamanho: string; encoding: string; tabelas: number
+  conexoes: number; inicioServidor: string | null
+}
 
 // Monaco (editor do VS Code) é pesado — lazy load, sem SSR.
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
@@ -67,7 +74,8 @@ export default function SqlConsolePage() {
   const [result, setResult] = useState<RunResult | null>(null)
   const [running, setRunning] = useState(false)
 
-  const [dbInfo, setDbInfo] = useState<{ database: string; usuario: string } | null>(null)
+  const [dbInfo, setDbInfo] = useState<DbInfo | null>(null)
+  const [dbModal, setDbModal] = useState(false)
 
   const carregarSchema = useCallback(async () => {
     setSchemaLoading(true)
@@ -121,6 +129,34 @@ export default function SqlConsolePage() {
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100dvh-8rem)]">
+      {/* Modal de detalhes do banco */}
+      <Dialog open={dbModal} onOpenChange={setDbModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeaderIcon icon={Database} color="cyan">
+            <DialogTitle>Detalhes do banco</DialogTitle>
+            <DialogDescription>Conexão do ambiente atual (produção mostra o banco de produção).</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            {dbInfo ? (
+              <dl className="divide-y divide-border rounded-lg border border-border overflow-hidden text-[13px]">
+                <DbRow label="Banco" value={dbInfo.database} mono strong />
+                <DbRow label="Usuário" value={dbInfo.usuario} mono />
+                <DbRow label="Host" value={dbInfo.host ?? 'socket local'} mono />
+                <DbRow label="Porta" value={dbInfo.porta != null ? String(dbInfo.porta) : '—'} mono />
+                <DbRow label="Tamanho" value={dbInfo.tamanho} />
+                <DbRow label="Tabelas (public)" value={String(dbInfo.tabelas)} />
+                <DbRow label="Conexões ativas" value={String(dbInfo.conexoes)} />
+                <DbRow label="Encoding" value={dbInfo.encoding} />
+                <DbRow label="Servidor no ar desde" value={dbInfo.inicioServidor ?? '—'} />
+                <DbRow label="Versão" value={dbInfo.versao} />
+              </dl>
+            ) : (
+              <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+            )}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
+
       {/* Header padrão de módulo (skill padroniza-modulo — inline /orcamentos) */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
         <div className="flex items-center gap-4">
@@ -205,11 +241,17 @@ export default function SqlConsolePage() {
               Editor SQL
             </TabBtn>
             {dbInfo && (
-              <div className="ml-auto mr-2 mb-1.5 inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px]" style={{ background: tint(8) }} title={`Usuário: ${dbInfo.usuario}`}>
+              <button
+                type="button"
+                onClick={() => setDbModal(true)}
+                title="Ver detalhes do banco"
+                className="ml-auto mr-2 mb-1.5 inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] hover:brightness-95 transition"
+                style={{ background: tint(8) }}
+              >
                 <Database className="h-3 w-3" style={{ color: MODULE_COLOR }} />
                 <span className="text-muted-foreground">banco:</span>
                 <span className="font-mono font-semibold" style={{ color: MODULE_COLOR }}>{dbInfo.database}</span>
-              </div>
+              </button>
             )}
           </div>
 
@@ -379,6 +421,15 @@ function cmpVal(a: unknown, b: unknown): number {
   if (b === null || b === undefined) return -1
   if (typeof a === 'number' && typeof b === 'number') return a - b
   return String(a).localeCompare(String(b), 'pt-BR', { numeric: true })
+}
+
+function DbRow({ label, value, mono, strong }: { label: string; value: string; mono?: boolean; strong?: boolean }) {
+  return (
+    <div className="flex items-start gap-3 px-3 py-2 odd:bg-muted/20">
+      <span className="text-muted-foreground shrink-0 w-40">{label}</span>
+      <span className={`flex-1 min-w-0 break-words ${mono ? 'font-mono' : ''} ${strong ? 'font-semibold' : ''}`} style={strong ? { color: MODULE_COLOR } : undefined}>{value}</span>
+    </div>
+  )
 }
 
 function fmt(v: unknown): string {
