@@ -78,6 +78,8 @@ export default function PublicOrcamentoPage() {
 
   // Decisao
   const [decisaoModal, setDecisaoModal] = useState<'APROVADO' | 'RECUSADO' | null>(null)
+  const [modalClosing, setModalClosing] = useState(false)
+  const fecharModal = () => { if (enviando) return; setModalClosing(true); setTimeout(() => { setDecisaoModal(null); setModalClosing(false) }, 160) }
   const [nome, setNome] = useState('')
   const [cpf, setCpf] = useState('')
   const [cnpjFaturamento, setCnpjFaturamento] = useState('')
@@ -320,8 +322,14 @@ export default function PublicOrcamentoPage() {
 
       {/* Modal de decisao */}
       {decisaoModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 print:hidden">
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-md w-full p-6">
+        <div
+          onClick={fecharModal}
+          className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 print:hidden ${modalClosing ? 'animate-out fade-out-0 duration-150' : 'animate-in fade-in-0 duration-200'}`}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className={`bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-lg w-full p-6 sm:p-7 max-h-[90vh] overflow-y-auto ${modalClosing ? 'animate-out fade-out-0 zoom-out-95 duration-150' : 'animate-in fade-in-0 zoom-in-95 duration-200'}`}
+          >
             <div className="flex items-center gap-3 mb-4">
               {decisaoModal === 'APROVADO' ? (
                 <CheckCircle2 className="h-6 w-6 text-emerald-500" />
@@ -395,7 +403,7 @@ export default function PublicOrcamentoPage() {
             </div>
             <div className="flex gap-2 mt-5 justify-end">
               <button
-                onClick={() => setDecisaoModal(null)}
+                onClick={fecharModal}
                 disabled={enviando}
                 className="px-4 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700"
               >
