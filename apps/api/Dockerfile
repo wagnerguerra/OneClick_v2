@@ -43,7 +43,7 @@ FROM node:22-alpine AS runtime
 # de certidões CND/CNDT/CRF/etc. Ver PUPPETEER_EXECUTABLE_PATH abaixo.
 RUN apk add --no-cache openssl libc6-compat tini \
       chromium nss freetype harfbuzz ttf-freefont ttf-liberation font-noto-emoji \
-      ca-certificates \
+      ca-certificates postgresql-client \
  && corepack enable \
  && corepack prepare pnpm@10.33.0 --activate
 ENV PUPPETEER_SKIP_DOWNLOAD=true \

@@ -416,11 +416,14 @@ export class AdminService {
     const dbDumpPath = path.join(backupDir, `db-${timestamp}.sql`)
     let dbDumpOk = false
 
-    // Tentar: Docker > pg_dump local > pg_dump em Program Files
+    // Usa o DATABASE_URL REAL do ambiente (produção usa o banco de produção;
+    // dev usa o local). Remove a query (?schema=...) que o pg_dump não aceita.
+    // Fallback pra hosts self-hosted (docker/Windows) que não têm o pg_dump no PATH.
+    const dbUrl = (process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/saas_erp').split('?')[0]
     const dumpCommands = [
+      `pg_dump --no-owner --no-acl "${dbUrl}"`,
       'docker exec saas-postgres pg_dump --no-owner --no-acl -U postgres saas_erp',
-      `pg_dump --no-owner --no-acl "postgresql://postgres:postgres@localhost:5432/saas_erp"`,
-      ...[17, 16, 15, 14].map(v => `"C:\\Program Files\\PostgreSQL\\${v}\\bin\\pg_dump.exe" --no-owner --no-acl "postgresql://postgres:postgres@localhost:5432/saas_erp"`),
+      ...[17, 16, 15, 14].map(v => `"C:\\Program Files\\PostgreSQL\\${v}\\bin\\pg_dump.exe" --no-owner --no-acl "${dbUrl}"`),
     ]
 
     for (const cmd of dumpCommands) {
@@ -799,23 +802,29 @@ oc/
 `
       archive.append(readmeRestore, { name: 'README.md' })
 
-      // Projeto completo (excluindo pastas pesadas/desnecessarias)
-      archive.glob('**/*', {
-        cwd: root,
-        ignore: [
-          '**/node_modules/**',
-          '**/.next/**',
-          '**/dist/**',
-          '**/.git/**',
-          '**/.turbo/**',
-          '**/backups/**',
-          '**/.venv/**',
-          '**/__pycache__/**',
-          '**/.cache/**',
-          ...(!options.includeEnv ? ['**/.env'] : []),
-        ],
-        dot: true,
-      }, { prefix: 'oc' })
+      // Projeto completo — SÓ quando o código-fonte está presente (dev/self-hosted).
+      // Em produção (container só com o build) o fonte não existe: globar a raiz
+      // estouraria erro/500 e o "backup do código" não faz sentido lá. Nesse caso
+      // o ZIP fica enxuto (database.sql + uploads + README).
+      const temFonte = fs.existsSync(path.join(root, 'packages', 'db', 'prisma', 'schema.prisma'))
+      if (temFonte) {
+        archive.glob('**/*', {
+          cwd: root,
+          ignore: [
+            '**/node_modules/**',
+            '**/.next/**',
+            '**/dist/**',
+            '**/.git/**',
+            '**/.turbo/**',
+            '**/backups/**',
+            '**/.venv/**',
+            '**/__pycache__/**',
+            '**/.cache/**',
+            ...(!options.includeEnv ? ['**/.env'] : []),
+          ],
+          dot: true,
+        }, { prefix: 'oc' })
+      }
 
       archive.finalize()
     })
