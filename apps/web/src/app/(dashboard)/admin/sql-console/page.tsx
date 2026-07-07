@@ -17,7 +17,7 @@ import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 // Monaco (editor do VS Code) é pesado — lazy load, sem SSR.
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
-  loading: () => <div className="h-[200px] bg-slate-900 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>,
+  loading: () => <div className="h-[220px] bg-muted flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>,
 })
 
 const MODULE_COLOR = 'var(--mod-ajuda, #0891b2)'
@@ -38,6 +38,16 @@ async function runSql(sql: string): Promise<RunResult> {
 
 export default function SqlConsolePage() {
   const { profile, loading } = useCurrentUserProfile()
+
+  // Tema resolvido (segue a classe .dark do <html>, reativo ao toggle).
+  const [isDark, setIsDark] = useState(false)
+  useEffect(() => {
+    const check = () => setIsDark(document.documentElement.classList.contains('dark'))
+    check()
+    const obs = new MutationObserver(check)
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
 
   const [schema, setSchema] = useState<SchemaTable[]>([])
   const [schemaLoading, setSchemaLoading] = useState(false)
@@ -230,12 +240,12 @@ export default function SqlConsolePage() {
             <div className="flex-1 flex flex-col min-h-0">
               {/* Editor escuro */}
               <div className="shrink-0 border-b border-border">
-                <div className="flex items-center justify-between px-3 py-1.5 bg-slate-800">
-                  <span className="flex items-center gap-1.5 text-[12px] font-medium text-slate-300">
+                <div className="flex items-center justify-between px-3 py-1.5 bg-muted/60 border-b border-border">
+                  <span className="flex items-center gap-1.5 text-[12px] font-medium text-foreground/80">
                     <Terminal className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Query
                   </span>
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] text-slate-400">Ctrl / Cmd + Enter</span>
+                    <span className="text-[10px] text-muted-foreground">Ctrl / Cmd + Enter</span>
                     <Button variant="success" size="sm" className="h-7" onClick={executar} disabled={running || !sql.trim()}>
                       {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />} Executar
                     </Button>
@@ -246,7 +256,7 @@ export default function SqlConsolePage() {
                   defaultLanguage="sql"
                   value={sql}
                   onChange={v => setSql(v ?? '')}
-                  theme="vs-dark"
+                  theme={isDark ? 'vs-dark' : 'light'}
                   onMount={(editor: any, monaco: any) => {
                     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => executarRef.current())
                   }}
