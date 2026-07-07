@@ -78,6 +78,8 @@ import { BeneficioFiscalService } from '../beneficio-fiscal/beneficio-fiscal.ser
 import { createBeneficioFiscalRouter } from '../beneficio-fiscal/beneficio-fiscal.router'
 import { QaService } from '../qa/qa.service'
 import { createQaRouter } from '../qa/qa.router'
+import { SqlConsoleService } from '../sql-console/sql-console.service'
+import { createSqlConsoleRouter } from '../sql-console/sql-console.router'
 import { NotaService } from '../nota/nota.service'
 import { createNotaRouter } from '../nota/nota.router'
 import { WhatsappService } from '../whatsapp/whatsapp.service'
@@ -629,6 +631,7 @@ export class TrpcService {
     @Inject(OrcamentoService) private readonly orcamentoService: OrcamentoService,
     @Inject(BeneficioFiscalService) private readonly beneficioFiscalService: BeneficioFiscalService,
     @Inject(QaService) private readonly qaService: QaService,
+    @Inject(SqlConsoleService) private readonly sqlConsoleService: SqlConsoleService,
     @Inject(NotaService) private readonly notaService: NotaService,
     @Inject(WhatsappService) private readonly whatsappService: WhatsappService,
     @Inject(WhatsappCloudService) private readonly whatsappCloudService: WhatsappCloudService,
@@ -722,6 +725,7 @@ export class TrpcService {
       orcamento: createOrcamentoRouter(this.orcamentoService),
       beneficioFiscal: createBeneficioFiscalRouter(this.beneficioFiscalService),
       qa: createQaRouter(this.qaService),
+      sqlConsole: createSqlConsoleRouter(this.sqlConsoleService),
       nota: createNotaRouter(this.notaService),
       whatsapp: createWhatsappRouter(this.whatsappService, this.whatsappCloudService),
       faq: createFaqRouter(this.faqService),

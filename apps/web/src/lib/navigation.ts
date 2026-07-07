@@ -284,6 +284,7 @@ export const navigation: NavGroup[] = [
       { label: 'Design System', href: '/admin/design-system', icon: Sparkles },
       { label: 'App Mobile', href: '/admin/app-mobile', icon: Smartphone },
       { label: 'Modelos de E-mail', href: '/admin/email-templates', icon: Mail },
+      { label: 'Console SQL', href: '/admin/sql-console', icon: Database, masterOnly: true },
       { label: 'Sobre', href: '/sobre', icon: Info },
     ],
   },
