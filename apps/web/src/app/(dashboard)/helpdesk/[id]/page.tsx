@@ -952,47 +952,8 @@ export default function HelpdeskTicketDetailPage() {
               </Card>
             )}
 
-            {/* Aviso passivo pros agentes/TI: o ticket aguarda a avaliação do solicitante pra concluir. */}
-            {podeAvaliar && !isSolicitante && ticket.solicitante && (
-              <Card className="border-l-4 border-l-amber-400 bg-amber-50/40 dark:bg-amber-900/20">
-                <CardContent className="p-4 flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4 text-amber-500 shrink-0" />
-                  Aguardando a avaliação de <span className="font-medium text-foreground">{ticket.solicitante.name}</span> para concluir o ticket (auto-fecha em 3 dias úteis com nota neutra).
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Status da triagem IA — botão pra forçar quando não tem plano pendente (#HLP0083).
-                Aparece se: ainda não tem plano OU plano foi rejeitado. Operador pode
-                forçar processamento mesmo se score ficou abaixo do threshold. */}
-            {(!ticket.aiPlano || ticket.aiPlanoStatus === 'rejeitado') && (
-              <Card className="border-l-4 border-l-slate-400 dark:border-l-slate-500">
-                <CardContent className="p-3 flex items-center gap-3">
-                  <Bot className="h-4 w-4 text-violet-600 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">Triagem IA</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {ticket.aiPlanoStatus === 'rejeitado'
-                        ? 'O plano anterior foi rejeitado. Gere um novo se quiser uma nova proposta.'
-                        : ticket.aiScore == null
-                          ? 'Este ticket ainda não passou pela triagem automática.'
-                          : ticket.aiElegivel
-                            ? `Score ${ticket.aiScore} — elegível, mas sem plano gerado ainda.`
-                            : `Score ${ticket.aiScore} ficou abaixo do threshold — IA não foi consultada automaticamente.`}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={handleForcarProcessamentoIa}
-                    disabled={forcandoIa}
-                    className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white shrink-0"
-                  >
-                    {forcandoIa ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5" />}
-                    {forcandoIa ? 'Processando…' : 'Processar com IA'}
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+            {/* (Aviso "Aguardando avaliação" e card "Triagem IA" movidos para a
+                sidebar, acima do card de Status.) */}
 
             {/* Plano da IA (#HLP0083) — aparece em qualquer status com plano gerado */}
             {ticket.aiPlano && (
@@ -1379,6 +1340,43 @@ export default function HelpdeskTicketDetailPage() {
 
           {/* Sidebar — propriedades editáveis */}
           <aside className="space-y-3 min-w-0">
+            {/* Informes do ticket — acima do card de Status */}
+            {podeAvaliar && !isSolicitante && ticket.solicitante && (
+              <Card className="border-l-4 border-l-amber-400 bg-amber-50/40 dark:bg-amber-900/20">
+                <CardContent className="p-3 flex items-start gap-2 text-[12px] text-muted-foreground">
+                  <Clock className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                  <span>Aguardando a avaliação de <span className="font-medium text-foreground">{ticket.solicitante.name}</span> para concluir o ticket (auto-fecha em 3 dias úteis com nota neutra).</span>
+                </CardContent>
+              </Card>
+            )}
+            {(!ticket.aiPlano || ticket.aiPlanoStatus === 'rejeitado') && (
+              <Card className="border-l-4 border-l-slate-400 dark:border-l-slate-500">
+                <CardContent className="p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Bot className="h-4 w-4 text-violet-600 shrink-0" />
+                    <p className="text-sm font-semibold">Triagem IA</p>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    {ticket.aiPlanoStatus === 'rejeitado'
+                      ? 'O plano anterior foi rejeitado. Gere um novo se quiser uma nova proposta.'
+                      : ticket.aiScore == null
+                        ? 'Este ticket ainda não passou pela triagem automática.'
+                        : ticket.aiElegivel
+                          ? `Score ${ticket.aiScore} — elegível, mas sem plano gerado ainda.`
+                          : `Score ${ticket.aiScore} ficou abaixo do threshold — IA não foi consultada automaticamente.`}
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={handleForcarProcessamentoIa}
+                    disabled={forcandoIa}
+                    className="w-full gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
+                  >
+                    {forcandoIa ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5" />}
+                    {forcandoIa ? 'Processando…' : 'Processar com IA'}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
             <Card>
               <CardContent className="p-3 space-y-3">
                 <SideField label="Status" icon={Layers}>
