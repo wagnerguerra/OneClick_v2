@@ -115,15 +115,17 @@ export default function SqlConsolePage() {
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100dvh-8rem)]">
-      {/* Header */}
-      <div className="flex items-center gap-4 shrink-0">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] text-white shadow-md"
-          style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 70%, #000))` }}>
-          <Database className="h-6 w-6" />
-        </div>
-        <div>
-          <h1>Console SQL</h1>
-          <p className="text-sm text-muted-foreground">Navegue pelas tabelas e execute queries no banco do ambiente atual</p>
+      {/* Header padrão de módulo (skill padroniza-modulo — inline /orcamentos) */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
+            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
+            <Database className="h-6 w-6" />
+          </div>
+          <div>
+            <h1>Console SQL</h1>
+            <p className="text-sm text-muted-foreground">Navegue pelas tabelas e execute queries no banco do ambiente atual</p>
+          </div>
         </div>
       </div>
 
