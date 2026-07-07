@@ -177,12 +177,12 @@ export default function PublicOrcamentoPage() {
   ) : null
 
   return (
-    <div className="max-w-5xl mx-auto p-4 sm:p-8 print:p-0">
-      {/* Header / Branding — capa com imagem de fundo, logo e nº da proposta */}
-      <header className="relative overflow-hidden rounded-lg shadow-sm mb-6 print:shadow-none print:rounded-none print:border print:border-slate-200">
+    <div className="print:p-0">
+      {/* Header — capa FULL-BLEED (bg de ponta a ponta, sem frame/card) */}
+      <header className="relative overflow-hidden print:border-b print:border-slate-200">
         <div className="absolute inset-0 bg-center bg-cover" style={{ backgroundImage: 'url(/materiais/view-bg.jpg)' }} />
-        <div className="absolute inset-0 bg-white/75 dark:bg-slate-900/80" />
-        <div className="relative flex flex-col items-center text-center py-9 px-6">
+        <div className="absolute inset-0 bg-white/70 dark:bg-slate-900/80" />
+        <div className="relative flex flex-col items-center text-center py-9 px-6 max-w-5xl mx-auto">
           <button
             onClick={() => window.print()}
             className="absolute top-3 right-3 flex items-center gap-2 px-3 py-1.5 text-sm bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-white dark:hover:bg-slate-800 transition-colors print:hidden"
@@ -201,6 +201,9 @@ export default function PublicOrcamentoPage() {
           </h1>
         </div>
       </header>
+
+      {/* Conteúdo centralizado */}
+      <div className="max-w-5xl mx-auto p-4 sm:p-8 print:p-0">
 
       {/* Ações (topo) — mesmos botões da base */}
       {acoesCliente}
@@ -447,6 +450,7 @@ export default function PublicOrcamentoPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }
