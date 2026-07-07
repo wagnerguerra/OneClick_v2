@@ -31,6 +31,9 @@ export default function BackupRestorePage() {
 
 function BackupRestorePageInner() {
   const [generating, setGenerating] = useState(false)
+  const [includeDb, setIncludeDb] = useState(true)
+  const [includeUploads, setIncludeUploads] = useState(false)
+  const [includeSource, setIncludeSource] = useState(false)
   const [includeEnv, setIncludeEnv] = useState(false)
   const [backups, setBackups] = useState<BackupFile[]>([])
   const [loading, setLoading] = useState(true)
@@ -64,7 +67,7 @@ function BackupRestorePageInner() {
       setProgress(40)
       setProgressText('Compactando banco de dados...')
 
-      const backupResult = await trpc.admin.generateBackup.mutate({ includeEnv }) as BackupResult
+      const backupResult = await trpc.admin.generateBackup.mutate({ includeDb, includeUploads, includeSource, includeEnv }) as BackupResult
 
       setProgress(80)
       setProgressText('Adicionando uploads e schemas...')
@@ -131,13 +134,13 @@ function BackupRestorePageInner() {
             </p>
             <div className="space-y-3">
               <label className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox checked={true} disabled /><span>Banco de dados (PostgreSQL dump)</span>
+                <Checkbox checked={includeDb} onCheckedChange={(v) => setIncludeDb(!!v)} /><span>Banco de dados (PostgreSQL dump)</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox checked={true} disabled /><span>Arquivos enviados (uploads/)</span>
+                <Checkbox checked={includeUploads} onCheckedChange={(v) => setIncludeUploads(!!v)} /><span>Arquivos enviados (uploads/)</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox checked={true} disabled /><span>Schema Prisma + CLAUDE.md</span>
+                <Checkbox checked={includeSource} onCheckedChange={(v) => setIncludeSource(!!v)} /><span>Código-fonte do projeto <span className="text-amber-600 text-xs">(pesado — só p/ restore self-hosted)</span></span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer text-sm">
                 <Checkbox checked={includeEnv} onCheckedChange={(v) => setIncludeEnv(!!v)} />

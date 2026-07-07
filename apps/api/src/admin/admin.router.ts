@@ -42,7 +42,12 @@ export function createAdminRouter(adminService: AdminService) {
 
     // === BACKUP ===
     generateBackup: masterProcedure
-      .input(z.object({ includeEnv: z.boolean().default(false) }))
+      .input(z.object({
+        includeDb: z.boolean().default(true),
+        includeUploads: z.boolean().default(true),
+        includeSource: z.boolean().default(true),
+        includeEnv: z.boolean().default(false),
+      }))
       .mutation(({ input }) => adminService.generateBackup(input)),
 
     listBackups: masterProcedure

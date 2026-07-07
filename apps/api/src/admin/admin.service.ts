@@ -405,7 +405,13 @@ export class AdminService {
     return path.resolve(process.cwd(), '..', '..')
   }
 
-  async generateBackup(options: { includeEnv?: boolean }) {
+  async generateBackup(options: { includeDb?: boolean; includeUploads?: boolean; includeSource?: boolean; includeEnv?: boolean }) {
+    // Defaults true (compat com chamadas antigas). Gerar SÓ o banco (demais false)
+    // deixa o ZIP pequeno e rápido — evita o timeout de 30s do gateway ao empacotar
+    // o código-fonte inteiro (que em produção vem do git no servidor).
+    const includeDb = options.includeDb ?? true
+    const includeUploads = options.includeUploads ?? true
+    const includeSource = options.includeSource ?? true
     const backupDir = this.getBackupDir()
     const root = this.getProjectRoot()
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
@@ -415,7 +421,9 @@ export class AdminService {
     // 1. Dump do PostgreSQL
     const dbDumpPath = path.join(backupDir, `db-${timestamp}.sql`)
     let dbDumpOk = false
-
+    if (!includeDb) {
+      // Não pediu o banco — pula o pg_dump.
+    } else {
     // Usa o DATABASE_URL REAL do ambiente (produção usa o banco de produção;
     // dev usa o local). Remove a query (?schema=...) que o pg_dump não aceita.
     // Fallback pra hosts self-hosted (docker/Windows) que não têm o pg_dump no PATH.
@@ -439,6 +447,7 @@ export class AdminService {
 
     if (!dbDumpOk) {
       fs.writeFileSync(dbDumpPath, '-- pg_dump nao disponivel. Tente: docker exec saas-postgres pg_dump -U postgres saas_erp > backup.sql\n')
+    }
     }
 
     // 2. Gerar ZIP
@@ -802,12 +811,17 @@ oc/
 `
       archive.append(readmeRestore, { name: 'README.md' })
 
-      // Projeto completo — SÓ quando o código-fonte está presente (dev/self-hosted).
-      // Em produção (container só com o build) o fonte não existe: globar a raiz
-      // estouraria erro/500 e o "backup do código" não faz sentido lá. Nesse caso
-      // o ZIP fica enxuto (database.sql + uploads + README).
+      // Arquivos enviados (uploads/) — só se pedido e se a pasta existir.
+      if (includeUploads) {
+        const uploadsDir = path.join(root, 'uploads')
+        if (fs.existsSync(uploadsDir)) archive.directory(uploadsDir, 'uploads')
+      }
+
+      // Projeto completo — SÓ quando pedido E o código-fonte está presente.
+      // É o que faz o ZIP pesar centenas de MB e estourar o timeout de 30s; gerar
+      // "só o banco" (includeSource=false) deixa o backup leve e rápido.
       const temFonte = fs.existsSync(path.join(root, 'packages', 'db', 'prisma', 'schema.prisma'))
-      if (temFonte) {
+      if (includeSource && temFonte) {
         archive.glob('**/*', {
           cwd: root,
           ignore: [
@@ -817,6 +831,7 @@ oc/
             '**/.git/**',
             '**/.turbo/**',
             '**/backups/**',
+            '**/uploads/**',
             '**/.venv/**',
             '**/__pycache__/**',
             '**/.cache/**',
