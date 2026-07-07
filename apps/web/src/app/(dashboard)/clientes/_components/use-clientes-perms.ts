@@ -8,7 +8,7 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
  * master/empresa-master sempre podem tudo.
  */
 export function useClientesPerms() {
-  const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
+  const { isMaster, isEmpresaMaster, permissions, loading } = useUserPermissions()
   const isAdmin = isMaster || isEmpresaMaster
   const perm = permissions.find((p) => p.moduleSlug === 'clientes')
   const canWrite = isAdmin || !!perm?.canWrite
@@ -18,6 +18,7 @@ export function useClientesPerms() {
 
   const canManageActivitiesBenefits = sub('manage_activities_benefits')
   const canManageFiles = sub('manage_files')
+  const canCreate = sub('create_client')                 // cadastrar novos clientes (separado de edit_details)
   const canEditDetails = sub('edit_details')             // dados básicos, contatos, históricos, ocorrências, imports de cadastro
   const canManageServices = sub('manage_services')       // serviços contratados / parâmetros / copiar estrutura
   const canManageResponsible = sub('manage_responsible') // responsáveis pelas áreas
@@ -35,7 +36,8 @@ export function useClientesPerms() {
   const canDownloadCert = isAdmin || certPerm?.subPermissions?.['download_arquivo'] === true
 
   return {
-    isAdmin, canWrite, canDelete,
+    loading,
+    isAdmin, canWrite, canDelete, canCreate,
     canManageActivitiesBenefits, canManageFiles, canEditCertificados, canDownloadCert,
     canEditDetails, canManageServices, canManageResponsible, canManageContracts, canManageCommercial,
     canEditTaxation, canManageFiscal, canManageRegistration, canManageClientUsers, canRenegotiation,

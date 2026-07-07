@@ -53,8 +53,8 @@ export function createClienteRouter(
       .input(z.object({ id: z.string() }))
       .query(({ input, ctx }) => clienteService.getById(input.id, ctx.isMaster, ctx.empresaId)),
 
-    // Criar
-    create: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+    // Criar — sub-permissão dedicada 'create_client' (separada de edit_details).
+    create: writeSubProcedure(MODULE, 'create_client', 'Cadastrar novos clientes')
       .input(createClienteSchema)
       .mutation(({ input, ctx }) => clienteService.create(input, ctx.userId, ctx.empresaId)),
 

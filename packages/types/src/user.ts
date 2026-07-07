@@ -225,6 +225,7 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
   ],
   clientes: [
     { key: 'view_all', label: 'Visualizar todos os tipos de clientes', group: 'Gerais' },
+    { key: 'create_client', label: 'Cadastrar novos clientes', group: 'Gerais' },
     { key: 'edit_details', label: 'Editar detalhes do cliente', group: 'Gerais' },
     { key: 'edit_financial', label: 'Alterar particularidades no financeiro', group: 'Gerais' },
     { key: 'notify_files', label: 'Notificar vencimentos de arquivos', group: 'Gerais' },

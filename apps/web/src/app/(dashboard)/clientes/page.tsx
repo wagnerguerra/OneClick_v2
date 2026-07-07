@@ -32,6 +32,7 @@ import { SITUACAO_LABELS, SITUACAO_COLORS, AREA_CONTRATADA_OPTIONS } from '@saas
 import { masks } from '@/lib/masks'
 import { EnriquecerCnaeDialog } from './_components/enriquecer-cnae-dialog'
 import { SincronizarResponsaveisDialog } from './_components/sincronizar-responsaveis-dialog'
+import { useClientesPerms } from './_components/use-clientes-perms'
 
 interface Cliente {
   id: string; code: number; razaoSocial: string; nomeFantasia: string | null
@@ -58,6 +59,7 @@ const TRIBUTACAO_LABELS: Record<string, string> = {
 
 export default function ClientesPage() {
   const router = useRouter()
+  const { canCreate } = useClientesPerms()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -424,9 +426,11 @@ export default function ClientesPage() {
         <div className="flex items-center gap-2 shrink-0">
           {!trashMode && (
             <>
-              <Button variant="success" size="sm" asChild>
-                <Link href="/clientes/new"><Plus className="h-4 w-4" />Novo Cliente</Link>
-              </Button>
+              {canCreate && (
+                <Button variant="success" size="sm" asChild>
+                  <Link href="/clientes/new"><Plus className="h-4 w-4" />Novo Cliente</Link>
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={openOpcoesModal} className="gap-1.5">
                 <Settings2 className="h-4 w-4" /> Opcoes
               </Button>
