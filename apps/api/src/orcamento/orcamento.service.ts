@@ -1685,8 +1685,10 @@ export class OrcamentoService {
    * - -> FINALIZADO: emailComercial
    * Email de pesquisa ao cliente em FINALIZADO e enviado pelo PesquisaService (best-effort).
    */
-  async notificarMudancaStatus(id: string, statusAtual: string, novoStatus: string, userId?: string, opts?: { notificarCliente?: boolean }) {
-    if (statusAtual === novoStatus) return
+  async notificarMudancaStatus(id: string, statusAtual: string, novoStatus: string, userId?: string, opts?: { notificarCliente?: boolean; revisao?: { nome: string; observacao?: string } }) {
+    // Revisão não muda o status (statusAtual === novoStatus), então só barramos
+    // quando NÃO for revisão.
+    if (statusAtual === novoStatus && !opts?.revisao) return
     // notificarCliente=false → não dispara o e-mail de proposta pro cliente (decisão do operador).
     const notificarCliente = opts?.notificarCliente !== false
 
@@ -1783,6 +1785,32 @@ export class OrcamentoService {
         console.warn('[Orcamento] Falha ao enviar email:', (e as Error).message)
         return 0
       }
+    }
+
+    // ── Revisão solicitada pelo cliente (não muda status) ──
+    if (opts?.revisao) {
+      const obsEsc = (opts.revisao.observacao || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')
+      await enviarEmail({
+        to: [...emailComercial, ...emailFinanceiro],
+        subject: `↻ Orçamento ${numero} — revisão solicitada · ${clienteNome}`,
+        preheader: `${clienteNome} solicitou uma revisão do orçamento ${numero}.`,
+        heroAccent: '#f59e0b',
+        heroTitle: `Revisão solicitada pelo cliente`,
+        heroSubtitle: `${numero} · ${clienteNome}`,
+        bodyHtml: `
+          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px 20px;margin:0 0 18px;">
+            <p style="margin:0;color:#92400e;font-weight:600;font-size:14px;">↻ <strong>${opts.revisao.nome}</strong> solicitou uma revisão da proposta. Ajuste e reenvie ao cliente.</p>
+          </div>
+          ${obsEsc ? `<div style="background:#f8fafc;border-left:3px solid #f59e0b;padding:14px 18px;margin:0 0 18px;border-radius:4px;color:#334155;font-size:13px;"><strong>Pontos apontados pelo cliente:</strong><br>${obsEsc}</div>` : ''}
+          ${summaryTable}
+          ${itensTable}
+          ${totaisBlock}
+        `,
+        ctaLabel: 'Abrir orçamento',
+        ctaUrl: linkInterno,
+        tipoEvento: 'Notificação de revisão solicitada',
+      })
+      return
     }
 
     // ── A_ENVIAR/NOVO -> ENVIADO ──
@@ -2087,8 +2115,10 @@ export class OrcamentoService {
     // Dispara as notificações internas (comercial/financeiro + aprovações) — antes
     // o fluxo do link público não notificava ninguém, só o de status direto. Agora
     // aprovação/recusa pelo link avisa os mesmos destinatários. Best-effort.
-    this.notificarMudancaStatus(orc.id, orc.status, novoStatus, undefined, { notificarCliente: false })
-      .catch((e) => console.warn('[Orcamento] Falha ao notificar decisão do cliente:', (e as Error).message))
+    this.notificarMudancaStatus(orc.id, orc.status, novoStatus, undefined, {
+      notificarCliente: false,
+      ...(isRevisao ? { revisao: { nome: decisao.nome, observacao: decisao.observacao } } : {}),
+    }).catch((e) => console.warn('[Orcamento] Falha ao notificar decisão do cliente:', (e as Error).message))
     return updated
   }
 
