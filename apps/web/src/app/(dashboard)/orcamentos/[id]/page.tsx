@@ -8,7 +8,7 @@ import {
   Upload, DollarSign, Send, Printer, Copy as CopyIcon, ExternalLink,
   MoreVertical, Pause, Play, RotateCcw, AlertTriangle,
   Package, History, Type, ChevronDown, ThumbsUp, ThumbsDown, CheckCircle2,
-  Paperclip, Image as ImageIcon, Archive, MessageSquare, Files, Shield, Lock,
+  Paperclip, Image as ImageIcon, Archive, MessageSquare, Files, Shield, Lock, Globe,
   Sparkles, Star,
 } from 'lucide-react'
 import {
@@ -91,6 +91,7 @@ interface OrcamentoArquivo {
   fileSize?: number
   mimeType?: string
   createdAt: string
+  publico?: boolean
 }
 
 interface OrcamentoEvento {
@@ -1652,6 +1653,13 @@ export default function OrcamentoDetailPage() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
+  /** Alterna se o anexo aparece (público) ou não (privado) na proposta do cliente. */
+  async function toggleArquivoPublico(arquivoId: string, publico: boolean) {
+    setOrc(prev => prev ? { ...prev, arquivos: prev.arquivos.map(a => a.id === arquivoId ? { ...a, publico } : a) } : prev)
+    try { await (trpc.orcamento as any).setArquivoPublico.mutate({ id: arquivoId, publico }) }
+    catch (e) { alerts.error('Erro', (e as Error).message); fetchOrc(true) }
+  }
+
   // ── Totals ──
 
   const totalServicos = orc?.itens.filter(i => i.tipo === 'SERVICO').reduce((s, i) => s + (i.valorTotal || i.quantidade * i.valorUnitario), 0) ?? 0
@@ -2750,6 +2758,16 @@ export default function OrcamentoDetailPage() {
                       <a href={arq.fileUrl} target="_blank" rel="noopener noreferrer" className="truncate block hover:underline font-medium" style={{ color: MODULE_COLOR }}>{arq.fileName}</a>
                       <span className="text-muted-foreground text-[10px]">{formatDate(arq.createdAt)}</span>
                     </div>
+                    {/* Público (aparece na proposta do cliente) x Privado */}
+                    <button
+                      type="button"
+                      onClick={() => toggleArquivoPublico(arq.id, !arq.publico)}
+                      title={arq.publico ? 'Público — aparece na proposta do cliente. Clique para tornar privado.' : 'Privado — só interno. Clique para publicar na proposta do cliente.'}
+                      className={`shrink-0 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors ${arq.publico ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
+                    >
+                      {arq.publico ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                      {arq.publico ? 'Público' : 'Privado'}
+                    </button>
                     <button type="button" onClick={() => handleRemoveArquivo(arq.id)} className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 transition-opacity">
                       <X className="h-3.5 w-3.5" />
                     </button>

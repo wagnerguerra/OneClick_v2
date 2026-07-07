@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { CheckCircle2, XCircle, FileText, Loader2, Printer, Calendar, Building2, Phone, Mail } from 'lucide-react'
+import { CheckCircle2, XCircle, FileText, Loader2, Printer, Calendar, Building2, Phone, Mail, Paperclip, Download } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
 
@@ -39,6 +39,7 @@ interface Orcamento {
   decisaoObs: string | null
   createdAt: string
   itens: Item[]
+  arquivos?: Array<{ id: string; fileName: string; fileUrl: string; fileSize: number | null; mimeType: string | null }>
   cliente: { razaoSocial: string; nomeFantasia: string | null; documento: string; tipoDocumento: string; email: string | null } | null
   empresa: { razaoSocial: string; nomeFantasia: string | null; logoUrl: string | null; cnpj: string; telefone: string | null; email: string | null; site: string | null } | null
   config: { textoApresentacao: string }
@@ -159,34 +160,50 @@ export default function PublicOrcamentoPage() {
   const clienteNome = orc.cliente?.razaoSocial || 'Cliente'
   const decidido = !!orc.decisaoTipo
 
+  // Botões de decisão — reusados no topo e na base da página.
+  const acoesCliente = (!decidido && !confirmacao) ? (
+    <section className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6 mb-6 print:hidden">
+      <h3 className="font-semibold mb-1">Pronto para responder?</h3>
+      <p className="text-sm text-muted-foreground mb-4">Aprove a proposta para iniciarmos o trabalho ou recuse para nos enviar seu retorno.</p>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <button onClick={() => setDecisaoModal('APROVADO')} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md font-semibold transition-colors">
+          <CheckCircle2 className="h-5 w-5" /> Aprovar Proposta
+        </button>
+        <button onClick={() => setDecisaoModal('RECUSADO')} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-md font-semibold border border-slate-200 dark:border-slate-600 transition-colors">
+          <XCircle className="h-5 w-5" /> Recusar
+        </button>
+      </div>
+    </section>
+  ) : null
+
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-8 print:p-0">
-      {/* Header / Branding */}
-      <header className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6 mb-6 print:shadow-none print:rounded-none">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
-          <div className="flex items-center gap-4">
-            {orc.empresa?.logoUrl ? (
-              <img src={resolveAssetUrl(orc.empresa.logoUrl)} alt={empresaNome} className="h-14 w-auto object-contain" />
-            ) : (
-              <div className="h-14 w-14 rounded-lg flex items-center justify-center text-white text-xl font-bold" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-                {empresaNome[0]?.toUpperCase()}
-              </div>
-            )}
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">{empresaNome}</h1>
-              {orc.empresa?.cnpj && (
-                <p className="text-xs text-muted-foreground">CNPJ: {formatDocumento(orc.empresa.cnpj, 'CNPJ')}</p>
-              )}
-            </div>
-          </div>
+      {/* Header / Branding — capa com imagem de fundo, logo e nº da proposta */}
+      <header className="relative overflow-hidden rounded-lg shadow-sm mb-6 print:shadow-none print:rounded-none print:border print:border-slate-200">
+        <div className="absolute inset-0 bg-center bg-cover" style={{ backgroundImage: 'url(/materiais/view-bg.jpg)' }} />
+        <div className="absolute inset-0 bg-white/75 dark:bg-slate-900/80" />
+        <div className="relative flex flex-col items-center text-center py-9 px-6">
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors print:hidden"
+            className="absolute top-3 right-3 flex items-center gap-2 px-3 py-1.5 text-sm bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-white dark:hover:bg-slate-800 transition-colors print:hidden"
           >
             <Printer className="h-4 w-4" /> Imprimir
           </button>
+          {orc.empresa?.logoUrl ? (
+            <img src={resolveAssetUrl(orc.empresa.logoUrl)} alt={empresaNome} className="h-16 sm:h-20 w-auto object-contain" />
+          ) : (
+            <div className="h-16 w-16 rounded-lg flex items-center justify-center text-white text-2xl font-bold" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
+              {empresaNome[0]?.toUpperCase()}
+            </div>
+          )}
+          <h1 className="mt-4 text-lg sm:text-2xl font-medium text-slate-700 dark:text-slate-200 tracking-wide">
+            Proposta Comercial <span className="font-bold">#{String(orc.numero).padStart(4, '0')}</span>
+          </h1>
         </div>
       </header>
+
+      {/* Ações (topo) — mesmos botões da base */}
+      {acoesCliente}
 
       {/* Confirmacao apos decisao */}
       {(confirmacao || decidido) && (
@@ -247,9 +264,6 @@ export default function PublicOrcamentoPage() {
           </div>
         </div>
 
-        {orc.config.textoApresentacao && (
-          <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700 prose prose-sm max-w-none text-slate-700 dark:text-slate-300" dangerouslySetInnerHTML={{ __html: orc.config.textoApresentacao }} />
-        )}
         {orc.textoCorpoCliente && (
           <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700">
             <div
@@ -298,27 +312,33 @@ export default function PublicOrcamentoPage() {
         </div>
       </section>
 
-      {/* Acoes do cliente */}
-      {!decidido && !confirmacao && (
-        <section className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6 print:hidden">
-          <h3 className="font-semibold mb-1">Pronto para responder?</h3>
-          <p className="text-sm text-muted-foreground mb-4">Aprove a proposta para iniciarmos o trabalho ou recuse para nos enviar seu retorno.</p>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={() => setDecisaoModal('APROVADO')}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md font-semibold transition-colors"
-            >
-              <CheckCircle2 className="h-5 w-5" /> Aprovar Proposta
-            </button>
-            <button
-              onClick={() => setDecisaoModal('RECUSADO')}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-md font-semibold border border-slate-200 dark:border-slate-600 transition-colors"
-            >
-              <XCircle className="h-5 w-5" /> Recusar
-            </button>
+      {/* Anexos públicos da proposta */}
+      {!!orc.arquivos?.length && (
+        <section className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6 mb-6 print:shadow-none print:rounded-none print:border print:border-slate-200">
+          <h3 className="font-semibold mb-3 flex items-center gap-2">
+            <Paperclip className="h-4 w-4 text-muted-foreground" /> Anexos
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {orc.arquivos.map(a => (
+              <a
+                key={a.id}
+                href={resolveAssetUrl(a.fileUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 rounded-md border border-slate-200 dark:border-slate-700 p-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                title={a.fileName}
+              >
+                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="text-sm truncate flex-1">{a.fileName}</span>
+                <Download className="h-4 w-4 shrink-0 text-muted-foreground print:hidden" />
+              </a>
+            ))}
           </div>
         </section>
       )}
+
+      {/* Ações do cliente (base) */}
+      {acoesCliente}
 
       {/* Footer */}
       <footer className="text-center mt-8 mb-4 text-xs text-muted-foreground">
