@@ -485,12 +485,28 @@ export class OrcamentoService {
         ...(num ? [{ documento: { contains: num } }] : []),
       ]
     }
-    return prisma.cliente.findMany({
+    const rows = await prisma.cliente.findMany({
       where,
-      select: { id: true, razaoSocial: true, nomeFantasia: true, documento: true },
+      select: { id: true, razaoSocial: true, nomeFantasia: true, documento: true, empresaId: true },
       orderBy: { razaoSocial: 'asc' },
-      take: 20,
+      take: 40,
     })
+    // Dedupe por documento normalizado — havia clientes duplicados (uma cópia
+    // órfã com empresaId NULL do legado + a cópia real com empresa), fazendo o
+    // mesmo cliente aparecer 2x no seletor. Prefere a cópia COM empresa; docs
+    // vazios nunca são deduplicados (cada um é um registro distinto).
+    const byDoc = new Map<string, typeof rows[number]>()
+    const semDoc: typeof rows = []
+    for (const r of rows) {
+      const key = (r.documento || '').replace(/\D/g, '')
+      if (!key) { semDoc.push(r); continue }
+      const atual = byDoc.get(key)
+      if (!atual || (!atual.empresaId && r.empresaId)) byDoc.set(key, r)
+    }
+    return [...byDoc.values(), ...semDoc]
+      .sort((a, b) => a.razaoSocial.localeCompare(b.razaoSocial))
+      .slice(0, 20)
+      .map(({ id, razaoSocial, nomeFantasia, documento }) => ({ id, razaoSocial, nomeFantasia, documento }))
   }
 
   // ===================================================================
