@@ -97,7 +97,8 @@ export class IntegrationService {
   // ── 1. Cadastrar das Consultas ───────────────────────────
 
   async cadastrarDasConsultas(empresaId?: string) {
-    const lockKey = empresaId ?? '__global__'
+    if (!empresaId) throw new Error('Importação requer uma empresa vinculada (isolamento de tenant).')
+    const lockKey = empresaId
     if (this.serproRunning.has(lockKey)) {
       throw new Error('Já existe uma importação de consultas em andamento para esta empresa. Aguarde a conclusão.')
     }
@@ -173,6 +174,7 @@ export class IntegrationService {
   }
 
   async cadastrarPeloCnpj(cnpj: string, empresaId?: string) {
+    if (!empresaId) throw new Error('Cadastro requer uma empresa vinculada (isolamento de tenant).')
     const doc = cnpj.replace(/\D/g, '')
     if (doc.length !== 14) throw new Error('CNPJ deve ter 14 dígitos.')
 
@@ -214,6 +216,7 @@ export class IntegrationService {
     opts: { atualizarExistentes?: boolean; preencherPorCnpj?: boolean },
     empresaId?: string,
   ) {
+    if (!empresaId) throw new Error('Importação requer uma empresa vinculada (isolamento de tenant).')
     const job = createJob(clientes.length)
     job.progress.phase = 'running'
 
@@ -395,6 +398,7 @@ export class IntegrationService {
     },
     empresaId?: string,
   ) {
+    if (!empresaId) throw new Error('Importação requer uma empresa vinculada (isolamento de tenant).')
     // Contar total no legado para dimensionar o job
     const mysql = await import('mysql2/promise')
     let conn: Awaited<ReturnType<typeof mysql.createConnection>> | null = null

@@ -144,7 +144,7 @@ export class ClienteService {
              OR telefone   ILIKE $1
              OR id_sistema ILIKE $1
            )
-           ${isMaster ? '' : 'AND (empresa_id = $2 OR empresa_id IS NULL)'}`,
+           ${isMaster ? '' : 'AND empresa_id = $2'}`,
         term,
         ...(isMaster ? [] : [empresaId ?? '']),
       )
@@ -318,6 +318,10 @@ export class ClienteService {
   // Criar
   // ============================================================
   async create(input: CreateClienteInput, userId?: string, empresaId?: string) {
+    // Isolamento de tenant: cliente NUNCA é global — precisa de empresa vinculada.
+    if (!empresaId) {
+      throw new Error('Não é possível criar um cliente sem empresa vinculada.')
+    }
     // [QA #40] Documento é opcional, mas se informado precisa ter DV válido
     // (barra 00000000000000, sequências e dígito errado no cadastro manual).
     const docLimpo = (input.documento || '').replace(/\D/g, '')
@@ -361,7 +365,7 @@ export class ClienteService {
           email: input.email || null,
           logoUrl: input.logoUrl || null,
           isActive: input.isActive ?? true,
-          empresaId: empresaId || null,
+          empresaId, // garantido pelo guard acima (nunca global)
           version: 1,
         },
       })
@@ -498,11 +502,10 @@ export class ClienteService {
   // (empresaId=null — legado/migração) para que dropdowns nunca venham
   // vazios por causa de divergência de scope. Master continua vendo tudo.
   async listForSelect(isMaster?: boolean, empresaId?: string) {
+    // Isolamento estrito: não-master só vê clientes da própria empresa (nunca NULL/global).
     const where: Prisma.ClienteWhereInput = isMaster
       ? { deletedAt: null }
-      : empresaId
-        ? { deletedAt: null, OR: [{ empresaId }, { empresaId: null }] }
-        : { deletedAt: null, empresaId: null }
+      : { deletedAt: null, empresaId: empresaId ?? '__none__' }
     return prisma.cliente.findMany({
       where,
       select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, documento: true, situacao: true },

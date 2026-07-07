@@ -76,6 +76,7 @@ export class LegacyImportService {
   }
 
   async importFromLegacy(empresaId?: string, userId?: string) {
+    if (!empresaId) throw new Error('Importação requer uma empresa vinculada (isolamento de tenant).')
     const conn = await this.getLegacyConnection()
     const results = { total: 0, imported: 0, updated: 0, skipped: 0, errors: [] as string[] }
 
