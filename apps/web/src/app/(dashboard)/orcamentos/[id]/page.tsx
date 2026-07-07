@@ -156,6 +156,8 @@ interface Orcamento {
   decisaoNome?: string | null
   decisaoCpf?: string | null
   decisaoObs?: string | null
+  decisaoCnpjFaturamento?: string | null
+  decisaoEmailFinanceiro?: string | null
   // Auditoria
   reaberturasCount?: number
   createdAt: string
@@ -170,6 +172,15 @@ interface Orcamento {
 // ============================================================
 // Helpers
 // ============================================================
+
+/** Formata o documento de faturamento (CPF 11 / CNPJ 14 dígitos). */
+function fmtDocFaturamento(doc: string | null | undefined): string {
+  if (!doc) return '—'
+  const d = doc.replace(/\D/g, '')
+  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+  return doc
+}
 
 function formatCurrency(v: number | null | undefined): string {
   if (v == null) return 'R$ 0,00'
@@ -2066,6 +2077,18 @@ export default function OrcamentoDetailPage() {
                     <p className="text-foreground font-medium tabular-nums">{orc.decisaoEm ? new Date(orc.decisaoEm).toLocaleString('pt-BR') : '—'}</p>
                   </div>
                 </div>
+                {(orc.decisaoCnpjFaturamento || orc.decisaoEmailFinanceiro) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">CPF / CNPJ p/ faturamento</p>
+                      <p className="text-foreground font-medium tabular-nums">{fmtDocFaturamento(orc.decisaoCnpjFaturamento)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">E-mail do financeiro</p>
+                      <p className="text-foreground font-medium break-all">{orc.decisaoEmailFinanceiro || '—'}</p>
+                    </div>
+                  </div>
+                )}
                 {orc.decisaoObs && (
                   <div>
                     <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Observação do cliente</p>

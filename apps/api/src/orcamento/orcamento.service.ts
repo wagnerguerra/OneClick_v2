@@ -251,7 +251,16 @@ export class OrcamentoService {
       usuario: e.userId ? userMap.get(e.userId) || null : null,
     }))
 
-    return { ...orc, mensagens, eventos, cliente, empresa, solicitante, responsavel }
+    // Dados de faturamento da decisão (colunas novas — via raw enquanto o client não regenera).
+    const fat = await prisma.$queryRawUnsafe<Array<{ decisaoCnpjFaturamento: string | null; decisaoEmailFinanceiro: string | null }>>(
+      `SELECT decisao_cnpj_faturamento AS "decisaoCnpjFaturamento", decisao_email_financeiro AS "decisaoEmailFinanceiro" FROM orcamentos WHERE id = $1`, id,
+    ).catch(() => [])
+
+    return {
+      ...orc, mensagens, eventos, cliente, empresa, solicitante, responsavel,
+      decisaoCnpjFaturamento: fat[0]?.decisaoCnpjFaturamento ?? null,
+      decisaoEmailFinanceiro: fat[0]?.decisaoEmailFinanceiro ?? null,
+    }
   }
 
   async getByToken(token: string) {
@@ -2023,7 +2032,7 @@ export class OrcamentoService {
 
   // ── Decisao do Cliente (publico) ──────────────────────────
 
-  async registrarDecisao(token: string, decisao: { tipo: string; nome: string; cpf?: string; observacao?: string }) {
+  async registrarDecisao(token: string, decisao: { tipo: string; nome: string; cpf?: string; observacao?: string; cnpjFaturamento?: string; emailFinanceiro?: string }) {
     const orc = await prisma.orcamento.findUnique({ where: { token } })
     if (!orc) throw new Error('Orcamento nao encontrado')
     if (orc.decisaoTipo) throw new Error('Decisao ja registrada')
@@ -2044,6 +2053,13 @@ export class OrcamentoService {
         ...(novoStatus === 'APROVADO' ? { dtAprovado: new Date() } : { dtEncerrado: new Date() }),
       },
     })
+    // Dados de faturamento (colunas novas — via raw enquanto o client não regenera).
+    await prisma.$executeRawUnsafe(
+      `UPDATE orcamentos SET decisao_cnpj_faturamento = $1, decisao_email_financeiro = $2 WHERE token = $3`,
+      decisao.cnpjFaturamento ? decisao.cnpjFaturamento.replace(/\D/g, '') : null,
+      decisao.emailFinanceiro?.trim() || null,
+      token,
+    ).catch((e) => console.warn('[Orcamento] Falha ao gravar dados de faturamento:', (e as Error).message))
     // Registra o status_change na timeline (decisão do cliente pelo link).
     await this.addEvento(
       orc.id, null, 'status_change', orc.status, novoStatus,

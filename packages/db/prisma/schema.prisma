@@ -3283,6 +3283,9 @@ model Orcamento {
   decisaoNome       String?         @map("decisao_nome")
   decisaoCpf        String?         @map("decisao_cpf")
   decisaoObs        String?         @map("decisao_obs") @db.Text
+  // Dados de faturamento informados pelo cliente ao aprovar (link público).
+  decisaoCnpjFaturamento String?    @map("decisao_cnpj_faturamento")
+  decisaoEmailFinanceiro String?    @map("decisao_email_financeiro")
   // Totais calculados
   totalServicos     Decimal         @default(0) @map("total_servicos") @db.Decimal(12, 2)
   totalTaxas        Decimal         @default(0) @map("total_taxas") @db.Decimal(12, 2)

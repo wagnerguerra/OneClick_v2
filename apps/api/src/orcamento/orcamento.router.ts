@@ -314,6 +314,8 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         nome: z.string().min(1),
         cpf: z.string().optional(),
         observacao: z.string().optional(),
+        cnpjFaturamento: z.string().optional(),
+        emailFinanceiro: z.string().optional(),
       }))
       .mutation(({ input }) => orcamentoService.registrarDecisao(input.token, input)),
 

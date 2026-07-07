@@ -80,6 +80,8 @@ export default function PublicOrcamentoPage() {
   const [decisaoModal, setDecisaoModal] = useState<'APROVADO' | 'RECUSADO' | null>(null)
   const [nome, setNome] = useState('')
   const [cpf, setCpf] = useState('')
+  const [cnpjFaturamento, setCnpjFaturamento] = useState('')
+  const [emailFinanceiro, setEmailFinanceiro] = useState('')
   const [observacao, setObservacao] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [confirmacao, setConfirmacao] = useState<{ tipo: string; mensagem: string } | null>(null)
@@ -112,6 +114,10 @@ export default function PublicOrcamentoPage() {
         nome: nome.trim(),
         cpf: cpf.replace(/\D/g, '') || undefined,
         observacao: observacao.trim() || undefined,
+        ...(decisaoModal === 'APROVADO' ? {
+          cnpjFaturamento: cnpjFaturamento.replace(/\D/g, '') || undefined,
+          emailFinanceiro: emailFinanceiro.trim() || undefined,
+        } : {}),
       })
       setConfirmacao({
         tipo: decisaoModal!,
@@ -351,6 +357,31 @@ export default function PublicOrcamentoPage() {
                   placeholder="000.000.000-00"
                 />
               </div>
+              {/* Faturamento — só na aprovação */}
+              {decisaoModal === 'APROVADO' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium block mb-1">CPF / CNPJ para faturamento</label>
+                    <input
+                      type="text"
+                      value={cnpjFaturamento}
+                      onChange={e => setCnpjFaturamento(e.target.value.replace(/\D/g, '').slice(0, 14))}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900"
+                      placeholder="Digite apenas números"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium block mb-1">E-mail do financeiro para faturamento</label>
+                    <input
+                      type="email"
+                      value={emailFinanceiro}
+                      onChange={e => setEmailFinanceiro(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900"
+                      placeholder="financeiro@empresa.com.br"
+                    />
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="text-xs font-medium block mb-1">Observacoes (opcional)</label>
                 <textarea
