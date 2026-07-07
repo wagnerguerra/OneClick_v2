@@ -62,6 +62,10 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
       .input(listTicketSchema)
       .query(({ input, ctx }) => helpdeskService.list(input, ctx.userId!, ctx.empresaId ?? null)),
 
+    /** Relatório de tickets em aberto (formato Relatório de QA). */
+    relatorio: readProcedure(MODULE)
+      .query(({ ctx }) => helpdeskService.relatorioTickets(ctx.userId!, ctx.empresaId ?? null)),
+
     /** Atalho do solicitante: meus tickets. */
     listMeus: protectedProcedure
       .input(z.object({

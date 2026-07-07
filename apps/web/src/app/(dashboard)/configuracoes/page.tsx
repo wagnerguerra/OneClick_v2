@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { CalendarioSection } from './_components/calendario-section'
 import { QaSection } from './_components/qa-section'
+import { TicketsSection } from './_components/tickets-section'
 import { GruposObrigacaoSection } from './_components/grupos-obrigacao-section'
 import { GoogleBackupSection } from './_components/google-backup-section'
 import { HelpdeskIaSection } from './_components/helpdesk-ia-section'
@@ -50,6 +51,7 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
   'Calendário': Calendar,
   'Templates de Obrigações': FolderKanban,
   'Relatório de QA': ClipboardCheck,
+  'Relatório de Tickets': Headphones,
 }
 
 // Pill especial — não tem campos cadastrados via getCampos, é injetada
@@ -59,6 +61,7 @@ const HELPDESK_GROUP = 'Helpdesk'
 const CALENDARIO_GROUP = 'Calendário'
 const GRUPOS_OBRIGACAO_GROUP = 'Templates de Obrigações'
 const QA_GROUP = 'Relatório de QA'
+const RELATORIO_TICKETS_GROUP = 'Relatório de Tickets'
 
 interface OrigemNotif {
   origem: string
@@ -278,7 +281,7 @@ export default function ConfiguracoesPage() {
       setFields(campos.fields as ConfigField[])
       // Adiciona pill virtual "Notificações" no fim — não tem campos via getCampos,
       // é tratada com renderer próprio (toggles por origem).
-      const allGroups = [...(campos.groups as string[]), NOTIFICATIONS_GROUP, HELPDESK_GROUP, CALENDARIO_GROUP, GRUPOS_OBRIGACAO_GROUP, QA_GROUP]
+      const allGroups = [...(campos.groups as string[]), NOTIFICATIONS_GROUP, HELPDESK_GROUP, CALENDARIO_GROUP, GRUPOS_OBRIGACAO_GROUP, QA_GROUP, RELATORIO_TICKETS_GROUP]
         .sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }))
       setGroups(allGroups)
       const v: Record<string, string> = {}
@@ -1427,6 +1430,11 @@ export default function ConfiguracoesPage() {
               /* PILL ESPECIAL: RELATÓRIO DE QA — achados de auditoria        */
               /* ============================================================ */
               <QaSection />
+            ) : activeGroup === RELATORIO_TICKETS_GROUP ? (
+              /* ============================================================ */
+              /* PILL ESPECIAL: RELATÓRIO DE TICKETS — helpdesk em aberto      */
+              /* ============================================================ */
+              <TicketsSection />
             ) : (
               /* ============================================================ */
               /* GRUPOS NORMAIS (comportamento padrão)                        */

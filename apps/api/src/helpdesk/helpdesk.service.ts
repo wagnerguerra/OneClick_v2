@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import type { Prisma } from '@saas/db'
 import {
   HELPDESK_SLA_PADRAO_HORAS,
   HELPDESK_STATUS_PAUSADOS,
@@ -488,6 +489,37 @@ export class HelpdeskService {
       limit: input.limit,
       totalPages: Math.ceil(total / input.limit),
     }
+  }
+
+  /**
+   * Relatório de tickets em aberto (nos moldes do Relatório de QA): todos os
+   * tickets não concluídos/cancelados que o usuário enxerga, sem paginação,
+   * ordenados por prioridade e antiguidade. Agente vê tudo do tenant; não-agente
+   * vê só os próprios/responsável/watcher.
+   */
+  async relatorioTickets(userId: string, empresaId?: string | null) {
+    const isAgente = await this.canAtuarAgente(userId)
+    const where: Prisma.HelpdeskTicketWhereInput = {
+      ativo: true,
+      arquivado: false,
+      status: { notIn: ['CONCLUIDO', 'CANCELADO'] },
+      ...(empresaId ? { empresaId } : {}),
+      ...(isAgente ? {} : { OR: [{ solicitanteId: userId }, { responsavelId: userId }, { watchers: { some: { userId } } }] }),
+    }
+    return prisma.helpdeskTicket.findMany({
+      where,
+      select: {
+        id: true, numero: true, titulo: true, descricao: true, tipo: true,
+        prioridade: true, status: true, prazoSla: true, createdAt: true,
+        solicitante: { select: { name: true } },
+        solicitanteExternoNome: true,
+        responsavel: { select: { name: true } },
+        categoria: { select: { nome: true, parent: { select: { nome: true } } } },
+        _count: { select: { mensagens: true, anexos: true } },
+      },
+      orderBy: [{ prioridade: 'desc' }, { createdAt: 'asc' }],
+      take: 500,
+    })
   }
 
   /** Resolve numero visível (#HLPNNNN) → id, respeitando visibilidade. */
