@@ -29,6 +29,24 @@ export class SqlConsoleService {
     return v
   }
 
+  /** Estrutura do banco (schema public): tabelas + colunas, pra árvore tipo DBeaver. */
+  async schema(): Promise<Array<{ table: string; columns: Array<{ name: string; type: string; nullable: boolean }> }>> {
+    const rows = await prisma.$queryRawUnsafe<Array<{ table_name: string; column_name: string; data_type: string; is_nullable: string }>>(
+      `SELECT c.table_name, c.column_name, c.data_type, c.is_nullable
+         FROM information_schema.columns c
+         JOIN information_schema.tables t
+           ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+        WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'
+        ORDER BY c.table_name, c.ordinal_position`,
+    )
+    const map = new Map<string, Array<{ name: string; type: string; nullable: boolean }>>()
+    for (const r of rows) {
+      if (!map.has(r.table_name)) map.set(r.table_name, [])
+      map.get(r.table_name)!.push({ name: r.column_name, type: r.data_type, nullable: r.is_nullable === 'YES' })
+    }
+    return Array.from(map.entries()).map(([table, columns]) => ({ table, columns }))
+  }
+
   async run(sql: string): Promise<SqlConsoleResult> {
     const inicio = Date.now()
     const query = (sql ?? '').trim()

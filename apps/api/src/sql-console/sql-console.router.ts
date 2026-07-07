@@ -8,5 +8,7 @@ export function createSqlConsoleRouter(service: SqlConsoleService) {
     run: masterProcedure
       .input(z.object({ sql: z.string().min(1).max(50_000) }))
       .mutation(({ input }) => service.run(input.sql)),
+    schema: masterProcedure
+      .query(() => service.schema()),
   })
 }
