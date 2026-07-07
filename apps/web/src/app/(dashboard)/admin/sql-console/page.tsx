@@ -7,11 +7,18 @@
  * Gate duplo: masterProcedure + isMaster.
  */
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import { Database, Play, Loader2, AlertTriangle, Table2, ChevronRight, ChevronDown, KeyRound, Search, RefreshCw, Terminal, TableProperties, Rows3, ArrowUp, ArrowDown } from 'lucide-react'
 import { Button } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+
+// Monaco (editor do VS Code) é pesado — lazy load, sem SSR.
+const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
+  ssr: false,
+  loading: () => <div className="h-[200px] bg-slate-900 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>,
+})
 
 const MODULE_COLOR = 'var(--mod-ajuda, #0891b2)'
 const tint = (pct: number) => `color-mix(in srgb, ${MODULE_COLOR} ${pct}%, transparent)`
@@ -72,6 +79,9 @@ export default function SqlConsolePage() {
     setResult(await runSql(sql))
     setRunning(false)
   }, [sql, running])
+  // Ref pro Ctrl+Enter do Monaco chamar sempre o executar mais recente.
+  const executarRef = useRef(executar)
+  useEffect(() => { executarRef.current = executar }, [executar])
 
   const tabelasFiltradas = useMemo(() => {
     const q = filtro.trim().toLowerCase()
@@ -231,12 +241,27 @@ export default function SqlConsolePage() {
                     </Button>
                   </div>
                 </div>
-                <textarea
+                <MonacoEditor
+                  height="220px"
+                  defaultLanguage="sql"
                   value={sql}
-                  onChange={e => setSql(e.target.value)}
-                  onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void executar() } }}
-                  spellCheck={false}
-                  className="w-full h-40 bg-slate-900 text-slate-100 caret-cyan-400 px-4 py-3 font-mono text-[13px] leading-relaxed resize-y focus:outline-none selection:bg-cyan-500/30"
+                  onChange={v => setSql(v ?? '')}
+                  theme="vs-dark"
+                  onMount={(editor: any, monaco: any) => {
+                    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => executarRef.current())
+                  }}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    lineNumbers: 'on',
+                    wordWrap: 'on',
+                    automaticLayout: true,
+                    scrollBeyondLastLine: false,
+                    padding: { top: 10, bottom: 10 },
+                    renderLineHighlight: 'line',
+                    tabSize: 2,
+                    scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
+                  }}
                 />
               </div>
               <ResultGrid res={result} loading={running}
