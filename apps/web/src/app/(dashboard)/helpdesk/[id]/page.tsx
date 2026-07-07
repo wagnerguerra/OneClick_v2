@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import {
   Headphones, Loader2, ArrowLeft, MessageSquare, Lock, Send, Paperclip, Clock,
   AlertTriangle, CheckCircle2, XCircle, History, Layers, FileText, UserCog,
-  Eye, Star, Save, Tag, Building2, Download, ExternalLink, Image as ImageIcon,
+  Eye, Star, Save, Tag, Building2, Image as ImageIcon,
   FileVideo, FileAudio, File as FileIcon, FileSpreadsheet,
   MoreVertical, Pencil, Trash2, Bot, ThumbsUp, ThumbsDown,
   Terminal, Copy, Zap, FileCheck, Reply, X,
@@ -133,7 +133,7 @@ export default function HelpdeskTicketDetailPage() {
 
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'visao' | 'conversa' | 'anexos' | 'timeline'>('conversa')
+  const [activeTab, setActiveTab] = useState<'conversa' | 'timeline'>('conversa')
 
   // Mensagem nova
   const [novaMsg, setNovaMsg] = useState('')
@@ -147,6 +147,12 @@ export default function HelpdeskTicketDetailPage() {
   const [editingConteudo, setEditingConteudo] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
   const [anexoSelecionadoId, setAnexoSelecionadoId] = useState<string | null>(null)
+  const [anexoPreview, setAnexoPreview] = useState<Anexo | null>(null)
+  // Triagem IA só aparece se estiver ativa nas configurações (Helpdesk → Triagem IA).
+  const [iaAtiva, setIaAtiva] = useState(false)
+  useEffect(() => {
+    void (trpc.helpdesk as any).aiConfigGet.query().then((c: { enabled?: boolean }) => setIaAtiva(!!c?.enabled)).catch(() => {})
+  }, [])
   // Edição da descrição inicial (título + corpo) — só o solicitante
   const [editingDescricao, setEditingDescricao] = useState(false)
   const [editTitulo, setEditTitulo] = useState('')
@@ -482,23 +488,6 @@ export default function HelpdeskTicketDetailPage() {
     }
   }
 
-  /** Exclui anexo individual do ticket — agente da TI ou solicitante (criador) + ticket≠CANCELADO. */
-  async function excluirAnexo(anexo: Anexo) {
-    const ok = await alerts.confirm({
-      title: 'Excluir anexo?',
-      text: `O arquivo "${anexo.fileName}" será removido do ticket. Esta ação não pode ser desfeita.`,
-      confirmText: 'Excluir',
-      icon: 'warning',
-    })
-    if (!ok) return
-    try {
-      await (trpc.helpdesk as any).deleteAnexo.mutate({ id: anexo.id })
-      await fetchData(true)
-    } catch (e) {
-      alerts.error('Erro', (e as Error).message)
-    }
-  }
-
   /**
    * Força processamento IA do ticket ignorando o threshold de score.
    * Útil pra tickets não-elegíveis (score baixo) que o operador quer planejar
@@ -722,6 +711,8 @@ export default function HelpdeskTicketDetailPage() {
 
   const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
   const corPrioridade = HELPDESK_PRIORIDADE_COLORS[ticket.prioridade]
+  // Anexos da solicitação inicial = os que não estão vinculados a nenhuma mensagem.
+  const anexosIniciais = ticket.anexos.filter(a => !ticket.mensagens.some(m => (m.anexos ?? []).some(ma => ma.id === a.id)))
   const podeAvaliar = ticket.status === 'RESOLVIDO' && !ticket.csatRespondidoEm
   // Solicitante pode cancelar o próprio ticket enquanto está aberto.
   // TI também pode cancelar (via sidebar/select de status), então aqui foco no solicitante.
@@ -731,6 +722,7 @@ export default function HelpdeskTicketDetailPage() {
 
   return (
     <div className="space-y-0 pb-6">
+      <AnexoLightbox anexo={anexoPreview} onClose={() => setAnexoPreview(null)} />
       <Tabs value={activeTab} onValueChange={v => setActiveTab(v as typeof activeTab)} className="space-y-0">
         {/* Header bleed-edge */}
         <div
@@ -830,15 +822,6 @@ export default function HelpdeskTicketDetailPage() {
                   <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">{ticket.mensagens.length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="visao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-700 dark:data-[state=active]:!text-cyan-300 gap-1.5">
-                <Layers className="h-3.5 w-3.5" /> Visão geral
-              </TabsTrigger>
-              <TabsTrigger value="anexos" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-700 dark:data-[state=active]:!text-cyan-300 gap-1.5">
-                <Paperclip className="h-3.5 w-3.5" /> Anexos
-                {ticket.anexos.length > 0 && (
-                  <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">{ticket.anexos.length}</Badge>
-                )}
-              </TabsTrigger>
               <TabsTrigger value="timeline" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-700 dark:data-[state=active]:!text-cyan-300 gap-1.5">
                 <History className="h-3.5 w-3.5" /> Histórico
               </TabsTrigger>
@@ -896,12 +879,13 @@ export default function HelpdeskTicketDetailPage() {
                   </button>
                 )}
               </div>
-              {/* Conteúdo da descrição */}
+              {/* Conteúdo da descrição + anexos enviados na solicitação */}
               <CardContent className="px-5 py-4">
                 <div
                   className="text-sm leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-cyan-600 [&_a]:underline"
                   dangerouslySetInnerHTML={{ __html: linkifyHelpdesk(ticket.descricao) }}
                 />
+                <AnexoThumbs anexos={anexosIniciais} onOpen={setAnexoPreview} />
               </CardContent>
             </Card>
 
@@ -1090,11 +1074,7 @@ export default function HelpdeskTicketDetailPage() {
 
             {/* Thread de mensagens (continua dentro da aba Conversação aberta acima) */}
             <div className="space-y-3">
-              {ticket.mensagens.length === 0 ? (
-                <Card><CardContent className="p-6 text-center text-xs text-muted-foreground">
-                  Nenhuma mensagem ainda. Use o composer abaixo pra iniciar a conversa.
-                </CardContent></Card>
-              ) : ticket.mensagens.map(msg => {
+              {ticket.mensagens.map(msg => {
                 // Edição/exclusão liberadas para o autor enquanto o ticket
                 // não estiver cancelado. O campo editadoEm + evento de
                 // auditoria garantem a rastreabilidade.
@@ -1175,34 +1155,8 @@ export default function HelpdeskTicketDetailPage() {
                         className="text-sm whitespace-pre-wrap"
                         dangerouslySetInnerHTML={{ __html: linkifyHelpdesk(msg.conteudo) }}
                       />
-                      {/* Anexos vinculados a esta mensagem (mensagemId) */}
-                      {!!msg.anexos?.length && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {msg.anexos.map(a => {
-                            const url = resolveAssetUrl(a.fileUrl)
-                            const isImg = (a.mimeType || '').startsWith('image/')
-                            return isImg ? (
-                              <a key={a.id} href={url} target="_blank" rel="noreferrer" title={a.fileName} className="block shrink-0">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={url} alt={a.fileName} className="h-20 w-20 rounded-md border border-border object-cover" />
-                              </a>
-                            ) : (
-                              <a
-                                key={a.id}
-                                href={url}
-                                target="_blank"
-                                rel="noreferrer"
-                                download
-                                title={a.fileName}
-                                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs hover:bg-muted transition-colors max-w-[220px]"
-                              >
-                                <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                <span className="truncate">{a.fileName}</span>
-                              </a>
-                            )
-                          })}
-                        </div>
-                      )}
+                      {/* Anexos vinculados a esta mensagem — abrem no visualizador inline */}
+                      <AnexoThumbs anexos={msg.anexos ?? []} onOpen={setAnexoPreview} />
                     </CardContent>
                   </Card>
                 )
@@ -1271,39 +1225,6 @@ export default function HelpdeskTicketDetailPage() {
             </div>
             </TabsContent>
 
-            <TabsContent value="visao" className="mt-0">
-              <Card>
-                <CardContent className="p-4 space-y-3 text-sm">
-                  <InfoLine label="Solicitante" value={ticket.solicitante?.name || '—'} />
-                  <InfoLine label="Responsável" value={ticket.responsavel?.name || 'Não atribuído'} />
-                  <InfoLine label="Categoria" value={ticket.categoria ? `${ticket.categoria.parent ? ticket.categoria.parent.nome + ' › ' : ''}${ticket.categoria.nome}` : '—'} />
-                  <InfoLine label="Área" value={ticket.area?.name || '—'} />
-                  <InfoLine label="Criado em" value={new Date(ticket.createdAt).toLocaleString('pt-BR')} />
-                  {ticket.prazoSla && (
-                    <InfoLine label="Prazo SLA" value={new Date(ticket.prazoSla).toLocaleString('pt-BR')} />
-                  )}
-                  {ticket.resolvidoEm && <InfoLine label="Resolvido em" value={new Date(ticket.resolvidoEm).toLocaleString('pt-BR')} />}
-                  {ticket.concluidoEm && <InfoLine label="Concluído em" value={new Date(ticket.concluidoEm).toLocaleString('pt-BR')} />}
-                  {ticket.csatNota && (
-                    <InfoLine label="CSAT" value={`${ticket.csatNota}/5${ticket.csatRespondidoEm ? ` (em ${new Date(ticket.csatRespondidoEm).toLocaleDateString('pt-BR')})` : ''}`} />
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="anexos" className="mt-0">
-              <AnexosViewer
-                ticketId={ticket.id}
-                anexos={ticket.anexos}
-                selecionadoId={anexoSelecionadoId}
-                onSelect={setAnexoSelecionadoId}
-                onUploaded={() => fetchData(true)}
-                canDelete={ticket.status !== 'CANCELADO'}
-                podeExcluir={podeAtuar || isSolicitante}
-                onDelete={excluirAnexo}
-              />
-            </TabsContent>
-
             <TabsContent value="timeline" className="mt-0">
               {ticket.eventos.length === 0 ? (
                 <Card><CardContent className="p-6 text-center text-xs text-muted-foreground">
@@ -1349,7 +1270,7 @@ export default function HelpdeskTicketDetailPage() {
                 </CardContent>
               </Card>
             )}
-            {(!ticket.aiPlano || ticket.aiPlanoStatus === 'rejeitado') && (
+            {iaAtiva && (!ticket.aiPlano || ticket.aiPlanoStatus === 'rejeitado') && (
               <Card className="border-l-4 border-l-slate-400 dark:border-l-slate-500">
                 <CardContent className="p-3 space-y-2">
                   <div className="flex items-center gap-2">
@@ -1919,15 +1840,6 @@ function PlanoMeta({ label, value, mono }: { label: string; value: string; mono?
   )
 }
 
-function InfoLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid grid-cols-3 gap-2">
-      <Label className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</Label>
-      <p className="col-span-2 text-sm">{value}</p>
-    </div>
-  )
-}
-
 function SideField({ label, icon: Icon, children }: { label: string; icon: typeof Layers; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
@@ -1967,127 +1879,51 @@ function iconeDoArquivo(mime: string | null) {
   }
 }
 
-function formatarBytes(b: number): string {
-  if (b < 1024) return `${b} B`
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`
-  return `${(b / (1024 * 1024)).toFixed(1)} MB`
+/** Miniaturas clicáveis de anexos — imagem vira thumb, resto vira chip. Clique abre o lightbox. */
+function AnexoThumbs({ anexos, onOpen }: { anexos: Anexo[]; onOpen: (a: Anexo) => void }) {
+  if (!anexos.length) return null
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {anexos.map(a => {
+        const isImg = (a.mimeType || '').startsWith('image/')
+        return isImg ? (
+          <button key={a.id} type="button" onClick={() => onOpen(a)} title={a.fileName} className="block shrink-0 group">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={resolveAssetUrl(a.fileUrl)} alt={a.fileName} className="h-20 w-20 rounded-md border border-border object-cover transition group-hover:ring-2 group-hover:ring-cyan-400" />
+          </button>
+        ) : (
+          <button key={a.id} type="button" onClick={() => onOpen(a)} title={a.fileName}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs hover:bg-muted transition-colors max-w-[220px]">
+            <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate">{a.fileName}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
 }
 
-function AnexosViewer({ ticketId, anexos, selecionadoId, onSelect, onUploaded, canDelete, podeExcluir, onDelete }: {
-  ticketId: string
-  anexos: Anexo[]
-  selecionadoId: string | null
-  onSelect: (id: string) => void
-  onUploaded: () => void
-  canDelete: boolean
-  // Pode excluir anexos: agente da TI OU criador (solicitante) do ticket.
-  podeExcluir: boolean
-  onDelete: (anexo: Anexo) => void | Promise<void>
-}) {
-  const ativo = anexos.find(a => a.id === selecionadoId) ?? anexos[0]
-  const podeExcluirAtivo = !!(ativo && canDelete && podeExcluir)
-
+/** Visualizador inline (lightbox) — abre o anexo sem trocar de página nem baixar. Esc fecha. */
+function AnexoLightbox({ anexo, onClose }: { anexo: Anexo | null; onClose: () => void }) {
+  useEffect(() => {
+    if (!anexo) return
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [anexo, onClose])
+  if (!anexo) return null
   return (
-    <Card>
-      <CardContent className="p-0">
-        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] min-h-[480px]">
-          {/* Lista lateral de anexos + dropzone no topo */}
-          <div className="border-b md:border-b-0 md:border-r flex flex-col max-h-[680px]">
-            <AnexosDropArea ticketId={ticketId} onUploaded={onUploaded} />
-            <div className="px-3 py-2 bg-muted/30 border-b border-t">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                {anexos.length === 0 ? 'Sem arquivos' : `${anexos.length} arquivo${anexos.length > 1 ? 's' : ''}`}
-              </span>
-            </div>
-            <div className="flex-1 overflow-y-auto divide-y">
-              {anexos.length === 0 ? (
-                <div className="px-3 py-6 text-center text-[11px] text-muted-foreground italic">
-                  Arraste ou clique acima<br />pra adicionar.
-                </div>
-              ) : anexos.map(a => {
-                const Icon = iconeDoArquivo(a.mimeType)
-                const isAtivo = a.id === ativo?.id
-                return (
-                  <button
-                    key={a.id}
-                    type="button"
-                    onClick={() => onSelect(a.id)}
-                    className={cn(
-                      'w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors',
-                      isAtivo ? 'bg-cyan-500/10 border-l-2 border-cyan-500' : 'hover:bg-muted/40 border-l-2 border-transparent',
-                    )}
-                  >
-                    <Icon className={cn('h-4 w-4 shrink-0 mt-0.5', isAtivo ? 'text-cyan-600 dark:text-cyan-400' : 'text-muted-foreground')} />
-                    <div className="flex-1 min-w-0">
-                      <p className={cn('text-[12px] truncate leading-tight', isAtivo ? 'font-semibold text-foreground' : 'font-medium')}>{a.fileName}</p>
-                      <p className="text-[10px] text-muted-foreground leading-tight mt-0.5 truncate">
-                        {a.tamanho > 0 ? formatarBytes(a.tamanho) : '—'}
-                        {a.autor?.name && ` · ${a.autor.name}`}
-                      </p>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Painel de preview */}
-          <div className="flex flex-col bg-muted/10 min-w-0">
-            {!ativo ? (
-              <div className="flex-1 flex items-center justify-center p-8 text-center text-xs text-muted-foreground">
-                Selecione um arquivo à esquerda pra visualizar
-              </div>
-            ) : (
-              <>
-                {/* Toolbar superior do preview */}
-                <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-card">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">{ativo.fileName}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {ativo.mimeType || 'tipo desconhecido'}
-                      {ativo.tamanho > 0 && ` · ${formatarBytes(ativo.tamanho)}`}
-                      {' · '}{new Date(ativo.createdAt).toLocaleString('pt-BR')}
-                    </p>
-                  </div>
-                  <a
-                    href={resolveAssetUrl(ativo.fileUrl)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                    title="Abrir em nova aba"
-                  >
-                    <ExternalLink className="h-3 w-3" /> Abrir
-                  </a>
-                  <a
-                    href={resolveAssetUrl(ativo.fileUrl)}
-                    download={ativo.fileName}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium bg-cyan-600 hover:bg-cyan-700 text-white transition-colors"
-                    title="Baixar"
-                  >
-                    <Download className="h-3 w-3" /> Baixar
-                  </a>
-                  {podeExcluirAtivo && (
-                    <button
-                      type="button"
-                      onClick={() => onDelete(ativo)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-                      title="Excluir anexo"
-                    >
-                      <Trash2 className="h-3 w-3" /> Excluir
-                    </button>
-                  )}
-                </div>
-
-                {/* Corpo do preview por tipo */}
-                <div className="flex-1 overflow-auto p-3 min-h-[400px]">
-                  <AnexoPreview anexo={ativo} />
-                </div>
-              </>
-            )}
-          </div>
+    <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 sm:p-8" onClick={onClose}>
+      <div className="bg-card rounded-xl border border-border shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border shrink-0">
+          <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="text-sm font-medium truncate">{anexo.fileName}</span>
+          {anexo.mimeType && <span className="text-[11px] text-muted-foreground shrink-0">{anexo.mimeType}</span>}
+          <button onClick={onClose} className="ml-auto p-1 rounded hover:bg-muted text-muted-foreground" title="Fechar (Esc)"><X className="h-4 w-4" /></button>
         </div>
-      </CardContent>
-    </Card>
+        <div className="flex-1 overflow-auto p-3 min-h-[300px]"><AnexoPreview anexo={anexo} /></div>
+      </div>
+    </div>
   )
 }
 
@@ -2144,129 +1980,3 @@ function AnexoPreview({ anexo }: { anexo: Anexo }) {
   )
 }
 
-/**
- * Área dropzone embarcada no topo do painel de anexos. Click → file picker;
- * drop → upload direto. Cada arquivo: POST /api/upload → trpc helpdesk.addAnexo
- * (que dispara notificação pro outro lado: TI↔solicitante).
- */
-function AnexosDropArea({ ticketId, onUploaded }: { ticketId: string; onUploaded: () => void }) {
-  const [dragging, setDragging] = useState(false)
-  const [uploading, setUploading] = useState(0)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const areaRef = useRef<HTMLDivElement>(null)
-
-  const handleFiles = useCallback(async (files: File[]) => {
-    if (files.length === 0) return
-    // Bloqueia executáveis no client
-    const blocked = ['.exe', '.bat', '.cmd', '.sh', '.msi', '.dll']
-    const MAX_BYTES = 20 * 1024 * 1024
-    const ok = files.filter(f => {
-      const ext = '.' + (f.name.split('.').pop() || '').toLowerCase()
-      if (blocked.includes(ext)) {
-        alerts.error('Bloqueado', `${f.name}: tipo não permitido.`)
-        return false
-      }
-      if (f.size > MAX_BYTES) {
-        alerts.error('Muito grande', `${f.name}: ${(f.size / 1024 / 1024).toFixed(1)}MB > 20MB.`)
-        return false
-      }
-      return true
-    })
-    if (ok.length === 0) return
-
-    setUploading(ok.length)
-    const apiUrl = (await import('@/lib/api-url')).getApiUrl()
-    let sucessos = 0
-    for (const file of ok) {
-      try {
-        const fd = new FormData()
-        fd.append('file', file)
-        const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: fd, credentials: 'include' })
-        if (!res.ok) throw new Error(`Upload falhou (${res.status})`)
-        const data = await res.json() as { url?: string; filename?: string }
-        const fileUrl = data.url || (data.filename ? `${apiUrl}/api/upload/${data.filename}` : null)
-        if (!fileUrl) throw new Error('URL ausente na resposta')
-        await (trpc.helpdesk as any).addAnexo.mutate({
-          ticketId,
-          fileName: file.name,
-          fileUrl,
-          mimeType: file.type || null,
-          tamanho: file.size,
-        })
-        sucessos++
-      } catch (e) {
-        alerts.error('Erro no anexo', `${file.name}: ${(e as Error).message}`)
-      }
-    }
-    setUploading(0)
-    if (sucessos > 0) {
-      onUploaded()
-    }
-  }, [ticketId, onUploaded])
-
-  useEffect(() => {
-    const el = areaRef.current
-    if (!el) return
-    function onDragEnter(e: DragEvent) { e.preventDefault(); setDragging(true) }
-    function onDragOver(e: DragEvent) { e.preventDefault() }
-    function onDragLeave(e: DragEvent) {
-      e.preventDefault()
-      const r = el!.getBoundingClientRect()
-      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) setDragging(false)
-    }
-    function onDrop(e: DragEvent) {
-      e.preventDefault(); setDragging(false)
-      const files = Array.from(e.dataTransfer?.files || [])
-      if (files.length > 0) void handleFiles(files)
-    }
-    el.addEventListener('dragenter', onDragEnter)
-    el.addEventListener('dragover', onDragOver)
-    el.addEventListener('dragleave', onDragLeave)
-    el.addEventListener('drop', onDrop)
-    return () => {
-      el.removeEventListener('dragenter', onDragEnter)
-      el.removeEventListener('dragover', onDragOver)
-      el.removeEventListener('dragleave', onDragLeave)
-      el.removeEventListener('drop', onDrop)
-    }
-  }, [handleFiles])
-
-  return (
-    <div
-      ref={areaRef}
-      onClick={() => uploading === 0 && fileInputRef.current?.click()}
-      className={cn(
-        'cursor-pointer m-2 rounded-md border-2 border-dashed transition-colors px-3 py-4 flex flex-col items-center gap-1.5 text-center',
-        dragging
-          ? 'border-cyan-400 bg-cyan-50/50 dark:bg-cyan-950/30'
-          : 'border-border/60 hover:border-cyan-300 hover:bg-muted/30',
-      )}
-    >
-      {uploading > 0 ? (
-        <>
-          <Loader2 className="h-5 w-5 text-cyan-600 animate-spin" />
-          <span className="text-[11px] text-muted-foreground">Enviando {uploading}…</span>
-        </>
-      ) : (
-        <>
-          <Paperclip className={cn('h-5 w-5', dragging ? 'text-cyan-600' : 'text-muted-foreground')} />
-          <div className="text-[11px] leading-tight text-muted-foreground">
-            <span className="font-medium text-foreground">Clique pra anexar</span>
-            <br />ou solte aqui
-          </div>
-        </>
-      )}
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        className="hidden"
-        onChange={(e) => {
-          const files = Array.from(e.target.files || [])
-          if (files.length > 0) void handleFiles(files)
-          e.target.value = ''
-        }}
-      />
-    </div>
-  )
-}
