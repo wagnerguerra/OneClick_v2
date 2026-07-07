@@ -251,7 +251,12 @@ export default function PublicOrcamentoPage() {
           <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700 prose prose-sm max-w-none text-slate-700 dark:text-slate-300" dangerouslySetInnerHTML={{ __html: orc.config.textoApresentacao }} />
         )}
         {orc.textoCorpoCliente && (
-          <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700 prose prose-sm max-w-none text-slate-700 dark:text-slate-300" dangerouslySetInnerHTML={{ __html: orc.textoCorpoCliente }} />
+          <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700">
+            <div
+              className="prose prose-sm max-w-none text-slate-700 dark:text-slate-300 max-h-[420px] overflow-y-auto select-text rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-4 print:max-h-none print:overflow-visible print:border-0 print:bg-transparent print:p-0"
+              dangerouslySetInnerHTML={{ __html: orc.textoCorpoCliente }}
+            />
+          </div>
         )}
       </section>
 
@@ -324,11 +329,13 @@ export default function PublicOrcamentoPage() {
       {decisaoModal && (
         <div
           onClick={fecharModal}
-          className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 print:hidden ${modalClosing ? 'animate-out fade-out-0 duration-150' : 'animate-in fade-in-0 duration-200'}`}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 print:hidden"
+          style={{ animation: modalClosing ? 'dialog-fade-out 150ms ease-in forwards' : 'dialog-fade-in 200ms ease-out forwards' }}
         >
           <div
             onClick={e => e.stopPropagation()}
-            className={`bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-lg w-full p-6 sm:p-7 max-h-[90vh] overflow-y-auto ${modalClosing ? 'animate-out fade-out-0 zoom-out-95 duration-150' : 'animate-in fade-in-0 zoom-in-95 duration-200'}`}
+            className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-lg w-full p-6 sm:p-7 max-h-[90vh] overflow-y-auto"
+            style={{ animation: modalClosing ? 'dialog-zoom-out 200ms cubic-bezier(0.4,0,1,1) forwards' : 'dialog-zoom-in 250ms cubic-bezier(0,0,0.2,1) forwards' }}
           >
             <div className="flex items-center gap-3 mb-4">
               {decisaoModal === 'APROVADO' ? (
