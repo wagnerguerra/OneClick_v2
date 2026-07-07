@@ -67,12 +67,18 @@ export default function SqlConsolePage() {
   const [result, setResult] = useState<RunResult | null>(null)
   const [running, setRunning] = useState(false)
 
+  const [dbInfo, setDbInfo] = useState<{ database: string; usuario: string } | null>(null)
+
   const carregarSchema = useCallback(async () => {
     setSchemaLoading(true)
     try { setSchema(await (trpc as any).sqlConsole.schema.query() as SchemaTable[]) }
     catch { /* silencioso */ } finally { setSchemaLoading(false) }
   }, [])
-  useEffect(() => { if (profile?.isMaster) void carregarSchema() }, [profile?.isMaster, carregarSchema])
+  useEffect(() => {
+    if (!profile?.isMaster) return
+    void carregarSchema()
+    void (trpc as any).sqlConsole.dbInfo.query().then(setDbInfo).catch(() => {})
+  }, [profile?.isMaster, carregarSchema])
 
   const abrirDados = useCallback(async (table: string) => {
     setSel(table); setAba('dados'); setDadosLoading(true); setDadosResult(null); setDadosTotal(null)
@@ -198,6 +204,13 @@ export default function SqlConsolePage() {
             <TabBtn active={aba === 'editor'} onClick={() => setAba('editor')} icon={<Terminal className="h-3.5 w-3.5" />}>
               Editor SQL
             </TabBtn>
+            {dbInfo && (
+              <div className="ml-auto mr-2 mb-1.5 inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px]" style={{ background: tint(8) }} title={`Usuário: ${dbInfo.usuario}`}>
+                <Database className="h-3 w-3" style={{ color: MODULE_COLOR }} />
+                <span className="text-muted-foreground">banco:</span>
+                <span className="font-mono font-semibold" style={{ color: MODULE_COLOR }}>{dbInfo.database}</span>
+              </div>
+            )}
           </div>
 
           {/* Conteúdo */}

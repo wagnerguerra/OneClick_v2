@@ -29,6 +29,14 @@ export class SqlConsoleService {
     return v
   }
 
+  /** Nome do banco (e usuário) do ambiente atual — mostrado no cabeçalho do console. */
+  async dbInfo(): Promise<{ database: string; usuario: string }> {
+    const rows = await prisma.$queryRawUnsafe<Array<{ database: string; usuario: string }>>(
+      `SELECT current_database() AS database, current_user AS usuario`,
+    )
+    return rows[0] ?? { database: '?', usuario: '?' }
+  }
+
   /** Estrutura do banco (schema public): tabelas + colunas, pra árvore tipo DBeaver. */
   async schema(): Promise<Array<{ table: string; columns: Array<{ name: string; type: string; nullable: boolean }> }>> {
     const rows = await prisma.$queryRawUnsafe<Array<{ table_name: string; column_name: string; data_type: string; is_nullable: string }>>(

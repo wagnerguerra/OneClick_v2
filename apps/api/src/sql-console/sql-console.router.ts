@@ -10,5 +10,7 @@ export function createSqlConsoleRouter(service: SqlConsoleService) {
       .mutation(({ input }) => service.run(input.sql)),
     schema: masterProcedure
       .query(() => service.schema()),
+    dbInfo: masterProcedure
+      .query(() => service.dbInfo()),
   })
 }
