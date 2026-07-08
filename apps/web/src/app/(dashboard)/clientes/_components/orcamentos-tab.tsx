@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { FileBarChart } from 'lucide-react'
 import { cn } from '@saas/ui'
 import { OrcamentosLegadoSection } from '@/components/orcamento/orcamentos-legado-section'
+import { OrcamentosNovoSection } from '@/components/orcamento/orcamentos-novo-section'
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
 
@@ -45,10 +45,11 @@ export function OrcamentosTab({ clienteId }: { clienteId?: string }) {
 
       <div key={tab} className="p-5" style={{ animation: 'fadeSlideIn 0.2s ease-out' }}>
         {tab === 'novo' ? (
-          <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
-            <FileBarChart className="h-10 w-10 mb-2 opacity-20" />
-            <p className="text-sm">Nenhum orçamento no sistema novo.</p>
-          </div>
+          clienteId ? (
+            <OrcamentosNovoSection clienteId={clienteId} />
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-10">Salve o cliente para ver os orçamentos.</p>
+          )
         ) : clienteId ? (
           <OrcamentosLegadoSection clienteId={clienteId} />
         ) : (
