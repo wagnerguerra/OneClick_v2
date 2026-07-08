@@ -1853,6 +1853,11 @@ export default function OrcamentoDetailPage() {
             {/* ENVIADO → APROVADO (com modal de envio para reenvio se cliente quiser ver) ou Reprovar */}
             {orc.status === 'ENVIADO' && (
               <>
+                {canEnviar && (
+                  <Button size="sm" variant="outline" className="gap-1.5" onClick={abrirEnvio} title="Reenviar a proposta ao cliente">
+                    <Send className="h-4 w-4" /> Reenviar
+                  </Button>
+                )}
                 {canAprovar && (
                   <Button size="sm" variant="success" className="gap-1.5" onClick={() => handleStatusAction('APROVADO', 'Orçamento aprovado')}>
                     <ThumbsUp className="h-4 w-4" /> Aprovar
@@ -2517,6 +2522,13 @@ export default function OrcamentoDetailPage() {
                   </Button>,
                 )
               }
+              if (orc.status === 'ENVIADO' && canEnviar) {
+                acoes.push(
+                  <Button key="reenviar" size="xs" variant="outline" className="gap-1" onClick={abrirEnvio} title="Reenviar a proposta ao cliente">
+                    <Send className="h-3 w-3" /> Reenviar
+                  </Button>,
+                )
+              }
               if (orc.status === 'ENVIADO' && canAprovar) {
                 acoes.push(
                   <Button key="aprovar" size="xs" variant="success" className="gap-1" onClick={() => handleStatusAction('APROVADO', 'Orcamento aprovado')}>
@@ -2983,9 +2995,11 @@ export default function OrcamentoDetailPage() {
       <Dialog open={enviarModal} onOpenChange={setEnviarModal}>
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeaderIcon icon={Send} color="sky">
-            <DialogTitle className="text-[15px]">Enviar orçamento ao cliente</DialogTitle>
+            <DialogTitle className="text-[15px]">{orc?.status === 'ENVIADO' ? 'Reenviar orçamento ao cliente' : 'Enviar orçamento ao cliente'}</DialogTitle>
             <DialogDescription className="text-[11px]">
-              Um e-mail será enviado com o link público para o cliente revisar e aprovar a proposta.
+              {orc?.status === 'ENVIADO'
+                ? 'A proposta será reenviada por e-mail com o link público. O status permanece "Enviado".'
+                : 'Um e-mail será enviado com o link público para o cliente revisar e aprovar a proposta.'}
             </DialogDescription>
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">
@@ -3030,7 +3044,7 @@ export default function OrcamentoDetailPage() {
             <Button variant="outline" size="sm" onClick={() => setEnviarModal(false)} disabled={enviando}>Cancelar</Button>
             <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleEnviar} disabled={enviando}>
               {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              Enviar
+              {orc?.status === 'ENVIADO' ? 'Reenviar' : 'Enviar'}
             </Button>
           </DialogFooter>
         </DialogContent>
