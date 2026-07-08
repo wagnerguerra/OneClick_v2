@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { FileBarChart, Loader2, ExternalLink } from 'lucide-react'
+import { FileBarChart, Loader2, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+
+const LIMIT = 20
 
 const MODULE_COLOR = 'var(--mod-comercial, #10b981)'
 
@@ -48,25 +50,31 @@ const STATUS_STYLE: Record<string, string> = {
 export function OrcamentosNovoSection({ clienteId }: { clienteId?: string | null }) {
   const router = useRouter()
   const [orcs, setOrcs] = useState<OrcNovo[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!clienteId) { setOrcs([]); return }
+    if (!clienteId) { setOrcs([]); setTotal(0); return }
     let cancel = false
     setLoading(true)
-    ;(trpc.orcamento as any).listOrcamentosDoCliente.query({ clienteId })
-      .then((r: OrcNovo[]) => { if (!cancel) setOrcs(r || []) })
-      .catch(() => { if (!cancel) setOrcs([]) })
+    ;(trpc.orcamento as any).listOrcamentosDoClientePaginado.query({ clienteId, page, limit: LIMIT })
+      .then((r: { rows: OrcNovo[]; total: number }) => { if (!cancel) { setOrcs(r?.rows || []); setTotal(r?.total || 0) } })
+      .catch(() => { if (!cancel) { setOrcs([]); setTotal(0) } })
       .finally(() => { if (!cancel) setLoading(false) })
     return () => { cancel = true }
-  }, [clienteId])
+  }, [clienteId, page])
 
-  if (loading) return (
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT))
+  const de = total === 0 ? 0 : (page - 1) * LIMIT + 1
+  const ate = Math.min(page * LIMIT, total)
+
+  if (loading && orcs.length === 0) return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground py-6 justify-center">
       <Loader2 className="h-4 w-4 animate-spin" /> Carregando orçamentos…
     </div>
   )
-  if (orcs.length === 0) return (
+  if (total === 0) return (
     <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
       <FileBarChart className="h-10 w-10 mb-2 opacity-20" />
       <p className="text-sm">Nenhum orçamento no sistema novo.</p>
@@ -78,7 +86,8 @@ export function OrcamentosNovoSection({ clienteId }: { clienteId?: string | null
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border/60">
         <FileBarChart className="h-4 w-4" style={{ color: MODULE_COLOR }} />
         <span className="text-[13px] font-semibold">Orçamentos</span>
-        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{orcs.length}</span>
+        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{total}</span>
+        {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
         <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">todos os status</span>
       </div>
       <div className="overflow-x-auto">
@@ -116,6 +125,20 @@ export function OrcamentosNovoSection({ clienteId }: { clienteId?: string | null
           </tbody>
         </table>
       </div>
+
+      {/* Paginação — permite navegar por TODOS os orçamentos do cliente */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-border/60 bg-muted/20">
+          <span className="text-[11px] text-muted-foreground">Mostrando {de} a {ate} de {total} orçamento(s)</span>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => setPage(1)} disabled={page <= 1} className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-border text-muted-foreground disabled:opacity-40 hover:bg-muted/50 transition-colors"><ChevronsLeft className="h-3.5 w-3.5" /></button>
+            <button type="button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-border text-muted-foreground disabled:opacity-40 hover:bg-muted/50 transition-colors"><ChevronLeft className="h-3.5 w-3.5" /></button>
+            <span className="px-2 text-[11px] font-medium tabular-nums text-foreground">{page} / {totalPages}</span>
+            <button type="button" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-border text-muted-foreground disabled:opacity-40 hover:bg-muted/50 transition-colors"><ChevronRight className="h-3.5 w-3.5" /></button>
+            <button type="button" onClick={() => setPage(totalPages)} disabled={page >= totalPages} className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-border text-muted-foreground disabled:opacity-40 hover:bg-muted/50 transition-colors"><ChevronsRight className="h-3.5 w-3.5" /></button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

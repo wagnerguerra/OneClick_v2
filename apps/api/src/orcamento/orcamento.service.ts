@@ -1342,6 +1342,29 @@ export class OrcamentoService {
     })
   }
 
+  /**
+   * Histórico paginado de orçamentos do cliente — TODOS os status. Sem cap: o
+   * cliente pode ter mais de 50 orçamentos e todos devem ser navegáveis.
+   */
+  async listOrcamentosDoClientePaginado(clienteId: string, page: number, limit: number) {
+    const skip = (Math.max(1, page) - 1) * limit
+    const [rows, total] = await Promise.all([
+      prisma.orcamento.findMany({
+        where: { clienteId },
+        select: {
+          id: true, numero: true, status: true, totalGeral: true, createdAt: true,
+          arquivado: true, tipo: true,
+          itens: { where: { tipo: 'SERVICO' }, select: { descricao: true }, orderBy: { createdAt: 'asc' }, take: 1 },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.orcamento.count({ where: { clienteId } }),
+    ])
+    return { rows, total, page: Math.max(1, page), limit }
+  }
+
   async trocarResponsavel(id: string, responsavelId: string | null, userId?: string) {
     const orc = await prisma.orcamento.findUnique({ where: { id } })
     if (!orc) throw new Error('Orcamento nao encontrado')

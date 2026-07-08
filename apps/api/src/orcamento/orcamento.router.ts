@@ -261,6 +261,11 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ clienteId: z.string(), excluirId: z.string().optional() }))
       .query(({ input }) => orcamentoService.listOrcamentosDoCliente(input.clienteId, input.excluirId)),
 
+    /** Histórico paginado de orçamentos do cliente (todos os status). */
+    listOrcamentosDoClientePaginado: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string(), page: z.coerce.number().min(1).default(1), limit: z.coerce.number().min(1).max(100).default(20) }))
+      .query(({ input }) => orcamentoService.listOrcamentosDoClientePaginado(input.clienteId, input.page, input.limit)),
+
     trocarResponsavel: writeSubProcedure(MODULE, 'change_responsavel', 'Alterar responsavel pelos servicos')
       .input(z.object({ id: z.string(), responsavelId: z.string().nullable() }))
       .mutation(({ input, ctx }) => orcamentoService.trocarResponsavel(input.id, input.responsavelId, ctx.userId)),
