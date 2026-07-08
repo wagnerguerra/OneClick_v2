@@ -2239,6 +2239,34 @@ export class ServicoService {
     }
   }
 
+  /**
+   * E-mails dos responsáveis pela EXECUÇÃO de um orçamento. Resolve os candidatos
+   * (colaboradores + usuários dos setores + resp. do orçamento + resp. do cliente
+   * na área) de cada template dos itens de serviço, via a MESMA lógica do
+   * createExecucao (resolverCandidatos). Usado para notificar a liberação.
+   */
+  async resolverEmailsExecucaoOrcamento(orcamentoId: string): Promise<string[]> {
+    const orc = await prisma.orcamento.findUnique({ where: { id: orcamentoId }, select: { clienteId: true } })
+    const itens = await prisma.orcamentoItem.findMany({
+      where: { orcamentoId, tipo: 'SERVICO', catalogoId: { not: null } },
+      select: { catalogoId: true },
+    })
+    const templateIds = [...new Set(itens.map(i => i.catalogoId).filter((x): x is string => !!x))]
+    if (!templateIds.length) return []
+    const userIds = new Set<string>()
+    for (const tid of templateIds) {
+      const svc = await prisma.servico.findUnique({ where: { id: tid } })
+      if (!svc) continue
+      try {
+        const { candidatos } = await this.resolverCandidatos(svc as any, { clienteId: orc?.clienteId ?? '', orcamentoId })
+        candidatos.forEach(uid => userIds.add(uid))
+      } catch { /* ignora template problemático */ }
+    }
+    if (!userIds.size) return []
+    const users = await prisma.user.findMany({ where: { id: { in: [...userIds] }, isActive: true }, select: { email: true } })
+    return users.map(u => u.email).filter((e): e is string => !!e)
+  }
+
   private passoMinutos(p: { slaMinutos: number | null; slaHoras: number | null }): number {
     return p.slaMinutos ?? (p.slaHoras != null ? p.slaHoras * 60 : 0)
   }
