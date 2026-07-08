@@ -20,6 +20,48 @@ export const DIRECAO_LABELS: Record<Direcao, string> = {
   CREDITO: 'Crédito',
 }
 
+// ---- Marcador de débito/crédito anexo ao valor -----------------------------
+// Alguns bancos (BB, Sicoob) NÃO trazem o sinal, mas um marcador de letra colado
+// ou próximo ao valor: "C"/"CD" = crédito (sinal +), "D"/"DB" = débito (sinal −).
+// Pode vir como prefixo ("D 1.234,56") ou sufixo ("1.234,56 D", "14.933,35C").
+// O "*" do Sicoob é marca de conciliação (não é direção) → descartado.
+//
+// Isso é compartilhado entre backend (parseValor, na conversão) e frontend
+// (exibição da coluna Valor na prévia do De/Para), para o usuário ver o valor
+// exatamente como será interpretado — e alimenta o modo D/C "SINAL".
+export interface MarcadorDC {
+  /** −1 = débito, 1 = crédito, null = sem marcador. */
+  direcao: -1 | 1 | null
+  /** Texto restante (sem o marcador nem o "*"), para o parse numérico. */
+  texto: string
+}
+
+export function extrairMarcadorDC(raw: unknown): MarcadorDC {
+  const t = String(raw ?? '').replace(/\*/g, '').trim()
+  const sinal = (m: string): -1 | 1 => (/^(D|DB)$/i.test(m) ? -1 : 1)
+  // Sufixo: "1.234,56 D", "14.933,35CD" (CD/DB antes de C/D na alternância).
+  let m = t.match(/^(.*?\d)\s*(CD|DB|C|D)$/i)
+  if (m) return { direcao: sinal(m[2]!), texto: m[1]! }
+  // Prefixo: "D 1.234,56", "C1.234,56".
+  m = t.match(/^(CD|DB|C|D)\s*(\d.*)$/i)
+  if (m) return { direcao: sinal(m[1]!), texto: m[2]! }
+  return { direcao: null, texto: t }
+}
+
+/**
+ * Formata a coluna de Valor para EXIBIÇÃO (prévia do De/Para): quando há marcador
+ * D/C anexo, reaplica o sinal ao número original (mantendo a formatação de
+ * origem) — ex.: "1.000,00D" → "-1.000,00". Sem marcador, devolve o texto como
+ * está (não mexe no que já vinha ok, inclusive valores já com sinal "-").
+ */
+export function formatValorExibicao(raw: unknown): string {
+  const rawStr = String(raw ?? '')
+  const { direcao, texto } = extrairMarcadorDC(rawStr)
+  if (direcao === null) return rawStr
+  const core = texto.trim().replace(/^[-+]\s*/, '')
+  return (direcao < 0 ? '-' : '') + core
+}
+
 // ---- De/Para de colunas ----------------------------------------------------
 // Nomes (cabeçalhos) das colunas do arquivo de entrada que correspondem a cada
 // campo usado na geração do SCI. `participante`, `numeroNf` e `documento` são
@@ -35,12 +77,16 @@ export const columnMappingSchema = z.object({
 export type ColumnMapping = z.infer<typeof columnMappingSchema>
 
 // ---- Regra de Débito/Crédito -----------------------------------------------
-// Ou por uma COLUNA (com mapa de valor→direção via "SELECT DISTINCT"),
-// ou pela DESCRIÇÃO (a direção é definida em cada item de contrapartida).
-// Guarda coluna+mapa SEMPRE (mesmo no modo DESCRICAO), para alternar o modo
+// Três modos:
+//  - COLUNA:    uma coluna (com mapa de valor→direção via "SELECT DISTINCT").
+//  - DESCRICAO: a direção é definida em cada item de contrapartida.
+//  - SINAL:     pela sinalização do valor — negativo = débito, positivo = crédito
+//               (o parser já converte marcadores C/CD/D/DB anexos, ex. BB/Sicoob,
+//               em sinal; ver `extrairMarcadorDC`). Não usa coluna nem mapa.
+// Guarda coluna+mapa SEMPRE (mesmo nos outros modos), para alternar o modo
 // não perder o que foi preenchido por coluna. `tipo` define qual regra vale.
 export const debitoCreditoSchema = z.object({
-  tipo: z.enum(['COLUNA', 'DESCRICAO']).default('COLUNA'),
+  tipo: z.enum(['COLUNA', 'DESCRICAO', 'SINAL']).default('COLUNA'),
   coluna: z.string().default(''),
   mapa: z
     .array(
@@ -61,17 +107,22 @@ export type DebitoCreditoRule = z.infer<typeof debitoCreditoSchema>
 // inativo pode ter itens incompletos (ex.: descrições auto-listadas sem conta).
 // A completude do modo ATIVO é validada no editor (probContrapartida) e a
 // conversão gera pendências para o que faltar — não cabe ao schema barrar.
+// `pular`: quando true, as correspondências a este item NÃO viram lançamento —
+// são puladas na geração (sem conta/direção; usado p/ linhas que não são
+// lançamentos, ex.: "Saldo do dia"). Marcado → os demais campos ficam opcionais.
 export const contrapartidaPalavraChaveItem = z.object({
   palavraChave: z.string(),
   conta: z.string(),
   historicoFixo: z.string().optional().or(z.literal('')),
   direcao: z.enum(['DEBITO', 'CREDITO']).optional(),
+  pular: z.boolean().optional(),
 })
 export const contrapartidaDescricaoItem = z.object({
   descricao: z.string(),
   conta: z.string(),
   historicoFixo: z.string().optional().or(z.literal('')),
   direcao: z.enum(['DEBITO', 'CREDITO']).optional(),
+  pular: z.boolean().optional(),
 })
 // Guarda AMBOS os modos (palavraChave + descricao) + o modo ativo, para que
 // alternar o modo NÃO perca o que foi preenchido no outro — persistido na
@@ -150,8 +201,23 @@ export const convertSchema = z.object({
   modelId: z.string().min(1),
   fileBase64: z.string().min(1, 'Arquivo vazio'),
   filename: z.string().min(1),
+  // Ano de competência p/ datas "dd/mm" sem ano (ex.: Sicoob). Se ausente e o
+  // arquivo tiver datas sem ano, a conversão devolve `needsCompetenciaAno`.
+  competenciaAno: z.coerce.number().int().min(1900).max(2200).optional(),
 })
 export type ConvertInput = z.infer<typeof convertSchema>
+
+// ---- Visualizador de debug (tabela extraída) -------------------------------
+// Ferramenta escondida (via ?debug=1) para inspecionar como o arquivo foi
+// tabelado e interpretado pelo modelo. `modelId` é OPCIONAL: sem ele, devolve só
+// a tabela extraída crua; com ele, também o traço do de/para + pendências.
+export const debugExtractSchema = z.object({
+  fileBase64: z.string().min(1, 'Arquivo vazio'),
+  filename: z.string().min(1),
+  modelId: z.string().optional(),
+  competenciaAno: z.coerce.number().int().min(1900).max(2200).optional(),
+})
+export type DebugExtractInput = z.infer<typeof debugExtractSchema>
 
 /**
  * Stringify estável (chaves ordenadas recursivamente). Usado para comparar

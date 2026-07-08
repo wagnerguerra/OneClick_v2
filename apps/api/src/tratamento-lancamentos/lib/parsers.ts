@@ -16,7 +16,11 @@ export interface ParsedDate {
   /** Formato exigido pelo SCI no campo <2>: "AAAAMMDD". */
   yyyymmdd: string | null
   raw: string
+  /** Data veio como dd/mm SEM ano (ex.: Sicoob) → precisa do ano de competência. */
+  semAno?: boolean
 }
+
+import { extrairMarcadorDC } from '@saas/types'
 
 export interface ParsedValue {
   valid: boolean
@@ -61,8 +65,10 @@ function buildDate(y: number, m: number, d: number): Date | null {
 /**
  * Interpreta data a partir de: Date, número serial do Excel, ou string em
  * "dd/mm/aaaa", "dd-mm-aaaa", "aaaa-mm-dd". Anos com 2 dígitos viram 20xx.
+ * Datas "dd/mm" SEM ano (ex.: Sicoob): usam `anoCompetencia` se informado;
+ * sem ele, retornam inválidas com `semAno: true` (o chamador pede a competência).
  */
-export function parseData(raw: unknown): ParsedDate {
+export function parseData(raw: unknown, anoCompetencia?: number): ParsedDate {
   const rawStr = String(raw ?? '')
   const fail: ParsedDate = { valid: false, date: null, yyyymmdd: null, raw: rawStr }
   if (isEmpty(raw)) return fail
@@ -90,9 +96,17 @@ export function parseData(raw: unknown): ParsedDate {
     const d = buildDate(Number(iso[1]), Number(iso[2]), Number(iso[3]))
     return d ? { valid: true, date: d, yyyymmdd: fmtYYYYMMDD(d), raw: rawStr } : fail
   }
-  // dd/mm/aaaa ou dd-mm-aaaa (formato BR).
-  const br = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})/)
+  // dd/mm/aaaa ou dd-mm-aaaa (BR); ano OPCIONAL (dd/mm → usa a competência).
+  const br = s.match(/^(\d{1,2})[/\-.](\d{1,2})(?:[/\-.](\d{2,4}))?/)
   if (br) {
+    if (br[3] === undefined) {
+      // Sem ano: só resolve com a competência; senão sinaliza semAno.
+      if (anoCompetencia === undefined) return { ...fail, semAno: true }
+      const d = buildDate(anoCompetencia, Number(br[2]), Number(br[1]))
+      return d
+        ? { valid: true, date: d, yyyymmdd: fmtYYYYMMDD(d), raw: rawStr, semAno: true }
+        : { ...fail, semAno: true }
+    }
     let year = Number(br[3])
     if (year < 100) year += 2000
     const d = buildDate(year, Number(br[2]), Number(br[1]))
@@ -109,6 +123,7 @@ export function parseData(raw: unknown): ParsedDate {
  *  - "1880.31"  → 1880.31  (US: ponto decimal)
  *  - "2328"     → 2328
  *  - "-15", "R$ -15,00" → negativos e símbolos tolerados
+ *  - "1.000,00D" → -1000, "14.933,35C" → 14933.35 (marcador D/C de BB/Sicoob)
  */
 export function parseValor(raw: unknown): ParsedValue {
   const rawStr = String(raw ?? '')
@@ -118,8 +133,12 @@ export function parseValor(raw: unknown): ParsedValue {
     return { valid: !isNaN(raw), value: isNaN(raw) ? null : raw, raw: rawStr }
   }
 
+  // Marcador D/C anexo (BB/Sicoob): C/CD → +, D/DB → −; "*" descartado. Sem
+  // marcador, `direcao` é null e o texto segue igual (sinal "-" tratado abaixo).
+  const { direcao, texto } = extrairMarcadorDC(rawStr)
+
   // Limpa espaços, símbolo de moeda e NBSP; mantém dígitos, sinais e separadores.
-  let s = rawStr.trim().replace(/\s| /g, '').replace(/R\$/gi, '')
+  let s = texto.trim().replace(/\s| /g, '').replace(/R\$/gi, '')
   const hasDot = s.includes('.')
   const hasComma = s.includes(',')
 
@@ -137,7 +156,10 @@ export function parseValor(raw: unknown): ParsedValue {
   }
   // Só ponto (ou nenhum) → ponto já é o decimal; nada a fazer.
 
-  if (!/^-?\d*\.?\d+$/.test(s)) return { valid: false, value: null, raw: rawStr }
-  const n = Number(s)
-  return { valid: !isNaN(n), value: isNaN(n) ? null : n, raw: rawStr }
+  if (!/^[-+]?\d*\.?\d+$/.test(s)) return { valid: false, value: null, raw: rawStr }
+  let n = Number(s)
+  if (isNaN(n)) return { valid: false, value: null, raw: rawStr }
+  // Marcador D/C tem prioridade sobre o sinal textual: define o sinal final.
+  if (direcao !== null) n = Math.abs(n) * direcao
+  return { valid: true, value: n, raw: rawStr }
 }

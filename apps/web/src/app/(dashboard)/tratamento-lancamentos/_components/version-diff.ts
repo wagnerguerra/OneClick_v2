@@ -43,6 +43,7 @@ const COLUMN_FIELD_LABELS: Record<keyof TreatmentDefinition['columnMapping'], st
 const DC_TIPO_LABEL: Record<TreatmentDefinition['debitoCredito']['tipo'], string> = {
   COLUNA: 'Por coluna',
   DESCRICAO: 'Pela descrição',
+  SINAL: 'Pelo sinal do valor',
 }
 const CP_MODO_LABEL: Record<TreatmentDefinition['contrapartida']['modo'], string> = {
   PALAVRA_CHAVE: 'Por palavra-chave',

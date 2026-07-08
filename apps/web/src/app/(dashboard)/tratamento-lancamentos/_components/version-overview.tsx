@@ -22,7 +22,7 @@ const DIRECAO_LABEL: Record<Direcao, string> = { DEBITO: 'Débito', CREDITO: 'Cr
 const dirTxt = (d?: Direcao | '') => (d ? DIRECAO_LABEL[d] : EMPTY)
 
 const DC_TIPO_LABEL: Record<TreatmentDefinition['debitoCredito']['tipo'], string> = {
-  COLUNA: 'Por coluna', DESCRICAO: 'Pela descrição',
+  COLUNA: 'Por coluna', DESCRICAO: 'Pela descrição', SINAL: 'Pelo sinal do valor',
 }
 const CP_MODO_LABEL: Record<TreatmentDefinition['contrapartida']['modo'], string> = {
   PALAVRA_CHAVE: 'Por palavra-chave', DESCRICAO: 'Por descrição',
@@ -116,6 +116,8 @@ export function VersionOverview({ def, compareTo, compareLabel = 'versão atual'
             defIsNewer={defIsNewer}
             emptyHint="Nenhum valor mapeado."
           />
+        ) : def.debitoCredito.tipo === 'SINAL' ? (
+          <p className="text-xs text-muted-foreground italic">A direção vem do sinal do valor (negativo = débito, positivo = crédito).</p>
         ) : (
           <p className="text-xs text-muted-foreground italic">A direção é definida em cada item de contrapartida.</p>
         )}

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  FileSpreadsheet, Save, Upload, Plus, Trash2, Loader2, Info, FileText, Image as ImageIcon,
+  FileSpreadsheet, Save, Upload, Plus, Trash2, Loader2, Info, Image as ImageIcon,
   Tag, Columns3, ArrowLeftRight, Network, HelpCircle, ArrowLeft, ArrowRight, History, Landmark, type LucideIcon,
 } from 'lucide-react'
 import {
@@ -14,7 +14,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import type { TreatmentDefinition, Direcao } from '@saas/types'
-import { EMPTY_TREATMENT_DEFINITION, stableStringify } from '@saas/types'
+import { EMPTY_TREATMENT_DEFINITION, stableStringify, formatValorExibicao, extrairMarcadorDC } from '@saas/types'
 import { normalizeDefinition } from './treatment-definition'
 import { DetectedRowsStatus } from './detected-rows-status'
 import { trpc } from '@/lib/trpc'
@@ -34,6 +34,11 @@ const HISTORICO_FIXO_HINT =
   'Se deixar em branco, o sistema monta o histórico automaticamente ' +
   '(ex.: "VR REF RECEB - NOME DO PARTICIPANTE"). ' +
   'Vírgulas são removidas automaticamente (quebrariam o layout do SCI).'
+
+const PULAR_LINHA_HINT =
+  'Marque para IGNORAR as linhas que correspondem a este item: elas NÃO entram no ' +
+  'arquivo SCI. Útil para linhas do extrato que não são lançamentos (ex.: "Saldo do ' +
+  'dia", "Saldo anterior"). Quando marcado, os demais campos deste item são dispensados.'
 
 interface Props {
   mode: 'create' | 'edit'
@@ -271,12 +276,33 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   }
 
   // ---- Updaters da definição ----------------------------------------------
+  // Item 3: a coluna de Valor tem sinais (marcador C/CD/D/DB ou valor negativo)?
+  function colunaTemSinais(coluna: string): boolean {
+    if (!preview || !coluna) return false
+    for (const row of preview.rows) {
+      const raw = row[coluna]
+      const s = raw === null || raw === undefined ? '' : String(raw).trim()
+      if (!s) continue
+      if (extrairMarcadorDC(s).direcao !== null) return true      // marcador C/CD/D/DB
+      if (/(^|[\s(])-\s*(R\$\s*)?\d/.test(s)) return true          // valor negativo
+    }
+    return false
+  }
+
   function setMap(key: keyof TreatmentDefinition['columnMapping'], value: string) {
-    setDef((d) => ({ ...d, columnMapping: { ...d.columnMapping, [key]: value } }))
+    setDef((d) => {
+      const columnMapping = { ...d.columnMapping, [key]: value }
+      // Ao escolher a coluna de Valor com sinais, e com o D/C ainda NÃO configurado
+      // (modo padrão COLUNA, sem coluna/mapa), pré-seleciona "Pelo sinal do valor".
+      const dc = d.debitoCredito
+      const preSelSinal = key === 'valor' && !!value && colunaTemSinais(value)
+        && dc.tipo === 'COLUNA' && !dc.coluna.trim() && dc.mapa.length === 0
+      return { ...d, columnMapping, debitoCredito: preSelSinal ? { ...dc, tipo: 'SINAL' } : dc }
+    })
   }
 
   // Troca só o tipo — mantém coluna+mapa (persistido), p/ não perder ao reverter.
-  function setDcTipo(tipo: 'COLUNA' | 'DESCRICAO') {
+  function setDcTipo(tipo: 'COLUNA' | 'DESCRICAO' | 'SINAL') {
     setDef((d) => ({ ...d, debitoCredito: { ...d.debitoCredito, tipo } }))
   }
 
@@ -373,12 +399,14 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       if (!itens.length) {
         p.push('Em <b>Contrapartida</b> (por palavra-chave), adicione ao menos um item.')
       } else {
+        // Itens "Pular linha" dispensam conta/direção (não viram lançamento); mas
+        // ainda precisam da palavra-chave (é o que casa a linha a pular).
         const semPalavra = itens.filter((it) => !it.palavraChave.trim()).length
-        const semConta = itens.filter((it) => !it.conta.trim()).length
+        const semConta = itens.filter((it) => !it.pular && !it.conta.trim()).length
         if (semPalavra) p.push(`Em <b>Contrapartida</b>, preencha a <b>palavra-chave</b> em ${semPalavra} ${semPalavra === 1 ? 'item' : 'itens'}.`)
         if (semConta) p.push(`Em <b>Contrapartida</b>, informe a <b>conta</b> em ${semConta} ${semConta === 1 ? 'item' : 'itens'}.`)
         if (dcByDescricao) {
-          const semDir = itens.filter((it) => !it.direcao).length
+          const semDir = itens.filter((it) => !it.pular && !it.direcao).length
           if (semDir) p.push(`Em <b>Contrapartida</b>, defina <b>Débito/Crédito</b> em ${semDir} ${semDir === 1 ? 'item' : 'itens'}.`)
         }
       }
@@ -387,10 +415,10 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       if (!itens.length) {
         p.push('Em <b>Contrapartida</b> (por descrição), envie o arquivo de exemplo e mapeie a coluna de descrição para listar as descrições.')
       } else {
-        const semConta = itens.filter((it) => !it.conta.trim())
+        const semConta = itens.filter((it) => !it.pular && !it.conta.trim())
         if (semConta.length) p.push(`Em <b>Contrapartida</b>, informe a <b>conta</b> ${semConta.length === 1 ? 'da descrição' : 'das descrições'}: ${listaResumo(semConta.map((it) => it.descricao))}.`)
         if (dcByDescricao) {
-          const semDir = itens.filter((it) => !it.direcao).length
+          const semDir = itens.filter((it) => !it.pular && !it.direcao).length
           if (semDir) p.push(`Em <b>Contrapartida</b>, defina <b>Débito/Crédito</b> em ${semDir} ${semDir === 1 ? 'descrição' : 'descrições'}.`)
         }
       }
@@ -540,16 +568,16 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     <Card className="p-5 space-y-4">
       <StepHeader
         icon={Upload} color="bg-sky-500" title="Arquivo de exemplo"
-        hint="Envie uma planilha de lançamentos de exemplo (Excel ou CSV). O sistema localiza a tabela e lê os nomes das colunas sozinho — você não precisa arrumar nada no arquivo antes."
+        hint="Envie um arquivo de lançamentos de exemplo (Excel, CSV ou PDF de extrato). O sistema localiza a tabela e lê os nomes das colunas sozinho — você não precisa arrumar nada no arquivo antes."
       />
       <p className="text-xs text-muted-foreground">
-        Envie um arquivo de lançamentos (.xlsx, .xls, .csv) para mapear as colunas. A detecção da tabela é automática.
+        Envie um arquivo de lançamentos (.xlsx, .xls, .csv, .pdf) para mapear as colunas. A detecção da tabela é automática.
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <input
           ref={fileRef}
           type="file"
-          accept=".xlsx,.xls,.csv"
+          accept=".xlsx,.xls,.csv,.pdf"
           className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
         />
@@ -564,11 +592,10 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
             <DetectedRowsStatus rows={preview?.totalRows ?? 0} truncated={preview?.truncated} />
           </span>
         )}
-        {/* Formatos não-tabelados (Fase futura — IA) */}
+        {/* Imagem/scan (Fase futura — IA); PDF com texto já é suportado. */}
         <span className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground/70">
-          <FileText className="h-3.5 w-3.5 opacity-50" />
           <ImageIcon className="h-3.5 w-3.5 opacity-50" />
-          PDF / imagem — em breve
+          Suporte a imagens em breve
         </span>
       </div>
       {!preview && headers.length > 0 && (
@@ -591,7 +618,11 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {MAP_FIELDS.map((f) => {
             const value = def.columnMapping[f.key] || ''
-            const samples = samplesFor(value)
+            // Na coluna de Valor, mostra o valor como será interpretado — com o
+            // sinal derivado de marcadores D/C (C/CD/D/DB) de BB/Sicoob.
+            const samples = f.key === 'valor'
+              ? samplesFor(value).map(formatValorExibicao)
+              : samplesFor(value)
             return (
               <div key={f.key} className="space-y-1.5">
                 <Label className="text-[13px] font-semibold">
@@ -664,7 +695,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     <Card className="p-5 space-y-4">
       <StepHeader
         icon={ArrowLeftRight} color="bg-amber-500" title="Definição de Débito / Crédito"
-        hint="O sistema precisa saber se cada lançamento é um débito ou um crédito. Escolha se essa informação vem de uma coluna da planilha ou das descrições dos lançamentos."
+        hint="O sistema precisa saber se cada lançamento é um débito ou um crédito. Escolha a origem dessa informação: uma coluna da planilha, as descrições dos lançamentos, ou o sinal dos valores (negativo = débito, positivo = crédito)."
       />
       <div className="space-y-2">
         <p className="text-[13px] font-semibold text-foreground">O tipo (débito ou crédito) é definido:</p>
@@ -674,8 +705,9 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
           options={[
             { value: 'COLUNA', label: 'Por coluna' },
             { value: 'DESCRICAO', label: 'Pela descrição' },
+            { value: 'SINAL', label: 'Pelo sinal do valor' },
           ]}
-          onChange={(v) => setDcTipo(v as 'COLUNA' | 'DESCRICAO')}
+          onChange={(v) => setDcTipo(v as 'COLUNA' | 'DESCRICAO' | 'SINAL')}
         />
       </div>
       {def.debitoCredito.tipo === 'COLUNA' ? (
@@ -692,6 +724,11 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
           )}
         </div>
         )
+      ) : def.debitoCredito.tipo === 'SINAL' ? (
+        <div className="flex items-start gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          <Info className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>A direção será interpretada pelo <b>sinal de cada valor</b> dos lançamentos: valores <b>negativos</b> serão Débitos e <b>positivos</b> serão Créditos.</span>
+        </div>
       ) : (
         <div className="flex items-start gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
           <Info className="h-4 w-4 shrink-0 mt-0.5" />
@@ -993,7 +1030,7 @@ function ModeCards({ value, options, onChange, accent }: {
 }) {
   const A = MODE_ACCENT[accent]
   return (
-    <div role="radiogroup" className="grid gap-2 sm:grid-cols-2 max-w-2xl">
+    <div role="radiogroup" className={cn('grid gap-2 max-w-2xl', options.length >= 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
       {options.map((o) => {
         const active = value === o.value
         return (
@@ -1172,24 +1209,29 @@ function ContrapartidaPalavraChave({ def, setDef, dcByDescricao }: { def: Treatm
             Histórico fixo (opcional) <HelpTip text={HISTORICO_FIXO_HINT} />
           </span>
           {dcByDescricao && <span className="w-[120px]">Direção</span>}
+          <span className="w-[70px] inline-flex items-center gap-1">Pular <HelpTip text={PULAR_LINHA_HINT} /></span>
           <span className="w-8 shrink-0" />
         </div>
       )}
       <div className="space-y-2">
-        {itens.map((it, i) => (
+        {itens.map((it, i) => {
+          const pular = !!it.pular
+          return (
           <div key={i} className="flex flex-wrap items-center gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-2 py-1.5">
             <Input className="h-8 text-xs bg-card flex-1 min-w-[140px]" placeholder="Palavra-chave" value={it.palavraChave} onChange={(e) => update(i, { palavraChave: e.target.value })} />
-            <Input className={cn('h-8 text-xs bg-card w-[120px]', !it.conta.trim() && 'border-r-2 border-r-destructive')} placeholder="Conta" inputMode="numeric" value={it.conta} onChange={(e) => update(i, { conta: soDigitos(e.target.value) })} />
-            <Input className="h-8 text-xs bg-card flex-1 min-w-[140px]" placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => update(i, { historicoFixo: semSeparador(e.target.value) })} />
+            <Input disabled={pular} className={cn('h-8 text-xs bg-card w-[120px]', !pular && !it.conta.trim() && 'border-r-2 border-r-destructive', pular && 'line-through placeholder:line-through')} placeholder="Conta" inputMode="numeric" value={it.conta} onChange={(e) => update(i, { conta: soDigitos(e.target.value) })} />
+            <Input disabled={pular} className={cn('h-8 text-xs bg-card flex-1 min-w-[140px]', pular && 'line-through placeholder:line-through')} placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => update(i, { historicoFixo: semSeparador(e.target.value) })} />
             {dcByDescricao && (
-              <Select value={it.direcao ?? ''} onValueChange={(v) => update(i, { direcao: v as Direcao })}>
-                <SelectTrigger className={cn('h-8 w-[120px] text-xs bg-card', !it.direcao && 'border-r-2 border-r-destructive')}><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <Select value={it.direcao ?? ''} onValueChange={(v) => update(i, { direcao: v as Direcao })} disabled={pular}>
+                <SelectTrigger className={cn('h-8 w-[120px] text-xs bg-card', !pular && !it.direcao && 'border-r-2 border-r-destructive', pular && 'line-through')}><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent><SelectItem value="DEBITO">Débito</SelectItem><SelectItem value="CREDITO">Crédito</SelectItem></SelectContent>
               </Select>
             )}
+            <span className="w-[70px] flex justify-center"><Checkbox checked={pular} onCheckedChange={(v) => update(i, { pular: !!v })} /></span>
             <Button variant="soft-destructive" size="icon-sm" onClick={() => remove(i)}><Trash2 className="h-3.5 w-3.5" /></Button>
           </div>
-        ))}
+          )
+        })}
       </div>
       <Button variant="soft" size="sm" onClick={add}><Plus className="h-4 w-4" /> Adicionar palavra-chave</Button>
     </div>
@@ -1239,24 +1281,31 @@ function ContrapartidaDescricao({ def, setDef, dcByDescricao, descricaoColuna, g
                 </span>
               </TableHead>
               {dcByDescricao && <TableHead className="w-[120px]">Direção</TableHead>}
+              <TableHead className="w-[90px]">
+                <span className="inline-flex items-center gap-1">Pular <HelpTip text={PULAR_LINHA_HINT} /></span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {itens.map((it, i) => (
+            {itens.map((it, i) => {
+              const pular = !!it.pular
+              return (
               <TableRow key={it.descricao + i}>
-                <TableCell className="text-sm max-w-[280px] truncate" title={it.descricao}>{it.descricao}</TableCell>
-                <TableCell><Input className={cn('h-8 text-xs bg-card', !it.conta.trim() && 'border-r-2 border-r-destructive')} placeholder="Conta" inputMode="numeric" value={it.conta} onChange={(e) => update(i, { conta: soDigitos(e.target.value) })} /></TableCell>
-                <TableCell><Input className="h-8 text-xs bg-card" placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => update(i, { historicoFixo: semSeparador(e.target.value) })} /></TableCell>
+                <TableCell className={cn('text-sm max-w-[280px] truncate', pular && 'line-through text-muted-foreground')} title={it.descricao}>{it.descricao}</TableCell>
+                <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', !pular && !it.conta.trim() && 'border-r-2 border-r-destructive', pular && 'line-through placeholder:line-through')} placeholder="Conta" inputMode="numeric" value={it.conta} onChange={(e) => update(i, { conta: soDigitos(e.target.value) })} /></TableCell>
+                <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', pular && 'line-through placeholder:line-through')} placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => update(i, { historicoFixo: semSeparador(e.target.value) })} /></TableCell>
                 {dcByDescricao && (
                   <TableCell>
-                    <Select value={it.direcao ?? ''} onValueChange={(v) => update(i, { direcao: v as Direcao })}>
-                      <SelectTrigger className={cn('h-8 text-xs bg-card', !it.direcao && 'border-r-2 border-r-destructive')}><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <Select value={it.direcao ?? ''} onValueChange={(v) => update(i, { direcao: v as Direcao })} disabled={pular}>
+                      <SelectTrigger className={cn('h-8 text-xs bg-card', !pular && !it.direcao && 'border-r-2 border-r-destructive', pular && 'line-through')}><SelectValue placeholder="Selecione" /></SelectTrigger>
                       <SelectContent><SelectItem value="DEBITO">Débito</SelectItem><SelectItem value="CREDITO">Crédito</SelectItem></SelectContent>
                     </Select>
                   </TableCell>
                 )}
+                <TableCell><div className="flex justify-center"><Checkbox checked={pular} onCheckedChange={(v) => update(i, { pular: !!v })} /></div></TableCell>
               </TableRow>
-            ))}
+              )
+            })}
           </TableBody>
         </Table>
       </div>

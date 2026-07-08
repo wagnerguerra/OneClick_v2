@@ -14,6 +14,7 @@ import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { DetectedRowsStatus } from './_components/detected-rows-status'
+import { DebugViewer } from './_components/debug-viewer'
 import { fileToBase64 } from '@/lib/file'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -38,6 +39,19 @@ const extOk = (name: string) => ACCEPT.some((e) => name.toLowerCase().endsWith(e
 export default function TratamentoLancamentosPage() {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
+  // Visualizador de debug escondido: atalho Ctrl/Cmd + Shift + E alterna o painel
+  // da tabela extraída (nada exposto no fluxo normal).
+  const [debugMode, setDebugMode] = useState(false)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'E' || e.key === 'e')) {
+        e.preventDefault()
+        setDebugMode((v) => !v)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   // Sub-permissão "gerenciar_modelos": criar/editar/duplicar/excluir Modelos.
   const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
@@ -148,21 +162,43 @@ export default function TratamentoLancamentosPage() {
     URL.revokeObjectURL(url)
   }, [])
 
-  async function handleExport() {
+  async function handleExport(competenciaAno?: number) {
     if (!file || !modelId || !fileBase64) return
     setConverting(true)
     setResult(null)
+    let res: ConvertResult
     try {
-      const res = await trpc.tratamentoLancamentos.convert.mutate({ modelId, fileBase64, filename: file.name })
-      setResult(res)
-      if (res.fileBase64) {
-        download(res.fileBase64, res.fileName)
-        await alerts.success('Arquivo gerado', `${res.totalLancamentos} lançamentos convertidos para o SCI.`)
-      }
+      res = await trpc.tratamentoLancamentos.convert.mutate({ modelId, fileBase64, filename: file.name, competenciaAno })
     } catch {
       alerts.error('Falha ao gerar o arquivo', 'Não foi possível ler o arquivo ou aplicar o modelo. Verifique o arquivo e tente novamente.')
-    } finally {
       setConverting(false)
+      return
+    }
+    setConverting(false)
+
+    // Datas sem ano (ex.: Sicoob): pede o ano de competência e reenvia.
+    if (res.needsCompetenciaAno) {
+      const ano = await alerts.input({
+        title: 'Ano de competência',
+        text: 'As datas deste extrato não trazem o ano (ex.: 27/02). Informe o ano de competência para gerar o arquivo.',
+        inputLabel: 'Ano (ex.: 2026)',
+        inputPlaceholder: '2026',
+        confirmText: 'Gerar arquivo',
+        required: true,
+      })
+      if (!ano) return
+      const n = Number(ano.trim())
+      if (!Number.isInteger(n) || n < 1900 || n > 2200) {
+        alerts.error('Ano inválido', 'Informe um ano entre 1900 e 2200.')
+        return
+      }
+      return handleExport(n)
+    }
+
+    setResult(res)
+    if (res.fileBase64) {
+      download(res.fileBase64, res.fileName)
+      await alerts.success('Arquivo gerado', `${res.totalLancamentos} lançamentos convertidos para o SCI.`)
     }
   }
 
@@ -277,7 +313,7 @@ export default function TratamentoLancamentosPage() {
           {/* 3. Gerar */}
           <StepBlock num={3} icon={Download} title="Gerar arquivo de importação SCI" color="#10b981" className="pt-6">
             <div>
-              <Button variant="success" size="sm" onClick={handleExport} disabled={!file || !modelId || converting}>
+              <Button variant="success" size="sm" onClick={() => handleExport()} disabled={!file || !modelId || converting}>
                 {converting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Gerar arquivo
               </Button>
             </div>
@@ -369,6 +405,20 @@ export default function TratamentoLancamentosPage() {
             </div>
             </div>
           </Card>
+        )}
+
+        {/* Visualizador de debug (escondido — alternado por Ctrl/Cmd+Shift+E) */}
+        {debugMode && fileBase64 && file && (
+          <DebugViewer
+            fileBase64={fileBase64}
+            filename={file.name}
+            modelId={modelId || undefined}
+          />
+        )}
+        {debugMode && !fileBase64 && (
+          <p className="text-[11px] text-muted-foreground text-center">
+            Debug ativo — envie um arquivo (passo 1) para ver a tabela extraída. Ctrl/Cmd+Shift+E fecha.
+          </p>
         )}
       </div>
     </div>

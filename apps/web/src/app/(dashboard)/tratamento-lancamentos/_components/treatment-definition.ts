@@ -27,7 +27,7 @@ export function normalizeDefinition(raw: unknown): TreatmentDefinition {
     : { modo, palavraChave: asPC(cp?.palavraChave), descricao: asDesc(cp?.descricao) }
   const dcRaw = r.debitoCredito as { tipo?: string; coluna?: unknown; mapa?: unknown[] } | undefined
   const debitoCredito: TreatmentDefinition['debitoCredito'] = {
-    tipo: dcRaw?.tipo === 'DESCRICAO' ? 'DESCRICAO' : 'COLUNA',
+    tipo: dcRaw?.tipo === 'DESCRICAO' ? 'DESCRICAO' : dcRaw?.tipo === 'SINAL' ? 'SINAL' : 'COLUNA',
     coluna: typeof dcRaw?.coluna === 'string' ? dcRaw.coluna : '',
     mapa: Array.isArray(dcRaw?.mapa) ? (dcRaw!.mapa as unknown as TreatmentDefinition['debitoCredito']['mapa']) : [],
   }

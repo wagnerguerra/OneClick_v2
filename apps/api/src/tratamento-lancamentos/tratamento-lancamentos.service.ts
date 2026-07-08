@@ -8,13 +8,17 @@ import {
   type TreatmentDefinition,
   type PreviewArquivoInput,
   type ConvertInput,
+  type DebugExtractInput,
   stableStringify,
 } from '@saas/types'
 import { extractTabela } from './lib/extract-tabela'
-import { applyModel } from './lib/apply-model'
+import { applyModel, type TraceRow } from './lib/apply-model'
+import { parseData } from './lib/parsers'
 
 /** Teto de linhas devolvidas ao wizard no preview (limita payload). */
 const PREVIEW_MAX_ROWS = 5000
+/** Teto de linhas no visualizador de debug (limita payload; é ferramenta interna). */
+const DEBUG_MAX_ROWS = 5000
 
 function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.TreatmentModelWhereInput {
   return !isMaster && empresaId ? { empresaId } : {}
@@ -346,14 +350,71 @@ export class TratamentoLancamentosService {
       return { nome: m.nome, definition: (cv?.definition ?? null) as TreatmentDefinition | null }
     })
 
-    const result = applyModel(table, model.definition ?? EMPTY_TREATMENT_DEFINITION)
+    const def = model.definition ?? EMPTY_TREATMENT_DEFINITION
+
+    // Datas "dd/mm" sem ano (ex.: Sicoob): sem a competência informada, avisa o
+    // front para pedir o ano (popup) e reenviar — não gera o arquivo ainda.
+    const dataCol = def.columnMapping.data
+    const precisaAno = !input.competenciaAno && !!dataCol && table.rows.some((r) => parseData(r[dataCol]).semAno)
+    if (precisaAno) {
+      return { needsCompetenciaAno: true, totalLancamentos: 0, pendencias: [], fileBase64: null, fileName: '' }
+    }
+
+    const result = applyModel(table, def, input.competenciaAno)
     const safe = model.nome.replace(/[^a-zA-Z0-9-_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'lancamentos'
     return {
+      needsCompetenciaAno: false,
       totalLancamentos: result.totalLancamentos,
       pendencias: result.pendencias,
       // .txt em ANSI (latin1); null quando há pendências.
       fileBase64: result.sciText !== null ? Buffer.from(result.sciText, 'latin1').toString('base64') : null,
       fileName: `SCI_${safe}.txt`,
+    }
+  }
+
+  /**
+   * Visualizador de DEBUG (escondido, via ?debug=1): extrai a tabela crua e, se
+   * um modelo for informado, também aplica o modelo com traço por-linha (como
+   * cada lançamento foi mapeado no de/para, e o que foi pulado/ignorado/pendente).
+   * Ferramenta de diagnóstico — não altera o fluxo de geração.
+   */
+  async debugExtract(input: DebugExtractInput, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
+    const buffer = Buffer.from(input.fileBase64, 'base64')
+    const table = await extractTabela({ buffer, filename: input.filename })
+
+    const base = {
+      headers: table.headers,
+      rows: table.rows.slice(0, DEBUG_MAX_ROWS),
+      totalRows: table.meta.totalDataRows,
+      truncated: table.meta.totalDataRows > DEBUG_MAX_ROWS,
+      meta: table.meta,
+    }
+
+    // Sem modelo → só a tabela crua (view 1). Com modelo → também de/para + traço.
+    if (!input.modelId) {
+      return { ...base, modelNome: null, columnMapping: null, trace: [] as TraceRow[], pendencias: [], totalLancamentos: table.rows.length }
+    }
+
+    const modelId = input.modelId
+    const model = await scoped(tenantSchema, async (db) => {
+      const m = await db.treatmentModel.findUniqueOrThrow({ where: { id: modelId } })
+      assertScope(m.empresaId, isMaster, empresaId)
+      const cv = m.currentVersionId
+        ? await db.treatmentModelVersion.findUnique({ where: { id: m.currentVersionId } })
+        : null
+      return { nome: m.nome, definition: (cv?.definition ?? null) as TreatmentDefinition | null }
+    })
+    const def = model.definition ?? EMPTY_TREATMENT_DEFINITION
+    const trace: TraceRow[] = []
+    const result = applyModel(table, def, input.competenciaAno, trace)
+
+    return {
+      ...base,
+      modelNome: model.nome,
+      columnMapping: def.columnMapping,
+      trace: trace.slice(0, DEBUG_MAX_ROWS),
+      pendencias: result.pendencias,
+      totalLancamentos: result.totalLancamentos,
     }
   }
 

@@ -37,13 +37,38 @@ export interface ConversionResult {
   pendencias: Pendencia[]
 }
 
+/** Situação de uma linha após aplicar o modelo (visualizador de debug). */
+export type TraceStatus = 'ok' | 'pulada-regra' | 'ignorada-zero' | 'pendencia'
+
+/**
+ * Traço por-linha de como o modelo interpretou cada lançamento — populado só
+ * quando `applyModel` recebe um coletor `trace`. Alimenta o visualizador de
+ * debug (tabela "após de/para" + linhas puladas/ignoradas). Mesma fonte da
+ * lógica de conversão, para não divergir.
+ */
+export interface TraceRow {
+  linha: number
+  /** Valores BRUTOS das colunas mapeadas. */
+  data: string
+  valor: string
+  descricao: string
+  /** Interpretação. */
+  dataParsed: string | null
+  valorParsed: number | null
+  direcao: Direcao | null
+  contaContrapartida: string | null
+  contaCorrente: string | null
+  status: TraceStatus
+  pendenciaTipos: PendenciaTipo[]
+}
+
 function cell(row: Record<string, CellValue>, col: string): string {
   if (!col) return ''
   const v = row[col]
   return v === null || v === undefined ? '' : String(v).trim()
 }
 
-interface CpMatch { conta: string; historicoFixo?: string; direcao?: Direcao }
+interface CpMatch { conta: string; historicoFixo?: string; direcao?: Direcao; pular?: boolean }
 
 /** Resolve a contrapartida de uma descrição conforme o modo do modelo. */
 function matchContrapartida(def: TreatmentDefinition, descricao: string): CpMatch | null {
@@ -57,13 +82,13 @@ function matchContrapartida(def: TreatmentDefinition, descricao: string): CpMatc
       const idx = lower.indexOf(kw)
       if (idx >= 0 && (best === null || idx < best.idx)) best = { item, idx }
     }
-    return best ? { conta: best.item.conta, historicoFixo: best.item.historicoFixo, direcao: best.item.direcao } : null
+    return best ? { conta: best.item.conta, historicoFixo: best.item.historicoFixo, direcao: best.item.direcao, pular: best.item.pular } : null
   }
   const item = cp.descricao.find((i) => i.descricao === descricao)
-  return item ? { conta: item.conta, historicoFixo: item.historicoFixo, direcao: item.direcao } : null
+  return item ? { conta: item.conta, historicoFixo: item.historicoFixo, direcao: item.direcao, pular: item.pular } : null
 }
 
-export function applyModel(table: ExtractedTable, def: TreatmentDefinition): ConversionResult {
+export function applyModel(table: ExtractedTable, def: TreatmentDefinition, anoCompetencia?: number, trace?: TraceRow[]): ConversionResult {
   const cm = def.columnMapping
   const dcMapa = new Map(def.debitoCredito.mapa.map((m) => [m.valor, m.direcao]))
   const cc = def.contasCorrentes
@@ -94,7 +119,7 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition): Con
 
     // Data (campo obrigatório)
     const dataStr = cell(row, cm.data)
-    const pd = parseData(cm.data ? row[cm.data] : '')
+    const pd = parseData(cm.data ? row[cm.data] : '', anoCompetencia)
     if (!pd.valid) {
       rowPend.push(dataStr
         ? { linha, tipo: 'DATA_INVALIDA', campo: cm.data, mensagem: `Data inválida: "${dataStr}".`, valor: dataStr }
@@ -110,8 +135,30 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition): Con
         : { linha, tipo: 'CAMPO_VAZIO', campo: cm.valor, mensagem: 'Valor vazio.' })
     }
 
+    // Coletor do traço de debug (no-op quando `trace` não foi passado). Emite
+    // UMA entrada por linha, no ponto de saída, com o que já se sabe.
+    const pushTrace = (status: TraceStatus, extra?: Partial<TraceRow>) => {
+      if (!trace) return
+      trace.push({
+        linha, data: dataStr, valor: valorStr, descricao,
+        dataParsed: pd.valid ? (pd.yyyymmdd ?? null) : null,
+        valorParsed: pv.valid ? (pv.value ?? null) : null,
+        direcao: null, contaContrapartida: null, contaCorrente: null,
+        status, pendenciaTipos: [],
+        ...extra,
+      })
+    }
+
+    // Lançamento com valor exatamente ZERO → ignorado (validado com a gestora do
+    // contábil). Só vale para valor zero; vazio/nulo continua gerando CAMPO_VAZIO
+    // acima. Sai antes de qualquer pendência de contrapartida/direção.
+    if (pv.valid && pv.value === 0) { pushTrace('ignorada-zero'); return }
+
     // Contrapartida (conta + possivelmente direção)
     const match = matchContrapartida(def, descricao)
+    // Item marcado "Pular linha": a correspondência não é lançamento → ignora a
+    // linha inteira (sem SCI e sem pendência), independente dos outros campos.
+    if (match?.pular) { pushTrace('pulada-regra', { contaContrapartida: match.conta?.trim() || null }); return }
     if (!match || !match.conta.trim()) {
       rowPend.push({ linha, tipo: 'CONTA_NAO_MAPEADA', campo: cm.descricao, mensagem: `Sem conta de contrapartida para "${descricao}".`, valor: descricao })
     }
@@ -126,6 +173,13 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition): Con
         const dir = dcMapa.get(dcVal)
         if (!dir) rowPend.push({ linha, tipo: 'DC_NAO_MAPEADO', campo: def.debitoCredito.coluna, mensagem: `Valor "${dcVal}" não mapeado como débito/crédito.`, valor: dcVal })
         else direcao = dir
+      }
+    } else if (def.debitoCredito.tipo === 'SINAL') {
+      // Direção pelo sinal do valor: negativo = débito, positivo = crédito.
+      // (o parser já converteu marcadores C/CD/D/DB em sinal.) Valor inválido já
+      // gerou VALOR_INVALIDO; valor zero já foi ignorado acima.
+      if (pv.valid && pv.value !== null) {
+        direcao = pv.value < 0 ? 'DEBITO' : 'CREDITO'
       }
     } else if (match) {
       if (match.direcao) direcao = match.direcao
@@ -147,7 +201,14 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition): Con
       }
     }
 
-    if (rowPend.length) { pendencias.push(...rowPend); return }
+    if (rowPend.length) {
+      pendencias.push(...rowPend)
+      pushTrace('pendencia', {
+        direcao, contaContrapartida: match?.conta?.trim() || null,
+        contaCorrente: contaCorrente || null, pendenciaTipos: rowPend.map((p) => p.tipo),
+      })
+      return
+    }
 
     lines.push(buildSciLine({
       numero: lines.length + 1,
@@ -155,12 +216,16 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition): Con
       direcao: direcao as Direcao,
       contaCorrente,
       contaContrapartida: (match as CpMatch).conta.trim(),
-      valor: pv.value as number,
+      // Magnitude sempre positiva: a direção (débito/crédito) já carrega o sinal.
+      valor: Math.abs(pv.value as number),
       participante,
       numeroNf,
       documento,
       historicoFixo: (match as CpMatch).historicoFixo,
     }))
+    pushTrace('ok', {
+      direcao, contaContrapartida: (match as CpMatch).conta.trim(), contaCorrente,
+    })
   })
 
   return {
