@@ -1405,7 +1405,13 @@ export class OrcamentoService {
     const camposPermitidos = ['dtEnviado', 'dtAprovado', 'dtLiberado', 'dtFinalizado', 'dtEncerrado', 'dtCancelado']
     if (!camposPermitidos.includes(campo)) throw new Error(`Campo nao permitido: ${campo}`)
 
-    const data: any = { [campo]: valor ? new Date(valor) : null }
+    // #HLP0235: data-only (YYYY-MM-DD) é ancorada ao MEIO-DIA UTC. new Date('2026-06-25')
+    // vira meia-noite UTC e, exibida em fuso negativo (Brasil UTC-3), aparece um dia
+    // antes (24/06). Meio-dia UTC mantém o mesmo dia do calendário em qualquer fuso.
+    const parseDataDedicada = (v: string): Date =>
+      /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T12:00:00.000Z`) : new Date(v)
+
+    const data: any = { [campo]: valor ? parseDataDedicada(valor) : null }
     const updated = await prisma.orcamento.update({ where: { id }, data })
 
     const labels: Record<string, string> = {
@@ -1416,7 +1422,7 @@ export class OrcamentoService {
       dtEncerrado: 'data de encerramento',
       dtCancelado: 'data de cancelamento',
     }
-    await this.addEvento(id, userId, 'edicao_data', null, null, `${labels[campo]} ${valor ? 'definida para ' + new Date(valor).toLocaleDateString('pt-BR') : 'removida'}`)
+    await this.addEvento(id, userId, 'edicao_data', null, null, `${labels[campo]} ${valor ? 'definida para ' + parseDataDedicada(valor).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'removida'}`)
     this.emitEvent('dados-gerais', { orcamentoId: id, empresaId: updated.empresaId, actorUserId: userId })
     return updated
   }
