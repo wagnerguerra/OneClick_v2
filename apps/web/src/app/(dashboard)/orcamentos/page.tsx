@@ -72,6 +72,7 @@ interface OrcamentoRow {
   responsavelId: string | null
   solicitanteId: string | null
   observacoes: string | null
+  formaPagamento?: string | null
   responsavel?: UserRef | null
   solicitante?: UserRef | null
   itens?: Array<{ id: string; descricao: string; tipo: string }>
@@ -418,14 +419,20 @@ export default function OrcamentosPage() {
       // Ao mover para ENVIADO, perguntar se notifica o cliente por e-mail (decisão do operador).
       let notificarCliente = true
       if (targetStatus === 'ENVIADO') {
+        // #HLP0258: avisar quando o orçamento não tem forma de pagamento definida
+        // (o operador pode enviar assim mesmo, mas é alertado antes).
+        const semFormaPgto = !((card.formaPagamento ?? '').trim())
+        const avisoFormaPgto = semFormaPgto
+          ? `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:10px 12px;margin:0 0 14px;color:#92400e;font-size:13px;text-align:left">⚠️ <b>Sem forma de pagamento definida.</b> Você pode enviar assim mesmo, mas recomendamos definir antes (abra o orçamento → aba <b>Desconto e Pagamento</b>).</div>`
+          : ''
         const r = await alerts.custom({
           title: 'Mover para Enviado',
-          icon: 'question',
-          html: `<p style="margin:0 0 14px">Confirmar a mudança do orçamento para <b>Enviado</b>.</p>
+          icon: semFormaPgto ? 'warning' : 'question',
+          html: `${avisoFormaPgto}<p style="margin:0 0 14px">Confirmar a mudança do orçamento para <b>Enviado</b>.</p>
                  <label style="display:flex;align-items:center;gap:8px;justify-content:center;font-size:14px;cursor:pointer">
                    <input type="checkbox" id="swal-notificar-cli" checked style="width:16px;height:16px"> Notificar o cliente por e-mail
                  </label>`,
-          confirmButtonText: 'Confirmar',
+          confirmButtonText: semFormaPgto ? 'Enviar mesmo assim' : 'Confirmar',
           preConfirm: () => (document.getElementById('swal-notificar-cli') as HTMLInputElement)?.checked ?? true,
         })
         if (!r.isConfirmed) return // cancelou → não move

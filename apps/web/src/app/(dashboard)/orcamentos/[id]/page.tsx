@@ -1201,7 +1201,18 @@ export default function OrcamentoDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formTextoInterno, isLocked])
 
-  function abrirEnvio() {
+  async function abrirEnvio() {
+    // #HLP0258: avisa quando o orçamento não tem forma de pagamento definida —
+    // o operador pode enviar assim mesmo, mas é alertado antes.
+    if (!((orc?.formaPagamento ?? '').trim())) {
+      const ok = await alerts.confirm({
+        title: 'Sem forma de pagamento',
+        text: 'Este orçamento não tem forma de pagamento definida (aba Desconto e Pagamento). Deseja enviar mesmo assim?',
+        confirmText: 'Enviar mesmo assim',
+        icon: 'warning',
+      })
+      if (!ok) return
+    }
     const emails: string[] = []
     if (orc?.cliente?.email) emails.push(orc.cliente.email)
     if (orc?.emailsContatos) emails.push(...orc.emailsContatos.split(/[,;]/).map(s => s.trim()).filter(Boolean))
