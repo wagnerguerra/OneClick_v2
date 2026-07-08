@@ -1919,7 +1919,6 @@ export class OrcamentoService {
           bodyHtml: `
             <p>Prezado(a) <strong>${clienteNome}</strong>,</p>
             <p>A <strong>${empresaNome}</strong> tem o prazer de enviar a proposta comercial abaixo para sua avaliação. Clique no botão para visualizar e aprovar diretamente.</p>
-            ${config.textoApresentacao ? `<div style="background:#ecfdf5;border-left:3px solid #10b981;padding:14px 18px;margin:18px 0;border-radius:4px;color:#065f46;font-size:13px;">${config.textoApresentacao}</div>` : ''}
             ${summaryTable}
             ${itensTable}
             ${totaisBlock}
@@ -2141,7 +2140,6 @@ export class OrcamentoService {
         <p>Prezado(a) <strong>${clienteNome}</strong>,</p>
         <p>A <strong>${empresaNome}</strong> tem o prazer de enviar a proposta comercial abaixo para sua avaliação. Clique no botão para visualizar e aprovar diretamente.</p>
         ${opcoes.mensagem ? `<div style="background:#fff7ed;border-left:3px solid #fb923c;padding:14px 18px;margin:18px 0;border-radius:4px;color:#7c2d12;font-size:13px;">${opcoes.mensagem}</div>` : ''}
-        ${config.textoApresentacao ? `<div style="background:#ecfdf5;border-left:3px solid #10b981;padding:14px 18px;margin:18px 0;border-radius:4px;color:#065f46;font-size:13px;">${config.textoApresentacao}</div>` : ''}
         ${summaryTable}
         ${itensTable}
         ${totaisBlock}
