@@ -2039,15 +2039,24 @@ function registerIpcHandlers() {
 
   function inferGitHubRepoFromRemote(remoteUrl) {
     const s = String(remoteUrl || '').trim()
+<<<<<<< Updated upstream
     let m = s.match(/github\.com[:/](.+?)(?:\.git)?$/i)
     if (!m) return ''
     return m[1].replace(/\.git$/i, '')
+=======
+    const m = s.match(/github\.com[:/](.+?)(?:\.git)?$/i)
+    return m ? m[1].replace(/\.git$/i, '') : ''
+>>>>>>> Stashed changes
   }
 
   function deployGitHubRepo(cfg) {
     if (cfg?.GITHUB_REPO) return cfg.GITHUB_REPO
+<<<<<<< Updated upstream
     const remoteUrl = gitOutput(['remote', 'get-url', 'origin'], projectRoot)
     return inferGitHubRepoFromRemote(remoteUrl)
+=======
+    return inferGitHubRepoFromRemote(gitOutput(['remote', 'get-url', 'origin'], projectRoot))
+>>>>>>> Stashed changes
   }
 
   function githubJson(pathname, cfg) {
@@ -2056,6 +2065,7 @@ function registerIpcHandlers() {
       if (!repo) return resolve({ ok: false, error: 'GITHUB_REPO não configurado e não foi possível inferir pelo origin.' })
       const headers = {
         'User-Agent': 'OneClick-Service-Manager',
+<<<<<<< Updated upstream
         'Accept': 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
       }
@@ -2066,6 +2076,13 @@ function registerIpcHandlers() {
         method: 'GET',
         headers,
       }, (res) => {
+=======
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      }
+      if (cfg?.GITHUB_TOKEN) headers.Authorization = `Bearer ${cfg.GITHUB_TOKEN}`
+      const req = https.request({ hostname: 'api.github.com', path: `/repos/${repo}${pathname}`, method: 'GET', headers }, (res) => {
+>>>>>>> Stashed changes
         let body = ''
         res.setEncoding('utf8')
         res.on('data', chunk => { body += chunk })
@@ -2073,21 +2090,30 @@ function registerIpcHandlers() {
           try {
             const data = body ? JSON.parse(body) : null
             if (res.statusCode >= 200 && res.statusCode < 300) return resolve({ ok: true, data, repo, rate: res.headers['x-ratelimit-remaining'] })
+<<<<<<< Updated upstream
             const msg = data?.message || `GitHub HTTP ${res.statusCode}`
             resolve({ ok: false, error: msg, status: res.statusCode, repo })
+=======
+            resolve({ ok: false, error: data?.message || `GitHub HTTP ${res.statusCode}`, status: res.statusCode, repo })
+>>>>>>> Stashed changes
           } catch (e) {
             resolve({ ok: false, error: e.message, status: res.statusCode, repo })
           }
         })
       })
+<<<<<<< Updated upstream
       req.setTimeout(15000, () => {
         req.destroy(new Error('timeout ao consultar GitHub'))
       })
+=======
+      req.setTimeout(15000, () => req.destroy(new Error('timeout ao consultar GitHub')))
+>>>>>>> Stashed changes
       req.on('error', err => resolve({ ok: false, error: err.message, repo }))
       req.end()
     })
   }
 
+<<<<<<< Updated upstream
   // Mescla um PR na sua base (main) via API do GitHub. Requer GITHUB_TOKEN com
   // permissão de escrita/merge no repo. Retorna { ok, merged, error, status }.
   function githubMergePr(number, cfg, mergeMethod = 'merge') {
@@ -2130,6 +2156,9 @@ function registerIpcHandlers() {
   }
 
   async function githubListPrCommits(repo, number, cfg) {
+=======
+  async function githubListPrCommits(number, cfg) {
+>>>>>>> Stashed changes
     const r = await githubJson(`/pulls/${number}/commits?per_page=100`, cfg)
     if (!r.ok) return []
     return (Array.isArray(r.data) ? r.data : []).map(c => ({
@@ -2140,6 +2169,22 @@ function registerIpcHandlers() {
     }))
   }
 
+<<<<<<< Updated upstream
+=======
+  async function githubListPrFiles(number, cfg) {
+    const r = await githubJson(`/pulls/${number}/files?per_page=100`, cfg)
+    if (!r.ok) return []
+    return (Array.isArray(r.data) ? r.data : []).map(f => ({
+      filename: f.filename,
+      status: f.status,
+      additions: f.additions,
+      deletions: f.deletions,
+      changes: f.changes,
+      patch: f.patch || '',
+    }))
+  }
+
+>>>>>>> Stashed changes
   ipcMain.handle('deploy:list-prs', async () => {
     try {
       const cfg = readDeployConfig() || {}
@@ -2147,6 +2192,7 @@ function registerIpcHandlers() {
       if (!repo) return { ok: false, error: 'Configure GITHUB_REPO no .deploy.local ou ajuste o origin do GitHub.' }
       const prsRes = await githubJson('/pulls?state=open&per_page=50&sort=updated&direction=desc', cfg)
       if (!prsRes.ok) return { ok: false, error: prsRes.error, status: prsRes.status, repo }
+<<<<<<< Updated upstream
       const projectDefs = deployProjectDefs(cfg)
       const projectByBase = new Map()
       for (const p of projectDefs) projectByBase.set(p.branch || (p.id === 'core' ? 'main' : ''), p)
@@ -2155,6 +2201,18 @@ function registerIpcHandlers() {
         const baseRef = pr.base?.ref || ''
         const project = projectByBase.get(baseRef) || (baseRef === 'main' ? projectDefs.find(p => p.id === 'core') : null)
         const commits = await githubListPrCommits(repo, pr.number, cfg)
+=======
+      const defs = deployProjectDefs(cfg)
+      const byBranch = new Map(defs.map(d => [d.branch || (d.id === 'core' ? 'main' : ''), d]))
+      const prs = []
+      for (const pr of (prsRes.data || [])) {
+        const baseRef = pr.base?.ref || ''
+        const project = byBranch.get(baseRef) || (baseRef === 'main' ? defs.find(d => d.id === 'core') : null)
+        const [commits, files] = await Promise.all([
+          githubListPrCommits(pr.number, cfg),
+          githubListPrFiles(pr.number, cfg),
+        ])
+>>>>>>> Stashed changes
         prs.push({
           number: pr.number,
           title: pr.title,
@@ -2166,10 +2224,18 @@ function registerIpcHandlers() {
           headSha: pr.head?.sha || '',
           draft: !!pr.draft,
           mergeable: pr.mergeable,
+<<<<<<< Updated upstream
+=======
+          createdAt: pr.created_at,
+>>>>>>> Stashed changes
           updatedAt: pr.updated_at,
           projectId: project?.id || (baseRef === (cfg.APP_BRANCH || 'app-mobile') ? 'app' : 'core'),
           projectLabel: project?.label || (baseRef === (cfg.APP_BRANCH || 'app-mobile') ? 'App Mobile' : 'Core/API/Web'),
           commits,
+<<<<<<< Updated upstream
+=======
+          files,
+>>>>>>> Stashed changes
         })
       }
       return { ok: true, repo, prs, tokenConfigured: !!cfg.GITHUB_TOKEN, rate: prsRes.rate }
@@ -2462,6 +2528,7 @@ function registerIpcHandlers() {
         deployEmit(5, 'push', `→ Buscando PR #${corePrTarget.number} no GitHub...`, 'info')
         const fetchPr = await gitExec(['fetch', 'origin', `pull/${corePrTarget.number}/head`], (line) => deployEmit(6, 'push', line, 'info'), 60000)
         if (fetchPr.code !== 0) {
+<<<<<<< Updated upstream
           const msg = fetchPr.stderr || fetchPr.stdout || fetchPr.error || 'falha ao buscar PR no GitHub'
           deployRunning = false
           return { ok: false, error: 'Falha ao buscar PR no GitHub: ' + msg.slice(0, 200) }
@@ -2491,6 +2558,14 @@ function registerIpcHandlers() {
         // Deploya a SUA branch (agora com o PR por cima), não uma deploy/pr-* isolada.
         targetSha = gitOutput(['rev-parse', 'HEAD'])
         coreDeployBranch = localBranch
+=======
+          const msg = fetchPr.stderr || fetchPr.stdout || fetchPr.error || 'git fetch PR falhou'
+          deployRunning = false
+          return { ok: false, error: 'git fetch PR falhou: ' + msg.slice(0, 200) }
+        }
+        targetSha = gitOutput(['rev-parse', 'FETCH_HEAD'])
+        coreDeployBranch = `deploy/pr-${corePrTarget.number}-core`
+>>>>>>> Stashed changes
       }
       const remoteShaBeforePush = gitOutput(['rev-parse', `origin/${coreDeployBranch}`])
       if (!targetSha) targetSha = gitOutput(['rev-parse', 'HEAD'])
@@ -2500,6 +2575,7 @@ function registerIpcHandlers() {
       if (gitExitCode(['cat-file', '-e', `${targetSha}^{commit}`]) !== 0) {
         return { ok: false, error: 'Commit selecionado não existe no repositório local.' }
       }
+<<<<<<< Updated upstream
       // ── Auto-integra o <branch> remoto antes do push ──────────────────────────
       // Quando um PR de colega já entrou no origin/<branch>, o push do seu deploy
       // seria rejeitado (non-fast-forward). Integramos aqui (merge — preserva os
@@ -2531,6 +2607,12 @@ function registerIpcHandlers() {
       const targetAlreadyRemote = remoteShaBeforePush && gitExitCode(['merge-base', '--is-ancestor', targetSha, remoteShaBeforePush]) === 0
       const pushResult = targetAlreadyRemote
         ? { code: 0, stdout: 'Commit alvo já está no GitHub (envio ignorado)' }
+=======
+      // Timeout 60s — se Git Credential Manager pedir popup, mata em 60s ao invés de travar.
+      const targetAlreadyRemote = remoteShaBeforePush && gitExitCode(['merge-base', '--is-ancestor', targetSha, remoteShaBeforePush]) === 0
+      const pushResult = targetAlreadyRemote
+        ? { code: 0, stdout: 'Commit alvo ja esta no GitHub (push skip)' }
+>>>>>>> Stashed changes
         : await gitExec(['push', 'origin', `${targetSha}:refs/heads/${coreDeployBranch}`], (line) => deployEmit(7, 'push', line, 'info'), 60000)
       deployCheckAbort('push', 10)
       if (pushResult.code !== 0) {
@@ -2546,6 +2628,7 @@ function registerIpcHandlers() {
       deployEmit(15, 'pull', '→ Atualizando código na VPS...', 'info')
       deployCheckAbort('pull', 15)
       deployCurrentStep = 'pull'
+<<<<<<< Updated upstream
       // A VPS é ALVO de deploy: deve espelhar exatamente o ref publicado (ela não
       // autora commits). `git reset --hard <sha>` evita o "Not possible to
       // fast-forward, aborting" que ocorre quando o checkout da VPS divergiu do
@@ -2553,6 +2636,9 @@ function registerIpcHandlers() {
       // (usado na detecção de mudança de schema abaixo) e não remove arquivos
       // untracked (.env, uploads) — só reescreve os arquivos versionados.
       const pull = await sshExec(cfg, `cd /opt/oneclick-src && git fetch origin ${coreDeployBranch} 2>&1 && git reset --hard ${targetSha} 2>&1`, (line) => deployEmit(20, 'pull', line, 'info'))
+=======
+      const pull = await sshExec(cfg, `cd /opt/oneclick-src && git fetch origin ${coreDeployBranch} 2>&1 && git merge --ff-only ${targetSha} 2>&1`, (line) => deployEmit(20, 'pull', line, 'info'))
+>>>>>>> Stashed changes
       if (pull.code !== 0) {
         deployEmit(25, 'pull', `✗ ${(pull.stderr || pull.stdout || '').slice(0, 300)}`, 'err')
         deployRunning = false
@@ -2726,6 +2812,7 @@ function registerIpcHandlers() {
           const fetchAppPr = await gitExec(['fetch', 'origin', `pull/${appPrTarget.number}/head`], (line) => deployEmit(96, 'pull', `[app] ${line}`, 'info'), 60000, appCwd)
           if (fetchAppPr.code !== 0) {
             deployRunning = false
+<<<<<<< Updated upstream
             return { ok: false, error: 'Falha ao buscar PR no App Mobile: ' + (fetchAppPr.stderr || fetchAppPr.stdout || fetchAppPr.error || '').slice(0, 200) }
           }
           // Mesma lógica do core: integra o PR POR CIMA da branch de deploy do app
@@ -2745,12 +2832,22 @@ function registerIpcHandlers() {
           }
           requestedAppSha = gitOutput(['rev-parse', 'HEAD'], appCwd)
           appDeployBranch = appBranch
+=======
+            return { ok: false, error: 'git fetch PR falhou no App Mobile: ' + (fetchAppPr.stderr || fetchAppPr.stdout || fetchAppPr.error || '').slice(0, 200) }
+          }
+          requestedAppSha = gitOutput(['rev-parse', 'FETCH_HEAD'], appCwd)
+          appDeployBranch = `deploy/pr-${appPrTarget.number}-app`
+>>>>>>> Stashed changes
         }
         if (requestedAppSha && !/^[0-9a-f]{7,40}$/i.test(requestedAppSha)) {
           deployRunning = false
           return { ok: false, error: 'Commit selecionado do App Mobile invalido.' }
         }
+<<<<<<< Updated upstream
         let appTargetSha = requestedAppSha || gitOutput(['rev-parse', 'HEAD'], appCwd)
+=======
+        const appTargetSha = requestedAppSha || gitOutput(['rev-parse', 'HEAD'], appCwd)
+>>>>>>> Stashed changes
         if (!appPrTarget?.number && gitExitCode(['merge-base', '--is-ancestor', appTargetSha, 'HEAD'], appCwd) !== 0) {
           deployRunning = false
           return { ok: false, error: 'Commit selecionado do App Mobile não pertence ao histórico local.' }
@@ -2759,6 +2856,7 @@ function registerIpcHandlers() {
           deployRunning = false
           return { ok: false, error: 'Commit selecionado do App Mobile não existe no repositório local.' }
         }
+<<<<<<< Updated upstream
         // Auto-integra o branch remoto do app antes do push (mesma lógica do core).
         if (appDeployBranch === appBranch) {
           await gitExec(['fetch', 'origin', appDeployBranch], null, 30000, appCwd)
@@ -2779,6 +2877,8 @@ function registerIpcHandlers() {
             return { ok: false, error: `O "${appDeployBranch}" remoto do App Mobile está à frente, mas você publica um commit específico. Rode "git pull --rebase origin ${appDeployBranch}" e tente de novo.` }
           }
         }
+=======
+>>>>>>> Stashed changes
         const appPush = await gitExec(['push', 'origin', `${appTargetSha}:refs/heads/${appDeployBranch}`], (line) => deployEmit(97, 'push', `[app] ${line}`, 'info'), 60000, appCwd)
         if (appPush.code !== 0) {
           deployRunning = false
@@ -2787,6 +2887,10 @@ function registerIpcHandlers() {
         const appRemoteUrl = gitOutput(['remote', 'get-url', 'origin'], appCwd)
         const appRemoteDirQ = shellQuote(appDef.remoteDir)
         const appRemoteUrlQ = shellQuote(appRemoteUrl)
+<<<<<<< Updated upstream
+=======
+        const appBranchQ = shellQuote(appDeployBranch)
+>>>>>>> Stashed changes
         const appPullCmd = [
           `if [ -e ${appRemoteDirQ} ] && [ ! -d ${appRemoteDirQ}/.git ]; then echo "Diretório ${appDef.remoteDir} existe, mas não é um repositório Git"; exit 1; fi`,
           `if [ ! -d ${appRemoteDirQ}/.git ]; then git clone --branch ${shellQuote(appDeployBranch)} --single-branch ${appRemoteUrlQ} ${appRemoteDirQ}; else cd ${appRemoteDirQ} && git fetch origin ${shellQuote(appDeployBranch)} 2>&1 && git reset --hard ${appTargetSha} 2>&1; fi`,
