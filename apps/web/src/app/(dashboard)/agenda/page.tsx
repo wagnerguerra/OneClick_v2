@@ -11,7 +11,7 @@ import {
   StickyNote, Paperclip, Send, Upload, FileBarChart, Sparkles,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card,
+  Button, Input, Textarea, Label, Card,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -458,17 +458,22 @@ export default function AgendaPage() {
           <span>Este evento está vinculado a um card do CRM — as anotações são compartilhadas com a oportunidade.</span>
         </div>
       )}
-      <div className="flex gap-2">
-        <Input
-          placeholder="Escreva uma anotação..."
+      {/* #HLP0257: caixa de anotação maior (multi-linha). Enter envia,
+          Shift+Enter quebra linha. */}
+      <div className="space-y-2">
+        <Textarea
+          placeholder="Escreva uma anotação... (Enter envia · Shift+Enter quebra linha)"
           value={novaAnotacao}
           onChange={e => setNovaAnotacao(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addAnotacaoEvento() } }}
-          className="h-9 text-sm flex-1"
+          rows={4}
+          className="text-sm min-h-[96px] resize-y"
         />
-        <Button size="sm" className="bg-sky-500 hover:bg-sky-600 text-white" onClick={addAnotacaoEvento} disabled={!novaAnotacao.trim()}>
-          <Send className="h-4 w-4" />
-        </Button>
+        <div className="flex justify-end">
+          <Button size="sm" className="bg-sky-500 hover:bg-sky-600 text-white gap-1.5" onClick={addAnotacaoEvento} disabled={!novaAnotacao.trim()}>
+            <Send className="h-4 w-4" /> Adicionar
+          </Button>
+        </div>
       </div>
       {eventoAnotacoes.length === 0 && (
         <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma anotação</p>
