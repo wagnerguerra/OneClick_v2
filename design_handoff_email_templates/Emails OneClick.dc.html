@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<style>
+  body{margin:0;background:#e5e7eb;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:#059669;text-decoration:none}
+  a:hover{color:#047857;text-decoration:underline}
+  .dv-turn{padding:56px 60px;scroll-margin-top:16px}
+  .dv-thd{display:flex;align-items:baseline;gap:12px;margin:0 0 10px}
+  .dv-tid{font:600 11px ui-monospace,Menlo,monospace;padding:4px 9px;background:#0f172a;color:#fff;border-radius:6px;text-decoration:none}
+  .dv-tname{font:700 22px/1.2 'Segoe UI',Roboto,sans-serif;color:#0f172a;letter-spacing:-.01em}
+  .dv-intro{max-width:680px;margin:0 0 38px;font:400 15px/1.7 'Segoe UI',Roboto,sans-serif;color:#374151}
+  .dv-intro strong{color:#0f172a;font-weight:600}
+  .dv-intro code{font:600 12.5px ui-monospace,Menlo,monospace;background:#fff;border:1px solid #d1d5db;border-radius:5px;padding:1px 6px;color:#059669}
+  .dv-opts{display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start}
+  .dv-opt{flex:none;display:flex;flex-direction:column;gap:13px;scroll-margin-top:16px}
+  .dv-olabel{display:flex;align-items:center;gap:9px;font:500 13px/1.3 'Segoe UI',Roboto,sans-serif;color:#4b5563}
+  .dv-olabel .sw{width:11px;height:11px;border-radius:3px;flex:none}
+  .dv-oid{font:600 11px ui-monospace,Menlo,monospace;padding:3px 8px;background:rgba(15,23,42,.08);color:#0f172a;border-radius:6px;text-decoration:none}
+  .dv-opt:target .dv-oid{background:#10b981;color:#fff}
+  .dv-next{margin:42px 0 0;max-width:680px;font:400 13px/1.7 'Segoe UI',Roboto,sans-serif;color:#4b5563}
+
+  /* ===== email plate + card (fiel ao renderEmailShell, enriquecido) ===== */
+  .mail-plate{width:624px;background:#f3f4f6;padding:24px 12px;box-sizing:border-box}
+  .mail-card{width:600px;max-width:600px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px -10px rgba(16,24,40,.18),0 3px 8px -4px rgba(16,24,40,.08)}
+  .mail-head{position:relative;overflow:hidden;background:linear-gradient(135deg,#10b981 0%,#059669 100%);padding:30px 32px;text-align:center}
+  .mail-head .deco{position:absolute;inset:0;background:radial-gradient(circle at 14% 18%,rgba(255,255,255,.16),transparent 42%),radial-gradient(circle at 88% 96%,rgba(255,255,255,.10),transparent 46%),radial-gradient(circle at 60% 50%,rgba(255,255,255,.05),transparent 60%)}
+  .mail-head .rings{position:absolute;top:-70px;right:-60px;width:200px;height:200px;border-radius:50%;border:26px solid rgba(255,255,255,.06)}
+  .mail-head .bar{position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.55),rgba(255,255,255,0))}
+  .mail-head img{position:relative;z-index:1}
+  .mail-hero{padding:32px 32px 14px}
+  .mail-badge{width:54px;height:54px;border-radius:15px;display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+  .mail-eyebrow{margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase}
+  .mail-h1{margin:0;font-size:26px;font-weight:700;color:#0f172a;line-height:1.25;letter-spacing:-.01em}
+  .mail-sub{margin:9px 0 0;font-size:14px;color:#6b7280;line-height:1.5}
+  .mail-body{padding:6px 32px 30px;font-size:14px;line-height:1.6;color:#374151}
+  .mail-body p{margin:0 0 14px}
+  .mail-body p:last-child{margin-bottom:0}
+  .mail-body strong{color:#111827}
+  .mail-cta{display:inline-flex;align-items:center;gap:9px;padding:14px 32px;font-size:15px;font-weight:600;color:#fff;text-decoration:none;background:linear-gradient(135deg,#10b981,#059669);border-radius:9px;margin:24px 0 4px;box-shadow:0 8px 18px -8px rgba(5,150,105,.6)}
+  .mail-cta:hover{text-decoration:none;color:#fff}
+  .mail-cta svg{margin:0}
+  .feat{display:flex;gap:11px;align-items:flex-start;padding:8px 0}
+  .feat svg{flex:none;margin-top:1px}
+  .feat span{font-size:13.5px;color:#374151;line-height:1.45}
+  .detail{border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin:8px 0 4px;background:#fff}
+  .drow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #f0f1f3;font-size:13px;color:#6b7280}
+  .drow:last-child{border-bottom:none}
+  .drow b{color:#111827;font-weight:600;font-size:13.5px}
+  .drow .k{display:flex;align-items:center;gap:9px}
+  .dtot{background:#f0fdf4}
+  .dtot .k,.dtot b{color:#065f46}
+  .upd{display:flex;gap:14px;align-items:flex-start;padding:15px 0;border-top:1px solid #eef0f2}
+  .upd-ic{width:42px;height:42px;flex:none;border-radius:12px;display:flex;align-items:center;justify-content:center}
+  .upd h4{margin:0 0 3px;font-size:15px;font-weight:600;color:#111827}
+  .upd p{margin:0 0 6px;color:#6b7280;font-size:13.5px}
+  .mail-div{height:1px;background:#e5e7eb;margin:0 32px}
+  .mail-foot{padding:20px 32px 28px;text-align:center;font-size:12px;color:#9ca3af;line-height:1.6}
+  .mail-foot p{margin:0}
+  .mail-links{display:flex;gap:14px;justify-content:center;align-items:center;margin:0 0 14px;font-size:12.5px}
+  .mail-links a{color:#6b7280;font-weight:500}
+  .mail-links span{color:#d1d5db}
+  .mail-foot .extra{margin:0 0 8px;color:#6b7280}
+  .mail-foot .brand{margin:10px 0 0;font-weight:700;color:#10b981;letter-spacing:.2px}
+
+  /* ===== agenda do dia (fiel ao AgendaEmailTemplateService) ===== */
+  .ag-plate{width:624px;background:#f1f5f9;padding:24px 12px;box-sizing:border-box}
+  .ag-card{width:600px;max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 10px 30px -10px rgba(16,24,40,.18)}
+  .ag-logobar{padding:18px 28px;text-align:center;background:#fff}
+  .ag-hero{position:relative;overflow:hidden;color:#fff;background:#5b6ee8;background:linear-gradient(135deg,#0ea5e9 0%,#6366f1 100%);padding:28px}
+  .ag-hero .pat{position:absolute;inset:0;background:url(apps/web/public/email-bg-agenda.svg) repeat;background-size:200px 200px;pointer-events:none}
+  .ag-herorow{position:relative;z-index:1;display:flex;align-items:center;gap:18px}
+  .ag-date{width:78px;flex:none;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.18);text-align:center}
+  .ag-date .m{padding:5px 0;font-size:11px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:2px;background:#0f172a}
+  .ag-date .d{padding:8px 0 2px;font-size:34px;font-weight:800;color:#0f172a;line-height:1}
+  .ag-date .y{padding:0 0 8px;font-size:10px;color:#64748b;letter-spacing:1px;font-weight:600}
+  .ag-greet{font-size:11px;color:rgba(255,255,255,.95);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:6px}
+  .ag-htitle{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px;line-height:1.15}
+  .ag-hday{font-size:13px;color:rgba(255,255,255,.9);margin-top:6px}
+  .ag-body{padding:22px 28px 26px}
+  .ag-intro{margin:0 0 6px;font-size:14px;color:#334155}
+  .ag-sec{display:flex;align-items:center;gap:10px;margin:22px 0 12px}
+  .ag-sec .ic{font-size:16px;line-height:1}
+  .ag-sectitle{font-size:13px;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:.8px}
+  .ag-count{display:inline-block;background:#e2e8f0;color:#475569;font-size:10px;padding:2px 9px;border-radius:999px;font-weight:700;line-height:1.4}
+  .ag-evwrap{margin:0 0 12px;border-radius:10px;background:#cbd5e1;padding:1px}
+  .ag-evcard{display:flex;background:#fff;border-radius:9px;overflow:hidden}
+  .ag-evbar{width:4px;flex:none}
+  .ag-evtime{width:64px;flex:none;padding:14px 8px;text-align:center;background:#f8fafc;border-right:1px solid #f1f5f9}
+  .ag-evh1{font-weight:700;font-size:14px;color:#0f172a;line-height:1.1}
+  .ag-evh2{font-weight:500;font-size:11px;color:#94a3b8;margin-top:2px}
+  .ag-evbody{padding:13px 15px;flex:1;min-width:0}
+  .ag-evtitle{font-size:15px;font-weight:700;color:#0f172a;margin-bottom:7px;line-height:1.3}
+  .ag-metarow{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .ag-meta{font-size:11px;color:#64748b}
+  .ag-pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#fff}
+  .ag-chipwrap{margin-top:11px;padding-top:9px;border-top:1px dashed #e2e8f0}
+  .ag-chiplabel{font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+  .ag-chip{display:inline-block;padding:2px 9px;margin:0 4px 4px 0;border-radius:999px;background:#f1f5f9;color:#475569;font-size:11px;border:1px solid #e2e8f0}
+  .ag-creator{margin-top:11px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+  .ag-link{font-size:11px;color:#0ea5e9;text-decoration:none;word-break:break-all}
+  .ag-foot{margin:18px 0 0;font-size:11px;color:#94a3b8}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t4">
+  <div class="dv-thd"><a class="dv-tid" href="#t4">4</a><span class="dv-tname">Orçamentos — notificações do módulo</span></div>
+  <p class="dv-intro">Um modelo por notificação do ciclo de vida do orçamento, fiel ao <strong>orcamento.service.ts</strong> (todas passam pelo mesmo <code>buildEmailLayout</code>). Assuntos, títulos e <strong>cores de destaque</strong> vêm do código real; a moldura é o shell padrão (header verde + badge + CTA + rodapé). Os avisos <strong>internos</strong> (comercial/financeiro) têm tom impessoal; o e-mail ao <strong>cliente</strong> (<a class="dv-oid" href="#4b">4b</a>) é a proposta com resumo e aprovação. Faltam só os avisos de área (pedir detalhamento / atraso) — posso adicionar depois.</p>
+  <div class="dv-opts">
+
+    <!-- 4a NOVO ORCAMENTO (interno) rosa #fb7185 -->
+    <div class="dv-opt" id="4a">
+      <div class="dv-olabel"><a class="dv-oid" href="#4a">4a</a><span class="sw" style="background:#fb7185"></span>Novo orçamento criado (interno) · <em>Novo orçamento ORC-2026-0142 · Comercial Atlântico</em></div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#fff1f2;box-shadow:inset 0 0 0 1px rgba(251,113,133,.28)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fb7185" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 18v-6"/></svg></div>
+          <p class="mail-eyebrow" style="color:#fb7185">Central Contábil</p><h1 class="mail-h1">Novo orçamento</h1><p class="mail-sub">Criado por Wagner Guerra · 08/07/2026.</p>
+        </div>
+        <div class="mail-body">
+          <p>Um novo orçamento foi criado e aguarda detalhamento e envio ao cliente.</p>
+          <div class="detail">
+            <div class="drow"><span class="k">Cliente</span><b>Comercial Atlântico Ltda</b></div>
+            <div class="drow"><span class="k">Número</span><b>ORC-2026-0142</b></div>
+            <div class="drow"><span class="k">Solicitante</span><b>Wagner Guerra</b></div>
+            <div class="drow dtot"><span class="k">Valor estimado</span><b>R$ 2.480,00</b></div>
+          </div>
+          <a href="#" class="mail-cta">Abrir orçamento <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Abrir orçamento</a><span>·</span><a href="#">Configurações de notificações</a></div><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 4b PROPOSTA AO CLIENTE verde #10b981 -->
+    <div class="dv-opt" id="4b">
+      <div class="dv-olabel"><a class="dv-oid" href="#4b">4b</a><span class="sw" style="background:#10b981"></span>Proposta ao cliente · <em>Proposta comercial ORC-2026-0142 · Central Contábil</em></div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#ecfdf5;box-shadow:inset 0 0 0 1px rgba(16,185,129,.2)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></div>
+          <p class="mail-eyebrow" style="color:#10b981">Central Contábil</p><h1 class="mail-h1">Sua proposta comercial está pronta</h1><p class="mail-sub">Proposta ORC-2026-0142 · válida até 22/07/2026.</p>
+        </div>
+        <div class="mail-body">
+          <p>Olá, <strong>Comercial Atlântico Ltda</strong>! Preparamos sua proposta comercial. Confira o resumo e aprove pelo botão abaixo.</p>
+          <div class="detail">
+            <div class="drow"><span class="k">Número</span><b>ORC-2026-0142</b></div>
+            <div class="drow"><span class="k">Validade</span><b>22/07/2026</b></div>
+            <div class="drow dtot"><span class="k">Valor total</span><b>R$ 2.480,00</b></div>
+          </div>
+          <p>Você pode revisar itens, condições e aprovar diretamente pelo link seguro.</p>
+          <a href="#" class="mail-cta">Ver e aprovar proposta <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Ver proposta</a><span>·</span><a href="#">Falar com consultor</a></div><p class="extra">Central Contábil · Vitória/ES · (27) 0000-0000 · contato@central-rnc.com.br</p><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 4c REVISAO SOLICITADA amber #f59e0b -->
+    <div class="dv-opt" id="4c">
+      <div class="dv-olabel"><a class="dv-oid" href="#4c">4c</a><span class="sw" style="background:#f59e0b"></span>Revisão solicitada pelo cliente · <em>↻ Orçamento ORC-2026-0142 — revisão solicitada</em></div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#fffbeb;box-shadow:inset 0 0 0 1px rgba(245,158,11,.28)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></div>
+          <p class="mail-eyebrow" style="color:#f59e0b">Central Contábil</p><h1 class="mail-h1">Revisão solicitada pelo cliente</h1><p class="mail-sub">O cliente pediu ajustes na proposta ORC-2026-0142.</p>
+        </div>
+        <div class="mail-body">
+          <p>O cliente <strong>Comercial Atlântico Ltda</strong> solicitou uma revisão da proposta antes de aprovar.</p>
+          <div style="border-left:3px solid #f59e0b;background:#fffbeb;border-radius:0 8px 8px 0;padding:12px 16px;margin:6px 0 4px;font-size:13.5px;color:#92600b;line-height:1.55">"Podem revisar o item de consultoria mensal? Gostaríamos de um valor fechado para 12 meses."</div>
+          <p>Ajuste os itens e reenvie a proposta atualizada.</p>
+          <a href="#" class="mail-cta">Revisar orçamento <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Abrir orçamento</a><span>·</span><a href="#">Ver histórico</a></div><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 4d APROVADO verde #10b981 -->
+    <div class="dv-opt" id="4d">
+      <div class="dv-olabel"><a class="dv-oid" href="#4d">4d</a><span class="sw" style="background:#10b981"></span>Orçamento aprovado · <em>✓ Orçamento ORC-2026-0142 aprovado</em></div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#ecfdf5;box-shadow:inset 0 0 0 1px rgba(16,185,129,.2)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <p class="mail-eyebrow" style="color:#10b981">Central Contábil</p><h1 class="mail-h1">Orçamento aprovado!</h1><p class="mail-sub">Boas notícias — o cliente aprovou a proposta.</p>
+        </div>
+        <div class="mail-body">
+          <p>O orçamento foi <strong>aprovado</strong> por Comercial Atlântico Ltda em 08/07/2026.</p>
+          <div class="detail">
+            <div class="drow"><span class="k">Número</span><b>ORC-2026-0142</b></div>
+            <div class="drow"><span class="k">Responsável</span><b>Rafael Lima</b></div>
+            <div class="drow dtot"><span class="k">Valor aprovado</span><b>R$ 2.480,00</b></div>
+          </div>
+          <p>Os serviços já podem ser criados a partir dos itens do orçamento.</p>
+          <a href="#" class="mail-cta">Abrir orçamento <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Abrir orçamento</a><span>·</span><a href="#">Ver serviços</a></div><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 4e RECUSADO red #ef4444 -->
+    <div class="dv-opt" id="4e">
+      <div class="dv-olabel"><a class="dv-oid" href="#4e">4e</a><span class="sw" style="background:#ef4444"></span>Orçamento recusado · <em>Orçamento ORC-2026-0142 recusado</em></div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#fef2f2;box-shadow:inset 0 0 0 1px rgba(239,68,68,.25)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg></div>
+          <p class="mail-eyebrow" style="color:#ef4444">Central Contábil</p><h1 class="mail-h1">Orçamento recusado</h1><p class="mail-sub">O cliente não seguiu com a proposta.</p>
+        </div>
+        <div class="mail-body">
+          <p>O orçamento <strong>ORC-2026-0142</strong> foi recusado por Comercial Atlântico Ltda.</p>
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:13px 16px;margin:6px 0 4px;font-size:13px;color:#b91c1c">Motivo informado: optaram por outro fornecedor neste momento.</div>
+          <p>Sugestão: registre um follow-up para retomar o contato mais adiante.</p>
+          <a href="#" class="mail-cta">Registrar follow-up <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Abrir orçamento</a><span>·</span><a href="#">Ver no CRM</a></div><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 4f LIBERADO emerald #059669 -->
+    <div class="dv-opt" id="4f">
+      <div class="dv-olabel"><a class="dv-oid" href="#4f">4f</a><span class="sw" style="background:#059669"></span>Liberado para execução · <em>▶ Orçamento ORC-2026-0142 liberado para execução</em></div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#ecfdf5;box-shadow:inset 0 0 0 1px rgba(5,150,105,.25)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></div>
+          <p class="mail-eyebrow" style="color:#059669">Central Contábil</p><h1 class="mail-h1">Liberado para execução</h1><p class="mail-sub">O orçamento entrou em execução.</p>
+        </div>
+        <div class="mail-body">
+          <p>O orçamento <strong>ORC-2026-0142</strong> foi liberado para execução.</p>
+          <div class="detail">
+            <div class="drow"><span class="k">Responsável</span><b>Rafael Lima</b></div>
+            <div class="drow"><span class="k">Itens</span><b>4 serviços</b></div>
+            <div class="drow"><span class="k">Início previsto</span><b>10/07/2026</b></div>
+          </div>
+          <a href="#" class="mail-cta">Ver serviços <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Abrir orçamento</a><span>·</span><a href="#">Ver serviços</a></div><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 4g FINALIZADO teal #0f766e -->
+    <div class="dv-opt" id="4g">
+      <div class="dv-olabel"><a class="dv-oid" href="#4g">4g</a><span class="sw" style="background:#0f766e"></span>Orçamento finalizado · <em>✓ Orçamento ORC-2026-0142 finalizado</em></div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#f0fdfa;box-shadow:inset 0 0 0 1px rgba(15,118,110,.25)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0f766e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg></div>
+          <p class="mail-eyebrow" style="color:#0f766e">Central Contábil</p><h1 class="mail-h1">Orçamento finalizado</h1><p class="mail-sub">Ciclo do orçamento concluído.</p>
+        </div>
+        <div class="mail-body">
+          <p>O orçamento <strong>ORC-2026-0142</strong> foi finalizado. A pesquisa de satisfação foi enviada ao cliente automaticamente.</p>
+          <div class="detail">
+            <div class="drow"><span class="k">Cliente</span><b>Comercial Atlântico Ltda</b></div>
+            <div class="drow"><span class="k">Encerrado em</span><b>08/07/2026</b></div>
+            <div class="drow dtot"><span class="k">Valor</span><b>R$ 2.480,00</b></div>
+          </div>
+          <a href="#" class="mail-cta">Ver resumo <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Abrir orçamento</a><span>·</span><a href="#">Pesquisa de satisfação</a></div><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 4h NOVA MENSAGEM verde #10b981 -->
+    <div class="dv-opt" id="4h">
+      <div class="dv-olabel"><a class="dv-oid" href="#4h">4h</a><span class="sw" style="background:#10b981"></span>Nova mensagem / menção · <em>Nova mensagem em ORC-2026-0142</em></div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#ecfdf5;box-shadow:inset 0 0 0 1px rgba(16,185,129,.2)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <p class="mail-eyebrow" style="color:#10b981">Central Contábil</p><h1 class="mail-h1">Nova mensagem</h1><p class="mail-sub">Você foi mencionado no orçamento ORC-2026-0142.</p>
+        </div>
+        <div class="mail-body">
+          <p><strong>Wagner Guerra</strong> escreveu no orçamento <strong>ORC-2026-0142</strong>:</p>
+          <div style="border-left:3px solid #10b981;background:#f8fafc;border-radius:0 8px 8px 0;padding:12px 16px;margin:6px 0 4px;font-size:13.5px;color:#475569;line-height:1.55">"@Rafael, consegue confirmar o prazo de entrega do item de implantação antes de reenviarmos ao cliente?"</div>
+          <a href="#" class="mail-cta">Responder no orçamento <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Abrir conversa</a><span>·</span><a href="#">Ver orçamento</a></div><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 4i RESPOSTA DO CLIENTE sky #0ea5e9 -->
+    <div class="dv-opt" id="4i">
+      <div class="dv-olabel"><a class="dv-oid" href="#4i">4i</a><span class="sw" style="background:#0ea5e9"></span>Resposta do cliente · <em>↩ Resposta do cliente — Orçamento ORC-2026-0142</em></div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#f0f9ff;box-shadow:inset 0 0 0 1px rgba(14,165,233,.28)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></div>
+          <p class="mail-eyebrow" style="color:#0ea5e9">Central Contábil</p><h1 class="mail-h1">Resposta do cliente</h1><p class="mail-sub">O cliente respondeu por e-mail — Orçamento ORC-2026-0142.</p>
+        </div>
+        <div class="mail-body">
+          <p><strong>Comercial Atlântico Ltda</strong> respondeu sobre a proposta:</p>
+          <div style="border-left:3px solid #0ea5e9;background:#f8fafc;border-radius:0 8px 8px 0;padding:12px 16px;margin:6px 0 4px;font-size:13.5px;color:#475569;line-height:1.55">"Perfeito, podem seguir. Só peço a nota com os dados da nossa matriz. Obrigado!"</div>
+          <a href="#" class="mail-cta">Abrir conversa <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Abrir conversa</a><span>·</span><a href="#">Ver orçamento</a></div><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+  </div>
+  <p class="dv-next">Próximos passos: "adicionar os avisos de <strong>área</strong> (pedir detalhamento / área em atraso)" · "incluir o resumo de <strong>itens da proposta</strong> em <a class="dv-oid" href="#4b">4b</a>" · "gerar os <strong>params por notificação</strong> (accent/heroTitle/subject/corpo) para o <code>orcamento.service.ts</code>".</p>
+</section>
+
+<section class="dv-turn" id="t3">
+  <div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Agenda do dia — novo modelo</span></div>
+  <p class="dv-intro">Agora <strong>padronizado no shell mestre</strong> (header verde com logo branco → badge de ícone → eyebrow/título/subtítulo → corpo → CTA → rodapé), igual aos demais e-mails — mas com o <strong>conteúdo interno intacto</strong>: intro do dia, <strong>seções agrupadas</strong> (Corporativos / Pessoais) e os cards de evento (barra colorida do tipo, coluna de horário, pill de categoria, modalidade, local, participantes e "agendado por"). Accent índigo para manter a identidade da agenda. Referência: <a class="dv-oid" href="#1f">1f</a> era o lembrete de 1 evento; este é o digest do dia inteiro.</p>
+  <div class="dv-opts">
+    <div class="dv-opt" id="3a">
+      <div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a><span class="sw" style="background:#6366f1"></span>Agenda do dia (digest) · assunto: <em>Agenda do dia · 08/07/2026</em></div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#eef2ff;box-shadow:inset 0 0 0 1px rgba(129,140,248,.3)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.3V14"/><circle cx="16" cy="16" r="6"/></svg></div>
+          <p class="mail-eyebrow" style="color:#818cf8">Central Contábil</p><h1 class="mail-h1">Sua agenda do dia</h1><p class="mail-sub">Bom dia, Wagner — quarta-feira, 08/07/2026.</p>
+        </div>
+        <div class="mail-body">
+          <p>Você tem <strong>4</strong> compromisso(s) hoje:</p>
+
+          <div class="ag-sec"><span class="ic">📅</span><span class="ag-sectitle">Compromissos corporativos</span><span class="ag-count">3</span></div>
+
+          <div class="ag-evwrap"><div class="ag-evcard">
+            <div class="ag-evbar" style="background:#6366f1"></div>
+            <div class="ag-evtime"><div class="ag-evh1">09:00</div><div class="ag-evh2">10:00</div></div>
+            <div class="ag-evbody">
+              <div class="ag-evtitle">Revisão de balancete — Comercial Atlântico Ltda</div>
+              <div class="ag-metarow"><span class="ag-pill" style="background:#6366f1">Reunião</span><span class="ag-meta">🏢 Presencial</span><span class="ag-meta">📍 Sala 1</span></div>
+              <div class="ag-chipwrap"><div class="ag-chiplabel">👥 Participantes</div><span class="ag-chip">Wagner Guerra</span><span class="ag-chip">Marcela Souza</span></div>
+              <div class="ag-creator">Agendado por Wagner Guerra</div>
+            </div>
+          </div></div>
+
+          <div class="ag-evwrap"><div class="ag-evcard">
+            <div class="ag-evbar" style="background:#f97316"></div>
+            <div class="ag-evtime"><div class="ag-evh1">11:30</div><div class="ag-evh2">—</div></div>
+            <div class="ag-evbody">
+              <div class="ag-evtitle">Entrega SPED Fiscal — Comercial Atlântico Ltda</div>
+              <div class="ag-metarow"><span class="ag-pill" style="background:#f97316">Obrigação</span></div>
+            </div>
+          </div></div>
+
+          <div class="ag-evwrap"><div class="ag-evcard">
+            <div class="ag-evbar" style="background:#10b981"></div>
+            <div class="ag-evtime"><div class="ag-evh1">14:30</div><div class="ag-evh2">15:30</div></div>
+            <div class="ag-evbody">
+              <div class="ag-evtitle">Call de onboarding — Novo Cliente ME</div>
+              <div class="ag-metarow"><span class="ag-pill" style="background:#10b981">Comercial</span><span class="ag-meta">💻 Online</span></div>
+              <div class="ag-meta" style="margin-top:10px">🔗 <strong style="color:#475569">Link:</strong> <a href="#" class="ag-link">meet.google.com/abc-defg-hij</a></div>
+              <div class="ag-chipwrap"><div class="ag-chiplabel">👥 Participantes</div><span class="ag-chip">Wagner Guerra</span><span class="ag-chip">Rafael Lima</span></div>
+              <div class="ag-creator">Agendado por Rafael Lima</div>
+            </div>
+          </div></div>
+
+          <div class="ag-sec"><span class="ic">📌</span><span class="ag-sectitle">Compromissos pessoais</span><span class="ag-count">1</span></div>
+
+          <div class="ag-evwrap"><div class="ag-evcard">
+            <div class="ag-evbar" style="background:#a855f7"></div>
+            <div class="ag-evtime"><div class="ag-evh1">18:00</div><div class="ag-evh2">18:45</div></div>
+            <div class="ag-evbody">
+              <div class="ag-evtitle">Consulta médica</div>
+              <div class="ag-metarow"><span class="ag-pill" style="background:#a855f7">Pessoal</span><span class="ag-meta">🏢 Presencial</span><span class="ag-meta">📍 Centro Clínico</span></div>
+            </div>
+          </div></div>
+
+          <a href="#" class="mail-cta">Abrir agenda completa <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Abrir agenda</a><span>·</span><a href="#">Preferências</a></div><p>Enviado automaticamente pela Agenda Corporativa — e-mail automático, não responda a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+  </div>
+  <p class="dv-next">Próximos passos: "mostrar <strong>estado vazio</strong> (nenhum compromisso hoje)" · "adicionar bloco de <strong>logística</strong> (sala, equipamentos, garagem) nos cards" · "gerar o HTML/params para o <code>AgendaEmailTemplateService</code>".</p>
+</section>
+
+<section class="dv-turn" id="t2">
+  <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Emails padronizados — OneClick</span></div>
+  <p class="dv-intro">Reconstruído fiel ao <strong>renderEmailShell</strong> do repositório (espelho do <code>buildEmailLayout</code> do backend), agora enriquecido: header verde com brilho e anel decorativo, um <strong>badge de ícone na cor de destaque</strong> do template (padrão <code>DialogHeaderIcon</code> do app), cards de detalhe com ícones, listas e um rodapé com links. A estrutura mestre e as cores continuam padronizadas — só o conteúdo e o ícone/destaque mudam por tipo. Valores como <code>{cliente}</code> e <code>{link}</code> (as variáveis de duplo-colchete do sistema) estão preenchidos com exemplos. Cada e-mail tem um id (1a–1i) para referência no chat.</p>
+  <div class="dv-opts">
+
+    <!-- 1a WELCOME -->
+    <div class="dv-opt" id="1a">
+      <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a><span class="sw" style="background:#10b981"></span>Boas-vindas / confirmação de cadastro</div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#ecfdf5;box-shadow:inset 0 0 0 1px rgba(16,185,129,.2)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21a8 8 0 0 1 13.292-6"/><circle cx="10" cy="8" r="5"/><path d="m16 19 2 2 4-4"/></svg></div>
+          <p class="mail-eyebrow" style="color:#10b981">Central Contábil</p><h1 class="mail-h1">Bem-vindo ao OneClick</h1><p class="mail-sub">Sua conta foi criada com sucesso, Wagner Guerra.</p>
+        </div>
+        <div class="mail-body">
+          <p>Olá, <strong>Wagner Guerra</strong>! Sua conta em <strong>Central Contábil</strong> está pronta. O OneClick reúne tudo em um só lugar — gestão descomplicada para o seu escritório contábil:</p>
+          <div style="margin:2px 0 6px">
+            <div class="feat"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Cadastros &amp; Corporativo</strong> — clientes, colaboradores e contratos centralizados</span></div>
+            <div class="feat"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Fiscal &amp; Qualidade</strong> — obrigações, prazos e processos auditados</span></div>
+            <div class="feat"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Painéis de BI</strong> — indicadores do escritório em tempo real</span></div>
+          </div>
+          <p>Para começar, confirme seu acesso pelo botão abaixo.</p>
+          <a href="#" class="mail-cta">Acessar o painel <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Acessar painel</a><span>·</span><a href="#">Central de ajuda</a><span>·</span><a href="#">Suporte</a></div><p class="extra">Central Contábil · Vitória/ES · (27) 0000-0000 · contato@central-rnc.com.br</p><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 1b VERIFICATION CODE -->
+    <div class="dv-opt" id="1b">
+      <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a><span class="sw" style="background:#10b981"></span>Verificação de e-mail / código</div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#ecfdf5;box-shadow:inset 0 0 0 1px rgba(16,185,129,.2)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg></div>
+          <p class="mail-eyebrow" style="color:#10b981">Central Contábil</p><h1 class="mail-h1">Confirme seu e-mail</h1><p class="mail-sub">Falta só um passo para ativar sua conta.</p>
+        </div>
+        <div class="mail-body">
+          <p>Olá, <strong>Wagner Guerra</strong>! Use o código abaixo para confirmar seu endereço de e-mail:</p>
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:22px;text-align:center;margin:8px 0 12px">
+            <span style="font-size:36px;font-weight:700;letter-spacing:12px;color:#065f46;padding-left:12px">482913</span>
+            <div style="font-size:11.5px;letter-spacing:.5px;text-transform:uppercase;color:#10b981;font-weight:600;margin-top:8px">código de verificação</div>
+          </div>
+          <p style="color:#6b7280;font-size:13px">O código expira em <strong style="color:#374151">15 minutos</strong>. Se você não solicitou este cadastro, ignore este e-mail.</p>
+          <a href="#" class="mail-cta">Confirmar e-mail <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Acessar painel</a><span>·</span><a href="#">Central de ajuda</a><span>·</span><a href="#">Suporte</a></div><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 1c PASSWORD RESET (orange) -->
+    <div class="dv-opt" id="1c">
+      <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a><span class="sw" style="background:#fb923c"></span>Redefinição de senha</div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#fff7ed;box-shadow:inset 0 0 0 1px rgba(251,146,60,.25)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="#f97316"/></svg></div>
+          <p class="mail-eyebrow" style="color:#fb923c">Central Contábil</p><h1 class="mail-h1">Redefinição de senha</h1><p class="mail-sub">Recebemos uma solicitação para sua conta.</p>
+        </div>
+        <div class="mail-body">
+          <p>Olá, <strong>Wagner Guerra</strong>!</p>
+          <p>Recebemos uma solicitação para redefinir a senha da sua conta em <strong>Central Contábil</strong>. Clique no botão abaixo para criar uma nova senha.</p>
+          <div style="display:flex;gap:10px;align-items:center;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin:2px 0 4px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <span style="font-size:13px;color:#9a3412">Por segurança, o link expira em <strong>1 hora</strong>.</span>
+          </div>
+          <p>Se você não fez essa solicitação, ignore este e-mail com segurança — sua senha continua a mesma.</p>
+          <a href="#" class="mail-cta">Criar nova senha <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Acessar painel</a><span>·</span><a href="#">Central de ajuda</a><span>·</span><a href="#">Suporte</a></div><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 1d ORCAMENTO ENVIADO (green) -->
+    <div class="dv-opt" id="1d">
+      <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a><span class="sw" style="background:#10b981"></span>Orçamento enviado ao cliente</div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#ecfdf5;box-shadow:inset 0 0 0 1px rgba(16,185,129,.2)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></div>
+          <p class="mail-eyebrow" style="color:#10b981">Central Contábil</p><h1 class="mail-h1">Seu orçamento está pronto</h1><p class="mail-sub">Preparamos uma proposta sob medida para Comercial Atlântico Ltda.</p>
+        </div>
+        <div class="mail-body">
+          <p>Olá, <strong>Comercial Atlântico Ltda</strong>! Conforme conversamos, segue o orçamento emitido para sua avaliação.</p>
+          <div class="detail">
+            <div class="drow"><span class="k"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>Número</span><b>ORC-2026-0142</b></div>
+            <div class="drow"><span class="k"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg>Emitido em</span><b>09/06/2026</b></div>
+            <div class="drow dtot"><span class="k"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Valor total</span><b>R$ 2.480,00</b></div>
+          </div>
+          <p>Você pode visualizar todos os detalhes, itens e condições clicando no botão abaixo. Qualquer dúvida, estamos à disposição.</p>
+          <a href="#" class="mail-cta">Visualizar orçamento <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Ver proposta</a><span>·</span><a href="#">Falar com consultor</a></div><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 1e HELPDESK CSAT (cyan) -->
+    <div class="dv-opt" id="1e">
+      <div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a><span class="sw" style="background:#22d3ee"></span>Helpdesk — chamado resolvido (CSAT)</div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#ecfeff;box-shadow:inset 0 0 0 1px rgba(34,211,238,.28)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9.5 11.5 12 14l4-4"/></svg></div>
+          <p class="mail-eyebrow" style="color:#22d3ee">Central Contábil</p><h1 class="mail-h1">Chamado resolvido</h1><p class="mail-sub">Como avalia o atendimento, Comercial Atlântico Ltda?</p>
+        </div>
+        <div class="mail-body">
+          <p>Olá, <strong>Comercial Atlântico Ltda</strong>! O chamado <strong>#4821</strong> foi marcado como resolvido por Wagner Guerra em 09/06/2026. Sua opinião leva menos de 1 minuto:</p>
+          <div style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:12px;padding:18px;text-align:center;margin:6px 0 4px">
+            <div style="font-size:12px;letter-spacing:.4px;text-transform:uppercase;color:#0e7490;font-weight:600;margin-bottom:10px">Toque para avaliar</div>
+            <span style="white-space:nowrap">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="#22d3ee" stroke="#22d3ee" stroke-width="1.4" stroke-linejoin="round" style="margin:0 3px"><path d="M11.5 3.5 14 8.5l5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9 5.5-.8z"/></svg>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="#22d3ee" stroke="#22d3ee" stroke-width="1.4" stroke-linejoin="round" style="margin:0 3px"><path d="M11.5 3.5 14 8.5l5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9 5.5-.8z"/></svg>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="#22d3ee" stroke="#22d3ee" stroke-width="1.4" stroke-linejoin="round" style="margin:0 3px"><path d="M11.5 3.5 14 8.5l5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9 5.5-.8z"/></svg>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="#22d3ee" stroke="#22d3ee" stroke-width="1.4" stroke-linejoin="round" style="margin:0 3px"><path d="M11.5 3.5 14 8.5l5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9 5.5-.8z"/></svg>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.6" stroke-linejoin="round" style="margin:0 3px"><path d="M11.5 3.5 14 8.5l5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9 5.5-.8z"/></svg>
+            </span>
+          </div>
+          <p>Se o problema persistir, basta responder este e-mail reabrindo o ticket.</p>
+          <a href="#" class="mail-cta">Avaliar atendimento <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Ver chamado</a><span>·</span><a href="#">Central de ajuda</a></div><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 1f AGENDA LEMBRETE (indigo) -->
+    <div class="dv-opt" id="1f">
+      <div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a><span class="sw" style="background:#818cf8"></span>Agenda — lembrete de compromisso</div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#eef2ff;box-shadow:inset 0 0 0 1px rgba(129,140,248,.3)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.3V14"/><circle cx="16" cy="16" r="6"/></svg></div>
+          <p class="mail-eyebrow" style="color:#818cf8">Central Contábil</p><h1 class="mail-h1">Lembrete de compromisso</h1><p class="mail-sub">Não esqueça do seu evento, Wagner Guerra.</p>
+        </div>
+        <div class="mail-body">
+          <p>Olá, <strong>Wagner Guerra</strong>! Este é um lembrete do compromisso agendado na sua agenda:</p>
+          <div class="detail" style="border-color:#e0e7ff">
+            <div class="drow" style="border-color:#eef2ff"><span class="k"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg>Data e hora</span><b>10/07/2026 · 14:30</b></div>
+            <div class="drow" style="border-color:#eef2ff"><span class="k"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 21a8 8 0 0 0-16 0"/><circle cx="10" cy="8" r="5"/></svg>Com</span><b>Comercial Atlântico Ltda</b></div>
+            <div class="drow" style="border:none"><span class="k"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>Assunto</span><b>Revisão de balancete</b></div>
+          </div>
+          <p>Clique no botão abaixo para ver todos os detalhes.</p>
+          <a href="#" class="mail-cta">Ver na agenda <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Abrir agenda</a><span>·</span><a href="#">Reagendar</a></div><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 1g BILLING INVOICE (green) -->
+    <div class="dv-opt" id="1g">
+      <div class="dv-olabel"><a class="dv-oid" href="#1g">1g</a><span class="sw" style="background:#10b981"></span>Cobrança / fatura da assinatura</div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#ecfdf5;box-shadow:inset 0 0 0 1px rgba(16,185,129,.2)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg></div>
+          <p class="mail-eyebrow" style="color:#10b981">Central Contábil</p><h1 class="mail-h1">Fatura disponível</h1><p class="mail-sub">Sua assinatura OneClick foi renovada.</p>
+        </div>
+        <div class="mail-body">
+          <p>Olá, <strong>Wagner Guerra</strong>! A fatura da sua assinatura já está disponível. Confira o resumo:</p>
+          <div class="detail">
+            <div class="drow"><span class="k">Plano</span><b>OneClick Pro — mensal</b></div>
+            <div class="drow"><span class="k">Período</span><b>01/07 – 31/07/2026</b></div>
+            <div class="drow"><span class="k">Pago em</span><b>08/07/2026</b></div>
+            <div class="drow dtot"><span class="k"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Valor pago</span><b>R$ 149,00</b></div>
+          </div>
+          <p>O pagamento é renovado automaticamente. Você pode baixar o comprovante ou gerenciar a assinatura no painel.</p>
+          <a href="#" class="mail-cta">Ver fatura <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Baixar comprovante</a><span>·</span><a href="#">Gerenciar assinatura</a></div><p class="extra">Central Contábil · Vitória/ES · CNPJ 00.000.000/0001-00</p><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 1h PAYMENT FAILED (rose) -->
+    <div class="dv-opt" id="1h">
+      <div class="dv-olabel"><a class="dv-oid" href="#1h">1h</a><span class="sw" style="background:#f43f5e"></span>Pagamento recusado (falha)</div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#fff1f2;box-shadow:inset 0 0 0 1px rgba(244,63,94,.25)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
+          <p class="mail-eyebrow" style="color:#f43f5e">Central Contábil</p><h1 class="mail-h1">Não conseguimos processar seu pagamento</h1><p class="mail-sub">Sua assinatura precisa de atenção.</p>
+        </div>
+        <div class="mail-body">
+          <p>Olá, <strong>Wagner Guerra</strong>! A cobrança da sua assinatura <strong>OneClick Pro</strong> não pôde ser concluída.</p>
+          <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:12px;padding:14px 16px;margin:6px 0 4px">
+            <div style="display:flex;gap:9px;align-items:center;font-size:13.5px;font-weight:600;color:#be123c"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#be123c" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>Cartão recusado pela operadora</div>
+            <div style="font-size:12.5px;color:#9f5560;margin-top:5px;padding-left:26px">Fatura de R$ 149,00 · vencimento 08/07/2026</div>
+          </div>
+          <p>Atualize seu método de pagamento em até <strong>7 dias</strong> para manter o acesso ao sistema sem interrupção.</p>
+          <a href="#" class="mail-cta">Atualizar pagamento <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Atualizar cartão</a><span>·</span><a href="#">Falar com suporte</a></div><p>Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+    <!-- 1i NEWSLETTER (green) -->
+    <div class="dv-opt" id="1i">
+      <div class="dv-olabel"><a class="dv-oid" href="#1i">1i</a><span class="sw" style="background:#10b981"></span>Newsletter / novidades do produto</div>
+      <div class="mail-plate"><div class="mail-card">
+        <div class="mail-head"><div class="deco"></div><div class="rings"></div><img src="assets/logo-oneclick-white.png" alt="OneClick" style="max-height:38px;max-width:190px;border:0"><div class="bar"></div></div>
+        <div class="mail-hero">
+          <div class="mail-badge" style="background:#ecfdf5;box-shadow:inset 0 0 0 1px rgba(16,185,129,.2)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div>
+          <p class="mail-eyebrow" style="color:#10b981">Central Contábil</p><h1 class="mail-h1">Novidades do OneClick — julho</h1><p class="mail-sub">As melhorias deste mês para o seu escritório.</p>
+        </div>
+        <div class="mail-body">
+          <p>Olá, <strong>Wagner Guerra</strong>! Trabalhamos para deixar a gestão do seu escritório ainda mais descomplicada. Veja o que chegou:</p>
+          <div style="margin:4px 0 2px">
+            <div class="upd">
+              <div class="upd-ic" style="background:#ecfdf5"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/></svg></div>
+              <div><h4>Importação de balancete SCI → BI</h4><p>Categorize automaticamente os lançamentos e alimente os painéis de BI em segundos.</p><a href="#" style="font-size:13px;font-weight:600;color:#059669">Saiba mais →</a></div>
+            </div>
+            <div class="upd">
+              <div class="upd-ic" style="background:#ecfdf5"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="18" x="3" y="3" rx="1"/><rect width="7" height="18" x="14" y="3" rx="1"/></svg></div>
+              <div><h4>Controle de obrigações no Kanban</h4><p>Arraste e solte para acompanhar prazos fiscais e nunca perder uma entrega.</p><a href="#" style="font-size:13px;font-weight:600;color:#059669">Saiba mais →</a></div>
+            </div>
+          </div>
+          <a href="#" class="mail-cta">Explorar novidades <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        </div>
+        <div class="mail-div"></div>
+        <div class="mail-foot"><div class="mail-links"><a href="#">Ver todas as novidades</a><span>·</span><a href="#">Cancelar inscrição</a></div><p class="extra">Você recebe este e-mail porque optou por novidades do OneClick.</p><p>Tratamos seus dados conforme a LGPD (Lei nº 13.709/2018).</p><p class="brand">Central Contábil · 2026</p></div>
+      </div></div>
+    </div>
+
+  </div>
+  <p class="dv-next">Próximos passos: "gerar o <strong>código do template</strong> (HTML + params do shell) para colar no sistema" · me envie o <strong>logo do tenant</strong> e dados reais (CNPJ, endereço) para trocar os placeholders · "adicionar <strong>orçamento aprovado</strong> (variante de <a class="dv-oid" href="#1d">1d</a>)" · "quero <strong>banner de imagem</strong> no topo da newsletter <a class="dv-oid" href="#1i">1i</a>".</p>
+</section>
+</x-dc>
+</body>
+</html>
