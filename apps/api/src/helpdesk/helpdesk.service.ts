@@ -563,6 +563,7 @@ export class HelpdeskService {
         status: true, responsavelId: true, prioridade: true, categoriaId: true,
         areaId: true, prazoSla: true, pausadoEm: true, totalPausadoMs: true,
         primeiroAtendimentoEm: true, solicitanteId: true, titulo: true, descricao: true,
+        arquivado: true,
       },
     })
     if (!before) throw new Error('Ticket não encontrado')
@@ -774,7 +775,7 @@ export class HelpdeskService {
     ticketId: string,
     before: {
       status: string; responsavelId: string | null; prioridade: string;
-      categoriaId: string | null; areaId: string | null;
+      categoriaId: string | null; areaId: string | null; arquivado?: boolean;
     },
     patch: any,
     actorId: string,
@@ -825,10 +826,13 @@ export class HelpdeskService {
         }
       }
 
-      // ── 1. Responsável mudou ─────────────────────────────────────
+      // ── 1. Responsável mudou (e status anterior != "Novo") ───────
       // Destinatários: criador, responsável anterior, novo responsável.
       // Todos pulam o actor automaticamente via notificarLote.
-      if (patch.responsavelId !== undefined && patch.responsavelId !== before.responsavelId) {
+      // #HLP0056 (correção 02/06): quando o status anterior era "Novo", a
+      // atribuição inicial já é coberta pela notificação de status (sair de Novo)
+      // — não dispara a de "responsável alterado" pra evitar aviso duplicado.
+      if (patch.responsavelId !== undefined && patch.responsavelId !== before.responsavelId && before.status !== 'NOVO') {
         const novoNome = t.responsavel?.name ?? 'Nenhum'
         const anteriorNome = responsavelAnterior?.name ?? 'Nenhum'
         const corpo = `Responsável do ticket <strong>${t.titulo}</strong>: ` +
@@ -847,20 +851,27 @@ export class HelpdeskService {
         )
       }
 
-      // ── 2. Status mudou (ignorando mudanças para NOVO) ───────────
-      // Regra: criador sempre; responsável atual também, se diferente do actor.
-      if (patch.status && patch.status !== before.status && patch.status !== 'NOVO') {
-        const statusLabel = patch.status as string
-        const corpo = `Status do ticket <strong>${t.titulo}</strong> alterado para <strong>${statusLabel}</strong>.`
+      // ── 2. Status mudou (novo != Novo) OU ticket desarquivado ────
+      // Regra (#HLP0056): mesma notificação nos dois casos → criador sempre;
+      // responsável atual também (skip actor via notificarLote). Se desarquivou
+      // E mudou status na mesma operação (ex.: reabrir), dispara só uma vez.
+      const mudouStatus = !!patch.status && patch.status !== before.status && patch.status !== 'NOVO'
+      const desarquivou = patch.arquivado === false && before.arquivado === true
+      if (mudouStatus || desarquivou) {
+        const statusLabel = (mudouStatus ? patch.status : t.status) as string
+        const soDesarquivou = desarquivou && !mudouStatus
+        const corpo = soDesarquivou
+          ? `O ticket <strong>${t.titulo}</strong> foi reaberto (desarquivado). Status atual: <strong>${statusLabel}</strong>.`
+          : `Status do ticket <strong>${t.titulo}</strong> alterado para <strong>${statusLabel}</strong>.`
         await notificarLote(
           [t.solicitante, t.responsavel],
           {
-            titulo: `${ticketNum} → ${statusLabel}`,
+            titulo: soDesarquivou ? `${ticketNum} — reaberto` : `${ticketNum} → ${statusLabel}`,
             mensagem: t.titulo,
-            tipo: patch.status === 'RESOLVIDO' || patch.status === 'CONCLUIDO' ? 'success' : 'info',
+            tipo: mudouStatus && (patch.status === 'RESOLVIDO' || patch.status === 'CONCLUIDO') ? 'success' : 'info',
           },
           {
-            subject: `HelpDesk ${ticketNum} — ${statusLabel}`,
+            subject: soDesarquivou ? `HelpDesk ${ticketNum} — reaberto` : `HelpDesk ${ticketNum} — ${statusLabel}`,
             html: this.emailTpl(ticketNum, corpo, link),
           },
         )
@@ -1107,11 +1118,14 @@ export class HelpdeskService {
           html: this.emailTpl(ticketNum, `Você recebeu uma nova mensagem no ticket <strong>${t.titulo}</strong>.`, link),
         })
       }
-      if (!interna && t.responsavel?.email && autorId === t.solicitanteId) {
+      // Responsável é avisado sempre que quem escreveu NÃO é ele — cobre o
+      // solicitante E um terceiro (ex.: outro operador da TI). #HLP0056.
+      if (!interna && t.responsavel?.email && autorId !== t.responsavelId) {
+        const quem = autorId === t.solicitanteId ? 'O solicitante' : 'Um participante'
         void this.emailService.sendMail({
           to: t.responsavel.email,
-          subject: `HelpDesk ${ticketNum} — solicitante respondeu`,
-          html: this.emailTpl(ticketNum, `O solicitante respondeu o ticket <strong>${t.titulo}</strong>.`, link),
+          subject: `HelpDesk ${ticketNum} — nova resposta`,
+          html: this.emailTpl(ticketNum, `${quem} respondeu o ticket <strong>${t.titulo}</strong>.`, link),
         })
       }
       void mensagemId
