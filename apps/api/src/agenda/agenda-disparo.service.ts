@@ -540,6 +540,15 @@ export class AgendaDisparoService implements OnModuleInit {
            </div>`
         : ''
 
+      // #HLP0225: link direto pro card do CRM quando o evento é vinculado a uma
+      // oportunidade — mesmo link que aparece no popup da agenda no app.
+      const crmHtml = ev.oportunidadeId
+        ? `<div class="ev-section" style="margin-top:8px;font-size:11px;color:#64748b">
+             <strong style="color:#475569" class="ev-label">🔗 CRM:</strong>
+             <a href="${appUrl}/crm?op=${encodeURIComponent(ev.oportunidadeId)}" style="color:#0ea5e9;text-decoration:none;font-weight:600">Abrir oportunidade no CRM</a>
+           </div>`
+        : ''
+
       const prepItens: string[] = []
       if (ev.arrumarSala) prepItens.push('Arrumar sala')
       if (ev.equipamentos) prepItens.push('Disponibilizar equipamentos')
@@ -570,6 +579,7 @@ export class AgendaDisparoService implements OnModuleInit {
           <div class="ev-title" style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;line-height:1.3">${this.escape(ev.titulo)}</div>
           <div style="margin-bottom:4px">${linhaInfo.join(' &nbsp; ')}</div>
           ${linkHtml}
+          ${crmHtml}
           ${prepHtml}
           ${participantesHtml}
           ${criadorHtml}

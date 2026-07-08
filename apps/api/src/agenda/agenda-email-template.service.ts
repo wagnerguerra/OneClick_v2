@@ -313,8 +313,12 @@ export class AgendaEmailTemplateService {
              <div class="em-evlabel" style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">👥 Participantes</div>
              <div style="line-height:1.9">${nomes.map(n => `<span class="em-chip" style="display:inline-block;padding:2px 9px;margin:0 4px 4px 0;border-radius:999px;background:#f1f5f9;color:#475569;font-size:11px;font-weight:500;border:1px solid #e2e8f0">${esc(n)}</span>`).join('')}</div>
            </div>` : ''
-      const linkHtml = ev.link
+      const meetHtml = ev.link
         ? `<div class="em-meta" style="margin-top:10px;font-size:11px;color:#64748b"><strong style="color:#475569">🔗 Link:</strong> <a href="${escAttr(ev.link)}" style="color:${template.accent};text-decoration:none;word-break:break-all">${esc(ev.link)}</a></div>` : ''
+      // #HLP0225: link direto pro card do CRM no e-mail (mesmo do popup da agenda).
+      const crmHtml = ev.oportunidadeId
+        ? `<div class="em-meta" style="margin-top:8px;font-size:11px;color:#64748b"><strong style="color:#475569">🔗 CRM:</strong> <a href="${appBase}/crm?op=${encodeURIComponent(String(ev.oportunidadeId))}" style="color:${template.accent};text-decoration:none;font-weight:600">Abrir oportunidade no CRM</a></div>` : ''
+      const linkHtml = `${meetHtml}${crmHtml}`
       const criadorHtml = ev.criador?.name
         ? `<div class="em-creator" style="margin-top:12px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Agendado por ${esc(ev.criador.name)}</div>` : ''
       const descricaoHtml = ev.descricao
