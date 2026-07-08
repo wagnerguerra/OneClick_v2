@@ -828,7 +828,7 @@ function OrcamentoRequestForm({
         {/* Áreas envolvidas (pills) — marca quem precisa detalhar a parte dela */}
         {areasDisp.length > 0 && (
           <div className="space-y-1.5">
-            <label className="text-[13px] font-semibold text-foreground">Áreas envolvidas</label>
+            <label className="text-[13px] font-semibold text-foreground">Áreas envolvidas <span className="text-rose-500">*</span></label>
             <div className="flex flex-wrap gap-1.5">
               {areasDisp.map((a) => {
                 const sel = areasSel.includes(a.areaId)
@@ -848,7 +848,7 @@ function OrcamentoRequestForm({
                 )
               })}
             </div>
-            <p className="text-[11px] text-muted-foreground">Cada área marcada notifica o líder responsável para detalhar a parte dele.</p>
+            <p className="text-[11px] text-muted-foreground">Selecione ao menos uma área — cada área marcada notifica o líder responsável para detalhar (e executar) a parte dela. <span className="text-rose-500">Obrigatório.</span></p>
           </div>
         )}
       </div>
@@ -861,7 +861,7 @@ function OrcamentoRequestForm({
         <Button
           size="sm"
           onClick={handleEnviar}
-          disabled={enviando || detTexto.length < 3 || (!clienteSel && !busca.trim()) || anexos.some(a => a.uploading)}
+          disabled={enviando || detTexto.length < 3 || (!clienteSel && !busca.trim()) || anexos.some(a => a.uploading) || (areasDisp.length > 0 && areasSel.length === 0)}
           className="gap-1.5 text-white"
           style={{ background: accent }}
         >
