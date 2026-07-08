@@ -2004,8 +2004,11 @@ export class OrcamentoService {
 
     // ── -> LIBERADO ──
     if (novoStatus === 'LIBERADO') {
-      // Comercial + responsável + e-mails configurados p/ notificar liberações.
-      const destinatarios = [...emailComercial, ...emailLiberacao]
+      // Comercial + responsável (do orçamento) + e-mails configurados +
+      // responsáveis pela EXECUÇÃO (Atribuição de responsáveis do template de
+      // cada serviço: colaboradores/setores/resp. orçamento/resp. cliente na área).
+      const emailsExecucao = await this.servicoService.resolverEmailsExecucaoOrcamento(id).catch(() => [] as string[])
+      const destinatarios = [...emailComercial, ...emailLiberacao, ...emailsExecucao]
       if (responsavel?.email) destinatarios.push(responsavel.email)
       await enviarEmail({
         to: destinatarios,
