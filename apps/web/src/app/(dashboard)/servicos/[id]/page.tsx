@@ -1335,16 +1335,7 @@ export default function ServicoDetailPage() {
 
                         {/* Flags */}
                         <div className="grid grid-cols-12 gap-3">
-                          <label className="col-span-12 md:col-span-6 flex items-center gap-2 cursor-pointer select-none rounded-md border bg-card px-3 py-2 hover:bg-muted/40 transition-colors">
-                            <input
-                              type="checkbox"
-                              checked={atribuicaoUsaOrcamento}
-                              onChange={e => setAtribuicaoUsaOrcamento(e.target.checked)}
-                              className="h-3.5 w-3.5 cursor-pointer"
-                            />
-                            <span className="text-[12px] font-medium">Responsável pelo orçamento</span>
-                          </label>
-                          <label className="col-span-12 md:col-span-6 flex items-center gap-2 cursor-pointer select-none rounded-md border bg-card px-3 py-2 hover:bg-muted/40 transition-colors">
+                          <label className="col-span-12 flex items-center gap-2 cursor-pointer select-none rounded-md border bg-card px-3 py-2 hover:bg-muted/40 transition-colors">
                             <input
                               type="checkbox"
                               checked={atribuicaoUsaClienteArea}
