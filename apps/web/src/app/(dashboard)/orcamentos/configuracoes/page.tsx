@@ -25,6 +25,7 @@ interface ConfigState {
   emailComercial: string
   emailFinanceiro: string
   emailAprovacao: string
+  emailLiberacao: string
   textoPadrao: string
   textoApresentacao: string
   // [QA #46] Lembrete de validade + follow-up pós-recusa
@@ -47,6 +48,7 @@ const DEFAULT_CONFIG: ConfigState = {
   emailComercial: '',
   emailFinanceiro: '',
   emailAprovacao: '',
+  emailLiberacao: '',
   textoPadrao: '',
   textoApresentacao: '',
   lembreteValidadeAtivo: true,
@@ -121,6 +123,7 @@ export default function OrcamentosConfiguracoesPage() {
         email_comercial: config.emailComercial,
         email_financeiro: config.emailFinanceiro,
         email_aprovacao: config.emailAprovacao,
+        email_liberacao: config.emailLiberacao,
         texto_padrao: config.textoPadrao,
         texto_apresentacao: config.textoApresentacao,
         lembrete_validade_ativo: config.lembreteValidadeAtivo ? '1' : '0',
@@ -321,27 +324,32 @@ export default function OrcamentosConfiguracoesPage() {
               )}
 
               {activeTab === 'emails' && (
-                <div className="space-y-4 max-w-2xl">
+                <div className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground block">Notificar novos orçamentos para</label>
-                    <Input value={config.emailNovo} onChange={e => setConfig(c => ({ ...c, emailNovo: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm" />
+                    <Input value={config.emailNovo} onChange={e => setConfig(c => ({ ...c, emailNovo: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm w-full" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground block">Notificar aprovações de orçamento para</label>
-                    <Input value={config.emailAprovacao} onChange={e => setConfig(c => ({ ...c, emailAprovacao: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm" />
+                    <Input value={config.emailAprovacao} onChange={e => setConfig(c => ({ ...c, emailAprovacao: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm w-full" />
                     <p className="text-[11px] text-muted-foreground">Avisados quando um orçamento é aprovado — pelo link do cliente ou direto no sistema.</p>
                   </div>
                   <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground block">Notificar liberações de orçamento para</label>
+                    <Input value={config.emailLiberacao} onChange={e => setConfig(c => ({ ...c, emailLiberacao: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm w-full" />
+                    <p className="text-[11px] text-muted-foreground">Avisados quando um orçamento é liberado para execução.</p>
+                  </div>
+                  <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground block">E-mail da área comercial</label>
-                    <Input value={config.emailComercial} onChange={e => setConfig(c => ({ ...c, emailComercial: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm" />
+                    <Input value={config.emailComercial} onChange={e => setConfig(c => ({ ...c, emailComercial: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm w-full" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground block">E-mail da área financeira</label>
-                    <Input value={config.emailFinanceiro} onChange={e => setConfig(c => ({ ...c, emailFinanceiro: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm" />
+                    <Input value={config.emailFinanceiro} onChange={e => setConfig(c => ({ ...c, emailFinanceiro: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm w-full" />
                   </div>
                   <div className="space-y-1.5 pt-2 border-t border-border">
                     <label className="text-xs font-medium text-muted-foreground block pt-2">Lembretes de validade e follow-up</label>
-                    <Input value={config.emailLembretes} onChange={e => setConfig(c => ({ ...c, emailLembretes: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm" />
+                    <Input value={config.emailLembretes} onChange={e => setConfig(c => ({ ...c, emailLembretes: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm w-full" />
                     <p className="text-[11px] text-muted-foreground">Quem recebe os lembretes de validade vencendo e os follow-ups de recusa (e-mail; quem for usuário do sistema também recebe no sino e vira participante do evento na agenda). Configure o que avisar na aba Prazos.</p>
                   </div>
                 </div>

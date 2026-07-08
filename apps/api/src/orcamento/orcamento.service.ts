@@ -1767,6 +1767,7 @@ export class OrcamentoService {
     const emailFinanceiro = this.parseEmails(config.emailFinanceiro)
     const emailComercial = this.parseEmails(config.emailComercial)
     const emailAprovacao = this.parseEmails(config.emailAprovacao)
+    const emailLiberacao = this.parseEmails(config.emailLiberacao)
     const emailsContatos = this.parseEmails(orc.emailsContatos)
 
     // Resumo padronizado (header + cliente + datas) reusado em todos os emails
@@ -1957,7 +1958,8 @@ export class OrcamentoService {
 
     // ── -> LIBERADO ──
     if (novoStatus === 'LIBERADO') {
-      const destinatarios = [...emailComercial]
+      // Comercial + responsável + e-mails configurados p/ notificar liberações.
+      const destinatarios = [...emailComercial, ...emailLiberacao]
       if (responsavel?.email) destinatarios.push(responsavel.email)
       await enviarEmail({
         to: destinatarios,
@@ -3463,6 +3465,7 @@ export class OrcamentoService {
       emailComercial: config.email_comercial || '',
       emailFinanceiro: config.email_financeiro || '',
       emailAprovacao: config.email_aprovacao || '',
+      emailLiberacao: config.email_liberacao || '',
       textoPadrao: config.texto_padrao || '',
       textoApresentacao: config.texto_apresentacao || '',
       headerCover: config.header_cover || '',
@@ -3483,8 +3486,9 @@ export class OrcamentoService {
     return { ok: true }
   }
 
-  async saveConfig(data: Record<string, string>, empresaId?: string) {
+  async saveConfig(data: Record<string, string | undefined>, empresaId?: string) {
     for (const [key, value] of Object.entries(data)) {
+      if (value === undefined) continue // chaves opcionais ausentes — não persiste "undefined"
       const existing = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
         `SELECT id FROM opcoes_cadastro WHERE tipo = 'ORCAMENTO_CONFIG' AND valor LIKE '${key}=%' ${empresaId ? `AND empresa_id = '${empresaId}'` : 'AND empresa_id IS NULL'} LIMIT 1`
       ).catch(() => [])

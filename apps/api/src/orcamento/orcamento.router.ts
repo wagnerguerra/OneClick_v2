@@ -294,8 +294,17 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         email_comercial: z.string(),
         email_financeiro: z.string(),
         email_aprovacao: z.string(),
+        email_liberacao: z.string().optional(),
         texto_padrao: z.string(),
         texto_apresentacao: z.string(),
+        // Estas chaves o front já envia; sem declará-las o Zod as descartava
+        // (config de lembrete/follow-up do #46 não persistia). Opcionais p/ compat.
+        email_lembretes: z.string().optional(),
+        lembrete_validade_ativo: z.string().optional(),
+        lembrete_validade_dias_antes: z.string().optional(),
+        followup_recusa_ativo: z.string().optional(),
+        followup_recusa_dias: z.string().optional(),
+        followup_tipo_evento_id: z.string().optional(),
       }))
       .mutation(({ input, ctx }) => orcamentoService.saveConfig(input, ctx.empresaId)),
 
