@@ -324,8 +324,9 @@ export default function ImprimirOrcamentoPage() {
         .quote-doc .descricao-content p { margin: 0 0 8px; }
         .quote-doc .descricao-content p:last-child { margin-bottom: 0; }
         /* Parágrafos vazios (linhas em branco do editor) — o TipTap salva <p></p>,
-           que colapsa fora do contenteditable. Preserva a altura de 1 linha. */
-        .quote-doc .descricao-content p:empty::before { content: "\00a0"; }
+           que colapsa fora do contenteditable. min-height preserva 1 linha
+           (evita escape "\\00a0" que quebra o template literal do <style>). */
+        .quote-doc .descricao-content p:empty { min-height: 1.6em; }
         .quote-doc .descricao-content ul, .quote-doc .descricao-content ol { margin: 8px 0; padding-left: 24px; }
         .quote-doc .descricao-content ul { list-style: disc; }
         .quote-doc .descricao-content ol { list-style: decimal; }
