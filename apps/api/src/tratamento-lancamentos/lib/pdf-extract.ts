@@ -48,6 +48,11 @@ interface Line { y: number; tokens: Token[] }
 // dd-mm-aaaa). Exigir a data como a célula INTEIRA evita que anexos
 // "dd/mm HH:MM" (hora) virem lançamentos falsos (CEF).
 const ANCHOR_DATE_RE = /^\s*\d{1,2}[/\-.]\d{1,2}(?:[/\-.]\d{2,4})?\s*$/
+// Linha que é SÓ um número de página "N/M" (ex.: "3/5", "1/1076"), impressa no
+// rodapé. Casa com ANCHOR_DATE_RE (parece "dia/mês") e/ou gruda no saldo do último
+// lançamento — é descartada do corpo. (Uma data solta "3/5" não ocorre nos
+// extratos: datas sempre vêm com o restante do lançamento na mesma linha.)
+const PAGE_NUM_RE = /^\s*\d{1,4}\s*\/\s*\d{1,4}\s*$/
 // Palavras que caracterizam a linha de cabeçalho de um extrato.
 const HEADER_KEYWORDS = [
   'data', 'lanç', 'lanc', 'histó', 'histo', 'descri', 'valor', 'saldo',
@@ -55,6 +60,8 @@ const HEADER_KEYWORDS = [
 ]
 // Coluna de data: cabeçalho que identifica a coluna-âncora.
 const DATE_COL_RE = /\bdata\b|balancete|moviment|dt\.?\s*mov/i
+// Coluna de descrição/histórico (onde a descrição do lançamento se estende).
+const DESC_COL_RE = /hist[óo]|lan[çc]|descri|movimenta/i
 
 // Tolerâncias (ajustadas com os PDFs de exemplo; refináveis).
 const Y_TOL = 2.5        // fragmentos dentro dessa faixa de y = mesma linha
@@ -127,6 +134,7 @@ interface HeaderSpec {
   names: string[]        // nome de cada coluna (único, "Coluna A/B/..." quando vazio)
   fingerprint: string    // assinatura textual p/ detectar repetição em outras páginas
   dateCol: number        // índice da coluna-âncora de data
+  descCol: number        // índice da coluna de descrição/histórico (-1 se não achou)
 }
 
 function headerScore(line: Line): number {
@@ -146,13 +154,24 @@ function lineFingerprint(line: Line): string {
 function buildHeaderSpec(lines: Line[], idx: number): HeaderSpec {
   const base = lines[idx]!
   // Cabeçalho pode quebrar em 2 linhas (ex.: "Data" acima de "Documento ...").
-  // Junta tokens de linhas vizinhas PURAMENTE TEXTUAIS dentro de uma janela y.
+  // Junta tokens de linhas vizinhas PURAMENTE TEXTUAIS dentro de uma janela y —
+  // mas só os que ALINHAM (cx) a uma coluna-base OU ficam FORA do range das
+  // colunas-base (uma coluna nova à esquerda/direita, como o "Data"/"Data Efetiva"
+  // do CEF, numa linha própria à esquerda do "Documento Histórico Valor Saldo").
+  // Um cluster no MEIO das colunas (Sicoob "HISTÓRICO DE MOVIMENTAÇÃO", título
+  // centralizado entre HISTÓRICO e VALOR) NÃO alinha e NÃO está fora → é ignorado,
+  // não virando coluna falsa.
+  const baseCxs = base.tokens.map((t) => t.cx)
+  const minC = Math.min(...baseCxs), maxC = Math.max(...baseCxs)
   const tokens: Token[] = [...base.tokens]
   lines.forEach((l, j) => {
     if (j === idx) return
     if (Math.abs(l.y - base.y) > HEADER_MERGE_DY) return
     if (!l.tokens.every((t) => !/\d/.test(t.text))) return
-    tokens.push(...l.tokens)
+    for (const t of l.tokens) {
+      const aligns = base.tokens.some((bt) => Math.abs(bt.cx - t.cx) <= CLUSTER_X)
+      if (aligns || t.cx < minC || t.cx > maxC) tokens.push(t)
+    }
   })
 
   // Agrupa tokens por x → colunas (junta quem está a < CLUSTER_X de distância).
@@ -180,7 +199,8 @@ function buildHeaderSpec(lines: Line[], idx: number): HeaderSpec {
     return dup > 0 ? `${name} (${dup + 1})` : name
   })
   const dateCol = Math.max(0, cols.findIndex((c) => DATE_COL_RE.test(c.text)))
-  return { centers: cols.map((c) => c.cx), names, fingerprint: lineFingerprint(base), dateCol }
+  const descCol = cols.findIndex((c) => DESC_COL_RE.test(c.text))
+  return { centers: cols.map((c) => c.cx), names, fingerprint: lineFingerprint(base), dateCol, descCol }
 }
 
 /**
@@ -255,61 +275,201 @@ export async function extractPdfTable(buffer: Buffer): Promise<ExtractedTable> {
 }
 
 /** Modo POR-LINHA (Shape-1): cabeçalho por palavra-chave + âncora de data em cada
- *  linha. Devolve null quando nenhum cabeçalho é encontrado. */
+ *  linha. Une TODAS as páginas numa sequência vertical contínua (com um vão de
+ *  ~1 linha entre páginas) para que um detalhe no rodapé de uma página possa se
+ *  anexar à âncora no TOPO da página seguinte — caso de um lançamento cuja
+ *  descrição/razão social se divide na virada de página (Itaú). Devolve null
+ *  quando nenhum cabeçalho é encontrado. */
 function extractPerRow(pages: Item[][]): { header: HeaderSpec; rows: string[][] } | null {
+  // 1) Cabeçalho: fixado na 1ª página que o contiver. Coleta os CORPOS por página
+  //    (linhas abaixo do cabeçalho, sem os metadados de topo).
   let header: HeaderSpec | null = null
-  const rows: string[][] = []
-
+  const pageBodies: Line[][] = []
   for (const pageItems of pages) {
     const lines = buildLines(pageItems)
-
-    // Fixa o cabeçalho na 1ª página que o contiver.
     if (!header) header = detectHeader(lines)
     if (!header) continue // página sem cabeçalho ainda (capa/resumo) → ignora
-
-    // Corta o que está ACIMA do cabeçalho desta página (metadados/topo). Se o
-    // cabeçalho não se repete nesta página, considera todas as linhas.
     const headerLineY = lines.find((l) => lineFingerprint(l) === header!.fingerprint)?.y
     const body = lines.filter((l) => {
       if (headerLineY !== undefined && l.y >= headerLineY - Y_TOL) return false
       if (lineFingerprint(l) === header!.fingerprint) return false
+      // Cabeçalho REPETIDO/DUPLICADO por página (Mercado Pago reimprime, às vezes
+      // sobreposto: "Data Data Descrição Descrição Valor Valor…"). O fingerprint
+      // exato não casa a versão duplicada; um headerScore alto pega ambas sem
+      // atingir lançamento (que quase nunca tem 3+ palavras de cabeçalho).
+      if (headerScore(l) >= 3) return false
+      if (PAGE_NUM_RE.test(lineText(l))) return false // número de página no rodapé
       return true
     })
+    if (body.length) pageBodies.push(body)
+  }
+  if (!header) return null
 
-    // Atribui células e separa âncoras (com data) de linhas-detalhe (sem data).
-    const assigned = body.map((l) => ({ y: l.y, cells: assignCells(l.tokens, header!.centers) }))
-    const anchorIdx: number[] = []
-    assigned.forEach((a, i) => { if (ANCHOR_DATE_RE.test(a.cells[header!.dateCol] ?? '')) anchorIdx.push(i) })
-    if (anchorIdx.length === 0) continue // página sem lançamentos
+  // 2) Vão de "uma linha para baixo" = altura de linha DENTRO de um bloco. Usa o
+  //    cluster de gaps PEQUENOS (não a mediana, inflada pelo espaço ENTRE
+  //    transações em extratos de 1 linha por lançamento — Mercado Pago ~30 entre
+  //    txns vs ~12 dentro de uma descrição). Serve de vão ENTRE páginas na
+  //    sequência contínua (a última linha de uma página fica a ~1 linha da 1ª da
+  //    seguinte) e para calibrar o anti-rodapé (`belowMax`).
+  const gaps: number[] = []
+  for (const body of pageBodies) {
+    for (let i = 1; i < body.length; i++) { const g = body[i - 1]!.y - body[i]!.y; if (g > 0 && g < 100) gaps.push(g) }
+  }
+  const medGap = median(gaps)
+  const smallGaps = gaps.filter((g) => g < medGap)
+  const typicalSmall = smallGaps.length ? median(smallGaps) : medGap
+  const interGap = typicalSmall || ATTACH_MAX_DY / 2
 
-    // Cada âncora vira uma linha; detalhes são anexados à âncora + próxima (por y).
-    const anchorRows = new Map<number, string[]>()
-    for (const i of anchorIdx) anchorRows.set(i, [...assigned[i]!.cells])
+  // 3) Sequência GLOBAL de linhas com um `gy` monotônico decrescente (preserva os
+  //    vãos intra-página; encadeia as páginas com `interGap`). Cada linha vira as
+  //    células atribuídas às colunas e marca se é âncora (data na coluna-data).
+  interface GLine { gy: number; cells: string[]; isAnchor: boolean; page: number }
+  const glines: GLine[] = []
+  let cursor = 0
+  pageBodies.forEach((body, page) => {
+    const topY = body[0]!.y
+    for (const l of body) {
+      const cells = assignCells(l.tokens, header!.centers)
+      glines.push({ gy: cursor - (topY - l.y), cells, isAnchor: ANCHOR_DATE_RE.test(cells[header!.dateCol] ?? ''), page })
+    }
+    cursor = cursor - (topY - body[body.length - 1]!.y) - interGap
+  })
 
-    for (let i = 0; i < assigned.length; i++) {
-      if (anchorRows.has(i)) continue
-      const a = assigned[i]!
-      // Âncora mais próxima verticalmente.
-      let nearest = -1
-      let nd = Number.POSITIVE_INFINITY
-      for (const ai of anchorIdx) {
-        const d = Math.abs(assigned[ai]!.y - a.y)
+  const anchorIdx: number[] = []
+  glines.forEach((g, i) => { if (g.isAnchor) anchorIdx.push(i) })
+  if (anchorIdx.length === 0) return { header, rows: [] }
+
+  // Guarda anti-rodapé/resumo para detalhes ABAIXO da âncora: `belowMax` = salto
+  // vertical máximo aceitável para a linha imediatamente acima. Um pulo grande
+  // marca o FIM da tabela (rodapé "SAC/Ouvidoria", nota "os saldos acima…", bloco
+  // de resumo). É calibrado pelo cluster de gaps PEQUENOS (o vão DENTRO de um
+  // lançamento, ~entre a âncora e seu detalhe), NÃO pela mediana geral — que em
+  // extratos de 1 linha por lançamento (Santander) é o vão ENTRE transações e
+  // deixaria passar o resumo, que tem o mesmo espaçamento. Ex.: Santander detalhe
+  // 6,9 vs resumo 25,1 → belowMax ~14 barra o resumo e mantém o detalhe.
+  // (`typicalSmall` calculado junto com o `interGap`, acima.)
+  const belowMax = Math.min(ATTACH_MAX_DY, Math.max(14, typicalSmall * 1.8))
+
+  // 4) Âncora mais próxima de cada detalhe: como `gy` é monotônico com o índice, a
+  //    mais próxima é a âncora imediatamente ANTERIOR ou POSTERIOR na sequência.
+  const n = glines.length
+  const prevA = new Array<number>(n).fill(-1)
+  for (let i = 0, last = -1; i < n; i++) { if (glines[i]!.isAnchor) last = i; prevA[i] = last }
+  const nextA = new Array<number>(n).fill(-1)
+  for (let i = n - 1, last = -1; i >= 0; i--) { if (glines[i]!.isAnchor) last = i; nextA[i] = last }
+
+  // 5) Distribui os detalhes (linhas sem data) para as âncoras, separando os que
+  //    estão ACIMA dos que estão ABAIXO — para recompor o texto na ordem de leitura
+  //    (acima → âncora → abaixo). A ESTRATÉGIA depende do MODO DE LAYOUT do extrato:
+  //
+  //  • "ÂNCORA NO MEIO" (Itaú, e o QR do Mercado Pago): a descrição fica ACIMA e
+  //    abaixo da linha de data+valor. Detalhes-ACIMA (prefácios) são comuns → usa a
+  //    âncora mais PRÓXIMA (com o redirect cross-page).
+  //  • "ÂNCORA NO TOPO" (Sicoob, CEF, BB, Santander): a âncora traz o início da
+  //    descrição e as continuações vêm ABAIXO. Detalhe-abaixo ENCADEIA para a âncora
+  //    de cima (sem o limite de distância — resolve blocos altos e o "shift" das
+  //    linhas de baixo), com parada estrutural no RESUMO e prefácio p/ âncora vazia.
+  //
+  // O modo é detectado pela linha logo ACIMA de cada âncora: se está MUITO mais perto
+  // desta âncora do que da anterior (< 0.65×), é um detalhe-acima daquela âncora.
+  const descCol = header.descCol
+  const descEmpty = (ai: number): boolean => descCol < 0 || (glines[ai]!.cells[descCol] ?? '').trim() === ''
+  // Coluna de VALOR = a que mais carrega dinheiro NAS ÂNCORAS. `valueOnAnchor`: o
+  // valor mora na linha-âncora (Sicoob/BB) e não num detalhe (CEF, cujas âncoras não
+  // têm valor). Usado só para a parada por RESUMO.
+  const colMoney = header.names.map((_, c) => anchorIdx.filter((ai) => MONEY_RE.test(glines[ai]!.cells[c] ?? '')).length)
+  const valueCol = colMoney.length ? colMoney.indexOf(Math.max(...colMoney)) : -1
+  const valueOnAnchor = valueCol >= 0 && colMoney[valueCol]! > anchorIdx.length * 0.5
+
+  // "Âncora no meio" = uma fração relevante das âncoras tem a DESCRIÇÃO VAZIA na
+  // própria linha (a descrição mora ACIMA/abaixo — Itaú, QR do MP). Sinal robusto,
+  // não enganado por bloco alto (ao contrário de medir distância geométrica).
+  // Só um doc SEM praticamente nenhuma âncora de descrição vazia (Sicoob/BB —
+  // descrição na própria linha da âncora, continuações só ABAIXO) usa o
+  // encadeamento-abaixo. Qualquer fração relevante de âncoras vazias significa que
+  // há descrição ACIMA (CEF "PIX RECEBIDO", Itaú, QR do MP) → usa o nearest, que
+  // trata acima+abaixo. O limiar é baixo (5%) porque a distinção é "tem OU não tem
+  // detalhe-acima".
+  const emptyDescAnchors = descCol < 0 ? 0 : anchorIdx.filter((ai) => descEmpty(ai)).length
+  const emptyFrac = emptyDescAnchors / Math.max(1, anchorIdx.length)
+  const anchorInMiddle = emptyFrac > 0.05
+
+  const above = new Map<number, string[][]>()
+  const below = new Map<number, string[][]>()
+  for (const ai of anchorIdx) { above.set(ai, []); below.set(ai, []) }
+
+  if (anchorInMiddle) {
+    // ===== ÂNCORA NO MEIO (Itaú, MP): âncora mais próxima + redirect cross-page =====
+    for (let i = 0; i < n; i++) {
+      if (glines[i]!.isAnchor) continue
+      const cands: number[] = []
+      if (nextA[i]! >= 0) cands.push(nextA[i]!)
+      if (prevA[i]! >= 0) {
+        const samePage = glines[prevA[i]!]!.page === glines[i]!.page
+        const contCross = glines[prevA[i]!]!.page === glines[i]!.page - 1
+          && nextA[i]! >= 0 && glines[nextA[i]!]!.page === glines[i]!.page
+        if (samePage || contCross) cands.push(prevA[i]!)
+      }
+      const gapPrev = i > 0 ? glines[i - 1]!.gy - glines[i]!.gy : Number.POSITIVE_INFINITY
+      let nearest = -1, nd = Number.POSITIVE_INFINITY
+      for (const ai of cands) {
+        const d = Math.abs(glines[ai]!.gy - glines[i]!.gy)
+        if (d > ATTACH_MAX_DY) continue
+        const isBelowAi = glines[i]!.gy < glines[ai]!.gy
+        if (isBelowAi && glines[ai]!.page === glines[i]!.page && gapPrev > belowMax) continue
         if (d < nd) { nd = d; nearest = ai }
       }
-      if (nearest < 0 || nd > ATTACH_MAX_DY) continue
-      const target = anchorRows.get(nearest)!
-      a.cells.forEach((cell, c) => {
-        if (!cell) return
-        if (c === header!.dateCol) return // detalhe não sobrescreve a data
-        target[c] = target[c] ? `${target[c]} ${cell}` : cell
-      })
+      if (nearest < 0) continue
+      let isBelow = glines[i]!.gy < glines[nearest]!.gy
+      // Redirect cross-page: continuação que partiu na virada (ver histórico no PLANO).
+      const pa = prevA[i]!
+      if (!isBelow && nearest === nextA[i]! && descCol >= 0
+        && (glines[nextA[i]!]!.cells[descCol] ?? '').trim() !== '' && pa >= 0
+        && glines[pa]!.page === glines[i]!.page - 1 && glines[nextA[i]!]!.page === glines[i]!.page) {
+        nearest = pa; isBelow = true
+      }
+      ;(isBelow ? below.get(nearest)! : above.get(nearest)!).push(glines[i]!.cells)
     }
-
-    // Emite as linhas na ordem visual (topo→base = ordem de anchorIdx).
-    for (const i of anchorIdx) rows.push(anchorRows.get(i)!)
+  } else {
+    // ===== ÂNCORA NO TOPO (Sicoob/CEF/BB/Santander): encadeamento-abaixo =====
+    // `lastBelowGy` = gy do último detalhe já anexado ABAIXO da âncora (ou a âncora).
+    const lastBelowGy = new Map<number, number>()
+    for (const ai of anchorIdx) lastBelowGy.set(ai, glines[ai]!.gy)
+    for (let i = 0; i < n; i++) {
+      if (glines[i]!.isAnchor) continue
+      // Prefácio de âncora com descrição VAZIA logo abaixo: o detalhe imediatamente
+      // ACIMA de uma âncora sem descrição a prefacia (Santander [89]: "Cr Cob Bloq"
+      // sobre a âncora 9.260,23 de histórico vazio).
+      const na = nextA[i]!
+      if (na >= 0 && na === i + 1 && descEmpty(na)) { above.get(na)!.push(glines[i]!.cells); continue }
+      const pa = prevA[i]!
+      if (pa < 0) continue
+      // Parada estrutural no RESUMO: quando o valor mora na âncora, uma linha-detalhe
+      // que TAMBÉM tem valor na coluna de valor NÃO é continuação de descrição — é
+      // resumo/summary (Sicoob "(+) SALDO EM CONTA: 3.129,74C") → não anexa.
+      if (valueOnAnchor && valueCol >= 0 && MONEY_RE.test(glines[i]!.cells[valueCol] ?? '')) continue
+      // Encadeamento: salto do ÚLTIMO detalhe já anexado a `pa` (ou de `pa`) até aqui.
+      // Um pulo grande (rodapé/fim da tabela) quebra a cadeia.
+      const chain = (lastBelowGy.get(pa) ?? glines[pa]!.gy) - glines[i]!.gy
+      if (chain <= 0 || chain > belowMax) continue
+      below.get(pa)!.push(glines[i]!.cells)
+      lastBelowGy.set(pa, glines[i]!.gy)
+    }
   }
 
-  return header ? { header, rows } : null
+  // 6) Recompõe cada lançamento na ordem visual (âncoras em ordem de leitura). A
+  //    data (coluna-âncora) nunca é sobrescrita por detalhe.
+  const rows: string[][] = anchorIdx.map((ai) => {
+    const a = glines[ai]!.cells
+    const ab = above.get(ai)!, be = below.get(ai)!
+    return a.map((cell, c) => {
+      if (c === header!.dateCol) return cell
+      const parts = [...ab.map((x) => x[c] ?? ''), cell, ...be.map((x) => x[c] ?? '')].filter((v) => v && v.trim())
+      return parts.join(' ')
+    })
+  })
+
+  return { header, rows }
 }
 
 // ---- 5. Modo SEÇÃO-AGRUPADA (Shape-2): data como cabeçalho do dia -----------
@@ -360,6 +520,26 @@ function leadingDate(text: string): string | null {
     }
   }
   return null
+}
+
+// Data COMPLETA em qualquer posição da linha (textual PT ou dd/mm[/aa]). O
+// separador numérico exige `/` ou `-` (NÃO `.`) para não casar com valores
+// monetários ("12.345,67"). Alimenta o detector de INTERVALO de datas.
+const MES_ALT = Object.keys(MESES_PT).sort((a, b) => b.length - a.length).join('|')
+const ANY_DATE_RE = new RegExp(
+  `\\d{1,2}\\s*(?:de\\s*)?(?:${MES_ALT})\\.?\\s*(?:de\\s*)?\\d{2,4}` +
+  `|\\b\\d{1,2}[/\\-]\\d{1,2}(?:[/\\-]\\d{2,4})?\\b`,
+  'giu',
+)
+/**
+ * Linha que carrega DUAS+ datas completas = **intervalo/período** do extrato
+ * (ex.: "01 DE MARÇO DE 2026 a 31 DE MARÇO DE 2026"), impresso no topo de cada
+ * página. Começa com data, mas NÃO é cabeçalho de um dia — não deve virar
+ * carry-forward. (Só é consultado em linhas que já começam com data.)
+ */
+function isDateRange(text: string): boolean {
+  const m = text.match(ANY_DATE_RE)
+  return (m?.length ?? 0) >= 2
 }
 
 function lineText(l: Line): string {
@@ -422,6 +602,18 @@ function assignByStart(tokens: Token[], starts: number[]): string[] {
   return cells
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FLAG REVERSÍVEL — recuperação da continuação do ÚLTIMO lançamento de cada página
+// (Shape-2), via detecção de rodapé por invariância entre páginas (ver o bloco
+// "[REVERSÍVEL]" em extractSectionGrouped). Adição mais especulativa da leva de
+// QA; isolada aqui para reverter fácil:
+//   • `false` → desliga: a fronteira da tabela volta a ser o último lançamento
+//     (comportamento anterior; a continuação do último lançamento por página volta
+//     a não ser anexada — a "ressalva conhecida" reabre, sem outros efeitos).
+//   • para remover de vez: apague o bloco marcado "[REVERSÍVEL]" e este flag.
+const FEATURE_RECUPERA_CONTINUACAO_RABO = true
+// ─────────────────────────────────────────────────────────────────────────────
+
 function extractSectionGrouped(pages: Item[][]): ExtractedTable | null {
   const all: Line[] = []
   for (const pageItems of pages) all.push(...buildLines(pageItems))
@@ -433,12 +625,46 @@ function extractSectionGrouped(pages: Item[][]): ExtractedTable | null {
   if (firstDate < 0) return null
   const lines = all.slice(firstDate)
 
-  // Linhas de lançamento = têm valor monetário, NÃO começam com data (essas são
-  // cabeçalho do dia) e não são subtotais. Definem as colunas por x0.
-  const isTxn = (l: Line): boolean => {
+  // Preâmbulo REPETIDO por página (nome do titular, CNPJ, nº da conta — reimpresso
+  // no topo de cada página, ex.: Nubank). É o mesmo bloco que aparece ANTES da 1ª
+  // data na página 1; guardamos seus textos para PULAR as repetições nas páginas
+  // seguintes (senão grudariam como "continuação" no último lançamento da página
+  // anterior). Ignora textos muito curtos para não casar continuações legítimas.
+  const preambleTexts = new Set(all.slice(0, firstDate).map((l) => lineText(l)).filter((s) => s.length >= 5))
+
+  // Candidata a lançamento: tem valor, NÃO começa com data (cabeçalho do dia) e
+  // não é subtotal.
+  const isMoneyTok = (s: string): boolean => MONEY_RE.test(s)
+  const isCand = (l: Line): boolean => {
     const t = lineText(l)
     return !leadingDate(t) && !SUBTOTAL_RE.test(t) && MONEY_RE.test(t)
   }
+  const candLines = lines.filter(isCand)
+  if (candLines.length < 3) return null
+
+  // Colunas de VALOR = clusters (por x0) dos tokens monetários das candidatas. Um
+  // lançamento ALINHA o valor numa coluna; valores de resumo soltos (ex.: o
+  // "R$ 0,00" do saldo final, na margem esquerda) caem FORA dessas colunas → não
+  // são lançamentos. Isso NÃO supõe que todo lançamento tenha texto (extratos "só
+  // valor" existem) — usa a consistência POSICIONAL da coluna de valor.
+  const valXs = candLines
+    .flatMap((l) => l.tokens.filter((tk) => isMoneyTok(tk.text)).map((tk) => tk.x0))
+    .sort((a, b) => a - b)
+  const clusters: Array<{ min: number; max: number; count: number }> = []
+  for (const x of valXs) {
+    const last = clusters[clusters.length - 1]
+    if (last && x - last.max <= 28) { last.max = x; last.count++ }
+    else clusters.push({ min: x, max: x, count: 1 })
+  }
+  // Colunas de valor "dominantes" = onde MUITAS candidatas têm valor (lançamentos
+  // >> linhas de resumo). Sem nenhuma dominante (doc atípico), não filtra por
+  // posição — evita perder lançamentos.
+  const minCount = Math.max(3, Math.floor(candLines.length * 0.15))
+  const colsValor = clusters.filter((c) => c.count >= minCount)
+  const noColunaDeValor = (l: Line): boolean =>
+    l.tokens.some((tk) => isMoneyTok(tk.text) && colsValor.some((c) => tk.x0 >= c.min && tk.x0 <= c.max))
+  const isTxn = (l: Line): boolean => isCand(l) && (colsValor.length === 0 || noColunaDeValor(l))
+
   const bodyLines = lines.filter(isTxn)
   if (bodyLines.length < 3) return null
   const starts = columnStarts(bodyLines)
@@ -465,6 +691,45 @@ function extractSectionGrouped(pages: Item[][]): ExtractedTable | null {
   const lastTableIdx = new Map<number, number>()
   lines.forEach((l, i) => { const s = lineText(l); if (isTxn(l) || leadingDate(s) || SUBTOTAL_RE.test(s)) lastTableIdx.set(pageOf[i]!, i) })
 
+  // ┌── [REVERSÍVEL: FEATURE_RECUPERA_CONTINUACAO_RABO] ─────────────────────────
+  // │ Estende a fronteira da tabela de cada página para INCLUIR a continuação da
+  // │ descrição do ÚLTIMO lançamento (a que cai no "rabo", junto do rodapé).
+  // │ Distingue continuação de rodapé por INVARIÂNCIA entre páginas: o rodapé
+  // │ institucional ("Fale com a gente", "SAC/Ouvidoria", "Tem alguma dúvida?…")
+  // │ repete IDÊNTICO no rabo de ≥ metade das páginas; a continuação é única (o
+  // │ limiar alto evita confundir uma contraparte repetida — Nubank AMAZON — com
+  // │ rodapé). Avança do último lançamento enquanto a linha NÃO for rodapé e
+  // │ estiver a ~1 vão de linha; para no 1º rodapé ou salto grande. Fallback: doc
+  // │ de 1 página não tem invariância a medir → mantém o rabo curto.
+  // │ Desligar (flag=false) ⇒ `tableBoundary` == `lastTableIdx` (comportamento
+  // │ anterior). Remover de vez ⇒ apague este bloco e use `lastTableIdx` no guard.
+  const tableBoundary = new Map(lastTableIdx)
+  if (FEATURE_RECUPERA_CONTINUACAO_RABO) {
+    const nPages = (pageOf[pageOf.length - 1] ?? 0) + 1
+    const footerMinPages = Math.max(2, Math.ceil(nPages * 0.5))
+    const tailTextPages = new Map<string, Set<number>>()
+    lines.forEach((l, i) => {
+      if (i <= (lastTableIdx.get(pageOf[i]!) ?? -1)) return
+      const key = lineText(l)
+      if (!tailTextPages.has(key)) tailTextPages.set(key, new Set())
+      tailTextPages.get(key)!.add(pageOf[i]!)
+    })
+    const recurringFooter = new Set([...tailTextPages].filter(([, pgs]) => pgs.size >= footerMinPages).map(([k]) => k))
+    if (nPages >= 2) {
+      for (const [page, base] of lastTableIdx) {
+        let b = base
+        for (let i = base + 1; i < lines.length && pageOf[i] === page; i++) {
+          if (recurringFooter.has(lineText(lines[i]!))) break
+          const gap = lines[i - 1]!.y - lines[i]!.y
+          if (!(gap > 0 && gap <= lineGap * 1.5)) break
+          b = i
+        }
+        tableBoundary.set(page, b)
+      }
+    }
+  }
+  // └── fim do bloco [REVERSÍVEL] ──────────────────────────────────────────────
+
   // Percorre em ordem visual (y decrescente = topo→base):
   //  • linha com data       → atualiza a data do dia (carry-forward);
   //  • linha com valor       → novo lançamento (herda a data);
@@ -476,20 +741,38 @@ function extractSectionGrouped(pages: Item[][]): ExtractedTable | null {
   const rows: string[][] = []
   let last: string[] | null = null
   let lastY = 0
+  let lastPage = -1 // página do lançamento aberto (p/ continuação que cruza a virada)
   for (let idx = 0; idx < lines.length; idx++) {
     const l = lines[idx]!
     const t = lineText(l)
+    // Preâmbulo repetido no topo das páginas seguintes → ignora (não é continuação).
+    if (preambleTexts.has(t)) continue
     const d = leadingDate(t)
+    // Cabeçalho de PERÍODO ("01 DE MARÇO DE 2026 a 31 DE MARÇO DE 2026",
+    // repetido no topo de cada página): começa com data mas é um INTERVALO —
+    // ignora sem tocar em currentDate/last, para não quebrar o carry-forward da
+    // data nem a continuação de descrição que atravessa a virada de página.
+    if (d && isDateRange(t)) continue
     if (d) { currentDate = d; last = null; continue }
     if (SUBTOTAL_RE.test(t)) { last = null; continue }
-    if (MONEY_RE.test(t)) {
+    if (isTxn(l)) {
       last = [currentDate, ...assignByStart(l.tokens, starts)]
       lastY = l.y
+      lastPage = pageOf[idx]!
       rows.push(last)
     } else if (
       last &&
-      idx <= (lastTableIdx.get(pageOf[idx]!) ?? -1) &&   // não é rodapé (rabo da página)
-      lastY - l.y >= 0 && lastY - l.y <= lineGap * 1.5
+      // `tableBoundary` = fronteira da tabela da página (== `lastTableIdx` se o
+      // bloco [REVERSÍVEL] estiver desligado). Reverter → troque por `lastTableIdx`.
+      idx <= (tableBoundary.get(pageOf[idx]!) ?? -1) &&
+      // Proximidade: na MESMA página, salto vertical de ~1 linha; ao CRUZAR a
+      // virada (o y reinicia lá no topo), aceita por adjacência de ordem de leitura
+      // — o preâmbulo repetido já foi pulado acima, então as 1ªs linhas-sem-data da
+      // nova página são a continuação da descrição do lançamento da página anterior
+      // (Nubank: "…Bank of America Merrill" | "Lynch Banco… Agência" | "Conta: …").
+      (pageOf[idx]! === lastPage
+        ? (lastY - l.y >= 0 && lastY - l.y <= lineGap * 1.5)
+        : pageOf[idx]! > lastPage)
     ) {
       // Continuação de descrição (linha sem valor/data, logo abaixo do lançamento).
       // Guards adicionais: cai numa ÚNICA coluna (rodapé costuma espalhar), de
@@ -498,7 +781,7 @@ function extractSectionGrouped(pages: Item[][]): ExtractedTable | null {
       const touched = cells.map((c, i) => (c ? i : -1)).filter((i) => i >= 0)
       if (touched.length === 1) {
         const i = touched[0]!
-        if (!numericCol[i] && last[i + 1]) { last[i + 1] = `${last[i + 1]} ${cells[i]}`; lastY = l.y }
+        if (!numericCol[i] && last[i + 1]) { last[i + 1] = `${last[i + 1]} ${cells[i]}`; lastY = l.y; lastPage = pageOf[idx]! }
       }
     }
   }
