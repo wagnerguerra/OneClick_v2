@@ -2009,11 +2009,15 @@ export class OrcamentoService {
     if (!orc) throw new Error('Orcamento nao encontrado')
 
     const cliente = orc.clienteId
-      ? await prisma.cliente.findUnique({ where: { id: orc.clienteId }, select: { razaoSocial: true, email: true } }).catch(() => null)
+      ? await prisma.cliente.findUnique({ where: { id: orc.clienteId }, select: { razaoSocial: true, email: true, documento: true } }).catch(() => null)
       : null
 
     const empresa = orc.empresaId
       ? await prisma.empresa.findUnique({ where: { id: orc.empresaId }, select: { razaoSocial: true, nomeFantasia: true, logoUrl: true } }).catch(() => null)
+      : null
+
+    const responsavel = orc.responsavelId
+      ? await prisma.user.findUnique({ where: { id: orc.responsavelId }, select: { name: true } }).catch(() => null)
       : null
 
     const config = await this.getConfig(orc.empresaId || undefined)
@@ -2045,29 +2049,49 @@ export class OrcamentoService {
     const empresaNome = empresa?.nomeFantasia || empresa?.razaoSocial || 'Empresa'
     const clienteNome = cliente?.razaoSocial || 'Cliente'
 
-    // Corpo do email
-    const html = `
-      <!DOCTYPE html>
-      <html><head><meta charset="utf-8" /></head>
-      <body style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f5f5f5;">
-        <div style="background: #fff; border-radius: 8px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-          ${ORC_EMAIL_LOGO_BUFFER
-            ? `<div style="text-align:center; margin-bottom: 24px;"><img src="cid:logo" alt="${empresaNome}" width="150" style="display:block;margin:0 auto;max-height:64px;height:auto;border:0;outline:none;text-decoration:none" /></div>`
-            : `<div style="text-align:center;margin-bottom:24px;font-size:20px;font-weight:800;color:#0f172a">${empresaNome}</div>`}
-          <h2 style="color: #fb7185; margin: 0 0 16px 0; font-size: 22px;">Proposta Comercial #${String(orc.numero).padStart(4, '0')}</h2>
-          <p style="color: #444; line-height: 1.6;">Prezado(a) <strong>${clienteNome}</strong>,</p>
-          <p style="color: #444; line-height: 1.6;">A <strong>${empresaNome}</strong> tem o prazer de enviar a proposta comercial em anexo para sua avaliacao.</p>
-          ${opcoes.mensagem ? `<div style="background: #fff5f7; border-left: 3px solid #fb7185; padding: 12px 16px; margin: 16px 0; color: #555; line-height: 1.6;">${opcoes.mensagem}</div>` : ''}
-          ${config.textoApresentacao ? `<div style="color: #555; line-height: 1.6; margin: 16px 0;">${config.textoApresentacao}</div>` : ''}
-          <div style="text-align: center; margin: 32px 0;">
-            <a href="${linkPublico}" style="display: inline-block; background: #fb7185; color: #fff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600;">Ver Proposta</a>
-          </div>
-          <p style="color: #777; font-size: 13px; line-height: 1.6;">Validade da proposta: <strong>${orc.validadeDias} dias</strong></p>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
-          <p style="color: #999; font-size: 12px; text-align: center;">${empresaNome} &middot; ${new Date().getFullYear()}</p>
-        </div>
-      </body></html>
-    `
+    // #HLP0200: usa o MESMO template configurado do e-mail automático de proposta
+    // (logo cid:logo + apresentação + itens + totais), em vez do HTML básico.
+    const numeroFmt = `#${String(orc.numero).padStart(4, '0')}`
+    const summaryTable = this.buildOrcamentoSummaryTable({
+      numero: numeroFmt,
+      clienteRazao: clienteNome,
+      clienteDoc: cliente?.documento,
+      criadoEm: orc.createdAt,
+      validadeDias: orc.validadeDias,
+      formaPagamento: orc.formaPagamento,
+      responsavelNome: responsavel?.name,
+    })
+    const itensTable = this.buildItensTable(orc.itens.map(i => ({
+      tipo: i.tipo, descricao: i.descricao, quantidade: Number(i.quantidade),
+      valorUnitario: i.valorUnitario as unknown as { toNumber: () => number },
+    })))
+    const totaisBlock = this.buildTotaisBlock({
+      descontoPct: orc.descontoPct as unknown as { toNumber: () => number } | null,
+      descontoValor: orc.descontoValor as unknown as { toNumber: () => number } | null,
+      totalServicos: orc.totalServicos as unknown as { toNumber: () => number },
+      totalTaxas: orc.totalTaxas as unknown as { toNumber: () => number },
+      totalDespesas: orc.totalDespesas as unknown as { toNumber: () => number },
+      totalGeral: orc.totalGeral as unknown as { toNumber: () => number },
+    })
+    const html = this.buildEmailLayout({
+      empresaNome,
+      logoUrl: empresa?.logoUrl,
+      preheader: `Sua proposta comercial ${numeroFmt} está pronta. Validade: ${orc.validadeDias} dias.`,
+      heroAccent: '#10b981',
+      heroTitle: 'Sua proposta comercial está pronta',
+      heroSubtitle: `Orçamento ${numeroFmt} · Validade de ${orc.validadeDias} dias`,
+      bodyHtml: `
+        <p>Prezado(a) <strong>${clienteNome}</strong>,</p>
+        <p>A <strong>${empresaNome}</strong> tem o prazer de enviar a proposta comercial abaixo para sua avaliação. Clique no botão para visualizar e aprovar diretamente.</p>
+        ${opcoes.mensagem ? `<div style="background:#fff7ed;border-left:3px solid #fb923c;padding:14px 18px;margin:18px 0;border-radius:4px;color:#7c2d12;font-size:13px;">${opcoes.mensagem}</div>` : ''}
+        ${config.textoApresentacao ? `<div style="background:#ecfdf5;border-left:3px solid #10b981;padding:14px 18px;margin:18px 0;border-radius:4px;color:#065f46;font-size:13px;">${config.textoApresentacao}</div>` : ''}
+        ${summaryTable}
+        ${itensTable}
+        ${totaisBlock}
+      `,
+      ctaLabel: 'Ver e aprovar proposta',
+      ctaUrl: linkPublico,
+    })
 
     // Dispara e-mail só se houver destinatário. Sem destinatário, segue o
     // resto do fluxo (status + evento + return) sem chamar o emailService.
