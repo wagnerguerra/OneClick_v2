@@ -281,7 +281,7 @@ export default function PublicOrcamentoPage() {
         {orc.textoCorpoCliente && (
           <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700">
             <div
-              className="prose prose-sm max-w-none text-slate-700 dark:text-slate-300 max-h-[420px] overflow-y-auto select-text rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-4 print:max-h-none print:overflow-visible print:border-0 print:bg-transparent print:p-0"
+              className="richtext-render prose prose-sm max-w-none text-slate-700 dark:text-slate-300 max-h-[420px] overflow-y-auto select-text rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-4 print:max-h-none print:overflow-visible print:border-0 print:bg-transparent print:p-0"
               dangerouslySetInnerHTML={{ __html: orc.textoCorpoCliente }}
             />
           </div>

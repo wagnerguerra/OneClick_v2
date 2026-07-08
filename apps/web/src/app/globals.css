@@ -296,6 +296,11 @@
 .dark .mod-configuracoes .dark\:bg-orange-950\/30, .dark .mod-configuracoes .dark\:bg-orange-900\/40 { background-color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 18%, transparent); }
 .dark .mod-configuracoes .dark\:text-orange-400, .dark .mod-configuracoes .dark\:text-orange-300 { color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 80%, white); }
 
+/* Richtext renderizado (fora do editor): o TipTap salva linhas em branco como
+   parágrafos vazios <p></p>, que colapsam ao renderizar via dangerouslySetInnerHTML.
+   Preserva a altura de 1 linha para manter o espaçamento que o usuário digitou. */
+.richtext-render p:empty::before { content: "\00a0"; }
+
 /* Dialog animations — Bootstrap-style zoom in/out */
 @keyframes dialog-fade-in {
   from { opacity: 0; }
