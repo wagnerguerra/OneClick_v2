@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, readProcedure, writeSubProcedure, deleteSubProcedure } from '../trpc/trpc.service'
-import { createTreatmentModelSchema, updateTreatmentModelSchema, listTreatmentModelSchema, previewArquivoSchema, convertSchema } from '@saas/types'
+import { createTreatmentModelSchema, updateTreatmentModelSchema, listTreatmentModelSchema, previewArquivoSchema, convertSchema, debugExtractSchema } from '@saas/types'
 import { TratamentoLancamentosService } from './tratamento-lancamentos.service'
 
 const MODULE = 'tratamento-lancamentos'
@@ -43,6 +43,12 @@ export function createTratamentoLancamentosRouter(service: TratamentoLancamentos
     convert: readProcedure(MODULE)
       .input(convertSchema)
       .mutation(({ input, ctx }) => service.convert(input, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
+
+    // Visualizador de debug (escondido via ?debug=1): tabela extraída crua +
+    // traço do de/para. Só leitura.
+    debugExtract: readProcedure(MODULE)
+      .input(debugExtractSchema)
+      .mutation(({ input, ctx }) => service.debugExtract(input, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
     create: writeSubProcedure(MODULE, MANAGE, MANAGE_LABEL)
       .input(createTreatmentModelSchema)
