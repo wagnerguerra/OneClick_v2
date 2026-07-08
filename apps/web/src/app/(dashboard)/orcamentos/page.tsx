@@ -1074,7 +1074,7 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
       <div
         ref={setNodeRef}
         className={cn(
-          'w-[44px] shrink-0 flex flex-col border border-border/40 overflow-hidden transition-all duration-200 rounded cursor-pointer hover:border-border/80',
+          'w-[44px] h-full shrink-0 flex flex-col border border-border/40 overflow-hidden transition-all duration-200 rounded cursor-pointer hover:border-border/80',
           isOver && !dropDisabled && 'crm-column-over',
           dropDisabled && 'opacity-40 grayscale cursor-not-allowed',
         )}
@@ -1113,7 +1113,7 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
     <div
       ref={setNodeRef}
       className={cn(
-        'w-[360px] shrink-0 flex flex-col border border-border/40 overflow-hidden transition-all duration-200 rounded relative',
+        'w-[360px] h-full shrink-0 flex flex-col border border-border/40 overflow-hidden transition-all duration-200 rounded relative',
         isOver && !dropDisabled && 'crm-column-over',
         dropDisabled && 'opacity-40 grayscale',
       )}
@@ -1144,7 +1144,7 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
         </div>
       </div>
       <SortableContext items={items.map(o => o.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 p-2 space-y-2 overflow-y-auto min-h-[120px]">
+        <div className="flex-1 p-2 space-y-2 overflow-y-auto nice-scrollbar min-h-[120px]">
           {items.length === 0 && <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhum orçamento</p>}
           {items.map(orc => (
             <KanbanCard
