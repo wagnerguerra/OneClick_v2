@@ -139,10 +139,13 @@ export default function HelpdeskPage() {
     return () => { cancelled = true }
   }, [])
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
     // Aguarda descobrir o papel real (podeAtuar = TI vs colaborador comum)
     if (podeAtuar === null) return
-    setLoading(true)
+    // #HLP0182: refetch silencioso (foco de aba / back-forward) NÃO seta loading —
+    // assim as colunas do kanban não desmontam e o scroll de cada coluna é
+    // preservado. Só o carregamento inicial/troca de filtro mostra o spinner.
+    if (opts?.silent !== true) setLoading(true)
     try {
       if (podeAtuar) {
         // TI: vê painel completo conforme escopo
@@ -183,6 +186,8 @@ export default function HelpdeskPage() {
       setLoading(false)
     }
   }, [podeAtuar, scope, debouncedSearch, filtroPrioridade, verArquivados])
+  // Nota: no finally o setLoading(false) é inofensivo mesmo no modo silent
+  // (loading já estava false). O que importa é NÃO subir pra true no silent.
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -190,8 +195,10 @@ export default function HelpdeskPage() {
   // componente em soft navigation; sem isso a lista fica stale após
   // criar/abrir/voltar de um ticket.
   useEffect(() => {
-    function refresh() { fetchData() }
-    function onVis() { if (!document.hidden) fetchData() }
+    // #HLP0182: refetch silencioso ao voltar (back-forward / foco de aba) — não
+    // recarrega as colunas nem perde o scroll; só atualiza os dados em segundo plano.
+    function refresh() { fetchData({ silent: true }) }
+    function onVis() { if (!document.hidden) fetchData({ silent: true }) }
     window.addEventListener('popstate', refresh)
     document.addEventListener('visibilitychange', onVis)
     return () => {
