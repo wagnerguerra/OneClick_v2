@@ -8,6 +8,14 @@ import { ServicoService } from '../servico/servico.service'
 import { ProcessoService } from '../processo/processo.service'
 import { NotificationService } from '../notification/notification.service'
 import { OrcamentoEventsService } from './orcamento-events.service'
+import * as fs from 'fs'
+import * as path from 'path'
+
+// #HLP0248: logo embutida (cid:logo) no e-mail da proposta — mesmo asset e
+// mecanismo do e-mail automático da agenda do dia (evita <img src=url> quebrado).
+const ORC_EMAIL_LOGO_PATH = path.resolve(process.cwd(), 'assets', 'email-logo.png')
+let ORC_EMAIL_LOGO_BUFFER: Buffer | null = null
+try { ORC_EMAIL_LOGO_BUFFER = fs.readFileSync(ORC_EMAIL_LOGO_PATH) } catch { /* sem logo */ }
 
 // Re-export para compat com chamadas internas (regras vivem em @saas/types).
 // Tipagem `Record<string, string>` para suportar lookup com `string` nas funções.
@@ -1470,7 +1478,11 @@ export class OrcamentoService {
     } = params
 
     // Logomarca: se houver URL → img; senao → texto branco grande sobre faixa verde
-    const logoBlock = logoUrl
+    // #HLP0248: logo via cid:logo (embutida) quando o asset existe — não depende
+    // de URL externa (que quebrava no cliente de e-mail). Fallback: logoUrl, senão texto.
+    const logoBlock = ORC_EMAIL_LOGO_BUFFER
+      ? `<img src="cid:logo" alt="${empresaNome}" style="max-height:48px;max-width:200px;display:inline-block;border:0;outline:none;text-decoration:none;" />`
+      : logoUrl
       ? `<img src="${logoUrl}" alt="${empresaNome}" style="max-height:48px;max-width:200px;display:inline-block;border:0;outline:none;text-decoration:none;" />`
       : `<span style="display:inline-block;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">${empresaNome}</span>`
 
@@ -1801,7 +1813,7 @@ export class OrcamentoService {
         ctaUrl: params.ctaUrl,
       })
       try {
-        await this.emailService.sendMail({ to: dest, subject: params.subject, html })
+        await this.emailService.sendMail({ to: dest, subject: params.subject, html, attachments: ORC_EMAIL_LOGO_BUFFER ? [{ filename: 'logo.png', content: ORC_EMAIL_LOGO_BUFFER, cid: 'logo' }] : undefined })
         await this.addEvento(id, userId, 'notificacao', null, null, `${params.tipoEvento} para ${dest.length} destinatário(s): ${dest.join(', ')}`)
         return dest.length
       } catch (e) {
@@ -2027,7 +2039,9 @@ export class OrcamentoService {
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const linkPublico = `${baseUrl}/orcamentos/publico/${orc.token}`
+    // #HLP0248: a rota pública é /orcamento/<token> (singular). O antigo
+    // /orcamentos/publico/<token> não existe → "Ver Proposta" dava 404.
+    const linkPublico = `${baseUrl}/orcamento/${orc.token}`
     const empresaNome = empresa?.nomeFantasia || empresa?.razaoSocial || 'Empresa'
     const clienteNome = cliente?.razaoSocial || 'Cliente'
 
@@ -2037,7 +2051,9 @@ export class OrcamentoService {
       <html><head><meta charset="utf-8" /></head>
       <body style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f5f5f5;">
         <div style="background: #fff; border-radius: 8px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-          ${empresa?.logoUrl ? `<div style="text-align:center; margin-bottom: 24px;"><img src="${empresa.logoUrl}" alt="${empresaNome}" style="max-height: 60px;" /></div>` : ''}
+          ${ORC_EMAIL_LOGO_BUFFER
+            ? `<div style="text-align:center; margin-bottom: 24px;"><img src="cid:logo" alt="${empresaNome}" width="150" style="display:block;margin:0 auto;max-height:64px;height:auto;border:0;outline:none;text-decoration:none" /></div>`
+            : `<div style="text-align:center;margin-bottom:24px;font-size:20px;font-weight:800;color:#0f172a">${empresaNome}</div>`}
           <h2 style="color: #fb7185; margin: 0 0 16px 0; font-size: 22px;">Proposta Comercial #${String(orc.numero).padStart(4, '0')}</h2>
           <p style="color: #444; line-height: 1.6;">Prezado(a) <strong>${clienteNome}</strong>,</p>
           <p style="color: #444; line-height: 1.6;">A <strong>${empresaNome}</strong> tem o prazer de enviar a proposta comercial em anexo para sua avaliacao.</p>
@@ -2060,6 +2076,7 @@ export class OrcamentoService {
         to: [...emails],
         subject: `Proposta Comercial #${String(orc.numero).padStart(4, '0')} - ${empresaNome}`,
         html,
+        attachments: ORC_EMAIL_LOGO_BUFFER ? [{ filename: 'logo.png', content: ORC_EMAIL_LOGO_BUFFER, cid: 'logo' }] : undefined,
       })
     }
 
