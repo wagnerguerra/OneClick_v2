@@ -2006,7 +2006,9 @@ export class OrcamentoService {
       // Comercial + responsável (do orçamento) + e-mails configurados +
       // responsáveis pela EXECUÇÃO (Atribuição de responsáveis do template de
       // cada serviço: colaboradores/setores/resp. orçamento/resp. cliente na área).
-      const emailsExecucao = await this.servicoService.resolverEmailsExecucaoOrcamento(id).catch(() => [] as string[])
+      const emailsExecucao = config.notificarExecutorLiberacao
+        ? await this.servicoService.resolverEmailsExecucaoOrcamento(id).catch(() => [] as string[])
+        : []
       const destinatarios = [...emailComercial, ...emailLiberacao, ...emailsExecucao]
       if (responsavel?.email) destinatarios.push(responsavel.email)
       await enviarEmail({
@@ -3518,6 +3520,9 @@ export class OrcamentoService {
       emailFinanceiro: config.email_financeiro || '',
       emailAprovacao: config.email_aprovacao || '',
       emailLiberacao: config.email_liberacao || '',
+      // Também notificar os responsáveis pela execução dos serviços na liberação
+      // (Atribuição de responsáveis do template). Default ligado.
+      notificarExecutorLiberacao: (config.notificar_executor_liberacao ?? '1') === '1',
       textoPadrao: config.texto_padrao || '',
       textoApresentacao: config.texto_apresentacao || '',
       headerCover: config.header_cover || '',

@@ -26,6 +26,7 @@ interface ConfigState {
   emailFinanceiro: string
   emailAprovacao: string
   emailLiberacao: string
+  notificarExecutorLiberacao: boolean
   textoPadrao: string
   textoApresentacao: string
   // [QA #46] Lembrete de validade + follow-up pós-recusa
@@ -49,6 +50,7 @@ const DEFAULT_CONFIG: ConfigState = {
   emailFinanceiro: '',
   emailAprovacao: '',
   emailLiberacao: '',
+  notificarExecutorLiberacao: true,
   textoPadrao: '',
   textoApresentacao: '',
   lembreteValidadeAtivo: true,
@@ -124,6 +126,7 @@ export default function OrcamentosConfiguracoesPage() {
         email_financeiro: config.emailFinanceiro,
         email_aprovacao: config.emailAprovacao,
         email_liberacao: config.emailLiberacao,
+        notificar_executor_liberacao: config.notificarExecutorLiberacao ? '1' : '0',
         texto_padrao: config.textoPadrao,
         texto_apresentacao: config.textoApresentacao,
         lembrete_validade_ativo: config.lembreteValidadeAtivo ? '1' : '0',
@@ -338,6 +341,10 @@ export default function OrcamentosConfiguracoesPage() {
                     <label className="text-xs font-medium text-muted-foreground block">Notificar liberações de orçamento para</label>
                     <Input value={config.emailLiberacao} onChange={e => setConfig(c => ({ ...c, emailLiberacao: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm w-full" />
                     <p className="text-[11px] text-muted-foreground">Avisados quando um orçamento é liberado para execução.</p>
+                    <label className="flex items-start gap-2 mt-1.5 cursor-pointer select-none">
+                      <input type="checkbox" checked={config.notificarExecutorLiberacao} onChange={e => setConfig(c => ({ ...c, notificarExecutorLiberacao: e.target.checked }))} className="mt-0.5 h-4 w-4 accent-[var(--mod-comercial,#fb7185)]" />
+                      <span className="text-[11px] text-muted-foreground">Também notificar os <strong className="text-foreground font-medium">responsáveis pela execução</strong> dos serviços (conforme a "Atribuição de responsáveis" de cada serviço na aba Visão geral).</span>
+                    </label>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground block">E-mail da área comercial</label>

@@ -295,6 +295,7 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         email_financeiro: z.string(),
         email_aprovacao: z.string(),
         email_liberacao: z.string().optional(),
+        notificar_executor_liberacao: z.string().optional(),
         texto_padrao: z.string(),
         texto_apresentacao: z.string(),
         // Estas chaves o front já envia; sem declará-las o Zod as descartava
