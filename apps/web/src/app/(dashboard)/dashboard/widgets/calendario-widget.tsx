@@ -173,6 +173,11 @@ export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title
         map[d]!.push(p)
       }
     }
+    // #HLP0254: ordena cada dia por horário (HH:MM asc). Sem horário (dia inteiro/
+    // obrigação/orçamento por data) vai pro fim.
+    for (const d in map) {
+      map[d]!.sort((a, b) => (a.horaInicio || '99:99').localeCompare(b.horaInicio || '99:99'))
+    }
     return map
   }, [prazos, calMonth, calYear])
 
