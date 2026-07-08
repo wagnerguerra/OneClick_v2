@@ -3,7 +3,7 @@
 > Como o extrator determinístico de PDF funciona por dentro. Serve de mapa para
 > alterações futuras, porque as regras, vistas soltas no código, são abstratas.
 > Código: `apps/api/src/tratamento-lancamentos/lib/pdf-extract.ts` (+ `extract-tabela.ts`,
-> `parsers.ts`). Plano/escopo: [PLANO-TRATAMENTO-LANCAMENTOS-PDF-DC.md](./PLANO-TRATAMENTO-LANCAMENTOS-PDF-DC.md).
+> `parsers.ts`). Plano/escopo: [PLANO-SUPORTE-A-PDFS.md](./PLANO-SUPORTE-A-PDFS.md).
 
 Última atualização: 2026-07-07.
 
