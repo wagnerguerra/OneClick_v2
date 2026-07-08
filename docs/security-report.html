@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relatorio de Seguranca - OneClick</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --ink: #17202a;
+      --muted: #5d6978;
+      --line: #d9e0ea;
+      --critical: #8f1d18;
+      --high: #b45309;
+      --medium: #2563eb;
+      --low: #4b5563;
+      --ok: #047857;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.55 "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    header {
+      background: #111827;
+      color: #fff;
+      padding: 28px 36px;
+      border-bottom: 4px solid #38bdf8;
+    }
+    header h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: 0; }
+    header p { margin: 0; color: #cbd5e1; max-width: 980px; }
+    main { max-width: 1180px; margin: 0 auto; padding: 28px 24px 56px; }
+    section, article {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      margin: 18px 0;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    }
+    h2 { margin: 0 0 14px; font-size: 20px; }
+    h3 { margin: 0 0 10px; font-size: 16px; }
+    p { margin: 8px 0; }
+    code {
+      background: #eef2f7;
+      border: 1px solid #dce3ed;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+    }
+    ul { margin: 8px 0 0 20px; padding: 0; }
+    li { margin: 5px 0; }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .metric { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: #fbfdff; }
+    .metric strong { display: block; font-size: 24px; line-height: 1; }
+    .metric span { color: var(--muted); font-size: 12px; }
+    .sev {
+      display: inline-block;
+      min-width: 74px;
+      text-align: center;
+      color: #fff;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .02em;
+      margin-right: 8px;
+    }
+    .critical { background: var(--critical); }
+    .high { background: var(--high); }
+    .medium { background: var(--medium); }
+    .low { background: var(--low); }
+    .ok { color: var(--ok); font-weight: 700; }
+    .finding { border-left: 5px solid var(--line); }
+    .finding.critical-border { border-left-color: var(--critical); }
+    .finding.high-border { border-left-color: var(--high); }
+    .finding.medium-border { border-left-color: var(--medium); }
+    .finding.low-border { border-left-color: var(--low); }
+    .evidence { color: var(--muted); font-size: 13px; }
+    .fix { background: #f8fafc; border: 1px solid var(--line); border-radius: 6px; padding: 12px; margin-top: 10px; }
+    .prompt {
+      background: #0f172a;
+      color: #e5e7eb;
+      border-radius: 6px;
+      padding: 12px;
+      margin: 8px 0 14px;
+      white-space: pre-wrap;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      overflow-x: auto;
+    }
+    .phase { border-left: 5px solid #38bdf8; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 9px 8px; text-align: left; vertical-align: top; }
+    th { background: #f8fafc; font-size: 12px; color: var(--muted); text-transform: uppercase; }
+    @media (max-width: 820px) {
+      header { padding: 22px; }
+      main { padding: 18px 12px 40px; }
+      .grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Relatorio tecnico de seguranca</h1>
+    <p>Projeto analisado em 08/07/2026. Escopo: revisao estatica do monorepo em D:\oc, configuracoes, rotas Nest/tRPC, Next.js, Fastify webapp, Electron launcher, Docker, arquivos versionados e dependencias via pnpm audit.</p>
+  </header>
+  <main>
+    <section>
+      <h2>Resumo executivo</h2>
+      <div class="grid">
+        <div class="metric"><strong>4</strong><span>achados criticos</span></div>
+        <div class="metric"><strong>7</strong><span>achados altos</span></div>
+        <div class="metric"><strong>5</strong><span>achados medios</span></div>
+        <div class="metric"><strong>50</strong><span>vulnerabilidades no pnpm audit</span></div>
+      </div>
+      <p>Os riscos mais urgentes sao exposicao de segredos/dumps no Git, webhook WhatsApp aceitando POST sem assinatura efetiva, rotas REST sensiveis sem autenticacao aparente e upload publico de certificados PFX globais.</p>
+    </section>
+
+    <section>
+      <h2>Indice de prompts Claude Code</h2>
+      <p>Os prompts completos estao na secao "Plano de correcao com prompts para Claude Code", mais abaixo neste relatorio.</p>
+      <table>
+        <thead>
+          <tr><th>Prompt</th><th>Cobre</th><th>Objetivo</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Prompt 1</td><td>SEC-01</td><td>Inventario, bloqueio e runbook de rotacao de segredos versionados.</td></tr>
+          <tr><td>Prompt 2</td><td>SEC-02</td><td>Corrigir validacao do webhook WhatsApp com rawBody e falha fechada.</td></tr>
+          <tr><td>Prompt 3</td><td>SEC-03, SEC-14</td><td>Proteger upload de PFX e servir arquivos com politica segura.</td></tr>
+          <tr><td>Prompt 4</td><td>SEC-04</td><td>Proteger download de backup com auth master, validacao e auditoria.</td></tr>
+          <tr><td>Prompt 5</td><td>SEC-05</td><td>Endurecer CORS e trusted origins por ambiente.</td></tr>
+          <tr><td>Prompt 6</td><td>SEC-06</td><td>Tornar Docker local mais seguro por padrao.</td></tr>
+          <tr><td>Prompt 7</td><td>SEC-07</td><td>Adicionar controles compensatorios ao SQL Console.</td></tr>
+          <tr><td>Prompt 8</td><td>SEC-08, SEC-13</td><td>Implantar rate limiting e limites por rota.</td></tr>
+          <tr><td>Prompt 9</td><td>SEC-09</td><td>Triar e remediar vulnerabilidades do pnpm audit.</td></tr>
+          <tr><td>Prompt 10</td><td>SEC-10</td><td>Hardening do Electron launcher e IPCs sensiveis.</td></tr>
+          <tr><td>Prompt 11</td><td>SEC-11</td><td>Remover ignores de build com baseline controlado.</td></tr>
+          <tr><td>Prompt 12</td><td>SEC-12</td><td>Fortalecer segredo dos tokens de download.</td></tr>
+          <tr><td>Prompt 13</td><td>SEC-15</td><td>Definir governanca de bearer tokens mobile.</td></tr>
+          <tr><td>Prompt 14</td><td>SEC-16</td><td>Ajustar fail-safe do billing gate.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Prompts completos para copiar</h2>
+      <p><strong>Prompt 1 - Inventario e bloqueio de segredos versionados (SEC-01)</strong></p>
+      <div class="prompt">Atue como engenheiro senior de seguranca neste repo. Corrija o risco SEC-01 sem apagar historico Git automaticamente. Faça:
+1. Localize arquivos sensiveis versionados: certs/*, *.pfx, *.pem, credentials.json, database-*.sql e dumps.
+2. Atualize .gitignore e .dockerignore para impedir novos commits desses artefatos.
+3. Crie um documento docs/security/secret-rotation-runbook.md com inventario dos arquivos encontrados, impacto, ordem de rotacao, comandos sugeridos para remover do historico usando git-filter-repo ou BFG, e checklist de invalidacao de clones/CI.
+4. Nao delete arquivos locais necessarios ao dev sem perguntar. Nao execute rewrite de historico.
+5. Rode git diff e explique as mudancas.</div>
+
+      <p><strong>Prompt 2 - Corrigir validacao do webhook WhatsApp (SEC-02)</strong></p>
+      <div class="prompt">Corrija SEC-02 no backend Nest. Faça:
+1. Ajuste apps/api/src/main.ts para preservar rawBody tambem em /api/whatsapp/webhook.
+2. Altere apps/api/src/whatsapp/whatsapp-webhook.controller.ts para falhar fechado: se houver app secret configurado, POST sem rawBody ou sem assinatura deve retornar 401.
+3. Garanta comparacao HMAC timing-safe no service se ainda nao existir.
+4. Adicione testes unitarios cobrindo: sem assinatura, assinatura invalida, assinatura valida e ausencia de secret em ambiente dev.
+5. Rode os testes relevantes e mostre o resultado.</div>
+
+      <p><strong>Prompt 3 - Proteger upload e exposicao de PFX (SEC-03 e SEC-14)</strong></p>
+      <div class="prompt">Corrija SEC-03 e SEC-14. Faça:
+1. Proteja apps/api/src/upload/upload.controller.ts com autenticacao Better Auth e autorizacao adequada para rotas de certificado.
+2. Remova a escrita de PFX em nomes globais fixos quando possivel; se a migracao completa for grande, implemente ao menos isolamento por empresa/tenant e nomes aleatorios.
+3. Nunca sirva PFX por GET publico. Para arquivos comuns, aplique Content-Disposition seguro e bloqueie HTML/SVG ativos.
+4. Valide extensao, MIME real/magic bytes e tamanho.
+5. Adicione testes para usuario anonimo, usuario sem permissao, upload valido e arquivo bloqueado.
+6. Rode testes relevantes.</div>
+
+      <p><strong>Prompt 4 - Proteger download de backup (SEC-04)</strong></p>
+      <div class="prompt">Corrija SEC-04. Faça:
+1. Remova a rota Express direta /api/backup/download/:filename de apps/api/src/main.ts.
+2. Crie controller Nest ou rota tRPC protegida por master global para listar/baixar backups.
+3. Gere token de download de curta duracao ou stream autenticado com auditoria.
+4. Valide filename com allowlist estrita e garanta que o path resolvido fica dentro do diretorio de backups.
+5. Adicione testes para anonimo, nao-master, master, path traversal e arquivo inexistente.
+6. Rode testes relevantes.</div>
+
+      <p><strong>Prompt 5 - Endurecer CORS e trusted origins (SEC-05)</strong></p>
+      <div class="prompt">Corrija SEC-05 com separacao clara entre dev e producao. Faça:
+1. Em NODE_ENV=production, aceite somente origens explicitas de TRUSTED_ORIGINS/NEXT_PUBLIC_APP_URL, sem regex ampla para LAN.
+2. Em dev, mantenha localhost e LAN se necessario, mas documente o comportamento.
+3. Ajuste trustedOrigins do Better Auth para nao adicionar origin dinamica por substring em producao.
+4. Adicione testes unitarios ou de integracao para origens permitidas/bloqueadas em dev e producao.
+5. Revise cookies Secure/HttpOnly/SameSite conforme Better Auth permite configurar neste projeto.</div>
+
+      <p><strong>Prompt 6 - Docker dev seguro por padrao (SEC-06)</strong></p>
+      <div class="prompt">Corrija SEC-06 sem quebrar desenvolvimento local. Faça:
+1. Atualize docker-compose.yml para usar variaveis de ambiente para POSTGRES_PASSWORD e, se aplicavel, Redis com senha.
+2. Faça bind das portas em 127.0.0.1 por padrao, nao 0.0.0.0.
+3. Atualize .env.example e docs/ENV.md ou crie docs/security/local-docker-hardening.md com instrucoes.
+4. Preserve compatibilidade local explicando como expor na LAN apenas quando necessario.
+5. Valide docker compose config se Docker estiver disponivel.</div>
+
+      <p><strong>Prompt 7 - Controles compensatorios para SQL Console (SEC-07)</strong></p>
+      <div class="prompt">Reduza risco do SQL Console (SEC-07). Faça:
+1. Exija reautenticacao recente ou confirmacao de senha antes de executar SQL, se houver suporte no AuthService.
+2. Bloqueie comandos destrutivos por padrao em producao, ou exija flag/env SQL_CONSOLE_ALLOW_WRITE=true.
+3. Adicione auditoria persistente de query, usuario, IP, timestamp, tipo, sucesso/erro e duracao, sem registrar dados sensiveis do resultado.
+4. Implemente limite de linhas retornadas e timeout quando possivel.
+5. Adicione testes para read-only, comando bloqueado e auditoria.</div>
+
+      <p><strong>Prompt 8 - Rate limiting e limites por rota (SEC-08 e SEC-13)</strong></p>
+      <div class="prompt">Corrija SEC-08 e SEC-13. Faça:
+1. Adicione throttling central no Nest por IP/usuario, com excecoes explicitas para SSE.
+2. Reduza limites globais de JSON/urlencoded e mova limites altos somente para endpoints que realmente precisam.
+3. No webapp Fastify, substitua allowList ilimitada de GET /jobs/ por limite alto por IP/job.
+4. Defina quotas por tenant para uploads grandes.
+5. Adicione testes ou documente validacao manual com curl para 429.</div>
+
+      <p><strong>Prompt 9 - Remediar pnpm audit (SEC-09)</strong></p>
+      <div class="prompt">Faça triagem e remediacao de SEC-09. Faça:
+1. Rode pnpm audit e gere docs/security/pnpm-audit-triage.md com severidade, pacote, caminho, runtime/dev e decisao.
+2. Atualize primeiro vulnerabilidades criticas e altas com caminho de upgrade claro: vitest >=3.2.6, xlsx substituicao/isolamento, tar/undici/js-yaml transitivos.
+3. Evite upgrades massivos sem necessidade; prefira overrides pontuais quando seguro.
+4. Rode pnpm install se necessario, depois testes/build relevantes.
+5. Inclua recomendacao de gate de audit no CI.</div>
+
+      <p><strong>Prompt 10 - Hardening do Electron launcher (SEC-10)</strong></p>
+      <div class="prompt">Corrija SEC-10 no launcher Electron. Faça:
+1. Audite scripts/launcher/preload.js e main.js, criando validadores de schema para todos os payloads IPC sensiveis.
+2. Restrinja openExternal a http/https e allowlist de dominios/hosts esperados.
+3. Adicione sandbox: true se compativel, CSP no index.html e bloqueio de navegacao externa/new-window.
+4. Para deployExecute, launchClaude e comandos que spawnam processos, valide paths dentro dos roots configurados e exija confirmacao explicita no fluxo.
+5. Adicione testes ou script de validacao estatico para IPCs de alto risco.</div>
+
+      <p><strong>Prompt 11 - Remover ignores de build com baseline (SEC-11)</strong></p>
+      <div class="prompt">Corrija SEC-11 de forma incremental. Faça:
+1. Rode build/typecheck/lint do app web para levantar erros atuais.
+2. Remova typescript.ignoreBuildErrors e eslint.ignoreDuringBuilds de apps/web/next.config.ts, ou crie plano de baseline se houver muitos erros.
+3. Corrija erros diretamente relacionados a seguranca/autorizacao/imports quebrados.
+4. Se nao for possivel remover tudo agora, documente uma estrategia com arquivo de baseline e CI que bloqueia novos erros.
+5. Rode npm/pnpm build relevante.</div>
+
+      <p><strong>Prompt 12 - Fortalecer segredo dos download tokens (SEC-12)</strong></p>
+      <div class="prompt">Corrija SEC-12. Faça:
+1. Aumente validacao de JWT_SECRET em webapp/webapp-01/apps/api/src/env.ts para minimo de 32 bytes/32 caracteres fortes.
+2. Documente geracao segura no .env.example/docs.
+3. Considere suporte a rotacao com kid ou janela de chaves se simples o suficiente.
+4. Adicione teste para segredo curto rejeitado e segredo valido aceito.</div>
+
+      <p><strong>Prompt 13 - Governanca de bearer tokens mobile (SEC-15)</strong></p>
+      <div class="prompt">Trate SEC-15. Faça:
+1. Mapeie como bearer tokens do Better Auth sao emitidos, armazenados, expirados e revogados no app mobile.
+2. Documente o fluxo em docs/security/mobile-bearer-token-policy.md.
+3. Se o projeto permitir, reduza TTL, amarre token a device/session e exponha revogacao administrativa.
+4. Adicione logs/auditoria para uso via Authorization Bearer sem gravar token em claro.</div>
+
+      <p><strong>Prompt 14 - Fail-safe no billing gate (SEC-16)</strong></p>
+      <div class="prompt">Corrija SEC-16. Faça:
+1. Revise computeBillingState em apps/api/src/trpc/trpc.controller.ts.
+2. Substitua fail-open generico por tratamento explicito: falhas transientes podem usar cache curto da ultima decisao; tenant suspenso conhecido deve continuar bloqueado.
+3. Adicione logging/alerta para falha de calculo de billing.
+4. Adicione testes para tenant suspenso, trial expirado, falha de banco com cache e falha sem cache.</div>
+    </section>
+
+    <article class="finding critical-border">
+      <h3><span class="sev critical">Critico</span>SEC-01 - Segredos, certificados e dumps rastreados no Git</h3>
+      <p>Foram encontrados arquivos sensiveis versionados: <code>certs/certificado.pfx</code>, <code>certs/key.pem</code>, <code>certs/cert.pem</code>, <code>database-2026-04-11T19-17-47.sql</code>, <code>database-dump-2026-04-13.sql</code> e <code>apps/android-parallel/credentials.json</code>.</p>
+      <p class="evidence">Evidencias: <code>git ls-files certs database-*.sql apps\android-parallel\credentials.json</code>; <code>.gitignore:57</code> declara que <code>certs/</code> e versionada; <code>certs/</code> contem PFX e chaves privadas.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong>
+        <ul>
+          <li>Revogar/rotacionar imediatamente certificados, chaves, tokens e credenciais possivelmente expostos.</li>
+          <li>Remover esses arquivos do historico Git com ferramenta propria para rewrite de historico e invalidar clones antigos.</li>
+          <li>Adicionar <code>certs/</code>, <code>*.pfx</code>, <code>*.pem</code>, <code>credentials.json</code> e dumps SQL ao <code>.gitignore</code>.</li>
+          <li>Substituir por referencias a secret manager ou variaveis de ambiente; manter exemplos sem dados reais.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="finding critical-border">
+      <h3><span class="sev critical">Critico</span>SEC-02 - Webhook WhatsApp pode aceitar requisicoes sem validacao de assinatura</h3>
+      <p>O controller valida <code>X-Hub-Signature-256</code> somente se <code>req.rawBody</code> existir. Porem o bootstrap preserva <code>rawBody</code> apenas para <code>/api/stripe/webhook</code>. Resultado: no fluxo atual, <code>rawBody</code> tende a ficar ausente no WhatsApp e a validacao nao bloqueia o POST.</p>
+      <p class="evidence">Evidencias: <code>apps/api/src/main.ts:28-30</code> preserva raw body apenas para Stripe; <code>apps/api/src/whatsapp/whatsapp-webhook.controller.ts:31-35</code> usa <code>if (raw && !verificarAssinatura(...))</code>.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong>
+        <ul>
+          <li>Preservar <code>rawBody</code> para <code>/api/whatsapp/webhook</code> no body parser.</li>
+          <li>Falhar fechado: se <code>WHATSAPP_APP_SECRET</code> estiver configurado, exigir assinatura e raw body; retornar 401 quando faltar.</li>
+          <li>Adicionar teste automatizado cobrindo POST sem assinatura, assinatura invalida e assinatura valida.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="finding critical-border">
+      <h3><span class="sev critical">Critico</span>SEC-03 - Uploads publicos permitem sobrescrever certificados PFX globais</h3>
+      <p>O controller <code>/api/upload</code> nao mostra autenticacao/guard local. As rotas <code>POST /api/upload/certificado</code> e <code>POST /api/upload/certificado-pf</code> gravam nomes fixos (<code>certificado.pfx</code> e <code>certificado-pf.pfx</code>), possibilitando substituicao de certificado se expostas.</p>
+      <p class="evidence">Evidencias: <code>apps/api/src/upload/upload.controller.ts:59-79</code>, <code>apps/api/src/upload/upload.controller.ts:86-106</code>; arquivos sao servidos por <code>sendFile</code> em <code>apps/api/src/upload/upload.controller.ts:113-143</code>.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong>
+        <ul>
+          <li>Exigir sessao e permissao administrativa nas rotas de upload/consulta de arquivos.</li>
+          <li>Nao usar nomes globais fixos para PFX; vincular arquivo a tenant/empresa, owner e registro no banco.</li>
+          <li>Armazenar PFX cifrado em repouso, fora de pasta publica, e nunca servir PFX por rota estatica.</li>
+          <li>Validar MIME por assinatura do arquivo, extensao, tamanho e conteudo esperado.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="finding critical-border">
+      <h3><span class="sev critical">Critico</span>SEC-04 - Download de backup sem autenticacao aparente</h3>
+      <p>A rota direta <code>/api/backup/download/:filename</code> e registrada manualmente no Express, fora do tRPC e sem verificacao de sessao. Mesmo com bloqueio simples de <code>..</code> e extensao <code>.zip</code>, um nome previsivel de backup pode causar exfiltracao completa.</p>
+      <p class="evidence">Evidencia: <code>apps/api/src/main.ts:66-80</code>.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong>
+        <ul>
+          <li>Remover a rota do bootstrap e mover para controller protegido por master/global admin.</li>
+          <li>Gerar URLs assinadas de curta duracao para downloads de backup.</li>
+          <li>Registrar auditoria com usuario, IP, timestamp, arquivo e resultado.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="finding high-border">
+      <h3><span class="sev high">Alto</span>SEC-05 - CORS e trusted origins aceitam rede privada de forma ampla</h3>
+      <p>A API aceita origens LAN RFC1918 e localhost com credenciais. O Better Auth tambem adiciona dinamicamente origens contendo <code>192.168.</code>, <code>10.</code> ou <code>172.</code>. Em ambientes corporativos, qualquer host interno comprometido pode tentar operar contra a API usando cookies/sessoes do usuario.</p>
+      <p class="evidence">Evidencias: <code>apps/api/src/main.ts:36-51</code>; <code>apps/api/src/auth/auth.service.ts:60-75</code>; API escuta em <code>0.0.0.0</code> em <code>apps/api/src/main.ts:82</code>.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong> em producao, usar allowlist explicita por dominio HTTPS; separar politica de dev e prod; adicionar testes de CORS; garantir cookies <code>Secure</code>, <code>HttpOnly</code> e <code>SameSite</code> adequado.
+      </div>
+    </article>
+
+    <article class="finding high-border">
+      <h3><span class="sev high">Alto</span>SEC-06 - Banco e Redis expostos no host com senha padrao</h3>
+      <p>O compose publica Postgres em <code>5435</code> e Redis em <code>6380</code>. O Postgres usa <code>POSTGRES_PASSWORD=postgres</code>; Redis nao mostra senha. Isso e aceitavel apenas para dev local isolado, mas perigoso se reutilizado em servidor ou maquina acessivel na LAN.</p>
+      <p class="evidence">Evidencias: <code>docker-compose.yml:6-12</code> e <code>docker-compose.yml:21-23</code>.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong> usar senhas fortes via secret/env, bind em <code>127.0.0.1</code> quando local, nao publicar portas em producao, habilitar autenticacao no Redis e restringir rede Docker/firewall.
+      </div>
+    </article>
+
+    <article class="finding high-border">
+      <h3><span class="sev high">Alto</span>SEC-07 - Console SQL master-only executa SQL arbitrario em producao</h3>
+      <p>O <code>sqlConsole</code> e restrito a master, mas executa qualquer SQL via <code>$queryRawUnsafe</code>/<code>$executeRawUnsafe</code>. Um sequestro de conta master vira controle total do banco, inclusive alteracao/destruicao de dados.</p>
+      <p class="evidence">Evidencias: <code>apps/api/src/sql-console/sql-console.router.ts:8-13</code>; <code>apps/api/src/sql-console/sql-console.service.ts:83-98</code>.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong> exigir MFA e reautenticacao recente; limitar por ambiente; usar role DB read-only por padrao; bloquear comandos destrutivos sem aprovacao dupla; registrar auditoria imutavel da query e resultado resumido.
+      </div>
+    </article>
+
+    <article class="finding high-border">
+      <h3><span class="sev high">Alto</span>SEC-08 - Limites de payload altos sem throttling global consistente</h3>
+      <p>A API aceita JSON e urlencoded de ate 100 MB globalmente. Ha upload de ferramentas com 300 MB. Alguns endpoints publicos tem rate limit manual, mas nao ha evidencia de throttling global no Nest. Isso amplia risco de DoS por memoria/CPU e upload abusivo.</p>
+      <p class="evidence">Evidencias: <code>apps/api/src/main.ts:25-34</code>; <code>apps/api/src/ferramentas/ferramentas.controller.ts</code> usa limite de 300 MB; <code>apps/api/src/lead/lead.controller.ts</code> implementa rate limit in-memory pontual.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong> aplicar rate limiting central por IP/usuario/rota, quotas por tenant, streaming para uploads grandes, limites menores por endpoint e protecao no proxy reverso.
+      </div>
+    </article>
+
+    <article class="finding high-border">
+      <h3><span class="sev high">Alto</span>SEC-09 - Dependencias vulneraveis no lockfile</h3>
+      <p><code>pnpm audit</code> encontrou 50 vulnerabilidades: 1 critica, 18 altas, 26 moderadas e 5 baixas. A critica envolve <code>vitest &lt;3.2.6</code>. Altas incluem <code>xlsx 0.18.5</code> com Prototype Pollution/ReDoS e dependencias transitivas como <code>tar</code>/<code>undici</code>.</p>
+      <p class="evidence">Evidencia: <code>pnpm audit --audit-level critical</code> reportou GHSA-5xrq-8626-4rwp em <code>apps__web&gt;vitest</code>; <code>pnpm audit --json</code> reportou <code>xlsx</code>, <code>tar</code>, <code>undici</code>, <code>js-yaml</code> e outros.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong> atualizar <code>vitest</code>, substituir ou isolar <code>xlsx</code>, atualizar arvore Expo/tar/undici, e colocar audit no CI com politica por severidade e contexto runtime/dev.
+      </div>
+    </article>
+
+    <article class="finding high-border">
+      <h3><span class="sev high">Alto</span>SEC-10 - Electron launcher expoe IPCs de alto privilegio</h3>
+      <p>O Electron usa <code>contextIsolation</code> e desativa <code>nodeIntegration</code>, o que e positivo. Mesmo assim, o preload expoe funcoes para deploy, SSH/Git, iniciar/parar servicos, Docker, abrir URLs externas e iniciar processos. Qualquer XSS no <code>index.html</code> vira capacidade operacional local.</p>
+      <p class="evidence">Evidencias: <code>scripts/launcher/preload.js:3-101</code>; <code>scripts/launcher/main.js:2363</code>, <code>scripts/launcher/main.js:2879</code>, <code>scripts/launcher/main.js:2917-2954</code>, <code>scripts/launcher/main.js:3275-3278</code>.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong> validar tipos e allowlists no main process, restringir <code>openExternal</code> a http/https e dominios confiaveis, exigir confirmacao para deploy/execucao, adicionar CSP no HTML local e reduzir a API do preload ao minimo necessario.
+      </div>
+    </article>
+
+    <article class="finding high-border">
+      <h3><span class="sev high">Alto</span>SEC-11 - Build Next ignora erros TypeScript e ESLint</h3>
+      <p>O build de producao esta configurado para ignorar erros de TypeScript e ESLint. Isso reduz a chance de bloquear regressao de seguranca, quebra de tipos em autorizacao e imports incorretos.</p>
+      <p class="evidence">Evidencias: <code>apps/web/next.config.ts:12-13</code>.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong> remover os ignores, separar baseline legado, falhar CI para novos erros e manter excecoes temporarias com prazo.
+      </div>
+    </article>
+
+    <article class="finding medium-border">
+      <h3><span class="sev medium">Medio</span>SEC-12 - Download tokens do webapp dependem de segredo minimo de 16 caracteres</h3>
+      <p>O webapp usa JWT HS256 de 15 minutos para downloads, mas o schema aceita <code>JWT_SECRET</code> com minimo de 16 caracteres. Para tokens assinados, 32 bytes aleatorios ou mais e recomendavel.</p>
+      <p class="evidence">Evidencias: <code>webapp/webapp-01/apps/api/src/env.ts:31</code>; <code>webapp/webapp-01/apps/api/src/tokens.ts:14-24</code>.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong> exigir segredo >=32 bytes aleatorios, rotacao controlada e separar segredo por ambiente.
+      </div>
+    </article>
+
+    <article class="finding medium-border">
+      <h3><span class="sev medium">Medio</span>SEC-13 - Rate limit do webapp libera polling de jobs sem limite</h3>
+      <p>O Fastify webapp tem rate limit, mas isenta qualquer GET contendo <code>/jobs/</code>. Isso reduz falsos positivos de polling, mas pode permitir abuso de status/download probing se combinado com outros vetores.</p>
+      <p class="evidence">Evidencias: <code>webapp/webapp-01/apps/api/src/server.ts:223-227</code>.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong> aplicar limite mais alto, mas nao ilimitado, por IP/job/tenant; diferenciar status de download; usar cache curto para status.
+      </div>
+    </article>
+
+    <article class="finding medium-border">
+      <h3><span class="sev medium">Medio</span>SEC-14 - Arquivos enviados sao servidos sem politica de tipo/conteudo</h3>
+      <p><code>/api/upload/:filename</code> serve qualquer arquivo permitido pelo filtro, bloqueando apenas executaveis por extensao. Imagens, HTML, SVG ou PDFs maliciosos podem causar XSS/reflected content ou ataques no navegador se abertos no mesmo dominio autenticado.</p>
+      <p class="evidence">Evidencias: <code>apps/api/src/upload/upload.controller.ts:23-46</code> e <code>apps/api/src/upload/upload.controller.ts:113-124</code>.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong> servir anexos em dominio cookieless ou S3 com headers seguros; forcar <code>Content-Disposition: attachment</code> para tipos nao confiaveis; validar MIME real e bloquear HTML/SVG ativos.
+      </div>
+    </article>
+
+    <article class="finding medium-border">
+      <h3><span class="sev medium">Medio</span>SEC-15 - Bearer auth habilitado amplia superficie de token</h3>
+      <p>O Better Auth habilita plugin <code>bearer()</code> para mobile. Isso e funcional, mas exige controles de armazenamento, expiracao, revogacao e monitoramento equivalentes aos cookies.</p>
+      <p class="evidence">Evidencia: <code>apps/api/src/auth/auth.service.ts:119-122</code>.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong> documentar emissao/rotacao/revogacao de bearer tokens, reduzir TTL quando possivel, amarrar a device/session e auditar uso por IP/dispositivo.
+      </div>
+    </article>
+
+    <article class="finding medium-border">
+      <h3><span class="sev medium">Medio</span>SEC-16 - Falha de billing libera acesso por seguranca operacional</h3>
+      <p>No calculo de billing, excecoes retornam <code>ACTIVE</code>. Isso favorece disponibilidade, mas pode liberar tenants suspensos/expirados durante falhas de banco/consulta.</p>
+      <p class="evidence">Evidencia: <code>apps/api/src/trpc/trpc.controller.ts</code>, funcao <code>computeBillingState</code>.</p>
+      <div class="fix">
+        <strong>Correcao recomendada:</strong> definir fail-open apenas para falhas transientes conhecidas e registrar alerta; para status de suspensao, usar cache assinado/local com ultima decisao e expirar rapidamente.
+      </div>
+    </article>
+
+    <section>
+      <h2>Plano de correcao com prompts para Claude Code</h2>
+      <p>Use os prompts abaixo em branches separadas ou em uma sequencia controlada. Antes de executar em producao, rode testes, revise diffs e faca backup do banco. Os prompts evitam acao destrutiva automatica para rotacao/rewrite de historico, pois isso exige decisao operacional.</p>
+    </section>
+
+    <article class="phase">
+      <h3>Fase 1 - Contencao imediata (SEC-01 a SEC-04)</h3>
+      <p><strong>Objetivo:</strong> bloquear exfiltracao, falsificacao de webhooks e substituicao de certificados.</p>
+
+      <p><strong>Prompt 1 - Inventario e bloqueio de segredos versionados (SEC-01)</strong></p>
+      <div class="prompt">Atue como engenheiro senior de seguranca neste repo. Corrija o risco SEC-01 sem apagar historico Git automaticamente. Faça:
+1. Localize arquivos sensiveis versionados: certs/*, *.pfx, *.pem, credentials.json, database-*.sql e dumps.
+2. Atualize .gitignore e .dockerignore para impedir novos commits desses artefatos.
+3. Crie um documento docs/security/secret-rotation-runbook.md com inventario dos arquivos encontrados, impacto, ordem de rotacao, comandos sugeridos para remover do historico usando git-filter-repo ou BFG, e checklist de invalidacao de clones/CI.
+4. Nao delete arquivos locais necessarios ao dev sem perguntar. Nao execute rewrite de historico.
+5. Rode git diff e explique as mudancas.</div>
+
+      <p><strong>Prompt 2 - Corrigir validacao do webhook WhatsApp (SEC-02)</strong></p>
+      <div class="prompt">Corrija SEC-02 no backend Nest. Faça:
+1. Ajuste apps/api/src/main.ts para preservar rawBody tambem em /api/whatsapp/webhook.
+2. Altere apps/api/src/whatsapp/whatsapp-webhook.controller.ts para falhar fechado: se houver app secret configurado, POST sem rawBody ou sem assinatura deve retornar 401.
+3. Garanta comparacao HMAC timing-safe no service se ainda nao existir.
+4. Adicione testes unitarios cobrindo: sem assinatura, assinatura invalida, assinatura valida e ausencia de secret em ambiente dev.
+5. Rode os testes relevantes e mostre o resultado.</div>
+
+      <p><strong>Prompt 3 - Proteger upload e exposicao de PFX (SEC-03 e SEC-14)</strong></p>
+      <div class="prompt">Corrija SEC-03 e SEC-14. Faça:
+1. Proteja apps/api/src/upload/upload.controller.ts com autenticacao Better Auth e autorizacao adequada para rotas de certificado.
+2. Remova a escrita de PFX em nomes globais fixos quando possivel; se a migracao completa for grande, implemente ao menos isolamento por empresa/tenant e nomes aleatorios.
+3. Nunca sirva PFX por GET publico. Para arquivos comuns, aplique Content-Disposition seguro e bloqueie HTML/SVG ativos.
+4. Valide extensao, MIME real/magic bytes e tamanho.
+5. Adicione testes para usuario anonimo, usuario sem permissao, upload valido e arquivo bloqueado.
+6. Rode testes relevantes.</div>
+
+      <p><strong>Prompt 4 - Proteger download de backup (SEC-04)</strong></p>
+      <div class="prompt">Corrija SEC-04. Faça:
+1. Remova a rota Express direta /api/backup/download/:filename de apps/api/src/main.ts.
+2. Crie controller Nest ou rota tRPC protegida por master global para listar/baixar backups.
+3. Gere token de download de curta duracao ou stream autenticado com auditoria.
+4. Valide filename com allowlist estrita e garanta que o path resolvido fica dentro do diretorio de backups.
+5. Adicione testes para anonimo, nao-master, master, path traversal e arquivo inexistente.
+6. Rode testes relevantes.</div>
+    </article>
+
+    <article class="phase">
+      <h3>Fase 2 - Hardening de perimetro e plataforma (SEC-05 a SEC-08)</h3>
+      <p><strong>Objetivo:</strong> reduzir movimento lateral, abuso por rede interna e impacto de contas privilegiadas.</p>
+
+      <p><strong>Prompt 5 - Endurecer CORS e trusted origins (SEC-05)</strong></p>
+      <div class="prompt">Corrija SEC-05 com separacao clara entre dev e producao. Faça:
+1. Em NODE_ENV=production, aceite somente origens explicitas de TRUSTED_ORIGINS/NEXT_PUBLIC_APP_URL, sem regex ampla para LAN.
+2. Em dev, mantenha localhost e LAN se necessario, mas documente o comportamento.
+3. Ajuste trustedOrigins do Better Auth para nao adicionar origin dinamica por substring em producao.
+4. Adicione testes unitarios ou de integracao para origens permitidas/bloqueadas em dev e producao.
+5. Revise cookies Secure/HttpOnly/SameSite conforme Better Auth permite configurar neste projeto.</div>
+
+      <p><strong>Prompt 6 - Docker dev seguro por padrao (SEC-06)</strong></p>
+      <div class="prompt">Corrija SEC-06 sem quebrar desenvolvimento local. Faça:
+1. Atualize docker-compose.yml para usar variaveis de ambiente para POSTGRES_PASSWORD e, se aplicavel, Redis com senha.
+2. Faça bind das portas em 127.0.0.1 por padrao, nao 0.0.0.0.
+3. Atualize .env.example e docs/ENV.md ou crie docs/security/local-docker-hardening.md com instrucoes.
+4. Preserve compatibilidade local explicando como expor na LAN apenas quando necessario.
+5. Valide docker compose config se Docker estiver disponivel.</div>
+
+      <p><strong>Prompt 7 - Controles compensatorios para SQL Console (SEC-07)</strong></p>
+      <div class="prompt">Reduza risco do SQL Console (SEC-07). Faça:
+1. Exija reautenticacao recente ou confirmacao de senha antes de executar SQL, se houver suporte no AuthService.
+2. Bloqueie comandos destrutivos por padrao em producao, ou exija flag/env SQL_CONSOLE_ALLOW_WRITE=true.
+3. Adicione auditoria persistente de query, usuario, IP, timestamp, tipo, sucesso/erro e duracao, sem registrar dados sensiveis do resultado.
+4. Implemente limite de linhas retornadas e timeout quando possivel.
+5. Adicione testes para read-only, comando bloqueado e auditoria.</div>
+
+      <p><strong>Prompt 8 - Rate limiting e limites por rota (SEC-08 e SEC-13)</strong></p>
+      <div class="prompt">Corrija SEC-08 e SEC-13. Faça:
+1. Adicione throttling central no Nest por IP/usuario, com excecoes explicitas para SSE.
+2. Reduza limites globais de JSON/urlencoded e mova limites altos somente para endpoints que realmente precisam.
+3. No webapp Fastify, substitua allowList ilimitada de GET /jobs/ por limite alto por IP/job.
+4. Defina quotas por tenant para uploads grandes.
+5. Adicione testes ou documente validacao manual com curl para 429.</div>
+    </article>
+
+    <article class="phase">
+      <h3>Fase 3 - Supply chain, build e Electron (SEC-09 a SEC-12)</h3>
+      <p><strong>Objetivo:</strong> reduzir risco de dependencias vulneraveis, releases com erro e abuso local via launcher.</p>
+
+      <p><strong>Prompt 9 - Remediar pnpm audit (SEC-09)</strong></p>
+      <div class="prompt">Faça triagem e remediacao de SEC-09. Faça:
+1. Rode pnpm audit e gere docs/security/pnpm-audit-triage.md com severidade, pacote, caminho, runtime/dev e decisao.
+2. Atualize primeiro vulnerabilidades criticas e altas com caminho de upgrade claro: vitest >=3.2.6, xlsx substituicao/isolamento, tar/undici/js-yaml transitivos.
+3. Evite upgrades massivos sem necessidade; prefira overrides pontuais quando seguro.
+4. Rode pnpm install se necessario, depois testes/build relevantes.
+5. Inclua recomendacao de gate de audit no CI.</div>
+
+      <p><strong>Prompt 10 - Hardening do Electron launcher (SEC-10)</strong></p>
+      <div class="prompt">Corrija SEC-10 no launcher Electron. Faça:
+1. Audite scripts/launcher/preload.js e main.js, criando validadores de schema para todos os payloads IPC sensiveis.
+2. Restrinja openExternal a http/https e allowlist de dominios/hosts esperados.
+3. Adicione sandbox: true se compativel, CSP no index.html e bloqueio de navegacao externa/new-window.
+4. Para deployExecute, launchClaude e comandos que spawnam processos, valide paths dentro dos roots configurados e exija confirmacao explicita no fluxo.
+5. Adicione testes ou script de validacao estatico para IPCs de alto risco.</div>
+
+      <p><strong>Prompt 11 - Remover ignores de build com baseline (SEC-11)</strong></p>
+      <div class="prompt">Corrija SEC-11 de forma incremental. Faça:
+1. Rode build/typecheck/lint do app web para levantar erros atuais.
+2. Remova typescript.ignoreBuildErrors e eslint.ignoreDuringBuilds de apps/web/next.config.ts, ou crie plano de baseline se houver muitos erros.
+3. Corrija erros diretamente relacionados a seguranca/autorizacao/imports quebrados.
+4. Se nao for possivel remover tudo agora, documente uma estrategia com arquivo de baseline e CI que bloqueia novos erros.
+5. Rode npm/pnpm build relevante.</div>
+
+      <p><strong>Prompt 12 - Fortalecer segredo dos download tokens (SEC-12)</strong></p>
+      <div class="prompt">Corrija SEC-12. Faça:
+1. Aumente validacao de JWT_SECRET em webapp/webapp-01/apps/api/src/env.ts para minimo de 32 bytes/32 caracteres fortes.
+2. Documente geracao segura no .env.example/docs.
+3. Considere suporte a rotacao com kid ou janela de chaves se simples o suficiente.
+4. Adicione teste para segredo curto rejeitado e segredo valido aceito.</div>
+    </article>
+
+    <article class="phase">
+      <h3>Fase 4 - Controles complementares (SEC-15 e SEC-16)</h3>
+      <p><strong>Objetivo:</strong> fechar riscos residuais de autenticacao mobile e billing.</p>
+
+      <p><strong>Prompt 13 - Governanca de bearer tokens mobile (SEC-15)</strong></p>
+      <div class="prompt">Trate SEC-15. Faça:
+1. Mapeie como bearer tokens do Better Auth sao emitidos, armazenados, expirados e revogados no app mobile.
+2. Documente o fluxo em docs/security/mobile-bearer-token-policy.md.
+3. Se o projeto permitir, reduza TTL, amarre token a device/session e exponha revogacao administrativa.
+4. Adicione logs/auditoria para uso via Authorization Bearer sem gravar token em claro.</div>
+
+      <p><strong>Prompt 14 - Fail-safe no billing gate (SEC-16)</strong></p>
+      <div class="prompt">Corrija SEC-16. Faça:
+1. Revise computeBillingState em apps/api/src/trpc/trpc.controller.ts.
+2. Substitua fail-open generico por tratamento explicito: falhas transientes podem usar cache curto da ultima decisao; tenant suspenso conhecido deve continuar bloqueado.
+3. Adicione logging/alerta para falha de calculo de billing.
+4. Adicione testes para tenant suspenso, trial expirado, falha de banco com cache e falha sem cache.</div>
+    </article>
+
+    <section>
+      <h2>Pontos positivos observados</h2>
+      <ul>
+        <li><span class="ok">Bom:</span> tRPC possui padroes claros de <code>protectedProcedure</code>, <code>masterProcedure</code> e permissoes por modulo.</li>
+        <li><span class="ok">Bom:</span> multi-empresa tem helpers para validar <code>empresaId</code> server-side e evitar confiar no cliente.</li>
+        <li><span class="ok">Bom:</span> Stripe webhook exige raw body e assinatura.</li>
+        <li><span class="ok">Bom:</span> webapp Fastify usa Helmet, CORS configuravel, JWT curto para downloads e limites multipart.</li>
+        <li><span class="ok">Bom:</span> Electron usa <code>contextIsolation: true</code> e <code>nodeIntegration: false</code>.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Plano de remediacao sugerido</h2>
+      <table>
+        <thead>
+          <tr><th>Prioridade</th><th>Acao</th><th>Resultado esperado</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>24h</td><td>Rotacionar segredos/certificados versionados; corrigir webhook WhatsApp; proteger upload PFX e backup download.</td><td>Reduzir risco imediato de fraude, exfiltracao e tomada de integracoes.</td></tr>
+          <tr><td>72h</td><td>Endurecer CORS/origens, Docker local, headers de upload, limites por rota e auditoria master.</td><td>Reduzir movimento lateral e abuso por rede interna.</td></tr>
+          <tr><td>7 dias</td><td>Atualizar dependencias criticas/altas e remover ignores de build com baseline controlado.</td><td>Melhorar postura de supply chain e qualidade de release.</td></tr>
+          <tr><td>30 dias</td><td>Implantar secret manager, trilha de auditoria imutavel, SAST/audit no CI, checklist Electron e testes de autorizacao por rota.</td><td>Transformar correcoes pontuais em controle continuo.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>
