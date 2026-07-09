@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 import { randomUUID } from 'crypto'
+import { SciService } from '../cliente/sci.service'
 import type {
   ReformaDiagnosticoInput,
   ReformaListClientesInput,
@@ -24,6 +25,7 @@ interface ClienteBase {
   tributacao: string | null
   regime: string | null
   cnaePrincipal: string | null
+  idSistema: string | null
   uf: string | null
   cidade: string | null
 }
@@ -35,6 +37,19 @@ interface Metrics {
   servicosTomados12m: number
   documentosSaida: number
   documentosEntrada: number
+  fontePrincipal: 'BALANCETE_ERP' | 'SNAPSHOT_SCI' | 'DOCUMENTOS_FISCAIS'
+  erp: {
+    consultado: boolean
+    disponivel: boolean
+    origem: 'balancete_importado' | 'sci_metricas' | 'snapshot' | 'nao_disponivel'
+    periodo?: { datai: string; dataf: string }
+    faturamento12m: number
+    custosDespesas12m: number
+    documentosEntrada: number
+    documentosSaida: number
+    margemOperacionalPercentual: number | null
+    mensagem?: string
+  }
   snapshots: Record<string, number>
 }
 
@@ -73,6 +88,16 @@ interface SensibilidadeItem {
   recomendacao: Recomendacao
 }
 
+interface RegraSetorial {
+  origem: 'PREMISSA_CNAE' | 'BENEFICIO_CLIENTE' | 'ATIVIDADE_CLIENTE' | 'SEM_REGRA'
+  setor: string | null
+  reducaoSetorial: number
+  premissaId?: string
+  premissaNome?: string
+  cnaePrefix?: string | null
+  alertas: string[]
+}
+
 interface SimulacaoCompleta {
   cliente: ClienteBase
   cnaes: Array<{ codigo: string; descricao: string | null; principal: boolean }>
@@ -81,6 +106,7 @@ interface SimulacaoCompleta {
   metrics: Metrics
   qualidade: { score: number; faltantes: string[] }
   confiabilidade: Confiabilidade
+  regraSetorial: RegraSetorial
   sensibilidade: SensibilidadeItem[]
   planoAcao: string[]
   observacoes: string[]
@@ -127,6 +153,26 @@ function startMonthWindow(months: number) {
   d.setHours(0, 0, 0, 0)
   d.setMonth(d.getMonth() - Math.max(0, months - 1))
   return d
+}
+
+function isoDate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function endOfLastCompleteMonth() {
+  const d = new Date()
+  return new Date(d.getFullYear(), d.getMonth(), 0)
+}
+
+function periodFromMonths(months: number) {
+  const end = endOfLastCompleteMonth()
+  const start = new Date(end.getFullYear(), end.getMonth() - Math.max(0, months - 1), 1)
+  return { datai: isoDate(start), dataf: isoDate(end) }
+}
+
+function sumSciRows(value: unknown) {
+  if (!Array.isArray(value)) return 0
+  return value.reduce((acc, row) => acc + asNumber((row as Record<string, unknown>).movimentacao), 0)
 }
 
 function scoreQualidade(args: {
