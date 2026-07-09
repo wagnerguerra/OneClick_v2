@@ -76,6 +76,8 @@ import { OrcamentoService } from '../orcamento/orcamento.service'
 import { createOrcamentoRouter } from '../orcamento/orcamento.router'
 import { BeneficioFiscalService } from '../beneficio-fiscal/beneficio-fiscal.service'
 import { createBeneficioFiscalRouter } from '../beneficio-fiscal/beneficio-fiscal.router'
+import { ReformaTributariaService } from '../reforma-tributaria/reforma-tributaria.service'
+import { createReformaTributariaRouter } from '../reforma-tributaria/reforma-tributaria.router'
 import { QaService } from '../qa/qa.service'
 import { createQaRouter } from '../qa/qa.router'
 import { SqlConsoleService } from '../sql-console/sql-console.service'
@@ -630,6 +632,7 @@ export class TrpcService {
     @Inject(ImportComercialService) private readonly importComercialService: ImportComercialService,
     @Inject(OrcamentoService) private readonly orcamentoService: OrcamentoService,
     @Inject(BeneficioFiscalService) private readonly beneficioFiscalService: BeneficioFiscalService,
+    @Inject(ReformaTributariaService) private readonly reformaTributariaService: ReformaTributariaService,
     @Inject(QaService) private readonly qaService: QaService,
     @Inject(SqlConsoleService) private readonly sqlConsoleService: SqlConsoleService,
     @Inject(NotaService) private readonly notaService: NotaService,
@@ -724,6 +727,7 @@ export class TrpcService {
       crm: createCrmRouter(this.crmService, this.importComercialService),
       orcamento: createOrcamentoRouter(this.orcamentoService),
       beneficioFiscal: createBeneficioFiscalRouter(this.beneficioFiscalService),
+      reformaTributaria: createReformaTributariaRouter(this.reformaTributariaService),
       qa: createQaRouter(this.qaService),
       sqlConsole: createSqlConsoleRouter(this.sqlConsoleService),
       nota: createNotaRouter(this.notaService),

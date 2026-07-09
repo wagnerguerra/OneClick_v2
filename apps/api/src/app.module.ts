@@ -29,6 +29,7 @@ import { GoogleBackupModule } from './google-backup/google-backup.module'
 import { SignatureModule } from './signature/signature.module'
 import { OnlineUsersModule } from './online-users/online-users.module'
 import { ChatModule } from './chat/chat.module'
+import { ReformaTributariaModule } from './reforma-tributaria/reforma-tributaria.module'
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { ChatModule } from './chat/chat.module'
     OnlineUsersModule,
     ChatModule,
     SignatureModule,
+    ReformaTributariaModule,
   ],
 })
 export class AppModule implements NestModule {

@@ -211,6 +211,7 @@ export const navigation: NavGroup[] = [
       { label: 'DCTFWeb', href: '/dctfweb', icon: ListChecks },
       { label: 'Obrigações e Serviços', href: '/obrigacoes-servicos', icon: Receipt, wip: true },
       { label: 'Situação Fiscal', href: '/situacao-fiscal', icon: CircleUser },
+      { label: 'Reforma Tributária', href: '/reforma-tributaria', icon: Calculator },
       {
         label: 'Ferramentas',
         href: '/ferramentas/fiscal',
