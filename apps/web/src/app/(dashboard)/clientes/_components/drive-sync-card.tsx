@@ -821,7 +821,9 @@ function NfeSefazSection({
     const haRequest = !!cliente?.nfeDistSyncRequestedAt
     if (!haRequest && !progresso) return
     let cancelado = false
+    let ticks = 0
     const tick = async () => {
+      ticks++
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const r = await (trpc as any).nfeDist.getProgressoAtual.query({ clienteId })
@@ -832,6 +834,9 @@ function NfeSefazSection({
           setProgresso(null)
           onChange()
         }
+        // Sem progresso capturado ainda: refetch periódico (~6s) p/ detectar o
+        // requestedAt ser limpo pelo scheduler — evita travar em "Aguardando".
+        else if (haRequest && ticks % 3 === 0) onChange()
       } catch { /* */ }
     }
     tick()
@@ -1071,13 +1076,19 @@ function NfseNacionalSection({
     const haRequest = !!cliente?.nfseDistSyncRequestedAt
     if (!haRequest && !progresso) return
     let cancelado = false
+    let ticks = 0
     const tick = async () => {
+      ticks++
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const r = await (trpc as any).nfseDist.getProgressoAtual.query({ clienteId })
         if (cancelado) return
         if (r) setProgresso(r as DistProgresso)
         else if (progresso) { setProgresso(null); onChange() }
+        // Sem progresso capturado ainda: refetch periódico (~6s) p/ detectar o
+        // requestedAt ser limpo pelo scheduler — evita travar em "Aguardando"
+        // quando o processamento termina/falha antes de gravar um snapshot.
+        else if (haRequest && ticks % 3 === 0) onChange()
       } catch { /* */ }
     }
     tick()

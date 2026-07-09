@@ -233,14 +233,17 @@ export class NfeDistScheduler implements OnModuleInit, OnModuleDestroy {
     let totalClientes = 0
 
     try {
-      // Escopo multi-tenant (ISO-003): processa apenas a empresa "home".
+      // Manual = ação explícita do usuário para um cliente específico (flag setada
+      // via procedure autorizada por permissão/tenant). Diferente do cron diário
+      // (varredura automática, escopada à empresa "home"/ISO-003), aqui processamos
+      // TODAS as solicitações pendentes — senão clientes fora da empresa home nunca
+      // sincronizam manualmente (ficam presos em "Aguardando o scheduler").
       const empresaIdHome = await this.resolverHomeEmpresaId()
       const clientes = await prisma.cliente.findMany({
         where: {
           // @ts-ignore — campos serão adicionados no schema Prisma em paralelo.
           nfeDistSyncRequestedAt: { not: null },
           deletedAt: null,
-          empresaId: empresaIdHome, // default-deny: null → IS NULL, nunca "todos"
         },
         select: { id: true, razaoSocial: true },
       })
