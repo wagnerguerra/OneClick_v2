@@ -6,6 +6,7 @@ import {
   Calculator,
   CheckCircle2,
   ChevronRight,
+  Database,
   Download,
   FileText,
   History,
@@ -400,6 +401,8 @@ export default function ReformaTributariaPage() {
     <div class="box"><strong>Confiabilidade</strong><br />${simulacao.confiabilidade?.nivel ?? '-'} (${simulacao.confiabilidade?.score ?? 0}%)</div>
     <div class="box"><strong>Faturamento 12m</strong><br />${money(simulacao.metrics?.faturamento12m)}</div>
     <div class="box"><strong>Premissa</strong><br />${simulacao.premissas?.premissaNome ?? 'Manual'}</div>
+    <div class="box"><strong>Fonte dos dados</strong><br />${simulacao.metrics?.fontePrincipal ?? '-'} / ${simulacao.metrics?.erp?.origem ?? '-'}</div>
+    <div class="box"><strong>Regra setorial</strong><br />${simulacao.regraSetorial?.premissaNome ?? simulacao.regraSetorial?.origem ?? '-'}</div>
   </div>
   <h2>Parecer técnico</h2>
   <pre>${parecer.replace(/[&<>]/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c))}</pre>
@@ -568,6 +571,47 @@ export default function ReformaTributariaPage() {
                     <Metric label="Qualidade dos dados" value={`${simulacao.qualidade.score}%`} />
                     <Metric label="Confiabilidade" value={simulacao.confiabilidade?.nivel ?? '-'} sub={`${simulacao.confiabilidade?.score ?? 0}%`} />
                     <Metric label="Impacto estimado" value={money(simulacao.resumo.impacto.valor)} sub={pct(simulacao.resumo.impacto.percentualReceita)} />
+                  </div>
+
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <div className="rounded-[6px] border bg-background/70 p-4 text-sm">
+                      <div className="flex items-center gap-2 font-medium">
+                        <Database className="h-4 w-4" />
+                        Fonte dos dados
+                      </div>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <Metric label="Fonte principal" value={simulacao.metrics?.fontePrincipal ?? '-'} />
+                        <Metric label="Origem ERP" value={simulacao.metrics?.erp?.origem ?? '-'} sub={simulacao.metrics?.erp?.disponivel ? 'Disponivel' : 'Indisponivel'} />
+                      </div>
+                      {simulacao.metrics?.erp?.mensagem && (
+                        <p className="mt-3 text-xs text-muted-foreground">{simulacao.metrics.erp.mensagem}</p>
+                      )}
+                      {simulacao.metrics?.erp?.margemOperacionalPercentual != null && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Margem operacional estimada pelo balancete: {pct(simulacao.metrics.erp.margemOperacionalPercentual)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="rounded-[6px] border bg-background/70 p-4 text-sm">
+                      <div className="flex items-center gap-2 font-medium">
+                        <Settings2 className="h-4 w-4" />
+                        Regra setorial
+                      </div>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <Metric label="Origem" value={simulacao.regraSetorial?.origem ?? 'SEM_REGRA'} />
+                        <Metric
+                          label="Reducao sugerida"
+                          value={pct(simulacao.regraSetorial?.reducaoSetorial ?? 0)}
+                          sub={simulacao.regraSetorial?.premissaNome ?? simulacao.regraSetorial?.setor ?? 'Sem premissa vinculada'}
+                        />
+                      </div>
+                      {simulacao.regraSetorial?.alertas?.length > 0 && (
+                        <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+                          {simulacao.regraSetorial.alertas.map((item: string) => <li key={item}>{item}</li>)}
+                        </ul>
+                      )}
+                    </div>
                   </div>
 
                   <div className="rounded-[6px] border bg-background/70 p-4">

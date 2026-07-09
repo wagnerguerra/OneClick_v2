@@ -228,6 +228,13 @@ function scoreConfiabilidade(args: {
     fatores.push('Redução setorial parametrizada')
   }
 
+  if (args.metrics.erp.disponivel) {
+    score += args.metrics.erp.origem === 'balancete_importado' ? 8 : 4
+    fatores.push(`ERP contabil consultado: ${args.metrics.erp.origem}`)
+  } else if (args.metrics.erp.consultado) {
+    pendencias.push(args.metrics.erp.mensagem ?? 'ERP contabil indisponivel na consulta')
+  }
+
   const normalized = Math.max(0, Math.min(100, Math.round(score)))
   const nivel: Confiabilidade['nivel'] = normalized >= 82
     ? 'ALTA'
@@ -242,6 +249,10 @@ function scoreConfiabilidade(args: {
 
 @Injectable()
 export class ReformaTributariaService {
+  private readonly logger = new Logger(ReformaTributariaService.name)
+
+  constructor(private readonly sciService: SciService) {}
+
   async dashboard(empresaId?: string | null) {
     const rows = await prisma.$queryRawUnsafe<Array<{ tributacao: string | null; total: number | bigint }>>(
       `SELECT tributacao, count(*) AS total
@@ -269,7 +280,7 @@ export class ReformaTributariaService {
     }>>(
       `SELECT c.id, c.razao_social AS "razaoSocial", c.nome_fantasia AS "nomeFantasia",
               c.documento, c.tributacao::text, c.regime::text, c.cnae_principal AS "cnaePrincipal",
-              c.uf, c.cidade,
+              c.id_sistema AS "idSistema", c.uf, c.cidade,
               COALESCE((
                 SELECT sum(s.valor) FROM cliente_erp_snapshots s
                  WHERE s.cliente_id = c.id AND s.indicador = 'faturamento'
@@ -413,6 +424,7 @@ export class ReformaTributariaService {
       this.getMetrics(cliente, input.meses),
     ])
     const qualidade = scoreQualidade({ cliente, metrics, cnaes })
+    const regraSetorial = await this.regraSetorial(cliente, cnaes, atividades, beneficios, empresaId)
 
     return {
       cliente,
@@ -421,6 +433,7 @@ export class ReformaTributariaService {
       beneficios,
       metrics,
       qualidade,
+      regraSetorial,
       observacoes: this.observacoes(cliente, qualidade.score),
     }
   }
@@ -465,6 +478,7 @@ export class ReformaTributariaService {
       ...diagnostico,
       premissas: p,
       confiabilidade,
+      regraSetorial: diagnostico.regraSetorial,
       sensibilidade,
       planoAcao,
       cenarios: {
@@ -543,6 +557,7 @@ export class ReformaTributariaService {
         sensibilidade: simulacao.sensibilidade,
         planoAcao: simulacao.planoAcao,
         observacoes: simulacao.observacoes,
+        regraSetorial: simulacao.regraSetorial,
       }),
       JSON.stringify(simulacao.cenarios),
       simulacao.recomendacao,
@@ -572,7 +587,8 @@ export class ReformaTributariaService {
   private async getCliente(clienteId: string, empresaId?: string | null): Promise<ClienteBase> {
     const rows = await prisma.$queryRawUnsafe<ClienteBase[]>(
       `SELECT id, razao_social AS "razaoSocial", nome_fantasia AS "nomeFantasia",
-              documento, tributacao::text, regime::text, cnae_principal AS "cnaePrincipal", uf, cidade
+              documento, tributacao::text, regime::text, cnae_principal AS "cnaePrincipal",
+              id_sistema AS "idSistema", uf, cidade
          FROM clientes
         WHERE id = $1 AND deleted_at IS NULL AND status <> 'INATIVA' AND situacao = 'MENSAL'
           AND ($2::text IS NULL OR empresa_id = $2)
@@ -643,16 +659,186 @@ export class ReformaTributariaService {
     const receitaDocs = saidaDocs.reduce((acc, r) => acc + asNumber(r.total), 0)
     const comprasDocs = danfeRows.filter(r => r.direcao === 'entrada').reduce((acc, r) => acc + asNumber(r.total), 0)
     const servicosTomadosDocs = nfseRows.filter(r => r.direcao === 'entrada').reduce((acc, r) => acc + asNumber(r.total), 0)
-    const faturamento12m = snapshots.faturamento || receitaDocs
+    const contabil = await this.getDadosContabeis(cliente.id, meses)
+    const sci = await this.getDadosSci(cliente, meses)
+    const faturamento12m = contabil.faturamento12m || snapshots.faturamento || sci.faturamento12m || receitaDocs
+    const comprasMercadorias12m = contabil.custosDespesas12m || comprasDocs || snapshots.nf_entrada
+    const servicosTomados12m = servicosTomadosDocs
+    const fontePrincipal: Metrics['fontePrincipal'] = contabil.faturamento12m > 0
+      ? 'BALANCETE_ERP'
+      : snapshots.faturamento > 0 || sci.disponivel
+        ? 'SNAPSHOT_SCI'
+        : 'DOCUMENTOS_FISCAIS'
+    const erpDisponivel = contabil.disponivel || sci.disponivel || rows.length > 0
 
     return {
       faturamento12m,
       faturamentoMedioMensal: faturamento12m / Math.max(1, meses),
-      comprasMercadorias12m: snapshots.nf_entrada || comprasDocs,
-      servicosTomados12m: snapshots.nf_tomado || servicosTomadosDocs,
-      documentosSaida: saidaDocs.reduce((acc, r) => acc + Number(r.docs), 0) + asNumber(snapshots.nf_saida) + asNumber(snapshots.nf_prestado),
-      documentosEntrada: entradaDocs.reduce((acc, r) => acc + Number(r.docs), 0) + asNumber(snapshots.nf_entrada) + asNumber(snapshots.nf_tomado),
+      comprasMercadorias12m,
+      servicosTomados12m,
+      documentosSaida: saidaDocs.reduce((acc, r) => acc + Number(r.docs), 0) + asNumber(snapshots.nf_saida) + asNumber(snapshots.nf_prestado) + sci.documentosSaida,
+      documentosEntrada: entradaDocs.reduce((acc, r) => acc + Number(r.docs), 0) + asNumber(snapshots.nf_entrada) + asNumber(snapshots.nf_tomado) + sci.documentosEntrada,
+      fontePrincipal,
+      erp: {
+        consultado: sci.consultado || contabil.consultado,
+        disponivel: erpDisponivel,
+        origem: contabil.disponivel ? 'balancete_importado' : sci.disponivel ? 'sci_metricas' : rows.length > 0 ? 'snapshot' : 'nao_disponivel',
+        periodo: sci.periodo ?? periodFromMonths(meses),
+        faturamento12m: contabil.faturamento12m || sci.faturamento12m || snapshots.faturamento || 0,
+        custosDespesas12m: contabil.custosDespesas12m,
+        documentosEntrada: sci.documentosEntrada + asNumber(snapshots.nf_entrada) + asNumber(snapshots.nf_tomado),
+        documentosSaida: sci.documentosSaida + asNumber(snapshots.nf_saida) + asNumber(snapshots.nf_prestado),
+        margemOperacionalPercentual: contabil.margemOperacionalPercentual,
+        mensagem: contabil.mensagem || sci.mensagem,
+      },
       snapshots,
+    }
+  }
+
+  private async getDadosContabeis(clienteId: string, meses: number) {
+    const end = endOfLastCompleteMonth()
+    const start = new Date(end.getFullYear(), end.getMonth() - Math.max(0, meses - 1), 1)
+    const periodoInicio = `${start.getFullYear()}${String(start.getMonth() + 1).padStart(2, '0')}`
+    const periodoFim = `${end.getFullYear()}${String(end.getMonth() + 1).padStart(2, '0')}`
+    const rows = await prisma.$queryRawUnsafe<Array<{
+      receita: number | string | null
+      custosDespesas: number | string | null
+      periodos: number | bigint
+    }>>(
+      `SELECT
+          COALESCE(SUM(CASE
+            WHEN COALESCE(c.categoria_dre, '') IN ('RECEITA_BRUTA')
+              OR l.conta LIKE '03.1.1%' OR l.conta LIKE '3.1.1%'
+            THEN ABS(l.movimento) ELSE 0 END), 0) AS receita,
+          COALESCE(SUM(CASE
+            WHEN COALESCE(c.categoria_dre, '') IN ('CUSTO_DAS_VENDAS', 'DESPESAS_VARIAVEIS', 'DESPESAS_OPERACIONAIS')
+              OR l.conta LIKE '04.1.%' OR l.conta LIKE '4.1.%' OR l.conta LIKE '04.2.1.%' OR l.conta LIKE '04.2.2.%'
+            THEN ABS(l.movimento) ELSE 0 END), 0) AS "custosDespesas",
+          COUNT(DISTINCT l.periodo) AS periodos
+         FROM cliente_bi_linhas l
+         LEFT JOIN cliente_bi_categorias c
+           ON c.cliente_id = l.cliente_id AND c.conta = l.conta
+        WHERE l.cliente_id = $1 AND l.periodo BETWEEN $2 AND $3`,
+      clienteId,
+      periodoInicio,
+      periodoFim,
+    )
+    const row = rows[0]
+    const faturamento12m = asNumber(row?.receita)
+    const custosDespesas12m = asNumber(row?.custosDespesas)
+    const periodos = Number(row?.periodos ?? 0)
+    return {
+      consultado: true,
+      disponivel: periodos > 0 && (faturamento12m > 0 || custosDespesas12m > 0),
+      faturamento12m,
+      custosDespesas12m,
+      margemOperacionalPercentual: faturamento12m > 0 ? (faturamento12m - custosDespesas12m) / faturamento12m : null,
+      mensagem: periodos > 0
+        ? `Balancete ERP importado em ${periodos} periodo(s) entre ${periodoInicio} e ${periodoFim}.`
+        : 'Sem balancete ERP importado para a janela analisada.',
+    }
+  }
+
+  private async getDadosSci(cliente: ClienteBase, meses: number) {
+    const doc = onlyDigits(cliente.documento)
+    const periodo = periodFromMonths(meses)
+    if (doc.length !== 14) {
+      return { consultado: false, disponivel: false, periodo, faturamento12m: 0, documentosEntrada: 0, documentosSaida: 0, mensagem: 'CNPJ invalido para consulta SCI.' }
+    }
+
+    try {
+      const metricas = await this.sciService.buscarMetricasSci(doc, periodo.datai, periodo.dataf, ['faturamento', 'nf_entrada', 'nf_saida', 'nf_prestado', 'nf_tomado'])
+      const faturamento12m = sumSciRows(metricas.faturamento)
+      return {
+        consultado: true,
+        disponivel: faturamento12m > 0 || Array.isArray(metricas.nf_entrada) || Array.isArray(metricas.nf_saida),
+        periodo,
+        faturamento12m,
+        documentosEntrada: sumSciRows(metricas.nf_entrada) + sumSciRows(metricas.nf_tomado),
+        documentosSaida: sumSciRows(metricas.nf_saida) + sumSciRows(metricas.nf_prestado),
+        mensagem: 'Metricas SCI consultadas diretamente pelo CNPJ.',
+      }
+    } catch (e) {
+      this.logger.warn(`Falha ao consultar SCI para cliente ${cliente.id}: ${(e as Error).message}`)
+      return {
+        consultado: true,
+        disponivel: false,
+        periodo,
+        faturamento12m: 0,
+        documentosEntrada: 0,
+        documentosSaida: 0,
+        mensagem: 'SCI indisponivel na consulta online; usados dados ja importados no OneClick.',
+      }
+    }
+  }
+
+  private async regraSetorial(
+    cliente: ClienteBase,
+    cnaes: Array<{ codigo: string; descricao: string | null; principal: boolean }>,
+    atividades: string[],
+    beneficios: string[],
+    empresaId?: string | null,
+  ): Promise<RegraSetorial> {
+    await this.ensurePremissasTable()
+    const codigos = [cliente.cnaePrincipal, ...cnaes.map(c => c.codigo)]
+      .map(c => onlyDigits(c))
+      .filter(Boolean)
+    const rows = await prisma.$queryRawUnsafe<Array<{
+      id: string
+      nome: string
+      setor: string | null
+      cnaePrefix: string | null
+      reducaoSetorial: number | string
+    }>>(
+      `SELECT id, nome, setor, cnae_prefix AS "cnaePrefix", reducao_setorial AS "reducaoSetorial"
+         FROM reforma_tributaria_premissas
+        WHERE ativo = true
+          AND cnae_prefix IS NOT NULL
+          AND cnae_prefix <> ''
+          AND (empresa_id IS NULL OR $1::text IS NULL OR empresa_id = $1)
+        ORDER BY length(regexp_replace(cnae_prefix, '\\D', '', 'g')) DESC, ano DESC, nome ASC`,
+      empresaId ?? null,
+    )
+    for (const row of rows) {
+      const prefix = onlyDigits(row.cnaePrefix)
+      if (!prefix) continue
+      if (codigos.some(codigo => codigo.startsWith(prefix))) {
+        return {
+          origem: 'PREMISSA_CNAE',
+          setor: row.setor,
+          reducaoSetorial: asNumber(row.reducaoSetorial),
+          premissaId: row.id,
+          premissaNome: row.nome,
+          cnaePrefix: row.cnaePrefix,
+          alertas: [`Premissa setorial sugerida por CNAE prefixo ${row.cnaePrefix}.`],
+        }
+      }
+    }
+
+    if (beneficios.length > 0) {
+      return {
+        origem: 'BENEFICIO_CLIENTE',
+        setor: null,
+        reducaoSetorial: 0,
+        alertas: [
+          'Cliente possui beneficio fiscal cadastrado, mas nao ha premissa IBS/CBS vinculada por CNAE.',
+          'Cadastrar premissa setorial antes de emitir parecer conclusivo.',
+        ],
+      }
+    }
+    if (atividades.length > 0) {
+      return {
+        origem: 'ATIVIDADE_CLIENTE',
+        setor: atividades[0] ?? null,
+        reducaoSetorial: 0,
+        alertas: ['Atividade do cliente encontrada, mas sem regra fiscal setorial parametrizada.'],
+      }
+    }
+    return {
+      origem: 'SEM_REGRA',
+      setor: null,
+      reducaoSetorial: 0,
+      alertas: ['Sem regra setorial parametrizada para os CNAEs/atividades do cliente.'],
     }
   }
 
@@ -709,7 +895,14 @@ export class ReformaTributariaService {
       `Recomendacao: ${simulacao.resumo.texto}`,
       `Qualidade dos dados: ${simulacao.qualidade.score}%`,
       `Confiabilidade tecnica: ${simulacao.confiabilidade.nivel} (${simulacao.confiabilidade.score}%)`,
+      `Fonte principal dos dados: ${simulacao.metrics.fontePrincipal}`,
     ]
+    if (simulacao.metrics.erp.mensagem) {
+      linhas.push(`ERP contabil: ${simulacao.metrics.erp.mensagem}`)
+    }
+    if (simulacao.regraSetorial.origem !== 'SEM_REGRA') {
+      linhas.push(`Regra setorial: ${simulacao.regraSetorial.premissaNome ?? simulacao.regraSetorial.origem}`)
+    }
     if (simulacao.premissas.premissaNome) {
       linhas.push(`Premissa aplicada: ${simulacao.premissas.premissaNome}`)
     }
@@ -786,6 +979,12 @@ export class ReformaTributariaService {
     }
     if (diagnostico.metrics.comprasMercadorias12m + diagnostico.metrics.servicosTomados12m === 0) {
       passos.add('Consultar ERP contabil para separar compras creditaveis, despesas nao creditaveis e servicos tomados')
+    }
+    if (!diagnostico.metrics.erp.disponivel) {
+      passos.add('Atualizar integracao ERP/SCI ou importar balancete do periodo para elevar a confiabilidade do parecer')
+    }
+    for (const alerta of diagnostico.regraSetorial.alertas) {
+      passos.add(`Regra setorial: ${alerta}`)
     }
     if (diagnostico.cliente.cnaePrincipal) {
       passos.add(`Confirmar se o CNAE ${diagnostico.cliente.cnaePrincipal} possui regra setorial especifica ou reducao legal aplicavel`)
