@@ -455,6 +455,12 @@ export default function OrcamentosPage() {
   // Create modal — espelha o legado crp_orcamentos/modal-create-orc.asp
   const [createOpen, setCreateOpen] = useState(false)
   const [formasModal, setFormasModal] = useState(false)
+  // Catálogo de formas de pagamento — alimenta o dropdown do modal de criar.
+  const [formasCatalogo, setFormasCatalogo] = useState<Array<{ id: string; valor: string; ordem: number }>>([])
+  const loadFormasCatalogo = useCallback(async () => {
+    try { setFormasCatalogo((await (trpc.orcamento as any).listFormasPagamento.query()) || []) } catch { /* sem permissão no módulo */ }
+  }, [])
+  useEffect(() => { void loadFormasCatalogo() }, [loadFormasCatalogo])
   const [clientes, setClientes] = useState<{ id: string; razaoSocial: string; documento?: string | null }[]>([])
   const [usuarios, setUsuarios] = useState<{ id: string; name: string }[]>([])
   const [creating, setCreating] = useState(false)
@@ -909,7 +915,7 @@ export default function OrcamentosPage() {
       )}
 
       {/* Gerência de formas de pagamento (menu do header) */}
-      <FormasPagamentoModal open={formasModal} onOpenChange={setFormasModal} />
+      <FormasPagamentoModal open={formasModal} onOpenChange={(o) => { setFormasModal(o); if (!o) void loadFormasCatalogo() }} />
 
       {/* Create Modal — espelha o legado crp_orcamentos/modal-create-orc.asp */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -948,7 +954,18 @@ export default function OrcamentosPage() {
                 {/* Forma de Pagamento */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Forma de Pagamento</Label>
-                  <Input className="h-9 text-sm" value={form.formaPagamento} onChange={e => setForm({ ...form, formaPagamento: e.target.value })} placeholder="Ex.: 30/60/90 dias, a vista, boleto..." />
+                  <Select value={form.formaPagamento || '__none__'} onValueChange={v => setForm({ ...form, formaPagamento: v === '__none__' ? '' : v })}>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione a forma de pagamento" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Não informada —</SelectItem>
+                      {/* valor atual fora do catálogo (compat) — preserva sem perder */}
+                      {form.formaPagamento && !formasCatalogo.some(f => f.valor === form.formaPagamento) && (
+                        <SelectItem value={form.formaPagamento}>{form.formaPagamento}</SelectItem>
+                      )}
+                      {formasCatalogo.map(f => <SelectItem key={f.id} value={f.valor}>{f.valor}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">Opções do catálogo (menu ⋮ → Gerenciar formas de pagamento).</p>
                 </div>
 
                 {/* Tipo + Responsavel + Validade */}
