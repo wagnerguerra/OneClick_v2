@@ -109,6 +109,7 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
   const [progresso, setProgresso] = useState<{ etapa: string; atual: number; total: number; nome: string } | null>(null)
   const [fonteAtiva, setFonteAtiva] = useState<FonteTab>('resumo')
   const [certA1Ativo, setCertA1Ativo] = useState<{ id: string; descricao: string; expiraEm: string } | null>(null)
+  const [certsA1, setCertsA1] = useState<Array<{ id: string; descricao: string; expiraEm: string }>>([])
 
   const carregarTudo = useCallback(async () => {
     setLoadingLogs(true)
@@ -117,19 +118,21 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
       const certsP = (trpc as any).certificadoDigital.list.query({ clienteId, status: 'ATIVO' })
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .then((rows: any[]) => {
-          const cert = (rows ?? []).find(c => c.tipo === 'A1' && !c.arquivado)
-          if (cert) {
-            const exp = cert.expiraEm ? new Date(cert.expiraEm).toLocaleDateString('pt-BR') : '?'
-            setCertA1Ativo({
-              id: cert.id,
-              descricao: cert.nome ?? cert.cnpj ?? cert.titular ?? cert.id,
-              expiraEm: exp,
-            })
-          } else {
-            setCertA1Ativo(null)
-          }
+          const a1 = (rows ?? [])
+            .filter((c: any) => c.tipo === 'A1' && !c.arquivado)
+            .map((c: any) => ({
+              id: c.id as string,
+              descricao: (c.nome ?? c.cnpj ?? c.titular ?? c.id) as string,
+              expiraEm: c.expiraEm ? new Date(c.expiraEm).toLocaleDateString('pt-BR') : '?',
+              // ISO cru só p/ ordenar por validade desc (o "automático" do backend usa a maior)
+              _raw: (c.expiraEm ?? '') as string,
+            }))
+            .sort((a: any, b: any) => (b._raw as string).localeCompare(a._raw as string))
+            .map(({ _raw, ...rest }: any) => rest)
+          setCertsA1(a1)
+          setCertA1Ativo(a1[0] ?? null)
         })
-        .catch(() => setCertA1Ativo(null))
+        .catch(() => { setCertsA1([]); setCertA1Ativo(null) })
 
       const [infoR, clienteR, logsR, resumoR] = await Promise.all([
         (trpc as any).drive.info.query(),
@@ -329,6 +332,7 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
           clienteId={clienteId}
           cliente={cliente}
           certA1Ativo={certA1Ativo}
+          certsA1={certsA1}
           onChange={carregarTudo}
         />
       ) : fonteAtiva === 'nfse-nacional' ? (
@@ -336,6 +340,7 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
           clienteId={clienteId}
           cliente={cliente}
           certA1Ativo={certA1Ativo}
+          certsA1={certsA1}
           onChange={carregarTudo}
         />
       ) : (
@@ -965,6 +970,66 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
   )
 }
 
+type CertOpt = { id: string; descricao: string; expiraEm: string }
+
+/**
+ * Banner/seletor do certificado A1 usado na captura. Com 1 cert vinculado mostra
+ * um banner; com vários, um seletor (salva em nfeDist/nfseDistCertificadoId).
+ * "Automático" (valor vazio) deixa o backend usar o de maior validade.
+ */
+function CertPicker({ certsA1, certA1Ativo, selectedId, onSelect, aviso }: {
+  certsA1: CertOpt[]
+  certA1Ativo: CertOpt | null
+  selectedId: string | null
+  onSelect: (id: string | null) => void
+  aviso: string
+}) {
+  if (!certA1Ativo) {
+    return (
+      <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/40 dark:bg-amber-950/40">
+        <div className="flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+          <div className="text-[11px] text-amber-900 dark:text-amber-200">
+            <div className="font-semibold">Certificado A1 não vinculado</div>
+            <p className="mt-0.5">{aviso}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+  if (certsA1.length <= 1) {
+    return (
+      <div className="rounded-md border border-emerald-200/60 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-900/40 p-3">
+        <div className="flex items-center gap-2 text-[11px] text-emerald-900 dark:text-emerald-200">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+          <span><b>Certificado A1:</b> {certA1Ativo.descricao} · válido até {certA1Ativo.expiraEm}</span>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="rounded-md border border-emerald-200/60 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-900/40 p-3">
+      <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold text-emerald-900 dark:text-emerald-200">
+        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+        Certificado para a captura · {certsA1.length} vinculados
+      </div>
+      <select
+        value={selectedId ?? ''}
+        onChange={(e) => onSelect(e.target.value || null)}
+        className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      >
+        <option value="">Automático — maior validade ({certA1Ativo.descricao} · {certA1Ativo.expiraEm})</option>
+        {certsA1.map((c) => (
+          <option key={c.id} value={c.id}>{c.descricao} · válido até {c.expiraEm}</option>
+        ))}
+      </select>
+      <p className="mt-1 text-[10px] text-muted-foreground">
+        Escolha qual certificado o sistema usa nesta captura. &quot;Automático&quot; usa o de maior validade.
+      </p>
+    </div>
+  )
+}
+
 // ─────────────────────────────────────────────────────────────
 // Sub-componente: NFe SEFAZ (NFeDistribuicaoDFe — entradas)
 // ─────────────────────────────────────────────────────────────
@@ -972,11 +1037,13 @@ function NfeSefazSection({
   clienteId,
   cliente,
   certA1Ativo,
+  certsA1,
   onChange,
 }: {
   clienteId: string
   cliente: ClienteDrive | null
-  certA1Ativo: { id: string; descricao: string; expiraEm: string } | null
+  certA1Ativo: CertOpt | null
+  certsA1: CertOpt[]
   onChange: () => void
 }) {
   const [enabled, setEnabled] = useState(cliente?.nfeDistEnabled ?? false)
@@ -1098,32 +1165,26 @@ function NfeSefazSection({
 
   const temCertificado = !!certA1Ativo
 
+  async function handleSelecionarCert(certId: string | null) {
+    try {
+      await trpcMutate('nfeDist.configurar', {
+        clienteId,
+        enabled: cliente?.nfeDistEnabled ?? false,
+        certificadoId: certId,
+      })
+      onChange()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
   return (
     <div className="space-y-4">
-      {/* Aviso sobre certificado */}
-      {!temCertificado ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/40 dark:bg-amber-950/40">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-            <div className="text-[11px] text-amber-900 dark:text-amber-200">
-              <div className="font-semibold">Certificado A1 não vinculado</div>
-              <p className="mt-0.5">
-                Este cliente não tem certificado A1 ativo. Vincule um certificado na aba <b>Certificados</b> antes
-                de ativar a busca automática — o web service da SEFAZ exige assinatura digital.
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-md border border-emerald-200/60 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-900/40 p-3">
-          <div className="flex items-center gap-2 text-[11px] text-emerald-900 dark:text-emerald-200">
-            <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-            <span>
-              <b>Certificado A1:</b> {certA1Ativo?.descricao} · válido até {certA1Ativo?.expiraEm}
-            </span>
-          </div>
-        </div>
-      )}
+      <CertPicker
+        certsA1={certsA1}
+        certA1Ativo={certA1Ativo}
+        selectedId={cliente?.nfeDistCertificadoId ?? null}
+        onSelect={handleSelecionarCert}
+        aviso="Este cliente não tem certificado A1 ativo. Vincule um certificado na aba Certificados antes de ativar a busca automática — o web service da SEFAZ exige assinatura digital."
+      />
 
       <ProgressoWidget progresso={progresso} solicitado={!!cliente?.nfeDistSyncRequestedAt} cor="sky" />
 
@@ -1228,11 +1289,13 @@ function NfseNacionalSection({
   clienteId,
   cliente,
   certA1Ativo,
+  certsA1,
   onChange,
 }: {
   clienteId: string
   cliente: ClienteDrive | null
-  certA1Ativo: { id: string; descricao: string; expiraEm: string } | null
+  certA1Ativo: CertOpt | null
+  certsA1: CertOpt[]
   onChange: () => void
 }) {
   const [enabled, setEnabled] = useState(cliente?.nfseDistEnabled ?? false)
@@ -1348,32 +1411,26 @@ function NfseNacionalSection({
 
   const temCertificado = !!certA1Ativo
 
+  async function handleSelecionarCert(certId: string | null) {
+    try {
+      await trpcMutate('nfseDist.configurar', {
+        clienteId,
+        enabled: cliente?.nfseDistEnabled ?? false,
+        certificadoId: certId,
+      })
+      onChange()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
   return (
     <div className="space-y-4">
-      {/* Aviso sobre certificado */}
-      {!temCertificado ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/40 dark:bg-amber-950/40">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-            <div className="text-[11px] text-amber-900 dark:text-amber-200">
-              <div className="font-semibold">Certificado A1 não vinculado</div>
-              <p className="mt-0.5">
-                Este cliente não tem certificado A1 ativo. Vincule um certificado na aba <b>Certificados</b> antes
-                de ativar a busca automática — o ADN exige mTLS com assinatura digital.
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-md border border-emerald-200/60 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-900/40 p-3">
-          <div className="flex items-center gap-2 text-[11px] text-emerald-900 dark:text-emerald-200">
-            <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-            <span>
-              <b>Certificado A1:</b> {certA1Ativo?.descricao} · válido até {certA1Ativo?.expiraEm}
-            </span>
-          </div>
-        </div>
-      )}
+      <CertPicker
+        certsA1={certsA1}
+        certA1Ativo={certA1Ativo}
+        selectedId={cliente?.nfseDistCertificadoId ?? null}
+        onSelect={handleSelecionarCert}
+        aviso="Este cliente não tem certificado A1 ativo. Vincule um certificado na aba Certificados antes de ativar a busca automática — o ADN exige mTLS com assinatura digital."
+      />
 
       <ProgressoWidget progresso={progresso} solicitado={!!cliente?.nfseDistSyncRequestedAt} cor="emerald" />
 
