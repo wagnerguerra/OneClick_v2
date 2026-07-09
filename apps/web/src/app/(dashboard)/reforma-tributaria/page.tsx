@@ -5,6 +5,8 @@ import {
   AlertTriangle,
   Calculator,
   CheckCircle2,
+  ChevronRight,
+  Home,
   Loader2,
   RefreshCw,
   Search,
@@ -126,7 +128,7 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
 }
 
 export default function ReformaTributariaPage() {
-  useTabLabel('Reforma Tributaria')
+  useTabLabel('Reforma Tributária')
 
   const [busca, setBusca] = useState('')
   const [loadingLista, setLoadingLista] = useState(true)
@@ -190,8 +192,16 @@ export default function ReformaTributariaPage() {
       <PageHeader
         color={MODULE_COLOR}
         icon={Calculator}
-        title="Reforma Tributaria"
-        subtitle="MVP para comparar IBS/CBS no Simples versus apuracao regular com dados do OneClick e ERP contabil."
+        title="Reforma Tributária"
+        subtitle="Comparativo IBS/CBS para clientes ativos com situação mensal, usando dados do OneClick e do ERP contábil."
+        breadcrumb={
+          <>
+            <Home className="h-3.5 w-3.5" />
+            <span>Fiscal</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+            <span className="font-medium text-foreground">Reforma Tributária</span>
+          </>
+        }
         actions={
           <Button variant="outline" onClick={() => simular()} disabled={!clienteId || loadingSimulacao}>
             {loadingSimulacao ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
@@ -201,8 +211,8 @@ export default function ReformaTributariaPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Metric label="Clientes ativos" value={String(dashboard?.totalClientes ?? 0)} sub="Base OneClick" />
-        <Metric label="Simples Nacional" value={String(dashboard?.simples ?? 0)} sub="Foco da decisao dentro x regular" />
+        <Metric label="Clientes mensais ativos" value={String(dashboard?.totalClientes ?? 0)} sub="Base OneClick" />
+        <Metric label="Simples Nacional" value={String(dashboard?.simples ?? 0)} sub="Foco da decisão dentro x regular" />
         <Metric label="Cliente selecionado" value={clienteSelecionado ? regimeLabel(clienteSelecionado.tributacao) : '-'} sub="Regime atual cadastrado" />
       </div>
 
@@ -218,7 +228,7 @@ export default function ReformaTributariaPage() {
               <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por razao social ou CNPJ" className="pl-9" />
             </div>
           </CardHeader>
-          <CardContent className="max-h-[640px] space-y-2 overflow-auto">
+          <CardContent className="max-h-[640px] space-y-2 overflow-auto pt-2">
             {clientes.map((cliente) => (
               <button
                 key={cliente.id}
@@ -268,7 +278,7 @@ export default function ReformaTributariaPage() {
                 )}
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pt-2">
               {loadingSimulacao && (
                 <div className="flex h-44 items-center justify-center text-sm text-muted-foreground">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -324,7 +334,7 @@ export default function ReformaTributariaPage() {
                 <CardTitle>Premissas da simulacao</CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <CardContent className="grid gap-4 pt-2 sm:grid-cols-2 lg:grid-cols-3">
               <PercentInput label="CBS estimada" value={premissas.aliquotaCbs} onChange={(v) => setPremissas(p => ({ ...p, aliquotaCbs: v }))} />
               <PercentInput label="IBS estimado" value={premissas.aliquotaIbs} onChange={(v) => setPremissas(p => ({ ...p, aliquotaIbs: v }))} />
               <PercentInput label="IBS/CBS no Simples" value={premissas.aliquotaSimplesIbsCbs} onChange={(v) => setPremissas(p => ({ ...p, aliquotaSimplesIbsCbs: v }))} />
