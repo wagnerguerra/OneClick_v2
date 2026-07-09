@@ -4,7 +4,7 @@ import * as https from 'node:https'
 import * as zlib from 'node:zlib'
 import { createHash } from 'node:crypto'
 import { carregarCertificadoCliente } from '../fiscal-dist/cert-loader'
-import { registrarSyncLog } from '../fiscal-dist/sync-log'
+import { registrarSyncLog, type SyncLogItem } from '../fiscal-dist/sync-log'
 import { parseNFSeXml, XmlNFSeInvalidoError, type ParsedNFSe } from './nfse.parser'
 import { gerarPdfNFSe } from './nfse-pdf'
 import { DanfeStorage } from '../danfe/danfe.storage'
@@ -178,6 +178,7 @@ export class NfseDistService {
       })
 
       let docIdx = 0
+      const itensLog: SyncLogItem[] = []  // passo-a-passo por documento
       for (const doc of documentos) {
         docIdx++
         try {
@@ -190,6 +191,7 @@ export class NfseDistService {
           } catch (e) {
             if (e instanceof XmlNFSeInvalidoError) {
               arquivosIgnorados++
+              itensLog.push({ nome: `NSU ${doc.nsu || '—'}`, status: 'ignorado', erro: 'XML não é uma NFS-e válida' })
               continue
             }
             throw e
@@ -198,7 +200,11 @@ export class NfseDistService {
           // Dedup por chave (se houver) ou hash
           if (parsed.chave) {
             const dup = await prisma.notaServicoImportada.findUnique({ where: { chave: parsed.chave }, select: { id: true } })
-            if (dup) { arquivosIgnorados++; continue }
+            if (dup) {
+              arquivosIgnorados++
+              itensLog.push({ nome: `Nº ${parsed.numero || '—'}`, status: 'duplicado' })
+              continue
+            }
           }
 
           // Salva XML no S3
@@ -257,9 +263,12 @@ export class NfseDistService {
             },
           })
           arquivosOk++
+          itensLog.push({ nome: `Nº ${parsed.numero || '—'} · ${(parsed.prestadorRazao || '').slice(0, 60)}`, status: 'ok' })
         } catch (e) {
           arquivosErro++
-          console.error(`[NfseDist] falha ao processar doc: ${(e as Error).message}`)
+          const msg = (e as Error).message
+          console.error(`[NfseDist] falha ao processar doc: ${msg}`)
+          itensLog.push({ nome: `NSU ${doc.nsu || '—'}`, status: 'erro', erro: msg })
         }
 
         await this.atualizarProgresso(cliente.id, {
@@ -296,6 +305,7 @@ export class NfseDistService {
           arquivosIgnorados,
           arquivosErro,
         },
+        itens: itensLog,
       })
 
       return { clienteId: cliente.id, arquivosNovos: arquivosOk, arquivosOk, arquivosIgnorados, arquivosErro, novoUltNsu }

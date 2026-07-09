@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Fragment } from 'react'
 import {
   HardDriveDownload, Copy, ExternalLink, RefreshCcw, Trash2,
   CheckCircle2, AlertCircle, Loader2, Folder, Clock, HardDrive,
-  Receipt, Briefcase, ShieldCheck,
+  Receipt, Briefcase, ShieldCheck, ChevronRight, ChevronDown, ListChecks,
 } from 'lucide-react'
 import { Button, Card, Input, Badge } from '@saas/ui'
 import { cn } from '@saas/ui'
@@ -25,6 +25,34 @@ interface ResumoFiscal {
   totalNfse: number
   nfsePrestadas: number
   nfseTomadas: number
+}
+
+/** Item do log passo-a-passo (por documento processado). */
+interface SyncLogItemUI {
+  nome: string
+  status: 'ok' | 'duplicado' | 'ignorado' | 'erro'
+  erro?: string
+}
+
+type PeriodoPreset = 'tudo' | 'mes' | 'mes-1' | '3meses' | 'ano'
+
+const PERIODO_LABEL: Record<PeriodoPreset, string> = {
+  'tudo': 'Todo o período',
+  'mes': 'Este mês',
+  'mes-1': 'Mês passado',
+  '3meses': 'Últimos 3 meses',
+  'ano': 'Este ano',
+}
+
+/** Converte um preset de período em intervalo ISO (undefined = sem limite). */
+function rangeDoPeriodo(p: PeriodoPreset): { inicio?: string; fim?: string } {
+  if (p === 'tudo') return {}
+  const now = new Date()
+  const y = now.getFullYear(), m = now.getMonth()
+  if (p === 'mes') return { inicio: new Date(y, m, 1).toISOString(), fim: now.toISOString() }
+  if (p === 'mes-1') return { inicio: new Date(y, m - 1, 1).toISOString(), fim: new Date(y, m, 0, 23, 59, 59).toISOString() }
+  if (p === '3meses') return { inicio: new Date(y, m - 2, 1).toISOString(), fim: now.toISOString() }
+  return { inicio: new Date(y, 0, 1).toISOString(), fim: now.toISOString() } // ano
 }
 
 interface SyncLog {
@@ -289,7 +317,7 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
       </div>
 
       {fonteAtiva === 'resumo' ? (
-        <ResumoSection logs={logs} loading={loadingLogs} cliente={cliente} resumoFiscal={resumoFiscal} />
+        <ResumoSection clienteId={clienteId} logs={logs} loading={loadingLogs} cliente={cliente} resumoFiscal={resumoFiscal} />
       ) : fonteAtiva === 'local' ? (
         <PastaLocalSection
           clienteId={clienteId}
@@ -603,20 +631,57 @@ function PastaLocalSection({
 // ─────────────────────────────────────────────────────────────
 // Sub-componente: Resumo (logs de todas as fontes)
 // ─────────────────────────────────────────────────────────────
-function ResumoSection({ logs, loading, cliente, resumoFiscal }: {
+function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
+  clienteId: string
   logs: SyncLog[]
   loading: boolean
   cliente: ClienteDrive | null
   resumoFiscal: ResumoFiscal | null
 }) {
-  // Agregação geral
-  const totalArquivosOk = logs.reduce((s, l) => s + (l.arquivosOk ?? 0), 0)
-  const totalArquivosErro = logs.reduce((s, l) => s + (l.arquivosErro ?? 0), 0)
-  const totalArquivosIgnorados = logs.reduce((s, l) => s + (l.arquivosIgnorados ?? 0), 0)
+  const [periodo, setPeriodo] = useState<PeriodoPreset>('tudo')
+  const [statusFiltro, setStatusFiltro] = useState<'todos' | 'completed' | 'error' | 'running'>('todos')
+  const [expandido, setExpandido] = useState<Set<string>>(new Set())
+  const [resumoPeriodo, setResumoPeriodo] = useState<ResumoFiscal | null>(null)
+
+  // Re-consulta os indicadores fiscais quando muda o período (por dataEmissao).
+  // 'tudo' usa o resumo já carregado pelo pai (sem refetch).
+  useEffect(() => {
+    if (periodo === 'tudo') { setResumoPeriodo(null); return }
+    const { inicio, fim } = rangeDoPeriodo(periodo)
+    let cancel = false
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(trpc as any).drive.getResumoFiscal.query({ clienteId, dataInicio: inicio, dataFim: fim })
+      .then((r: ResumoFiscal) => { if (!cancel) setResumoPeriodo(r) })
+      .catch(() => {})
+    return () => { cancel = true }
+  }, [periodo, clienteId])
+
+  const resumoView = periodo === 'tudo' ? resumoFiscal : resumoPeriodo
+
+  // Filtra as sincronizações por período (iniciadoEm) e status.
+  const { inicio: pIni, fim: pFim } = rangeDoPeriodo(periodo)
+  const logsFiltrados = logs.filter((l) => {
+    if (statusFiltro !== 'todos' && l.status !== statusFiltro) return false
+    const t = new Date(l.iniciadoEm).getTime()
+    if (pIni && t < new Date(pIni).getTime()) return false
+    if (pFim && t > new Date(pFim).getTime()) return false
+    return true
+  })
+
+  const toggleExpand = (id: string) => setExpandido((prev) => {
+    const n = new Set(prev)
+    if (n.has(id)) n.delete(id); else n.add(id)
+    return n
+  })
+
+  // Agregação geral (dos logs filtrados)
+  const totalArquivosOk = logsFiltrados.reduce((s, l) => s + (l.arquivosOk ?? 0), 0)
+  const totalArquivosErro = logsFiltrados.reduce((s, l) => s + (l.arquivosErro ?? 0), 0)
+  const totalArquivosIgnorados = logsFiltrados.reduce((s, l) => s + (l.arquivosIgnorados ?? 0), 0)
 
   // Agrupa por fonte (drive / local)
-  const driveLogs = logs.filter(l => !l.tipo.startsWith('local'))
-  const localLogs = logs.filter(l => l.tipo.startsWith('local'))
+  const driveLogs = logsFiltrados.filter(l => !l.tipo.startsWith('local'))
+  const localLogs = logsFiltrados.filter(l => l.tipo.startsWith('local'))
 
   function statusLabel(status: string | null | undefined): { label: string; cls: string } {
     if (status === 'ok') return { label: 'Sincronizado', cls: 'text-emerald-600' }
@@ -656,6 +721,38 @@ function ResumoSection({ logs, loading, cliente, resumoFiscal }: {
 
   return (
     <div className="space-y-4">
+      {/* Barra de filtros: período (indicadores) + status (sincronizações) */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Clock className="h-3.5 w-3.5" /> Período
+        </div>
+        <select
+          value={periodo}
+          onChange={(e) => setPeriodo(e.target.value as PeriodoPreset)}
+          className="h-8 rounded-md border border-border bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          {(Object.keys(PERIODO_LABEL) as PeriodoPreset[]).map((p) => (
+            <option key={p} value={p}>{PERIODO_LABEL[p]}</option>
+          ))}
+        </select>
+        <div className="ml-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <ListChecks className="h-3.5 w-3.5" /> Status
+        </div>
+        <select
+          value={statusFiltro}
+          onChange={(e) => setStatusFiltro(e.target.value as typeof statusFiltro)}
+          className="h-8 rounded-md border border-border bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <option value="todos">Todos</option>
+          <option value="completed">Concluído</option>
+          <option value="error">Erro</option>
+          <option value="running">Em andamento</option>
+        </select>
+        {periodo !== 'tudo' && (
+          <Badge className="bg-sky-100 text-sky-800 border-0 text-[9px] py-0 px-1.5">Indicadores no período</Badge>
+        )}
+      </div>
+
       {/* Stats agregados */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <div className="rounded-md border bg-muted/40 p-3">
@@ -698,7 +795,7 @@ function ResumoSection({ logs, loading, cliente, resumoFiscal }: {
             )}>{cliente?.nfeDistEnabled ? nfeStatus.label : 'Desabilitado'}</Badge>
           </div>
           <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-2xl font-bold tabular-nums text-violet-600">{resumoFiscal?.totalNfe ?? 0}</span>
+            <span className="text-2xl font-bold tabular-nums text-violet-600">{resumoView?.totalNfe ?? 0}</span>
             <span className="text-[11px] text-muted-foreground">nota(s) baixada(s)</span>
           </div>
           <div className="grid grid-cols-2 gap-2 text-[11px] border-t border-border pt-2">
@@ -731,11 +828,11 @@ function ResumoSection({ logs, loading, cliente, resumoFiscal }: {
           <div className="flex items-stretch gap-2 mb-2">
             <div className="flex-1 rounded border border-emerald-200/60 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/20 px-2.5 py-1.5">
               <div className="text-[10px] uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">Tomadas</div>
-              <div className="text-xl font-bold tabular-nums text-emerald-600 leading-tight">{resumoFiscal?.nfseTomadas ?? 0}</div>
+              <div className="text-xl font-bold tabular-nums text-emerald-600 leading-tight">{resumoView?.nfseTomadas ?? 0}</div>
             </div>
             <div className="flex-1 rounded border border-sky-200/60 dark:border-sky-900/40 bg-sky-50/40 dark:bg-sky-950/20 px-2.5 py-1.5">
               <div className="text-[10px] uppercase tracking-wider text-sky-700/80 dark:text-sky-300/80">Prestadas</div>
-              <div className="text-xl font-bold tabular-nums text-sky-600 leading-tight">{resumoFiscal?.nfsePrestadas ?? 0}</div>
+              <div className="text-xl font-bold tabular-nums text-sky-600 leading-tight">{resumoView?.nfsePrestadas ?? 0}</div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 text-[11px] border-t border-border pt-2">
@@ -760,15 +857,18 @@ function ResumoSection({ logs, loading, cliente, resumoFiscal }: {
           <div className="flex items-center justify-center py-6 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
           </div>
-        ) : logs.length === 0 ? (
+        ) : logsFiltrados.length === 0 ? (
           <div className="rounded-md border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-            Nenhuma sincronização ainda. Configure uma fonte (Drive ou Pasta local) nas próximas abas.
+            {logs.length === 0
+              ? 'Nenhuma sincronização ainda. Configure uma fonte (Drive ou Pasta local) nas próximas abas.'
+              : 'Nenhuma sincronização no período/status selecionado.'}
           </div>
         ) : (
           <div className="overflow-hidden rounded-md border border-border">
             <table className="w-full text-xs">
               <thead className="bg-muted/40">
                 <tr>
+                  <th className="w-6 px-2 py-2"></th>
                   <th className="px-3 py-2 text-left font-semibold">Quando</th>
                   <th className="px-3 py-2 text-left font-semibold">Fonte</th>
                   <th className="px-3 py-2 text-left font-semibold">Tipo</th>
@@ -780,28 +880,87 @@ function ResumoSection({ logs, loading, cliente, resumoFiscal }: {
                 </tr>
               </thead>
               <tbody>
-                {logs.map((log) => (
-                  <tr key={log.id} className="border-t border-border">
-                    <td className="px-3 py-2">{new Date(log.iniciadoEm).toLocaleString('pt-BR')}</td>
-                    <td className="px-3 py-2">{fonteBadge(log.tipo)}</td>
-                    <td className="px-3 py-2">{tipoLabel(log.tipo)}</td>
-                    <td className="px-3 py-2 text-center">{log.arquivosVistos}</td>
-                    <td className={cn('px-3 py-2 text-center font-semibold', log.arquivosOk > 0 && 'text-emerald-600')}>
-                      {log.arquivosOk}
-                    </td>
-                    <td className={cn('px-3 py-2 text-center', log.arquivosIgnorados > 0 && 'text-slate-500')}>
-                      {log.arquivosIgnorados}
-                    </td>
-                    <td className={cn('px-3 py-2 text-center', log.arquivosErro > 0 && 'font-semibold text-red-600')}>
-                      {log.arquivosErro}
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      {log.status === 'completed' && <CheckCircle2 className="mx-auto h-4 w-4 text-emerald-600" />}
-                      {log.status === 'error' && <AlertCircle className="mx-auto h-4 w-4 text-red-600" />}
-                      {log.status === 'running' && <Loader2 className="mx-auto h-4 w-4 animate-spin text-sky-600" />}
-                    </td>
-                  </tr>
-                ))}
+                {logsFiltrados.map((log) => {
+                  const aberto = expandido.has(log.id)
+                  const itens = (log.itens as SyncLogItemUI[] | null) ?? []
+                  const dur = log.finalizadoEm
+                    ? Math.max(0, new Date(log.finalizadoEm).getTime() - new Date(log.iniciadoEm).getTime())
+                    : null
+                  return (
+                    <Fragment key={log.id}>
+                      <tr
+                        onClick={() => toggleExpand(log.id)}
+                        className="cursor-pointer border-t border-border hover:bg-muted/30"
+                      >
+                        <td className="px-2 py-2 text-muted-foreground">
+                          {aberto ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                        </td>
+                        <td className="px-3 py-2">{new Date(log.iniciadoEm).toLocaleString('pt-BR')}</td>
+                        <td className="px-3 py-2">{fonteBadge(log.tipo)}</td>
+                        <td className="px-3 py-2">{tipoLabel(log.tipo)}</td>
+                        <td className="px-3 py-2 text-center">{log.arquivosVistos}</td>
+                        <td className={cn('px-3 py-2 text-center font-semibold', log.arquivosOk > 0 && 'text-emerald-600')}>
+                          {log.arquivosOk}
+                        </td>
+                        <td className={cn('px-3 py-2 text-center', log.arquivosIgnorados > 0 && 'text-slate-500')}>
+                          {log.arquivosIgnorados}
+                        </td>
+                        <td className={cn('px-3 py-2 text-center', log.arquivosErro > 0 && 'font-semibold text-red-600')}>
+                          {log.arquivosErro}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {log.status === 'completed' && <CheckCircle2 className="mx-auto h-4 w-4 text-emerald-600" />}
+                          {log.status === 'error' && <AlertCircle className="mx-auto h-4 w-4 text-red-600" />}
+                          {log.status === 'running' && <Loader2 className="mx-auto h-4 w-4 animate-spin text-sky-600" />}
+                        </td>
+                      </tr>
+                      {aberto && (
+                        <tr className="border-t border-border bg-muted/20">
+                          <td colSpan={9} className="px-4 py-3">
+                            <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                              <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                                <ListChecks className="h-3.5 w-3.5" /> Processamento passo-a-passo
+                              </span>
+                              <span>Início: <b className="text-foreground">{new Date(log.iniciadoEm).toLocaleString('pt-BR')}</b></span>
+                              {log.finalizadoEm && <span>Fim: <b className="text-foreground">{new Date(log.finalizadoEm).toLocaleString('pt-BR')}</b></span>}
+                              {dur != null && <span>Duração: <b className="text-foreground">{(dur / 1000).toFixed(1)}s</b></span>}
+                              <span>Novos: <b className="text-emerald-600">{log.arquivosOk}</b> · Ign.: <b className="text-slate-500">{log.arquivosIgnorados}</b> · Erros: <b className="text-red-600">{log.arquivosErro}</b></span>
+                            </div>
+                            {log.erroMensagem && (
+                              <div className="mb-2 rounded border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
+                                {log.erroMensagem}
+                              </div>
+                            )}
+                            {itens.length === 0 ? (
+                              <div className="text-[11px] italic text-muted-foreground">
+                                Sem detalhamento por documento nesta sincronização.
+                              </div>
+                            ) : (
+                              <div className="max-h-64 space-y-0.5 overflow-y-auto rounded border border-border bg-background p-1.5">
+                                {itens.map((it, i) => (
+                                  <div key={i} className="flex items-center gap-2 rounded px-1.5 py-1 text-[11px] hover:bg-muted/40">
+                                    <span className="w-6 shrink-0 text-right tabular-nums text-muted-foreground">{i + 1}</span>
+                                    <Badge className={cn(
+                                      'shrink-0 border-0 text-[9px] py-0 px-1.5',
+                                      it.status === 'ok' && 'bg-emerald-100 text-emerald-800',
+                                      it.status === 'duplicado' && 'bg-slate-100 text-slate-700',
+                                      it.status === 'ignorado' && 'bg-amber-100 text-amber-800',
+                                      it.status === 'erro' && 'bg-red-100 text-red-800',
+                                    )}>
+                                      {it.status === 'ok' ? 'Novo' : it.status === 'duplicado' ? 'Duplicado' : it.status === 'ignorado' ? 'Ignorado' : 'Erro'}
+                                    </Badge>
+                                    <span className="truncate text-foreground" title={it.nome}>{it.nome}</span>
+                                    {it.erro && <span className="truncate text-red-600/80" title={it.erro}>— {it.erro}</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
               </tbody>
             </table>
           </div>

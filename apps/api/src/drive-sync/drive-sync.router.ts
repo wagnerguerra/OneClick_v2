@@ -75,18 +75,27 @@ export function createDriveSyncRouter(svc: DriveSyncService) {
      * (Drive sync, pasta local, SEFAZ NFe e ADN NFS-e), todas vinculadas ao cliente.
      */
     getResumoFiscal: readProcedure(MODULE)
-      .input(z.object({ clienteId: z.string() }))
+      .input(z.object({
+        clienteId: z.string(),
+        // Período opcional (ISO) — filtra as contagens por dataEmissao das notas.
+        dataInicio: z.string().optional(),
+        dataFim: z.string().optional(),
+      }))
       .query(async ({ input }) => {
         // NFS-e da pasta do cliente resolve por CNPJ (prestador OU tomador); NFe
         // segue pelo vínculo físico (clienteId). Separa Prestadas (o CNPJ é o
         // prestador) × Tomadas (o CNPJ é o tomador). Ver nfse-cliente.filter.
         const cnpj = await resolverCnpjDoCliente(input.clienteId)
         const nfseWhere = nfseWhereFromCnpj(input.clienteId, cnpj)
+        const periodo: Record<string, Date> = {}
+        if (input.dataInicio) periodo.gte = new Date(input.dataInicio)
+        if (input.dataFim) periodo.lte = new Date(input.dataFim)
+        const noPeriodo = (input.dataInicio || input.dataFim) ? { dataEmissao: periodo } : {}
         const [totalNfe, totalNfse, nfsePrestadas, nfseTomadas] = await Promise.all([
-          prisma.danfe.count({ where: { clienteId: input.clienteId } }),
-          prisma.notaServicoImportada.count({ where: nfseWhere }),
-          cnpj ? prisma.notaServicoImportada.count({ where: { prestadorCnpj: cnpj } }) : Promise.resolve(0),
-          cnpj ? prisma.notaServicoImportada.count({ where: { tomadorCnpjCpf: cnpj } }) : Promise.resolve(0),
+          prisma.danfe.count({ where: { clienteId: input.clienteId, ...noPeriodo } }),
+          prisma.notaServicoImportada.count({ where: { ...nfseWhere, ...noPeriodo } }),
+          cnpj ? prisma.notaServicoImportada.count({ where: { prestadorCnpj: cnpj, ...noPeriodo } }) : Promise.resolve(0),
+          cnpj ? prisma.notaServicoImportada.count({ where: { tomadorCnpjCpf: cnpj, ...noPeriodo } }) : Promise.resolve(0),
         ])
         return { totalNfe, totalNfse, nfsePrestadas, nfseTomadas }
       }),

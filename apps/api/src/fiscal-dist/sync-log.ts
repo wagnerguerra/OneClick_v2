@@ -12,11 +12,22 @@ export interface SyncLogResultado {
   erroMensagem?: string | null
 }
 
+/** Item do log passo-a-passo (por documento processado). */
+export interface SyncLogItem {
+  nome: string
+  status: 'ok' | 'duplicado' | 'ignorado' | 'erro'
+  erro?: string
+}
+
+/** Limite de itens gravados por log (evita rows gigantes em re-sync completo). */
+const LIMITE_ITENS = 500
+
 /**
  * Cria uma entrada em `drive_sync_logs` para registrar uma sincronização
  * (Drive, Pasta local, NFe SEFAZ ou NFS-e Nacional) e, em seguida, arquiva
  * logs antigos para manter no máximo LIMITE_ATIVOS ativos por cliente.
  *
+ * `itens` = log passo-a-passo por documento (opcional; truncado em LIMITE_ITENS).
  * Falha silenciosa: nunca interrompe a sync principal por erro de log.
  */
 export async function registrarSyncLog(opts: {
@@ -24,8 +35,10 @@ export async function registrarSyncLog(opts: {
   tipo: 'nfe-sefaz' | 'nfse-nacional' | string
   iniciadoEm: Date
   resultado: SyncLogResultado
+  itens?: SyncLogItem[]
 }): Promise<void> {
   try {
+    const itens = (opts.itens ?? []).slice(0, LIMITE_ITENS)
     await prisma.driveSyncLog.create({
       data: {
         clienteId: opts.clienteId,
@@ -39,6 +52,7 @@ export async function registrarSyncLog(opts: {
         arquivosErro: opts.resultado.arquivosErro,
         arquivosIgnorados: opts.resultado.arquivosIgnorados,
         erroMensagem: opts.resultado.erroMensagem ?? null,
+        itens: itens as unknown as object[],
       },
     })
     await arquivarLogsAntigos(opts.clienteId)
