@@ -156,6 +156,19 @@ function regimeLabel(v: string | null | undefined) {
   return v ? (map[v] ?? v) : 'Nao informado'
 }
 
+function premissaToInput(item: PremissaFiscal) {
+  return {
+    aliquotaCbs: item.aliquotaCbs,
+    aliquotaIbs: item.aliquotaIbs,
+    aliquotaSimplesIbsCbs: item.aliquotaSimplesIbsCbs,
+    percentualVendasB2B: item.percentualVendasB2B,
+    percentualComprasCreditaveis: item.percentualComprasCreditaveis,
+    pesoCreditoCliente: item.pesoCreditoCliente,
+    reducaoSetorial: item.reducaoSetorial,
+    premissaNome: item.nome,
+  }
+}
+
 function PercentInput({
   label,
   value,
@@ -248,16 +261,7 @@ export default function ReformaTributariaPage() {
 
   const aplicarPremissa = useCallback((item: PremissaFiscal) => {
     setPremissaSelecionadaId(item.id)
-    setPremissas({
-      aliquotaCbs: item.aliquotaCbs,
-      aliquotaIbs: item.aliquotaIbs,
-      aliquotaSimplesIbsCbs: item.aliquotaSimplesIbsCbs,
-      percentualVendasB2B: item.percentualVendasB2B,
-      percentualComprasCreditaveis: item.percentualComprasCreditaveis,
-      pesoCreditoCliente: item.pesoCreditoCliente,
-      reducaoSetorial: item.reducaoSetorial,
-      premissaNome: item.nome,
-    })
+    setPremissas(premissaToInput(item))
     setPremissaForm({ ...item })
   }, [])
 
@@ -341,6 +345,28 @@ export default function ReformaTributariaPage() {
       setLoadingSimulacao(false)
     }
   }, [clienteId, premissas])
+
+  const aplicarRegraSugerida = useCallback(async () => {
+    const premissaId = simulacao?.regraSetorial?.premissaId
+    if (!clienteId || !premissaId) return
+    const item = premissasFiscais.find(p => p.id === premissaId)
+    if (!item) {
+      alerts.error('Premissa nao encontrada', 'Atualize as premissas fiscais e tente novamente.')
+      return
+    }
+    const nextPremissas = premissaToInput(item)
+    aplicarPremissa(item)
+    setLoadingSimulacao(true)
+    try {
+      const data = await api().simular.query({ clienteId, meses: 12, premissas: nextPremissas })
+      setSimulacao(data)
+      alerts.success('Regra aplicada', `Premissa "${item.nome}" aplicada na simulacao.`)
+    } catch (e) {
+      alerts.error('Erro ao aplicar regra', (e as Error).message)
+    } finally {
+      setLoadingSimulacao(false)
+    }
+  }, [aplicarPremissa, clienteId, premissasFiscais, simulacao])
 
   const salvarParecer = useCallback(async () => {
     if (!clienteId) return
@@ -598,6 +624,18 @@ export default function ReformaTributariaPage() {
                         <Settings2 className="h-4 w-4" />
                         Regra setorial
                       </div>
+                      {simulacao.regraSetorial?.premissaId && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-3"
+                          onClick={aplicarRegraSugerida}
+                          disabled={loadingSimulacao}
+                        >
+                          {loadingSimulacao ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                          Aplicar regra sugerida
+                        </Button>
+                      )}
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
                         <Metric label="Origem" value={simulacao.regraSetorial?.origem ?? 'SEM_REGRA'} />
                         <Metric

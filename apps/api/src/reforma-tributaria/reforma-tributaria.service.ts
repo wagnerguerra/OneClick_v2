@@ -132,6 +132,28 @@ const DEFAULT_PREMISSAS: ReformaPremissasInput = {
   reducaoSetorial: 0,
 }
 
+const PREMISSAS_SETORIAIS_SEED: Array<Omit<PremissaFiscal, 'empresaId' | 'createdAt' | 'updatedAt' | 'ativo'>> = [
+  { id: 'rt-seed-geral', nome: 'Geral - IBS/CBS padrao', ano: 2027, setor: 'Geral', cnaePrefix: null, ...DEFAULT_PREMISSAS, reducaoSetorial: 0, observacoes: 'Premissa operacional inicial. Validar aliquotas, regras legais e perfil do cliente antes do parecer.' },
+  { id: 'rt-seed-agro-01', nome: 'Agropecuaria - CNAE 01', ano: 2027, setor: 'Agropecuaria', cnaePrefix: '01', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.75, percentualComprasCreditaveis: 0.45, reducaoSetorial: 0.6, observacoes: 'Premissa inicial para produtor/atividade agropecuaria. Confirmar enquadramento e reducao aplicavel.' },
+  { id: 'rt-seed-industria-10', nome: 'Industria de alimentos - CNAE 10', ano: 2027, setor: 'Industria', cnaePrefix: '10', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.7, percentualComprasCreditaveis: 0.55, reducaoSetorial: 0, observacoes: 'Premissa inicial para industria de alimentos. Revisar cesta basica, regimes especificos e imposto seletivo quando aplicavel.' },
+  { id: 'rt-seed-industria-14', nome: 'Industria textil/confeccao - CNAE 14', ano: 2027, setor: 'Industria', cnaePrefix: '14', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.65, percentualComprasCreditaveis: 0.5, reducaoSetorial: 0, observacoes: 'Premissa inicial para industria de confeccao. Validar cadeia de creditos e perfil B2B.' },
+  { id: 'rt-seed-industria-25', nome: 'Industria metal/mecanica - CNAE 25', ano: 2027, setor: 'Industria', cnaePrefix: '25', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.8, percentualComprasCreditaveis: 0.6, reducaoSetorial: 0, observacoes: 'Premissa inicial para industria metal/mecanica. Validar insumos creditaveis e destino das vendas.' },
+  { id: 'rt-seed-construcao-41', nome: 'Construcao civil - CNAE 41', ano: 2027, setor: 'Construcao', cnaePrefix: '41', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.55, percentualComprasCreditaveis: 0.4, reducaoSetorial: 0, observacoes: 'Premissa inicial para construcao. Confirmar regime especifico de operacoes imobiliarias e composicao de insumos.' },
+  { id: 'rt-seed-construcao-43', nome: 'Servicos especializados construcao - CNAE 43', ano: 2027, setor: 'Construcao', cnaePrefix: '43', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.65, percentualComprasCreditaveis: 0.35, reducaoSetorial: 0, observacoes: 'Premissa inicial para servicos especializados de construcao. Validar contratos e materiais aplicados.' },
+  { id: 'rt-seed-comercio-45', nome: 'Comercio/servicos veiculos - CNAE 45', ano: 2027, setor: 'Comercio', cnaePrefix: '45', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.45, percentualComprasCreditaveis: 0.55, reducaoSetorial: 0, observacoes: 'Premissa inicial para comercio e manutencao de veiculos. Validar margem e natureza das receitas.' },
+  { id: 'rt-seed-comercio-46', nome: 'Comercio atacadista - CNAE 46', ano: 2027, setor: 'Comercio', cnaePrefix: '46', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.85, percentualComprasCreditaveis: 0.7, reducaoSetorial: 0, observacoes: 'Premissa inicial para atacado com maior peso B2B e creditos de mercadorias.' },
+  { id: 'rt-seed-comercio-47', nome: 'Comercio varejista - CNAE 47', ano: 2027, setor: 'Comercio', cnaePrefix: '47', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.25, percentualComprasCreditaveis: 0.55, reducaoSetorial: 0, observacoes: 'Premissa inicial para varejo. Validar composicao B2C/B2B e margem por produto.' },
+  { id: 'rt-seed-transporte-49', nome: 'Transporte terrestre - CNAE 49', ano: 2027, setor: 'Transporte', cnaePrefix: '49', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.7, percentualComprasCreditaveis: 0.35, reducaoSetorial: 0.6, observacoes: 'Premissa inicial para transporte. Confirmar se a operacao tem reducao/tratamento especifico aplicavel.' },
+  { id: 'rt-seed-alimentacao-56', nome: 'Alimentacao/restaurantes - CNAE 56', ano: 2027, setor: 'Alimentacao', cnaePrefix: '56', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.2, percentualComprasCreditaveis: 0.45, reducaoSetorial: 0, observacoes: 'Premissa inicial para alimentacao. Validar cesta basica, insumos e perfil de consumidor final.' },
+  { id: 'rt-seed-tecnologia-62', nome: 'Tecnologia/software - CNAE 62', ano: 2027, setor: 'Tecnologia', cnaePrefix: '62', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.8, percentualComprasCreditaveis: 0.2, reducaoSetorial: 0, observacoes: 'Premissa inicial para tecnologia e software. Validar receita recorrente, exportacao e servicos tomados.' },
+  { id: 'rt-seed-consultoria-69', nome: 'Juridico/contabil/consultoria - CNAE 69', ano: 2027, setor: 'Servicos profissionais', cnaePrefix: '69', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.75, percentualComprasCreditaveis: 0.18, reducaoSetorial: 0, observacoes: 'Premissa inicial para servicos profissionais. Validar folha, subcontratacoes e baixo credito de insumos.' },
+  { id: 'rt-seed-engenharia-71', nome: 'Engenharia/arquitetura - CNAE 71', ano: 2027, setor: 'Servicos profissionais', cnaePrefix: '71', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.7, percentualComprasCreditaveis: 0.25, reducaoSetorial: 0, observacoes: 'Premissa inicial para engenharia/arquitetura. Validar contratos, terceiros e materiais.' },
+  { id: 'rt-seed-publicidade-73', nome: 'Publicidade/marketing - CNAE 73', ano: 2027, setor: 'Servicos profissionais', cnaePrefix: '73', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.8, percentualComprasCreditaveis: 0.3, reducaoSetorial: 0, observacoes: 'Premissa inicial para publicidade. Validar repasses de midia, subcontratacoes e creditos.' },
+  { id: 'rt-seed-educacao-85', nome: 'Educacao - CNAE 85', ano: 2027, setor: 'Educacao', cnaePrefix: '85', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.15, percentualComprasCreditaveis: 0.2, reducaoSetorial: 0.6, observacoes: 'Premissa inicial para educacao. Confirmar requisitos legais e tipo de servico educacional.' },
+  { id: 'rt-seed-saude-86', nome: 'Saude - CNAE 86', ano: 2027, setor: 'Saude', cnaePrefix: '86', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.35, percentualComprasCreditaveis: 0.3, reducaoSetorial: 0.6, observacoes: 'Premissa inicial para saude. Confirmar enquadramento do servico e reducao aplicavel.' },
+  { id: 'rt-seed-servicos-96', nome: 'Servicos pessoais - CNAE 96', ano: 2027, setor: 'Servicos pessoais', cnaePrefix: '96', ...DEFAULT_PREMISSAS, percentualVendasB2B: 0.15, percentualComprasCreditaveis: 0.2, reducaoSetorial: 0, observacoes: 'Premissa inicial para servicos pessoais, tipicamente B2C e com menor base creditavel.' },
+]
+
 function asNumber(value: unknown): number {
   if (value == null) return 0
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0
@@ -1066,5 +1088,32 @@ export class ReformaTributariaService {
       CREATE INDEX IF NOT EXISTS reforma_tributaria_premissas_ano_setor_idx
         ON reforma_tributaria_premissas (ano, setor)
     `)
+    await this.seedPremissasSetoriais()
+  }
+
+  private async seedPremissasSetoriais() {
+    for (const item of PREMISSAS_SETORIAIS_SEED) {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO reforma_tributaria_premissas
+          (id, empresa_id, nome, ano, setor, cnae_prefix, aliquota_cbs, aliquota_ibs,
+           aliquota_simples_ibs_cbs, percentual_vendas_b2b, percentual_compras_creditaveis,
+           peso_credito_cliente, reducao_setorial, observacoes, ativo, created_at, updated_at)
+         VALUES ($1,NULL,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,true,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+         ON CONFLICT (id) DO NOTHING`,
+        item.id,
+        item.nome,
+        item.ano,
+        item.setor ?? null,
+        item.cnaePrefix ?? null,
+        item.aliquotaCbs,
+        item.aliquotaIbs,
+        item.aliquotaSimplesIbsCbs,
+        item.percentualVendasB2B,
+        item.percentualComprasCreditaveis,
+        item.pesoCreditoCliente,
+        item.reducaoSetorial ?? 0,
+        item.observacoes ?? null,
+      )
+    }
   }
 }
