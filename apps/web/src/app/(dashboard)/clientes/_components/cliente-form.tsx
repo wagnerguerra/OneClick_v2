@@ -912,7 +912,8 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                   )} />
                 </div>
 
-                {/* Linha 3: Origem (4) + Grupo (5) + Data de Início (3) */}
+                {/* Linha 3: Origem (4) + Grupo (8). "Data de Início" foi removido —
+                    era o mesmo campo (dataEntrada) do "Data Entrada" na aba Comercial. */}
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
                   <Label>Origem</Label>
                   <Controller control={control} name="origem" render={({ field }) => (
@@ -922,7 +923,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                     </Select>
                   )} />
                 </div>
-                <div className="col-span-12 md:col-span-5 space-y-1.5">
+                <div className="col-span-12 md:col-span-8 space-y-1.5">
                   <Label>Grupo Empresarial</Label>
                   <Controller control={control} name="grupo" render={({ field }) => {
                     const opts = opcoesGrupo.map((o) => o.valor)
@@ -935,10 +936,6 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                       </Select>
                     )
                   }} />
-                </div>
-                <div className="col-span-12 md:col-span-3 space-y-1.5">
-                  <Label>Data de Início</Label>
-                  <Input type="date" {...register('dataEntrada')} />
                 </div>
 
                 {/* Inscrição Estadual/Municipal migradas para a aba Fiscal → Registro de Inscrições. */}
