@@ -33,16 +33,23 @@ export async function carregarCertificadoCliente(
   })
   if (!cliente) throw new Error(`Cliente ${clienteId} não encontrado.`)
 
+  // Resolve o cert pelo vínculo (clienteId) OU pelo CNPJ do titular — igual ao
+  // certificadoDigital.list da tela. O certificado pode estar num OUTRO cadastro
+  // do mesmo CNPJ (ex.: importado do legado num cliente_id diferente); procurar
+  // só por clienteId faria a captura falhar mesmo com o cert cadastrado.
+  const cnpjCliente = (cliente.documento ?? '').replace(/\D/g, '')
+  const orVinculo = cnpjCliente ? [{ clienteId }, { documento: cnpjCliente }] : [{ clienteId }]
+
   const cert = certificadoExplicitoId
     ? await prisma.certificadoDigital.findUnique({ where: { id: certificadoExplicitoId } })
     : await prisma.certificadoDigital.findFirst({
         where: {
-          clienteId: clienteId,
           tipo: 'A1',
           arquivado: false,
           status: { not: 'VENCIDO' },
           arquivoPath: { not: null },
           senhaCifrada: { not: null },
+          OR: orVinculo,
         },
         orderBy: { expiraEm: 'desc' },
       })
@@ -54,7 +61,7 @@ export async function carregarCertificadoCliente(
     // captura no ADN precisa do PFX+senha pro handshake mTLS.
     if (!certificadoExplicitoId) {
       const soMetadados = await prisma.certificadoDigital.findFirst({
-        where: { clienteId, tipo: 'A1', arquivado: false, status: { not: 'VENCIDO' } },
+        where: { tipo: 'A1', arquivado: false, status: { not: 'VENCIDO' }, OR: orVinculo },
         select: { arquivoPath: true, senhaCifrada: true },
       })
       if (soMetadados) {
@@ -97,13 +104,11 @@ export async function carregarCertificadoCliente(
     throw new Error(`Falha ao decifrar senha do cert ${cert.id}: ${(e as Error).message}`)
   }
 
-  const cnpj = cliente.documento.replace(/\D/g, '')
-
   return {
     certificadoId: cert.id,
     pfxBuffer,
     passphrase,
-    cnpj,
+    cnpj: cnpjCliente,
     razaoSocial: cliente.razaoSocial,
     expiraEm: cert.expiraEm,
   }
