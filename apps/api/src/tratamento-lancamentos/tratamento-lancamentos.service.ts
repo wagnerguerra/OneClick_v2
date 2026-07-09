@@ -11,12 +11,18 @@ import {
   type DebugExtractInput,
   stableStringify,
 } from '@saas/types'
-import { extractTabela } from './lib/extract-tabela'
+import { extractTabela, type ExtractedTable } from './lib/extract-tabela'
 import { applyModel, type TraceRow } from './lib/apply-model'
 import { parseData } from './lib/parsers'
 
-/** Teto de linhas devolvidas ao wizard no preview (limita payload). */
-const PREVIEW_MAX_ROWS = 5000
+/**
+ * Teto de linhas devolvidas no preview (limita payload). Além de alimentar o
+ * wizard, o cliente CARREGA essas linhas e as reenvia no `convert` (reuso da
+ * extração — ver `convert`). Por isso o teto precisa cobrir os arquivos reais
+ * (ex.: extrato Mercado Pago, ~15k linhas); acima dele o cliente marca
+ * `truncated` e o `convert` re-extrai no servidor (correção preservada).
+ */
+const PREVIEW_MAX_ROWS = 50000
 /** Teto de linhas no visualizador de debug (limita payload; é ferramenta interna). */
 const DEBUG_MAX_ROWS = 5000
 
@@ -338,8 +344,22 @@ export class TratamentoLancamentosService {
    * interpretado. "Exportação para o SCI".
    */
   async convert(input: ConvertInput, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
-    const buffer = Buffer.from(input.fileBase64, 'base64')
-    const table = await extractTabela({ buffer, filename: input.filename })
+    // Reuso da extração: o preview (pós-upload) já extraiu a tabela e o cliente a
+    // carrega de volta aqui → aplica o modelo SEM re-extrair. Só re-extrai no
+    // fallback (tabela não carregada: arquivo acima do teto do preview, ou fluxo
+    // que não passou pelo preview). `applyModel` consome apenas `rows`; `meta` é
+    // reconstruída de forma inerte só para satisfazer o tipo `ExtractedTable`.
+    const table: ExtractedTable = input.table
+      ? {
+          headers: input.table.headers,
+          rows: input.table.rows,
+          meta: {
+            sheetName: '', headerRowIndex: 0, bodyStartIndex: 0,
+            bodyEndIndex: input.table.rows.length, totalDataRows: input.table.rows.length,
+            mode: 'single',
+          },
+        }
+      : await extractTabela({ buffer: Buffer.from(input.fileBase64 ?? '', 'base64'), filename: input.filename })
 
     const model = await scoped(tenantSchema, async (db) => {
       const m = await db.treatmentModel.findUniqueOrThrow({ where: { id: input.modelId } })
