@@ -512,14 +512,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 </div>
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
-                <div className="col-span-12 md:col-span-4 space-y-1.5">
-                  <Label>Inscricao Estadual</Label>
-                  <Input placeholder="IE" {...register('inscricaoEstadual')} />
-                </div>
-                <div className="col-span-12 md:col-span-4 space-y-1.5">
-                  <Label>Inscricao Municipal</Label>
-                  <Input placeholder="IM" {...register('inscricaoMunicipal')} />
-                </div>
+                {/* Inscrição Estadual/Municipal migradas para a aba Fiscal → Registro de Inscrições. */}
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
                   <Label>CNAE Principal</Label>
                   <Input placeholder="0000-0/00" {...register('cnaePrincipal' as any)} />

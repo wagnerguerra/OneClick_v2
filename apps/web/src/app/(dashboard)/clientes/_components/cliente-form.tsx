@@ -941,15 +941,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                   <Input type="date" {...register('dataEntrada')} />
                 </div>
 
-                {/* Linha 4: Inscrição Estadual (6) + Inscrição Municipal (6) */}
-                <div className="col-span-12 md:col-span-6 space-y-1.5">
-                  <Label>Inscrição Estadual</Label>
-                  <Input placeholder="IE" {...register('inscricaoEstadual')} />
-                </div>
-                <div className="col-span-12 md:col-span-6 space-y-1.5">
-                  <Label>Inscrição Municipal</Label>
-                  <Input placeholder="IM" {...register('inscricaoMunicipal')} />
-                </div>
+                {/* Inscrição Estadual/Municipal migradas para a aba Fiscal → Registro de Inscrições. */}
 
                 {/* Linha 5: Telefones (6) + E-Mails (6) */}
                 <div className="col-span-12 md:col-span-6 space-y-1.5">
