@@ -133,8 +133,11 @@ export class NfseDistService {
       if (!uploadedById) throw new Error('Nenhum usuário master ativo pra atribuir como uploader.')
 
       const agent = new https.Agent({
-        pfx: cert.pfxBuffer,
-        passphrase: cert.passphrase,
+        // key/cert em PEM (node-forge) em vez de pfx — evita "Unsupported PKCS12
+        // PFX data" do OpenSSL 3 com certificados A1 de algoritmo legado.
+        key: cert.keyPem,
+        cert: cert.certPem,
+        ca: cert.caPem,
         keepAlive: false,
       })
 
@@ -440,7 +443,7 @@ export class NfseDistService {
       const { carregarCertificadoCliente } = await import('../fiscal-dist/cert-loader')
       try {
         const cert = await carregarCertificadoCliente(nota.clienteId)
-        const agent = new https.Agent({ pfx: cert.pfxBuffer, passphrase: cert.passphrase, keepAlive: false })
+        const agent = new https.Agent({ key: cert.keyPem, cert: cert.certPem, ca: cert.caPem, keepAlive: false })
         const oficial = await this.baixarDanfseOficial(nota.chave, agent)
         if (oficial) {
           const pdfKey = await this.storage.savePdf(`nfse/${nota.chave}`, oficial)

@@ -76,3 +76,52 @@ export function parsePfx(pfxBuffer: Buffer, password: string): PfxInfo {
     expiraEm: cert.validity.notAfter,
   }
 }
+
+export interface PfxKeyCert {
+  keyPem: string
+  certPem: string   // certificado do titular (folha)
+  caPem: string[]   // cadeia (ACs intermediárias/raiz), se houver
+}
+
+/**
+ * Extrai a chave privada + certificado (e cadeia) de um PFX como PEM, via
+ * node-forge — que aceita os algoritmos legados (RC2/3DES) comuns nos A1
+ * brasileiros e que o OpenSSL 3 do Node rejeita ("Unsupported PKCS12 PFX data").
+ * O https.Agent do mTLS deve usar { key, cert, ca } em vez de { pfx, passphrase }.
+ */
+export function extractKeyCertPem(pfxBuffer: Buffer, password: string): PfxKeyCert {
+  let p12: forge.pkcs12.Pkcs12Pfx
+  try {
+    const p12Asn1 = forge.asn1.fromDer(pfxBuffer.toString('binary'))
+    p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, password)
+  } catch (e) {
+    const msg = (e as Error).message?.toLowerCase() || ''
+    if (msg.includes('mac') || msg.includes('password')) throw new Error('Senha do certificado incorreta.')
+    throw new Error('Falha ao abrir o certificado: ' + (e as Error).message)
+  }
+
+  const shrouded = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag })[forge.pki.oids.pkcs8ShroudedKeyBag] ?? []
+  const plain = p12.getBags({ bagType: forge.pki.oids.keyBag })[forge.pki.oids.keyBag] ?? []
+  const key = shrouded[0]?.key ?? plain[0]?.key
+  if (!key) throw new Error('Chave privada não encontrada no PFX.')
+
+  const certs = (p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag] ?? [])
+    .map(b => b.cert)
+    .filter((c): c is forge.pki.Certificate => !!c)
+  if (certs.length === 0) throw new Error('Certificado não encontrado no PFX.')
+
+  // Folha = certificado cujo módulo público bate com o da chave privada (RSA);
+  // os demais formam a cadeia. Fallback: o primeiro cert do bag.
+  const keyN = (key as unknown as { n?: { equals(o: unknown): boolean } }).n
+  const leaf = certs.find(c => {
+    try { return !!keyN && !!(c.publicKey as unknown as { n?: unknown }).n && keyN.equals((c.publicKey as unknown as { n: unknown }).n) }
+    catch { return false }
+  }) ?? certs[0]!
+  const ca = certs.filter(c => c !== leaf)
+
+  return {
+    keyPem: forge.pki.privateKeyToPem(key),
+    certPem: forge.pki.certificateToPem(leaf),
+    caPem: ca.map(c => forge.pki.certificateToPem(c)),
+  }
+}

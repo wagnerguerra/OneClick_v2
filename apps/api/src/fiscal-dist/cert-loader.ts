@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { prisma } from '@saas/db'
 import { decryptPassword, parseCipher } from '../certificado-digital/crypto.helper'
+import { extractKeyCertPem } from '../certificado-digital/pfx-parser'
 
 // Mesmo root usado pelo CertificadoDigitalService — `arquivoPath` no banco é relativo a este diretório.
 const STORAGE_ROOT = path.resolve(process.cwd(), 'uploads', 'certificados')
@@ -10,6 +11,12 @@ export interface CertLoaded {
   certificadoId: string
   pfxBuffer: Buffer
   passphrase: string
+  /** Chave privada + certificado + cadeia em PEM (extraídos via node-forge). Use
+   *  { key, cert, ca } no https.Agent — o pfx direto falha no OpenSSL 3 do Node
+   *  com certificados de algoritmo legado ("Unsupported PKCS12 PFX data"). */
+  keyPem: string
+  certPem: string
+  caPem: string[]
   cnpj: string
   razaoSocial: string
   expiraEm: Date
@@ -104,10 +111,21 @@ export async function carregarCertificadoCliente(
     throw new Error(`Falha ao decifrar senha do cert ${cert.id}: ${(e as Error).message}`)
   }
 
+  // Extrai key/cert em PEM via node-forge (aceita algoritmos legados do A1 BR).
+  let keyPem: string, certPem: string, caPem: string[]
+  try {
+    ({ keyPem, certPem, caPem } = extractKeyCertPem(pfxBuffer, passphrase))
+  } catch (e) {
+    throw new Error(`Falha ao extrair chave/certificado do PFX (cert ${cert.id}): ${(e as Error).message}`)
+  }
+
   return {
     certificadoId: cert.id,
     pfxBuffer,
     passphrase,
+    keyPem,
+    certPem,
+    caPem,
     cnpj: cnpjCliente,
     razaoSocial: cliente.razaoSocial,
     expiraEm: cert.expiraEm,
