@@ -744,6 +744,11 @@ export default function OrcamentoDetailPage() {
 
   // Sub-permissoes do modulo orcamentos (espelha legado modal-prm-orcamentos.asp)
   const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
+  // Master real (flag do banco, a coroa) — mesma fonte do backend masterProcedure.
+  // useUserPermissions().isMaster pode divergir; para editar campo congelado usamos
+  // a flag do perfil (a que gateia o Console SQL). Fallback ao isMaster das permissões.
+  const { profile: meuPerfil } = useCurrentUserProfile()
+  const isMasterReal = meuPerfil?.isMaster ?? false
   const orcPerm = permissions.find(p => p.moduleSlug === 'orcamentos')
   const subPerms = (orcPerm?.subPermissions ?? {}) as Record<string, boolean>
   const canManageItens = isMaster || subPerms.manage_itens === true
@@ -1207,7 +1212,7 @@ export default function OrcamentoDetailPage() {
   const congeladoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     if (initialLoadRef.current) return
-    if (!isLocked || !isMaster) return
+    if (!isLocked || !isMasterReal) return
     if (congeladoTimerRef.current) clearTimeout(congeladoTimerRef.current)
     congeladoTimerRef.current = setTimeout(async () => {
       setAutoSaveStatus('saving')
@@ -1231,7 +1236,7 @@ export default function OrcamentoDetailPage() {
     }, 800)
     return () => { if (congeladoTimerRef.current) clearTimeout(congeladoTimerRef.current) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formPagamento, formDesconto, formDescontoPercent, isLocked, isMaster])
+  }, [formPagamento, formDesconto, formDescontoPercent, isLocked, isMasterReal])
 
   async function abrirEnvio() {
     // #HLP0258: avisa quando o orçamento não tem forma de pagamento definida —
@@ -2469,11 +2474,11 @@ export default function OrcamentoDetailPage() {
                       <div className="p-5 grid grid-cols-12 gap-3">
                         <div className="col-span-12 sm:col-span-4 space-y-1.5">
                           <Label className="text-[13px] font-semibold text-foreground">Desconto %</Label>
-                          <Input type="number" value={formDescontoPercent} onChange={e => setFormDescontoPercent(e.target.value)} disabled={isLocked && !isMaster} className="h-9 text-sm" step="0.01" min="0" max="100" placeholder="0" />
+                          <Input type="number" value={formDescontoPercent} onChange={e => setFormDescontoPercent(e.target.value)} disabled={isLocked && !isMasterReal} className="h-9 text-sm" step="0.01" min="0" max="100" placeholder="0" />
                         </div>
                         <div className="col-span-12 sm:col-span-4 space-y-1.5">
                           <Label className="text-[13px] font-semibold text-foreground">Desconto R$</Label>
-                          <Input type="number" value={formDesconto} onChange={e => setFormDesconto(e.target.value)} disabled={isLocked && !isMaster} className="h-9 text-sm" step="0.01" min="0" placeholder="0,00" />
+                          <Input type="number" value={formDesconto} onChange={e => setFormDesconto(e.target.value)} disabled={isLocked && !isMasterReal} className="h-9 text-sm" step="0.01" min="0" placeholder="0,00" />
                         </div>
                         <div className="col-span-12 space-y-1.5">
                           <div className="flex items-center justify-between">
@@ -2488,7 +2493,7 @@ export default function OrcamentoDetailPage() {
                               </button>
                             )}
                           </div>
-                          <Select value={formPagamento || '__none__'} onValueChange={v => setFormPagamento(v === '__none__' ? '' : v)} disabled={isLocked && !isMaster}>
+                          <Select value={formPagamento || '__none__'} onValueChange={v => setFormPagamento(v === '__none__' ? '' : v)} disabled={isLocked && !isMasterReal}>
                             <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione a forma de pagamento" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="__none__">— Não informada —</SelectItem>
