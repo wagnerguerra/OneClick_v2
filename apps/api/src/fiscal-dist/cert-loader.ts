@@ -48,6 +48,27 @@ export async function carregarCertificadoCliente(
       })
 
   if (!cert) {
+    // Distingue "não tem certificado" de "tem, mas sem o arquivo PFX/senha" —
+    // comum em certificados importados do legado (vieram só com os metadados:
+    // validade/razão, sem o binário .pfx e a senha). A tela exibe o cert, mas a
+    // captura no ADN precisa do PFX+senha pro handshake mTLS.
+    if (!certificadoExplicitoId) {
+      const soMetadados = await prisma.certificadoDigital.findFirst({
+        where: { clienteId, tipo: 'A1', arquivado: false, status: { not: 'VENCIDO' } },
+        select: { arquivoPath: true, senhaCifrada: true },
+      })
+      if (soMetadados) {
+        const falta = [
+          !soMetadados.arquivoPath ? 'arquivo .pfx' : null,
+          !soMetadados.senhaCifrada ? 'senha' : null,
+        ].filter(Boolean).join(' e ')
+        throw new Error(
+          `Certificado A1 de ${cliente.razaoSocial} está cadastrado mas sem ${falta || 'o arquivo PFX/senha'} ` +
+          `(provavelmente importado do legado só com os metadados). Reimporte o .pfx com a senha na aba ` +
+          `Certificados para habilitar a captura no ADN.`,
+        )
+      }
+    }
     throw new Error(`Cliente ${cliente.razaoSocial} sem certificado A1 ativo cadastrado.`)
   }
   if (!cert.arquivoPath || !cert.senhaCifrada) {
