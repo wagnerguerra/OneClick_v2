@@ -2437,11 +2437,11 @@ export default function OrcamentoDetailPage() {
                       <div className="p-5 grid grid-cols-12 gap-3">
                         <div className="col-span-12 sm:col-span-4 space-y-1.5">
                           <Label className="text-[13px] font-semibold text-foreground">Desconto %</Label>
-                          <Input type="number" value={formDescontoPercent} onChange={e => setFormDescontoPercent(e.target.value)} className="h-9 text-sm" step="0.01" min="0" max="100" placeholder="0" />
+                          <Input type="number" value={formDescontoPercent} onChange={e => setFormDescontoPercent(e.target.value)} disabled={isLocked} className="h-9 text-sm" step="0.01" min="0" max="100" placeholder="0" />
                         </div>
                         <div className="col-span-12 sm:col-span-4 space-y-1.5">
                           <Label className="text-[13px] font-semibold text-foreground">Desconto R$</Label>
-                          <Input type="number" value={formDesconto} onChange={e => setFormDesconto(e.target.value)} className="h-9 text-sm" step="0.01" min="0" placeholder="0,00" />
+                          <Input type="number" value={formDesconto} onChange={e => setFormDesconto(e.target.value)} disabled={isLocked} className="h-9 text-sm" step="0.01" min="0" placeholder="0,00" />
                         </div>
                         <div className="col-span-12 space-y-1.5">
                           <div className="flex items-center justify-between">
@@ -2456,7 +2456,7 @@ export default function OrcamentoDetailPage() {
                               </button>
                             )}
                           </div>
-                          <Select value={formPagamento || '__none__'} onValueChange={v => setFormPagamento(v === '__none__' ? '' : v)}>
+                          <Select value={formPagamento || '__none__'} onValueChange={v => setFormPagamento(v === '__none__' ? '' : v)} disabled={isLocked}>
                             <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione a forma de pagamento" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="__none__">— Não informada —</SelectItem>
