@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
-import { router, readProcedure, writeProcedure, deleteProcedure, publicProcedure, writeSubProcedure, deleteSubProcedure, protectedProcedure } from '../trpc/trpc.service'
+import { router, readProcedure, writeProcedure, deleteProcedure, publicProcedure, writeSubProcedure, deleteSubProcedure, protectedProcedure, masterProcedure } from '../trpc/trpc.service'
 import { createOrcamentoSchema, updateOrcamentoSchema, listOrcamentoSchema, createOrcamentoItemSchema, updateOrcamentoItemSchema } from '@saas/types'
 import { OrcamentoService } from './orcamento.service'
 
@@ -81,6 +81,16 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
     update: writeProcedure(MODULE)
       .input(z.object({ id: z.string(), data: updateOrcamentoSchema }))
       .mutation(({ input, ctx }) => orcamentoService.update(input.id, input.data, ctx.userId)),
+
+    /** Master edita Forma de Pagamento/Desconto mesmo em orçamento congelado — loga na timeline. */
+    editarCongelado: masterProcedure
+      .input(z.object({
+        id: z.string(),
+        formaPagamento: z.string().nullable().optional(),
+        descontoPct: z.number().nullable().optional(),
+        descontoValor: z.number().nullable().optional(),
+      }))
+      .mutation(({ input, ctx }) => orcamentoService.editarCongelado(input.id, input, ctx.userId)),
 
     // Endpoint dedicado para texto interno — funciona mesmo em orcamentos
     // congelados (APROVADO+). E uma anotacao interna, nao altera escopo/valores.

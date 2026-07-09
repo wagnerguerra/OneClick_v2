@@ -1201,6 +1201,38 @@ export default function OrcamentoDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formTextoInterno, isLocked])
 
+  // Auto-save dedicado: MASTER pode editar Forma de Pagamento / Desconto mesmo com
+  // o orçamento congelado (exceção à regra de duplicar-para-editar). Usa
+  // `editarCongelado` (master-only), que registra o evento na timeline.
+  const congeladoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (initialLoadRef.current) return
+    if (!isLocked || !isMaster) return
+    if (congeladoTimerRef.current) clearTimeout(congeladoTimerRef.current)
+    congeladoTimerRef.current = setTimeout(async () => {
+      setAutoSaveStatus('saving')
+      try {
+        await (trpc.orcamento as any).editarCongelado.mutate({
+          id,
+          formaPagamento: formPagamento || null,
+          descontoPct: formDescontoPercent ? parseFloat(formDescontoPercent) : 0,
+          descontoValor: formDesconto ? parseFloat(formDesconto) : 0,
+        })
+        setAutoSaveStatus('saved')
+        if (savedHideTimerRef.current) clearTimeout(savedHideTimerRef.current)
+        savedHideTimerRef.current = setTimeout(() => setAutoSaveStatus('idle'), 2000)
+        fetchOrc(true) // atualiza Resumo Financeiro (totais recalculados)
+      } catch (e) {
+        setAutoSaveStatus('error')
+        alerts.error('Erro', (e as Error).message)
+        if (savedHideTimerRef.current) clearTimeout(savedHideTimerRef.current)
+        savedHideTimerRef.current = setTimeout(() => setAutoSaveStatus('idle'), 4000)
+      }
+    }, 800)
+    return () => { if (congeladoTimerRef.current) clearTimeout(congeladoTimerRef.current) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formPagamento, formDesconto, formDescontoPercent, isLocked, isMaster])
+
   async function abrirEnvio() {
     // #HLP0258: avisa quando o orçamento não tem forma de pagamento definida —
     // o operador pode enviar assim mesmo, mas é alertado antes.
@@ -2437,11 +2469,11 @@ export default function OrcamentoDetailPage() {
                       <div className="p-5 grid grid-cols-12 gap-3">
                         <div className="col-span-12 sm:col-span-4 space-y-1.5">
                           <Label className="text-[13px] font-semibold text-foreground">Desconto %</Label>
-                          <Input type="number" value={formDescontoPercent} onChange={e => setFormDescontoPercent(e.target.value)} disabled={isLocked} className="h-9 text-sm" step="0.01" min="0" max="100" placeholder="0" />
+                          <Input type="number" value={formDescontoPercent} onChange={e => setFormDescontoPercent(e.target.value)} disabled={isLocked && !isMaster} className="h-9 text-sm" step="0.01" min="0" max="100" placeholder="0" />
                         </div>
                         <div className="col-span-12 sm:col-span-4 space-y-1.5">
                           <Label className="text-[13px] font-semibold text-foreground">Desconto R$</Label>
-                          <Input type="number" value={formDesconto} onChange={e => setFormDesconto(e.target.value)} disabled={isLocked} className="h-9 text-sm" step="0.01" min="0" placeholder="0,00" />
+                          <Input type="number" value={formDesconto} onChange={e => setFormDesconto(e.target.value)} disabled={isLocked && !isMaster} className="h-9 text-sm" step="0.01" min="0" placeholder="0,00" />
                         </div>
                         <div className="col-span-12 space-y-1.5">
                           <div className="flex items-center justify-between">
@@ -2456,7 +2488,7 @@ export default function OrcamentoDetailPage() {
                               </button>
                             )}
                           </div>
-                          <Select value={formPagamento || '__none__'} onValueChange={v => setFormPagamento(v === '__none__' ? '' : v)} disabled={isLocked}>
+                          <Select value={formPagamento || '__none__'} onValueChange={v => setFormPagamento(v === '__none__' ? '' : v)} disabled={isLocked && !isMaster}>
                             <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione a forma de pagamento" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="__none__">— Não informada —</SelectItem>

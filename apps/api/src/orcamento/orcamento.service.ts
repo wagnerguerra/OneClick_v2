@@ -801,6 +801,53 @@ export class OrcamentoService {
   }
 
   /**
+   * Edição pontual de Forma de Pagamento / Desconto num orçamento CONGELADO —
+   * exceção master-only à regra de "duplicar para editar". Só altera esses 3
+   * campos e REGISTRA um evento de auditoria na timeline com o que mudou (quem,
+   * status congelado e valores antes → depois). O router gateia por masterProcedure.
+   */
+  async editarCongelado(
+    id: string,
+    input: { formaPagamento?: string | null; descontoPct?: number | null; descontoValor?: number | null },
+    userId?: string,
+  ): Promise<{ ok: true }> {
+    const atual = await prisma.orcamento.findUnique({
+      where: { id },
+      select: { status: true, empresaId: true, formaPagamento: true, descontoPct: true, descontoValor: true },
+    })
+    if (!atual) throw new Error('Orçamento não encontrado')
+
+    const numOld = (v: unknown): number => v == null ? 0 : (typeof v === 'object' && 'toNumber' in (v as any) ? (v as any).toNumber() : Number(v))
+    const data: Record<string, unknown> = {}
+    const mudancas: string[] = []
+
+    if (input.formaPagamento !== undefined && (atual.formaPagamento || null) !== (input.formaPagamento || null)) {
+      data.formaPagamento = input.formaPagamento || null
+      mudancas.push(`Forma de pagamento: "${atual.formaPagamento || '—'}" → "${input.formaPagamento || '—'}"`)
+    }
+    if (input.descontoPct !== undefined && numOld(atual.descontoPct) !== (input.descontoPct ?? 0)) {
+      data.descontoPct = input.descontoPct ?? 0
+      mudancas.push(`Desconto %: ${numOld(atual.descontoPct)} → ${input.descontoPct ?? 0}`)
+    }
+    if (input.descontoValor !== undefined && numOld(atual.descontoValor) !== (input.descontoValor ?? 0)) {
+      data.descontoValor = input.descontoValor ?? 0
+      mudancas.push(`Desconto R$: ${numOld(atual.descontoValor)} → ${input.descontoValor ?? 0}`)
+    }
+
+    if (Object.keys(data).length === 0) return { ok: true } // nada mudou → não loga
+
+    await prisma.orcamento.update({ where: { id }, data: data as any })
+    await this.recalcularTotais(id)
+    const usuario = userId ? await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }).catch(() => null) : null
+    await this.addEvento(
+      id, userId, 'edicao', null, null,
+      `Edição em orçamento congelado (${STATUS_LABELS[atual.status] || atual.status}) por ${usuario?.name || 'master'}: ${mudancas.join('; ')}`,
+    )
+    this.emitEvent('dados-gerais', { orcamentoId: id, empresaId: atual.empresaId, actorUserId: userId })
+    return { ok: true }
+  }
+
+  /**
    * Atualiza apenas o texto interno — permitido mesmo em orcamentos congelados
    * (APROVADO+) pois e uma anotacao da equipe, nao altera valores ou escopo.
    */
