@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '@saas/db'
 import { router, readProcedure, writeProcedure } from '../trpc/trpc.service'
 import type { NfseDistService } from '../nfse-dist/nfse-dist.service'
+import { nfseWhereDoCliente } from './nfse-cliente.filter'
 
 /**
  * Router NFS-e para galeria/listagem — espelha o `danfe.router` mas pra NotaServicoImportada.
@@ -95,9 +96,10 @@ export function createNfseRouter(distSvc: NfseDistService) {
         const limit = Math.min(input.limit ?? 60, 1000)
         const skip = (page - 1) * limit
 
-        const where: Record<string, unknown> = input.clienteId === '__null__'
-          ? { clienteId: null }
-          : { clienteId: input.clienteId }
+        // Pasta do cliente resolve por CNPJ (prestador OU tomador), não só pelo
+        // vínculo físico — uma NFS-e entre dois clientes da empresa é dedupada num
+        // só cliente_id, mas pertence aos dois. Ver nfseWhereDoCliente.
+        const where: Record<string, unknown> = await nfseWhereDoCliente(input.clienteId)
         if (input.status) where.status = input.status
 
         if (input.competencia) {

@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '@saas/db'
 import { router, readProcedure, writeProcedure } from '../trpc/trpc.service'
 import { DriveSyncService } from './drive-sync.service'
+import { nfseWhereDoCliente } from '../nfse/nfse-cliente.filter'
 
 const MODULE = 'cliente'  // reaproveita permissão de cliente: quem edita cliente pode vincular pasta
 
@@ -76,9 +77,12 @@ export function createDriveSyncRouter(svc: DriveSyncService) {
     getResumoFiscal: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
       .query(async ({ input }) => {
+        // NFS-e da pasta do cliente resolve por CNPJ (prestador OU tomador); NFe
+        // segue pelo vínculo físico (clienteId). Ver nfseWhereDoCliente.
+        const nfseWhere = await nfseWhereDoCliente(input.clienteId)
         const [totalNfe, totalNfse] = await Promise.all([
           prisma.danfe.count({ where: { clienteId: input.clienteId } }),
-          prisma.notaServicoImportada.count({ where: { clienteId: input.clienteId } }),
+          prisma.notaServicoImportada.count({ where: nfseWhere }),
         ])
         return { totalNfe, totalNfse }
       }),
@@ -91,10 +95,13 @@ export function createDriveSyncRouter(svc: DriveSyncService) {
     listCompetenciasFiscais: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
       .query(async ({ input }) => {
-        const where = input.clienteId === '__null__' ? { clienteId: null } : { clienteId: input.clienteId }
+        // NFe pelo vínculo físico (clienteId); NFS-e por CNPJ (prestador OU
+        // tomador) via nfseWhereDoCliente.
+        const danfeWhere = input.clienteId === '__null__' ? { clienteId: null } : { clienteId: input.clienteId }
+        const nfseWhere = await nfseWhereDoCliente(input.clienteId)
         const [danfeDates, nfseDates] = await Promise.all([
-          prisma.danfe.findMany({ where, select: { dataEmissao: true } }),
-          prisma.notaServicoImportada.findMany({ where, select: { dataEmissao: true } }),
+          prisma.danfe.findMany({ where: danfeWhere, select: { dataEmissao: true } }),
+          prisma.notaServicoImportada.findMany({ where: nfseWhere, select: { dataEmissao: true } }),
         ])
         const map = new Map<string, { ym: string; totalNfe: number; totalNfse: number }>()
         function ym(d: Date): string {
