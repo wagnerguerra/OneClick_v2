@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
+import { randomUUID } from 'crypto'
 import type {
   ReformaDiagnosticoInput,
   ReformaListClientesInput,
@@ -35,6 +36,26 @@ interface Metrics {
   documentosSaida: number
   documentosEntrada: number
   snapshots: Record<string, number>
+}
+
+interface SimulacaoCompleta {
+  cliente: ClienteBase
+  cnaes: Array<{ codigo: string; descricao: string | null; principal: boolean }>
+  atividades: string[]
+  beneficios: string[]
+  metrics: Metrics
+  qualidade: { score: number; faltantes: string[] }
+  observacoes: string[]
+  premissas: ReformaPremissasInput
+  cenarios: {
+    simplesDentro: { cargaEstimativa: number; creditoTransferidoCliente: number; complexidade: number }
+    regular: { debito: number; creditoApropriavel: number; cargaEstimativa: number; creditoTransferidoCliente: number; complexidade: number }
+    vantagemCreditoCliente: number
+    custoRegularAjustado: number
+    diferenca: number
+  }
+  recomendacao: Recomendacao
+  resumo: { texto: string; impacto: { valor: number; percentualReceita: number } }
 }
 
 const DEFAULT_PREMISSAS: ReformaPremissasInput = {
@@ -175,7 +196,7 @@ export class ReformaTributariaService {
     }
   }
 
-  async simular(input: ReformaSimulacaoInput, empresaId?: string | null) {
+  async simular(input: ReformaSimulacaoInput, empresaId?: string | null): Promise<SimulacaoCompleta> {
     const diagnostico = await this.diagnostico(input, empresaId)
     const p = { ...DEFAULT_PREMISSAS, ...input.premissas }
     const totalAliquota = p.aliquotaCbs + p.aliquotaIbs
@@ -215,6 +236,93 @@ export class ReformaTributariaService {
       recomendacao,
       resumo: this.resumo(recomendacao, diferenca, receita),
     }
+  }
+
+  async historico(clienteId: string, empresaId?: string | null) {
+    await this.ensureHistoricoTable()
+    await this.getCliente(clienteId, empresaId)
+    const rows = await prisma.$queryRawUnsafe<Array<{
+      id: string
+      clienteId: string
+      userId: string | null
+      recomendacao: Recomendacao
+      parecer: string
+      qualidadeScore: number | bigint
+      faturamento12m: string | number
+      premissas: unknown
+      resumo: unknown
+      cenarios: unknown
+      createdAt: Date
+      usuarioNome: string | null
+    }>>(
+      `SELECT s.id, s.cliente_id AS "clienteId", s.user_id AS "userId",
+              s.recomendacao, s.parecer, s.qualidade_score AS "qualidadeScore",
+              s.faturamento_12m AS "faturamento12m", s.premissas, s.resumo, s.cenarios,
+              s.created_at AS "createdAt", u.name AS "usuarioNome"
+         FROM reforma_tributaria_simulacoes s
+         LEFT JOIN users u ON u.id = s.user_id
+        WHERE s.cliente_id = $1
+          AND ($2::text IS NULL OR s.empresa_id = $2)
+        ORDER BY s.created_at DESC
+        LIMIT 12`,
+      clienteId,
+      empresaId ?? null,
+    )
+    return rows.map(r => ({
+      ...r,
+      qualidadeScore: Number(r.qualidadeScore),
+      faturamento12m: asNumber(r.faturamento12m),
+    }))
+  }
+
+  async salvar(input: ReformaSimulacaoInput, userId?: string | null, empresaId?: string | null) {
+    await this.ensureHistoricoTable()
+    const simulacao = await this.simular(input, empresaId)
+    const id = randomUUID()
+    const parecer = this.gerarParecer(simulacao)
+
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO reforma_tributaria_simulacoes
+        (id, empresa_id, cliente_id, user_id, premissas, diagnostico, cenarios, recomendacao, resumo, parecer, qualidade_score, faturamento_12m, created_at)
+       VALUES
+        ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9::jsonb, $10, $11, $12, CURRENT_TIMESTAMP)`,
+      id,
+      empresaId ?? null,
+      simulacao.cliente.id,
+      userId ?? null,
+      JSON.stringify(simulacao.premissas),
+      JSON.stringify({
+        cliente: simulacao.cliente,
+        cnaes: simulacao.cnaes,
+        atividades: simulacao.atividades,
+        beneficios: simulacao.beneficios,
+        metrics: simulacao.metrics,
+        qualidade: simulacao.qualidade,
+        observacoes: simulacao.observacoes,
+      }),
+      JSON.stringify(simulacao.cenarios),
+      simulacao.recomendacao,
+      JSON.stringify(simulacao.resumo),
+      parecer,
+      simulacao.qualidade.score,
+      simulacao.metrics.faturamento12m,
+    )
+
+    return { id, parecer, ...simulacao }
+  }
+
+  async remover(id: string, empresaId?: string | null) {
+    await this.ensureHistoricoTable()
+    const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `SELECT id FROM reforma_tributaria_simulacoes
+        WHERE id = $1 AND ($2::text IS NULL OR empresa_id = $2)
+        LIMIT 1`,
+      id,
+      empresaId ?? null,
+    )
+    if (!rows[0]) throw new TRPCError({ code: 'NOT_FOUND', message: 'Simulacao nao encontrada' })
+    await prisma.$executeRawUnsafe('DELETE FROM reforma_tributaria_simulacoes WHERE id = $1', id)
+    return { id }
   }
 
   private async getCliente(clienteId: string, empresaId?: string | null): Promise<ClienteBase> {
@@ -337,5 +445,58 @@ export class ReformaTributariaService {
       INCONCLUSIVO: 'Dados insuficientes para recomendacao confiavel.',
     }
     return { texto: textos[recomendacao], impacto }
+  }
+
+  private gerarParecer(simulacao: SimulacaoCompleta) {
+    const cliente = simulacao.cliente
+    const receita = simulacao.metrics.faturamento12m
+    const cargaSimples = simulacao.cenarios.simplesDentro.cargaEstimativa
+    const cargaRegular = simulacao.cenarios.regular.cargaEstimativa
+    const creditoCliente = simulacao.cenarios.regular.creditoTransferidoCliente
+    const diferenca = simulacao.cenarios.diferenca
+    const linhas = [
+      `Cliente: ${cliente.razaoSocial}`,
+      `Regime atual: ${cliente.tributacao ?? 'Nao informado'}`,
+      `Receita analisada em 12 meses: R$ ${receita.toFixed(2)}`,
+      `Carga estimada com IBS/CBS dentro do Simples: R$ ${cargaSimples.toFixed(2)}`,
+      `Carga estimada na apuracao regular: R$ ${cargaRegular.toFixed(2)}`,
+      `Credito potencial transferido ao cliente B2B na apuracao regular: R$ ${creditoCliente.toFixed(2)}`,
+      `Diferenca ajustada entre cenarios: R$ ${diferenca.toFixed(2)}`,
+      `Recomendacao: ${simulacao.resumo.texto}`,
+      `Qualidade dos dados: ${simulacao.qualidade.score}%`,
+    ]
+    if (simulacao.qualidade.faltantes.length > 0) {
+      linhas.push(`Pontos pendentes: ${simulacao.qualidade.faltantes.join('; ')}`)
+    }
+    linhas.push('Observacao: parecer gerado por premissas parametrizadas no sistema; validar aliquotas, regras setoriais e dados contabeis antes da recomendacao final ao cliente.')
+    return linhas.join('\n')
+  }
+
+  private async ensureHistoricoTable() {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS reforma_tributaria_simulacoes (
+        id                text PRIMARY KEY,
+        empresa_id        text,
+        cliente_id        text NOT NULL,
+        user_id           text,
+        premissas         jsonb NOT NULL,
+        diagnostico       jsonb NOT NULL,
+        cenarios          jsonb NOT NULL,
+        recomendacao      text NOT NULL,
+        resumo            jsonb NOT NULL,
+        parecer           text NOT NULL,
+        qualidade_score   integer NOT NULL DEFAULT 0,
+        faturamento_12m   numeric(14, 2) NOT NULL DEFAULT 0,
+        created_at        timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS reforma_tributaria_simulacoes_cliente_created_idx
+        ON reforma_tributaria_simulacoes (cliente_id, created_at DESC)
+    `)
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS reforma_tributaria_simulacoes_empresa_created_idx
+        ON reforma_tributaria_simulacoes (empresa_id, created_at DESC)
+    `)
   }
 }

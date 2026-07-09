@@ -6,11 +6,15 @@ import {
   Calculator,
   CheckCircle2,
   ChevronRight,
+  FileText,
+  History,
   Home,
   Loader2,
   RefreshCw,
+  Save,
   Search,
   SlidersHorizontal,
+  Trash2,
   TrendingDown,
   TrendingUp,
 } from 'lucide-react'
@@ -49,6 +53,16 @@ type ClienteResumo = {
 
 type Simulacao = any
 
+type HistoricoItem = {
+  id: string
+  recomendacao: string
+  parecer: string
+  qualidadeScore: number
+  faturamento12m: number
+  createdAt: string
+  usuarioNome: string | null
+}
+
 const DEFAULT_PREMISSAS = {
   aliquotaCbs: 0.088,
   aliquotaIbs: 0.177,
@@ -76,6 +90,13 @@ function money(v: number | null | undefined) {
 
 function pct(v: number | null | undefined, digits = 1) {
   return `${((Number(v ?? 0)) * 100).toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits })}%`
+}
+
+function dateTimeBR(v: string | Date | null | undefined) {
+  if (!v) return '-'
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return '-'
+  return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 }
 
 function regimeLabel(v: string | null | undefined) {
@@ -134,7 +155,10 @@ export default function ReformaTributariaPage() {
   const [busca, setBusca] = useState('')
   const [loadingLista, setLoadingLista] = useState(true)
   const [loadingSimulacao, setLoadingSimulacao] = useState(false)
+  const [loadingHistorico, setLoadingHistorico] = useState(false)
+  const [salvandoParecer, setSalvandoParecer] = useState(false)
   const [clientes, setClientes] = useState<ClienteResumo[]>([])
+  const [historico, setHistorico] = useState<HistoricoItem[]>([])
   const [dashboard, setDashboard] = useState<{ totalClientes: number; simples: number } | null>(null)
   const [clienteId, setClienteId] = useState<string | null>(null)
   const [simulacao, setSimulacao] = useState<Simulacao | null>(null)
@@ -155,17 +179,38 @@ export default function ReformaTributariaPage() {
       ])
       setDashboard(dash)
       setClientes(list)
-      const nextId = clienteId && list.some((cliente: ClienteResumo) => cliente.id === clienteId)
-        ? clienteId
-        : list[0]?.id ?? null
-      setClienteId(nextId)
-      if (!nextId) setSimulacao(null)
+      setClienteId(prev => {
+        const nextId = prev && list.some((cliente: ClienteResumo) => cliente.id === prev)
+          ? prev
+          : list[0]?.id ?? null
+        if (!nextId) {
+          setSimulacao(null)
+          setHistorico([])
+        }
+        return nextId
+      })
     } catch (e) {
       alerts.error('Erro ao carregar Reforma Tributaria', (e as Error).message)
     } finally {
       setLoadingLista(false)
     }
-  }, [apenasSimples, busca, clienteId])
+  }, [apenasSimples, busca])
+
+  const carregarHistorico = useCallback(async (id = clienteId) => {
+    if (!id) {
+      setHistorico([])
+      return
+    }
+    setLoadingHistorico(true)
+    try {
+      const list = await api().historico.query({ clienteId: id })
+      setHistorico(list)
+    } catch (e) {
+      alerts.error('Erro ao carregar histórico', (e as Error).message)
+    } finally {
+      setLoadingHistorico(false)
+    }
+  }, [clienteId])
 
   const simular = useCallback(async (id = clienteId) => {
     if (!id) return
@@ -180,12 +225,42 @@ export default function ReformaTributariaPage() {
     }
   }, [clienteId, premissas])
 
+  const salvarParecer = useCallback(async () => {
+    if (!clienteId) return
+    setSalvandoParecer(true)
+    try {
+      const salvo = await api().salvar.mutate({ clienteId, meses: 12, premissas })
+      setSimulacao(salvo)
+      await carregarHistorico(clienteId)
+      alerts.success('Parecer salvo', 'A simulação foi registrada no histórico do cliente.')
+    } catch (e) {
+      alerts.error('Erro ao salvar parecer', (e as Error).message)
+    } finally {
+      setSalvandoParecer(false)
+    }
+  }, [carregarHistorico, clienteId, premissas])
+
+  const removerHistorico = useCallback(async (item: HistoricoItem) => {
+    const ok = await alerts.confirmDelete(`simulação de ${dateTimeBR(item.createdAt)}`)
+    if (!ok) return
+    try {
+      await api().remover.mutate({ id: item.id })
+      await carregarHistorico()
+      alerts.success('Removido', 'Simulação removida do histórico.')
+    } catch (e) {
+      alerts.error('Erro ao remover', (e as Error).message)
+    }
+  }, [carregarHistorico])
+
   useEffect(() => {
     carregarLista()
   }, [carregarLista])
 
   useEffect(() => {
-    if (clienteId) simular(clienteId)
+    if (clienteId) {
+      simular(clienteId)
+      carregarHistorico(clienteId)
+    }
     // A mudanca de premissas e aplicada pelo botao "Simular" para evitar chamadas a cada tecla.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clienteId])
@@ -209,10 +284,16 @@ export default function ReformaTributariaPage() {
           </>
         }
         actions={
-          <Button variant="outline" onClick={() => simular()} disabled={!clienteId || loadingSimulacao}>
-            {loadingSimulacao ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-            Simular
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => simular()} disabled={!clienteId || loadingSimulacao}>
+              {loadingSimulacao ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              Simular
+            </Button>
+            <Button onClick={salvarParecer} disabled={!clienteId || loadingSimulacao || salvandoParecer}>
+              {salvandoParecer ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Salvar parecer
+            </Button>
+          </>
         }
       />
 
@@ -339,6 +420,16 @@ export default function ReformaTributariaPage() {
                       </ul>
                     </div>
                   )}
+
+                  {simulacao.parecer && (
+                    <div className="rounded-[6px] border bg-background/70 p-4">
+                      <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                        <FileText className="h-4 w-4" />
+                        Parecer salvo
+                      </div>
+                      <pre className="whitespace-pre-wrap font-sans text-sm leading-6 text-muted-foreground">{simulacao.parecer}</pre>
+                    </div>
+                  )}
                 </>
               )}
             </CardContent>
@@ -358,6 +449,58 @@ export default function ReformaTributariaPage() {
               <PercentInput label="Vendas B2B" value={premissas.percentualVendasB2B} onChange={(v) => setPremissas(p => ({ ...p, percentualVendasB2B: v }))} />
               <PercentInput label="Compras creditaveis" value={premissas.percentualComprasCreditaveis} onChange={(v) => setPremissas(p => ({ ...p, percentualComprasCreditaveis: v }))} />
               <PercentInput label="Peso do credito ao cliente" value={premissas.pesoCreditoCliente} onChange={(v) => setPremissas(p => ({ ...p, pesoCreditoCliente: v }))} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  <CardTitle>Histórico de pareceres</CardTitle>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => carregarHistorico()} disabled={!clienteId || loadingHistorico}>
+                  {loadingHistorico ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  Atualizar
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-2">
+              {loadingHistorico && (
+                <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Carregando histórico...
+                </div>
+              )}
+
+              {!loadingHistorico && historico.length === 0 && (
+                <div className="rounded-[6px] border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  Nenhum parecer salvo para este cliente.
+                </div>
+              )}
+
+              {!loadingHistorico && historico.map(item => {
+                const cfg = RECOMENDACAO_CFG[item.recomendacao] ?? RECOMENDACAO_CFG.INCONCLUSIVO!
+                return (
+                  <div key={item.id} className="rounded-[6px] border bg-background/70 p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline" className={cn('border', cfg.tone)}>{cfg.label}</Badge>
+                          <span className="text-xs text-muted-foreground">{dateTimeBR(item.createdAt)}</span>
+                          <span className="text-xs text-muted-foreground">Qualidade {item.qualidadeScore}%</span>
+                          <span className="text-xs text-muted-foreground">{money(item.faturamento12m)}</span>
+                        </div>
+                        <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap font-sans text-sm leading-6 text-muted-foreground">{item.parecer}</pre>
+                        {item.usuarioNome && <p className="mt-3 text-xs text-muted-foreground">Salvo por {item.usuarioNome}</p>}
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={() => removerHistorico(item)} title="Remover parecer">
+                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
             </CardContent>
           </Card>
 
