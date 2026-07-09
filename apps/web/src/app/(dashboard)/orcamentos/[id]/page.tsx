@@ -1168,11 +1168,13 @@ export default function OrcamentoDetailPage() {
   }
 
   // Auto-save geral (campos editaveis do form): dispara saveDetails com debounce
-  // de 800ms apos qualquer mudanca. Pula no primeiro mount e quando isLocked
-  // (nesse caso, apenas Texto Interno e salvo via auto-save dedicado abaixo).
+  // de 800ms apos qualquer mudanca. Pula no primeiro mount. Quando isLocked,
+  // só o MASTER salva por aqui (edita o orçamento congelado por inteiro — o
+  // backend loga a alteração na timeline); para não-master, apenas Texto Interno
+  // é salvo via auto-save dedicado abaixo.
   useEffect(() => {
     if (initialLoadRef.current) return
-    if (isLocked) return
+    if (isLocked && !isMasterReal) return
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       saveDetails()
@@ -1187,7 +1189,7 @@ export default function OrcamentoDetailPage() {
   const textoInternoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     if (initialLoadRef.current) return
-    if (!isLocked) return
+    if (!isLocked || isMasterReal) return
     if (textoInternoTimerRef.current) clearTimeout(textoInternoTimerRef.current)
     textoInternoTimerRef.current = setTimeout(async () => {
       setAutoSaveStatus('saving')
@@ -1204,39 +1206,7 @@ export default function OrcamentoDetailPage() {
     }, 800)
     return () => { if (textoInternoTimerRef.current) clearTimeout(textoInternoTimerRef.current) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formTextoInterno, isLocked])
-
-  // Auto-save dedicado: MASTER pode editar Forma de Pagamento / Desconto mesmo com
-  // o orçamento congelado (exceção à regra de duplicar-para-editar). Usa
-  // `editarCongelado` (master-only), que registra o evento na timeline.
-  const congeladoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => {
-    if (initialLoadRef.current) return
-    if (!isLocked || !isMasterReal) return
-    if (congeladoTimerRef.current) clearTimeout(congeladoTimerRef.current)
-    congeladoTimerRef.current = setTimeout(async () => {
-      setAutoSaveStatus('saving')
-      try {
-        await (trpc.orcamento as any).editarCongelado.mutate({
-          id,
-          formaPagamento: formPagamento || null,
-          descontoPct: formDescontoPercent ? parseFloat(formDescontoPercent) : 0,
-          descontoValor: formDesconto ? parseFloat(formDesconto) : 0,
-        })
-        setAutoSaveStatus('saved')
-        if (savedHideTimerRef.current) clearTimeout(savedHideTimerRef.current)
-        savedHideTimerRef.current = setTimeout(() => setAutoSaveStatus('idle'), 2000)
-        fetchOrc(true) // atualiza Resumo Financeiro (totais recalculados)
-      } catch (e) {
-        setAutoSaveStatus('error')
-        alerts.error('Erro', (e as Error).message)
-        if (savedHideTimerRef.current) clearTimeout(savedHideTimerRef.current)
-        savedHideTimerRef.current = setTimeout(() => setAutoSaveStatus('idle'), 4000)
-      }
-    }, 800)
-    return () => { if (congeladoTimerRef.current) clearTimeout(congeladoTimerRef.current) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formPagamento, formDesconto, formDescontoPercent, isLocked, isMasterReal])
+  }, [formTextoInterno, isLocked, isMasterReal])
 
   async function abrirEnvio() {
     // #HLP0258: avisa quando o orçamento não tem forma de pagamento definida —

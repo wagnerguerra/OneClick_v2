@@ -792,59 +792,75 @@ export class OrcamentoService {
     }
   }
 
-  async update(id: string, input: UpdateOrcamentoInput, userId?: string) {
-    await this.assertEditable(id)
+  /**
+   * Atualiza o orçamento. Regra geral: orçamentos CONGELADOS (APROVADO+) não
+   * podem ser alterados — o usuário deve duplicar. EXCEÇÃO master: o usuário
+   * master pode editar o orçamento congelado por inteiro (todos os campos), e
+   * nesse caso REGISTRAMOS um evento de auditoria na timeline com o que mudou
+   * (quem, status congelado e os campos antes → depois). O router passa
+   * `ctx.isMaster` — a mesma flag que gateia o bypass no front.
+   */
+  async update(id: string, input: UpdateOrcamentoInput, userId?: string, isMaster = false) {
+    const atual = await prisma.orcamento.findUnique({
+      where: { id },
+      select: {
+        status: true, empresaId: true,
+        formaPagamento: true, descontoPct: true, descontoValor: true,
+        validadeDias: true, observacoes: true, tipo: true, textoCorpoCliente: true,
+      },
+    })
+    if (!atual) throw new Error('Orçamento não encontrado')
+
+    const congelado = OrcamentoService.STATUS_BLOQUEIA_EDICAO.has(atual.status)
+    if (congelado && !isMaster) {
+      throw new Error(
+        `Orçamento ${ORCAMENTO_STATUS_LABELS[atual.status] || atual.status} não pode ser alterado. ` +
+        `Para editar, duplique o orçamento (a cópia voltará ao status Novo).`
+      )
+    }
+
+    // Congelado + master → monta o diff de auditoria ANTES de gravar.
+    const mudancas = congelado && isMaster ? this.diffOrcamentoCongelado(atual, input) : []
+
     const orc = await prisma.orcamento.update({ where: { id }, data: input as any })
     await this.recalcularTotais(id)
+
+    if (congelado && isMaster) {
+      const usuario = userId ? await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }).catch(() => null) : null
+      const detalhe = mudancas.length ? `: ${mudancas.join('; ')}` : ''
+      await this.addEvento(
+        id, userId, 'edicao', null, null,
+        `Edição em orçamento congelado (${STATUS_LABELS[atual.status] || atual.status}) por ${usuario?.name || 'master'}${detalhe}`,
+      )
+    }
+
     this.emitEvent('dados-gerais', { orcamentoId: id, empresaId: orc.empresaId, actorUserId: userId })
     return orc
   }
 
-  /**
-   * Edição pontual de Forma de Pagamento / Desconto num orçamento CONGELADO —
-   * exceção master-only à regra de "duplicar para editar". Só altera esses 3
-   * campos e REGISTRA um evento de auditoria na timeline com o que mudou (quem,
-   * status congelado e valores antes → depois). O router gateia por masterProcedure.
-   */
-  async editarCongelado(
-    id: string,
-    input: { formaPagamento?: string | null; descontoPct?: number | null; descontoValor?: number | null },
-    userId?: string,
-  ): Promise<{ ok: true }> {
-    const atual = await prisma.orcamento.findUnique({
-      where: { id },
-      select: { status: true, empresaId: true, formaPagamento: true, descontoPct: true, descontoValor: true },
-    })
-    if (!atual) throw new Error('Orçamento não encontrado')
-
-    const numOld = (v: unknown): number => v == null ? 0 : (typeof v === 'object' && 'toNumber' in (v as any) ? (v as any).toNumber() : Number(v))
-    const data: Record<string, unknown> = {}
-    const mudancas: string[] = []
-
-    if (input.formaPagamento !== undefined && (atual.formaPagamento || null) !== (input.formaPagamento || null)) {
-      data.formaPagamento = input.formaPagamento || null
-      mudancas.push(`Forma de pagamento: "${atual.formaPagamento || '—'}" → "${input.formaPagamento || '—'}"`)
-    }
-    if (input.descontoPct !== undefined && numOld(atual.descontoPct) !== (input.descontoPct ?? 0)) {
-      data.descontoPct = input.descontoPct ?? 0
-      mudancas.push(`Desconto %: ${numOld(atual.descontoPct)} → ${input.descontoPct ?? 0}`)
-    }
-    if (input.descontoValor !== undefined && numOld(atual.descontoValor) !== (input.descontoValor ?? 0)) {
-      data.descontoValor = input.descontoValor ?? 0
-      mudancas.push(`Desconto R$: ${numOld(atual.descontoValor)} → ${input.descontoValor ?? 0}`)
-    }
-
-    if (Object.keys(data).length === 0) return { ok: true } // nada mudou → não loga
-
-    await prisma.orcamento.update({ where: { id }, data: data as any })
-    await this.recalcularTotais(id)
-    const usuario = userId ? await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }).catch(() => null) : null
-    await this.addEvento(
-      id, userId, 'edicao', null, null,
-      `Edição em orçamento congelado (${STATUS_LABELS[atual.status] || atual.status}) por ${usuario?.name || 'master'}: ${mudancas.join('; ')}`,
-    )
-    this.emitEvent('dados-gerais', { orcamentoId: id, empresaId: atual.empresaId, actorUserId: userId })
-    return { ok: true }
+  /** Diff legível dos campos mais relevantes de um orçamento congelado editado pelo master. */
+  private diffOrcamentoCongelado(
+    atual: { formaPagamento: string | null; descontoPct: unknown; descontoValor: unknown; validadeDias: number | null; observacoes: string | null; tipo: string | null; textoCorpoCliente: string | null },
+    input: UpdateOrcamentoInput,
+  ): string[] {
+    const num = (v: unknown): number => v == null ? 0 : (typeof v === 'object' && 'toNumber' in (v as any) ? (v as any).toNumber() : Number(v))
+    const inp = input as Record<string, unknown>
+    const mud: string[] = []
+    if (inp.formaPagamento !== undefined && (atual.formaPagamento || null) !== ((inp.formaPagamento as string) || null))
+      mud.push(`Forma de pagamento: "${atual.formaPagamento || '—'}" → "${(inp.formaPagamento as string) || '—'}"`)
+    if (inp.descontoPct !== undefined && num(atual.descontoPct) !== num(inp.descontoPct))
+      mud.push(`Desconto %: ${num(atual.descontoPct)} → ${num(inp.descontoPct)}`)
+    if (inp.descontoValor !== undefined && num(atual.descontoValor) !== num(inp.descontoValor))
+      mud.push(`Desconto R$: ${num(atual.descontoValor)} → ${num(inp.descontoValor)}`)
+    if (inp.tipo !== undefined && (atual.tipo || null) !== ((inp.tipo as string) || null))
+      mud.push(`Tipo: "${atual.tipo || '—'}" → "${(inp.tipo as string) || '—'}"`)
+    if (inp.validadeDias !== undefined && num(atual.validadeDias) !== num(inp.validadeDias))
+      mud.push(`Validade (dias): ${num(atual.validadeDias)} → ${num(inp.validadeDias)}`)
+    if (inp.observacoes !== undefined && (atual.observacoes || null) !== ((inp.observacoes as string) || null))
+      mud.push('Observações alteradas')
+    if (inp.textoCorpoCliente !== undefined && (atual.textoCorpoCliente || null) !== ((inp.textoCorpoCliente as string) || null))
+      mud.push('Texto da proposta alterado')
+    return mud
   }
 
   /**
