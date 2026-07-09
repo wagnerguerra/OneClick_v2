@@ -59,7 +59,7 @@ export const MODULE_SLUGS = [
   'banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento',
   // Fiscal
   'caixapostal', 'certidoes-cnd', 'dctfweb', 'dte',
-  'obrigacoes-servicos', 'situacao-fiscal', 'ferramentas-fiscal',
+  'obrigacoes-servicos', 'situacao-fiscal', 'reforma-tributaria', 'ferramentas-fiscal',
 
   // Contábil
   'bi-categorias-balancete', 'bi-faturamento', 'ferramentas-contabil', 'tratamento-lancamentos',
@@ -115,7 +115,7 @@ export const MODULE_LABELS: Record<string, string> = {
   'beneficios-fiscais': 'Benefícios Fiscais', 'caixapostal': 'Caixa Postal e-CAC',
   'certidoes-cnd': "CND's Federais", danfe: 'DANFE (NFe → PDF)', dctfweb: 'DCTFWeb', dte: 'DT-e ES',
   'obrigacoes-servicos': 'Obrigações e Serviços', 'situacao-fiscal': 'Situação Fiscal',
-  'ferramentas-fiscal': 'Ferramentas',
+  'reforma-tributaria': 'Reforma Tributária', 'ferramentas-fiscal': 'Ferramentas',
   // Contábil
   'bi-categorias-balancete': 'Categorias de Balancete', 'bi-faturamento': 'Dashboard Financeiro',
   'ferramentas-contabil': 'Ferramentas',
@@ -141,7 +141,7 @@ export const MODULE_GROUPS = {
   'Administrativo': ['agenda', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma'],
   'Legalização': ['beneficios-fiscais', 'certificados', 'gestao-certificados', 'processos', 'quadro-societario'],
   'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento'],
-  'Fiscal': ['caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal', 'ferramentas-fiscal'],
+  'Fiscal': ['caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal', 'reforma-tributaria', 'ferramentas-fiscal'],
   'Contábil': ['bi-categorias-balancete', 'bi-faturamento', 'ferramentas-contabil', 'tratamento-lancamentos'],
   'TI': ['ativos', 'helpdesk', 'projetos'],
   'Qualidade': ['qualidade', 'aquisicoes', 'analise-contexto', 'capacitacoes', 'documentos-internos', 'documentos-externos', 'tabelas-registros', 'elogios', 'melhorias', 'nao-conformidades', 'reclamacoes', 'reunioes', 'sugestoes'],
