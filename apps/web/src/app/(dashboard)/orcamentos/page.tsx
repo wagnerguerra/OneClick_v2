@@ -21,6 +21,7 @@ import { ClienteCombobox } from './_components/cliente-combobox'
 import { UserCombobox } from './_components/user-combobox'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { FormasPagamentoModal } from '@/components/orcamento/formas-pagamento-modal'
 import { DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, type DragEndEvent, type DragStartEvent, type DragOverEvent, type DragMoveEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -453,6 +454,7 @@ export default function OrcamentosPage() {
 
   // Create modal — espelha o legado crp_orcamentos/modal-create-orc.asp
   const [createOpen, setCreateOpen] = useState(false)
+  const [formasModal, setFormasModal] = useState(false)
   const [clientes, setClientes] = useState<{ id: string; razaoSocial: string; documento?: string | null }[]>([])
   const [usuarios, setUsuarios] = useState<{ id: string; name: string }[]>([])
   const [creating, setCreating] = useState(false)
@@ -733,6 +735,9 @@ export default function OrcamentosPage() {
                 <DropdownMenuItem onClick={() => router.push('/orcamentos/configuracoes')}>
                   <Settings2 className="h-4 w-4 mr-2" /> Configurações
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFormasModal(true)}>
+                  <CircleDollarSign className="h-4 w-4 mr-2" /> Gerenciar formas de pagamento
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -902,6 +907,9 @@ export default function OrcamentosPage() {
           )}
         </Card>
       )}
+
+      {/* Gerência de formas de pagamento (menu do header) */}
+      <FormasPagamentoModal open={formasModal} onOpenChange={setFormasModal} />
 
       {/* Create Modal — espelha o legado crp_orcamentos/modal-create-orc.asp */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
