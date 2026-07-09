@@ -21,6 +21,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Checkbox,
   Input,
   Label,
   cn,
@@ -137,6 +138,7 @@ export default function ReformaTributariaPage() {
   const [dashboard, setDashboard] = useState<{ totalClientes: number; simples: number } | null>(null)
   const [clienteId, setClienteId] = useState<string | null>(null)
   const [simulacao, setSimulacao] = useState<Simulacao | null>(null)
+  const [apenasSimples, setApenasSimples] = useState(false)
   const [premissas, setPremissas] = useState(DEFAULT_PREMISSAS)
 
   const clienteSelecionado = useMemo(
@@ -149,17 +151,21 @@ export default function ReformaTributariaPage() {
     try {
       const [dash, list] = await Promise.all([
         api().dashboard.query(),
-        api().clientes.query({ busca: busca.trim() || undefined, limit: 60 }),
+        api().clientes.query({ busca: busca.trim() || undefined, apenasSimples, limit: 60 }),
       ])
       setDashboard(dash)
       setClientes(list)
-      setClienteId(prev => prev ?? list[0]?.id ?? null)
+      const nextId = clienteId && list.some((cliente: ClienteResumo) => cliente.id === clienteId)
+        ? clienteId
+        : list[0]?.id ?? null
+      setClienteId(nextId)
+      if (!nextId) setSimulacao(null)
     } catch (e) {
       alerts.error('Erro ao carregar Reforma Tributaria', (e as Error).message)
     } finally {
       setLoadingLista(false)
     }
-  }, [busca])
+  }, [apenasSimples, busca, clienteId])
 
   const simular = useCallback(async (id = clienteId) => {
     if (!id) return
@@ -227,6 +233,17 @@ export default function ReformaTributariaPage() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por razao social ou CNPJ" className="pl-9" />
             </div>
+            <label
+              htmlFor="filtro-simples"
+              className="flex cursor-pointer items-center gap-2 rounded-[6px] border bg-background/70 px-3 py-2 text-sm"
+            >
+              <Checkbox
+                id="filtro-simples"
+                checked={apenasSimples}
+                onCheckedChange={(checked) => setApenasSimples(checked === true)}
+              />
+              <span>Listar apenas clientes do Simples Nacional</span>
+            </label>
           </CardHeader>
           <CardContent className="max-h-[640px] space-y-2 overflow-auto pt-2">
             {clientes.map((cliente) => (
