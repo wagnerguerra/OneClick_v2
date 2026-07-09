@@ -33,15 +33,16 @@ export function parsePfx(pfxBuffer: Buffer, password: string): PfxInfo {
     throw new Error('Falha ao abrir o certificado: ' + (e as Error).message)
   }
 
-  const certBags = p12.getBags({ bagType: forge.pki.oids.certBag })
-  const certs = certBags[forge.pki.oids.certBag] ?? []
+  const CERT_BAG_OID = forge.pki.oids.certBag as string
+  const certBags = p12.getBags({ bagType: CERT_BAG_OID })
+  const certs = certBags[CERT_BAG_OID] ?? []
   if (certs.length === 0 || !certs[0]?.cert) {
     throw new Error('Certificado não encontrado dentro do PFX.')
   }
   const cert = certs[0]!.cert!
 
   // Subject CN — formato comum: "FULANO DE TAL:12345678900" (cpf concatenado)
-  const cnAttr = cert.subject.attributes.find(a => a.shortName === 'CN' || a.name === 'commonName')
+  const cnAttr = cert.subject.attributes.find((a: forge.pki.CertificateField) => a.shortName === 'CN' || a.name === 'commonName')
   const cnRaw = (cnAttr?.value as string) ?? ''
   const cnParts = cnRaw.split(':')
   const titular = cnParts[0]?.trim() || cnRaw.trim() || 'Sem nome'
@@ -64,7 +65,7 @@ export function parsePfx(pfxBuffer: Buffer, password: string): PfxInfo {
   documento = documento.replace(/\D/g, '')
 
   // Emissor (Issuer CN)
-  const issuerCn = cert.issuer.attributes.find(a => a.shortName === 'CN')
+  const issuerCn = cert.issuer.attributes.find((a: forge.pki.CertificateField) => a.shortName === 'CN')
   const emissor = (issuerCn?.value as string) ?? 'Desconhecido'
 
   return {
@@ -100,24 +101,28 @@ export function extractKeyCertPem(pfxBuffer: Buffer, password: string): PfxKeyCe
     throw new Error('Falha ao abrir o certificado: ' + (e as Error).message)
   }
 
-  const shrouded = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag })[forge.pki.oids.pkcs8ShroudedKeyBag] ?? []
-  const plain = p12.getBags({ bagType: forge.pki.oids.keyBag })[forge.pki.oids.keyBag] ?? []
+  const SHROUDED_OID = forge.pki.oids.pkcs8ShroudedKeyBag as string
+  const KEY_OID = forge.pki.oids.keyBag as string
+  const CERT_OID = forge.pki.oids.certBag as string
+
+  const shrouded = p12.getBags({ bagType: SHROUDED_OID })[SHROUDED_OID] ?? []
+  const plain = p12.getBags({ bagType: KEY_OID })[KEY_OID] ?? []
   const key = shrouded[0]?.key ?? plain[0]?.key
   if (!key) throw new Error('Chave privada não encontrada no PFX.')
 
-  const certs = (p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag] ?? [])
-    .map(b => b.cert)
+  const certs = (p12.getBags({ bagType: CERT_OID })[CERT_OID] ?? [])
+    .map((b): forge.pki.Certificate | undefined => b.cert)
     .filter((c): c is forge.pki.Certificate => !!c)
   if (certs.length === 0) throw new Error('Certificado não encontrado no PFX.')
 
   // Folha = certificado cujo módulo público bate com o da chave privada (RSA);
   // os demais formam a cadeia. Fallback: o primeiro cert do bag.
   const keyN = (key as unknown as { n?: { equals(o: unknown): boolean } }).n
-  const leaf = certs.find(c => {
-    try { return !!keyN && !!(c.publicKey as unknown as { n?: unknown }).n && keyN.equals((c.publicKey as unknown as { n: unknown }).n) }
+  const leaf = certs.find((c: forge.pki.Certificate) => {
+    try { return !!keyN && keyN.equals((c.publicKey as unknown as { n: unknown }).n) }
     catch { return false }
   }) ?? certs[0]!
-  const ca = certs.filter(c => c !== leaf)
+  const ca = certs.filter((c: forge.pki.Certificate) => c !== leaf)
 
   return {
     keyPem: forge.pki.privateKeyToPem(key),
