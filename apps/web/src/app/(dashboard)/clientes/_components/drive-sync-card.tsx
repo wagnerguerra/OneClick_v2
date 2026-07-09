@@ -658,15 +658,10 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
 
   const resumoView = periodo === 'tudo' ? resumoFiscal : resumoPeriodo
 
-  // Filtra as sincronizações por período (iniciadoEm) e status.
-  const { inicio: pIni, fim: pFim } = rangeDoPeriodo(periodo)
-  const logsFiltrados = logs.filter((l) => {
-    if (statusFiltro !== 'todos' && l.status !== statusFiltro) return false
-    const t = new Date(l.iniciadoEm).getTime()
-    if (pIni && t < new Date(pIni).getTime()) return false
-    if (pFim && t > new Date(pFim).getTime()) return false
-    return true
-  })
+  // A lista de "Últimas sincronizações" filtra só por STATUS. O período NÃO se
+  // aplica aqui: ele atua nos indicadores de NOTA (por dataEmissao) — filtrar a
+  // lista por quando a sync rodou esconderia syncs recentes ao ver notas antigas.
+  const logsLista = statusFiltro === 'todos' ? logs : logs.filter((l) => l.status === statusFiltro)
 
   const toggleExpand = (id: string) => setExpandido((prev) => {
     const n = new Set(prev)
@@ -674,14 +669,14 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
     return n
   })
 
-  // Agregação geral (dos logs filtrados)
-  const totalArquivosOk = logsFiltrados.reduce((s, l) => s + (l.arquivosOk ?? 0), 0)
-  const totalArquivosErro = logsFiltrados.reduce((s, l) => s + (l.arquivosErro ?? 0), 0)
-  const totalArquivosIgnorados = logsFiltrados.reduce((s, l) => s + (l.arquivosIgnorados ?? 0), 0)
+  // Agregação geral (todos os logs recentes carregados)
+  const totalArquivosOk = logs.reduce((s, l) => s + (l.arquivosOk ?? 0), 0)
+  const totalArquivosErro = logs.reduce((s, l) => s + (l.arquivosErro ?? 0), 0)
+  const totalArquivosIgnorados = logs.reduce((s, l) => s + (l.arquivosIgnorados ?? 0), 0)
 
   // Agrupa por fonte (drive / local)
-  const driveLogs = logsFiltrados.filter(l => !l.tipo.startsWith('local'))
-  const localLogs = logsFiltrados.filter(l => l.tipo.startsWith('local'))
+  const driveLogs = logs.filter(l => !l.tipo.startsWith('local'))
+  const localLogs = logs.filter(l => l.tipo.startsWith('local'))
 
   function statusLabel(status: string | null | undefined): { label: string; cls: string } {
     if (status === 'ok') return { label: 'Sincronizado', cls: 'text-emerald-600' }
@@ -749,7 +744,7 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
           <option value="running">Em andamento</option>
         </select>
         {periodo !== 'tudo' && (
-          <Badge className="bg-sky-100 text-sky-800 border-0 text-[9px] py-0 px-1.5">Indicadores no período</Badge>
+          <Badge className="bg-sky-100 text-sky-800 border-0 text-[9px] py-0 px-1.5">Notas filtradas por período · lista de syncs por status</Badge>
         )}
       </div>
 
@@ -857,11 +852,11 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
           <div className="flex items-center justify-center py-6 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
           </div>
-        ) : logsFiltrados.length === 0 ? (
+        ) : logsLista.length === 0 ? (
           <div className="rounded-md border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
             {logs.length === 0
               ? 'Nenhuma sincronização ainda. Configure uma fonte (Drive ou Pasta local) nas próximas abas.'
-              : 'Nenhuma sincronização no período/status selecionado.'}
+              : 'Nenhuma sincronização com o status selecionado.'}
           </div>
         ) : (
           <div className="overflow-hidden rounded-md border border-border">
@@ -880,7 +875,7 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
                 </tr>
               </thead>
               <tbody>
-                {logsFiltrados.map((log) => {
+                {logsLista.map((log) => {
                   const aberto = expandido.has(log.id)
                   const itens = (log.itens as SyncLogItemUI[] | null) ?? []
                   const dur = log.finalizadoEm
