@@ -105,10 +105,10 @@ export class NfeDistService {
       await this.atualizarProgresso(cliente.id, { etapa: 'conectar', mensagem: 'Conectando à SEFAZ (mTLS)...', atual: 0, total: 0, pct: 12 })
       const agent = new https.Agent({
         // key/cert em PEM (node-forge) em vez de pfx — evita "Unsupported PKCS12
-        // PFX data" do OpenSSL 3 com certificados A1 de algoritmo legado.
+        // PFX data" do OpenSSL 3 com A1 legado. cert = folha + cadeia do cliente;
+        // NÃO passar `ca` (usa o trust store padrão pra verificar o servidor).
         key: cert.keyPem,
-        cert: cert.certPem,
-        ca: cert.caPem,
+        cert: cert.certChainPem,
         keepAlive: false,
         // SEFAZ AN exige TLS 1.2 ou superior
         minVersion: 'TLSv1.2',

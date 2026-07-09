@@ -11,12 +11,16 @@ export interface CertLoaded {
   certificadoId: string
   pfxBuffer: Buffer
   passphrase: string
-  /** Chave privada + certificado + cadeia em PEM (extraídos via node-forge). Use
-   *  { key, cert, ca } no https.Agent — o pfx direto falha no OpenSSL 3 do Node
-   *  com certificados de algoritmo legado ("Unsupported PKCS12 PFX data"). */
+  /** Chave privada + certificado (folha) + cadeia em PEM (via node-forge — o pfx
+   *  direto falha no OpenSSL 3 do Node com algoritmo legado). No https.Agent do
+   *  mTLS use { key: keyPem, cert: certChainPem } e NÃO passe `ca` (a cadeia do
+   *  CLIENTE vai no `cert`; o `ca` serviria pra verificar o SERVIDOR e sobrescrever
+   *  o trust store padrão quebraria a validação com "unable to get local issuer"). */
   keyPem: string
   certPem: string
   caPem: string[]
+  /** Folha + cadeia concatenadas — é o que se apresenta ao servidor no `cert`. */
+  certChainPem: string
   cnpj: string
   razaoSocial: string
   expiraEm: Date
@@ -126,6 +130,7 @@ export async function carregarCertificadoCliente(
     keyPem,
     certPem,
     caPem,
+    certChainPem: [certPem, ...caPem].join('\n'),
     cnpj: cnpjCliente,
     razaoSocial: cliente.razaoSocial,
     expiraEm: cert.expiraEm,
