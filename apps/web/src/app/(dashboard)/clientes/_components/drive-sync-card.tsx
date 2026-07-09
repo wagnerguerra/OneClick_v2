@@ -19,6 +19,14 @@ interface DriveSyncCardProps {
 
 type FonteTab = 'resumo' | 'drive' | 'local' | 'nfe-sefaz' | 'nfse-nacional'
 
+/** Resumo fiscal do cliente. NFS-e separadas por direção (prestadas × tomadas). */
+interface ResumoFiscal {
+  totalNfe: number
+  totalNfse: number
+  nfsePrestadas: number
+  nfseTomadas: number
+}
+
 interface SyncLog {
   id: string
   tipo: string
@@ -65,7 +73,7 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
   const [info, setInfo] = useState<{ email: string | null; mode: 'oauth' | 'service-account' | null; configurado: boolean; erro?: string } | null>(null)
   const [cliente, setCliente] = useState<ClienteDrive | null>(null)
   const [logs, setLogs] = useState<SyncLog[]>([])
-  const [resumoFiscal, setResumoFiscal] = useState<{ totalNfe: number; totalNfse: number } | null>(null)
+  const [resumoFiscal, setResumoFiscal] = useState<ResumoFiscal | null>(null)
   const [loadingLogs, setLoadingLogs] = useState(false)
   const [folderInput, setFolderInput] = useState('')
   const [vinculando, setVinculando] = useState(false)
@@ -100,12 +108,12 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
         trpc.cliente.getById.query({ id: clienteId }),
         (trpc as any).drive.listarLogs.query({ clienteId, limit: 20 }),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (trpc as any).drive.getResumoFiscal.query({ clienteId }).catch(() => ({ totalNfe: 0, totalNfse: 0 })),
+        (trpc as any).drive.getResumoFiscal.query({ clienteId }).catch(() => ({ totalNfe: 0, totalNfse: 0, nfsePrestadas: 0, nfseTomadas: 0 })),
       ])
       setInfo(infoR)
       setCliente(clienteR as ClienteDrive)
       setLogs(logsR as SyncLog[])
-      setResumoFiscal(resumoR as { totalNfe: number; totalNfse: number })
+      setResumoFiscal(resumoR as ResumoFiscal)
     } finally {
       setLoadingLogs(false)
     }
@@ -599,7 +607,7 @@ function ResumoSection({ logs, loading, cliente, resumoFiscal }: {
   logs: SyncLog[]
   loading: boolean
   cliente: ClienteDrive | null
-  resumoFiscal: { totalNfe: number; totalNfse: number } | null
+  resumoFiscal: ResumoFiscal | null
 }) {
   // Agregação geral
   const totalArquivosOk = logs.reduce((s, l) => s + (l.arquivosOk ?? 0), 0)
@@ -709,7 +717,7 @@ function ResumoSection({ logs, loading, cliente, resumoFiscal }: {
         <div className="rounded-md border bg-muted/40 p-3">
           <div className="flex items-center justify-between mb-2">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Briefcase className="h-3 w-3" /> NFS-e Nacional (serviços tomados)
+              <Briefcase className="h-3 w-3" /> NFS-e Nacional (serviços)
             </div>
             <Badge className={cn(
               'text-[9px] py-0 px-1.5 border-0',
@@ -719,9 +727,16 @@ function ResumoSection({ logs, loading, cliente, resumoFiscal }: {
               !cliente?.nfseDistSyncStatus && 'bg-slate-100 text-slate-800',
             )}>{cliente?.nfseDistEnabled ? nfseStatus.label : 'Desabilitado'}</Badge>
           </div>
-          <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-2xl font-bold tabular-nums text-emerald-600">{resumoFiscal?.totalNfse ?? 0}</span>
-            <span className="text-[11px] text-muted-foreground">nota(s) baixada(s)</span>
+          {/* Separado por direção: Tomadas (o CNPJ é tomador) × Prestadas (é prestador) */}
+          <div className="flex items-stretch gap-2 mb-2">
+            <div className="flex-1 rounded border border-emerald-200/60 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/20 px-2.5 py-1.5">
+              <div className="text-[10px] uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">Tomadas</div>
+              <div className="text-xl font-bold tabular-nums text-emerald-600 leading-tight">{resumoFiscal?.nfseTomadas ?? 0}</div>
+            </div>
+            <div className="flex-1 rounded border border-sky-200/60 dark:border-sky-900/40 bg-sky-50/40 dark:bg-sky-950/20 px-2.5 py-1.5">
+              <div className="text-[10px] uppercase tracking-wider text-sky-700/80 dark:text-sky-300/80">Prestadas</div>
+              <div className="text-xl font-bold tabular-nums text-sky-600 leading-tight">{resumoFiscal?.nfsePrestadas ?? 0}</div>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-2 text-[11px] border-t border-border pt-2">
             <div>

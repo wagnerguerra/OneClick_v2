@@ -14,10 +14,20 @@ import { prisma } from '@saas/db'
  * `prestador_cnpj`/`tomador_cnpj_cpf` (via `digits()` no parser, ambos indexados).
  * `__null__` = notas sem cliente (mantém o comportamento das telas de galeria).
  */
-export async function nfseWhereDoCliente(clienteId: string): Promise<Record<string, unknown>> {
-  if (clienteId === '__null__') return { clienteId: null }
+export async function resolverCnpjDoCliente(clienteId: string): Promise<string> {
+  if (clienteId === '__null__') return ''
   const cli = await prisma.cliente.findUnique({ where: { id: clienteId }, select: { documento: true } })
-  const cnpj = (cli?.documento ?? '').replace(/\D/g, '')
+  return (cli?.documento ?? '').replace(/\D/g, '')
+}
+
+/** Monta o where a partir do CNPJ já resolvido (evita novo lookup no banco). */
+export function nfseWhereFromCnpj(clienteId: string, cnpj: string): Record<string, unknown> {
+  if (clienteId === '__null__') return { clienteId: null }
   if (!cnpj) return { clienteId }
   return { OR: [{ clienteId }, { prestadorCnpj: cnpj }, { tomadorCnpjCpf: cnpj }] }
+}
+
+export async function nfseWhereDoCliente(clienteId: string): Promise<Record<string, unknown>> {
+  const cnpj = await resolverCnpjDoCliente(clienteId)
+  return nfseWhereFromCnpj(clienteId, cnpj)
 }

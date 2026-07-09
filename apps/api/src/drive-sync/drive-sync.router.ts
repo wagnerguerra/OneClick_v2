@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { prisma } from '@saas/db'
 import { router, readProcedure, writeProcedure } from '../trpc/trpc.service'
 import { DriveSyncService } from './drive-sync.service'
-import { nfseWhereDoCliente } from '../nfse/nfse-cliente.filter'
+import { nfseWhereDoCliente, resolverCnpjDoCliente, nfseWhereFromCnpj } from '../nfse/nfse-cliente.filter'
 
 const MODULE = 'cliente'  // reaproveita permissão de cliente: quem edita cliente pode vincular pasta
 
@@ -78,13 +78,17 @@ export function createDriveSyncRouter(svc: DriveSyncService) {
       .input(z.object({ clienteId: z.string() }))
       .query(async ({ input }) => {
         // NFS-e da pasta do cliente resolve por CNPJ (prestador OU tomador); NFe
-        // segue pelo vínculo físico (clienteId). Ver nfseWhereDoCliente.
-        const nfseWhere = await nfseWhereDoCliente(input.clienteId)
-        const [totalNfe, totalNfse] = await Promise.all([
+        // segue pelo vínculo físico (clienteId). Separa Prestadas (o CNPJ é o
+        // prestador) × Tomadas (o CNPJ é o tomador). Ver nfse-cliente.filter.
+        const cnpj = await resolverCnpjDoCliente(input.clienteId)
+        const nfseWhere = nfseWhereFromCnpj(input.clienteId, cnpj)
+        const [totalNfe, totalNfse, nfsePrestadas, nfseTomadas] = await Promise.all([
           prisma.danfe.count({ where: { clienteId: input.clienteId } }),
           prisma.notaServicoImportada.count({ where: nfseWhere }),
+          cnpj ? prisma.notaServicoImportada.count({ where: { prestadorCnpj: cnpj } }) : Promise.resolve(0),
+          cnpj ? prisma.notaServicoImportada.count({ where: { tomadorCnpjCpf: cnpj } }) : Promise.resolve(0),
         ])
-        return { totalNfe, totalNfse }
+        return { totalNfe, totalNfse, nfsePrestadas, nfseTomadas }
       }),
 
     /**
