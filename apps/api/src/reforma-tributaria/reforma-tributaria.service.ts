@@ -63,6 +63,16 @@ interface Confiabilidade {
   pendencias: string[]
 }
 
+interface SensibilidadeItem {
+  cenario: 'CONSERVADOR' | 'BASE' | 'FAVORAVEL_REGULAR'
+  label: string
+  cargaSimples: number
+  cargaRegular: number
+  diferenca: number
+  creditoCliente: number
+  recomendacao: Recomendacao
+}
+
 interface SimulacaoCompleta {
   cliente: ClienteBase
   cnaes: Array<{ codigo: string; descricao: string | null; principal: boolean }>
@@ -71,6 +81,8 @@ interface SimulacaoCompleta {
   metrics: Metrics
   qualidade: { score: number; faltantes: string[] }
   confiabilidade: Confiabilidade
+  sensibilidade: SensibilidadeItem[]
+  planoAcao: string[]
   observacoes: string[]
   premissas: ReformaPremissasInput
   cenarios: {
@@ -400,11 +412,15 @@ export class ReformaTributariaService {
       premissaNome: p.premissaNome,
       reducaoSetorial,
     })
+    const sensibilidade = this.calcularSensibilidade(receita, baseCompras, p, reducaoSetorial)
+    const planoAcao = this.planoAcaoTecnico(diagnostico, confiabilidade, recomendacao, sensibilidade)
 
     return {
       ...diagnostico,
       premissas: p,
       confiabilidade,
+      sensibilidade,
+      planoAcao,
       cenarios: {
         simplesDentro,
         regular,
@@ -478,6 +494,8 @@ export class ReformaTributariaService {
         metrics: simulacao.metrics,
         qualidade: simulacao.qualidade,
         confiabilidade: simulacao.confiabilidade,
+        sensibilidade: simulacao.sensibilidade,
+        planoAcao: simulacao.planoAcao,
         observacoes: simulacao.observacoes,
       }),
       JSON.stringify(simulacao.cenarios),
