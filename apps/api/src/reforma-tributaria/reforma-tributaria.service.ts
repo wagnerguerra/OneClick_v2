@@ -673,8 +673,79 @@ export class ReformaTributariaService {
     if (simulacao.confiabilidade.pendencias.length > 0) {
       linhas.push(`Pendencias tecnicas: ${simulacao.confiabilidade.pendencias.join('; ')}`)
     }
+    if (simulacao.sensibilidade.length > 0) {
+      linhas.push('Sensibilidade:')
+      for (const item of simulacao.sensibilidade) {
+        linhas.push(`- ${item.label}: diferenca ajustada R$ ${item.diferenca.toFixed(2)}; recomendacao ${item.recomendacao}`)
+      }
+    }
+    if (simulacao.planoAcao.length > 0) {
+      linhas.push(`Plano de acao: ${simulacao.planoAcao.join('; ')}`)
+    }
     linhas.push('Observacao: parecer gerado por premissas parametrizadas no sistema; validar aliquotas, regras setoriais e dados contabeis antes da recomendacao final ao cliente.')
     return linhas.join('\n')
+  }
+
+  private calcularSensibilidade(
+    receita: number,
+    baseCompras: number,
+    premissas: ReformaPremissasInput,
+    reducaoSetorial: number,
+  ): SensibilidadeItem[] {
+    const variacoes = [
+      { cenario: 'CONSERVADOR' as const, label: 'Conservador', b2b: 0.85, compras: 0.85, aliquota: 1.05 },
+      { cenario: 'BASE' as const, label: 'Base', b2b: 1, compras: 1, aliquota: 1 },
+      { cenario: 'FAVORAVEL_REGULAR' as const, label: 'Favoravel ao regular', b2b: 1.15, compras: 1.15, aliquota: 0.95 },
+    ]
+
+    return variacoes.map(v => {
+      const percentualB2B = Math.min(1, (premissas.percentualVendasB2B ?? 0) * v.b2b)
+      const percentualCompras = Math.min(1, (premissas.percentualComprasCreditaveis ?? 0) * v.compras)
+      const totalAliquota = (premissas.aliquotaCbs + premissas.aliquotaIbs) * (1 - reducaoSetorial) * v.aliquota
+      const vendasB2B = receita * percentualB2B
+      const comprasCreditaveis = Math.max(baseCompras * v.compras, receita * percentualCompras)
+      const cargaSimples = receita * premissas.aliquotaSimplesIbsCbs
+      const cargaRegular = Math.max(0, (receita * totalAliquota) - (comprasCreditaveis * totalAliquota))
+      const creditoCliente = vendasB2B * totalAliquota
+      const creditoSimples = vendasB2B * premissas.aliquotaSimplesIbsCbs
+      const diferenca = (cargaRegular - (Math.max(0, creditoCliente - creditoSimples) * premissas.pesoCreditoCliente)) - cargaSimples
+      return {
+        cenario: v.cenario,
+        label: v.label,
+        cargaSimples,
+        cargaRegular,
+        diferenca,
+        creditoCliente,
+        recomendacao: this.recomendar(true, 100, diferenca, receita),
+      }
+    })
+  }
+
+  private planoAcaoTecnico(
+    diagnostico: Awaited<ReturnType<ReformaTributariaService['diagnostico']>>,
+    confiabilidade: Confiabilidade,
+    recomendacao: Recomendacao,
+    sensibilidade: SensibilidadeItem[],
+  ) {
+    const passos = new Set<string>()
+    for (const item of diagnostico.qualidade.faltantes) passos.add(`Saneamento: ${item}`)
+    for (const item of confiabilidade.pendencias) passos.add(`Validar: ${item}`)
+
+    const recomendacoes = new Set(sensibilidade.map(s => s.recomendacao))
+    if (recomendacoes.size > 1) {
+      passos.add('Rodar entrevista com o cliente para confirmar percentual B2B e capacidade de aproveitamento de creditos')
+    }
+    if (recomendacao === 'REGULAR_TENDE_MELHOR' || recomendacao === 'AVALIAR_REGULAR') {
+      passos.add('Validar impacto comercial dos creditos transferidos para clientes B2B antes de recomendar mudanca de apuracao')
+    }
+    if (diagnostico.metrics.comprasMercadorias12m + diagnostico.metrics.servicosTomados12m === 0) {
+      passos.add('Consultar ERP contabil para separar compras creditaveis, despesas nao creditaveis e servicos tomados')
+    }
+    if (diagnostico.cliente.cnaePrincipal) {
+      passos.add(`Confirmar se o CNAE ${diagnostico.cliente.cnaePrincipal} possui regra setorial especifica ou reducao legal aplicavel`)
+    }
+    passos.add('Revisar premissas fiscais com responsavel tecnico antes de enviar parecer ao cliente')
+    return Array.from(passos)
   }
 
   private defaultPremissa(): PremissaFiscal {

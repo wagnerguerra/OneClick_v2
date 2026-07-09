@@ -403,6 +403,10 @@ export default function ReformaTributariaPage() {
   </div>
   <h2>Parecer técnico</h2>
   <pre>${parecer.replace(/[&<>]/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c))}</pre>
+  <h2>Sensibilidade</h2>
+  <pre>${(simulacao.sensibilidade ?? []).map((s: any) => `${s.label}: ${money(s.cargaRegular)} no regular; diferença ${money(s.diferenca)}; ${s.recomendacao}`).join('\n')}</pre>
+  <h2>Plano de ação</h2>
+  <pre>${(simulacao.planoAcao ?? []).map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}</pre>
 </body>
 </html>`
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
@@ -606,6 +610,43 @@ export default function ReformaTributariaPage() {
                       {simulacao.confiabilidade.pendencias?.length > 0 && (
                         <p className="mt-2 text-muted-foreground">Pendências: {simulacao.confiabilidade.pendencias.join('; ')}.</p>
                       )}
+                    </div>
+                  )}
+
+                  {simulacao.sensibilidade?.length > 0 && (
+                    <div className="rounded-[6px] border bg-background/70 p-4">
+                      <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                        <TrendingUp className="h-4 w-4" />
+                        Análise de sensibilidade
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        {simulacao.sensibilidade.map((item: any) => {
+                          const cfg = RECOMENDACAO_CFG[item.recomendacao] ?? RECOMENDACAO_CFG.INCONCLUSIVO!
+                          return (
+                            <div key={item.cenario} className="rounded-[6px] border p-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-medium">{item.label}</p>
+                                <Badge variant="outline" className={cn('border', cfg.tone)}>{cfg.label}</Badge>
+                              </div>
+                              <p className="mt-2 text-xs text-muted-foreground">Regular: {money(item.cargaRegular)}</p>
+                              <p className="mt-1 text-xs text-muted-foreground">Simples: {money(item.cargaSimples)}</p>
+                              <p className="mt-1 text-xs text-muted-foreground">Diferença ajustada: {money(item.diferenca)}</p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {simulacao.planoAcao?.length > 0 && (
+                    <div className="rounded-[6px] border bg-background/70 p-4">
+                      <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Plano de ação técnico
+                      </div>
+                      <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+                        {simulacao.planoAcao.map((item: string) => <li key={item}>{item}</li>)}
+                      </ol>
                     </div>
                   )}
 
