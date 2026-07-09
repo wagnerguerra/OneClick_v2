@@ -11,6 +11,7 @@ import {
   ChevronDown, RotateCcw, Archive, X, Database, Loader2, Sparkles, UserCog,
   Building2, ExternalLink,
   Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
+  ShieldCheck, ShieldAlert, ShieldX, ShieldOff,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -41,6 +42,9 @@ interface Cliente {
   cidade: string | null; uf: string | null; isActive: boolean; deletedAt?: string | null
   /** Qtd de filiais quando o cliente é matriz (CNPJ ordem 0001). 0 caso contrário. */
   filiaisCount?: number
+  /** Status do certificado digital (maior validade entre os ativos). */
+  certStatus?: 'valido' | 'expirando' | 'vencido' | 'sem'
+  certExpiraEm?: string | null
 }
 
 interface Filial {
@@ -51,6 +55,24 @@ interface Filial {
 type SortDir = 'asc' | 'desc'
 interface SortState { column: string; dir: SortDir }
 const PAGE_SIZES = [10, 20, 50, 100]
+
+/** Ícone de status do certificado digital do cliente (verde/amarelo/vermelho/cinza). */
+function CertIcon({ status, expiraEm }: { status?: Cliente['certStatus']; expiraEm?: string | null }) {
+  const dt = expiraEm ? new Date(expiraEm).toLocaleDateString('pt-BR') : null
+  const map = {
+    valido:    { Icon: ShieldCheck, cls: 'text-emerald-500', title: dt ? `Certificado válido até ${dt}` : 'Certificado digital válido' },
+    expirando: { Icon: ShieldAlert, cls: 'text-amber-500',   title: dt ? `Certificado a vencer em ${dt}` : 'Certificado digital a vencer' },
+    vencido:   { Icon: ShieldX,     cls: 'text-red-500',     title: dt ? `Certificado vencido em ${dt}` : 'Certificado digital vencido' },
+    sem:       { Icon: ShieldOff,   cls: 'text-slate-300 dark:text-slate-600', title: 'Sem certificado digital vinculado' },
+  } as const
+  const v = map[status ?? 'sem'] ?? map.sem
+  const Icon = v.Icon
+  return (
+    <span title={v.title} className="inline-flex">
+      <Icon className={cn('h-4 w-4', v.cls)} aria-label={v.title} />
+    </span>
+  )
+}
 
 const TRIBUTACAO_LABELS: Record<string, string> = {
   SIMPLES_NACIONAL: 'Simples Nacional', LUCRO_PRESUMIDO: 'Lucro Presumido',
@@ -666,6 +688,9 @@ export default function ClientesPage() {
                   Situação <SortIcon column="situacao" />
                 </button>
               </TableHead>
+              <TableHead className="w-[44px] text-center" title="Certificado digital">
+                <ShieldCheck className="h-3.5 w-3.5 mx-auto text-muted-foreground" />
+              </TableHead>
               <TableHead>
                 <button onClick={() => toggleSort('razaoSocial')} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   Cliente <SortIcon column="razaoSocial" />
@@ -682,7 +707,7 @@ export default function ClientesPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={trashMode ? 9 : 10} className="text-center py-10">
+                <TableCell colSpan={trashMode ? 10 : 11} className="text-center py-10">
                   <div className="flex items-center justify-center gap-2 text-muted-foreground">
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />Carregando...
                   </div>
@@ -690,7 +715,7 @@ export default function ClientesPage() {
               </TableRow>
             ) : !data?.data.length ? (
               <TableRow>
-                <TableCell colSpan={trashMode ? 9 : 10} className="text-center py-10 text-muted-foreground">
+                <TableCell colSpan={trashMode ? 10 : 11} className="text-center py-10 text-muted-foreground">
                   {trashMode ? 'Nenhum cliente na lixeira' : 'Nenhum cliente encontrado'}
                 </TableCell>
               </TableRow>
@@ -714,6 +739,9 @@ export default function ClientesPage() {
                         } : prev)
                       }}
                     />
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <CertIcon status={cliente.certStatus} expiraEm={cliente.certExpiraEm} />
                   </TableCell>
                   <TableCell>
                     <div>

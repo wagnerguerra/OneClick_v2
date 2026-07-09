@@ -228,16 +228,42 @@ export class ClienteService {
       for (const r of rows) filiaisCountMap.set(r.base, Number(r.count))
     }
 
+    // Status do certificado digital por cliente (ícone na lista): pega a MAIOR
+    // validade entre os certificados não arquivados/revogados. Uma query só.
+    const certExpiraMap = new Map<string, Date>()
+    if (data.length > 0) {
+      const certRows = await prisma.certificadoDigital.groupBy({
+        by: ['clienteId'],
+        where: { clienteId: { in: data.map(c => c.id) }, status: { notIn: ['REVOGADO', 'ARQUIVADO'] } },
+        _max: { expiraEm: true },
+      })
+      for (const r of certRows) {
+        if (r.clienteId && r._max.expiraEm) certExpiraMap.set(r.clienteId, r._max.expiraEm)
+      }
+    }
+    const CERT_ALERTA_MS = 30 * 24 * 60 * 60 * 1000 // "para vencer" = 30 dias
+    const agora = Date.now()
+    const certStatus = (expira: Date | undefined): 'valido' | 'expirando' | 'vencido' | 'sem' => {
+      if (!expira) return 'sem'
+      const t = expira.getTime()
+      if (t < agora) return 'vencido'
+      if (t < agora + CERT_ALERTA_MS) return 'expirando'
+      return 'valido'
+    }
+
     const mapped = data.map(c => {
       const { servicosContratados, ...rest } = c
       const isMatriz = c.tipoDocumento === 'CNPJ' && !!c.documento && c.documento.length === 14 && c.documento.substring(8, 12) === '0001'
       const cnpjBase = isMatriz ? c.documento!.slice(0, 8) : null
+      const certExpira = certExpiraMap.get(c.id)
       return {
         ...rest,
         areasContratadas: servicosContratados.length > 0
           ? servicosContratados.map(s => s.area.name).join(';')
           : rest.areasContratadas,
         filiaisCount: cnpjBase ? (filiaisCountMap.get(cnpjBase) ?? 0) : 0,
+        certExpiraEm: certExpira ?? null,
+        certStatus: certStatus(certExpira),
       }
     })
 
