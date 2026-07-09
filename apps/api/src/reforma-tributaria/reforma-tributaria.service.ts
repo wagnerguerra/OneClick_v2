@@ -38,6 +38,31 @@ interface Metrics {
   snapshots: Record<string, number>
 }
 
+interface PremissaFiscalInput extends ReformaPremissasInput {
+  id?: string
+  nome: string
+  ano: number
+  setor?: string | null
+  cnaePrefix?: string | null
+  reducaoSetorial?: number
+  observacoes?: string | null
+  ativo?: boolean
+}
+
+interface PremissaFiscal extends PremissaFiscalInput {
+  id: string
+  empresaId: string | null
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+interface Confiabilidade {
+  nivel: 'ALTA' | 'MEDIA' | 'BAIXA' | 'INCONCLUSIVA'
+  score: number
+  fatores: string[]
+  pendencias: string[]
+}
+
 interface SimulacaoCompleta {
   cliente: ClienteBase
   cnaes: Array<{ codigo: string; descricao: string | null; principal: boolean }>
@@ -45,6 +70,7 @@ interface SimulacaoCompleta {
   beneficios: string[]
   metrics: Metrics
   qualidade: { score: number; faltantes: string[] }
+  confiabilidade: Confiabilidade
   observacoes: string[]
   premissas: ReformaPremissasInput
   cenarios: {
@@ -65,6 +91,7 @@ const DEFAULT_PREMISSAS: ReformaPremissasInput = {
   percentualVendasB2B: 0.55,
   percentualComprasCreditaveis: 0.35,
   pesoCreditoCliente: 0.35,
+  reducaoSetorial: 0,
 }
 
 function asNumber(value: unknown): number {
@@ -107,6 +134,52 @@ function scoreQualidade(args: {
     score: Math.round((pontos / items.length) * 100),
     faltantes: items.filter(i => !i.ok).map(i => i.label),
   }
+}
+
+function scoreConfiabilidade(args: {
+  qualidadeScore: number
+  metrics: Metrics
+  premissaNome?: string | null
+  reducaoSetorial?: number
+}): Confiabilidade {
+  let score = args.qualidadeScore
+  const fatores: string[] = []
+  const pendencias: string[] = []
+
+  if (args.premissaNome) {
+    score += 8
+    fatores.push(`Premissa fiscal aplicada: ${args.premissaNome}`)
+  } else {
+    pendencias.push('Premissas digitadas manualmente, sem cadastro setorial versionado')
+  }
+
+  if (args.metrics.faturamento12m > 0) fatores.push('Faturamento anual disponível')
+  else pendencias.push('Sem faturamento anual consolidado')
+
+  const baseCredito = args.metrics.comprasMercadorias12m + args.metrics.servicosTomados12m
+  if (baseCredito > 0) fatores.push('Base de compras/serviços disponível para estimar créditos')
+  else pendencias.push('Sem base objetiva de compras e serviços tomados')
+
+  if (args.metrics.documentosSaida >= 12) score += 4
+  else pendencias.push('Baixo volume de documentos de saída importados')
+
+  if (args.metrics.documentosEntrada >= 12) score += 4
+  else pendencias.push('Baixo volume de documentos de entrada importados')
+
+  if ((args.reducaoSetorial ?? 0) > 0) {
+    fatores.push('Redução setorial parametrizada')
+  }
+
+  const normalized = Math.max(0, Math.min(100, Math.round(score)))
+  const nivel: Confiabilidade['nivel'] = normalized >= 82
+    ? 'ALTA'
+    : normalized >= 65
+      ? 'MEDIA'
+      : normalized >= 45
+        ? 'BAIXA'
+        : 'INCONCLUSIVA'
+
+  return { nivel, score: normalized, fatores, pendencias }
 }
 
 @Injectable()
@@ -175,6 +248,104 @@ export class ReformaTributariaService {
     }))
   }
 
+  async listarPremissas(empresaId?: string | null): Promise<PremissaFiscal[]> {
+    await this.ensurePremissasTable()
+    const rows = await prisma.$queryRawUnsafe<Array<{
+      id: string
+      empresaId: string | null
+      nome: string
+      ano: number
+      setor: string | null
+      cnaePrefix: string | null
+      aliquotaCbs: string | number
+      aliquotaIbs: string | number
+      aliquotaSimplesIbsCbs: string | number
+      percentualVendasB2B: string | number
+      percentualComprasCreditaveis: string | number
+      pesoCreditoCliente: string | number
+      reducaoSetorial: string | number
+      observacoes: string | null
+      ativo: boolean
+      createdAt: Date
+      updatedAt: Date
+    }>>(
+      `SELECT id, empresa_id AS "empresaId", nome, ano, setor, cnae_prefix AS "cnaePrefix",
+              aliquota_cbs AS "aliquotaCbs", aliquota_ibs AS "aliquotaIbs",
+              aliquota_simples_ibs_cbs AS "aliquotaSimplesIbsCbs",
+              percentual_vendas_b2b AS "percentualVendasB2B",
+              percentual_compras_creditaveis AS "percentualComprasCreditaveis",
+              peso_credito_cliente AS "pesoCreditoCliente",
+              reducao_setorial AS "reducaoSetorial",
+              observacoes, ativo, created_at AS "createdAt", updated_at AS "updatedAt"
+         FROM reforma_tributaria_premissas
+        WHERE ativo = true AND (empresa_id IS NULL OR $1::text IS NULL OR empresa_id = $1)
+        ORDER BY ano DESC, setor ASC NULLS LAST, nome ASC`,
+      empresaId ?? null,
+    )
+    const defaults = rows.length > 0 ? [] : [this.defaultPremissa()]
+    return [
+      ...defaults,
+      ...rows.map(r => ({
+        ...r,
+        aliquotaCbs: asNumber(r.aliquotaCbs),
+        aliquotaIbs: asNumber(r.aliquotaIbs),
+        aliquotaSimplesIbsCbs: asNumber(r.aliquotaSimplesIbsCbs),
+        percentualVendasB2B: asNumber(r.percentualVendasB2B),
+        percentualComprasCreditaveis: asNumber(r.percentualComprasCreditaveis),
+        pesoCreditoCliente: asNumber(r.pesoCreditoCliente),
+        reducaoSetorial: asNumber(r.reducaoSetorial),
+      })),
+    ]
+  }
+
+  async salvarPremissa(input: PremissaFiscalInput, empresaId?: string | null) {
+    await this.ensurePremissasTable()
+    const id = input.id || randomUUID()
+    if (input.id) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE reforma_tributaria_premissas SET
+           nome = $2, ano = $3, setor = $4, cnae_prefix = $5,
+           aliquota_cbs = $6, aliquota_ibs = $7, aliquota_simples_ibs_cbs = $8,
+           percentual_vendas_b2b = $9, percentual_compras_creditaveis = $10,
+           peso_credito_cliente = $11, reducao_setorial = $12,
+           observacoes = $13, ativo = $14, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1 AND ($15::text IS NULL OR empresa_id = $15)`,
+        id, input.nome, input.ano, input.setor ?? null, input.cnaePrefix ?? null,
+        input.aliquotaCbs, input.aliquotaIbs, input.aliquotaSimplesIbsCbs,
+        input.percentualVendasB2B, input.percentualComprasCreditaveis,
+        input.pesoCreditoCliente, input.reducaoSetorial ?? 0,
+        input.observacoes ?? null, input.ativo ?? true, empresaId ?? null,
+      )
+      return { id }
+    }
+
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO reforma_tributaria_premissas
+        (id, empresa_id, nome, ano, setor, cnae_prefix, aliquota_cbs, aliquota_ibs,
+         aliquota_simples_ibs_cbs, percentual_vendas_b2b, percentual_compras_creditaveis,
+         peso_credito_cliente, reducao_setorial, observacoes, ativo, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`,
+      id, empresaId ?? null, input.nome, input.ano, input.setor ?? null, input.cnaePrefix ?? null,
+      input.aliquotaCbs, input.aliquotaIbs, input.aliquotaSimplesIbsCbs,
+      input.percentualVendasB2B, input.percentualComprasCreditaveis,
+      input.pesoCreditoCliente, input.reducaoSetorial ?? 0,
+      input.observacoes ?? null, input.ativo ?? true,
+    )
+    return { id }
+  }
+
+  async removerPremissa(id: string, empresaId?: string | null) {
+    await this.ensurePremissasTable()
+    await prisma.$executeRawUnsafe(
+      `UPDATE reforma_tributaria_premissas
+          SET ativo = false, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1 AND ($2::text IS NULL OR empresa_id = $2)`,
+      id,
+      empresaId ?? null,
+    )
+    return { id }
+  }
+
   async diagnostico(input: ReformaDiagnosticoInput, empresaId?: string | null) {
     const cliente = await this.getCliente(input.clienteId, empresaId)
     const [cnaes, atividades, beneficios, metrics] = await Promise.all([
@@ -199,7 +370,8 @@ export class ReformaTributariaService {
   async simular(input: ReformaSimulacaoInput, empresaId?: string | null): Promise<SimulacaoCompleta> {
     const diagnostico = await this.diagnostico(input, empresaId)
     const p = { ...DEFAULT_PREMISSAS, ...input.premissas }
-    const totalAliquota = p.aliquotaCbs + p.aliquotaIbs
+    const reducaoSetorial = Math.max(0, Math.min(1, p.reducaoSetorial ?? 0))
+    const totalAliquota = (p.aliquotaCbs + p.aliquotaIbs) * (1 - reducaoSetorial)
     const receita = diagnostico.metrics.faturamento12m
     const baseCompras = diagnostico.metrics.comprasMercadorias12m + diagnostico.metrics.servicosTomados12m
     const vendasB2B = receita * p.percentualVendasB2B
@@ -222,10 +394,17 @@ export class ReformaTributariaService {
     const diferenca = custoRegularAjustado - simplesDentro.cargaEstimativa
     const isSimples = diagnostico.cliente.tributacao === 'SIMPLES_NACIONAL'
     const recomendacao = this.recomendar(isSimples, diagnostico.qualidade.score, diferenca, receita)
+    const confiabilidade = scoreConfiabilidade({
+      qualidadeScore: diagnostico.qualidade.score,
+      metrics: diagnostico.metrics,
+      premissaNome: p.premissaNome,
+      reducaoSetorial,
+    })
 
     return {
       ...diagnostico,
       premissas: p,
+      confiabilidade,
       cenarios: {
         simplesDentro,
         regular,
@@ -298,6 +477,7 @@ export class ReformaTributariaService {
         beneficios: simulacao.beneficios,
         metrics: simulacao.metrics,
         qualidade: simulacao.qualidade,
+        confiabilidade: simulacao.confiabilidade,
         observacoes: simulacao.observacoes,
       }),
       JSON.stringify(simulacao.cenarios),
@@ -464,12 +644,34 @@ export class ReformaTributariaService {
       `Diferenca ajustada entre cenarios: R$ ${diferenca.toFixed(2)}`,
       `Recomendacao: ${simulacao.resumo.texto}`,
       `Qualidade dos dados: ${simulacao.qualidade.score}%`,
+      `Confiabilidade tecnica: ${simulacao.confiabilidade.nivel} (${simulacao.confiabilidade.score}%)`,
     ]
+    if (simulacao.premissas.premissaNome) {
+      linhas.push(`Premissa aplicada: ${simulacao.premissas.premissaNome}`)
+    }
     if (simulacao.qualidade.faltantes.length > 0) {
       linhas.push(`Pontos pendentes: ${simulacao.qualidade.faltantes.join('; ')}`)
     }
+    if (simulacao.confiabilidade.pendencias.length > 0) {
+      linhas.push(`Pendencias tecnicas: ${simulacao.confiabilidade.pendencias.join('; ')}`)
+    }
     linhas.push('Observacao: parecer gerado por premissas parametrizadas no sistema; validar aliquotas, regras setoriais e dados contabeis antes da recomendacao final ao cliente.')
     return linhas.join('\n')
+  }
+
+  private defaultPremissa(): PremissaFiscal {
+    return {
+      id: 'default',
+      empresaId: null,
+      nome: 'Premissa padrão IBS/CBS',
+      ano: 2027,
+      setor: 'Geral',
+      cnaePrefix: null,
+      ...DEFAULT_PREMISSAS,
+      reducaoSetorial: 0,
+      observacoes: 'Premissa inicial do sistema. Ajuste conforme regra setorial e entendimento técnico vigente.',
+      ativo: true,
+    }
   }
 
   private async ensureHistoricoTable() {
@@ -497,6 +699,38 @@ export class ReformaTributariaService {
     await prisma.$executeRawUnsafe(`
       CREATE INDEX IF NOT EXISTS reforma_tributaria_simulacoes_empresa_created_idx
         ON reforma_tributaria_simulacoes (empresa_id, created_at DESC)
+    `)
+  }
+
+  private async ensurePremissasTable() {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS reforma_tributaria_premissas (
+        id                             text PRIMARY KEY,
+        empresa_id                     text,
+        nome                           text NOT NULL,
+        ano                            integer NOT NULL DEFAULT 2027,
+        setor                          text,
+        cnae_prefix                    text,
+        aliquota_cbs                   numeric(7, 6) NOT NULL DEFAULT 0.088,
+        aliquota_ibs                   numeric(7, 6) NOT NULL DEFAULT 0.177,
+        aliquota_simples_ibs_cbs       numeric(7, 6) NOT NULL DEFAULT 0.04,
+        percentual_vendas_b2b          numeric(7, 6) NOT NULL DEFAULT 0.55,
+        percentual_compras_creditaveis numeric(7, 6) NOT NULL DEFAULT 0.35,
+        peso_credito_cliente           numeric(7, 6) NOT NULL DEFAULT 0.35,
+        reducao_setorial               numeric(7, 6) NOT NULL DEFAULT 0,
+        observacoes                    text,
+        ativo                          boolean NOT NULL DEFAULT true,
+        created_at                     timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at                     timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS reforma_tributaria_premissas_empresa_ativo_idx
+        ON reforma_tributaria_premissas (empresa_id, ativo)
+    `)
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS reforma_tributaria_premissas_ano_setor_idx
+        ON reforma_tributaria_premissas (ano, setor)
     `)
   }
 }

@@ -7,6 +7,8 @@ export const reformaPremissasSchema = z.object({
   percentualVendasB2B: z.coerce.number().min(0).max(1).default(0.55),
   percentualComprasCreditaveis: z.coerce.number().min(0).max(1).default(0.35),
   pesoCreditoCliente: z.coerce.number().min(0).max(1).default(0.35),
+  reducaoSetorial: z.coerce.number().min(0).max(1).default(0),
+  premissaNome: z.coerce.string().optional(),
 })
 
 export const reformaListClientesSchema = z.object({

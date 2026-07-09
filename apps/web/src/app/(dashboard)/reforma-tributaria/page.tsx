@@ -6,13 +6,16 @@ import {
   Calculator,
   CheckCircle2,
   ChevronRight,
+  Download,
   FileText,
   History,
   Home,
   Loader2,
+  Plus,
   RefreshCw,
   Save,
   Search,
+  Settings2,
   SlidersHorizontal,
   Trash2,
   TrendingDown,
@@ -28,6 +31,12 @@ import {
   Checkbox,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
   cn,
 } from '@saas/ui'
 import { PageHeader } from '@/components/page-header'
@@ -63,6 +72,23 @@ type HistoricoItem = {
   usuarioNome: string | null
 }
 
+type PremissaFiscal = {
+  id: string
+  nome: string
+  ano: number
+  setor: string | null
+  cnaePrefix: string | null
+  aliquotaCbs: number
+  aliquotaIbs: number
+  aliquotaSimplesIbsCbs: number
+  percentualVendasB2B: number
+  percentualComprasCreditaveis: number
+  pesoCreditoCliente: number
+  reducaoSetorial: number
+  observacoes: string | null
+  ativo: boolean
+}
+
 const DEFAULT_PREMISSAS = {
   aliquotaCbs: 0.088,
   aliquotaIbs: 0.177,
@@ -70,6 +96,24 @@ const DEFAULT_PREMISSAS = {
   percentualVendasB2B: 0.55,
   percentualComprasCreditaveis: 0.35,
   pesoCreditoCliente: 0.35,
+  reducaoSetorial: 0,
+  premissaNome: undefined as string | undefined,
+}
+
+const DEFAULT_PREMISSA_FORM: Omit<PremissaFiscal, 'id'> & { id?: string } = {
+  nome: 'Premissa geral',
+  ano: 2027,
+  setor: 'Geral',
+  cnaePrefix: '',
+  aliquotaCbs: 0.088,
+  aliquotaIbs: 0.177,
+  aliquotaSimplesIbsCbs: 0.04,
+  percentualVendasB2B: 0.55,
+  percentualComprasCreditaveis: 0.35,
+  pesoCreditoCliente: 0.35,
+  reducaoSetorial: 0,
+  observacoes: '',
+  ativo: true,
 }
 
 const RECOMENDACAO_CFG: Record<string, { label: string; tone: string; icon: typeof CheckCircle2 }> = {
@@ -156,9 +200,14 @@ export default function ReformaTributariaPage() {
   const [loadingLista, setLoadingLista] = useState(true)
   const [loadingSimulacao, setLoadingSimulacao] = useState(false)
   const [loadingHistorico, setLoadingHistorico] = useState(false)
+  const [loadingPremissas, setLoadingPremissas] = useState(false)
   const [salvandoParecer, setSalvandoParecer] = useState(false)
+  const [salvandoPremissa, setSalvandoPremissa] = useState(false)
   const [clientes, setClientes] = useState<ClienteResumo[]>([])
   const [historico, setHistorico] = useState<HistoricoItem[]>([])
+  const [premissasFiscais, setPremissasFiscais] = useState<PremissaFiscal[]>([])
+  const [premissaSelecionadaId, setPremissaSelecionadaId] = useState<string>('default')
+  const [premissaForm, setPremissaForm] = useState(DEFAULT_PREMISSA_FORM)
   const [dashboard, setDashboard] = useState<{ totalClientes: number; simples: number } | null>(null)
   const [clienteId, setClienteId] = useState<string | null>(null)
   const [simulacao, setSimulacao] = useState<Simulacao | null>(null)
@@ -195,6 +244,73 @@ export default function ReformaTributariaPage() {
       setLoadingLista(false)
     }
   }, [apenasSimples, busca])
+
+  const aplicarPremissa = useCallback((item: PremissaFiscal) => {
+    setPremissaSelecionadaId(item.id)
+    setPremissas({
+      aliquotaCbs: item.aliquotaCbs,
+      aliquotaIbs: item.aliquotaIbs,
+      aliquotaSimplesIbsCbs: item.aliquotaSimplesIbsCbs,
+      percentualVendasB2B: item.percentualVendasB2B,
+      percentualComprasCreditaveis: item.percentualComprasCreditaveis,
+      pesoCreditoCliente: item.pesoCreditoCliente,
+      reducaoSetorial: item.reducaoSetorial,
+      premissaNome: item.nome,
+    })
+    setPremissaForm({ ...item })
+  }, [])
+
+  const carregarPremissas = useCallback(async () => {
+    setLoadingPremissas(true)
+    try {
+      const list = await api().premissas.query()
+      setPremissasFiscais(list)
+      const atual = list.find((item: PremissaFiscal) => item.id === premissaSelecionadaId) ?? list[0]
+      if (atual) aplicarPremissa(atual)
+    } catch (e) {
+      alerts.error('Erro ao carregar premissas', (e as Error).message)
+    } finally {
+      setLoadingPremissas(false)
+    }
+  }, [aplicarPremissa, premissaSelecionadaId])
+
+  const salvarPremissa = useCallback(async () => {
+    setSalvandoPremissa(true)
+    try {
+      const payload = {
+        ...premissaForm,
+        cnaePrefix: premissaForm.cnaePrefix?.trim() || null,
+        setor: premissaForm.setor?.trim() || null,
+        observacoes: premissaForm.observacoes?.trim() || null,
+      }
+      await api().salvarPremissa.mutate(payload)
+      await carregarPremissas()
+      alerts.success('Premissa salva', 'A premissa fiscal foi atualizada.')
+    } catch (e) {
+      alerts.error('Erro ao salvar premissa', (e as Error).message)
+    } finally {
+      setSalvandoPremissa(false)
+    }
+  }, [carregarPremissas, premissaForm])
+
+  const novaPremissa = useCallback(() => {
+    setPremissaSelecionadaId('nova')
+    setPremissaForm({ ...DEFAULT_PREMISSA_FORM })
+  }, [])
+
+  const removerPremissa = useCallback(async () => {
+    if (!premissaForm.id || premissaForm.id === 'default') return
+    const ok = await alerts.confirmDelete(premissaForm.nome)
+    if (!ok) return
+    try {
+      await api().removerPremissa.mutate({ id: premissaForm.id })
+      setPremissaSelecionadaId('default')
+      await carregarPremissas()
+      alerts.success('Premissa removida', 'A premissa foi inativada.')
+    } catch (e) {
+      alerts.error('Erro ao remover premissa', (e as Error).message)
+    }
+  }, [carregarPremissas, premissaForm])
 
   const carregarHistorico = useCallback(async (id = clienteId) => {
     if (!id) {
@@ -252,9 +368,61 @@ export default function ReformaTributariaPage() {
     }
   }, [carregarHistorico])
 
+  const exportarParecerHtml = useCallback(() => {
+    if (!simulacao) return
+    const parecer = simulacao.parecer || [
+      `Cliente: ${simulacao.cliente?.razaoSocial ?? '-'}`,
+      `Recomendação: ${simulacao.resumo?.texto ?? '-'}`,
+      `Qualidade dos dados: ${simulacao.qualidade?.score ?? 0}%`,
+      `Confiabilidade técnica: ${simulacao.confiabilidade?.nivel ?? 'N/A'} (${simulacao.confiabilidade?.score ?? 0}%)`,
+    ].join('\n')
+    const html = `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Parecer Reforma Tributária - ${simulacao.cliente?.razaoSocial ?? 'Cliente'}</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #111827; margin: 40px; line-height: 1.55; }
+    h1 { font-size: 22px; margin-bottom: 4px; }
+    h2 { font-size: 16px; margin-top: 24px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
+    .meta { color: #6b7280; font-size: 13px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+    .box { border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; }
+    pre { white-space: pre-wrap; font-family: Arial, sans-serif; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Parecer - Reforma Tributária</h1>
+  <div class="meta">${new Date().toLocaleString('pt-BR')} • ${simulacao.cliente?.razaoSocial ?? '-'}</div>
+  <h2>Resumo</h2>
+  <div class="grid">
+    <div class="box"><strong>Recomendação</strong><br />${simulacao.resumo?.texto ?? '-'}</div>
+    <div class="box"><strong>Confiabilidade</strong><br />${simulacao.confiabilidade?.nivel ?? '-'} (${simulacao.confiabilidade?.score ?? 0}%)</div>
+    <div class="box"><strong>Faturamento 12m</strong><br />${money(simulacao.metrics?.faturamento12m)}</div>
+    <div class="box"><strong>Premissa</strong><br />${simulacao.premissas?.premissaNome ?? 'Manual'}</div>
+  </div>
+  <h2>Parecer técnico</h2>
+  <pre>${parecer.replace(/[&<>]/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c))}</pre>
+</body>
+</html>`
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `parecer-reforma-tributaria-${simulacao.cliente?.documento ?? 'cliente'}.html`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [simulacao])
+
   useEffect(() => {
     carregarLista()
   }, [carregarLista])
+
+  useEffect(() => {
+    carregarPremissas()
+    // Carrega apenas na montagem; alteracoes no select aplicam localmente.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (clienteId) {
@@ -292,6 +460,10 @@ export default function ReformaTributariaPage() {
             <Button onClick={salvarParecer} disabled={!clienteId || loadingSimulacao || salvandoParecer}>
               {salvandoParecer ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Salvar parecer
+            </Button>
+            <Button variant="outline" onClick={exportarParecerHtml} disabled={!simulacao}>
+              <Download className="mr-2 h-4 w-4" />
+              Exportar
             </Button>
           </>
         }
@@ -386,10 +558,11 @@ export default function ReformaTributariaPage() {
 
               {!loadingSimulacao && simulacao && (
                 <>
-                  <div className="grid gap-3 md:grid-cols-4">
+                  <div className="grid gap-3 md:grid-cols-5">
                     <Metric label="Faturamento 12m" value={money(simulacao.metrics.faturamento12m)} />
                     <Metric label="Compras/servicos" value={money(simulacao.metrics.comprasMercadorias12m + simulacao.metrics.servicosTomados12m)} />
                     <Metric label="Qualidade dos dados" value={`${simulacao.qualidade.score}%`} />
+                    <Metric label="Confiabilidade" value={simulacao.confiabilidade?.nivel ?? '-'} sub={`${simulacao.confiabilidade?.score ?? 0}%`} />
                     <Metric label="Impacto estimado" value={money(simulacao.resumo.impacto.valor)} sub={pct(simulacao.resumo.impacto.percentualReceita)} />
                   </div>
 
@@ -421,6 +594,21 @@ export default function ReformaTributariaPage() {
                     </div>
                   )}
 
+                  {simulacao.confiabilidade && (
+                    <div className="rounded-[6px] border bg-background/70 p-4 text-sm">
+                      <div className="flex items-center gap-2 font-medium">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Confiabilidade técnica: {simulacao.confiabilidade.nivel} ({simulacao.confiabilidade.score}%)
+                      </div>
+                      {simulacao.confiabilidade.fatores?.length > 0 && (
+                        <p className="mt-2 text-muted-foreground">Fatores positivos: {simulacao.confiabilidade.fatores.join('; ')}.</p>
+                      )}
+                      {simulacao.confiabilidade.pendencias?.length > 0 && (
+                        <p className="mt-2 text-muted-foreground">Pendências: {simulacao.confiabilidade.pendencias.join('; ')}.</p>
+                      )}
+                    </div>
+                  )}
+
                   {simulacao.parecer && (
                     <div className="rounded-[6px] border bg-background/70 p-4">
                       <div className="mb-3 flex items-center gap-2 text-sm font-medium">
@@ -432,6 +620,100 @@ export default function ReformaTributariaPage() {
                   )}
                 </>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Settings2 className="h-4 w-4" />
+                  <CardTitle>Premissas fiscais</CardTitle>
+                </div>
+                <Button variant="outline" size="sm" onClick={novaPremissa}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-2">
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_180px_180px]">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Premissa aplicada</Label>
+                  <Select
+                    value={premissaSelecionadaId}
+                    onValueChange={(value) => {
+                      const item = premissasFiscais.find(p => p.id === value)
+                      if (item) aplicarPremissa(item)
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={loadingPremissas ? 'Carregando...' : 'Selecione uma premissa'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {premissasFiscais.map(item => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.nome} ({item.ano})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Nome</Label>
+                  <Input value={premissaForm.nome} onChange={(e) => setPremissaForm(p => ({ ...p, nome: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Ano</Label>
+                  <Input type="number" value={premissaForm.ano} onChange={(e) => setPremissaForm(p => ({ ...p, ano: Number(e.target.value || 2027) }))} />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Setor</Label>
+                  <Input value={premissaForm.setor ?? ''} onChange={(e) => setPremissaForm(p => ({ ...p, setor: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Prefixo CNAE</Label>
+                  <Input value={premissaForm.cnaePrefix ?? ''} onChange={(e) => setPremissaForm(p => ({ ...p, cnaePrefix: e.target.value }))} />
+                </div>
+                <PercentInput label="Redução setorial" value={premissaForm.reducaoSetorial} onChange={(v) => setPremissaForm(p => ({ ...p, reducaoSetorial: v }))} />
+                <PercentInput label="Peso crédito cliente" value={premissaForm.pesoCreditoCliente} onChange={(v) => setPremissaForm(p => ({ ...p, pesoCreditoCliente: v }))} />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <PercentInput label="CBS" value={premissaForm.aliquotaCbs} onChange={(v) => setPremissaForm(p => ({ ...p, aliquotaCbs: v }))} />
+                <PercentInput label="IBS" value={premissaForm.aliquotaIbs} onChange={(v) => setPremissaForm(p => ({ ...p, aliquotaIbs: v }))} />
+                <PercentInput label="IBS/CBS no Simples" value={premissaForm.aliquotaSimplesIbsCbs} onChange={(v) => setPremissaForm(p => ({ ...p, aliquotaSimplesIbsCbs: v }))} />
+                <PercentInput label="Vendas B2B" value={premissaForm.percentualVendasB2B} onChange={(v) => setPremissaForm(p => ({ ...p, percentualVendasB2B: v }))} />
+                <PercentInput label="Compras creditáveis" value={premissaForm.percentualComprasCreditaveis} onChange={(v) => setPremissaForm(p => ({ ...p, percentualComprasCreditaveis: v }))} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Observações técnicas</Label>
+                <Textarea
+                  value={premissaForm.observacoes ?? ''}
+                  onChange={(e) => setPremissaForm(p => ({ ...p, observacoes: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex flex-wrap justify-end gap-2">
+                {premissaForm.id && premissaForm.id !== 'default' && (
+                  <Button variant="outline" onClick={removerPremissa}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Inativar
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => aplicarPremissa({ id: premissaForm.id ?? 'manual', ...premissaForm })}>
+                  Aplicar na simulação
+                </Button>
+                <Button onClick={salvarPremissa} disabled={salvandoPremissa}>
+                  {salvandoPremissa ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Salvar premissa
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -449,6 +731,7 @@ export default function ReformaTributariaPage() {
               <PercentInput label="Vendas B2B" value={premissas.percentualVendasB2B} onChange={(v) => setPremissas(p => ({ ...p, percentualVendasB2B: v }))} />
               <PercentInput label="Compras creditaveis" value={premissas.percentualComprasCreditaveis} onChange={(v) => setPremissas(p => ({ ...p, percentualComprasCreditaveis: v }))} />
               <PercentInput label="Peso do credito ao cliente" value={premissas.pesoCreditoCliente} onChange={(v) => setPremissas(p => ({ ...p, pesoCreditoCliente: v }))} />
+              <PercentInput label="Redução setorial" value={premissas.reducaoSetorial} onChange={(v) => setPremissas(p => ({ ...p, reducaoSetorial: v }))} />
             </CardContent>
           </Card>
 
