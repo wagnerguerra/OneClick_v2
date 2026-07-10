@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   Calculator,
@@ -95,6 +95,14 @@ type PremissaFiscal = {
   ativo: boolean
 }
 
+type BalanceteImportStatus = {
+  running: boolean
+  progress: number
+  message: string
+  log: string[]
+  status?: 'idle' | 'running' | 'done' | 'error'
+}
+
 const DEFAULT_PREMISSAS = {
   aliquotaCbs: 0.088,
   aliquotaIbs: 0.177,
@@ -104,6 +112,14 @@ const DEFAULT_PREMISSAS = {
   pesoCreditoCliente: 0.35,
   reducaoSetorial: 0,
   premissaNome: undefined as string | undefined,
+}
+
+const EMPTY_BALANCETE_STATUS: BalanceteImportStatus = {
+  running: false,
+  progress: 0,
+  message: '',
+  log: [],
+  status: 'idle',
 }
 
 const DEFAULT_PREMISSA_FORM: Omit<PremissaFiscal, 'id'> & { id?: string } = {
@@ -147,6 +163,25 @@ function dateTimeBR(v: string | Date | null | undefined) {
   const d = new Date(v)
   if (Number.isNaN(d.getTime())) return '-'
   return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+function balanceteWindow12m() {
+  const now = new Date()
+  const fim = new Date(now.getFullYear(), now.getMonth(), 0)
+  const inicio = new Date(fim.getFullYear(), fim.getMonth() - 11, 1)
+  const anoInicio = inicio.getFullYear()
+  const mesInicio = inicio.getMonth() + 1
+  const anoFim = fim.getFullYear()
+  const mesFim = fim.getMonth() + 1
+
+  return {
+    anoInicio,
+    mesInicio,
+    anoFim,
+    mesFim,
+    refInicio: (anoInicio * 100) + mesInicio,
+    refFim: (anoFim * 100) + mesFim,
+  }
 }
 
 function regimeLabel(v: string | null | undefined) {
@@ -250,6 +285,8 @@ export default function ReformaTributariaPage() {
   const [simulacao, setSimulacao] = useState<Simulacao | null>(null)
   const [apenasSimples, setApenasSimples] = useState(false)
   const [premissas, setPremissas] = useState(DEFAULT_PREMISSAS)
+  const [balanceteStatus, setBalanceteStatus] = useState<BalanceteImportStatus>(EMPTY_BALANCETE_STATUS)
+  const balancetePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const clienteSelecionado = useMemo(
     () => clientes.find(c => c.id === clienteId) ?? null,
@@ -369,6 +406,125 @@ export default function ReformaTributariaPage() {
     }
   }, [clienteId, premissas])
 
+  const pararPollingBalancete = useCallback(() => {
+    if (balancetePollRef.current) {
+      clearInterval(balancetePollRef.current)
+      balancetePollRef.current = null
+    }
+  }, [])
+
+  const atualizarBalanceteErp = useCallback(async () => {
+    if (!clienteId) return
+
+    const periodo = balanceteWindow12m()
+    pararPollingBalancete()
+    setBalanceteStatus({
+      running: true,
+      progress: 5,
+      message: `Solicitando balancete SCI de ${periodo.refInicio} a ${periodo.refFim}...`,
+      log: [],
+      status: 'running',
+    })
+
+    try {
+      const resp = await fetch('/be/api/bi-sync/importar', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clienteId,
+          anoInicio: periodo.anoInicio,
+          mesInicio: periodo.mesInicio,
+          anoFim: periodo.anoFim,
+          mesFim: periodo.mesFim,
+          substituirExistentes: true,
+        }),
+      })
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '')
+        throw new Error(text || `HTTP ${resp.status}`)
+      }
+
+      const result = await resp.json().catch(() => ({}))
+      if (result?.started === false) {
+        setBalanceteStatus({
+          running: false,
+          progress: 0,
+          message: 'Ja existe uma importacao em andamento para este cliente e periodo.',
+          log: [],
+          status: 'idle',
+        })
+        alerts.warning('Importacao em andamento', 'Aguarde a importacao atual terminar antes de iniciar outra.')
+        return
+      }
+
+      balancetePollRef.current = setInterval(async () => {
+        try {
+          const statusResp = await fetch(`/be/api/bi-sync/status/${clienteId}/${periodo.refInicio}/${periodo.refFim}`, {
+            credentials: 'include',
+          })
+          if (!statusResp.ok) return
+          const status = await statusResp.json()
+          const job = status?.job
+
+          if (!job) {
+            pararPollingBalancete()
+            setBalanceteStatus({
+              running: false,
+              progress: 0,
+              message: 'Nenhum job ativo encontrado para o periodo solicitado.',
+              log: [],
+              status: 'idle',
+            })
+            return
+          }
+
+          const jobStatus: BalanceteImportStatus['status'] =
+            job.status === 'done' || job.status === 'error' || job.status === 'running'
+              ? job.status
+              : 'idle'
+
+          setBalanceteStatus({
+            running: jobStatus === 'running',
+            progress: Number(job.progress ?? 0),
+            message: job.message || 'Processando balancete...',
+            log: Array.isArray(job.log) ? job.log : [],
+            status: jobStatus,
+          })
+
+          if (jobStatus === 'done' || jobStatus === 'error') {
+            pararPollingBalancete()
+            if (jobStatus === 'done') {
+              alerts.success('Balancete atualizado', 'Execute a simulacao novamente para usar o balancete importado.')
+            } else {
+              alerts.error('Erro ao atualizar balancete', job.message || 'O Service Manager retornou erro na importacao.')
+            }
+          }
+        } catch (e) {
+          pararPollingBalancete()
+          setBalanceteStatus({
+            running: false,
+            progress: 0,
+            message: (e as Error).message,
+            log: [],
+            status: 'error',
+          })
+        }
+      }, 1500)
+    } catch (e) {
+      pararPollingBalancete()
+      setBalanceteStatus({
+        running: false,
+        progress: 0,
+        message: (e as Error).message,
+        log: [],
+        status: 'error',
+      })
+      alerts.error('Erro ao solicitar balancete', (e as Error).message)
+    }
+  }, [clienteId, pararPollingBalancete])
+
   const aplicarRegraSugerida = useCallback(async () => {
     const premissaId = simulacao?.regraSetorial?.premissaId
     if (!clienteId || !premissaId) return
@@ -485,6 +641,11 @@ export default function ReformaTributariaPage() {
   }, [])
 
   useEffect(() => {
+    setBalanceteStatus(EMPTY_BALANCETE_STATUS)
+    return () => pararPollingBalancete()
+  }, [clienteId, pararPollingBalancete])
+
+  useEffect(() => {
     if (clienteId) {
       simular(clienteId)
       carregarHistorico(clienteId)
@@ -495,6 +656,8 @@ export default function ReformaTributariaPage() {
 
   const recomendacao = simulacao ? RECOMENDACAO_CFG[simulacao.recomendacao] ?? RECOMENDACAO_CFG.INCONCLUSIVO : null
   const RecomendacaoIcon = recomendacao?.icon ?? AlertTriangle
+  const fonteBalanceteImportado = simulacao?.metrics?.erp?.origem === 'balancete_importado'
+  const podeAtualizarBalancete = !!clienteId && !!simulacao && !fonteBalanceteImportado
 
   return (
     <TooltipProvider>
@@ -644,6 +807,49 @@ export default function ReformaTributariaPage() {
                         <p className="mt-2 text-xs text-muted-foreground">
                           Margem operacional estimada pelo balancete: {pct(simulacao.metrics.erp.margemOperacionalPercentual)}
                         </p>
+                      )}
+                      {podeAtualizarBalancete && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-3"
+                          onClick={atualizarBalanceteErp}
+                          disabled={balanceteStatus.running}
+                        >
+                          {balanceteStatus.running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+                          {balanceteStatus.running ? 'Atualizando balancete...' : 'Atualizar balancete ERP'}
+                        </Button>
+                      )}
+                      {balanceteStatus.message && (
+                        <div className={cn(
+                          'mt-3 rounded-[6px] border p-3 text-xs',
+                          balanceteStatus.status === 'error'
+                            ? 'border-red-500/25 bg-red-500/10 text-red-800'
+                            : balanceteStatus.status === 'done'
+                              ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-800'
+                              : 'bg-muted/35 text-muted-foreground',
+                        )}>
+                          <div className="flex items-center gap-2">
+                            {balanceteStatus.running && <Loader2 className="h-4 w-4 animate-spin" />}
+                            {balanceteStatus.status === 'done' && <CheckCircle2 className="h-4 w-4" />}
+                            {balanceteStatus.status === 'error' && <AlertTriangle className="h-4 w-4" />}
+                            <span className="min-w-0 flex-1">{balanceteStatus.message}</span>
+                            <span className="tabular-nums">{Math.max(0, Math.min(100, balanceteStatus.progress))}%</span>
+                          </div>
+                          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-background/70">
+                            <div
+                              className="h-full rounded-full bg-current transition-all"
+                              style={{ width: `${Math.max(0, Math.min(100, balanceteStatus.progress))}%` }}
+                            />
+                          </div>
+                          {balanceteStatus.log.length > 0 && (
+                            <div className="mt-2 space-y-1 text-[11px] opacity-80">
+                              {balanceteStatus.log.slice(-3).map((item, index) => (
+                                <p key={`${index}-${item}`} className="truncate">{item}</p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
 
