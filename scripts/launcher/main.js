@@ -3377,8 +3377,13 @@ app.whenReady().then(async () => {
         return;
       }
 
+      // A API de PRODUÇÃO é a da VPS — é lá que os usuários configuram as
+      // pastas locais dos clientes. Apontar pro 127.0.0.1 fazia o watcher ler
+      // o banco local (snapshot desatualizado) e nunca ver pastas novas.
+      // Sobrescrevível via settings.nfeWatcherApiUrl (ex.: dev/testes).
+      const watcherApiUrl = (settings.nfeWatcherApiUrl || 'https://app.oneclick.central-rnc.com.br').replace(/\/+$/, '');
       nfeWatcher = new NfeWatcherClass({
-        apiUrl: `http://127.0.0.1:${API_PORT}`,
+        apiUrl: watcherApiUrl,
         daemonSecret: secret,
         onLog: (entry) => {
           if (mainWindow && !mainWindow.isDestroyed()) {
@@ -3388,7 +3393,7 @@ app.whenReady().then(async () => {
       });
       // Auto-start desabilitado por padrão — user precisa disparar via IPC
       // (`nfe-watcher:start`) ou via UI futura. Isso evita travamentos durante boot.
-      console.log('[NfeWatcher] Inicializado (parado). Dispare manualmente pra começar a monitorar.');
+      console.log(`[NfeWatcher] Inicializado (parado). API alvo: ${watcherApiUrl}`);
     } catch (e) {
       console.error('[NfeWatcher] Erro fatal — ignorado:', e.message);
     }
