@@ -9,6 +9,7 @@ import {
   Database,
   Download,
   FileText,
+  HelpCircle,
   History,
   Home,
   Loader2,
@@ -38,6 +39,10 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   cn,
 } from '@saas/ui'
 import { PageHeader } from '@/components/page-header'
@@ -197,10 +202,28 @@ function PercentInput({
   )
 }
 
-function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function HelpTip({ text }: { text: string }) {
+  return (
+    <Tooltip delayDuration={150}>
+      <TooltipTrigger asChild>
+        <button type="button" className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={`Ajuda: ${text}`}>
+          <HelpCircle className="h-3.5 w-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[320px] whitespace-normal leading-5">
+        {text}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+function Metric({ label, value, sub, help }: { label: string; value: string; sub?: string; help?: string }) {
   return (
     <div className="rounded-[6px] border bg-background/70 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        {help && <HelpTip text={help} />}
+      </div>
       <p className="mt-1 text-lg font-semibold tabular-nums">{value}</p>
       {sub && <p className="mt-1 text-xs text-muted-foreground">{sub}</p>}
     </div>
@@ -474,6 +497,7 @@ export default function ReformaTributariaPage() {
   const RecomendacaoIcon = recomendacao?.icon ?? AlertTriangle
 
   return (
+    <TooltipProvider>
     <div className="space-y-5">
       <PageHeader
         color={MODULE_COLOR}
@@ -507,9 +531,9 @@ export default function ReformaTributariaPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Metric label="Clientes mensais ativos" value={String(dashboard?.totalClientes ?? 0)} sub="Base OneClick" />
-        <Metric label="Simples Nacional" value={String(dashboard?.simples ?? 0)} sub="Foco da decisão dentro x regular" />
-        <Metric label="Cliente selecionado" value={clienteSelecionado ? regimeLabel(clienteSelecionado.tributacao) : '-'} sub="Regime atual cadastrado" />
+        <Metric label="Clientes mensais ativos" value={String(dashboard?.totalClientes ?? 0)} sub="Base OneClick" help="Total de clientes ativos com situação MENSAL considerados no módulo. Clientes inativos, excluídos ou fora da situação mensal não entram nesta base." />
+        <Metric label="Simples Nacional" value={String(dashboard?.simples ?? 0)} sub="Foco da decisão dentro x regular" help="Quantidade de clientes da base mensal ativa cadastrados como Simples Nacional. Esses são o foco principal da decisão entre permanecer com IBS/CBS dentro do Simples ou avaliar apuração regular." />
+        <Metric label="Cliente selecionado" value={clienteSelecionado ? regimeLabel(clienteSelecionado.tributacao) : '-'} sub="Regime atual cadastrado" help="Regime tributário cadastrado no cliente. Para clientes fora do Simples, a tela mostra análise de impacto, não uma recomendação de permanência no Simples." />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[380px_minmax(0,1fr)]">
@@ -596,11 +620,11 @@ export default function ReformaTributariaPage() {
               {!loadingSimulacao && simulacao && (
                 <>
                   <div className="grid gap-3 md:grid-cols-5">
-                    <Metric label="Faturamento 12m" value={money(simulacao.metrics.faturamento12m)} />
-                    <Metric label="Compras/servicos" value={money(simulacao.metrics.comprasMercadorias12m + simulacao.metrics.servicosTomados12m)} />
-                    <Metric label="Qualidade dos dados" value={`${simulacao.qualidade.score}%`} />
-                    <Metric label="Confiabilidade" value={simulacao.confiabilidade?.nivel ?? '-'} sub={`${simulacao.confiabilidade?.score ?? 0}%`} />
-                    <Metric label="Impacto estimado" value={money(simulacao.resumo.impacto.valor)} sub={pct(simulacao.resumo.impacto.percentualReceita)} />
+                    <Metric label="Faturamento 12m" value={money(simulacao.metrics.faturamento12m)} help="Receita dos últimos 12 meses. Prioriza balancete ERP importado; se não houver, usa snapshots SCI e depois documentos fiscais como fallback." />
+                    <Metric label="Compras/servicos" value={money(simulacao.metrics.comprasMercadorias12m + simulacao.metrics.servicosTomados12m)} help="Base usada para estimar créditos. Quando existe balancete, considera a base classificada de créditos; sem balancete, usa documentos fiscais/snapshots como aproximação." />
+                    <Metric label="Qualidade dos dados" value={`${simulacao.qualidade.score}%`} help="Pontuação de completude cadastral e fiscal: regime, CNAE, faturamento, base de crédito e volume de documentos importados." />
+                    <Metric label="Confiabilidade" value={simulacao.confiabilidade?.nivel ?? '-'} sub={`${simulacao.confiabilidade?.score ?? 0}%`} help="Nível técnico da simulação. Sobe quando há premissa versionada, ERP/balancete disponível, documentos suficientes e base de créditos classificada." />
+                    <Metric label="Impacto estimado" value={money(simulacao.resumo.impacto.valor)} sub={pct(simulacao.resumo.impacto.percentualReceita)} help="Diferença absoluta entre os cenários calculados, ajustada pelo peso comercial do crédito transferido ao cliente B2B." />
                   </div>
 
                   <div className="grid gap-3 lg:grid-cols-2">
@@ -610,8 +634,8 @@ export default function ReformaTributariaPage() {
                         Fonte dos dados
                       </div>
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <Metric label="Fonte principal" value={simulacao.metrics?.fontePrincipal ?? '-'} />
-                        <Metric label="Origem ERP" value={simulacao.metrics?.erp?.origem ?? '-'} sub={simulacao.metrics?.erp?.disponivel ? 'Disponivel' : 'Indisponivel'} />
+                        <Metric label="Fonte principal" value={simulacao.metrics?.fontePrincipal ?? '-'} help="Indica de onde veio a principal base numérica: balancete ERP, snapshot SCI ou documentos fiscais." />
+                        <Metric label="Origem ERP" value={simulacao.metrics?.erp?.origem ?? '-'} sub={simulacao.metrics?.erp?.disponivel ? 'Disponivel' : 'Indisponivel'} help="Mostra se o módulo conseguiu usar dados do ERP. 'snapshot' é resumo mensal; 'balancete_importado' permite classificação contábil mais precisa." />
                       </div>
                       {simulacao.metrics?.erp?.mensagem && (
                         <p className="mt-3 text-xs text-muted-foreground">{simulacao.metrics.erp.mensagem}</p>
@@ -641,11 +665,12 @@ export default function ReformaTributariaPage() {
                         </Button>
                       )}
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <Metric label="Origem" value={simulacao.regraSetorial?.origem ?? 'SEM_REGRA'} />
+                        <Metric label="Origem" value={simulacao.regraSetorial?.origem ?? 'SEM_REGRA'} help="Como a regra setorial foi identificada: premissa por CNAE, benefício do cliente, atividade cadastrada ou ausência de regra." />
                         <Metric
                           label="Reducao sugerida"
                           value={pct(simulacao.regraSetorial?.reducaoSetorial ?? 0)}
                           sub={simulacao.regraSetorial?.premissaNome ?? simulacao.regraSetorial?.setor ?? 'Sem premissa vinculada'}
+                          help="Redução setorial cadastrada na premissa sugerida. Deve ser validada tecnicamente antes de emitir parecer conclusivo."
                         />
                       </div>
                       {simulacao.regraSetorial?.alertas?.length > 0 && (
@@ -663,10 +688,10 @@ export default function ReformaTributariaPage() {
                         Classificacao de creditos IBS/CBS
                       </div>
                       <div className="grid gap-3 md:grid-cols-4">
-                        <Metric label="Origem" value={simulacao.metrics.creditos.origem ?? '-'} sub={`Confianca ${simulacao.metrics.creditos.confianca ?? '-'}`} />
-                        <Metric label="Creditavel" value={money(simulacao.metrics.creditos.baseCreditavel12m)} />
-                        <Metric label="Nao creditavel" value={money(simulacao.metrics.creditos.baseNaoCreditavel12m)} />
-                        <Metric label="Revisar" value={money(simulacao.metrics.creditos.baseRevisao12m)} sub={`Base ajustada ${money(simulacao.metrics.creditos.baseAjustada12m)}`} />
+                        <Metric label="Origem" value={simulacao.metrics.creditos.origem ?? '-'} sub={`Confianca ${simulacao.metrics.creditos.confianca ?? '-'}`} help="Fonte usada para classificar a base de crédito. Balancete importado é mais confiável; documentos fiscais e premissa são fallback." />
+                        <Metric label="Creditavel" value={money(simulacao.metrics.creditos.baseCreditavel12m)} help="Contas ou documentos classificados como potencialmente creditáveis para IBS/CBS, sujeitos a validação fiscal." />
+                        <Metric label="Nao creditavel" value={money(simulacao.metrics.creditos.baseNaoCreditavel12m)} help="Valores classificados como tipicamente não creditáveis, como folha, tributos, multas, juros e itens sem direito aparente a crédito." />
+                        <Metric label="Revisar" value={money(simulacao.metrics.creditos.baseRevisao12m)} sub={`Base ajustada ${money(simulacao.metrics.creditos.baseAjustada12m)}`} help="Valores que exigem análise fiscal. O cálculo conservador considera apenas 25% dessa base na estimativa ajustada." />
                       </div>
                       {simulacao.metrics.creditos.itens?.length > 0 && (
                         <div className="mt-4 overflow-hidden rounded-[6px] border">
@@ -958,5 +983,6 @@ export default function ReformaTributariaPage() {
         </div>
       </div>
     </div>
+    </TooltipProvider>
   )
 }
