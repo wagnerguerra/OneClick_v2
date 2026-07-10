@@ -212,6 +212,44 @@ function sumSciRows(value: unknown) {
   return value.reduce((acc, row) => acc + asNumber((row as Record<string, unknown>).movimentacao), 0)
 }
 
+function textoNormalizado(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+function classificarContaCredito(row: { conta: string; nomeConta: string; categoriaDre: string | null }): {
+  categoria: 'CREDITAVEL' | 'NAO_CREDITAVEL' | 'REVISAR'
+  motivo: string
+} {
+  const nome = textoNormalizado(`${row.conta} ${row.nomeConta}`)
+  const categoriaDre = row.categoriaDre ?? ''
+
+  if (
+    /salario|pro labore|pro-labore|ordenado|ferias|13|decimo|fgts|inss|folha|encargo|rescis|beneficio/.test(nome)
+    || /irpj|csll|imposto de renda|contribuicao social|multa|juros|taxa|parcelamento|distribuicao|lucro|doacao/.test(nome)
+  ) {
+    return { categoria: 'NAO_CREDITAVEL', motivo: 'Natureza tipicamente nao creditavel ou ligada a folha/tributos/encargos.' }
+  }
+
+  if (
+    categoriaDre === 'CUSTO_DAS_VENDAS'
+    || categoriaDre === 'DESPESAS_VARIAVEIS'
+    || row.conta.startsWith('04.1.')
+    || row.conta.startsWith('4.1.')
+    || /mercadoria|insumo|materia prima|material aplicado|embalagem|frete|energia|combustivel|aluguel|locacao|software|licenca|servico tomado|terceir/.test(nome)
+  ) {
+    return { categoria: 'CREDITAVEL', motivo: 'Custo/insumo/servico com potencial de credito a confirmar.' }
+  }
+
+  if (categoriaDre === 'DESPESAS_OPERACIONAIS' || row.conta.startsWith('04.2.') || row.conta.startsWith('4.2.')) {
+    return { categoria: 'REVISAR', motivo: 'Despesa operacional exige validacao fiscal para definir creditamento.' }
+  }
+
+  return { categoria: 'REVISAR', motivo: 'Conta sem classificacao fiscal objetiva no plano atual.' }
+}
+
 function scoreQualidade(args: {
   cliente: ClienteBase
   metrics: Metrics
@@ -221,7 +259,7 @@ function scoreQualidade(args: {
     { ok: !!args.cliente.tributacao, label: 'Regime tributario cadastrado' },
     { ok: !!args.cliente.cnaePrincipal || args.cnaes.length > 0, label: 'CNAE informado' },
     { ok: args.metrics.faturamento12m > 0, label: 'Faturamento dos ultimos 12 meses' },
-    { ok: args.metrics.comprasMercadorias12m + args.metrics.servicosTomados12m > 0, label: 'Base de compras/servicos para credito' },
+    { ok: args.metrics.creditos.baseAjustada12m > 0 || args.metrics.comprasMercadorias12m + args.metrics.servicosTomados12m > 0, label: 'Base de compras/servicos para credito' },
     { ok: args.metrics.documentosSaida + args.metrics.documentosEntrada > 0, label: 'Documentos fiscais importados' },
   ]
   const pontos = items.filter(i => i.ok).length
@@ -252,8 +290,15 @@ function scoreConfiabilidade(args: {
   else pendencias.push('Sem faturamento anual consolidado')
 
   const baseCredito = args.metrics.comprasMercadorias12m + args.metrics.servicosTomados12m
-  if (baseCredito > 0) fatores.push('Base de compras/serviços disponível para estimar créditos')
+  if (args.metrics.creditos.baseAjustada12m > 0) {
+    score += args.metrics.creditos.confianca === 'ALTA' ? 8 : 4
+    fatores.push(`Base de creditos classificada: ${args.metrics.creditos.confianca}`)
+  } else if (baseCredito > 0) fatores.push('Base de compras/serviços disponível para estimar créditos')
   else pendencias.push('Sem base objetiva de compras e serviços tomados')
+
+  if (args.metrics.creditos.baseRevisao12m > args.metrics.creditos.baseCreditavel12m) {
+    pendencias.push('Contas em revisao superam a base creditavel classificada')
+  }
 
   if (args.metrics.documentosSaida >= 12) score += 4
   else pendencias.push('Baixo volume de documentos de saída importados')
@@ -482,8 +527,11 @@ export class ReformaTributariaService {
     const totalAliquota = (p.aliquotaCbs + p.aliquotaIbs) * (1 - reducaoSetorial)
     const receita = diagnostico.metrics.faturamento12m
     const baseCompras = diagnostico.metrics.comprasMercadorias12m + diagnostico.metrics.servicosTomados12m
+    const baseCreditoClassificada = diagnostico.metrics.creditos.baseAjustada12m > 0
+      ? diagnostico.metrics.creditos.baseAjustada12m
+      : baseCompras
     const vendasB2B = receita * p.percentualVendasB2B
-    const comprasCreditaveis = Math.max(baseCompras, receita * p.percentualComprasCreditaveis)
+    const comprasCreditaveis = Math.max(baseCreditoClassificada, receita * p.percentualComprasCreditaveis)
 
     const simplesDentro = {
       cargaEstimativa: receita * p.aliquotaSimplesIbsCbs,
@@ -508,7 +556,7 @@ export class ReformaTributariaService {
       premissaNome: p.premissaNome,
       reducaoSetorial,
     })
-    const sensibilidade = this.calcularSensibilidade(receita, baseCompras, p, reducaoSetorial)
+    const sensibilidade = this.calcularSensibilidade(receita, baseCreditoClassificada, p, reducaoSetorial)
     const planoAcao = this.planoAcaoTecnico(diagnostico, confiabilidade, recomendacao, sensibilidade)
 
     return {
@@ -698,8 +746,20 @@ export class ReformaTributariaService {
     const servicosTomadosDocs = nfseRows.filter(r => r.direcao === 'entrada').reduce((acc, r) => acc + asNumber(r.total), 0)
     const contabil = await this.getDadosContabeis(cliente.id, meses)
     const sci = await this.getDadosSci(cliente, meses)
+    const creditoFallback = comprasDocs + servicosTomadosDocs
+    const creditos = contabil.creditos.origem === 'balancete_importado'
+      ? contabil.creditos
+      : {
+          origem: creditoFallback > 0 ? 'documentos_fiscais' as const : 'premissa' as const,
+          baseCreditavel12m: creditoFallback,
+          baseNaoCreditavel12m: 0,
+          baseRevisao12m: 0,
+          baseAjustada12m: creditoFallback,
+          confianca: creditoFallback > 0 ? 'MEDIA' as const : 'BAIXA' as const,
+          itens: [],
+        }
     const faturamento12m = contabil.faturamento12m || snapshots.faturamento || sci.faturamento12m || receitaDocs
-    const comprasMercadorias12m = contabil.custosDespesas12m || comprasDocs || snapshots.nf_entrada
+    const comprasMercadorias12m = creditos.baseAjustada12m || contabil.custosDespesas12m || comprasDocs || snapshots.nf_entrada
     const servicosTomados12m = servicosTomadosDocs
     const fontePrincipal: Metrics['fontePrincipal'] = contabil.faturamento12m > 0
       ? 'BALANCETE_ERP'
@@ -728,6 +788,7 @@ export class ReformaTributariaService {
         margemOperacionalPercentual: contabil.margemOperacionalPercentual,
         mensagem: contabil.mensagem || sci.mensagem,
       },
+      creditos,
       snapshots,
     }
   }
@@ -760,6 +821,61 @@ export class ReformaTributariaService {
       periodoInicio,
       periodoFim,
     )
+    const creditoRows = await prisma.$queryRawUnsafe<Array<{
+      conta: string
+      nomeConta: string
+      categoriaDre: string | null
+      valor: number | string | null
+    }>>(
+      `SELECT l.conta, l.nome_conta AS "nomeConta",
+              COALESCE(c.categoria_dre, p.categoria_dre) AS "categoriaDre",
+              ABS(SUM(l.movimento)) AS valor
+         FROM cliente_bi_linhas l
+         LEFT JOIN cliente_bi_categorias c
+           ON c.cliente_id = l.cliente_id AND c.conta = l.conta
+         LEFT JOIN plano_contas_categoria_padrao p
+           ON p.classificacao = l.conta
+        WHERE l.cliente_id = $1
+          AND l.periodo BETWEEN $2 AND $3
+          AND (
+            COALESCE(c.categoria_dre, p.categoria_dre) IN ('CUSTO_DAS_VENDAS', 'DESPESAS_VARIAVEIS', 'DESPESAS_OPERACIONAIS')
+            OR l.conta LIKE '04.1.%' OR l.conta LIKE '4.1.%'
+            OR l.conta LIKE '04.2.%' OR l.conta LIKE '4.2.%'
+          )
+        GROUP BY l.conta, l.nome_conta, COALESCE(c.categoria_dre, p.categoria_dre)
+       HAVING ABS(SUM(l.movimento)) > 0.01
+        ORDER BY ABS(SUM(l.movimento)) DESC
+        LIMIT 80`,
+      clienteId,
+      periodoInicio,
+      periodoFim,
+    )
+    const creditoItens = creditoRows.map(row => {
+      const classificacao = classificarContaCredito(row)
+      return {
+        conta: row.conta,
+        nomeConta: row.nomeConta,
+        categoria: classificacao.categoria,
+        valor: asNumber(row.valor),
+        motivo: classificacao.motivo,
+      }
+    })
+    const baseCreditavel12m = creditoItens.filter(i => i.categoria === 'CREDITAVEL').reduce((acc, i) => acc + i.valor, 0)
+    const baseNaoCreditavel12m = creditoItens.filter(i => i.categoria === 'NAO_CREDITAVEL').reduce((acc, i) => acc + i.valor, 0)
+    const baseRevisao12m = creditoItens.filter(i => i.categoria === 'REVISAR').reduce((acc, i) => acc + i.valor, 0)
+    const creditos = {
+      origem: creditoItens.length > 0 ? 'balancete_importado' as const : 'premissa' as const,
+      baseCreditavel12m,
+      baseNaoCreditavel12m,
+      baseRevisao12m,
+      baseAjustada12m: baseCreditavel12m + (baseRevisao12m * 0.25),
+      confianca: creditoItens.length === 0
+        ? 'BAIXA' as const
+        : baseRevisao12m > baseCreditavel12m
+          ? 'MEDIA' as const
+          : 'ALTA' as const,
+      itens: creditoItens.slice(0, 12),
+    }
     const row = rows[0]
     const faturamento12m = asNumber(row?.receita)
     const custosDespesas12m = asNumber(row?.custosDespesas)
@@ -769,6 +885,7 @@ export class ReformaTributariaService {
       disponivel: periodos > 0 && (faturamento12m > 0 || custosDespesas12m > 0),
       faturamento12m,
       custosDespesas12m,
+      creditos,
       margemOperacionalPercentual: faturamento12m > 0 ? (faturamento12m - custosDespesas12m) / faturamento12m : null,
       mensagem: periodos > 0
         ? `Balancete ERP importado em ${periodos} periodo(s) entre ${periodoInicio} e ${periodoFim}.`
@@ -933,6 +1050,9 @@ export class ReformaTributariaService {
       `Qualidade dos dados: ${simulacao.qualidade.score}%`,
       `Confiabilidade tecnica: ${simulacao.confiabilidade.nivel} (${simulacao.confiabilidade.score}%)`,
       `Fonte principal dos dados: ${simulacao.metrics.fontePrincipal}`,
+      `Base creditavel classificada: R$ ${simulacao.metrics.creditos.baseCreditavel12m.toFixed(2)}`,
+      `Base nao creditavel classificada: R$ ${simulacao.metrics.creditos.baseNaoCreditavel12m.toFixed(2)}`,
+      `Base em revisao fiscal: R$ ${simulacao.metrics.creditos.baseRevisao12m.toFixed(2)}`,
     ]
     if (simulacao.metrics.erp.mensagem) {
       linhas.push(`ERP contabil: ${simulacao.metrics.erp.mensagem}`)
@@ -1016,6 +1136,12 @@ export class ReformaTributariaService {
     }
     if (diagnostico.metrics.comprasMercadorias12m + diagnostico.metrics.servicosTomados12m === 0) {
       passos.add('Consultar ERP contabil para separar compras creditaveis, despesas nao creditaveis e servicos tomados')
+    }
+    if (diagnostico.metrics.creditos.baseRevisao12m > 0) {
+      passos.add('Revisar contas classificadas como duvidosas para confirmar direito a credito IBS/CBS')
+    }
+    if (diagnostico.metrics.creditos.origem !== 'balancete_importado') {
+      passos.add('Importar balancete para substituir estimativa de creditos por classificacao contabil')
     }
     if (!diagnostico.metrics.erp.disponivel) {
       passos.add('Atualizar integracao ERP/SCI ou importar balancete do periodo para elevar a confiabilidade do parecer')

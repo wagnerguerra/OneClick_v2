@@ -429,6 +429,8 @@ export default function ReformaTributariaPage() {
     <div class="box"><strong>Premissa</strong><br />${simulacao.premissas?.premissaNome ?? 'Manual'}</div>
     <div class="box"><strong>Fonte dos dados</strong><br />${simulacao.metrics?.fontePrincipal ?? '-'} / ${simulacao.metrics?.erp?.origem ?? '-'}</div>
     <div class="box"><strong>Regra setorial</strong><br />${simulacao.regraSetorial?.premissaNome ?? simulacao.regraSetorial?.origem ?? '-'}</div>
+    <div class="box"><strong>Base creditavel</strong><br />${money(simulacao.metrics?.creditos?.baseCreditavel12m)} (${simulacao.metrics?.creditos?.confianca ?? '-'})</div>
+    <div class="box"><strong>Base em revisao</strong><br />${money(simulacao.metrics?.creditos?.baseRevisao12m)}</div>
   </div>
   <h2>Parecer técnico</h2>
   <pre>${parecer.replace(/[&<>]/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c))}</pre>
@@ -436,6 +438,8 @@ export default function ReformaTributariaPage() {
   <pre>${(simulacao.sensibilidade ?? []).map((s: any) => `${s.label}: ${money(s.cargaRegular)} no regular; diferença ${money(s.diferenca)}; ${s.recomendacao}`).join('\n')}</pre>
   <h2>Plano de ação</h2>
   <pre>${(simulacao.planoAcao ?? []).map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}</pre>
+  <h2>Classificação de créditos</h2>
+  <pre>${(simulacao.metrics?.creditos?.itens ?? []).map((i: any) => `${i.categoria}: ${i.conta} - ${i.nomeConta} - ${money(i.valor)} - ${i.motivo}`).join('\n')}</pre>
 </body>
 </html>`
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
@@ -651,6 +655,42 @@ export default function ReformaTributariaPage() {
                       )}
                     </div>
                   </div>
+
+                  {simulacao.metrics?.creditos && (
+                    <div className="rounded-[6px] border bg-background/70 p-4">
+                      <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                        <SlidersHorizontal className="h-4 w-4" />
+                        Classificacao de creditos IBS/CBS
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-4">
+                        <Metric label="Origem" value={simulacao.metrics.creditos.origem ?? '-'} sub={`Confianca ${simulacao.metrics.creditos.confianca ?? '-'}`} />
+                        <Metric label="Creditavel" value={money(simulacao.metrics.creditos.baseCreditavel12m)} />
+                        <Metric label="Nao creditavel" value={money(simulacao.metrics.creditos.baseNaoCreditavel12m)} />
+                        <Metric label="Revisar" value={money(simulacao.metrics.creditos.baseRevisao12m)} sub={`Base ajustada ${money(simulacao.metrics.creditos.baseAjustada12m)}`} />
+                      </div>
+                      {simulacao.metrics.creditos.itens?.length > 0 && (
+                        <div className="mt-4 overflow-hidden rounded-[6px] border">
+                          <div className="grid grid-cols-[110px_minmax(0,1fr)_120px] gap-3 border-b bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
+                            <span>Classe</span>
+                            <span>Conta</span>
+                            <span className="text-right">Valor</span>
+                          </div>
+                          <div className="divide-y">
+                            {simulacao.metrics.creditos.itens.map((item: any) => (
+                              <div key={`${item.conta}-${item.categoria}`} className="grid grid-cols-[110px_minmax(0,1fr)_120px] gap-3 px-3 py-2 text-xs">
+                                <Badge variant="outline" className="w-fit">{item.categoria}</Badge>
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium">{item.conta} - {item.nomeConta}</p>
+                                  <p className="mt-0.5 truncate text-muted-foreground">{item.motivo}</p>
+                                </div>
+                                <span className="text-right tabular-nums">{money(item.valor)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="rounded-[6px] border bg-background/70 p-4">
                     <p className="text-sm font-medium">{simulacao.resumo.texto}</p>
