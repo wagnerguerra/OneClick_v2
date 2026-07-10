@@ -159,9 +159,17 @@ v1 (era `scratchpad/PR_BODY.md`); pendências deixadas fora do PR migraram para 
   por-linha; "Pulada" riscada; navegação até a pendência). No sucesso vira o card
   "arquivo gerado" com barra recolhível "sem erros".
 - **Novas regras de pendência:** `COLUNA_NAO_ENCONTRADA` (coluna do De/Para
-  ausente no arquivo → encerra antes do loop); `CAMPO_VAZIO` também nas colunas
-  opcionais selecionadas (participante/NF/CNPJ-CPF); descrição vazia não gera
-  mais "sem contrapartida".
+  ausente no arquivo); `CAMPO_VAZIO` também nas colunas opcionais selecionadas
+  (participante/NF/CNPJ-CPF); descrição vazia não gera mais "sem contrapartida".
+  Coluna ausente **não silencia** as pendências das colunas presentes — acusa a
+  coluna faltante e segue linha a linha (short-circuit corrigido).
+- **Destaque de pendências no editor (modo revisão, #2):** abrir via "Editar
+  modelo" realça o que corrigir e some ao vivo conforme se ajusta — pendências de
+  **modelo** em vermelho (seção com anel + balão, campos causadores, rola até a
+  1ª seção, a contrapartida salta para a página da pendência) e **colunas do
+  modelo ausentes no arquivo** em âmbar (realce no campo + aviso NÃO bloqueante ao
+  salvar). A detecção de coluna ausente virou nativa do editor (não pruna mais em
+  silêncio ao trocar o arquivo de exemplo).
 
 ---
 
@@ -171,16 +179,12 @@ v1 (era `scratchpad/PR_BODY.md`); pendências deixadas fora do PR migraram para 
 - [ ] **Extração via IA de PDF/imagem** — TODO na fronteira `extractTabela`
       (PDF escaneado/foto). Portas/TODOs mantidos em `extract-tabela.ts` /
       `pdf-extract.ts`. **Não remover.**
-- [ ] **#2 — Destaque erro→campo no editor** — ao clicar "Editar modelo" a partir
-      de uma pendência de **modelo**, abrir o editor com os campos causadores
-      **destacados em vermelho** e o motivo. Hoje o botão só navega. É a parte que
-      falta da "UX rica de pendências" (o restante — realce da célula na linha de
-      origem, tooltip, navegação — já foi feito no painel remodelado, ver §4).
 - [ ] **#9 — Descoberta do visualizador de debug** — hoje é só via atalho
       `Ctrl/Cmd+Shift+E` (escondido). Ideia: botão discreto abaixo do painel +
       botão flutuante no editor. A planejar.
-- [x] ~~**UX rica de pendências**~~ — feita no painel remodelado (§4), exceto o
-      destaque no editor (#2, acima).
+- [x] ~~**UX rica de pendências (#1 + #2)**~~ — feita: painel remodelado (abas,
+      realce da célula, tooltip, navegação) + destaque no editor em modo revisão
+      (vermelho de modelo / âmbar de coluna ausente). Ver §4.
 - [x] ~~**Split do `model-editor.tsx`**~~ — feito (`_components/model-editor/*`).
 - [ ] **`colaboradores`** — não existe `model Colaborador` no schema, mas
       `TENANT_TABLES` lista `colaboradores`/`colaborador_events`. `createTenantSchema`
@@ -207,9 +211,10 @@ v1 (era `scratchpad/PR_BODY.md`); pendências deixadas fora do PR migraram para 
 - ✅ **UI/UX partes 1 e 2** (`feat/tratamento-lancamentos-ux`, `-ux-parte-2`)
   mescladas.
 - ⏳ **UI/UX parte 3** (`feat/tratamento-lancamentos-ux-parte-3`): reuso da tabela
-  do preview, painel de resultado remodelado e novas regras de pendência — 3
-  commits locais (`8224840`, `ca1bc42`, `f697b29`), ainda a empurrar/abrir PR.
-  Merge/deploy é exclusivo do Wagner.
+  do preview, painel de resultado remodelado, novas regras de pendência, destaque
+  de pendências no editor (modo revisão) e correção do short-circuit de coluna
+  faltante — 6 commits (de `8224840` a `33527d8`). Merge/deploy é exclusivo do
+  Wagner.
 
 ---
 
