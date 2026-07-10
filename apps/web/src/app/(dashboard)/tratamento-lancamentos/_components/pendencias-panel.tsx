@@ -39,11 +39,16 @@ export interface TraceItem {
   data: string
   valor: string
   descricao: string
+  participante: string
+  numeroNf: string
+  documento: string
   direcao: Direcao
   contaContrapartida: string | null
   contaCorrente: string | null
   status: TraceStatus
 }
+/** Quais colunas opcionais do De/Para o modelo mapeou (viram colunas em "Dados processados"). */
+export interface ColunasOpcionais { participante: boolean; numeroNf: boolean; documento: boolean }
 
 interface Props {
   pendencias: PendenciaItem[]
@@ -53,6 +58,7 @@ interface Props {
   trace: TraceItem[]
   traceTotal: number
   okTotal: number
+  colunasOpcionais: ColunasOpcionais
   canManage: boolean
   /** Abrir o editor em modo revisão (realça pendências de modelo e de arquivo). */
   onEditModel: () => void
@@ -87,7 +93,7 @@ function origemDe(p: PendenciaItem): Origem {
 const MAX_RENDER = 500
 
 const STATUS_LABEL: Record<TraceStatus, string> = {
-  ok: 'OK', pendencia: 'Pendência', 'pulada-regra': 'Pulada', 'ignorada-zero': 'Ignorada',
+  ok: 'OK', pendencia: 'Pendência', 'pulada-regra': 'Pulada (regra)', 'ignorada-zero': 'Ignorada',
 }
 const STATUS_CLASS: Record<TraceStatus, string> = {
   ok: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
@@ -122,7 +128,7 @@ function scrollToCenter(container: HTMLElement | null, el: HTMLElement) {
   }
 }
 
-export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, trace, traceTotal, okTotal, canManage, onEditModel, onDownload }: Props) {
+export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, trace, traceTotal, okTotal, colunasOpcionais, canManage, onEditModel, onDownload }: Props) {
   const temPendencias = pendencias.length > 0
   const [aberto, setAberto] = useState(temPendencias) // sucesso → retraído
   const [tab, setTab] = useState(temPendencias ? 'pend' : 'proc')
@@ -227,13 +233,12 @@ export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, t
             style={{ marginInline: '15rem', width: 'calc(100% - 30rem)' }}
             className="flex items-center gap-1.5 border-t border-border/60 px-5 py-2.5 text-left text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/30 cursor-pointer"
           >
-            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
             {aberto ? 'Ocultar detalhes do processamento' : 'Dados processados sem erros — clique para ver os detalhes'}
             <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', aberto && 'rotate-180')} />
           </button>
           {aberto && (
             <div className="px-5 pb-5 pt-1">
-              <DadosProcessados trace={trace} traceTotal={traceTotal} temPendencias={false} onIrParaPendencia={() => { /* sem pendências */ }} />
+              <DadosProcessados trace={trace} traceTotal={traceTotal} colunasOpcionais={colunasOpcionais} temPendencias={false} onIrParaPendencia={() => { /* sem pendências */ }} />
             </div>
           )}
         </div>
@@ -346,6 +351,7 @@ export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, t
                 <DadosProcessados
                   trace={trace}
                   traceTotal={traceTotal}
+                  colunasOpcionais={colunasOpcionais}
                   temPendencias={temPendencias}
                   onIrParaPendencia={irParaPendencia}
                 />
@@ -447,10 +453,11 @@ function PendenciaRow({
 
 // --- Dados processados (como o modelo interpretou cada lançamento) ----------
 function DadosProcessados({
-  trace, traceTotal, temPendencias, onIrParaPendencia,
+  trace, traceTotal, colunasOpcionais, temPendencias, onIrParaPendencia,
 }: {
   trace: TraceItem[]
   traceTotal: number
+  colunasOpcionais: ColunasOpcionais
   temPendencias: boolean
   onIrParaPendencia: (linha: number) => void
 }) {
@@ -488,6 +495,9 @@ function DadosProcessados({
                 <TableHead className="text-xs">Descrição</TableHead>
                 <TableHead className="text-xs">Valor</TableHead>
                 <TableHead className="text-xs">Direção</TableHead>
+                {colunasOpcionais.numeroNf && <TableHead className="text-xs">Número NF</TableHead>}
+                {colunasOpcionais.participante && <TableHead className="text-xs">Participante</TableHead>}
+                {colunasOpcionais.documento && <TableHead className="text-xs">CNPJ/CPF</TableHead>}
                 <TableHead className="text-xs">Contrapartida</TableHead>
                 <TableHead className="text-xs">Conta corrente</TableHead>
                 <TableHead className="text-xs">Status</TableHead>
@@ -511,6 +521,9 @@ function DadosProcessados({
                     <TableCell className={cn(txt, 'max-w-[260px] truncate')} title={t.descricao}>{t.descricao || '∅'}</TableCell>
                     <TableCell className={txt}>{t.valor || '∅'}</TableCell>
                     <TableCell className={txt}>{dirLabel(t.direcao)}</TableCell>
+                    {colunasOpcionais.numeroNf && <TableCell className={txt}>{t.numeroNf || '∅'}</TableCell>}
+                    {colunasOpcionais.participante && <TableCell className={cn(txt, 'max-w-[200px] truncate')} title={t.participante}>{t.participante || '∅'}</TableCell>}
+                    {colunasOpcionais.documento && <TableCell className={txt}>{t.documento || '∅'}</TableCell>}
                     <TableCell className={txt}>{t.contaContrapartida ?? '—'}</TableCell>
                     <TableCell className={txt}>{t.contaCorrente ?? '—'}</TableCell>
                     <TableCell className="py-2">

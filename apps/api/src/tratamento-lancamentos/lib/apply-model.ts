@@ -53,6 +53,10 @@ export interface TraceRow {
   data: string
   valor: string
   descricao: string
+  /** Colunas opcionais do De/Para (vazio quando não mapeadas). */
+  participante: string
+  numeroNf: string
+  documento: string
   /** Interpretação. */
   dataParsed: string | null
   valorParsed: number | null
@@ -177,6 +181,7 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition, anoC
       if (!trace) return
       trace.push({
         linha, data: dataStr, valor: valorStr, descricao,
+        participante, numeroNf, documento,
         dataParsed: pd.valid ? (pd.yyyymmdd ?? null) : null,
         valorParsed: pv.valid ? (pv.value ?? null) : null,
         direcao: null, contaContrapartida: null, contaCorrente: null,

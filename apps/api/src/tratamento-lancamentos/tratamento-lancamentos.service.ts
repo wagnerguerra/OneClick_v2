@@ -29,10 +29,11 @@ const DEBUG_MAX_ROWS = 5000
 const CONVERT_TRACE_MAX = 5000
 
 // Traço enxuto para a aba "Dados processados" (sem os campos "parsed").
-type ConvertTraceRow = Pick<TraceRow, 'linha' | 'data' | 'valor' | 'descricao' | 'direcao' | 'contaContrapartida' | 'contaCorrente' | 'status'>
+type ConvertTraceRow = Pick<TraceRow, 'linha' | 'data' | 'valor' | 'descricao' | 'participante' | 'numeroNf' | 'documento' | 'direcao' | 'contaContrapartida' | 'contaCorrente' | 'status'>
 function projectTrace(t: TraceRow): ConvertTraceRow {
   return {
     linha: t.linha, data: t.data, valor: t.valor, descricao: t.descricao,
+    participante: t.participante, numeroNf: t.numeroNf, documento: t.documento,
     direcao: t.direcao, contaContrapartida: t.contaContrapartida,
     contaCorrente: t.contaCorrente, status: t.status,
   }
@@ -383,13 +384,20 @@ export class TratamentoLancamentosService {
     })
 
     const def = model.definition ?? EMPTY_TREATMENT_DEFINITION
+    // Colunas opcionais do De/Para que o modelo mapeou → a aba "Dados processados"
+    // mostra uma coluna para cada uma (mesmo que o valor venha vazio em algumas linhas).
+    const colunasOpcionais = {
+      participante: !!def.columnMapping.participante,
+      numeroNf: !!def.columnMapping.numeroNf,
+      documento: !!def.columnMapping.documento,
+    }
 
     // Datas "dd/mm" sem ano (ex.: Sicoob): sem a competência informada, avisa o
     // front para pedir o ano (popup) e reenviar — não gera o arquivo ainda.
     const dataCol = def.columnMapping.data
     const precisaAno = !input.competenciaAno && !!dataCol && table.rows.some((r) => parseData(r[dataCol]).semAno)
     if (precisaAno) {
-      return { needsCompetenciaAno: true, totalLancamentos: 0, pendencias: [], fileBase64: null, fileName: '', trace: [] as ConvertTraceRow[], traceTotal: 0, okTotal: 0 }
+      return { needsCompetenciaAno: true, totalLancamentos: 0, pendencias: [], fileBase64: null, fileName: '', trace: [] as ConvertTraceRow[], traceTotal: 0, okTotal: 0, colunasOpcionais }
     }
 
     // Coleta o traço por-linha (como o modelo interpretou cada lançamento) para a
@@ -408,6 +416,7 @@ export class TratamentoLancamentosService {
       traceTotal: trace.length,
       // Total de linhas OK sobre TODO o traço (não só o fatiado) → contagem exata.
       okTotal: trace.reduce((n, t) => (t.status === 'ok' ? n + 1 : n), 0),
+      colunasOpcionais,
     }
   }
 

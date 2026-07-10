@@ -345,6 +345,7 @@ export default function TratamentoLancamentosPage() {
               trace={result.trace ?? []}
               traceTotal={result.traceTotal ?? 0}
               okTotal={result.okTotal ?? 0}
+              colunasOpcionais={result.colunasOpcionais ?? { participante: false, numeroNf: false, documento: false }}
               canManage={canManage}
               onEditModel={() => {
                 // Abre o editor em "modo revisão": realça pendências de modelo (vermelho)
