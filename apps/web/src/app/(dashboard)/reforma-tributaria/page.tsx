@@ -721,12 +721,18 @@ export default function ReformaTributariaPage() {
                     <p className="text-sm font-medium">{simulacao.resumo.texto}</p>
                     <div className="mt-3 grid gap-3 md:grid-cols-2">
                       <div className="rounded-[6px] border p-3">
-                        <p className="text-xs font-medium text-muted-foreground">IBS/CBS dentro do Simples</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-medium text-muted-foreground">IBS/CBS dentro do Simples</p>
+                          <HelpTip text="Estimativa da carga de IBS/CBS mantendo o recolhimento dentro do Simples Nacional, conforme alíquota parametrizada na simulação." />
+                        </div>
                         <p className="mt-2 text-xl font-semibold">{money(simulacao.cenarios.simplesDentro.cargaEstimativa)}</p>
                         <p className="mt-1 text-xs text-muted-foreground">Credito transferido: {money(simulacao.cenarios.simplesDentro.creditoTransferidoCliente)}</p>
                       </div>
                       <div className="rounded-[6px] border p-3">
-                        <p className="text-xs font-medium text-muted-foreground">Apuracao regular</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-medium text-muted-foreground">Apuracao regular</p>
+                          <HelpTip text="Estimativa de débito menos créditos apropriáveis no regime regular. Usa alíquotas CBS/IBS, redução setorial e base de créditos classificada quando disponível." />
+                        </div>
                         <p className="mt-2 text-xl font-semibold">{money(simulacao.cenarios.regular.cargaEstimativa)}</p>
                         <p className="mt-1 text-xs text-muted-foreground">Creditos apropriaveis: {money(simulacao.cenarios.regular.creditoApropriavel)}</p>
                       </div>
