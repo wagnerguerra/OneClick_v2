@@ -23,7 +23,7 @@ const POLL_INTERVAL_MS = 15_000  // a cada 15s — também detecta requests de s
 const DEBOUNCE_MS = 2_000        // espera 2s estabilizar antes de enviar
 const BATCH_SIZE = 10            // menor pra não sobrecarregar a API (cada arquivo gera S3 + PDF + DB inserts)
 const BATCH_DELAY_MS = 800       // pausa entre chunks pra dar respiro pro servidor
-const MAX_DEPTH = 6              // níveis de subpasta — estruturas reais chegam a 5 (2026\NOTAS FISCAIS\06-2026\SAIDA\Canceladas)
+const MAX_DEPTH = 10             // níveis de subpasta — estruturas reais chegam a 9 (ANOS ANTERIORES\2024\NOTAS FISCAIS\...\SAIDA\Canceladas)
 
 class NfeWatcher {
   constructor({ apiUrl, daemonSecret, onLog }) {
