@@ -1,10 +1,6 @@
 {
   "name": "oneclick-launcher",
-<<<<<<< Updated upstream
   "version": "1.2.98",
-=======
-  "version": "1.2.79",
->>>>>>> Stashed changes
   "description": "OneClick ERP — Launcher & Service Manager",
   "main": "main.js",
   "private": true,

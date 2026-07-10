@@ -50,6 +50,21 @@ interface Metrics {
     margemOperacionalPercentual: number | null
     mensagem?: string
   }
+  creditos: {
+    origem: 'balancete_importado' | 'documentos_fiscais' | 'premissa'
+    baseCreditavel12m: number
+    baseNaoCreditavel12m: number
+    baseRevisao12m: number
+    baseAjustada12m: number
+    confianca: 'ALTA' | 'MEDIA' | 'BAIXA'
+    itens: Array<{
+      conta: string
+      nomeConta: string
+      categoria: 'CREDITAVEL' | 'NAO_CREDITAVEL' | 'REVISAR'
+      valor: number
+      motivo: string
+    }>
+  }
   snapshots: Record<string, number>
 }
 

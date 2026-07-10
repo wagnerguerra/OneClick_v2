@@ -2,8 +2,9 @@
  * NFe Watcher — monitora pastas locais do PC e envia XMLs/ZIPs novos pra API.
  *
  * Fluxo:
- *  1. A cada 60s: GET /api/drive-sync/configs-locais (lista de clientes com pasta)
- *  2. Pra cada cliente novo: chokidar.watch(path) + scan inicial
+ *  1. A cada 15s: GET /api/drive-sync/configs-locais (lista de clientes com pasta)
+ *  2. Pra cada cliente novo: chokidar.watch(path); se nunca sincronizou
+ *     (localSyncedAt null), roda scan inicial do acervo (dedup por SHA na API)
  *  3. Pra cada cliente removido da config: para o watcher
  *  4. Eventos `add` do chokidar (após scan inicial): enfileira arquivo, debounce 2s
  *  5. Worker: drena fila em batches de até 50, envia POST /api/drive-sync/batch-local
@@ -22,6 +23,7 @@ const POLL_INTERVAL_MS = 15_000  // a cada 15s — também detecta requests de s
 const DEBOUNCE_MS = 2_000        // espera 2s estabilizar antes de enviar
 const BATCH_SIZE = 10            // menor pra não sobrecarregar a API (cada arquivo gera S3 + PDF + DB inserts)
 const BATCH_DELAY_MS = 800       // pausa entre chunks pra dar respiro pro servidor
+const MAX_DEPTH = 6              // níveis de subpasta — estruturas reais chegam a 5 (2026\NOTAS FISCAIS\06-2026\SAIDA\Canceladas)
 
 class NfeWatcher {
   constructor({ apiUrl, daemonSecret, onLog }) {
@@ -161,9 +163,9 @@ class NfeWatcher {
       for (const item of items) {
         const fullPath = path.join(dir, item.name)
         if (item.isDirectory()) {
-          // limita 3 níveis de profundidade pra não travar
+          // limita profundidade pra não travar
           const rel = path.relative(entry.path, fullPath)
-          if (rel.split(path.sep).length > 3) continue
+          if (rel.split(path.sep).length > MAX_DEPTH) continue
           if (/node_modules|\$Recycle\.Bin|System Volume Information|\.git/i.test(item.name)) continue
           stack.push(fullPath)
         } else if (item.isFile()) {
@@ -260,7 +262,7 @@ class NfeWatcher {
         persistent: true,
         ignoreInitial: true,
         awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 500 },
-        depth: 3,
+        depth: MAX_DEPTH,
         usePolling: isUNC,                              // polling pra paths de rede
         interval: isUNC ? 5000 : 100,                   // polling 5s em UNC (mais lento, menos carga)
         binaryInterval: isUNC ? 5000 : 300,
@@ -300,10 +302,13 @@ class NfeWatcher {
       // Reset count após 30s sem erros
       if (entry.errResetTimer) clearTimeout(entry.errResetTimer)
       entry.errResetTimer = setTimeout(() => { entry.errCount = 0 }, 30_000)
-      // Mata o watcher se for loop persistente
+      // Mata o watcher se for loop persistente — remove do mapa pra que o
+      // próximo poll recrie do zero (antes ficava órfão e nunca voltava)
       if (entry.errCount > 5) {
-        this.log(`Watcher ${cliente.razaoSocial} morto após ${entry.errCount} erros consecutivos`, 'error')
+        this.log(`Watcher ${cliente.razaoSocial} morto após ${entry.errCount} erros consecutivos — será recriado no próximo poll`, 'error')
         try { watcher.close() } catch { /* */ }
+        if (entry.debounceTimer) clearTimeout(entry.debounceTimer)
+        this.watchers.delete(cliente.id)
         this.status.set(cliente.id, { watching: false, ultimoErro: `loop de erros: ${err.message}`, totalEnviados: this.status.get(cliente.id)?.totalEnviados ?? 0 })
       }
     })
@@ -311,6 +316,16 @@ class NfeWatcher {
     entry.watcher = watcher
     this.watchers.set(cliente.id, entry)
     this.status.set(cliente.id, { watching: true, totalEnviados: 0, ultimoErro: null })
+
+    // Scan inicial: cliente que nunca sincronizou tem o acervo existente enviado
+    // automaticamente (a API dedupa por SHA, então re-scans não duplicam nada).
+    // Fire-and-forget — não pode segurar o refreshConfig por horas em pastas grandes.
+    if (!cliente.localSyncedAt) {
+      this.log(`${cliente.razaoSocial} nunca sincronizou — agendando scan inicial do acervo`, 'info')
+      this.scanCompletoEPromover(cliente.id, entry).catch(e => {
+        this.log(`Scan inicial falhou (${cliente.razaoSocial}): ${e.message}`, 'error')
+      })
+    }
   }
 
   async enviarHeartbeat(clienteIds) {
