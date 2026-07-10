@@ -25,6 +25,18 @@ import { parseData } from './lib/parsers'
 const PREVIEW_MAX_ROWS = 50000
 /** Teto de linhas no visualizador de debug (limita payload; é ferramenta interna). */
 const DEBUG_MAX_ROWS = 5000
+/** Teto do traço "Dados processados" devolvido pelo convert (limita payload). */
+const CONVERT_TRACE_MAX = 5000
+
+// Traço enxuto para a aba "Dados processados" (sem os campos "parsed").
+type ConvertTraceRow = Pick<TraceRow, 'linha' | 'data' | 'valor' | 'descricao' | 'direcao' | 'contaContrapartida' | 'contaCorrente' | 'status'>
+function projectTrace(t: TraceRow): ConvertTraceRow {
+  return {
+    linha: t.linha, data: t.data, valor: t.valor, descricao: t.descricao,
+    direcao: t.direcao, contaContrapartida: t.contaContrapartida,
+    contaCorrente: t.contaCorrente, status: t.status,
+  }
+}
 
 function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.TreatmentModelWhereInput {
   return !isMaster && empresaId ? { empresaId } : {}
@@ -377,10 +389,13 @@ export class TratamentoLancamentosService {
     const dataCol = def.columnMapping.data
     const precisaAno = !input.competenciaAno && !!dataCol && table.rows.some((r) => parseData(r[dataCol]).semAno)
     if (precisaAno) {
-      return { needsCompetenciaAno: true, totalLancamentos: 0, pendencias: [], fileBase64: null, fileName: '' }
+      return { needsCompetenciaAno: true, totalLancamentos: 0, pendencias: [], fileBase64: null, fileName: '', trace: [] as ConvertTraceRow[], traceTotal: 0, okTotal: 0 }
     }
 
-    const result = applyModel(table, def, input.competenciaAno)
+    // Coleta o traço por-linha (como o modelo interpretou cada lançamento) para a
+    // aba "Dados processados". Projeta só os campos exibidos (sem os "parsed").
+    const trace: TraceRow[] = []
+    const result = applyModel(table, def, input.competenciaAno, trace)
     const safe = model.nome.replace(/[^a-zA-Z0-9-_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'lancamentos'
     return {
       needsCompetenciaAno: false,
@@ -389,6 +404,10 @@ export class TratamentoLancamentosService {
       // .txt em ANSI (latin1); null quando há pendências.
       fileBase64: result.sciText !== null ? Buffer.from(result.sciText, 'latin1').toString('base64') : null,
       fileName: `SCI_${safe}.txt`,
+      trace: trace.slice(0, CONVERT_TRACE_MAX).map(projectTrace),
+      traceTotal: trace.length,
+      // Total de linhas OK sobre TODO o traço (não só o fatiado) → contagem exata.
+      okTotal: trace.reduce((n, t) => (t.status === 'ok' ? n + 1 : n), 0),
     }
   }
 
