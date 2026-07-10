@@ -24,6 +24,10 @@ const DEBOUNCE_MS = 2_000        // espera 2s estabilizar antes de enviar
 const BATCH_SIZE = 10            // menor pra não sobrecarregar a API (cada arquivo gera S3 + PDF + DB inserts)
 const BATCH_DELAY_MS = 800       // pausa entre chunks pra dar respiro pro servidor
 const MAX_DEPTH = 10             // níveis de subpasta — estruturas reais chegam a 9 (ANOS ANTERIORES\2024\NOTAS FISCAIS\...\SAIDA\Canceladas)
+const MAX_BATCH_BYTES = 25 * 1024 * 1024   // corpo máximo por request — chunks de 10 arquivos sem teto chegavam a 500MB e caíam com "fetch failed"
+const MAX_FILE_BYTES = 95 * 1024 * 1024    // teto por arquivo — o multer da API corta em 100MB e mata a conexão no meio do stream
+const ENVIO_TENTATIVAS = 3                 // retries com backoff pra erro de rede/5xx — antes o chunk era descartado na 1ª falha
+const ENVIO_TIMEOUT_MS = 5 * 60_000        // aborta upload travado (não pode segurar a fila pra sempre)
 
 class NfeWatcher {
   constructor({ apiUrl, daemonSecret, onLog }) {
@@ -34,6 +38,32 @@ class NfeWatcher {
     this.status = new Map()         // clienteId -> { lastSync, totalEnviados, ultimoErro, watching }
     this.pollTimer = null
     this.running = false
+    this.scanQueue = Promise.resolve()  // scans completos rodam UM por vez — em paralelo saturam o uplink e os uploads caem
+  }
+
+  /** Agrupa paths em chunks limitados por quantidade E por bytes somados.
+   *  Arquivo acima de MAX_FILE_BYTES é pulado com warn (o multer da API rejeitaria). */
+  montarChunks(paths) {
+    const chunks = []
+    let atual = []
+    let bytes = 0
+    for (const p of paths) {
+      let size = 0
+      try { size = fs.statSync(p).size } catch { continue }  // sumiu entre o scan e o envio — pula
+      if (size > MAX_FILE_BYTES) {
+        this.log(`Arquivo acima de ${Math.round(MAX_FILE_BYTES / 1048576)}MB ignorado: ${path.basename(p)} (${Math.round(size / 1048576)}MB)`, 'warn')
+        continue
+      }
+      if (atual.length > 0 && (atual.length >= BATCH_SIZE || bytes + size > MAX_BATCH_BYTES)) {
+        chunks.push(atual)
+        atual = []
+        bytes = 0
+      }
+      atual.push(p)
+      bytes += size
+    }
+    if (atual.length > 0) chunks.push(atual)
+    return chunks
   }
 
   log(msg, level = 'info') {
@@ -141,13 +171,11 @@ class NfeWatcher {
         await this.marcarRequestProcessado(clienteId)
         continue
       }
-      try {
-        await this.scanCompletoEPromover(clienteId, entry)
-      } catch (e) {
-        this.log(`Falha no scan completo de ${entry.razaoSocial}: ${e.message}`, 'error')
-      } finally {
-        await this.marcarRequestProcessado(clienteId)
-      }
+      // Entra na fila serializada (não bloqueia o poll de configs por horas).
+      // Marca processado já no aceite — senão o próximo poll re-enfileiraria.
+      this.log(`Sync manual de ${entry.razaoSocial} entrou na fila de scans`, 'info')
+      this.enfileirarScan(clienteId, entry)
+      await this.marcarRequestProcessado(clienteId)
     }
   }
 
@@ -178,13 +206,13 @@ class NfeWatcher {
     }
     this.log(`Scan completo: ${arquivos.length} arquivos encontrados (${entry.razaoSocial})`, 'info')
 
-    // Envia em chunks com pausa — não sobrecarrega API
+    // Envia em chunks (limitados por quantidade e bytes) com pausa — não sobrecarrega API
     const cliente = { id: clienteId, razaoSocial: entry.razaoSocial }
-    for (let i = 0; i < arquivos.length; i += BATCH_SIZE) {
-      const chunk = arquivos.slice(i, i + BATCH_SIZE)
-      this.log(`Enviando chunk ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(arquivos.length / BATCH_SIZE)} (${chunk.length} arquivos)`, 'info')
-      await this.enviarBatch(cliente, entry, chunk)
-      if (i + BATCH_SIZE < arquivos.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS))
+    const chunks = this.montarChunks(arquivos)
+    for (let i = 0; i < chunks.length; i++) {
+      this.log(`Enviando chunk ${i + 1}/${chunks.length} (${chunks[i].length} arquivos) — ${entry.razaoSocial}`, 'info')
+      await this.enviarBatch(cliente, entry, chunks[i])
+      if (i + 1 < chunks.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS))
     }
   }
 
@@ -319,13 +347,24 @@ class NfeWatcher {
 
     // Scan inicial: cliente que nunca sincronizou tem o acervo existente enviado
     // automaticamente (a API dedupa por SHA, então re-scans não duplicam nada).
-    // Fire-and-forget — não pode segurar o refreshConfig por horas em pastas grandes.
+    // Entra na fila serializada — scans em paralelo saturam o uplink e derrubam uploads.
     if (!cliente.localSyncedAt) {
-      this.log(`${cliente.razaoSocial} nunca sincronizou — agendando scan inicial do acervo`, 'info')
-      this.scanCompletoEPromover(cliente.id, entry).catch(e => {
-        this.log(`Scan inicial falhou (${cliente.razaoSocial}): ${e.message}`, 'error')
-      })
+      this.log(`${cliente.razaoSocial} nunca sincronizou — scan inicial do acervo entrou na fila`, 'info')
+      this.enfileirarScan(cliente.id, entry)
     }
+  }
+
+  /** Encadeia um scan completo na fila única — um de cada vez, erros não quebram a corrente. */
+  enfileirarScan(clienteId, entry) {
+    this.scanQueue = this.scanQueue
+      .then(() => {
+        // Watcher pode ter sido removido/trocado enquanto esperava na fila
+        if (this.watchers.get(clienteId) !== entry) return
+        return this.scanCompletoEPromover(clienteId, entry)
+      })
+      .catch(e => {
+        this.log(`Scan completo falhou (${entry.razaoSocial}): ${e.message}`, 'error')
+      })
   }
 
   async enviarHeartbeat(clienteIds) {
@@ -366,11 +405,11 @@ class NfeWatcher {
     entry.debounceTimer = null
     if (paths.length === 0) return
 
-    // Envia em chunks de BATCH_SIZE com pausa entre eles
-    for (let i = 0; i < paths.length; i += BATCH_SIZE) {
-      const chunk = paths.slice(i, i + BATCH_SIZE)
-      await this.enviarBatch(cliente, entry, chunk)
-      if (i + BATCH_SIZE < paths.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS))
+    // Envia em chunks (limitados por quantidade e bytes) com pausa entre eles
+    const chunks = this.montarChunks(paths)
+    for (let i = 0; i < chunks.length; i++) {
+      await this.enviarBatch(cliente, entry, chunks[i])
+      if (i + 1 < chunks.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS))
     }
   }
 
@@ -390,28 +429,50 @@ class NfeWatcher {
       }
     }
 
-    try {
-      const resp = await fetch(`${this.apiUrl}/api/drive-sync/batch-local`, {
-        method: 'POST',
-        headers: { 'X-Daemon-Secret': this.daemonSecret },  // fetch seta Content-Type multipart automaticamente
-        body: form,
-      })
-      if (!resp.ok) {
-        const txt = await resp.text()
-        throw new Error(`HTTP ${resp.status}: ${txt.slice(0, 200)}`)
+    // Retry com backoff: erro de rede ("fetch failed") e 5xx são transitórios —
+    // sem retry o chunk era descartado em silêncio e os arquivos só voltavam
+    // num sync manual. 4xx não repete (o request está errado, insistir não muda).
+    for (let tentativa = 1; tentativa <= ENVIO_TENTATIVAS; tentativa++) {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), ENVIO_TIMEOUT_MS)
+      try {
+        const resp = await fetch(`${this.apiUrl}/api/drive-sync/batch-local`, {
+          method: 'POST',
+          headers: { 'X-Daemon-Secret': this.daemonSecret },  // fetch seta Content-Type multipart automaticamente
+          body: form,
+          signal: ctrl.signal,
+        })
+        if (!resp.ok) {
+          const txt = await resp.text()
+          const retryavel = resp.status >= 500
+          const err = new Error(`HTTP ${resp.status}: ${txt.slice(0, 200)}`)
+          err.retryavel = retryavel
+          throw err
+        }
+        const json = await resp.json()
+        const st = this.status.get(cliente.id) ?? { watching: true, totalEnviados: 0 }
+        st.totalEnviados += json.arquivosOk ?? 0
+        st.lastSync = new Date().toISOString()
+        st.ultimoErro = null
+        this.status.set(cliente.id, st)
+        this.log(`${cliente.razaoSocial}: ${json.arquivosOk}/${paths.length} processados (${json.arquivosIgnorados ?? 0} ign, ${json.arquivosErro ?? 0} err)`)
+        return
+      } catch (e) {
+        const transitorio = e.retryavel !== false  // rede/abort/5xx repetem; só 4xx não
+        if (transitorio && tentativa < ENVIO_TENTATIVAS) {
+          const espera = tentativa * 3000
+          this.log(`Envio falhou (${cliente.razaoSocial}), tentativa ${tentativa}/${ENVIO_TENTATIVAS}: ${e.message} — repetindo em ${espera / 1000}s`, 'warn')
+          await new Promise(r => setTimeout(r, espera))
+          continue
+        }
+        this.log(`Falha ao enviar batch (${cliente.razaoSocial}): ${e.message}`, 'error')
+        const st = this.status.get(cliente.id) ?? { watching: true, totalEnviados: 0 }
+        st.ultimoErro = e.message
+        this.status.set(cliente.id, st)
+        return
+      } finally {
+        clearTimeout(timer)
       }
-      const json = await resp.json()
-      const st = this.status.get(cliente.id) ?? { watching: true, totalEnviados: 0 }
-      st.totalEnviados += json.arquivosOk ?? 0
-      st.lastSync = new Date().toISOString()
-      st.ultimoErro = null
-      this.status.set(cliente.id, st)
-      this.log(`${cliente.razaoSocial}: ${json.arquivosOk}/${paths.length} processados (${json.arquivosIgnorados ?? 0} ign, ${json.arquivosErro ?? 0} err)`)
-    } catch (e) {
-      this.log(`Falha ao enviar batch (${cliente.razaoSocial}): ${e.message}`, 'error')
-      const st = this.status.get(cliente.id) ?? { watching: true, totalEnviados: 0 }
-      st.ultimoErro = e.message
-      this.status.set(cliente.id, st)
     }
   }
 
