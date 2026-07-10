@@ -1093,7 +1093,22 @@ export function createClienteRouter(
         if (!contratoSyncService) throw new Error('Service Manager não conectado (ponte indisponível)')
         const cnpj = input.documento.replace(/\D/g, '')
         if (cnpj.length !== 14) throw new Error('CNPJ inválido — importação apenas para 14 dígitos')
-        const dados = (await contratoSyncService.requestClienteImport(cnpj)) as unknown as import('./import-oneclick.service').ImportLegadoDados
+        let dados: import('./import-oneclick.service').ImportLegadoDados
+        try {
+          dados = (await contratoSyncService.requestClienteImport(cnpj)) as unknown as import('./import-oneclick.service').ImportLegadoDados
+        } catch (e) {
+          // O SM devolve o erro cru da leitura do MySQL legado (ex.: "connect
+          // ETIMEDOUT 192.168.0.7:3306"). Traduz para algo acionável, mantendo o
+          // detalhe técnico. O timeout/"não conectado" já são claros e passam direto.
+          const msg = (e as Error).message || 'Falha ao importar do OneClick.'
+          if (/etimedout|econnrefused|ehostunreach|enetunreach|getaddrinfo|enotfound|\bconnect\b|access denied|er_|handshake|pool is closed/i.test(msg)) {
+            throw new Error(
+              `Cadastro legado (OneClick v1) inacessível: o Service Manager não conseguiu ler o MySQL do escritório. ` +
+              `Verifique a VPN/rede na máquina do Service Manager. Detalhe: ${msg}`,
+            )
+          }
+          throw new Error(msg)
+        }
         return importOneclickService.aplicar(input.clienteId, dados)
       }),
 
