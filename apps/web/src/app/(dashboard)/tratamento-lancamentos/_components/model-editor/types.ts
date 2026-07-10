@@ -39,6 +39,10 @@ export const MODE_ACCENT = {
   cyan: { border: 'border-cyan-500', ring: 'ring-cyan-500/25', bg: 'bg-cyan-500/5', dot: 'bg-cyan-500', text: 'text-cyan-700 dark:text-cyan-300' },
   amber: { border: 'border-amber-500', ring: 'ring-amber-500/25', bg: 'bg-amber-500/5', dot: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300' },
   rose: { border: 'border-rose-500', ring: 'ring-rose-500/25', bg: 'bg-rose-500/5', dot: 'bg-rose-500', text: 'text-rose-700 dark:text-rose-300' },
+  // D/C e Contrapartida usam orange/fuchsia para NÃO confundir com as cores de
+  // pendência do editor (âmbar = pendência de arquivo, vermelho/rose = de modelo).
+  orange: { border: 'border-orange-500', ring: 'ring-orange-500/25', bg: 'bg-orange-500/5', dot: 'bg-orange-500', text: 'text-orange-700 dark:text-orange-300' },
+  fuchsia: { border: 'border-fuchsia-500', ring: 'ring-fuchsia-500/25', bg: 'bg-fuchsia-500/5', dot: 'bg-fuchsia-500', text: 'text-fuchsia-700 dark:text-fuchsia-300' },
 } as const
 
 export type SetDef = Dispatch<SetStateAction<TreatmentDefinition>>

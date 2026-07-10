@@ -54,6 +54,7 @@ interface Props {
   traceTotal: number
   okTotal: number
   canManage: boolean
+  /** Abrir o editor em modo revisão (realça pendências de modelo e de arquivo). */
   onEditModel: () => void
   /** Baixar o arquivo gerado (só no sucesso). */
   onDownload?: () => void
@@ -323,7 +324,7 @@ export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, t
 
                   {/* Ações + explicação */}
                   <div className="mt-3 flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center">
-                    {canManage && temModelo && (
+                    {canManage && (
                       <Button variant="soft-info" size="sm" className="shrink-0" onClick={onEditModel}>
                         <Pencil className="h-4 w-4" /> Editar modelo
                       </Button>

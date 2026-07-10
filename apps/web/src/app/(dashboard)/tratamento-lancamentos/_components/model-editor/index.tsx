@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileSpreadsheet, Save, Upload, Plus, Trash2, Loader2, Info, Image as ImageIcon,
-  Tag, Columns3, ArrowLeftRight, Network, HelpCircle, ArrowLeft, ArrowRight, History, Landmark, type LucideIcon,
+  Tag, Columns3, ArrowLeftRight, Network, HelpCircle, ArrowLeft, ArrowRight, History, Landmark, AlertTriangle, X, type LucideIcon,
 } from 'lucide-react'
 import {
   Button, Input, Label, Checkbox, Card,
@@ -26,11 +26,16 @@ import { VersionHistoryDialog } from '../version-history-dialog'
 
 import type { PreviewData, Props } from './types'
 import { MAP_FIELDS } from './types'
-import { pruneDefToHeaders, soDigitos, listaResumo, serializeForm, confirmarSaidaSemSalvar } from './utils'
+import { soDigitos, listaResumo, serializeForm, confirmarSaidaSemSalvar, esc } from './utils'
 import { StepHeader, EmptyHint, Stepper, ModeCards, ColumnSelect, FloatingActionBar } from './ui'
 import { DebitoCreditoColunaMap } from './sections/debito-credito'
 import { ContasCorrentesMap } from './sections/contas-correntes'
 import { ContrapartidaPalavraChave, ContrapartidaDescricao } from './sections/contrapartida'
+
+// <style> injetado no html dos alertas para corrigir o word-break do título — é
+// um <h2> e herda o `word-break: break-all` global, que o quebra no meio da
+// palavra. Vive só enquanto o alerta está aberto (sem tocar no globals).
+const SWAL_TITLE_FIX = '<style>.swal2-title{word-break:normal;overflow-wrap:break-word}</style>'
 
 export function ModelEditor({ mode, modelId, backTo }: Props) {
   const router = useRouter()
@@ -75,6 +80,12 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   // após restaurar uma versão.
   const [historyOpen, setHistoryOpen] = useState(false)
   const [reloadNonce, setReloadNonce] = useState(0)
+
+  // "Modo revisão" (#2): ligado quando o editor é aberto a partir de uma pendência
+  // de modelo (flag `tl:revisar`). Realça as seções/campos com pendência e rola
+  // até a primeira. O realce some ao vivo conforme o usuário corrige.
+  const [modoRevisao, setModoRevisao] = useState(false)
+  const revScrolledRef = useRef(false)
 
   // ---- Carrega o modelo (modo edição) -------------------------------------
   useEffect(() => {
@@ -125,6 +136,17 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       }
     } catch { /* ignore */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode])
+
+  // Abriu a partir de uma pendência de modelo → entra em "modo revisão".
+  useEffect(() => {
+    if (mode !== 'edit') return
+    try {
+      if (sessionStorage.getItem('tl:revisar')) {
+        sessionStorage.removeItem('tl:revisar')
+        setModoRevisao(true)
+      }
+    } catch { /* ignore */ }
   }, [mode])
 
   // Avisa ao fechar/atualizar a aba com alterações não salvas.
@@ -208,8 +230,10 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       const res = await trpc.tratamentoLancamentos.preview.mutate({ fileBase64: base64, filename })
       setPreview(res as PreviewData)
       setFileName(filename)
-      // Ao trocar o arquivo, descarta colunas selecionadas que não existem mais.
-      setDef((d) => pruneDefToHeaders(d, res.headers))
+      // NÃO descartamos mais as colunas ausentes no novo arquivo: mantemos a
+      // seleção e sinalizamos em âmbar no campo (ver `colunasForaDoArquivo` + o
+      // aviso ao salvar), para o usuário perceber a divergência em vez de perder o
+      // mapeamento silenciosamente.
       // Pré-seleção automática da coluna de CNPJ (sem sobrescrever escolha existente).
       const cnpjCol = res.headers.find((h) => /cnpj/i.test(h))
       if (cnpjCol) setDef((d) => (d.columnMapping.documento ? d : { ...d, columnMapping: { ...d.columnMapping, documento: cnpjCol } }))
@@ -376,13 +400,32 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     return p
   }
 
+  // Em modo revisão (com o arquivo já lido), rola até a 1ª seção com pendência
+  // (de modelo, vermelho) ou coluna ausente no arquivo (âmbar). Espera o
+  // `preview`, pois as pendências dependem dos valores distintos.
+  useEffect(() => {
+    if (!modoRevisao || revScrolledRef.current || !preview) return
+    const fora = colunasForaDoArquivo(def, preview.headers)
+    const secoes: Array<[string, boolean]> = [
+      ['rev-depara', Object.keys(fora.dePara).length > 0],
+      ['rev-cc', !!fora.cc || probContasCorrentes().length > 0],
+      ['rev-dc', !!fora.dc || probDC().length > 0],
+      ['rev-cp', probContrapartida().length > 0],
+    ]
+    const alvo = secoes.find(([, has]) => has)
+    if (!alvo) return
+    const el = document.getElementById(alvo[0])
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); revScrolledRef.current = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modoRevisao, preview, def])
+
   async function showProblemas(title: string, problemas: string[]) {
     await alerts.custom({
       title,
       icon: 'error',
       showCancelButton: false,
       confirmButtonText: 'Entendi',
-      html: `<div style="text-align:left"><p style="margin:0 0 8px">Corrija os pontos abaixo:</p><ul style="text-align:left;margin:0;padding-left:1.2em;line-height:1.7">${problemas.map((p) => `<li>${p}</li>`).join('')}</ul></div>`,
+      html: `${SWAL_TITLE_FIX}<div style="text-align:left"><p style="margin:0 0 8px">Corrija os pontos abaixo:</p><ul style="text-align:left;margin:0;padding-left:1.2em;line-height:1.7">${problemas.map((p) => `<li>${p}</li>`).join('')}</ul></div>`,
     })
   }
 
@@ -414,6 +457,21 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     if (problemas.length) {
       await showProblemas('Revise o preenchimento do modelo', problemas)
       return
+    }
+
+    // Aviso NÃO bloqueante: colunas do modelo ausentes no arquivo de exemplo atual.
+    // Pode salvar assim mesmo (o modelo vale p/ arquivos que as contenham).
+    const f = colunasForaDoArquivo(def, preview?.headers)
+    const colsFora = [...Object.values(f.dePara), f.dc, f.cc].filter((c): c is string => !!c)
+    if (colsFora.length) {
+      const lista = colsFora.map((c) => `"${esc(c)}"`).join(', ')
+      const res = await alerts.custom({
+        title: 'Coluna(s) ausente(s) no arquivo fornecido',
+        icon: 'warning',
+        confirmButtonText: 'Salvar assim mesmo',
+        html: `${SWAL_TITLE_FIX}<div style="text-align:center"><p style="margin:0 0 10px"><b>Coluna(s):</b> ${lista}.</p><p style="margin:0">Você pode salvar assim mesmo — o modelo funcionará com arquivos que as contenham.</p></div>`,
+      })
+      if (!res.isConfirmed) return
     }
 
     setSaving(true)
@@ -487,6 +545,12 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   }
 
   const cpItens = def.contrapartida.modo === 'PALAVRA_CHAVE' ? def.contrapartida.palavraChave : def.contrapartida.descricao
+
+  // Colunas do modelo que NÃO estão no arquivo de exemplo atual → realce âmbar no
+  // campo. Vale SEMPRE (editar e revisar): não prunamos mais as ausentes, então a
+  // própria `def` ainda carrega a coluna selecionada para comparar.
+  const fora = colunasForaDoArquivo(def, preview?.headers)
+  const temAmber = Object.keys(fora.dePara).length > 0 || !!fora.dc || !!fora.cc
 
   // ---- Blocos de seção: construídos uma vez. Empilhados na "visão geral"
   //      (edição + revisão final do wizard) ou exibidos um a um no wizard. --
@@ -573,12 +637,18 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
             const samples = f.key === 'valor'
               ? samplesFor(value).map(formatValorExibicao)
               : samplesFor(value)
+            const foraCol = fora.dePara[f.key]
             return (
               <div key={f.key} className="space-y-1.5">
                 <Label className="text-[13px] font-semibold">
                   {f.label} {f.req && <span className="text-destructive">*</span>}
                 </Label>
-                <ColumnSelect headers={headers} value={value} optional={!f.req} onChange={(v) => setMap(f.key, v)} />
+                <ColumnSelect headers={headers} value={value} optional={!f.req} onChange={(v) => setMap(f.key, v)} className={foraCol ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
+                {foraCol && (
+                  <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                    <AlertTriangle className="h-3 w-3 shrink-0" /> A coluna &quot;{foraCol}&quot; não está no arquivo enviado.
+                  </p>
+                )}
                 {f.hint && <p className="text-[11px] text-muted-foreground">{f.hint}</p>}
                 {samples.length > 0 && (
                   <div className="text-[11px] text-muted-foreground/80">
@@ -630,10 +700,15 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
           <div className="space-y-4">
             <div className="space-y-1.5 max-w-xs">
               <Label className="text-[13px] font-semibold">Coluna que identifica a conta <span className="text-destructive">*</span></Label>
-              <ColumnSelect headers={headers} value={def.contasCorrentes.coluna} onChange={setCcColuna} />
+              <ColumnSelect headers={headers} value={def.contasCorrentes.coluna} onChange={setCcColuna} className={fora.cc ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
+              {fora.cc && (
+                <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="h-3 w-3 shrink-0" /> A coluna &quot;{fora.cc}&quot; não está no arquivo enviado.
+                </p>
+              )}
             </div>
             {def.contasCorrentes.coluna && (
-              <ContasCorrentesMap def={def} setDef={setDef} coluna={def.contasCorrentes.coluna} getDistinct={getDistinct} />
+              <ContasCorrentesMap def={def} setDef={setDef} coluna={def.contasCorrentes.coluna} getDistinct={getDistinct} revisar={modoRevisao} />
             )}
           </div>
         )
@@ -644,13 +719,13 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   const secDC = (
     <Card className="p-5 space-y-4">
       <StepHeader
-        icon={ArrowLeftRight} color="bg-amber-500" title="Definição de Débito / Crédito"
+        icon={ArrowLeftRight} color="bg-orange-500" title="Definição de Débito / Crédito"
         hint="O sistema precisa saber se cada lançamento é um débito ou um crédito. Escolha a origem dessa informação: uma coluna da planilha, as descrições dos lançamentos, ou o sinal dos valores (negativo = débito, positivo = crédito)."
       />
       <div className="space-y-2">
         <p className="text-[13px] font-semibold text-foreground">O tipo (débito ou crédito) é definido:</p>
         <ModeCards
-          accent="amber"
+          accent="orange"
           value={def.debitoCredito.tipo}
           options={[
             { value: 'COLUNA', label: 'Por coluna' },
@@ -667,10 +742,15 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         <div className="space-y-4">
           <div className="space-y-1.5 max-w-xs">
             <Label className="text-[13px] font-semibold">Coluna de Débito/Crédito <span className="text-destructive">*</span></Label>
-            <ColumnSelect headers={headers} value={def.debitoCredito.coluna} onChange={setDcColuna} />
+            <ColumnSelect headers={headers} value={def.debitoCredito.coluna} onChange={setDcColuna} className={fora.dc ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
+            {fora.dc && (
+              <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-3 w-3 shrink-0" /> A coluna &quot;{fora.dc}&quot; não está no arquivo enviado.
+              </p>
+            )}
           </div>
           {def.debitoCredito.coluna && (
-            <DebitoCreditoColunaMap def={def} setDef={setDef} coluna={def.debitoCredito.coluna} getDistinct={getDistinct} />
+            <DebitoCreditoColunaMap def={def} setDef={setDef} coluna={def.debitoCredito.coluna} getDistinct={getDistinct} revisar={modoRevisao} />
           )}
         </div>
         )
@@ -691,13 +771,13 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   const secContrapartida = (
     <Card className="p-5 space-y-4">
       <StepHeader
-        icon={Network} color="bg-rose-500" title="Mapeamento de contas de contrapartida"
+        icon={Network} color="bg-fuchsia-500" title="Mapeamento de contas de contrapartida"
         hint="Informe a conta contábil de contrapartida de cada lançamento. Você pode mapear por palavra-chave encontrada na descrição, ou definir uma conta para cada descrição."
       />
       <div className="space-y-2">
         <p className="text-[13px] font-semibold text-foreground">Como mapear a contrapartida:</p>
         <ModeCards
-          accent="rose"
+          accent="fuchsia"
           value={def.contrapartida.modo}
           options={[
             { value: 'DESCRICAO', label: 'Por descrição' },
@@ -708,10 +788,10 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       </div>
 
       {def.contrapartida.modo === 'PALAVRA_CHAVE' ? (
-        <ContrapartidaPalavraChave def={def} setDef={setDef} dcByDescricao={dcByDescricao} />
+        <ContrapartidaPalavraChave def={def} setDef={setDef} dcByDescricao={dcByDescricao} revisar={modoRevisao} />
       ) : (
         <ContrapartidaDescricao
-          def={def} setDef={setDef} dcByDescricao={dcByDescricao}
+          def={def} setDef={setDef} dcByDescricao={dcByDescricao} revisar={modoRevisao}
           descricaoColuna={def.columnMapping.descricao || ''} getDistinct={getDistinct}
         />
       )}
@@ -728,15 +808,30 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     </Card>
   )
 
+  // Pendências de MODELO por seção no modo revisão (#2). Recalculadas a cada
+  // render, então o realce/balão somem ao vivo conforme o usuário corrige.
+  // Quando a coluna ativa de CC/DC faltou no arquivo (âmbar), o vermelho é
+  // suprimido — o aviso âmbar no campo já explica a causa.
+  const revProbs = {
+    cc: modoRevisao && !fora.cc ? probContasCorrentes() : [],
+    dc: modoRevisao && !fora.dc ? probDC() : [],
+    cp: modoRevisao ? probContrapartida() : [],
+  }
+  const revProbsTotal = revProbs.cc.length + revProbs.dc.length + revProbs.cp.length
+  const temRevisao = revProbsTotal > 0 || temAmber
+
   // Visão geral = todas as seções empilhadas (edição + revisão final do wizard).
+  // No modo revisão, as seções com pendência de modelo ganham anel vermelho +
+  // balão; o âmbar (coluna ausente) fica no próprio campo. `rev-depara` é alvo de
+  // scroll quando só há âmbar no De/Para.
   const overview = (
     <>
       {secDados}
       {secArquivo}
-      {secDePara}
-      {secContasCorrentes}
-      {secDC}
-      {secContrapartida}
+      <div id="rev-depara" className="scroll-mt-24">{secDePara}</div>
+      <SecaoRevisao ativo={modoRevisao} problems={revProbs.cc} id="rev-cc">{secContasCorrentes}</SecaoRevisao>
+      <SecaoRevisao ativo={modoRevisao} problems={revProbs.dc} id="rev-dc">{secDC}</SecaoRevisao>
+      <SecaoRevisao ativo={modoRevisao} problems={revProbs.cp} id="rev-cp">{secContrapartida}</SecaoRevisao>
       {mode === 'edit' && secNota}
     </>
   )
@@ -820,6 +915,17 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
             <Button variant="outline" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4" /> Voltar</Button>
           </div>
         </div>
+        {modoRevisao && temRevisao && (
+          <div className="flex items-start gap-2 rounded-[4px] border border-border bg-muted/40 px-3 py-2.5 text-xs">
+            <Info className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
+            <span className="flex-1 text-muted-foreground">
+              Revisando este modelo. <span className="font-medium text-rose-600 dark:text-rose-400">Vermelho</span> = pendência do modelo a corrigir; <span className="font-medium text-amber-600 dark:text-amber-400">âmbar</span> = coluna que não está no arquivo enviado. O destaque some conforme você ajusta.
+            </span>
+            <button type="button" onClick={() => setModoRevisao(false)} className="shrink-0 text-muted-foreground/60 hover:text-foreground" aria-label="Encerrar revisão">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         {overview}
         {/* Salvar flutuante — sempre acessível, sem rolar até o topo. */}
         <FloatingActionBar primaryLabel="Salvar alterações" onPrimary={handleSave} loading={saving} />
@@ -835,5 +941,54 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         )}
       </div>
     </TooltipProvider>
+  )
+}
+
+// Colunas mapeadas no modelo (De/Para + coluna ativa de D/C e de conta corrente)
+// que NÃO existem nos cabeçalhos do arquivo enviado — base do realce âmbar (#2).
+// Compara contra as colunas ORIGINAIS do modelo (o prune já limpa as ausentes).
+function colunasForaDoArquivo(defOrig: TreatmentDefinition | null, headers?: string[]) {
+  const out = {
+    dePara: {} as Partial<Record<keyof TreatmentDefinition['columnMapping'], string>>,
+    dc: '',
+    cc: '',
+  }
+  if (!defOrig || !headers) return out
+  const hset = new Set(headers)
+  const cm = defOrig.columnMapping
+  for (const k of Object.keys(cm) as Array<keyof typeof cm>) {
+    const col = cm[k]
+    if (col && !hset.has(col)) out.dePara[k] = col
+  }
+  const dc = defOrig.debitoCredito
+  if (dc.tipo === 'COLUNA' && dc.coluna && !hset.has(dc.coluna)) out.dc = dc.coluna
+  const cc = defOrig.contasCorrentes
+  if (cc.modo === 'MULTIPLAS' && cc.coluna && !hset.has(cc.coluna)) out.cc = cc.coluna
+  return out
+}
+
+// --- Modo revisão (#2): seção com pendência de modelo ganha anel vermelho + balão
+// As mensagens vêm dos validadores prob*; os valores do usuário já são escapados
+// (listaResumo → esc), então é seguro usar innerHTML (mantém o negrito).
+function RevisaoCallout({ problems }: { problems: string[] }) {
+  return (
+    <div className="rounded-[4px] border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive dark:text-rose-300">
+      <div className="mb-1 flex items-center gap-1.5 font-semibold">
+        <AlertTriangle className="h-3.5 w-3.5" /> Corrija para gerar o arquivo:
+      </div>
+      <ul className="list-disc space-y-0.5 pl-5 [&_b]:font-semibold">
+        {problems.map((p, i) => <li key={i} dangerouslySetInnerHTML={{ __html: p }} />)}
+      </ul>
+    </div>
+  )
+}
+
+function SecaoRevisao({ ativo, problems, id, children }: { ativo: boolean; problems: string[]; id: string; children: ReactNode }) {
+  if (!ativo || !problems.length) return <>{children}</>
+  return (
+    <div id={id} className="space-y-2 scroll-mt-24">
+      <RevisaoCallout problems={problems} />
+      <div className="rounded-lg ring-2 ring-destructive/50 ring-offset-2 ring-offset-background">{children}</div>
+    </div>
   )
 }

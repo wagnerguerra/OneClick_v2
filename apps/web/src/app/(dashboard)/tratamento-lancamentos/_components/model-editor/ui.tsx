@@ -172,14 +172,14 @@ export function ModeCards({ value, options, onChange, accent }: {
   )
 }
 
-export function ColumnSelect({ headers, value, optional, onChange, placeholder = 'Selecione a coluna' }: { headers: string[]; value: string; optional?: boolean; onChange: (v: string) => void; placeholder?: string }) {
+export function ColumnSelect({ headers, value, optional, onChange, placeholder = 'Selecione a coluna', className }: { headers: string[]; value: string; optional?: boolean; onChange: (v: string) => void; placeholder?: string; className?: string }) {
   const options = value && !headers.includes(value) ? [value, ...headers] : headers
   // Obrigatório: sem seleção → value '' (Radix exibe o placeholder).
   // Opcional: NONE é o sentinela do item "— Nenhuma —".
   const selectValue = optional ? (value || NONE) : value
   return (
     <Select value={selectValue} onValueChange={(v) => onChange(v === NONE ? '' : v)}>
-      <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder={placeholder} /></SelectTrigger>
+      <SelectTrigger className={cn('h-9 text-sm bg-card', className)}><SelectValue placeholder={placeholder} /></SelectTrigger>
       <SelectContent>
         {optional && <SelectItem value={NONE}>— Nenhuma —</SelectItem>}
         {options.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}

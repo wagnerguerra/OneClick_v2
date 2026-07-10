@@ -6,9 +6,10 @@ import { cn } from '@saas/ui'
 import type { TreatmentDefinition, Direcao } from '@saas/types'
 import type { SetDef } from '../types'
 import { EmptyHint } from '../ui'
+import { invalidCls } from '../utils'
 
 /** Mapa valor→direção da coluna de Débito/Crédito (sem default; direção obrigatória). */
-export function DebitoCreditoColunaMap({ def, setDef, coluna, getDistinct }: { def: TreatmentDefinition; setDef: SetDef; coluna: string; getDistinct: (c: string) => string[] }) {
+export function DebitoCreditoColunaMap({ def, setDef, coluna, getDistinct, revisar }: { def: TreatmentDefinition; setDef: SetDef; coluna: string; getDistinct: (c: string) => string[]; revisar?: boolean }) {
   const distinct = getDistinct(coluna)
 
   // Poda valores que não existem mais na coluna (ex.: ao trocar de coluna).
@@ -44,7 +45,7 @@ export function DebitoCreditoColunaMap({ def, setDef, coluna, getDistinct }: { d
             <div key={val} className="flex items-center gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-3 py-1.5">
               <span className="text-sm flex-1 truncate" title={val}>{val}</span>
               <Select value={cur} onValueChange={(v) => setOne(val, v as Direcao)}>
-                <SelectTrigger className={cn('h-8 w-[130px] text-xs bg-card', !cur && 'border-r-2 border-r-destructive')}><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger className={cn('h-8 w-[130px] text-xs bg-card', !cur && invalidCls(revisar))}><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="DEBITO">Débito</SelectItem>
                   <SelectItem value="CREDITO">Crédito</SelectItem>

@@ -11,7 +11,7 @@ import type { TreatmentDefinition, Direcao } from '@saas/types'
 import type { SetDef, CpItemComum } from '../types'
 import { HISTORICO_FIXO_HINT, PULAR_LINHA_HINT } from '../types'
 import { HelpTip } from '../ui'
-import { soDigitos, semSeparador } from '../utils'
+import { soDigitos, semSeparador, invalidCls } from '../utils'
 
 const DEFAULT_PAGE_SIZE = 15
 const PAGE_SIZE_OPTIONS = [15, 25, 50, 100] as const
@@ -135,7 +135,7 @@ function BatchInput({ placeholder, numeric, onApply }: { placeholder: string; nu
  * busca aplica a todas as linhas; com busca, só aos resultados.
  */
 function ContrapartidaTabela<T extends CpItemComum>({
-  itens, onUpdate, onBatchUpdate, onRemove, onAdd, addLabel, dcByDescricao, primeiraColuna, searchText, searchPlaceholder,
+  itens, onUpdate, onBatchUpdate, onRemove, onAdd, addLabel, dcByDescricao, primeiraColuna, searchText, searchPlaceholder, revisar,
 }: {
   itens: T[]
   onUpdate: (i: number, patch: Partial<T>) => void
@@ -147,6 +147,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
   primeiraColuna: { header: string; className?: string; cellClassName?: string; render: (it: T, i: number) => ReactNode }
   searchText: (it: T) => string
   searchPlaceholder?: string
+  revisar?: boolean
 }) {
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(0)
@@ -163,6 +164,26 @@ function ContrapartidaTabela<T extends CpItemComum>({
   useEffect(() => { setPage(0) }, [query])
 
   const effSize = pageSize === 'all' ? Math.max(1, filtered.length) : pageSize
+
+  // Modo revisão (#2): posiciona na 1ª página com linha pendente (conta vazia, ou
+  // direção vazia quando o D/C é pela descrição) para o campo destacado ficar
+  // visível mesmo numa página posterior. Reavalia enquanto a lista muda (as
+  // descrições chegam em 2 fases: modelo salvo → reconstruídas do arquivo), mas
+  // PARA de reposicionar assim que o usuário mexe (edição/lote/tamanho de página)
+  // — senão puxaria a página no meio de uma correção. Usa `itens` (estável entre
+  // renders) e não `filtered` (recriado a cada render pela `searchText`).
+  const isProblema = (it: T) => !it.pular && (!it.conta.trim() || (dcByDescricao && !it.direcao))
+  const userMexeuRef = useRef(false)
+  useEffect(() => {
+    if (!revisar || userMexeuRef.current) return
+    const idx = itens.findIndex((it) => isProblema(it))
+    if (idx < 0) return
+    setPage(Math.floor(idx / effSize))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revisar, itens, effSize])
+  const marcaMexeu = () => { userMexeuRef.current = true }
+  const handleUpdate = (i: number, patch: Partial<T>) => { marcaMexeu(); onUpdate(i, patch) }
+
   const pageCount = Math.max(1, Math.ceil(filtered.length / effSize))
   const pageSafe = Math.min(page, pageCount - 1)
   const visible = filtered.slice(pageSafe * effSize, pageSafe * effSize + effSize)
@@ -175,11 +196,13 @@ function ContrapartidaTabela<T extends CpItemComum>({
     : (filtered.length === 1 ? 'a única linha' : `todas as ${filtered.length} linhas`)
 
   function batchApply(patch: Partial<T>) {
+    marcaMexeu()
     onBatchUpdate?.(filtered.map((f) => f.i), patch)
   }
 
   function handleAdd() {
     // Ao adicionar, limpa o filtro e vai pra última página, pra a nova linha aparecer.
+    marcaMexeu()
     setQuery('')
     setPage(Math.floor(itens.length / effSize))
     onAdd?.()
@@ -206,7 +229,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
           {showPageSize && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <span>Exibir</span>
-              <Select value={pageSize === 'all' ? 'all' : String(pageSize)} onValueChange={(v) => { setPageSize(v === 'all' ? 'all' : Number(v)); setPage(0) }}>
+              <Select value={pageSize === 'all' ? 'all' : String(pageSize)} onValueChange={(v) => { marcaMexeu(); setPageSize(v === 'all' ? 'all' : Number(v)); setPage(0) }}>
                 <SelectTrigger className="h-8 w-[92px] text-xs bg-card"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
@@ -286,17 +309,17 @@ function ContrapartidaTabela<T extends CpItemComum>({
               return (
               <TableRow key={i}>
                 <TableCell className={primeiraColuna.cellClassName}>{primeiraColuna.render(it, i)}</TableCell>
-                <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', !pular && !it.conta.trim() && 'border-r-2 border-r-destructive', pular && 'line-through placeholder:line-through')} placeholder="Conta" inputMode="numeric" value={it.conta} onChange={(e) => onUpdate(i, { conta: soDigitos(e.target.value) } as Partial<T>)} /></TableCell>
-                <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', pular && 'line-through placeholder:line-through')} placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => onUpdate(i, { historicoFixo: semSeparador(e.target.value) } as Partial<T>)} /></TableCell>
+                <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', !pular && !it.conta.trim() && invalidCls(revisar), pular && 'line-through placeholder:line-through')} placeholder="Conta" inputMode="numeric" value={it.conta} onChange={(e) => handleUpdate(i, { conta: soDigitos(e.target.value) } as Partial<T>)} /></TableCell>
+                <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', pular && 'line-through placeholder:line-through')} placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => handleUpdate(i, { historicoFixo: semSeparador(e.target.value) } as Partial<T>)} /></TableCell>
                 {dcByDescricao && (
                   <TableCell>
-                    <Select value={it.direcao ?? ''} onValueChange={(v) => onUpdate(i, { direcao: v as Direcao } as Partial<T>)} disabled={pular}>
-                      <SelectTrigger className={cn('h-8 text-xs bg-card', !pular && !it.direcao && 'border-r-2 border-r-destructive', pular && 'line-through')}><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <Select value={it.direcao ?? ''} onValueChange={(v) => handleUpdate(i, { direcao: v as Direcao } as Partial<T>)} disabled={pular}>
+                      <SelectTrigger className={cn('h-8 text-xs bg-card', !pular && !it.direcao && invalidCls(revisar), pular && 'line-through')}><SelectValue placeholder="Selecione" /></SelectTrigger>
                       <SelectContent><SelectItem value="DEBITO">Débito</SelectItem><SelectItem value="CREDITO">Crédito</SelectItem></SelectContent>
                     </Select>
                   </TableCell>
                 )}
-                <TableCell><div className="flex justify-center"><Checkbox checked={pular} onCheckedChange={(v) => onUpdate(i, { pular: !!v } as Partial<T>)} /></div></TableCell>
+                <TableCell><div className="flex justify-center"><Checkbox checked={pular} onCheckedChange={(v) => handleUpdate(i, { pular: !!v } as Partial<T>)} /></div></TableCell>
                 {onRemove && <TableCell><Button variant="soft-destructive" size="icon-sm" onClick={() => onRemove(i)}><Trash2 className="h-3.5 w-3.5" /></Button></TableCell>}
               </TableRow>
               )
@@ -344,7 +367,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
   )
 }
 
-export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao }: { def: TreatmentDefinition; setDef: SetDef; dcByDescricao: boolean }) {
+export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, revisar }: { def: TreatmentDefinition; setDef: SetDef; dcByDescricao: boolean; revisar?: boolean }) {
   const itens = def.contrapartida.palavraChave
 
   const update = useCallback((i: number, patch: Partial<typeof itens[number]>) => {
@@ -373,7 +396,7 @@ export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao }: { def:
       <p className="text-[12px] text-muted-foreground">Adicione palavras-chave abaixo, a serem detectadas nas descrições dos lançamentos.</p>
       <ContrapartidaTabela
         itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={remove} onAdd={add} addLabel="Adicionar palavra-chave"
-        dcByDescricao={dcByDescricao}
+        dcByDescricao={dcByDescricao} revisar={revisar}
         searchText={(it) => it.palavraChave} searchPlaceholder="Buscar palavra-chave..."
         primeiraColuna={{
           header: 'Palavra-chave', className: 'min-w-[160px]',
@@ -386,8 +409,8 @@ export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao }: { def:
   )
 }
 
-export function ContrapartidaDescricao({ def, setDef, dcByDescricao, descricaoColuna, getDistinct }: {
-  def: TreatmentDefinition; setDef: SetDef; dcByDescricao: boolean; descricaoColuna: string; getDistinct: (c: string) => string[]
+export function ContrapartidaDescricao({ def, setDef, dcByDescricao, descricaoColuna, getDistinct, revisar }: {
+  def: TreatmentDefinition; setDef: SetDef; dcByDescricao: boolean; descricaoColuna: string; getDistinct: (c: string) => string[]; revisar?: boolean
 }) {
   const itens = def.contrapartida.descricao
 
@@ -424,7 +447,7 @@ export function ContrapartidaDescricao({ def, setDef, dcByDescricao, descricaoCo
     <div className="space-y-2">
       <p className="text-[12px] text-muted-foreground">Cada descrição distinta recebe uma conta de contrapartida.</p>
       <ContrapartidaTabela
-        itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} dcByDescricao={dcByDescricao}
+        itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} dcByDescricao={dcByDescricao} revisar={revisar}
         searchText={(it) => it.descricao} searchPlaceholder="Buscar descrição..."
         primeiraColuna={{
           header: 'Descrição', cellClassName: 'text-sm max-w-[280px] truncate',

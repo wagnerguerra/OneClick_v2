@@ -346,7 +346,12 @@ export default function TratamentoLancamentosPage() {
               traceTotal={result.traceTotal ?? 0}
               okTotal={result.okTotal ?? 0}
               canManage={canManage}
-              onEditModel={() => goEditModel(modelId)}
+              onEditModel={() => {
+                // Abre o editor em "modo revisão": realça pendências de modelo (vermelho)
+                // e colunas do modelo ausentes no arquivo enviado (âmbar).
+                try { sessionStorage.setItem('tl:revisar', '1') } catch { /* ignore */ }
+                goEditModel(modelId)
+              }}
               onDownload={result.fileBase64 ? () => download(result.fileBase64!, result.fileName) : undefined}
             />
           </div>
