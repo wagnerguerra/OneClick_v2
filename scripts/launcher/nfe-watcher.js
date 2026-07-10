@@ -42,11 +42,15 @@ class NfeWatcher {
   }
 
   /** Agrupa paths em chunks limitados por quantidade E por bytes somados.
-   *  Arquivo acima de MAX_FILE_BYTES é pulado com warn (o multer da API rejeitaria). */
+   *  Arquivo acima de MAX_FILE_BYTES é pulado com warn (o multer da API rejeitaria).
+   *  Arquivo sem cara de NF (XML sem <NFe>/<nfeProc>/<procEventoNFe>, ZIP sem
+   *  nenhum .xml dentro) é descartado antes do upload — espelha o filtro da API
+   *  (detectarTipoNaoNFe) pra não gastar banda subindo SPED, folha, boletos etc. */
   montarChunks(paths) {
     const chunks = []
     let atual = []
     let bytes = 0
+    let naoFiscais = 0
     for (const p of paths) {
       let size = 0
       try { size = fs.statSync(p).size } catch { continue }  // sumiu entre o scan e o envio — pula
@@ -54,6 +58,8 @@ class NfeWatcher {
         this.log(`Arquivo acima de ${Math.round(MAX_FILE_BYTES / 1048576)}MB ignorado: ${path.basename(p)} (${Math.round(size / 1048576)}MB)`, 'warn')
         continue
       }
+      const relevante = p.toLowerCase().endsWith('.zip') ? this.zipTemXml(p) : this.ehXmlFiscal(p)
+      if (!relevante) { naoFiscais++; continue }
       if (atual.length > 0 && (atual.length >= BATCH_SIZE || bytes + size > MAX_BATCH_BYTES)) {
         chunks.push(atual)
         atual = []
@@ -63,7 +69,67 @@ class NfeWatcher {
       bytes += size
     }
     if (atual.length > 0) chunks.push(atual)
+    if (naoFiscais > 0) this.log(`${naoFiscais} arquivo(s) sem XML de nota fiscal descartados antes do envio`, 'info')
     return chunks
+  }
+
+  /** Sniff barato: XML é de nota fiscal (ou evento do ciclo dela)?
+   *  Lê só os primeiros 2KB — mesmos marcadores que a API usa em detectarTipoNaoNFe.
+   *  Erro de leitura → deixa passar (a API é o filtro final). */
+  ehXmlFiscal(p) {
+    let fd = null
+    try {
+      fd = fs.openSync(p, 'r')
+      const buf = Buffer.alloc(2048)
+      const n = fs.readSync(fd, buf, 0, 2048, 0)
+      const head = buf.subarray(0, n).toString('latin1')
+      return /<nfeProc[\s>]|<NFe[\s>]|<procEventoNFe[\s>]/.test(head)
+    } catch {
+      return true
+    } finally {
+      if (fd !== null) { try { fs.closeSync(fd) } catch { /* */ } }
+    }
+  }
+
+  /** ZIP contém pelo menos um .xml? Lê só o central directory (sem descompactar).
+   *  Formato inesperado (ZIP64, EOCD não achado) ou erro → deixa passar. */
+  zipTemXml(p) {
+    try {
+      const size = fs.statSync(p).size
+      if (size < 22) return false
+      const tailLen = Math.min(size, 65_557)  // EOCD (22) + comentário máximo (65535)
+      const fd = fs.openSync(p, 'r')
+      let cd
+      try {
+        const tail = Buffer.alloc(tailLen)
+        fs.readSync(fd, tail, 0, tailLen, size - tailLen)
+        let eocd = -1
+        for (let i = tail.length - 22; i >= 0; i--) {
+          if (tail.readUInt32LE(i) === 0x06054b50) { eocd = i; break }
+        }
+        if (eocd < 0) return true
+        const cdSize = tail.readUInt32LE(eocd + 12)
+        const cdOffset = tail.readUInt32LE(eocd + 16)
+        if (cdSize === 0xFFFFFFFF || cdOffset === 0xFFFFFFFF) return true  // ZIP64
+        cd = Buffer.alloc(cdSize)
+        fs.readSync(fd, cd, 0, cdSize, cdOffset)
+      } finally {
+        try { fs.closeSync(fd) } catch { /* */ }
+      }
+      let off = 0
+      while (off + 46 <= cd.length) {
+        if (cd.readUInt32LE(off) !== 0x02014b50) break  // fim das entradas do CD
+        const nameLen = cd.readUInt16LE(off + 28)
+        const extraLen = cd.readUInt16LE(off + 30)
+        const commentLen = cd.readUInt16LE(off + 32)
+        const nome = cd.subarray(off + 46, off + 46 + nameLen).toString('latin1')
+        if (/\.xml$/i.test(nome)) return true
+        off += 46 + nameLen + extraLen + commentLen
+      }
+      return false
+    } catch {
+      return true
+    }
   }
 
   log(msg, level = 'info') {
