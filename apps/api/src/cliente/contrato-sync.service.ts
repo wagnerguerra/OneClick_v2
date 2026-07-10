@@ -100,7 +100,7 @@ export class ContratoSyncService {
    * Pedido de import do cadastro legado (registros/acessos/vencimentos/sócios)
    * pelo Launcher, que lê o MySQL local e devolve as linhas via callback.
    */
-  async requestClienteImport(cnpj: string, timeoutMs = 20_000): Promise<Record<string, unknown>> {
+  async requestClienteImport(cnpj: string, timeoutMs = 45_000): Promise<Record<string, unknown>> {
     // Falha rápido e claro se NENHUM Service Manager está escutando o SSE — evita
     // esperar o timeout inteiro (e o proxy estourar em 500) quando o SM está fechado.
     if (this.subject.observers.length === 0) {
