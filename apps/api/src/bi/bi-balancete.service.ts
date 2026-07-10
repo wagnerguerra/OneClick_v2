@@ -1,6 +1,7 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { SciService, type SciBalanceteLinha } from '../cliente/sci.service'
+import { BiSyncEventsService } from './bi-sync-events.service'
 
 export interface RefreshJob {
   status: 'idle' | 'running' | 'done' | 'error'
@@ -26,6 +27,7 @@ export class BiBalanceteService {
 
   constructor(
     @Inject(forwardRef(() => SciService)) private readonly sciService: SciService,
+    private readonly biSyncEvents: BiSyncEventsService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -359,7 +361,10 @@ export class BiBalanceteService {
     substituirExistentes: boolean
   }) {
     const { clienteId, prcodemp, anoInicio, mesInicio, anoFim, mesFim, substituirExistentes } = opts
-    const jobKey = `${clienteId}_${anoInicio}${String(mesInicio).padStart(2, '0')}_${anoFim}${String(mesFim).padStart(2, '0')}`
+    const refInicio = anoInicio * 100 + mesInicio
+    const refFim = anoFim * 100 + mesFim
+    // Mesma chave que getRefreshStatusByRange (clienteId_refInicio_refFim).
+    const jobKey = `${clienteId}_${refInicio}_${refFim}`
 
     // Check if already running
     const existing = this.refreshJobs.get(jobKey)
@@ -368,6 +373,42 @@ export class BiBalanceteService {
     }
 
     const refs = this.rangeMeses(anoInicio, mesInicio, anoFim, mesFim)
+
+    // Produção: a VPS não alcança o Firebird da LAN (SCI_DSN=\\192.168.0.2\...).
+    // Se o Service Manager está conectado ao SSE, delegamos a leitura + upload a
+    // ele (roda o sci_balancete.py local) — o job só acompanha o progresso, que o
+    // SM alimenta via upload-balancete + import-done. Sem SM conectado, roda o
+    // Python na própria máquina (dev na LAN).
+    if (this.biSyncEvents.hasListeners()) {
+      const job: RefreshJob = {
+        status: 'running',
+        progress: 0,
+        message: `Aguardando o Service Manager processar ${refs.length} mês(es)...`,
+        log: [`[${new Date().toLocaleTimeString('pt-BR')}] Pedido enviado ao Service Manager (${refs.length} meses)`],
+        startedAt: new Date(),
+      }
+      ;(job as any).totalMeses = refs.length
+      ;(job as any).ok = 0
+      ;(job as any).skipped = 0
+      ;(job as any).failed = 0
+      this.refreshJobs.set(jobKey, job)
+      this.biSyncEvents.emit({
+        type: 'balancete-import-request',
+        clienteId,
+        payload: { prcodemp, refs, refInicio, refFim, substituirExistentes },
+      })
+      return { started: true, viaLauncher: true, job: { status: job.status, totalMeses: refs.length } }
+    }
+
+    // Em produção, a VPS não alcança o Firebird — sem SM conectado não há como
+    // importar. Falha claro em vez de rodar o Python e errar mês a mês.
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'Service Manager não está conectado. Abra o Service Manager no PC do escritório para ' +
+        'importar o balancete do SCI — o servidor não tem acesso ao Firebird da rede local.',
+      )
+    }
+
     const job: RefreshJob = {
       status: 'running',
       progress: 0,
@@ -377,12 +418,68 @@ export class BiBalanceteService {
     }
     this.refreshJobs.set(jobKey, job)
 
-    // Run in background
+    // Run in background (fallback local — só funciona onde a máquina alcança o SCI)
     this.runImportJob(jobKey, clienteId, prcodemp, refs, substituirExistentes).catch((e) => {
       this.logger.error(`Import job failed: ${(e as Error).message}`)
     })
 
     return { started: true, job: { status: job.status, totalMeses: refs.length } }
+  }
+
+  /** Avança o job (fluxo via launcher) quando o SM sobe um mês por upload-balancete. */
+  advanceLauncherJob(clienteId: string, ref: number, inserted: number): void {
+    const job = this.findRunningJobForRef(clienteId, ref)
+    if (!job) return
+    const total = ((job as unknown as { totalMeses?: number }).totalMeses) || 1
+    const j = job as unknown as { ok?: number; skipped?: number; failed?: number }
+    if (inserted > 0) j.ok = (j.ok || 0) + 1
+    else j.skipped = (j.skipped || 0) + 1
+    const done = (j.ok || 0) + (j.skipped || 0) + (j.failed || 0)
+    job.progress = Math.min(99, Math.round((done / total) * 100))
+    const mes = ref % 100, ano = Math.floor(ref / 100)
+    job.message = `Recebendo ${String(mes).padStart(2, '0')}/${ano} do Service Manager (${done}/${total})...`
+    job.log.push(`[${new Date().toLocaleTimeString('pt-BR')}] ref=${ref}: ${inserted} linha(s) do Service Manager`)
+  }
+
+  /** Finaliza o job (fluxo via launcher) quando o SM termina — import-done. */
+  async finalizeLauncherJob(
+    clienteId: string, refInicio: number, refFim: number,
+    result: { ok?: number; skipped?: number; failed?: number; errorsByMes?: Record<number, string>; erro?: string },
+  ): Promise<{ ok: boolean }> {
+    const jobKey = `${clienteId}_${refInicio}_${refFim}`
+    const job = this.refreshJobs.get(jobKey)
+    if (!job) return { ok: false }
+    const ok = result.ok ?? (job as unknown as { ok?: number }).ok ?? 0
+    const skipped = result.skipped ?? (job as unknown as { skipped?: number }).skipped ?? 0
+    const failed = result.failed ?? 0
+    // Sincroniza categorias no servidor (preserva personalizações do BI).
+    try {
+      await this.syncCategoriasFromLinhas(clienteId, true)
+      job.log.push(`[${new Date().toLocaleTimeString('pt-BR')}] Categorias sincronizadas`)
+    } catch (e) {
+      job.log.push(`[${new Date().toLocaleTimeString('pt-BR')}] Erro ao sincronizar categorias: ${(e as Error).message}`)
+    }
+    job.status = (result.erro || (failed > 0 && ok === 0)) ? 'error' : 'done'
+    job.progress = 100
+    job.completedAt = new Date()
+    job.message = result.erro
+      ? `Falhou: ${result.erro}`
+      : `Concluído: ${ok} importado(s), ${skipped} pulado(s), ${failed} falha(s)`
+    const j = job as unknown as { ok?: number; skipped?: number; failed?: number; errorsByMes?: Record<number, string> }
+    j.ok = ok; j.skipped = skipped; j.failed = failed
+    if (result.errorsByMes) j.errorsByMes = result.errorsByMes
+    return { ok: true }
+  }
+
+  /** Acha o job 'running' cuja faixa (refInicio..refFim, na chave) cobre `ref`. */
+  private findRunningJobForRef(clienteId: string, ref: number): RefreshJob | null {
+    for (const [key, job] of this.refreshJobs) {
+      if (job.status !== 'running' || !key.startsWith(`${clienteId}_`)) continue
+      const parts = key.split('_')
+      const ri = Number(parts[parts.length - 2]), rf = Number(parts[parts.length - 1])
+      if (Number.isFinite(ri) && Number.isFinite(rf) && ref >= ri && ref <= rf) return job
+    }
+    return null
   }
 
   private async runImportJob(

@@ -7,7 +7,7 @@ import { Subject } from 'rxjs'
  * de import.
  */
 export interface BiSyncEvent {
-  type: 'cliente-updated' | 'cliente-deleted' | 'sync-progress' | 'ping'
+  type: 'cliente-updated' | 'cliente-deleted' | 'sync-progress' | 'balancete-import-request' | 'ping'
   clienteId?: string
   payload?: Record<string, unknown>
   timestamp: number
@@ -19,6 +19,11 @@ export class BiSyncEventsService {
 
   get events$() {
     return this.subject.asObservable()
+  }
+
+  /** true se há ao menos um Service Manager escutando o SSE (/api/bi-sync/eventos). */
+  hasListeners(): boolean {
+    return this.subject.observers.length > 0
   }
 
   emit(event: Omit<BiSyncEvent, 'timestamp'>) {

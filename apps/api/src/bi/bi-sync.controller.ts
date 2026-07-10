@@ -125,11 +125,40 @@ export class BiSyncController {
     if (body.ref < 200001 || body.ref > 209912) {
       throw new Error(`Ref inválida: ${body.ref} (esperado AAAAMM)`)
     }
-    return this.balanceteService.uploadBalanceteMes(
+    const r = await this.balanceteService.uploadBalanceteMes(
       body.clienteId,
       body.ref,
       body.linhas,
       body.substituirExistentes ?? true,
     )
+    // Avança o job do fluxo via launcher (se houver um rodando pra este cliente/ref).
+    this.balanceteService.advanceLauncherJob(body.clienteId, body.ref, r.inserted ?? 0)
+    return r
+  }
+
+  /**
+   * Sinal de conclusão do import via launcher — o SM chama após subir todos os
+   * meses. Finaliza o job (status done/error) e sincroniza categorias no servidor.
+   * Path: POST /api/bi-sync/import-done
+   */
+  @Post('import-done')
+  async importDone(
+    @Body() body: {
+      clienteId: string
+      refInicio: number
+      refFim: number
+      ok?: number
+      skipped?: number
+      failed?: number
+      errorsByMes?: Record<number, string>
+      erro?: string
+    },
+    @Req() req: Request,
+  ) {
+    await this.assertAuth(req)
+    if (!body.clienteId || !body.refInicio || !body.refFim) {
+      throw new Error('Requer clienteId, refInicio e refFim (AAAAMM)')
+    }
+    return this.balanceteService.finalizeLauncherJob(body.clienteId, body.refInicio, body.refFim, body)
   }
 }
