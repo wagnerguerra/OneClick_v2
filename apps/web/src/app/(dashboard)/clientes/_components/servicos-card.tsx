@@ -59,7 +59,7 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
   const { data: session } = useSession()
   const currentUserId = session?.user?.id
   const isMaster = (session?.user as any)?.role === 'master' || (session?.user as any)?.isMaster
-  const { canManageServices } = useClientesPerms()
+  const { canManageServices, canManageResponsible } = useClientesPerms()
 
   const [rows, setRows] = useState<AreaRow[]>([])
   const [users, setUsers] = useState<UserOption[]>([])
@@ -108,6 +108,26 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
     } catch (e) {
       alerts.error('Erro', (e as Error).message || 'Nao foi possivel salvar os servicos.')
     } finally { setSaving(false) }
+  }
+
+  // Responsável/Substituto têm permissão dedicada (manage_responsible) e endpoint
+  // próprio (setAreaResponsavel). Quem só tem essa permissão (sem manage_services)
+  // não vê o botão "Salvar" → persistimos na hora pelo endpoint dedicado. Quem tem
+  // manage_services salva no batch (Salvar), como antes.
+  async function changeResponsavel(index: number, patch: { responsavelId?: string | null; substitutoId?: string | null }) {
+    const row = rows[index]
+    if (!row) return
+    updateRow(index, patch)
+    if (canManageServices || !canManageResponsible) return // batch (Salvar) cuida
+    const responsavelId = patch.responsavelId !== undefined ? patch.responsavelId : row.responsavelId
+    const substitutoId = patch.substitutoId !== undefined ? patch.substitutoId : row.substitutoId
+    try {
+      await (trpc.cliente as any).setAreaResponsavel.mutate({ clienteId, areaId: row.areaId, responsavelId, substitutoId })
+      setDirty(false)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message || 'Não foi possível salvar o responsável.')
+      fetchData()
+    }
   }
 
   function getUsersForArea(areaId: string) {
@@ -188,7 +208,7 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
               {rows.map((row, i) => {
                 const areaUsers = getUsersForArea(row.areaId)
                 const hasEncerramento = !!row.dataEncerramento
-                const canChangeResp = isMaster || currentUserId === row.areaLeaderId
+                const canChangeResp = isMaster || canManageResponsible || canManageServices || currentUserId === row.areaLeaderId
 
                 return (
                   <TableRow
@@ -218,7 +238,7 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
                     <TableCell>
                       <Select
                         value={row.responsavelId || '__none__'}
-                        onValueChange={(v) => updateRow(i, { responsavelId: v === '__none__' ? null : v })}
+                        onValueChange={(v) => changeResponsavel(i, { responsavelId: v === '__none__' ? null : v })}
                         disabled={!row.contratado || !canChangeResp}
                       >
                         <SelectTrigger className="h-8 text-xs">
@@ -242,7 +262,7 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
                     <TableCell>
                       <Select
                         value={row.substitutoId || '__none__'}
-                        onValueChange={(v) => updateRow(i, { substitutoId: v === '__none__' ? null : v })}
+                        onValueChange={(v) => changeResponsavel(i, { substitutoId: v === '__none__' ? null : v })}
                         disabled={!row.contratado || !canChangeResp}
                       >
                         <SelectTrigger className="h-8 text-xs">
