@@ -885,8 +885,9 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                   {errors.razaoSocial && <p className="text-xs text-destructive">{errors.razaoSocial.message}</p>}
                 </div>
 
-                {/* Linha 2: Nome Fantasia (6) + Situação (3) + Regime (3) */}
-                <div className="col-span-12 md:col-span-6 space-y-1.5">
+                {/* Linha 2: Nome Fantasia (9) + Situação (3). "Regime" foi removido —
+                    era o mesmo campo (regime) do "Regime" na aba Fiscal. */}
+                <div className="col-span-12 md:col-span-9 space-y-1.5">
                   <Label>Nome Fantasia</Label>
                   <Input placeholder="Nome Fantasia" {...register('nomeFantasia')} />
                 </div>
@@ -896,18 +897,6 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                     <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>{Object.entries(SITUACAO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
-                    </Select>
-                  )} />
-                </div>
-                <div className="col-span-12 md:col-span-3 space-y-1.5">
-                  <Label>Regime</Label>
-                  <Controller control={control} name="regime" render={({ field }) => (
-                    <Select value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? undefined : v)}>
-                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Não informado</SelectItem>
-                        {Object.entries(REGIME_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-                      </SelectContent>
                     </Select>
                   )} />
                 </div>
