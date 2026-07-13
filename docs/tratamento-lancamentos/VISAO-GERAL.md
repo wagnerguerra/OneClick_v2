@@ -11,7 +11,7 @@
 > `PLANO-SUPORTE-A-PDFS.md` (plano detalhado do stream PDF/D-C) ·
 > `_arquivo/CONCEPCAO-INICIAL.md` (o spec de origem, congelado — documento histórico).
 
-Última atualização: 2026-07-08.
+Última atualização: 2026-07-10.
 
 ---
 
@@ -26,8 +26,9 @@ Módulo do **bloco Contábil** (SaaS ERP/CRM para escritórios contábeis). Flux
    ("Exportação para o SCI").
 
 Detecta **pendências** antes de gerar (conta/direção/conta corrente não mapeada,
-campo vazio, data/valor inválidos) e as lista de forma acionável, com atalho para
-editar o modelo.
+coluna do De/Para não encontrada, campo vazio, data/valor inválidos) e as
+apresenta num painel acionável (abas Pendências + Dados processados), com atalho
+para editar o modelo.
 
 **Slug/módulo:** `tratamento-lancamentos` (router key camel `tratamentoLancamentos`).
 **Decisões travadas:** stateless (só Modelos são persistidos, sem histórico de
@@ -144,6 +145,31 @@ v1 (era `scratchpad/PR_BODY.md`); pendências deixadas fora do PR migraram para 
   próprio `applyModel`.
 - Commits: `0a668cb` (leitura PDF) · `19b1c2a` (extração robusta) · `4410843`
   (D/C sinal + pular + competência + debug) · `f3bd028` (docs engine).
+- **PR #9 mesclada na `main`** (2026-07).
+
+### Stream UX/UI + pendências (2026-07)
+- **Reuso da extração:** o `convert` recebe a tabela já extraída no `preview` e
+  não re-extrai (1× no fluxo; fallback p/ arquivos acima do teto do preview).
+- **Editor:** tabela de Contrapartida compartilhada entre os dois modos + busca,
+  preenchimento em lote e paginação; `model-editor.tsx` dividido em
+  `_components/model-editor/*`.
+- **Painel de resultado** (colapsável) no lugar da lista simples: abas
+  **Pendências** (origem color-codeada; expandir mostra a linha original com as
+  células causadoras destacadas + tooltip) e **Dados processados** (trace
+  por-linha; "Pulada" riscada; navegação até a pendência). No sucesso vira o card
+  "arquivo gerado" com barra recolhível "sem erros".
+- **Novas regras de pendência:** `COLUNA_NAO_ENCONTRADA` (coluna do De/Para
+  ausente no arquivo); `CAMPO_VAZIO` também nas colunas opcionais selecionadas
+  (participante/NF/CNPJ-CPF); descrição vazia não gera mais "sem contrapartida".
+  Coluna ausente **não silencia** as pendências das colunas presentes — acusa a
+  coluna faltante e segue linha a linha (short-circuit corrigido).
+- **Destaque de pendências no editor (modo revisão, #2):** abrir via "Editar
+  modelo" realça o que corrigir e some ao vivo conforme se ajusta — pendências de
+  **modelo** em vermelho (seção com anel + balão, campos causadores, rola até a
+  1ª seção, a contrapartida salta para a página da pendência) e **colunas do
+  modelo ausentes no arquivo** em âmbar (realce no campo + aviso NÃO bloqueante ao
+  salvar). A detecção de coluna ausente virou nativa do editor (não pruna mais em
+  silêncio ao trocar o arquivo de exemplo).
 
 ---
 
@@ -153,11 +179,13 @@ v1 (era `scratchpad/PR_BODY.md`); pendências deixadas fora do PR migraram para 
 - [ ] **Extração via IA de PDF/imagem** — TODO na fronteira `extractTabela`
       (PDF escaneado/foto). Portas/TODOs mantidos em `extract-tabela.ts` /
       `pdf-extract.ts`. **Não remover.**
-- [ ] **UX rica de pendências** — destacar a célula causadora na tabela de origem;
-      clicar no erro → rolar até a célula; tooltip no campo. Hoje é uma **lista**
-      acionável (linha/campo/valor/motivo + badges). Funcional, mas abaixo do spec.
-- [ ] **Split do `model-editor.tsx`** (~1k linhas) → `_components/sections/*`.
-      Adiado, sem urgência.
+- [ ] **#9 — Descoberta do visualizador de debug** — hoje é só via atalho
+      `Ctrl/Cmd+Shift+E` (escondido). Ideia: botão discreto abaixo do painel +
+      botão flutuante no editor. A planejar.
+- [x] ~~**UX rica de pendências (#1 + #2)**~~ — feita: painel remodelado (abas,
+      realce da célula, tooltip, navegação) + destaque no editor em modo revisão
+      (vermelho de modelo / âmbar de coluna ausente). Ver §4.
+- [x] ~~**Split do `model-editor.tsx`**~~ — feito (`_components/model-editor/*`).
 - [ ] **`colaboradores`** — não existe `model Colaborador` no schema, mas
       `TENANT_TABLES` lista `colaboradores`/`colaborador_events`. `createTenantSchema`
       já foi tornado resiliente (pula tabelas-template ausentes com warn); falta
@@ -179,11 +207,14 @@ v1 (era `scratchpad/PR_BODY.md`); pendências deixadas fora do PR migraram para 
   super-extração). ✔ resolvido.
 
 ### Entrega
-- ⏳ **PR #9 (stream PDF)** aberta contra `main`, aguardando review/merge do **Wagner**
-  (Service Manager). Merge/deploy é exclusivo dele.
-- ↪️ **Melhorias de UI/UX** (ex.: reaproveitamento da tabela de Contrapartida no
-  editor) vão em **PR separada**, a partir do `main` atualizado — fora do escopo da
-  PR de extração.
+- ✅ **PR #9 (stream PDF)** mesclada na `main` pelo **Wagner**.
+- ✅ **UI/UX partes 1 e 2** (`feat/tratamento-lancamentos-ux`, `-ux-parte-2`)
+  mescladas.
+- ⏳ **UI/UX parte 3** (`feat/tratamento-lancamentos-ux-parte-3`): reuso da tabela
+  do preview, painel de resultado remodelado, novas regras de pendência, destaque
+  de pendências no editor (modo revisão) e correção do short-circuit de coluna
+  faltante — 6 commits (de `8224840` a `33527d8`). Merge/deploy é exclusivo do
+  Wagner.
 
 ---
 

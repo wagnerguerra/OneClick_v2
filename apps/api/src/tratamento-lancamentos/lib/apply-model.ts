@@ -10,6 +10,7 @@
 //   CAMPO_VAZIO                 coluna obrigatória sem valor na linha
 //   DATA_INVALIDA              data não reconhecida
 //   VALOR_INVALIDO             valor não numérico
+//   COLUNA_NAO_ENCONTRADA      coluna selecionada no De/Para ausente no arquivo
 // ============================================================
 
 import type { TreatmentDefinition } from '@saas/types'
@@ -17,7 +18,7 @@ import type { ExtractedTable, CellValue } from './extract-tabela'
 import { parseData, parseValor } from './parsers'
 import { buildSciLine, buildSciFile, type Direcao } from './sci-format'
 
-export type PendenciaTipo = 'DC_NAO_MAPEADO' | 'CONTA_NAO_MAPEADA' | 'CONTA_CORRENTE_NAO_MAPEADA' | 'CAMPO_VAZIO' | 'DATA_INVALIDA' | 'VALOR_INVALIDO'
+export type PendenciaTipo = 'DC_NAO_MAPEADO' | 'CONTA_NAO_MAPEADA' | 'CONTA_CORRENTE_NAO_MAPEADA' | 'CAMPO_VAZIO' | 'DATA_INVALIDA' | 'VALOR_INVALIDO' | 'COLUNA_NAO_ENCONTRADA'
 
 export interface Pendencia {
   /** Linha de dados (1-based) na tabela extraída; 0 = pendência do modelo. */
@@ -52,6 +53,10 @@ export interface TraceRow {
   data: string
   valor: string
   descricao: string
+  /** Colunas opcionais do De/Para (vazio quando não mapeadas). */
+  participante: string
+  numeroNf: string
+  documento: string
   /** Interpretação. */
   dataParsed: string | null
   valorParsed: number | null
@@ -106,6 +111,36 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition, anoC
     pendencias.push({ linha: 0, tipo: 'CAMPO_VAZIO', campo: 'contasCorrentes', mensagem: 'Coluna que identifica a conta corrente não definida no modelo.' })
   }
 
+  // Colunas selecionadas no De/Para (+ coluna ativa de D/C e de conta corrente)
+  // que precisam EXISTIR nos cabeçalhos do arquivo. Cada ausente vira uma
+  // pendência "coluna não encontrada". NÃO encerramos o processamento: seguimos
+  // linha a linha para acusar também as pendências das colunas PRESENTES (ex.:
+  // valores vazios). A checagem por-linha de uma coluna AUSENTE é pulada (via
+  // `faltantes`) — a pendência de coluna já cobre, sem a tempestade de CAMPO_VAZIO.
+  const headerSet = new Set(table.headers)
+  const selecionadas = [
+    cm.descricao, cm.valor, cm.data,
+    def.debitoCredito.tipo === 'COLUNA' ? def.debitoCredito.coluna : '',
+    cc.modo === 'MULTIPLAS' ? cc.coluna : '',
+    cm.participante ?? '', cm.numeroNf ?? '', cm.documento ?? '',
+  ].filter((c) => !!c && !!c.trim())
+  const faltantes = new Set<string>()
+  for (const col of [...new Set(selecionadas)]) {
+    if (!headerSet.has(col)) {
+      faltantes.add(col)
+      pendencias.push({ linha: 0, tipo: 'COLUNA_NAO_ENCONTRADA', campo: col, mensagem: `Coluna "${col}" não encontrada no arquivo.` })
+    }
+  }
+  // Coluna ESSENCIAL ausente (descrição/valor/data + coluna ativa de D/C e de
+  // conta corrente) impede gerar qualquer linha — sem ela não há lançamento
+  // válido —, mas as linhas ainda são percorridas p/ acusar as colunas presentes.
+  // Opcionais ausentes (participante/NF/CNPJ) não bloqueiam a geração.
+  const bloqueiaLinhas = [
+    cm.descricao, cm.valor, cm.data,
+    def.debitoCredito.tipo === 'COLUNA' ? def.debitoCredito.coluna : '',
+    cc.modo === 'MULTIPLAS' ? cc.coluna : '',
+  ].some((c) => !!c && faltantes.has(c))
+
   table.rows.forEach((row, i) => {
     const linha = i + 1
     const rowPend: Pendencia[] = []
@@ -115,12 +150,17 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition, anoC
     const numeroNf = cm.numeroNf ? cell(row, cm.numeroNf) : ''
     const documento = cm.documento ? cell(row, cm.documento) : ''
 
-    if (!descricao) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.descricao, mensagem: 'Descrição vazia.' })
+    if (!descricao && !faltantes.has(cm.descricao)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.descricao, mensagem: 'Descrição vazia. Não foi possível determinar a contrapartida.' })
+    // Colunas opcionais do De/Para: se SELECIONADAS (e presentes), também precisam
+    // ter valor na linha (concepção: qualquer coluna escolhida precisa ter valor).
+    if (cm.participante && !participante && !faltantes.has(cm.participante)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.participante, mensagem: 'Nome do participante vazio.' })
+    if (cm.numeroNf && !numeroNf && !faltantes.has(cm.numeroNf)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.numeroNf, mensagem: 'Número da NF vazio.' })
+    if (cm.documento && !documento && !faltantes.has(cm.documento)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.documento, mensagem: 'CNPJ/CPF vazio.' })
 
     // Data (campo obrigatório)
     const dataStr = cell(row, cm.data)
     const pd = parseData(cm.data ? row[cm.data] : '', anoCompetencia)
-    if (!pd.valid) {
+    if (!pd.valid && !faltantes.has(cm.data)) {
       rowPend.push(dataStr
         ? { linha, tipo: 'DATA_INVALIDA', campo: cm.data, mensagem: `Data inválida: "${dataStr}".`, valor: dataStr }
         : { linha, tipo: 'CAMPO_VAZIO', campo: cm.data, mensagem: 'Data vazia.' })
@@ -129,7 +169,7 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition, anoC
     // Valor (campo obrigatório)
     const valorStr = cell(row, cm.valor)
     const pv = parseValor(cm.valor ? row[cm.valor] : '')
-    if (!pv.valid) {
+    if (!pv.valid && !faltantes.has(cm.valor)) {
       rowPend.push(valorStr
         ? { linha, tipo: 'VALOR_INVALIDO', campo: cm.valor, mensagem: `Valor não numérico: "${valorStr}".`, valor: valorStr }
         : { linha, tipo: 'CAMPO_VAZIO', campo: cm.valor, mensagem: 'Valor vazio.' })
@@ -141,6 +181,7 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition, anoC
       if (!trace) return
       trace.push({
         linha, data: dataStr, valor: valorStr, descricao,
+        participante, numeroNf, documento,
         dataParsed: pd.valid ? (pd.yyyymmdd ?? null) : null,
         valorParsed: pv.valid ? (pv.value ?? null) : null,
         direcao: null, contaContrapartida: null, contaCorrente: null,
@@ -159,7 +200,9 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition, anoC
     // Item marcado "Pular linha": a correspondência não é lançamento → ignora a
     // linha inteira (sem SCI e sem pendência), independente dos outros campos.
     if (match?.pular) { pushTrace('pulada-regra', { contaContrapartida: match.conta?.trim() || null }); return }
-    if (!match || !match.conta.trim()) {
+    // Descrição vazia já gerou CAMPO_VAZIO; não acusar "sem contrapartida para
+    // ''" em cima disso (a causa real é a descrição faltando).
+    if (descricao && (!match || !match.conta.trim())) {
       rowPend.push({ linha, tipo: 'CONTA_NAO_MAPEADA', campo: cm.descricao, mensagem: `Sem conta de contrapartida para "${descricao}".`, valor: descricao })
     }
 
@@ -168,7 +211,7 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition, anoC
     if (def.debitoCredito.tipo === 'COLUNA') {
       const dcVal = cell(row, def.debitoCredito.coluna)
       if (!dcVal) {
-        rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: def.debitoCredito.coluna, mensagem: 'Valor de débito/crédito vazio.' })
+        if (!faltantes.has(def.debitoCredito.coluna)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: def.debitoCredito.coluna, mensagem: 'Valor de débito/crédito vazio.' })
       } else {
         const dir = dcMapa.get(dcVal)
         if (!dir) rowPend.push({ linha, tipo: 'DC_NAO_MAPEADO', campo: def.debitoCredito.coluna, mensagem: `Valor "${dcVal}" não mapeado como débito/crédito.`, valor: dcVal })
@@ -193,7 +236,7 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition, anoC
     } else {
       const ccVal = cell(row, cc.coluna)
       if (!ccVal) {
-        rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cc.coluna, mensagem: 'Valor de conta corrente vazio.' })
+        if (!faltantes.has(cc.coluna)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cc.coluna, mensagem: 'Valor de conta corrente vazio.' })
       } else {
         const conta = ccMapa.get(ccVal)
         if (!conta || !conta.trim()) rowPend.push({ linha, tipo: 'CONTA_CORRENTE_NAO_MAPEADA', campo: cc.coluna, mensagem: `Valor "${ccVal}" sem conta corrente mapeada.`, valor: ccVal })
@@ -201,8 +244,11 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition, anoC
       }
     }
 
-    if (rowPend.length) {
-      pendencias.push(...rowPend)
+    // Vira pendência (sem linha) se houver problema na linha OU se falta uma
+    // coluna essencial (bloqueiaLinhas) — nesse caso sem ruído por-linha, já que a
+    // pendência "coluna não encontrada" explica.
+    if (rowPend.length || bloqueiaLinhas) {
+      if (rowPend.length) pendencias.push(...rowPend)
       pushTrace('pendencia', {
         direcao, contaContrapartida: match?.conta?.trim() || null,
         contaCorrente: contaCorrente || null, pendenciaTipos: rowPend.map((p) => p.tipo),

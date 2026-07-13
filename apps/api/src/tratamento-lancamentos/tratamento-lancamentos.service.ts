@@ -11,14 +11,33 @@ import {
   type DebugExtractInput,
   stableStringify,
 } from '@saas/types'
-import { extractTabela } from './lib/extract-tabela'
+import { extractTabela, type ExtractedTable } from './lib/extract-tabela'
 import { applyModel, type TraceRow } from './lib/apply-model'
 import { parseData } from './lib/parsers'
 
-/** Teto de linhas devolvidas ao wizard no preview (limita payload). */
-const PREVIEW_MAX_ROWS = 5000
+/**
+ * Teto de linhas devolvidas no preview (limita payload). Além de alimentar o
+ * wizard, o cliente CARREGA essas linhas e as reenvia no `convert` (reuso da
+ * extração — ver `convert`). Por isso o teto precisa cobrir os arquivos reais
+ * (ex.: extrato Mercado Pago, ~15k linhas); acima dele o cliente marca
+ * `truncated` e o `convert` re-extrai no servidor (correção preservada).
+ */
+const PREVIEW_MAX_ROWS = 50000
 /** Teto de linhas no visualizador de debug (limita payload; é ferramenta interna). */
 const DEBUG_MAX_ROWS = 5000
+/** Teto do traço "Dados processados" devolvido pelo convert (limita payload). */
+const CONVERT_TRACE_MAX = 5000
+
+// Traço enxuto para a aba "Dados processados" (sem os campos "parsed").
+type ConvertTraceRow = Pick<TraceRow, 'linha' | 'data' | 'valor' | 'descricao' | 'participante' | 'numeroNf' | 'documento' | 'direcao' | 'contaContrapartida' | 'contaCorrente' | 'status'>
+function projectTrace(t: TraceRow): ConvertTraceRow {
+  return {
+    linha: t.linha, data: t.data, valor: t.valor, descricao: t.descricao,
+    participante: t.participante, numeroNf: t.numeroNf, documento: t.documento,
+    direcao: t.direcao, contaContrapartida: t.contaContrapartida,
+    contaCorrente: t.contaCorrente, status: t.status,
+  }
+}
 
 function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.TreatmentModelWhereInput {
   return !isMaster && empresaId ? { empresaId } : {}
@@ -338,8 +357,22 @@ export class TratamentoLancamentosService {
    * interpretado. "Exportação para o SCI".
    */
   async convert(input: ConvertInput, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
-    const buffer = Buffer.from(input.fileBase64, 'base64')
-    const table = await extractTabela({ buffer, filename: input.filename })
+    // Reuso da extração: o preview (pós-upload) já extraiu a tabela e o cliente a
+    // carrega de volta aqui → aplica o modelo SEM re-extrair. Só re-extrai no
+    // fallback (tabela não carregada: arquivo acima do teto do preview, ou fluxo
+    // que não passou pelo preview). `applyModel` consome apenas `rows`; `meta` é
+    // reconstruída de forma inerte só para satisfazer o tipo `ExtractedTable`.
+    const table: ExtractedTable = input.table
+      ? {
+          headers: input.table.headers,
+          rows: input.table.rows,
+          meta: {
+            sheetName: '', headerRowIndex: 0, bodyStartIndex: 0,
+            bodyEndIndex: input.table.rows.length, totalDataRows: input.table.rows.length,
+            mode: 'single',
+          },
+        }
+      : await extractTabela({ buffer: Buffer.from(input.fileBase64 ?? '', 'base64'), filename: input.filename })
 
     const model = await scoped(tenantSchema, async (db) => {
       const m = await db.treatmentModel.findUniqueOrThrow({ where: { id: input.modelId } })
@@ -351,16 +384,26 @@ export class TratamentoLancamentosService {
     })
 
     const def = model.definition ?? EMPTY_TREATMENT_DEFINITION
+    // Colunas opcionais do De/Para que o modelo mapeou → a aba "Dados processados"
+    // mostra uma coluna para cada uma (mesmo que o valor venha vazio em algumas linhas).
+    const colunasOpcionais = {
+      participante: !!def.columnMapping.participante,
+      numeroNf: !!def.columnMapping.numeroNf,
+      documento: !!def.columnMapping.documento,
+    }
 
     // Datas "dd/mm" sem ano (ex.: Sicoob): sem a competência informada, avisa o
     // front para pedir o ano (popup) e reenviar — não gera o arquivo ainda.
     const dataCol = def.columnMapping.data
     const precisaAno = !input.competenciaAno && !!dataCol && table.rows.some((r) => parseData(r[dataCol]).semAno)
     if (precisaAno) {
-      return { needsCompetenciaAno: true, totalLancamentos: 0, pendencias: [], fileBase64: null, fileName: '' }
+      return { needsCompetenciaAno: true, totalLancamentos: 0, pendencias: [], fileBase64: null, fileName: '', trace: [] as ConvertTraceRow[], traceTotal: 0, okTotal: 0, colunasOpcionais }
     }
 
-    const result = applyModel(table, def, input.competenciaAno)
+    // Coleta o traço por-linha (como o modelo interpretou cada lançamento) para a
+    // aba "Dados processados". Projeta só os campos exibidos (sem os "parsed").
+    const trace: TraceRow[] = []
+    const result = applyModel(table, def, input.competenciaAno, trace)
     const safe = model.nome.replace(/[^a-zA-Z0-9-_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'lancamentos'
     return {
       needsCompetenciaAno: false,
@@ -369,6 +412,11 @@ export class TratamentoLancamentosService {
       // .txt em ANSI (latin1); null quando há pendências.
       fileBase64: result.sciText !== null ? Buffer.from(result.sciText, 'latin1').toString('base64') : null,
       fileName: `SCI_${safe}.txt`,
+      trace: trace.slice(0, CONVERT_TRACE_MAX).map(projectTrace),
+      traceTotal: trace.length,
+      // Total de linhas OK sobre TODO o traço (não só o fatiado) → contagem exata.
+      okTotal: trace.reduce((n, t) => (t.status === 'ok' ? n + 1 : n), 0),
+      colunasOpcionais,
     }
   }
 

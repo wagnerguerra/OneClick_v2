@@ -3,18 +3,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  FileSpreadsheet, Upload, Download, Loader2, AlertTriangle, CheckCircle2, Pencil, Image as ImageIcon, Settings2, FileCog, type LucideIcon,
+  FileSpreadsheet, Upload, Download, Loader2, Image as ImageIcon, Settings2, FileCog, type LucideIcon,
 } from 'lucide-react'
 import {
-  Button, Card, Badge,
+  Button, Card,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { DetectedRowsStatus } from './_components/detected-rows-status'
 import { DebugViewer } from './_components/debug-viewer'
+import { PendenciasPanel } from './_components/pendencias-panel'
 import { fileToBase64 } from '@/lib/file'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -23,16 +23,11 @@ interface ModelOption { id: string; nome: string; code: number }
 // Tipo do retorno de `convert` inferido do tRPC — nomeado p/ uso na UI, sem
 // duplicar nem castar o shape do backend (mudanças no backend propagam aqui).
 type ConvertResult = Awaited<ReturnType<typeof trpc.tratamentoLancamentos.convert.mutate>>
+type CellValue = string | number | boolean | null
+// Tabela extraída no preview (pós-upload) que o cliente CARREGA: reenviada no
+// convert (evita re-extração) e usada pelo painel de pendências.
+interface ExtractedTable { headers: string[]; rows: Array<Record<string, CellValue>>; truncated: boolean }
 
-const PENDENCIA_LABELS: Record<string, string> = {
-  DC_NAO_MAPEADO: 'Débito/Crédito não mapeado',
-  CONTA_NAO_MAPEADA: 'Conta de contrapartida não mapeada',
-  CONTA_CORRENTE_NAO_MAPEADA: 'Conta corrente não mapeada',
-  CAMPO_VAZIO: 'Campo vazio',
-  DATA_INVALIDA: 'Data inválida',
-  VALOR_INVALIDO: 'Valor não numérico',
-}
-const MAX_PENDENCIAS_VISIVEIS = 200
 const ACCEPT = ['.xlsx', '.xls', '.csv', '.pdf']
 const extOk = (name: string) => ACCEPT.some((e) => name.toLowerCase().endsWith(e))
 
@@ -65,10 +60,14 @@ export default function TratamentoLancamentosPage() {
   const [dragOver, setDragOver] = useState(false)
   const [converting, setConverting] = useState(false)
   const [result, setResult] = useState<ConvertResult | null>(null)
+  // Muda a cada nova conversão → reseta o estado (colapso/aba) do painel via key.
+  const [resultSeq, setResultSeq] = useState(0)
   // base64 lido na seleção do arquivo — reaproveitado na geração e ao criar modelo.
   const [fileBase64, setFileBase64] = useState<string | null>(null)
   const [reading, setReading] = useState(false)
   const [detectedRows, setDetectedRows] = useState<number | null>(null)
+  // Tabela extraída no preview — segurada p/ reenviar no convert e alimentar o painel.
+  const [extracted, setExtracted] = useState<ExtractedTable | null>(null)
   // Modelo a pré-selecionar ao voltar do wizard (aplicado quando a lista carrega).
   const pendingModelIdRef = useRef<string | null>(null)
 
@@ -92,7 +91,7 @@ export default function TratamentoLancamentosPage() {
 
   // Reaproveita um arquivo já lido (base64) sem passar pelo input de seleção.
   const restoreFile = useCallback(async (base64: string, filename: string) => {
-    setResult(null); setDetectedRows(null)
+    setResult(null); setDetectedRows(null); setExtracted(null)
     setReading(true)
     try {
       const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
@@ -100,6 +99,7 @@ export default function TratamentoLancamentosPage() {
       setFileBase64(base64)
       const res = await trpc.tratamentoLancamentos.preview.mutate({ fileBase64: base64, filename })
       setDetectedRows(res.totalRows)
+      setExtracted({ headers: res.headers, rows: res.rows, truncated: res.truncated })
     } catch {
       // Se o preview falhar, mantém o arquivo restaurado mesmo assim.
     } finally {
@@ -122,13 +122,14 @@ export default function TratamentoLancamentosPage() {
   async function pickFile(f: File | undefined | null) {
     if (!f) return
     if (!extOk(f.name)) { alerts.error('Formato não suportado', 'Envie um arquivo .xlsx, .xls, .csv ou .pdf.'); return }
-    setFile(f); setResult(null); setDetectedRows(null); setFileBase64(null)
+    setFile(f); setResult(null); setDetectedRows(null); setFileBase64(null); setExtracted(null)
     setReading(true)
     try {
       const base64 = await fileToBase64(f)
       const res = await trpc.tratamentoLancamentos.preview.mutate({ fileBase64: base64, filename: f.name })
       setFileBase64(base64)
       setDetectedRows(res.totalRows)
+      setExtracted({ headers: res.headers, rows: res.rows, truncated: res.truncated })
     } catch {
       alerts.error('Falha ao ler o arquivo', 'Não foi possível detectar uma tabela de lançamentos no arquivo.')
       setFile(null)
@@ -166,9 +167,19 @@ export default function TratamentoLancamentosPage() {
     if (!file || !modelId || !fileBase64) return
     setConverting(true)
     setResult(null)
+    // Reuso da extração: se a tabela do preview está completa (não truncada),
+    // manda ela pronta e o backend NÃO re-extrai. Senão, cai no fallback do arquivo.
+    const usarTabela = !!extracted && !extracted.truncated
     let res: ConvertResult
     try {
-      res = await trpc.tratamentoLancamentos.convert.mutate({ modelId, fileBase64, filename: file.name, competenciaAno })
+      res = await trpc.tratamentoLancamentos.convert.mutate({
+        modelId,
+        filename: file.name,
+        competenciaAno,
+        ...(usarTabela
+          ? { table: { headers: extracted!.headers, rows: extracted!.rows } }
+          : { fileBase64 }),
+      })
     } catch {
       alerts.error('Falha ao gerar o arquivo', 'Não foi possível ler o arquivo ou aplicar o modelo. Verifique o arquivo e tente novamente.')
       setConverting(false)
@@ -196,6 +207,7 @@ export default function TratamentoLancamentosPage() {
     }
 
     setResult(res)
+    setResultSeq((s) => s + 1)
     if (res.fileBase64) {
       download(res.fileBase64, res.fileName)
       await alerts.success('Arquivo gerado', `${res.totalLancamentos} lançamentos convertidos para o SCI.`)
@@ -203,7 +215,6 @@ export default function TratamentoLancamentosPage() {
   }
 
   const pend = result?.pendencias ?? []
-  const pendPorTipo = pend.reduce<Record<string, number>>((a, p) => { a[p.tipo] = (a[p.tipo] ?? 0) + 1; return a }, {})
 
   // Quando a conversão retorna pendências, rola até o início da listagem — em telas
   // menores ela pode nascer fora da área visível.
@@ -321,90 +332,30 @@ export default function TratamentoLancamentosPage() {
           </div>
         </Card>
 
-        {/* Resultado: sucesso */}
-        {result && result.fileBase64 && (
-          <Card className="p-5 border-emerald-300 dark:border-emerald-900/50">
-            <div className="flex items-center gap-3 lg:mx-20 xl:mx-40 2xl:mx-60">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">Arquivo de importação gerado</p>
-                <p className="text-xs text-muted-foreground">{result.totalLancamentos} lançamentos · o download iniciou automaticamente.</p>
-              </div>
-              <Button variant="success" size="sm" className="shrink-0" onClick={() => download(result.fileBase64!, result.fileName)}>
-                <Download className="h-4 w-4" /> Baixar
-              </Button>
-            </div>
-          </Card>
-        )}
-
-        {/* Resultado: pendências */}
-        {result && !result.fileBase64 && pend.length > 0 && (
-          <Card ref={pendenciasRef} className="p-5 border-rose-300 dark:border-rose-900/50 scroll-mt-[110px]">
-            <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
-                <AlertTriangle className="h-5 w-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">Não foi possível gerar o arquivo</p>
-                <p className="text-xs text-muted-foreground">
-                  {pend.length} pendência{pend.length > 1 ? 's' : ''} em {result.totalLancamentos} lançamentos
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(pendPorTipo).map(([tipo, n]) => (
-                <Badge key={tipo} variant="secondary" className="text-[11px]">{PENDENCIA_LABELS[tipo] ?? tipo}: {n}</Badge>
-              ))}
-            </div>
-
-            <div className="rounded-[2px] border border-border/60 overflow-hidden">
-              <div className="max-h-[420px] overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[70px]">Linha</TableHead>
-                      <TableHead className="w-[200px]">Campo</TableHead>
-                      <TableHead className="w-[200px]">Valor</TableHead>
-                      <TableHead>Motivo</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pend.slice(0, MAX_PENDENCIAS_VISIVEIS).map((p, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="font-mono text-xs text-muted-foreground">{p.linha || '—'}</TableCell>
-                        <TableCell className="text-xs">{p.campo}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate" title={p.valor}>{p.valor || '—'}</TableCell>
-                        <TableCell className="text-xs">{p.mensagem}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-            {pend.length > MAX_PENDENCIAS_VISIVEIS && (
-              <p className="text-[11px] text-muted-foreground">Mostrando as primeiras {MAX_PENDENCIAS_VISIVEIS} de {pend.length} pendências.</p>
-            )}
-
-            <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center">
-              {canManage && (
-                <Button variant="soft-info" size="sm" className="shrink-0" onClick={() => goEditModel(modelId)}>
-                  <Pencil className="h-4 w-4" /> Editar modelo
-                </Button>
-              )}
-              <span className="text-xs text-muted-foreground">
-                As pendências podem vir do <strong>modelo</strong> (mapeamentos faltando) ou do <strong>próprio arquivo</strong>
-                {' '}(campos em branco, datas ou valores inválidos).
-                {canManage
-                  ? ' Corrija o que for necessário e gere novamente.'
-                  : ' Ajuste o arquivo, ou solicite a quem gerencia os modelos a correção do mapeamento.'}
-              </span>
-            </div>
-            </div>
-          </Card>
+        {/* Painel de resultado (colapsável) — sempre após processar. No sucesso,
+            é o próprio card de "arquivo gerado" (recolhido); na falha, as abas. */}
+        {result && (
+          <div ref={pendenciasRef} className="scroll-mt-[110px]">
+            <PendenciasPanel
+              key={resultSeq}
+              pendencias={pend}
+              totalLancamentos={result.totalLancamentos}
+              headers={extracted?.headers ?? []}
+              rows={extracted?.rows ?? []}
+              trace={result.trace ?? []}
+              traceTotal={result.traceTotal ?? 0}
+              okTotal={result.okTotal ?? 0}
+              colunasOpcionais={result.colunasOpcionais ?? { participante: false, numeroNf: false, documento: false }}
+              canManage={canManage}
+              onEditModel={() => {
+                // Abre o editor em "modo revisão": realça pendências de modelo (vermelho)
+                // e colunas do modelo ausentes no arquivo enviado (âmbar).
+                try { sessionStorage.setItem('tl:revisar', '1') } catch { /* ignore */ }
+                goEditModel(modelId)
+              }}
+              onDownload={result.fileBase64 ? () => download(result.fileBase64!, result.fileName) : undefined}
+            />
+          </div>
         )}
 
         {/* Visualizador de debug (escondido — alternado por Ctrl/Cmd+Shift+E) */}

@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileSpreadsheet, Save, Upload, Plus, Trash2, Loader2, Info, Image as ImageIcon,
-  Tag, Columns3, ArrowLeftRight, Network, HelpCircle, ArrowLeft, ArrowRight, History, Landmark, type LucideIcon,
+  Tag, Columns3, ArrowLeftRight, Network, HelpCircle, ArrowLeft, ArrowRight, History, Landmark, AlertTriangle, X, type LucideIcon,
 } from 'lucide-react'
 import {
   Button, Input, Label, Checkbox, Card,
@@ -15,72 +15,27 @@ import {
 import { cn } from '@saas/ui'
 import type { TreatmentDefinition, Direcao } from '@saas/types'
 import { EMPTY_TREATMENT_DEFINITION, stableStringify, formatValorExibicao, extrairMarcadorDC } from '@saas/types'
-import { normalizeDefinition } from './treatment-definition'
-import { DetectedRowsStatus } from './detected-rows-status'
+import { normalizeDefinition } from '../treatment-definition'
+import { DetectedRowsStatus } from '../detected-rows-status'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { fileToBase64 } from '@/lib/file'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
-import { VersionHistoryDialog } from './version-history-dialog'
+import { VersionHistoryDialog } from '../version-history-dialog'
 
-type CellValue = string | number | boolean | null
-interface PreviewData { headers: string[]; rows: Array<Record<string, CellValue>>; totalRows: number; truncated: boolean }
+import type { PreviewData, Props } from './types'
+import { MAP_FIELDS } from './types'
+import { soDigitos, listaResumo, serializeForm, confirmarSaidaSemSalvar, esc } from './utils'
+import { StepHeader, EmptyHint, Stepper, ModeCards, ColumnSelect, FloatingActionBar } from './ui'
+import { DebitoCreditoColunaMap } from './sections/debito-credito'
+import { ContasCorrentesMap } from './sections/contas-correntes'
+import { ContrapartidaPalavraChave, ContrapartidaDescricao } from './sections/contrapartida'
 
-const NONE = '__none__'
-
-const HISTORICO_FIXO_HINT =
-  'Texto fixo que será gravado no campo Histórico do SCI para esses lançamentos. ' +
-  'Se deixar em branco, o sistema monta o histórico automaticamente ' +
-  '(ex.: "VR REF RECEB - NOME DO PARTICIPANTE"). ' +
-  'Vírgulas são removidas automaticamente (quebrariam o layout do SCI).'
-
-const PULAR_LINHA_HINT =
-  'Marque para IGNORAR as linhas que correspondem a este item: elas NÃO entram no ' +
-  'arquivo SCI. Útil para linhas do extrato que não são lançamentos (ex.: "Saldo do ' +
-  'dia", "Saldo anterior"). Quando marcado, os demais campos deste item são dispensados.'
-
-interface Props {
-  mode: 'create' | 'edit'
-  modelId?: string
-  /** Caminho de origem (?from=) — para "Voltar"/"Salvar" retornarem a ele. */
-  backTo?: string
-}
-
-/**
- * Ao trocar o arquivo de exemplo, descarta as referências de coluna da definição
- * que não existem mais no novo arquivo (De/Para, Débito/Crédito e Contas
- * correntes). Sem isso, o select continuaria exibindo uma coluna inexistente.
- * Quando uma coluna de mapeamento (Débito/Crédito ou Contas) some, o respectivo
- * mapa de valores também é zerado — passou a ser de outra coluna.
- */
-function pruneDefToHeaders(d: TreatmentDefinition, headers: string[]): TreatmentDefinition {
-  const has = new Set(headers)
-  const columnMapping = { ...d.columnMapping }
-  for (const k of Object.keys(columnMapping) as Array<keyof TreatmentDefinition['columnMapping']>) {
-    const v = columnMapping[k]
-    if (v && !has.has(v)) columnMapping[k] = ''
-  }
-  const debitoCredito =
-    d.debitoCredito.coluna && !has.has(d.debitoCredito.coluna)
-      ? { ...d.debitoCredito, coluna: '', mapa: [] }
-      : d.debitoCredito
-  const contasCorrentes =
-    d.contasCorrentes.coluna && !has.has(d.contasCorrentes.coluna)
-      ? { ...d.contasCorrentes, coluna: '', mapa: [] }
-      : d.contasCorrentes
-  return { ...d, columnMapping, debitoCredito, contasCorrentes }
-}
-
-// Campos do de/para. `req` marca os obrigatórios.
-const MAP_FIELDS: Array<{ key: keyof TreatmentDefinition['columnMapping']; label: string; req?: boolean; hint?: string }> = [
-  { key: 'descricao', label: 'Descrição do lançamento', req: true },
-  { key: 'valor', label: 'Valor', req: true },
-  { key: 'data', label: 'Data', req: true },
-  { key: 'participante', label: 'Nome do participante', hint: 'Opcional — usado no histórico do SCI' },
-  { key: 'numeroNf', label: 'Número da NF', hint: 'Opcional' },
-  { key: 'documento', label: 'CNPJ/CPF', hint: 'Opcional — pré-selecionado se houver coluna "CNPJ"' },
-]
+// <style> injetado no html dos alertas para corrigir o word-break do título — é
+// um <h2> e herda o `word-break: break-all` global, que o quebra no meio da
+// palavra. Vive só enquanto o alerta está aberto (sem tocar no globals).
+const SWAL_TITLE_FIX = '<style>.swal2-title{word-break:normal;overflow-wrap:break-word}</style>'
 
 export function ModelEditor({ mode, modelId, backTo }: Props) {
   const router = useRouter()
@@ -125,6 +80,12 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   // após restaurar uma versão.
   const [historyOpen, setHistoryOpen] = useState(false)
   const [reloadNonce, setReloadNonce] = useState(0)
+
+  // "Modo revisão" (#2): ligado quando o editor é aberto a partir de uma pendência
+  // de modelo (flag `tl:revisar`). Realça as seções/campos com pendência e rola
+  // até a primeira. O realce some ao vivo conforme o usuário corrige.
+  const [modoRevisao, setModoRevisao] = useState(false)
+  const revScrolledRef = useRef(false)
 
   // ---- Carrega o modelo (modo edição) -------------------------------------
   useEffect(() => {
@@ -175,6 +136,17 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       }
     } catch { /* ignore */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode])
+
+  // Abriu a partir de uma pendência de modelo → entra em "modo revisão".
+  useEffect(() => {
+    if (mode !== 'edit') return
+    try {
+      if (sessionStorage.getItem('tl:revisar')) {
+        sessionStorage.removeItem('tl:revisar')
+        setModoRevisao(true)
+      }
+    } catch { /* ignore */ }
   }, [mode])
 
   // Avisa ao fechar/atualizar a aba com alterações não salvas.
@@ -258,8 +230,10 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       const res = await trpc.tratamentoLancamentos.preview.mutate({ fileBase64: base64, filename })
       setPreview(res as PreviewData)
       setFileName(filename)
-      // Ao trocar o arquivo, descarta colunas selecionadas que não existem mais.
-      setDef((d) => pruneDefToHeaders(d, res.headers))
+      // NÃO descartamos mais as colunas ausentes no novo arquivo: mantemos a
+      // seleção e sinalizamos em âmbar no campo (ver `colunasForaDoArquivo` + o
+      // aviso ao salvar), para o usuário perceber a divergência em vez de perder o
+      // mapeamento silenciosamente.
       // Pré-seleção automática da coluna de CNPJ (sem sobrescrever escolha existente).
       const cnpjCol = res.headers.find((h) => /cnpj/i.test(h))
       if (cnpjCol) setDef((d) => (d.columnMapping.documento ? d : { ...d, columnMapping: { ...d.columnMapping, documento: cnpjCol } }))
@@ -426,13 +400,32 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     return p
   }
 
+  // Em modo revisão (com o arquivo já lido), rola até a 1ª seção com pendência
+  // (de modelo, vermelho) ou coluna ausente no arquivo (âmbar). Espera o
+  // `preview`, pois as pendências dependem dos valores distintos.
+  useEffect(() => {
+    if (!modoRevisao || revScrolledRef.current || !preview) return
+    const fora = colunasForaDoArquivo(def, preview.headers)
+    const secoes: Array<[string, boolean]> = [
+      ['rev-depara', Object.keys(fora.dePara).length > 0],
+      ['rev-cc', !!fora.cc || probContasCorrentes().length > 0],
+      ['rev-dc', !!fora.dc || probDC().length > 0],
+      ['rev-cp', probContrapartida().length > 0],
+    ]
+    const alvo = secoes.find(([, has]) => has)
+    if (!alvo) return
+    const el = document.getElementById(alvo[0])
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); revScrolledRef.current = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modoRevisao, preview, def])
+
   async function showProblemas(title: string, problemas: string[]) {
     await alerts.custom({
       title,
       icon: 'error',
       showCancelButton: false,
       confirmButtonText: 'Entendi',
-      html: `<div style="text-align:left"><p style="margin:0 0 8px">Corrija os pontos abaixo:</p><ul style="text-align:left;margin:0;padding-left:1.2em;line-height:1.7">${problemas.map((p) => `<li>${p}</li>`).join('')}</ul></div>`,
+      html: `${SWAL_TITLE_FIX}<div style="text-align:left"><p style="margin:0 0 8px">Corrija os pontos abaixo:</p><ul style="text-align:left;margin:0;padding-left:1.2em;line-height:1.7">${problemas.map((p) => `<li>${p}</li>`).join('')}</ul></div>`,
     })
   }
 
@@ -464,6 +457,21 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     if (problemas.length) {
       await showProblemas('Revise o preenchimento do modelo', problemas)
       return
+    }
+
+    // Aviso NÃO bloqueante: colunas do modelo ausentes no arquivo de exemplo atual.
+    // Pode salvar assim mesmo (o modelo vale p/ arquivos que as contenham).
+    const f = colunasForaDoArquivo(def, preview?.headers)
+    const colsFora = [...Object.values(f.dePara), f.dc, f.cc].filter((c): c is string => !!c)
+    if (colsFora.length) {
+      const lista = colsFora.map((c) => `"${esc(c)}"`).join(', ')
+      const res = await alerts.custom({
+        title: 'Coluna(s) ausente(s) no arquivo fornecido',
+        icon: 'warning',
+        confirmButtonText: 'Salvar assim mesmo',
+        html: `${SWAL_TITLE_FIX}<div style="text-align:center"><p style="margin:0 0 10px"><b>Coluna(s):</b> ${lista}.</p><p style="margin:0">Você pode salvar assim mesmo — o modelo funcionará com arquivos que as contenham.</p></div>`,
+      })
+      if (!res.isConfirmed) return
     }
 
     setSaving(true)
@@ -537,6 +545,12 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   }
 
   const cpItens = def.contrapartida.modo === 'PALAVRA_CHAVE' ? def.contrapartida.palavraChave : def.contrapartida.descricao
+
+  // Colunas do modelo que NÃO estão no arquivo de exemplo atual → realce âmbar no
+  // campo. Vale SEMPRE (editar e revisar): não prunamos mais as ausentes, então a
+  // própria `def` ainda carrega a coluna selecionada para comparar.
+  const fora = colunasForaDoArquivo(def, preview?.headers)
+  const temAmber = Object.keys(fora.dePara).length > 0 || !!fora.dc || !!fora.cc
 
   // ---- Blocos de seção: construídos uma vez. Empilhados na "visão geral"
   //      (edição + revisão final do wizard) ou exibidos um a um no wizard. --
@@ -623,12 +637,18 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
             const samples = f.key === 'valor'
               ? samplesFor(value).map(formatValorExibicao)
               : samplesFor(value)
+            const foraCol = fora.dePara[f.key]
             return (
               <div key={f.key} className="space-y-1.5">
                 <Label className="text-[13px] font-semibold">
                   {f.label} {f.req && <span className="text-destructive">*</span>}
                 </Label>
-                <ColumnSelect headers={headers} value={value} optional={!f.req} onChange={(v) => setMap(f.key, v)} />
+                <ColumnSelect headers={headers} value={value} optional={!f.req} onChange={(v) => setMap(f.key, v)} className={foraCol ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
+                {foraCol && (
+                  <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                    <AlertTriangle className="h-3 w-3 shrink-0" /> A coluna &quot;{foraCol}&quot; não está no arquivo enviado.
+                  </p>
+                )}
                 {f.hint && <p className="text-[11px] text-muted-foreground">{f.hint}</p>}
                 {samples.length > 0 && (
                   <div className="text-[11px] text-muted-foreground/80">
@@ -680,10 +700,15 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
           <div className="space-y-4">
             <div className="space-y-1.5 max-w-xs">
               <Label className="text-[13px] font-semibold">Coluna que identifica a conta <span className="text-destructive">*</span></Label>
-              <ColumnSelect headers={headers} value={def.contasCorrentes.coluna} onChange={setCcColuna} />
+              <ColumnSelect headers={headers} value={def.contasCorrentes.coluna} onChange={setCcColuna} className={fora.cc ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
+              {fora.cc && (
+                <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="h-3 w-3 shrink-0" /> A coluna &quot;{fora.cc}&quot; não está no arquivo enviado.
+                </p>
+              )}
             </div>
             {def.contasCorrentes.coluna && (
-              <ContasCorrentesMap def={def} setDef={setDef} coluna={def.contasCorrentes.coluna} getDistinct={getDistinct} />
+              <ContasCorrentesMap def={def} setDef={setDef} coluna={def.contasCorrentes.coluna} getDistinct={getDistinct} revisar={modoRevisao} />
             )}
           </div>
         )
@@ -694,13 +719,13 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   const secDC = (
     <Card className="p-5 space-y-4">
       <StepHeader
-        icon={ArrowLeftRight} color="bg-amber-500" title="Definição de Débito / Crédito"
+        icon={ArrowLeftRight} color="bg-orange-500" title="Definição de Débito / Crédito"
         hint="O sistema precisa saber se cada lançamento é um débito ou um crédito. Escolha a origem dessa informação: uma coluna da planilha, as descrições dos lançamentos, ou o sinal dos valores (negativo = débito, positivo = crédito)."
       />
       <div className="space-y-2">
         <p className="text-[13px] font-semibold text-foreground">O tipo (débito ou crédito) é definido:</p>
         <ModeCards
-          accent="amber"
+          accent="orange"
           value={def.debitoCredito.tipo}
           options={[
             { value: 'COLUNA', label: 'Por coluna' },
@@ -717,10 +742,15 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         <div className="space-y-4">
           <div className="space-y-1.5 max-w-xs">
             <Label className="text-[13px] font-semibold">Coluna de Débito/Crédito <span className="text-destructive">*</span></Label>
-            <ColumnSelect headers={headers} value={def.debitoCredito.coluna} onChange={setDcColuna} />
+            <ColumnSelect headers={headers} value={def.debitoCredito.coluna} onChange={setDcColuna} className={fora.dc ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
+            {fora.dc && (
+              <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-3 w-3 shrink-0" /> A coluna &quot;{fora.dc}&quot; não está no arquivo enviado.
+              </p>
+            )}
           </div>
           {def.debitoCredito.coluna && (
-            <DebitoCreditoColunaMap def={def} setDef={setDef} coluna={def.debitoCredito.coluna} getDistinct={getDistinct} />
+            <DebitoCreditoColunaMap def={def} setDef={setDef} coluna={def.debitoCredito.coluna} getDistinct={getDistinct} revisar={modoRevisao} />
           )}
         </div>
         )
@@ -741,13 +771,13 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   const secContrapartida = (
     <Card className="p-5 space-y-4">
       <StepHeader
-        icon={Network} color="bg-rose-500" title="Mapeamento de contas de contrapartida"
+        icon={Network} color="bg-fuchsia-500" title="Mapeamento de contas de contrapartida"
         hint="Informe a conta contábil de contrapartida de cada lançamento. Você pode mapear por palavra-chave encontrada na descrição, ou definir uma conta para cada descrição."
       />
       <div className="space-y-2">
         <p className="text-[13px] font-semibold text-foreground">Como mapear a contrapartida:</p>
         <ModeCards
-          accent="rose"
+          accent="fuchsia"
           value={def.contrapartida.modo}
           options={[
             { value: 'DESCRICAO', label: 'Por descrição' },
@@ -758,10 +788,10 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       </div>
 
       {def.contrapartida.modo === 'PALAVRA_CHAVE' ? (
-        <ContrapartidaPalavraChave def={def} setDef={setDef} dcByDescricao={dcByDescricao} />
+        <ContrapartidaPalavraChave def={def} setDef={setDef} dcByDescricao={dcByDescricao} revisar={modoRevisao} />
       ) : (
         <ContrapartidaDescricao
-          def={def} setDef={setDef} dcByDescricao={dcByDescricao}
+          def={def} setDef={setDef} dcByDescricao={dcByDescricao} revisar={modoRevisao}
           descricaoColuna={def.columnMapping.descricao || ''} getDistinct={getDistinct}
         />
       )}
@@ -778,15 +808,30 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     </Card>
   )
 
+  // Pendências de MODELO por seção no modo revisão (#2). Recalculadas a cada
+  // render, então o realce/balão somem ao vivo conforme o usuário corrige.
+  // Quando a coluna ativa de CC/DC faltou no arquivo (âmbar), o vermelho é
+  // suprimido — o aviso âmbar no campo já explica a causa.
+  const revProbs = {
+    cc: modoRevisao && !fora.cc ? probContasCorrentes() : [],
+    dc: modoRevisao && !fora.dc ? probDC() : [],
+    cp: modoRevisao ? probContrapartida() : [],
+  }
+  const revProbsTotal = revProbs.cc.length + revProbs.dc.length + revProbs.cp.length
+  const temRevisao = revProbsTotal > 0 || temAmber
+
   // Visão geral = todas as seções empilhadas (edição + revisão final do wizard).
+  // No modo revisão, as seções com pendência de modelo ganham anel vermelho +
+  // balão; o âmbar (coluna ausente) fica no próprio campo. `rev-depara` é alvo de
+  // scroll quando só há âmbar no De/Para.
   const overview = (
     <>
       {secDados}
       {secArquivo}
-      {secDePara}
-      {secContasCorrentes}
-      {secDC}
-      {secContrapartida}
+      <div id="rev-depara" className="scroll-mt-24">{secDePara}</div>
+      <SecaoRevisao ativo={modoRevisao} problems={revProbs.cc} id="rev-cc">{secContasCorrentes}</SecaoRevisao>
+      <SecaoRevisao ativo={modoRevisao} problems={revProbs.dc} id="rev-dc">{secDC}</SecaoRevisao>
+      <SecaoRevisao ativo={modoRevisao} problems={revProbs.cp} id="rev-cp">{secContrapartida}</SecaoRevisao>
       {mode === 'edit' && secNota}
     </>
   )
@@ -870,6 +915,17 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
             <Button variant="outline" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4" /> Voltar</Button>
           </div>
         </div>
+        {modoRevisao && temRevisao && (
+          <div className="flex items-start gap-2 rounded-[4px] border border-border bg-muted/40 px-3 py-2.5 text-xs">
+            <Info className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
+            <span className="flex-1 text-muted-foreground">
+              Revisando este modelo. <span className="font-medium text-rose-600 dark:text-rose-400">Vermelho</span> = pendência do modelo a corrigir; <span className="font-medium text-amber-600 dark:text-amber-400">âmbar</span> = coluna que não está no arquivo enviado. O destaque some conforme você ajusta.
+            </span>
+            <button type="button" onClick={() => setModoRevisao(false)} className="shrink-0 text-muted-foreground/60 hover:text-foreground" aria-label="Encerrar revisão">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         {overview}
         {/* Salvar flutuante — sempre acessível, sem rolar até o topo. */}
         <FloatingActionBar primaryLabel="Salvar alterações" onPrimary={handleSave} loading={saving} />
@@ -888,476 +944,51 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   )
 }
 
-// ============================================================
-// Subcomponentes
-// ============================================================
-
-/**
- * Ação primária (Salvar / Criar modelo) fixada no rodapé, sempre acessível na
- * visão geral do modelo — sem precisar rolar até o topo. Fica no centro-baixo
- * da tela para não colidir com o FAB "Fale com a TI" (canto inferior direito)
- * nem com o rail de tarefas. z-40 mantém abaixo de modais/alertas (z-50).
- */
-function FloatingActionBar({
-  primaryLabel, onPrimary, loading = false, primaryIcon: Icon = Save, primaryIconRight = false, onBack,
-}: {
-  primaryLabel: string; onPrimary: () => void; loading?: boolean
-  primaryIcon?: LucideIcon; primaryIconRight?: boolean; onBack?: () => void
-}) {
-  // Anima a entrada: monta "escondida" (deslocada + transparente) e no próximo
-  // frame passa para o estado visível, deixando a transição do CSS rolar.
-  // Mesmo padrão do FAB — usa só utilitários core do Tailwind (sem plugin).
-  const [shown, setShown] = useState(false)
-  useEffect(() => {
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)))
-    return () => cancelAnimationFrame(id)
-  }, [])
-  const glyph = loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />
-  return (
-    <div
-      className={cn(
-        'fixed inset-x-0 bottom-6 z-40 flex items-center justify-center gap-2 pointer-events-none',
-        'transition-all duration-500 ease-out will-change-transform',
-        shown ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
-      )}
-    >
-      {onBack && (
-        <Button
-          variant="outline"
-          onClick={onBack}
-          className="pointer-events-auto h-11 gap-2 rounded-full bg-card px-5 text-sm font-semibold shadow-lg shadow-black/20 ring-1 ring-black/5 transition-all duration-100 active:scale-95"
-        >
-          <ArrowLeft className="h-4 w-4" /> Etapa anterior
-        </Button>
-      )}
-      <Button
-        variant="success"
-        onClick={onPrimary}
-        disabled={loading}
-        className="pointer-events-auto h-11 gap-2 rounded-full px-6 text-sm font-semibold shadow-lg shadow-black/25 ring-1 ring-black/5 transition-all duration-100 active:scale-95"
-      >
-        {!primaryIconRight && glyph}
-        {primaryLabel}
-        {primaryIconRight && glyph}
-      </Button>
-    </div>
-  )
-}
-
-/** Ajuda colapsada: "?" que revela o texto no hover. */
-function HelpTip({ text, side = 'top' }: { text: string; side?: 'top' | 'right' | 'bottom' | 'left' }) {
-  return (
-    <Tooltip delayDuration={150}>
-      <TooltipTrigger asChild>
-        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/70 hover:text-foreground cursor-help transition-colors" />
-      </TooltipTrigger>
-      <TooltipContent side={side} className="max-w-xs text-xs leading-relaxed">{text}</TooltipContent>
-    </Tooltip>
-  )
-}
-
-/**
- * Cabeçalho de etapa: ícone colorido + título + ajuda colapsada (tooltip no "?").
- * `color` é uma classe de fundo Tailwind (mantém dark mode, sem hex hardcoded).
- */
-function StepHeader({ icon: Icon, title, hint, color }: { icon: LucideIcon; title: string; hint: string; color: string }) {
-  return (
-    <div className="flex items-center gap-2 border-b border-border pb-2 -mx-5 px-5">
-      <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-[4px] text-white', color)}>
-        <Icon className="h-3.5 w-3.5" />
-      </span>
-      <h2 className="text-[13px] font-semibold text-foreground">{title}</h2>
-      <HelpTip text={hint} side="right" />
-    </div>
-  )
-}
-function EmptyHint({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-muted-foreground italic">{children}</p>
-}
-
-/** Barra de etapas do wizard — clicável para etapas já alcançadas. */
-function Stepper({ labels, current, maxStep, onGo }: { labels: string[]; current: number; maxStep: number; onGo: (i: number) => void }) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
-      {labels.map((label, i) => {
-        const active = i === current
-        const reachable = i <= maxStep
-        return (
-          <div key={label} className="flex items-center">
-            <button
-              type="button"
-              disabled={!reachable}
-              onClick={() => onGo(i)}
-              className={cn(
-                'flex items-center gap-1.5 rounded-[2px] px-2.5 py-1 text-xs font-medium transition-colors',
-                active
-                  ? 'text-white'
-                  : reachable
-                    ? 'bg-muted/50 text-foreground hover:bg-muted cursor-pointer'
-                    : 'bg-muted/30 text-muted-foreground/60 cursor-not-allowed',
-              )}
-              style={active ? { backgroundColor: 'var(--mod-contabil, #a78bfa)' } : undefined}
-            >
-              <span className={cn('flex h-4 w-4 items-center justify-center rounded-full text-[10px]', active ? 'bg-white/25' : 'bg-foreground/10')}>{i + 1}</span>
-              {label}
-            </button>
-            {i < labels.length - 1 && <span className="px-1 text-muted-foreground/40">›</span>}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// Cores de destaque do card ativo, por etapa (classes estáticas p/ o Tailwind enxergar).
-const MODE_ACCENT = {
-  cyan: { border: 'border-cyan-500', ring: 'ring-cyan-500/25', bg: 'bg-cyan-500/5', dot: 'bg-cyan-500', text: 'text-cyan-700 dark:text-cyan-300' },
-  amber: { border: 'border-amber-500', ring: 'ring-amber-500/25', bg: 'bg-amber-500/5', dot: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300' },
-  rose: { border: 'border-rose-500', ring: 'ring-rose-500/25', bg: 'bg-rose-500/5', dot: 'bg-rose-500', text: 'text-rose-700 dark:text-rose-300' },
-} as const
-
-/**
- * Seletor EXCLUSIVO (radio-cards) das etapas de 2 modos. Cada opção é um card com
- * bolinha de radio; só um fica ativo (destacado com a cor da etapa). Deixa claro
- * que é "um OU outro" — em testes com usuários o segmented control antigo parecia
- * abas, dando a impressão de que as duas precisavam ser preenchidas.
- */
-function ModeCards({ value, options, onChange, accent }: {
-  value: string
-  options: Array<{ value: string; label: string; hint?: string }>
-  onChange: (v: string) => void
-  accent: keyof typeof MODE_ACCENT
-}) {
-  const A = MODE_ACCENT[accent]
-  return (
-    <div role="radiogroup" className={cn('grid gap-2 max-w-2xl', options.length >= 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
-      {options.map((o) => {
-        const active = value === o.value
-        return (
-          <button
-            key={o.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            onClick={() => onChange(o.value)}
-            className={cn(
-              'flex items-start gap-2.5 rounded-[4px] border px-3 py-2.5 text-left transition-colors',
-              active ? cn(A.border, A.bg, 'ring-1', A.ring) : 'border-border/60 bg-muted/20 hover:bg-muted/40',
-            )}
-          >
-            <span className={cn(
-              'mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
-              active ? A.border : 'border-muted-foreground/40',
-            )}>
-              {active && <span className={cn('h-2 w-2 rounded-full', A.dot)} />}
-            </span>
-            <span>
-              <span className={cn('block text-xs font-medium', active ? A.text : 'text-foreground')}>{o.label}</span>
-              {o.hint && <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">{o.hint}</span>}
-            </span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-function ColumnSelect({ headers, value, optional, onChange, placeholder = 'Selecione a coluna' }: { headers: string[]; value: string; optional?: boolean; onChange: (v: string) => void; placeholder?: string }) {
-  const options = value && !headers.includes(value) ? [value, ...headers] : headers
-  // Obrigatório: sem seleção → value '' (Radix exibe o placeholder).
-  // Opcional: NONE é o sentinela do item "— Nenhuma —".
-  const selectValue = optional ? (value || NONE) : value
-  return (
-    <Select value={selectValue} onValueChange={(v) => onChange(v === NONE ? '' : v)}>
-      <SelectTrigger className="h-9 text-sm bg-card"><SelectValue placeholder={placeholder} /></SelectTrigger>
-      <SelectContent>
-        {optional && <SelectItem value={NONE}>— Nenhuma —</SelectItem>}
-        {options.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-      </SelectContent>
-    </Select>
-  )
-}
-
-type SetDef = React.Dispatch<React.SetStateAction<TreatmentDefinition>>
-
-/** Mapa valor→direção da coluna de Débito/Crédito (sem default; direção obrigatória). */
-function DebitoCreditoColunaMap({ def, setDef, coluna, getDistinct }: { def: TreatmentDefinition; setDef: SetDef; coluna: string; getDistinct: (c: string) => string[] }) {
-  const distinct = getDistinct(coluna)
-
-  // Poda valores que não existem mais na coluna (ex.: ao trocar de coluna).
-  // NÃO semeia defaults — cada direção começa sem seleção (obrigatória).
-  useEffect(() => {
-    if (!distinct.length) return
-    setDef((d) => {
-      const valid = new Set(distinct)
-      const mapa = d.debitoCredito.mapa.filter((m) => valid.has(m.valor))
-      if (mapa.length === d.debitoCredito.mapa.length) return d
-      return { ...d, debitoCredito: { ...d.debitoCredito, mapa } }
-    })
-  }, [coluna, getDistinct, setDef])
-
-  function setOne(valor: string, direcao: Direcao) {
-    setDef((d) => {
-      const mapa = d.debitoCredito.mapa.filter((m) => m.valor !== valor)
-      mapa.push({ valor, direcao })
-      return { ...d, debitoCredito: { ...d.debitoCredito, mapa } }
-    })
+// Colunas mapeadas no modelo (De/Para + coluna ativa de D/C e de conta corrente)
+// que NÃO existem nos cabeçalhos do arquivo enviado — base do realce âmbar (#2).
+// Compara contra as colunas ORIGINAIS do modelo (o prune já limpa as ausentes).
+function colunasForaDoArquivo(defOrig: TreatmentDefinition | null, headers?: string[]) {
+  const out = {
+    dePara: {} as Partial<Record<keyof TreatmentDefinition['columnMapping'], string>>,
+    dc: '',
+    cc: '',
   }
+  if (!defOrig || !headers) return out
+  const hset = new Set(headers)
+  const cm = defOrig.columnMapping
+  for (const k of Object.keys(cm) as Array<keyof typeof cm>) {
+    const col = cm[k]
+    if (col && !hset.has(col)) out.dePara[k] = col
+  }
+  const dc = defOrig.debitoCredito
+  if (dc.tipo === 'COLUNA' && dc.coluna && !hset.has(dc.coluna)) out.dc = dc.coluna
+  const cc = defOrig.contasCorrentes
+  if (cc.modo === 'MULTIPLAS' && cc.coluna && !hset.has(cc.coluna)) out.cc = cc.coluna
+  return out
+}
 
-  const mapa = def.debitoCredito.mapa
-  const valores = distinct.length ? distinct : mapa.map((m) => m.valor)
-  if (!valores.length) return <EmptyHint>Envie o arquivo para listar os valores distintos desta coluna.</EmptyHint>
+// --- Modo revisão (#2): seção com pendência de modelo ganha anel vermelho + balão
+// As mensagens vêm dos validadores prob*; os valores do usuário já são escapados
+// (listaResumo → esc), então é seguro usar innerHTML (mantém o negrito).
+function RevisaoCallout({ problems }: { problems: string[] }) {
   return (
-    <div className="space-y-2">
-      <p className="text-[12px] text-muted-foreground">Para cada valor da coluna, defina a direção:</p>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {valores.map((val) => {
-          const cur = mapa.find((m) => m.valor === val)?.direcao ?? ''
-          return (
-            <div key={val} className="flex items-center gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-3 py-1.5">
-              <span className="text-sm flex-1 truncate" title={val}>{val}</span>
-              <Select value={cur} onValueChange={(v) => setOne(val, v as Direcao)}>
-                <SelectTrigger className={cn('h-8 w-[130px] text-xs bg-card', !cur && 'border-r-2 border-r-destructive')}><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DEBITO">Débito</SelectItem>
-                  <SelectItem value="CREDITO">Crédito</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )
-        })}
+    <div className="rounded-[4px] border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive dark:text-rose-300">
+      <div className="mb-1 flex items-center gap-1.5 font-semibold">
+        <AlertTriangle className="h-3.5 w-3.5" /> Corrija para gerar o arquivo:
       </div>
+      <ul className="list-disc space-y-0.5 pl-5 [&_b]:font-semibold">
+        {problems.map((p, i) => <li key={i} dangerouslySetInnerHTML={{ __html: p }} />)}
+      </ul>
     </div>
   )
 }
 
-/** Mapa valor→conta corrente da coluna que identifica o banco (modo múltiplas contas). */
-function ContasCorrentesMap({ def, setDef, coluna, getDistinct }: { def: TreatmentDefinition; setDef: SetDef; coluna: string; getDistinct: (c: string) => string[] }) {
-  const distinct = getDistinct(coluna)
-
-  // Poda valores que não existem mais na coluna (ex.: ao trocar de coluna).
-  useEffect(() => {
-    if (!distinct.length) return
-    setDef((d) => {
-      const valid = new Set(distinct)
-      const mapa = d.contasCorrentes.mapa.filter((m) => valid.has(m.valor))
-      if (mapa.length === d.contasCorrentes.mapa.length) return d
-      return { ...d, contasCorrentes: { ...d.contasCorrentes, mapa } }
-    })
-  }, [coluna, getDistinct, setDef])
-
-  function setOne(valor: string, conta: string) {
-    setDef((d) => {
-      const mapa = d.contasCorrentes.mapa.filter((m) => m.valor !== valor)
-      mapa.push({ valor, conta })
-      return { ...d, contasCorrentes: { ...d.contasCorrentes, mapa } }
-    })
-  }
-
-  const mapa = def.contasCorrentes.mapa
-  const valores = distinct.length ? distinct : mapa.map((m) => m.valor)
-  if (!valores.length) return <EmptyHint>Envie o arquivo para listar os valores distintos desta coluna.</EmptyHint>
+function SecaoRevisao({ ativo, problems, id, children }: { ativo: boolean; problems: string[]; id: string; children: ReactNode }) {
+  if (!ativo || !problems.length) return <>{children}</>
   return (
-    <div className="space-y-2">
-      <p className="text-[12px] text-muted-foreground">Para cada valor da coluna, informe a conta contábil:</p>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {valores.map((val) => {
-          const cur = mapa.find((m) => m.valor === val)?.conta ?? ''
-          return (
-            <div key={val} className="flex items-center gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-3 py-1.5">
-              <span className="text-sm flex-1 truncate" title={val}>{val}</span>
-              <Input
-                className={cn('h-8 w-[150px] text-xs bg-card', !cur.trim() && 'border-r-2 border-r-destructive')}
-                placeholder="Conta corrente"
-                inputMode="numeric"
-                value={cur}
-                onChange={(e) => setOne(val, soDigitos(e.target.value))}
-              />
-            </div>
-          )
-        })}
-      </div>
+    <div id={id} className="space-y-2 scroll-mt-24">
+      <RevisaoCallout problems={problems} />
+      <div className="rounded-lg ring-2 ring-destructive/50 ring-offset-2 ring-offset-background">{children}</div>
     </div>
   )
-}
-
-function ContrapartidaPalavraChave({ def, setDef, dcByDescricao }: { def: TreatmentDefinition; setDef: SetDef; dcByDescricao: boolean }) {
-  const itens = def.contrapartida.palavraChave
-
-  function update(i: number, patch: Partial<typeof itens[number]>) {
-    setDef((d) => {
-      const next = d.contrapartida.palavraChave.slice()
-      next[i] = { ...next[i]!, ...patch }
-      return { ...d, contrapartida: { ...d.contrapartida, palavraChave: next } }
-    })
-  }
-  function add() {
-    setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, palavraChave: [...d.contrapartida.palavraChave, { palavraChave: '', conta: '', historicoFixo: '' }] } }))
-  }
-  function remove(i: number) {
-    setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, palavraChave: d.contrapartida.palavraChave.filter((_, idx) => idx !== i) } }))
-  }
-
-  return (
-    <div className="space-y-2">
-      <p className="text-[12px] text-muted-foreground">A 1ª palavra-chave encontrada na descrição define a conta.</p>
-      {itens.length > 0 && (
-        <div className="hidden sm:flex items-center gap-2 px-2 text-[11px] font-medium text-muted-foreground">
-          <span className="flex-1 min-w-[140px]">Palavra-chave</span>
-          <span className="w-[120px]">Conta</span>
-          <span className="flex-1 min-w-[140px] inline-flex items-center gap-1">
-            Histórico fixo (opcional) <HelpTip text={HISTORICO_FIXO_HINT} />
-          </span>
-          {dcByDescricao && <span className="w-[120px]">Direção</span>}
-          <span className="w-[70px] inline-flex items-center gap-1">Pular <HelpTip text={PULAR_LINHA_HINT} /></span>
-          <span className="w-8 shrink-0" />
-        </div>
-      )}
-      <div className="space-y-2">
-        {itens.map((it, i) => {
-          const pular = !!it.pular
-          return (
-          <div key={i} className="flex flex-wrap items-center gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-2 py-1.5">
-            <Input className="h-8 text-xs bg-card flex-1 min-w-[140px]" placeholder="Palavra-chave" value={it.palavraChave} onChange={(e) => update(i, { palavraChave: e.target.value })} />
-            <Input disabled={pular} className={cn('h-8 text-xs bg-card w-[120px]', !pular && !it.conta.trim() && 'border-r-2 border-r-destructive', pular && 'line-through placeholder:line-through')} placeholder="Conta" inputMode="numeric" value={it.conta} onChange={(e) => update(i, { conta: soDigitos(e.target.value) })} />
-            <Input disabled={pular} className={cn('h-8 text-xs bg-card flex-1 min-w-[140px]', pular && 'line-through placeholder:line-through')} placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => update(i, { historicoFixo: semSeparador(e.target.value) })} />
-            {dcByDescricao && (
-              <Select value={it.direcao ?? ''} onValueChange={(v) => update(i, { direcao: v as Direcao })} disabled={pular}>
-                <SelectTrigger className={cn('h-8 w-[120px] text-xs bg-card', !pular && !it.direcao && 'border-r-2 border-r-destructive', pular && 'line-through')}><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent><SelectItem value="DEBITO">Débito</SelectItem><SelectItem value="CREDITO">Crédito</SelectItem></SelectContent>
-              </Select>
-            )}
-            <span className="w-[70px] flex justify-center"><Checkbox checked={pular} onCheckedChange={(v) => update(i, { pular: !!v })} /></span>
-            <Button variant="soft-destructive" size="icon-sm" onClick={() => remove(i)}><Trash2 className="h-3.5 w-3.5" /></Button>
-          </div>
-          )
-        })}
-      </div>
-      <Button variant="soft" size="sm" onClick={add}><Plus className="h-4 w-4" /> Adicionar palavra-chave</Button>
-    </div>
-  )
-}
-
-function ContrapartidaDescricao({ def, setDef, dcByDescricao, descricaoColuna, getDistinct }: {
-  def: TreatmentDefinition; setDef: SetDef; dcByDescricao: boolean; descricaoColuna: string; getDistinct: (c: string) => string[]
-}) {
-  const itens = def.contrapartida.descricao
-
-  // Reconstrói a lista a partir das descrições distintas da COLUNA atual,
-  // reaproveitando conta/histórico/direção já preenchidos para descrições iguais.
-  // Trocar a coluna de descrição SUBSTITUI os itens (não acumula com a anterior).
-  useEffect(() => {
-    const distinct = getDistinct(descricaoColuna)
-    if (!distinct.length) return
-    setDef((d) => {
-      const existing = new Map(d.contrapartida.descricao.map((it) => [it.descricao, it]))
-      const novos = distinct.map((desc) => existing.get(desc) ?? { descricao: desc, conta: '', historicoFixo: '' })
-      return { ...d, contrapartida: { ...d.contrapartida, descricao: novos } }
-    })
-  }, [descricaoColuna, getDistinct, setDef])
-
-  function update(i: number, patch: Partial<typeof itens[number]>) {
-    setDef((d) => {
-      const next = d.contrapartida.descricao.slice()
-      next[i] = { ...next[i]!, ...patch }
-      return { ...d, contrapartida: { ...d.contrapartida, descricao: next } }
-    })
-  }
-
-  if (!itens.length) return null
-  return (
-    <div className="space-y-2">
-      <p className="text-[12px] text-muted-foreground">Cada descrição distinta recebe uma conta de contrapartida.</p>
-      <div className="rounded-[2px] border border-border/60 overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Descrição</TableHead>
-              <TableHead className="w-[130px]">Conta</TableHead>
-              <TableHead>
-                <span className="inline-flex items-center gap-1">
-                  Histórico fixo (opcional)
-                  <HelpTip text={HISTORICO_FIXO_HINT} />
-                </span>
-              </TableHead>
-              {dcByDescricao && <TableHead className="w-[120px]">Direção</TableHead>}
-              <TableHead className="w-[90px]">
-                <span className="inline-flex items-center gap-1">Pular <HelpTip text={PULAR_LINHA_HINT} /></span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {itens.map((it, i) => {
-              const pular = !!it.pular
-              return (
-              <TableRow key={it.descricao + i}>
-                <TableCell className={cn('text-sm max-w-[280px] truncate', pular && 'line-through text-muted-foreground')} title={it.descricao}>{it.descricao}</TableCell>
-                <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', !pular && !it.conta.trim() && 'border-r-2 border-r-destructive', pular && 'line-through placeholder:line-through')} placeholder="Conta" inputMode="numeric" value={it.conta} onChange={(e) => update(i, { conta: soDigitos(e.target.value) })} /></TableCell>
-                <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', pular && 'line-through placeholder:line-through')} placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => update(i, { historicoFixo: semSeparador(e.target.value) })} /></TableCell>
-                {dcByDescricao && (
-                  <TableCell>
-                    <Select value={it.direcao ?? ''} onValueChange={(v) => update(i, { direcao: v as Direcao })} disabled={pular}>
-                      <SelectTrigger className={cn('h-8 text-xs bg-card', !pular && !it.direcao && 'border-r-2 border-r-destructive', pular && 'line-through')}><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent><SelectItem value="DEBITO">Débito</SelectItem><SelectItem value="CREDITO">Crédito</SelectItem></SelectContent>
-                    </Select>
-                  </TableCell>
-                )}
-                <TableCell><div className="flex justify-center"><Checkbox checked={pular} onCheckedChange={(v) => update(i, { pular: !!v })} /></div></TableCell>
-              </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-  )
-}
-
-// ---- util ----
-
-/**
- * Remove vírgulas e quebras de linha de campos que vão para a linha do SCI
- * (separada por vírgula, sem escape). Enforce no front nos campos digitados —
- * o backend ainda saneia como rede de segurança (inclui dados vindos do arquivo).
- */
-/**
- * Diálogo único de "sair sem salvar" — fonte de verdade da mensagem, usada por
- * todos os caminhos de saída (botão Sair/Voltar e botão "voltar" do navegador).
- */
-function confirmarSaidaSemSalvar(): Promise<boolean> {
-  return alerts.confirm({
-    title: 'Sair sem salvar?',
-    text: 'Há alterações não salvas neste modelo. Se sair agora, elas serão perdidas.',
-    confirmText: 'Sair sem salvar',
-    icon: 'warning',
-  })
-}
-
-function semSeparador(s: string): string {
-  return s.replace(/[,\r\n]/g, '')
-}
-
-/**
- * Campos de número de conta (contas correntes e contrapartida) só aceitam dígitos.
- * Remove qualquer caractere não numérico enquanto o usuário digita.
- */
-function soDigitos(s: string): string {
-  return s.replace(/\D/g, '')
-}
-
-/** Escapa HTML de valores do usuário antes de embutir nas mensagens (SweetAlert html). */
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-/** Resume uma lista (até `max` itens) com "e mais N", escapando os valores. */
-function listaResumo(itens: string[], max = 3): string {
-  const vis = itens.slice(0, max).map((s) => `"${esc(s)}"`)
-  const resto = itens.length - vis.length
-  return vis.join(', ') + (resto > 0 ? ` e mais ${resto}` : '')
-}
-
-/** Snapshot serializado do formulário para detectar alterações não salvas. */
-function serializeForm(nome: string, isActive: boolean, def: TreatmentDefinition): string {
-  return stableStringify({ nome: nome.trim(), isActive, def })
 }
