@@ -63,6 +63,10 @@ export function createReformaTributariaRouter(service: ReformaTributariaService)
       .input(z.object({ clienteId: z.string().min(1) }))
       .query(({ input, ctx }) => service.historico(input.clienteId, ctx.empresaId)),
 
+    gerarParecerIA: writeProcedure(MODULE)
+      .input(reformaSimulacaoSchema)
+      .mutation(({ input, ctx }) => service.gerarParecerIA(input, ctx.empresaId)),
+
     salvar: writeProcedure(MODULE)
       .input(reformaSimulacaoSchema)
       .mutation(({ input, ctx }) => service.salvar(input, ctx.userId ?? null, ctx.empresaId)),

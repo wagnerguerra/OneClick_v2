@@ -16,6 +16,7 @@ import {
   Plus,
   RefreshCw,
   Save,
+  Sparkles,
   Search,
   Settings2,
   SlidersHorizontal,
@@ -275,6 +276,9 @@ export default function ReformaTributariaPage() {
   const [loadingPremissas, setLoadingPremissas] = useState(false)
   const [salvandoParecer, setSalvandoParecer] = useState(false)
   const [salvandoPremissa, setSalvandoPremissa] = useState(false)
+  // Parecer narrativo por IA (editável antes de exportar)
+  const [narrativaIA, setNarrativaIA] = useState('')
+  const [gerandoParecer, setGerandoParecer] = useState(false)
   const [clientes, setClientes] = useState<ClienteResumo[]>([])
   const [historico, setHistorico] = useState<HistoricoItem[]>([])
   const [premissasFiscais, setPremissasFiscais] = useState<PremissaFiscal[]>([])
@@ -586,6 +590,22 @@ export default function ReformaTributariaPage() {
     }
   }, [carregarHistorico])
 
+  // Gera o parecer narrativo (cliente-facing) por IA. A IA sugere; o humano
+  // revisa/edita a narrativa antes de exportar. Reusa a simulação atual.
+  const gerarParecer = useCallback(async () => {
+    if (!clienteId) return
+    setGerandoParecer(true)
+    try {
+      const data = await api().gerarParecerIA.mutate({ clienteId, meses: 12, premissas })
+      setNarrativaIA(data?.narrativa || '')
+      alerts.success('Parecer gerado', 'Revise e ajuste a narrativa antes de enviar ao cliente.')
+    } catch (e) {
+      alerts.error('Erro ao gerar parecer', (e as Error).message)
+    } finally {
+      setGerandoParecer(false)
+    }
+  }, [clienteId, premissas])
+
   const exportarParecerHtml = useCallback(() => {
     if (!simulacao) return
     const parecer = simulacao.parecer || [
@@ -623,6 +643,13 @@ export default function ReformaTributariaPage() {
     <div class="box"><strong>Base creditavel</strong><br />${money(simulacao.metrics?.creditos?.baseCreditavel12m)} (${simulacao.metrics?.creditos?.confianca ?? '-'})</div>
     <div class="box"><strong>Base em revisao</strong><br />${money(simulacao.metrics?.creditos?.baseRevisao12m)}</div>
   </div>
+  ${narrativaIA.trim() ? `<h2>Parecer para o cliente</h2>
+  <div class="narrativa">${narrativaIA.replace(/[&<>]/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c))}</div>` : ''}
+  ${(simulacao.transicao?.anos ?? []).length ? `<h2>Transição ano a ano (2026–2033)</h2>
+  <table class="tbl"><thead><tr><th>Ano</th><th style="text-align:right">Carga na reforma</th><th style="text-align:right">Δ vs hoje</th></tr></thead><tbody>
+  ${(simulacao.transicao.anos as any[]).map(a => `<tr><td>${a.ano}</td><td style="text-align:right">${money(a.cargaReforma)}</td><td style="text-align:right">${a.delta > 0 ? '+' : ''}${money(a.delta)}</td></tr>`).join('')}
+  </tbody></table>
+  <div class="meta">Carga atual estimada: ${money(simulacao.transicao.cargaAtual)}${simulacao.transicao.isSimples ? ' (DAS)' : ''}. ${simulacao.transicao.observacao ?? ''}</div>` : ''}
   <h2>Parecer técnico</h2>
   <pre>${parecer.replace(/[&<>]/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] || c))}</pre>
   <h2>Sensibilidade</h2>
@@ -659,6 +686,7 @@ export default function ReformaTributariaPage() {
 
   useEffect(() => {
     if (clienteId) {
+      setNarrativaIA('') // limpa parecer IA do cliente anterior
       simular(clienteId)
       carregarHistorico(clienteId)
     }
@@ -692,6 +720,10 @@ export default function ReformaTributariaPage() {
             <Button variant="outline" onClick={() => simular()} disabled={!clienteId || loadingSimulacao}>
               {loadingSimulacao ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               Simular
+            </Button>
+            <Button variant="outline" onClick={gerarParecer} disabled={!simulacao || gerandoParecer}>
+              {gerandoParecer ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              Parecer IA
             </Button>
             <Button onClick={salvarParecer} disabled={!clienteId || loadingSimulacao || salvandoParecer}>
               {salvandoParecer ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
@@ -1002,6 +1034,17 @@ export default function ReformaTributariaPage() {
                         </table>
                       </div>
                       <p className="mt-2 text-xs text-muted-foreground">{simulacao.transicao.observacao}</p>
+                    </div>
+                  )}
+
+                  {narrativaIA && (
+                    <div className="rounded-[6px] border border-violet-300/40 bg-violet-50/30 p-4 dark:bg-violet-950/15">
+                      <div className="mb-2 flex flex-wrap items-center gap-2 text-sm font-medium">
+                        <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                        Parecer para o cliente (IA)
+                        <span className="text-[11px] font-normal text-muted-foreground">revise/edite antes de enviar — entra no PDF exportado</span>
+                      </div>
+                      <Textarea value={narrativaIA} onChange={(e) => setNarrativaIA(e.target.value)} rows={10} className="text-sm" />
                     </div>
                   )}
 

@@ -3,6 +3,7 @@ import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 import { randomUUID } from 'crypto'
 import { SciService } from '../cliente/sci.service'
+import { ReformaAiService } from './reforma-ai.service'
 import type {
   ReformaDiagnosticoInput,
   ReformaListClientesInput,
@@ -387,7 +388,18 @@ function scoreConfiabilidade(args: {
 export class ReformaTributariaService {
   private readonly logger = new Logger(ReformaTributariaService.name)
 
-  constructor(private readonly sciService: SciService) {}
+  constructor(
+    private readonly sciService: SciService,
+    private readonly aiService: ReformaAiService,
+  ) {}
+
+  /** Gera o parecer narrativo (cliente-facing) por IA a partir da simulação.
+   *  Roda a simulação e delega ao ReformaAiService. Não grava — o humano aplica. */
+  async gerarParecerIA(input: ReformaSimulacaoInput, empresaId?: string | null) {
+    const simulacao = await this.simular(input, empresaId)
+    const narrativa = await this.aiService.gerarParecerNarrativo(simulacao)
+    return { narrativa }
+  }
 
   async dashboard(empresaId?: string | null) {
     const rows = await prisma.$queryRawUnsafe<Array<{ tributacao: string | null; total: number | bigint }>>(
