@@ -2515,6 +2515,14 @@ export class ServicoService {
     if (input.servicoOrigemId === input.servicoDestinoId) {
       throw new Error('Um serviço não pode encadear-se a si mesmo')
     }
+    // Idempotente: o modelo permite só UMA aresta por par (origem, destino) — o
+    // unique constraint (servico_origem_id, servico_destino_id). Se a ligação já
+    // existe, devolvemos a existente em vez de estourar P2002 (ex.: religar um
+    // bloco que já estava ligado no editor, ou reaplicar um FlowPlan).
+    const jaExiste = await prisma.servicoEncadeamento.findFirst({
+      where: { servicoOrigemId: input.servicoOrigemId, servicoDestinoId: input.servicoDestinoId },
+    })
+    if (jaExiste) return jaExiste
     // Detecta ciclo: se a partir do destino conseguimos voltar a origem,
     // adicionar essa aresta criaria um ciclo no DAG.
     if (await this.encadeamentoCriaCiclo(input.servicoOrigemId, input.servicoDestinoId)) {
