@@ -11,12 +11,12 @@
  * A atribuição fina de responsáveis permanece no detalhe do serviço.
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Wand2, Repeat, Zap, Lock, ShieldCheck, CircleDollarSign } from 'lucide-react'
+import { Wand2, Repeat, Zap, Lock, ShieldCheck, CircleDollarSign, Copy, Loader2 } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogTitle, DialogDescription,
-  Input, Label, RichEditor, cn,
+  Input, Label, RichEditor, Button, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -100,13 +100,45 @@ export function ServicoWizard({ open, onOpenChange, areas }: ServicoWizardProps)
   const [descricao, setDescricao] = useState('')
   const [textoPadrao, setTextoPadrao] = useState('')
 
+  // Modelos (clonar um serviço existente como ponto de partida)
+  const [modelos, setModelos] = useState<Array<{ id: string; nome: string }>>([])
+  const [modeloId, setModeloId] = useState('')
+  const [cloning, setCloning] = useState(false)
+
   const tipoCfg = TIPO_MAP[tipoKey]
   const isComercial = tipoCfg.disponivelOrcamento
+
+  // Carrega serviços top-level como modelos quando o assistente abre.
+  useEffect(() => {
+    if (!open) return
+    ;(async () => {
+      try {
+        const r = await (trpc.servico as any).listServicos.query()
+        setModelos((r as Array<{ id: string; nome: string }>).map(s => ({ id: s.id, nome: s.nome })))
+      } catch { setModelos([]) }
+    })()
+  }, [open])
 
   function reset() {
     setStep(0); setSaving(false)
     setNome(''); setTipoKey('EXTRA'); setCategoria(''); setPrioridade('MEDIA')
     setValorCents(0); setDescricao(''); setTextoPadrao('')
+    setModeloId(''); setCloning(false)
+  }
+
+  async function usarModelo() {
+    if (!modeloId) return
+    setCloning(true)
+    try {
+      const novo = await (trpc.servico as any).duplicarServico.mutate({ id: modeloId, novoNome: nome.trim() || undefined })
+      await alerts.success('Modelo aplicado', 'Serviço criado a partir do modelo — ajuste o que precisar.')
+      handleOpenChange(false)
+      router.push(`/servicos/${novo.id}`)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setCloning(false)
+    }
   }
 
   function handleOpenChange(o: boolean) {
@@ -187,6 +219,30 @@ export function ServicoWizard({ open, onOpenChange, areas }: ServicoWizardProps)
                   className="h-10 text-sm"
                 />
                 <p className="text-xs text-muted-foreground">É como o serviço aparece no catálogo e nas execuções.</p>
+
+                {/* Atalho: começar a partir de um modelo (clona um serviço pronto) */}
+                {modelos.length > 0 && (
+                  <div className="mt-4 rounded-md border border-dashed border-border bg-muted/20 p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Label className="text-[12px] font-semibold">Ou comece a partir de um modelo</Label>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Clona um serviço pronto (etapas + fluxo) para você ajustar.</p>
+                    <div className="flex items-center gap-2">
+                      <Select value={modeloId || '__none__'} onValueChange={v => setModeloId(v === '__none__' ? '' : v)}>
+                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione um modelo" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">— Selecione —</SelectItem>
+                          {modelos.map(m => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Button variant="outline" size="sm" onClick={usarModelo} disabled={!modeloId || cloning} className="shrink-0 gap-1.5">
+                        {cloning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                        Usar modelo
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

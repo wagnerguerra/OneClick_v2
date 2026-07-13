@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ClipboardCheck, Search, Loader2, Plus, MoreVertical, Trash2, Edit, Pencil, ArrowLeft,
+  ClipboardCheck, Search, Loader2, Plus, MoreVertical, Trash2, Edit, Pencil, Copy, ArrowLeft,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   Clock, CheckCircle2, LayoutGrid, List, Play, XCircle, Eye,
   GripVertical, ToggleLeft, ToggleRight, Pause, MessageSquare, Paperclip, Send, ChevronDown, ChevronUp,
@@ -674,6 +674,17 @@ export default function ServicosPage() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
+  /** Clona um serviço inteiro (etapas/passos + blocos de fluxo + encadeamentos)
+   *  e abre a cópia — base da biblioteca de "modelos": duplique um serviço
+   *  pronto e ajuste. */
+  async function handleDuplicarServico(id: string) {
+    try {
+      const novo = await (trpc.servico as any).duplicarServico.mutate({ id })
+      await alerts.success('Duplicado', 'Cópia criada — ajuste o que precisar.')
+      router.push(`/servicos/${novo.id}`)
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
   // Selecao em lote — IDs marcados via checkbox na tabela/kanban
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
@@ -1127,6 +1138,7 @@ export default function ServicosPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
                             <DropdownMenuItem onClick={() => openEditServico(s.id)}><Edit className="h-3.5 w-3.5 mr-2" />Editar</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDuplicarServico(s.id)}><Copy className="h-3.5 w-3.5 mr-2" />Duplicar</DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteServico(s.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -1338,6 +1350,7 @@ export default function ServicosPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-44">
                           <DropdownMenuItem onClick={() => openEditServico(s.id)}><Edit className="h-4 w-4" />Editar</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDuplicarServico(s.id)}><Copy className="h-4 w-4" />Duplicar</DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteServico(s.id)}><Trash2 className="h-4 w-4" />Excluir</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
