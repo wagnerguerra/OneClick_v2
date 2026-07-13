@@ -1021,8 +1021,13 @@ export class ServicoService {
       }
     }
 
-    // 3) Arestas (encadeamentos). 'ROOT' resolve pro próprio serviço.
-    const resolver = (ref: string): string | undefined => (ref === 'ROOT' ? servicoId : idMap.get(ref))
+    // 3) Arestas (encadeamentos). 'ROOT' = o próprio serviço; tempId → id criado;
+    //    qualquer outro valor é assumido como id de um serviço já existente
+    //    (permite ligar o fluxo a serviços do catálogo). FK inválida cai no catch.
+    const resolver = (ref: string): string | undefined => {
+      if (ref === 'ROOT') return servicoId
+      return idMap.get(ref) ?? ref
+    }
     for (const a of plan.arestas ?? []) {
       const origem = resolver(a.origem)
       const destino = resolver(a.destino)

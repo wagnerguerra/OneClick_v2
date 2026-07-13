@@ -28,6 +28,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { FluxoEditor, type FluxoNode, type FluxoEdge } from './_components/fluxo-editor'
+import { FluxoAssistant } from './_components/fluxo-assistant'
 import { MateriaisSection, type Material } from './_components/materiais-section'
 import { NotificacoesSection } from './_components/notificacoes-section'
 import { PassoEmailsSection } from './_components/passo-emails-section'
@@ -423,6 +424,8 @@ export default function ServicoDetailPage() {
    *  blocos, mantendo o usuário na aba Fluxo. */
   const [fluxoVersion, setFluxoVersion] = useState(0)
   const [fluxoLoading, setFluxoLoading] = useState(false)
+  /** Assistente guiado de fluxo (Fase 2) — abre pela aba Fluxo ou via ?assistente=fluxo. */
+  const [assistOpen, setAssistOpen] = useState(false)
 
   // ── Loaders ────────────────────────────────────────────────
 
@@ -594,6 +597,19 @@ export default function ServicoDetailPage() {
       fetchFluxo()
     }
   }, [activeTab, fluxoData, fluxoLoading, fetchFluxo])
+
+  // Hand-off do wizard de cadastro: ?assistente=fluxo abre a aba Fluxo já com o
+  // assistente guiado. Lê via window (evita exigir <Suspense> de useSearchParams).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const sp = new URLSearchParams(window.location.search)
+    if (sp.get('assistente') === 'fluxo') {
+      setActiveTab('fluxo')
+      setAssistOpen(true)
+      window.history.replaceState(null, '', `/servicos/${id}`)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Salvar Visão geral ────────────────────────────────────
 
@@ -2325,6 +2341,14 @@ export default function ServicoDetailPage() {
 
         {/* ── TAB: Fluxo (DAG) ── */}
         <TabsContent value="fluxo" className="mt-4">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[11px] text-muted-foreground">
+              Monte o fluxo por perguntas guiadas ou edite os blocos diretamente no canvas.
+            </p>
+            <Button variant="success" size="sm" onClick={() => setAssistOpen(true)} className="gap-1.5">
+              <Zap className="h-4 w-4" /> Montar com assistente
+            </Button>
+          </div>
           <Card>
             <CardContent className="p-4">
               {fluxoLoading || !fluxoData ? (
@@ -2349,6 +2373,21 @@ export default function ServicoDetailPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Assistente guiado de fluxo (Fase 2) */}
+        <FluxoAssistant
+          open={assistOpen}
+          onOpenChange={setAssistOpen}
+          servicoId={id}
+          servicoNome={nome}
+          servicos={todosServicos}
+          onApplied={async () => {
+            await fetchServico()
+            await fetchFluxo({ silent: true })
+            setFluxoVersion(v => v + 1)
+            await fetchEncadeamentos()
+          }}
+        />
 
         {/* ── TAB: Sucessores ── */}
         <TabsContent value="encadeamento" className="mt-4">
