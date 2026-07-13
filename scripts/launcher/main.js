@@ -13,7 +13,7 @@ if (!process.env.UV_THREADPOOL_SIZE) process.env.UV_THREADPOOL_SIZE = '32';
 
 const {
   app, BrowserWindow, Tray, Menu, nativeImage, shell, dialog,
-  Notification, ipcMain, clipboard,
+  Notification, ipcMain, clipboard, utilityProcess,
 } = require('electron');
 const { spawn, execSync, spawnSync } = require('child_process');
 const path = require('path');
@@ -31,18 +31,84 @@ try {
 }
 
 // NFe Watcher — monitora pastas locais e envia XMLs pra API.
-// Lazy require — se chokidar/form-data não carregar, o launcher continua sem o watcher.
-let NfeWatcher = null;
+// Roda num utilityProcess ISOLADO (nfe-watcher-host.js): o I/O síncrono sobre
+// SMB e o polling do chokidar congelavam o event loop do processo principal
+// (UI travada, polls de 15s virando 70s, painel de PRs com timeout falso).
+// Este controller expõe a mesma interface que a instância antiga expunha.
 let nfeWatcher = null;
-function loadNfeWatcherModule() {
-  if (NfeWatcher) return NfeWatcher;
-  try {
-    NfeWatcher = require('./nfe-watcher.js').NfeWatcher;
-    return NfeWatcher;
-  } catch (e) {
-    console.error('[NfeWatcher] Falha ao carregar módulo:', e.message);
-    return null;
+function createNfeWatcherController({ apiUrl, daemonSecret, onLog }) {
+  let child = null;
+  let running = false;
+  let lastStatus = [];
+  let reqSeq = 0;
+  const pending = new Map();
+
+  function ensureChild() {
+    if (child) return child;
+    child = utilityProcess.fork(path.join(__dirname, 'nfe-watcher-host.js'), [], {
+      serviceName: 'nfe-watcher',
+      // Env definido ANTES do processo nascer — aqui o UV_THREADPOOL_SIZE
+      // pega de verdade (no main, o pool do libuv já nasceu no boot do Electron).
+      env: { ...process.env, UV_THREADPOOL_SIZE: '32' },
+    });
+    child.on('message', (msg) => {
+      if (!msg || typeof msg !== 'object') return;
+      if (msg.type === 'log') { onLog(msg.entry); return; }
+      const p = pending.get(msg.id);
+      if (p) {
+        pending.delete(msg.id);
+        clearTimeout(p.timer);
+        if (typeof msg.running === 'boolean') running = msg.running;
+        if (Array.isArray(msg.watchers)) lastStatus = msg.watchers;
+        p.resolve(msg);
+      }
+    });
+    child.on('exit', (code) => {
+      onLog({ ts: new Date().toISOString().slice(11, 19), level: 'error', msg: `Processo do NFe Watcher encerrou (code ${code}) — será recriado no próximo comando.` });
+      child = null;
+      running = false;
+      for (const p of pending.values()) { clearTimeout(p.timer); p.resolve({ ok: false, error: 'processo do watcher encerrou' }); }
+      pending.clear();
+    });
+    child.postMessage({ type: 'init', apiUrl, daemonSecret });
+    return child;
   }
+
+  function rpc(type, timeoutMs) {
+    const c = ensureChild();
+    const id = ++reqSeq;
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        pending.delete(id);
+        resolve({ ok: false, error: 'watcher ocupado (IPC timeout)' });
+      }, timeoutMs);
+      pending.set(id, { resolve, timer });
+      try { c.postMessage({ type, id }); } catch (e) {
+        clearTimeout(timer);
+        pending.delete(id);
+        resolve({ ok: false, error: e.message });
+      }
+    });
+  }
+
+  return {
+    get running() { return running; },
+    async start() { return rpc('start', 30_000); },
+    async stop() { return rpc('stop', 15_000); },
+    async refreshConfig() { return rpc('refresh', 30_000); },
+    // Status com cache: se o filho estiver ocupado num scan, devolve o último conhecido.
+    async getStatus() {
+      const r = await rpc('status', 5_000);
+      return Array.isArray(r.watchers) ? r.watchers : lastStatus;
+    },
+    async dispose() {
+      if (!child) return;
+      try { await rpc('stop', 3_000); } catch { /* */ }
+      try { child.kill(); } catch { /* */ }
+      child = null;
+      running = false;
+    },
+  };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1332,24 +1398,21 @@ function registerIpcHandlers() {
   ipcMain.handle('stop-all', () => stopAllServices());
 
   // ── NFe Watcher ─────────────────────────────────
-  ipcMain.handle('nfe-watcher:status', () => {
+  ipcMain.handle('nfe-watcher:status', async () => {
     if (!nfeWatcher) return { running: false, watchers: [] };
-    return { running: nfeWatcher.running, watchers: nfeWatcher.getStatus() };
+    return { running: nfeWatcher.running, watchers: await nfeWatcher.getStatus() };
   });
   ipcMain.handle('nfe-watcher:refresh', async () => {
     if (!nfeWatcher) return { ok: false, error: 'Watcher não iniciado' };
-    await nfeWatcher.refreshConfig();
-    return { ok: true };
+    return nfeWatcher.refreshConfig();
   });
   ipcMain.handle('nfe-watcher:start', async () => {
     if (!nfeWatcher) return { ok: false, error: 'Watcher não inicializado (verifique LAUNCHER_DAEMON_SECRET)' };
-    if (!nfeWatcher.running) await nfeWatcher.start();
-    return { ok: true };
+    return nfeWatcher.start();
   });
   ipcMain.handle('nfe-watcher:stop', async () => {
     if (!nfeWatcher) return { ok: false };
-    if (nfeWatcher.running) await nfeWatcher.stop();
-    return { ok: true };
+    return nfeWatcher.stop();
   });
 
   ipcMain.handle('get-docker-status', async () => {
@@ -3369,9 +3432,6 @@ app.whenReady().then(async () => {
   // qualquer erro aqui NÃO pode travar o Launcher.
   setTimeout(() => {
     try {
-      const NfeWatcherClass = loadNfeWatcherModule();
-      if (!NfeWatcherClass) return;
-
       const apiEnvPath = path.join(projectRoot, 'apps', 'api', '.env');
       if (!fs.existsSync(apiEnvPath)) return;
 
@@ -3388,7 +3448,7 @@ app.whenReady().then(async () => {
       // o banco local (snapshot desatualizado) e nunca ver pastas novas.
       // Sobrescrevível via settings.nfeWatcherApiUrl (ex.: dev/testes).
       const watcherApiUrl = (settings.nfeWatcherApiUrl || 'https://app.oneclick.central-rnc.com.br').replace(/\/+$/, '');
-      nfeWatcher = new NfeWatcherClass({
+      nfeWatcher = createNfeWatcherController({
         apiUrl: watcherApiUrl,
         daemonSecret: secret,
         onLog: (entry) => {
@@ -3430,7 +3490,7 @@ app.whenReady().then(async () => {
 app.on('before-quit', async () => {
   isQuitting = true;
   if (nfeWatcher) {
-    try { await nfeWatcher.stop(); } catch { /* */ }
+    try { await nfeWatcher.dispose(); } catch { /* */ }
   }
 });
 

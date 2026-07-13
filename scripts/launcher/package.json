@@ -36,6 +36,7 @@
       "main.js",
       "preload.js",
       "nfe-watcher.js",
+      "nfe-watcher-host.js",
       "index.html",
       "assets/**/*"
     ],
