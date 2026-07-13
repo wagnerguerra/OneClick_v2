@@ -271,6 +271,9 @@ class NfeWatcher {
       }
     }
     this.log(`Scan completo: ${arquivos.length} arquivos encontrados (${entry.razaoSocial})`, 'info')
+    if (arquivos.length > 50_000) {
+      this.log(`Pasta de ${entry.razaoSocial} é muito grande (${arquivos.length} XMLs/ZIPs) — o monitoramento fica pesado. Considere apontar o cadastro pra subpasta FISCAL.`, 'warn')
+    }
 
     // Envia em chunks (limitados por quantidade e bytes) com pausa — não sobrecarrega API
     const cliente = { id: clienteId, razaoSocial: entry.razaoSocial }
@@ -358,11 +361,15 @@ class NfeWatcher {
         awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 500 },
         depth: MAX_DEPTH,
         usePolling: isUNC,                              // polling pra paths de rede
-        interval: isUNC ? 5000 : 100,                   // polling 5s em UNC (mais lento, menos carga)
-        binaryInterval: isUNC ? 5000 : 300,
+        // Polling faz stat de CADA arquivo da árvore por ciclo, via threadpool do
+        // Node (4-32 threads). Em share SMB com dezenas de milhares de arquivos,
+        // 5s de intervalo saturava o threadpool do processo inteiro (até DNS
+        // ficava na fila). 60s ainda captura NFe com folga.
+        interval: isUNC ? 60_000 : 100,
+        binaryInterval: isUNC ? 60_000 : 300,
         atomic: true,
       })
-      if (isUNC) this.log(`(${cliente.razaoSocial}) path UNC detectado — polling 5s ativado`, 'info')
+      if (isUNC) this.log(`(${cliente.razaoSocial}) path UNC detectado — polling 60s ativado`, 'info')
     } catch (e) {
       this.log(`Falha em chokidar.watch ${folderPath}: ${e.message}`, 'error')
       this.status.set(cliente.id, { watching: false, ultimoErro: e.message, totalEnviados: 0 })

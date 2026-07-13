@@ -5,6 +5,12 @@
  * todos os serviços do OneClick ERP (Docker, API, Web, etc.)
  */
 
+// ANTES de qualquer fs/dns assíncrono: aumenta o threadpool do libuv (padrão 4).
+// O NFe Watcher em pastas UNC usa polling (stat de cada arquivo via threadpool);
+// com árvores grandes ele monopoliza as 4 threads e até o dns.lookup fica na
+// fila — foi a causa do "timeout ao consultar GitHub" no painel de PRs.
+if (!process.env.UV_THREADPOOL_SIZE) process.env.UV_THREADPOOL_SIZE = '32';
+
 const {
   app, BrowserWindow, Tray, Menu, nativeImage, shell, dialog,
   Notification, ipcMain, clipboard,
