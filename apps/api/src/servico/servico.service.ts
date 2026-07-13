@@ -760,6 +760,16 @@ export class ServicoService {
       for (const enc of encsEntreNos) pushEdge(enc)
     }
 
+    // Reclassifica ÓRFÃOS que, após a coleta completa, têm ao menos uma aresta.
+    // Eles ficam invisíveis ao BFS quando estão ligados só a partir do serviço
+    // top-level (ex.: ROOT→pergunta criado pelo assistente): têm conexão real,
+    // então não devem contar como "sem conexão" nem ganhar borda tracejada.
+    const nosComAresta = new Set<string>()
+    for (const e of edges) { nosComAresta.add(e.servicoOrigemId); nosComAresta.add(e.servicoDestinoId) }
+    for (const n of nodes) {
+      if (n.position === 'ORFAO' && nosComAresta.has(n.id)) n.position = 'SUCESSOR'
+    }
+
     // ── Rótulos vindos de blocos PERGUNTA ─────────────────────
     // Pra cada nó, coleta o rotulo das arestas cujo source é um bloco PERGUNTA.
     // Renderizado como header no bloco sucessor (Frontend), mostrando qual
