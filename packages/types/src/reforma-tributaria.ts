@@ -43,6 +43,17 @@ export const reformaSimulacaoSchema = reformaDiagnosticoSchema.extend({
   premissas: reformaPremissasSchema,
 })
 
+export const reformaCategoriaCreditoSchema = z.enum(['CREDITAVEL', 'NAO_CREDITAVEL', 'REVISAR'])
+
+export const reformaClassificarCreditoSchema = z.object({
+  clienteId: z.string().min(1),
+  conta: z.string().min(1),
+  categoria: reformaCategoriaCreditoSchema,
+})
+
+export type ReformaCategoriaCredito = z.infer<typeof reformaCategoriaCreditoSchema>
+export type ReformaClassificarCreditoInput = z.infer<typeof reformaClassificarCreditoSchema>
+
 export type ReformaPremissasInput = z.infer<typeof reformaPremissasSchema>
 export type ReformaListClientesInput = z.infer<typeof reformaListClientesSchema>
 export type ReformaDiagnosticoInput = z.infer<typeof reformaDiagnosticoSchema>

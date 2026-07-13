@@ -406,6 +406,18 @@ export default function ReformaTributariaPage() {
     }
   }, [clienteId, premissas])
 
+  // Reclassifica uma conta de crédito (persiste override) e refaz a simulação
+  // para refletir a nova base ajustada e a confiabilidade.
+  const reclassificarCredito = useCallback(async (conta: string, categoria: string) => {
+    if (!clienteId) return
+    try {
+      await api().classificarCredito.mutate({ clienteId, conta, categoria })
+      await simular(clienteId)
+    } catch (e) {
+      alerts.error('Erro ao reclassificar', (e as Error).message)
+    }
+  }, [clienteId, simular])
+
   const pararPollingBalancete = useCallback(() => {
     if (balancetePollRef.current) {
       clearInterval(balancetePollRef.current)
@@ -908,8 +920,15 @@ export default function ReformaTributariaPage() {
                           </div>
                           <div className="divide-y">
                             {simulacao.metrics.creditos.itens.map((item: any) => (
-                              <div key={`${item.conta}-${item.categoria}`} className="grid grid-cols-[110px_minmax(0,1fr)_120px] gap-3 px-3 py-2 text-xs">
-                                <Badge variant="outline" className="w-fit">{item.categoria}</Badge>
+                              <div key={`${item.conta}-${item.categoria}`} className="grid grid-cols-[120px_minmax(0,1fr)_120px] gap-3 px-3 py-2 text-xs">
+                                <Select value={item.categoria} onValueChange={(v) => reclassificarCredito(item.conta, v)}>
+                                  <SelectTrigger className="h-7 w-fit gap-1 px-2 text-[11px]"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="CREDITAVEL">Creditável</SelectItem>
+                                    <SelectItem value="NAO_CREDITAVEL">Não creditável</SelectItem>
+                                    <SelectItem value="REVISAR">Revisar</SelectItem>
+                                  </SelectContent>
+                                </Select>
                                 <div className="min-w-0">
                                   <p className="truncate font-medium">{item.conta} - {item.nomeConta}</p>
                                   <p className="mt-0.5 truncate text-muted-foreground">{item.motivo}</p>
@@ -1121,6 +1140,26 @@ export default function ReformaTributariaPage() {
                 </div>
                 <PercentInput label="Redução setorial" value={premissaForm.reducaoSetorial} onChange={(v) => setPremissaForm(p => ({ ...p, reducaoSetorial: v }))} />
                 <PercentInput label="Peso crédito cliente" value={premissaForm.pesoCreditoCliente} onChange={(v) => setPremissaForm(p => ({ ...p, pesoCreditoCliente: v }))} />
+              </div>
+
+              {/* Presets de regime específico — atalhos sobre a redução setorial */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-muted-foreground">Regime específico:</span>
+                {[{ l: 'Padrão (0%)', v: 0 }, { l: 'Reduzido 60%', v: 0.6 }, { l: 'Isento 100%', v: 1 }].map(r => (
+                  <button
+                    key={r.v}
+                    type="button"
+                    onClick={() => setPremissaForm(p => ({ ...p, reducaoSetorial: r.v }))}
+                    className={cn(
+                      'rounded-[4px] border px-2 py-1 transition-colors',
+                      Math.abs((premissaForm.reducaoSetorial ?? 0) - r.v) < 0.001
+                        ? 'border-foreground/60 bg-muted/60 font-medium'
+                        : 'border-border/50 hover:bg-muted/40',
+                    )}
+                  >
+                    {r.l}
+                  </button>
+                ))}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

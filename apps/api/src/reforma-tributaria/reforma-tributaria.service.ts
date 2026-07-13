@@ -8,6 +8,8 @@ import type {
   ReformaListClientesInput,
   ReformaPremissasInput,
   ReformaSimulacaoInput,
+  ReformaCategoriaCredito,
+  ReformaClassificarCreditoInput,
 } from '@saas/types'
 
 type Recomendacao =
@@ -549,6 +551,54 @@ export class ReformaTributariaService {
     return { id }
   }
 
+  // ── Overrides de classificação de crédito ────────────────────────
+  // O usuário pode reclassificar uma conta (CREDITÁVEL/NÃO/REVISAR); o override
+  // vence a heurística e persiste, elevando a confiabilidade ao longo do tempo.
+
+  private async ensureCreditoOverridesTable() {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS reforma_credito_overrides (
+        id          text PRIMARY KEY,
+        empresa_id  text,
+        cliente_id  text NOT NULL,
+        conta       text NOT NULL,
+        categoria   text NOT NULL,
+        updated_by  text,
+        created_at  timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at  timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (cliente_id, conta)
+      )
+    `)
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS reforma_credito_overrides_cliente_idx
+        ON reforma_credito_overrides (cliente_id)
+    `)
+  }
+
+  private async getCreditoOverrides(clienteId: string): Promise<Map<string, ReformaCategoriaCredito>> {
+    await this.ensureCreditoOverridesTable()
+    const rows = await prisma.$queryRawUnsafe<Array<{ conta: string; categoria: string }>>(
+      `SELECT conta, categoria FROM reforma_credito_overrides WHERE cliente_id = $1`,
+      clienteId,
+    )
+    const map = new Map<string, ReformaCategoriaCredito>()
+    for (const r of rows) map.set(r.conta, r.categoria as ReformaCategoriaCredito)
+    return map
+  }
+
+  async classificarCredito(input: ReformaClassificarCreditoInput, userId?: string | null, empresaId?: string | null) {
+    await this.getCliente(input.clienteId, empresaId) // valida acesso ao cliente
+    await this.ensureCreditoOverridesTable()
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO reforma_credito_overrides (id, empresa_id, cliente_id, conta, categoria, updated_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+       ON CONFLICT (cliente_id, conta)
+       DO UPDATE SET categoria = EXCLUDED.categoria, updated_by = EXCLUDED.updated_by, updated_at = CURRENT_TIMESTAMP`,
+      randomUUID(), empresaId ?? null, input.clienteId, input.conta, input.categoria, userId ?? null,
+    )
+    return { ok: true, conta: input.conta, categoria: input.categoria }
+  }
+
   async diagnostico(input: ReformaDiagnosticoInput, empresaId?: string | null) {
     const cliente = await this.getCliente(input.clienteId, empresaId)
     const [cnaes, atividades, beneficios, metrics] = await Promise.all([
@@ -976,14 +1026,17 @@ export class ReformaTributariaService {
       periodoInicio,
       periodoFim,
     )
+    const overrides = await this.getCreditoOverrides(clienteId)
     const creditoItens = creditoRows.map(row => {
+      const ov = overrides.get(row.conta)
       const classificacao = classificarContaCredito(row)
+      const categoria = ov ?? classificacao.categoria
       return {
         conta: row.conta,
         nomeConta: row.nomeConta,
-        categoria: classificacao.categoria,
+        categoria,
         valor: asNumber(row.valor),
-        motivo: classificacao.motivo,
+        motivo: ov ? 'Reclassificado manualmente pelo usuário (override).' : classificacao.motivo,
       }
     })
     const baseCreditavel12m = creditoItens.filter(i => i.categoria === 'CREDITAVEL').reduce((acc, i) => acc + i.valor, 0)
