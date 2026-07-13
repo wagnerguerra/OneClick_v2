@@ -139,39 +139,45 @@ export function FluxoAssistant({ open, onOpenChange, servicoId, servicoNome, ser
   const patchProximo = (i: number, patch: Partial<ProximoDraft>) => setProximos(p => p.map((x, y) => y === i ? { ...x, ...patch } : x))
 
   // ── Monta o FlowPlan a partir dos rascunhos ──
+  // Limites (espelham o schema/banco): nome/perguntaTexto e opção/rótulo têm teto.
+  // O rótulo da aresta DEVE ser idêntico à opção (o runtime roteia casando os dois),
+  // então calculamos o texto truncado uma vez e reusamos nos dois lados.
   function buildPlan(): FlowPlan {
     const plan: FlowPlan = { etapas: [], blocos: [], arestas: [] }
     let tid = 0
     const nt = () => `t${tid++}`
+    const clamp = (s: string, n: number) => s.trim().slice(0, n)
 
     etapas.forEach((et, i) => {
       if (!et.nome.trim()) return
       plan.etapas!.push({
         tempId: nt(),
-        nome: et.nome.trim(),
+        nome: clamp(et.nome, 200),
         ordem: i,
-        passos: et.passos.filter(p => p.nome.trim()).map((p, j) => ({ nome: p.nome.trim(), ordem: j })),
+        passos: et.passos.filter(p => p.nome.trim()).map((p, j) => ({ nome: clamp(p.nome, 200), ordem: j })),
       })
     })
 
     perguntas.forEach(pg => {
-      const opcoes = pg.opcoes.filter(o => o.texto.trim())
-      if (!pg.texto.trim() || opcoes.length === 0) return
+      const opcoesRaw = pg.opcoes.filter(o => o.texto.trim())
+      if (!pg.texto.trim() || opcoesRaw.length === 0) return
       const pTemp = nt()
+      // Rótulos/opções truncados a 80 — usados tanto em perguntaOpcoes quanto no rotulo.
+      const labels = opcoesRaw.map(o => clamp(o.texto, 80))
       plan.blocos!.push({
         tempId: pTemp,
         tipo: 'PERGUNTA',
-        nome: pg.texto.trim().slice(0, 120),
-        perguntaTexto: pg.texto.trim(),
-        perguntaOpcoes: opcoes.map(o => o.texto.trim()),
+        nome: clamp(pg.texto, 200),
+        perguntaTexto: clamp(pg.texto, 500),
+        perguntaOpcoes: labels,
         perguntaMulti: pg.multi,
       })
       plan.arestas!.push({ origem: 'ROOT', destino: pTemp, iniciaAuto: true })
-      opcoes.forEach(o => {
-        const rot = o.texto.trim()
+      opcoesRaw.forEach((o, k) => {
+        const rot = labels[k]
         if (o.destinoTipo === 'novo' && o.destinoNome.trim()) {
           const dTemp = nt()
-          plan.blocos!.push({ tempId: dTemp, tipo: 'ATIVIDADE', nome: o.destinoNome.trim() })
+          plan.blocos!.push({ tempId: dTemp, tipo: 'ATIVIDADE', nome: clamp(o.destinoNome, 200) })
           plan.arestas!.push({ origem: pTemp, destino: dTemp, rotulo: rot })
         } else if (o.destinoTipo === 'existente' && o.destinoServicoId) {
           plan.arestas!.push({ origem: pTemp, destino: o.destinoServicoId, rotulo: rot })

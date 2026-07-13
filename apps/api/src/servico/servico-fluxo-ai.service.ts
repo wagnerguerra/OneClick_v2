@@ -83,7 +83,9 @@ export class ServicoFluxoAiService {
       'e, quando fizer sentido, pontos de decisão (perguntas) com as opções e para onde cada uma segue.',
       'Regras: use português do Brasil; nomes curtos e claros; não invente serviços existentes',
       '(destinos são sempre "novo" com um nome, ou "fim"); prefira 3–7 passos por etapa; só crie',
-      'perguntas quando o caminho realmente se ramifica. Responda SEMPRE chamando a ferramenta montar_roteiro.',
+      'perguntas quando o caminho realmente se ramifica. IMPORTANTE: cada OPÇÃO de pergunta deve ser',
+      'um rótulo curto (no máx. ~60 caracteres, idealmente 1–4 palavras, ex.: "Simples Nacional");',
+      'detalhes vão no nome do destino, nunca na opção. Responda SEMPRE chamando a ferramenta montar_roteiro.',
     ].join(' ')
 
     const userMsg = [
