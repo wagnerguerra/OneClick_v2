@@ -34,6 +34,13 @@ export const reformaListClientesSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(40),
 })
 
+export const reformaCarteiraSchema = z.object({
+  apenasSimples: z.coerce.boolean().optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(150),
+  ordenar: z.enum(['impacto', 'delta_desc', 'delta_asc', 'faturamento']).default('impacto'),
+})
+export type ReformaCarteiraInput = z.infer<typeof reformaCarteiraSchema>
+
 export const reformaDiagnosticoSchema = z.object({
   clienteId: z.string().min(1),
   meses: z.coerce.number().int().min(1).max(24).default(12),

@@ -46,6 +46,10 @@ import {
   TooltipTrigger,
   cn,
 } from '@saas/ui'
+import {
+  ResponsiveContainer, LineChart, Line, BarChart, Bar,
+  XAxis, YAxis, Tooltip as ReTooltip, CartesianGrid, ReferenceLine, Cell,
+} from 'recharts'
 import { PageHeader } from '@/components/page-header'
 import { alerts } from '@/lib/alerts'
 import { trpc } from '@/lib/trpc'
@@ -285,6 +289,9 @@ export default function ReformaTributariaPage() {
   const [premissaSelecionadaId, setPremissaSelecionadaId] = useState<string>('default')
   const [premissaForm, setPremissaForm] = useState(DEFAULT_PREMISSA_FORM)
   const [dashboard, setDashboard] = useState<{ totalClientes: number; simples: number } | null>(null)
+  // Carteira — triagem em lote (quem mais ganha/perde com a reforma)
+  const [carteira, setCarteira] = useState<any>(null)
+  const [loadingCarteira, setLoadingCarteira] = useState(false)
   const [clienteId, setClienteId] = useState<string | null>(null)
   const [simulacao, setSimulacao] = useState<Simulacao | null>(null)
   const [apenasSimples, setApenasSimples] = useState(false)
@@ -296,6 +303,16 @@ export default function ReformaTributariaPage() {
     () => clientes.find(c => c.id === clienteId) ?? null,
     [clientes, clienteId],
   )
+
+  const carregarCarteira = useCallback(async (ordenar = 'impacto') => {
+    setLoadingCarteira(true)
+    try {
+      const data = await api().carteira.query({ apenasSimples, limit: 200, ordenar: ordenar as any })
+      setCarteira(data)
+    } catch { /* silent */ } finally {
+      setLoadingCarteira(false)
+    }
+  }, [apenasSimples])
 
   const carregarLista = useCallback(async () => {
     setLoadingLista(true)
@@ -674,6 +691,10 @@ export default function ReformaTributariaPage() {
   }, [carregarLista])
 
   useEffect(() => {
+    carregarCarteira()
+  }, [carregarCarteira])
+
+  useEffect(() => {
     carregarPremissas()
     // Carrega apenas na montagem; alteracoes no select aplicam localmente.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -742,6 +763,78 @@ export default function ReformaTributariaPage() {
         <Metric label="Simples Nacional" value={String(dashboard?.simples ?? 0)} sub="Foco da decisão dentro x regular" help="Quantidade de clientes da base mensal ativa cadastrados como Simples Nacional. Esses são o foco principal da decisão entre permanecer com IBS/CBS dentro do Simples ou avaliar apuração regular." />
         <Metric label="Cliente selecionado" value={clienteSelecionado ? regimeLabel(clienteSelecionado.tributacao) : '-'} sub="Regime atual cadastrado" help="Regime tributário cadastrado no cliente. Para clientes fora do Simples, a tela mostra análise de impacto, não uma recomendação de permanência no Simples." />
       </div>
+
+      {carteira && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" /> Carteira — prioridade na reforma
+              </CardTitle>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                {loadingCarteira && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                <span className="rounded-full border border-emerald-300/50 bg-emerald-50/50 px-2 py-0.5 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400">{carteira.resumo?.ganham ?? 0} ganham</span>
+                <span className="rounded-full border border-red-300/50 bg-red-50/50 px-2 py-0.5 text-red-700 dark:bg-red-950/20 dark:text-red-400">{carteira.resumo?.perdem ?? 0} pioram</span>
+                <span className="rounded-full border px-2 py-0.5 text-muted-foreground">{carteira.total} com dados · {carteira.semDados} sem</span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-4 lg:grid-cols-2">
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={(carteira.rows ?? []).slice(0, 10).map((r: any) => ({ nome: (r.razaoSocial || '').slice(0, 18), delta: Math.round(r.delta) }))}
+                  layout="vertical"
+                  margin={{ left: 8, right: 12, top: 4, bottom: 4 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
+                  <YAxis type="category" dataKey="nome" tick={{ fontSize: 10 }} width={120} />
+                  <ReTooltip formatter={(v: any) => money(Number(v))} />
+                  <ReferenceLine x={0} stroke="#94a3b8" />
+                  <Bar dataKey="delta" radius={[0, 3, 3, 0]}>
+                    {(carteira.rows ?? []).slice(0, 10).map((r: any, i: number) => (
+                      <Cell key={i} fill={r.delta > 0 ? '#ef4444' : '#10b981'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="max-h-64 overflow-auto rounded-[6px] border">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-muted/40">
+                  <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <th className="px-2 py-1.5">Cliente</th>
+                    <th className="px-2 py-1.5 text-right">Hoje</th>
+                    <th className="px-2 py-1.5 text-right">Reforma</th>
+                    <th className="px-2 py-1.5 text-right">Δ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(carteira.rows ?? []).slice(0, 30).map((r: any) => (
+                    <tr
+                      key={r.clienteId}
+                      onClick={() => setClienteId(r.clienteId)}
+                      className={cn('cursor-pointer border-t border-border/60 hover:bg-muted/40', r.clienteId === clienteId && 'bg-muted/60')}
+                    >
+                      <td className="px-2 py-1.5">
+                        <span className="line-clamp-1 font-medium">{r.razaoSocial}</span>
+                        <span className="text-[10px] text-muted-foreground">{regimeLabel(r.tributacao)}</span>
+                      </td>
+                      <td className="px-2 py-1.5 text-right tabular-nums">{money(r.cargaAtual)}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums">{money(r.cargaReforma)}</td>
+                      <td className={cn('px-2 py-1.5 text-right font-medium tabular-nums', r.delta > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400')}>
+                        {r.delta > 0 ? '+' : ''}{money(r.delta)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+          <div className="px-6 pb-4 text-[11px] text-muted-foreground">{carteira.observacao}</div>
+        </Card>
+      )}
 
       <div className="grid gap-5 xl:grid-cols-[380px_minmax(0,1fr)]">
         <Card className="overflow-hidden">
@@ -1006,6 +1099,21 @@ export default function ReformaTributariaPage() {
                       <div className="mb-2 text-xs text-muted-foreground">
                         Carga atual estimada: <strong className="text-foreground">{money(simulacao.transicao.cargaAtual)}</strong>
                         {simulacao.transicao.isSimples ? ' (DAS)' : ''}
+                      </div>
+                      <div className="mb-3 h-48 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart
+                            data={simulacao.transicao.anos.map((a: any) => ({ ano: String(a.ano), reforma: Math.round(a.cargaReforma) }))}
+                            margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.25)" />
+                            <XAxis dataKey="ano" tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} width={46} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
+                            <ReTooltip formatter={(v: any) => money(Number(v))} />
+                            <ReferenceLine y={Math.round(simulacao.transicao.cargaAtual)} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: 'hoje', fontSize: 10, position: 'insideTopRight' }} />
+                            <Line type="monotone" dataKey="reforma" name="Carga na reforma" stroke="#6366f1" strokeWidth={2} dot={{ r: 2 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">

@@ -3,6 +3,7 @@ import {
   reformaListClientesSchema,
   reformaSimulacaoSchema,
   reformaClassificarCreditoSchema,
+  reformaCarteiraSchema,
 } from '@saas/types'
 import { z } from 'zod'
 import { deleteProcedure, readProcedure, router, writeProcedure } from '../trpc/trpc.service'
@@ -35,6 +36,10 @@ export function createReformaTributariaRouter(service: ReformaTributariaService)
     clientes: readProcedure(MODULE)
       .input(reformaListClientesSchema.optional())
       .query(({ input, ctx }) => service.listarClientes(input ?? {}, ctx.empresaId)),
+
+    carteira: readProcedure(MODULE)
+      .input(reformaCarteiraSchema.optional())
+      .query(({ input, ctx }) => service.carteira(input ?? {}, ctx.empresaId)),
 
     premissas: readProcedure(MODULE)
       .query(({ ctx }) => service.listarPremissas(ctx.empresaId)),

@@ -11,6 +11,7 @@ import type {
   ReformaSimulacaoInput,
   ReformaCategoriaCredito,
   ReformaClassificarCreditoInput,
+  ReformaCarteiraInput,
 } from '@saas/types'
 
 type Recomendacao =
@@ -463,6 +464,79 @@ export class ReformaTributariaService {
         + (Number(r.danfes) + Number(r.nfse) > 0 ? 20 : 0),
       )),
     }))
+  }
+
+  /** Triagem em lote da carteira: estima a carga atual × reforma (2033 plena) por
+   *  cliente usando o faturamento já disponível (snapshots) + premissa setorial
+   *  por CNAE, para priorizar quem mais ganha/perde. É uma estimativa RÁPIDA
+   *  (sem SCI/balancete por cliente); a análise fina é a simulação individual. */
+  async carteira(input: Partial<ReformaCarteiraInput>, empresaId?: string | null) {
+    const clientes = await this.listarClientes(
+      { limit: Math.min(input.limit ?? 150, 500), apenasSimples: input.apenasSimples },
+      empresaId,
+    )
+    const premissas = DEFAULT_PREMISSAS
+    const setoriais = (await this.listarPremissas(empresaId))
+      .filter(p => p.cnaePrefix)
+      .map(p => ({ prefix: onlyDigits(p.cnaePrefix ?? ''), reducao: asNumber(p.reducaoSetorial) }))
+      .filter(p => p.prefix)
+      .sort((a, b) => b.prefix.length - a.prefix.length)
+    const reducaoDoCnae = (cnae: string | null): number => {
+      const d = onlyDigits(cnae)
+      if (!d) return 0
+      for (const s of setoriais) if (d.startsWith(s.prefix)) return s.reducao
+      return 0
+    }
+
+    const totalAliq = premissas.aliquotaCbs + premissas.aliquotaIbs
+    const rows = clientes
+      .map(c => {
+        const receita = asNumber(c.faturamento12m)
+        if (receita <= 0) return null
+        const isSimples = c.tributacao === 'SIMPLES_NACIONAL'
+        const cargaAtual = isSimples
+          ? receita * (premissas.dasEfetivoSimples ?? 0.10)
+          : receita * (premissas.aliquotaPisCofins ?? 0.0365)
+            + receita * (premissas.percentualMercadorias ?? 0.5) * (premissas.aliquotaIcms ?? 0.12)
+            + receita * (1 - (premissas.percentualMercadorias ?? 0.5)) * (premissas.aliquotaIss ?? 0.05)
+        const reducao = reducaoDoCnae(c.cnaePrincipal)
+        const aliq = totalAliq * (1 - reducao)
+        const comprasCreditaveis = receita * (premissas.percentualComprasCreditaveis ?? 0.35)
+        const cargaReforma = Math.max(0, receita * aliq - comprasCreditaveis * aliq)
+        const delta = cargaReforma - cargaAtual
+        return {
+          clienteId: c.id,
+          razaoSocial: c.razaoSocial,
+          documento: c.documento,
+          tributacao: c.tributacao,
+          cnaePrincipal: c.cnaePrincipal,
+          faturamento12m: receita,
+          cargaAtual,
+          cargaReforma,
+          delta,
+          deltaPct: cargaAtual > 0 ? delta / cargaAtual : 0,
+          prontidao: (c as { prontidao?: number }).prontidao ?? 0,
+        }
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+
+    const ordenar = input.ordenar ?? 'impacto'
+    rows.sort((a, b) => {
+      if (ordenar === 'delta_desc') return b.delta - a.delta
+      if (ordenar === 'delta_asc') return a.delta - b.delta
+      if (ordenar === 'faturamento') return b.faturamento12m - a.faturamento12m
+      return Math.abs(b.delta) - Math.abs(a.delta) // impacto absoluto
+    })
+
+    const ganham = rows.filter(r => r.delta < 0).length
+    const perdem = rows.filter(r => r.delta > 0).length
+    return {
+      total: rows.length,
+      semDados: clientes.length - rows.length,
+      resumo: { ganham, perdem, neutros: rows.length - ganham - perdem },
+      rows,
+      observacao: 'Triagem rápida por faturamento e premissa setorial (reforma 2033 plena). Rode a simulação individual para o parecer detalhado.',
+    }
   }
 
   async listarPremissas(empresaId?: string | null): Promise<PremissaFiscal[]> {
