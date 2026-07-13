@@ -13,6 +13,7 @@ import {
   createGrupoSchema, updateGrupoSchema, setGrupoServicosSchema, setServicoGruposSchema, iniciarGrupoSchema,
   responderPerguntaSchema,
   setVencimentosMensaisSchema,
+  aplicarFlowPlanSchema,
 } from '@saas/types'
 import { ServicoService } from './servico.service'
 
@@ -72,6 +73,18 @@ export function createServicoRouter(servicoService: ServicoService) {
     bulkDeleteServicos: deleteProcedure(MODULE)
       .input(z.object({ ids: z.array(z.string()).min(1) }))
       .mutation(({ input }) => servicoService.bulkDeleteServicos(input.ids)),
+
+    /** Materializa um FlowPlan (etapas/blocos/arestas) sobre um serviço existente.
+     *  Usado pelo assistente guiado e pela geração por IA. */
+    aplicarFlowPlan: writeProcedure(MODULE)
+      .input(aplicarFlowPlanSchema)
+      .mutation(({ input }) => servicoService.aplicarFlowPlan(input.servicoId, input.plan)),
+
+    /** Clona um serviço inteiro (etapas/passos + blocos de fluxo + encadeamentos).
+     *  Motor da biblioteca de "modelos prontos". */
+    duplicarServico: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), novoNome: z.string().min(1).max(200).optional() }))
+      .mutation(({ input }) => servicoService.duplicarServico(input.id, { novoNome: input.novoNome })),
 
     // ── Vencimentos por mês (Fase B Acessórias) ──────────────
     getVencimentosMensais: readProcedure(MODULE)

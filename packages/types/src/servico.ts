@@ -190,6 +190,64 @@ export const setVencimentosMensaisSchema = z.object({
   ),
 })
 
+// ── FlowPlan — representação intermediária (IR) de um fluxo de serviço ──
+/**
+ * Estrutura normalizada que descreve etapas/passos + blocos (sub-serviços FLUXO)
+ * + arestas (encadeamentos) de um serviço, usando `tempId` locais em vez de IDs
+ * reais. Três fontes produzem o mesmo FlowPlan — o assistente guiado, a geração
+ * por IA e (opcionalmente) a pré-visualização de modelo — e um único
+ * materializador no backend (`servico.service.ts → aplicarFlowPlan`) o grava
+ * chamando as mutations que já existem (createServico/addEtapa/addPasso/
+ * addEncadeamento). `origem: 'ROOT'` numa aresta = o próprio serviço dono.
+ */
+export const flowPlanBlocoSchema = z.object({
+  tempId: z.string().min(1),
+  tipo: z.enum(['ATIVIDADE', 'DECISAO', 'PERGUNTA', 'DOCUMENTACAO', 'FIM']),
+  nome: z.string().min(1).max(200),
+  perguntaTexto: z.string().max(500).optional().nullable(),
+  perguntaOpcoes: z.array(z.string().min(1).max(80)).max(20).optional().nullable(),
+  perguntaMulti: z.boolean().optional().nullable(),
+})
+
+export const flowPlanEtapaSchema = z.object({
+  tempId: z.string().min(1),
+  nome: z.string().min(1).max(200),
+  ordem: z.coerce.number().int().min(0),
+  passos: z.array(z.object({
+    nome: z.string().min(1).max(200),
+    ordem: z.coerce.number().int().min(0),
+    obrigatorio: z.boolean().optional(),
+    slaMinutos: z.coerce.number().int().min(0).optional().nullable(),
+  })).default([]),
+})
+
+export const flowPlanArestaSchema = z.object({
+  /** 'ROOT' = o próprio serviço dono; senão o tempId de um bloco. */
+  origem: z.string().min(1),
+  destino: z.string().min(1),
+  rotulo: z.string().max(80).optional().nullable(),
+  /** JSON `{all|any: [{campo,op,valor}]}` — opaco aqui, validado no encadeamento. */
+  condicao: z.unknown().optional().nullable(),
+  iniciaAuto: z.boolean().optional(),
+  obrigatorio: z.boolean().optional(),
+})
+
+export const flowPlanSchema = z.object({
+  etapas: z.array(flowPlanEtapaSchema).max(50).optional(),
+  blocos: z.array(flowPlanBlocoSchema).max(100).optional(),
+  arestas: z.array(flowPlanArestaSchema).max(200).optional(),
+})
+
+export const aplicarFlowPlanSchema = z.object({
+  servicoId: z.string(),
+  plan: flowPlanSchema,
+})
+
+export type FlowPlanBloco  = z.infer<typeof flowPlanBlocoSchema>
+export type FlowPlanEtapa  = z.infer<typeof flowPlanEtapaSchema>
+export type FlowPlanAresta = z.infer<typeof flowPlanArestaSchema>
+export type FlowPlan       = z.infer<typeof flowPlanSchema>
+
 export const createServicoEtapaSchema = z.object({
   servicoId: z.string(),
   nome: z.string().min(1),

@@ -1,6 +1,6 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
-import type { CreateServicoInput, UpdateServicoInput, CreateServicoEtapaInput, CreateServicoPassoInput, CreateExecucaoInput, CreateEncadeamentoInput, Condicao, CreateMaterialInput, UpdateMaterialInput, CreateGrupoInput, UpdateGrupoInput, IniciarGrupoInput, SetServicoGruposInput } from '@saas/types'
+import type { CreateServicoInput, UpdateServicoInput, CreateServicoEtapaInput, CreateServicoPassoInput, CreateExecucaoInput, CreateEncadeamentoInput, Condicao, CreateMaterialInput, UpdateMaterialInput, CreateGrupoInput, UpdateGrupoInput, IniciarGrupoInput, SetServicoGruposInput, FlowPlan } from '@saas/types'
 import { OrcamentoService } from '../orcamento/orcamento.service'
 import { ProcessoService } from '../processo/processo.service'
 import { avaliarCondicao } from '../processo/avaliador-condicao'
@@ -966,6 +966,180 @@ export class ServicoService {
   async bulkDeleteServicos(ids: string[]) {
     if (ids.length === 0) return { count: 0 }
     return prisma.servico.updateMany({ where: { id: { in: ids } }, data: { ativo: false } })
+  }
+
+  // ── FlowPlan (IR) → materialização + clonagem ─────────────────────
+  // Um único ponto que grava um fluxo descrito de forma normalizada (FlowPlan).
+  // As três fontes — assistente guiado, geração por IA e modelos — produzem o
+  // mesmo FlowPlan e chamam este método, que reusa createServico/addEtapa/
+  // addPasso/addEncadeamento (mesmas validações de ciclo/SLA do fluxo manual).
+
+  /**
+   * Materializa um FlowPlan sobre um serviço existente (`servicoId`):
+   *  - cada `bloco` vira um sub-serviço categoriaServico='FLUXO' (servicoPaiId=servicoId);
+   *  - cada `etapa`+`passos` vira o checklist do serviço;
+   *  - cada `aresta` vira um ServicoEncadeamento (origem 'ROOT' = o próprio serviço).
+   * `tempId` locais são resolvidos para os IDs reais criados. Arestas com
+   * referência inexistente são ignoradas silenciosamente.
+   */
+  async aplicarFlowPlan(servicoId: string, plan: FlowPlan) {
+    const dono = await prisma.servico.findUnique({
+      where: { id: servicoId },
+      select: { id: true, empresaId: true },
+    })
+    if (!dono) throw new Error('Serviço não encontrado')
+
+    const idMap = new Map<string, string>() // tempId → id real
+
+    // 1) Blocos (sub-serviços FLUXO)
+    for (const b of plan.blocos ?? []) {
+      const criado = await this.createServico({
+        nome: b.nome,
+        tipo: b.tipo,
+        categoriaServico: 'FLUXO',
+        servicoPaiId: servicoId,
+        disponivelOrcamento: false,
+        perguntaTexto: b.perguntaTexto ?? null,
+        perguntaOpcoes: b.perguntaOpcoes ?? null,
+        perguntaMulti: b.perguntaMulti ?? false,
+      }, dono.empresaId ?? undefined)
+      idMap.set(b.tempId, criado.id)
+    }
+
+    // 2) Etapas + passos (checklist)
+    for (const et of plan.etapas ?? []) {
+      const etapa = await this.addEtapa({ servicoId, nome: et.nome, ordem: et.ordem })
+      let ord = 0
+      for (const p of et.passos ?? []) {
+        await this.addPasso({
+          etapaId: etapa.id,
+          nome: p.nome,
+          ordem: p.ordem ?? ord++,
+          obrigatorio: p.obrigatorio ?? true,
+          slaMinutos: p.slaMinutos ?? null,
+        } as CreateServicoPassoInput)
+      }
+    }
+
+    // 3) Arestas (encadeamentos). 'ROOT' resolve pro próprio serviço.
+    const resolver = (ref: string): string | undefined => (ref === 'ROOT' ? servicoId : idMap.get(ref))
+    for (const a of plan.arestas ?? []) {
+      const origem = resolver(a.origem)
+      const destino = resolver(a.destino)
+      if (!origem || !destino || origem === destino) continue
+      try {
+        await this.addEncadeamento({
+          servicoOrigemId: origem,
+          servicoDestinoId: destino,
+          ordem: 0,
+          iniciaAuto: a.iniciaAuto ?? true,
+          obrigatorio: a.obrigatorio ?? true,
+          herdaResponsavel: true,
+          condicao: (a.condicao as Condicao | undefined) ?? undefined,
+          rotulo: a.rotulo ?? null,
+        })
+      } catch {
+        // Ignora arestas que criariam ciclo — o resto do plano segue.
+      }
+    }
+
+    await this.recomputeSlaServico(servicoId)
+    return {
+      servicoId,
+      blocos: idMap.size,
+      etapas: (plan.etapas ?? []).length,
+      arestas: (plan.arestas ?? []).length,
+    }
+  }
+
+  /**
+   * Clona um serviço inteiro (deep-clone fiel): o próprio registro + etapas/passos
+   * + sub-serviços FLUXO (blocos) + encadeamentos internos, remapeando servicoPaiId
+   * e origem/destino das arestas para os novos IDs. Materiais/e-mails/lembretes de
+   * passo NÃO são copiados nesta versão. `dependeDoPassoId` é zerado (as deps
+   * apontariam para passos do original).
+   */
+  async duplicarServico(id: string, opts?: { novoNome?: string }) {
+    const origem = await prisma.servico.findUnique({
+      where: { id },
+      include: { etapas: { include: { passos: true }, orderBy: { ordem: 'asc' } } },
+    })
+    if (!origem) throw new Error('Serviço não encontrado')
+
+    // Blocos (filhos de fluxo) deste serviço
+    const filhos = await prisma.servico.findMany({
+      where: { servicoPaiId: id },
+      include: { etapas: { include: { passos: true }, orderBy: { ordem: 'asc' } } },
+    })
+
+    // Copia todos os campos escalares de um Servico (spread robusto a drift de schema),
+    // removendo id/timestamps/relações e o vínculo de pai (remapeado depois).
+    const scalarsServico = (s: Record<string, unknown>): any => {
+      const { id: _i, createdAt: _c, updatedAt: _u, servicoPaiId: _p, etapas: _e, ...rest } = s as any
+      void _i; void _c; void _u; void _p; void _e
+      return rest
+    }
+    const clonarPassos = async (passos: Array<Record<string, unknown>>, novaEtapaId: string) => {
+      for (const p of passos) {
+        const { id: _i, etapaId: _e, createdAt: _c, updatedAt: _u, dependeDoPassoId: _d, ...rest } = p as any
+        void _i; void _e; void _c; void _u; void _d
+        await prisma.servicoPasso.create({ data: { ...rest, etapaId: novaEtapaId, dependeDoPassoId: null } })
+      }
+    }
+    const clonarEtapas = async (etapas: Array<{ passos: Array<Record<string, unknown>> } & Record<string, unknown>>, novoServicoId: string) => {
+      for (const et of etapas) {
+        const { id: _i, servicoId: _s, createdAt: _c, updatedAt: _u, passos, ...rest } = et as any
+        void _i; void _s; void _c; void _u
+        const novaEt = await prisma.servicoEtapa.create({ data: { ...rest, servicoId: novoServicoId } })
+        await clonarPassos(passos ?? [], novaEt.id)
+      }
+    }
+
+    // 1) Serviço raiz
+    const novo = await prisma.servico.create({
+      data: {
+        ...scalarsServico(origem as any),
+        nome: opts?.novoNome ?? `${origem.nome} (cópia)`,
+        slaHoras: null,
+      },
+    })
+    await clonarEtapas((origem as any).etapas ?? [], novo.id)
+
+    // 2) Blocos (filhos FLUXO) + suas etapas/passos
+    const childMap = new Map<string, string>() // idOriginal → idNovo
+    for (const f of filhos) {
+      const novoFilho = await prisma.servico.create({
+        data: { ...scalarsServico(f as any), servicoPaiId: novo.id, slaHoras: null },
+      })
+      childMap.set(f.id, novoFilho.id)
+      await clonarEtapas((f as any).etapas ?? [], novoFilho.id)
+    }
+
+    // 3) Encadeamentos internos ao subgrafo clonado (raiz + filhos)
+    const mapId = (x: string): string | undefined => (x === id ? novo.id : childMap.get(x))
+    const oldIds = [id, ...filhos.map(f => f.id)]
+    const encs = await prisma.servicoEncadeamento.findMany({ where: { servicoOrigemId: { in: oldIds } } })
+    for (const e of encs) {
+      const o = mapId(e.servicoOrigemId)
+      const d = mapId(e.servicoDestinoId)
+      if (!o || !d) continue // aresta que sai do subgrafo — ignora
+      await prisma.servicoEncadeamento.create({
+        data: {
+          servicoOrigemId: o,
+          servicoDestinoId: d,
+          ordem: e.ordem,
+          iniciaAuto: e.iniciaAuto,
+          obrigatorio: e.obrigatorio,
+          herdaResponsavel: e.herdaResponsavel,
+          condicao: (e.condicao as any) ?? undefined,
+          observacao: e.observacao,
+          rotulo: e.rotulo,
+        },
+      })
+    }
+
+    await this.recomputeSlaServico(novo.id)
+    return novo
   }
 
   // ── Etapas ────────────────────────────────────────────────
