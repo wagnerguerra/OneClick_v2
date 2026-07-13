@@ -730,10 +730,40 @@ export class ServicoService {
       }
     }
 
+    // (Rótulos de PERGUNTA são computados mais abaixo, DEPOIS de coletar todas as
+    //  arestas — inclusive as de/para blocos órfãos.)
+
+    // ── Itens de fluxo ORFAOS ─────────────────────────────────
+    // Quando o usuário remove a única aresta que conectava um bloco ao DAG, ele
+    // some do BFS (forward+backward). Pra permitir que ele continue visível e
+    // possa ser reconectado, listamos os itens-de-fluxo do top-level que NÃO
+    // foram visitados e os adicionamos com position='ORFAO'. UI renderiza com
+    // estilo destacado (borda tracejada) indicando que precisa de reconexão.
+    if (root && root.itensDeFluxo.length > 0) {
+      const orfaos = root.itensDeFluxo.filter(i => !visitedNodes.has(i.id))
+      for (const o of orfaos) {
+        await pushNode(o.id, 'ORFAO')
+      }
+    }
+
+    // ── Arestas entre quaisquer nós presentes (inclui de/para ÓRFÃOS) ─────────
+    // O BFS forward/backward só coleta arestas alcançáveis a partir da raiz. Ao
+    // religar um bloco órfão, a aresta é criada no banco mas não aparecia no
+    // editor porque nenhum dos lados é alcançado pelo BFS. Aqui fazemos uma
+    // varredura final trazendo TODA aresta cujos dois extremos já são nós do fluxo.
+    const nodeIdSet = nodes.map(n => n.id)
+    if (nodeIdSet.length > 0) {
+      const encsEntreNos = await prisma.servicoEncadeamento.findMany({
+        where: { servicoOrigemId: { in: nodeIdSet }, servicoDestinoId: { in: nodeIdSet } },
+        orderBy: { ordem: 'asc' },
+      })
+      for (const enc of encsEntreNos) pushEdge(enc)
+    }
+
     // ── Rótulos vindos de blocos PERGUNTA ─────────────────────
     // Pra cada nó, coleta o rotulo das arestas cujo source é um bloco PERGUNTA.
     // Renderizado como header no bloco sucessor (Frontend), mostrando qual
-    // opção da pergunta leva a esse caminho.
+    // opção da pergunta leva a esse caminho. (Roda após coletar todas as arestas.)
     const perguntaNodeIds = new Set(nodes.filter(n => n.tipo === 'PERGUNTA').map(n => n.id))
     if (perguntaNodeIds.size > 0) {
       const rotulosPorDestino = new Map<string, string[]>()
@@ -748,19 +778,6 @@ export class ServicoService {
       for (const n of nodes) {
         const r = rotulosPorDestino.get(n.id)
         if (r && r.length > 0) n.perguntaRotulos = r
-      }
-    }
-
-    // ── Itens de fluxo ORFAOS ─────────────────────────────────
-    // Quando o usuário remove a única aresta que conectava um bloco ao DAG, ele
-    // some do BFS (forward+backward). Pra permitir que ele continue visível e
-    // possa ser reconectado, listamos os itens-de-fluxo do top-level que NÃO
-    // foram visitados e os adicionamos com position='ORFAO'. UI renderiza com
-    // estilo destacado (borda tracejada) indicando que precisa de reconexão.
-    if (root && root.itensDeFluxo.length > 0) {
-      const orfaos = root.itensDeFluxo.filter(i => !visitedNodes.has(i.id))
-      for (const o of orfaos) {
-        await pushNode(o.id, 'ORFAO')
       }
     }
 
