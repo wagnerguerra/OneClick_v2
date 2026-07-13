@@ -243,6 +243,38 @@ export const aplicarFlowPlanSchema = z.object({
   plan: flowPlanSchema,
 })
 
+// ── Roteiro de IA — mesma forma dos rascunhos do assistente guiado ──
+/**
+ * Saída estruturada da geração por IA (`servico.gerarFluxoIA`). Deliberadamente
+ * no formato dos rascunhos da UI (etapas + perguntas com opções → novo/fim),
+ * para o frontend apenas preencher os campos do assistente e o humano revisar
+ * antes de aplicar. A IA não referencia serviços existentes por id (não conhece
+ * o catálogo com segurança) — sugere só destinos novos ou "encerrar".
+ */
+export const fluxoRoteiroSchema = z.object({
+  etapas: z.array(z.object({
+    nome: z.string(),
+    passos: z.array(z.string()).default([]),
+  })).default([]),
+  perguntas: z.array(z.object({
+    texto: z.string(),
+    multi: z.boolean().default(false),
+    opcoes: z.array(z.object({
+      texto: z.string(),
+      destino: z.enum(['novo', 'fim']).default('novo'),
+      destinoNome: z.string().default(''),
+    })).default([]),
+  })).default([]),
+})
+
+export const gerarFluxoIaSchema = z.object({
+  descricao: z.string().min(10, 'Descreva o serviço com um pouco mais de detalhe').max(4000),
+  nomeServico: z.string().max(200).optional(),
+})
+
+export type FluxoRoteiro = z.infer<typeof fluxoRoteiroSchema>
+export type GerarFluxoIaInput = z.infer<typeof gerarFluxoIaSchema>
+
 export type FlowPlanBloco  = z.infer<typeof flowPlanBlocoSchema>
 export type FlowPlanEtapa  = z.infer<typeof flowPlanEtapaSchema>
 export type FlowPlanAresta = z.infer<typeof flowPlanArestaSchema>

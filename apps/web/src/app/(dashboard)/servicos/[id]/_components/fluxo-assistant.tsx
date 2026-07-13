@@ -17,6 +17,7 @@
 import { useState } from 'react'
 import {
   Wand2, ListChecks, GitBranch, ArrowRight, Plus, Trash2, X, HelpCircle, CheckCircle2,
+  Sparkles, Loader2, ChevronDown,
 } from 'lucide-react'
 import type { FlowPlan } from '@saas/types'
 import {
@@ -67,12 +68,49 @@ export function FluxoAssistant({ open, onOpenChange, servicoId, servicoNome, ser
   const [perguntas, setPerguntas] = useState<PerguntaDraft[]>([])
   const [proximos, setProximos] = useState<ProximoDraft[]>([])
 
+  // Geração por IA (preenche o rascunho para o humano revisar)
+  const [aiOpen, setAiOpen] = useState(false)
+  const [aiDesc, setAiDesc] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+
   const currentKey = STEPS[step]?.key ?? 'checklist'
   const isLast = step >= STEPS.length - 1
 
   function reset() {
     setStep(0); setSaving(false)
     setEtapas([]); setPerguntas([]); setProximos([])
+    setAiOpen(false); setAiDesc(''); setAiLoading(false)
+  }
+
+  async function gerarComIA() {
+    if (aiDesc.trim().length < 10) {
+      alerts.warning('Descreva melhor', 'Conte em uma ou duas frases o que o serviço faz.')
+      return
+    }
+    setAiLoading(true)
+    try {
+      const r = await (trpc.servico as any).gerarFluxoIA.mutate({ descricao: aiDesc.trim(), nomeServico: servicoNome })
+      setEtapas((r.etapas ?? []).map((e: { nome: string; passos: string[] }) => ({
+        nome: e.nome, passos: (e.passos ?? []).map(n => ({ nome: n })),
+      })))
+      setPerguntas((r.perguntas ?? []).map((q: { texto: string; multi: boolean; opcoes: Array<{ texto: string; destino: string; destinoNome?: string }> }) => ({
+        texto: q.texto,
+        multi: !!q.multi,
+        opcoes: (q.opcoes ?? []).map(o => ({
+          texto: o.texto,
+          destinoTipo: (o.destino === 'fim' ? 'fim' : 'novo') as DestinoTipo,
+          destinoNome: o.destinoNome ?? '',
+          destinoServicoId: '',
+        })),
+      })))
+      setStep(0)
+      setAiOpen(false)
+      await alerts.success('Rascunho pronto', 'Revise as etapas e decisões e ajuste o que precisar.')
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setAiLoading(false)
+    }
   }
   function handleOpenChange(o: boolean) {
     if (!o && !saving) reset()
@@ -186,6 +224,38 @@ export function FluxoAssistant({ open, onOpenChange, servicoId, servicoNome, ser
         </DialogHeaderIcon>
 
         <div className="px-6 py-5 overflow-y-auto">
+          {/* Gerar com IA — preenche o rascunho; o humano revisa antes de aplicar */}
+          <div className="mb-4 rounded-md border border-violet-300/50 bg-violet-50/40 dark:bg-violet-950/20">
+            <button
+              type="button"
+              onClick={() => setAiOpen(o => !o)}
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-left"
+            >
+              <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              <span className="text-[13px] font-semibold">Gerar com IA</span>
+              <span className="text-[11px] text-muted-foreground">descreva o serviço e a IA monta um rascunho</span>
+              <ChevronDown className={`ml-auto h-4 w-4 text-muted-foreground transition-transform ${aiOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {aiOpen && (
+              <div className="space-y-2 px-3 pb-3">
+                <textarea
+                  value={aiDesc}
+                  onChange={e => setAiDesc(e.target.value)}
+                  placeholder="Ex: Abertura de empresa: consultar viabilidade, definir regime tributário (Simples, Presumido ou Real), registrar na Junta, emitir alvará e inscrições…"
+                  rows={3}
+                  className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                />
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-muted-foreground">A IA sugere; você revisa e ajusta antes de criar.</p>
+                  <Button variant="outline" size="sm" onClick={gerarComIA} disabled={aiLoading} className="gap-1.5">
+                    {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    Gerar rascunho
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <WizardShell
             steps={STEPS}
             current={step}

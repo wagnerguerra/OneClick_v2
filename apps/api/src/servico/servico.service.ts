@@ -7,7 +7,9 @@ import { avaliarCondicao } from '../processo/avaliador-condicao'
 import { NotificationService } from '../notification/notification.service'
 import { NotificacaoService } from '../notificacao/notificacao.service'
 import { ServicoExecucaoEventsService } from './servico-execucao-events.service'
+import { ServicoFluxoAiService } from './servico-fluxo-ai.service'
 import { EmailService } from '../common/email.service'
+import type { GerarFluxoIaInput } from '@saas/types'
 
 @Injectable()
 export class ServicoService {
@@ -20,7 +22,14 @@ export class ServicoService {
     private readonly notificacaoService: NotificacaoService,
     private readonly execEvents: ServicoExecucaoEventsService,
     private readonly emailService: EmailService,
+    private readonly fluxoAiService: ServicoFluxoAiService,
   ) {}
+
+  /** Gera um rascunho de fluxo (roteiro) a partir de uma descrição livre, via IA.
+   *  Não grava nada — o frontend preenche o assistente e o humano aplica. */
+  async gerarFluxoIA(input: GerarFluxoIaInput) {
+    return this.fluxoAiService.gerarRoteiro(input)
+  }
 
   // ── Visibilidade de execucao ──────────────────────────────
   // /meus-servicos nao pode depender da permissao de leitura do modulo "servicos"

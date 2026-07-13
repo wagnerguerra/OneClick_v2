@@ -14,6 +14,7 @@ import {
   responderPerguntaSchema,
   setVencimentosMensaisSchema,
   aplicarFlowPlanSchema,
+  gerarFluxoIaSchema,
 } from '@saas/types'
 import { ServicoService } from './servico.service'
 
@@ -85,6 +86,12 @@ export function createServicoRouter(servicoService: ServicoService) {
     duplicarServico: writeProcedure(MODULE)
       .input(z.object({ id: z.string(), novoNome: z.string().min(1).max(200).optional() }))
       .mutation(({ input }) => servicoService.duplicarServico(input.id, { novoNome: input.novoNome })),
+
+    /** Gera um rascunho de fluxo (roteiro) por IA a partir de uma descrição livre.
+     *  Retorna etapas + perguntas p/ o assistente preencher (não grava nada). */
+    gerarFluxoIA: writeProcedure(MODULE)
+      .input(gerarFluxoIaSchema)
+      .mutation(({ input }) => servicoService.gerarFluxoIA(input)),
 
     // ── Vencimentos por mês (Fase B Acessórias) ──────────────
     getVencimentosMensais: readProcedure(MODULE)
