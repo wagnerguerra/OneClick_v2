@@ -188,13 +188,13 @@ export function ServicoWizard({ open, onOpenChange, areas }: ServicoWizardProps)
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[680px] p-0 overflow-hidden">
-        <DialogHeaderIcon icon={Wand2} color="emerald" className="px-6 pt-5 pb-3 border-b border-border/40">
+      <DialogContent className="sm:max-w-[680px] max-h-[88vh] p-0 overflow-hidden flex flex-col">
+        <DialogHeaderIcon icon={Wand2} color="emerald" className="px-6 pt-5 pb-3 border-b border-border/40 shrink-0">
           <DialogTitle>Assistente de novo serviço</DialogTitle>
           <DialogDescription>Vamos criar o serviço passo a passo.</DialogDescription>
         </DialogHeaderIcon>
 
-        <div className="px-6 py-5">
+        <div className="px-6 py-5 overflow-y-auto">
           <WizardShell
             steps={visibleSteps}
             current={step}
@@ -348,7 +348,7 @@ export function ServicoWizard({ open, onOpenChange, areas }: ServicoWizardProps)
                     value={textoPadrao}
                     onChange={html => setTextoPadrao(html)}
                     placeholder="Modelo de e-mail / nota / documentação usado nas execuções…"
-                    className="min-h-[160px]"
+                    className="min-h-[120px]"
                   />
                 </div>
               </div>
