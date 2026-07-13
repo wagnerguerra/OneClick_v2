@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   Clock, CheckCircle2, LayoutGrid, List, Play, XCircle, Eye,
   GripVertical, ToggleLeft, ToggleRight, Pause, MessageSquare, Paperclip, Send, ChevronDown, ChevronUp,
-  AlertCircle, Check, SkipForward, Network, Repeat, Zap, FileText, Type, ListChecks, Layers, Lock, ShieldCheck,
+  AlertCircle, Check, SkipForward, Network, Repeat, Zap, FileText, Type, ListChecks, Layers, Lock, ShieldCheck, Wand2,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, Label,
@@ -20,6 +20,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { ServicoWizard } from './_components/servico-wizard'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -210,6 +211,9 @@ export default function ServicosPage() {
   /** Natureza do cadastro — comerciais (entram no catálogo do orçamento) vs internos
    *  (execução exclusivamente interna, não aparecem em orçamentos). */
   const [tipoCadastroFilter, setTipoCadastroFilter] = useState<'comerciais' | 'internos'>('comerciais')
+
+  // Wizard (assistente) de cadastro base — convive com o modal tradicional
+  const [wizardOpen, setWizardOpen] = useState(false)
 
   // Create/Edit servico modal
   const [servicoModalOpen, setServicoModalOpen] = useState(false)
@@ -932,6 +936,9 @@ export default function ServicosPage() {
               <Button variant="outline" size="sm" onClick={() => router.push('/servicos/grupos')} className="gap-1.5">
                 <Layers className="h-4 w-4" />Grupos
               </Button>
+              <Button variant="outline" size="sm" onClick={() => setWizardOpen(true)} className="gap-1.5">
+                <Wand2 className="h-4 w-4" />Assistente
+              </Button>
               <Button variant="success" size="sm" onClick={openCreateServico} className="gap-1.5">
                 <Plus className="h-4 w-4" />Novo Servico
               </Button>
@@ -1466,6 +1473,9 @@ export default function ServicosPage() {
           )}
         </Card>
       )}
+
+      {/* ══════════════════ Assistente (wizard) de cadastro base ══════════════════ */}
+      <ServicoWizard open={wizardOpen} onOpenChange={setWizardOpen} areas={areas} />
 
       {/* ══════════════════ MODAL: Create/Edit Servico ══════════════════ */}
       <Dialog open={servicoModalOpen} onOpenChange={setServicoModalOpen}>
