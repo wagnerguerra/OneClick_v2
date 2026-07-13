@@ -135,6 +135,7 @@ interface SimulacaoCompleta {
   }
   recomendacao: Recomendacao
   resumo: { texto: string; impacto: { valor: number; percentualReceita: number } }
+  transicao: TransicaoProjecao
 }
 
 const DEFAULT_PREMISSAS: ReformaPremissasInput = {
@@ -145,6 +146,57 @@ const DEFAULT_PREMISSAS: ReformaPremissasInput = {
   percentualComprasCreditaveis: 0.35,
   pesoCreditoCliente: 0.35,
   reducaoSetorial: 0,
+  dasEfetivoSimples: 0.10,
+  aliquotaPisCofins: 0.0365,
+  aliquotaIcms: 0.12,
+  aliquotaIss: 0.05,
+  percentualMercadorias: 0.5,
+  impostoSeletivoPercent: 0,
+}
+
+// ── Calendário de transição da reforma (LC 214/2025) ─────────────────
+// Fatores de vigência por ano: fração das alíquotas novas (CBS/IBS/IS) que
+// incidem e fração dos tributos ATUAIS (PIS/COFINS, ICMS/ISS) que permanecem.
+// São PREMISSAS de trabalho (o cronograma legal tem nuances por tributo/UF);
+// começam como constante e o disclaimer acompanha o resultado.
+//  2026: ano de teste (CBS 0,9% + IBS 0,1%, compensáveis) — tributos atuais cheios.
+//  2027: CBS integral, PIS/COFINS extintos, IS entra; IBS ainda simbólico; ICMS/ISS cheios.
+//  2029–2032: IBS sobe 10/20/30/40% e ICMS/ISS caem para 90/80/70/60%.
+//  2033: IBS/CBS integrais, ICMS/ISS extintos.
+interface FatorTransicao { cbs: number; ibs: number; is: number; pisCofins: number; icmsIss: number }
+const TRANSICAO_CALENDARIO: Record<number, FatorTransicao> = {
+  2026: { cbs: 0.102, ibs: 0.006, is: 0,   pisCofins: 1.0, icmsIss: 1.0 },
+  2027: { cbs: 1.0,   ibs: 0.006, is: 1,   pisCofins: 0.0, icmsIss: 1.0 },
+  2028: { cbs: 1.0,   ibs: 0.006, is: 1,   pisCofins: 0.0, icmsIss: 1.0 },
+  2029: { cbs: 1.0,   ibs: 0.10,  is: 1,   pisCofins: 0.0, icmsIss: 0.90 },
+  2030: { cbs: 1.0,   ibs: 0.20,  is: 1,   pisCofins: 0.0, icmsIss: 0.80 },
+  2031: { cbs: 1.0,   ibs: 0.30,  is: 1,   pisCofins: 0.0, icmsIss: 0.70 },
+  2032: { cbs: 1.0,   ibs: 0.40,  is: 1,   pisCofins: 0.0, icmsIss: 0.60 },
+  2033: { cbs: 1.0,   ibs: 1.0,   is: 1,   pisCofins: 0.0, icmsIss: 0.0 },
+}
+const TRANSICAO_ANOS = Object.keys(TRANSICAO_CALENDARIO).map(Number).sort((a, b) => a - b)
+
+interface CargaAtual {
+  regime: 'SIMPLES' | 'REGULAR'
+  total: number
+  pisCofins: number
+  icmsIss: number
+  das: number
+}
+
+interface TransicaoAno {
+  ano: number
+  cargaReforma: number
+  delta: number
+  componentes: { cbs: number; ibs: number; is: number; creditos: number; remanescenteAtual: number }
+}
+
+interface TransicaoProjecao {
+  isSimples: boolean
+  cargaAtual: number
+  cargaAtualComponentes: CargaAtual
+  anos: TransicaoAno[]
+  observacao: string
 }
 
 const PREMISSAS_SETORIAIS_SEED: Array<Omit<PremissaFiscal, 'empresaId' | 'createdAt' | 'updatedAt' | 'ativo'>> = [
@@ -558,6 +610,7 @@ export class ReformaTributariaService {
     })
     const sensibilidade = this.calcularSensibilidade(receita, baseCreditoClassificada, p, reducaoSetorial)
     const planoAcao = this.planoAcaoTecnico(diagnostico, confiabilidade, recomendacao, sensibilidade)
+    const transicao = this.projetarTransicao(diagnostico.cliente, receita, comprasCreditaveis, p, reducaoSetorial)
 
     return {
       ...diagnostico,
@@ -575,6 +628,79 @@ export class ReformaTributariaService {
       },
       recomendacao,
       resumo: this.resumo(recomendacao, diferenca, receita),
+      transicao,
+    }
+  }
+
+  /** Estima a carga tributária que o cliente paga HOJE (premissas de trabalho).
+   *  Simples → DAS efetivo; Regular → PIS/COFINS + ICMS (mercadorias) + ISS (serviços). */
+  private estimarCargaAtual(cliente: ClienteBase, receita: number, p: ReformaPremissasInput): CargaAtual {
+    const isSimples = cliente.tributacao === 'SIMPLES_NACIONAL'
+    if (isSimples) {
+      const das = receita * (p.dasEfetivoSimples ?? 0.10)
+      return { regime: 'SIMPLES', total: das, pisCofins: 0, icmsIss: 0, das }
+    }
+    const pisCofins = receita * (p.aliquotaPisCofins ?? 0.0365)
+    const baseMerc = receita * (p.percentualMercadorias ?? 0.5)
+    const baseServ = receita * (1 - (p.percentualMercadorias ?? 0.5))
+    const icms = baseMerc * (p.aliquotaIcms ?? 0.12)
+    const iss = baseServ * (p.aliquotaIss ?? 0.05)
+    return { regime: 'REGULAR', total: pisCofins + icms + iss, pisCofins, icmsIss: icms + iss, das: 0 }
+  }
+
+  /** Projeta a carga ano a ano (2026→2033) somando os tributos NOVOS (CBS/IBS/IS,
+   *  escalados pelo calendário) aos ATUAIS remanescentes (PIS/COFINS, ICMS/ISS que
+   *  vão sendo extintos). Para Simples, a linha representa o cenário de migração ao
+   *  regular; a carga atual de referência continua sendo o DAS. */
+  private projetarTransicao(
+    cliente: ClienteBase,
+    receita: number,
+    comprasCreditaveis: number,
+    p: ReformaPremissasInput,
+    reducaoSetorial: number,
+  ): TransicaoProjecao {
+    const isSimples = cliente.tributacao === 'SIMPLES_NACIONAL'
+    const cargaAtualComp = this.estimarCargaAtual(cliente, receita, p)
+    const cargaAtual = cargaAtualComp.total
+
+    // Bases plenas (reforma 100%) — escaladas por ano via calendário.
+    const fatorReducao = 1 - Math.max(0, Math.min(1, reducaoSetorial))
+    const debitoCbsFull = receita * p.aliquotaCbs * fatorReducao
+    const debitoIbsFull = receita * p.aliquotaIbs * fatorReducao
+    const creditoCbsFull = comprasCreditaveis * p.aliquotaCbs * fatorReducao
+    const creditoIbsFull = comprasCreditaveis * p.aliquotaIbs * fatorReducao
+    const isFull = receita * (p.impostoSeletivoPercent ?? 0)
+
+    // Componentes do sistema atual "regular" (para o remanescente durante a transição).
+    // Para Simples, o remanescente atual não se aplica (a linha é a migração pura ao regular).
+    const atualRegular = isSimples
+      ? { pisCofins: 0, icmsIss: 0 }
+      : { pisCofins: cargaAtualComp.pisCofins, icmsIss: cargaAtualComp.icmsIss }
+
+    const anos: TransicaoAno[] = TRANSICAO_ANOS.map(ano => {
+      const f = TRANSICAO_CALENDARIO[ano]!
+      const cbs = Math.max(0, debitoCbsFull * f.cbs - creditoCbsFull * f.cbs)
+      const ibs = Math.max(0, debitoIbsFull * f.ibs - creditoIbsFull * f.ibs)
+      const is = isFull * f.is
+      const creditos = creditoCbsFull * f.cbs + creditoIbsFull * f.ibs
+      const remanescenteAtual = atualRegular.pisCofins * f.pisCofins + atualRegular.icmsIss * f.icmsIss
+      const cargaReforma = cbs + ibs + is + remanescenteAtual
+      return {
+        ano,
+        cargaReforma,
+        delta: cargaReforma - cargaAtual,
+        componentes: { cbs, ibs, is, creditos, remanescenteAtual },
+      }
+    })
+
+    return {
+      isSimples,
+      cargaAtual,
+      cargaAtualComponentes: cargaAtualComp,
+      anos,
+      observacao: isSimples
+        ? 'Cliente no Simples: a carga atual é o DAS estimado; a projeção representa o cenário de migração ao regime regular durante a transição. O Simples permanece após a reforma, com adaptações.'
+        : 'Projeção soma os tributos novos (CBS/IBS/IS) que vão entrando aos atuais (PIS/COFINS, ICMS/ISS) que vão sendo extintos, conforme o calendário da reforma. Alíquotas e fatores são premissas ajustáveis.',
     }
   }
 

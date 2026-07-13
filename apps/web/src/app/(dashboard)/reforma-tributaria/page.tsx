@@ -945,6 +945,47 @@ export default function ReformaTributariaPage() {
                     </div>
                   </div>
 
+                  {simulacao.transicao?.anos?.length > 0 && (
+                    <div className="rounded-[6px] border bg-background/70 p-4">
+                      <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                        <TrendingUp className="h-4 w-4" />
+                        Linha do tempo da transição (2026–2033)
+                        <HelpTip text="Projeção ano a ano somando os tributos novos (CBS/IBS/IS) que vão entrando aos atuais (PIS/COFINS, ICMS/ISS) que vão sendo extintos, conforme o calendário da reforma. Alíquotas e fatores são premissas ajustáveis." />
+                      </div>
+                      <div className="mb-2 text-xs text-muted-foreground">
+                        Carga atual estimada: <strong className="text-foreground">{money(simulacao.transicao.cargaAtual)}</strong>
+                        {simulacao.transicao.isSimples ? ' (DAS)' : ''}
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+                              <th className="py-1 pr-3">Ano</th>
+                              <th className="py-1 pr-3 text-right">Carga na reforma</th>
+                              <th className="py-1 pr-3 text-right">Δ vs hoje</th>
+                              <th className="py-1 text-right">CBS / IBS / IS</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {simulacao.transicao.anos.map((a: any) => (
+                              <tr key={a.ano} className="border-t border-border/60">
+                                <td className="py-1.5 pr-3 font-medium tabular-nums">{a.ano}</td>
+                                <td className="py-1.5 pr-3 text-right tabular-nums">{money(a.cargaReforma)}</td>
+                                <td className={cn('py-1.5 pr-3 text-right tabular-nums', a.delta > 0 ? 'text-red-600 dark:text-red-400' : a.delta < 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')}>
+                                  {a.delta > 0 ? '+' : ''}{money(a.delta)}
+                                </td>
+                                <td className="py-1.5 text-right text-[11px] text-muted-foreground tabular-nums">
+                                  {money(a.componentes.cbs)} / {money(a.componentes.ibs)} / {money(a.componentes.is)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="mt-2 text-xs text-muted-foreground">{simulacao.transicao.observacao}</p>
+                    </div>
+                  )}
+
                   {simulacao.qualidade.faltantes.length > 0 && (
                     <div className="rounded-[6px] border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-amber-800">
                       <div className="flex items-center gap-2 font-medium">

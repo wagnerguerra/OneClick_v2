@@ -9,6 +9,23 @@ export const reformaPremissasSchema = z.object({
   pesoCreditoCliente: z.coerce.number().min(0).max(1).default(0.35),
   reducaoSetorial: z.coerce.number().min(0).max(1).default(0),
   premissaNome: z.coerce.string().optional(),
+
+  // ── Carga tributária ATUAL (premissas de trabalho, ajustáveis) ──
+  // Usadas para estimar o que o cliente paga hoje e projetar a transição.
+  // Opcionais (o service aplica os defaults) para não afetar o schema das
+  // premissas setoriais persistidas, que não guardam estes campos.
+  /** DAS efetivo do Simples (fração do faturamento). Varia por anexo/faixa — validar. */
+  dasEfetivoSimples: z.coerce.number().min(0).max(1).optional(),
+  /** PIS/COFINS no regime atual (cumulativo ~3,65% / não-cumulativo ~9,25%). */
+  aliquotaPisCofins: z.coerce.number().min(0).max(1).optional(),
+  /** ICMS efetivo sobre a parcela de mercadorias (estimado bruto — validar créditos). */
+  aliquotaIcms: z.coerce.number().min(0).max(1).optional(),
+  /** ISS efetivo sobre a parcela de serviços. */
+  aliquotaIss: z.coerce.number().min(0).max(1).optional(),
+  /** Fração do faturamento que é mercadoria (resto = serviço) — separa ICMS de ISS. */
+  percentualMercadorias: z.coerce.number().min(0).max(1).optional(),
+  /** Imposto Seletivo sobre o faturamento (setores sujeitos ao IS). 0 = não incide. */
+  impostoSeletivoPercent: z.coerce.number().min(0).max(1).optional(),
 })
 
 export const reformaListClientesSchema = z.object({
