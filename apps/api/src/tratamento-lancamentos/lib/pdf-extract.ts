@@ -399,35 +399,73 @@ function extractPerRow(pages: Item[][]): { header: HeaderSpec; rows: string[][] 
   for (const ai of anchorIdx) { above.set(ai, []); below.set(ai, []) }
 
   if (anchorInMiddle) {
-    // ===== ÂNCORA NO MEIO (Itaú, MP): âncora mais próxima + redirect cross-page =====
+    // ===== ÂNCORA NO MEIO (Itaú, MP): âncora mais próximo, com CORTE-DE-RUN na virada =====
+    // Base: cada detalhe vai ao âncora mais próximo (continuação-ABAIXO da âncora de
+    // cima ou prefácio-ACIMA da de baixo). Isso funciona DENTRO de uma página, onde o
+    // vão real ENTRE blocos separa bem os detalhes. Na VIRADA, porém, o vão sintético
+    // `interGap` colapsa a distância: num nome de 3+ linhas, o detalhe de 2º nível
+    // (ex.: "…LTDA") fica mais perto do âncora da página vizinha do que do seu. Para
+    // os runs que CRUZAM uma quebra de página, então, decide por CONTIGUIDADE: corta o
+    // run (linhas entre dois âncoras consecutivos X↑ e Y↓) no MAIOR vão — as de cima
+    // ficam abaixo-de-X, as de baixo acima-de-Y. A quebra ganha um empurrãozinho
+    // (`PB_BONUS`) para vencer empates (a virada colapsa o vão real ~1 linha), mas um
+    // vão intra-página claramente maior — bloco que CRUZA a página (Itaú: tipo no rabo
+    // da pág. N, âncora no topo da N+1) — ainda vence, preservando a continuação.
+    const PB_BONUS = 0.5
+    const straddleOwner = new Array<{ ai: number; below: boolean } | null>(n).fill(null)
+    const bounds = [-1, ...anchorIdx, n] // sentinelas: X ausente (=-1) / Y ausente (=n)
+    for (let b = 0; b < bounds.length - 1; b++) {
+      const xIdx = bounds[b]!, yIdx = bounds[b + 1]!
+      const from = xIdx + 1, to = yIdx // linhas from..to-1 = run entre X e Y
+      if (from >= to) continue
+      // Só runs que cruzam quebra de página (ou a borda inicial/final) usam corte-de-run;
+      // o intra-página mantém o âncora mais próximo original, inalterado.
+      const straddle = xIdx < 0 || yIdx >= n || glines[xIdx]!.page !== glines[yIdx]!.page
+      if (!straddle) continue
+      // Corte s = nº de linhas que vão p/ below-X, no vão efetivo MÁXIMO. A borda
+      // ausente (xIdx<0 ou yIdx>=n) tem vão infinito → joga o run inteiro p/ o âncora
+      // presente (linhas antes do 1º âncora = prefácio dele; após o último = sufixo).
+      let bestS = 0, bestGap = Number.NEGATIVE_INFINITY
+      for (let s = 0; s <= to - from; s++) {
+        const li = s === 0 ? xIdx : from + s - 1
+        const ri = s === to - from ? yIdx : from + s
+        const eff = (li < 0 || ri >= n)
+          ? Number.POSITIVE_INFINITY
+          : (glines[li]!.gy - glines[ri]!.gy) + (glines[li]!.page !== glines[ri]!.page ? PB_BONUS : 0)
+        if (eff > bestGap) { bestGap = eff; bestS = s }
+      }
+      for (let k = 0; k < to - from; k++) {
+        const li = from + k
+        if (k < bestS) { if (xIdx >= 0) straddleOwner[li] = { ai: xIdx, below: true } }
+        else if (yIdx < n) straddleOwner[li] = { ai: yIdx, below: false }
+      }
+    }
     for (let i = 0; i < n; i++) {
       if (glines[i]!.isAnchor) continue
-      const cands: number[] = []
-      if (nextA[i]! >= 0) cands.push(nextA[i]!)
-      if (prevA[i]! >= 0) {
-        const samePage = glines[prevA[i]!]!.page === glines[i]!.page
-        const contCross = glines[prevA[i]!]!.page === glines[i]!.page - 1
-          && nextA[i]! >= 0 && glines[nextA[i]!]!.page === glines[i]!.page
-        if (samePage || contCross) cands.push(prevA[i]!)
-      }
       const gapPrev = i > 0 ? glines[i - 1]!.gy - glines[i]!.gy : Number.POSITIVE_INFINITY
-      let nearest = -1, nd = Number.POSITIVE_INFINITY
-      for (const ai of cands) {
-        const d = Math.abs(glines[ai]!.gy - glines[i]!.gy)
-        if (d > ATTACH_MAX_DY) continue
-        const isBelowAi = glines[i]!.gy < glines[ai]!.gy
-        if (isBelowAi && glines[ai]!.page === glines[i]!.page && gapPrev > belowMax) continue
-        if (d < nd) { nd = d; nearest = ai }
+      let nearest: number, isBelow: boolean
+      const so = straddleOwner[i]
+      if (so) {
+        nearest = so.ai; isBelow = so.below
+      } else {
+        // Intra-página (baseline): âncora mais próximo entre a de cima (mesma página)
+        // e a de baixo; trava de rodapé por salto grande na continuação-abaixo.
+        const cands: number[] = []
+        if (nextA[i]! >= 0) cands.push(nextA[i]!)
+        if (prevA[i]! >= 0 && glines[prevA[i]!]!.page === glines[i]!.page) cands.push(prevA[i]!)
+        let best = -1, nd = Number.POSITIVE_INFINITY
+        for (const ai of cands) {
+          const d = Math.abs(glines[ai]!.gy - glines[i]!.gy)
+          if (d > ATTACH_MAX_DY) continue
+          if (glines[i]!.gy < glines[ai]!.gy && gapPrev > belowMax) continue // detalhe-abaixo distante = rodapé
+          if (d < nd) { nd = d; best = ai }
+        }
+        if (best < 0) continue
+        nearest = best; isBelow = glines[i]!.gy < glines[nearest]!.gy
       }
-      if (nearest < 0) continue
-      let isBelow = glines[i]!.gy < glines[nearest]!.gy
-      // Redirect cross-page: continuação que partiu na virada (ver histórico no PLANO).
-      const pa = prevA[i]!
-      if (!isBelow && nearest === nextA[i]! && descCol >= 0
-        && (glines[nextA[i]!]!.cells[descCol] ?? '').trim() !== '' && pa >= 0
-        && glines[pa]!.page === glines[i]!.page - 1 && glines[nextA[i]!]!.page === glines[i]!.page) {
-        nearest = pa; isBelow = true
-      }
+      // Trava final comum: distância máxima à âncora + rodapé (continuação-abaixo na mesma página).
+      if (Math.abs(glines[nearest]!.gy - glines[i]!.gy) > ATTACH_MAX_DY) continue
+      if (isBelow && glines[nearest]!.page === glines[i]!.page && gapPrev > belowMax) continue
       ;(isBelow ? below.get(nearest)! : above.get(nearest)!).push(glines[i]!.cells)
     }
   } else {
