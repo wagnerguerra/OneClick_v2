@@ -4,10 +4,13 @@ import {
   Button, Input, Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
+  Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { Trash2, Plus, Search, Wand2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Trash2, Plus, Search, Wand2, ChevronLeft, ChevronRight, ListChecks, ExternalLink, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import type { TreatmentDefinition, Direcao } from '@saas/types'
+import { matchPalavraChaveIndex } from '@saas/types'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import type { SetDef, CpItemComum } from '../types'
 import { HISTORICO_FIXO_HINT, PULAR_LINHA_HINT } from '../types'
 import { HelpTip } from '../ui'
@@ -17,6 +20,18 @@ const DEFAULT_PAGE_SIZE = 15
 const PAGE_SIZE_OPTIONS = [15, 25, 50, 100] as const
 // A busca e a paginação só aparecem quando a lista é grande o bastante para valer.
 const SEARCH_THRESHOLD = 10
+
+/** Valor "atrasado": só ecoa `value` após `delay` ms sem mudança. Usado para adiar
+ *  as recomputações caras de correspondência (2.5k+ descrições × N regras) sem
+ *  travar a digitação — o input lê o valor VIVO, as contagens leem este atrasado. */
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(t)
+  }, [value, delay])
+  return debounced
+}
 
 /** Janela de páginas para o paginador: primeira, vizinhas da atual, última, com "…". */
 function pageItems(current: number, count: number): Array<number | 'gap'> {
@@ -29,6 +44,27 @@ function pageItems(current: number, count: number): Array<number | 'gap'> {
   if (end < count - 2) items.push('gap')
   items.push(count - 1)
   return items
+}
+
+/** Controles de paginação (0-indexed) compartilhados — tabela de contrapartida e
+ *  painel de correspondência. Não renderiza nada com uma página só. */
+function Paginador({ page, pageCount, onGo }: { page: number; pageCount: number; onGo: (p: number) => void }) {
+  if (pageCount <= 1) return null
+  return (
+    <div className="flex items-center gap-1">
+      <Button size="icon-sm" variant="outline" disabled={page <= 0} onClick={() => onGo(page - 1)} aria-label="Página anterior"><ChevronLeft className="h-4 w-4" /></Button>
+      {pageItems(page, pageCount).map((it, idx) =>
+        it === 'gap'
+          ? <span key={`gap-${idx}`} className="px-1 text-muted-foreground">…</span>
+          : (
+            <Button key={it} size="sm" variant={it === page ? 'soft' : 'ghost'} className={cn('h-8 min-w-8 px-1.5', it === page && 'font-semibold')} onClick={() => onGo(it)}>
+              {it + 1}
+            </Button>
+          ),
+      )}
+      <Button size="icon-sm" variant="outline" disabled={page >= pageCount - 1} onClick={() => onGo(page + 1)} aria-label="Próxima página"><ChevronRight className="h-4 w-4" /></Button>
+    </div>
+  )
 }
 
 /**
@@ -135,7 +171,7 @@ function BatchInput({ placeholder, numeric, onApply }: { placeholder: string; nu
  * busca aplica a todas as linhas; com busca, só aos resultados.
  */
 function ContrapartidaTabela<T extends CpItemComum>({
-  itens, onUpdate, onBatchUpdate, onRemove, onAdd, addLabel, dcByDescricao, primeiraColuna, searchText, searchPlaceholder, revisar,
+  itens, onUpdate, onBatchUpdate, onRemove, onAdd, addLabel, dcByDescricao, primeiraColuna, searchText, searchPlaceholder, revisar, emptyText, rowClassName,
 }: {
   itens: T[]
   onUpdate: (i: number, patch: Partial<T>) => void
@@ -148,6 +184,8 @@ function ContrapartidaTabela<T extends CpItemComum>({
   searchText: (it: T) => string
   searchPlaceholder?: string
   revisar?: boolean
+  emptyText?: ReactNode
+  rowClassName?: string
 }) {
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(0)
@@ -307,7 +345,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
             {visible.map(({ it, i }) => {
               const pular = !!it.pular
               return (
-              <TableRow key={i}>
+              <TableRow key={i} className={rowClassName}>
                 <TableCell className={primeiraColuna.cellClassName}>{primeiraColuna.render(it, i)}</TableCell>
                 <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', !pular && !it.conta.trim() && invalidCls(revisar), pular && 'line-through placeholder:line-through')} placeholder="Conta" inputMode="numeric" value={it.conta} onChange={(e) => handleUpdate(i, { conta: soDigitos(e.target.value) } as Partial<T>)} /></TableCell>
                 <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', pular && 'line-through placeholder:line-through')} placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => handleUpdate(i, { historicoFixo: semSeparador(e.target.value) } as Partial<T>)} /></TableCell>
@@ -327,7 +365,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
             {!visible.length && (
               <TableRow>
                 <TableCell colSpan={colSpan} className="py-6 text-center text-xs text-muted-foreground">
-                  {query.trim() ? `Nenhum resultado para "${query.trim()}".` : 'Nenhuma linha.'}
+                  {query.trim() ? `Nenhum resultado para "${query.trim()}".` : (emptyText ?? 'Nenhuma linha.')}
                 </TableCell>
               </TableRow>
             )}
@@ -337,25 +375,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
 
       {showPager && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-1">
-            <Button size="icon-sm" variant="outline" disabled={pageSafe <= 0} onClick={() => setPage(pageSafe - 1)} aria-label="Página anterior"><ChevronLeft className="h-4 w-4" /></Button>
-            {pageItems(pageSafe, pageCount).map((it, idx) =>
-              it === 'gap'
-                ? <span key={`gap-${idx}`} className="px-1 text-muted-foreground">…</span>
-                : (
-                  <Button
-                    key={it}
-                    size="sm"
-                    variant={it === pageSafe ? 'soft' : 'ghost'}
-                    className={cn('h-8 min-w-8 px-1.5', it === pageSafe && 'font-semibold')}
-                    onClick={() => setPage(it)}
-                  >
-                    {it + 1}
-                  </Button>
-                ),
-            )}
-            <Button size="icon-sm" variant="outline" disabled={pageSafe >= pageCount - 1} onClick={() => setPage(pageSafe + 1)} aria-label="Próxima página"><ChevronRight className="h-4 w-4" /></Button>
-          </div>
+          <Paginador page={pageSafe} pageCount={pageCount} onGo={setPage} />
           <span className="text-muted-foreground">{filtered.length} {filtered.length === 1 ? 'linha' : 'linhas'}{query.trim() ? ' no filtro' : ''}</span>
         </div>
       )}
@@ -367,8 +387,230 @@ function ContrapartidaTabela<T extends CpItemComum>({
   )
 }
 
-export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, revisar }: { def: TreatmentDefinition; setDef: SetDef; dcByDescricao: boolean; revisar?: boolean }) {
+/** Descrição distinta do arquivo + quantas linhas ela ocupa. */
+export interface DescricaoContagem { descricao: string; count: number }
+
+const LIST_PAGE_SIZE = 20
+
+/** Selo de status de correspondência de uma descrição (2 estados). */
+function BadgeCorresp({ ok }: { ok: boolean }) {
+  return ok ? (
+    <span className="inline-flex items-center whitespace-nowrap rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">Correspondida</span>
+  ) : (
+    <span className="inline-flex items-center whitespace-nowrap rounded-full border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-700 dark:text-rose-400">Sem correspondência</span>
+  )
+}
+
+/** Visão reversa: quantas linhas a palavra-chave EFETIVAMENTE corresponde (a que
+ *  vence pela regra de posição). Zero (âmbar) = regra morta: texto redundante ou
+ *  que sempre perde para outra que casa mais cedo — vale revisar. */
+function BadgeRegra({ n }: { n: number }) {
+  // Mesmo box (flex items-center) nas duas variantes — assim a de ícone fica exatamente
+  // à mesma distância vertical do input que a de texto puro (o inline-flex ganhava um
+  // leadinho na baseline e caía uns pixels mais pra baixo).
+  return (
+    <p className={cn('flex items-center gap-1 text-[10px] tabular-nums', n > 0 ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400')}>
+      {n > 0
+        ? <>corresponde a {n.toLocaleString('pt-BR')} {n === 1 ? 'lançamento' : 'lançamentos'}</>
+        : <><AlertTriangle className="h-2.5 w-2.5 shrink-0" /> não corresponde a nenhum lançamento</>}
+    </p>
+  )
+}
+
+/**
+ * Painel de CORRESPONDÊNCIA (modo palavra-chave). Cabeçalho sempre visível com o
+ * medidor por LINHA + contagem sem correspondência; expande numa lista das descrições
+ * distintas (ocorrências, status e a palavra-chave que corresponde), com busca, filtro
+ * "só sem correspondência", ordenação por frequência e paginação. Usa a MESMA regra da
+ * conversão (`matchPalavraChaveIndex`) sobre o conjunto DISTINTO (ponderado pela
+ * contagem) — nunca sobre as linhas cruas.
+ */
+function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCriar }: {
+  descricoes: DescricaoContagem[]
+  itens: ReadonlyArray<{ palavraChave: string }>
+  totalLinhas: number
+  truncated?: boolean
+  onCriar?: (texto: string) => void
+}) {
+  const [aberto, setAberto] = useState(false)
+  const [query, setQuery] = useState('')
+  const [soSem, setSoSem] = useState(true) // foco no que falta: abre em "Sem correspondência"
+  const [page, setPage] = useState(0)
+
+  // Cada descrição distinta → índice da palavra-chave que corresponde (ou -1).
+  const enriquecidas = useMemo(
+    () => descricoes.map((d) => ({ ...d, idx: matchPalavraChaveIndex(d.descricao, itens) })),
+    [descricoes, itens],
+  )
+  const correspondidas = useMemo(() => enriquecidas.reduce((s, d) => s + (d.idx >= 0 ? d.count : 0), 0), [enriquecidas])
+  const distintasSem = useMemo(() => enriquecidas.reduce((s, d) => s + (d.idx < 0 ? 1 : 0), 0), [enriquecidas])
+  const linhasSem = totalLinhas - correspondidas
+  // `floor` para o % só bater 100 quando for EXATAMENTE tudo (99,98% mostra "99%",
+  // não arredonda pra 100). E o estado "completo" (check + colapso da barra) depende
+  // de `linhasSem === 0` de fato — nunca do % — pra não sumir a barra com sobra.
+  const pct = totalLinhas ? Math.floor((correspondidas / totalLinhas) * 100) : 0
+  const completo = totalLinhas > 0 && linhasSem === 0
+
+  const filtradas = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    let arr = soSem ? enriquecidas.filter((d) => d.idx < 0) : enriquecidas
+    if (q) arr = arr.filter((d) => d.descricao.toLowerCase().includes(q))
+    return [...arr].sort((a, b) => b.count - a.count) // mais frequentes primeiro
+  }, [enriquecidas, soSem, query])
+
+  useEffect(() => { setPage(0) }, [query, soSem, aberto])
+
+  const pageCount = Math.max(1, Math.ceil(filtradas.length / LIST_PAGE_SIZE))
+  const pageSafe = Math.min(page, pageCount - 1)
+  const visible = filtradas.slice(pageSafe * LIST_PAGE_SIZE, pageSafe * LIST_PAGE_SIZE + LIST_PAGE_SIZE)
+
+  return (
+    <>
+      {/* Medidor inline = resumo sempre visível + GATILHO do modal (a lista mora lá).
+          Cara de "linha clicável" já em repouso: card elevado + chevron à direita. */}
+      <button
+        type="button"
+        onClick={() => { setSoSem(distintasSem > 0); setAberto(true) }}
+        className="group sticky top-[106px] z-10 flex w-full cursor-pointer items-center gap-5 rounded-[4px] border border-border bg-card px-4 py-2.5 text-left shadow-sm ring-1 ring-transparent transition-all hover:border-fuchsia-400/60 hover:ring-fuchsia-400/20"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            Correspondência de lançamentos no arquivo enviado
+            {completo && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500 duration-300 animate-in fade-in zoom-in" />}
+          </p>
+          {/* Ao chegar a 100% a barra COLAPSA (altura + gap animando pra zero) e some,
+              "transicionando" pro check que surge no título — a linha cheia é redundante. */}
+          <div className={cn('grid transition-all duration-500 ease-out', completo ? 'mt-0 grid-rows-[0fr] opacity-0' : 'mt-1.5 grid-rows-[1fr] opacity-100')}>
+            <div className="overflow-hidden">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted-foreground/25 ring-1 ring-inset ring-border/50">
+                <div className="h-full rounded-full bg-emerald-500 transition-all duration-300" style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          </div>
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            <b className="text-foreground tabular-nums">{pct}%</b> correspondidos
+            <span className="mx-1.5 font-bold text-muted-foreground">·</span>
+            {linhasSem > 0 ? (
+              <><b className="font-medium text-foreground tabular-nums">{linhasSem.toLocaleString('pt-BR')}</b> {linhasSem === 1 ? 'lançamento sem correspondência' : 'lançamentos sem correspondência'}</>
+            ) : (
+              'todos os lançamentos têm correspondência'
+            )}
+            {truncated && <> · sobre os lançamentos lidos</>}
+          </p>
+        </div>
+        {/* Marcador de ação em repouso: "abrir externamente" num end-cap com cara de botão. */}
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border border-border bg-muted/40 text-muted-foreground transition-colors group-hover:border-fuchsia-400/60 group-hover:bg-fuchsia-500/10 group-hover:text-fuchsia-600 dark:group-hover:text-fuchsia-400">
+          <ExternalLink className="h-4 w-4" />
+        </span>
+      </button>
+
+      <Dialog open={aberto} onOpenChange={setAberto}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeaderIcon icon={ListChecks} color="fuchsia">
+            <DialogTitle>Correspondência de descrições</DialogTitle>
+            <DialogDescription>
+              {pct}% dos lançamentos correspondidos · {distintasSem} {distintasSem === 1 ? 'descrição sem correspondência' : 'descrições sem correspondência'}
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-full max-w-xs sm:flex-1">
+                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input className="h-8 pl-7 text-xs bg-card" placeholder="Buscar descrição..." value={query} onChange={(e) => setQuery(e.target.value)} />
+              </div>
+              <div className="flex items-center gap-0.5 rounded-[3px] border border-border bg-card p-0.5 text-xs">
+                <button type="button" onClick={() => setSoSem(true)} className={cn('rounded-[2px] px-2 py-1 whitespace-nowrap', soSem ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground')}>
+                  Sem correspondência{distintasSem > 0 && <span className="tabular-nums"> ({distintasSem})</span>}
+                </button>
+                <button type="button" onClick={() => setSoSem(false)} className={cn('rounded-[2px] px-2 py-1', !soSem ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground')}>Todas</button>
+              </div>
+            </div>
+
+            <div className="rounded-[2px] border border-border/60 overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead className="w-[96px] text-right">Ocorrências</TableHead>
+                    <TableHead className="w-[168px]">Status</TableHead>
+                    <TableHead className="w-[180px]">Palavra-chave</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visible.map((d) => {
+                    // Descrição sem correspondência é clicável → cria a palavra-chave
+                    // (texto inteiro) e fecha o modal, pra refinar na tabela.
+                    const clicavel = d.idx < 0 && !!onCriar
+                    return (
+                    <TableRow
+                      key={d.descricao}
+                      className={cn('group', clicavel && 'cursor-pointer transition-colors hover:bg-fuchsia-500/5')}
+                      onClick={clicavel ? () => { onCriar!(d.descricao); setAberto(false) } : undefined}
+                      title={clicavel ? 'Criar palavra-chave a partir desta descrição' : undefined}
+                    >
+                      <TableCell className="max-w-[320px] truncate text-sm" title={d.descricao}>{d.descricao}</TableCell>
+                      <TableCell className="text-right text-xs tabular-nums text-muted-foreground">{d.count.toLocaleString('pt-BR')}</TableCell>
+                      <TableCell><BadgeCorresp ok={d.idx >= 0} /></TableCell>
+                      <TableCell className="max-w-[180px] truncate text-xs" title={d.idx >= 0 ? itens[d.idx]!.palavraChave : ''}>
+                        {d.idx >= 0 ? (
+                          <span className="text-muted-foreground">{itens[d.idx]!.palavraChave}</span>
+                        ) : clicavel ? (
+                          <span className="inline-flex items-center gap-1 font-medium text-fuchsia-600 dark:text-fuchsia-400"><Plus className="h-3 w-3 shrink-0" /> criar palavra-chave</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    )
+                  })}
+                  {!visible.length && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="py-6 text-center text-xs text-muted-foreground">
+                        {query.trim() ? (
+                          `Nenhuma descrição para "${query.trim()}".`
+                        ) : soSem ? (
+                          <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Todas as descrições têm correspondência.</span>
+                        ) : (
+                          'Nenhuma descrição no arquivo.'
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {pageCount > 1 && (
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <Paginador page={pageSafe} pageCount={pageCount} onGo={setPage} />
+                <span className="tabular-nums text-muted-foreground">{filtradas.length} {filtradas.length === 1 ? 'descrição' : 'descrições'}</span>
+              </div>
+            )}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, revisar, descricoes = [], totalLinhas = 0, truncated }: {
+  def: TreatmentDefinition; setDef: SetDef; dcByDescricao: boolean; revisar?: boolean
+  descricoes?: DescricaoContagem[]; totalLinhas?: number; truncated?: boolean
+}) {
   const itens = def.contrapartida.palavraChave
+  // Cópia ATRASADA das regras só para as contagens: a digitação (que lê `itens`
+  // vivo) fica instantânea; medidor e visão reversa recomputam ~300ms após parar.
+  const itensContagem = useDebouncedValue(itens, 300)
+
+  // Visão reversa: nº de linhas que cada palavra-chave (por índice) pega de fato.
+  const linhasPorRegra = useMemo(() => {
+    const m = new Map<number, number>()
+    for (const d of descricoes) {
+      const idx = matchPalavraChaveIndex(d.descricao, itensContagem)
+      if (idx >= 0) m.set(idx, (m.get(idx) ?? 0) + d.count)
+    }
+    return m
+  }, [descricoes, itensContagem])
 
   const update = useCallback((i: number, patch: Partial<typeof itens[number]>) => {
     setDef((d) => {
@@ -390,18 +632,35 @@ export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, revisar 
   const remove = useCallback((i: number) => {
     setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, palavraChave: d.contrapartida.palavraChave.filter((_, idx) => idx !== i) } }))
   }, [setDef])
+  // Cria uma palavra-chave já pré-preenchida com a descrição (clique numa descoberta
+  // no modal). O texto inteiro nasce correspondendo àquela linha; o usuário generaliza
+  // apagando palavras na tabela e vê a correspondência subir.
+  const criarDaDescricao = useCallback((texto: string) => {
+    setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, palavraChave: [...d.contrapartida.palavraChave, { palavraChave: texto, conta: '', historicoFixo: '' }] } }))
+  }, [setDef])
 
   return (
     <div className="space-y-2">
       <p className="text-[12px] text-muted-foreground">Adicione palavras-chave abaixo, a serem detectadas nas descrições dos lançamentos.</p>
+      {totalLinhas > 0 && <PainelCorrespondencia descricoes={descricoes} itens={itensContagem} totalLinhas={totalLinhas} truncated={truncated} onCriar={criarDaDescricao} />}
       <ContrapartidaTabela
         itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={remove} onAdd={add} addLabel="Adicionar palavra-chave"
-        dcByDescricao={dcByDescricao} revisar={revisar}
+        dcByDescricao={dcByDescricao} revisar={revisar} rowClassName="[&>td]:py-5"
+        emptyText="Nenhuma palavra-chave adicionada ainda — comece adicionando uma no botão abaixo."
         searchText={(it) => it.palavraChave} searchPlaceholder="Buscar palavra-chave..."
         primeiraColuna={{
           header: 'Palavra-chave', className: 'min-w-[160px]',
           render: (it, i) => (
-            <Input className="h-8 text-xs bg-card" placeholder="Palavra-chave" value={it.palavraChave} onChange={(e) => update(i, { palavraChave: e.target.value })} />
+            <div className="relative">
+              <Input className="h-8 text-xs bg-card" placeholder="Palavra-chave" value={it.palavraChave} onChange={(e) => update(i, { palavraChave: e.target.value })} />
+              {totalLinhas > 0 && it.palavraChave.trim() !== '' && (
+                // Flutua logo abaixo do input, FORA do fluxo (absolute): não muda a
+                // altura da célula nem o padding; pointer-events-none p/ não bloquear.
+                <div className="pointer-events-none absolute left-0 top-full whitespace-nowrap pt-0.5">
+                  <BadgeRegra n={linhasPorRegra.get(i) ?? 0} />
+                </div>
+              )}
+            </div>
           ),
         }}
       />

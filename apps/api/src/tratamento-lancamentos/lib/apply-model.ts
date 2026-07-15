@@ -13,7 +13,7 @@
 //   COLUNA_NAO_ENCONTRADA      coluna selecionada no De/Para ausente no arquivo
 // ============================================================
 
-import type { TreatmentDefinition } from '@saas/types'
+import { matchPalavraChaveIndex, type TreatmentDefinition } from '@saas/types'
 import type { ExtractedTable, CellValue } from './extract-tabela'
 import { parseData, parseValor } from './parsers'
 import { buildSciLine, buildSciFile, type Direcao } from './sci-format'
@@ -79,15 +79,12 @@ interface CpMatch { conta: string; historicoFixo?: string; direcao?: Direcao; pu
 function matchContrapartida(def: TreatmentDefinition, descricao: string): CpMatch | null {
   const cp = def.contrapartida
   if (cp.modo === 'PALAVRA_CHAVE') {
-    const lower = descricao.toLowerCase()
-    let best: { item: typeof cp.palavraChave[number]; idx: number } | null = null
-    for (const item of cp.palavraChave) {
-      const kw = item.palavraChave.trim().toLowerCase()
-      if (!kw) continue
-      const idx = lower.indexOf(kw)
-      if (idx >= 0 && (best === null || idx < best.idx)) best = { item, idx }
-    }
-    return best ? { conta: best.item.conta, historicoFixo: best.item.historicoFixo, direcao: best.item.direcao, pular: best.item.pular } : null
+    // Regra de correspondência compartilhada (fonte única em @saas/types), para que
+    // a conversão e o painel de correspondência do editor casem exatamente.
+    const idx = matchPalavraChaveIndex(descricao, cp.palavraChave)
+    if (idx < 0) return null
+    const item = cp.palavraChave[idx]!
+    return { conta: item.conta, historicoFixo: item.historicoFixo, direcao: item.direcao, pular: item.pular }
   }
   const item = cp.descricao.find((i) => i.descricao === descricao)
   return item ? { conta: item.conta, historicoFixo: item.historicoFixo, direcao: item.direcao, pular: item.pular } : null

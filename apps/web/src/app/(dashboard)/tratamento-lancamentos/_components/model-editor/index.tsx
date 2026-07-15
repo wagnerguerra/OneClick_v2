@@ -223,6 +223,24 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       .filter(Boolean)
   }, [preview])
 
+  // Descrições distintas do arquivo + nº de linhas de cada uma (base do painel de
+  // correspondência, modo palavra-chave). Brancos ficam FORA (viram pendência de
+  // valor vazio, não de contrapartida). `totalLinhas` é o denominador da cobertura.
+  const descricaoColuna = def.columnMapping.descricao || ''
+  const correspondencia = useMemo(() => {
+    if (!preview || !descricaoColuna) return { descricoes: [] as Array<{ descricao: string; count: number }>, totalLinhas: 0 }
+    const map = new Map<string, number>()
+    let total = 0
+    for (const row of preview.rows) {
+      const v = row[descricaoColuna]
+      const s = v === null || v === undefined ? '' : String(v).trim()
+      if (!s) continue
+      total++
+      map.set(s, (map.get(s) ?? 0) + 1)
+    }
+    return { descricoes: [...map.entries()].map(([descricao, count]) => ({ descricao, count })), totalLinhas: total }
+  }, [preview, descricaoColuna])
+
   // ---- Upload do arquivo-exemplo ------------------------------------------
   async function loadPreview(base64: string, filename: string) {
     setUploading(true)
@@ -788,7 +806,10 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       </div>
 
       {def.contrapartida.modo === 'PALAVRA_CHAVE' ? (
-        <ContrapartidaPalavraChave def={def} setDef={setDef} dcByDescricao={dcByDescricao} revisar={modoRevisao} />
+        <ContrapartidaPalavraChave
+          def={def} setDef={setDef} dcByDescricao={dcByDescricao} revisar={modoRevisao}
+          descricoes={correspondencia.descricoes} totalLinhas={correspondencia.totalLinhas} truncated={preview?.truncated}
+        />
       ) : (
         <ContrapartidaDescricao
           def={def} setDef={setDef} dcByDescricao={dcByDescricao} revisar={modoRevisao}
