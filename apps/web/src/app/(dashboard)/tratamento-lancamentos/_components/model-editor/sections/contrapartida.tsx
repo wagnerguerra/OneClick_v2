@@ -5,16 +5,18 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { Trash2, Plus, Search, Wand2, ChevronLeft, ChevronRight, ListChecks, ExternalLink, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Trash2, Plus, Search, Wand2, ChevronLeft, ChevronRight, ListChecks, ExternalLink, AlertTriangle, CheckCircle2, MoreVertical } from 'lucide-react'
 import type { TreatmentDefinition, Direcao } from '@saas/types'
 import { matchPalavraChaveIndex } from '@saas/types'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { alerts } from '@/lib/alerts'
 import type { SetDef, CpItemComum } from '../types'
 import { HISTORICO_FIXO_HINT, PULAR_LINHA_HINT } from '../types'
 import { HelpTip } from '../ui'
-import { soDigitos, semSeparador, invalidCls } from '../utils'
+import { soDigitos, semSeparador, invalidCls, esc } from '../utils'
 
 const DEFAULT_PAGE_SIZE = 15
 const PAGE_SIZE_OPTIONS = [15, 25, 50, 100] as const
@@ -171,7 +173,7 @@ function BatchInput({ placeholder, numeric, onApply }: { placeholder: string; nu
  * busca aplica a todas as linhas; com busca, só aos resultados.
  */
 function ContrapartidaTabela<T extends CpItemComum>({
-  itens, onUpdate, onBatchUpdate, onRemove, onAdd, addLabel, dcByDescricao, primeiraColuna, searchText, searchPlaceholder, revisar, emptyText, rowClassName,
+  itens, onUpdate, onBatchUpdate, onRemove, onAdd, addLabel, dcByDescricao, primeiraColuna, searchText, searchPlaceholder, revisar, emptyText, rowClassName, removeMode = 'inline',
 }: {
   itens: T[]
   onUpdate: (i: number, patch: Partial<T>) => void
@@ -186,6 +188,9 @@ function ContrapartidaTabela<T extends CpItemComum>({
   revisar?: boolean
   emptyText?: ReactNode
   rowClassName?: string
+  // 'inline' = botão de lixeira direto (palavra-chave); 'kebab' = ação escondida
+  // num menu ⋮ (por descrição, onde excluir é raro e pede confirmação).
+  removeMode?: 'inline' | 'kebab'
 }) {
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(0)
@@ -358,7 +363,24 @@ function ContrapartidaTabela<T extends CpItemComum>({
                   </TableCell>
                 )}
                 <TableCell><div className="flex justify-center"><Checkbox checked={pular} onCheckedChange={(v) => handleUpdate(i, { pular: !!v } as Partial<T>)} /></div></TableCell>
-                {onRemove && <TableCell><Button variant="soft-destructive" size="icon-sm" onClick={() => onRemove(i)}><Trash2 className="h-3.5 w-3.5" /></Button></TableCell>}
+                {onRemove && (
+                  <TableCell>
+                    {removeMode === 'kebab' ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon-sm" aria-label="Ações"><MoreVertical className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onRemove(i)}>
+                            <Trash2 className="h-3.5 w-3.5" /> Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <Button variant="soft-destructive" size="icon-sm" onClick={() => onRemove(i)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    )}
+                  </TableCell>
+                )}
               </TableRow>
               )
             })}
@@ -700,13 +722,29 @@ export function ContrapartidaDescricao({ def, setDef, dcByDescricao, descricaoCo
       return { ...d, contrapartida: { ...d.contrapartida, descricao: next } }
     })
   }, [setDef])
+  // Exclusão (rara) via kebab: as descrições vêm do arquivo, então confirma e avisa
+  // que ela pode voltar se for detectada de novo num arquivo futuro.
+  const removeComConfirmacao = useCallback(async (i: number) => {
+    const alvo = itens[i]?.descricao ?? ''
+    const res = await alerts.custom({
+      title: 'Excluir esta descrição?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Excluir',
+      cancelButtonText: 'Cancelar',
+      html: `<div style="text-align:center"><p style="margin:0 0 8px">"<b>${esc(alvo)}</b>" está aqui porque foi detectada num arquivo lido anteriormente.</p><p style="margin:0">Se ela aparecer de novo num próximo arquivo, será necessário mapeá-la outra vez.</p></div>`,
+    })
+    if (!res.isConfirmed) return
+    setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, descricao: d.contrapartida.descricao.filter((_, idx) => idx !== i) } }))
+  }, [itens, setDef])
 
   if (!itens.length) return null
   return (
     <div className="space-y-2">
       <p className="text-[12px] text-muted-foreground">Cada descrição distinta recebe uma conta de contrapartida.</p>
       <ContrapartidaTabela
-        itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} dcByDescricao={dcByDescricao} revisar={revisar}
+        itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={removeComConfirmacao} removeMode="kebab"
+        dcByDescricao={dcByDescricao} revisar={revisar}
         searchText={(it) => it.descricao} searchPlaceholder="Buscar descrição..."
         primeiraColuna={{
           header: 'Descrição', cellClassName: 'text-sm max-w-[280px] truncate',
