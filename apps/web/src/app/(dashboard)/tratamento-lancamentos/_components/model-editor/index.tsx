@@ -244,8 +244,17 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   // ---- Upload do arquivo-exemplo ------------------------------------------
   async function loadPreview(base64: string, filename: string) {
     setUploading(true)
+    // TROCAR o arquivo durante a CRIAÇÃO reseta as descrições lidas do arquivo
+    // anterior: o modelo em criação parte do zero com o novo arquivo (não é
+    // cumulativo). Na EDIÇÃO NÃO reseta — o modelo é cumulativo e mantém as
+    // descrições já mapeadas (a lista é reconstruída/mesclada em ContrapartidaDescricao).
+    // `preview` != null aqui só na 2ª chamada em diante = uma troca de arquivo.
+    const trocaNaCriacao = mode === 'create' && !!preview
     try {
       const res = await trpc.tratamentoLancamentos.preview.mutate({ fileBase64: base64, filename })
+      if (trocaNaCriacao) {
+        setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, descricao: [] } }))
+      }
       setPreview(res as PreviewData)
       setFileName(filename)
       // NÃO descartamos mais as colunas ausentes no novo arquivo: mantemos a
