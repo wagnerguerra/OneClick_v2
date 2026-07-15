@@ -667,7 +667,7 @@ export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, revisar,
       {totalLinhas > 0 && <PainelCorrespondencia descricoes={descricoes} itens={itensContagem} totalLinhas={totalLinhas} truncated={truncated} onCriar={criarDaDescricao} />}
       <ContrapartidaTabela
         itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={remove} onAdd={add} addLabel="Adicionar palavra-chave"
-        dcByDescricao={dcByDescricao} revisar={revisar} rowClassName="[&>td]:py-5"
+        dcByDescricao={dcByDescricao} revisar={revisar} rowClassName={totalLinhas > 0 ? '[&>td]:py-5' : undefined}
         emptyText="Nenhuma palavra-chave adicionada ainda — comece adicionando uma no botão abaixo."
         searchText={(it) => it.palavraChave} searchPlaceholder="Buscar palavra-chave..."
         primeiraColuna={{
