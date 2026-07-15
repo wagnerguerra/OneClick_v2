@@ -128,7 +128,7 @@ export const contrapartidaDescricaoItem = z.object({
 // alternar o modo NÃO perca o que foi preenchido no outro — persistido na
 // definição (sobrevive a salvar/fechar/reabrir o modelo).
 export const contrapartidaSchema = z.object({
-  modo: z.enum(['PALAVRA_CHAVE', 'DESCRICAO']).default('DESCRICAO'),
+  modo: z.enum(['PALAVRA_CHAVE', 'DESCRICAO']).default('PALAVRA_CHAVE'),
   palavraChave: z.array(contrapartidaPalavraChaveItem).default([]),
   descricao: z.array(contrapartidaDescricaoItem).default([]),
 })
@@ -188,7 +188,7 @@ export const EMPTY_TREATMENT_DEFINITION: TreatmentDefinition = {
   contasCorrentes: { modo: 'UNICA', unica: '', coluna: '', mapa: [] },
   columnMapping: { descricao: '', participante: '', valor: '', data: '', numeroNf: '', documento: '' },
   debitoCredito: { tipo: 'COLUNA', coluna: '', mapa: [] },
-  contrapartida: { modo: 'DESCRICAO', palavraChave: [], descricao: [] },
+  contrapartida: { modo: 'PALAVRA_CHAVE', palavraChave: [], descricao: [] },
 }
 
 // ---- CRUD do Modelo de Tratamento ------------------------------------------

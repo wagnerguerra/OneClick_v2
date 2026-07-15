@@ -807,8 +807,8 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
           accent="fuchsia"
           value={def.contrapartida.modo}
           options={[
-            { value: 'DESCRICAO', label: 'Por descrição' },
-            { value: 'PALAVRA_CHAVE', label: 'Por palavra-chave' },
+            { value: 'PALAVRA_CHAVE', label: 'Por palavras-chave' },
+            { value: 'DESCRICAO', label: 'Por cada descrição' },
           ]}
           onChange={(v) => setCpModo(v as 'PALAVRA_CHAVE' | 'DESCRICAO')}
         />
