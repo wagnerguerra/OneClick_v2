@@ -878,12 +878,12 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
 
       {def.contrapartida.modo === 'PALAVRA_CHAVE' ? (
         <ContrapartidaPalavraChave
-          def={def} setDef={setDef} dcByDescricao={dcByDescricao} revisar={modoRevisao}
+          def={def} setDef={setDef} dcByDescricao={dcByDescricao} headers={headers} revisar={modoRevisao}
           descricoes={correspondencia.descricoes} totalLinhas={correspondencia.totalLinhas} truncated={preview?.truncated}
         />
       ) : (
         <ContrapartidaDescricao
-          def={def} setDef={setDef} dcByDescricao={dcByDescricao} revisar={modoRevisao}
+          def={def} setDef={setDef} dcByDescricao={dcByDescricao} headers={headers} revisar={modoRevisao}
           descricaoColuna={def.columnMapping.descricao || ''} getDistinct={getDistinct}
         />
       )}

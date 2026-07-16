@@ -8,9 +8,9 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { Trash2, Plus, Search, Wand2, ChevronLeft, ChevronRight, ListChecks, ExternalLink, AlertTriangle, CheckCircle2, MoreVertical } from 'lucide-react'
+import { Trash2, Plus, Search, Wand2, ChevronLeft, ChevronRight, ListChecks, ExternalLink, AlertTriangle, CheckCircle2, MoreVertical, Braces } from 'lucide-react'
 import type { TreatmentDefinition, Direcao } from '@saas/types'
-import { matchPalavraChaveIndex } from '@saas/types'
+import { matchPalavraChaveIndex, HISTORICO_DATA_VARS, historicoToken } from '@saas/types'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { alerts } from '@/lib/alerts'
 import type { SetDef, CpItemComum } from '../types'
@@ -145,17 +145,82 @@ function BatchFill({ scopeLabel, children }: { scopeLabel: string; children: (cl
 }
 
 /** Input + botão "Aplicar" usado no lote das colunas de texto/número. */
-function BatchInput({ placeholder, numeric, onApply }: { placeholder: string; numeric?: boolean; onApply: (v: string) => void }) {
+/** Botão flutuante "{ }" (à direita, dentro do input) que abre o menu de variáveis. */
+function VariavelPicker({ headers, onInsert }: { headers: string[]; onInsert: (token: string) => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button" variant="ghost" size="icon-sm" tabIndex={-1} aria-label="Inserir variável"
+          className="absolute right-0.5 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        >
+          <Braces className="h-3.5 w-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()} className="max-h-72 w-56 overflow-y-auto">
+        <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Data</div>
+        {HISTORICO_DATA_VARS.map((v) => (
+          <DropdownMenuItem key={v.token} onSelect={() => onInsert(historicoToken(v.token))}>{v.label}</DropdownMenuItem>
+        ))}
+        <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Colunas do arquivo</div>
+        {headers.length === 0 ? (
+          <div className="px-2 py-1 text-xs text-muted-foreground">Envie um arquivo para listar as colunas.</div>
+        ) : (
+          headers.map((h) => (
+            <DropdownMenuItem key={h} onSelect={() => onInsert(historicoToken(h))} className="truncate">{h}</DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** Input de histórico fixo com o picker de variáveis {{...}} embutido à direita.
+ *  Insere o token na posição do cursor; remove separadores (vírgula) ao digitar. */
+function HistoricoFixoInput({ value, onChange, headers, disabled, className, placeholder }: {
+  value: string; onChange: (v: string) => void; headers: string[]
+  disabled?: boolean; className?: string; placeholder?: string
+}) {
+  const ref = useRef<HTMLInputElement>(null)
+  const inserir = (token: string) => {
+    const el = ref.current
+    const start = el?.selectionStart ?? value.length
+    const end = el?.selectionEnd ?? value.length
+    const next = value.slice(0, start) + token + value.slice(end)
+    onChange(next)
+    requestAnimationFrame(() => {
+      if (!el) return
+      el.focus()
+      const pos = start + token.length
+      el.setSelectionRange(pos, pos)
+    })
+  }
+  return (
+    <div className="relative w-full min-w-0">
+      <Input
+        ref={ref} className={cn('pr-7', className)} placeholder={placeholder} disabled={disabled}
+        value={value} onChange={(e) => onChange(semSeparador(e.target.value))}
+      />
+      {!disabled && <VariavelPicker headers={headers} onInsert={inserir} />}
+    </div>
+  )
+}
+
+function BatchInput({ placeholder, numeric, variaveis, onApply }: { placeholder: string; numeric?: boolean; variaveis?: string[]; onApply: (v: string) => void }) {
   const [v, setV] = useState('')
   return (
     <div className="flex gap-1">
-      <Input
-        className="h-7 text-xs bg-card"
-        placeholder={placeholder}
-        inputMode={numeric ? 'numeric' : undefined}
-        value={v}
-        onChange={(e) => setV(numeric ? soDigitos(e.target.value) : semSeparador(e.target.value))}
-      />
+      {variaveis ? (
+        <HistoricoFixoInput headers={variaveis} className="h-7 text-xs bg-card" placeholder={placeholder} value={v} onChange={setV} />
+      ) : (
+        <Input
+          className="h-7 text-xs bg-card"
+          placeholder={placeholder}
+          inputMode={numeric ? 'numeric' : undefined}
+          value={v}
+          onChange={(e) => setV(numeric ? soDigitos(e.target.value) : semSeparador(e.target.value))}
+        />
+      )}
       <Button size="sm" variant="soft" className="h-7 shrink-0" onClick={() => onApply(v)}>Aplicar</Button>
     </div>
   )
@@ -173,7 +238,7 @@ function BatchInput({ placeholder, numeric, onApply }: { placeholder: string; nu
  * busca aplica a todas as linhas; com busca, só aos resultados.
  */
 function ContrapartidaTabela<T extends CpItemComum>({
-  itens, onUpdate, onBatchUpdate, onRemove, onAdd, addLabel, dcByDescricao, primeiraColuna, searchText, searchPlaceholder, revisar, emptyText, rowClassName, removeMode = 'inline',
+  itens, onUpdate, onBatchUpdate, onRemove, onAdd, addLabel, dcByDescricao, headers, primeiraColuna, searchText, searchPlaceholder, revisar, emptyText, rowClassName, removeMode = 'inline',
 }: {
   itens: T[]
   onUpdate: (i: number, patch: Partial<T>) => void
@@ -182,6 +247,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
   onAdd?: () => void
   addLabel?: string
   dcByDescricao: boolean
+  headers: string[]
   primeiraColuna: { header: string; className?: string; cellClassName?: string; render: (it: T, i: number) => ReactNode }
   searchText: (it: T) => string
   searchPlaceholder?: string
@@ -323,7 +389,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
                   <HelpTip text={HISTORICO_FIXO_HINT} />
                   {batchable && (
                     <BatchFill scopeLabel={scopeLabel}>
-                      {(close) => <BatchInput placeholder="Histórico fixo" onApply={(v) => { batchApply({ historicoFixo: v } as Partial<T>); close() }} />}
+                      {(close) => <BatchInput placeholder="Histórico fixo" variaveis={headers} onApply={(v) => { batchApply({ historicoFixo: v } as Partial<T>); close() }} />}
                     </BatchFill>
                   )}
                 </span>
@@ -361,7 +427,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
                   </TableCell>
                 )}
                 <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', !pular && !it.conta.trim() && invalidCls(revisar), pular && 'line-through placeholder:line-through')} placeholder="Contrapartida" inputMode="numeric" value={it.conta} onChange={(e) => handleUpdate(i, { conta: soDigitos(e.target.value) } as Partial<T>)} /></TableCell>
-                <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', pular && 'line-through placeholder:line-through')} placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => handleUpdate(i, { historicoFixo: semSeparador(e.target.value) } as Partial<T>)} /></TableCell>
+                <TableCell><HistoricoFixoInput headers={headers} disabled={pular} className={cn('h-8 text-xs bg-card', pular && 'line-through placeholder:line-through')} placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(v) => handleUpdate(i, { historicoFixo: v } as Partial<T>)} /></TableCell>
                 <TableCell><div className="flex justify-center"><Checkbox checked={pular} onCheckedChange={(v) => handleUpdate(i, { pular: !!v } as Partial<T>)} /></div></TableCell>
                 {onRemove && (
                   <TableCell>
@@ -615,8 +681,8 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
   )
 }
 
-export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, revisar, descricoes = [], totalLinhas = 0, truncated }: {
-  def: TreatmentDefinition; setDef: SetDef; dcByDescricao: boolean; revisar?: boolean
+export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, headers = [], revisar, descricoes = [], totalLinhas = 0, truncated }: {
+  def: TreatmentDefinition; setDef: SetDef; dcByDescricao: boolean; headers?: string[]; revisar?: boolean
   descricoes?: DescricaoContagem[]; totalLinhas?: number; truncated?: boolean
 }) {
   const itens = def.contrapartida.palavraChave
@@ -667,7 +733,7 @@ export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, revisar,
       {totalLinhas > 0 && <PainelCorrespondencia descricoes={descricoes} itens={itensContagem} totalLinhas={totalLinhas} truncated={truncated} onCriar={criarDaDescricao} />}
       <ContrapartidaTabela
         itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={remove} onAdd={add} addLabel="Adicionar palavra-chave"
-        dcByDescricao={dcByDescricao} revisar={revisar} rowClassName={totalLinhas > 0 ? '[&>td]:py-5' : undefined}
+        dcByDescricao={dcByDescricao} headers={headers} revisar={revisar} rowClassName={totalLinhas > 0 ? '[&>td]:py-5' : undefined}
         emptyText="Nenhuma palavra-chave adicionada ainda — comece adicionando uma no botão abaixo."
         searchText={(it) => it.palavraChave} searchPlaceholder="Buscar palavra-chave..."
         primeiraColuna={{
@@ -690,8 +756,8 @@ export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, revisar,
   )
 }
 
-export function ContrapartidaDescricao({ def, setDef, dcByDescricao, descricaoColuna, getDistinct, revisar }: {
-  def: TreatmentDefinition; setDef: SetDef; dcByDescricao: boolean; descricaoColuna: string; getDistinct: (c: string) => string[]; revisar?: boolean
+export function ContrapartidaDescricao({ def, setDef, dcByDescricao, headers = [], descricaoColuna, getDistinct, revisar }: {
+  def: TreatmentDefinition; setDef: SetDef; dcByDescricao: boolean; headers?: string[]; descricaoColuna: string; getDistinct: (c: string) => string[]; revisar?: boolean
 }) {
   const itens = def.contrapartida.descricao
 
@@ -744,7 +810,7 @@ export function ContrapartidaDescricao({ def, setDef, dcByDescricao, descricaoCo
       <p className="text-[12px] text-muted-foreground">Cada descrição distinta recebe uma conta de contrapartida.</p>
       <ContrapartidaTabela
         itens={itens} onUpdate={update} onBatchUpdate={batchUpdate} onRemove={removeComConfirmacao} removeMode="kebab"
-        dcByDescricao={dcByDescricao} revisar={revisar}
+        dcByDescricao={dcByDescricao} headers={headers} revisar={revisar}
         searchText={(it) => it.descricao} searchPlaceholder="Buscar descrição..."
         primeiraColuna={{
           header: 'Descrição', cellClassName: 'text-sm max-w-[280px] truncate',

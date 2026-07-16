@@ -17,6 +17,8 @@ export const HISTORICO_FIXO_HINT =
   'Texto fixo que será gravado no campo Histórico do SCI para esses lançamentos. ' +
   'Se deixar em branco, o sistema monta o histórico automaticamente ' +
   '(ex.: "VR REF RECEB - NOME DO PARTICIPANTE"). ' +
+  'Use o botão { } dentro do campo para inserir variáveis (valores de colunas do ' +
+  'arquivo ou partes da data), resolvidas linha a linha na geração do arquivo. ' +
   'Vírgulas são removidas automaticamente (quebrariam o layout do SCI).'
 
 export const PULAR_LINHA_HINT =

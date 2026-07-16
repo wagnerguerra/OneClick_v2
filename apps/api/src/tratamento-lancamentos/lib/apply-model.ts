@@ -13,7 +13,7 @@
 //   COLUNA_NAO_ENCONTRADA      coluna selecionada no De/Para ausente no arquivo
 // ============================================================
 
-import { matchPalavraChaveIndex, type TreatmentDefinition } from '@saas/types'
+import { matchPalavraChaveIndex, resolveHistorico, type TreatmentDefinition } from '@saas/types'
 import type { ExtractedTable, CellValue } from './extract-tabela'
 import { parseData, parseValor } from './parsers'
 import { buildSciLine, buildSciFile, type Direcao } from './sci-format'
@@ -256,9 +256,17 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition, anoC
       return
     }
 
+    // Resolve variáveis {{...}} do histórico fixo nesta linha: valores de colunas
+    // (row) e partes da data já parseada (yyyymmdd), sem re-parse.
+    const ymd = pd.yyyymmdd as string
+    const historicoFixoRaw = (match as CpMatch).historicoFixo
+    const historicoFixo = historicoFixoRaw
+      ? resolveHistorico(historicoFixoRaw, (h) => cell(row, h), { ano: ymd.slice(0, 4), mes: ymd.slice(4, 6), dia: ymd.slice(6, 8) })
+      : historicoFixoRaw
+
     lines.push(buildSciLine({
       numero: lines.length + 1,
-      yyyymmdd: pd.yyyymmdd as string,
+      yyyymmdd: ymd,
       direcao: direcao as Direcao,
       contaCorrente,
       contaContrapartida: (match as CpMatch).conta.trim(),
@@ -267,7 +275,7 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition, anoC
       participante,
       numeroNf,
       documento,
-      historicoFixo: (match as CpMatch).historicoFixo,
+      historicoFixo,
     }))
     pushTrace('ok', {
       direcao, contaContrapartida: (match as CpMatch).conta.trim(), contaCorrente,
