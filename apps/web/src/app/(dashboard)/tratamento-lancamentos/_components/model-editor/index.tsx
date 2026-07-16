@@ -14,7 +14,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import type { TreatmentDefinition, Direcao } from '@saas/types'
-import { EMPTY_TREATMENT_DEFINITION, stableStringify, formatValorExibicao, extrairMarcadorDC } from '@saas/types'
+import { EMPTY_TREATMENT_DEFINITION, stableStringify, formatValorExibicao, extrairMarcadorDC, matchPalavraChaveIndex } from '@saas/types'
 import { normalizeDefinition } from '../treatment-definition'
 import { DetectedRowsStatus } from '../detected-rows-status'
 import { trpc } from '@/lib/trpc'
@@ -299,6 +299,17 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     return { descricoes: [...map.entries()].map(([descricao, count]) => ({ descricao, count })), totalLinhas: total }
   }, [preview, descricaoColuna])
 
+  // Cobertura no modo palavra-chave: existe alguma descrição do arquivo que NENHUMA
+  // palavra-chave pega (→ CONTA_NAO_MAPEADA na conversão)? Memo no topo (regras de
+  // hooks) — recomputa só quando palavra-chave/descrições mudam, não a cada render;
+  // `some` corta no primeiro faltante (barato). Lido por probContrapartida (Salvar,
+  // avançar etapa e destaque de revisão), fresco no clique.
+  const temSemCorrespPC = useMemo(() => {
+    if (def.contrapartida.modo !== 'PALAVRA_CHAVE' || correspondencia.totalLinhas === 0) return false
+    const itens = def.contrapartida.palavraChave
+    return correspondencia.descricoes.some((d) => matchPalavraChaveIndex(d.descricao, itens) < 0)
+  }, [def.contrapartida.modo, def.contrapartida.palavraChave, correspondencia])
+
   // ---- Upload do arquivo-exemplo ------------------------------------------
   async function loadPreview(base64: string, filename: string) {
     setUploading(true)
@@ -464,11 +475,14 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         const semPalavra = itens.filter((it) => !it.palavraChave.trim()).length
         const semConta = itens.filter((it) => !it.pular && !it.conta.trim()).length
         if (semPalavra) p.push(`Em <b>Contrapartida</b>, preencha a <b>palavra-chave</b> em ${semPalavra} ${semPalavra === 1 ? 'item' : 'itens'}.`)
-        if (semConta) p.push(`Em <b>Contrapartida</b>, informe a <b>conta</b> em ${semConta} ${semConta === 1 ? 'item' : 'itens'}.`)
+        if (semConta) p.push(`Em <b>Contrapartida</b>, informe a <b>conta de contrapartida</b> em ${semConta} ${semConta === 1 ? 'item' : 'itens'}.`)
         if (dcByDescricao) {
           const semDir = itens.filter((it) => !it.pular && !it.direcao).length
           if (semDir) p.push(`Em <b>Contrapartida</b>, defina <b>Débito/Crédito</b> em ${semDir} ${semDir === 1 ? 'item' : 'itens'}.`)
         }
+        // Cobertura: descrições que nenhuma palavra-chave pega viram CONTA_NAO_MAPEADA
+        // na conversão (booleano memoizado no topo).
+        if (temSemCorrespPC) p.push('Em <b>Contrapartida</b>, adicione correspondências para os lançamentos ainda não correspondidos.')
       }
     } else {
       const itens = def.contrapartida.descricao
@@ -476,7 +490,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         p.push('Em <b>Contrapartida</b> (por descrição), envie o arquivo de exemplo e mapeie a coluna de descrição para listar as descrições.')
       } else {
         const semConta = itens.filter((it) => !it.pular && !it.conta.trim())
-        if (semConta.length) p.push(`Em <b>Contrapartida</b>, informe a <b>conta</b> ${semConta.length === 1 ? 'da descrição' : 'das descrições'}: ${listaResumo(semConta.map((it) => it.descricao))}.`)
+        if (semConta.length) p.push(`Em <b>Contrapartida</b>, informe a <b>conta de contrapartida</b> ${semConta.length === 1 ? 'da descrição' : 'das descrições'}: ${listaResumo(semConta.map((it) => it.descricao))}.`)
         if (dcByDescricao) {
           const semDir = itens.filter((it) => !it.pular && !it.direcao).length
           if (semDir) p.push(`Em <b>Contrapartida</b>, defina <b>Débito/Crédito</b> em ${semDir} ${semDir === 1 ? 'descrição' : 'descrições'}.`)
@@ -908,10 +922,11 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     </Card>
   )
 
-  // Pendências de MODELO por seção no modo revisão (#2). Recalculadas a cada
-  // render, então o realce/balão somem ao vivo conforme o usuário corrige.
-  // Quando a coluna ativa de CC/DC faltou no arquivo (âmbar), o vermelho é
-  // suprimido — o aviso âmbar no campo já explica a causa.
+  // Pendências de MODELO por seção no modo revisão (#2). Recalculadas conforme o
+  // usuário corrige, então o realce/balão somem ao vivo. Quando a coluna ativa de
+  // CC/DC faltou no arquivo (âmbar), o vermelho é suprimido — o aviso âmbar no
+  // campo já explica a causa. (A varredura de cobertura da contrapartida é
+  // memoizada no topo, em `temSemCorrespPC` — aqui só se lê o booleano.)
   const revProbs = {
     cc: modoRevisao && !fora.cc ? probContasCorrentes() : [],
     dc: modoRevisao && !fora.dc ? probDC() : [],
