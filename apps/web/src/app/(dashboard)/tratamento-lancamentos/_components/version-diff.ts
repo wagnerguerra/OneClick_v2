@@ -115,10 +115,10 @@ export function computeDiff(base: TreatmentDefinition, target: TreatmentDefiniti
     const out: DiffChange[] = []
     const ccModo: Record<TreatmentDefinition['contasCorrentes']['modo'], string> = { UNICA: 'Uma conta corrente', MULTIPLAS: 'Várias contas correntes' }
     cmpScalar('Modo', ccModo[base.contasCorrentes.modo], ccModo[target.contasCorrentes.modo], out)
-    cmpScalar('Conta única', base.contasCorrentes.unica, target.contasCorrentes.unica, out)
+    cmpScalar('Conta corrente única', base.contasCorrentes.unica, target.contasCorrentes.unica, out)
     cmpScalar('Coluna', base.contasCorrentes.coluna, target.contasCorrentes.coluna, out)
     const mapa = unionKeyed(base.contasCorrentes.mapa, target.contasCorrentes.mapa, (m) => m.valor)
-    diffKeyed(mapa, (valor) => `Valor "${valor}"`, [{ name: 'Conta', get: (m) => m.conta }], out)
+    diffKeyed(mapa, (valor) => `Valor "${valor}"`, [{ name: 'Conta corrente', get: (m) => m.conta }], out)
     if (out.length) groups.push({ section: 'Contas correntes', changes: out })
   }
 
@@ -156,7 +156,7 @@ export function computeDiff(base: TreatmentDefinition, target: TreatmentDefiniti
       pc,
       (k) => `Palavra-chave "${k}"`,
       [
-        { name: 'Conta', get: (it) => it.conta },
+        { name: 'Contrapartida', get: (it) => it.conta },
         { name: 'Histórico fixo', get: (it) => it.historicoFixo ?? '' },
         { name: 'Direção', get: (it) => dir(it.direcao) },
       ],
@@ -168,7 +168,7 @@ export function computeDiff(base: TreatmentDefinition, target: TreatmentDefiniti
       desc,
       (k) => `Descrição "${k}"`,
       [
-        { name: 'Conta', get: (it) => it.conta },
+        { name: 'Contrapartida', get: (it) => it.conta },
         { name: 'Histórico fixo', get: (it) => it.historicoFixo ?? '' },
         { name: 'Direção', get: (it) => dir(it.direcao) },
       ],

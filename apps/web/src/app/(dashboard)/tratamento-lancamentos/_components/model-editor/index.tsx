@@ -437,7 +437,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         const mapped = new Set(cc.mapa.filter((m) => m.conta.trim()).map((m) => m.valor))
         if (distinct.length) {
           const faltam = distinct.filter((v) => !mapped.has(v))
-          if (faltam.length) p.push(`Em <b>Contas correntes</b>, informe a conta ${faltam.length === 1 ? 'do valor' : 'dos valores'}: ${listaResumo(faltam)}.`)
+          if (faltam.length) p.push(`Em <b>Contas correntes</b>, informe a conta corrente ${faltam.length === 1 ? 'do valor' : 'dos valores'}: ${listaResumo(faltam)}.`)
         } else if (mapped.size === 0) {
           p.push('Em <b>Contas correntes</b>, informe as contas dos valores da coluna (envie o arquivo de exemplo para listá-los).')
         }
@@ -779,7 +779,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     <Card className="p-5 space-y-4">
       <StepHeader
         icon={Landmark} color="bg-cyan-500" title="Contas correntes"
-        hint="Se o arquivo traz lançamentos de mais de um banco/conta, escolha 'Várias contas' e indique a coluna que identifica a conta — então informe a conta contábil de cada uma. Caso contrário, informe uma única conta contábil."
+        hint="Se o arquivo traz lançamentos de mais de um banco/conta, escolha 'Várias contas correntes' e indique a coluna que identifica a conta — então informe a conta corrente de cada uma. Caso contrário, informe uma única conta."
       />
       <div className="space-y-2">
         <p className="text-[13px] font-semibold text-foreground">Este documento é referente a:</p>
@@ -883,7 +883,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     <Card className="p-5 space-y-4">
       <StepHeader
         icon={Network} color="bg-fuchsia-500" title="Mapeamento de contas de contrapartida"
-        hint="Informe a conta contábil de contrapartida de cada lançamento. Você pode mapear por palavra-chave encontrada na descrição, ou definir uma conta para cada descrição."
+        hint="Informe a conta de contrapartida de cada lançamento. Você pode mapear por palavra-chave encontrada na descrição, ou definir uma conta de contrapartida para cada descrição."
       />
       <div className="space-y-2">
         <p className="text-[13px] font-semibold text-foreground">Como mapear a contrapartida:</p>

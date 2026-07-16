@@ -183,7 +183,7 @@ export default function ModelosTratamentoPage() {
             <span className="hidden sm:inline">registros</span>
           </div>
           <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar por nome ou conta..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar por nome ou conta corrente..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
           </div>
         </div>
 

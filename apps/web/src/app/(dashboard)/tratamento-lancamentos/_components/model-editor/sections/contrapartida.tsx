@@ -228,7 +228,7 @@ function BatchInput({ placeholder, numeric, variaveis, onApply }: { placeholder:
 
 /**
  * Tabela compartilhada pelas duas modalidades de contrapartida (por descrição e
- * por palavra-chave). As colunas Conta / Histórico fixo / Direção / Pular — e
+ * por palavra-chave). As colunas Contrapartida / Histórico fixo / Direção / Pular — e
  * toda a lógica de validação (borda vermelha), disabled e line-through quando
  * "pular" está marcado — vivem SÓ aqui. O que muda entre os modos é a 1ª coluna
  * (`primeiraColuna`) e a existência de Adicionar/Remover (`onAdd`/`onRemove`).

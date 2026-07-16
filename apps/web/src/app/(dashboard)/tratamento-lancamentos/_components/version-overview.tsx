@@ -81,7 +81,7 @@ export function VersionOverview({ def, compareTo, compareLabel = 'versão atual'
             hasCompare={cmp}
             compareLabel={compareLabel}
             defIsNewer={defIsNewer}
-            emptyHint="Nenhuma conta mapeada."
+            emptyHint="Nenhuma conta corrente mapeada."
           />
         )}
       </Section>
@@ -157,7 +157,7 @@ function ContrapartidaList({ def, compareTo, compareLabel, defIsNewer }: { def: 
         <thead className="bg-muted/40 text-muted-foreground">
           <tr>
             <th className="px-2 py-1.5 text-left font-medium">{keyLabel}</th>
-            <th className="px-2 py-1.5 text-left font-medium w-[120px]">Conta</th>
+            <th className="px-2 py-1.5 text-left font-medium w-[120px]">Contrapartida</th>
             <th className="px-2 py-1.5 text-left font-medium">Histórico fixo</th>
             <th className="px-2 py-1.5 text-left font-medium w-[90px]">Direção</th>
           </tr>
