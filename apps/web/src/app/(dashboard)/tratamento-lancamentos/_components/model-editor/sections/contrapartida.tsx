@@ -290,30 +290,9 @@ function ContrapartidaTabela<T extends CpItemComum>({
           <TableHeader>
             <TableRow>
               <TableHead className={primeiraColuna.className}>{primeiraColuna.header}</TableHead>
-              <TableHead className="w-[130px]">
-                <span className="inline-flex items-center gap-1">
-                  Conta
-                  {batchable && (
-                    <BatchFill scopeLabel={scopeLabel}>
-                      {(close) => <BatchInput placeholder="Conta" numeric onApply={(v) => { batchApply({ conta: v } as Partial<T>); close() }} />}
-                    </BatchFill>
-                  )}
-                </span>
-              </TableHead>
-              <TableHead>
-                <span className="inline-flex items-center gap-1">
-                  Histórico fixo (opcional)
-                  <HelpTip text={HISTORICO_FIXO_HINT} />
-                  {batchable && (
-                    <BatchFill scopeLabel={scopeLabel}>
-                      {(close) => <BatchInput placeholder="Histórico fixo" onApply={(v) => { batchApply({ historicoFixo: v } as Partial<T>); close() }} />}
-                    </BatchFill>
-                  )}
-                </span>
-              </TableHead>
               {dcByDescricao && (
                 <TableHead className="w-[180px]">
-                  <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex items-center gap-2">
                     Direção na conta corrente
                     {batchable && (
                       <BatchFill scopeLabel={scopeLabel}>
@@ -328,8 +307,29 @@ function ContrapartidaTabela<T extends CpItemComum>({
                   </span>
                 </TableHead>
               )}
+              <TableHead className="w-[160px]">
+                <span className="inline-flex items-center gap-2">
+                  Contrapartida
+                  {batchable && (
+                    <BatchFill scopeLabel={scopeLabel}>
+                      {(close) => <BatchInput placeholder="Contrapartida" numeric onApply={(v) => { batchApply({ conta: v } as Partial<T>); close() }} />}
+                    </BatchFill>
+                  )}
+                </span>
+              </TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-2">
+                  Histórico fixo (opcional)
+                  <HelpTip text={HISTORICO_FIXO_HINT} />
+                  {batchable && (
+                    <BatchFill scopeLabel={scopeLabel}>
+                      {(close) => <BatchInput placeholder="Histórico fixo" onApply={(v) => { batchApply({ historicoFixo: v } as Partial<T>); close() }} />}
+                    </BatchFill>
+                  )}
+                </span>
+              </TableHead>
               <TableHead className="w-[90px]">
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-2">
                   Pular <HelpTip text={PULAR_LINHA_HINT} />
                   {batchable && (
                     <BatchFill scopeLabel={scopeLabel}>
@@ -352,8 +352,6 @@ function ContrapartidaTabela<T extends CpItemComum>({
               return (
               <TableRow key={i} className={rowClassName}>
                 <TableCell className={primeiraColuna.cellClassName}>{primeiraColuna.render(it, i)}</TableCell>
-                <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', !pular && !it.conta.trim() && invalidCls(revisar), pular && 'line-through placeholder:line-through')} placeholder="Conta" inputMode="numeric" value={it.conta} onChange={(e) => handleUpdate(i, { conta: soDigitos(e.target.value) } as Partial<T>)} /></TableCell>
-                <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', pular && 'line-through placeholder:line-through')} placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => handleUpdate(i, { historicoFixo: semSeparador(e.target.value) } as Partial<T>)} /></TableCell>
                 {dcByDescricao && (
                   <TableCell>
                     <Select value={it.direcao ?? ''} onValueChange={(v) => handleUpdate(i, { direcao: v as Direcao } as Partial<T>)} disabled={pular}>
@@ -362,6 +360,8 @@ function ContrapartidaTabela<T extends CpItemComum>({
                     </Select>
                   </TableCell>
                 )}
+                <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', !pular && !it.conta.trim() && invalidCls(revisar), pular && 'line-through placeholder:line-through')} placeholder="Contrapartida" inputMode="numeric" value={it.conta} onChange={(e) => handleUpdate(i, { conta: soDigitos(e.target.value) } as Partial<T>)} /></TableCell>
+                <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', pular && 'line-through placeholder:line-through')} placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(e) => handleUpdate(i, { historicoFixo: semSeparador(e.target.value) } as Partial<T>)} /></TableCell>
                 <TableCell><div className="flex justify-center"><Checkbox checked={pular} onCheckedChange={(v) => handleUpdate(i, { pular: !!v } as Partial<T>)} /></div></TableCell>
                 {onRemove && (
                   <TableCell>
