@@ -312,9 +312,9 @@ function ContrapartidaTabela<T extends CpItemComum>({
                 </span>
               </TableHead>
               {dcByDescricao && (
-                <TableHead className="w-[120px]">
+                <TableHead className="w-[180px]">
                   <span className="inline-flex items-center gap-1">
-                    Direção
+                    Direção na conta corrente
                     {batchable && (
                       <BatchFill scopeLabel={scopeLabel}>
                         {(close) => (
