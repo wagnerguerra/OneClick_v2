@@ -128,11 +128,36 @@ export const contrapartidaDescricaoItem = z.object({
 // alternar o modo NÃO perca o que foi preenchido no outro — persistido na
 // definição (sobrevive a salvar/fechar/reabrir o modelo).
 export const contrapartidaSchema = z.object({
-  modo: z.enum(['PALAVRA_CHAVE', 'DESCRICAO']).default('DESCRICAO'),
+  modo: z.enum(['PALAVRA_CHAVE', 'DESCRICAO']).default('PALAVRA_CHAVE'),
   palavraChave: z.array(contrapartidaPalavraChaveItem).default([]),
   descricao: z.array(contrapartidaDescricaoItem).default([]),
 })
 export type ContrapartidaRule = z.infer<typeof contrapartidaSchema>
+
+/**
+ * Índice da 1ª palavra-chave que corresponde à descrição, ou -1. **Fonte única da
+ * regra de correspondência por palavra-chave** — usada tanto na conversão
+ * (`apply-model`) quanto no painel de correspondência do editor, para que o número
+ * mostrado ao usuário seja SEMPRE igual ao da conversão real. Regra: substring
+ * case-insensitive; vence a palavra-chave cuja ocorrência começa MAIS CEDO no texto;
+ * empate de posição → a primeira na ordem da lista. Itens com palavra-chave em branco
+ * são ignorados.
+ */
+export function matchPalavraChaveIndex(
+  descricao: string,
+  itens: ReadonlyArray<{ palavraChave: string }>,
+): number {
+  const lower = descricao.toLowerCase()
+  let bestIdx = -1
+  let bestPos = Number.POSITIVE_INFINITY
+  for (let i = 0; i < itens.length; i++) {
+    const kw = itens[i]!.palavraChave.trim().toLowerCase()
+    if (!kw) continue
+    const pos = lower.indexOf(kw)
+    if (pos >= 0 && pos < bestPos) { bestPos = pos; bestIdx = i }
+  }
+  return bestIdx
+}
 
 // ---- Conta(s) corrente(s) --------------------------------------------------
 // UNICA: uma conta para todos os lançamentos (comportamento padrão).
@@ -163,7 +188,7 @@ export const EMPTY_TREATMENT_DEFINITION: TreatmentDefinition = {
   contasCorrentes: { modo: 'UNICA', unica: '', coluna: '', mapa: [] },
   columnMapping: { descricao: '', participante: '', valor: '', data: '', numeroNf: '', documento: '' },
   debitoCredito: { tipo: 'COLUNA', coluna: '', mapa: [] },
-  contrapartida: { modo: 'DESCRICAO', palavraChave: [], descricao: [] },
+  contrapartida: { modo: 'PALAVRA_CHAVE', palavraChave: [], descricao: [] },
 }
 
 // ---- CRUD do Modelo de Tratamento ------------------------------------------
