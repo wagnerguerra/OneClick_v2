@@ -42,30 +42,31 @@ const SWAL_TITLE_FIX = '<style>.swal2-title{word-break:normal;overflow-wrap:brea
 // valor fixo atende importações de extrato bancário, onde esse dado não vem no
 // arquivo mas precisa ser informado. Trocar de modo limpa o outro (exclusividade).
 function CampoDocumento({
-  headers, coluna, fixo, foraCol, samples, onColuna, onFixo,
+  headers, coluna, fixo, foraCol, samples, ativo, onAtivoChange, onColuna, onFixo,
 }: {
   headers: string[]
   coluna: string
   fixo: string
   foraCol?: string
   samples: string[]
+  ativo: boolean
+  onAtivoChange: (v: boolean) => void
   onColuna: (v: string) => void
   onFixo: (v: string) => void
 }) {
-  const [usarFixo, setUsarFixo] = useState<boolean>(!!fixo)
   // Trocar de modo limpa o outro (coluna e valor fixo são exclusivos).
-  const toggle = (v: boolean) => { if (v) { onColuna(''); setUsarFixo(true) } else { onFixo(''); setUsarFixo(false) } }
+  const toggle = (v: boolean) => { if (v) { onColuna(''); onAtivoChange(true) } else { onFixo(''); onAtivoChange(false) } }
   return (
     <div className="space-y-1.5">
       <div className="relative mb-0">
-        <Label className="text-[13px] font-semibold">CNPJ/CPF do participante</Label>
+        <Label className="text-[13px] font-semibold">CNPJ/CPF do participante {ativo && <span className="text-destructive">*</span>}</Label>
         <label className="absolute right-0 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] text-muted-foreground cursor-pointer">
           Valor fixo
           <HelpTip text="Use apenas em importações de extrato bancário, em que o CNPJ/CPF não vem no arquivo mas precisa ser informado. O mesmo valor será usado em todos os lançamentos." />
-          <Checkbox checked={usarFixo} onCheckedChange={(v) => toggle(!!v)} />
+          <Checkbox checked={ativo} onCheckedChange={(v) => toggle(!!v)} />
         </label>
       </div>
-      {usarFixo ? (
+      {ativo ? (
         <Input className="h-9 text-sm" placeholder="Digite o CNPJ/CPF..." value={fixo} onChange={(e) => onFixo(e.target.value)} />
       ) : (
         <>
@@ -115,6 +116,9 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   const [def, setDef] = useState<TreatmentDefinition>(EMPTY_TREATMENT_DEFINITION)
   const [preview, setPreview] = useState<PreviewData | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
+  // "Valor fixo" do CNPJ/CPF ativo (modo do CampoDocumento). Não persiste: deriva
+  // do documentoFixo ao carregar; enquanto ativo, o valor é obrigatório.
+  const [docFixoAtivo, setDocFixoAtivo] = useState(false)
 
   // Detecção de alterações não salvas.
   const baselineRef = useRef<string>('')
@@ -151,6 +155,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         setNome(m.nome)
         setIsActive(m.isActive)
         setDef(loadedDef)
+        setDocFixoAtivo(!!loadedDef.columnMapping.documentoFixo)
         baselineRef.current = serializeForm(m.nome, m.isActive, loadedDef)
       } catch {
         alerts.error('Erro', 'Não foi possível carregar o Modelo.')
@@ -405,6 +410,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     if (!def.columnMapping.descricao) p.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Descrição do lançamento</b>.')
     if (!def.columnMapping.valor) p.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Valor</b>.')
     if (!def.columnMapping.data) p.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Data</b>.')
+    if (docFixoAtivo && !def.columnMapping.documentoFixo?.trim()) p.push('Em <b>De/Para de colunas</b>, informe o <b>CNPJ/CPF do participante</b> (valor fixo) ou desmarque a opção.')
     return p
   }
   function probContasCorrentes(): string[] {
@@ -745,6 +751,8 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
             fixo={def.columnMapping.documentoFixo || ''}
             foraCol={fora.dePara.documento}
             samples={samplesFor(def.columnMapping.documento || '')}
+            ativo={docFixoAtivo}
+            onAtivoChange={setDocFixoAtivo}
             onColuna={(v) => setMap('documento', v)}
             onFixo={(v) => setMap('documentoFixo', v)}
           />
