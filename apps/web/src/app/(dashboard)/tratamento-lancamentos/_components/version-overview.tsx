@@ -32,7 +32,8 @@ const CC_MODO_LABEL: Record<TreatmentDefinition['contasCorrentes']['modo'], stri
 }
 const COLUMN_LABELS: Record<keyof TreatmentDefinition['columnMapping'], string> = {
   descricao: 'Descrição do lançamento', valor: 'Valor', data: 'Data',
-  participante: 'Participante', numeroNf: 'Número da NF', documento: 'CNPJ/CPF',
+  participante: 'Participante', numeroNf: 'Número da NF',
+  documento: 'CNPJ/CPF do participante', documentoFixo: 'CNPJ/CPF do participante (valor fixo)',
 }
 
 interface Props {

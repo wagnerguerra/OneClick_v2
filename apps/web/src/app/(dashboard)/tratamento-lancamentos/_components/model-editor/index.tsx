@@ -27,7 +27,7 @@ import { VersionHistoryDialog } from '../version-history-dialog'
 import type { PreviewData, Props } from './types'
 import { MAP_FIELDS } from './types'
 import { soDigitos, listaResumo, serializeForm, confirmarSaidaSemSalvar, esc } from './utils'
-import { StepHeader, EmptyHint, Stepper, ModeCards, ColumnSelect, FloatingActionBar } from './ui'
+import { StepHeader, EmptyHint, Stepper, ModeCards, ColumnSelect, FloatingActionBar, HelpTip } from './ui'
 import { DebitoCreditoColunaMap } from './sections/debito-credito'
 import { ContasCorrentesMap } from './sections/contas-correntes'
 import { ContrapartidaPalavraChave, ContrapartidaDescricao } from './sections/contrapartida'
@@ -36,6 +36,58 @@ import { ContrapartidaPalavraChave, ContrapartidaDescricao } from './sections/co
 // um <h2> e herda o `word-break: break-all` global, que o quebra no meio da
 // palavra. Vive só enquanto o alerta está aberto (sem tocar no globals).
 const SWAL_TITLE_FIX = '<style>.swal2-title{word-break:normal;overflow-wrap:break-word}</style>'
+
+// Campo "CNPJ/CPF do participante" do De/Para. Diferente dos demais: o dado pode
+// vir de uma COLUNA do arquivo OU de um VALOR FIXO (alternativas exclusivas). O
+// valor fixo atende importações de extrato bancário, onde esse dado não vem no
+// arquivo mas precisa ser informado. Trocar de modo limpa o outro (exclusividade).
+function CampoDocumento({
+  headers, coluna, fixo, foraCol, samples, onColuna, onFixo,
+}: {
+  headers: string[]
+  coluna: string
+  fixo: string
+  foraCol?: string
+  samples: string[]
+  onColuna: (v: string) => void
+  onFixo: (v: string) => void
+}) {
+  const [usarFixo, setUsarFixo] = useState<boolean>(!!fixo)
+  // Trocar de modo limpa o outro (coluna e valor fixo são exclusivos).
+  const toggle = (v: boolean) => { if (v) { onColuna(''); setUsarFixo(true) } else { onFixo(''); setUsarFixo(false) } }
+  return (
+    <div className="space-y-1.5">
+      <div className="relative mb-0">
+        <Label className="text-[13px] font-semibold">CNPJ/CPF do participante</Label>
+        <label className="absolute right-0 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] text-muted-foreground cursor-pointer">
+          Valor fixo
+          <HelpTip text="Use apenas em importações de extrato bancário, em que o CNPJ/CPF não vem no arquivo mas precisa ser informado. O mesmo valor será usado em todos os lançamentos." />
+          <Checkbox checked={usarFixo} onCheckedChange={(v) => toggle(!!v)} />
+        </label>
+      </div>
+      {usarFixo ? (
+        <Input className="h-9 text-sm" placeholder="Digite o CNPJ/CPF..." value={fixo} onChange={(e) => onFixo(e.target.value)} />
+      ) : (
+        <>
+          <ColumnSelect headers={headers} value={coluna} optional onChange={onColuna}
+            className={foraCol ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
+          {foraCol && (
+            <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-3 w-3 shrink-0" /> A coluna &quot;{foraCol}&quot; não está no arquivo enviado.
+            </p>
+          )}
+          <p className="text-[11px] text-muted-foreground">Opcional — pré-selecionado se houver coluna &quot;CNPJ&quot;.</p>
+          {samples.length > 0 && (
+            <div className="text-[11px] text-muted-foreground/80">
+              <span className="font-medium">Prévia de dados:</span>
+              {samples.map((s, i) => <div key={i} className="truncate">{s}</div>)}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
 
 export function ModelEditor({ mode, modelId, backTo }: Props) {
   const router = useRouter()
@@ -199,7 +251,8 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   const headers = useMemo<string[]>(() => {
     if (preview) return preview.headers
     const fromDef = new Set<string>()
-    Object.values(def.columnMapping).forEach((v) => { if (v) fromDef.add(v) })
+    // `documentoFixo` é um valor literal (CNPJ/CPF), não um nome de coluna — fora daqui.
+    Object.entries(def.columnMapping).forEach(([k, v]) => { if (v && k !== 'documentoFixo') fromDef.add(v) })
     if (def.debitoCredito.tipo === 'COLUNA' && def.debitoCredito.coluna) fromDef.add(def.debitoCredito.coluna)
     if (def.contasCorrentes.modo === 'MULTIPLAS' && def.contasCorrentes.coluna) fromDef.add(def.contasCorrentes.coluna)
     return [...fromDef]
@@ -686,6 +739,15 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
               </div>
             )
           })}
+          <CampoDocumento
+            headers={headers}
+            coluna={def.columnMapping.documento || ''}
+            fixo={def.columnMapping.documentoFixo || ''}
+            foraCol={fora.dePara.documento}
+            samples={samplesFor(def.columnMapping.documento || '')}
+            onColuna={(v) => setMap('documento', v)}
+            onFixo={(v) => setMap('documentoFixo', v)}
+          />
         </div>
       )}
     </Card>
@@ -987,6 +1049,7 @@ function colunasForaDoArquivo(defOrig: TreatmentDefinition | null, headers?: str
   const hset = new Set(headers)
   const cm = defOrig.columnMapping
   for (const k of Object.keys(cm) as Array<keyof typeof cm>) {
+    if (k === 'documentoFixo') continue // valor literal, não é coluna do arquivo
     const col = cm[k]
     if (col && !hset.has(col)) out.dePara[k] = col
   }

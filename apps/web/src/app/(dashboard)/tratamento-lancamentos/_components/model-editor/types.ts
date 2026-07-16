@@ -31,7 +31,8 @@ export const MAP_FIELDS: Array<{ key: keyof TreatmentDefinition['columnMapping']
   { key: 'data', label: 'Data', req: true },
   { key: 'participante', label: 'Nome do participante', hint: 'Opcional — usado no histórico do SCI' },
   { key: 'numeroNf', label: 'Número da NF', hint: 'Opcional' },
-  { key: 'documento', label: 'CNPJ/CPF', hint: 'Opcional — pré-selecionado se houver coluna "CNPJ"' },
+  // `documento` (CNPJ/CPF) é renderizado à parte (CampoDocumento) por ter o modo
+  // "coluna vs. valor fixo"; não entra neste loop genérico.
 ]
 
 // Cores de destaque do card ativo, por etapa (classes estáticas p/ o Tailwind enxergar).

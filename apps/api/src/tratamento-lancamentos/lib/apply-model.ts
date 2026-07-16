@@ -145,7 +145,10 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition, anoC
     const descricao = cell(row, cm.descricao)
     const participante = cm.participante ? cell(row, cm.participante) : ''
     const numeroNf = cm.numeroNf ? cell(row, cm.numeroNf) : ''
-    const documento = cm.documento ? cell(row, cm.documento) : ''
+    // CNPJ/CPF: valor fixo (extrato bancário, sem a coluna) tem prioridade; senão
+    // lê da coluna mapeada. São mutuamente exclusivos no editor.
+    const documentoFixo = cm.documentoFixo?.trim() ?? ''
+    const documento = documentoFixo || (cm.documento ? cell(row, cm.documento) : '')
 
     if (!descricao && !faltantes.has(cm.descricao)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.descricao, mensagem: 'Descrição vazia. Não foi possível determinar a contrapartida.' })
     // Colunas opcionais do De/Para: se SELECIONADAS (e presentes), também precisam

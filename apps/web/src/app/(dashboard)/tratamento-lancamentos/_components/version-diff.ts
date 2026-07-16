@@ -37,7 +37,8 @@ const COLUMN_FIELD_LABELS: Record<keyof TreatmentDefinition['columnMapping'], st
   data: 'Data',
   participante: 'Participante',
   numeroNf: 'Número da NF',
-  documento: 'CNPJ/CPF',
+  documento: 'CNPJ/CPF do participante',
+  documentoFixo: 'CNPJ/CPF do participante (valor fixo)',
 }
 
 const DC_TIPO_LABEL: Record<TreatmentDefinition['debitoCredito']['tipo'], string> = {

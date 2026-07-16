@@ -73,6 +73,11 @@ export const columnMappingSchema = z.object({
   data: z.string().min(1, 'Selecione a coluna de data'),
   numeroNf: z.string().optional().or(z.literal('')),
   documento: z.string().optional().or(z.literal('')),
+  // Valor fixo do CNPJ/CPF do participante — ALTERNATIVA à coluna `documento`
+  // (nunca os dois juntos). Para importações de extrato bancário, onde o dado
+  // não vem no arquivo mas precisa ser informado: o mesmo valor vai em todos os
+  // lançamentos. Vazio = usa a coluna `documento`.
+  documentoFixo: z.string().optional().or(z.literal('')),
 })
 export type ColumnMapping = z.infer<typeof columnMappingSchema>
 
@@ -186,7 +191,7 @@ export type TreatmentDefinition = z.infer<typeof treatmentDefinitionSchema>
 /** Definição "vazia" usada ao criar um Modelo antes de configurar o wizard. */
 export const EMPTY_TREATMENT_DEFINITION: TreatmentDefinition = {
   contasCorrentes: { modo: 'UNICA', unica: '', coluna: '', mapa: [] },
-  columnMapping: { descricao: '', participante: '', valor: '', data: '', numeroNf: '', documento: '' },
+  columnMapping: { descricao: '', participante: '', valor: '', data: '', numeroNf: '', documento: '', documentoFixo: '' },
   debitoCredito: { tipo: 'COLUNA', coluna: '', mapa: [] },
   contrapartida: { modo: 'PALAVRA_CHAVE', palavraChave: [], descricao: [] },
 }
