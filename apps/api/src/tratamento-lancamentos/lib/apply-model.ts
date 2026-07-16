@@ -215,11 +215,11 @@ export function applyModel(table: ExtractedTable, def: TreatmentDefinition, anoC
         else direcao = dir
       }
     } else if (def.debitoCredito.tipo === 'SINAL') {
-      // Direção pelo sinal do valor: negativo = débito, positivo = crédito.
+      // Direção pelo sinal do valor: negativo = crédito, positivo = débito.
       // (o parser já converteu marcadores C/CD/D/DB em sinal.) Valor inválido já
       // gerou VALOR_INVALIDO; valor zero já foi ignorado acima.
       if (pv.valid && pv.value !== null) {
-        direcao = pv.value < 0 ? 'DEBITO' : 'CREDITO'
+        direcao = pv.value < 0 ? 'CREDITO' : 'DEBITO'
       }
     } else if (match) {
       if (match.direcao) direcao = match.direcao

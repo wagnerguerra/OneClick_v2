@@ -747,7 +747,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     <Card className="p-5 space-y-4">
       <StepHeader
         icon={ArrowLeftRight} color="bg-orange-500" title="Definição de Débito / Crédito"
-        hint="O sistema precisa saber se cada lançamento é um débito ou um crédito. Escolha a origem dessa informação: uma coluna da planilha, as descrições dos lançamentos, ou o sinal dos valores (negativo = débito, positivo = crédito)."
+        hint="O sistema precisa saber se cada lançamento é um débito ou um crédito. Escolha a origem dessa informação: uma coluna da planilha, as descrições dos lançamentos, ou o sinal dos valores (negativo = crédito na conta corrente, positivo = débito na conta corrente)."
       />
       <div className="space-y-2">
         <p className="text-[13px] font-semibold text-foreground">O tipo (débito ou crédito) é definido:</p>
@@ -784,7 +784,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       ) : def.debitoCredito.tipo === 'SINAL' ? (
         <div className="flex items-start gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
           <Info className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>A direção será interpretada pelo <b>sinal de cada valor</b> dos lançamentos: valores <b>negativos</b> serão Débitos e <b>positivos</b> serão Créditos.</span>
+          <span>A direção será interpretada pelo <b>sinal de cada valor</b> dos lançamentos: valores <b>negativos serão Créditos na conta corrente</b>, e <b>positivos serão Débitos na conta corrente</b>.</span>
         </div>
       ) : (
         <div className="flex items-start gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">

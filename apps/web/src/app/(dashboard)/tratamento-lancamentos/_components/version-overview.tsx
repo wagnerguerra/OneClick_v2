@@ -117,7 +117,7 @@ export function VersionOverview({ def, compareTo, compareLabel = 'versão atual'
             emptyHint="Nenhum valor mapeado."
           />
         ) : def.debitoCredito.tipo === 'SINAL' ? (
-          <p className="text-xs text-muted-foreground italic">A direção vem do sinal do valor (negativo = débito, positivo = crédito).</p>
+          <p className="text-xs text-muted-foreground italic">A direção vem do sinal do valor (negativo = crédito na conta corrente, positivo = débito na conta corrente).</p>
         ) : (
           <p className="text-xs text-muted-foreground italic">A direção é definida em cada item de contrapartida.</p>
         )}
