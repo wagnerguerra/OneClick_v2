@@ -87,6 +87,19 @@ export function colLetter(i: number): string {
 const SECTION_LABEL_RE = /^\s*(caixa\s*\/\s*banco|banco|conta(?:\s+corrente)?|carteira|portador)\s*:/i
 const TOTAL_RE = /total|prestaç|listad/i
 
+// Cabeçalho de grupo por DATA em relatórios paginados/agrupados: alguns relatórios
+// agrupam os lançamentos por dia e trazem a data SÓ num cabeçalho de bloco
+// ("DT. PAGAMENTO: 04/05/2026") — nunca numa coluna do corpo. Reconhecemos esse
+// cabeçalho (rótulo começa com "DT"/"DATA" e termina em ":", com UMA data isolada na
+// linha) e propagamos a data (carry-forward) como coluna sintética, igual à seção.
+const ISOLATED_DATE_RE = /^\d{2}\/\d{2}\/\d{4}(?: \d{2}:\d{2})?$/
+function isDateGroupLabel(raw: string): boolean {
+  const t = raw.trim()
+  if (!t.endsWith(':')) return false
+  const head = t.toUpperCase()
+  return head.startsWith('DT.') || head.startsWith('DT ') || head.startsWith('DT:') || head.startsWith('DATA')
+}
+
 /**
  * Formata uma data do Excel para "dd/MM/aaaa" (ou com hora, quando há).
  * O SheetJS (`cellDates: true`) constrói a Date na MEIA-NOITE LOCAL e ainda
@@ -136,13 +149,17 @@ function scoreSheet(matrix: Matrix): number {
 
 // ---- Construção da tabela (comum aos dois modos) ---------------------------
 
-interface DataRowRef { i: number; section?: string }
+interface DataRowRef {
+  i: number
+  /** Snapshot dos valores carregados (carry-forward) vigentes nesta linha: rótulo→valor. */
+  carried?: Record<string, string>
+}
 
 /**
  * Monta a `ExtractedTable` a partir de um conjunto de linhas de dados, expondo
  * TODAS as colunas do corpo (união das colunas preenchidas), nomeadas pelo
- * cabeçalho onde houver — senão "Coluna X". Prefixa a coluna sintética de seção
- * quando informada.
+ * cabeçalho onde houver — senão "Coluna X". Prefixa as colunas sintéticas de
+ * carry-forward (seção/banco e/ou data de grupo) na ordem em que apareceram.
  */
 function buildTable(
   matrix: Matrix,
@@ -150,7 +167,7 @@ function buildTable(
   headerRowIndex: number,
   dataRows: DataRowRef[],
   mode: 'single' | 'report',
-  sectionColumn?: string,
+  carriedOrder: string[] = [],
 ): ExtractedTable {
   const headerRow = matrix[headerRowIndex] ?? []
 
@@ -166,8 +183,8 @@ function buildTable(
     return dup > 0 ? `${base} (${dup + 1})` : base
   }
 
-  // Reserva o nome da coluna sintética primeiro (para não colidir com o corpo).
-  const sectionName = sectionColumn ? uniqueName(sectionColumn) : null
+  // Reserva os nomes das colunas sintéticas primeiro (para não colidir com o corpo).
+  const carriedNames = carriedOrder.map((label) => ({ label, name: uniqueName(label) }))
 
   const nameByCol = new Map<number, string>()
   for (const c of bodyCols) {
@@ -176,13 +193,13 @@ function buildTable(
     nameByCol.set(c, uniqueName(base))
   }
 
-  const headers: string[] = [...(sectionName ? [sectionName] : []), ...bodyCols.map((c) => nameByCol.get(c)!)]
+  const headers: string[] = [...carriedNames.map((c) => c.name), ...bodyCols.map((c) => nameByCol.get(c)!)]
 
   const rows: Array<Record<string, CellValue>> = []
-  for (const { i, section } of dataRows) {
+  for (const { i, carried } of dataRows) {
     const row = matrix[i] ?? []
     const obj: Record<string, CellValue> = {}
-    if (sectionName) obj[sectionName] = section ?? ''
+    for (const { label, name } of carriedNames) obj[name] = carried?.[label] ?? ''
     for (const c of bodyCols) {
       const v = row[c]
       obj[nameByCol.get(c)!] = isFilled(v) ? v : null
@@ -201,7 +218,8 @@ function buildTable(
       bodyEndIndex: indices.length ? Math.max(...indices) : headerRowIndex,
       totalDataRows: rows.length,
       mode,
-      ...(sectionName ? { sectionColumn: sectionName } : {}),
+      // Compat: `sectionColumn` (campo único) aponta para a 1ª coluna carregada.
+      ...(carriedNames.length ? { sectionColumn: carriedNames[0]!.name } : {}),
     },
   }
 }
@@ -233,13 +251,33 @@ function detectRepeatedHeader(matrix: Matrix): RepeatedHeader | null {
 /** Extrai um relatório paginado/agrupado a partir de um cabeçalho repetido. */
 function extractReport(matrix: Matrix, sheetName: string, header: RepeatedHeader): ExtractedTable | null {
   const COVERAGE = 0.7
-  let currentSection = ''
-  let sectionColumn: string | undefined
+  const carried = new Map<string, string>() // rótulo → valor corrente (carry-forward)
+  const order: string[] = [] // ordem de 1ª aparição dos rótulos carregados
   const dataRows: DataRowRef[] = []
+
+  const setCarried = (label: string, value: string): void => {
+    if (!order.includes(label)) order.push(label)
+    carried.set(label, value)
+  }
+  const snapshot = (): Record<string, string> | undefined =>
+    order.length ? Object.fromEntries(order.map((l) => [l, carried.get(l) ?? ''])) : undefined
 
   matrix.forEach((row, i) => {
     const cols = filledCols(row)
     if (cols.length === 0) return
+
+    // Cabeçalho de grupo por DATA ("DT. PAGAMENTO: 04/05/2026"): rótulo + data isolada.
+    // A data só existe aqui (não numa coluna do corpo) → propaga como coluna sintética.
+    const dateLabelCol = row.findIndex((c) => isFilled(c) && isDateGroupLabel(String(c)))
+    if (dateLabelCol >= 0) {
+      const dateVal = row.find((c) => isFilled(c) && ISOLATED_DATE_RE.test(String(c).trim()))
+      if (dateVal != null) {
+        const lbl = String(row[dateLabelCol])
+        const name = lbl.slice(0, lbl.indexOf(':')).trim()
+        if (name) setCarried(name, String(dateVal).trim())
+      }
+      return // linha de cabeçalho de grupo nunca é lançamento
+    }
 
     // Cabeçalho de seção: célula que começa com "<Rótulo>:". O rótulo (sem ":")
     // vira o nome da coluna sintética; o valor = demais células preenchidas.
@@ -247,8 +285,8 @@ function extractReport(matrix: Matrix, sheetName: string, header: RepeatedHeader
     if (secCell >= 0) {
       const label = String(row[secCell])
       const colName = label.slice(0, label.indexOf(':')).trim()
-      if (!sectionColumn && colName) sectionColumn = colName
-      currentSection = cols.filter((c) => c !== secCell).map((c) => String(row[c]).trim()).join(' ').replace(/\s+/g, ' ').trim()
+      const value = cols.filter((c) => c !== secCell).map((c) => String(row[c]).trim()).join(' ').replace(/\s+/g, ' ').trim()
+      if (colName) setCarried(colName, value)
       return
     }
 
@@ -260,11 +298,11 @@ function extractReport(matrix: Matrix, sheetName: string, header: RepeatedHeader
     const cover = header.cols.filter((c) => isFilled(row[c])).length / header.cols.length
     if (cover < COVERAGE) return
 
-    dataRows.push({ i, section: sectionColumn ? currentSection : undefined })
+    dataRows.push({ i, carried: snapshot() })
   })
 
   if (dataRows.length === 0) return null
-  return buildTable(matrix, sheetName, header.rowIndex, dataRows, 'report', sectionColumn)
+  return buildTable(matrix, sheetName, header.rowIndex, dataRows, 'report', order)
 }
 
 // ---- Modo TABELA ÚNICA -----------------------------------------------------
