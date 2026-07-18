@@ -73,6 +73,11 @@ export const columnMappingSchema = z.object({
   data: z.string().min(1, 'Selecione a coluna de data'),
   numeroNf: z.string().optional().or(z.literal('')),
   documento: z.string().optional().or(z.literal('')),
+  // Valor fixo do CNPJ/CPF do participante — ALTERNATIVA à coluna `documento`
+  // (nunca os dois juntos). Para importações de extrato bancário, onde o dado
+  // não vem no arquivo mas precisa ser informado: o mesmo valor vai em todos os
+  // lançamentos. Vazio = usa a coluna `documento`.
+  documentoFixo: z.string().optional().or(z.literal('')),
 })
 export type ColumnMapping = z.infer<typeof columnMappingSchema>
 
@@ -186,9 +191,52 @@ export type TreatmentDefinition = z.infer<typeof treatmentDefinitionSchema>
 /** Definição "vazia" usada ao criar um Modelo antes de configurar o wizard. */
 export const EMPTY_TREATMENT_DEFINITION: TreatmentDefinition = {
   contasCorrentes: { modo: 'UNICA', unica: '', coluna: '', mapa: [] },
-  columnMapping: { descricao: '', participante: '', valor: '', data: '', numeroNf: '', documento: '' },
+  columnMapping: { descricao: '', participante: '', valor: '', data: '', numeroNf: '', documento: '', documentoFixo: '' },
   debitoCredito: { tipo: 'COLUNA', coluna: '', mapa: [] },
   contrapartida: { modo: 'PALAVRA_CHAVE', palavraChave: [], descricao: [] },
+}
+
+// ---- Variáveis do histórico fixo -------------------------------------------
+// O histórico fixo (contrapartida) pode conter variáveis {{...}} resolvidas por
+// LINHA na geração do SCI:
+//   {{Nome da Coluna}}          → valor daquela coluna do arquivo, na linha
+//   {{#dia}} {{#mes}} {{#ano}}  → partes da data JÁ parseada (sem re-parse)
+//   {{#data}}                   → data completa no formato DD/MM/AAAA
+// O front insere via picker; o back resolve na exportação — mesmo motor aqui.
+export const HISTORICO_DATA_VARS = [
+  { token: '#data', label: 'Data completa (DD/MM/AAAA)' },
+  { token: '#dia', label: 'Dia da data' },
+  { token: '#mes', label: 'Mês da data' },
+  { token: '#ano', label: 'Ano da data' },
+] as const
+
+/** Envolve um nome (header de coluna ou token de data) na sintaxe de variável. */
+export function historicoToken(nome: string): string {
+  return `{{${nome}}}`
+}
+
+export interface HistoricoDataPartes { dia: string; mes: string; ano: string }
+
+/**
+ * Resolve as variáveis {{...}} de um histórico numa linha específica.
+ * `getColuna(header)` devolve o valor da coluna (ou '' se ausente/vazia); as
+ * partes da data vêm já derivadas da data parseada da linha.
+ */
+export function resolveHistorico(
+  template: string,
+  getColuna: (header: string) => string,
+  data: HistoricoDataPartes,
+): string {
+  if (!template.includes('{{')) return template
+  return template.replace(/\{\{([^{}]+)\}\}/g, (_m, inner: string) => {
+    switch (inner) {
+      case '#data': return data.dia && data.mes && data.ano ? `${data.dia}/${data.mes}/${data.ano}` : ''
+      case '#dia': return data.dia
+      case '#mes': return data.mes
+      case '#ano': return data.ano
+      default: return getColuna(inner)
+    }
+  })
 }
 
 // ---- CRUD do Modelo de Tratamento ------------------------------------------

@@ -34,7 +34,7 @@ export function ContasCorrentesMap({ def, setDef, coluna, getDistinct, revisar }
   if (!valores.length) return <EmptyHint>Envie o arquivo para listar os valores distintos desta coluna.</EmptyHint>
   return (
     <div className="space-y-2">
-      <p className="text-[12px] text-muted-foreground">Para cada valor da coluna, informe a conta contábil:</p>
+      <p className="text-[12px] text-muted-foreground">Para cada valor da coluna, informe a conta corrente:</p>
       <div className="grid gap-2 sm:grid-cols-2">
         {valores.map((val) => {
           const cur = mapa.find((m) => m.valor === val)?.conta ?? ''

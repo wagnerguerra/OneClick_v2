@@ -13,7 +13,7 @@
 //   COLUNA_NAO_ENCONTRADA      coluna selecionada no De/Para ausente no arquivo
 // ============================================================
 
-import { matchPalavraChaveIndex, type TreatmentDefinition, type ExtractedTableInput, type CellValue } from '@saas/types'
+import { matchPalavraChaveIndex, resolveHistorico, type TreatmentDefinition, type ExtractedTableInput, type CellValue } from '@saas/types'
 import { parseData, parseValor } from './parsers'
 import { buildSciLine, buildSciFile, type Direcao } from './sci-format'
 
@@ -144,7 +144,10 @@ export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition,
     const descricao = cell(row, cm.descricao)
     const participante = cm.participante ? cell(row, cm.participante) : ''
     const numeroNf = cm.numeroNf ? cell(row, cm.numeroNf) : ''
-    const documento = cm.documento ? cell(row, cm.documento) : ''
+    // CNPJ/CPF: valor fixo (extrato bancário, sem a coluna) tem prioridade; senão
+    // lê da coluna mapeada. São mutuamente exclusivos no editor.
+    const documentoFixo = cm.documentoFixo?.trim() ?? ''
+    const documento = documentoFixo || (cm.documento ? cell(row, cm.documento) : '')
 
     if (!descricao && !faltantes.has(cm.descricao)) rowPend.push({ linha, tipo: 'CAMPO_VAZIO', campo: cm.descricao, mensagem: 'Descrição vazia. Não foi possível determinar a contrapartida.' })
     // Colunas opcionais do De/Para: se SELECIONADAS (e presentes), também precisam
@@ -214,11 +217,11 @@ export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition,
         else direcao = dir
       }
     } else if (def.debitoCredito.tipo === 'SINAL') {
-      // Direção pelo sinal do valor: negativo = débito, positivo = crédito.
+      // Direção pelo sinal do valor: negativo = crédito, positivo = débito.
       // (o parser já converteu marcadores C/CD/D/DB em sinal.) Valor inválido já
       // gerou VALOR_INVALIDO; valor zero já foi ignorado acima.
       if (pv.valid && pv.value !== null) {
-        direcao = pv.value < 0 ? 'DEBITO' : 'CREDITO'
+        direcao = pv.value < 0 ? 'CREDITO' : 'DEBITO'
       }
     } else if (match) {
       if (match.direcao) direcao = match.direcao
@@ -252,9 +255,17 @@ export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition,
       return
     }
 
+    // Resolve variáveis {{...}} do histórico fixo nesta linha: valores de colunas
+    // (row) e partes da data já parseada (yyyymmdd), sem re-parse.
+    const ymd = pd.yyyymmdd as string
+    const historicoFixoRaw = (match as CpMatch).historicoFixo
+    const historicoFixo = historicoFixoRaw
+      ? resolveHistorico(historicoFixoRaw, (h) => cell(row, h), { ano: ymd.slice(0, 4), mes: ymd.slice(4, 6), dia: ymd.slice(6, 8) })
+      : historicoFixoRaw
+
     lines.push(buildSciLine({
       numero: lines.length + 1,
-      yyyymmdd: pd.yyyymmdd as string,
+      yyyymmdd: ymd,
       direcao: direcao as Direcao,
       contaCorrente,
       contaContrapartida: (match as CpMatch).conta.trim(),
@@ -263,7 +274,7 @@ export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition,
       participante,
       numeroNf,
       documento,
-      historicoFixo: (match as CpMatch).historicoFixo,
+      historicoFixo,
     }))
     pushTrace('ok', {
       direcao, contaContrapartida: (match as CpMatch).conta.trim(), contaCorrente,
