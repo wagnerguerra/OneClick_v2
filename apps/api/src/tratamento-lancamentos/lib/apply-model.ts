@@ -14,7 +14,7 @@
 // ============================================================
 
 import { matchPalavraChaveIndex, type TreatmentDefinition } from '@saas/types'
-import type { ExtractedTable, CellValue } from './extract-tabela'
+import type { ExtractedTable, CellValue } from '@saas/extracao'
 import { parseData, parseValor } from './parsers'
 import { buildSciLine, buildSciFile, type Direcao } from './sci-format'
 

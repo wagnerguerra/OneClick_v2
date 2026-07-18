@@ -7,6 +7,8 @@
       "@/*": ["./src/*"],
       "@saas/db": ["../../packages/db/src/index.ts"],
       "@saas/db/*": ["../../packages/db/src/*"],
+      "@saas/extracao": ["../../packages/extracao/src/index.ts"],
+      "@saas/extracao/*": ["../../packages/extracao/src/*"],
       "@saas/types": ["../../packages/types/src/index.ts"],
       "@saas/types/*": ["../../packages/types/src/*"]
     }
@@ -14,6 +16,7 @@
   "include": [
     "src",
     "../../packages/db/src",
+    "../../packages/extracao/src",
     "../../packages/types/src"
   ]
 }

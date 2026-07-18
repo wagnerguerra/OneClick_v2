@@ -54,6 +54,7 @@ module.exports = function (options) {
       alias: {
         '@saas/db': path.resolve(__dirname, '../../packages/db/src'),
         '@saas/types': path.resolve(__dirname, '../../packages/types/src'),
+        '@saas/extracao': path.resolve(__dirname, '../../packages/extracao/src'),
       },
     },
   }

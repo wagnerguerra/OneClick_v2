@@ -11,9 +11,24 @@ import {
   type DebugExtractInput,
   stableStringify,
 } from '@saas/types'
-import { extractTabela, type ExtractedTable } from './lib/extract-tabela'
+import { readFileSync } from 'node:fs'
+import { extractTabela, configurePdf, type ExtractedTable } from '@saas/extracao'
 import { applyModel, type TraceRow } from './lib/apply-model'
 import { parseData } from './lib/parsers'
+
+// Configura o motor de PDF (PDFium/WASM) UMA vez, no boot. No Node lemos o binário
+// do pacote @embedpdf/pdfium; no browser é o app web que configura via URL servida.
+// A API é empacotada por WEBPACK, que reescreve `require.resolve` (devolveria um id
+// interno, não o caminho do arquivo) — por isso usamos `__non_webpack_require__`, o
+// require REAL de runtime, resolvendo o .wasm do node_modules (o pacote é external).
+// Fora do webpack (tsx/testes) cai no `require` normal. Falha aqui não derruba o boot.
+declare const __non_webpack_require__: NodeRequire
+try {
+  const req: NodeRequire = typeof __non_webpack_require__ === 'function' ? __non_webpack_require__ : require
+  configurePdf({ wasmBinary: readFileSync(req.resolve('@embedpdf/pdfium/pdfium.wasm')) })
+} catch {
+  /* wasm indisponível no boot — extração de PDF falhará com erro claro sob demanda */
+}
 
 /**
  * Teto de linhas devolvidas no preview (limita payload). Além de alimentar o

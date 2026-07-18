@@ -7,7 +7,7 @@
 // implementação da fronteira de extração — não toca no restante.
 //
 // Estratégia (genérica, sem regra por banco):
-//  1. Coleta os fragmentos de texto com posição (x,y) via pdf-parse (pagerender).
+//  1. Coleta os fragmentos de texto com posição (x,y) via pdfjs-dist (getTextContent).
 //  2. Agrupa fragmentos por linha física (y) e mescla fragmentos colados (x).
 //  3. Detecta a linha de CABEÇALHO (Data/Histórico/Valor/Saldo...) e usa os
 //     centros x das colunas como âncoras — cada token cai na coluna de centro
@@ -24,15 +24,60 @@
 
 import { colLetter, type CellValue, type ExtractedTable } from './extract-tabela'
 
-// pdf-parse não publica tipos; importamos via require tipado à mão.
-interface PdfPageData {
-  getTextContent(opts?: { normalizeWhitespace?: boolean; disableCombineTextItems?: boolean }): Promise<{
-    items: Array<{ str: string; transform: number[]; width: number; height: number }>
-  }>
+// Motor de PDF: PDFium via WebAssembly (@embedpdf/pdfium, MIT). MESMO código no
+// Node e no browser. Diferente do pdf.js, o PDFium expõe a posição POR CARACTERE
+// (FPDFText_GetCharBox/GetCharOrigin) — então NÓS controlamos a tokenização (via
+// mergeTokens, por gap de x), imunes ao "combining" opaco do pdf.js que fundia
+// colunas apertadas. O seam de plataforma é só fornecer os bytes do .wasm.
+type PdfiumApi = {
+  pdfium: {
+    wasmExports: { malloc(n: number): number; free(p: number): void }
+    HEAPU8: Uint8Array
+    getValue(ptr: number, type: 'double'): number
+  }
+  FPDF_InitLibrary?: () => void
+  FPDF_LoadMemDocument(dataPtr: number, size: number, password: number): number
+  FPDF_GetLastError(): number
+  FPDF_GetPageCount(doc: number): number
+  FPDF_LoadPage(doc: number, index: number): number
+  FPDF_ClosePage(page: number): void
+  FPDF_CloseDocument(doc: number): void
+  FPDFText_LoadPage(page: number): number
+  FPDFText_ClosePage(textPage: number): void
+  FPDFText_CountChars(textPage: number): number
+  FPDFText_GetUnicode(textPage: number, index: number): number
+  FPDFText_GetCharBox(textPage: number, index: number, l: number, r: number, b: number, t: number): void
+  FPDFText_GetCharOrigin(textPage: number, index: number, x: number, y: number): void
 }
-interface PdfParseOptions { pagerender?: (page: PdfPageData) => Promise<string>; max?: number }
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const pdfParse: (data: Buffer, opts?: PdfParseOptions) => Promise<{ text: string; numpages: number }> = require('pdf-parse')
+let pdfiumPromise: Promise<PdfiumApi> | null = null
+
+/** Configuração de plataforma do PDFium — o seam entre Node e browser. */
+export interface PdfConfig {
+  /** Bytes do binário WASM do PDFium. OBRIGATÓRIO. No browser: `fetch` da URL do
+   *  `pdfium.wasm` → `arrayBuffer()`. No Node: `readFileSync` do arquivo em
+   *  `@embedpdf/pdfium/dist/pdfium.wasm`. */
+  wasmBinary?: ArrayBuffer | Uint8Array
+}
+let pdfConfig: PdfConfig = {}
+
+/** Configura o WASM do PDFium. Chamar UMA vez no boot do app hospedeiro. */
+export function configurePdf(config: PdfConfig): void {
+  pdfConfig = { ...pdfConfig, ...config }
+}
+
+async function getPdfium(): Promise<PdfiumApi> {
+  if (!pdfiumPromise) {
+    pdfiumPromise = import('@embedpdf/pdfium').then(async ({ init }) => {
+      if (!pdfConfig.wasmBinary) {
+        throw new Error('PDFium não configurado: chame configurePdf({ wasmBinary }) no boot do app.')
+      }
+      const mod = (await init({ wasmBinary: pdfConfig.wasmBinary } as never)) as unknown as PdfiumApi
+      mod.FPDF_InitLibrary?.()
+      return mod
+    })
+  }
+  return pdfiumPromise
+}
 
 // ---- Tipos internos --------------------------------------------------------
 
@@ -66,27 +111,83 @@ const DESC_COL_RE = /hist[óo]|lan[çc]|descri|movimenta/i
 // Tolerâncias (ajustadas com os PDFs de exemplo; refináveis).
 const Y_TOL = 2.5        // fragmentos dentro dessa faixa de y = mesma linha
 const GAP_MERGE = 3      // gap x <= isso → fragmentos colados (mesmo token)
+// Limiar de gap x (pena) p/ agrupar chars do PDFium em runs: acima disso = outra
+// coluna → quebra o run. Em PIXELS (coordenada de página), robusto ao tamanho de
+// fonte reportado (que às vezes é unitário — ex.: Sicoob reporta 1.0).
+const COL_BREAK = 3.5
 const ATTACH_MAX_DY = 40 // distância y máxima p/ anexar linha-detalhe a uma âncora
 const HEADER_MERGE_DY = 14 // junta um cabeçalho quebrado em 2 linhas (ex.: "Data" acima)
 const CLUSTER_X = 20       // tokens de cabeçalho a < isso em x = mesma coluna
 
 // ---- 1. Coleta de fragmentos posicionados ----------------------------------
 
-async function extractPageItems(buffer: Buffer): Promise<Item[][]> {
+async function extractPageItems(data: Uint8Array): Promise<Item[][]> {
+  const api = await getPdfium()
+  const P = api.pdfium
+  // Copia os bytes p/ a heap do WASM (Uint8Array independente do Buffer do Node).
+  const bytes = new Uint8Array(data)
+  const filePtr = P.wasmExports.malloc(bytes.length)
+  P.HEAPU8.set(bytes, filePtr)
+  const doc = api.FPDF_LoadMemDocument(filePtr, bytes.length, 0)
+  if (!doc) {
+    P.wasmExports.free(filePtr)
+    throw new Error(`Falha ao abrir o PDF (PDFium erro ${api.FPDF_GetLastError()}).`)
+  }
+
+  // buf: 4 doubles do charbox (l,r,b,t) + 2 doubles do origin (x,y) = 48 bytes.
+  const buf = P.wasmExports.malloc(48)
   const pages: Item[][] = []
-  await pdfParse(buffer, {
-    // pdf-parse chama isto por página; empurramos os itens e ignoramos o retorno.
-    pagerender: async (page) => {
-      const tc = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false })
+  try {
+    const numPages = api.FPDF_GetPageCount(doc)
+    for (let p = 0; p < numPages; p++) {
+      const page = api.FPDF_LoadPage(doc, p)
       const items: Item[] = []
-      for (const it of tc.items) {
-        if (!it.str || it.str.trim() === '') continue
-        items.push({ s: it.str, x: it.transform[4]!, y: it.transform[5]!, w: it.width })
+      if (page) {
+        const tp = api.FPDFText_LoadPage(page)
+        if (tp) {
+          const n = api.FPDFText_CountChars(tp)
+          // Agrupa os caracteres em RUNS na ORDEM DE LEITURA, preservando os espaços
+          // que o PDFium já gera entre palavras. Quebra o run só num salto grande de x
+          // (fronteira de coluna) ou mudança de linha (y). NÃO reordenamos por x (como
+          // faria o mergeTokens) — isso perderia a ordem/os espaços. NÃO inserimos
+          // espaços por gap: medimos que não há limiar universal não-ambíguo (largura
+          // de espaço varia por doc/justificação; ver scratchpad/pdfiumtest), e inserir
+          // desestabiliza a reconstrução (muda tokens → quebra coluna/âncora). Erramos
+          // pro lado de COLAR (substring preservada, keyword segura) em vez de DIVIDIR.
+          // Posição pela PENA (originX), não pela tinta (charbox), cujo gap entre
+          // glifos é inflado e criava espaços espúrios (ex.: "ANTERIO R").
+          let cur: { s: string; x0: number; x1: number; y: number } | null = null
+          const flush = (): void => { if (cur) items.push({ s: cur.s, x: cur.x0, y: cur.y, w: cur.x1 - cur.x0 }) }
+          for (let i = 0; i < n; i++) {
+            const cp = api.FPDFText_GetUnicode(tp, i)
+            if (cp < 32) continue // pula controle (\r \n \0) — mantém o espaço (32)
+            api.FPDFText_GetCharBox(tp, i, buf, buf + 8, buf + 16, buf + 24)
+            api.FPDFText_GetCharOrigin(tp, i, buf + 32, buf + 40)
+            const right = P.getValue(buf + 8, 'double')
+            const originX = P.getValue(buf + 32, 'double')
+            const originY = P.getValue(buf + 40, 'double') // baseline
+            const ch = String.fromCharCode(cp)
+            const gap = cur ? originX - cur.x1 : 0
+            if (cur && Math.abs(originY - cur.y) <= Y_TOL && gap <= COL_BREAK) {
+              cur.s += ch
+              cur.x1 = Math.max(cur.x1, right)
+            } else {
+              flush()
+              cur = { s: ch, x0: originX, x1: right, y: originY }
+            }
+          }
+          flush()
+          api.FPDFText_ClosePage(tp)
+        }
+        api.FPDF_ClosePage(page)
       }
       pages.push(items)
-      return ''
-    },
-  })
+    }
+  } finally {
+    P.wasmExports.free(buf)
+    api.FPDF_CloseDocument(doc)
+    P.wasmExports.free(filePtr)
+  }
   return pages
 }
 
@@ -260,8 +361,8 @@ function assignCells(tokens: Token[], centers: number[]): string[] {
  * do DIA, não repetida por linha — Inter, Nubank), cai no modo SEÇÃO-AGRUPADA
  * (Shape-2), que faz carry-forward da data como coluna sintética.
  */
-export async function extractPdfTable(buffer: Buffer): Promise<ExtractedTable> {
-  const pages = await extractPageItems(buffer)
+export async function extractPdfTable(data: Uint8Array): Promise<ExtractedTable> {
+  const pages = await extractPageItems(data)
 
   const perRow = extractPerRow(pages)
   if (perRow && perRow.rows.length >= 3) return buildExtractedTable(perRow.header, perRow.rows)

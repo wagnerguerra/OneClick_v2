@@ -43,13 +43,18 @@ export interface ExtractedTable {
 }
 
 export interface ExtractInput {
-  buffer: Buffer
+  /** Bytes do arquivo. `Uint8Array` (não `Buffer`) p/ funcionar no browser e no Node
+   *  — um `Buffer` do Node é aceito por ser subclasse de `Uint8Array`. */
+  buffer: Uint8Array
   filename: string
 }
 
 type Matrix = CellValue[][]
 
-function isFilled(c: CellValue): boolean {
+// Type guard: além de checar preenchimento em runtime, estreita `undefined` do
+// tipo — necessário sob `noUncheckedIndexedAccess` (acessos `row[c]`/`headerRow[c]`
+// devolvem `CellValue | undefined`).
+function isFilled(c: CellValue | undefined): c is CellValue {
   return c !== null && c !== undefined && String(c).trim() !== ''
 }
 
@@ -421,8 +426,10 @@ export function dropEmptyColumns(table: ExtractedTable): ExtractedTable {
 }
 
 /** Extração de arquivos tabelados (.xlsx/.xls/.csv) via SheetJS. */
-function extractTabelaXlsx(buffer: Buffer): ExtractedTable {
-  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true })
+function extractTabelaXlsx(buffer: Uint8Array): ExtractedTable {
+  // `type: 'array'` aceita Uint8Array (e Buffer, que é subclasse) — funciona no
+  // Node e no browser, diferente de `type: 'buffer'` (Buffer só existe no Node).
+  const wb = XLSX.read(buffer, { type: 'array', cellDates: true })
   if (wb.SheetNames.length === 0) throw new Error('Arquivo sem planilhas.')
 
   // Seleciona a aba de maior bloco contíguo preenchido.

@@ -60,6 +60,9 @@ importers:
       '@saas/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@saas/extracao':
+        specifier: workspace:*
+        version: link:../../packages/extracao
       '@saas/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -537,6 +540,19 @@ importers:
       prisma:
         specifier: ^6.4.0
         version: 6.19.3(typescript@5.9.3)
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  packages/extracao:
+    dependencies:
+      '@embedpdf/pdfium':
+        specifier: ^2.14.4
+        version: 2.14.4
+      xlsx:
+        specifier: ^0.18.5
+        version: 0.18.5
+    devDependencies:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
@@ -1599,6 +1615,9 @@ packages:
   '@egjs/hammerjs@2.0.17':
     resolution: {integrity: sha512-XQsZgjm2EcVUiZQf11UBJQfmZeEmOW8DpI1gsFeln6w0ae0ii4dMQEQ0kjl6DspdWX1aGY1/loyXnP0JS06e/A==}
     engines: {node: '>=0.8.0'}
+
+  '@embedpdf/pdfium@2.14.4':
+    resolution: {integrity: sha512-0tDPQEH1WtfXcASNVp5U3dqfzZboNvcE4rDok/P4JCN+DCTaJDG2E9lYHGMo9FtuS2IdHgrzkmPRpOo5WV9MKQ==}
 
   '@emnapi/runtime@1.11.0':
     resolution: {integrity: sha512-55coeOFKHv1ywEcUXJtWU5f+Jr/W5tZDvZig8DLKSwUN1JpROQ4rk/SNOQiFWmaR/VKF4zuFyW1B8JduOSv6Pg==}
@@ -11059,6 +11078,8 @@ snapshots:
   '@egjs/hammerjs@2.0.17':
     dependencies:
       '@types/hammerjs': 2.0.46
+
+  '@embedpdf/pdfium@2.14.4': {}
 
   '@emnapi/runtime@1.11.0':
     dependencies:
