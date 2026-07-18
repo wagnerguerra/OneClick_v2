@@ -25,6 +25,7 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { VersionHistoryDialog } from '../version-history-dialog'
 
 import type { PreviewData, Props } from './types'
+import { extractClient } from '../../lib/extract-client'
 import { MAP_FIELDS } from './types'
 import { soDigitos, listaResumo, serializeForm, confirmarSaidaSemSalvar, esc } from './utils'
 import { StepHeader, EmptyHint, Stepper, ModeCards, ColumnSelect, FloatingActionBar } from './ui'
@@ -251,11 +252,13 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     // `preview` != null aqui só na 2ª chamada em diante = uma troca de arquivo.
     const trocaNaCriacao = mode === 'create' && !!preview
     try {
-      const res = await trpc.tratamentoLancamentos.preview.mutate({ fileBase64: base64, filename })
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+      const table = await extractClient(new File([bytes], filename))
+      const res: PreviewData = { headers: table.headers, rows: table.rows, totalRows: table.rows.length, truncated: false }
       if (trocaNaCriacao) {
         setDef((d) => ({ ...d, contrapartida: { ...d.contrapartida, descricao: [] } }))
       }
-      setPreview(res as PreviewData)
+      setPreview(res)
       setFileName(filename)
       // NÃO descartamos mais as colunas ausentes no novo arquivo: mantemos a
       // seleção e sinalizamos em âmbar no campo (ver `colunasForaDoArquivo` + o

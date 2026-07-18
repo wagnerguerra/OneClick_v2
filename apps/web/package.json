@@ -17,6 +17,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^4.1.0",
     "@monaco-editor/react": "^4.7.0",
+    "@saas/extracao": "workspace:*",
     "@saas/types": "workspace:*",
     "@saas/ui": "workspace:*",
     "@tanstack/react-query": "^5.62.0",

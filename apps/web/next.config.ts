@@ -2,7 +2,7 @@ import type { NextConfig } from 'next'
 import path from 'node:path'
 
 const nextConfig: NextConfig = {
-  transpilePackages: ['@saas/ui', '@saas/types'],
+  transpilePackages: ['@saas/ui', '@saas/types', '@saas/extracao'],
   // Standalone output — copia só o necessário pra runtime em .next/standalone.
   output: 'standalone',
   outputFileTracingRoot: path.join(__dirname, '../..'),
