@@ -14,7 +14,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import type { TreatmentDefinition, Direcao } from '@saas/types'
-import { EMPTY_TREATMENT_DEFINITION, stableStringify, formatValorExibicao, extrairMarcadorDC } from '@saas/types'
+import { EMPTY_TREATMENT_DEFINITION, stableStringify, formatValorExibicao, extrairMarcadorDC, matchPalavraChaveIndex } from '@saas/types'
 import { normalizeDefinition } from '../treatment-definition'
 import { DetectedRowsStatus } from '../detected-rows-status'
 import { trpc } from '@/lib/trpc'
@@ -27,7 +27,7 @@ import { VersionHistoryDialog } from '../version-history-dialog'
 import type { PreviewData, Props } from './types'
 import { MAP_FIELDS } from './types'
 import { soDigitos, listaResumo, serializeForm, confirmarSaidaSemSalvar, esc } from './utils'
-import { StepHeader, EmptyHint, Stepper, ModeCards, ColumnSelect, FloatingActionBar } from './ui'
+import { StepHeader, EmptyHint, Stepper, ModeCards, ColumnSelect, FloatingActionBar, HelpTip } from './ui'
 import { DebitoCreditoColunaMap } from './sections/debito-credito'
 import { ContasCorrentesMap } from './sections/contas-correntes'
 import { ContrapartidaPalavraChave, ContrapartidaDescricao } from './sections/contrapartida'
@@ -36,6 +36,59 @@ import { ContrapartidaPalavraChave, ContrapartidaDescricao } from './sections/co
 // um <h2> e herda o `word-break: break-all` global, que o quebra no meio da
 // palavra. Vive só enquanto o alerta está aberto (sem tocar no globals).
 const SWAL_TITLE_FIX = '<style>.swal2-title{word-break:normal;overflow-wrap:break-word}</style>'
+
+// Campo "CNPJ/CPF do participante" do De/Para. Diferente dos demais: o dado pode
+// vir de uma COLUNA do arquivo OU de um VALOR FIXO (alternativas exclusivas). O
+// valor fixo atende importações de extrato bancário, onde esse dado não vem no
+// arquivo mas precisa ser informado. Trocar de modo limpa o outro (exclusividade).
+function CampoDocumento({
+  headers, coluna, fixo, foraCol, samples, ativo, onAtivoChange, onColuna, onFixo,
+}: {
+  headers: string[]
+  coluna: string
+  fixo: string
+  foraCol?: string
+  samples: string[]
+  ativo: boolean
+  onAtivoChange: (v: boolean) => void
+  onColuna: (v: string) => void
+  onFixo: (v: string) => void
+}) {
+  // Trocar de modo limpa o outro (coluna e valor fixo são exclusivos).
+  const toggle = (v: boolean) => { if (v) { onColuna(''); onAtivoChange(true) } else { onFixo(''); onAtivoChange(false) } }
+  return (
+    <div className="space-y-1.5">
+      <div className="relative mb-0">
+        <Label className="text-[13px] font-semibold">CNPJ/CPF do participante {ativo && <span className="text-destructive">*</span>}</Label>
+        <label className="absolute right-0 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] text-muted-foreground cursor-pointer">
+          Valor fixo
+          <HelpTip text="Use apenas em importações de extrato bancário, em que o CNPJ/CPF não vem no arquivo mas precisa ser informado. O mesmo valor será usado em todos os lançamentos." />
+          <Checkbox checked={ativo} onCheckedChange={(v) => toggle(!!v)} />
+        </label>
+      </div>
+      {ativo ? (
+        <Input className="h-9 text-sm" placeholder="Digite o CNPJ/CPF..." value={fixo} onChange={(e) => onFixo(e.target.value)} />
+      ) : (
+        <>
+          <ColumnSelect headers={headers} value={coluna} optional onChange={onColuna}
+            className={foraCol ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
+          {foraCol && (
+            <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-3 w-3 shrink-0" /> A coluna &quot;{foraCol}&quot; não está no arquivo enviado.
+            </p>
+          )}
+          <p className="text-[11px] text-muted-foreground">Opcional — pré-selecionado se houver coluna &quot;CNPJ&quot;.</p>
+          {samples.length > 0 && (
+            <div className="text-[11px] text-muted-foreground/80">
+              <span className="font-medium">Prévia de dados:</span>
+              {samples.map((s, i) => <div key={i} className="truncate">{s}</div>)}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
 
 export function ModelEditor({ mode, modelId, backTo }: Props) {
   const router = useRouter()
@@ -63,6 +116,9 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   const [def, setDef] = useState<TreatmentDefinition>(EMPTY_TREATMENT_DEFINITION)
   const [preview, setPreview] = useState<PreviewData | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
+  // "Valor fixo" do CNPJ/CPF ativo (modo do CampoDocumento). Não persiste: deriva
+  // do documentoFixo ao carregar; enquanto ativo, o valor é obrigatório.
+  const [docFixoAtivo, setDocFixoAtivo] = useState(false)
 
   // Detecção de alterações não salvas.
   const baselineRef = useRef<string>('')
@@ -99,6 +155,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         setNome(m.nome)
         setIsActive(m.isActive)
         setDef(loadedDef)
+        setDocFixoAtivo(!!loadedDef.columnMapping.documentoFixo)
         baselineRef.current = serializeForm(m.nome, m.isActive, loadedDef)
       } catch {
         alerts.error('Erro', 'Não foi possível carregar o Modelo.')
@@ -199,7 +256,8 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   const headers = useMemo<string[]>(() => {
     if (preview) return preview.headers
     const fromDef = new Set<string>()
-    Object.values(def.columnMapping).forEach((v) => { if (v) fromDef.add(v) })
+    // `documentoFixo` é um valor literal (CNPJ/CPF), não um nome de coluna — fora daqui.
+    Object.entries(def.columnMapping).forEach(([k, v]) => { if (v && k !== 'documentoFixo') fromDef.add(v) })
     if (def.debitoCredito.tipo === 'COLUNA' && def.debitoCredito.coluna) fromDef.add(def.debitoCredito.coluna)
     if (def.contasCorrentes.modo === 'MULTIPLAS' && def.contasCorrentes.coluna) fromDef.add(def.contasCorrentes.coluna)
     return [...fromDef]
@@ -240,6 +298,17 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     }
     return { descricoes: [...map.entries()].map(([descricao, count]) => ({ descricao, count })), totalLinhas: total }
   }, [preview, descricaoColuna])
+
+  // Cobertura no modo palavra-chave: existe alguma descrição do arquivo que NENHUMA
+  // palavra-chave pega (→ CONTA_NAO_MAPEADA na conversão)? Memo no topo (regras de
+  // hooks) — recomputa só quando palavra-chave/descrições mudam, não a cada render;
+  // `some` corta no primeiro faltante (barato). Lido por probContrapartida (Salvar,
+  // avançar etapa e destaque de revisão), fresco no clique.
+  const temSemCorrespPC = useMemo(() => {
+    if (def.contrapartida.modo !== 'PALAVRA_CHAVE' || correspondencia.totalLinhas === 0) return false
+    const itens = def.contrapartida.palavraChave
+    return correspondencia.descricoes.some((d) => matchPalavraChaveIndex(d.descricao, itens) < 0)
+  }, [def.contrapartida.modo, def.contrapartida.palavraChave, correspondencia])
 
   // ---- Upload do arquivo-exemplo ------------------------------------------
   async function loadPreview(base64: string, filename: string) {
@@ -352,6 +421,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     if (!def.columnMapping.descricao) p.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Descrição do lançamento</b>.')
     if (!def.columnMapping.valor) p.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Valor</b>.')
     if (!def.columnMapping.data) p.push('Em <b>De/Para de colunas</b>, mapeie a coluna de <b>Data</b>.')
+    if (docFixoAtivo && !def.columnMapping.documentoFixo?.trim()) p.push('Em <b>De/Para de colunas</b>, informe o <b>CNPJ/CPF do participante</b> (valor fixo) ou desmarque a opção.')
     return p
   }
   function probContasCorrentes(): string[] {
@@ -367,7 +437,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         const mapped = new Set(cc.mapa.filter((m) => m.conta.trim()).map((m) => m.valor))
         if (distinct.length) {
           const faltam = distinct.filter((v) => !mapped.has(v))
-          if (faltam.length) p.push(`Em <b>Contas correntes</b>, informe a conta ${faltam.length === 1 ? 'do valor' : 'dos valores'}: ${listaResumo(faltam)}.`)
+          if (faltam.length) p.push(`Em <b>Contas correntes</b>, informe a conta corrente ${faltam.length === 1 ? 'do valor' : 'dos valores'}: ${listaResumo(faltam)}.`)
         } else if (mapped.size === 0) {
           p.push('Em <b>Contas correntes</b>, informe as contas dos valores da coluna (envie o arquivo de exemplo para listá-los).')
         }
@@ -405,11 +475,14 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         const semPalavra = itens.filter((it) => !it.palavraChave.trim()).length
         const semConta = itens.filter((it) => !it.pular && !it.conta.trim()).length
         if (semPalavra) p.push(`Em <b>Contrapartida</b>, preencha a <b>palavra-chave</b> em ${semPalavra} ${semPalavra === 1 ? 'item' : 'itens'}.`)
-        if (semConta) p.push(`Em <b>Contrapartida</b>, informe a <b>conta</b> em ${semConta} ${semConta === 1 ? 'item' : 'itens'}.`)
+        if (semConta) p.push(`Em <b>Contrapartida</b>, informe a <b>conta de contrapartida</b> em ${semConta} ${semConta === 1 ? 'item' : 'itens'}.`)
         if (dcByDescricao) {
           const semDir = itens.filter((it) => !it.pular && !it.direcao).length
           if (semDir) p.push(`Em <b>Contrapartida</b>, defina <b>Débito/Crédito</b> em ${semDir} ${semDir === 1 ? 'item' : 'itens'}.`)
         }
+        // Cobertura: descrições que nenhuma palavra-chave pega viram CONTA_NAO_MAPEADA
+        // na conversão (booleano memoizado no topo).
+        if (temSemCorrespPC) p.push('Em <b>Contrapartida</b>, adicione correspondências para os lançamentos ainda não correspondidos.')
       }
     } else {
       const itens = def.contrapartida.descricao
@@ -417,7 +490,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         p.push('Em <b>Contrapartida</b> (por descrição), envie o arquivo de exemplo e mapeie a coluna de descrição para listar as descrições.')
       } else {
         const semConta = itens.filter((it) => !it.pular && !it.conta.trim())
-        if (semConta.length) p.push(`Em <b>Contrapartida</b>, informe a <b>conta</b> ${semConta.length === 1 ? 'da descrição' : 'das descrições'}: ${listaResumo(semConta.map((it) => it.descricao))}.`)
+        if (semConta.length) p.push(`Em <b>Contrapartida</b>, informe a <b>conta de contrapartida</b> ${semConta.length === 1 ? 'da descrição' : 'das descrições'}: ${listaResumo(semConta.map((it) => it.descricao))}.`)
         if (dcByDescricao) {
           const semDir = itens.filter((it) => !it.pular && !it.direcao).length
           if (semDir) p.push(`Em <b>Contrapartida</b>, defina <b>Débito/Crédito</b> em ${semDir} ${semDir === 1 ? 'descrição' : 'descrições'}.`)
@@ -686,6 +759,17 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
               </div>
             )
           })}
+          <CampoDocumento
+            headers={headers}
+            coluna={def.columnMapping.documento || ''}
+            fixo={def.columnMapping.documentoFixo || ''}
+            foraCol={fora.dePara.documento}
+            samples={samplesFor(def.columnMapping.documento || '')}
+            ativo={docFixoAtivo}
+            onAtivoChange={setDocFixoAtivo}
+            onColuna={(v) => setMap('documento', v)}
+            onFixo={(v) => setMap('documentoFixo', v)}
+          />
         </div>
       )}
     </Card>
@@ -695,7 +779,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     <Card className="p-5 space-y-4">
       <StepHeader
         icon={Landmark} color="bg-cyan-500" title="Contas correntes"
-        hint="Se o arquivo traz lançamentos de mais de um banco/conta, escolha 'Várias contas' e indique a coluna que identifica a conta — então informe a conta contábil de cada uma. Caso contrário, informe uma única conta contábil."
+        hint="Se o arquivo traz lançamentos de mais de um banco/conta, escolha 'Várias contas correntes' e indique a coluna que identifica a conta — então informe a conta corrente de cada uma. Caso contrário, informe uma única conta."
       />
       <div className="space-y-2">
         <p className="text-[13px] font-semibold text-foreground">Este documento é referente a:</p>
@@ -747,7 +831,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     <Card className="p-5 space-y-4">
       <StepHeader
         icon={ArrowLeftRight} color="bg-orange-500" title="Definição de Débito / Crédito"
-        hint="O sistema precisa saber se cada lançamento é um débito ou um crédito. Escolha a origem dessa informação: uma coluna da planilha, as descrições dos lançamentos, ou o sinal dos valores (negativo = débito, positivo = crédito)."
+        hint="O sistema precisa saber se cada lançamento é um débito ou um crédito. Escolha a origem dessa informação: uma coluna da planilha, as descrições dos lançamentos, ou o sinal dos valores (negativo = crédito na conta corrente, positivo = débito na conta corrente)."
       />
       <div className="space-y-2">
         <p className="text-[13px] font-semibold text-foreground">O tipo (débito ou crédito) é definido:</p>
@@ -784,7 +868,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       ) : def.debitoCredito.tipo === 'SINAL' ? (
         <div className="flex items-start gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
           <Info className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>A direção será interpretada pelo <b>sinal de cada valor</b> dos lançamentos: valores <b>negativos</b> serão Débitos e <b>positivos</b> serão Créditos.</span>
+          <span>A direção será interpretada pelo <b>sinal de cada valor</b> dos lançamentos: valores <b>negativos serão Créditos na conta corrente</b>, e <b>positivos serão Débitos na conta corrente</b>.</span>
         </div>
       ) : (
         <div className="flex items-start gap-2 rounded-[2px] border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
@@ -799,7 +883,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     <Card className="p-5 space-y-4">
       <StepHeader
         icon={Network} color="bg-fuchsia-500" title="Mapeamento de contas de contrapartida"
-        hint="Informe a conta contábil de contrapartida de cada lançamento. Você pode mapear por palavra-chave encontrada na descrição, ou definir uma conta para cada descrição."
+        hint="Informe a conta de contrapartida de cada lançamento. Você pode mapear por palavra-chave encontrada na descrição, ou definir uma conta de contrapartida para cada descrição."
       />
       <div className="space-y-2">
         <p className="text-[13px] font-semibold text-foreground">Como mapear a contrapartida:</p>
@@ -816,12 +900,12 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
 
       {def.contrapartida.modo === 'PALAVRA_CHAVE' ? (
         <ContrapartidaPalavraChave
-          def={def} setDef={setDef} dcByDescricao={dcByDescricao} revisar={modoRevisao}
+          def={def} setDef={setDef} dcByDescricao={dcByDescricao} headers={headers} revisar={modoRevisao}
           descricoes={correspondencia.descricoes} totalLinhas={correspondencia.totalLinhas} truncated={preview?.truncated}
         />
       ) : (
         <ContrapartidaDescricao
-          def={def} setDef={setDef} dcByDescricao={dcByDescricao} revisar={modoRevisao}
+          def={def} setDef={setDef} dcByDescricao={dcByDescricao} headers={headers} revisar={modoRevisao}
           descricaoColuna={def.columnMapping.descricao || ''} getDistinct={getDistinct}
         />
       )}
@@ -838,10 +922,11 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     </Card>
   )
 
-  // Pendências de MODELO por seção no modo revisão (#2). Recalculadas a cada
-  // render, então o realce/balão somem ao vivo conforme o usuário corrige.
-  // Quando a coluna ativa de CC/DC faltou no arquivo (âmbar), o vermelho é
-  // suprimido — o aviso âmbar no campo já explica a causa.
+  // Pendências de MODELO por seção no modo revisão (#2). Recalculadas conforme o
+  // usuário corrige, então o realce/balão somem ao vivo. Quando a coluna ativa de
+  // CC/DC faltou no arquivo (âmbar), o vermelho é suprimido — o aviso âmbar no
+  // campo já explica a causa. (A varredura de cobertura da contrapartida é
+  // memoizada no topo, em `temSemCorrespPC` — aqui só se lê o booleano.)
   const revProbs = {
     cc: modoRevisao && !fora.cc ? probContasCorrentes() : [],
     dc: modoRevisao && !fora.dc ? probDC() : [],
@@ -987,6 +1072,7 @@ function colunasForaDoArquivo(defOrig: TreatmentDefinition | null, headers?: str
   const hset = new Set(headers)
   const cm = defOrig.columnMapping
   for (const k of Object.keys(cm) as Array<keyof typeof cm>) {
+    if (k === 'documentoFixo') continue // valor literal, não é coluna do arquivo
     const col = cm[k]
     if (col && !hset.has(col)) out.dePara[k] = col
   }

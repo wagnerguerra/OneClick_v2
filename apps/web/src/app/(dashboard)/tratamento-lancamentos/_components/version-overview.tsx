@@ -32,7 +32,8 @@ const CC_MODO_LABEL: Record<TreatmentDefinition['contasCorrentes']['modo'], stri
 }
 const COLUMN_LABELS: Record<keyof TreatmentDefinition['columnMapping'], string> = {
   descricao: 'Descrição do lançamento', valor: 'Valor', data: 'Data',
-  participante: 'Participante', numeroNf: 'Número da NF', documento: 'CNPJ/CPF',
+  participante: 'Participante', numeroNf: 'Número da NF',
+  documento: 'CNPJ/CPF do participante', documentoFixo: 'CNPJ/CPF do participante (valor fixo)',
 }
 
 interface Props {
@@ -80,7 +81,7 @@ export function VersionOverview({ def, compareTo, compareLabel = 'versão atual'
             hasCompare={cmp}
             compareLabel={compareLabel}
             defIsNewer={defIsNewer}
-            emptyHint="Nenhuma conta mapeada."
+            emptyHint="Nenhuma conta corrente mapeada."
           />
         )}
       </Section>
@@ -117,7 +118,7 @@ export function VersionOverview({ def, compareTo, compareLabel = 'versão atual'
             emptyHint="Nenhum valor mapeado."
           />
         ) : def.debitoCredito.tipo === 'SINAL' ? (
-          <p className="text-xs text-muted-foreground italic">A direção vem do sinal do valor (negativo = débito, positivo = crédito).</p>
+          <p className="text-xs text-muted-foreground italic">A direção vem do sinal do valor (negativo = crédito na conta corrente, positivo = débito na conta corrente).</p>
         ) : (
           <p className="text-xs text-muted-foreground italic">A direção é definida em cada item de contrapartida.</p>
         )}
@@ -156,7 +157,7 @@ function ContrapartidaList({ def, compareTo, compareLabel, defIsNewer }: { def: 
         <thead className="bg-muted/40 text-muted-foreground">
           <tr>
             <th className="px-2 py-1.5 text-left font-medium">{keyLabel}</th>
-            <th className="px-2 py-1.5 text-left font-medium w-[120px]">Conta</th>
+            <th className="px-2 py-1.5 text-left font-medium w-[120px]">Contrapartida</th>
             <th className="px-2 py-1.5 text-left font-medium">Histórico fixo</th>
             <th className="px-2 py-1.5 text-left font-medium w-[90px]">Direção</th>
           </tr>

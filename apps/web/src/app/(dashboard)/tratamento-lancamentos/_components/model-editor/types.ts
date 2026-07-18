@@ -17,6 +17,8 @@ export const HISTORICO_FIXO_HINT =
   'Texto fixo que será gravado no campo Histórico do SCI para esses lançamentos. ' +
   'Se deixar em branco, o sistema monta o histórico automaticamente ' +
   '(ex.: "VR REF RECEB - NOME DO PARTICIPANTE"). ' +
+  'Use o botão { } dentro do campo para inserir variáveis (valores de colunas do ' +
+  'arquivo ou partes da data), resolvidas linha a linha na geração do arquivo. ' +
   'Vírgulas são removidas automaticamente (quebrariam o layout do SCI).'
 
 export const PULAR_LINHA_HINT =
@@ -31,7 +33,8 @@ export const MAP_FIELDS: Array<{ key: keyof TreatmentDefinition['columnMapping']
   { key: 'data', label: 'Data', req: true },
   { key: 'participante', label: 'Nome do participante', hint: 'Opcional — usado no histórico do SCI' },
   { key: 'numeroNf', label: 'Número da NF', hint: 'Opcional' },
-  { key: 'documento', label: 'CNPJ/CPF', hint: 'Opcional — pré-selecionado se houver coluna "CNPJ"' },
+  // `documento` (CNPJ/CPF) é renderizado à parte (CampoDocumento) por ter o modo
+  // "coluna vs. valor fixo"; não entra neste loop genérico.
 ]
 
 // Cores de destaque do card ativo, por etapa (classes estáticas p/ o Tailwind enxergar).
