@@ -23,9 +23,47 @@ function ensurePdfium(): Promise<void> {
   return pdfReady
 }
 
-/** Extrai a tabela do arquivo no cliente. Só baixa o WASM do PDFium para PDFs. */
+// Cache por CONTEÚDO (hash) — evita re-extrair o MESMO arquivo ao navegar pelo
+// fluxo (upload → editor → volta do wizard → debug re-extraiam o mesmo arquivo).
+// Um PDF grande custa ~1.7s por extração; hashear custa ~ms. Guarda as últimas N
+// tabelas (FIFO); a chave inclui o nome (o dispatch XLSX/PDF é por extensão).
+const cache = new Map<string, Promise<ExtractedTable>>()
+const CACHE_MAX = 3
+
+// Hash não-cripto (cyrb53, 53 bits) sobre os bytes — NÃO usamos crypto.subtle de
+// propósito: ela só existe em contexto seguro (HTTPS/localhost) e quebraria no
+// acesso via LAN por http (192.168.x.x). Para chave de cache basta distribuição
+// boa; combinado com tamanho+nome, colisão entre arquivos reais é desprezível.
+function hashBytes(bytes: Uint8Array): string {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57
+  for (let i = 0; i < bytes.length; i++) {
+    const ch = bytes[i]!
+    h1 = Math.imul(h1 ^ ch, 2654435761)
+    h2 = Math.imul(h2 ^ ch, 1597334677)
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909)
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909)
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36)
+}
+
+/** Extrai a tabela do arquivo no cliente (com cache por conteúdo). Só baixa o WASM
+ *  do PDFium para PDFs. */
 export async function extractClient(file: File): Promise<ExtractedTable> {
-  if (file.name.toLowerCase().endsWith('.pdf')) await ensurePdfium()
-  const buffer = new Uint8Array(await file.arrayBuffer())
-  return extractTabela({ buffer, filename: file.name })
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  const key = `${bytes.length}:${file.name.toLowerCase()}:${hashBytes(bytes)}`
+  const hit = cache.get(key)
+  if (hit) return hit
+
+  const promise = (async () => {
+    if (file.name.toLowerCase().endsWith('.pdf')) await ensurePdfium()
+    return extractTabela({ buffer: bytes, filename: file.name })
+  })()
+  promise.catch(() => cache.delete(key)) // falhou → não cacheia (permite retry)
+
+  cache.set(key, promise)
+  if (cache.size > CACHE_MAX) {
+    const oldest = cache.keys().next().value
+    if (oldest) cache.delete(oldest)
+  }
+  return promise
 }
