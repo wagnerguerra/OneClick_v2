@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, readProcedure, writeSubProcedure, deleteSubProcedure } from '../trpc/trpc.service'
-import { createTreatmentModelSchema, updateTreatmentModelSchema, listTreatmentModelSchema, previewArquivoSchema, convertSchema, debugExtractSchema } from '@saas/types'
+import { createTreatmentModelSchema, updateTreatmentModelSchema, listTreatmentModelSchema, convertSchema, debugExtractSchema } from '@saas/types'
 import { TratamentoLancamentosService } from './tratamento-lancamentos.service'
 
 const MODULE = 'tratamento-lancamentos'
@@ -34,18 +34,13 @@ export function createTratamentoLancamentosRouter(service: TratamentoLancamentos
     listForSelect: readProcedure(MODULE)
       .query(({ ctx }) => service.listForSelect(ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
-    // Preview do arquivo-exemplo (base64 no corpo → mutation). Só leitura.
-    preview: readProcedure(MODULE)
-      .input(previewArquivoSchema)
-      .mutation(({ input }) => service.preview(input)),
-
-    // Conversão para o SCI (aplica o modelo ao arquivo). Só leitura.
+    // Conversão para o SCI (aplica o modelo à tabela extraída no cliente). Só leitura.
     convert: readProcedure(MODULE)
       .input(convertSchema)
       .mutation(({ input, ctx }) => service.convert(input, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
-    // Visualizador de debug (escondido via ?debug=1): tabela extraída crua +
-    // traço do de/para. Só leitura.
+    // Visualizador de debug (ferramenta interna, via atalho de teclado): recebe a
+    // tabela extraída no cliente e devolve o traço do de/para. Só leitura.
     debugExtract: readProcedure(MODULE)
       .input(debugExtractSchema)
       .mutation(({ input, ctx }) => service.debugExtract(input, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),

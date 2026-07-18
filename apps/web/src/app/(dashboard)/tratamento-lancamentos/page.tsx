@@ -16,6 +16,7 @@ import { DetectedRowsStatus } from './_components/detected-rows-status'
 import { DebugViewer } from './_components/debug-viewer'
 import { PendenciasPanel } from './_components/pendencias-panel'
 import { fileToBase64 } from '@/lib/file'
+import { extractClient } from './lib/extract-client'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
@@ -95,11 +96,12 @@ export default function TratamentoLancamentosPage() {
     setReading(true)
     try {
       const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
-      setFile(new File([bytes], filename))
+      const f = new File([bytes], filename)
+      setFile(f)
       setFileBase64(base64)
-      const res = await trpc.tratamentoLancamentos.preview.mutate({ fileBase64: base64, filename })
-      setDetectedRows(res.totalRows)
-      setExtracted({ headers: res.headers, rows: res.rows, truncated: res.truncated })
+      const table = await extractClient(f)
+      setDetectedRows(table.rows.length)
+      setExtracted({ headers: table.headers, rows: table.rows, truncated: false })
     } catch {
       // Se o preview falhar, mantém o arquivo restaurado mesmo assim.
     } finally {
@@ -126,10 +128,10 @@ export default function TratamentoLancamentosPage() {
     setReading(true)
     try {
       const base64 = await fileToBase64(f)
-      const res = await trpc.tratamentoLancamentos.preview.mutate({ fileBase64: base64, filename: f.name })
+      const table = await extractClient(f)
       setFileBase64(base64)
-      setDetectedRows(res.totalRows)
-      setExtracted({ headers: res.headers, rows: res.rows, truncated: res.truncated })
+      setDetectedRows(table.rows.length)
+      setExtracted({ headers: table.headers, rows: table.rows, truncated: false })
     } catch {
       alerts.error('Falha ao ler o arquivo', 'Não foi possível detectar uma tabela de lançamentos no arquivo.')
       setFile(null)

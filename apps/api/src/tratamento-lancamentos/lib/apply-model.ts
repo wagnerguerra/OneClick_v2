@@ -13,8 +13,7 @@
 //   COLUNA_NAO_ENCONTRADA      coluna selecionada no De/Para ausente no arquivo
 // ============================================================
 
-import { matchPalavraChaveIndex, resolveHistorico, type TreatmentDefinition } from '@saas/types'
-import type { ExtractedTable, CellValue } from './extract-tabela'
+import { matchPalavraChaveIndex, resolveHistorico, type TreatmentDefinition, type ExtractedTableInput, type CellValue } from '@saas/types'
 import { parseData, parseValor } from './parsers'
 import { buildSciLine, buildSciFile, type Direcao } from './sci-format'
 
@@ -90,7 +89,7 @@ function matchContrapartida(def: TreatmentDefinition, descricao: string): CpMatc
   return item ? { conta: item.conta, historicoFixo: item.historicoFixo, direcao: item.direcao, pular: item.pular } : null
 }
 
-export function applyModel(table: ExtractedTable, def: TreatmentDefinition, anoCompetencia?: number, trace?: TraceRow[]): ConversionResult {
+export function applyModel(table: ExtractedTableInput, def: TreatmentDefinition, anoCompetencia?: number, trace?: TraceRow[]): ConversionResult {
   const cm = def.columnMapping
   const dcMapa = new Map(def.debitoCredito.mapa.map((m) => [m.valor, m.direcao]))
   const cc = def.contasCorrentes

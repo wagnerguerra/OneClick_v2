@@ -102,7 +102,7 @@ const STATUS_CLASS: Record<TraceStatus, string> = {
   'ignorada-zero': 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
 }
 
-const cellText = (v: CellValue): string => (v === null || v === undefined || v === '' ? '' : String(v))
+const cellText = (v: CellValue | undefined): string => (v === null || v === undefined || v === '' ? '' : String(v))
 const dirLabel = (d: Direcao): string => (d === 'DEBITO' ? 'Débito' : d === 'CREDITO' ? 'Crédito' : '—')
 
 // Bolinha de cor por origem (● rose = modelo, ● amber = arquivo).

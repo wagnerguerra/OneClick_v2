@@ -44,7 +44,7 @@ importers:
         version: 0.100.1(zod@3.25.76)
       '@better-auth/expo':
         specifier: ^1.6.14
-        version: 1.6.18(051826b04b7e1882a3abfa170cce2b8d)
+        version: 1.6.18(c2d3c5c62c2cd818a429dcfbac481372)
       '@casl/ability':
         specifier: ^6.7.0
         version: 6.8.1
@@ -234,7 +234,7 @@ importers:
     dependencies:
       '@better-auth/expo':
         specifier: ^1.6.14
-        version: 1.6.18(08a405bce05e1a140ebd974ddfc83173)
+        version: 1.6.18(12a822083d4e199b78021203703db0b1)
       '@expo/vector-icons':
         specifier: ^14.0.4
         version: 14.0.4
@@ -368,6 +368,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.7)
+      '@embedpdf/pdfium':
+        specifier: ^2.14.4
+        version: 2.14.4
       '@hookform/resolvers':
         specifier: ^4.1.0
         version: 4.1.3(react-hook-form@7.78.0(react@19.2.7))
@@ -1599,6 +1602,9 @@ packages:
   '@egjs/hammerjs@2.0.17':
     resolution: {integrity: sha512-XQsZgjm2EcVUiZQf11UBJQfmZeEmOW8DpI1gsFeln6w0ae0ii4dMQEQ0kjl6DspdWX1aGY1/loyXnP0JS06e/A==}
     engines: {node: '>=0.8.0'}
+
+  '@embedpdf/pdfium@2.14.4':
+    resolution: {integrity: sha512-0tDPQEH1WtfXcASNVp5U3dqfzZboNvcE4rDok/P4JCN+DCTaJDG2E9lYHGMo9FtuS2IdHgrzkmPRpOo5WV9MKQ==}
 
   '@emnapi/runtime@1.11.0':
     resolution: {integrity: sha512-55coeOFKHv1ywEcUXJtWU5f+Jr/W5tZDvZig8DLKSwUN1JpROQ4rk/SNOQiFWmaR/VKF4zuFyW1B8JduOSv6Pg==}
@@ -10932,19 +10938,7 @@ snapshots:
       '@better-auth/core': 1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(better-call@1.3.6(zod@3.25.76))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0)
       '@better-auth/utils': 0.4.1
 
-  '@better-auth/expo@1.6.18(051826b04b7e1882a3abfa170cce2b8d)':
-    dependencies:
-      '@better-auth/core': 1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(better-call@1.3.6(zod@3.25.76))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0)
-      '@better-fetch/fetch': 1.3.0
-      better-auth: 1.6.18(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))(mysql2@3.22.5(@types/node@22.19.21))(next@15.5.19(@babel/core@7.29.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(prisma@6.19.3(typescript@5.9.3))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@2.1.9(@types/node@22.19.21)(jsdom@25.0.1)(lightningcss@1.32.0)(terser@5.48.0))
-      better-call: 1.3.6(zod@4.4.3)
-      zod: 4.4.3
-    optionalDependencies:
-      expo-constants: 17.0.8(expo@52.0.49(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@expo/metro-runtime@4.0.1(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7)))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7))(react@19.2.7))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7))
-      expo-linking: 7.0.5(expo@52.0.49(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@expo/metro-runtime@4.0.1(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7)))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7))(react@19.2.7))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7))(react@19.2.7)
-      expo-web-browser: 14.0.2(expo@52.0.49(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@expo/metro-runtime@4.0.1(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7)))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7))(react@19.2.7))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7))
-
-  '@better-auth/expo@1.6.18(08a405bce05e1a140ebd974ddfc83173)':
+  '@better-auth/expo@1.6.18(12a822083d4e199b78021203703db0b1)':
     dependencies:
       '@better-auth/core': 1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(better-call@1.3.6(zod@3.25.76))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0)
       '@better-fetch/fetch': 1.3.0
@@ -10956,6 +10950,18 @@ snapshots:
       expo-linking: 7.0.5(expo@52.0.49(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@expo/metro-runtime@4.0.1(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1)))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(react@18.3.1))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(react@18.3.1)
       expo-network: 7.0.5(expo@52.0.49(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@expo/metro-runtime@4.0.1(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1)))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(react@18.3.1))(react@18.3.1)
       expo-web-browser: 14.0.2(expo@52.0.49(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@expo/metro-runtime@4.0.1(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1)))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(react@18.3.1))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))
+
+  '@better-auth/expo@1.6.18(c2d3c5c62c2cd818a429dcfbac481372)':
+    dependencies:
+      '@better-auth/core': 1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(better-call@1.3.6(zod@3.25.76))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0)
+      '@better-fetch/fetch': 1.3.0
+      better-auth: 1.6.18(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))(mysql2@3.22.5(@types/node@22.19.21))(next@15.5.19(@babel/core@7.29.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(prisma@6.19.3(typescript@5.9.3))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@2.1.9(@types/node@22.19.21)(jsdom@25.0.1)(lightningcss@1.32.0)(terser@5.48.0))
+      better-call: 1.3.6(zod@4.4.3)
+      zod: 4.4.3
+    optionalDependencies:
+      expo-constants: 17.0.8(expo@52.0.49(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@expo/metro-runtime@4.0.1(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7)))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7))(react@19.2.7))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7))
+      expo-linking: 7.0.5(expo@52.0.49(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@expo/metro-runtime@4.0.1(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7)))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7))(react@19.2.7))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7))(react@19.2.7)
+      expo-web-browser: 14.0.2(expo@52.0.49(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@expo/metro-runtime@4.0.1(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7)))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7))(react@19.2.7))(react-native@0.76.9(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@19.2.7))
 
   '@better-auth/kysely-adapter@1.6.18(@better-auth/core@1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(better-call@1.3.6(zod@3.25.76))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0))(@better-auth/utils@0.4.1)(kysely@0.29.2)':
     dependencies:
@@ -10974,7 +10980,7 @@ snapshots:
       '@better-auth/core': 1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(better-call@1.3.6(zod@3.25.76))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0)
       '@better-auth/utils': 0.4.1
 
-  '@better-auth/prisma-adapter@1.6.18(@better-auth/core@1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(better-call@1.3.6(zod@3.25.76))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0))(@better-auth/utils@0.4.1)(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.3.3))(typescript@5.3.3))(prisma@6.19.3(typescript@5.3.3))':
+  '@better-auth/prisma-adapter@1.6.18(@better-auth/core@1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(better-call@1.3.6(zod@4.4.3))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0))(@better-auth/utils@0.4.1)(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.3.3))(typescript@5.3.3))(prisma@6.19.3(typescript@5.3.3))':
     dependencies:
       '@better-auth/core': 1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(better-call@1.3.6(zod@3.25.76))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0)
       '@better-auth/utils': 0.4.1
@@ -11059,6 +11065,8 @@ snapshots:
   '@egjs/hammerjs@2.0.17':
     dependencies:
       '@types/hammerjs': 2.0.46
+
+  '@embedpdf/pdfium@2.14.4': {}
 
   '@emnapi/runtime@1.11.0':
     dependencies:
@@ -14416,13 +14424,13 @@ snapshots:
       '@better-auth/kysely-adapter': 1.6.18(@better-auth/core@1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(better-call@1.3.6(zod@3.25.76))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0))(@better-auth/utils@0.4.1)(kysely@0.29.2)
       '@better-auth/memory-adapter': 1.6.18(@better-auth/core@1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(better-call@1.3.6(zod@3.25.76))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0))(@better-auth/utils@0.4.1)
       '@better-auth/mongo-adapter': 1.6.18(@better-auth/core@1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(better-call@1.3.6(zod@3.25.76))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0))(@better-auth/utils@0.4.1)
-      '@better-auth/prisma-adapter': 1.6.18(@better-auth/core@1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(better-call@1.3.6(zod@3.25.76))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0))(@better-auth/utils@0.4.1)(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.3.3))(typescript@5.3.3))(prisma@6.19.3(typescript@5.3.3))
+      '@better-auth/prisma-adapter': 1.6.18(@better-auth/core@1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(better-call@1.3.6(zod@4.4.3))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0))(@better-auth/utils@0.4.1)(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.3.3))(typescript@5.3.3))(prisma@6.19.3(typescript@5.3.3))
       '@better-auth/telemetry': 1.6.18(@better-auth/core@1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(better-call@1.3.6(zod@3.25.76))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0))(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)
       '@better-auth/utils': 0.4.1
       '@better-fetch/fetch': 1.3.0
       '@noble/ciphers': 2.2.0
       '@noble/hashes': 2.2.0
-      better-call: 1.3.6(zod@4.4.3)
+      better-call: 1.3.6(zod@3.25.76)
       defu: 6.1.7
       jose: 6.2.3
       kysely: 0.29.2
@@ -14453,7 +14461,7 @@ snapshots:
       '@better-fetch/fetch': 1.3.0
       '@noble/ciphers': 2.2.0
       '@noble/hashes': 2.2.0
-      better-call: 1.3.6(zod@3.25.76)
+      better-call: 1.3.6(zod@4.4.3)
       defu: 6.1.7
       jose: 6.2.3
       kysely: 0.29.2
