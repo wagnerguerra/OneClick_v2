@@ -6,38 +6,18 @@ import {
   type UpdateTreatmentModelInput,
   type ListTreatmentModelInput,
   type TreatmentDefinition,
-  type PreviewArquivoInput,
   type ConvertInput,
   type DebugExtractInput,
   stableStringify,
 } from '@saas/types'
-import { readFileSync } from 'node:fs'
-import { extractTabela, configurePdf, type ExtractedTable } from '@saas/extracao'
 import { applyModel, type TraceRow } from './lib/apply-model'
 import { parseData } from './lib/parsers'
 
-// Configura o motor de PDF (PDFium/WASM) UMA vez, no boot. No Node lemos o binário
-// do pacote @embedpdf/pdfium; no browser é o app web que configura via URL servida.
-// A API é empacotada por WEBPACK, que reescreve `require.resolve` (devolveria um id
-// interno, não o caminho do arquivo) — por isso usamos `__non_webpack_require__`, o
-// require REAL de runtime, resolvendo o .wasm do node_modules (o pacote é external).
-// Fora do webpack (tsx/testes) cai no `require` normal. Falha aqui não derruba o boot.
-declare const __non_webpack_require__: NodeRequire
-try {
-  const req: NodeRequire = typeof __non_webpack_require__ === 'function' ? __non_webpack_require__ : require
-  configurePdf({ wasmBinary: readFileSync(req.resolve('@embedpdf/pdfium/pdfium.wasm')) })
-} catch {
-  /* wasm indisponível no boot — extração de PDF falhará com erro claro sob demanda */
-}
+// A EXTRAÇÃO do arquivo (XLSX/PDF) roda no CLIENTE (ver apps/web/.../tratamento-
+// lancamentos/lib). O servidor só APLICA o modelo sobre a tabela já extraída que o
+// cliente envia (convert/debugExtract) — não abre arquivo nem depende de motor de
+// PDF. Foi isso que tirou o pico de memória da API (origem do OOM em PDFs grandes).
 
-/**
- * Teto de linhas devolvidas no preview (limita payload). Além de alimentar o
- * wizard, o cliente CARREGA essas linhas e as reenvia no `convert` (reuso da
- * extração — ver `convert`). Por isso o teto precisa cobrir os arquivos reais
- * (ex.: extrato Mercado Pago, ~15k linhas); acima dele o cliente marca
- * `truncated` e o `convert` re-extrai no servidor (correção preservada).
- */
-const PREVIEW_MAX_ROWS = 50000
 /** Teto de linhas no visualizador de debug (limita payload; é ferramenta interna). */
 const DEBUG_MAX_ROWS = 5000
 /** Teto do traço "Dados processados" devolvido pelo convert (limita payload). */
@@ -351,43 +331,14 @@ export class TratamentoLancamentosService {
   }
 
   /**
-   * Extrai a tabela de um arquivo-exemplo (base64) para o wizard montar o
-   * de/para e os SELECT DISTINCT. Operação pura (sem banco/tenant).
-   */
-  async preview(input: PreviewArquivoInput) {
-    const buffer = Buffer.from(input.fileBase64, 'base64')
-    const t = await extractTabela({ buffer, filename: input.filename })
-    return {
-      headers: t.headers,
-      rows: t.rows.slice(0, PREVIEW_MAX_ROWS),
-      totalRows: t.meta.totalDataRows,
-      truncated: t.meta.totalDataRows > PREVIEW_MAX_ROWS,
-      meta: t.meta,
-    }
-  }
-
-  /**
    * Converte um arquivo de lançamentos aplicando um Modelo → conteúdo SCI
    * (base64, ANSI/latin1) ou lista de pendências quando algo não pôde ser
    * interpretado. "Exportação para o SCI".
    */
   async convert(input: ConvertInput, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
-    // Reuso da extração: o preview (pós-upload) já extraiu a tabela e o cliente a
-    // carrega de volta aqui → aplica o modelo SEM re-extrair. Só re-extrai no
-    // fallback (tabela não carregada: arquivo acima do teto do preview, ou fluxo
-    // que não passou pelo preview). `applyModel` consome apenas `rows`; `meta` é
-    // reconstruída de forma inerte só para satisfazer o tipo `ExtractedTable`.
-    const table: ExtractedTable = input.table
-      ? {
-          headers: input.table.headers,
-          rows: input.table.rows,
-          meta: {
-            sheetName: '', headerRowIndex: 0, bodyStartIndex: 0,
-            bodyEndIndex: input.table.rows.length, totalDataRows: input.table.rows.length,
-            mode: 'single',
-          },
-        }
-      : await extractTabela({ buffer: Buffer.from(input.fileBase64 ?? '', 'base64'), filename: input.filename })
+    // A tabela já vem EXTRAÍDA DO CLIENTE — a API não abre o arquivo, só aplica o
+    // modelo (`applyModel` consome apenas headers/rows).
+    const table = input.table
 
     const model = await scoped(tenantSchema, async (db) => {
       const m = await db.treatmentModel.findUniqueOrThrow({ where: { id: input.modelId } })
@@ -436,21 +387,21 @@ export class TratamentoLancamentosService {
   }
 
   /**
-   * Visualizador de DEBUG (escondido, via ?debug=1): extrai a tabela crua e, se
-   * um modelo for informado, também aplica o modelo com traço por-linha (como
-   * cada lançamento foi mapeado no de/para, e o que foi pulado/ignorado/pendente).
-   * Ferramenta de diagnóstico — não altera o fluxo de geração.
+   * Visualizador de DEBUG (ferramenta interna, via atalho de teclado): recebe a
+   * tabela extraída no cliente e, se um modelo for informado, aplica o modelo com
+   * traço por-linha (como cada lançamento foi mapeado no de/para, e o que foi
+   * pulado/ignorado/pendente). Diagnóstico — não altera o fluxo de geração.
    */
   async debugExtract(input: DebugExtractInput, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
-    const buffer = Buffer.from(input.fileBase64, 'base64')
-    const table = await extractTabela({ buffer, filename: input.filename })
+    // Tabela já extraída no cliente (a API não abre o arquivo).
+    const table = input.table
+    const totalRows = table.rows.length
 
     const base = {
       headers: table.headers,
       rows: table.rows.slice(0, DEBUG_MAX_ROWS),
-      totalRows: table.meta.totalDataRows,
-      truncated: table.meta.totalDataRows > DEBUG_MAX_ROWS,
-      meta: table.meta,
+      totalRows,
+      truncated: totalRows > DEBUG_MAX_ROWS,
     }
 
     // Sem modelo → só a tabela crua (view 1). Com modelo → também de/para + traço.

@@ -212,21 +212,13 @@ export type CreateTreatmentModelInput = z.infer<typeof createTreatmentModelSchem
 export type UpdateTreatmentModelInput = z.infer<typeof updateTreatmentModelSchema>
 export type ListTreatmentModelInput = z.infer<typeof listTreatmentModelSchema>
 
-// ---- Preview de arquivo (wizard) -------------------------------------------
-// Recebe o arquivo-exemplo em base64 → backend extrai a tabela e devolve
-// colunas + linhas (o wizard monta de/para e SELECT DISTINCT no cliente).
-export const previewArquivoSchema = z.object({
-  fileBase64: z.string().min(1, 'Arquivo vazio'),
-  filename: z.string().min(1),
-})
-export type PreviewArquivoInput = z.infer<typeof previewArquivoSchema>
-
-// ---- Tabela já extraída (reuso do preview) ---------------------------------
-// A extração roda UMA vez, no preview (pós-upload). O cliente guarda o resultado
-// e reenvia aqui, para o convert aplicar o modelo SEM re-extrair o arquivo.
-// Espelha o `ExtractedTable` do backend na parte que o `applyModel` consome
-// (só `headers` + `rows`; `meta` é reconstruída no servidor).
+// ---- Tabela extraída (no CLIENTE) ------------------------------------------
+// A extração roda no NAVEGADOR (ver apps/web/.../tratamento-lancamentos/lib) e o
+// cliente envia a tabela pronta ao servidor (convert/debugExtract), que só aplica
+// o modelo — nunca re-extrai. Este é o contrato compartilhado da tabela: `headers`
+// + `rows` (o que o `applyModel` consome). `CellValue` é o valor de cada célula.
 const cellValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()])
+export type CellValue = z.infer<typeof cellValueSchema>
 export const extractedTableSchema = z.object({
   headers: z.array(z.string()),
   rows: z.array(z.record(cellValueSchema)),
@@ -234,24 +226,15 @@ export const extractedTableSchema = z.object({
 export type ExtractedTableInput = z.infer<typeof extractedTableSchema>
 
 // ---- Conversão para o SCI ("Exportação para o SCI") ------------------------
-export const convertSchema = z
-  .object({
-    modelId: z.string().min(1),
-    filename: z.string().min(1),
-    // Arquivo em base64. Opcional quando `table` já vem pronta (reuso do preview);
-    // ainda usado como fallback quando a tabela não foi carregada (ex.: arquivo
-    // acima do teto do preview, ou fluxo que não passou pelo preview).
-    fileBase64: z.string().optional(),
-    // Tabela já extraída no preview (o cliente carrega) → evita re-extração.
-    table: extractedTableSchema.optional(),
-    // Ano de competência p/ datas "dd/mm" sem ano (ex.: Sicoob). Se ausente e o
-    // arquivo tiver datas sem ano, a conversão devolve `needsCompetenciaAno`.
-    competenciaAno: z.coerce.number().int().min(1900).max(2200).optional(),
-  })
-  .refine((d) => !!d.table || !!(d.fileBase64 && d.fileBase64.length > 0), {
-    message: 'Envie a tabela extraída ou o arquivo.',
-    path: ['fileBase64'],
-  })
+export const convertSchema = z.object({
+  modelId: z.string().min(1),
+  filename: z.string().min(1),
+  // Tabela extraída NO CLIENTE (a extração não ocorre mais no servidor).
+  table: extractedTableSchema,
+  // Ano de competência p/ datas "dd/mm" sem ano (ex.: Sicoob). Se ausente e o
+  // arquivo tiver datas sem ano, a conversão devolve `needsCompetenciaAno`.
+  competenciaAno: z.coerce.number().int().min(1900).max(2200).optional(),
+})
 export type ConvertInput = z.infer<typeof convertSchema>
 
 // ---- Visualizador de debug (tabela extraída) -------------------------------
@@ -259,7 +242,8 @@ export type ConvertInput = z.infer<typeof convertSchema>
 // tabelado e interpretado pelo modelo. `modelId` é OPCIONAL: sem ele, devolve só
 // a tabela extraída crua; com ele, também o traço do de/para + pendências.
 export const debugExtractSchema = z.object({
-  fileBase64: z.string().min(1, 'Arquivo vazio'),
+  // Tabela extraída no cliente (mesma coisa do convert).
+  table: extractedTableSchema,
   filename: z.string().min(1),
   modelId: z.string().optional(),
   competenciaAno: z.coerce.number().int().min(1900).max(2200).optional(),

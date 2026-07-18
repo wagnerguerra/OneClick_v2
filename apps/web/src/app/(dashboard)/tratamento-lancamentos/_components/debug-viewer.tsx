@@ -17,6 +17,7 @@ import {
   cn,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { extractClient } from '../lib/extract-client'
 
 type DebugResult = Awaited<ReturnType<typeof trpc.tratamentoLancamentos.debugExtract.mutate>>
 type TraceRow = DebugResult['trace'][number]
@@ -55,7 +56,12 @@ export function DebugViewer({ fileBase64, filename, modelId, competenciaAno }: P
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const res = await trpc.tratamentoLancamentos.debugExtract.mutate({ fileBase64, filename, modelId, competenciaAno })
+      // Extração NO CLIENTE (igual ao fluxo real); a API só aplica o modelo.
+      const bytes = Uint8Array.from(atob(fileBase64), (c) => c.charCodeAt(0))
+      const table = await extractClient(new File([bytes], filename))
+      const res = await trpc.tratamentoLancamentos.debugExtract.mutate({
+        table: { headers: table.headers, rows: table.rows }, filename, modelId, competenciaAno,
+      })
       setData(res)
     } catch (e) {
       setError((e as Error).message || 'Falha ao extrair a tabela.')

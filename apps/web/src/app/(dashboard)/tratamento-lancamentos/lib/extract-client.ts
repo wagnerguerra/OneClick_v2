@@ -1,9 +1,11 @@
 // Extração de tabela NO CLIENTE (browser). XLSX via SheetJS; PDF via PDFium/WASM
-// (@embedpdf/pdfium) — mesmo motor do backend (@saas/extracao), rodando na aba do
-// usuário. Tira o pico de memória da extração do processo da API (era a origem do
-// OOM na geração de PDFs grandes). O `convert` no servidor recebe a tabela pronta.
+// (@embedpdf/pdfium). A extração vive SÓ aqui (neste módulo do web) — o servidor
+// não abre arquivo, só aplica o modelo sobre a tabela pronta (convert/debugExtract).
+// Foi isso que tirou o pico de memória da API (origem do OOM em PDFs grandes).
+// Motor em ./extract-tabela (fronteira + XLSX) e ./pdf-extract (PDF).
 
-import { extractTabela, configurePdf, type ExtractedTable } from '@saas/extracao'
+import { extractTabela, type ExtractedTable } from './extract-tabela'
+import { configurePdf } from './pdf-extract'
 
 // Configura o WASM do PDFium UMA vez: baixa o binário do próprio app (/pdfium.wasm,
 // servido de public/) — sem depender de CDN externo, importante p/ dado financeiro.
