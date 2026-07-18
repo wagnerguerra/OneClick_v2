@@ -75,7 +75,7 @@ export function DebugViewer({ fileBase64, filename, modelId, competenciaAno }: P
   useEffect(() => { void load() }, [load])
 
   const trace = data?.trace ?? []
-  const puladas = trace.filter((t) => t.status === 'pulada-regra' || t.status === 'ignorada-zero')
+  const puladas = trace.filter((t: TraceRow) => t.status === 'pulada-regra' || t.status === 'ignorada-zero')
   const comModelo = !!data?.modelNome
 
   return (
@@ -158,7 +158,7 @@ function RawTable({ headers, rows }: { headers: string[]; rows: DebugResult['row
           </TableRow>
         </TableHeader>
         <TableBody>
-          {shown.map((row, i) => (
+          {shown.map((row: Record<string, unknown>, i: number) => (
             <TableRow key={i}>
               <TableCell className="text-right font-mono text-[11px] text-muted-foreground">{i + 1}</TableCell>
               {headers.map((h) => {
