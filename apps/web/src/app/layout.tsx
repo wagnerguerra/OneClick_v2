@@ -24,9 +24,11 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // suppressHydrationWarning: extensões do navegador (ex.: Bry/assinador digital)
+  // injetam atributos no <html> antes da hidratação → mismatch benigno.
   return (
-    <html lang="pt-BR">
-      <body className={inter.className}>
+    <html lang="pt-BR" suppressHydrationWarning>
+      <body className={inter.className} suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -199,6 +199,7 @@ export const navigation: NavGroup[] = [
       { label: 'Controle de Férias', href: '/controle-ferias', icon: CalendarDays, wip: true },
       { label: 'FGTS Digital', href: '/fgts-digital', icon: Landmark, wip: true },
       { label: 'Importação de Folha', href: '/folha-pagamento', icon: FileSpreadsheet },
+      { label: 'Espelho da Folha', href: '/folha-bi', icon: BarChart3 },
     ],
   },
   {

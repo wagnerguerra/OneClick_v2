@@ -59,6 +59,8 @@ import { BiService } from '../bi/bi.service'
 import { createBiRouter, createBiPublicRouter } from '../bi/bi.router'
 import { FolhaService } from '../folha/folha.service'
 import { createFolhaRouter } from '../folha/folha.router'
+import { FolhaBiService } from '../folha-bi/folha-bi.service'
+import { createFolhaBiRouter } from '../folha-bi/folha-bi.router'
 import { AgendaService } from '../agenda/agenda.service'
 import { AgendaGoogleService } from '../agenda/agenda-google.service'
 import { createAgendaRouter } from '../agenda/agenda.router'
@@ -618,6 +620,7 @@ export class TrpcService {
     @Inject(DctfwebService) private readonly dctfwebService: DctfwebService,
     @Inject(BiService) private readonly biService: BiService,
     @Inject(FolhaService) private readonly folhaService: FolhaService,
+    @Inject(FolhaBiService) private readonly folhaBiService: FolhaBiService,
     @Inject(AgendaService) private readonly agendaService: AgendaService,
     @Inject(AgendaGoogleService) private readonly agendaGoogleService: AgendaGoogleService,
     @Inject(AgendaConfigService) private readonly agendaConfigService: AgendaConfigService,
@@ -722,6 +725,7 @@ export class TrpcService {
       bi: createBiRouter(this.biService),
       biPublic: createBiPublicRouter(this.biService),
       folha: createFolhaRouter(this.folhaService),
+      folhaBi: createFolhaBiRouter(this.folhaBiService),
       agenda: createAgendaRouter(this.agendaService, this.agendaGoogleService, this.agendaConfigService, this.agendaSalaService, this.agendaDisparoService, this.agendaLembreteService, this.agendaTarefaService),
       dte: createDteRouter(this.dteService),
       crm: createCrmRouter(this.crmService, this.importComercialService),
