@@ -56,7 +56,7 @@ export const MODULE_SLUGS = [
   // Legalização
   'beneficios-fiscais', 'certificados', 'gestao-certificados', 'processos', 'quadro-societario',
   // Trabalhista
-  'banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento',
+  'banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento', 'folha-bi',
   // Fiscal
   'caixapostal', 'certidoes-cnd', 'dctfweb', 'dte',
   'obrigacoes-servicos', 'situacao-fiscal', 'reforma-tributaria', 'ferramentas-fiscal',
@@ -110,7 +110,7 @@ export const MODULE_LABELS: Record<string, string> = {
   processos: 'Processos', 'quadro-societario': 'Quadro Societário',
   // Trabalhista
   'banco-horas': 'Banco de Horas', beneficios: 'Benefícios', 'controle-ferias': 'Controle de Férias',
-  'fgts-digital': 'FGTS Digital', 'folha-pagamento': 'Importação de Folha',
+  'fgts-digital': 'FGTS Digital', 'folha-pagamento': 'Importação de Folha', 'folha-bi': 'Espelho da Folha',
   // Fiscal
   'beneficios-fiscais': 'Benefícios Fiscais', 'caixapostal': 'Caixa Postal e-CAC',
   'certidoes-cnd': "CND's Federais", danfe: 'DANFE (NFe → PDF)', dctfweb: 'DCTFWeb', dte: 'DT-e ES',
@@ -140,7 +140,7 @@ export const MODULE_GROUPS = {
   'Comercial': ['crm', 'whatsapp', 'clausulas', 'comercial', 'contratos', 'contrato-templates', 'custeio-clientes', 'graficos-contrato-erp', 'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios'],
   'Administrativo': ['agenda', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma'],
   'Legalização': ['beneficios-fiscais', 'certificados', 'gestao-certificados', 'processos', 'quadro-societario'],
-  'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento'],
+  'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento', 'folha-bi'],
   'Fiscal': ['caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal', 'reforma-tributaria', 'ferramentas-fiscal'],
   'Contábil': ['bi-categorias-balancete', 'bi-faturamento', 'ferramentas-contabil', 'tratamento-lancamentos'],
   'TI': ['ativos', 'helpdesk', 'projetos'],

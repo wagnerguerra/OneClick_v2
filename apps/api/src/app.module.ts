@@ -17,6 +17,7 @@ import { DctfwebModule } from './dctfweb/dctfweb.module'
 import { EmailModule } from './common/email.module'
 import { BiModule } from './bi/bi.module'
 import { FolhaModule } from './folha/folha.module'
+import { FolhaBiModule } from './folha-bi/folha-bi.module'
 import { HelpdeskModule } from './helpdesk/helpdesk.module'
 import { DriveSyncModule } from './drive-sync/drive-sync.module'
 import { LauncherModule } from './launcher/launcher.module'
@@ -57,6 +58,7 @@ import { ReformaTributariaModule } from './reforma-tributaria/reforma-tributaria
     EmailModule,
     BiModule,
     FolhaModule,
+    FolhaBiModule,
     HelpdeskModule,
     DriveSyncModule,
     LauncherModule,

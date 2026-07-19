@@ -1357,6 +1357,25 @@ model BiCacheBalancete {
   @@map("bi_cache_balancete")
 }
 
+// BI de Folha (conferência da folha, origem SCI) — cache alimentado EXTERNAMENTE
+// pela ETL (Launcher), por competência. Fase 1: snapshot em `payload` (evolui
+// depois p/ fato/dim). Sem FK p/ Cliente por ora (alimentado por CNPJ/clienteId
+// vindos da ETL). Chave: cliente + CNPJ (filial) + competência + fonte.
+model FolhaBiCache {
+  id           String   @id @default(cuid())
+  clienteId    String   @map("cliente_id") // Cliente do OneClick
+  cnpj         String // CNPJ da empresa/filial no SCI
+  ref          Int // AAAAMM (competência; 13o = AAAA13)
+  fonte        String   @default("python-etl")
+  totalLinhas  Int      @default(0) @map("total_linhas")
+  payload      Json?
+  atualizadoEm DateTime @default(now()) @map("atualizado_em")
+
+  @@unique([clienteId, cnpj, ref, fonte])
+  @@index([clienteId])
+  @@map("folha_bi_cache")
+}
+
 // BI — KPI Contas Ignoradas por cliente
 // ============================================================
 
