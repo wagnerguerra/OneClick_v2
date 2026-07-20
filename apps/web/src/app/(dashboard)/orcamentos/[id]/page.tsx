@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useRouter } from 'next/navigation'
 import {
@@ -20,6 +20,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Sheet, SheetContent, SheetTitle,
+  sanitizeInlineTextColors,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
@@ -3282,6 +3283,11 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
   onEditarResposta?: (id: string, novoTexto: string) => Promise<void>
   isReply?: boolean
 }) {
+  // #HLP0178: mensagens antigas foram salvas com a cor preta/branca que veio
+  // grudada no texto colado — invisíveis num dos temas. Limpamos os extremos
+  // neutros na exibição pra herdarem `text-foreground`. Conteúdo novo já sai
+  // limpo do editor (o parse da extensão de cor descarta na origem).
+  const mensagemHtml = useMemo(() => sanitizeInlineTextColors(msg.mensagem), [msg.mensagem])
   const autor = msg.usuario || (msg.userId ? usuarios.find(u => u.id === msg.userId) : null)
   const autorExterno = (msg as { autorExterno?: string | null }).autorExterno
   const viaEmail = (msg as { viaEmail?: boolean }).viaEmail
@@ -3473,7 +3479,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
             ) : (
               <div
                 className="text-sm text-foreground prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-a:text-rose-600"
-                dangerouslySetInnerHTML={{ __html: msg.mensagem }}
+                dangerouslySetInnerHTML={{ __html: mensagemHtml }}
               />
             )}
           </div>

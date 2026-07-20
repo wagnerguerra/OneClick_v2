@@ -1,6 +1,7 @@
 'use client'
 
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
+import { getStyleProperty } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
@@ -18,10 +19,66 @@ import {
   Minus, Undo, Redo, Highlighter, Palette, Code2,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { isThemeUnsafeColor } from '../lib/sanitize-colors'
 
+/**
+ * #HLP0178 — Color com filtro de cores "presas" a um tema.
+ *
+ * Texto colado de fonte externa (Word, Google Docs, Outlook, sites) quase sempre
+ * traz `style="color:#000000"` embutido. A extensão Color original importa essa
+ * cor como está, então o trecho colado fica preto fixo e some no tema escuro — e
+ * o inverso, branco/cinza-claro sumindo no tema claro. O usuário lê como "o texto
+ * não colou inteiro" (era isso no anexo do ticket).
+ *
+ * Sobrescrevendo só o `parseHTML` do atributo, a cor extrema é descartada JÁ na
+ * leitura do HTML — vale pra colagem, pro conteúdo carregado e pra qualquer
+ * `setContent`. Sem cor inline o texto herda `currentColor`, que é o token de
+ * tema e continua alternando claro/escuro depois de salvo.
+ *
+ * Feito no parse (e não limpando a string de `value`) de propósito: assim o HTML
+ * que o editor serializa bate com o que ele leu, sem disparar `setContent` em
+ * loop no efeito de sincronização.
+ */
+const ThemeSafeColor = Color.extend({
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          color: {
+            default: null,
+            // Espelha o parseHTML original da Color (@tiptap/extension-text-style):
+            // lê o valor CRU do atributo style — normalizar via `element.style.color`
+            // reescreveria toda cor intencional de `#dc2626` para `rgb(220, 38, 38)`
+            // no round-trip, sujando o diff e disparando auto-save à toa. A ÚNICA
+            // diferença é o descarte dos extremos presos a um tema.
+            parseHTML: (element: HTMLElement) => {
+              const raw = getStyleProperty(element, 'color') ?? element.style.color
+              const color = raw?.replace(/['"]+/g, '')
+              if (!color || isThemeUnsafeColor(color)) return null
+              return color
+            },
+            renderHTML: (attributes: Record<string, unknown>) => {
+              if (!attributes.color) return {}
+              return { style: `color: ${attributes.color}` }
+            },
+          },
+        },
+      },
+    ]
+  },
+})
+
+// Valores que REMOVEM a cor em vez de aplicar uma — renderizados como "placa de
+// proibido" (borda + barra vermelha) no seletor, e não como um swatch de cor.
+const RESET_COLOR_VALUES = new Set(['inherit', 'unset'])
+
+// #HLP0178: sem "Preto" na paleta — cor fixa quase-preta é justamente o que o
+// parse descarta (some no tema escuro), então o swatch aplicaria uma cor que não
+// sobrevive ao recarregar. Quem quer texto "preto" usa "Padrão do tema", que já
+// renderiza escuro no tema claro e claro no escuro.
 const TEXT_COLORS = [
-  { value: 'inherit', label: 'Padrão', bg: '#94a3b8' },
-  { value: '#000000', label: 'Preto',  bg: '#000000' },
+  { value: 'inherit', label: 'Padrão do tema', bg: 'transparent' },
   { value: '#475569', label: 'Cinza',  bg: '#475569' },
   { value: '#dc2626', label: 'Vermelho', bg: '#dc2626' },
   { value: '#ea580c', label: 'Laranja',  bg: '#ea580c' },
@@ -31,7 +88,7 @@ const TEXT_COLORS = [
   { value: '#7c3aed', label: 'Roxo',     bg: '#7c3aed' },
 ]
 const HIGHLIGHT_COLORS = [
-  { value: 'unset',   label: 'Remover',  bg: '#ffffff' },
+  { value: 'unset',   label: 'Remover marca-texto',  bg: 'transparent' },
   { value: '#fef08a', label: 'Amarelo',  bg: '#fef08a' },
   { value: '#bef264', label: 'Verde',    bg: '#bef264' },
   { value: '#bae6fd', label: 'Azul',     bg: '#bae6fd' },
@@ -82,7 +139,7 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
       Underline,
       // TextStyle é dependência de Color (TipTap exige).
       TextStyle,
-      Color,
+      ThemeSafeColor,
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Link.configure({
@@ -539,17 +596,38 @@ function ColorPicker({ icon, title, colors, onPick }: {
         <>
           {/* Backdrop pra fechar ao clicar fora */}
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-1 z-50 rounded-md border border-foreground/15 bg-popover shadow-lg p-2 grid grid-cols-3 gap-1.5">
-            {colors.map(c => (
-              <button
-                key={c.value}
-                type="button"
-                onClick={() => { onPick(c.value); setOpen(false) }}
-                title={c.label}
-                className="h-6 w-6 rounded-sm border border-border/40 hover:scale-110 transition-transform"
-                style={{ background: c.bg }}
-              />
-            ))}
+          {/* `w-max` é obrigatório: sendo `absolute` dentro de um wrapper de 28px,
+              sem ele o shrink-to-fit calcula a largura do grid pela do container
+              pai e as colunas se sobrepõem, vazando pra fora do popover. */}
+          <div className="absolute top-full left-0 mt-1 z-50 w-max rounded-md border border-foreground/15 bg-popover shadow-lg p-2 grid grid-cols-4 gap-2">
+            {colors.map(c => {
+              const isReset = RESET_COLOR_VALUES.has(c.value)
+              return (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => { onPick(c.value); setOpen(false) }}
+                  title={c.label}
+                  aria-label={c.label}
+                  className={cn(
+                    'relative h-7 w-7 rounded-md transition-transform hover:scale-110',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    // Borda do reset mais grossa que a dos swatches, pra leitura de
+                    // "placa de não" junto com a barra "/".
+                    isReset ? 'border-2 border-red-500' : 'border border-border/40',
+                  )}
+                  style={isReset ? undefined : { background: c.bg }}
+                >
+                  {/* Placa de "não": barra vermelha atravessando — sinaliza que a
+                      opção REMOVE a cor e devolve o texto ao padrão do tema. */}
+                  {isReset && (
+                    <svg viewBox="0 0 24 24" className="absolute inset-0 h-full w-full" aria-hidden="true">
+                      <line x1="4" y1="20" x2="20" y2="4" stroke="rgb(239 68 68)" strokeWidth="2.5" strokeLinecap="round" />
+                    </svg>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </>
       )}
