@@ -98,15 +98,27 @@ export class OrcamentoService {
       // Busca abrangente — cobre tudo o que aparece no card do orçamento:
       // número, cliente, responsável/solicitante, itens (serviços), status,
       // contatos, e-mails, observações e texto interno.
-      const or: any[] = [
-        { id: { contains: term } },
-        { observacoes: { contains: term, mode: 'insensitive' } },
-        { textoInterno: { contains: term, mode: 'insensitive' } },
-        { contatos: { contains: term, mode: 'insensitive' } },
-        { emailsContatos: { contains: term, mode: 'insensitive' } },
-        // Descrição dos itens (serviços/taxas/despesas listados no card)
-        { itens: { some: { descricao: { contains: term, mode: 'insensitive' } } } },
-      ]
+      // Termo puramente numérico = o usuário está procurando UM orçamento pelo
+      // número (ou um CNPJ). Nesse caso os campos de texto livre viram ruído:
+      // #HLP0279 relatou que buscar "4543" trazia junto o #4565, porque o número
+      // 4543 aparecia no texto interno DELE. Um número solto casando com o corpo
+      // de outro orçamento é sempre resultado indesejado, então restringimos a
+      // busca aos campos identificadores. Termos com letras seguem abrangentes.
+      const soNumeros = /^[0-9#.\-/\s]+$/.test(term) && numStr.length > 0
+      // No modo numérico nem o `id` entra: cuid é string aleatória e "4543" casar
+      // com um pedaço de cuid é ruído puro. Sobram `numero` e o CNPJ do cliente,
+      // ambos adicionados logo abaixo.
+      const or: any[] = soNumeros
+        ? []
+        : [
+            { id: { contains: term } },
+            { observacoes: { contains: term, mode: 'insensitive' } },
+            { textoInterno: { contains: term, mode: 'insensitive' } },
+            { contatos: { contains: term, mode: 'insensitive' } },
+            { emailsContatos: { contains: term, mode: 'insensitive' } },
+            // Descrição dos itens (serviços/taxas/despesas listados no card)
+            { itens: { some: { descricao: { contains: term, mode: 'insensitive' } } } },
+          ]
       // Número do orçamento (campo Int): aceita "42", "#0042", etc.
       if (numStr) {
         const n = parseInt(numStr, 10)
@@ -148,7 +160,10 @@ export class OrcamentoService {
         const ids = usuarios.map(u => u.id)
         or.push({ responsavelId: { in: ids } }, { solicitanteId: { in: ids } })
       }
-      where.OR = or
+      // OR vazio no Prisma não casa NADA. Só pode acontecer no modo numérico com
+      // um termo sem número utilizável (ex.: "0", "#"); nesse caso é melhor não
+      // filtrar do que devolver a lista vazia sem explicação.
+      if (or.length > 0) where.OR = or
     }
 
     // Escopo de listagem — espelha legado modal-prm-orcamentos.asp acesso (1-4)
