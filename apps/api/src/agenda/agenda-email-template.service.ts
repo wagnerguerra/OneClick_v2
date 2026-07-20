@@ -247,7 +247,21 @@ export class AgendaEmailTemplateService {
 
     const outros = eventos.filter(e => !usados.has(e.id))
     const secoes: Array<{ nome: string; cor: string; icone: string; items: any[] }> = [...secoesGrupos]
-    if (template.mostrarOutros && outros.length > 0) secoes.push({ nome: template.nomeGrupoOutros || 'Outros', cor: template.accent, icone: '📌', items: outros })
+    // O catch-all SEMPRE entra quando sobra evento. Antes ele respeitava
+    // `mostrarOutros`, e com o toggle desligado os eventos de tipos não
+    // atribuídos a nenhum grupo eram descartados EM SILÊNCIO — o e-mail dizia
+    // "sua agenda do dia" e omitia compromissos reais (#HLP0286: um evento do
+    // tipo "Ausência", que não está em grupo nenhum, sumiu do e-mail).
+    // Perder compromisso é pior que exibir uma seção a mais; `mostrarOutros`
+    // deixa de poder causar perda de dados. Para não ver a seção, atribua os
+    // tipos aos grupos em /agenda/configuracoes — aí ela fica vazia sozinha.
+    if (outros.length > 0) {
+      secoes.push({ nome: template.nomeGrupoOutros || 'Outros', cor: template.accent, icone: '📌', items: outros })
+      if (!template.mostrarOutros) {
+        const tipos = Array.from(new Set(outros.map(e => e?.tipo?.nome).filter(Boolean)))
+        console.warn(`[AgendaEmail] ${outros.length} evento(s) sem grupo exibidos no catch-all (tipos: ${tipos.join(', ')}). Atribua esses tipos a um grupo em /agenda/configuracoes.`)
+      }
+    }
 
     // Bases PÚBLICAS (alcançáveis pelo proxy de imagens do cliente de e-mail).
     // Importante: NÃO usar API_URL primeiro — na VPS ele é interno (ex.: oneclick-api:4000)
