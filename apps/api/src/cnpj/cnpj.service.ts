@@ -402,6 +402,14 @@ export class CnpjService {
     // Gate de custo: decide Serpro (pago) vs base gratuita conforme tenant/orçamento.
     const gate = await this.avaliarGateSerpro(empresaId, OP)
 
+    // Aviso de degradação: quando o SERPRO (fonte oficial, paga) falha, a consulta
+    // cai na BrasilAPI, que espelha a Receita com atraso. Antes isso era silencioso
+    // — o usuário recebia dado defasado achando que era oficial (#HLP0234, "ao
+    // puxar a consulta do CNPJ ele não aparece atualizado"). Em produção, 276 de
+    // 276 chamadas ao SERPRO falharam, então TODA consulta vinha da base gratuita
+    // sem ninguém perceber. O aviso não conserta a credencial, mas para de mascarar.
+    let avisoSerproFalhou: string | null = null
+
     if (gate.usarSerpro && serpro) {
       const start = Date.now()
       try {
@@ -411,7 +419,8 @@ export class CnpjService {
         return result
       } catch (e) {
         await this.logApi({ source: 'serpro', operation: OP, endpoint: `/consulta-cnpj-df/v2/empresa/${doc}`, status: 500, duration: Date.now() - start, documento: doc, custo: 0, empresaId, userId })
-        // Serpro falhou (indisponível/erro) → cai na base gratuita (sem aviso de gate).
+        // Serpro falhou (indisponível, credencial rotacionada, erro) → base gratuita.
+        avisoSerproFalhou = 'Consulta oficial (SERPRO) indisponível. Os dados vieram da base pública, que espelha a Receita com atraso e pode estar desatualizada.'
         console.warn(`[CnpjService] SERPRO falhou, tentando BrasilAPI: ${(e as Error).message}`)
       }
     }
@@ -421,7 +430,10 @@ export class CnpjService {
     try {
       const result = await this.consultarViaBrasilApi(doc)
       await this.logApi({ source: 'brasilapi', operation: OP, endpoint: `/cnpj/v1/${doc}`, status: 200, duration: Date.now() - startBr, documento: doc, custo: 0, empresaId, userId })
-      return gate.aviso ? { ...result, gateAviso: gate.aviso } : result
+      // A falha do SERPRO tem precedência sobre o aviso de gate: se ele foi
+      // tentado e caiu, é isso que o usuário precisa saber sobre a procedência.
+      const aviso = avisoSerproFalhou ?? gate.aviso
+      return aviso ? { ...result, gateAviso: aviso } : result
     } catch (e) {
       await this.logApi({ source: 'brasilapi', operation: OP, endpoint: `/cnpj/v1/${doc}`, status: 500, duration: Date.now() - startBr, documento: doc, custo: 0, empresaId, userId })
       throw e
