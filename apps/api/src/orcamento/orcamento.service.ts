@@ -2698,7 +2698,7 @@ export class OrcamentoService {
         // Bloqueia serviços marcados como internos — eles têm execução exclusivamente
         // interna e não devem aparecer no catálogo de itens do orçamento.
         where: { ...baseWhere, ...ativo, ...disponivel, ehServicoInterno: false },
-        select: { id: true, nome: true, valorPadrao: true, ativo: true, disponivelOrcamento: true, empresaId: true, categoria: true, recorrenteMensal: true },
+        select: { id: true, nome: true, valorPadrao: true, textoPadrao: true, ativo: true, disponivelOrcamento: true, empresaId: true, categoria: true, recorrenteMensal: true },
         orderBy: { nome: 'asc' },
       }),
       prisma.servicoCatalogo.findMany({
@@ -2713,7 +2713,11 @@ export class OrcamentoService {
       nome: s.nome,
       tipo: 'SERVICO' as const,
       valorPadrao: s.valorPadrao,
-      textoPadrao: null as string | null,
+      // Vinha chumbado em null, o que fazia o texto padrão de qualquer item de
+      // origem Servico sumir da UI mesmo estando gravado no banco (#HLP0283:
+      // "salvei e o texto foi apagado" — não foi; a releitura é que zerava) e
+      // nunca ser oferecido ao inserir o item no orçamento (#HLP0273).
+      textoPadrao: s.textoPadrao,
       ativo: s.ativo,
       disponivelOrcamento: s.disponivelOrcamento,
       empresaId: s.empresaId,
