@@ -2137,6 +2137,28 @@ export class OrcamentoService {
     }
   }
 
+  /**
+   * Converte texto digitado em `<textarea>` para HTML de e-mail.
+   *
+   * A mensagem personalizada do envio vinha sendo interpolada CRUA no corpo do
+   * e-mail. Como a origem é textarea (texto puro, não HTML), isso causava dois
+   * defeitos reportados: as quebras de linha e a indentação sumiam (#HLP0274) e
+   * qualquer "<" digitado ou colado era lido como início de tag, engolindo o
+   * trecho seguinte (#HLP0178, "o texto não aparece completo"). De quebra, era
+   * injeção de HTML num e-mail que vai para o cliente.
+   *
+   * Escapa o texto e preserva as quebras (\n → <br>) e os espaços consecutivos.
+   */
+  private textoPlainParaHtml(texto: string): string {
+    return texto
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/ {2}/g, ' &nbsp;')
+      .replace(/\r?\n/g, '<br>')
+  }
+
   async enviarOrcamento(id: string, opcoes: { destinatarios?: string[]; mensagem?: string } = {}, userId?: string) {
     const orc = await prisma.orcamento.findUnique({
       where: { id },
@@ -2219,7 +2241,7 @@ export class OrcamentoService {
       bodyHtml: `
         <p>Prezado(a) <strong>${clienteNome}</strong>,</p>
         <p>A <strong>${empresaNome}</strong> tem o prazer de enviar a proposta comercial abaixo para sua avaliação. Clique no botão para visualizar e aprovar diretamente.</p>
-        ${opcoes.mensagem ? `<div style="background:#fff7ed;border-left:3px solid #fb923c;padding:14px 18px;margin:18px 0;border-radius:4px;color:#7c2d12;font-size:13px;">${opcoes.mensagem}</div>` : ''}
+        ${opcoes.mensagem ? `<div style="background:#fff7ed;border-left:3px solid #fb923c;padding:14px 18px;margin:18px 0;border-radius:4px;color:#7c2d12;font-size:13px;">${this.textoPlainParaHtml(opcoes.mensagem)}</div>` : ''}
         ${summaryTable}
         ${itensTable}
         ${totaisBlock}
