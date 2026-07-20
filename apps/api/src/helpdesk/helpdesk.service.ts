@@ -1382,7 +1382,11 @@ export class HelpdeskService {
     for (const t of semCsat) {
       await prisma.helpdeskTicket.update({
         where: { id: t.id },
-        data: { status: 'CONCLUIDO', concluidoEm: agora, csatNota: 3 }, // nota neutra automática
+        // NÃO grava csatNota aqui: auto-fechamento não é avaliação. Gravar uma
+        // nota "neutra" inventava satisfação que ninguém deu — as métricas já
+        // filtram por csatRespondidoEm, então a nota só poluía o banco e induzia
+        // a erro quem consultasse csat_nota direto.
+        data: { status: 'CONCLUIDO', concluidoEm: agora },
       })
       await this.addEvento(t.id, null, 'status_alterado', 'RESOLVIDO → CONCLUIDO (auto-fechado por inatividade)')
       auto_fechados++

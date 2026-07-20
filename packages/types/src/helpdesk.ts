@@ -22,7 +22,11 @@ export const HELPDESK_STATUS_LABELS: Record<HelpdeskStatus, string> = {
   NOVO: 'Novo',
   EM_ANDAMENTO: 'Em andamento',
   AGUARDANDO_AUDITORIA: 'Aguardando auditoria',
-  RESOLVIDO: 'Pendente',
+  // "Pendente" fazia o solicitante ler o estado como "ainda não mexeram nisso" e
+  // estranhar receber a pesquisa de satisfação (#HLP0180). O estado É a janela de
+  // confirmação: o técnico resolveu e aguarda a avaliação, que é o que conclui o
+  // ticket. O rótulo agora diz isso.
+  RESOLVIDO: 'Aguardando avaliação',
   CONCLUIDO: 'Concluído',
   CANCELADO: 'Cancelado',
 }
