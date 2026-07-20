@@ -1265,17 +1265,30 @@ export default function OrcamentoDetailPage() {
   }
 
   async function handleEnviar() {
+    const destinatarios = enviarDestinatarios.split(/[,;]/).map(s => s.trim()).filter(Boolean)
+    // #HLP0149: com "Notificar" marcado mas o campo de destinatários vazio (operador
+    // limpou os e-mails de propósito, p/ enviar por outro canal), NÃO caímos mais no
+    // fallback silencioso do backend — que reincluía cliente.email + emailsContatos +
+    // emailComercial e disparava a proposta assim mesmo. Avisamos e, se confirmado,
+    // apenas marcamos como Enviado sem disparar e-mail.
+    if (enviarNotificar && destinatarios.length === 0) {
+      const ok = await alerts.confirm({
+        title: 'Sem destinatário',
+        text: 'Nenhum e-mail informado. O orçamento será marcado como Enviado, mas nenhum e-mail será disparado ao cliente. Deseja continuar?',
+        confirmText: 'Marcar como enviado',
+        icon: 'warning',
+      })
+      if (!ok) return
+    }
     setEnviando(true)
     try {
-      // Destinatários são opcionais (#HLP0086): sem e-mail, só muda status pra
-      // ENVIADO sem disparar notificação. Permite que o usuário marque o orçamento
-      // como enviado por canal externo (WhatsApp, telefone) sem precisar de email.
-      const destinatarios = enviarDestinatarios.split(/[,;]/).map(s => s.trim()).filter(Boolean)
-      // Checkbox desmarcado → força "sem e-mail" (destinatarios=[]): marca como enviado
-      // sem notificar o cliente. Marcado → envia pros destinatários.
+      // Destinatários são explícitos (#HLP0086 / #HLP0149): a lista enviada é sempre o
+      // que o operador vê no campo — nunca um fallback oculto. Checkbox desmarcado OU
+      // campo vazio → força "sem e-mail" (destinatarios=[]): só muda status pra ENVIADO,
+      // sem notificar o cliente (envio por canal externo). Com e-mails → envia pra eles.
       const result = await (trpc.orcamento as any).enviar.mutate({
         id,
-        destinatarios: enviarNotificar ? (destinatarios.length > 0 ? destinatarios : undefined) : [],
+        destinatarios: enviarNotificar && destinatarios.length > 0 ? destinatarios : [],
         mensagem: enviarMensagem.trim() || undefined,
       })
       setEnviarModal(false)
