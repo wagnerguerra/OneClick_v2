@@ -2,7 +2,7 @@ import { Injectable, Inject, OnModuleInit } from '@nestjs/common'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { prisma } from '@saas/db'
-import type { AgendaDisparoConfig } from '@saas/db'
+import type { AgendaDisparoConfig, Prisma } from '@saas/db'
 import { EmailService } from '../common/email.service'
 import { AgendaEmailTemplateService } from './agenda-email-template.service'
 import { GrupoObrigacaoService } from '../grupo-obrigacao/grupo-obrigacao.service'
@@ -59,6 +59,27 @@ export class AgendaDisparoService implements OnModuleInit {
     const itens = await this.grupoObrigacaoService.getVencimentosDoDia(new Date(dataYyyyMmDd)).catch(() => [])
     this.vencCache = { dia: dataYyyyMmDd, itens }
     return itens
+  }
+
+  /**
+   * Filtro de "eventos do dia" para o e-mail.
+   *
+   * Um evento multi-dia (férias, viagem, treinamento) é UM único registro com
+   * `data` = início e `dataFim` = fim — não uma linha por dia. Filtrar só por
+   * `data = hoje` fazia esses eventos aparecerem apenas no e-mail do PRIMEIRO
+   * dia e sumirem em todos os dias seguintes do período.
+   *
+   * Aqui pegamos os dois casos: começa hoje, OU está em curso hoje (começou
+   * antes e termina em/depois de hoje). Mesma regra do `listEventos` da agenda,
+   * então o e-mail passa a bater com o que o usuário vê no calendário.
+   */
+  private whereEventosDoDia(dia: Date): Prisma.AgendaEventoWhereInput {
+    return {
+      OR: [
+        { data: dia },
+        { data: { lte: dia }, dataFim: { gte: dia } },
+      ],
+    }
   }
 
   private diaSemanaExt(d: Date): string {
@@ -316,7 +337,7 @@ export class AgendaDisparoService implements OnModuleInit {
     const eventos = await prisma.agendaEvento.findMany({
       where: {
         isActive: true,
-        data: eventDate,
+        ...this.whereEventosDoDia(eventDate),
         ...(!user.isMaster && user.empresaId ? { empresaId: user.empresaId } : {}),
       },
       include: {
@@ -432,7 +453,7 @@ export class AgendaDisparoService implements OnModuleInit {
     const dia = dataYyyyMmDd || this.formatDateKey(this.getNowBrasilia())
     const eventDate = new Date(dia)
     const eventos = await prisma.agendaEvento.findMany({
-      where: { isActive: true, data: eventDate },
+      where: { isActive: true, ...this.whereEventosDoDia(eventDate) },
       include: {
         tipo: true,
         criador: { select: { id: true, name: true } },
@@ -456,7 +477,7 @@ export class AgendaDisparoService implements OnModuleInit {
     const dia = this.formatDateKey(this.getNowBrasilia())
     const eventDate = new Date(dia)
     const eventos = await prisma.agendaEvento.findMany({
-      where: { isActive: true, data: eventDate },
+      where: { isActive: true, ...this.whereEventosDoDia(eventDate) },
       include: {
         tipo: true,
         criador: { select: { id: true, name: true } },
