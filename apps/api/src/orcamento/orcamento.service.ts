@@ -352,17 +352,28 @@ export class OrcamentoService {
     // Logica: max(numeroInicial, ultimoNumero + 1). Se ainda nao ha orcamentos, usa numeroInicial direto.
     const config = await this.getConfig(empresaId).catch(() => null)
     const numeroInicial = Math.max(1, config?.numeroInicial ?? 1)
-    const lastOrc = await prisma.orcamento.findFirst({
-      where: empresaId ? { empresaId } : {},
-      orderBy: { numero: 'desc' },
-      select: { numero: true },
-    }).catch(() => null)
-    const proximoNumero = Math.max(numeroInicial, (lastOrc?.numero ?? 0) + 1)
 
     // "Texto para o Cliente" (textoCorpoCliente) herda o "Detalhamento para impressão"
     // (config.textoPadrao) por padrão — usuário pode editar depois nos detalhes.
     const textoCorpoClienteDefault = (input as any).textoCorpoCliente ?? config?.textoPadrao ?? null
-    const orc = await prisma.orcamento.create({
+
+    // Numeração serializada por empresa (#HLP0278: dois orçamentos de clientes
+    // diferentes receberam o mesmo #4537 — em produção há 3 pares duplicados,
+    // 4536/4537/4538). A causa é ler max(numero) e gravar em seguida: duas
+    // criações simultâneas leem o mesmo valor e escrevem o mesmo número, e não há
+    // unique no banco para barrar. O advisory lock (por transação, liberado no
+    // commit) faz a alocação do número virar seção crítica por empresa, sem
+    // exigir mudança de schema nem bloquear a tabela inteira.
+    const lockKey = `orcamento_numero:${empresaId ?? 'global'}`
+    const orc = await prisma.$transaction(async tx => {
+      await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', lockKey)
+      const lastOrc = await tx.orcamento.findFirst({
+        where: empresaId ? { empresaId } : {},
+        orderBy: { numero: 'desc' },
+        select: { numero: true },
+      }).catch(() => null)
+      const proximoNumero = Math.max(numeroInicial, (lastOrc?.numero ?? 0) + 1)
+      return tx.orcamento.create({
       data: {
         numero: proximoNumero,
         clienteId: input.clienteId || null,
@@ -382,6 +393,7 @@ export class OrcamentoService {
         textoCorpoCliente: textoCorpoClienteDefault || null,
         empresaId: empresaId || null,
       },
+      })
     })
     await this.addEvento(orc.id, userId, 'created', null, null, 'Orcamento criado')
     if (input.descontoPct || input.descontoValor) {
