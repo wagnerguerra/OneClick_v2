@@ -1155,7 +1155,8 @@ export default function OrcamentoDetailPage() {
           descontoPct: formDescontoPercent ? parseFloat(formDescontoPercent) : 0,
           descontoValor: formDesconto ? parseFloat(formDesconto) : 0,
           validadeDias: formValidade ? parseInt(formValidade) : undefined,
-          formaPagamento: formPagamento || undefined,
+          // Mesmo defeito, mesmo tratamento: é campo de texto livre, não seletor.
+          formaPagamento: formPagamento.trim() || null,
           // Mesmo caso dos campos acima — sem isto, um texto interno ou um corpo
           // de proposta nunca podia ser esvaziado, só substituído.
           textoInterno: formTextoInterno.trim() || null,
