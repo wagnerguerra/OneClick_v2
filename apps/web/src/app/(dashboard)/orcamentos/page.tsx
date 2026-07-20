@@ -34,7 +34,7 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
 // Tipos e constantes
 // ============================================================
 
-import { isOrcamentoTransitionAllowed, ORCAMENTO_STATUS_LABELS } from '@saas/types'
+import { isOrcamentoTransitionAllowed, ORCAMENTO_STATUS_LABELS, resolveOrcamentoScope, type OrcamentoScope } from '@saas/types'
 
 const STATUS_ORDER = ['NOVO', 'A_ENVIAR', 'ENVIADO', 'APROVADO', 'LIBERADO', 'FINALIZADO', 'ENCERRADO'] as const
 
@@ -77,6 +77,11 @@ interface OrcamentoRow {
   responsavel?: UserRef | null
   solicitante?: UserRef | null
   itens?: Array<{ id: string; descricao: string; tipo: string }>
+  /** Descrições de TODOS os itens, em ordem de inclusão — alimenta a prévia da
+   *  coluna "Itens" (`itens` traz só os 2 primeiros, pro card do kanban). */
+  itensDescricoes?: string[]
+  /** Áreas derivadas dos serviços dos itens (#HLP0266) — calculadas no backend. */
+  areas?: Array<{ id: string; nome: string }>
   _count?: { itens: number; mensagens: number; arquivos: number }
   pesquisaRespondida?: boolean
   createdAt: string
@@ -239,18 +244,16 @@ export default function OrcamentosPage() {
   // Mover cards no kanban — só com sub-permissão explícita ou master
   const canMoverKanban = isMaster || subPerms.mover_kanban === true
   // panel_consultas: pagina de consultas ainda nao implementada (legado index-consulta.asp); flag pronta para uso futuro
-  // Escopo de listagem (mais permissivo prevalece). Master/EmpresaMaster ve tudo.
-  const listScope: 'proprios' | 'financeiro' | 'area' | 'todos' = isMaster
-    ? 'todos'
-    : subPerms.scope_todos
-      ? 'todos'
-      : subPerms.scope_area
-        ? 'area'
-        : subPerms.scope_financeiro
-          ? 'financeiro'
-          : subPerms.scope_proprios
-            ? 'proprios'
-            : 'todos'
+  // Escopo de listagem — escolha ÚNICA gravada na permissão do usuário, com
+  // 'proprios' como padrão e fallback (#HLP0266). Master/EmpresaMaster vê tudo.
+  //
+  // ⚠️ Isto é só para a UI (esconder filtros que não fazem sentido no escopo).
+  // Quem decide o que volta do banco é o backend, que recalcula por conta
+  // própria e ignora qualquer `scope` enviado daqui.
+  const listScope: OrcamentoScope = isMaster ? 'todos' : resolveOrcamentoScope(subPerms)
+  // No escopo "Para liberação do financeiro" a lista é sempre APROVADO — o
+  // filtro de status não teria efeito e só confundiria.
+  const escopoFixaStatus = listScope === 'financeiro'
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -820,15 +823,23 @@ export default function OrcamentosPage() {
                 <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
                 <SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
               </Select>
-              <Select value={statusFilter || '__all__'} onValueChange={v => { setStatusFilter(v === '__all__' ? '' : v); setPage(1) }}>
-                <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue placeholder="Status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">Todos os status</SelectItem>
-                  {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* #HLP0266: no escopo "Para liberação do financeiro" a lista é
+                  fixa em APROVADO — o filtro não teria efeito. */}
+              {escopoFixaStatus ? (
+                <span className="inline-flex items-center h-8 px-3 text-xs font-medium rounded-md border border-border/60 bg-card text-muted-foreground">
+                  Aprovados · para liberação
+                </span>
+              ) : (
+                <Select value={statusFilter || '__all__'} onValueChange={v => { setStatusFilter(v === '__all__' ? '' : v); setPage(1) }}>
+                  <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Todos os status</SelectItem>
+                    {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <button
                 type="button"
                 onClick={() => { setComReaberturas(v => !v); setPage(1) }}
@@ -852,15 +863,17 @@ export default function OrcamentosPage() {
                 <SortHead label="#" sortKey="numero" sort={sort} onSort={toggleSort} className="w-[70px]" />
                 <SortHead label="Status" sortKey="status" sort={sort} onSort={toggleSort} className="w-[100px]" />
                 <TableHead>Cliente</TableHead>
+                <TableHead className="w-[240px]">Itens</TableHead>
+                <TableHead className="w-[150px]">Áreas</TableHead>
                 <SortHead label="Valor Total" sortKey="totalGeral" sort={sort} onSort={toggleSort} className="w-[130px]" align="right" />
-                <TableHead className="w-[60px] text-center">Itens</TableHead>
+                <TableHead className="w-[170px]">Solicitante / Responsável</TableHead>
                 <SortHead label="Criado em" sortKey="createdAt" sort={sort} onSort={toggleSort} className="w-[110px]" />
                 <TableHead className="w-[50px] text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {!orcamentos.length ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
                   <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
                   Nenhum orçamento encontrado
                 </TableCell></TableRow>
@@ -871,8 +884,12 @@ export default function OrcamentosPage() {
                   <TableCell className="text-sm">
                     <span className="block max-w-[250px] truncate">{getClienteNome(orc) || '—'}</span>
                   </TableCell>
+                  <TableCell className="text-xs"><ItensPreview orc={orc} /></TableCell>
+                  <TableCell><AreasCell areas={orc.areas} /></TableCell>
                   <TableCell className="text-right text-sm font-medium">{formatCurrency(Number(orc.totalGeral || orc.valorTotal || 0))}</TableCell>
-                  <TableCell className="text-center text-xs text-muted-foreground">{orc._count?.itens ?? 0}</TableCell>
+                  <TableCell className="text-xs">
+                    <PessoasCell solicitante={orc.solicitante} responsavel={orc.responsavel} />
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{formatDate(orc.createdAt)}</TableCell>
                   <TableCell className="text-right" onClick={e => e.stopPropagation()}>
                     <DropdownMenu>
@@ -1329,11 +1346,24 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onDelete,
                 <span className="truncate flex-1">{stripHtml(item.descricao)}</span>
               </div>
             ))}
-            {(orc._count?.itens ?? 0) > orc.itens.length && (
-              <div className="text-[10px] font-medium pl-3" style={{ color: MODULE_COLOR }}>
-                + {(orc._count!.itens) - orc.itens.length} {(orc._count!.itens) - orc.itens.length === 1 ? 'outro item' : 'outros itens'}
-              </div>
-            )}
+            {(orc._count?.itens ?? 0) > orc.itens.length && (() => {
+              const ocultos = orc._count!.itens - orc.itens.length
+              // O card mostra os 2 primeiros; o tooltip lista os que sobraram.
+              const restantes = (orc.itensDescricoes ?? []).slice(orc.itens!.length)
+              return (
+                <ItensRestantesTooltip restantes={restantes}>
+                  <div
+                    className={cn(
+                      'text-[10px] font-medium pl-3 w-fit',
+                      restantes.length > 0 && 'underline decoration-dotted underline-offset-2 cursor-help',
+                    )}
+                    style={{ color: MODULE_COLOR }}
+                  >
+                    + {ocultos} {ocultos === 1 ? 'outro item' : 'outros itens'}
+                  </div>
+                </ItensRestantesTooltip>
+              )
+            })()}
           </div>
         )}
         {orc.observacoes && (!orc.itens || orc.itens.length === 0) && (
@@ -1399,6 +1429,90 @@ function PrazoBadge({ orc }: { orc: OrcamentoRow }) {
         {prazo.tooltip}
       </TooltipContent>
     </Tooltip>
+  )
+}
+
+/**
+ * Envolve um "+N" com o tooltip listando os itens que ficaram de fora. Usado
+ * pela coluna Itens da tabela e pelo "+N outros itens" do card do kanban — o
+ * mesmo conteúdo nos dois lugares.
+ *
+ * Sem descrições disponíveis (payload antigo em cache, por exemplo), devolve o
+ * gatilho puro em vez de um tooltip vazio.
+ */
+function ItensRestantesTooltip({ restantes, children }: { restantes: string[]; children: React.ReactElement }) {
+  if (restantes.length === 0) return children
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="top" sideOffset={6} className="text-[11px] max-w-[280px]">
+        <ul className="space-y-0.5">
+          {restantes.map((d, i) => <li key={i}>• {stripHtml(d)}</li>)}
+        </ul>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+/**
+ * Prévia dos itens na tabela: mostra o primeiro e resume o resto em "e +N", com
+ * a lista completa no tooltip. Usa `itensDescricoes` (todos os itens) e não
+ * `itens`, que vem limitado a 2 pelo backend para os cards do kanban.
+ */
+function ItensPreview({ orc }: { orc: OrcamentoRow }) {
+  const descricoes = orc.itensDescricoes ?? orc.itens?.map(i => i.descricao) ?? []
+  const total = orc._count?.itens ?? descricoes.length
+  if (total === 0) return <span className="text-muted-foreground">—</span>
+
+  const primeiro = stripHtml(descricoes[0] ?? '') || `${total} ${total === 1 ? 'item' : 'itens'}`
+  const restantes = descricoes.slice(1)
+  const extras = Math.max(total - 1, 0)
+
+  return (
+    <div className="flex items-baseline gap-1 min-w-0">
+      <span className="truncate min-w-0" title={primeiro}>{primeiro}</span>
+      {extras > 0 && (
+        <ItensRestantesTooltip restantes={restantes}>
+          <span className={cn(
+            'shrink-0 text-muted-foreground',
+            restantes.length > 0 && 'underline decoration-dotted underline-offset-2 cursor-help',
+          )}>
+            e +{extras}
+          </span>
+        </ItensRestantesTooltip>
+      )}
+    </div>
+  )
+}
+
+/** Áreas derivadas dos serviços do orçamento (#HLP0266) — somente leitura. */
+function AreasCell({ areas }: { areas?: Array<{ id: string; nome: string }> }) {
+  if (!areas || areas.length === 0) return <span className="text-xs text-muted-foreground">—</span>
+  return (
+    <div className="flex flex-wrap gap-1">
+      {areas.map(a => (
+        <Badge key={a.id} variant="secondary" className="text-[10px] h-5 px-1.5 font-medium">{a.nome}</Badge>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Solicitante em cima, responsável embaixo com "↳" — a seta dispensa rótulo e
+ * deixa claro que a segunda linha deriva da primeira. Nome completo no title.
+ */
+function PessoasCell({ solicitante, responsavel }: { solicitante?: UserRef | null; responsavel?: UserRef | null }) {
+  if (!solicitante && !responsavel) return <span className="text-muted-foreground">—</span>
+  return (
+    <div className="flex flex-col gap-0.5 min-w-0">
+      <span className="truncate" title={solicitante ? `Solicitante: ${solicitante.name}` : undefined}>
+        {solicitante?.name ?? '—'}
+      </span>
+      <span className="truncate text-muted-foreground" title={responsavel ? `Responsável: ${responsavel.name}` : undefined}>
+        <span aria-hidden="true">↳ </span>
+        {responsavel?.name ?? '—'}
+      </span>
+    </div>
   )
 }
 

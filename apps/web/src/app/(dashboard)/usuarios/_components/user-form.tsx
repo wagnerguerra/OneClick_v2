@@ -282,19 +282,30 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
 
   useEffect(() => { return () => { if (permSavedTimer.current) clearTimeout(permSavedTimer.current) } }, [])
 
-  const autoSavePermissions = useCallback(async (newMap: Record<string, PermissionInput>) => {
-    if (!userId || mode !== 'edit') return
+  // Salvamentos em fila: a tela salva a cada clique e cliques rápidos geravam
+  // requisições concorrentes para o mesmo usuário — que colidiam no banco e
+  // voltavam 500. Encadear garante ordem (o último clique é o último a gravar)
+  // e uma requisição por vez.
+  const permSaveChain = useRef<Promise<void>>(Promise.resolve())
+
+  const autoSavePermissions = useCallback((newMap: Record<string, PermissionInput>) => {
+    if (!userId || mode !== 'edit') return permSaveChain.current
     setPermSaving(true)
-    try {
-      const perms = Object.values(newMap).filter(p => p.canRead || p.canWrite || p.canDelete)
-      await trpc.user.updatePermissions.mutate({ userId, permissions: perms })
-      if (permSavedTimer.current) clearTimeout(permSavedTimer.current)
-      setPermSaved(true)
-      permSavedTimer.current = setTimeout(() => setPermSaved(false), 2000)
-    } catch (e) {
-      console.error('[Permissões] Falha ao salvar:', (e as Error).message)
-      setPermSaved(false)
-    } finally { setPermSaving(false) }
+    permSaveChain.current = permSaveChain.current
+      .catch(() => {}) // uma falha anterior não pode travar a fila
+      .then(async () => {
+        try {
+          const perms = Object.values(newMap).filter(p => p.canRead || p.canWrite || p.canDelete)
+          await trpc.user.updatePermissions.mutate({ userId, permissions: perms })
+          if (permSavedTimer.current) clearTimeout(permSavedTimer.current)
+          setPermSaved(true)
+          permSavedTimer.current = setTimeout(() => setPermSaved(false), 2000)
+        } catch (e) {
+          console.error('[Permissões] Falha ao salvar:', (e as Error).message)
+          setPermSaved(false)
+        } finally { setPermSaving(false) }
+      })
+    return permSaveChain.current
   }, [userId, mode])
 
   const visibleTabs = USER_TABS.filter(t => t.key !== 'clientes' || mode === 'edit')
@@ -762,30 +773,44 @@ function SubPermissionsModal({ slug, permissionsMap, setPermissionsMap, onClose,
 
   if (!subDefs || !activeSlug) return null
 
+  // Cópia não-nula pra usar dentro dos handlers — o narrowing do `if` acima não
+  // atravessa closures.
+  const defsDoModulo = subDefs
+
   const perm = permissionsMap[activeSlug]
-  const subs = (perm?.subPermissions ?? {}) as Record<string, boolean>
+  // Sub-permissões guardam boolean (toggle) OU string (escolha única — ver
+  // `type: 'choice'` em MODULE_SUB_PERMISSIONS).
+  const subs = (perm?.subPermissions ?? {}) as Record<string, boolean | string>
   const label = MODULE_LABELS[activeSlug] ?? activeSlug
   const Icon = MODULE_ICONS[activeSlug]
 
-  const allChecked = subDefs.every(d => subs[d.key])
+  const toggleDefs = subDefs.filter(d => d.type !== 'choice')
+  const allChecked = toggleDefs.length > 0 && toggleDefs.every(d => subs[d.key] === true)
 
-  function toggleSub(key: string, value: boolean) {
+  function setSub(key: string, value: boolean | string) {
     const existing = permissionsMap[activeSlug!] ?? { moduleSlug: activeSlug!, canRead: true, canWrite: true, canDelete: true, subPermissions: {} }
     const newMap = {
       ...permissionsMap,
       [activeSlug!]: {
         ...existing,
-        subPermissions: { ...(existing.subPermissions as Record<string, boolean> ?? {}), [key]: value },
+        subPermissions: { ...(existing.subPermissions as Record<string, boolean | string> ?? {}), [key]: value },
       },
     }
     setPermissionsMap(newMap)
     onSave?.(newMap)
   }
 
+  // "Marcar todas" só mexe nos toggles — uma escolha única não tem "tudo
+  // marcado", e zerá-la deixaria o usuário sem escopo definido.
   function toggleAllSubs(value: boolean) {
     const existing = permissionsMap[activeSlug!] ?? { moduleSlug: activeSlug!, canRead: true, canWrite: true, canDelete: true, subPermissions: {} }
-    const newSubs: Record<string, boolean> = {}
-    for (const d of subDefs) newSubs[d.key] = value
+    const atuais = (existing.subPermissions as Record<string, boolean | string>) ?? {}
+    const newSubs: Record<string, boolean | string> = {}
+    for (const d of defsDoModulo) {
+      newSubs[d.key] = d.type === 'choice'
+        ? (typeof atuais[d.key] === 'string' ? atuais[d.key]! : (d.default ?? d.options?.[0]?.value ?? ''))
+        : value
+    }
     const newMap = { ...permissionsMap, [activeSlug!]: { ...existing, subPermissions: newSubs } }
     setPermissionsMap(newMap)
     onSave?.(newMap)
@@ -824,22 +849,65 @@ function SubPermissionsModal({ slug, permissionsMap, setPermissionsMap, onClose,
                 <span className="text-sm font-semibold text-foreground">{groupName}</span>
               </div>
               <div className="grid gap-0 sm:grid-cols-2 px-4 py-3 bg-primary/[0.01]">
-                {defs.map(d => (
-                  <label key={d.key} className="flex items-start gap-2.5 py-2 cursor-pointer group">
-                    <ToggleSwitch checked={!!subs[d.key]} onChange={v => toggleSub(d.key, v)} />
-                    <span className="flex flex-col">
-                      <span className={cn(
-                        'text-sm transition-colors duration-200',
-                        subs[d.key] ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground/80',
-                      )}>{d.label}</span>
-                      {d.observacao && (
-                        <span className="text-[11px] italic text-muted-foreground/80 mt-0.5">
-                          {d.observacao}
-                        </span>
-                      )}
-                    </span>
-                  </label>
-                ))}
+                {defs.map(d => {
+                  // Escolha única (#HLP0266): barra segmentada, largura total do
+                  // grupo. Nunca fica vazia — sem valor gravado, o padrão da
+                  // definição aparece selecionado.
+                  if (d.type === 'choice') {
+                    const atual = typeof subs[d.key] === 'string' && subs[d.key]
+                      ? (subs[d.key] as string)
+                      : (d.default ?? d.options?.[0]?.value ?? '')
+                    return (
+                      <div key={d.key} className="sm:col-span-2 py-2 space-y-1.5">
+                        {/* Label é opcional aqui: quando o título do grupo já
+                            nomeia a escolha, repetir seria ruído. */}
+                        {d.label && <span className="text-sm text-foreground">{d.label}</span>}
+                        <div className="flex flex-wrap gap-1.5">
+                          {(d.options ?? []).map(o => {
+                            const ativo = o.value === atual
+                            return (
+                              <button
+                                key={o.value}
+                                type="button"
+                                onClick={() => setSub(d.key, o.value)}
+                                aria-pressed={ativo}
+                                className={cn(
+                                  'h-8 px-3 rounded-md border text-xs font-medium transition-colors',
+                                  ativo
+                                    ? 'bg-primary text-primary-foreground border-primary'
+                                    : 'bg-card text-muted-foreground border-border/60 hover:text-foreground hover:border-border',
+                                )}
+                              >
+                                {o.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {d.observacao && (
+                          <span className="block text-[11px] italic text-muted-foreground/80">
+                            {d.observacao}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  }
+                  return (
+                    <label key={d.key} className="flex items-start gap-2.5 py-2 cursor-pointer group">
+                      <ToggleSwitch checked={subs[d.key] === true} onChange={v => setSub(d.key, v)} />
+                      <span className="flex flex-col">
+                        <span className={cn(
+                          'text-sm transition-colors duration-200',
+                          subs[d.key] ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground/80',
+                        )}>{d.label}</span>
+                        {d.observacao && (
+                          <span className="text-[11px] italic text-muted-foreground/80 mt-0.5">
+                            {d.observacao}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  )
+                })}
               </div>
             </div>
           ))}

@@ -132,6 +132,9 @@ interface Orcamento {
   textoCorpoCliente: string | null
   observacoes: string | null
   area: string | null
+  /** Áreas derivadas dos serviços dos itens (#HLP0266) — somente leitura, o
+   *  backend calcula. Não confundir com o campo texto `area`, legado. */
+  areas?: Array<{ id: string; nome: string }>
   solicitanteId: string | null
   responsavelId: string | null
   solicitante: { id: string; name: string; image?: string | null } | string | null
@@ -835,6 +838,11 @@ export default function OrcamentoDetailPage() {
   //   2) listContatos do cliente (todos os contatos cadastrados)
   // Atualiza quando o cliente muda.
   const [emailSuggestions, setEmailSuggestions] = useState<string[]>([])
+
+  // Áreas do orçamento (#HLP0266) — derivadas no backend a partir dos serviços
+  // dos itens. Somente leitura: não há campo de área no orçamento, quem define é
+  // o cadastro do serviço.
+  const areasDerivadas = orc?.areas ?? []
 
   // Form fields
   const [formTipo, setFormTipo] = useState('')
@@ -2279,6 +2287,32 @@ export default function OrcamentoDetailPage() {
                             suggestions={emailSuggestions}
                             placeholder="Digite e pressione Enter, vírgula ou espaço para adicionar"
                           />
+                        </div>
+
+                        {/* Linha 4: Áreas — derivadas, não editáveis (#HLP0266) */}
+                        <div className="col-span-12 space-y-2.5">
+                          <Label className="text-[13px] font-semibold text-foreground">Áreas envolvidas</Label>
+                          {areasDerivadas.length > 0 ? (
+                            <>
+                              <div className="flex flex-wrap gap-2">
+                                {areasDerivadas.map(a => (
+                                  <Badge key={a.id} variant="secondary" className="text-[11px] h-6 px-2.5 font-medium">
+                                    {a.nome}
+                                  </Badge>
+                                ))}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground">
+                                O orçamento pertence às áreas dos serviços listados na aba &quot;Itens&quot;.
+                              </p>
+                            </>
+                          ) : (
+                            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
+                              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500 mt-0.5" />
+                              <p className="text-[12px] leading-relaxed text-amber-800 dark:text-amber-300">
+                                Este orçamento não possui nenhum serviço com área definida. Adicione serviços na aba &quot;Itens&quot;.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

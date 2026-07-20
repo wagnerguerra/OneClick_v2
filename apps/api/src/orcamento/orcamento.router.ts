@@ -2,17 +2,39 @@ import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 import { router, readProcedure, writeProcedure, deleteProcedure, publicProcedure, writeSubProcedure, deleteSubProcedure, protectedProcedure } from '../trpc/trpc.service'
-import { createOrcamentoSchema, updateOrcamentoSchema, listOrcamentoSchema, createOrcamentoItemSchema, updateOrcamentoItemSchema } from '@saas/types'
+import { createOrcamentoSchema, updateOrcamentoSchema, listOrcamentoSchema, createOrcamentoItemSchema, updateOrcamentoItemSchema, resolveOrcamentoScope, ORCAMENTO_SCOPE_DEFAULT, type OrcamentoScope } from '@saas/types'
 import { OrcamentoService } from './orcamento.service'
 
 const MODULE = 'orcamentos'
 
+/**
+ * Escopo de listagem efetivo do usuário (#HLP0266). Lê a sub-permissão gravada
+ * e cai no padrão 'proprios' quando não há usuário ou registro — a escolha nunca
+ * fica vazia, e o padrão é o mais restritivo.
+ */
+async function resolveScopeDoUsuario(userId: string | undefined): Promise<OrcamentoScope> {
+  if (!userId) return ORCAMENTO_SCOPE_DEFAULT
+  const p = await prisma.userPermission.findFirst({
+    where: { userId, moduleSlug: MODULE },
+    select: { subPermissions: true },
+  }).catch(() => null)
+  return resolveOrcamentoScope(p?.subPermissions as Record<string, unknown> | null)
+}
+
 export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
   return router({
     // ── CRUD ────────────────────────────────────────────────
+    // #HLP0266: o `scope` que vier do cliente é DESCARTADO — a visibilidade é
+    // decidida aqui, a partir da sub-permissão gravada do usuário. Antes o front
+    // resolvia e o backend confiava, então uma chamada direta ao tRPC com
+    // scope='todos' via tudo. O campo segue no schema só por compatibilidade
+    // com clientes antigos, mas não tem efeito.
     list: readProcedure(MODULE)
       .input(listOrcamentoSchema)
-      .query(({ input, ctx }) => orcamentoService.list(input, ctx.isMaster ?? false, ctx.empresaId, ctx.userId)),
+      .query(async ({ input, ctx }) => {
+        const scope = await resolveScopeDoUsuario(ctx.userId)
+        return orcamentoService.list({ ...input, scope }, ctx.isMaster ?? false, ctx.empresaId, ctx.userId)
+      }),
 
     getById: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
