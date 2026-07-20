@@ -1382,27 +1382,28 @@ export class AgendaService {
       }
     }
 
-    // Conflito de sala — prioriza FK (salaId), faz fallback pra string (sala legado)
-    if (salaId) {
-      // Resolve nome da sala uma vez (pra mensagem)
-      const salaInfo = await prisma.agendaSala.findUnique({ where: { id: salaId }, select: { nome: true } })
-      const salaNome = salaInfo?.nome ?? '(sala)'
+    // Conflito de sala — casa por FK **ou** por nome.
+    //
+    // Antes comparava só `ev.salaId === salaId`, o que deixava a mesma sala ser
+    // reservada duas vezes (#HLP0199): a base tem eventos das duas gerações — em
+    // produção, 97 eventos recentes gravam apenas a string legada `sala` contra
+    // 27 com a FK. Uma reserva nova (com FK) nunca colidia com os que só têm a
+    // string, e vice-versa. Comparar também pelo nome cobre os dois sentidos.
+    if (salaId || (sala && sala.trim())) {
+      const salaInfo = salaId
+        ? await prisma.agendaSala.findUnique({ where: { id: salaId }, select: { nome: true } })
+        : null
+      const salaNome = salaInfo?.nome ?? sala?.trim() ?? '(sala)'
+      const norm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase()
+      const alvoNome = norm(salaNome)
       for (const ev of conflitantes) {
-        if (ev.salaId === salaId) {
+        // Identidade da sala do evento existente, nas duas gerações de dado.
+        const mesmaFk = !!salaId && ev.salaId === salaId
+        const mesmoNome = !!alvoNome && (norm(ev.salaRef?.nome) === alvoNome || norm(ev.sala) === alvoNome)
+        if (mesmaFk || mesmoNome) {
           conflitos.push({
             tipo: 'sala',
             nome: salaNome,
-            evento: ev.titulo,
-            horario: `${ev.horaInicio} — ${ev.horaFim}`,
-          })
-        }
-      }
-    } else if (sala && sala.trim()) {
-      for (const ev of conflitantes) {
-        if (ev.sala && ev.sala.toLowerCase() === sala.toLowerCase()) {
-          conflitos.push({
-            tipo: 'sala',
-            nome: sala,
             evento: ev.titulo,
             horario: `${ev.horaInicio} — ${ev.horaFim}`,
           })
