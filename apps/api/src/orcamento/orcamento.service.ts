@@ -366,7 +366,11 @@ export class OrcamentoService {
     // exigir mudança de schema nem bloquear a tabela inteira.
     const lockKey = `orcamento_numero:${empresaId ?? 'global'}`
     const orc = await prisma.$transaction(async tx => {
-      await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', lockKey)
+      // $executeRawUnsafe (e NÃO $queryRawUnsafe): pg_advisory_xact_lock retorna
+      // `void`, tipo que o Prisma não consegue desserializar — com $queryRaw a
+      // criação inteira quebrava com "Failed to deserialize column of type 'void'".
+      // $executeRaw só devolve a contagem, sem ler colunas.
+      await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', lockKey)
       const lastOrc = await tx.orcamento.findFirst({
         where: empresaId ? { empresaId } : {},
         orderBy: { numero: 'desc' },
