@@ -1145,14 +1145,21 @@ export default function OrcamentoDetailPage() {
           tipo: formTipo || undefined,
           clienteId: formClienteId || undefined,
           // solicitante/responsavel agora sao alterados imediatamente via combobox (handleSelectPessoa)
-          contatos: formContatos || undefined,
-          emailsContatos: formEmails || undefined,
+          // `|| undefined` em campo de texto livre torna o apagamento impossível:
+          // esvaziar o campo mandava `undefined`, a chave sumia do payload e o
+          // valor antigo permanecia no banco (#HLP0287 — não dava pra remover um
+          // e-mail digitado errado). Campo vazio agora manda `null`, que o schema
+          // aceita (.nullable()) e o Prisma grava como limpeza de verdade.
+          contatos: formContatos.trim() || null,
+          emailsContatos: formEmails.trim() || null,
           descontoPct: formDescontoPercent ? parseFloat(formDescontoPercent) : 0,
           descontoValor: formDesconto ? parseFloat(formDesconto) : 0,
           validadeDias: formValidade ? parseInt(formValidade) : undefined,
           formaPagamento: formPagamento || undefined,
-          textoInterno: formTextoInterno || undefined,
-          textoCorpoCliente: formTextoCliente || undefined,
+          // Mesmo caso dos campos acima — sem isto, um texto interno ou um corpo
+          // de proposta nunca podia ser esvaziado, só substituído.
+          textoInterno: formTextoInterno.trim() || null,
+          textoCorpoCliente: formTextoCliente.trim() || null,
           servicoId: formServicoId || null,
         },
       })
