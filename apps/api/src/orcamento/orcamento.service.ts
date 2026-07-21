@@ -2970,17 +2970,44 @@ export class OrcamentoService {
     return prisma.servico.update({ where: { id }, data: semTipo as any })
   }
 
-  async deleteCatalogo(id: string) {
-    // Limpa os textos do registro (referência soft, sem cascade no banco).
-    await prisma.orcamentoCatalogoTexto.deleteMany({ where: { catalogoId: id } }).catch(() => {})
+  /**
+   * Exclui um item do catálogo — exclusão NÃO destrutiva (#HLP0282).
+   *
+   * O padrão do sistema: para o usuário é exclusão em todos os efeitos (o item
+   * some das telas, não entra em relatório e é chamado de "excluído"), mas o
+   * registro só é marcado com `ativo = false`. Isso preserva a integridade dos
+   * registros que apontam para ele — orçamentos já emitidos continuam exibindo
+   * o item corretamente — e permite desfazer uma exclusão acidental.
+   *
+   * Antes, Taxa/Despesa sem uso era apagada de verdade, o que fugia do padrão e
+   * tornava o acidente irreversível. Agora as duas origens seguem a mesma regra.
+   *
+   * Os textos do item também são preservados: apagá-los deixaria a restauração
+   * incompleta, devolvendo o item sem os textos que ele tinha.
+   */
+  async deleteCatalogo(id: string): Promise<{ id: string }> {
     const cat = await prisma.servicoCatalogo.findUnique({ where: { id }, select: { id: true } })
-    const usos = await prisma.orcamentoItem.count({ where: { catalogoId: id } })
     if (cat) {
-      if (usos === 0) return prisma.servicoCatalogo.delete({ where: { id } })
-      return prisma.servicoCatalogo.update({ where: { id }, data: { ativo: false } })
+      await prisma.servicoCatalogo.update({ where: { id }, data: { ativo: false } })
+      return { id }
     }
-    // Serviço (módulo Serviços): nunca excluir aqui — apenas inativa no catálogo.
-    return prisma.servico.update({ where: { id }, data: { ativo: false } })
+    await prisma.servico.update({ where: { id }, data: { ativo: false } })
+    return { id }
+  }
+
+  /**
+   * Desfaz a exclusão de um item do catálogo (#HLP0282). É o outro lado da
+   * exclusão não destrutiva: o registro nunca some do banco, então restaurar é
+   * só devolver `ativo = true`. Alcançável apenas pela visão de excluídos.
+   */
+  async restaurarCatalogo(id: string): Promise<{ id: string }> {
+    const cat = await prisma.servicoCatalogo.findUnique({ where: { id }, select: { id: true } })
+    if (cat) {
+      await prisma.servicoCatalogo.update({ where: { id }, data: { ativo: true } })
+      return { id }
+    }
+    await prisma.servico.update({ where: { id }, data: { ativo: true } })
+    return { id }
   }
 
   // ── Textos do registro do catalogo (titulo + descricao + valor) ──

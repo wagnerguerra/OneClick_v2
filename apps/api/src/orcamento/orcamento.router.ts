@@ -521,6 +521,12 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => orcamentoService.deleteCatalogo(input.id)),
 
+    // Desfaz a exclusão (#HLP0282). Exige permissão de escrita, não de exclusão:
+    // restaurar devolve um item ao catálogo, não remove nada.
+    restaurarCatalogo: writeProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => orcamentoService.restaurarCatalogo(input.id)),
+
     // ── Textos do registro do catalogo ─────────────────────
     listCatalogoTextos: readProcedure(MODULE)
       .input(z.object({ catalogoId: z.string() }))
