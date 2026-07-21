@@ -166,24 +166,63 @@ export class OrcamentoService {
       if (or.length > 0) where.OR = or
     }
 
-    // Escopo de listagem — espelha legado modal-prm-orcamentos.asp acesso (1-4)
-    // Master/EmpresaMaster ignoram escopo (vêem tudo)
+    // Escopo de listagem — espelha legado modal-prm-orcamentos.asp acesso (1-4).
+    // Master/EmpresaMaster ignoram escopo (vêem tudo).
+    //
+    // #HLP0266: o escopo NÃO vem mais do cliente — o router resolve a partir da
+    // sub-permissão gravada do usuário e passa aqui. Antes o front escolhia e o
+    // backend confiava, então bastava chamar o tRPC com scope='todos'.
     if (!isMaster && input.scope && input.scope !== 'todos' && userId) {
+      const souEu = [{ solicitanteId: userId }, { responsavelId: userId }]
+
       if (input.scope === 'proprios') {
-        where.AND = [...(where.AND ?? []), { OR: [{ solicitanteId: userId }, { responsavelId: userId }] }]
+        where.AND = [...(where.AND ?? []), { OR: souEu }]
       } else if (input.scope === 'financeiro') {
-        // Orcamentos aprovados aguardando liberacao do financeiro
-        where.status = 'APROVADO'
+        // Orçamentos aprovados aguardando liberação do financeiro. Vai no AND
+        // (não por atribuição direta) pra não apagar um filtro de status que já
+        // esteja no where — a tela esconde esse filtro neste escopo.
+        where.AND = [...(where.AND ?? []), { status: 'APROVADO' }]
       } else if (input.scope === 'area') {
+        // A área de um orçamento vem dos SERVIÇOS que ele contém: se um item é
+        // um serviço do Fiscal, o orçamento conta como Fiscal; com serviços de
+        // áreas diferentes, ele pertence a todas elas ao mesmo tempo.
+        //
+        // Não é o campo texto `Orcamento.area` (que os fluxos atuais nem
+        // preenchem) nem o vínculo em OrcamentoArea — este último existe só para
+        // notificar os líderes sobre o detalhamento, não define pertencimento.
+        //
+        // O catálogo de itens é unificado: `OrcamentoItem.catalogoId` guarda um
+        // Servico.id quando tipo='SERVICO' e um ServicoCatalogo.id para
+        // TAXA/DESPESA. Só os Servico carregam área (`atribuicaoAreas`, lista de
+        // ids), então resolvemos primeiro quais serviços são da minha área.
         const u = await prisma.user.findUnique({
           where: { id: userId },
           select: { areaId: true },
         }).catch(() => null)
         const areaId = u?.areaId ?? null
-        if (areaId) {
-          const area = await prisma.area.findUnique({ where: { id: areaId }, select: { name: true } }).catch(() => null)
-          if (area?.name) where.area = area.name
-        }
+        const servicosDaArea = areaId
+          ? await prisma.servico.findMany({
+              where: { atribuicaoAreas: { has: areaId } },
+              select: { id: true },
+            }).catch(() => [] as { id: string }[])
+          : []
+        const servicoIds = servicosDaArea.map(s => s.id)
+        // Sempre soma os próprios: sem área no cadastro — ou com orçamentos que
+        // ainda não têm itens —, o usuário ao menos continua enxergando o que
+        // criou ou é responsável.
+        where.AND = [...(where.AND ?? []), {
+          OR: [
+            ...souEu,
+            ...(servicoIds.length > 0
+              ? [
+                  { itens: { some: { catalogoId: { in: servicoIds } } } },
+                  // O serviço-template do orçamento (vira execução na aprovação)
+                  // também o vincula à área.
+                  { servicoId: { in: servicoIds } },
+                ]
+              : []),
+          ],
+        }]
       }
     }
 
@@ -226,11 +265,41 @@ export class OrcamentoService {
       : []
     const respSet = new Set(respondidas.map(r => r.orcamentoId))
 
+    // Itens completos da página — alimentam as áreas derivadas E a prévia da
+    // coluna "Itens" (o include acima traz só 2, o suficiente pro card do
+    // kanban). Uma consulta pra página inteira, não uma por orçamento.
+    const itensDaPagina = orcIds.length
+      ? await prisma.orcamentoItem.findMany({
+          where: { orcamentoId: { in: orcIds } },
+          select: { orcamentoId: true, descricao: true, catalogoId: true },
+          orderBy: { createdAt: 'asc' },
+        }).catch(() => [] as Array<{ orcamentoId: string; descricao: string; catalogoId: string | null }>)
+      : []
+    const itensPorOrcamento = new Map<string, Array<{ descricao: string; catalogoId: string | null }>>()
+    for (const it of itensDaPagina) {
+      const lista = itensPorOrcamento.get(it.orcamentoId) ?? []
+      lista.push({ descricao: it.descricao, catalogoId: it.catalogoId })
+      itensPorOrcamento.set(it.orcamentoId, lista)
+    }
+
+    // Áreas derivadas dos serviços — mesma regra do escopo "Todos da minha área".
+    const areasPorOrcamento = await this.derivarAreasDosOrcamentosEmLote(
+      data.map(o => ({
+        id: o.id,
+        catalogoIds: (itensPorOrcamento.get(o.id) ?? []).map(i => i.catalogoId),
+        servicoId: o.servicoId,
+      })),
+    )
+
     const enriched = data.map(o => ({
       ...o,
       responsavel: o.responsavelId ? userMap.get(o.responsavelId) || null : null,
       solicitante: o.solicitanteId ? userMap.get(o.solicitanteId) || null : null,
       pesquisaRespondida: respSet.has(o.id),
+      areas: areasPorOrcamento.get(o.id) ?? [],
+      // Descrições de todos os itens, na ordem de inclusão — a tabela mostra a
+      // primeira e resume o resto em "e +N".
+      itensDescricoes: (itensPorOrcamento.get(o.id) ?? []).map(i => i.descricao),
     }))
 
     return { data: enriched, total, page, limit, totalPages: Math.ceil(total / limit) }
@@ -305,11 +374,79 @@ export class OrcamentoService {
     const pubMap = new Map(pubRows.map(r => [r.id, r.publico]))
     const arquivos = orc.arquivos.map(a => ({ ...a, publico: pubMap.get(a.id) ?? false }))
 
+    const areas = (await this.derivarAreasDosOrcamentosEmLote([
+      { id: orc.id, catalogoIds: orc.itens.map(i => i.catalogoId), servicoId: orc.servicoId },
+    ])).get(orc.id) ?? []
+
     return {
       ...orc, arquivos, mensagens, eventos, cliente, empresa, solicitante, responsavel,
+      areas,
       decisaoCnpjFaturamento: fat[0]?.decisaoCnpjFaturamento ?? null,
       decisaoEmailFinanceiro: fat[0]?.decisaoEmailFinanceiro ?? null,
     }
+  }
+
+  /**
+   * Áreas às quais um orçamento pertence — derivadas dos SERVIÇOS que ele contém.
+   *
+   * Regra de negócio (#HLP0266): um orçamento com um serviço do Fiscal conta como
+   * Fiscal; com serviços de áreas diferentes, pertence a todas ao mesmo tempo. É
+   * a mesma regra que o escopo "Todos da minha área" aplica na listagem — por
+   * isso mora aqui, e não duplicada nos dois lugares.
+   *
+   * Não confundir com OrcamentoArea: aquele vínculo existe só para notificar os
+   * líderes sobre o detalhamento e NÃO define pertencimento.
+   *
+   * O catálogo de itens é unificado — `catalogoId` guarda um Servico.id quando o
+   * item é do tipo SERVICO e um ServicoCatalogo.id para TAXA/DESPESA. Só Servico
+   * carrega área, então os ids que não casarem simplesmente não contribuem.
+   *
+   * Trabalha em lote (2 consultas no total, independente de quantos orçamentos)
+   * porque a listagem chama com a página inteira — um por um seria N+1. O detalhe
+   * chama com uma entrada só.
+   */
+  private async derivarAreasDosOrcamentosEmLote(
+    orcamentos: Array<{ id: string; catalogoIds: Array<string | null>; servicoId?: string | null }>,
+  ): Promise<Map<string, Array<{ id: string; nome: string }>>> {
+    const vazio = new Map<string, Array<{ id: string; nome: string }>>()
+    const todosIds = [...new Set(
+      orcamentos.flatMap(o => [...o.catalogoIds, o.servicoId]).filter(Boolean) as string[],
+    )]
+    if (todosIds.length === 0) return vazio
+
+    const servicos = await prisma.servico.findMany({
+      where: { id: { in: todosIds } },
+      select: { id: true, atribuicaoAreas: true },
+    }).catch(() => [] as Array<{ id: string; atribuicaoAreas: string[] }>)
+    // Ids que não casaram são ServicoCatalogo (Taxa/Despesa) — não têm área.
+    const areasPorServico = new Map(servicos.map(s => [s.id, s.atribuicaoAreas]))
+
+    const areaIds = [...new Set(servicos.flatMap(s => s.atribuicaoAreas))]
+    if (areaIds.length === 0) return vazio
+
+    const areas = await prisma.area.findMany({
+      where: { id: { in: areaIds } },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }).catch(() => [] as Array<{ id: string; name: string }>)
+    const nomePorArea = new Map(areas.map(a => [a.id, a.name]))
+
+    const resultado = new Map<string, Array<{ id: string; nome: string }>>()
+    for (const orc of orcamentos) {
+      const ids = new Set<string>()
+      for (const ref of [...orc.catalogoIds, orc.servicoId]) {
+        if (!ref) continue
+        for (const areaId of areasPorServico.get(ref) ?? []) ids.add(areaId)
+      }
+      resultado.set(
+        orc.id,
+        [...ids]
+          .filter(id => nomePorArea.has(id))
+          .map(id => ({ id, nome: nomePorArea.get(id)! }))
+          .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
+      )
+    }
+    return resultado
   }
 
   async getByToken(token: string) {

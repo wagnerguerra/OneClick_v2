@@ -362,19 +362,30 @@ export class UserService {
     })
   }
 
-  async updatePermissions(userId: string, permissions: Array<{ moduleSlug: string; canRead: boolean; canWrite: boolean; canDelete: boolean; subPermissions?: Record<string, boolean> }>) {
+  async updatePermissions(userId: string, permissions: Array<{ moduleSlug: string; canRead: boolean; canWrite: boolean; canDelete: boolean; subPermissions?: Record<string, boolean | string> }>) {
+    // A tela salva sozinha a cada clique, então duas chamadas para o MESMO
+    // usuário se sobrepõem com facilidade. Com "apaga tudo + createMany", as
+    // duas transações inseriam a mesma (user_id, module_slug) e a segunda
+    // estourava `Unique constraint failed` (HTTP 500, permissão não salva).
+    //
+    // Agora: remove só os módulos que saíram e faz upsert do resto. Idempotente
+    // — chamadas concorrentes viram UPDATE em vez de INSERT duplicado.
+    const slugs = permissions.map(p => p.moduleSlug)
     await prisma.$transaction(async (tx) => {
-      await tx.userPermission.deleteMany({ where: { userId } })
-      if (permissions.length) {
-        await tx.userPermission.createMany({
-          data: permissions.map((p) => ({
-            userId,
-            moduleSlug: p.moduleSlug,
-            canRead: p.canRead,
-            canWrite: p.canWrite,
-            canDelete: p.canDelete,
-            subPermissions: p.subPermissions ?? undefined,
-          })),
+      await tx.userPermission.deleteMany({
+        where: { userId, ...(slugs.length > 0 ? { moduleSlug: { notIn: slugs } } : {}) },
+      })
+      for (const p of permissions) {
+        const dados = {
+          canRead: p.canRead,
+          canWrite: p.canWrite,
+          canDelete: p.canDelete,
+          subPermissions: p.subPermissions ?? undefined,
+        }
+        await tx.userPermission.upsert({
+          where: { userId_moduleSlug: { userId, moduleSlug: p.moduleSlug } },
+          create: { userId, moduleSlug: p.moduleSlug, ...dados },
+          update: dados,
         })
       }
     })

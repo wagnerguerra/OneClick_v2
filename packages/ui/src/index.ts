@@ -55,3 +55,4 @@ export {
   SheetDescription,
 } from './components/sheet'
 export { cn } from './lib/utils'
+export { sanitizeInlineTextColors, isThemeUnsafeColor } from './lib/sanitize-colors'

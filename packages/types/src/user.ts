@@ -150,6 +150,11 @@ export const MODULE_GROUPS = {
 
 // Sub-permissões específicas por módulo
 // Módulos não listados aqui usam o padrão genérico (Visualizar/Editar/Excluir)
+export interface SubPermissionChoice {
+  value: string
+  label: string
+}
+
 export interface SubPermissionDef {
   key: string
   label: string
@@ -158,6 +163,63 @@ export interface SubPermissionDef {
    *  permissões. Útil pra sinalizar status especial ("Em desenvolvimento",
    *  "Legado — descontinuado em breve", etc). */
   observacao?: string
+  /**
+   * `toggle` (padrão) grava boolean; `choice` grava a string escolhida e é
+   * renderizado como barra segmentada de opção única. Use `choice` quando as
+   * alternativas forem mutuamente exclusivas — marcar duas não faria sentido.
+   */
+  type?: 'toggle' | 'choice'
+  /** Opções de um `type: 'choice'` — a primeira serve de padrão se `default` faltar. */
+  options?: SubPermissionChoice[]
+  /** Valor assumido quando o usuário nunca foi configurado. `choice` nunca fica vazio. */
+  default?: string
+}
+
+// ── Escopo de listagem de orçamentos ──────────────────────────────────────
+// Espelha o legado (acesso 1=meus, 2=financeiro, 3=área, 4=todos): é UMA
+// escolha, não um conjunto de flags.
+
+export type OrcamentoScope = 'proprios' | 'financeiro' | 'area' | 'todos'
+
+export const ORCAMENTO_SCOPE_OPTIONS: SubPermissionChoice[] = [
+  { value: 'proprios',   label: 'Meus e sob minha responsabilidade' },
+  { value: 'financeiro', label: 'Para liberação do financeiro' },
+  { value: 'area',       label: 'Todos da minha área' },
+  { value: 'todos',      label: 'Todos em aberto' },
+]
+
+export const ORCAMENTO_SCOPE_DEFAULT: OrcamentoScope = 'proprios'
+
+const ORCAMENTO_SCOPE_VALUES = new Set<string>(ORCAMENTO_SCOPE_OPTIONS.map(o => o.value))
+
+/**
+ * Resolve o escopo de listagem de orçamentos a partir das sub-permissões gravadas.
+ *
+ * #HLP0266 — antes eram 4 toggles independentes resolvidos no frontend, e quem
+ * não tinha nenhum caía em 'todos': era por isso que todo mundo enxergava todos
+ * os orçamentos. Agora é escolha única, com 'proprios' como padrão E fallback.
+ *
+ * Aceita o formato antigo (booleans `scope_*`) pra não exigir migração de dados:
+ * o mais permissivo vence, preservando o que cada usuário já enxergava. A escolha
+ * nova (`scope`) tem precedência — assim que um admin salvar a tela, os toggles
+ * legados param de influenciar.
+ */
+export function resolveOrcamentoScope(
+  subPermissions: Record<string, unknown> | null | undefined,
+): OrcamentoScope {
+  const subs = subPermissions ?? {}
+
+  const escolhido = subs['scope']
+  if (typeof escolhido === 'string' && ORCAMENTO_SCOPE_VALUES.has(escolhido)) {
+    return escolhido as OrcamentoScope
+  }
+
+  // Compatibilidade com o modelo antigo — mais permissivo vence.
+  if (subs['scope_todos'] === true) return 'todos'
+  if (subs['scope_area'] === true) return 'area'
+  if (subs['scope_financeiro'] === true) return 'financeiro'
+  // `scope_proprios` e "nada configurado" caem no mesmo lugar.
+  return ORCAMENTO_SCOPE_DEFAULT
 }
 
 export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
@@ -245,11 +307,19 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
   orcamentos: [
     // Cadastro — espelha legado orc_cadastro
     { key: 'cadastro_completo', label: 'Cadastrar com formulário completo (tipo, validade, desconto, etc.)', group: 'Cadastro' },
-    // Escopo de listagem — espelha legado acesso (1=meus, 2=financeiro, 3=area, 4=todos)
-    { key: 'scope_proprios', label: 'Visualizar meus orçamentos e sob minha responsabilidade', group: 'Escopo de listagem' },
-    { key: 'scope_financeiro', label: 'Visualizar orçamentos para liberação do financeiro', group: 'Escopo de listagem' },
-    { key: 'scope_area', label: 'Visualizar orçamentos da minha área', group: 'Escopo de listagem' },
-    { key: 'scope_todos', label: 'Visualizar todos os orçamentos em aberto', group: 'Escopo de listagem' },
+    // Escopo de listagem — espelha legado acesso (1=meus, 2=financeiro, 3=area,
+    // 4=todos). Escolha única, nunca vazia (#HLP0266).
+    {
+      key: 'scope',
+      // Sem label: o título do grupo já nomeia a escolha, e a barra segmentada
+      // é a única coisa dentro dele.
+      label: '',
+      group: 'Escopo de visualização',
+      type: 'choice',
+      options: ORCAMENTO_SCOPE_OPTIONS,
+      default: ORCAMENTO_SCOPE_DEFAULT,
+      observacao: 'Define quais orçamentos o usuário pode visualizar.',
+    },
     // Painéis — espelha legado painel_indicadores / painel_consultas
     { key: 'panel_indicadores', label: 'Acesso ao painel de indicadores', group: 'Painéis' },
     {
@@ -314,7 +384,9 @@ export const permissionSchema = z.object({
   canRead: z.boolean().default(true),
   canWrite: z.boolean().default(false),
   canDelete: z.boolean().default(false),
-  subPermissions: z.record(z.boolean()).optional(),
+  // boolean = toggle; string = escolha única (`type: 'choice'`, ex.: o escopo de
+  // listagem de orçamentos). Sem o union, salvar a escolha era rejeitado aqui.
+  subPermissions: z.record(z.union([z.boolean(), z.string()])).optional(),
 })
 
 export const createUserSchema = z.object({

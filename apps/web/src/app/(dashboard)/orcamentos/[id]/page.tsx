@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useRouter } from 'next/navigation'
 import {
@@ -20,6 +20,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Sheet, SheetContent, SheetTitle,
+  sanitizeInlineTextColors,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
@@ -131,6 +132,9 @@ interface Orcamento {
   textoCorpoCliente: string | null
   observacoes: string | null
   area: string | null
+  /** Áreas derivadas dos serviços dos itens (#HLP0266) — somente leitura, o
+   *  backend calcula. Não confundir com o campo texto `area`, legado. */
+  areas?: Array<{ id: string; nome: string }>
   solicitanteId: string | null
   responsavelId: string | null
   solicitante: { id: string; name: string; image?: string | null } | string | null
@@ -835,6 +839,11 @@ export default function OrcamentoDetailPage() {
   // Atualiza quando o cliente muda.
   const [emailSuggestions, setEmailSuggestions] = useState<string[]>([])
 
+  // Áreas do orçamento (#HLP0266) — derivadas no backend a partir dos serviços
+  // dos itens. Somente leitura: não há campo de área no orçamento, quem define é
+  // o cadastro do serviço.
+  const areasDerivadas = orc?.areas ?? []
+
   // Form fields
   const [formTipo, setFormTipo] = useState('')
   const [formClienteId, setFormClienteId] = useState('')
@@ -1155,7 +1164,8 @@ export default function OrcamentoDetailPage() {
           descontoPct: formDescontoPercent ? parseFloat(formDescontoPercent) : 0,
           descontoValor: formDesconto ? parseFloat(formDesconto) : 0,
           validadeDias: formValidade ? parseInt(formValidade) : undefined,
-          formaPagamento: formPagamento || undefined,
+          // Mesmo defeito, mesmo tratamento: é campo de texto livre, não seletor.
+          formaPagamento: formPagamento.trim() || null,
           // Mesmo caso dos campos acima — sem isto, um texto interno ou um corpo
           // de proposta nunca podia ser esvaziado, só substituído.
           textoInterno: formTextoInterno.trim() || null,
@@ -1265,17 +1275,30 @@ export default function OrcamentoDetailPage() {
   }
 
   async function handleEnviar() {
+    const destinatarios = enviarDestinatarios.split(/[,;]/).map(s => s.trim()).filter(Boolean)
+    // #HLP0149: com "Notificar" marcado mas o campo de destinatários vazio (operador
+    // limpou os e-mails de propósito, p/ enviar por outro canal), NÃO caímos mais no
+    // fallback silencioso do backend — que reincluía cliente.email + emailsContatos +
+    // emailComercial e disparava a proposta assim mesmo. Avisamos e, se confirmado,
+    // apenas marcamos como Enviado sem disparar e-mail.
+    if (enviarNotificar && destinatarios.length === 0) {
+      const ok = await alerts.confirm({
+        title: 'Sem destinatário',
+        text: 'Nenhum e-mail informado. O orçamento será marcado como Enviado, mas nenhum e-mail será disparado ao cliente. Deseja continuar?',
+        confirmText: 'Marcar como enviado',
+        icon: 'warning',
+      })
+      if (!ok) return
+    }
     setEnviando(true)
     try {
-      // Destinatários são opcionais (#HLP0086): sem e-mail, só muda status pra
-      // ENVIADO sem disparar notificação. Permite que o usuário marque o orçamento
-      // como enviado por canal externo (WhatsApp, telefone) sem precisar de email.
-      const destinatarios = enviarDestinatarios.split(/[,;]/).map(s => s.trim()).filter(Boolean)
-      // Checkbox desmarcado → força "sem e-mail" (destinatarios=[]): marca como enviado
-      // sem notificar o cliente. Marcado → envia pros destinatários.
+      // Destinatários são explícitos (#HLP0086 / #HLP0149): a lista enviada é sempre o
+      // que o operador vê no campo — nunca um fallback oculto. Checkbox desmarcado OU
+      // campo vazio → força "sem e-mail" (destinatarios=[]): só muda status pra ENVIADO,
+      // sem notificar o cliente (envio por canal externo). Com e-mails → envia pra eles.
       const result = await (trpc.orcamento as any).enviar.mutate({
         id,
-        destinatarios: enviarNotificar ? (destinatarios.length > 0 ? destinatarios : undefined) : [],
+        destinatarios: enviarNotificar && destinatarios.length > 0 ? destinatarios : [],
         mensagem: enviarMensagem.trim() || undefined,
       })
       setEnviarModal(false)
@@ -2264,6 +2287,32 @@ export default function OrcamentoDetailPage() {
                             suggestions={emailSuggestions}
                             placeholder="Digite e pressione Enter, vírgula ou espaço para adicionar"
                           />
+                        </div>
+
+                        {/* Linha 4: Áreas — derivadas, não editáveis (#HLP0266) */}
+                        <div className="col-span-12 space-y-2.5">
+                          <Label className="text-[13px] font-semibold text-foreground">Áreas envolvidas</Label>
+                          {areasDerivadas.length > 0 ? (
+                            <>
+                              <div className="flex flex-wrap gap-2">
+                                {areasDerivadas.map(a => (
+                                  <Badge key={a.id} variant="secondary" className="text-[11px] h-6 px-2.5 font-medium">
+                                    {a.nome}
+                                  </Badge>
+                                ))}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground">
+                                O orçamento pertence às áreas dos serviços listados na aba &quot;Itens&quot;.
+                              </p>
+                            </>
+                          ) : (
+                            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
+                              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500 mt-0.5" />
+                              <p className="text-[12px] leading-relaxed text-amber-800 dark:text-amber-300">
+                                Este orçamento não possui nenhum serviço com área definida. Adicione serviços na aba &quot;Itens&quot;.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -3268,6 +3317,11 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
   onEditarResposta?: (id: string, novoTexto: string) => Promise<void>
   isReply?: boolean
 }) {
+  // #HLP0178: mensagens antigas foram salvas com a cor preta/branca que veio
+  // grudada no texto colado — invisíveis num dos temas. Limpamos os extremos
+  // neutros na exibição pra herdarem `text-foreground`. Conteúdo novo já sai
+  // limpo do editor (o parse da extensão de cor descarta na origem).
+  const mensagemHtml = useMemo(() => sanitizeInlineTextColors(msg.mensagem), [msg.mensagem])
   const autor = msg.usuario || (msg.userId ? usuarios.find(u => u.id === msg.userId) : null)
   const autorExterno = (msg as { autorExterno?: string | null }).autorExterno
   const viaEmail = (msg as { viaEmail?: boolean }).viaEmail
@@ -3459,7 +3513,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
             ) : (
               <div
                 className="text-sm text-foreground prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-a:text-rose-600"
-                dangerouslySetInnerHTML={{ __html: msg.mensagem }}
+                dangerouslySetInnerHTML={{ __html: mensagemHtml }}
               />
             )}
           </div>
