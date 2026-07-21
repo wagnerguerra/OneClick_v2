@@ -193,16 +193,20 @@ export class OrcamentoService {
         //
         // O catálogo de itens é unificado: `OrcamentoItem.catalogoId` guarda um
         // Servico.id quando tipo='SERVICO' e um ServicoCatalogo.id para
-        // TAXA/DESPESA. Só os Servico carregam área (`atribuicaoAreas`, lista de
-        // ids), então resolvemos primeiro quais serviços são da minha área.
+        // TAXA/DESPESA. Só os Servico carregam área — em `categoria`, que é o
+        // campo rotulado "Área" no cadastro e guarda o NOME dela (mesma regra de
+        // derivarAreasDosOrcamentosEmLote). Resolvemos primeiro quais serviços
+        // são da minha área.
         const u = await prisma.user.findUnique({
           where: { id: userId },
           select: { areaId: true },
         }).catch(() => null)
-        const areaId = u?.areaId ?? null
-        const servicosDaArea = areaId
+        const minhaArea = u?.areaId
+          ? await prisma.area.findUnique({ where: { id: u.areaId }, select: { name: true } }).catch(() => null)
+          : null
+        const servicosDaArea = minhaArea?.name
           ? await prisma.servico.findMany({
-              where: { atribuicaoAreas: { has: areaId } },
+              where: { categoria: { equals: minhaArea.name, mode: 'insensitive' } },
               select: { id: true },
             }).catch(() => [] as { id: string }[])
           : []
@@ -401,7 +405,13 @@ export class OrcamentoService {
    * item é do tipo SERVICO e um ServicoCatalogo.id para TAXA/DESPESA. Só Servico
    * carrega área, então os ids que não casarem simplesmente não contribuem.
    *
-   * Trabalha em lote (2 consultas no total, independente de quantos orçamentos)
+   * A área do serviço é `Servico.categoria` — o campo rotulado "Área" no cadastro
+   * (aba Identificação) e exibido na coluna ÁREA da lista de serviços. Ele guarda
+   * o NOME da área, não o id. Não confundir com `atribuicaoAreas` ("Setores"),
+   * que define quem assume a execução: ler aquele campo fazia orçamentos com
+   * serviço de área definida aparecerem sem área nenhuma.
+   *
+   * Trabalha em lote (3 consultas no total, independente de quantos orçamentos)
    * porque a listagem chama com a página inteira — um por um seria N+1. O detalhe
    * chama com uma entrada só.
    */
@@ -416,34 +426,40 @@ export class OrcamentoService {
 
     const servicos = await prisma.servico.findMany({
       where: { id: { in: todosIds } },
-      select: { id: true, atribuicaoAreas: true },
-    }).catch(() => [] as Array<{ id: string; atribuicaoAreas: string[] }>)
+      select: { id: true, categoria: true },
+    }).catch(() => [] as Array<{ id: string; categoria: string | null }>)
     // Ids que não casaram são ServicoCatalogo (Taxa/Despesa) — não têm área.
-    const areasPorServico = new Map(servicos.map(s => [s.id, s.atribuicaoAreas]))
+    const categoriaPorServico = new Map(servicos.map(s => [s.id, s.categoria]))
 
-    const areaIds = [...new Set(servicos.flatMap(s => s.atribuicaoAreas))]
-    if (areaIds.length === 0) return vazio
+    if (servicos.every(s => !s.categoria)) return vazio
 
+    // `categoria` guarda o NOME da área. Resolvemos para o registro de Area pra
+    // devolver id + nome; o casamento é por nome normalizado porque o campo é
+    // texto livre de origem e pode ter sobrado caixa/espaço diferente de dados
+    // antigos. Áreas são poucas, então trazer todas sai mais barato que montar
+    // um filtro insensível a caixa.
     const areas = await prisma.area.findMany({
-      where: { id: { in: areaIds } },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     }).catch(() => [] as Array<{ id: string; name: string }>)
-    const nomePorArea = new Map(areas.map(a => [a.id, a.name]))
+    const chave = (s: string) => s.trim().toLowerCase()
+    const areaPorNome = new Map(areas.map(a => [chave(a.name), a]))
 
     const resultado = new Map<string, Array<{ id: string; nome: string }>>()
     for (const orc of orcamentos) {
-      const ids = new Set<string>()
+      const encontradas = new Map<string, { id: string; nome: string }>()
       for (const ref of [...orc.catalogoIds, orc.servicoId]) {
         if (!ref) continue
-        for (const areaId of areasPorServico.get(ref) ?? []) ids.add(areaId)
+        const categoria = categoriaPorServico.get(ref)
+        if (!categoria) continue
+        const area = areaPorNome.get(chave(categoria))
+        // Categoria que não corresponde a nenhuma Área cadastrada é resquício de
+        // texto livre — ignorada, pra não inventar área que não existe.
+        if (area) encontradas.set(area.id, { id: area.id, nome: area.name })
       }
       resultado.set(
         orc.id,
-        [...ids]
-          .filter(id => nomePorArea.has(id))
-          .map(id => ({ id, nome: nomePorArea.get(id)! }))
-          .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
+        [...encontradas.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
       )
     }
     return resultado
