@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "dependencies": {
     "@better-auth/expo": "^1.6.14",
+    "@expo/metro-runtime": "~56.0.17",
     "@expo/vector-icons": "^15.1.1",
     "@hookform/resolvers": "^4.1.3",
     "@saas/api": "workspace:*",
