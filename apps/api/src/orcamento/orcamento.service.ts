@@ -3016,6 +3016,50 @@ export class OrcamentoService {
     })
   }
 
+  /**
+   * Textos descritivos dos itens de um orçamento, para alimentar o contexto da
+   * IA (#HLP0288). Duas origens, na ordem de precedência da UI:
+   *  1. o texto escolhido no item (catalogoTextoId → OrcamentoCatalogoTexto)
+   *  2. o texto padrão do item de catálogo/serviço (textoPadrao)
+   * São textos voltados ao cliente — descrevem o escopo do serviço.
+   */
+  async textosDosItens(orcamentoId: string): Promise<Array<{ item: string; titulo: string | null; texto: string }>> {
+    const itens = await prisma.orcamentoItem.findMany({
+      where: { orcamentoId },
+      select: { descricao: true, catalogoId: true, catalogoTextoId: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    if (itens.length === 0) return []
+
+    const textoIds = itens.map(i => i.catalogoTextoId).filter((v): v is string => !!v)
+    const catalogoIds = itens.map(i => i.catalogoId).filter((v): v is string => !!v)
+
+    const [textos, catalogos, servicos] = await Promise.all([
+      textoIds.length
+        ? prisma.orcamentoCatalogoTexto.findMany({ where: { id: { in: textoIds } }, select: { id: true, titulo: true, descricao: true } }).catch(() => [])
+        : [],
+      catalogoIds.length
+        ? prisma.servicoCatalogo.findMany({ where: { id: { in: catalogoIds } }, select: { id: true, textoPadrao: true } }).catch(() => [])
+        : [],
+      catalogoIds.length
+        ? prisma.servico.findMany({ where: { id: { in: catalogoIds } }, select: { id: true, textoPadrao: true } }).catch(() => [])
+        : [],
+    ])
+    const mapTexto = new Map(textos.map(t => [t.id, t]))
+    const mapPadrao = new Map<string, string | null>([
+      ...catalogos.map(c => [c.id, c.textoPadrao] as [string, string | null]),
+      ...servicos.map(s => [s.id, s.textoPadrao] as [string, string | null]),
+    ])
+
+    const out: Array<{ item: string; titulo: string | null; texto: string }> = []
+    for (const i of itens) {
+      const escolhido = i.catalogoTextoId ? mapTexto.get(i.catalogoTextoId) : null
+      const texto = escolhido?.descricao || (i.catalogoId ? mapPadrao.get(i.catalogoId) : null)
+      if (texto && texto.trim()) out.push({ item: i.descricao, titulo: escolhido?.titulo ?? null, texto })
+    }
+    return out
+  }
+
   async updateCatalogoTexto(id: string, data: { titulo?: string; descricao?: string | null; valor?: number | null }) {
     return prisma.orcamentoCatalogoTexto.update({ where: { id }, data: data as any })
   }

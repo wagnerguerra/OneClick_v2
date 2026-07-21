@@ -120,6 +120,18 @@ export class OrcamentoAiService {
     if (o.observacoes) linhas.push(`- Observações: ${this.stripHtml(o.observacoes, 500)}`)
     linhas.push('')
 
+    // Detalhamento / Texto interno — o briefing que a liderança escreve ao abrir
+    // o orçamento (o campo "Detalhamento" do modal de novo orçamento é este
+    // textoInterno). Ficava de fora do contexto, então a IA redigia a proposta
+    // sem a descrição do que foi de fato solicitado e pedia ao usuário para colar
+    // o conteúdo no chat (#HLP0288). É a fonte mais direta do escopo do serviço.
+    if (o.textoInterno) {
+      linhas.push(`## Detalhamento da solicitação (briefing interno da liderança)`)
+      linhas.push(`Esta é a descrição do que foi solicitado — use como BASE do escopo ao redigir a proposta.`)
+      linhas.push(`"""${this.stripHtml(o.textoInterno, 4000)}"""`)
+      linhas.push('')
+    }
+
     // Itens
     const itens = (o.itens ?? []) as any[]
     if (itens.length) {
@@ -129,6 +141,20 @@ export class OrcamentoAiService {
         const unit = Number(it.valorUnitario)
         const total = qtd * unit
         linhas.push(`- [${it.tipo}] ${it.descricao} — ${qtd} × ${this.fmtBRL(unit)} = ${this.fmtBRL(total)}`)
+      }
+      linhas.push('')
+    }
+
+    // Textos descritivos dos itens — o "campo Textos" citado no #HLP0288. São
+    // os textos cadastrados por serviço (escolhido no item ou o padrão do
+    // catálogo) e descrevem o escopo ao cliente. A IA não os enxergava.
+    const textosItens = await this.orcamentoService.textosDosItens(orcamentoId).catch(() => [])
+    if (textosItens.length) {
+      linhas.push(`## Textos cadastrados dos serviços deste orçamento`)
+      linhas.push(`Descrições oficiais dos serviços — use-as como base do escopo, adaptando ao caso.`)
+      for (const t of textosItens) {
+        linhas.push(`\n### ${t.item}${t.titulo ? ` — ${t.titulo}` : ''}`)
+        linhas.push(`"""${this.stripHtml(t.texto, 1500)}"""`)
       }
       linhas.push('')
     }
@@ -229,6 +255,7 @@ Diretrizes:
 - Quando pedirem para redigir/compor a proposta, escreva o texto FINAL pronto para enviar ao cliente — sem placeholders como "[inserir aqui]". Use os dados reais do contexto (valores, prazos, forma de pagamento, serviços).
 - Use o histórico de orçamentos anteriores do cliente para dar contexto de relacionamento (ex.: cliente recorrente, serviços já contratados), mas não exponha valores de outros orçamentos no texto ao cliente a menos que solicitado.
 - Não invente serviços, valores ou condições que não estejam no contexto. Se faltar informação essencial, pergunte de forma breve.
+- A seção "Detalhamento da solicitação" é o briefing INTERNO da liderança e é a sua principal fonte sobre o escopo do que foi pedido: use-a para entender e descrever o serviço. Mas ela é insumo, não texto pronto — reescreva no tom da proposta e nunca copie trechos literalmente nem reproduza anotação interna (margem, estratégia de preço, comentários sobre o cliente) no texto que vai ao cliente.
 - Formate o texto em **Markdown simples**: parágrafos separados por linha em branco, **negrito**, listas com "- " e títulos com "##" quando útil. NÃO use HTML (nada de tags <p>, <strong>, <ul>) e NÃO coloque a resposta dentro de um bloco de código. Escreva o texto direto, como uma mensagem normal — o sistema converte o Markdown em HTML ao aplicar na proposta.
 - IMPORTANTE: há uma seção "Exemplos de propostas REAIS já enviadas pela casa". Trate-os como o PADRÃO a seguir — espelhe a estrutura (saudação, apresentação, escopo/serviços, valores/condições, fechamento), o tom e a formatação. Adapte aos dados do orçamento atual, sem copiar dados específicos dos exemplos.
 - Seja conciso nas conversas; só produza o texto longo da proposta quando for esse o pedido.
