@@ -256,7 +256,17 @@ export class AgendaEmailTemplateService {
     // deixa de poder causar perda de dados. Para não ver a seção, atribua os
     // tipos aos grupos em /agenda/configuracoes — aí ela fica vazia sozinha.
     if (outros.length > 0) {
-      secoes.push({ nome: template.nomeGrupoOutros || 'Outros', cor: template.accent, icone: '📌', items: outros })
+      // O nome do catch-all pode COLIDIR com o de um grupo real — o default é
+      // "Compromissos corporativos" e é comum existir um grupo com esse mesmo
+      // nome. Quando isso acontece, criar uma seção separada produz dois blocos
+      // de título idêntico e conteúdos diferentes no mesmo e-mail (#HLP0294:
+      // "a agenda está duplicando eventos como COMPROMISSO CORPORATIVO, porém
+      // mostrando eventos diferentes"). Nesse caso os eventos sem grupo são
+      // ANEXADOS à seção existente, em vez de abrir uma segunda com o mesmo nome.
+      const nomeOutros = template.nomeGrupoOutros || 'Outros'
+      const existente = secoes.find(s => s.nome.trim().toLowerCase() === nomeOutros.trim().toLowerCase())
+      if (existente) existente.items.push(...outros)
+      else secoes.push({ nome: nomeOutros, cor: template.accent, icone: '📌', items: outros })
       if (!template.mostrarOutros) {
         const tipos = Array.from(new Set(outros.map(e => e?.tipo?.nome).filter(Boolean)))
         console.warn(`[AgendaEmail] ${outros.length} evento(s) sem grupo exibidos no catch-all (tipos: ${tipos.join(', ')}). Atribua esses tipos a um grupo em /agenda/configuracoes.`)
