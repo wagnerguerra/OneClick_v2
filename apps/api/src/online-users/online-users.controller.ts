@@ -28,7 +28,7 @@ export class OnlineUsersController {
   /** Resolve o nível de acesso a partir da sessão (cookie) ou da chave admin. */
   private async resolveAccess(
     req: Request,
-  ): Promise<{ tier: 'full' | 'scoped' | 'none'; empresaId: string | null }> {
+  ): Promise<{ tier: 'full' | 'scoped' | 'none'; empresaId: string | null; userId?: string }> {
     // Service Manager (sem sessão Better Auth) → autentica por API key dedicada.
     const adminKey = process.env.ADMIN_API_KEY
     const headerKey = req.headers['x-admin-key']
@@ -45,9 +45,13 @@ export class OnlineUsersController {
       if (session?.user) {
         const user = session.user as Record<string, unknown>
         // Master global → monitoramento completo (todos os tenants + PII).
-        if (user.isMaster === true) return { tier: 'full', empresaId: null }
+        if (user.isMaster === true) return { tier: 'full', empresaId: null, userId: user.id as string }
         // Demais sessões → só presença da própria empresa, sem PII.
-        return { tier: 'scoped', empresaId: (user.empresaId as string | undefined) ?? null }
+        return {
+          tier: 'scoped',
+          empresaId: (user.empresaId as string | undefined) ?? null,
+          userId: user.id as string,
+        }
       }
     } catch {
       // Sem sessão válida — cai em NONE.
@@ -56,10 +60,19 @@ export class OnlineUsersController {
   }
 
   /** Busca a lista conforme o nível de acesso resolvido. */
-  private async listFor(access: { tier: 'full' | 'scoped' | 'none'; empresaId: string | null }) {
+  private async listFor(access: { tier: 'full' | 'scoped' | 'none'; empresaId: string | null; userId?: string }) {
     if (access.tier === 'none') return []
+    // FULL é o painel de monitoramento: a janela de atividade é o próprio ponto,
+    // então segue só com quem esteve ativo agora.
     if (access.tier === 'full') return this.svc.getOnline(undefined, { includeSensitive: true })
-    return this.svc.getOnline(access.empresaId, { includeSensitive: false })
+    // SCOPED alimenta a coluna Pessoas do chat, que é um DIRETÓRIO da equipe
+    // (#HLP0196): traz todos os colegas, com a presença apenas decorando. Antes
+    // herdava a janela de 5 min do monitoramento e quem estivesse parado sumia.
+    return this.svc.getOnline(access.empresaId, {
+      includeSensitive: false,
+      incluirOffline: true,
+      viewerId: access.userId,
+    })
   }
 
   /** Snapshot atual (REST simples — pra polling fallback ou primeiro load). */

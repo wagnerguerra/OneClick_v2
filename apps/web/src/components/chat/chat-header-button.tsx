@@ -80,10 +80,14 @@ const STATUS_LABEL: Record<NonNullable<ChatStatus> | 'offline', string> = {
   online: 'Online',
   ausente: 'Ausente',
   dnd: 'Não perturbar',
-  invisible: 'Invisível (parece offline)',
+  invisible: 'Invisível',
   offline: 'Offline',
 }
 
+/** Cor da bolinha por presença. `invisible` não entra aqui: quem está invisível
+ *  é exibido como offline — inclusive pra si mesmo —, e o rótulo ao lado é que
+ *  diz "Invisível". O que não pode é mostrar verde, como se estivesse online
+ *  para os outros (#HLP0196). */
 const STATUS_COR: Record<'online' | 'ausente' | 'dnd' | 'offline', string> = {
   online:  'bg-emerald-500',
   ausente: 'bg-amber-500',
@@ -538,9 +542,15 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
     return q ? conversas.filter(c => c.nome.toLowerCase().includes(q)) : conversas
   }, [conversas, searchConversas])
 
-  const totalOnline = useMemo(() =>
-    onlineUsers.filter(u => u.id !== meuId && presencaEfetiva(u, ausenteAposMin) === 'online').length,
-  [onlineUsers, meuId, ausenteAposMin])
+  // Presença por usuário — alimenta a bolinha do avatar onde quer que ele
+  // apareça (lista de conversas, cabeçalho da conversa). Calculado uma vez a
+  // partir do mesmo snapshot que a coluna Pessoas usa, então os três lugares
+  // nunca divergem.
+  const presencaPorUsuario = useMemo(() => {
+    const m = new Map<string, 'online' | 'ausente' | 'dnd' | 'offline'>()
+    for (const u of onlineUsers) m.set(u.id, presencaEfetiva(u, ausenteAposMin))
+    return m
+  }, [onlineUsers, ausenteAposMin])
 
   // Minha presença efetiva (pra o dot no botão do header).
   // - Manual local (clicado no dropdown) tem prioridade absoluta — `invisible`
@@ -550,8 +560,9 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
   //   evita o flicker "Offline → Online" que acontecia porque o setMeuStatus
   //   só rodava DEPOIS do loadOnline retornar.
   const minhaPresenca: 'online' | 'ausente' | 'dnd' | 'offline' = useMemo(() => {
-    // Override manual local
-    if (meuStatus === 'invisible') return 'online' // pra mim, sigo "online" mesmo invisible
+    // Override manual local. Invisível aparece como offline também pra mim — é o
+    // que os outros veem, e o rótulo ao lado da bolinha diz "Invisível".
+    if (meuStatus === 'invisible') return 'offline'
     if (meuStatus === 'online' || meuStatus === 'ausente' || meuStatus === 'dnd') return meuStatus
     // Derivado do banco
     const eu = onlineUsers.find(u => u.id === meuId)
@@ -589,6 +600,7 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
             <NovoGrupoView
               meuId={meuId}
               onlineUsers={onlineUsers}
+              presencaPorUsuario={presencaPorUsuario}
               onCancel={() => setNovoGrupoOpen(false)}
               onCreated={(c) => { setNovoGrupoOpen(false); loadConversas(); setConversaAtiva(c) }}
             />
@@ -600,8 +612,12 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
                 // No app desktop, os botões nativos do Windows (minimizar/
                 // maximizar/fechar) ocupam ~130px no canto superior direito da
                 // janela. Reservamos esse espaço pra não sobrepor o
-                // StatusDropdown e o botão de Configurações.
+                // botão de Configurações.
                 isRunningInDesktopApp && embed && 'pr-[150px]',
+                // No painel web, o Sheet desenha o "X" em `absolute right-4 top-4`
+                // (28px) POR CIMA do header — sem reservar, ele cobria o último
+                // botão da direita. Vale pra qualquer coisa que fique nesse canto.
+                !embed && 'pr-14',
               )}>
                 <div className="min-w-0 flex flex-1 items-center gap-3">
                   <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 flex items-center justify-center shadow-sm">
@@ -609,10 +625,6 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
                   </div>
                   <div className="min-w-0">
                     <div className="truncate text-sm font-bold leading-tight tracking-tight">Chat interno</div>
-                    <div className="text-[11px] text-muted-foreground leading-tight flex items-center gap-1 mt-0.5">
-                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      {totalOnline} {totalOnline === 1 ? 'pessoa online' : 'pessoas online'}
-                    </div>
                   </div>
                 </div>
                 <div className="shrink-0 flex items-center justify-end gap-2">
@@ -640,7 +652,6 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
                   >
                     <SettingsIcon className="h-3.5 w-3.5" />
                   </a>
-                  <StatusDropdown statusManual={meuStatus} presencaAtual={minhaPresenca} onChange={trocarStatus} />
                 </div>
               </div>
 
@@ -648,7 +659,22 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
               <div className="flex-1 flex min-h-0">
                 {/* Coluna 1: Pessoas */}
                 <div className="w-[220px] shrink-0 border-r border-border/60 flex flex-col bg-muted/20">
-                  <div className="shrink-0 px-3 py-2 border-b border-border/60 flex items-center justify-between">
+                  {/* Meu status abre a coluna, logo acima da lista com o status
+                      de todo mundo — a leitura fica "eu, depois os outros", e o
+                      controle deixa de ficar solto num canto do header, onde era
+                      pouco descoberto e ainda disputava espaço com o "X". */}
+                  <div className="shrink-0 px-3 py-2 border-b border-border/60">
+                    <span className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                      Seu status
+                    </span>
+                    <StatusDropdown
+                      statusManual={meuStatus}
+                      presencaAtual={minhaPresenca}
+                      onChange={trocarStatus}
+                      className="w-full max-w-none bg-card border border-border/60 hover:bg-muted/60"
+                    />
+                  </div>
+                  <div className="shrink-0 px-3 py-2 border-b border-border/60 flex items-center justify-between gap-2">
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Pessoas</span>
                     <button
                       type="button"
@@ -703,6 +729,7 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
                       conversaAtivaId={conversaAtiva?.id ?? null}
                       onClickConversa={setConversaAtiva}
                       onHideConversa={esconderConversa}
+                      presencaPorUsuario={presencaPorUsuario}
                     />
                   </div>
                 </div>
@@ -762,7 +789,10 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
             'absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full ring-2 ring-card transition-colors',
             STATUS_COR[minhaPresenca],
           )}
-          title={`Status: ${STATUS_LABEL[minhaPresenca]}`}
+          // Escolha manual tem precedência no texto: invisível é exibido como
+          // offline, mas o tooltip precisa dizer "Invisível" — senão parece que
+          // o status escolhido não foi aplicado.
+          title={`Status: ${STATUS_LABEL[meuStatus ?? minhaPresenca]}`}
         />
         {totalUnread > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-rose-500 text-white text-[9px] font-bold px-1 border-2 border-card">
@@ -784,10 +814,12 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
 // StatusDropdown — meu status manual
 // ============================================================
 
-function StatusDropdown({ statusManual, presencaAtual, onChange }: {
+function StatusDropdown({ statusManual, presencaAtual, onChange, className }: {
   statusManual: ChatStatus
   presencaAtual: 'online' | 'ausente' | 'dnd' | 'offline'
   onChange: (s: ChatStatus) => void
+  /** Permite esticar o gatilho onde há espaço (ex.: coluna Pessoas). */
+  className?: string
 }) {
   // Quando o user não escolheu manualmente, mostra a presença derivada (sem
   // sufixo "(auto)"). Clicar na opção já marcada limpa o override (volta ao
@@ -796,18 +828,29 @@ function StatusDropdown({ statusManual, presencaAtual, onChange }: {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="inline-flex h-8 max-w-[132px] items-center gap-1.5 rounded-md px-2 text-xs font-medium hover:bg-muted transition-colors">
-          <span className={cn('h-2 w-2 rounded-full', STATUS_COR[presencaAtual])} />
+        <button
+          type="button"
+          className={cn(
+            'inline-flex h-8 max-w-[132px] items-center gap-1.5 rounded-md px-2 text-xs font-medium hover:bg-muted transition-colors',
+            className,
+          )}
+        >
+          <span className={cn('h-2 w-2 rounded-full shrink-0', STATUS_COR[presencaAtual])} />
           <span className="min-w-0 truncate">{labelAtual}</span>
-          <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+          {/* `ml-auto` só tem efeito quando o gatilho é esticado (coluna Pessoas):
+              joga a seta pra borda. No modo compacto o botão encolhe e ela segue
+              colada ao texto. */}
+          <ChevronDown className="h-3 w-3 shrink-0 ml-auto text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">
+        {/* Cores vêm do STATUS_COR pra não divergirem das bolinhas do resto da
+            tela. `invisible` usa a do offline: é assim que ele é exibido. */}
         {([
-          { v: 'online',    label: 'Online',               cor: 'bg-emerald-500' },
-          { v: 'ausente',   label: 'Ausente',              cor: 'bg-amber-500' },
-          { v: 'dnd',       label: 'Não perturbar',        cor: 'bg-rose-500' },
-          { v: 'invisible', label: 'Invisível',            cor: 'bg-muted-foreground/40' },
+          { v: 'online',    label: STATUS_LABEL.online,    cor: STATUS_COR.online },
+          { v: 'ausente',   label: STATUS_LABEL.ausente,   cor: STATUS_COR.ausente },
+          { v: 'dnd',       label: STATUS_LABEL.dnd,       cor: STATUS_COR.dnd },
+          { v: 'invisible', label: STATUS_LABEL.invisible, cor: STATUS_COR.offline },
         ] as const).map(opt => (
           <DropdownMenuItem
             key={String(opt.v)}
@@ -868,11 +911,31 @@ function PessoasList({ pessoas, onClickPessoa, abrindoUserId }: {
   if (pessoas.length === 0) {
     return <div className="p-6 text-center text-[11px] text-muted-foreground">Ninguém por aqui.</div>
   }
+
+  // Agrupa por status na ordem em que a lista já vem ordenada (presença e depois
+  // nome), então basta cortar a cada troca — sem reordenar nada aqui. Seções
+  // vazias não aparecem.
+  const grupos = (['online', 'ausente', 'dnd', 'offline'] as const)
+    .map(presenca => ({ presenca, membros: pessoas.filter(u => u.presenca === presenca) }))
+    .filter(g => g.membros.length > 0)
+
   return (
-    <ul className="py-1 px-1">
-      {pessoas.map(u => {
-        const abrindo = abrindoUserId === u.id
-        return (
+    <div className="py-1 px-1">
+      {grupos.map(({ presenca, membros }) => (
+        <section key={presenca} className="mb-1 last:mb-0">
+          {/* Sem bolinha aqui: todo mundo da seção já tem a mesma no avatar. */}
+          <div className="px-2.5 py-1 flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider truncate">
+              {STATUS_LABEL[presenca]}
+            </span>
+            <span className="text-[10px] font-medium text-muted-foreground/70 tabular-nums">
+              {membros.length}
+            </span>
+          </div>
+          <ul>
+            {membros.map(u => {
+              const abrindo = abrindoUserId === u.id
+              return (
         <li key={u.id}>
           <button
             type="button"
@@ -885,27 +948,29 @@ function PessoasList({ pessoas, onClickPessoa, abrindoUserId }: {
             title={`${u.name} · ${STATUS_LABEL[u.presenca]}`}
           >
             <Avatar user={u} presenca={u.presenca} size="sm" />
-            <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-medium truncate leading-tight">{u.name}</div>
-              <div className="text-[10px] text-muted-foreground truncate leading-tight">
-                {STATUS_LABEL[u.presenca]}
-              </div>
-            </div>
+            {/* O status já é dito pelo separador da seção — repeti-lo em cada
+                linha viraria eco. Sobra espaço pro nome, que é o que importa. */}
+            <span className="flex-1 min-w-0 text-[13px] font-medium truncate leading-tight">{u.name}</span>
             {abrindo && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />}
           </button>
         </li>
-        )
-      })}
-    </ul>
+              )
+            })}
+          </ul>
+        </section>
+      ))}
+    </div>
   )
 }
 
-function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa, onHideConversa }: {
+function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa, onHideConversa, presencaPorUsuario }: {
   conversas: Conversa[]
   meuId: string | null
   conversaAtivaId: string | null
   onClickConversa: (c: Conversa) => void
   onHideConversa: (c: Conversa) => void
+  /** Presença do outro participante — só faz sentido em conversa direta. */
+  presencaPorUsuario: Map<string, 'online' | 'ausente' | 'dnd' | 'offline'>
 }) {
   if (conversas.length === 0) {
     return <div className="p-6 text-center text-[11px] text-muted-foreground">Sem conversas ainda.<br/>Comece pela coluna <strong>Pessoas</strong>.</div>
@@ -937,7 +1002,7 @@ function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa, onH
                   <Users className="h-4 w-4" />
                 </div>
               ) : outro ? (
-                <Avatar user={outro} />
+                <Avatar user={outro} presenca={presencaPorUsuario.get(outro.id)} />
               ) : null}
               <div className="flex-1 min-w-0 pr-5">
                 <div className="flex items-center justify-between gap-2">
@@ -1454,6 +1519,8 @@ function ChatView({ conversa, meuId, onMessageSent }: {
         ) : (() => {
           const outro = participantes.find(p => p.id !== meuId)
           if (!outro) return null
+          // Sem bolinha aqui: a conversa correspondente na coluna ao lado já
+          // mostra a presença dessa pessoa, e as duas ficam lado a lado.
           return <Avatar user={outro} size="lg" />
         })()}
         <div className="flex-1 min-w-0">
@@ -1797,11 +1864,15 @@ function ChatView({ conversa, meuId, onMessageSent }: {
 // NovoGrupoView
 // ============================================================
 
-function NovoGrupoView({ meuId, onlineUsers, onCancel, onCreated }: {
+function NovoGrupoView({ meuId, onlineUsers, onCancel, onCreated, presencaPorUsuario }: {
   meuId: string | null
   onlineUsers: OnlineUser[]
   onCancel: () => void
   onCreated: (c: Conversa) => void
+  /** Mesma presença da coluna Pessoas — escolher quem entra no grupo é a mesma
+   *  tarefa de escolher com quem falar, e sem a bolinha era o único lugar da
+   *  tela com avatar mudo. */
+  presencaPorUsuario: Map<string, 'online' | 'ausente' | 'dnd' | 'offline'>
 }) {
   const [nome, setNome] = useState('')
   const [selecionados, setSelecionados] = useState<string[]>([])
@@ -1854,7 +1925,7 @@ function NovoGrupoView({ meuId, onlineUsers, onCancel, onCreated }: {
                 sel ? 'bg-sky-500 border-sky-500 text-white' : 'border-muted-foreground/40')}>
                 {sel && <Check className="h-3 w-3" />}
               </span>
-              <Avatar user={u} />
+              <Avatar user={u} presenca={presencaPorUsuario.get(u.id)} />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{u.name}</div>
                 {u.email && <div className="text-[10px] text-muted-foreground truncate">{u.email}</div>}
