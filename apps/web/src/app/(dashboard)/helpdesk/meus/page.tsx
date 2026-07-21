@@ -36,7 +36,7 @@ interface TicketMeu {
 }
 
 // Cores semânticas das pills — alinhadas com STATUS_COR do kanban
-// (NOVO=blue · EM_ANDAMENTO=amber · RESOLVIDO/Pendente=purple ·
+// (NOVO=blue · EM_ANDAMENTO=amber · RESOLVIDO/Aguardando avaliação=purple ·
 //  CONCLUIDO=emerald · CANCELADO=red)
 const STATUS_BADGE: Record<HelpdeskStatus, string> = {
   NOVO: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400',

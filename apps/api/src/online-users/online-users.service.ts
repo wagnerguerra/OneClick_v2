@@ -77,16 +77,33 @@ export class OnlineUsersService {
    *   (e-mail, IP, caminho de navegação, empresa). Reservado ao admin global —
    *   NUNCA deve ir no payload de usuários comuns (rastreamento/LGPD, F-001).
    *   Default `false`: presença mínima (id, nome, avatar, status, atividade).
+   * @param opts.incluirOffline Quando `true`, devolve TODOS os usuários ativos do
+   *   escopo, e não só os vistos na janela de atividade — a presença passa a
+   *   decorar a lista em vez de defini-la (#HLP0196). É o modo "diretório", usado
+   *   pela coluna Pessoas do chat: sem ele, um colega parado há mais de
+   *   WINDOW_MIN minutos sumia por completo e não dava nem pra iniciar conversa.
+   *   O monitoramento admin não usa isso — lá a janela é o próprio objetivo.
+   * @param opts.viewerId Id de quem está pedindo. No modo diretório, quem está
+   *   `invisible` é mascarado como offline; o próprio usuário fica de fora dessa
+   *   máscara, senão ele se veria como visível estando oculto.
    */
-  async getOnline(empresaId?: string | null, opts?: { includeSensitive?: boolean }) {
+  async getOnline(
+    empresaId?: string | null,
+    opts?: { includeSensitive?: boolean; incluirOffline?: boolean; viewerId?: string },
+  ) {
     const includeSensitive = opts?.includeSensitive ?? false
+    const incluirOffline = opts?.incluirOffline ?? false
     const cutoff = new Date(Date.now() - this.WINDOW_MIN * 60_000)
     const users = await prisma.user.findMany({
       where: {
         isActive: true,
-        lastActivityAt: { gte: cutoff },
-        // 'invisible' = aparece como offline pros outros, mesmo ativo
-        NOT: { chatStatus: 'invisible' },
+        ...(incluirOffline
+          ? {}
+          : {
+              lastActivityAt: { gte: cutoff },
+              // 'invisible' = aparece como offline pros outros, mesmo ativo
+              NOT: { chatStatus: 'invisible' },
+            }),
         // Isolamento multi-tenant: só quando há sessão (empresaId !== undefined)
         ...(empresaId !== undefined ? { empresaId } : {}),
       },
@@ -108,6 +125,17 @@ export class OnlineUsersService {
       },
       orderBy: { lastActivityAt: 'desc' },
     })
-    return users
+
+    if (!incluirOffline) return users
+
+    // No diretório, "invisível" cumpre o que promete: a pessoa aparece, porém
+    // como offline. Zeramos os campos que revelariam atividade — devolver o
+    // chatStatus real (ou um lastActivityAt recente) entregaria que ela está
+    // online se escondendo. `presencaEfetiva` no cliente lê isso como offline.
+    return users.map(u =>
+      u.chatStatus === 'invisible' && u.id !== opts?.viewerId
+        ? { ...u, chatStatus: null, lastActivityAt: null }
+        : u,
+    )
   }
 }

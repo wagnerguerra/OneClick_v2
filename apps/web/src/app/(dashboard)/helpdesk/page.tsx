@@ -69,14 +69,14 @@ const COLUNAS: HelpdeskStatus[] = [
 //   NOVO         → azul       (entrada, aguardando triagem)
 //   EM_ANDAMENTO → âmbar      (trabalho ativo)
 //   RESOLVIDO    → violeta    (aguardando confirmação/CSAT do solicitante)
-//                  o label visível é 'Pendente' (HELPDESK_STATUS_LABELS)
+//                  o label visível é 'Aguardando avaliação' (HELPDESK_STATUS_LABELS)
 //   CONCLUIDO    → verde      (sucesso, fechado)
 //   CANCELADO    → vermelho   (anulado)
 const STATUS_COR: Record<HelpdeskStatus, string> = {
   NOVO: '#3b82f6',                 // blue-500
   AGUARDANDO_AUDITORIA: '#06b6d4', // cyan-500 (IA respondeu, aguarda revisão)
   EM_ANDAMENTO: '#f59e0b',         // amber-500
-  RESOLVIDO: '#a855f7',            // purple-500 (= 'Pendente' na UI)
+  RESOLVIDO: '#a855f7',            // purple-500 (= 'Aguardando avaliação' na UI)
   CONCLUIDO: '#10b981',            // emerald-500
   CANCELADO: '#ef4444',            // red-500
 }

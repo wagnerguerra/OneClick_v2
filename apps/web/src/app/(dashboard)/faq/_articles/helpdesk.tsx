@@ -95,7 +95,7 @@ export default function FaqHelpdeskPage() {
         <ul className="list-disc list-inside space-y-1 ml-2">
           <li>Nota de <strong>1 a 5 estrelas</strong> (obrigatório)</li>
           <li>Comentário opcional (use pra elogiar ou apontar melhoria)</li>
-          <li>Sem avaliar, o ticket auto-fecha em <strong>3 dias úteis</strong> com nota neutra</li>
+          <li>Sem avaliar, o ticket auto-fecha em <strong>3 dias úteis</strong> sem registrar nota</li>
         </ul>
         <Callout tipo="dica">
           O CSAT alimenta o dashboard de TI — equipe vê o que está indo bem e onde melhorar.

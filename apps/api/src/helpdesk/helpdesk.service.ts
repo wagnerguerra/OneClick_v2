@@ -887,7 +887,10 @@ export class HelpdeskService {
               ticketNum,
               `Seu ticket <strong>${t.titulo}</strong> foi resolvido. ` +
               `Avalie o atendimento (5 estrelas máx) para fechar o chamado. ` +
-              `Após 3 dias sem resposta, fecharemos automaticamente com nota neutra.`,
+              // #HLP0180: o auto-fechamento deixou de gravar nota (ver
+              // autoFecharResolvidos), então prometer "nota neutra" era falso — e
+              // ainda desincentivava responder, já que a nota sairia de graça.
+              `Após 3 dias sem resposta, o chamado é fechado automaticamente, sem registrar avaliação.`,
               link,
             ),
           })

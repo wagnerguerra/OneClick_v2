@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Plus, MoreVertical, Trash2, Pencil, Loader2,
-  Package, Tag as TagIcon, FileText, RefreshCw,
+  Package, RefreshCw, RotateCcw, CheckCircle2, EyeOff,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card,
@@ -130,6 +130,9 @@ export default function ParametrosOrcamentosPage() {
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
+      // Traz excluídos junto (`ativo = false`), mas eles só são exibidos na
+      // visão "Excluídos" — ver `filtered`. Buscar tudo de uma vez evita
+      // recarregar ao alternar o filtro; quem decide o que aparece é a tela.
       const data = await (trpc.orcamento as any).listCatalogo.query({ somenteAtivos: false })
       setItems(data)
     } catch {
@@ -152,19 +155,23 @@ export default function ParametrosOrcamentosPage() {
         if (!i.nome.toLowerCase().includes(q)) return false
       }
       if (tipoFilter !== '__all__' && i.tipo !== tipoFilter) return false
-      if (statusFilter === 'ativos' && !i.ativo) return false
-      if (statusFilter === 'inativos' && i.ativo) return false
+      // #HLP0282: item excluído (`ativo = false`) some de todas as visões —
+      // era por aparecer aqui que o usuário excluía e ele continuava na lista.
+      // Só a visão dedicada "Excluídos" os mostra, e é de lá que se restaura.
+      if (statusFilter === 'excluidos') return !i.ativo
+      if (!i.ativo) return false
       if (statusFilter === 'disponiveis' && !i.disponivelOrcamento) return false
       if (statusFilter === 'indisponiveis' && i.disponivelOrcamento) return false
       return true
     })
   }, [items, search, tipoFilter, statusFilter])
 
+  // Excluído não entra em contagem nenhuma além da própria pílula "Excluídos".
   const stats = useMemo(() => ({
-    total: items.length,
-    ativos: items.filter(i => i.ativo).length,
+    total: items.filter(i => i.ativo).length,
     disponiveis: items.filter(i => i.ativo && i.disponivelOrcamento).length,
     indisponiveis: items.filter(i => i.ativo && !i.disponivelOrcamento).length,
+    excluidos: items.filter(i => !i.ativo).length,
   }), [items])
 
   function abrirNovo() {
@@ -282,14 +289,35 @@ export default function ParametrosOrcamentosPage() {
   }
 
   async function handleExcluir(item: CatalogoItem) {
+    // #HLP0282: é exclusão para todos os efeitos visíveis — o item sai do
+    // catálogo e deixa de ser oferecido. Os orçamentos que já o usam não são
+    // afetados (a exclusão é não destrutiva no banco), e é isso que o texto
+    // comunica, em vez de expor "inativo" ou prometer irreversibilidade.
     const text = item.usoCount > 0
-      ? `Este item esta vinculado a ${item.usoCount} orcamento(s). Sera marcado como inativo.`
-      : 'Esta ação não pode ser desfeita.'
+      ? `Este item sai do catálogo e deixa de ser oferecido em novos orçamentos. Os ${item.usoCount} orçamento(s) que já o utilizam não são afetados.`
+      : 'Este item sai do catálogo e deixa de ser oferecido em novos orçamentos.'
     const ok = await alerts.confirm({ title: `Excluir "${item.nome}"?`, text, confirmText: 'Excluir', icon: 'warning' })
     if (!ok) return
     try {
       await (trpc.orcamento as any).deleteCatalogo.mutate({ id: item.id })
       alerts.success('Excluído', 'Item removido do catálogo')
+      fetchData()
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    }
+  }
+
+  async function handleRestaurar(item: CatalogoItem) {
+    const ok = await alerts.confirm({
+      title: `Restaurar "${item.nome}"?`,
+      text: 'O item volta ao catálogo e pode ser usado em novos orçamentos.',
+      confirmText: 'Restaurar',
+      icon: 'question',
+    })
+    if (!ok) return
+    try {
+      await (trpc.orcamento as any).restaurarCatalogo.mutate({ id: item.id })
+      alerts.success('Restaurado', 'O item voltou ao catálogo')
       fetchData()
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
@@ -323,10 +351,17 @@ export default function ParametrosOrcamentosPage() {
       {/* Indicadores (pílulas-filtro) — padrão /gestao-certificados */}
       <div className="flex flex-wrap items-center gap-2">
         {[
-          { key: '__all__', label: 'Total', count: stats.total, color: '#64748b', icon: Package },
-          { key: 'ativos', label: 'Ativos', count: stats.ativos, color: '#10b981', icon: TagIcon },
-          { key: 'disponiveis', label: 'Disponíveis', count: stats.disponiveis, color: MODULE_COLOR, icon: FileText },
-          { key: 'indisponiveis', label: 'Indisponíveis', count: stats.indisponiveis, color: '#94a3b8', icon: FileText },
+          // Uma cor por significado, sem repetir matiz: cinza = neutro/tudo,
+          // verde = pode usar, âmbar = existe mas está fora de uso, vermelho =
+          // excluído. Antes, "Disponíveis" usava a cor rosada do módulo — lida
+          // como negação — e brigava com o vermelho de "Excluídos", enquanto
+          // "Todos" e "Indisponíveis" eram dois cinzas quase idênticos.
+          { key: '__all__', label: 'Todos', count: stats.total, color: '#64748b', icon: Package },
+          { key: 'disponiveis', label: 'Disponíveis', count: stats.disponiveis, color: '#10b981', icon: CheckCircle2 },
+          { key: 'indisponiveis', label: 'Indisponíveis', count: stats.indisponiveis, color: '#f59e0b', icon: EyeOff },
+          // Visão dedicada: é o único lugar onde item excluído aparece, e de
+          // onde ele pode ser restaurado.
+          { key: 'excluidos', label: 'Excluídos', count: stats.excluidos, color: '#ef4444', icon: Trash2 },
         ].map(f => {
           const Icon = f.icon
           const active = statusFilter === f.key
@@ -400,7 +435,7 @@ export default function ParametrosOrcamentosPage() {
                 Nenhum item encontrado
               </TableCell></TableRow>
             ) : filtered.map(item => (
-              <TableRow key={item.id} className={cn('whitespace-nowrap', !item.ativo && 'opacity-50')}>
+              <TableRow key={item.id} className="whitespace-nowrap">
                 <TableCell>
                   <Badge style={{ backgroundColor: TIPO_COLORS[item.tipo] }} className="text-white text-[10px]">
                     {TIPO_LABELS[item.tipo] || item.tipo}
@@ -419,12 +454,22 @@ export default function ParametrosOrcamentosPage() {
                       <Button variant="ghost" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-44">
-                      <DropdownMenuItem onClick={() => abrirEdicao(item)}>
-                        <Pencil className="h-4 w-4" /> Editar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => handleExcluir(item)}>
-                        <Trash2 className="h-4 w-4" /> Excluir
-                      </DropdownMenuItem>
+                      {/* Item excluído só oferece restaurar: editar um registro
+                          que o usuário considera inexistente não faz sentido. */}
+                      {item.ativo ? (
+                        <>
+                          <DropdownMenuItem onClick={() => abrirEdicao(item)}>
+                            <Pencil className="h-4 w-4" /> Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleExcluir(item)}>
+                            <Trash2 className="h-4 w-4" /> Excluir
+                          </DropdownMenuItem>
+                        </>
+                      ) : (
+                        <DropdownMenuItem onClick={() => handleRestaurar(item)}>
+                          <RotateCcw className="h-4 w-4" /> Restaurar
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

@@ -1375,7 +1375,7 @@ export default function ConfiguracoesPage() {
                         <Label className="text-[13px] font-semibold">Auto-fechamento de tickets resolvidos sem CSAT</Label>
                         <p className="text-[11px] text-muted-foreground">
                           Tickets em <strong>RESOLVIDO</strong> sem avaliação do solicitante são fechados automaticamente
-                          após N dias (nota neutra 3/5).
+                          após N dias, sem registrar avaliação.
                         </p>
                         <div className="flex items-center gap-2">
                           <Input

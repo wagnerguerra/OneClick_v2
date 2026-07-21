@@ -889,7 +889,7 @@ export default function HelpdeskTicketDetailPage() {
               </CardContent>
             </Card>
 
-            {/* CSAT — SÓ pro solicitante, no estado RESOLVIDO (rotulado "Pendente"), até responder.
+            {/* CSAT — SÓ pro solicitante, no estado RESOLVIDO (rotulado "Aguardando avaliação"), até responder.
                 A avaliação é o que conclui o ticket. Agentes/TI não avaliam (ver aviso passivo abaixo). */}
             {podeAvaliar && isSolicitante && (
               <Card className="border-l-4 border-l-emerald-500 bg-emerald-50/40 dark:bg-emerald-900/20">
@@ -899,7 +899,7 @@ export default function HelpdeskTicketDetailPage() {
                     <h3 className="text-sm font-semibold">Como foi seu atendimento?</h3>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Sua avaliação encerra o ticket — obrigatória para fechamento (auto-fecha em 3 dias úteis com nota neutra).
+                    Sua avaliação encerra o ticket — sem ela, o chamado auto-fecha em 3 dias úteis sem registrar nota.
                   </p>
                   <div className="flex items-center gap-1">
                     {[1, 2, 3, 4, 5].map(n => (
@@ -1266,7 +1266,7 @@ export default function HelpdeskTicketDetailPage() {
               <Card className="border-l-4 border-l-amber-400 bg-amber-50/40 dark:bg-amber-900/20">
                 <CardContent className="p-3 flex items-start gap-2 text-[12px] text-muted-foreground">
                   <Clock className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                  <span>Aguardando a avaliação de <span className="font-medium text-foreground">{ticket.solicitante.name}</span> para concluir o ticket (auto-fecha em 3 dias úteis com nota neutra).</span>
+                  <span>Aguardando a avaliação de <span className="font-medium text-foreground">{ticket.solicitante.name}</span> para concluir o ticket (auto-fecha em 3 dias úteis sem registrar nota).</span>
                 </CardContent>
               </Card>
             )}

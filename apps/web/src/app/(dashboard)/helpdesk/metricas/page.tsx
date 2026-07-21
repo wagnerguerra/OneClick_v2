@@ -97,7 +97,9 @@ export default function HelpdeskMetricasPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <Kpi label="Abertos" value={data.kpis.totalAbertos} icon={Inbox} color="cyan" />
             <Kpi label="Atrasados" value={data.kpis.totalAtrasados} icon={AlertTriangle} color="rose" />
-            <Kpi label="Pendentes" value={data.kpis.totalResolvidos} icon={CheckCircle2} color="emerald" />
+            {/* totalResolvidos = tickets no status RESOLVIDO, rotulado
+                "Aguardando avaliação" desde o #HLP0180. */}
+            <Kpi label="Aguardando avaliação" value={data.kpis.totalResolvidos} icon={CheckCircle2} color="emerald" />
             <Kpi label="Total no período" value={data.kpis.totalNoPeriodo} icon={Headphones} color="violet" />
             <Kpi
               label="SLA cumprido"
