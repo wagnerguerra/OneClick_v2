@@ -423,13 +423,13 @@ export class AgendaDisparoService implements OnModuleInit {
   cardHtmlPadrao() { return { html: this.templateService.defaultCardHtml() } }
   cabecalhoPadrao() { return { html: this.templateService.defaultHeaderHtml() } }
 
-  /** Config de agrupamento (grupos por tipo + catch-all) — leve, pra UI agrupar o
-   *  resumo do dia igual ao e-mail. Sem dados sensíveis. */
+  /** Config de agrupamento (grupos por tipo + grupo dos demais eventos) — leve,
+   *  pra UI agrupar o resumo do dia igual ao e-mail. Sem dados sensíveis. */
   async getAgrupamento() {
     const { template, grupos } = await this.templateService.getTemplate(null)
     return {
       grupos: grupos.map(g => ({ nome: g.nome, cor: g.cor, icone: g.icone || '📅', ordem: g.ordem, tiposIds: g.tiposIds || [] })),
-      nomeGrupoOutros: template.nomeGrupoOutros || 'Outros',
+      nomeGrupoOutros: template.nomeGrupoOutros || 'Outros eventos',
       mostrarOutros: template.mostrarOutros !== false,
     }
   }

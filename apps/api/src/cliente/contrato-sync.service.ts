@@ -68,11 +68,25 @@ export class ContratoSyncService {
   }
 
   /**
+   * Falha rápido e claro se NENHUM Service Manager está escutando o SSE — evita
+   * esperar o timeout inteiro e o proxy estourar em 500 de texto puro (que o
+   * front recebe como "Unexpected token 'I'... is not valid JSON") quando o SM
+   * está fechado. `ponte` descreve o que o SM conecta, para compor a mensagem.
+   */
+  private assertServiceManagerConectado(ponte: string): void {
+    if (this.subject.observers.length === 0) {
+      throw new Error(`Service Manager não está conectado. Abra o Service Manager no PC do escritório — ele faz a ponte com ${ponte}.`)
+    }
+  }
+
+  /**
    * Cria um pedido remoto e devolve uma Promise que resolve quando o Launcher
    * postar o callback. Usado pelo cliente.service.ts em produção quando o SCI
    * local não está acessível.
    */
   async requestErpRemote(payload: ContratoErpPayload, timeoutMs = TIMEOUT_DEFAULT_MS): Promise<Record<string, unknown>> {
+    // #HLP0267: sem SM conectado, o pedido penduraria até o proxy estourar 500.
+    this.assertServiceManagerConectado('o SCI (Firebird na LAN) para obter as métricas do contrato')
     const requestId = randomUUID()
 
     return new Promise<Record<string, unknown>>((resolve, reject) => {
@@ -101,11 +115,7 @@ export class ContratoSyncService {
    * pelo Launcher, que lê o MySQL local e devolve as linhas via callback.
    */
   async requestClienteImport(cnpj: string, timeoutMs = 45_000): Promise<Record<string, unknown>> {
-    // Falha rápido e claro se NENHUM Service Manager está escutando o SSE — evita
-    // esperar o timeout inteiro (e o proxy estourar em 500) quando o SM está fechado.
-    if (this.subject.observers.length === 0) {
-      throw new Error('Service Manager não está conectado. Abra o Service Manager no PC do escritório — ele faz a ponte com o cadastro legado (OneClick v1).')
-    }
+    this.assertServiceManagerConectado('o cadastro legado (OneClick v1)')
     const requestId = randomUUID()
     return new Promise<Record<string, unknown>>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -125,9 +135,7 @@ export class ContratoSyncService {
    * legado (backfill de observações). O SM lê e devolve [{ id, descricao, nomeArquivo }].
    */
   async requestCertDescricoes(payload: CertDescricoesPayload, timeoutMs = 45_000): Promise<Record<string, unknown>> {
-    if (this.subject.observers.length === 0) {
-      throw new Error('Service Manager não está conectado. Abra o Service Manager no PC do escritório — ele faz a ponte com o MySQL legado (LAN).')
-    }
+    this.assertServiceManagerConectado('o MySQL legado (LAN)')
     const requestId = randomUUID()
     return new Promise<Record<string, unknown>>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -144,9 +152,7 @@ export class ContratoSyncService {
    * sci_id_sistema.py local (Firebird na LAN) e devolve o JSON cru do script.
    */
   async requestSciIdSistema(cnpj: string, timeoutMs = TIMEOUT_DEFAULT_MS): Promise<Record<string, unknown>> {
-    if (this.subject.observers.length === 0) {
-      throw new Error('Service Manager não está conectado. Abra o Service Manager no PC do escritório — ele faz a ponte com o SCI (Firebird na LAN).')
-    }
+    this.assertServiceManagerConectado('o SCI (Firebird na LAN)')
     const requestId = randomUUID()
     return new Promise<Record<string, unknown>>((resolve, reject) => {
       const timer = setTimeout(() => {

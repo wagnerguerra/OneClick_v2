@@ -135,6 +135,15 @@ export class AgendaGoogleService {
     })
     if (!evento) return null
 
+    // #HLP0270: evento particular só pode ser exportado pelo criador ou por um
+    // participante — senão qualquer um sincronizaria um compromisso privado alheio
+    // para a própria agenda Google e o leria lá.
+    if (evento.particular
+        && evento.criadorId !== userId
+        && !evento.participantes.some(p => p.usuarioId === userId)) {
+      throw new Error('Você não pode sincronizar um evento particular do qual não participa.')
+    }
+
     const oauth2Client = await this.getAuthenticatedClient(userId)
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
 

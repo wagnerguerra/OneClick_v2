@@ -29,6 +29,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { toDateInputValue } from '@/lib/date'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
+import { mensagemErro } from '@/lib/errors'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { useClientesPerms } from './use-clientes-perms'
 import { useBeneficioFiscalPerms } from '@/hooks/use-beneficio-fiscal'
@@ -1729,7 +1730,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
         ? `Média dos últimos meses com movimento: ${meses.join(', ')}.`
         : `Sem movimento no período consultado (${result.periodo.datai} a ${result.periodo.dataf}) — parâmetros vieram zerados.`)
     } catch (e) {
-      alerts.error('Erro ao obter parametros', (e as Error).message || 'Nao foi possivel consultar o SCI.')
+      alerts.error('Erro ao obter parametros', mensagemErro(e, 'Nao foi possivel consultar o SCI.'))
     } finally { setFetchingSuggested(false) }
   }
 
@@ -1747,7 +1748,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
       })
       setErpResult(result as Record<string, unknown>)
     } catch (e) {
-      alerts.error('Erro SCI', (e as Error).message || 'Nao foi possivel consultar o ERP.')
+      alerts.error('Erro SCI', mensagemErro(e, 'Nao foi possivel consultar o ERP.'))
     } finally { setErpLoading(false) }
   }
 
@@ -1762,7 +1763,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
       })
       setChartData(result as Record<string, unknown>)
     } catch (e) {
-      alerts.error('Erro', (e as Error).message || 'Nao foi possivel carregar dados para os graficos.')
+      alerts.error('Erro', mensagemErro(e, 'Nao foi possivel carregar dados para os graficos.'))
     } finally { setChartLoading(false) }
   }
 

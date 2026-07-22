@@ -93,7 +93,7 @@ export function createAgendaRouter(
 
     getById: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .query(({ input, ctx }) => service.getById(input.id, ctx.isMaster ?? false, ctx.empresaId ?? null)),
+      .query(({ input, ctx }) => service.getById(input.id, ctx.isMaster ?? false, ctx.empresaId ?? null, ctx.userId)),
 
     create: writeProcedure(MODULE)
       .input(z.object({
@@ -255,7 +255,7 @@ export function createAgendaRouter(
         eventoIdExcluir: z.string().optional(),
         tipoId: z.string().optional(),
       }))
-      .query(({ input, ctx }) => service.verificarConflitos(input, ctx.empresaId ?? null)),
+      .query(({ input, ctx }) => service.verificarConflitos(input, ctx.empresaId ?? null, ctx.userId)),
 
     // === CONFIGURAÇÃO (singleton) — leitura aberta pra qualquer um com acesso ao
     // módulo (precisa pra o front saber se deve verificar conflitos antes de salvar).
@@ -307,7 +307,7 @@ export function createAgendaRouter(
         data: z.string(),
         usuarioIds: z.array(z.string()).min(1),
       }))
-      .query(({ input, ctx }) => service.verificarDisponibilidade(input, ctx.empresaId ?? null)),
+      .query(({ input, ctx }) => service.verificarDisponibilidade(input, ctx.empresaId ?? null, ctx.userId)),
 
     // Disponibilidade combinada num range — usada pelo /agenda/disponibilidade
     disponibilidadeRange: readProcedure(MODULE)
@@ -316,7 +316,7 @@ export function createAgendaRouter(
         dataFim: z.string(),
         usuarioIds: z.array(z.string()).min(1),
       }))
-      .query(({ input, ctx }) => service.disponibilidadeRange(input, ctx.empresaId ?? null)),
+      .query(({ input, ctx }) => service.disponibilidadeRange(input, ctx.empresaId ?? null, ctx.userId)),
 
     // === LOGS ===
     listLogs: readProcedure(MODULE)
@@ -383,7 +383,9 @@ export function createAgendaRouter(
           semEventosHtml: z.string().optional(),
           cardModo: z.enum(['builder', 'html']).optional(),
           cardElementos: z.string().optional(),
-          mostrarOutros: z.boolean().optional(),
+          // #HLP0270: `mostrarOutros` foi removido — o grupo dos "demais eventos"
+          // é sempre exibido (um toggle que o escondia podia deixar eventos
+          // invisíveis até para o criador). Só o NOME do grupo segue configurável.
           nomeGrupoOutros: z.string().optional(),
           nomeGrupoParticulares: z.string().optional(),
           corParticulares: z.string().optional(),
