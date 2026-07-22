@@ -93,7 +93,7 @@ export function createAgendaRouter(
 
     getById: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .query(({ input, ctx }) => service.getById(input.id, ctx.isMaster ?? false, ctx.empresaId ?? null)),
+      .query(({ input, ctx }) => service.getById(input.id, ctx.isMaster ?? false, ctx.empresaId ?? null, ctx.userId)),
 
     create: writeProcedure(MODULE)
       .input(z.object({
@@ -255,7 +255,7 @@ export function createAgendaRouter(
         eventoIdExcluir: z.string().optional(),
         tipoId: z.string().optional(),
       }))
-      .query(({ input, ctx }) => service.verificarConflitos(input, ctx.empresaId ?? null)),
+      .query(({ input, ctx }) => service.verificarConflitos(input, ctx.empresaId ?? null, ctx.userId)),
 
     // === CONFIGURAÇÃO (singleton) — leitura aberta pra qualquer um com acesso ao
     // módulo (precisa pra o front saber se deve verificar conflitos antes de salvar).
@@ -307,7 +307,7 @@ export function createAgendaRouter(
         data: z.string(),
         usuarioIds: z.array(z.string()).min(1),
       }))
-      .query(({ input, ctx }) => service.verificarDisponibilidade(input, ctx.empresaId ?? null)),
+      .query(({ input, ctx }) => service.verificarDisponibilidade(input, ctx.empresaId ?? null, ctx.userId)),
 
     // Disponibilidade combinada num range — usada pelo /agenda/disponibilidade
     disponibilidadeRange: readProcedure(MODULE)
@@ -316,7 +316,7 @@ export function createAgendaRouter(
         dataFim: z.string(),
         usuarioIds: z.array(z.string()).min(1),
       }))
-      .query(({ input, ctx }) => service.disponibilidadeRange(input, ctx.empresaId ?? null)),
+      .query(({ input, ctx }) => service.disponibilidadeRange(input, ctx.empresaId ?? null, ctx.userId)),
 
     // === LOGS ===
     listLogs: readProcedure(MODULE)

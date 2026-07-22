@@ -372,6 +372,10 @@ export class AgendaService {
         select: {
           id: true, titulo: true, data: true, horaInicio: true, horaFim: true, diaInteiro: true,
           local: true, sala: true,
+          // #HLP0270: necessário pra redigir título/local de evento particular de
+          // terceiro — mesmo quem tem permissão de relatório não deve ver o conteúdo.
+          particular: true, criadorId: true,
+          participantes: { where: { isActive: true }, select: { usuarioId: true } },
           tipo: { select: { nome: true, cor: true, corBorda: true } },
           _count: { select: { participantes: true } },
         },
@@ -379,19 +383,22 @@ export class AgendaService {
     ])
 
     const toMin = (s: string) => { const [h, m] = s.split(':'); return (Number(h) || 0) * 60 + (Number(m) || 0) }
-    const data = eventos.map(e => ({
-      id: e.id,
-      titulo: e.titulo,
-      data: e.data,
-      horaInicio: e.horaInicio,
-      horaFim: e.horaFim,
-      diaInteiro: e.diaInteiro,
-      local: e.sala || e.local || null,
-      tipoNome: e.tipo.nome,
-      tipoCor: e.tipo.corBorda || e.tipo.cor,
-      minutos: (e.diaInteiro || !e.horaInicio || !e.horaFim) ? 0 : Math.max(0, toMin(e.horaFim) - toMin(e.horaInicio)),
-      participantes: e._count.participantes,
-    }))
+    const data = eventos.map(e => {
+      const podeVer = isMaster || this.podeVerEvento(e, userId)
+      return {
+        id: e.id,
+        titulo: podeVer ? e.titulo : AgendaService.TITULO_PARTICULAR_REDIGIDO,
+        data: e.data,
+        horaInicio: e.horaInicio,
+        horaFim: e.horaFim,
+        diaInteiro: e.diaInteiro,
+        local: podeVer ? (e.sala || e.local || null) : null,
+        tipoNome: e.tipo.nome,
+        tipoCor: e.tipo.corBorda || e.tipo.cor,
+        minutos: (e.diaInteiro || !e.horaInicio || !e.horaFim) ? 0 : Math.max(0, toMin(e.horaFim) - toMin(e.horaInicio)),
+        participantes: e._count.participantes,
+      }
+    })
 
     return { data, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) }
   }
@@ -587,14 +594,44 @@ export class AgendaService {
     })
 
     // Filter out particular events where user is not the creator or a participant
-    return eventos.filter((evento) => {
-      if (!evento.particular) return true
-      if (evento.criadorId === userId) return true
-      return evento.participantes.some((p) => p.usuarioId === userId)
-    })
+    return eventos.filter((evento) => this.podeVerEvento(evento, userId))
   }
 
-  async getById(id: string, isMaster = false, empresaId: string | null = null) {
+  /**
+   * Título mostrado quando um evento particular precisa APARECER a um terceiro
+   * por ocupar a agenda (conflito/disponibilidade), mas sem revelar o conteúdo.
+   * Espelha o comportamento do OneClick legado, perdido no rewrite (#HLP0270).
+   */
+  private static readonly TITULO_PARTICULAR_REDIGIDO = 'Compromisso particular'
+
+  /**
+   * Regra ÚNICA de visibilidade de evento particular — a mesma que `listEventos`
+   * aplica. Um evento não-particular é público (dentro do tenant); um particular
+   * só é visível ao criador e aos participantes. Toda superfície que exponha
+   * título/detalhe a terceiros deve passar por aqui (#HLP0270).
+   */
+  private podeVerEvento(
+    ev: { particular: boolean; criadorId: string; participantes: Array<{ usuarioId: string | null }> },
+    userId: string | null | undefined,
+  ): boolean {
+    if (!ev.particular) return true
+    if (!userId) return false
+    if (ev.criadorId === userId) return true
+    return ev.participantes.some((p) => p.usuarioId === userId)
+  }
+
+  /**
+   * Título seguro para exibir a `userId`: o real quando ele pode ver o evento,
+   * o genérico redigido quando é particular e ele não é criador/participante.
+   */
+  private tituloVisivelPara(
+    ev: { particular: boolean; criadorId: string; titulo: string; participantes: Array<{ usuarioId: string | null }> },
+    userId: string | null | undefined,
+  ): string {
+    return this.podeVerEvento(ev, userId) ? ev.titulo : AgendaService.TITULO_PARTICULAR_REDIGIDO
+  }
+
+  async getById(id: string, isMaster = false, empresaId: string | null = null, viewerId?: string | null) {
     return prisma.agendaEvento.findFirstOrThrow({
       // Isolamento multi-tenant: não-master só acessa eventos da própria empresa.
       where: { id, ...(isMaster ? {} : { empresaId }) },
@@ -638,6 +675,13 @@ export class AgendaService {
         },
       },
     }).then(async (ev) => {
+      // #HLP0270: abrir um evento particular do qual não se é criador/participante
+      // vazava o evento INTEIRO (título, descrição, local, participantes, CRM).
+      // A listagem nunca o mostraria, então acessá-lo direto pelo id — os ids
+      // circulam em links de notificação — deve ser negado. Master passa direto.
+      if (!isMaster && !this.podeVerEvento(ev, viewerId)) {
+        throw new Error('Você não tem acesso a este evento.')
+      }
       // Anotações e anexos do evento (resolvidos do evento OU da oportunidade
       // PRINCIPAL vinculada — ver listAnotacoes/listAnexos). Carregados junto.
       const [anot, anex] = await Promise.all([this.listAnotacoes(ev.id), this.listAnexos(ev.id)])
@@ -991,7 +1035,7 @@ export class AgendaService {
       data, horaInicio, horaFim, diaInteiro,
       participanteIds, sala: sala || undefined, salaId: salaId || undefined,
       tipoId,
-    })
+    }, userId)
 
     const baseDate = new Date(data)
     const rec = recorrencia || 'NENHUMA'
@@ -1132,7 +1176,7 @@ export class AgendaService {
       salaId: data.salaId !== undefined ? (data.salaId || undefined) : (evento.salaId || undefined),
       eventoIdExcluir: id,
       tipoId: data.tipoId ?? evento.tipoId,
-    })
+    }, userId)
 
     const updateData: Record<string, unknown> = {}
     if (data.titulo !== undefined) updateData.titulo = data.titulo
@@ -1311,7 +1355,7 @@ export class AgendaService {
     salaId?: string  // novo: prioritário sobre `sala` (string) quando ambos passados
     eventoIdExcluir?: string // para ignorar o próprio evento ao editar
     tipoId?: string // se o tipo do evento sendo criado/editado não bloqueia (ex.: LEMBRETE CORPORATIVO), pular toda a checagem
-  }, empresaId: string | null = null) {
+  }, empresaId: string | null = null, viewerId?: string | null) {
     const { data, horaInicio, horaFim, participanteIds, sala, salaId, eventoIdExcluir, tipoId } = params
     const conflitos: Array<{
       tipo: 'participante' | 'sala'
@@ -1373,7 +1417,9 @@ export class AgendaService {
             conflitos.push({
               tipo: 'participante',
               nome: u.name,
-              evento: ev.titulo,
+              // #HLP0270: o nome do participante em conflito é OK (quem cria o
+              // convidou), mas o TÍTULO do evento particular alheio não pode vazar.
+              evento: this.tituloVisivelPara(ev, viewerId),
               horario: `${ev.horaInicio} — ${ev.horaFim}`,
               image: u.image ?? null,
             })
@@ -1404,7 +1450,9 @@ export class AgendaService {
           conflitos.push({
             tipo: 'sala',
             nome: salaNome,
-            evento: ev.titulo,
+            // A sala está de fato ocupada (mantém o bloqueio), mas se for por um
+            // evento particular alheio, redige o título (#HLP0270).
+            evento: this.tituloVisivelPara(ev, viewerId),
             horario: `${ev.horaInicio} — ${ev.horaFim}`,
           })
         }
@@ -1421,7 +1469,7 @@ export class AgendaService {
   async verificarDisponibilidade(params: {
     data: string
     usuarioIds: string[]
-  }, empresaId: string | null = null) {
+  }, empresaId: string | null = null, viewerId?: string | null) {
     const eventDate = new Date(params.data)
 
     const eventos = await prisma.agendaEvento.findMany({
@@ -1438,8 +1486,11 @@ export class AgendaService {
         },
       },
       include: {
+        // Carrega TODOS os participantes ativos (não só os consultados): é preciso
+        // saber se o `viewerId` está entre eles pra decidir se o título aparece
+        // ou é redigido (#HLP0270). `envolvidos` abaixo filtra por usuarioIds.
         participantes: {
-          where: { isActive: true, usuarioId: { in: params.usuarioIds } },
+          where: { isActive: true },
           include: { usuario: { select: { id: true, name: true } } },
         },
         tipo: { select: { nome: true, cor: true } },
@@ -1482,11 +1533,12 @@ export class AgendaService {
       const participantesIds = ev.participantes.map(p => p.usuarioId).filter(Boolean) as string[]
       const envolvidos = params.usuarioIds.filter(uid => participantesIds.includes(uid) || ev.criadorId === uid)
 
+      const tituloSeguro = this.tituloVisivelPara(ev, viewerId)
       for (const uid of envolvidos) {
         if (!resultado[uid]!.find(e => e.eventoId === ev.id)) {
           resultado[uid]!.push({
             eventoId: ev.id,
-            titulo: ev.titulo,
+            titulo: tituloSeguro,
             horaInicio: ev.horaInicio,
             horaFim: ev.horaFim,
             tipo: ev.tipo.nome,
@@ -1512,7 +1564,7 @@ export class AgendaService {
     dataInicio: string  // YYYY-MM-DD
     dataFim: string     // YYYY-MM-DD inclusivo
     usuarioIds: string[]
-  }, empresaId: string | null = null): Promise<Array<{
+  }, empresaId: string | null = null, viewerId?: string | null): Promise<Array<{
     id: string
     data: string          // YYYY-MM-DD
     diaInteiro: boolean   // true = ocupa o dia todo (sem hora)
@@ -1546,8 +1598,10 @@ export class AgendaService {
         ],
       },
       include: {
+        // Todos os participantes ativos (não só os consultados): preciso saber se
+        // o `viewerId` é um deles pra decidir se o título aparece (#HLP0270).
         participantes: {
-          where: { isActive: true, usuarioId: { in: params.usuarioIds } },
+          where: { isActive: true },
           include: { usuario: { select: { id: true, name: true } } },
         },
         criador: { select: { id: true, name: true } },
@@ -1578,7 +1632,7 @@ export class AgendaService {
           diaInteiro: ev.diaInteiro,
           horaInicio: ev.horaInicio ?? '',
           horaFim: ev.horaFim ?? '',
-          titulo: ev.titulo,
+          titulo: this.tituloVisivelPara(ev, viewerId),
           tipoNome: ev.tipo.nome,
           tipoCor: ev.tipo.cor,
           tipoCorBorda: ev.tipo.corBorda,
@@ -1964,7 +2018,7 @@ export class AgendaService {
     salaId?: string
     eventoIdExcluir?: string
     tipoId?: string
-  }): Promise<void> {
+  }, viewerId?: string | null): Promise<void> {
     if (params.diaInteiro) return
     if (!params.horaInicio || !params.horaFim) return
 
@@ -1989,7 +2043,7 @@ export class AgendaService {
       salaId: params.salaId,
       eventoIdExcluir: params.eventoIdExcluir,
       tipoId: params.tipoId,
-    })
+    }, null, viewerId)
 
     if (conflitos.length === 0) return
 
