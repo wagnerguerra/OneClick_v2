@@ -327,6 +327,17 @@ function Matriz({ m, empresa, refNum, onConfig, nonce }: { m: any; empresa: numb
   const totalGeral = t.total_geral ?? 0
   const compl = t.complementar ?? 0   // parcela do total vinda da folha complementar do mês (FC)
   const temCompl = Math.abs(compl) > 0.005
+  // meses de referência consolidados nesta competência de pagamento (FC/dissídio), p/ rotular
+  const complRefs: number[] = m?.complementar_refs ?? []
+  const fmtRefs = (refs: number[]) => {
+    if (!refs.length) return ''
+    const anos = Array.from(new Set(refs.map((r) => Math.floor(r / 100))))
+    if (anos.length === 1) {
+      const meses = refs.map((r) => String(r % 100).padStart(2, '0')).join(', ')
+      return ` (ref. ${meses}/${anos[0]})`
+    }
+    return ` (ref. ${refs.map((r) => `${String(r % 100).padStart(2, '0')}/${Math.floor(r / 100)}`).join(', ')})`
+  }
   const rpa = m?.rpa ?? { bruto: 0, liquido: 0, entidades: 0, n: 0 }
   const isProv = tipo === 'proventos'
   const rpaVal = isProv ? (rpa.bruto ?? 0) : (rpa.bruto ?? 0) - (rpa.liquido ?? 0)   // desconto RPA = bruto − líquido
@@ -519,7 +530,7 @@ function Matriz({ m, empresa, refNum, onConfig, nonce }: { m: any; empresa: numb
         {temCompl ? (
           <>
             <ReconRow label={`Folha normal (mes)`} value={brl(totalGeral - compl)} />
-            <ReconRow label={`+ Folha complementar`} value={brl(compl)} />
+            <ReconRow label={`+ Folha complementar${fmtRefs(complRefs)}`} value={brl(compl)} />
           </>
         ) : (
           <ReconRow label={`Total de ${lbl} (verbas)`} value={brl(totalGeral)} />
