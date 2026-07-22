@@ -598,7 +598,7 @@ export default function AgendaConfiguracoesPage() {
                 { key: 'regras',  label: 'Regras de conflito', icon: Calendar },
                 { key: 'salas',   label: 'Salas',              icon: DoorOpen },
                 { key: 'disparo', label: 'Disparo automático', icon: Mail },
-                { key: 'modelo',  label: 'Modelo de e-mail',   icon: FileText },
+                { key: 'modelo',  label: 'Modelo de email e resumo do dia', icon: FileText },
               ] as const).map(tab => {
                 const Icon = tab.icon
                 const active = activeTab === tab.key
@@ -1298,8 +1298,9 @@ export default function AgendaConfiguracoesPage() {
                         <Label className="text-[13px] font-semibold">Grupos (por tipo de evento)</Label>
                         <Button type="button" size="sm" variant="outline" className="gap-1" onClick={() => setGrupos(g => [...g, { uid: crypto.randomUUID(), nome: 'Novo grupo', cor: tpl.accent, icone: '📅', incluiParticulares: false, tiposIds: [] }])}><Plus className="h-3.5 w-3.5" /> Grupo</Button>
                       </div>
-                      {grupos.length === 0 && <p className="text-xs text-muted-foreground italic">Sem grupos personalizados — todos os eventos caem no grupo catch-all "{tpl.nomeGrupoOutros || 'Outros'}".</p>}
-                      {grupos.length > 1 && <p className="text-[11px] text-muted-foreground">Arraste pela alça <GripVertical className="h-3 w-3 inline -mt-0.5" /> para reordenar — a ordem aqui é a ordem no e-mail.</p>}
+                      <p className="text-[11px] text-muted-foreground">Os grupos (e o nome do grupo dos demais eventos, abaixo) valem <strong>tanto no e-mail diário quanto no resumo do dia</strong> (o painel de eventos ao clicar num dia). As outras opções desta aba afetam só o e-mail.</p>
+                      {grupos.length === 0 && <p className="text-xs text-muted-foreground italic">Sem grupos definidos, os eventos aparecem numa lista simples, sem divisão por grupo — tanto no e-mail quanto no resumo do dia.</p>}
+                      {grupos.length > 1 && <p className="text-[11px] text-muted-foreground">Arraste pela alça <GripVertical className="h-3 w-3 inline -mt-0.5" /> para reordenar — a ordem aqui é a ordem no e-mail e no resumo do dia.</p>}
                       <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={onDragEndGrupos}>
                         <SortableContext items={grupos.map(g => g.uid)} strategy={verticalListSortingStrategy}>
                           <div className="space-y-2">
@@ -1316,11 +1317,15 @@ export default function AgendaConfiguracoesPage() {
                           </div>
                         </SortableContext>
                       </DndContext>
+                      {/* O grupo dos "demais eventos" é SEMPRE exibido quando há
+                          grupos e sobra algum evento de tipo não atribuído — não há
+                          mais toggle pra desligá-lo, porque isso tornava eventos
+                          invisíveis até para quem os criou (#HLP0270). Só o NOME é
+                          configurável. Quando NÃO há grupos, nem esse aparece: os
+                          eventos viram uma lista simples. */}
                       <div className="rounded-md border border-dashed border-border p-2.5 space-y-2">
-                        <label className="flex items-center gap-2 text-xs cursor-pointer"><Checkbox checked={tpl.mostrarOutros} onCheckedChange={v => setTplField('mostrarOutros', !!v)} /> Mostrar um grupo catch-all com os eventos de tipos não atribuídos a nenhum grupo acima</label>
-                        {tpl.mostrarOutros && (
-                          <div className="space-y-1"><Label className="text-[11px]">Nome do grupo catch-all</Label><Input className="h-8 text-xs" value={tpl.nomeGrupoOutros} onChange={e => setTplField('nomeGrupoOutros', e.target.value)} placeholder="Outros" /></div>
-                        )}
+                        <p className="text-[11px] text-muted-foreground">Quando há grupos, os eventos de tipos que não estão em nenhum deles aparecem sempre juntos, num grupo à parte — assim nenhum compromisso fica de fora. Defina o nome desse grupo:</p>
+                        <div className="space-y-1"><Label className="text-[11px]">Nome do grupo dos demais eventos</Label><Input className="h-8 text-xs" value={tpl.nomeGrupoOutros} onChange={e => setTplField('nomeGrupoOutros', e.target.value)} placeholder="Outros eventos" /></div>
                       </div>
                     </div>
 

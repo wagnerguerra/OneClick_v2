@@ -1369,18 +1369,19 @@ export default function AgendaPage() {
   // Agrupamento do resumo do dia — segue os grupos definidos no modelo de e-mail.
   type AgrupGrupo = { nome: string; cor: string; icone: string; ordem: number; tiposIds: string[] }
   const [agrupGrupos, setAgrupGrupos] = useState<AgrupGrupo[]>([])
-  const [agrupOutros, setAgrupOutros] = useState<{ nome: string; mostrar: boolean }>({ nome: 'Outros', mostrar: true })
+  const [agrupOutros, setAgrupOutros] = useState<{ nome: string; mostrar: boolean }>({ nome: 'Outros eventos', mostrar: true })
   useEffect(() => {
     (async () => {
       try {
         const r = await (trpc.agenda as any).modeloEmail.grupos.query()
         setAgrupGrupos((r?.grupos ?? []).slice().sort((a: AgrupGrupo, b: AgrupGrupo) => a.ordem - b.ordem))
-        setAgrupOutros({ nome: r?.nomeGrupoOutros || 'Outros', mostrar: r?.mostrarOutros !== false })
+        setAgrupOutros({ nome: r?.nomeGrupoOutros || 'Outros eventos', mostrar: r?.mostrarOutros !== false })
       } catch { /* sem permissão/endpoint: cai no fluxo sem grupos */ }
     })()
   }, [])
   // Distribui os eventos do dia nos grupos (por tipo), na ordem definida; o que não
-  // cair em nenhum grupo vai pro catch-all. Sem grupos configurados => lista única.
+  // cair em nenhum grupo vai pro grupo dos "demais eventos". Sem grupos configurados
+  // => lista simples, sem cabeçalhos (igual ao e-mail diário).
   const dayModalGrupos = useMemo(() => {
     if (agrupGrupos.length === 0) return [{ key: '__all__', nome: '', cor: '', icone: '', items: dayModalEvents }]
     const usados = new Set<string>()
@@ -1391,12 +1392,15 @@ export default function AgendaPage() {
         return { key: g.nome, nome: g.nome, cor: g.cor, icone: g.icone || '📅', items }
       })
       .filter(s => s.items.length > 0)
-    // Catch-all "Outros": só aparece se habilitado no modelo de e-mail — MESMA regra do
-    // disparo diário (agenda-email-template.render). Assim o resumo do dia fica idêntico
-    // ao e-mail. Sem esse gate, eventos de tipos não atribuídos apareciam num grupo extra
-    // (nomeGrupoOutros, ex.: "Compromissos Corporativos") mesmo com o catch-all desligado.
+    // Grupo dos "demais eventos": SEMPRE aparece quando sobra evento de tipo não
+    // atribuído. O e-mail diário já faz assim desde o #HLP0286; o modal ainda
+    // respeitava `mostrarOutros` e, com o toggle desligado, DESCARTAVA em silêncio
+    // esses eventos — contava no cabeçalho ("N eventos") mas não exibia, deixando o
+    // evento invisível até para criador/participante (#HLP0270: "VISITA DR HENRIQUE
+    // ARRUDA", tipo global "Compromisso", sumia da visão do dia). Uma visão
+    // interativa nunca pode esconder um evento que ela mesma conta.
     const resto = dayModalEvents.filter(e => !usados.has(e.id))
-    if (resto.length > 0 && agrupOutros.mostrar) secoes.push({ key: '__outros__', nome: agrupOutros.nome || 'Outros', cor: '#94a3b8', icone: '📌', items: resto })
+    if (resto.length > 0) secoes.push({ key: '__outros__', nome: agrupOutros.nome || 'Outros eventos', cor: '#94a3b8', icone: '📌', items: resto })
     return secoes
   }, [dayModalEvents, agrupGrupos, agrupOutros])
 

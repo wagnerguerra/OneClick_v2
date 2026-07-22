@@ -103,7 +103,7 @@ function tplDefaults(): Omit<EmailTemplate, 'id' | 'empresaId'> {
     cardModo: 'builder',
     cardElementos: JSON.stringify(DEFAULT_CARD_ELEMENTOS),
     mostrarOutros: true,
-    nomeGrupoOutros: 'Compromissos corporativos',
+    nomeGrupoOutros: 'Outros eventos',
     nomeGrupoParticulares: 'Compromissos pessoais',
     corParticulares: '#a855f7',
   }
@@ -233,9 +233,9 @@ export class AgendaEmailTemplateService {
     eventos: any[],
     ctx: { usuarioNome: string; dataDisplay: string; diaSemana: string; temLogo: boolean; saudacao?: string; preview?: boolean },
   ): string {
-    // Distribui TODOS os eventos visíveis estritamente pelos grupos definidos
-    // (pela atribuição de tipos). O que não cair em nenhum grupo vai pro catch-all
-    // "Outros" (quando habilitado). Nenhum agrupamento fixo de "particulares".
+    // Distribui os eventos visíveis pelos grupos definidos (pela atribuição de
+    // tipos). Os que não caem em nenhum grupo entram num grupo à parte com os
+    // "demais eventos" — nunca somem. Nenhum agrupamento fixo de "particulares".
     const usados = new Set<string>()
     const secoesGrupos = grupos
       .map(g => {
@@ -246,30 +246,28 @@ export class AgendaEmailTemplateService {
       .filter(s => s.items.length > 0)
 
     const outros = eventos.filter(e => !usados.has(e.id))
-    const secoes: Array<{ nome: string; cor: string; icone: string; items: any[] }> = [...secoesGrupos]
-    // O catch-all SEMPRE entra quando sobra evento. Antes ele respeitava
-    // `mostrarOutros`, e com o toggle desligado os eventos de tipos não
-    // atribuídos a nenhum grupo eram descartados EM SILÊNCIO — o e-mail dizia
-    // "sua agenda do dia" e omitia compromissos reais (#HLP0286: um evento do
-    // tipo "Ausência", que não está em grupo nenhum, sumiu do e-mail).
-    // Perder compromisso é pior que exibir uma seção a mais; `mostrarOutros`
-    // deixa de poder causar perda de dados. Para não ver a seção, atribua os
-    // tipos aos grupos em /agenda/configuracoes — aí ela fica vazia sozinha.
-    if (outros.length > 0) {
-      // O nome do catch-all pode COLIDIR com o de um grupo real — o default é
-      // "Compromissos corporativos" e é comum existir um grupo com esse mesmo
-      // nome. Quando isso acontece, criar uma seção separada produz dois blocos
-      // de título idêntico e conteúdos diferentes no mesmo e-mail (#HLP0294:
-      // "a agenda está duplicando eventos como COMPROMISSO CORPORATIVO, porém
-      // mostrando eventos diferentes"). Nesse caso os eventos sem grupo são
-      // ANEXADOS à seção existente, em vez de abrir uma segunda com o mesmo nome.
-      const nomeOutros = template.nomeGrupoOutros || 'Outros'
-      const existente = secoes.find(s => s.nome.trim().toLowerCase() === nomeOutros.trim().toLowerCase())
-      if (existente) existente.items.push(...outros)
-      else secoes.push({ nome: nomeOutros, cor: template.accent, icone: '📌', items: outros })
-      if (!template.mostrarOutros) {
-        const tipos = Array.from(new Set(outros.map(e => e?.tipo?.nome).filter(Boolean)))
-        console.warn(`[AgendaEmail] ${outros.length} evento(s) sem grupo exibidos no catch-all (tipos: ${tipos.join(', ')}). Atribua esses tipos a um grupo em /agenda/configuracoes.`)
+    let secoes: Array<{ nome: string; cor: string; icone: string; items: any[] }>
+    if (grupos.length === 0) {
+      // SEM grupos configurados: lista limpa, sem cabeçalhos — idêntico ao resumo
+      // do dia (modal). Não faz sentido rotular tudo de "Outros" quando não há
+      // com o que contrastar. Seção de nome vazio → renderSecao omite o título.
+      secoes = eventos.length > 0 ? [{ nome: '', cor: template.accent, icone: '', items: eventos }] : []
+    } else {
+      // Com grupos, os eventos de tipos não atribuídos ganham um grupo próprio
+      // (o dos "demais eventos"), pra nenhum ficar de fora. Antes isso respeitava
+      // um toggle `mostrarOutros` que, desligado, descartava eventos EM SILÊNCIO
+      // (#HLP0286: "Ausência" sumia do e-mail); o toggle foi removido (#HLP0270).
+      secoes = [...secoesGrupos]
+      if (outros.length > 0) {
+        // O nome do grupo pode COLIDIR com o de um grupo real — o default é
+        // "Compromissos corporativos" e é comum existir um grupo com esse mesmo
+        // nome. Nesse caso criar uma seção separada produziria dois blocos de
+        // título idêntico e conteúdos diferentes (#HLP0294). Então os eventos sem
+        // grupo são ANEXADOS à seção existente, em vez de abrir outra igual.
+        const nomeOutros = template.nomeGrupoOutros || 'Outros eventos'
+        const existente = secoes.find(s => s.nome.trim().toLowerCase() === nomeOutros.trim().toLowerCase())
+        if (existente) existente.items.push(...outros)
+        else secoes.push({ nome: nomeOutros, cor: template.accent, icone: '📌', items: outros })
       }
     }
 
@@ -475,14 +473,16 @@ export class AgendaEmailTemplateService {
         : renderCardBuilder(ev)
 
     // ── Cabeçalho de grupo: ícone + nome em caixa-alta + badge de contagem. ──
+    // Seção sem nome (lista limpa, quando não há grupos) omite o cabeçalho —
+    // renderiza só os cards, igual ao resumo do dia.
     const renderSecao = (s: { nome: string; cor: string; icone: string; items: any[] }) => `
-      <table cellpadding="0" cellspacing="0" border="0" style="margin:22px 0 12px">
+      ${s.nome.trim() ? `<table cellpadding="0" cellspacing="0" border="0" style="margin:22px 0 12px">
         <tr>
           <td valign="middle" style="padding-right:10px;font-size:16px;line-height:1">${s.icone}</td>
           <td valign="middle" class="em-sectitle" style="padding-right:10px;font-size:13px;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:0.8px;line-height:1">${esc(s.nome)}</td>
           <td valign="middle"><span class="em-count" style="display:inline-block;background:#e2e8f0;color:#475569;font-size:10px;padding:2px 9px;border-radius:999px;font-weight:700;line-height:1.4">${s.items.length}</span></td>
         </tr>
-      </table>
+      </table>` : ''}
       ${s.items.map(renderCard).join('')}`
 
     const corpoSecoes = secoes.length === 0

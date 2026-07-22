@@ -383,7 +383,9 @@ export function createAgendaRouter(
           semEventosHtml: z.string().optional(),
           cardModo: z.enum(['builder', 'html']).optional(),
           cardElementos: z.string().optional(),
-          mostrarOutros: z.boolean().optional(),
+          // #HLP0270: `mostrarOutros` foi removido — o grupo dos "demais eventos"
+          // é sempre exibido (um toggle que o escondia podia deixar eventos
+          // invisíveis até para o criador). Só o NOME do grupo segue configurável.
           nomeGrupoOutros: z.string().optional(),
           nomeGrupoParticulares: z.string().optional(),
           corParticulares: z.string().optional(),
