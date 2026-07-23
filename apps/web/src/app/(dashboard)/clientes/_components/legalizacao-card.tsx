@@ -413,7 +413,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 const cna = resumo.cnaes as Array<Record<string, unknown>>
                 const cert = resumo.certidoes as Array<{ label: string; situacao: string | null; dataValidade: string | null; sucesso: boolean }>
 
-                const doc = (cli.documento || '').replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+                const _c = (cli.documento || '').toUpperCase().replace(/[^0-9A-Z]/g, ''); const doc = _c.length === 14 ? `${_c.slice(0,2)}.${_c.slice(2,5)}.${_c.slice(5,8)}/${_c.slice(8,12)}-${_c.slice(12,14)}` : (cli.documento || '')
                 const dataAtual = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
                 const tableStyle = 'width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px;'

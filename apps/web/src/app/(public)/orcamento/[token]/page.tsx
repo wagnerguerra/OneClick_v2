@@ -54,11 +54,9 @@ function formatCurrency(v: number | string | null | undefined): string {
 
 function formatDocumento(doc: string | null | undefined, tipo?: string): string {
   if (!doc) return ''
-  const d = doc.replace(/\D/g, '')
-  if (tipo === 'CPF' || d.length === 11) {
-    return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-  }
-  return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+  const d = doc.toUpperCase().replace(/[^0-9A-Z]/g, '') // preserva letras (CNPJ alfanumérico)
+  if (tipo === 'CPF' || d.length === 11) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9,11)}`
+  return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12,14)}`
 }
 
 function formatDate(d: string): string {
@@ -120,7 +118,7 @@ export default function PublicOrcamentoPage() {
         cpf: cpf.replace(/\D/g, '') || undefined,
         observacao: observacao.trim() || undefined,
         ...(decisaoModal === 'APROVADO' ? {
-          cnpjFaturamento: cnpjFaturamento.replace(/\D/g, '') || undefined,
+          cnpjFaturamento: cnpjFaturamento.toUpperCase().replace(/[^0-9A-Z]/g, '') || undefined,
           emailFinanceiro: emailFinanceiro.trim() || undefined,
         } : {}),
       })
@@ -425,9 +423,9 @@ export default function PublicOrcamentoPage() {
                     <input
                       type="text"
                       value={cnpjFaturamento}
-                      onChange={e => setCnpjFaturamento(e.target.value.replace(/\D/g, '').slice(0, 14))}
+                      onChange={e => setCnpjFaturamento(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 14))}
                       className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900"
-                      placeholder="Digite apenas números"
+                      placeholder="CPF ou CNPJ"
                     />
                   </div>
                   <div>

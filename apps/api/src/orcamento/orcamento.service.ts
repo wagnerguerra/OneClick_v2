@@ -1,7 +1,7 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import type { CreateOrcamentoInput, UpdateOrcamentoInput, ListOrcamentoInput, CreateOrcamentoItemInput, UpdateOrcamentoItemInput } from '@saas/types'
-import { ORCAMENTO_ALLOWED_TRANSITIONS, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_ORDER, isOrcamentoTransitionAllowed } from '@saas/types'
+import { ORCAMENTO_ALLOWED_TRANSITIONS, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_ORDER, isOrcamentoTransitionAllowed, limparCnpj } from '@saas/types'
 import { EmailService } from '../common/email.service'
 import { PesquisaService } from '../pesquisa/pesquisa.service'
 import { ServicoService } from '../servico/servico.service'
@@ -2513,7 +2513,7 @@ export class OrcamentoService {
     // Dados de faturamento (colunas novas — via raw enquanto o client não regenera).
     await prisma.$executeRawUnsafe(
       `UPDATE orcamentos SET decisao_cnpj_faturamento = $1, decisao_email_financeiro = $2 WHERE token = $3`,
-      decisao.cnpjFaturamento ? decisao.cnpjFaturamento.replace(/\D/g, '') : null,
+      decisao.cnpjFaturamento ? limparCnpj(decisao.cnpjFaturamento) : null, // preserva letras (CNPJ alfanumérico)
       decisao.emailFinanceiro?.trim() || null,
       token,
     ).catch((e) => console.warn('[Orcamento] Falha ao gravar dados de faturamento:', (e as Error).message))

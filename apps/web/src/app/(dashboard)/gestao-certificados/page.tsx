@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { masks, limparCnpj } from '@/lib/masks'
 import {
   ShieldCheck, Loader2, Plus, MoreVertical, Eye, Download, Key, Archive, ArchiveRestore,
   Ban, Trash2, AlertTriangle, CheckCircle2, Clock, XCircle, FileLock,
@@ -65,10 +66,11 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+// Máscara canônica (alfanumérico-aware). #HLP CNPJ alfanumérico.
 function formatDocumento(doc: string) {
-  const d = doc.replace(/\D/g, '')
-  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+  const d = limparCnpj(doc)
+  if (d.length === 11) return masks.cpf(d)
+  if (d.length === 14) return masks.cnpj(d)
   return doc
 }
 

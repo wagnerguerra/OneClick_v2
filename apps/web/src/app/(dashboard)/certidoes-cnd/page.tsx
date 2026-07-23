@@ -22,7 +22,7 @@ import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
-import { masks } from '@/lib/masks'
+import { masks, limparCnpj } from '@/lib/masks'
 import { getApiUrl } from '@/lib/api-url'
 
 // ============================================================
@@ -108,7 +108,7 @@ function CertidaoBadge({ tipo }: { tipo: string | null }) {
 }
 
 function formatDoc(d: string) {
-  const clean = d.replace(/\D/g, '')
+  const clean = limparCnpj(d) // preserva letras do CNPJ alfanumérico
   if (clean.length === 11) return masks.cpf(clean)
   if (clean.length === 14) return masks.cnpj(clean)
   return d

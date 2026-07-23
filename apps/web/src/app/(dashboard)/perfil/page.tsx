@@ -9,6 +9,7 @@ import {
   Linkedin, Github, Instagram, Facebook, Link as LinkIcon, MessageCircle,
 } from 'lucide-react'
 import { USER_ROLE_LABELS } from '@saas/types'
+import { masks, limparCnpj } from '@/lib/masks'
 import {
   Button, Input, Label, Card, CardHeader, CardContent,
   Tabs, TabsList, TabsTrigger, TabsContent, SlidingTabsList,
@@ -346,10 +347,12 @@ export default function MeuPerfilPage() {
 
   useEffect(() => { fetchProfile(); fetchTrustedDevices(); fetchCarteira() }, [])
 
+  // Máscara canônica: limparCnpj preserva letras (CNPJ alfanumérico); masks já
+  // é alfanumérico-aware. #HLP CNPJ alfanumérico.
   function formatDocumento(doc: string): string {
-    const d = (doc || '').replace(/\D/g, '')
-    if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
-    if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+    const d = limparCnpj(doc)
+    if (d.length === 14) return masks.cnpj(d)
+    if (d.length === 11) return masks.cpf(d)
     return doc
   }
 

@@ -49,9 +49,9 @@ function formatCurrency(v: number | string | null | undefined): string {
 
 function formatDocumento(doc: string | null | undefined, tipo?: string | null): string {
   if (!doc) return ''
-  const d = doc.replace(/\D/g, '')
-  if (tipo === 'CPF' || d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+  const d = doc.toUpperCase().replace(/[^0-9A-Z]/g, '') // preserva letras (CNPJ alfanumérico)
+  if (tipo === 'CPF' || d.length === 11) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9,11)}`
+  if (d.length === 14) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12,14)}`
   return doc
 }
 
@@ -94,11 +94,11 @@ export default function ImprimirOrcamentoPage() {
   useEffect(() => {
     if (!orc) return
     const numero = String(orc.numero).padStart(4, '0')
-    const cnpjLimpo = (orc.cliente?.documento || '').replace(/\D/g, '')
+    const cnpjLimpo = (orc.cliente?.documento || '').toUpperCase().replace(/[^0-9A-Z]/g, '') // preserva letras
     const cnpjFormatado = cnpjLimpo.length === 14
-      ? cnpjLimpo.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3-$4-$5')
+      ? `${cnpjLimpo.slice(0,2)}.${cnpjLimpo.slice(2,5)}.${cnpjLimpo.slice(5,8)}-${cnpjLimpo.slice(8,12)}-${cnpjLimpo.slice(12,14)}`
       : cnpjLimpo.length === 11
-      ? cnpjLimpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+      ? `${cnpjLimpo.slice(0,3)}.${cnpjLimpo.slice(3,6)}.${cnpjLimpo.slice(6,9)}-${cnpjLimpo.slice(9,11)}`
       : cnpjLimpo || 'sem-doc'
     const cliente = (orc.cliente?.razaoSocial || 'Cliente').toUpperCase()
     const tituloAnterior = document.title
