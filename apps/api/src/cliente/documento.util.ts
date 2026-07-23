@@ -20,15 +20,43 @@ export function isValidCpf(cpf: string): boolean {
   return d2 === Number(c[10])
 }
 
+/**
+ * Normaliza um CNPJ para o formato canônico de armazenamento/validação: só os
+ * caracteres válidos do CNPJ (0-9 e A-Z), em MAIÚSCULO, sem pontuação.
+ *
+ * ATENÇÃO: NÃO use `replace(/\D/g,'')` em CNPJ — isso apaga as letras do CNPJ
+ * alfanumérico (novo formato da Receita, produção a partir de jul/2026). As 12
+ * primeiras posições (raiz+ordem) podem ter letras; só os 2 DVs são numéricos.
+ * Para CNPJ, sempre normalize por aqui.
+ */
+export function limparCnpj(cnpj: string): string {
+  return (cnpj || '').toUpperCase().replace(/[^0-9A-Z]/g, '')
+}
+
+/**
+ * Valida um CNPJ nos formatos numérico (tradicional) E alfanumérico (novo).
+ *
+ * O numérico é um subconjunto do alfanumérico — o mesmo cálculo (Módulo 11)
+ * valida os dois. A única diferença do alfanumérico: cada caractere vale
+ * `código ASCII − 48` ('0'..'9' → 0..9; 'A'..'Z' → 17..42), aplicado com os
+ * mesmos pesos 2..9 da direita para a esquerda. Os 2 dígitos verificadores
+ * permanecem numéricos. Ref. oficial (Serpro/RFB); caso de teste canônico:
+ * `12ABC34501DE` → DV `35`.
+ */
 export function isValidCnpj(cnpj: string): boolean {
-  const c = cnpj.replace(/\D/g, '')
-  if (c.length !== 14 || /^(\d)\1{13}$/.test(c)) return false
+  const c = limparCnpj(cnpj)
+  // 14 posições; as 12 primeiras alfanuméricas, os 2 DVs numéricos.
+  if (!/^[0-9A-Z]{12}[0-9]{2}$/.test(c)) return false
+  // Rejeita placeholder de char único repetido (ex.: 00000000000000).
+  if (/^(.)\1{13}$/.test(c)) return false
+  // Valor do caractere no Módulo 11 alfanumérico: ASCII − 48.
+  const valor = (ch: string): number => ch.charCodeAt(0) - 48
   const calc = (len: number): number => {
     const weights = len === 12
       ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
       : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
     let sum = 0
-    for (let i = 0; i < len; i++) sum += Number(c[i]) * (weights[i] ?? 0)
+    for (let i = 0; i < len; i++) sum += valor(c[i]!) * (weights[i] ?? 0)
     const r = sum % 11
     return r < 2 ? 0 : 11 - r
   }
@@ -38,7 +66,9 @@ export function isValidCnpj(cnpj: string): boolean {
 
 /** Valida CPF (11) ou CNPJ (14). Documento vazio NÃO é validado aqui (é opcional). */
 export function isValidDocumento(doc: string): boolean {
-  const c = doc.replace(/\D/g, '')
+  // Normaliza preservando letras (CNPJ alfanumérico). CPF é sempre numérico, então
+  // 11 posições → CPF; 14 posições → CNPJ (numérico ou alfanumérico).
+  const c = limparCnpj(doc)
   if (c.length === 11) return isValidCpf(c)
   if (c.length === 14) return isValidCnpj(c)
   return false
