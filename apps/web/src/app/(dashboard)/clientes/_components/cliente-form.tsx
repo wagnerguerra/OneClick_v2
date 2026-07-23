@@ -42,7 +42,7 @@ import { ObrigacoesClienteSection } from './obrigacoes-cliente-section'
 import { ProtocolosCard } from './protocolos-card'
 import { DriveSyncCard } from './drive-sync-card'
 import { ContratoChartModal } from './contrato-charts'
-import { masks, numeroParaMoeda, moedaParaNumero } from '@/lib/masks'
+import { masks, numeroParaMoeda, moedaParaNumero, limparCnpj } from '@/lib/masks'
 import {
   createClienteSchema,
   SITUACAO_LABELS, SITUACAO_COLORS,
@@ -634,13 +634,13 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
               {/* ======================================================== */}
               <TabsContent value="contabil" className="mt-0">
                 {isEdit && clienteId ? (
-                  <ContabilCard clienteId={clienteId} documento={(watchedValues.documento || defaultValues?.documento || '').replace(/\D/g, '')} />
+                  <ContabilCard clienteId={clienteId} documento={limparCnpj(watchedValues.documento || defaultValues?.documento || '')} />
                 ) : (
                   <PlaceholderTab icon={Calculator} title="Contábil" description="Salve o cliente primeiro para acessar o BI Balancete." />
                 )}
               </TabsContent>
               <TabsContent value="legalizacao" className="mt-0">
-                <LegalizacaoCard register={register} clienteId={clienteId} documento={(watchedValues.documento || defaultValues?.documento || '').replace(/\D/g, '')} />
+                <LegalizacaoCard register={register} clienteId={clienteId} documento={limparCnpj(watchedValues.documento || defaultValues?.documento || '')} />
               </TabsContent>
               <TabsContent value="obrigacoes" className="mt-0">
                 {isEdit && clienteId ? (
@@ -864,9 +864,11 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                         onChange={(e) => {
                           const masked = masks.cpfCnpj(e.target.value)
                           field.onChange(masked)
-                          // Auto-detecta o tipo pelo nº de dígitos (>11 = CNPJ).
-                          const d = masked.replace(/\D/g, '')
-                          setValue('tipoDocumento', d.length > 11 ? 'CNPJ' : 'CPF', { shouldDirty: true })
+                          // Auto-detecta o tipo. limparCnpj preserva letras: qualquer
+                          // letra ⇒ CNPJ (alfanumérico); senão decide pelo tamanho.
+                          const d = limparCnpj(masked)
+                          const ehCnpj = /[A-Z]/.test(d) || d.length > 11
+                          setValue('tipoDocumento', ehCnpj ? 'CNPJ' : 'CPF', { shouldDirty: true })
                         }}
                         className="rounded-r-none border-r-0"
                       />
@@ -2635,7 +2637,7 @@ function SituacaoFiscalCard({ clienteId, documento }: { clienteId: string; docum
       const blob = new Blob([Buffer.from(pdf, 'base64')], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url; a.download = `sitfis_${documento.replace(/\D/g, '')}.pdf`; a.click()
+      a.href = url; a.download = `sitfis_${limparCnpj(documento)}.pdf`; a.click()
       URL.revokeObjectURL(url)
     } catch { alerts.error('Erro', 'Não foi possível baixar.') }
   }
@@ -4011,7 +4013,7 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
   const [detalheData, setDetalheData] = useState<unknown>(null)
   const [detalheLoading, setDetalheLoading] = useState(false)
 
-  const docLimpo = documento.replace(/\D/g, '')
+  const docLimpo = limparCnpj(documento)
   const tipo = docLimpo.length === 11 ? 1 : 2
 
   const carregarCache = useCallback(async () => {

@@ -1,4 +1,5 @@
 export * from './pagination'
+export * from './documento'
 export * from './ferramentas'
 export * from './auth'
 export * from './area'

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { paginationSchema } from './pagination'
+import { limparCnpj } from './documento'
 
 // ============================================================
 // Enums e Labels
@@ -101,7 +102,8 @@ export const createClienteSchema = z.object({
   // permitido (ex.: prospect/lead sem documento ainda).
   documento: z.coerce.string()
     .refine(
-      (v) => { const d = (v ?? '').replace(/\D/g, ''); return d.length === 0 || d.length === 11 || d.length === 14 },
+      // limparCnpj preserva letras do CNPJ alfanumérico (CPF é sempre numérico).
+      (v) => { const d = limparCnpj(v); return d.length === 0 || d.length === 11 || d.length === 14 },
       'Informe um CPF (11 dígitos) ou CNPJ (14 dígitos)',
     )
     .optional()

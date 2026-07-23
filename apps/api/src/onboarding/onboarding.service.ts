@@ -1,6 +1,6 @@
 import { Inject, Injectable, Optional } from '@nestjs/common'
 import { prisma, createTenantSchema } from '@saas/db'
-import { MODULE_SLUGS, PLATFORM_ADMIN_MODULES } from '@saas/types'
+import { MODULE_SLUGS, PLATFORM_ADMIN_MODULES, limparCnpj } from '@saas/types'
 import { StripeService } from '../stripe/stripe.service'
 
 @Injectable()
@@ -32,7 +32,7 @@ export class OnboardingService {
       const trialEndsAt = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000)
 
       // Criar tenant (container de billing) — já em trial de N dias, sem cartão
-      const slug = data.cnpj.replace(/\D/g, '').slice(0, 14)
+      const slug = limparCnpj(data.cnpj).slice(0, 14)
       const tenant = await tx.tenant.create({
         data: {
           name: data.razaoSocial,

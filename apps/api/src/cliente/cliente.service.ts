@@ -2,6 +2,7 @@ import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
 import type { Prisma } from '@saas/db'
 import type { CreateClienteInput, UpdateClienteInput, ListClienteInput } from '@saas/types'
+import { limparCnpj } from '@saas/types'
 import { BiSyncEventsService } from '../bi/bi-sync-events.service'
 import { isValidDocumento } from './documento.util'
 
@@ -275,7 +276,7 @@ export class ClienteService {
    * (apenas dígitos). Resultado ordenado por número da ordem.
    */
   async listFiliais(documentoMatriz: string, isMaster?: boolean, empresaId?: string) {
-    const doc = (documentoMatriz || '').replace(/\D/g, '')
+    const doc = limparCnpj(documentoMatriz) // preserva letras do CNPJ alfanumérico
     if (doc.length !== 14) return []
     const base = doc.slice(0, 8)
     return prisma.$queryRawUnsafe<Array<{
@@ -350,7 +351,8 @@ export class ClienteService {
     }
     // [QA #40] Documento é opcional, mas se informado precisa ter DV válido
     // (barra 00000000000000, sequências e dígito errado no cadastro manual).
-    const docLimpo = (input.documento || '').replace(/\D/g, '')
+    // limparCnpj preserva letras (CNPJ alfanumérico); para CPF é idêntico ao \D.
+    const docLimpo = limparCnpj(input.documento)
     if (docLimpo && !isValidDocumento(docLimpo)) {
       throw new Error('Documento inválido: verifique o CPF/CNPJ informado.')
     }

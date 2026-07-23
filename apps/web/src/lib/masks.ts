@@ -3,19 +3,16 @@
  * Uso: onChange={(e) => e.target.value = masks.cpf(e.target.value)}
  */
 
+import { limparCnpj, formatCnpj } from '@saas/types'
+
 // Remove tudo que não é dígito
 function digits(v: string) {
   return v.replace(/\D/g, '')
 }
 
-/**
- * Normaliza um CNPJ preservando LETRAS (CNPJ alfanumérico — novo formato da
- * Receita, produção a partir de jul/2026): mantém 0-9 e A-Z, em maiúsculo.
- * NÃO use `digits()` em CNPJ — apagaria as letras. Espelha `limparCnpj` do backend.
- */
-export function limparCnpj(v: string) {
-  return String(v || '').toUpperCase().replace(/[^0-9A-Z]/g, '')
-}
+// Normalização canônica de CNPJ (preserva letras). Fonte única em @saas/types;
+// reexportada aqui porque muitos componentes importam de @/lib/masks.
+export { limparCnpj }
 
 export const masks = {
   /** CPF: 000.000.000-00 */
@@ -33,13 +30,7 @@ export const masks = {
    * dígitos são mascarados igual. O DV numérico é conferido na validação, não aqui.
    */
   cnpj(v: string) {
-    const c = limparCnpj(v).slice(0, 14)
-    let out = c.slice(0, 2)
-    if (c.length > 2) out += '.' + c.slice(2, 5)
-    if (c.length > 5) out += '.' + c.slice(5, 8)
-    if (c.length > 8) out += '/' + c.slice(8, 12)
-    if (c.length > 12) out += '-' + c.slice(12, 14)
-    return out
+    return formatCnpj(v)
   },
 
   /** CPF ou CNPJ (auto-detecta). Qualquer letra ⇒ CNPJ (CPF é sempre numérico). */

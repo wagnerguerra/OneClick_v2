@@ -5,6 +5,11 @@
  * outro caminho e não passam por aqui.
  */
 
+// Normalização canônica (preserva letras do CNPJ alfanumérico). Fonte única em
+// @saas/types — reexportado aqui por conveniência de quem já importa este util.
+import { limparCnpj } from '@saas/types'
+export { limparCnpj } from '@saas/types'
+
 export function isValidCpf(cpf: string): boolean {
   const c = cpf.replace(/\D/g, '')
   if (c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false
@@ -18,19 +23,6 @@ export function isValidCpf(cpf: string): boolean {
   let d2 = 11 - (sum % 11)
   if (d2 >= 10) d2 = 0
   return d2 === Number(c[10])
-}
-
-/**
- * Normaliza um CNPJ para o formato canônico de armazenamento/validação: só os
- * caracteres válidos do CNPJ (0-9 e A-Z), em MAIÚSCULO, sem pontuação.
- *
- * ATENÇÃO: NÃO use `replace(/\D/g,'')` em CNPJ — isso apaga as letras do CNPJ
- * alfanumérico (novo formato da Receita, produção a partir de jul/2026). As 12
- * primeiras posições (raiz+ordem) podem ter letras; só os 2 DVs são numéricos.
- * Para CNPJ, sempre normalize por aqui.
- */
-export function limparCnpj(cnpj: string): string {
-  return (cnpj || '').toUpperCase().replace(/[^0-9A-Z]/g, '')
 }
 
 /**
