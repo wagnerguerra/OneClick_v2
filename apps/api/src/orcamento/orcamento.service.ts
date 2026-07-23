@@ -178,10 +178,16 @@ export class OrcamentoService {
       if (input.scope === 'proprios') {
         where.AND = [...(where.AND ?? []), { OR: souEu }]
       } else if (input.scope === 'financeiro') {
-        // Orçamentos aprovados aguardando liberação do financeiro. Vai no AND
-        // (não por atribuição direta) pra não apagar um filtro de status que já
-        // esteja no where — a tela esconde esse filtro neste escopo.
-        where.AND = [...(where.AND ?? []), { status: 'APROVADO' }]
+        // Financeiro: orçamentos aprovados aguardando liberação (APROVADO) MAIS
+        // os que o financeiro já liberou (LIBERADO). Antes o filtro era só
+        // APROVADO, e no instante em que o item era liberado ele saía da lista —
+        // o financeiro perdia de vista o que acabara de processar (#HLP0295:
+        // #4595 aparecia para o master mas não para a Rose, pois já estava
+        // LIBERADO). Inclui LIBERADO para preservar o histórico do que passou
+        // pelas mãos do financeiro. Vai no AND (não por atribuição direta) pra
+        // não apagar um filtro de status que já esteja no where — a tela esconde
+        // esse filtro neste escopo.
+        where.AND = [...(where.AND ?? []), { status: { in: ['APROVADO', 'LIBERADO'] } }]
       } else if (input.scope === 'area') {
         // A área de um orçamento vem dos SERVIÇOS que ele contém: se um item é
         // um serviço do Fiscal, o orçamento conta como Fiscal; com serviços de

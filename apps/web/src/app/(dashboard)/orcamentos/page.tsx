@@ -251,8 +251,9 @@ export default function OrcamentosPage() {
   // Quem decide o que volta do banco é o backend, que recalcula por conta
   // própria e ignora qualquer `scope` enviado daqui.
   const listScope: OrcamentoScope = isMaster ? 'todos' : resolveOrcamentoScope(subPerms)
-  // No escopo "Para liberação do financeiro" a lista é sempre APROVADO — o
-  // filtro de status não teria efeito e só confundiria.
+  // No escopo "Para liberação do financeiro" a lista é sempre APROVADO +
+  // LIBERADO (a liberar + já liberados) — o filtro de status livre não teria
+  // efeito além desses dois e só confundiria, então fica escondido.
   const escopoFixaStatus = listScope === 'financeiro'
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
