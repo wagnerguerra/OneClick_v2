@@ -139,8 +139,15 @@ export class OrcamentoAiService {
       for (const it of itens) {
         const qtd = Number(it.quantidade)
         const unit = Number(it.valorUnitario)
-        const total = qtd * unit
-        linhas.push(`- [${it.tipo}] ${it.descricao} — ${qtd} × ${this.fmtBRL(unit)} = ${this.fmtBRL(total)}`)
+        const bruto = qtd * unit
+        // Desconto por item — só serviço (#HLP0302).
+        const desc = it.tipo === 'SERVICO'
+          ? Math.min(bruto, Math.max(0, bruto * (Number(it.descontoPct) || 0) / 100 + (Number(it.descontoValor) || 0)))
+          : 0
+        const descTxt = desc > 0
+          ? ` (desconto ${Number(it.descontoPct) > 0 ? `${Number(it.descontoPct)}%` : ''}${Number(it.descontoPct) > 0 && Number(it.descontoValor) > 0 ? ' + ' : ''}${Number(it.descontoValor) > 0 ? this.fmtBRL(Number(it.descontoValor)) : ''} → ${this.fmtBRL(bruto - desc)})`
+          : ''
+        linhas.push(`- [${it.tipo}] ${it.descricao} — ${qtd} × ${this.fmtBRL(unit)} = ${this.fmtBRL(bruto)}${descTxt}`)
       }
       linhas.push('')
     }

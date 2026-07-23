@@ -331,6 +331,8 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         followup_recusa_ativo: z.string().optional(),
         followup_recusa_dias: z.string().optional(),
         followup_tipo_evento_id: z.string().optional(),
+        // #HLP0302 — "Usar apenas desconto por item" ('1' marcada / '0' desmarcada).
+        apenas_desconto_item: z.string().optional(),
       }))
       .mutation(({ input, ctx }) => orcamentoService.saveConfig(input, ctx.empresaId)),
 

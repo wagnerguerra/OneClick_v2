@@ -71,10 +71,21 @@ interface OrcamentoItem {
   quantidade: number
   valorUnitario: number
   valorTotal: number
+  // Desconto por item (#HLP0302) — só serviço; % e valor somam.
+  descontoPct?: number | string | null
+  descontoValor?: number | string | null
   catalogoId?: string | null
   catalogoTextoId?: string | null
   situacao?: string
   ordem?: number
+}
+
+// Desconto líquido de um item de serviço (limitado ao próprio subtotal).
+function descontoDoItem(item: { tipo: string; quantidade: number; valorUnitario: number; descontoPct?: number | string | null; descontoValor?: number | string | null }): number {
+  if (item.tipo !== 'SERVICO') return 0
+  const subtotal = (Number(item.quantidade) || 0) * (Number(item.valorUnitario) || 0)
+  const d = subtotal * (Number(item.descontoPct) || 0) / 100 + (Number(item.descontoValor) || 0)
+  return Math.min(subtotal, Math.max(0, d))
 }
 
 interface CatalogoTexto {
@@ -862,6 +873,8 @@ export default function OrcamentoDetailPage() {
   const [itemDescricao, setItemDescricao] = useState('')
   const [itemQtde, setItemQtde] = useState('1')
   const [itemValor, setItemValor] = useState('')
+  const [itemDescPct, setItemDescPct] = useState('')
+  const [itemDescValor, setItemDescValor] = useState('')
   const [itemCatalogoId, setItemCatalogoId] = useState<string>('')
   const [itemTextoId, setItemTextoId] = useState<string>('')
   const [addingItem, setAddingItem] = useState(false)
@@ -875,8 +888,12 @@ export default function OrcamentoDetailPage() {
   const [editDescricao, setEditDescricao] = useState('')
   const [editQtde, setEditQtde] = useState('')
   const [editValor, setEditValor] = useState('')
+  const [editDescPct, setEditDescPct] = useState('')
+  const [editDescValor, setEditDescValor] = useState('')
   const [editCatalogoId, setEditCatalogoId] = useState<string>('')
   const [editTextoId, setEditTextoId] = useState<string>('')
+  // #HLP0302 — "Usar apenas desconto por item" (config). Marcada = geral bloqueado.
+  const [apenasDescontoItem, setApenasDescontoItem] = useState(true)
 
   // Tab 2: Desconto e Pagamento
   const [formDescontoPercent, setFormDescontoPercent] = useState('')
@@ -1109,6 +1126,7 @@ export default function OrcamentoDetailPage() {
       try {
         const cfg = await (trpc.orcamento as any).getConfig.query()
         setHeaderCover(cfg?.headerCover || '')
+        setApenasDescontoItem(cfg?.apenasDescontoItem !== false)
       } catch { /* silent */ }
     })()
   }, [])
@@ -1472,6 +1490,8 @@ export default function OrcamentoDetailPage() {
         descricao: itemDescricao,
         quantidade: parseFloat(itemQtde) || 1,
         valorUnitario: parseFloat(itemValor) || 0,
+        itemDescontoPct: itemTipo === 'SERVICO' ? (parseFloat(itemDescPct) || undefined) : undefined,
+        itemDescontoValor: itemTipo === 'SERVICO' ? (parseFloat(itemDescValor) || undefined) : undefined,
         catalogoId: itemCatalogoId || undefined,
         catalogoTextoId: itemTextoId || undefined,
       })
@@ -1479,6 +1499,8 @@ export default function OrcamentoDetailPage() {
       setItemDescricao('')
       setItemQtde('1')
       setItemValor('')
+      setItemDescPct('')
+      setItemDescValor('')
       setItemCatalogoId('')
       setItemTextoId('')
       fetchOrc(true)
@@ -1531,6 +1553,8 @@ export default function OrcamentoDetailPage() {
     setEditDescricao(item.descricao)
     setEditQtde(String(item.quantidade))
     setEditValor(String(item.valorUnitario))
+    setEditDescPct(item.descontoPct != null && Number(item.descontoPct) > 0 ? String(item.descontoPct) : '')
+    setEditDescValor(item.descontoValor != null && Number(item.descontoValor) > 0 ? String(item.descontoValor) : '')
     setEditCatalogoId(item.catalogoId ?? '')
     setEditTextoId(item.catalogoTextoId ?? '')
   }
@@ -1567,6 +1591,9 @@ export default function OrcamentoDetailPage() {
           descricao: editDescricao,
           quantidade: parseFloat(editQtde) || 1,
           valorUnitario: parseFloat(editValor) || 0,
+          // Desconto por item só faz sentido em serviço; nos demais vai null.
+          itemDescontoPct: editTipo === 'SERVICO' ? (parseFloat(editDescPct) || null) : null,
+          itemDescontoValor: editTipo === 'SERVICO' ? (parseFloat(editDescValor) || null) : null,
           catalogoId: editCatalogoId || null,
           catalogoTextoId: editTextoId || null,
         },
@@ -2378,6 +2405,19 @@ export default function OrcamentoDetailPage() {
                               <Label className="text-[13px] font-semibold text-foreground">Valor R$</Label>
                               <Input type="number" value={itemValor} onChange={e => setItemValor(e.target.value)} className="h-9 w-[110px] text-sm" step="0.01" min="0" placeholder="0,00" />
                             </div>
+                            {/* Desconto por item — só serviço (#HLP0302) */}
+                            {itemTipo === 'SERVICO' && (
+                              <>
+                                <div className="space-y-1.5">
+                                  <Label className="text-[13px] font-semibold text-foreground">Desc %</Label>
+                                  <Input type="number" value={itemDescPct} onChange={e => setItemDescPct(e.target.value)} className="h-9 w-[80px] text-sm" step="0.01" min="0" max="100" placeholder="0" />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <Label className="text-[13px] font-semibold text-foreground">Desc R$</Label>
+                                  <Input type="number" value={itemDescValor} onChange={e => setItemDescValor(e.target.value)} className="h-9 w-[90px] text-sm" step="0.01" min="0" placeholder="0,00" />
+                                </div>
+                              </>
+                            )}
                             <Button variant="success" size="sm" onClick={handleAddItem} disabled={addingItem || !itemTipo || !itemDescricao.trim()} className="gap-1.5 h-9">
                               {addingItem ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                               Incluir Item
@@ -2452,9 +2492,25 @@ export default function OrcamentoDetailPage() {
                                 </TableCell>
                                 <TableCell>
                                   <Input type="number" value={editValor} onChange={e => setEditValor(e.target.value)} className="h-7 w-[90px] text-xs text-right" step="0.01" />
+                                  {/* Desconto por item — só serviço (#HLP0302). % e R$ somam. */}
+                                  {editTipo === 'SERVICO' && (
+                                    <div className="mt-1 flex items-center gap-1">
+                                      <Input type="number" value={editDescPct} onChange={e => setEditDescPct(e.target.value)} className="h-6 w-[52px] text-[11px] text-right" step="0.01" min="0" max="100" placeholder="% desc" title="Desconto em %" />
+                                      <Input type="number" value={editDescValor} onChange={e => setEditDescValor(e.target.value)} className="h-6 w-[62px] text-[11px] text-right" step="0.01" min="0" placeholder="R$ desc" title="Desconto em R$" />
+                                    </div>
+                                  )}
                                 </TableCell>
                                 <TableCell className="text-right text-xs font-medium whitespace-nowrap">
-                                  {formatCurrency((parseFloat(editQtde) || 0) * (parseFloat(editValor) || 0))}
+                                  {(() => {
+                                    const bruto = (parseFloat(editQtde) || 0) * (parseFloat(editValor) || 0)
+                                    const desc = editTipo === 'SERVICO' ? Math.min(bruto, bruto * (parseFloat(editDescPct) || 0) / 100 + (parseFloat(editDescValor) || 0)) : 0
+                                    return desc > 0 ? (
+                                      <>
+                                        <div className="text-[10px] text-muted-foreground line-through">{formatCurrency(bruto)}</div>
+                                        <div className="text-emerald-600">{formatCurrency(bruto - desc)}</div>
+                                      </>
+                                    ) : formatCurrency(bruto)
+                                  })()}
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex justify-end gap-1">
@@ -2470,7 +2526,19 @@ export default function OrcamentoDetailPage() {
                                 <TableCell className="text-sm whitespace-nowrap cursor-pointer" onClick={() => startEditItem(item)}>{item.descricao}</TableCell>
                                 <TableCell className="text-center text-xs whitespace-nowrap">{item.quantidade}</TableCell>
                                 <TableCell className="text-right text-xs whitespace-nowrap">{formatCurrency(item.valorUnitario)}</TableCell>
-                                <TableCell className="text-right text-sm font-medium whitespace-nowrap">{formatCurrency(item.valorTotal || item.quantidade * item.valorUnitario)}</TableCell>
+                                <TableCell className="text-right text-sm font-medium whitespace-nowrap">
+                                  {(() => {
+                                    const bruto = item.quantidade * item.valorUnitario
+                                    const desc = descontoDoItem(item)
+                                    return desc > 0 ? (
+                                      <>
+                                        <div className="text-[10px] text-muted-foreground line-through">{formatCurrency(bruto)}</div>
+                                        <div className="text-emerald-600">{formatCurrency(bruto - desc)}</div>
+                                        <div className="text-[10px] text-emerald-600">−{Number(item.descontoPct) > 0 ? `${Number(item.descontoPct)}%` : ''}{Number(item.descontoPct) > 0 && Number(item.descontoValor) > 0 ? ' + ' : ''}{Number(item.descontoValor) > 0 ? formatCurrency(Number(item.descontoValor)) : ''}</div>
+                                      </>
+                                    ) : formatCurrency(item.valorTotal || bruto)
+                                  })()}
+                                </TableCell>
                                 <TableCell className="text-right whitespace-nowrap">
                                   <div className="flex justify-end gap-1">
                                     {item.catalogoId && (
@@ -2497,14 +2565,20 @@ export default function OrcamentoDetailPage() {
                       <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
                         <h4 className="text-[13px] font-semibold text-foreground">Desconto e Pagamento</h4>
                       </div>
+                      {apenasDescontoItem && (
+                        <div className="mx-5 mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/30 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-300">
+                          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                          <span>O desconto geral está desativado nas configurações (&ldquo;Usar apenas desconto por item&rdquo;). Aplique o desconto item a item na aba <strong>Itens</strong>.</span>
+                        </div>
+                      )}
                       <div className="p-5 grid grid-cols-12 gap-3">
                         <div className="col-span-12 sm:col-span-4 space-y-1.5">
                           <Label className="text-[13px] font-semibold text-foreground">Desconto %</Label>
-                          <Input type="number" value={formDescontoPercent} onChange={e => setFormDescontoPercent(e.target.value)} disabled={isLocked && !isMasterReal} className="h-9 text-sm" step="0.01" min="0" max="100" placeholder="0" />
+                          <Input type="number" value={formDescontoPercent} onChange={e => setFormDescontoPercent(e.target.value)} disabled={apenasDescontoItem || (isLocked && !isMasterReal)} className="h-9 text-sm" step="0.01" min="0" max="100" placeholder="0" />
                         </div>
                         <div className="col-span-12 sm:col-span-4 space-y-1.5">
                           <Label className="text-[13px] font-semibold text-foreground">Desconto R$</Label>
-                          <Input type="number" value={formDesconto} onChange={e => setFormDesconto(e.target.value)} disabled={isLocked && !isMasterReal} className="h-9 text-sm" step="0.01" min="0" placeholder="0,00" />
+                          <Input type="number" value={formDesconto} onChange={e => setFormDesconto(e.target.value)} disabled={apenasDescontoItem || (isLocked && !isMasterReal)} className="h-9 text-sm" step="0.01" min="0" placeholder="0,00" />
                         </div>
                         <div className="col-span-12 space-y-1.5">
                           <div className="flex items-center justify-between">

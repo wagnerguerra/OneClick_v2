@@ -14,6 +14,8 @@ interface Item {
   descricao: string
   quantidade: number
   valorUnitario: number | string
+  descontoPct?: number | string | null
+  descontoValor?: number | string | null
 }
 
 interface Orcamento {
@@ -496,13 +498,31 @@ function ItensTabela({ titulo, itens, corBadge }: { titulo: string; itens: Item[
         </thead>
         <tbody>
           {itens.map(item => {
-            const total = Number(item.valorUnitario) * Number(item.quantidade)
+            const bruto = Number(item.valorUnitario) * Number(item.quantidade)
+            // Desconto por item — só serviço (#HLP0302), limitado ao subtotal.
+            const desc = item.tipo === 'SERVICO'
+              ? Math.min(bruto, Math.max(0, bruto * (Number(item.descontoPct) || 0) / 100 + (Number(item.descontoValor) || 0)))
+              : 0
             return (
               <tr key={item.id} className="border-b border-slate-50 dark:border-slate-800 last:border-b-0">
-                <td className="px-6 py-3 text-sm">{item.descricao}</td>
+                <td className="px-6 py-3 text-sm">
+                  {item.descricao}
+                  {desc > 0 && (
+                    <span className="ml-2 inline-block rounded bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                      desconto {Number(item.descontoPct) > 0 ? `${Number(item.descontoPct)}%` : ''}{Number(item.descontoPct) > 0 && Number(item.descontoValor) > 0 ? ' + ' : ''}{Number(item.descontoValor) > 0 ? formatCurrency(Number(item.descontoValor)) : ''}
+                    </span>
+                  )}
+                </td>
                 <td className="px-6 py-3 text-sm text-right">{Number(item.quantidade)}</td>
                 <td className="px-6 py-3 text-sm text-right">{formatCurrency(Number(item.valorUnitario))}</td>
-                <td className="px-6 py-3 text-sm text-right font-medium">{formatCurrency(total)}</td>
+                <td className="px-6 py-3 text-sm text-right font-medium">
+                  {desc > 0 ? (
+                    <>
+                      <span className="text-slate-400 line-through mr-1.5">{formatCurrency(bruto)}</span>
+                      {formatCurrency(bruto - desc)}
+                    </>
+                  ) : formatCurrency(bruto)}
+                </td>
               </tr>
             )
           })}

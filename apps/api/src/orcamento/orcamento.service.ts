@@ -1931,26 +1931,34 @@ export class OrcamentoService {
   }
 
   /** Tabela de itens do orcamento — agrupa por tipo e mostra subtotal por linha. */
-  private buildItensTable(itens: Array<{ tipo: string; descricao: string; quantidade: number; valorUnitario: number | string | { toNumber: () => number } }>): string {
+  private buildItensTable(itens: Array<{ tipo: string; descricao: string; quantidade: number; valorUnitario: number | string | { toNumber: () => number }; descontoPct?: number | string | { toNumber: () => number } | null; descontoValor?: number | string | { toNumber: () => number } | null }>): string {
     if (!itens.length) return ''
     const tipoLabel: Record<string, string> = { SERVICO: 'Serviço', TAXA: 'Taxa', DESPESA: 'Despesa' }
     const tipoColor: Record<string, string> = { SERVICO: '#10b981', TAXA: '#f59e0b', DESPESA: '#ef4444' }
+    const num = (v: unknown): number =>
+      typeof v === 'object' && v !== null && 'toNumber' in v ? (v as { toNumber: () => number }).toNumber() : Number(v || 0)
 
     const rows = itens.map((it) => {
-      const unit = typeof it.valorUnitario === 'object' && it.valorUnitario !== null && 'toNumber' in it.valorUnitario
-        ? (it.valorUnitario as { toNumber: () => number }).toNumber()
-        : Number(it.valorUnitario || 0)
-      const total = unit * (it.quantidade || 0)
+      const unit = num(it.valorUnitario)
+      const bruto = unit * (it.quantidade || 0)
       const tip = it.tipo as string
+      // Desconto por item — só serviço (#HLP0302), limitado ao subtotal.
+      const desc = tip === 'SERVICO' ? Math.min(bruto, Math.max(0, bruto * num(it.descontoPct) / 100 + num(it.descontoValor))) : 0
+      const totalCell = desc > 0
+        ? `<span style="color:#94a3b8;text-decoration:line-through;margin-right:6px;">${this.formatCurrency(bruto)}</span>${this.formatCurrency(bruto - desc)}`
+        : this.formatCurrency(bruto)
+      const descLabel = desc > 0
+        ? `<div style="margin-top:2px;font-size:10px;color:#059669;">desconto ${num(it.descontoPct) > 0 ? `${num(it.descontoPct)}%` : ''}${num(it.descontoPct) > 0 && num(it.descontoValor) > 0 ? ' + ' : ''}${num(it.descontoValor) > 0 ? this.formatCurrency(num(it.descontoValor)) : ''}</div>`
+        : ''
       return `
       <tr>
         <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:11px;">
           <span style="display:inline-block;padding:2px 8px;border-radius:10px;background:${tipoColor[tip] || '#94a3b8'}1a;color:${tipoColor[tip] || '#94a3b8'};font-weight:600;text-transform:uppercase;">${tipoLabel[tip] || tip}</span>
         </td>
-        <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#0f172a;">${it.descricao}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#0f172a;">${it.descricao}${descLabel}</td>
         <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:center;color:#6b7280;">${it.quantidade}</td>
         <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;color:#374151;font-variant-numeric:tabular-nums;">${this.formatCurrency(unit)}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;color:#0f172a;font-variant-numeric:tabular-nums;">${this.formatCurrency(total)}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;color:#0f172a;font-variant-numeric:tabular-nums;">${totalCell}</td>
       </tr>`
     }).join('')
 
@@ -2080,6 +2088,8 @@ export class OrcamentoService {
     const itensTable = this.buildItensTable(itens.map(i => ({
       tipo: i.tipo, descricao: i.descricao, quantidade: Number(i.quantidade),
       valorUnitario: i.valorUnitario as unknown as { toNumber: () => number },
+      descontoPct: i.descontoPct as unknown as { toNumber: () => number } | null,
+      descontoValor: i.descontoValor as unknown as { toNumber: () => number } | null,
     })))
     const totaisBlock = this.buildTotaisBlock({
       descontoPct: orc.descontoPct as unknown as { toNumber: () => number } | null,
@@ -2397,6 +2407,8 @@ export class OrcamentoService {
     const itensTable = this.buildItensTable(orc.itens.map(i => ({
       tipo: i.tipo, descricao: i.descricao, quantidade: Number(i.quantidade),
       valorUnitario: i.valorUnitario as unknown as { toNumber: () => number },
+      descontoPct: i.descontoPct as unknown as { toNumber: () => number } | null,
+      descontoValor: i.descontoValor as unknown as { toNumber: () => number } | null,
     })))
     const totaisBlock = this.buildTotaisBlock({
       descontoPct: orc.descontoPct as unknown as { toNumber: () => number } | null,
@@ -2523,6 +2535,10 @@ export class OrcamentoService {
 
   async addItem(input: CreateOrcamentoItemInput) {
     await this.assertEditable(input.orcamentoId)
+    // Desconto por item só vale para serviço (#HLP0302, decisão de negócio):
+    // TAXA/DESPESA nunca recebem desconto, então zeramos por segurança mesmo que
+    // o cliente mande algo.
+    const ehServico = input.tipo === 'SERVICO'
     const item = await prisma.orcamentoItem.create({
       data: {
         orcamentoId: input.orcamentoId,
@@ -2530,6 +2546,8 @@ export class OrcamentoService {
         descricao: input.descricao,
         quantidade: input.quantidade,
         valorUnitario: input.valorUnitario,
+        descontoPct: ehServico ? (input.itemDescontoPct ?? null) : null,
+        descontoValor: ehServico ? (input.itemDescontoValor ?? null) : null,
         catalogoId: input.catalogoId || null,
         catalogoTextoId: input.catalogoTextoId || null,
         situacao: input.situacao || 'A_FAZER',
@@ -2541,10 +2559,19 @@ export class OrcamentoService {
   }
 
   async updateItem(id: string, data: UpdateOrcamentoItemInput) {
-    const item = await prisma.orcamentoItem.findUnique({ where: { id }, select: { orcamentoId: true } })
+    const item = await prisma.orcamentoItem.findUnique({ where: { id }, select: { orcamentoId: true, tipo: true } })
     if (!item) throw new Error('Item não encontrado')
     await this.assertEditable(item.orcamentoId)
-    const updated = await prisma.orcamentoItem.update({ where: { id }, data: data as any })
+    // Mapeia os nomes da API (itemDesconto*) para as colunas do item (desconto*),
+    // separando-os dos campos genéricos. Desconto só entra em serviço.
+    const { itemDescontoPct, itemDescontoValor, ...rest } = data
+    const tipoFinal = data.tipo ?? item.tipo
+    const patch: Record<string, unknown> = { ...rest }
+    if (itemDescontoPct !== undefined) patch.descontoPct = tipoFinal === 'SERVICO' ? itemDescontoPct : null
+    if (itemDescontoValor !== undefined) patch.descontoValor = tipoFinal === 'SERVICO' ? itemDescontoValor : null
+    // Trocou para TAXA/DESPESA? Limpa qualquer desconto que o item carregava.
+    if (data.tipo && data.tipo !== 'SERVICO') { patch.descontoPct = null; patch.descontoValor = null }
+    const updated = await prisma.orcamentoItem.update({ where: { id }, data: patch as any })
     await this.recalcularTotais(updated.orcamentoId)
     await this.emitItemEvent(updated.orcamentoId)
     return updated
@@ -2574,17 +2601,36 @@ export class OrcamentoService {
     const orc = await prisma.orcamento.findUnique({ where: { id: orcamentoId }, include: { itens: true } })
     if (!orc) return
 
-    let totalServicos = 0, totalTaxas = 0, totalDespesas = 0
+    // totalServicos/Taxas/Despesas somam os BRUTOS (sem desconto), como sempre.
+    // descontoItens acumula o desconto por item (#HLP0302) — só serviço tem, e
+    // cada item é limitado ao próprio subtotal para nunca ficar negativo.
+    let totalServicos = 0, totalTaxas = 0, totalDespesas = 0, descontoItens = 0
     for (const item of orc.itens) {
       const subtotal = Number(item.quantidade) * Number(item.valorUnitario)
-      if (item.tipo === 'SERVICO') totalServicos += subtotal
+      if (item.tipo === 'SERVICO') {
+        totalServicos += subtotal
+        const dPct = Number(item.descontoPct || 0)
+        const dFix = Number(item.descontoValor || 0)
+        const dItem = Math.min(subtotal, subtotal * dPct / 100 + dFix)
+        if (dItem > 0) descontoItens += dItem
+      }
       else if (item.tipo === 'TAXA') totalTaxas += subtotal
       else if (item.tipo === 'DESPESA') totalDespesas += subtotal
     }
+    descontoItens = Math.round(descontoItens * 100) / 100
 
-    const descontoPct = Number(orc.descontoPct || 0)
-    const descontoFixo = Number(orc.descontoValor || 0)
-    const descontoAplicado = Math.round((totalServicos * descontoPct / 100 + descontoFixo) * 100) / 100
+    // Desconto GERAL (sobre serviços, como sempre). A config decide se ele soma
+    // com o por-item ou é bloqueado: com "só por item" ligado (padrão), o geral
+    // não entra — mesmo que ainda haja um valor gravado, ele é ignorado no total
+    // (o orçamento antigo mantém o número dele até ser reeditado). Ver saveConfig.
+    const permiteGeral = await this.descontoGeralPermitido(orc.empresaId)
+    const descontoPct = permiteGeral ? Number(orc.descontoPct || 0) : 0
+    const descontoFixo = permiteGeral ? Number(orc.descontoValor || 0) : 0
+    const descontoGeral = Math.round((totalServicos * descontoPct / 100 + descontoFixo) * 100) / 100
+
+    // descontoAplicado = por-item + geral (somam, como o Wagner definiu no #302).
+    // Limitado ao total de serviços para o desconto nunca superar a base.
+    const descontoAplicado = Math.min(totalServicos, Math.round((descontoItens + descontoGeral) * 100) / 100)
     const totalGeral = Math.round((totalServicos + totalTaxas + totalDespesas - descontoAplicado) * 100) / 100
 
     await prisma.orcamento.update({
@@ -3883,7 +3929,17 @@ export class OrcamentoService {
       followupRecusaDias: parseInt(config.followup_recusa_dias || '3'),
       followupTipoEventoId: config.followup_tipo_evento_id || '',
       emailLembretes: config.email_lembretes || '',
+      // #HLP0302 — "Usar apenas desconto por item". Marcada (padrão) = o desconto
+      // geral fica bloqueado e só o por-item vale. Desmarcada = os dois somam.
+      // Default '1' (travado por padrão, conforme decisão do Wagner).
+      apenasDescontoItem: (config.apenas_desconto_item ?? '1') === '1',
     }
+  }
+
+  /** #HLP0302 — o desconto GERAL só entra quando "apenas por item" está DESmarcado. */
+  private async descontoGeralPermitido(empresaId?: string | null): Promise<boolean> {
+    const cfg = await this.getConfig(empresaId ?? undefined).catch(() => null)
+    return cfg ? !cfg.apenasDescontoItem : false
   }
 
   // Define a imagem de fundo do header de orcamentos. URL vazia/null limpa.

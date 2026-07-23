@@ -51,6 +51,9 @@ export const createOrcamentoItemSchema = z.object({
   descricao: z.string().min(1),
   quantidade: z.coerce.number().min(0.0001).default(1),
   valorUnitario: z.coerce.number().min(0),
+  // Desconto por item (#HLP0302) — só vale para serviço; % e valor somam.
+  itemDescontoPct: z.coerce.number().min(0).max(100).optional().nullable(),
+  itemDescontoValor: z.coerce.number().min(0).optional().nullable(),
   catalogoId: z.string().optional().nullable(),
   catalogoTextoId: z.string().optional().nullable(),
   situacao: itemSituacaoSchema.optional(),
@@ -61,6 +64,8 @@ export const updateOrcamentoItemSchema = z.object({
   descricao: z.string().min(1).optional(),
   quantidade: z.coerce.number().min(0.0001).optional(),
   valorUnitario: z.coerce.number().min(0).optional(),
+  itemDescontoPct: z.coerce.number().min(0).max(100).optional().nullable(),
+  itemDescontoValor: z.coerce.number().min(0).optional().nullable(),
   situacao: itemSituacaoSchema.optional(),
   // Vínculo com item do catálogo — permite trocar o serviço na edição
   // usando a mesma busca da inclusão (#HLP0088).

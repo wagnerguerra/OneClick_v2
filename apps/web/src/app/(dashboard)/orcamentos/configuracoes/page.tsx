@@ -36,6 +36,8 @@ interface ConfigState {
   followupRecusaDias: number
   followupTipoEventoId: string
   emailLembretes: string
+  // #HLP0302 — "Usar apenas desconto por item". true (padrão) = desconto geral bloqueado.
+  apenasDescontoItem: boolean
 }
 
 const DEFAULT_CONFIG: ConfigState = {
@@ -59,6 +61,7 @@ const DEFAULT_CONFIG: ConfigState = {
   followupRecusaDias: 3,
   followupTipoEventoId: '',
   emailLembretes: '',
+  apenasDescontoItem: true,
 }
 
 type TabKey = 'prazos' | 'numeracao' | 'emails' | 'textos' | 'areas' | 'modelos' | 'ia' | 'pesquisa'
@@ -135,6 +138,7 @@ export default function OrcamentosConfiguracoesPage() {
         followup_recusa_dias: String(config.followupRecusaDias),
         followup_tipo_evento_id: config.followupTipoEventoId,
         email_lembretes: config.emailLembretes,
+        apenas_desconto_item: config.apenasDescontoItem ? '1' : '0',
       })
       alerts.success('Salvo', 'Configurações atualizadas')
     } catch {
@@ -322,6 +326,17 @@ export default function OrcamentosConfiguracoesPage() {
                     <p className="text-[11px] text-muted-foreground">
                       O próximo orçamento criado terá no mínimo este número. Se já houver orçamentos com número maior, o sistema continua incrementando a partir do último (não regride).
                     </p>
+                  </div>
+
+                  {/* #HLP0302 — política de desconto */}
+                  <div className="col-span-12 border-t border-border pt-4 mt-1 space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground block">Descontos</label>
+                    <label className="flex items-start gap-2 cursor-pointer select-none">
+                      <input type="checkbox" checked={config.apenasDescontoItem} onChange={e => setConfig(c => ({ ...c, apenasDescontoItem: e.target.checked }))} className="mt-0.5 h-4 w-4 accent-[var(--mod-comercial,#fb7185)]" />
+                      <span className="text-[11px] text-muted-foreground">
+                        <strong className="text-foreground font-medium">Usar apenas desconto por item.</strong> Marcado, o desconto é aplicado item a item (só serviços) e o desconto geral do orçamento fica desativado. Desmarcado, o desconto por item e o desconto geral <strong className="text-foreground font-medium">somam</strong>.
+                      </span>
+                    </label>
                   </div>
                 </div>
               )}

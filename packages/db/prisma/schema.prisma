@@ -3358,6 +3358,10 @@ model OrcamentoItem {
   descricao     String
   quantidade    Decimal  @default(1) @db.Decimal(15, 4)
   valorUnitario Decimal  @map("valor_unitario") @db.Decimal(12, 2)
+  // Desconto POR ITEM — só se aplica a itens de serviço (TAXA/DESPESA ignoram).
+  // Percentual e/ou valor fixo; ambos somam. NULL = sem desconto no item (#HLP0302).
+  descontoPct   Decimal? @map("desconto_pct") @db.Decimal(5, 2)
+  descontoValor Decimal? @map("desconto_valor") @db.Decimal(12, 2)
   catalogoId    String?  @map("catalogo_id")
   // Texto escolhido do catálogo — vira o "texto padrão" exibido para este item
   catalogoTextoId String? @map("catalogo_texto_id")

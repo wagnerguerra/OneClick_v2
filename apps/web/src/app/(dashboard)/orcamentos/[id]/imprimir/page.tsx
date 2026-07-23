@@ -14,6 +14,8 @@ interface Item {
   descricao: string
   quantidade: number
   valorUnitario: number | string
+  descontoPct?: number | string | null
+  descontoValor?: number | string | null
 }
 
 interface Orcamento {
@@ -586,14 +588,32 @@ export default function ImprimirOrcamentoPage() {
               </thead>
               <tbody>
                 {todosItens.map(item => {
-                  const total = Number(item.valorUnitario) * Number(item.quantidade)
+                  const bruto = Number(item.valorUnitario) * Number(item.quantidade)
+                  // Desconto por item — só serviço (#HLP0302), limitado ao subtotal.
+                  const desc = item.tipo === 'SERVICO'
+                    ? Math.min(bruto, Math.max(0, bruto * (Number(item.descontoPct) || 0) / 100 + (Number(item.descontoValor) || 0)))
+                    : 0
                   return (
                     <tr key={item.id}>
                       <td className="tipo">{item.tipoLabel}</td>
-                      <td>{item.descricao}</td>
+                      <td>
+                        {item.descricao}
+                        {desc > 0 && (
+                          <span style={{ marginLeft: 6, fontSize: 10, color: '#059669' }}>
+                            (desconto {Number(item.descontoPct) > 0 ? `${Number(item.descontoPct)}%` : ''}{Number(item.descontoPct) > 0 && Number(item.descontoValor) > 0 ? ' + ' : ''}{Number(item.descontoValor) > 0 ? formatCurrency(Number(item.descontoValor)) : ''})
+                          </span>
+                        )}
+                      </td>
                       <td className="right">{Number(item.quantidade)}</td>
                       <td className="right">{formatCurrency(item.valorUnitario)}</td>
-                      <td className="right" style={{ fontWeight: 600 }}>{formatCurrency(total)}</td>
+                      <td className="right" style={{ fontWeight: 600 }}>
+                        {desc > 0 ? (
+                          <>
+                            <span style={{ color: '#94a3b8', textDecoration: 'line-through', marginRight: 4 }}>{formatCurrency(bruto)}</span>
+                            {formatCurrency(bruto - desc)}
+                          </>
+                        ) : formatCurrency(bruto)}
+                      </td>
                     </tr>
                   )
                 })}
