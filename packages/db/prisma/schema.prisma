@@ -3274,6 +3274,7 @@ enum OrcamentoStatus {
   LIBERADO
   FINALIZADO
   ENCERRADO
+  CANCELADO // #HLP: cancelamento (soft) — substitui a exclusão permanente do kanban
 }
 
 model Orcamento {

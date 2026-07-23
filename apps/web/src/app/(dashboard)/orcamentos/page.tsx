@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  FileText, CircleDollarSign, Loader2, Plus, MoreVertical, Copy, Archive, Trash2,
+  FileText, CircleDollarSign, Loader2, Plus, MoreVertical, Copy, Archive, Ban,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
   Clock, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
   MessageSquare, Paperclip, RotateCcw, Star,
@@ -614,10 +614,19 @@ export default function OrcamentosPage() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
-  async function handleDelete(id: string) {
-    if (!await alerts.confirmDelete('este orcamento')) return
+  async function handleCancelar(id: string) {
+    // #HLP0303 — não existe mais exclusão permanente. Cancelar é soft: o orçamento
+    // sai do funil e passa a constar como "Cancelado" no cadastro do cliente.
+    const ok = await alerts.confirm({
+      title: 'Cancelar este orçamento?',
+      text: 'Ele sai do funil e fica registrado como Cancelado no cadastro do cliente (Comercial → Orçamentos). Nada é apagado.',
+      confirmText: 'Cancelar orçamento',
+      icon: 'warning',
+    })
+    if (!ok) return
     try {
-      await (trpc.orcamento as any).delete.mutate({ id })
+      await (trpc.orcamento as any).cancelar.mutate({ id })
+      await alerts.success('Cancelado', 'Orçamento cancelado.')
       fetchData()
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
@@ -796,7 +805,7 @@ export default function OrcamentosPage() {
                       onOpenDetail={(id) => router.push(`/orcamentos/${id}`)}
                       onDuplicar={handleDuplicar}
                       onArquivar={handleArquivar}
-                      onDelete={handleDelete}
+                      onCancelar={handleCancelar}
                     />
                   )
                 })}
@@ -901,7 +910,7 @@ export default function OrcamentosPage() {
                         <DropdownMenuItem onClick={() => router.push(`/orcamentos/${orc.id}`)}><FileText className="h-4 w-4" />Detalhes</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDuplicar(orc.id)}><Copy className="h-4 w-4" />Duplicar</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleArquivar(orc.id)}><Archive className="h-4 w-4" />Arquivar</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(orc.id)}><Trash2 className="h-4 w-4" />Excluir</DropdownMenuItem>
+                        <DropdownMenuItem className="text-amber-600 dark:text-amber-500" onClick={() => handleCancelar(orc.id)}><Ban className="h-4 w-4" />Cancelar</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -1092,7 +1101,7 @@ function SortHead({ label, sortKey, sort, onSort, className, align = 'left' }: {
 // Kanban DnD Components
 // ============================================================
 
-function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisabled, draggable, onToggleCollapse, getClienteNome, onOpenDetail, onDuplicar, onArquivar, onDelete }: {
+function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisabled, draggable, onToggleCollapse, getClienteNome, onOpenDetail, onDuplicar, onArquivar, onCancelar }: {
   status: string
   items: OrcamentoRow[]
   isOver: boolean
@@ -1105,7 +1114,7 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
   onOpenDetail: (id: string) => void
   onDuplicar: (id: string) => void
   onArquivar: (id: string) => void
-  onDelete: (id: string) => void
+  onCancelar: (id: string) => void
 }) {
   // Quando user não pode mover, desabilita também o drop (defesa em profundidade)
   const { setNodeRef } = useDroppable({ id: status, disabled: dropDisabled || !draggable })
@@ -1199,7 +1208,7 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
               onOpenDetail={onOpenDetail}
               onDuplicar={onDuplicar}
               onArquivar={onArquivar}
-              onDelete={onDelete}
+              onCancelar={onCancelar}
             />
           ))}
         </div>
@@ -1208,7 +1217,7 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
   )
 }
 
-function KanbanCard({ orc, isDraggingAny, clienteNome, draggable, onOpenDetail, onDuplicar, onArquivar, onDelete }: {
+function KanbanCard({ orc, isDraggingAny, clienteNome, draggable, onOpenDetail, onDuplicar, onArquivar, onCancelar }: {
   orc: OrcamentoRow
   isDraggingAny: boolean
   clienteNome: string | null
@@ -1216,7 +1225,7 @@ function KanbanCard({ orc, isDraggingAny, clienteNome, draggable, onOpenDetail, 
   onOpenDetail: (id: string) => void
   onDuplicar: (id: string) => void
   onArquivar: (id: string) => void
-  onDelete: (id: string) => void
+  onCancelar: (id: string) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: orc.id, disabled: !draggable })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }
@@ -1239,7 +1248,7 @@ function KanbanCard({ orc, isDraggingAny, clienteNome, draggable, onOpenDetail, 
       <div className="flex">
         <div className="w-[3px] shrink-0" style={{ backgroundColor: color }} />
         <div className="flex-1 min-w-0">
-          <KanbanCardContent orc={orc} clienteNome={clienteNome} onDuplicar={onDuplicar} onArquivar={onArquivar} onDelete={onDelete} onOpenDetail={onOpenDetail} showMenu={!isDraggingAny} />
+          <KanbanCardContent orc={orc} clienteNome={clienteNome} onDuplicar={onDuplicar} onArquivar={onArquivar} onCancelar={onCancelar} onOpenDetail={onOpenDetail} showMenu={!isDraggingAny} />
         </div>
       </div>
     </div>
@@ -1291,20 +1300,20 @@ function KanbanCardOverlay({ orc, clienteNome, velocityX }: { orc: OrcamentoRow;
       <div className="flex">
         <div className="w-[3px] shrink-0" style={{ backgroundColor: color }} />
         <div className="flex-1 min-w-0">
-          <KanbanCardContent orc={orc} clienteNome={clienteNome} onDuplicar={() => {}} onArquivar={() => {}} onDelete={() => {}} onOpenDetail={() => {}} showMenu={false} />
+          <KanbanCardContent orc={orc} clienteNome={clienteNome} onDuplicar={() => {}} onArquivar={() => {}} onCancelar={() => {}} onOpenDetail={() => {}} showMenu={false} />
         </div>
       </div>
     </div>
   )
 }
 
-function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onDelete, onOpenDetail, showMenu }: {
+function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancelar, onOpenDetail, showMenu }: {
   orc: OrcamentoRow
   clienteNome: string | null
   onOpenDetail: (id: string) => void
   onDuplicar: (id: string) => void
   onArquivar: (id: string) => void
-  onDelete: (id: string) => void
+  onCancelar: (id: string) => void
   showMenu: boolean
 }) {
   const valor = Number(orc.totalGeral || orc.valorTotal || 0)
@@ -1328,7 +1337,7 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onDelete,
                 <DropdownMenuItem onClick={() => onOpenDetail(orc.id)}><Eye className="h-3.5 w-3.5 mr-2" /> Detalhes</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onDuplicar(orc.id)}><Copy className="h-3.5 w-3.5 mr-2" /> Duplicar</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onArquivar(orc.id)}><Archive className="h-3.5 w-3.5 mr-2" /> Arquivar</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive" onClick={() => onDelete(orc.id)}><Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir</DropdownMenuItem>
+                <DropdownMenuItem className="text-amber-600 dark:text-amber-500" onClick={() => onCancelar(orc.id)}><Ban className="h-3.5 w-3.5 mr-2" /> Cancelar</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}

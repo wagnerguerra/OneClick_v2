@@ -113,9 +113,12 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ id: z.string(), textoInterno: z.string().nullable() }))
       .mutation(({ input, ctx }) => orcamentoService.updateTextoInterno(input.id, input.textoInterno, ctx.userId)),
 
-    delete: deleteProcedure(MODULE)
+    // #HLP0303 — a exclusão permanente foi REMOVIDA. Cancelar é soft: preserva o
+    // registro como CANCELADO e o exibe no cadastro do cliente. Mantém o gate de
+    // permissão de exclusão (quem podia excluir, pode cancelar).
+    cancelar: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => orcamentoService.delete(input.id)),
+      .mutation(({ input, ctx }) => orcamentoService.cancelar(input.id, ctx.userId)),
 
     duplicar: writeSubProcedure(MODULE, 'acao_duplicar', 'Duplicar orçamentos')
       .input(z.object({ id: z.string() }))

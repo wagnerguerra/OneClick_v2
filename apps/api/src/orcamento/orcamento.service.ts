@@ -87,7 +87,11 @@ export class OrcamentoService {
   async list(input: ListOrcamentoInput, isMaster: boolean, empresaId?: string, userId?: string) {
     const where: any = { arquivado: input.arquivado ?? false }
     if (!isMaster && empresaId) where.empresaId = empresaId
+    // CANCELADO fica FORA do funil e da listagem ativa (#HLP0303): só aparece
+    // quando explicitamente filtrado por status, ou no cadastro do cliente (que
+    // usa outra consulta). Sem filtro de status, esconde os cancelados.
     if (input.status) where.status = input.status
+    else where.status = { not: 'CANCELADO' }
     if (input.clienteId) where.clienteId = input.clienteId
     // Filtro de auditoria: somente orcamentos que ja foram reabertos pelo menos uma vez
     if (input.comReaberturas) where.reaberturasCount = { gt: 0 }
@@ -1064,32 +1068,31 @@ export class OrcamentoService {
     return orc
   }
 
-  async delete(id: string, opts?: { cascataDoCrm?: boolean }) {
-    // Proteção: orçamento vindo de um card do CRM só pode ser deletado quando
-    // o próprio card for excluído (que faz a cascata via flag interna). Caso
-    // contrário, o usuário receberia "órfãos" no Kanban apontando pra orçamentos
-    // que não existem mais.
-    if (!opts?.cascataDoCrm) {
-      const orc = await prisma.orcamento.findUnique({
-        where: { id },
-        select: { oportunidadeId: true, numero: true },
-      })
-      if (orc?.oportunidadeId) {
-        const oportunidadeExiste = await prisma.oportunidade.findUnique({
-          where: { id: orc.oportunidadeId },
-          select: { id: true },
-        })
-        if (oportunidadeExiste) {
-          throw new Error(
-            `Este orçamento #${orc.numero} foi criado por um card do CRM. ` +
-            `Exclua o card no Kanban primeiro — ele removerá o orçamento em cascata.`,
-          )
-        }
-      }
-    }
-    const deleted = await prisma.orcamento.delete({ where: { id } })
-    this.emitEvent('kanban', { orcamentoId: id, empresaId: deleted.empresaId })
-    return deleted
+  /**
+   * Cancela um orçamento (SOFT). Substitui a antiga exclusão permanente do kanban
+   * (#HLP0303): a exclusão física nunca mais acontece — o registro é preservado,
+   * marcado como CANCELADO, sai do funil e da listagem ativa e passa a aparecer
+   * no cadastro do cliente (Comercial → Orçamentos) como "Cancelado".
+   *
+   * Também cancela os serviços/processos que o orçamento eventualmente disparou
+   * na aprovação, pra não deixar execução órfã rodando. Idempotente: cancelar de
+   * novo não faz mal.
+   */
+  async cancelar(id: string, userId?: string) {
+    const orc = await prisma.orcamento.findUnique({ where: { id }, select: { numero: true, status: true, empresaId: true } })
+    if (!orc) throw new Error('Orçamento não encontrado')
+    if (orc.status === 'CANCELADO') return orc // já cancelado — no-op
+
+    await this.cancelarServicosDoOrcamento(id, `Orçamento #${orc.numero} cancelado`, userId)
+      .catch(e => console.warn('[Orcamento] Falha ao cancelar serviços ao cancelar orçamento', orc.numero, (e as Error).message))
+
+    const updated = await prisma.orcamento.update({
+      where: { id },
+      data: { status: 'CANCELADO', dtCancelado: new Date() },
+    })
+    await this.addEvento(id, userId, 'status_change', orc.status, 'CANCELADO', `Orçamento cancelado`)
+    this.emitEvent('kanban', { orcamentoId: id, empresaId: updated.empresaId })
+    return updated
   }
 
   async duplicar(id: string, userId?: string, empresaId?: string) {

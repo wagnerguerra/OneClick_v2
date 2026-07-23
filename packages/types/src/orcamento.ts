@@ -86,8 +86,14 @@ export type UpdateOrcamentoItemInput = z.infer<typeof updateOrcamentoItemSchema>
 // kanban (UX de bloqueio visual durante o drag). Para qualquer regressão,
 // usar o endpoint `reabrir` (que pede motivo e limpa datas posteriores).
 
+// Ordem do PIPELINE = colunas do kanban. CANCELADO fica FORA daqui de propósito:
+// é um estado terminal fora do funil (não vira coluna). Ver ORCAMENTO_STATUS_ALL.
 export const ORCAMENTO_STATUS_ORDER = ['NOVO', 'A_ENVIAR', 'ENVIADO', 'APROVADO', 'LIBERADO', 'FINALIZADO', 'ENCERRADO'] as const
-export type OrcamentoStatusValue = typeof ORCAMENTO_STATUS_ORDER[number]
+
+// Todos os status possíveis, incluindo os terminais fora do pipeline (CANCELADO).
+// É a base dos rótulos e do tipo — o kanban usa só o ORDER acima.
+export const ORCAMENTO_STATUS_ALL = [...ORCAMENTO_STATUS_ORDER, 'CANCELADO'] as const
+export type OrcamentoStatusValue = typeof ORCAMENTO_STATUS_ALL[number]
 
 export const ORCAMENTO_STATUS_LABELS: Record<OrcamentoStatusValue, string> = {
   NOVO: 'Novo',
@@ -97,8 +103,12 @@ export const ORCAMENTO_STATUS_LABELS: Record<OrcamentoStatusValue, string> = {
   LIBERADO: 'Liberado',
   FINALIZADO: 'Finalizado',
   ENCERRADO: 'Encerrado',
+  CANCELADO: 'Cancelado',
 }
 
+// Transições do funil (drag no kanban). Cancelamento NÃO é transição de drag —
+// é ação própria (botão Cancelar), então CANCELADO não é destino de ninguém e,
+// sendo terminal, não sai para lugar nenhum.
 export const ORCAMENTO_ALLOWED_TRANSITIONS: Record<OrcamentoStatusValue, OrcamentoStatusValue[]> = {
   NOVO:        ['A_ENVIAR', 'ENVIADO', 'ENCERRADO'],
   A_ENVIAR:    ['ENVIADO', 'ENCERRADO'],
@@ -107,6 +117,7 @@ export const ORCAMENTO_ALLOWED_TRANSITIONS: Record<OrcamentoStatusValue, Orcamen
   LIBERADO:    ['FINALIZADO', 'ENCERRADO'],
   FINALIZADO:  ['ENCERRADO'],
   ENCERRADO:   [],
+  CANCELADO:   [],
 }
 
 /** True se a transição (de → para) é permitida pelo workflow forward-only. */

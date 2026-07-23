@@ -632,20 +632,19 @@ export class CrmService {
   }
 
   async delete(id: string, userId?: string) {
-    // Cascata: deleta orçamentos vinculados a esta oportunidade antes de
-    // apagar o card — flag `cascataDoCrm` bypassa a proteção em orcamento.delete.
+    // Cascata: CANCELA (soft) os orçamentos vinculados a esta oportunidade antes
+    // de apagar o card. A exclusão permanente de orçamento não existe mais
+    // (#HLP0303) — o `cancelar` já cancela os serviços disparados e preserva o
+    // registro; o vínculo com a oportunidade some sozinho (FK onDelete: SetNull).
     const orcamentos = await prisma.orcamento.findMany({
       where: { oportunidadeId: id },
       select: { id: true, numero: true },
     }).catch(() => [] as Array<{ id: string; numero: number }>)
     for (const orc of orcamentos) {
-      // [QA #17] Cancela serviços/processos disparados na aprovação ANTES de
-      // deletar o orçamento — sem isto ficavam rodando órfãos.
-      await this.orcamentoService.cancelarServicosDoOrcamento(orc.id, `Oportunidade excluída no CRM (orçamento #${orc.numero})`, userId)
-        .catch(e => console.warn('[CRM] Falha ao cancelar serviços do orçamento', orc.numero, (e as Error).message))
       // Limpa também as notificações de sino vinculadas àquele orçamento
       await this.notificationService.removerPorLink(`/orcamentos/${orc.id}`)
-      await this.orcamentoService.delete(orc.id, { cascataDoCrm: true })
+      await this.orcamentoService.cancelar(orc.id, userId)
+        .catch(e => console.warn('[CRM] Falha ao cancelar orçamento', orc.numero, (e as Error).message))
     }
 
     // [QA #20] Eventos de agenda vinculados: FUTUROS são desativados (com log +
