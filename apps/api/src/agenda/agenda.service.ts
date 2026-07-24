@@ -1342,6 +1342,42 @@ export class AgendaService {
     return { deleted: result.count }
   }
 
+  /**
+   * Exclui, de uma recorrência, a ocorrência informada E TODAS as posteriores
+   * (mesma série/lote com data >= a do evento). As passadas ficam intactas —
+   * corrige o bug de "excluir os futuros apagava a série inteira, inclusive o que
+   * já aconteceu". Sem lote → comporta-se como exclusão individual.
+   */
+  async deleteEstesEPosteriores(id: string, userId: string) {
+    const ev = await prisma.agendaEvento.findUniqueOrThrow({
+      where: { id }, select: { lote: true, data: true, criadorId: true },
+    })
+    if (!ev.lote) return this.delete(id, userId)
+
+    const eventos = await prisma.agendaEvento.findMany({
+      where: { lote: ev.lote, isActive: true, data: { gte: ev.data } },
+      select: { id: true, criadorId: true },
+    })
+    if (eventos.length === 0) return { deleted: 0 }
+
+    // Mesma regra de permissão do delete/​deleteLote.
+    if (eventos.some(e => e.criadorId !== userId) && !(await this.userPodeExcluir(userId))) {
+      throw new Error('Você não tem permissão para excluir esta série de eventos.')
+    }
+
+    for (const evento of eventos) {
+      await prisma.agendaLog.create({
+        data: { eventoId: evento.id, usuarioId: userId, acao: 'excluido', detalhes: 'Exclusão deste e posteriores (recorrência)' },
+      })
+    }
+
+    const result = await prisma.agendaEvento.updateMany({
+      where: { lote: ev.lote, isActive: true, data: { gte: ev.data } },
+      data: { isActive: false },
+    })
+    return { deleted: result.count }
+  }
+
   // ============================================================
   // CONFLITOS — verifica se participantes/sala já estão ocupados
   // ============================================================

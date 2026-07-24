@@ -243,6 +243,12 @@ export function createAgendaRouter(
       .input(z.object({ lote: z.string() }))
       .mutation(({ input, ctx }) => service.deleteLote(input.lote, ctx.userId)),
 
+    // Recorrência: exclui a ocorrência informada + todas as posteriores (as
+    // passadas ficam). Corrige o "excluir futuros apagava a série inteira".
+    deleteEstesEPosteriores: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => service.deleteEstesEPosteriores(input.id, ctx.userId)),
+
     // === CONFLITOS ===
     verificarConflitos: readProcedure(MODULE)
       .input(z.object({

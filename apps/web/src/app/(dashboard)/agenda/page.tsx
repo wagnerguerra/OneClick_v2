@@ -1220,31 +1220,53 @@ export default function AgendaPage() {
     })
 
     if (ev.lote && ev.recorrencia !== 'NENHUMA') {
+      // 3 opções (padrão Google Calendar): só este dia · este e os posteriores ·
+      // todo o agendamento. "Este e os posteriores" preserva as ocorrências
+      // passadas (corrige o bug de apagar a série inteira ao remover os futuros).
+      const scopeRadiosHtml = `
+        <div style="text-align:left;margin-top:10px;display:flex;flex-direction:column;gap:8px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer">
+            <input type="radio" name="del-scope" value="single" checked style="width:15px;height:15px;cursor:pointer;accent-color:#ef4444" />
+            Somente este dia
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer">
+            <input type="radio" name="del-scope" value="future" style="width:15px;height:15px;cursor:pointer;accent-color:#ef4444" />
+            Este e os posteriores
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer">
+            <input type="radio" name="del-scope" value="series" style="width:15px;height:15px;cursor:pointer;accent-color:#ef4444" />
+            Todo o agendamento
+          </label>
+        </div>`
       const result = await Swal.fire({
         iconHtml: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>',
         title: 'Excluir evento recorrente',
-        html: `<div style="text-align:left;font-size:14px">${eventCard}<p style="margin:0;color:#374151">O que deseja excluir?</p>${notifChecksHtml}</div>`,
-        preConfirm: notifPreConfirm,
+        html: `<div style="text-align:left;font-size:14px">${eventCard}<p style="margin:0;color:#374151;font-weight:500">O que deseja excluir?</p>${scopeRadiosHtml}${notifChecksHtml}</div>`,
+        preConfirm: () => ({
+          scope: (document.querySelector('input[name="del-scope"]:checked') as HTMLInputElement | null)?.value ?? 'single',
+          ...notifPreConfirm(),
+        }),
         showCancelButton: true,
-        showDenyButton: true,
-        confirmButtonText: '<span style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> Apenas este</span>',
-        denyButtonText: '<span style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Toda a série</span>',
+        confirmButtonText: '<span style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg> Excluir</span>',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#ef4444',
-        denyButtonColor: '#7f1d1d',
         cancelButtonColor: '#d1d5db',
         customClass: { icon: 'swal-icon-no-border', cancelButton: 'swal-cancel-dark' },
         reverseButtons: true,
       })
-      if (result.isDismissed) return
-      const notif = (result.value as { notificar?: boolean; notificarTodosTenant?: boolean } | undefined) ?? {}
+      if (!result.isConfirmed) return
+      const val = (result.value as { scope?: string; notificar?: boolean; notificarTodosTenant?: boolean } | undefined) ?? {}
+      const scope = val.scope ?? 'single'
       try {
-        if (result.isDenied) {
-          // Exclusão da série inteira — não há notificação granular (deleteLote não notifica).
+        if (scope === 'series') {
+          // Série inteira — não há notificação granular (deleteLote não notifica).
           await trpc.agenda.deleteLote.mutate({ lote: ev.lote })
           alerts.success('Série excluída', 'Todos os eventos da série foram removidos.')
+        } else if (scope === 'future') {
+          await (trpc.agenda as any).deleteEstesEPosteriores.mutate({ id: ev.id })
+          alerts.success('Eventos excluídos', 'Este e os posteriores foram removidos; os anteriores foram mantidos.')
         } else {
-          await trpc.agenda.delete.mutate({ id: ev.id, notificar: !!notif.notificar, notificarTodosTenant: !!notif.notificarTodosTenant })
+          await trpc.agenda.delete.mutate({ id: ev.id, notificar: !!val.notificar, notificarTodosTenant: !!val.notificarTodosTenant })
           alerts.success('Evento excluído', '')
         }
         setModalOpen(false)
