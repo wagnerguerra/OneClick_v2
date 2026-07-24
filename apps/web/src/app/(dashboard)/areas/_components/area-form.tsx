@@ -36,6 +36,11 @@ interface AreaForSelect {
   code: number
 }
 
+interface UserForSelect {
+  id: string
+  name: string
+}
+
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
 
 interface AreaFormProps {
@@ -65,6 +70,7 @@ export function AreaForm({ mode, areaId, title, description, icon, defaultValues
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [areas, setAreas] = useState<AreaForSelect[]>([])
+  const [users, setUsers] = useState<UserForSelect[]>([])
 
   const {
     register,
@@ -90,6 +96,9 @@ export function AreaForm({ mode, areaId, title, description, icon, defaultValues
 
   useEffect(() => {
     trpc.area.listForSelect.query().then(setAreas).catch(() => {})
+    // Colaboradores para o Select de líder da área (antes ficava vazio → não
+    // dava pra atribuir gestor, e as particularidades por área ficavam travadas).
+    trpc.user.listForSelect.query().then((list: UserForSelect[]) => setUsers(list.map((u) => ({ id: u.id, name: u.name })))).catch(() => {})
   }, [])
 
   async function onSubmit(data: CreateAreaInput) {
@@ -259,6 +268,11 @@ export function AreaForm({ mode, areaId, title, description, icon, defaultValues
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__none__">Nenhum</SelectItem>
+                          {users.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     )}

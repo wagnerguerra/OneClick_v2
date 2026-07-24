@@ -171,7 +171,7 @@ export default function AreasPage() {
         </div>
 
         {/* Table */}
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
               <TableHead className="w-[70px]">
