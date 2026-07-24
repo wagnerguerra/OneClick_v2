@@ -1015,6 +1015,8 @@ export class ClienteService {
              p.dias_alerta_renovacao AS dias_alerta,
              ll.valor AS e_lanc, ns.valor AS e_nfs, vd.valor AS e_vidas,
              lm.max_mes AS ultima_consulta,
+             (SELECT COUNT(DISTINCT mes) FROM cliente_erp_snapshots WHERE cliente_id = c.id) AS erp_meses,
+             (SELECT COUNT(*) FROM cliente_arquivos WHERE cliente_id = c.id) AS anexos_count,
              (p.cliente_id IS NOT NULL) AS tem_parametro
       FROM clientes c
       LEFT JOIN cliente_contrato_params p ON p.cliente_id = c.id
@@ -1034,7 +1036,8 @@ export class ClienteService {
       contrato_inicio: Date | null; contrato_fim: Date | null
       contrato_permanente: boolean; dias_alerta: number | null
       e_lanc: number | null; e_nfs: number | null; e_vidas: number | null
-      ultima_consulta: string | null; tem_parametro: boolean
+      ultima_consulta: string | null; erp_meses: bigint | number | null
+      anexos_count: bigint | number | null; tem_parametro: boolean
     }>>(sql, ...params)
 
     const hoje = new Date()
@@ -1098,6 +1101,8 @@ export class ClienteService {
         cliente: r.razao_social,
         temParametro: r.tem_parametro,
         temContrato,
+        erpMeses: Number(r.erp_meses) || 0,
+        anexosCount: Number(r.anexos_count) || 0,
         contratoNumero: r.contrato_numero,
         contratoTipo: r.contrato_tipo,
         dataInicio: r.contrato_inicio ? new Date(r.contrato_inicio).toISOString().slice(0, 10) : null,

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   FileText, Users, CheckCircle2, TrendingUp, Info, Search,
   FileDown, ArrowUpRight, ArrowDownRight, Loader2, CalendarClock,
+  SlidersHorizontal, Database, Paperclip, RefreshCcw, FileSignature,
 } from 'lucide-react'
 import {
   Button, Card, Input, Badge,
@@ -25,6 +26,8 @@ type Registro = {
   cliente: string | null
   temParametro: boolean
   temContrato: boolean
+  erpMeses: number
+  anexosCount: number
   contratoNumero: string | null
   contratoTipo: string | null
   dataInicio: string | null
@@ -86,6 +89,26 @@ function VariacaoBadge({ pct }: { pct: number | null }) {
       up ? 'text-rose-600 dark:text-rose-400' : down ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')}>
       {up ? '+' : ''}{pct}%
       {up ? <ArrowUpRight className="h-3 w-3" /> : down ? <ArrowDownRight className="h-3 w-3" /> : null}
+    </span>
+  )
+}
+
+/** Ícone de status na faixa "Status": verde/vivo quando presente, apagado quando ausente.
+ * Reproduz os indicadores da tabela do legado (contrato, parâmetros, ERP, anexos, renegociação). */
+function StatusIcon({ icon: Icon, active, title, count, tone = 'ok' }: {
+  icon: typeof FileText; active: boolean; title: string; count?: number; tone?: 'ok' | 'alert'
+}) {
+  const onCls = tone === 'alert'
+    ? 'text-rose-600 dark:text-rose-400'
+    : 'text-emerald-600 dark:text-emerald-400'
+  return (
+    <span className="relative inline-flex" title={title}>
+      <Icon className={cn('h-4 w-4', active ? onCls : 'text-muted-foreground/30')} />
+      {active && count != null && count > 0 && (
+        <span className="absolute -right-1.5 -top-1.5 flex h-3 min-w-[12px] items-center justify-center rounded-full bg-muted px-0.5 text-[8px] font-semibold text-foreground">
+          {count > 9 ? '9+' : count}
+        </span>
+      )}
     </span>
   )
 }
@@ -215,6 +238,7 @@ export default function GestaoContratosPage() {
                     <TableHead className="text-xs font-semibold uppercase tracking-wider">CNPJ</TableHead>
                     <TableHead className="text-xs font-semibold uppercase tracking-wider">Cliente</TableHead>
                     <TableHead className="text-center text-xs font-semibold uppercase tracking-wider">Situação</TableHead>
+                    <TableHead className="text-center text-xs font-semibold uppercase tracking-wider">Status</TableHead>
                     <TableHead className="text-xs font-semibold uppercase tracking-wider">Vigência</TableHead>
                     <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Faturamento</TableHead>
                     <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Honorários</TableHead>
@@ -226,7 +250,7 @@ export default function GestaoContratosPage() {
                 <TableBody>
                   {registros.length === 0 && !loading ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="py-10 text-center text-sm text-muted-foreground">
+                      <TableCell colSpan={12} className="py-10 text-center text-sm text-muted-foreground">
                         Nenhum cliente com contrato ou parâmetros. Use &quot;Verificar no ERP&quot; no detalhe do cliente para alimentar os dados.
                       </TableCell>
                     </TableRow>
@@ -244,6 +268,20 @@ export default function GestaoContratosPage() {
                         <TableCell className="max-w-[260px] truncate text-sm font-medium">{r.cliente || '—'}</TableCell>
                         <TableCell className="text-center">
                           <Badge variant="outline" className={cn('font-normal', sit.cls)}>{sit.label}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-center gap-2">
+                            <StatusIcon icon={FileSignature} active={r.temContrato}
+                              title={r.temContrato ? 'Contrato vinculado' : 'Sem contrato cadastrado'} />
+                            <StatusIcon icon={SlidersHorizontal} active={r.temParametro}
+                              title={r.temParametro ? 'Parâmetros iniciais cadastrados' : 'Sem parâmetros iniciais'} />
+                            <StatusIcon icon={Database} active={r.erpMeses > 0} count={r.erpMeses}
+                              title={r.erpMeses > 0 ? `${r.erpMeses} período(s) importado(s) do ERP (SCI)` : 'Nenhum período importado do ERP'} />
+                            <StatusIcon icon={Paperclip} active={r.anexosCount > 0} count={r.anexosCount}
+                              title={r.anexosCount > 0 ? `${r.anexosCount} arquivo(s) anexado(s)` : 'Sem anexos'} />
+                            <StatusIcon icon={RefreshCcw} active={r.situacao === 'defasado'} tone="alert"
+                              title={r.situacao === 'defasado' ? 'Cliente cresceu além do contratado — reavaliar honorário' : 'Sem sinal de renegociação'} />
+                          </div>
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-xs">
                           {!r.temContrato ? (
@@ -281,6 +319,16 @@ export default function GestaoContratosPage() {
             </div>
 
             {/* Rodapé / paginação */}
+            {/* Legenda dos ícones da coluna Status */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border/60 bg-muted/10 px-4 py-2 text-[11px] text-muted-foreground">
+              <span className="font-medium uppercase tracking-wide">Status:</span>
+              <span className="inline-flex items-center gap-1"><FileSignature className="h-3.5 w-3.5" /> Contrato vinculado</span>
+              <span className="inline-flex items-center gap-1"><SlidersHorizontal className="h-3.5 w-3.5" /> Parâmetros</span>
+              <span className="inline-flex items-center gap-1"><Database className="h-3.5 w-3.5" /> ERP (SCI)</span>
+              <span className="inline-flex items-center gap-1"><Paperclip className="h-3.5 w-3.5" /> Anexos</span>
+              <span className="inline-flex items-center gap-1"><RefreshCcw className="h-3.5 w-3.5" /> Reavaliar honorário</span>
+            </div>
+
             <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-xs text-muted-foreground">{total} registro{total === 1 ? '' : 's'}</span>
               {totalPages > 1 && (
