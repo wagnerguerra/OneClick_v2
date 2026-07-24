@@ -881,6 +881,21 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                     </button>
                   </div>
                   {errors.documento && <p className="text-xs text-destructive">{errors.documento.message}</p>}
+                  {/* Matriz/filial no CNPJ ALFANUMÉRICO (Fase 3): a ordem pode ter
+                      letras, então o /0001 não identifica mais a matriz. Só aparece
+                      para CNPJ alfanumérico; no numérico é derivado automaticamente. */}
+                  {(() => {
+                    const docLimpo = limparCnpj(watchedValues.documento || '')
+                    if (!(docLimpo.length === 14 && /[A-Z]/.test(docLimpo))) return null
+                    return (
+                      <label className="flex items-start gap-2 mt-1.5 text-[12px] cursor-pointer select-none text-muted-foreground">
+                        <Controller control={control} name="ehMatriz" render={({ field }) => (
+                          <input type="checkbox" checked={field.value !== false} onChange={e => field.onChange(e.target.checked)} className="mt-0.5 h-4 w-4 accent-sky-500" />
+                        )} />
+                        <span>Este CNPJ é <strong className="text-foreground">matriz</strong> — desmarque se for filial. No CNPJ alfanumérico o <code>/0001</code> não identifica mais a matriz automaticamente.</span>
+                      </label>
+                    )
+                  })()}
                 </div>
                 <div className="col-span-12 md:col-span-6 space-y-1.5">
                   <Label className="text-info">Razão Social<RequiredMark /></Label>

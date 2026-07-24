@@ -109,6 +109,9 @@ export const createClienteSchema = z.object({
     .optional()
     .or(z.literal('')),
   tipoDocumento: z.enum(['CNPJ', 'CPF']).default('CNPJ'),
+  // Matriz/filial no CNPJ alfanumérico (Fase 3): true=matriz, false=filial,
+  // null/ausente=derivar pelo /0001 (numérico). Ver ehMatrizCnpj.
+  ehMatriz: z.boolean().optional().nullable(),
   tipoCliente: z.coerce.string().optional().or(z.literal('')),
 
   // Integração

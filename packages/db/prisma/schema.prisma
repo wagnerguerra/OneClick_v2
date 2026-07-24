@@ -683,6 +683,11 @@ model Cliente {
   nomeFantasia  String?       @map("nome_fantasia")
   documento     String
   tipoDocumento TipoDocumento @default(CNPJ) @map("tipo_documento")
+  // Matriz/filial no CNPJ ALFANUMÉRICO: a ordem pode ter letras, então o /0001
+  // deixa de identificar matriz. NULL = derivar pelo /0001 (numérico, legado);
+  // true/false = designação explícita (novo alfanumérico). Nunca reescreve linha
+  // existente (fica NULL). Ver ehMatrizCliente() no service.
+  ehMatriz      Boolean?      @map("eh_matriz")
   tipoCliente   String?       @map("tipo_cliente")
   logoUrl       String?       @map("logo_url")
 

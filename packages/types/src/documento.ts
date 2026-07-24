@@ -49,3 +49,32 @@ export function formatDocumento(v: string | null | undefined): string {
   const temLetra = /[A-Z]/.test(c)
   return (!temLetra && c.length <= 11) ? formatCpf(v) : formatCnpj(v)
 }
+
+/**
+ * Regra HÍBRIDA de matriz/filial para o CNPJ alfanumérico (Fase 3).
+ *
+ * No alfanumérico a ordem (posições 9-12) pode ter letras, então o /0001 deixa
+ * de identificar matriz. A designação passa a ser explícita (`ehMatriz`):
+ *  - `ehMatriz = true/false` → usa o valor gravado (novo alfanumérico).
+ *  - `ehMatriz = null/undefined` → deriva pelo /0001 (numérico/legado). Para os
+ *    dados atuais isto é IDÊNTICO ao comportamento antigo.
+ * Só vale para CNPJ de 14 posições; CPF e documentos curtos nunca são "matriz".
+ */
+export function ehMatrizCnpj(
+  documento: string | null | undefined,
+  ehMatriz: boolean | null | undefined,
+  tipoDocumento?: string | null,
+): boolean {
+  if (tipoDocumento && tipoDocumento !== 'CNPJ') return false
+  const c = limparCnpj(documento)
+  if (c.length !== 14) return false
+  if (ehMatriz === true) return true
+  if (ehMatriz === false) return false
+  return c.substring(8, 12) === '0001' // NULL → numérico/legado
+}
+
+/** Raiz do CNPJ (8 primeiras posições) — comum a matriz e filiais. '' se inválido. */
+export function raizCnpj(documento: string | null | undefined): string {
+  const c = limparCnpj(documento)
+  return c.length === 14 ? c.slice(0, 8) : ''
+}

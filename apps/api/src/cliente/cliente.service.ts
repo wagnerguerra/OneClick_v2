@@ -2,7 +2,7 @@ import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
 import type { Prisma } from '@saas/db'
 import type { CreateClienteInput, UpdateClienteInput, ListClienteInput } from '@saas/types'
-import { limparCnpj } from '@saas/types'
+import { limparCnpj, ehMatrizCnpj } from '@saas/types'
 import { BiSyncEventsService } from '../bi/bi-sync-events.service'
 import { isValidDocumento } from './documento.util'
 
@@ -96,6 +96,10 @@ export class ClienteService {
     // 13-14). Pegamos os IDs candidatos via SQL raw e usamos `id: { in: [] }`.
     let matrizFilter: Prisma.ClienteWhereInput[] = []
     if (agruparMatriz) {
+      // Matriz (regra HÍBRIDA p/ CNPJ alfanumérico, Fase 3): flag explícito
+      // `eh_matriz=true` OU, quando o flag é NULL (numérico/legado), a ordem
+      // '0001'. Para os dados atuais (eh_matriz sempre NULL) é IDÊNTICO ao antigo
+      // `substring(9,4)='0001'` — nenhuma mudança de comportamento.
       const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
         `SELECT c.id FROM clientes c
          WHERE c.deleted_at IS NULL
@@ -104,13 +108,15 @@ export class ClienteService {
              OR c.documento IS NULL
              OR c.documento = ''
              OR length(c.documento) <> 14
-             OR substring(c.documento, 9, 4) = '0001'
-             -- Filial ÓRFÃ: ordem != 0001 mas sem matriz (0001) cadastrada na
-             -- mesma base/escopo. Senão ficaria invisível (não tem onde aninhar).
+             OR c.eh_matriz = true
+             OR (c.eh_matriz IS NULL AND substring(c.documento, 9, 4) = '0001')
+             -- Filial ÓRFÃ: é filial mas sem matriz cadastrada na mesma
+             -- base/escopo. Senão ficaria invisível (não tem onde aninhar).
              OR substring(c.documento, 1, 8) NOT IN (
                SELECT substring(documento, 1, 8) FROM clientes
                WHERE deleted_at IS NULL AND tipo_documento = 'CNPJ'
-                 AND length(documento) = 14 AND substring(documento, 9, 4) = '0001'
+                 AND length(documento) = 14
+                 AND (eh_matriz = true OR (eh_matriz IS NULL AND substring(documento, 9, 4) = '0001'))
                  ${isMaster ? '' : 'AND empresa_id = $1'}
              )
            )
@@ -205,24 +211,27 @@ export class ClienteService {
       prisma.cliente.count({ where }),
     ])
 
-    // Pra cada matriz na página, conta as filiais (mesma raiz CNPJ, ordem != 0001).
-    // Usa uma única query agrupada pra evitar N+1.
-    // Matriz: documento com 14 dígitos e posições 9-12 == '0001'.
+    // Pra cada matriz na página, conta as filiais (mesma raiz CNPJ, não-matriz).
+    // Usa uma única query agrupada pra evitar N+1. Matriz pela regra híbrida
+    // (ehMatrizCnpj): flag explícito ou, se nulo, ordem '0001' do numérico.
     const cnpjBases: string[] = []
     for (const c of data) {
-      if (c.tipoDocumento === 'CNPJ' && c.documento && c.documento.length === 14 && c.documento.substring(8, 12) === '0001') {
-        cnpjBases.push(c.documento.slice(0, 8))
+      if (ehMatrizCnpj(c.documento, c.ehMatriz, c.tipoDocumento)) {
+        cnpjBases.push(c.documento!.slice(0, 8))
       }
     }
     const filiaisCountMap = new Map<string, number>()
     if (cnpjBases.length > 0) {
+      // Filial = CNPJ (14) que NÃO é matriz. Híbrido: eh_matriz=false OU
+      // (eh_matriz IS NULL E ordem != '0001'). Para NULL é idêntico ao antigo.
       const rows = await prisma.$queryRawUnsafe<Array<{ base: string; count: bigint }>>(
         `SELECT substring(documento, 1, 8) AS base, COUNT(*)::bigint AS count
          FROM clientes
          WHERE deleted_at IS NULL
            AND tipo_documento = 'CNPJ'
+           AND length(documento) = 14
            AND substring(documento, 1, 8) = ANY($1::text[])
-           AND substring(documento, 9, 4) <> '0001'
+           AND (eh_matriz = false OR (eh_matriz IS NULL AND substring(documento, 9, 4) <> '0001'))
          GROUP BY base`,
         cnpjBases,
       )
@@ -254,7 +263,7 @@ export class ClienteService {
 
     const mapped = data.map(c => {
       const { servicosContratados, ...rest } = c
-      const isMatriz = c.tipoDocumento === 'CNPJ' && !!c.documento && c.documento.length === 14 && c.documento.substring(8, 12) === '0001'
+      const isMatriz = ehMatrizCnpj(c.documento, c.ehMatriz, c.tipoDocumento)
       const cnpjBase = isMatriz ? c.documento!.slice(0, 8) : null
       const certExpira = certExpiraMap.get(c.id)
       return {
@@ -272,8 +281,10 @@ export class ClienteService {
   }
 
   /**
-   * Lista filiais (CNPJ com ordem != 0001) de uma matriz, dado o CNPJ dela
-   * (apenas dígitos). Resultado ordenado por número da ordem.
+   * Lista as filiais (CNPJ da mesma raiz que NÃO são matriz) de uma matriz, dado
+   * o CNPJ dela. Filial pela regra híbrida: eh_matriz=false OU (nulo E ordem
+   * != '0001'). Ordena pela ordem (posições 9-12) como texto — no alfanumérico a
+   * ordenação numérica não faz sentido.
    */
   async listFiliais(documentoMatriz: string, isMaster?: boolean, empresaId?: string) {
     const doc = limparCnpj(documentoMatriz) // preserva letras do CNPJ alfanumérico
@@ -289,8 +300,9 @@ export class ClienteService {
        FROM clientes c
        WHERE c.deleted_at IS NULL
          AND c.tipo_documento = 'CNPJ'
+         AND length(c.documento) = 14
          AND substring(c.documento, 1, 8) = $1
-         AND substring(c.documento, 9, 4) <> '0001'
+         AND (c.eh_matriz = false OR (c.eh_matriz IS NULL AND substring(c.documento, 9, 4) <> '0001'))
          ${isMaster ? '' : 'AND c.empresa_id = $2'}
        ORDER BY substring(c.documento, 9, 4)`,
       base,
@@ -356,6 +368,20 @@ export class ClienteService {
     if (docLimpo && !isValidDocumento(docLimpo)) {
       throw new Error('Documento inválido: verifique o CPF/CNPJ informado.')
     }
+    // ehMatriz (Fase 3): explícito só faz sentido no CNPJ ALFANUMÉRICO. Se o
+    // usuário informou, respeita. Senão, auto-default APENAS para alfanumérico:
+    // primeiro da raiz = matriz; se já há alguém com a mesma raiz, é filial.
+    // Numérico e CPF ficam null (derivam pelo /0001 — comportamento de sempre).
+    let ehMatriz: boolean | null = null
+    if (input.ehMatriz === true || input.ehMatriz === false) {
+      ehMatriz = input.ehMatriz
+    } else if (docLimpo.length === 14 && /[A-Z]/.test(docLimpo)) {
+      const raiz = docLimpo.slice(0, 8)
+      const jaExiste = await prisma.cliente.count({
+        where: { empresaId, tipoDocumento: 'CNPJ', documento: { startsWith: raiz }, deletedAt: null },
+      }).catch(() => 0)
+      ehMatriz = jaExiste === 0
+    }
     return prisma.$transaction(async (tx) => {
       const cliente = await tx.cliente.create({
         data: {
@@ -364,6 +390,7 @@ export class ClienteService {
           // Documento opcional — armazena só dígitos; vazio é permitido.
           documento: docLimpo,
           tipoDocumento: (input.tipoDocumento || 'CNPJ') as never,
+          ehMatriz,
           tipoCliente: input.tipoCliente || null,
           idSistema: input.idSistema || null,
           idOmie: input.idOmie || null,
@@ -419,9 +446,10 @@ export class ClienteService {
         if (key === 'dataEntrada' || key === 'dataSaida') {
           data[key] = parseOptionalDate(value as string)
         } else if (key === 'documento') {
-          // documento é coluna não-nulável: armazena só dígitos, vazio vira ''
+          // documento é coluna não-nulável: normaliza preservando letras do CNPJ
+          // alfanumérico (limparCnpj; para CPF é idêntico ao \D), vazio vira ''
           // (nunca null, senão o update quebra).
-          data[key] = typeof value === 'string' ? value.replace(/\D/g, '') : value
+          data[key] = typeof value === 'string' ? limparCnpj(value) : value
         } else {
           data[key] = typeof value === 'string' && value === '' ? null : value
         }
