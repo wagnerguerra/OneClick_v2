@@ -1180,6 +1180,15 @@ model ClienteContratoParam {
   nfPrestado   Int      @default(0) @map("nf_prestado")
   nfTomado     Int      @default(0) @map("nf_tomado")
   funcionarios Int      @default(0)
+  // Metadata do contrato (Fase 2 — vínculo, vigência, renovação, farol).
+  numero              String?   // número/identificação do contrato
+  tipo                String?   // tipo/modalidade do contrato
+  dataInicio          DateTime? @map("data_inicio")
+  dataFim             DateTime? @map("data_fim")
+  permanente          Boolean   @default(false) // sem prazo → não alerta renovação
+  diasAlertaRenovacao Int?      @map("dias_alerta_renovacao") // janela de alerta (default 30)
+  responsavelId       String?   @map("responsavel_id")
+  gestaoIgnorar       Boolean   @default(false) @map("gestao_ignorar") // fora do painel de gestão
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

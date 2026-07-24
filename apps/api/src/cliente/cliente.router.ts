@@ -335,6 +335,15 @@ export function createClienteRouter(
         nfPrestado: z.number().default(0),
         nfTomado: z.number().default(0),
         funcionarios: z.number().default(0),
+        // Metadata do contrato (Fase 2) — opcionais; ausência = "não alterar".
+        numero: z.string().nullish(),
+        tipo: z.string().nullish(),
+        dataInicio: z.string().nullish(),
+        dataFim: z.string().nullish(),
+        permanente: z.boolean().optional(),
+        diasAlertaRenovacao: z.number().nullish(),
+        responsavelId: z.string().nullish(),
+        gestaoIgnorar: z.boolean().optional(),
       }))
       .mutation(({ input, ctx }) => clienteService.saveContratoParams(input.clienteId, ctx.empresaId, input)),
 

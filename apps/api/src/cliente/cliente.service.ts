@@ -815,6 +815,10 @@ export class ClienteService {
   async saveContratoParams(clienteId: string, empresaId: string | undefined, data: {
     honorario: number; lancamentos: number; faturamento: number
     nfEntrada: number; nfSaida: number; nfPrestado: number; nfTomado: number; funcionarios: number
+    // Metadata do contrato (Fase 2) — todos opcionais; só sobrescreve o que vier.
+    numero?: string | null; tipo?: string | null
+    dataInicio?: string | null; dataFim?: string | null; permanente?: boolean
+    diasAlertaRenovacao?: number | null; responsavelId?: string | null; gestaoIgnorar?: boolean
   }) {
     const clean = {
       honorario: Number(data.honorario) || 0,
@@ -826,6 +830,22 @@ export class ClienteService {
       nfTomado: Math.round(Number(data.nfTomado) || 0),
       funcionarios: Math.round(Number(data.funcionarios) || 0),
     }
+    // Metadata: update PARCIAL — só inclui o campo se veio no input (undefined =
+    // "não mexer"). Assim salvar só a baseline não apaga a vigência, e vice-versa.
+    const meta: {
+      numero?: string | null; tipo?: string | null
+      dataInicio?: Date | null; dataFim?: Date | null; permanente?: boolean
+      diasAlertaRenovacao?: number | null; responsavelId?: string | null; gestaoIgnorar?: boolean
+    } = {}
+    if (data.numero !== undefined) meta.numero = data.numero || null
+    if (data.tipo !== undefined) meta.tipo = data.tipo || null
+    if (data.dataInicio !== undefined) meta.dataInicio = data.dataInicio ? new Date(data.dataInicio) : null
+    if (data.dataFim !== undefined) meta.dataFim = data.dataFim ? new Date(data.dataFim) : null
+    if (data.permanente !== undefined) meta.permanente = !!data.permanente
+    if (data.diasAlertaRenovacao !== undefined) meta.diasAlertaRenovacao = data.diasAlertaRenovacao != null ? Math.round(Number(data.diasAlertaRenovacao)) : null
+    if (data.responsavelId !== undefined) meta.responsavelId = data.responsavelId || null
+    if (data.gestaoIgnorar !== undefined) meta.gestaoIgnorar = !!data.gestaoIgnorar
+
     // Não usar `upsert` com chave composta que inclui empresa_id NULLável: no
     // Postgres `NULL != NULL` em unique, então a constraint não dispara e o
     // upsert insere linha duplicada toda vez. Faz find+update OR create.
@@ -834,9 +854,9 @@ export class ClienteService {
       where: { clienteId, empresaId: empresa },
     })
     if (existing) {
-      return prisma.clienteContratoParam.update({ where: { id: existing.id }, data: clean })
+      return prisma.clienteContratoParam.update({ where: { id: existing.id }, data: { ...clean, ...meta } })
     }
-    return prisma.clienteContratoParam.create({ data: { clienteId, empresaId: empresa, ...clean } })
+    return prisma.clienteContratoParam.create({ data: { clienteId, empresaId: empresa, ...clean, ...meta } })
   }
 
   // ============================================================
@@ -967,6 +987,7 @@ export class ClienteService {
       `c.deleted_at IS NULL`,
       `c.status <> 'INATIVA'`,
       `(p.cliente_id IS NOT NULL OR lm.cliente_id IS NOT NULL)`,
+      `COALESCE(p.gestao_ignorar, false) = false`,
     ]
     if (!isMaster) {
       params.push(empresaId ?? '')
@@ -988,6 +1009,10 @@ export class ClienteService {
       SELECT c.id, c.code, c.documento, c.razao_social,
              p.honorario, p.faturamento,
              p.lancamentos AS p_lanc, p.nf_saida AS p_nfs, p.funcionarios AS p_func,
+             p.numero AS contrato_numero, p.tipo AS contrato_tipo,
+             p.data_inicio AS contrato_inicio, p.data_fim AS contrato_fim,
+             COALESCE(p.permanente, false) AS contrato_permanente,
+             p.dias_alerta_renovacao AS dias_alerta,
              ll.valor AS e_lanc, ns.valor AS e_nfs, vd.valor AS e_vidas,
              lm.max_mes AS ultima_consulta,
              (p.cliente_id IS NOT NULL) AS tem_parametro
@@ -1005,9 +1030,16 @@ export class ClienteService {
       id: string; code: number | null; documento: string | null; razao_social: string | null
       honorario: number | null; faturamento: number | null
       p_lanc: number | null; p_nfs: number | null; p_func: number | null
+      contrato_numero: string | null; contrato_tipo: string | null
+      contrato_inicio: Date | null; contrato_fim: Date | null
+      contrato_permanente: boolean; dias_alerta: number | null
       e_lanc: number | null; e_nfs: number | null; e_vidas: number | null
       ultima_consulta: string | null; tem_parametro: boolean
     }>>(sql, ...params)
+
+    const hoje = new Date()
+    const diasAte = (d: Date | null): number | null =>
+      d ? Math.floor((d.getTime() - hoje.getTime()) / 86_400_000) : null
 
     type CellStatus = 'ok' | 'defasado' | 'sem_parametro' | 'sem_erp'
     type Cell = { valor: number | null; status: CellStatus; variacao_pct: number | null }
@@ -1036,12 +1068,44 @@ export class ClienteService {
           : cells.some(c => c.status === 'defasado')
             ? 'defasado'
             : 'em_dia'
+
+      // Vigência do contrato (Fase 2). `permanente` ou sem data_fim → não alerta.
+      const dataFim = r.contrato_fim ? new Date(r.contrato_fim) : null
+      const diasAlerta = r.dias_alerta ?? 30
+      const diasParaVencer = r.contrato_permanente ? null : diasAte(dataFim)
+      const vigencia: 'permanente' | 'sem_vigencia' | 'vigente' | 'vence_atencao' | 'vence_critico' | 'vencido' =
+        r.contrato_permanente ? 'permanente'
+          : dataFim == null ? 'sem_vigencia'
+            : (diasParaVencer as number) < 0 ? 'vencido'
+              : (diasParaVencer as number) <= diasAlerta ? 'vence_critico'
+                : (diasParaVencer as number) <= diasAlerta * 2 ? 'vence_atencao'
+                  : 'vigente'
+
+      // Contrato "vinculado" = tem alguma metadata de contrato preenchida.
+      const temContrato = !!(r.contrato_numero || r.contrato_tipo || r.contrato_inicio || r.contrato_fim)
+
+      // Farol consolidado. Vermelho = ação urgente (defasado / vencido);
+      // amarelo = pendência (a vencer / sem consulta / sem baseline); verde = ok.
+      const farol: 'verde' | 'amarelo' | 'vermelho' =
+        situacao === 'defasado' || vigencia === 'vencido' ? 'vermelho'
+          : vigencia === 'vence_critico' || vigencia === 'vence_atencao' || situacao === 'sem_consulta' || situacao === 'sem_parametro' ? 'amarelo'
+            : 'verde'
+
       return {
         id: r.id,
         numero: r.code ?? i + 1,
         documento: r.documento,
         cliente: r.razao_social,
         temParametro: r.tem_parametro,
+        temContrato,
+        contratoNumero: r.contrato_numero,
+        contratoTipo: r.contrato_tipo,
+        dataInicio: r.contrato_inicio ? new Date(r.contrato_inicio).toISOString().slice(0, 10) : null,
+        dataFim: dataFim ? dataFim.toISOString().slice(0, 10) : null,
+        permanente: r.contrato_permanente,
+        vigencia,
+        diasParaVencer,
+        farol,
         ultimaConsulta: r.ultima_consulta,
         situacao,
         faturamento: r.faturamento != null ? Number(r.faturamento) : null,
@@ -1063,6 +1127,8 @@ export class ClienteService {
       emDia: registros.filter(r => r.situacao === 'em_dia').length,
       defasados: registros.filter(r => r.situacao === 'defasado').length,
       semParametro: registros.filter(r => r.situacao === 'sem_parametro').length,
+      vencidos: registros.filter(r => r.vigencia === 'vencido').length,
+      vencendo: registros.filter(r => r.vigencia === 'vence_critico' || r.vigencia === 'vence_atencao').length,
     }
 
     const offset = (page - 1) * limit

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileText, Users, CheckCircle2, TrendingUp, Info, Search,
-  FileDown, ArrowUpRight, ArrowDownRight, Loader2,
+  FileDown, ArrowUpRight, ArrowDownRight, Loader2, CalendarClock,
 } from 'lucide-react'
 import {
   Button, Card, Input, Badge,
@@ -24,6 +24,15 @@ type Registro = {
   documento: string | null
   cliente: string | null
   temParametro: boolean
+  temContrato: boolean
+  contratoNumero: string | null
+  contratoTipo: string | null
+  dataInicio: string | null
+  dataFim: string | null
+  permanente: boolean
+  vigencia: 'permanente' | 'sem_vigencia' | 'vigente' | 'vence_atencao' | 'vence_critico' | 'vencido'
+  diasParaVencer: number | null
+  farol: 'verde' | 'amarelo' | 'vermelho'
   ultimaConsulta: string | null
   situacao: 'sem_parametro' | 'sem_consulta' | 'defasado' | 'em_dia'
   faturamento: number | null
@@ -41,7 +50,20 @@ type Registro = {
 
 type CellStatus = 'ok' | 'defasado' | 'sem_parametro' | 'sem_erp'
 
-type Resumo = { total: number; emDia: number; defasados: number; semParametro: number }
+type Resumo = { total: number; emDia: number; defasados: number; semParametro: number; vencidos: number; vencendo: number }
+
+const FAROL_COR: Record<Registro['farol'], string> = {
+  verde: '#10b981', amarelo: '#f59e0b', vermelho: '#f43f5e',
+}
+
+const VIGENCIA_INFO: Record<Registro['vigencia'], { label: string; cls: string }> = {
+  permanente: { label: 'Permanente', cls: 'text-muted-foreground' },
+  sem_vigencia: { label: 'Sem vigência', cls: 'text-muted-foreground' },
+  vigente: { label: 'Vigente', cls: 'text-emerald-600 dark:text-emerald-400' },
+  vence_atencao: { label: 'A vencer', cls: 'text-amber-600 dark:text-amber-400' },
+  vence_critico: { label: 'Vence em breve', cls: 'text-amber-600 dark:text-amber-400 font-medium' },
+  vencido: { label: 'Vencido', cls: 'text-rose-600 dark:text-rose-400 font-medium' },
+}
 
 const fmtMoeda = (v: number | null) =>
   v == null ? '—' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v))
@@ -82,7 +104,7 @@ export default function GestaoContratosPage() {
   const [debounced, setDebounced] = useState('')
   const [loading, setLoading] = useState(true)
   const [registros, setRegistros] = useState<Registro[]>([])
-  const [resumo, setResumo] = useState<Resumo>({ total: 0, emDia: 0, defasados: 0, semParametro: 0 })
+  const [resumo, setResumo] = useState<Resumo>({ total: 0, emDia: 0, defasados: 0, semParametro: 0, vencidos: 0, vencendo: 0 })
   const [total, setTotal] = useState(0)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -153,10 +175,12 @@ export default function GestaoContratosPage() {
       </div>
 
       {/* Cards de indicadores */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <StatCard icon={Users} label="Total de clientes" value={resumo.total} color={MODULE_COLOR} loading={loading} />
         <StatCard icon={CheckCircle2} label="Em dia" value={resumo.emDia} color="#10b981" loading={loading} />
         <StatCard icon={TrendingUp} label="Com variação defasada" value={resumo.defasados} color="#f43f5e" loading={loading} />
+        <StatCard icon={CalendarClock} label="Contratos a vencer" value={resumo.vencendo} color="#f59e0b"
+          sub={resumo.vencidos > 0 ? `${resumo.vencidos} já vencido${resumo.vencidos === 1 ? '' : 's'}` : undefined} loading={loading} />
         <StatCard icon={Info} label="Sem parâmetro" value={resumo.semParametro} color="#94a3b8" loading={loading} />
       </div>
 
@@ -186,10 +210,12 @@ export default function GestaoContratosPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/40">
+                    <TableHead className="w-8 text-center text-xs font-semibold uppercase tracking-wider" title="Farol"> </TableHead>
                     <TableHead className="w-12 text-center text-xs font-semibold uppercase tracking-wider">#</TableHead>
                     <TableHead className="text-xs font-semibold uppercase tracking-wider">CNPJ</TableHead>
                     <TableHead className="text-xs font-semibold uppercase tracking-wider">Cliente</TableHead>
                     <TableHead className="text-center text-xs font-semibold uppercase tracking-wider">Situação</TableHead>
+                    <TableHead className="text-xs font-semibold uppercase tracking-wider">Vigência</TableHead>
                     <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Faturamento</TableHead>
                     <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Honorários</TableHead>
                     <TableHead className="text-center text-xs font-semibold uppercase tracking-wider">Lançamentos</TableHead>
@@ -200,19 +226,38 @@ export default function GestaoContratosPage() {
                 <TableBody>
                   {registros.length === 0 && !loading ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
+                      <TableCell colSpan={11} className="py-10 text-center text-sm text-muted-foreground">
                         Nenhum cliente com contrato ou parâmetros. Use &quot;Verificar no ERP&quot; no detalhe do cliente para alimentar os dados.
                       </TableCell>
                     </TableRow>
                   ) : registros.map(r => {
                     const sit = SITUACAO_BADGE[r.situacao]
+                    const vig = VIGENCIA_INFO[r.vigencia]
                     return (
                       <TableRow key={r.id} className="cursor-pointer" onClick={() => router.push(`/clientes/${r.id}`)}>
+                        <TableCell className="text-center">
+                          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: FAROL_COR[r.farol] }}
+                            title={r.farol === 'vermelho' ? 'Requer ação' : r.farol === 'amarelo' ? 'Atenção' : 'Em ordem'} />
+                        </TableCell>
                         <TableCell className="text-center text-xs text-muted-foreground">{r.numero}</TableCell>
                         <TableCell className="whitespace-nowrap text-sm tabular-nums">{fmtCnpj(r.documento)}</TableCell>
                         <TableCell className="max-w-[260px] truncate text-sm font-medium">{r.cliente || '—'}</TableCell>
                         <TableCell className="text-center">
                           <Badge variant="outline" className={cn('font-normal', sit.cls)}>{sit.label}</Badge>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">
+                          {!r.temContrato ? (
+                            <span className="text-muted-foreground">Sem contrato</span>
+                          ) : (
+                            <span className={vig.cls} title={r.dataFim ? `Vence em ${r.dataFim.split('-').reverse().join('/')}` : undefined}>
+                              {vig.label}
+                              {r.diasParaVencer != null && r.vigencia !== 'vigente' && (
+                                <span className="ml-1 text-muted-foreground">
+                                  ({r.diasParaVencer < 0 ? `há ${Math.abs(r.diasParaVencer)}d` : `${r.diasParaVencer}d`})
+                                </span>
+                              )}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="text-right text-sm tabular-nums">{fmtMoeda(r.faturamento)}</TableCell>
                         <TableCell className="text-right text-sm tabular-nums">{fmtMoeda(r.honorarios)}</TableCell>

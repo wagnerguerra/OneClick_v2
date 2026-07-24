@@ -1680,7 +1680,11 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
 
 function ContratosPanel({ clienteId }: { clienteId?: string }) {
   const [showParamModal, setShowParamModal] = useState(false)
-  const [params, setParams] = useState({ honorario: 0, lancamentos: 0, faturamento: 0, nfEntrada: 0, nfSaida: 0, nfPrestado: 0, nfTomado: 0, funcionarios: 0 })
+  const [params, setParams] = useState({
+    honorario: 0, lancamentos: 0, faturamento: 0, nfEntrada: 0, nfSaida: 0, nfPrestado: 0, nfTomado: 0, funcionarios: 0,
+    // Metadata do contrato (Fase 2)
+    numero: '', tipo: '', dataInicio: '', dataFim: '', permanente: false, diasAlertaRenovacao: '', gestaoIgnorar: false,
+  })
   const [loadingParams, setLoadingParams] = useState(false)
   const [savingParams, setSavingParams] = useState(false)
   const [fetchingSuggested, setFetchingSuggested] = useState(false)
@@ -1715,15 +1719,25 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
     try {
       const data = await trpc.cliente.getContratoParams.query({ clienteId })
       if (data) {
+        const d = data as Record<string, unknown>
+        const num = (k: string) => Number(d[k]) || 0
+        const dateStr = (k: string) => (d[k] ? String(d[k]).slice(0, 10) : '')
         setParams({
-          honorario: (data as Record<string, number>).honorario || 0,
-          lancamentos: (data as Record<string, number>).lancamentos || 0,
-          faturamento: (data as Record<string, number>).faturamento || 0,
-          nfEntrada: (data as Record<string, number>).nfEntrada || 0,
-          nfSaida: (data as Record<string, number>).nfSaida || 0,
-          nfPrestado: (data as Record<string, number>).nfPrestado || 0,
-          nfTomado: (data as Record<string, number>).nfTomado || 0,
-          funcionarios: (data as Record<string, number>).funcionarios || 0,
+          honorario: num('honorario'),
+          lancamentos: num('lancamentos'),
+          faturamento: num('faturamento'),
+          nfEntrada: num('nfEntrada'),
+          nfSaida: num('nfSaida'),
+          nfPrestado: num('nfPrestado'),
+          nfTomado: num('nfTomado'),
+          funcionarios: num('funcionarios'),
+          numero: d.numero ? String(d.numero) : '',
+          tipo: d.tipo ? String(d.tipo) : '',
+          dataInicio: dateStr('dataInicio'),
+          dataFim: dateStr('dataFim'),
+          permanente: !!d.permanente,
+          diasAlertaRenovacao: d.diasAlertaRenovacao != null ? String(d.diasAlertaRenovacao) : '',
+          gestaoIgnorar: !!d.gestaoIgnorar,
         })
       }
     } catch {}
@@ -1892,7 +1906,19 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
     if (!clienteId) return
     setSavingParams(true)
     try {
-      await trpc.cliente.saveContratoParams.mutate({ clienteId, ...params })
+      await trpc.cliente.saveContratoParams.mutate({
+        clienteId,
+        honorario: params.honorario, lancamentos: params.lancamentos, faturamento: params.faturamento,
+        nfEntrada: params.nfEntrada, nfSaida: params.nfSaida, nfPrestado: params.nfPrestado,
+        nfTomado: params.nfTomado, funcionarios: params.funcionarios,
+        numero: params.numero || null,
+        tipo: params.tipo || null,
+        dataInicio: params.dataInicio || null,
+        dataFim: params.dataFim || null,
+        permanente: params.permanente,
+        diasAlertaRenovacao: params.diasAlertaRenovacao !== '' ? Number(params.diasAlertaRenovacao) : null,
+        gestaoIgnorar: params.gestaoIgnorar,
+      })
       await alerts.success('Parametros salvos', 'Os parametros do contrato foram atualizados.')
       setShowParamModal(false)
     } catch (e) {
@@ -1951,6 +1977,49 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                 {loadingParams ? (
                   <div className="flex justify-center py-10"><div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
                 ) : (
+                  <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+                  {/* Contrato (vínculo / vigência / renovação) */}
+                  <div className="rounded border border-border/60 p-3 space-y-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Contrato</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label>Número do contrato</Label>
+                        <Input placeholder="Ex.: 2024/001" value={params.numero} onChange={(e) => setParams(p => ({ ...p, numero: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Tipo / modalidade</Label>
+                        <Input placeholder="Ex.: Prestação de serviços" value={params.tipo} onChange={(e) => setParams(p => ({ ...p, tipo: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Início da vigência</Label>
+                        <Input type="date" value={params.dataInicio} onChange={(e) => setParams(p => ({ ...p, dataInicio: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Fim da vigência</Label>
+                        <Input type="date" value={params.dataFim} disabled={params.permanente}
+                          onChange={(e) => setParams(p => ({ ...p, dataFim: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Alerta de renovação (dias)</Label>
+                        <Input type="number" placeholder="30" value={params.diasAlertaRenovacao} disabled={params.permanente}
+                          onChange={(e) => setParams(p => ({ ...p, diasAlertaRenovacao: e.target.value }))} />
+                      </div>
+                      <div className="flex flex-col justify-end gap-2 pb-1">
+                        <label className="flex items-center gap-2 text-xs cursor-pointer">
+                          <input type="checkbox" className="h-3.5 w-3.5 rounded border-border" checked={params.permanente}
+                            onChange={(e) => setParams(p => ({ ...p, permanente: e.target.checked, ...(e.target.checked ? { dataFim: '' } : {}) }))} />
+                          Contrato permanente (sem prazo)
+                        </label>
+                        <label className="flex items-center gap-2 text-xs cursor-pointer">
+                          <input type="checkbox" className="h-3.5 w-3.5 rounded border-border" checked={params.gestaoIgnorar}
+                            onChange={(e) => setParams(p => ({ ...p, gestaoIgnorar: e.target.checked }))} />
+                          Ignorar no painel de gestão
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Baseline de parâmetros (comparação com o ERP) */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <Label>Honorário (R$)</Label>
@@ -1992,6 +2061,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                       <Label>Funcionarios</Label>
                       <Input type="number" placeholder="0" value={params.funcionarios || ''} onChange={(e) => setParams(p => ({ ...p, funcionarios: Number(e.target.value) || 0 }))} />
                     </div>
+                  </div>
                   </div>
                 )}
                 {suggestedInfo && (
@@ -2248,7 +2318,11 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
           chartDatei={chartDatei} setChartDatei={setChartDatei}
           chartDatef={chartDatef} setChartDatef={setChartDatef}
           chartData={chartData} chartLoading={chartLoading}
-          params={params}
+          params={{
+            honorario: params.honorario, lancamentos: params.lancamentos, faturamento: params.faturamento,
+            nfEntrada: params.nfEntrada, nfSaida: params.nfSaida, nfPrestado: params.nfPrestado,
+            nfTomado: params.nfTomado, funcionarios: params.funcionarios,
+          }}
           onLoad={loadChartData}
           onClose={() => setShowChartModal(false)}
           onOpenErp={() => { setShowChartModal(false); setShowErpModal(true) }}
