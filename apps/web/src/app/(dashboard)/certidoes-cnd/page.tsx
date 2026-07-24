@@ -1879,7 +1879,7 @@ export default function CertidoesCndPage() {
                       <p className="text-sm font-medium truncate">{r.razaoSocial || '—'}</p>
                     </TableCell>
                     <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
-                      {r.documento.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}
+                      {formatDoc(r.documento)}
                     </TableCell>
                     <TableCell>
                       {r.sucesso ? (
@@ -2183,7 +2183,7 @@ export default function CertidoesCndPage() {
                     </TableCell>
                     <TableCell><p className="text-sm font-medium truncate">{r.razaoSocial || '—'}</p></TableCell>
                     <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
-                      {r.documento.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}
+                      {formatDoc(r.documento)}
                     </TableCell>
                     <TableCell>
                       {r.sucesso && r.tipoCertidao === 'Negativa' ? (
@@ -2294,7 +2294,7 @@ export default function CertidoesCndPage() {
                           <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0 cursor-pointer', munConsultaSelecionado === c.id && 'bg-fuchsia-50/40 dark:bg-fuchsia-950/20')}>
                             <input type="radio" name="cliente-cnd-mun" checked={munConsultaSelecionado === c.id} onChange={() => { setMunConsultaSelecionado(c.id); setMunConsultaDoc(c.documento) }} className="h-3.5 w-3.5 accent-violet-500 cursor-pointer" />
                             <span className="flex-1 truncate" onClick={() => { setMunConsultaSelecionado(c.id); setMunConsultaDoc(c.documento) }}>{c.razaoSocial}</span>
-                            <span className="font-mono text-[10px] text-muted-foreground shrink-0">{c.documento.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}</span>
+                            <span className="font-mono text-[10px] text-muted-foreground shrink-0">{formatDoc(c.documento)}</span>
                           </div>
                         ))}
                         {munConsultaClientes.length === 0 && (
@@ -2599,7 +2599,7 @@ export default function CertidoesCndPage() {
                       </TableCell>
                       <TableCell><p className="text-sm font-medium truncate">{r.razaoSocial || '—'}</p></TableCell>
                       <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
-                        {r.documento.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}
+                        {formatDoc(r.documento)}
                       </TableCell>
                       <TableCell>
                         {r.sucesso ? (
@@ -2928,7 +2928,7 @@ export default function CertidoesCndPage() {
                     </TableCell>
                     <TableCell><p className="text-sm font-medium truncate">{r.razaoSocial || '—'}</p></TableCell>
                     <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
-                      {r.documento.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}
+                      {formatDoc(r.documento)}
                     </TableCell>
                     <TableCell>
                       {r.sucesso && r.tipoCertidao === 'Negativa' ? (
@@ -3238,7 +3238,7 @@ export default function CertidoesCndPage() {
                     </TableCell>
                     <TableCell><p className="text-sm font-medium truncate">{r.razaoSocial || '—'}</p></TableCell>
                     <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
-                      {r.documento.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}
+                      {formatDoc(r.documento)}
                     </TableCell>
                     <TableCell>
                       {r.sucesso ? (
@@ -3523,7 +3523,7 @@ export default function CertidoesCndPage() {
                     </TableCell>
                     <TableCell><p className="text-sm font-medium truncate">{r.razaoSocial || '—'}</p></TableCell>
                     <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
-                      {r.documento.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}
+                      {formatDoc(r.documento)}
                     </TableCell>
                     <TableCell>
                       {r.tipoCertidao === 'Nada Consta' ? (
@@ -3709,7 +3709,7 @@ export default function CertidoesCndPage() {
                 <div className="space-y-4">
                   <div className="rounded-lg border bg-muted/30 px-4 py-3">
                     <p className="text-sm font-medium">{compRazao}</p>
-                    <p className="text-xs text-muted-foreground font-mono">{compDoc.replace(/\D/g, '').replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{formatDoc(compDoc)}</p>
                   </div>
                   <div>
                     <label className="text-xs font-medium mb-2 block">Certidões a incluir</label>

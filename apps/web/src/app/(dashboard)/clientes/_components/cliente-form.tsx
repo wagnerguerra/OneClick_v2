@@ -1142,7 +1142,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
 
       {/* Modal Cartão CNPJ — Réplica fiel do SERPRO2 */}
       {cnpjCard && (() => {
-        const cnpjF = cnpjCard.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || cnpjCard.cnpj
+        const cnpjF = masks.cnpj(cnpjCard.cnpj || '') || cnpjCard.cnpj
         const dtAb = cnpjCard.dataAbertura ? new Date(cnpjCard.dataAbertura + 'T00:00:00').toLocaleDateString('pt-BR') : '\u2014'
         const capF = cnpjCard.capitalSocial != null ? `R$ ${Number(cnpjCard.capitalSocial).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '\u2014'
         const cellB = 'border: 1px solid #000; padding: 3.5pt;'

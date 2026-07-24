@@ -124,9 +124,7 @@ export default function SituacaoFiscalPage() {
       id: c.id,
       doc: c.documento,
       nome: c.razaoSocial,
-      docFmt: c.documento.length === 11
-        ? c.documento.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-        : c.documento.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5'),
+      docFmt: masks.cpfCnpj(c.documento),
     })))
 
     const { value: documento, isConfirmed } = await Swal.fire({
@@ -613,7 +611,7 @@ export default function SituacaoFiscalPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-xs font-mono text-muted-foreground">
-                          {c.documento.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}
+                          {masks.cnpj(c.documento)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -638,7 +636,7 @@ export default function SituacaoFiscalPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{item.razaoSocial}</p>
                         <p className="font-mono text-muted-foreground text-[10px]">
-                          {item.documento.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}
+                          {masks.cnpj(item.documento)}
                         </p>
                       </div>
                       <div className="shrink-0 text-right min-w-[140px]">

@@ -799,7 +799,7 @@ export class ContratoService {
         ? (a.signatarioDoc.length === 11
             ? a.signatarioDoc.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
             : a.signatarioDoc.length === 14
-              ? a.signatarioDoc.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+              ? (() => { const _c = a.signatarioDoc.toUpperCase().replace(/[^0-9A-Z]/g, ''); return _c.length === 14 ? `${_c.slice(0,2)}.${_c.slice(2,5)}.${_c.slice(5,8)}/${_c.slice(8,12)}-${_c.slice(12,14)}` : a.signatarioDoc })()
               : a.signatarioDoc)
         : null
       const docLabel = a.signatarioDoc?.length === 14 ? 'CNPJ' : 'CPF'
