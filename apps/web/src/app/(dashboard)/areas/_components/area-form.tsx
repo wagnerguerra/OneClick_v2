@@ -21,10 +21,6 @@ import {
   TooltipTrigger,
   TooltipContent,
   TooltipProvider,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -42,6 +38,14 @@ interface UserForSelect {
 }
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
+
+// Sub-abas laterais (padrão da casa: pills compactas na cor do módulo).
+const AREA_TABS = [
+  { id: 'identificacao', label: 'Identificação', icon: Tag },
+  { id: 'visibilidade', label: 'Visibilidade', icon: Eye },
+  { id: 'hierarquia', label: 'Hierarquia', icon: Network },
+  { id: 'custeio', label: 'Custeio', icon: Calculator },
+] as const
 
 interface AreaFormProps {
   mode: 'create' | 'edit'
@@ -71,6 +75,7 @@ export function AreaForm({ mode, areaId, title, description, icon, defaultValues
   const [error, setError] = useState<string | null>(null)
   const [areas, setAreas] = useState<AreaForSelect[]>([])
   const [users, setUsers] = useState<UserForSelect[]>([])
+  const [activeTab, setActiveTab] = useState<string>('identificacao')
 
   const {
     register,
@@ -158,25 +163,35 @@ export function AreaForm({ mode, areaId, title, description, icon, defaultValues
         )}
 
         <Card className="overflow-hidden">
-          <Tabs defaultValue="identificacao" orientation="vertical" className="flex min-h-[500px]">
-            <TabsList variant="pills" className="w-[124px] shrink-0 border-r border-border bg-muted/30 p-3 items-center">
-              <TabsTrigger variant="pills" value="identificacao" icon={<Tag className="h-4 w-4" />}>
-                Identificação
-              </TabsTrigger>
-              <TabsTrigger variant="pills" value="visibilidade" icon={<Eye className="h-4 w-4" />}>
-                Visibilidade
-              </TabsTrigger>
-              <TabsTrigger variant="pills" value="hierarquia" icon={<Network className="h-4 w-4" />}>
-                Hierarquia
-              </TabsTrigger>
-              <TabsTrigger variant="pills" value="custeio" icon={<Calculator className="h-4 w-4" />}>
-                Custeio
-              </TabsTrigger>
-            </TabsList>
-            <div className="flex-1 min-w-0">
+          <div className="flex min-h-[450px]">
+            {/* Pills laterais — padrão da casa (w-170, bg-muted/40, ativa = cor do módulo) */}
+            <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 space-y-1">
+              {AREA_TABS.map((t) => {
+                const Icon = t.icon
+                const active = activeTab === t.id
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setActiveTab(t.id)}
+                    className={cn(
+                      'flex items-center gap-2 w-full rounded-md px-3 py-2 text-[11px] font-medium transition-colors text-left',
+                      active ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-muted/60',
+                    )}
+                    style={active ? { backgroundColor: MODULE_COLOR } : undefined}
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    <span className="flex-1 truncate">{t.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Conteúdo — key={activeTab} + fadeSlideIn (padrão da casa) */}
+            <div key={activeTab} className="flex-1 min-w-0 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
 
             {/* IDENTIFICAÇÃO */}
-            <TabsContent value="identificacao" className="p-5">
+            {activeTab === 'identificacao' && (
               <div className="grid gap-4 sm:grid-cols-[100px_1fr]">
                 {mode === 'edit' && defaultValues?.code !== undefined && (
                   <div className="space-y-1.5">
@@ -196,10 +211,10 @@ export function AreaForm({ mode, areaId, title, description, icon, defaultValues
                   )}
                 </div>
               </div>
-            </TabsContent>
+            )}
 
             {/* VISIBILIDADE E CONTRATAÇÃO */}
-            <TabsContent value="visibilidade" className="p-5">
+            {activeTab === 'visibilidade' && (
               <div className="grid gap-4 sm:grid-cols-2">
                 <Controller
                   control={control}
@@ -230,10 +245,10 @@ export function AreaForm({ mode, areaId, title, description, icon, defaultValues
                   )}
                 />
               </div>
-            </TabsContent>
+            )}
 
             {/* CONTATO E HIERARQUIA */}
-            <TabsContent value="hierarquia" className="p-5">
+            {activeTab === 'hierarquia' && (
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5">
@@ -309,10 +324,10 @@ export function AreaForm({ mode, areaId, title, description, icon, defaultValues
                   />
                 </div>
               </div>
-            </TabsContent>
+            )}
 
             {/* CUSTEIO POR CLIENTE */}
-            <TabsContent value="custeio" className="p-5">
+            {activeTab === 'custeio' && (
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5">
@@ -368,9 +383,9 @@ export function AreaForm({ mode, areaId, title, description, icon, defaultValues
                   />
                 </div>
               </div>
-            </TabsContent>
+            )}
             </div>
-          </Tabs>
+          </div>
         </Card>
 
       </form>
