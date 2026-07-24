@@ -45,7 +45,9 @@ export const listOrcamentoSchema = paginationSchema.extend({
   numero: z.coerce.number().int().positive().optional(),
   dataInicial: z.string().optional(), // YYYY-MM-DD (filtra createdAt)
   dataFinal: z.string().optional(),   // YYYY-MM-DD (filtra createdAt)
-  servicoId: z.string().optional(),
+  // Filtro "Item": id do catálogo (Servico.id p/ SERVICO, ServicoCatalogo.id
+  // p/ TAXA/DESPESA) — casa por item do orçamento, de qualquer tipo.
+  itemCatalogoId: z.string().optional(),
   responsavelId: z.string().optional(),
   solicitanteId: z.string().optional(),
   // "Incluir paralizados?" — default é incluir (Sim); só constrange quando false.

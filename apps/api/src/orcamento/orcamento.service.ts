@@ -107,14 +107,11 @@ export class OrcamentoService {
     }
     // "Incluir paralizados?" — default incluir; só filtra quando desmarcado.
     if (input.incluirParalizados === false) where.paralizado = false
-    // Serviço: orçamentos que contêm o serviço (item do catálogo, catalogoId =
-    // Servico.id quando tipo=SERVICO) ou que têm o serviço-template vinculado.
-    if (input.servicoId) {
+    // Filtro "Item": orçamentos que contêm o item do catálogo — de qualquer
+    // tipo (SERVICO/TAXA/DESPESA), casando pelo catalogoId do item.
+    if (input.itemCatalogoId) {
       where.AND = [...(where.AND ?? []), {
-        OR: [
-          { itens: { some: { catalogoId: input.servicoId } } },
-          { servicoId: input.servicoId },
-        ],
+        itens: { some: { catalogoId: input.itemCatalogoId } },
       }]
     }
     if (input.search) {
@@ -1169,22 +1166,6 @@ export class OrcamentoService {
     })
     this.emitEvent('kanban', { orcamentoId: id, empresaId: orc.empresaId, actorUserId: userId })
     return orc
-  }
-
-  // Lista leve de serviços (id + nome) para o filtro "Serviço" da lista de
-  // orçamentos (HLP0296). Sob o módulo de orçamentos — não exige permissão de
-  // Serviços. Só os comerciais top-level (mesma regra do catálogo de itens).
-  async listServicosParaFiltro(empresaId?: string) {
-    return prisma.servico.findMany({
-      where: {
-        ativo: true,
-        ehServicoInterno: false,
-        categoriaServico: { in: ['MENSAL', 'EXTRA'] },
-        ...(empresaId ? { empresaId } : {}),
-      },
-      select: { id: true, nome: true },
-      orderBy: { nome: 'asc' },
-    })
   }
 
   // ── Status Workflow ───────────────────────────────────────
