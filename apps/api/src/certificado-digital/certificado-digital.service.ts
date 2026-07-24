@@ -10,6 +10,7 @@ const STORAGE_ROOT = path.resolve(process.cwd(), 'uploads', 'certificados')
 export type AcaoAcesso =
   | 'cadastrado'
   | 'visualizado'
+  | 'acessado'
   | 'editado'
   | 'download_pfx'
   | 'senha_visualizada'
@@ -38,14 +39,20 @@ export class CertificadoDigitalService {
     clienteId?: string
     status?: string
     incluirArquivados?: boolean
+    apenasArquivados?: boolean
     incluirRenovados?: boolean
   }) {
     const where: any = {}
     if (opts.empresaId) where.empresaId = opts.empresaId
     if (opts.status) where.status = opts.status
-    if (!opts.incluirArquivados) where.arquivado = false
-    // Versões antigas (RENOVADO) ficam ocultas por padrão — só a versão atual aparece
-    if (!opts.incluirRenovados && !opts.status) where.status = { not: 'RENOVADO' } as any
+    if (opts.apenasArquivados) {
+      // Aba "Arquivados": só os arquivados, inclusive versões renovadas.
+      where.arquivado = true
+    } else {
+      if (!opts.incluirArquivados) where.arquivado = false
+      // Versões antigas (RENOVADO) ficam ocultas por padrão — só a versão atual aparece
+      if (!opts.incluirRenovados && !opts.status) where.status = { not: 'RENOVADO' } as any
+    }
 
     // Quando filtra por clienteId, também procura certs vinculados pelo MESMO
     // CNPJ (documento). Cobre o caso de duplicação de cliente: o mesmo CNPJ
@@ -233,7 +240,8 @@ export class CertificadoDigitalService {
   /**
    * Lê o PFX do disco, verifica integridade, retorna como Buffer
    * (caller é responsável por enviar pra cliente e descartar).
-   * REQUER reauth + sub-permissão "download_arquivo".
+   * REQUER reauth + sub-permissão "acessar_certificados" (exceto acesso via
+   * cadastro do cliente, gateado no router).
    */
   async downloadPfx(id: string, motivo: string, audit: AuditContext): Promise<Buffer> {
     const cert = await prisma.certificadoDigital.findUnique({
@@ -254,13 +262,15 @@ export class CertificadoDigitalService {
       throw new Error('Falha de integridade do arquivo. Operação bloqueada — contate o administrador.')
     }
 
-    await this.registrarAcesso(id, 'download_pfx', { ...audit, detalhes: motivo })
+    // Acesso auditado num único evento (arquivo + senha) ao abrir o painel — ver
+    // registrarAcessoArquivoSenha. `motivo` é mantido na assinatura por consistência.
+    void motivo
     return buffer
   }
 
   /**
    * Decifra e retorna a senha em claro. REQUER reauth + sub-permissão
-   * "ver_senha". Toda chamada gera registro em audit.
+   * "acessar_certificados" (exceto via cadastro do cliente, gateado no router).
    */
   async getSenha(id: string, motivo: string, audit: AuditContext): Promise<string> {
     const cert = await prisma.certificadoDigital.findUnique({
@@ -270,7 +280,9 @@ export class CertificadoDigitalService {
     if (!cert?.senhaCifrada) throw new Error('Senha não disponível.')
     const cipher = parseCipher(cert.senhaCifrada)
     const plain = decryptPassword(cipher)
-    await this.registrarAcesso(id, 'senha_visualizada', { ...audit, detalhes: motivo })
+    // Acesso auditado num único evento (arquivo + senha) ao abrir o painel — ver
+    // registrarAcessoArquivoSenha. `motivo` mantido na assinatura por consistência.
+    void motivo
     return plain
   }
 
@@ -528,6 +540,18 @@ export class CertificadoDigitalService {
   }
 
   // ── Trilha de auditoria ──────────────────────────────────
+
+  /**
+   * Registra o acesso ao certificado (arquivo + senha juntos) — #HLP0301. O
+   * pessoal sempre usa os dois em conjunto, então um único evento cobre o acesso.
+   * Dispara ao abrir o painel de acesso, com OU sem reautenticação ativada (nesse
+   * caso `motivo` vem vazio). Substitui os antigos eventos senha_visualizada /
+   * download_pfx.
+   */
+  async registrarAcessoArquivoSenha(id: string, motivo: string, audit: AuditContext) {
+    await this.registrarAcesso(id, 'acessado', { ...audit, detalhes: motivo || undefined })
+    return { ok: true }
+  }
 
   async listAcessos(certificadoId: string) {
     const items = await prisma.certificadoDigitalAcesso.findMany({

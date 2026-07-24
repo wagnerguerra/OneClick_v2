@@ -536,6 +536,12 @@ model Empresa {
   serproHabilitado      Boolean @default(false) @map("serpro_habilitado")
   serproOrcamentoMensal Float?  @map("serpro_orcamento_mensal") // teto R$/mês; null = sem teto
 
+  // Certificados digitais (#HLP0301): exige reautenticação (senha do usuário +
+  // justificativa) para VER a senha em claro e BAIXAR o PFX. Default true
+  // (mantém o comportamento atual); o tenant pode desligar. A auditoria é
+  // registrada de qualquer forma, independente desta flag.
+  certReautObrigatoria Boolean @default(true) @map("cert_reaut_obrigatoria")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

@@ -11,6 +11,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
 import { ImportStatusModal, type ImportStep } from './import-status-modal'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -59,6 +60,8 @@ interface Vencimento { id: string; descricao: string; data_vencimento: string; a
 export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoCardProps) {
   const { canManageRegistration, canManageFiscal } = useClientesPerms()
   const [activeTab, setActiveTab] = useState('pop')
+  // Detalhes do certificado (modal compartilhado com o módulo Legalização). #HLP0301
+  const [viewCertId, setViewCertId] = useState<string | null>(null)
   // Importação OneClick (via Service Manager) com indicador de status por etapa.
   const [importSteps, setImportSteps] = useState<ImportStep[] | null>(null)
   const [importDone, setImportDone] = useState(false)
@@ -1064,12 +1067,14 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                             ? 'text-amber-600 dark:text-amber-400 font-semibold'
                             : 'text-emerald-600 dark:text-emerald-400'
                       return (
-                        <a
+                        <div
                           key={cert.id}
-                          href={`/gestao-certificados?openId=${cert.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-border hover:bg-muted/30 transition-colors"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setViewCertId(cert.id)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewCertId(cert.id) } }}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-border hover:bg-muted/30 hover:border-fuchsia-300 dark:hover:border-fuchsia-800 cursor-pointer transition-colors"
+                          title="Ver detalhes do certificado"
                         >
                           <FileLock className="h-5 w-5 text-fuchsia-600 shrink-0" />
                           <div className="flex-1 min-w-0">
@@ -1095,13 +1100,31 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                               </>
                             ) : '—'}
                           </div>
-                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        </a>
+                          <a
+                            href={`/gestao-certificados?openId=${cert.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-muted-foreground hover:text-foreground shrink-0"
+                            title="Abrir na gestão de certificados"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        </div>
                       )
                     })}
                   </div>
                 )}
               </div>
+              <CertDetalhesModal
+                certId={viewCertId}
+                open={!!viewCertId}
+                onOpenChange={(o) => { if (!o) setViewCertId(null) }}
+                showAcessosTab={false}
+                hideClienteSection
+                origem="cliente"
+                canDownload
+              />
             </>
           )}
 

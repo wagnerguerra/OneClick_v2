@@ -54,7 +54,7 @@ export const MODULE_SLUGS = [
   // Administrativo
   'agenda', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma',
   // Legalização
-  'beneficios-fiscais', 'certificados', 'gestao-certificados', 'processos', 'quadro-societario',
+  'beneficios-fiscais', 'gestao-certificados', 'processos', 'quadro-societario',
   // Trabalhista
   'banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento', 'folha-bi',
   // Fiscal
@@ -106,7 +106,7 @@ export const MODULE_LABELS: Record<string, string> = {
   contatos: 'Contatos', estoque: 'Controle de Estoque',
   'meus-servicos': 'Meus Serviços', 'minhas-obrigacoes': 'Minhas Obrigações', organograma: 'Organograma',
   // Legalização
-  certificados: 'Certificados', 'gestao-certificados': 'Certificados Digitais',
+  'gestao-certificados': 'Certificados Digitais',
   processos: 'Processos', 'quadro-societario': 'Quadro Societário',
   // Trabalhista
   'banco-horas': 'Banco de Horas', beneficios: 'Benefícios', 'controle-ferias': 'Controle de Férias',
@@ -139,7 +139,7 @@ export const MODULE_GROUPS = {
   'Cadastros': ['areas', 'cargos', 'clientes', 'colaboradores', 'empresas', 'fornecedores', 'grupos-empresariais', 'obrigacoes', 'obrigacoes-fixas', 'obrigacoes-demanda', 'servicos', 'socios', 'usuarios'],
   'Comercial': ['crm', 'whatsapp', 'clausulas', 'comercial', 'contratos', 'contrato-templates', 'custeio-clientes', 'graficos-contrato-erp', 'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios'],
   'Administrativo': ['agenda', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma'],
-  'Legalização': ['beneficios-fiscais', 'certificados', 'gestao-certificados', 'processos', 'quadro-societario'],
+  'Legalização': ['beneficios-fiscais', 'gestao-certificados', 'processos', 'quadro-societario'],
   'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento', 'folha-bi'],
   'Fiscal': ['caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal', 'reforma-tributaria', 'ferramentas-fiscal'],
   'Contábil': ['bi-categorias-balancete', 'bi-faturamento', 'ferramentas-contabil', 'tratamento-lancamentos'],
@@ -370,12 +370,12 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'panel_metricas', label: 'Acesso ao painel de métricas', group: 'Administração' },
   ],
   'gestao-certificados': [
-    { key: 'download_arquivo', label: 'Baixar arquivo PFX do certificado', group: 'Acesso ao certificado' },
-    { key: 'ver_senha', label: 'Visualizar senha em claro', group: 'Acesso ao certificado' },
+    { key: 'acessar_certificados', label: 'Acessar certificados (arquivos PFX e senhas)', group: 'Acesso ao certificado' },
     { key: 'usar_assinatura', label: 'Usar para assinar documentos', group: 'Acesso ao certificado' },
     { key: 'manage_acessos', label: 'Ver trilha de auditoria completa', group: 'Auditoria' },
     { key: 'revogar', label: 'Revogar certificado', group: 'Operações' },
     { key: 'delete_certificados', label: 'Excluir certificados (individual, em massa, duplicatas)', group: 'Operações' },
+    { key: 'gerenciar_config', label: 'Gerenciar configurações de segurança do acesso a certificados', group: 'Configuração' },
   ],
 }
 
