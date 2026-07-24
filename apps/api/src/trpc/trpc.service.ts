@@ -80,6 +80,8 @@ import { BeneficioFiscalService } from '../beneficio-fiscal/beneficio-fiscal.ser
 import { createBeneficioFiscalRouter } from '../beneficio-fiscal/beneficio-fiscal.router'
 import { ReformaTributariaService } from '../reforma-tributaria/reforma-tributaria.service'
 import { createReformaTributariaRouter } from '../reforma-tributaria/reforma-tributaria.router'
+import { CusteioService } from '../custeio/custeio.service'
+import { createCusteioRouter } from '../custeio/custeio.router'
 import { QaService } from '../qa/qa.service'
 import { createQaRouter } from '../qa/qa.router'
 import { SqlConsoleService } from '../sql-console/sql-console.service'
@@ -636,6 +638,7 @@ export class TrpcService {
     @Inject(OrcamentoService) private readonly orcamentoService: OrcamentoService,
     @Inject(BeneficioFiscalService) private readonly beneficioFiscalService: BeneficioFiscalService,
     @Inject(ReformaTributariaService) private readonly reformaTributariaService: ReformaTributariaService,
+    @Inject(CusteioService) private readonly custeioService: CusteioService,
     @Inject(QaService) private readonly qaService: QaService,
     @Inject(SqlConsoleService) private readonly sqlConsoleService: SqlConsoleService,
     @Inject(NotaService) private readonly notaService: NotaService,
@@ -732,6 +735,7 @@ export class TrpcService {
       orcamento: createOrcamentoRouter(this.orcamentoService),
       beneficioFiscal: createBeneficioFiscalRouter(this.beneficioFiscalService),
       reformaTributaria: createReformaTributariaRouter(this.reformaTributariaService),
+      custeio: createCusteioRouter(this.custeioService),
       qa: createQaRouter(this.qaService),
       sqlConsole: createSqlConsoleRouter(this.sqlConsoleService),
       nota: createNotaRouter(this.notaService),

@@ -810,6 +810,7 @@ model Cliente {
   inscricoes           ClienteInscricao[]
   contratoParams       ClienteContratoParam[]
   erpSnapshots         ClienteErpSnapshot[]
+  custeioMensal        ClienteCusteioMensal[]
   biCategorias         ClienteBiCategoria[]
   biLinhas             ClienteBiLinha[]
   biLinks              ClienteBiLink[]
@@ -1213,6 +1214,49 @@ model ClienteErpSnapshot {
   @@unique([clienteId, empresaId, mes, indicador])
   @@index([clienteId, mes])
   @@map("cliente_erp_snapshots")
+}
+
+// Parâmetros de custeio por empresa (Gestão de Contratos — Fase 3).
+// Configuração do modelo de rentabilidade: encargos, benefícios, horas de
+// referência, multiplicadores de categoria comercial e flags. Uma linha por empresa.
+model EmpresaParametroCusteio {
+  id                         String   @id @default(cuid())
+  empresaId                  String   @unique @map("empresa_id")
+  encargosPercentual         Float    @default(0) @map("encargos_percentual")
+  usarHorasServicos          Boolean  @default(false) @map("usar_horas_servicos") // TDABC
+  aplicarAumentoFaturamento  Boolean  @default(true) @map("aplicar_aumento_faturamento")
+  horasMesReferencia         Int      @default(160) @map("horas_mes_referencia")
+  beneficioAlimentacaoDia    Float    @default(40) @map("beneficio_alimentacao_dia")
+  beneficioValeTransporteDia Float    @default(10.2) @map("beneficio_vale_transporte_dia")
+  beneficioPlanoSaudeMensal  Float    @default(162) @map("beneficio_plano_saude_mensal")
+  multCategoriaStandard      Float    @default(1) @map("mult_categoria_standard")
+  multCategoriaAdvanced      Float    @default(1.2) @map("mult_categoria_advanced")
+  multCategoriaPremium       Float    @default(1.5) @map("mult_categoria_premium")
+  createdAt                  DateTime @default(now()) @map("created_at")
+  updatedAt                  DateTime @updatedAt @map("updated_at")
+
+  @@map("empresa_parametros_custeio")
+}
+
+// Resultado do custeio por cliente e mês (tabela de saída, recalculável).
+model ClienteCusteioMensal {
+  id                String   @id @default(cuid())
+  empresaId         String   @map("empresa_id")
+  clienteId         String   @map("cliente_id")
+  refMes            String   @map("ref_mes") // "YYYY-MM"
+  custoDireto       Float    @default(0) @map("custo_direto")
+  custoRateioApoio  Float    @default(0) @map("custo_rateio_apoio")
+  custoTdabc        Float    @default(0) @map("custo_tdabc")
+  custoTotal        Float    @default(0) @map("custo_total")
+  receitaReferencia Float    @default(0) @map("receita_referencia")
+  detalheJson       Json?    @map("detalhe_json")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, clienteId, refMes])
+  @@index([empresaId, refMes])
+  @@map("cliente_custeio_mensal")
 }
 
 // Histórico comercial (chat de negociações)

@@ -149,6 +149,7 @@ export const navigation: NavGroup[] = [
         icon: FileText,
         subItems: [
           { label: 'Gestão de Contratos', href: '/comercial/gestao-contratos', icon: Gauge },
+          { label: 'Custeio de Clientes', href: '/comercial/custeio', icon: Calculator },
           { label: 'Cláusulas', href: '/clausulas', icon: FileCheck },
           { label: 'Modelos de Contrato', href: '/contrato-templates', icon: FileBox },
           { label: 'Gráficos Contrato x ERP', href: '/graficos-contrato-erp', icon: BarChart3, wip: true },

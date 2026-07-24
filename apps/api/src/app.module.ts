@@ -31,6 +31,7 @@ import { SignatureModule } from './signature/signature.module'
 import { OnlineUsersModule } from './online-users/online-users.module'
 import { ChatModule } from './chat/chat.module'
 import { ReformaTributariaModule } from './reforma-tributaria/reforma-tributaria.module'
+import { CusteioModule } from './custeio/custeio.module'
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { ReformaTributariaModule } from './reforma-tributaria/reforma-tributaria
     ChatModule,
     SignatureModule,
     ReformaTributariaModule,
+    CusteioModule,
   ],
 })
 export class AppModule implements NestModule {
