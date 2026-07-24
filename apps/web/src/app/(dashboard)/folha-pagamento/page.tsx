@@ -57,7 +57,7 @@ export default function FolhaPagamentoPage() {
 
   const formatCnpj = (doc: string) =>
     doc.length === 14
-      ? doc.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+      ? `${doc.slice(0,2)}.${doc.slice(2,5)}.${doc.slice(5,8)}/${doc.slice(8,12)}-${doc.slice(12,14)}`
       : doc
 
   return (

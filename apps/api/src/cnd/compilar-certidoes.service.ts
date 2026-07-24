@@ -341,7 +341,7 @@ export class CompilarCertidoesService {
       content: Buffer.from(item.pdfBase64!, 'base64'),
     }))
 
-    const cnpjFormatado = documento.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+    const _cd = (documento || '').toUpperCase().replace(/[^0-9A-Z]/g, ''); const cnpjFormatado = _cd.length === 14 ? `${_cd.slice(0,2)}.${_cd.slice(2,5)}.${_cd.slice(5,8)}/${_cd.slice(8,12)}-${_cd.slice(12,14)}` : documento // preserva letras
     const dataAtual = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     const totalAnexos = items.length
 

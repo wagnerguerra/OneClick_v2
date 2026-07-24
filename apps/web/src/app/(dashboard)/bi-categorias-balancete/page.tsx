@@ -74,9 +74,9 @@ const TIPO_LABELS: Record<string, { label: string; color: string }> = {
 
 const formatCnpj = (doc: string) =>
   doc.length === 14
-    ? doc.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+    ? `${doc.slice(0,2)}.${doc.slice(2,5)}.${doc.slice(5,8)}/${doc.slice(8,12)}-${doc.slice(12,14)}`
     : doc.length === 11
-      ? doc.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+      ? `${doc.slice(0,3)}.${doc.slice(3,6)}.${doc.slice(6,9)}-${doc.slice(9,11)}`
       : doc
 
 /* ============================== FORMULA MODAL ============================== */
