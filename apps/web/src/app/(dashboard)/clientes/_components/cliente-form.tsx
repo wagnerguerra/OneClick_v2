@@ -236,8 +236,14 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
   }, [watchedValues, sociosCount])
 
   async function buscarCnpj() {
-    const doc = watch('documento')?.replace(/\D/g, '')
-    if (!doc || doc.length < 14) return alerts.error('CNPJ inválido', 'Informe um CNPJ com 14 dígitos.')
+    // limparCnpj preserva letras (CNPJ alfanumérico) — não usar \D, senão o
+    // guard de 14 caracteres falha para o alfanumérico.
+    const doc = limparCnpj(watch('documento'))
+    if (!doc || doc.length !== 14) return alerts.error('CNPJ inválido', 'Informe um CNPJ com 14 caracteres.')
+    // A consulta automática (Receita/SERPRO/BrasilAPI) ainda não aceita CNPJ
+    // alfanumérico — enquanto o upstream não suportar, orienta o preenchimento
+    // manual em vez de mandar uma consulta que falharia.
+    if (/[A-Z]/.test(doc)) return alerts.error('Consulta indisponível', 'A consulta automática ainda não está disponível para CNPJ alfanumérico. Preencha os dados manualmente.')
     try {
       const data = await (trpc.socio as any).consultarCnpj.query({ cnpj: doc }) as {
         razaoSocial: string; nomeFantasia: string | null; cep: string | null; logradouro: string | null
@@ -261,8 +267,9 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
   }
 
   async function consultarCartaoCnpj() {
-    const doc = watch('documento')?.replace(/\D/g, '')
-    if (!doc || doc.length < 14) return alerts.error('CNPJ inválido', 'Informe um CNPJ com 14 dígitos.')
+    const doc = limparCnpj(watch('documento')) // preserva letras (CNPJ alfanumérico)
+    if (!doc || doc.length !== 14) return alerts.error('CNPJ inválido', 'Informe um CNPJ com 14 caracteres.')
+    if (/[A-Z]/.test(doc)) return alerts.error('Consulta indisponível', 'A consulta automática ainda não está disponível para CNPJ alfanumérico. Preencha os dados manualmente.')
     try {
       setCnpjCardLoading(true)
       const data = await (trpc.socio as any).consultarCnpj.query({ cnpj: doc }) as CnpjCardData
