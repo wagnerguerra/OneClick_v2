@@ -53,6 +53,17 @@ SCI_USER=INTEGRACOES
 SCI_CHARSET=UTF8
 ```
 
+## Omie ERP (API REST v1)
+Integração do cadastro de clientes: localiza o cliente no Omie pelo CNPJ
+(botão "Buscar no Omie" na aba Integrações → preenche ID Omie + Empresa).
+Duas empresas: CENTRAL e L&L. Sem estas chaves a integração degrada com aviso.
+```env
+OMIE_APP_KEY_CENTRAL=
+OMIE_APP_SECRET_CENTRAL=
+OMIE_APP_KEY_LL=
+OMIE_APP_SECRET_LL=
+```
+
 ## Certificados / Fiscal
 ```env
 CERTIFICADO_KEK=                  # chave KEK para criptografar senha do PFX

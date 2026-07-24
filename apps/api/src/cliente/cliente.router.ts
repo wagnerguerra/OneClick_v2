@@ -6,6 +6,7 @@ import { createClienteSchema, updateClienteSchema, listClienteSchema } from '@sa
 import { ClienteService } from './cliente.service'
 import { LegacyImportService } from './legacy-import.service'
 import { SciService } from './sci.service'
+import { OmieService } from './omie.service'
 import { IntegrationService } from './integration.service'
 import { ImportOneclickService } from './import-oneclick.service'
 import { CnpjService } from '../cnpj/cnpj.service'
@@ -30,6 +31,7 @@ export function createClienteRouter(
   enriquecimentoService?: import('./cliente-enriquecimento.service').ClienteEnriquecimentoService,
   sincronizarResponsaveisService?: import('./sincronizar-responsaveis.service').SincronizarResponsaveisService,
   contratoSyncService?: import('./contrato-sync.service').ContratoSyncService,
+  omieService?: OmieService,
 ) {
   return router({
     // Listagem (ativos)
@@ -351,6 +353,16 @@ export function createClienteRouter(
     getErpSnapshots: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string(), datai: z.string().optional(), dataf: z.string().optional() }))
       .query(({ input, ctx }) => clienteService.getErpSnapshots(input.clienteId, ctx.empresaId, input.datai, input.dataf)),
+
+    // === INTEGRAÇÃO OMIE (cadastro de clientes) ===
+    // Busca o cliente no Omie pelo CNPJ e retorna o código (idOmie) + empresa.
+    // Não persiste — o front preenche os campos e o usuário salva o cadastro.
+    omieBuscarCliente: readProcedure(MODULE)
+      .input(z.object({ documento: z.string().min(1), omieEmpresa: z.string().optional() }))
+      .query(({ input }) => {
+        if (!omieService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Integração Omie indisponível.' })
+        return omieService.detectar(input.documento, input.omieEmpresa)
+      }),
 
     // === GESTÃO DE CONTRATOS (painel de carteira) ===
     gestaoContratos: readProcedure(MODULE)

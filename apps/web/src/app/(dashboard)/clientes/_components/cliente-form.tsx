@@ -1132,6 +1132,16 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                   <p className="text-[11px] text-muted-foreground">Empresa vinculada no Omie para este cliente</p>
                 </div>
 
+                {/* Buscar no Omie por CNPJ (API) */}
+                <OmieBuscarButton
+                  documento={watch('documento')}
+                  omieEmpresa={watch('omieEmpresa')}
+                  onResult={(idOmie, empresa) => {
+                    setValue('idOmie', idOmie, { shouldDirty: true })
+                    setValue('omieEmpresa', empresa, { shouldDirty: true })
+                  }}
+                />
+
                 {/* Subtítulo Acessórias */}
                 <div className="col-span-12 -mx-5 mt-1">
                   <div className="px-5 py-2 border-t border-border">
@@ -2414,6 +2424,54 @@ function GoogleMapsEmbed({ logradouro, numero, bairro, cidade, uf, cep }: {
           src={`https://maps.google.com/maps?q=${query}&z=15&output=embed`}
         />
       </div>
+    </div>
+  )
+}
+
+// ============================================================
+// OmieBuscarButton — botão da aba Integrações que localiza o cliente no Omie
+// pelo CNPJ (API Omie) e preenche ID Omie + Empresa Omie no formulário.
+// Port da integração de cadastro do SERPRO2 (omieService.obterCodigoClientePorCnpj).
+// ============================================================
+function OmieBuscarButton({ documento, omieEmpresa, onResult }: {
+  documento: string | undefined
+  omieEmpresa: string | undefined
+  onResult: (idOmie: string, empresa: string) => void
+}) {
+  const [loading, setLoading] = useState(false)
+  const handle = async () => {
+    const doc = (documento || '').replace(/\D/g, '')
+    if (!doc) {
+      alerts.error('CNPJ ausente', 'Preencha o documento (CNPJ) do cliente antes de buscar no Omie.')
+      return
+    }
+    setLoading(true)
+    try {
+      const r = await trpc.cliente.omieBuscarCliente.query({ documento: doc, omieEmpresa: omieEmpresa || undefined })
+      if (r.encontrado && r.idOmie && r.omieEmpresa) {
+        onResult(r.idOmie, r.omieEmpresa)
+        await alerts.success(
+          'Cliente localizado no Omie',
+          `ID ${r.idOmie} · ${r.omieEmpresa}${r.razaoSocialOmie ? ' · ' + r.razaoSocialOmie : ''}. Salve o cadastro para gravar o vínculo.`,
+        )
+      } else {
+        alerts.error('Não encontrado', 'Nenhum cliente com esse CNPJ foi localizado no Omie.')
+      }
+    } catch (e) {
+      alerts.error('Falha na busca', (e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+  return (
+    <div className="col-span-12 flex flex-col gap-2 sm:flex-row sm:items-center">
+      <Button type="button" onClick={handle} disabled={loading} className="gap-2 shrink-0" style={{ backgroundColor: '#0ea5e9', color: '#fff' }}>
+        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />}
+        Buscar no Omie por CNPJ
+      </Button>
+      <p className="text-[11px] text-muted-foreground">
+        Localiza o cliente no Omie pelo CNPJ e preenche o ID e a empresa. Com a empresa Omie já selecionada, busca só nela; senão varre Central e L&amp;L.
+      </p>
     </div>
   )
 }
