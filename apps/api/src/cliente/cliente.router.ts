@@ -343,6 +343,15 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string(), datai: z.string().optional(), dataf: z.string().optional() }))
       .query(({ input, ctx }) => clienteService.getErpSnapshots(input.clienteId, ctx.empresaId, input.datai, input.dataf)),
 
+    // === GESTÃO DE CONTRATOS (painel de carteira) ===
+    gestaoContratos: readProcedure(MODULE)
+      .input(z.object({
+        page: z.number().min(1).default(1),
+        limit: z.number().min(1).max(100).default(20),
+        search: z.string().optional(),
+      }))
+      .query(({ input, ctx }) => clienteService.gestaoContratos(input, ctx.isMaster, ctx.empresaId)),
+
     // === HISTÓRICO COMERCIAL ===
     listHistoricos: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))

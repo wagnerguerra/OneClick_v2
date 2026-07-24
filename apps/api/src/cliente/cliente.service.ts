@@ -935,6 +935,147 @@ export class ClienteService {
   }
 
   // ============================================================
+  // GESTÃO DE CONTRATOS (painel de carteira — port do SERPRO2)
+  // ============================================================
+  /**
+   * Painel cross-cliente de variação contratual. Para cada cliente com baseline
+   * (ClienteContratoParam) OU com snapshot de ERP (ClienteErpSnapshot), cruza o
+   * parâmetro contratado com o ÚLTIMO mês consultado no ERP e classifica cada
+   * indicador em: `ok` (ERP ≤ parâmetro), `defasado` (ERP > parâmetro → gatilho
+   * de renegociação de honorário) ou `sem_parametro` (baseline não definido).
+   *
+   * A `situacao` do cliente é única e mutuamente exclusiva:
+   *   sem_parametro → nunca teve baseline salvo
+   *   defasado      → ao menos um indicador defasado
+   *   em_dia        → tem baseline e nenhum indicador defasado
+   *
+   * O resumo (cards) é agregado sobre TODA a carteira candidata; a lista é
+   * paginada em memória (uma linha por cliente, volume baixo).
+   */
+  async gestaoContratos(
+    input: { page?: number; limit?: number; search?: string },
+    isMaster?: boolean,
+    empresaId?: string,
+  ) {
+    const page = Math.max(1, Number(input.page) || 1)
+    const limit = Math.min(Math.max(1, Number(input.limit) || 20), 100)
+    const search = (input.search || '').trim()
+
+    const params: unknown[] = []
+    let idx = 0
+    const conds: string[] = [
+      `c.deleted_at IS NULL`,
+      `c.status <> 'INATIVA'`,
+      `(p.cliente_id IS NOT NULL OR lm.cliente_id IS NOT NULL)`,
+    ]
+    if (!isMaster) {
+      params.push(empresaId ?? '')
+      conds.push(`c.empresa_id = $${++idx}`)
+    }
+    if (search) {
+      params.push(`%${search}%`)
+      const s = ++idx
+      conds.push(`(unaccent(c.razao_social) ILIKE unaccent($${s}) OR c.documento ILIKE $${s})`)
+    }
+
+    const sql = `
+      WITH latest AS (
+        SELECT s.cliente_id, s.indicador, s.valor
+        FROM cliente_erp_snapshots s
+        JOIN (SELECT cliente_id, MAX(mes) AS max_mes FROM cliente_erp_snapshots GROUP BY cliente_id) m
+          ON m.cliente_id = s.cliente_id AND m.max_mes = s.mes
+      )
+      SELECT c.id, c.code, c.documento, c.razao_social,
+             p.honorario, p.faturamento,
+             p.lancamentos AS p_lanc, p.nf_saida AS p_nfs, p.funcionarios AS p_func,
+             ll.valor AS e_lanc, ns.valor AS e_nfs, vd.valor AS e_vidas,
+             lm.max_mes AS ultima_consulta,
+             (p.cliente_id IS NOT NULL) AS tem_parametro
+      FROM clientes c
+      LEFT JOIN cliente_contrato_params p ON p.cliente_id = c.id
+      LEFT JOIN (SELECT cliente_id, MAX(mes) AS max_mes FROM cliente_erp_snapshots GROUP BY cliente_id) lm
+        ON lm.cliente_id = c.id
+      LEFT JOIN latest ll ON ll.cliente_id = c.id AND ll.indicador = 'lancamentos'
+      LEFT JOIN latest ns ON ns.cliente_id = c.id AND ns.indicador = 'nf_saida'
+      LEFT JOIN latest vd ON vd.cliente_id = c.id AND vd.indicador = 'vidas'
+      WHERE ${conds.join(' AND ')}
+      ORDER BY c.razao_social ASC`
+
+    const allRows = await prisma.$queryRawUnsafe<Array<{
+      id: string; code: number | null; documento: string | null; razao_social: string | null
+      honorario: number | null; faturamento: number | null
+      p_lanc: number | null; p_nfs: number | null; p_func: number | null
+      e_lanc: number | null; e_nfs: number | null; e_vidas: number | null
+      ultima_consulta: string | null; tem_parametro: boolean
+    }>>(sql, ...params)
+
+    type CellStatus = 'ok' | 'defasado' | 'sem_parametro' | 'sem_erp'
+    type Cell = { valor: number | null; status: CellStatus; variacao_pct: number | null }
+    const statusCell = (paramVal: number | null, erpVal: number | null): Cell => {
+      const c = Number(paramVal) || 0
+      // Sem baseline definido para o indicador → nada a comparar.
+      if (c <= 0) return { valor: erpVal != null ? Number(erpVal) : null, status: 'sem_parametro', variacao_pct: null }
+      // Baseline existe, mas ERP nunca trouxe esse indicador → desconhecido (não é 0).
+      if (erpVal == null) return { valor: null, status: 'sem_erp', variacao_pct: null }
+      const e = Number(erpVal)
+      const variacao_pct = Math.round(((e - c) / c) * 1000) / 10
+      return { valor: e, status: e > c ? 'defasado' : 'ok', variacao_pct }
+    }
+
+    const registros = allRows.map((r, i) => {
+      const lanc = statusCell(r.p_lanc, r.e_lanc)
+      const notas = statusCell(r.p_nfs, r.e_nfs)
+      const vidas = statusCell(r.p_func, r.e_vidas)
+      const cells = [lanc, notas, vidas]
+      // Situação única e honesta: sem baseline → sem_parametro; baseline mas
+      // ERP nunca consultado → sem_consulta; ≥1 indicador acima → defasado; resto → em_dia.
+      const situacao: 'sem_parametro' | 'sem_consulta' | 'defasado' | 'em_dia' = !r.tem_parametro
+        ? 'sem_parametro'
+        : r.ultima_consulta == null
+          ? 'sem_consulta'
+          : cells.some(c => c.status === 'defasado')
+            ? 'defasado'
+            : 'em_dia'
+      return {
+        id: r.id,
+        numero: r.code ?? i + 1,
+        documento: r.documento,
+        cliente: r.razao_social,
+        temParametro: r.tem_parametro,
+        ultimaConsulta: r.ultima_consulta,
+        situacao,
+        faturamento: r.faturamento != null ? Number(r.faturamento) : null,
+        honorarios: r.honorario != null ? Number(r.honorario) : null,
+        lancamentos: lanc.valor,
+        lancamentos_status: lanc.status,
+        variacao_lancamentos_pct: lanc.variacao_pct,
+        notas: notas.valor,
+        notas_status: notas.status,
+        variacao_notas_pct: notas.variacao_pct,
+        vidas: vidas.valor,
+        vidas_status: vidas.status,
+        variacao_vidas_pct: vidas.variacao_pct,
+      }
+    })
+
+    const resumo = {
+      total: registros.length,
+      emDia: registros.filter(r => r.situacao === 'em_dia').length,
+      defasados: registros.filter(r => r.situacao === 'defasado').length,
+      semParametro: registros.filter(r => r.situacao === 'sem_parametro').length,
+    }
+
+    const offset = (page - 1) * limit
+    return {
+      registros: registros.slice(offset, offset + limit),
+      resumo,
+      total: registros.length,
+      page,
+      limit,
+    }
+  }
+
+  // ============================================================
   // HISTÓRICO COMERCIAL (Chat)
   // ============================================================
   async listHistoricos(clienteId: string) {
