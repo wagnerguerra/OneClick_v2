@@ -82,10 +82,14 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
     <div ref={ref} className="relative w-full">
       <button
         type="button"
+        role="combobox"
+        aria-expanded={open}
         disabled={disabled}
         onClick={() => !disabled && setOpen(o => !o)}
         className={cn(
-          'flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring',
+          // Sem bg/borda próprios: herda o visual da regra global de
+          // `button[role="combobox"]` (globals.css), idêntico aos inputs.
+          'flex h-9 w-full items-center justify-between text-sm focus:outline-none',
           disabled && 'cursor-not-allowed opacity-60',
         )}
       >

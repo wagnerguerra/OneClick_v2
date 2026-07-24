@@ -41,6 +41,15 @@ export const listOrcamentoSchema = paginationSchema.extend({
   // Ordenação clicável (modo tabela) — campos diretos do orçamento.
   sortKey: z.enum(['numero', 'status', 'totalGeral', 'createdAt']).optional(),
   sortDir: z.enum(['asc', 'desc']).optional(),
+  // Filtros do painel (HLP0296) — espelham a lista do legado.
+  numero: z.coerce.number().int().positive().optional(),
+  dataInicial: z.string().optional(), // YYYY-MM-DD (filtra createdAt)
+  dataFinal: z.string().optional(),   // YYYY-MM-DD (filtra createdAt)
+  servicoId: z.string().optional(),
+  responsavelId: z.string().optional(),
+  solicitanteId: z.string().optional(),
+  // "Incluir paralizados?" — default é incluir (Sim); só constrange quando false.
+  incluirParalizados: z.boolean().optional(),
 })
 
 export const itemSituacaoSchema = z.enum(['A_FAZER', 'FAZENDO', 'PENDENTE', 'CONCLUIDO'])

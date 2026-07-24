@@ -198,6 +198,10 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
     listUsuarios: readProcedure(MODULE)
       .query(({ ctx }) => orcamentoService.listUsuarios(ctx.empresaId)),
 
+    // Serviços para o filtro "Serviço" da lista de orçamentos (HLP0296).
+    listServicosParaFiltro: readProcedure(MODULE)
+      .query(({ ctx }) => orcamentoService.listServicosParaFiltro(ctx.empresaId)),
+
     // ── Solicitação de orçamento (balão "Fale com a TI") ──
     // protectedProcedure: qualquer usuário autenticado pode pedir um orçamento
     // ao comercial, mesmo sem permissão de escrita no módulo orçamentos.

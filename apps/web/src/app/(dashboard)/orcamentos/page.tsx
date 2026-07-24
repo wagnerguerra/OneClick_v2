@@ -6,7 +6,7 @@ import {
   FileText, CircleDollarSign, Loader2, Plus, MoreVertical, Copy, Archive, Ban,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
   Clock, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
-  MessageSquare, Paperclip, RotateCcw, Star,
+  MessageSquare, Paperclip, RotateCcw, Star, SlidersHorizontal, X,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card,
@@ -262,6 +262,34 @@ export default function OrcamentosPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [arquivado, setArquivado] = useState(false)
   const [comReaberturas, setComReaberturas] = useState(false)
+  // ── Painel de filtros (HLP0296) — espelha a lista do legado ──
+  const [filtrosOpen, setFiltrosOpen] = useState(false)
+  // overflow do wrapper: hidden durante a animação (pra clipar), visible depois
+  // de abrir (pra os dropdowns dos selects não serem cortados pelo container).
+  const [filtrosOverflow, setFiltrosOverflow] = useState(false)
+  const [numeroFilter, setNumeroFilter] = useState('')
+  const [debouncedNumero, setDebouncedNumero] = useState('')
+  const [dataInicial, setDataInicial] = useState('')
+  const [dataFinal, setDataFinal] = useState('')
+  const [clienteFilter, setClienteFilter] = useState('')
+  const [servicoFilter, setServicoFilter] = useState('')
+  const [solicitanteFilter, setSolicitanteFilter] = useState('')
+  const [responsavelFilter, setResponsavelFilter] = useState('')
+  const [incluirParalizados, setIncluirParalizados] = useState(true)
+  const [servicosFiltro, setServicosFiltro] = useState<{ id: string; nome: string }[]>([])
+  const [filtrosDataLoaded, setFiltrosDataLoaded] = useState(false)
+  const filtrosAtivos = (
+    (debouncedNumero.trim() ? 1 : 0) + (dataInicial ? 1 : 0) + (dataFinal ? 1 : 0) +
+    (clienteFilter ? 1 : 0) + (servicoFilter ? 1 : 0) +
+    (solicitanteFilter ? 1 : 0) + (responsavelFilter ? 1 : 0) +
+    (!incluirParalizados ? 1 : 0)
+  )
+  function limparFiltros() {
+    setNumeroFilter(''); setDataInicial(''); setDataFinal('')
+    setClienteFilter(''); setServicoFilter('')
+    setSolicitanteFilter(''); setResponsavelFilter('')
+    setIncluirParalizados(true); setPage(1)
+  }
   const [orcamentos, setOrcamentos] = useState<OrcamentoRow[]>([])
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
@@ -484,6 +512,30 @@ export default function OrcamentosPage() {
   const [form, setForm] = useState(FORM_INITIAL)
 
   useEffect(() => { const t = setTimeout(() => { setDebouncedSearch(search); setPage(1) }, 400); return () => clearTimeout(t) }, [search])
+  useEffect(() => { const t = setTimeout(() => { setDebouncedNumero(numeroFilter); setPage(1) }, 400); return () => clearTimeout(t) }, [numeroFilter])
+
+  // Libera overflow visível só depois que a animação de abrir termina (~300ms).
+  useEffect(() => {
+    if (!filtrosOpen) { setFiltrosOverflow(false); return }
+    const t = setTimeout(() => setFiltrosOverflow(true), 320)
+    return () => clearTimeout(t)
+  }, [filtrosOpen])
+
+  // Carrega os dados dos selects do painel de filtros na 1ª vez que ele abre.
+  useEffect(() => {
+    if (!filtrosOpen || filtrosDataLoaded) return
+    void (async () => {
+      try {
+        const [cls, usrs, svs] = await Promise.all([
+          (trpc.cliente as any).listForSelect.query(),
+          (trpc.orcamento as any).listUsuarios.query(),
+          (trpc.orcamento as any).listServicosParaFiltro.query(),
+        ])
+        setClientes(cls); setUsuarios(usrs); setServicosFiltro(svs)
+        setFiltrosDataLoaded(true)
+      } catch { /* mantém vazio; tenta de novo na próxima abertura */ }
+    })()
+  }, [filtrosOpen, filtrosDataLoaded])
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -491,6 +543,15 @@ export default function OrcamentosPage() {
       const input: Record<string, unknown> = { page, limit: viewMode === 'kanban' ? 100 : limit, search: debouncedSearch || undefined, arquivado, scope: listScope }
       if (statusFilter) input.status = statusFilter
       if (comReaberturas) input.comReaberturas = true
+      // Painel de filtros (HLP0296)
+      if (debouncedNumero.trim()) { const n = parseInt(debouncedNumero.replace(/\D/g, ''), 10); if (n > 0) input.numero = n }
+      if (dataInicial) input.dataInicial = dataInicial
+      if (dataFinal) input.dataFinal = dataFinal
+      if (clienteFilter) input.clienteId = clienteFilter
+      if (servicoFilter) input.servicoId = servicoFilter
+      if (solicitanteFilter) input.solicitanteId = solicitanteFilter
+      if (responsavelFilter) input.responsavelId = responsavelFilter
+      if (!incluirParalizados) input.incluirParalizados = false
       if (viewMode === 'tabela' && sort) { input.sortKey = sort.key; input.sortDir = sort.dir }
       const result = await (trpc.orcamento as any).list.query(input)
       setOrcamentos(result.data)
@@ -512,7 +573,8 @@ export default function OrcamentosPage() {
     } finally {
       if (!silent) setLoading(false)
     }
-  }, [page, limit, debouncedSearch, statusFilter, arquivado, comReaberturas, viewMode, listScope, sort])
+  }, [page, limit, debouncedSearch, statusFilter, arquivado, comReaberturas, viewMode, listScope, sort,
+      debouncedNumero, dataInicial, dataFinal, clienteFilter, servicoFilter, solicitanteFilter, responsavelFilter, incluirParalizados])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -719,6 +781,23 @@ export default function OrcamentosPage() {
             </div>
           )}
           <button
+            type="button"
+            onClick={() => setFiltrosOpen(v => !v)}
+            className={cn(
+              'inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-xs font-medium border transition-colors shrink-0',
+              filtrosOpen || filtrosAtivos > 0
+                ? 'bg-muted border-border text-foreground'
+                : 'bg-card border-border text-muted-foreground hover:bg-muted/50',
+            )}
+            title="Filtros"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filtros
+            {filtrosAtivos > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-white text-[10px] font-semibold leading-none" style={{ backgroundColor: MODULE_COLOR }}>{filtrosAtivos}</span>
+            )}
+          </button>
+          <button
             onClick={() => { setArquivado(!arquivado); setPage(1) }}
             className={cn(
               'h-9 px-3 rounded-md text-xs font-medium border transition-colors shrink-0',
@@ -763,6 +842,67 @@ export default function OrcamentosPage() {
           <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={openCreateModal}>
             <Plus className="h-4 w-4" /> Novo Orçamento
           </Button>
+        </div>
+      </div>
+
+      {/* ── Painel de filtros (HLP0296) — espelha a lista do legado ──
+          Anima expandir/retrair via grid-template-rows (0fr↔1fr). A margem
+          negativa quando fechado neutraliza o gap do flex-col do container. */}
+      <div
+        className="shrink-0 grid transition-all duration-300 ease-out motion-reduce:transition-none"
+        style={{
+          gridTemplateRows: filtrosOpen ? '1fr' : '0fr',
+          opacity: filtrosOpen ? 1 : 0,
+          marginBottom: filtrosOpen ? 0 : '-1.25rem',
+        }}
+        aria-hidden={!filtrosOpen}
+      >
+        <div className="min-h-0" style={{ overflow: filtrosOverflow ? 'visible' : 'hidden' }}>
+          <div className="rounded-lg border border-border bg-muted/20 p-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">Número</Label>
+                <Input inputMode="numeric" placeholder="Nº do orçamento" className="h-9 text-sm" value={numeroFilter} onChange={e => setNumeroFilter(e.target.value.replace(/\D/g, ''))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">Data inicial</Label>
+                <Input type="date" className="h-9 text-sm" value={dataInicial} onChange={e => { setDataInicial(e.target.value); setPage(1) }} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">Data final</Label>
+                <Input type="date" className="h-9 text-sm" value={dataFinal} onChange={e => { setDataFinal(e.target.value); setPage(1) }} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">Cliente</Label>
+                <ClienteCombobox clientes={clientes} value={clienteFilter} onSelect={v => { setClienteFilter(v); setPage(1) }} placeholder="Todos os clientes" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">Serviço</Label>
+                <UserCombobox users={servicosFiltro.map(s => ({ id: s.id, name: s.nome }))} value={servicoFilter} onSelect={v => { setServicoFilter(v); setPage(1) }} placeholder="Todos os serviços" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">Solicitante</Label>
+                <UserCombobox users={usuarios} value={solicitanteFilter} onSelect={v => { setSolicitanteFilter(v); setPage(1) }} placeholder="Todos os solicitantes" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">Responsável</Label>
+                <UserCombobox users={usuarios} value={responsavelFilter} onSelect={v => { setResponsavelFilter(v); setPage(1) }} placeholder="Todos os responsáveis" />
+              </div>
+              <div className="flex items-end">
+                <label className="inline-flex items-center gap-2 h-9 cursor-pointer select-none">
+                  <input type="checkbox" className="h-4 w-4 rounded border-border cursor-pointer" style={{ accentColor: MODULE_COLOR }} checked={incluirParalizados} onChange={e => { setIncluirParalizados(e.target.checked); setPage(1) }} />
+                  <span className="text-sm text-foreground">Incluir paralizados</span>
+                </label>
+              </div>
+            </div>
+            {filtrosAtivos > 0 && (
+              <div className="mt-3 flex justify-end">
+                <button type="button" onClick={limparFiltros} className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors">
+                  <X className="h-3.5 w-3.5" /> Limpar filtros
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
