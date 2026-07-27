@@ -325,6 +325,17 @@ export class OrcamentoService {
       })),
     )
 
+    // Nº do card de CRM vinculado — alimenta o chip "CRM #N" no card do kanban.
+    // try/catch defende snapshots antigos sem a coluna oportunidades.numero.
+    const oportIds = [...new Set(data.map(o => o.oportunidadeId).filter(Boolean))] as string[]
+    const oportMap = new Map<string, number | null>()
+    if (oportIds.length) {
+      try {
+        const oports = await prisma.oportunidade.findMany({ where: { id: { in: oportIds } }, select: { id: true, numero: true } })
+        oports.forEach(o => oportMap.set(o.id, o.numero))
+      } catch { oportIds.forEach(id => oportMap.set(id, null)) }
+    }
+
     const enriched = data.map(o => ({
       ...o,
       responsavel: o.responsavelId ? userMap.get(o.responsavelId) || null : null,
@@ -334,6 +345,8 @@ export class OrcamentoService {
       // Descrições de todos os itens, na ordem de inclusão — a tabela mostra a
       // primeira e resume o resto em "e +N".
       itensDescricoes: (itensPorOrcamento.get(o.id) ?? []).map(i => i.descricao),
+      // Card de CRM vinculado (presença via oportunidadeId; nº quando disponível).
+      oportunidadeNumero: o.oportunidadeId ? (oportMap.get(o.oportunidadeId) ?? null) : null,
     }))
 
     return { data: enriched, total, page, limit, totalPages: Math.ceil(total / limit) }
@@ -420,10 +433,13 @@ export class OrcamentoService {
         }).catch(() => null)
       : null
 
+    const podeVincularCrm = await this.podeVincularCrm(ctx?.userId, ctx?.isMaster)
+
     return {
       ...orc, arquivos, mensagens, eventos, cliente, empresa, solicitante, responsavel,
       areas,
       oportunidade: oportunidade ? { id: oportunidade.id, numero: oportunidade.numero, titulo: oportunidade.titulo, etapa: oportunidade.etapa?.nome ?? null } : null,
+      podeVincularCrm,
       decisaoCnpjFaturamento: fat[0]?.decisaoCnpjFaturamento ?? null,
       decisaoEmailFinanceiro: fat[0]?.decisaoEmailFinanceiro ?? null,
     }
@@ -1562,8 +1578,19 @@ export class OrcamentoService {
     }).catch(() => null)
   }
 
+  /** Só usuários do Comercial (area.name = 'Comercial') ou master vinculam/desvinculam CRM. */
+  private async usuarioEhComercial(userId?: string): Promise<boolean> {
+    if (!userId) return false
+    const u = await prisma.user.findUnique({ where: { id: userId }, select: { area: { select: { name: true } } } }).catch(() => null)
+    return (u?.area?.name ?? '').trim().toLowerCase() === 'comercial'
+  }
+  async podeVincularCrm(userId?: string, isMaster?: boolean): Promise<boolean> {
+    return !!isMaster || this.usuarioEhComercial(userId)
+  }
+
   /** Vincula um card de CRM (Oportunidade) a este orçamento — o inverso do forward. */
-  async vincularOportunidade(orcamentoId: string, oportunidadeId: string, userId?: string) {
+  async vincularOportunidade(orcamentoId: string, oportunidadeId: string, userId?: string, isMaster?: boolean) {
+    if (!(await this.podeVincularCrm(userId, isMaster))) throw new Error('Apenas usuários do Comercial ou o master podem vincular o CRM.')
     const orc = await prisma.orcamento.findUnique({ where: { id: orcamentoId }, select: { id: true, numero: true } })
     if (!orc) throw new Error('Orçamento não encontrado')
     const op = await prisma.oportunidade.findUnique({
@@ -1594,7 +1621,8 @@ export class OrcamentoService {
   }
 
   /** Remove o vínculo do card de CRM deste orçamento (não move o card de volta). */
-  async desvincularOportunidade(orcamentoId: string, userId?: string) {
+  async desvincularOportunidade(orcamentoId: string, userId?: string, isMaster?: boolean) {
+    if (!(await this.podeVincularCrm(userId, isMaster))) throw new Error('Apenas usuários do Comercial ou o master podem desvincular o CRM.')
     const orc = await prisma.orcamento.findUnique({ where: { id: orcamentoId }, select: { oportunidadeId: true, numero: true } })
     if (!orc?.oportunidadeId) return { ok: true }
     const oportunidadeId = orc.oportunidadeId
@@ -1603,6 +1631,28 @@ export class OrcamentoService {
       data: { oportunidadeId, userId: userId ?? null, tipo: 'orcamento', descricao: `Orçamento #${orc.numero} desvinculado` },
     }).catch(() => null)
     return { ok: true }
+  }
+
+  /** Resumo do card de CRM para o modal aberto a partir do orçamento (não navega pro módulo). */
+  async getOportunidadeResumo(oportunidadeId: string) {
+    const op = await prisma.oportunidade.findUnique({
+      where: { id: oportunidadeId },
+      select: { id: true, numero: true, titulo: true, valor: true, clienteId: true, responsavelId: true, createdAt: true, etapa: { select: { nome: true, ehGanho: true, ehPerda: true } } },
+    }).catch(() => null)
+    if (!op) return null
+    const [cliente, responsavel, eventos] = await Promise.all([
+      op.clienteId ? prisma.cliente.findUnique({ where: { id: op.clienteId }, select: { razaoSocial: true, nomeFantasia: true } }).catch(() => null) : Promise.resolve(null),
+      op.responsavelId ? prisma.user.findUnique({ where: { id: op.responsavelId }, select: { name: true } }).catch(() => null) : Promise.resolve(null),
+      prisma.oportunidadeEvento.findMany({ where: { oportunidadeId }, orderBy: { createdAt: 'desc' }, take: 6, select: { id: true, tipo: true, descricao: true, createdAt: true } }).catch(() => []),
+    ])
+    return {
+      id: op.id, numero: op.numero, titulo: op.titulo,
+      valor: op.valor != null ? Number(op.valor) : null,
+      cliente: cliente ? (cliente.razaoSocial || cliente.nomeFantasia || null) : null,
+      responsavel: responsavel?.name ?? null,
+      etapa: op.etapa?.nome ?? null, ehGanho: op.etapa?.ehGanho ?? false, ehPerda: op.etapa?.ehPerda ?? false,
+      createdAt: op.createdAt, eventos,
+    }
   }
 
   /** Busca cards de CRM para o seletor de vínculo (por nº/título), escopado por empresa. */

@@ -38,6 +38,7 @@ import { ClienteCombobox } from '../_components/cliente-combobox'
 import { UserCombobox } from '../_components/user-combobox'
 import { CatalogoCombobox } from '../_components/catalogo-combobox'
 import { OportunidadeCombobox, type OportunidadeOpt } from '../_components/oportunidade-combobox'
+import { CrmResumoModal } from '../_components/crm-resumo-modal'
 
 // ============================================================
 // Constantes
@@ -672,6 +673,7 @@ export default function OrcamentoDetailPage() {
   const canManageCatalogo = isMaster || isEmpresaMaster
 
   const [orc, setOrc] = useState<Orcamento | null>(null)
+  const [crmResumoOpen, setCrmResumoOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   // Atualiza o label da aba quando o orçamento carrega: "Orçamento: #4489"
   useTabLabel(orc ? `Orçamento: #${String(orc.numero).padStart(4, '0')}` : null)
@@ -2262,19 +2264,23 @@ export default function OrcamentoDetailPage() {
                                 )}
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
-                                <Button type="button" variant="ghost" size="xs" className="h-7 gap-1 text-[11px]" onClick={() => window.open('/crm', '_blank')} title="Abrir o CRM">
-                                  <ExternalLink className="h-3.5 w-3.5" /> Ver no CRM
+                                <Button type="button" variant="ghost" size="xs" className="h-7 gap-1 text-[11px]" onClick={() => setCrmResumoOpen(true)} title="Ver resumo do CRM">
+                                  <ExternalLink className="h-3.5 w-3.5" /> Ver resumo
                                 </Button>
-                                <Button type="button" variant="ghost" size="xs" className="h-7 gap-1 text-[11px] text-rose-600 dark:text-rose-400" onClick={handleDesvincularCrm} title="Desvincular">
-                                  <X className="h-3.5 w-3.5" /> Desvincular
-                                </Button>
+                                {(orc as any)?.podeVincularCrm && (
+                                  <Button type="button" variant="ghost" size="xs" className="h-7 gap-1 text-[11px] text-rose-600 dark:text-rose-400" onClick={handleDesvincularCrm} title="Desvincular">
+                                    <X className="h-3.5 w-3.5" /> Desvincular
+                                  </Button>
+                                )}
                               </div>
                             </div>
-                          ) : (
+                          ) : (orc as any)?.podeVincularCrm ? (
                             <>
                               <OportunidadeCombobox onSelect={handleVincularCrm} />
                               <p className="text-[11px] text-muted-foreground">Vincule um card do CRM a este orçamento. Se o card estiver numa etapa anterior, ele é movido para &quot;Orçamento Criado&quot;.</p>
                             </>
+                          ) : (
+                            <p className="text-[12px] text-muted-foreground italic">Nenhum card de CRM vinculado.</p>
                           )}
                         </div>
                       </div>
@@ -3302,6 +3308,10 @@ export default function OrcamentoDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {(orc as any)?.oportunidade && crmResumoOpen && (
+        <CrmResumoModal oportunidadeId={(orc as any).oportunidade.id} open={crmResumoOpen} onClose={() => setCrmResumoOpen(false)} />
+      )}
 
     </div>
   )

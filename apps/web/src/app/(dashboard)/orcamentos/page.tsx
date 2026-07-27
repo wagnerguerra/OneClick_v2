@@ -6,7 +6,7 @@ import {
   FileText, CircleDollarSign, Loader2, Plus, MoreVertical, Copy, Archive, Ban,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
   Clock, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
-  MessageSquare, Paperclip, RotateCcw, Star, SlidersHorizontal, X,
+  MessageSquare, Paperclip, RotateCcw, Star, SlidersHorizontal, X, Target,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card,
@@ -86,6 +86,9 @@ interface OrcamentoRow {
   areas?: Array<{ id: string; nome: string }>
   _count?: { itens: number; mensagens: number; arquivos: number }
   pesquisaRespondida?: boolean
+  /** Card de CRM vinculado — presença via oportunidadeId; nº quando disponível. */
+  oportunidadeId?: string | null
+  oportunidadeNumero?: number | null
   createdAt: string
   updatedAt: string
   arquivado?: boolean
@@ -1565,6 +1568,11 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
           <PrazoBadge orc={orc} />
         </div>
         <div className="flex items-center gap-2">
+          {orc.oportunidadeId && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-fuchsia-700 bg-fuchsia-50 dark:bg-fuchsia-900/30 dark:text-fuchsia-400 rounded-sm px-1.5 py-0.5" title="Card de CRM vinculado">
+              <Target className="h-3 w-3" /> CRM{orc.oportunidadeNumero != null ? ` #${orc.oportunidadeNumero}` : ''}
+            </span>
+          )}
           {(orc._count?.itens ?? 0) > 0 && (
             <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title={`${orc._count!.itens} ${orc._count!.itens === 1 ? 'item' : 'itens'}`}>
               <FileText className="h-3 w-3" /> {orc._count!.itens}
