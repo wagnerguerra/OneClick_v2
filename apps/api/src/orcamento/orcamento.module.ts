@@ -3,6 +3,7 @@ import { OrcamentoService } from './orcamento.service'
 import { OrcamentoScheduler } from './orcamento.scheduler'
 import { OrcamentoEventsService } from './orcamento-events.service'
 import { OrcamentoSseController } from './orcamento-sse.controller'
+import { OrcamentoReportController } from './orcamento-report.controller'
 import { OrcamentoAiService } from './orcamento-ai.service'
 import { OrcamentoAiController } from './orcamento-ai.controller'
 import { PesquisaModule } from '../pesquisa/pesquisa.module'
@@ -19,7 +20,7 @@ import { AuthModule } from '../auth/auth.module'
     NotificationModule,
     AuthModule,
   ],
-  controllers: [OrcamentoSseController, OrcamentoAiController],
+  controllers: [OrcamentoSseController, OrcamentoAiController, OrcamentoReportController],
   providers: [OrcamentoService, OrcamentoScheduler, OrcamentoEventsService, OrcamentoAiService],
   exports: [OrcamentoService, OrcamentoEventsService],
 })

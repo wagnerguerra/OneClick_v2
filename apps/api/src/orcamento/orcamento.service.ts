@@ -1,7 +1,8 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import type { CreateOrcamentoInput, UpdateOrcamentoInput, ListOrcamentoInput, CreateOrcamentoItemInput, UpdateOrcamentoItemInput } from '@saas/types'
-import { ORCAMENTO_ALLOWED_TRANSITIONS, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_ORDER, isOrcamentoTransitionAllowed, limparCnpj } from '@saas/types'
+import { ORCAMENTO_ALLOWED_TRANSITIONS, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_ORDER, isOrcamentoTransitionAllowed, limparCnpj, resolveOrcamentoScope } from '@saas/types'
+import * as XLSX from 'xlsx'
 import { EmailService } from '../common/email.service'
 import { PesquisaService } from '../pesquisa/pesquisa.service'
 import { ServicoService } from '../servico/servico.service'
@@ -677,6 +678,121 @@ export class OrcamentoService {
       // Remove campos auxiliares de filtro do payload de linha.
       linhas: linhas.map(({ naturezaRaw, areaIds, ...rest }) => rest),
     }
+  }
+
+  /**
+   * Gera o arquivo (xlsx/csv/pdf) do relatório de uma coluna — download por
+   * NAVEGAÇÃO (Content-Disposition), imune ao bloqueio de download via JS do
+   * navegador. Resolve isMaster/empresaId/scope como o contexto tRPC+router,
+   * então respeita a visibilidade do usuário (não vaza orçamento fora do escopo).
+   */
+  async gerarRelatorioColunaArquivo(
+    input: { status: string; dataInicio?: string; dataFim?: string; areas?: string[]; tipo?: 'MENSAL' | 'EXTRA'; campos?: string[] },
+    userId: string,
+    formato: 'xlsx' | 'csv' | 'pdf',
+  ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
+    const u = await prisma.user.findUnique({ where: { id: userId }, select: { isMaster: true, empresaId: true, activeEmpresaId: true } }).catch(() => null)
+    const isMaster = !!u?.isMaster
+    const empresaId = (isMaster ? (u?.activeEmpresaId ?? u?.empresaId) : u?.empresaId) ?? undefined
+    const perm = await prisma.userPermission.findFirst({ where: { userId, moduleSlug: 'orcamentos' }, select: { subPermissions: true } }).catch(() => null)
+    const scope = resolveOrcamentoScope((perm?.subPermissions ?? null) as Record<string, unknown> | null)
+
+    const { resumo, linhas } = await this.reportColuna(
+      { status: input.status, scope, dataInicio: input.dataInicio, dataFim: input.dataFim, areas: input.areas, tipo: input.tipo },
+      isMaster, empresaId, userId,
+    )
+
+    const statusLabel = (ORCAMENTO_STATUS_LABELS as Record<string, string>)[input.status] ?? input.status
+    const CAMPO_LABELS: Record<string, string> = {
+      numero: 'Número', cliente: 'Cliente', valorTotal: 'Valor total', natureza: 'Tipo (Extra/Mensal)',
+      areas: 'Área(s)', solicitante: 'Solicitante', responsavel: 'Responsável', createdAt: 'Criado em',
+      dataStatus: 'Data na etapa', validadeDias: 'Validade (dias)', itens: 'Itens/serviços',
+      descontoAplicado: 'Desconto', formaPagamento: 'Forma de pagamento', textoInterno: 'Texto Interno', textoCliente: 'Texto para o Cliente',
+    }
+    const DEFAULT = ['numero', 'cliente', 'valorTotal', 'natureza', 'areas', 'responsavel', 'createdAt']
+    const camposKeys = (input.campos && input.campos.length ? input.campos : DEFAULT).filter(k => k in CAMPO_LABELS)
+
+    const brl = (n: number) => (n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    const dt = (v: Date | string | null) => (v ? new Date(v).toLocaleDateString('pt-BR') : '—')
+    type L = typeof linhas[number]
+    const fmt = (l: L, key: string): string => {
+      switch (key) {
+        case 'numero': return `#${l.numero}`
+        case 'valorTotal': return brl(l.valorTotal)
+        case 'descontoAplicado': return brl(l.descontoAplicado)
+        case 'createdAt': return dt(l.createdAt as unknown as Date)
+        case 'dataStatus': return dt(l.dataStatus as unknown as Date | null)
+        case 'areas': return l.areas.length ? l.areas.join(', ') : '—'
+        case 'itens': return l.itens.length ? l.itens.map(i => i.descricao).join('; ') : '—'
+        case 'validadeDias': return l.validadeDias != null ? String(l.validadeDias) : '—'
+        default: { const v = (l as unknown as Record<string, unknown>)[key]; return v == null || v === '' ? '—' : String(v) }
+      }
+    }
+    const headers = camposKeys.map(k => CAMPO_LABELS[k]!)
+    const rows = linhas.map(l => camposKeys.map(k => fmt(l, k)))
+    const nomeArquivo = `relatorio-${input.status.toLowerCase()}-${new Date().toISOString().slice(0, 10)}`
+    const geradoEm = new Date().toLocaleString('pt-BR')
+
+    if (formato === 'csv') {
+      const esc = (v: string | number) => { const s = String(v); return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s }
+      const lines: string[] = []
+      lines.push(esc(`Relatório — ${statusLabel}`), esc(`Gerado em ${geradoEm}`), '')
+      lines.push('RESUMO', `${esc('Total de orçamentos')};${resumo.count}`, `${esc('Valor total')};${resumo.somaTotal}`, `${esc('Ticket médio')};${resumo.ticketMedio}`, '')
+      lines.push('Por área;Qtd;Valor'); resumo.porArea.forEach(a => lines.push(`${esc(a.nome)};${a.count};${a.soma}`)); lines.push('')
+      lines.push('Por tipo;Qtd;Valor'); resumo.porTipo.forEach(t => lines.push(`${esc(t.nome)};${t.count};${t.soma}`)); lines.push('')
+      lines.push(headers.map(esc).join(';')); rows.forEach(r => lines.push(r.map(esc).join(';')))
+      return { buffer: Buffer.from('﻿' + lines.join('\r\n'), 'utf-8'), filename: `${nomeArquivo}.csv`, contentType: 'text/csv; charset=utf-8' }
+    }
+
+    if (formato === 'pdf') {
+      const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>Relatório</title><style>
+        *{box-sizing:border-box} body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;color:#111;font-size:11px}
+        h1{font-size:18px;margin:0} .sub{color:#888;font-size:11px;margin:2px 0 14px}
+        .cards{display:flex;gap:24px;margin-bottom:14px} .card .lbl{color:#888;font-size:10px} .card .val{font-size:18px;font-weight:700}
+        h2{font-size:13px;margin:12px 0 4px} table{border-collapse:collapse;width:100%;margin-bottom:12px}
+        th,td{border-bottom:1px solid #e5e7eb;padding:4px 6px;text-align:left;font-size:10px} th{background:#f1f5f9}
+      </style></head><body>
+      <h1>Relatório — ${esc(statusLabel)}</h1><div class="sub">Gerado em ${esc(geradoEm)}</div>
+      <div class="cards">
+        <div class="card"><div class="lbl">Total de orçamentos</div><div class="val">${resumo.count}</div></div>
+        <div class="card"><div class="lbl">Valor total</div><div class="val">${esc(brl(resumo.somaTotal))}</div></div>
+        <div class="card"><div class="lbl">Ticket médio</div><div class="val">${esc(brl(resumo.ticketMedio))}</div></div>
+      </div>
+      ${resumo.porArea.length ? `<h2>Por área</h2><table><tr><th>Área</th><th>Qtd</th><th>Valor</th></tr>${resumo.porArea.map(a => `<tr><td>${esc(a.nome)}</td><td>${a.count}</td><td>${esc(brl(a.soma))}</td></tr>`).join('')}</table>` : ''}
+      ${resumo.porTipo.length ? `<h2>Por tipo</h2><table><tr><th>Tipo</th><th>Qtd</th><th>Valor</th></tr>${resumo.porTipo.map(t => `<tr><td>${esc(t.nome)}</td><td>${t.count}</td><td>${esc(brl(t.soma))}</td></tr>`).join('')}</table>` : ''}
+      <h2>Orçamentos (${rows.length})</h2>
+      <table><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr>
+      ${rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table>
+      </body></html>`
+      const puppeteer = await import('puppeteer')
+      const browser = await puppeteer.default.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] })
+      try {
+        const page = await browser.newPage()
+        await page.setContent(html, { waitUntil: 'load' })
+        const buffer = Buffer.from(await page.pdf({
+          format: 'A4', printBackground: true, landscape: headers.length > 6,
+          margin: { top: '12mm', right: '10mm', bottom: '12mm', left: '10mm' },
+        }))
+        await page.close()
+        return { buffer, filename: `${nomeArquivo}.pdf`, contentType: 'application/pdf' }
+      } finally {
+        await browser.close()
+      }
+    }
+
+    // xlsx (default)
+    const aoa: (string | number)[][] = []
+    aoa.push([`Relatório — ${statusLabel}`], [`Gerado em ${geradoEm}`], [])
+    aoa.push(['RESUMO'], ['Total de orçamentos', resumo.count], ['Valor total', resumo.somaTotal], ['Ticket médio', resumo.ticketMedio], [])
+    aoa.push(['Por área', 'Qtd', 'Valor']); resumo.porArea.forEach(a => aoa.push([a.nome, a.count, a.soma])); aoa.push([])
+    aoa.push(['Por tipo', 'Qtd', 'Valor']); resumo.porTipo.forEach(t => aoa.push([t.nome, t.count, t.soma])); aoa.push([])
+    aoa.push(headers); rows.forEach(r => aoa.push(r))
+    const ws = XLSX.utils.aoa_to_sheet(aoa)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Relatório')
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer
+    return { buffer, filename: `${nomeArquivo}.xlsx`, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
   }
 
   async getByToken(token: string) {

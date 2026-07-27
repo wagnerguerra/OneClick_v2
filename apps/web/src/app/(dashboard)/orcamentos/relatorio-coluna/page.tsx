@@ -8,11 +8,11 @@ import { trpc } from '@/lib/trpc'
 import { ORCAMENTO_STATUS_LABELS } from '@saas/types'
 import { alerts } from '@/lib/alerts'
 import {
-  getCampos, DEFAULT_CAMPOS, brl, formatCampo,
-  exportExcel, exportCsv, exportPdf, imprimir,
+  getCampos, DEFAULT_CAMPOS, brl, formatCampo, imprimir,
   type Resultado, type CampoDef, type Linha,
 } from '../_components/relatorio-coluna-lib'
 import { ServicoDetalheModal } from '../_components/servico-detalhe-modal'
+import { getApiUrl } from '@/lib/api-url'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
@@ -56,8 +56,6 @@ function RelatorioInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paramsStr])
 
-  const nomeArquivo = `relatorio-${status.toLowerCase()}-${new Date().toISOString().slice(0, 10)}`
-
   // Lista exibida = linhas filtradas pelo drill-down (área E tipo, se ativos).
   const linhasView = (res?.linhas ?? []).filter(l => {
     const okArea = !filtroArea || (filtroArea === '(sem área)' ? l.areas.length === 0 : l.areas.includes(filtroArea))
@@ -85,21 +83,19 @@ function RelatorioInner() {
     )
   }
 
-  const OK_MSG = 'Arquivo gerado. Se não aparecer, verifique a pasta Downloads e a permissão de downloads do site no navegador.'
-  function onExcel() {
-    if (!res) return
-    try { exportExcel(res, camposSel, statusLabel, nomeArquivo); alerts.success('Excel exportado', OK_MSG) }
-    catch (e) { alerts.error('Erro', (e as Error).message || 'Falha ao gerar o Excel.') }
-  }
-  function onCsv() {
-    if (!res) return
-    try { exportCsv(res, camposSel, statusLabel, nomeArquivo); alerts.success('CSV exportado', OK_MSG) }
-    catch (e) { alerts.error('Erro', (e as Error).message || 'Falha ao gerar o CSV.') }
-  }
-  async function onPdf() {
-    if (!res) return
-    try { await exportPdf(res, camposSel, statusLabel, MODULE_COLOR, nomeArquivo); alerts.success('PDF exportado', OK_MSG) }
-    catch { alerts.error('Erro', 'Falha ao gerar o PDF. Use "Imprimir" como alternativa.') }
+  // Download server-side por navegação (Content-Disposition) — imune ao bloqueio
+  // de download por JS do navegador. Same-origin: o cookie de sessão viaja junto.
+  function downloadUrl(formato: 'xlsx' | 'csv' | 'pdf') {
+    const p = new URLSearchParams()
+    p.set('status', status)
+    const de = params.get('de'); const ate = params.get('ate'); const tipo = params.get('tipo'); const areas = params.get('areas')
+    if (de) p.set('de', de)
+    if (ate) p.set('ate', ate)
+    if (tipo) p.set('tipo', tipo)
+    if (areas) p.set('areas', areas)
+    p.set('campos', camposSel.map(c => c.key).join(','))
+    p.set('formato', formato)
+    return `${getApiUrl()}/api/orcamento-report/coluna?${p.toString()}`
   }
   function onImprimir() {
     if (!res) return
@@ -124,9 +120,9 @@ function RelatorioInner() {
         </div>
         {res && res.linhas.length > 0 && (
           <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={onExcel}><FileSpreadsheet className="h-4 w-4" />Excel</Button>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={onCsv}><FileText className="h-4 w-4" />CSV</Button>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={onPdf}><FileText className="h-4 w-4" />Baixar PDF</Button>
+            <Button asChild variant="outline" size="sm" className="gap-1.5"><a href={downloadUrl('xlsx')} download><FileSpreadsheet className="h-4 w-4" />Excel</a></Button>
+            <Button asChild variant="outline" size="sm" className="gap-1.5"><a href={downloadUrl('csv')} download><FileText className="h-4 w-4" />CSV</a></Button>
+            <Button asChild variant="outline" size="sm" className="gap-1.5"><a href={downloadUrl('pdf')} download><FileText className="h-4 w-4" />Baixar PDF</a></Button>
             <Button variant="outline" size="sm" className="gap-1.5" onClick={onImprimir}><Printer className="h-4 w-4" />Imprimir</Button>
           </div>
         )}

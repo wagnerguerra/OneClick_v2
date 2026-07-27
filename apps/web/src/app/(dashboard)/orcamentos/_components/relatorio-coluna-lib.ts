@@ -1,8 +1,6 @@
 // Tipos + helpers compartilhados do "Relatório da coluna" (modal de config e
-// página de resultados). Export em Excel/CSV/PDF + impressão.
-
-import * as XLSX from 'xlsx'
-import { renderPdf } from '../../ferramentas/fiscal/nfse-pdf/_lib/pdf'
+// página de resultados). Excel/CSV/PDF são gerados no SERVIDOR (download por
+// navegação); aqui fica só a formatação de célula e a impressão client-side.
 
 export interface ItemServico { descricao: string; servicoId: string | null }
 export interface Linha {
@@ -73,120 +71,6 @@ export function tabela(linhas: Linha[], campos: CampoDef[]): { headers: string[]
   const headers = campos.map(c => c.label)
   const rows = linhas.map(l => campos.map(c => formatCampo(l, c.key)))
   return { headers, rows }
-}
-
-function baixarBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = filename
-  document.body.appendChild(a); a.click(); a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
-export function exportExcel(res: Resultado, campos: CampoDef[], statusLabel: string, nomeArquivo: string) {
-  const { resumo } = res
-  const aoa: (string | number)[][] = []
-  aoa.push([`Relatório — ${statusLabel}`])
-  aoa.push([`Gerado em ${new Date().toLocaleString('pt-BR')}`])
-  aoa.push([])
-  aoa.push(['RESUMO'])
-  aoa.push(['Total de orçamentos', resumo.count])
-  aoa.push(['Valor total', resumo.somaTotal])
-  aoa.push(['Ticket médio', resumo.ticketMedio])
-  aoa.push([])
-  aoa.push(['Por área', 'Qtd', 'Valor'])
-  resumo.porArea.forEach(a => aoa.push([a.nome, a.count, a.soma]))
-  aoa.push([])
-  aoa.push(['Por tipo', 'Qtd', 'Valor'])
-  resumo.porTipo.forEach(t => aoa.push([t.nome, t.count, t.soma]))
-  aoa.push([])
-  const { headers, rows } = tabela(res.linhas, campos)
-  aoa.push(headers)
-  rows.forEach(r => aoa.push(r))
-  const ws = XLSX.utils.aoa_to_sheet(aoa)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Relatório')
-  XLSX.writeFile(wb, `${nomeArquivo}.xlsx`)
-}
-
-export function exportCsv(res: Resultado, campos: CampoDef[], statusLabel: string, nomeArquivo: string) {
-  const { resumo } = res
-  const esc = (v: string | number) => {
-    const s = String(v)
-    return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-  }
-  const lines: string[] = []
-  lines.push(esc(`Relatório — ${statusLabel}`))
-  lines.push(esc(`Gerado em ${new Date().toLocaleString('pt-BR')}`))
-  lines.push('')
-  lines.push('RESUMO')
-  lines.push(`${esc('Total de orçamentos')};${resumo.count}`)
-  lines.push(`${esc('Valor total')};${resumo.somaTotal}`)
-  lines.push(`${esc('Ticket médio')};${resumo.ticketMedio}`)
-  lines.push('')
-  lines.push('Por área;Qtd;Valor')
-  resumo.porArea.forEach(a => lines.push(`${esc(a.nome)};${a.count};${a.soma}`))
-  lines.push('')
-  lines.push('Por tipo;Qtd;Valor')
-  resumo.porTipo.forEach(t => lines.push(`${esc(t.nome)};${t.count};${t.soma}`))
-  lines.push('')
-  const { headers, rows } = tabela(res.linhas, campos)
-  lines.push(headers.map(esc).join(';'))
-  rows.forEach(r => lines.push(r.map(esc).join(';')))
-  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' })
-  baixarBlob(blob, `${nomeArquivo}.csv`)
-}
-
-export async function exportPdf(res: Resultado, campos: CampoDef[], statusLabel: string, moduleColor: string, nomeArquivo: string) {
-  const { resumo } = res
-  const { headers, rows } = tabela(res.linhas, campos)
-  const rgb = moduleColor.match(/#([0-9a-fA-F]{6})/)?.[0] ?? '#fb7185'
-  const doc = {
-    pageSize: 'A4',
-    pageOrientation: headers.length > 6 ? 'landscape' : 'portrait',
-    pageMargins: [24, 28, 24, 28],
-    defaultStyle: { fontSize: 8 },
-    content: [
-      { text: `Relatório — ${statusLabel}`, fontSize: 15, bold: true, color: rgb },
-      { text: `Gerado em ${new Date().toLocaleString('pt-BR')}`, fontSize: 8, color: '#888', margin: [0, 2, 0, 8] },
-      {
-        columns: [
-          { text: [{ text: 'Total de orçamentos\n', color: '#888', fontSize: 7 }, { text: String(resumo.count), bold: true, fontSize: 13 }] },
-          { text: [{ text: 'Valor total\n', color: '#888', fontSize: 7 }, { text: brl(resumo.somaTotal), bold: true, fontSize: 13 }] },
-          { text: [{ text: 'Ticket médio\n', color: '#888', fontSize: 7 }, { text: brl(resumo.ticketMedio), bold: true, fontSize: 13 }] },
-        ],
-        margin: [0, 0, 0, 10],
-      },
-      resumo.porArea.length ? { text: 'Por área', bold: true, fontSize: 9, margin: [0, 4, 0, 3] } : {},
-      resumo.porArea.length ? {
-        table: { widths: ['*', 40, 80], body: [
-          [{ text: 'Área', bold: true }, { text: 'Qtd', bold: true }, { text: 'Valor', bold: true }],
-          ...resumo.porArea.map(a => [a.nome, String(a.count), brl(a.soma)]),
-        ] }, layout: 'lightHorizontalLines', margin: [0, 0, 0, 8],
-      } : {},
-      resumo.porTipo.length ? { text: 'Por tipo', bold: true, fontSize: 9, margin: [0, 4, 0, 3] } : {},
-      resumo.porTipo.length ? {
-        table: { widths: ['*', 40, 80], body: [
-          [{ text: 'Tipo', bold: true }, { text: 'Qtd', bold: true }, { text: 'Valor', bold: true }],
-          ...resumo.porTipo.map(t => [t.nome, String(t.count), brl(t.soma)]),
-        ] }, layout: 'lightHorizontalLines', margin: [0, 0, 0, 10],
-      } : {},
-      { text: `Orçamentos (${rows.length})`, bold: true, fontSize: 9, margin: [0, 4, 0, 3] },
-      {
-        table: {
-          headerRows: 1,
-          widths: headers.map(() => 'auto'),
-          body: [
-            headers.map(h => ({ text: h, bold: true, fillColor: '#f1f5f9', fontSize: 7 })),
-            ...rows.map(r => r.map(c => ({ text: c, fontSize: 7 }))),
-          ],
-        },
-        layout: 'lightHorizontalLines',
-      },
-    ],
-  }
-  const blob = await renderPdf(doc)
-  baixarBlob(blob, `${nomeArquivo}.pdf`)
 }
 
 export function imprimir(res: Resultado, campos: CampoDef[], statusLabel: string) {
