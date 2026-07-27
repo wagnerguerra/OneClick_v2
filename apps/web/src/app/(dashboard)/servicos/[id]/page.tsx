@@ -1458,12 +1458,11 @@ export default function ServicoDetailPage() {
                     </div>
                     <div className="p-5">
                       <Label className="text-xs font-medium mb-1.5 block">Descrição completa</Label>
-                      <textarea
+                      <RichEditor
                         value={descricao}
-                        onChange={e => setDescricao(e.target.value)}
-                        rows={14}
+                        onChange={(html) => setDescricao(html)}
                         placeholder="Descrição usada no orçamento e no contrato — o cliente verá esse texto."
-                        className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="min-h-[320px]"
                       />
                       <p className="text-[11px] text-muted-foreground mt-2">
                         Esta descrição aparece em propostas comerciais (orçamentos) e na minuta do contrato gerado.
