@@ -531,6 +531,21 @@ export class OrcamentoService {
     return out
   }
 
+  /** Converte HTML do TipTap em texto plano legível (para relatório/export). */
+  private htmlParaTexto(html: string | null | undefined): string {
+    if (!html) return ''
+    return String(html)
+      .replace(/<\s*br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"').replace(/&#0?39;/gi, "'")
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n{2,}/g, '\n')
+      .trim()
+  }
+
   /**
    * Relatório de UMA coluna do kanban (um status). Reusa `list` (respeita o
    * escopo/visibilidade do usuário, deriva áreas e resolve usuários), pega a
@@ -606,7 +621,9 @@ export class OrcamentoService {
         itens: ((o as any).itensDescricoes ?? []) as string[],
         descontoAplicado: Number(o.descontoAplicado) || 0,
         formaPagamento: o.formaPagamento ?? '—',
-        observacoes: o.observacoes ?? '',
+        // Textos são HTML do TipTap — convertidos p/ texto plano no relatório.
+        textoInterno: this.htmlParaTexto(o.textoInterno),
+        textoCliente: this.htmlParaTexto(o.textoCorpoCliente),
       }
     })
 
