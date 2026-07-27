@@ -310,7 +310,15 @@ export class ProcessoService {
 
       const orClauses: any[] = [{ responsavelId: userId }]
       if (ledAreaIds.length > 0) {
-        orClauses.push({ responsavel: { areaId: { in: ledAreaIds } } })
+        // Processo.responsavelId é um String solto (sem relação `responsavel` —
+        // o Prisma rejeita filtrar por `responsavel: { areaId }`). Resolvemos os
+        // colaboradores lotados nas áreas lideradas e filtramos por responsavelId.
+        const colabs = await prisma.user.findMany({
+          where: { areaId: { in: ledAreaIds } },
+          select: { id: true },
+        })
+        const respIds = colabs.map(c => c.id)
+        if (respIds.length > 0) orClauses.push({ responsavelId: { in: respIds } })
       }
       where = { AND: [where, { OR: orClauses }] }
 

@@ -3810,23 +3810,47 @@ export class ServicoService {
       const ledAreaIds = ledAreas.map(a => a.id)
       const orcamentoIds = orcamentos.map(o => o.id)
 
+      // ServicoExecucao.responsavelId é um String solto (NÃO há relação
+      // `responsavel` — o vínculo com User é resolvido à parte). Portanto não dá
+      // pra filtrar por `responsavel: { areaId }` (o Prisma rejeita o campo). Em
+      // vez disso resolvemos os colaboradores lotados nas áreas relevantes e
+      // filtramos por `responsavelId: { in: [...] }` — mesmo padrão do getDashboardStats.
+      const parAreaIds = areasResponsavel.map(p => p.areaId)
+      const areaIdsParaResp = Array.from(new Set([...ledAreaIds, ...parAreaIds]))
+      const usersDasAreas = areaIdsParaResp.length > 0
+        ? await prisma.user.findMany({ where: { areaId: { in: areaIdsParaResp } }, select: { id: true, areaId: true } })
+        : []
+      const userIdsPorArea = new Map<string, string[]>()
+      for (const u of usersDasAreas) {
+        if (!u.areaId) continue
+        const arr = userIdsPorArea.get(u.areaId) ?? []
+        arr.push(u.id)
+        userIdsPorArea.set(u.areaId, arr)
+      }
+
       const orClauses: any[] = [
         // 2. Responsavel direto
         { responsavelId: userId },
       ]
       if (ledAreaIds.length > 0) {
-        // 4. Lider da area do responsavel da execucao
-        orClauses.push({ responsavel: { areaId: { in: ledAreaIds } } })
+        // 4. Execucoes cujo responsavel esta lotado numa area que o user lidera.
+        const respIdsLideradas = Array.from(new Set(ledAreaIds.flatMap(aid => userIdsPorArea.get(aid) ?? [])))
+        if (respIdsLideradas.length > 0) {
+          orClauses.push({ responsavelId: { in: respIdsLideradas } })
+        }
       }
       if (areasResponsavel.length > 0) {
         // 3. Para cada par (cliente, area), execucoes do cliente cujo
         // responsavel esta na area da contratacao. Cria uma clausula OR
         // por par pra preservar o emparelhamento (cliente E area juntos).
         for (const par of areasResponsavel) {
-          orClauses.push({
-            clienteId: par.clienteId,
-            responsavel: { areaId: par.areaId },
-          })
+          const respIdsArea = userIdsPorArea.get(par.areaId) ?? []
+          if (respIdsArea.length > 0) {
+            orClauses.push({
+              clienteId: par.clienteId,
+              responsavelId: { in: respIdsArea },
+            })
+          }
         }
       }
       if (orcamentoIds.length > 0) {
