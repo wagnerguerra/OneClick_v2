@@ -85,9 +85,20 @@ function RelatorioInner() {
     )
   }
 
+  const OK_MSG = 'Arquivo gerado. Se não aparecer, verifique a pasta Downloads e a permissão de downloads do site no navegador.'
+  function onExcel() {
+    if (!res) return
+    try { exportExcel(res, camposSel, statusLabel, nomeArquivo); alerts.success('Excel exportado', OK_MSG) }
+    catch (e) { alerts.error('Erro', (e as Error).message || 'Falha ao gerar o Excel.') }
+  }
+  function onCsv() {
+    if (!res) return
+    try { exportCsv(res, camposSel, statusLabel, nomeArquivo); alerts.success('CSV exportado', OK_MSG) }
+    catch (e) { alerts.error('Erro', (e as Error).message || 'Falha ao gerar o CSV.') }
+  }
   async function onPdf() {
     if (!res) return
-    try { await exportPdf(res, camposSel, statusLabel, MODULE_COLOR, nomeArquivo) }
+    try { await exportPdf(res, camposSel, statusLabel, MODULE_COLOR, nomeArquivo); alerts.success('PDF exportado', OK_MSG) }
     catch { alerts.error('Erro', 'Falha ao gerar o PDF. Use "Imprimir" como alternativa.') }
   }
   function onImprimir() {
@@ -113,8 +124,8 @@ function RelatorioInner() {
         </div>
         {res && res.linhas.length > 0 && (
           <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportExcel(res, camposSel, statusLabel, nomeArquivo)}><FileSpreadsheet className="h-4 w-4" />Excel</Button>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportCsv(res, camposSel, statusLabel, nomeArquivo)}><FileText className="h-4 w-4" />CSV</Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={onExcel}><FileSpreadsheet className="h-4 w-4" />Excel</Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={onCsv}><FileText className="h-4 w-4" />CSV</Button>
             <Button variant="outline" size="sm" className="gap-1.5" onClick={onPdf}><FileText className="h-4 w-4" />Baixar PDF</Button>
             <Button variant="outline" size="sm" className="gap-1.5" onClick={onImprimir}><Printer className="h-4 w-4" />Imprimir</Button>
           </div>
