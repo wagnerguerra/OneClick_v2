@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   Plus, Loader2, Search, Filter, AlertTriangle, Clock, MessageSquare,
   CheckCircle2, ListChecks, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
@@ -20,9 +21,10 @@ import {
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { resolveAssetUrl } from '@/lib/api-url'
+import { USER_PERMISSIONS_REFRESH_EVENT } from '@/hooks/use-user-permissions'
 import {
   HELPDESK_STATUS, HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE, HELPDESK_PRIORIDADE_LABELS,
-  HELPDESK_PRIORIDADE_COLORS, HELPDESK_TIPO_LABELS,
+  HELPDESK_PRIORIDADE_COLORS,
   type HelpdeskStatus, type HelpdeskPrioridade,
 } from '@saas/types'
 import { NovoTicketModal } from './_components/novo-ticket-modal'
@@ -81,6 +83,19 @@ const STATUS_COR: Record<HelpdeskStatus, string> = {
   CANCELADO: '#ef4444',            // red-500
 }
 
+type ScopeFiltro = 'MEUS' | 'AREA' | 'TODOS'
+const SCOPE_FILTRO_LABEL: Record<ScopeFiltro, string> = { MEUS: 'Meus tickets', AREA: 'Minha área', TODOS: 'Todos' }
+
+/**
+ * Opções do filtro conforme o escopo EFETIVO do usuário (#HLP0139): só as que o
+ * escopo abrange. A última é a mais abrangente (padrão selecionado).
+ */
+function scopeOptionsFor(escopo: 'proprios' | 'area' | 'todos', temArea: boolean): ScopeFiltro[] {
+  if (escopo === 'todos') return temArea ? ['MEUS', 'AREA', 'TODOS'] : ['MEUS', 'TODOS']
+  if (escopo === 'area') return ['MEUS', 'AREA']
+  return ['MEUS']
+}
+
 export default function HelpdeskPage() {
   const router = useRouter()
   // Estados independentes:
@@ -92,13 +107,22 @@ export default function HelpdeskPage() {
   const [podeAtuar, setPodeAtuar] = useState<boolean | null>(null)
   const [items, setItems] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
-  const [scope, setScope] = useState<'MEUS' | 'AREA' | 'TODOS'>('MEUS')
+  // Escolha manual do filtro (null = usar o padrão do escopo efetivo). #HLP0139
+  const [scopeManual, setScopeManual] = useState<ScopeFiltro | null>(null)
+  // Escopo efetivo do usuário — define as opções do filtro e o padrão.
+  const [meuEscopo, setMeuEscopo] = useState<{ scope: 'proprios' | 'area' | 'todos'; temArea: boolean; areaId: string | null } | null>(null)
   // Modo "Arquivados" — quando true, fetcha só os arquivados (lista) e o
   // botão de cada card vira "Desarquivar" no lugar do drag.
   const [verArquivados, setVerArquivados] = useState(false)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [filtroPrioridade, setFiltroPrioridade] = useState<HelpdeskPrioridade | ''>('')
+  const [filtroStatus, setFiltroStatus] = useState<HelpdeskStatus | ''>('')
+  // Filtros por solicitante / responsável (#HLP0139)
+  const [filtroSolicitante, setFiltroSolicitante] = useState('')
+  const [filtroResponsavel, setFiltroResponsavel] = useState('')
+  const [usuarios, setUsuarios] = useState<Array<{ id: string; name: string; areaId: string | null }>>([])
+  const [agentes, setAgentes] = useState<Array<{ id: string; name: string }>>([])
   const [viewMode, setViewMode] = useState<'kanban' | 'lista'>(() => {
     if (typeof window === 'undefined') return 'kanban'
     return (window.localStorage.getItem('helpdesk:viewMode') as 'kanban' | 'lista') || 'kanban'
@@ -121,45 +145,98 @@ export default function HelpdeskPage() {
     return () => clearTimeout(t)
   }, [search])
 
-  // Probe 1 — canRead: vê painel completo (não só os próprios tickets)
+  // Papel do usuário (probes canRead / atuar_agente) + escopo efetivo. Carrega na
+  // montagem E quando as permissões mudam no app (evento user-permissions-refresh),
+  // então uma alteração feita pela tela de /usuarios reflete sem exigir F5. #HLP0139
   useEffect(() => {
     let cancelled = false
-    ;(trpc.helpdesk as any).probeAccess.query()
-      .then(() => { if (!cancelled) setIsAgente(true) })
-      .catch(() => { if (!cancelled) setIsAgente(false) })
-    return () => { cancelled = true }
+    async function carregar() {
+      const [acc, atuar, esc] = await Promise.allSettled([
+        (trpc.helpdesk as any).probeAccess.query(),
+        (trpc.helpdesk as any).probeAtuarAgente.query(),
+        (trpc.helpdesk as any).meuEscopo.query(),
+      ])
+      if (cancelled) return
+      const agente = acc.status === 'fulfilled'
+      setIsAgente(agente)
+      setPodeAtuar(atuar.status === 'fulfilled' ? !!(atuar.value as { ok?: boolean })?.ok : false)
+      setMeuEscopo(esc.status === 'fulfilled'
+        ? (esc.value as { scope: 'proprios' | 'area' | 'todos'; temArea: boolean; areaId: string | null })
+        : { scope: 'proprios', temArea: false, areaId: null })
+      // Listas dos filtros (só pra agente — colaborador comum não filtra) #HLP0139
+      if (agente) {
+        const [us, ags] = await Promise.allSettled([
+          (trpc.user as any).listForSelect.query(),
+          (trpc.helpdesk as any).listAgentes.query(),
+        ])
+        if (cancelled) return
+        if (us.status === 'fulfilled') setUsuarios((us.value as Array<{ id: string; name: string; areaId: string | null }>) ?? [])
+        if (ags.status === 'fulfilled') setAgentes((ags.value as Array<{ id: string; name: string }>) ?? [])
+      }
+    }
+    carregar()
+    window.addEventListener(USER_PERMISSIONS_REFRESH_EVENT, carregar)
+    return () => { cancelled = true; window.removeEventListener(USER_PERMISSIONS_REFRESH_EVENT, carregar) }
   }, [])
 
-  // Probe 2 — atuar_agente: pode mover cards, atribuir, classificar prioridade
+  // Opções disponíveis do filtro + padrão (mais abrangente). Ao carregar o escopo,
+  // seleciona o padrão automaticamente.
+  const scopeOptions = useMemo<ScopeFiltro[]>(
+    () => (meuEscopo ? scopeOptionsFor(meuEscopo.scope, meuEscopo.temArea) : ['MEUS']),
+    [meuEscopo],
+  )
+  // Escopo aplicado: escolha manual (se ainda válida) ou o padrão = mais abrangente.
+  const scope = useMemo<ScopeFiltro>(
+    () => (scopeManual && scopeOptions.includes(scopeManual) ? scopeManual : scopeOptions[scopeOptions.length - 1]!),
+    [scopeManual, scopeOptions],
+  )
+
+  // Solicitantes disponíveis no filtro conforme o escopo: "área" → só os da minha
+  // área; "todos" → todos; "meus" → nenhum (filtro não aparece). #HLP0139
+  const solicitanteOptions = useMemo(() => {
+    if (scope === 'AREA' && meuEscopo?.areaId) return usuarios.filter(u => u.areaId === meuEscopo.areaId)
+    if (scope === 'TODOS') return usuarios
+    return []
+  }, [scope, usuarios, meuEscopo])
+
+  // Fora do escopo "meus", o filtro de solicitante só vale se estiver nas opções.
   useEffect(() => {
-    let cancelled = false
-    ;(trpc.helpdesk as any).probeAtuarAgente.query()
-      .then((r: { ok: boolean }) => { if (!cancelled) setPodeAtuar(!!r?.ok) })
-      .catch(() => { if (!cancelled) setPodeAtuar(false) })
-    return () => { cancelled = true }
-  }, [])
+    if (scope === 'MEUS') { if (filtroSolicitante) setFiltroSolicitante(''); return }
+    if (filtroSolicitante && !solicitanteOptions.some(u => u.id === filtroSolicitante)) setFiltroSolicitante('')
+  }, [scope, solicitanteOptions, filtroSolicitante])
+
+  // No kanban as colunas já SÃO os status, então o filtro por status não faz
+  // sentido lá — só na lista. Limpa ao entrar no kanban.
+  const emKanban = viewMode === 'kanban' && !verArquivados
+  useEffect(() => {
+    if (emKanban && filtroStatus) setFiltroStatus('')
+  }, [emKanban, filtroStatus])
 
   const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
-    // Aguarda descobrir o papel real (podeAtuar = TI vs colaborador comum)
-    if (podeAtuar === null) return
+    // Espera saber se é agente (canRead) e o escopo efetivo (#HLP0139).
+    if (isAgente === null || meuEscopo === null) return
     // #HLP0182: refetch silencioso (foco de aba / back-forward) NÃO seta loading —
     // assim as colunas do kanban não desmontam e o scroll de cada coluna é
     // preservado. Só o carregamento inicial/troca de filtro mostra o spinner.
     if (opts?.silent !== true) setLoading(true)
     try {
-      if (podeAtuar) {
-        // TI: vê painel completo conforme escopo
+      if (isAgente) {
+        // Agente (canRead): painel completo, filtrado pelo escopo efetivo. O
+        // backend clampa o scope pedido ao permitido, então nunca vaza.
         const res = await (trpc.helpdesk as any).list.query({
           scope,
           search: debouncedSearch || undefined,
+          status: filtroStatus ? [filtroStatus] : undefined,
           prioridade: filtroPrioridade ? [filtroPrioridade] : undefined,
+          solicitanteId: filtroSolicitante || undefined,
+          responsavelId: filtroResponsavel || undefined,
           arquivado: verArquivados, // false=ativos | true=arquivados
           page: 1,
           limit: 200,
         })
         setItems(res.data || [])
       } else {
-        // Colaborador comum: vê APENAS os próprios tickets em formato lista
+        // Sem canRead: vê APENAS os próprios tickets (solicitante/responsável) em lista
         const data = await (trpc.helpdesk as any).listMeus.query({ incluirHistorico: true })
         const q = (debouncedSearch || '').trim().toLowerCase()
         const digits = q.replace(/\D/g, '')
@@ -185,7 +262,7 @@ export default function HelpdeskPage() {
     } finally {
       setLoading(false)
     }
-  }, [podeAtuar, scope, debouncedSearch, filtroPrioridade, verArquivados])
+  }, [isAgente, meuEscopo, scope, debouncedSearch, filtroStatus, filtroPrioridade, filtroSolicitante, filtroResponsavel, verArquivados])
   // Nota: no finally o setLoading(false) é inofensivo mesmo no modo silent
   // (loading já estava false). O que importa é NÃO subir pra true no silent.
 
@@ -341,7 +418,7 @@ export default function HelpdeskPage() {
               className={cn('gap-1.5', verArquivados && 'bg-amber-500 hover:bg-amber-600 text-white')}
             >
               <Archive className="h-4 w-4" />
-              {verArquivados ? 'Saindo do arquivo' : 'Arquivados'}
+              {verArquivados ? 'Sair dos arquivados' : 'Arquivados'}
             </Button>
           )}
           {/* Indicadores (dashboard + relatórios) — só TI (podeAtuar) */}
@@ -371,35 +448,11 @@ export default function HelpdeskPage() {
         </div>
       </div>
 
-      {/* Filtros — escopo e prioridade só pra TI */}
-      <div className="flex flex-wrap gap-2 shrink-0 items-center">
-        {podeAtuar && (
-          <Select value={scope} onValueChange={v => setScope(v as 'MEUS' | 'AREA' | 'TODOS')}>
-            <SelectTrigger className="h-8 text-xs w-[140px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="MEUS">Meus tickets</SelectItem>
-              <SelectItem value="AREA">Minha área</SelectItem>
-              <SelectItem value="TODOS">Todos</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
-        {podeAtuar && (
-          <Select value={filtroPrioridade || '__all__'} onValueChange={v => setFiltroPrioridade(v === '__all__' ? '' : v as HelpdeskPrioridade)}>
-            <SelectTrigger className="h-8 text-xs w-[140px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Todas prioridades</SelectItem>
-              {HELPDESK_PRIORIDADE.map(p => (
-                <SelectItem key={p} value={p}>
-                  <span className="inline-flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: HELPDESK_PRIORIDADE_COLORS[p] }} />
-                    {HELPDESK_PRIORIDADE_LABELS[p]}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <div className="relative flex-1 max-w-xs">
+      {/* Filtros (#HLP0139) — busca à esquerda; escopo + filtros alinhados à
+          direita. Cada filtro mostra sua dimensão como placeholder (sem vários
+          "Todos" iguais truncando no trigger). */}
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
@@ -408,9 +461,80 @@ export default function HelpdeskPage() {
             className="h-8 pl-8 text-xs"
           />
         </div>
-        <span className="ml-auto text-xs text-muted-foreground">
-          {items.length} ticket{items.length === 1 ? '' : 's'}
-        </span>
+
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap mr-1">
+            {items.length} ticket{items.length === 1 ? '' : 's'}
+          </span>
+          {/* Escopo — abrangência (mostra sempre o valor: Meus / Área / Todos) */}
+          {isAgente && (
+            <Select value={scope} onValueChange={v => setScopeManual(v as ScopeFiltro)} disabled={scopeOptions.length <= 1}>
+              <SelectTrigger className="h-8 text-xs w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {scopeOptions.map(o => <SelectItem key={o} value={o}>{SCOPE_FILTRO_LABEL[o]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          {/* Solicitante — só fora do escopo "meus" e quando há opções. O value
+              deriva pra "Todos os solicitantes" sempre que o selecionado não for
+              uma opção válida (ex.: troquei de escopo), em vez de ficar em branco. */}
+          {isAgente && scope !== 'MEUS' && solicitanteOptions.length > 0 && (
+            <Select
+              value={filtroSolicitante && solicitanteOptions.some(u => u.id === filtroSolicitante) ? filtroSolicitante : '__all__'}
+              onValueChange={v => setFiltroSolicitante(v === '__all__' ? '' : v)}
+            >
+              <SelectTrigger className="h-8 text-xs w-[170px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todos os solicitantes</SelectItem>
+                {solicitanteOptions.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          {/* Responsável — só agentes */}
+          {isAgente && agentes.length > 0 && (
+            <Select value={filtroResponsavel || undefined} onValueChange={v => setFiltroResponsavel(v === '__all__' ? '' : v)}>
+              <SelectTrigger className="h-8 text-xs w-[160px]"><SelectValue placeholder="Responsável" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todos os responsáveis</SelectItem>
+                {agentes.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          {/* Status — só na lista (no kanban as colunas já são os status) */}
+          {isAgente && !emKanban && (
+            <Select value={filtroStatus || undefined} onValueChange={v => setFiltroStatus(v === '__all__' ? '' : v as HelpdeskStatus)}>
+              <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todos os status</SelectItem>
+                {HELPDESK_STATUS.map(s => (
+                  <SelectItem key={s} value={s}>
+                    <span className="inline-flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: STATUS_COR[s] }} />
+                      {HELPDESK_STATUS_LABELS[s]}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {/* Prioridade */}
+          {isAgente && (
+            <Select value={filtroPrioridade || undefined} onValueChange={v => setFiltroPrioridade(v === '__all__' ? '' : v as HelpdeskPrioridade)}>
+              <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todas as prioridades</SelectItem>
+                {HELPDESK_PRIORIDADE.map(p => (
+                  <SelectItem key={p} value={p}>
+                    <span className="inline-flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: HELPDESK_PRIORIDADE_COLORS[p] }} />
+                      {HELPDESK_PRIORIDADE_LABELS[p]}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
       </div>
 
       {/* Banner do modo arquivado — sinaliza que a visão é distinta */}
@@ -489,7 +613,6 @@ export default function HelpdeskPage() {
               <TicketRow
                 key={t.id}
                 ticket={t}
-                onClick={() => router.push(`/helpdesk/${t.id}`)}
                 // Em modo arquivado, oferece desarquivar in-place (sem entrar no ticket)
                 onUnarchive={verArquivados && podeAtuar ? async () => {
                   try {
@@ -828,21 +951,30 @@ function ScoreIaBadge({ ticket }: { ticket: Ticket }) {
   )
 }
 
-function TicketRow({ ticket, onClick, onUnarchive }: { ticket: Ticket; onClick: () => void; onUnarchive?: () => void }) {
+function TicketRow({ ticket, onUnarchive }: { ticket: Ticket; onUnarchive?: () => void }) {
   const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
-  const corPrioridade = HELPDESK_PRIORIDADE_COLORS[ticket.prioridade]
   return (
-    <div onClick={onClick} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 group">
-      <div className="w-1 h-12 rounded-full shrink-0" style={{ backgroundColor: corPrioridade }} />
+    <div className="relative flex items-center gap-3 px-4 py-3 hover:bg-muted/30 group">
+      {/* Link esticado cobre a linha → clique abre; Ctrl/⌘+clique, botão do meio
+          e botão direito → "abrir em nova aba" nativos (#HLP0139). */}
+      <Link
+        href={`/helpdesk/${ticket.id}`}
+        aria-label={`Abrir ${ticketNum}`}
+        className="absolute inset-0 z-0"
+      />
+      {/* Barra vertical = cor do STATUS */}
+      <div className="w-1 h-12 rounded-full shrink-0" style={{ backgroundColor: STATUS_COR[ticket.status] }} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap mb-0.5">
           <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{ticketNum}</span>
-          <Badge variant="outline" className="text-[10px] h-5">
+          <Badge variant="outline" className="text-[10px] h-5 gap-1">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: STATUS_COR[ticket.status] }} />
             {HELPDESK_STATUS_LABELS[ticket.status]}
           </Badge>
-          {ticket.tipo && (
-            <span className="text-[10px] text-muted-foreground">{HELPDESK_TIPO_LABELS[ticket.tipo]}</span>
-          )}
+          {/* Prioridade — texto ao lado do status; só o valor colorido (como no kanban) */}
+          <span className="text-[10px] text-muted-foreground">
+            Prioridade: <span className="font-medium uppercase tracking-wider" style={{ color: HELPDESK_PRIORIDADE_COLORS[ticket.prioridade] }}>{HELPDESK_PRIORIDADE_LABELS[ticket.prioridade]}</span>
+          </span>
           {ticket.categoria && (
             <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
               {ticket.categoria.cor && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: ticket.categoria.cor }} />}
@@ -862,8 +994,8 @@ function TicketRow({ ticket, onClick, onUnarchive }: { ticket: Ticket; onClick: 
       {onUnarchive && (
         <Button
           variant="outline" size="sm"
-          onClick={e => { e.stopPropagation(); onUnarchive() }}
-          className="h-7 gap-1 text-[11px] shrink-0"
+          onClick={e => { e.preventDefault(); e.stopPropagation(); onUnarchive() }}
+          className="relative z-10 h-7 gap-1 text-[11px] shrink-0"
           title="Desarquivar ticket"
         >
           <Archive className="h-3 w-3 rotate-180" />

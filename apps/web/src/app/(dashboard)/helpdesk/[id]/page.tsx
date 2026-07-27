@@ -1175,32 +1175,36 @@ export default function HelpdeskTicketDetailPage() {
                       <button type="button" onClick={() => setRespondendoA(null)} className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground" title="Cancelar resposta"><X className="h-3.5 w-3.5" /></button>
                     </div>
                   )}
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setInterna(false)}
-                      className={cn(
-                        'text-[11px] px-2 py-1 rounded font-medium transition-colors',
-                        !interna
-                          ? 'bg-cyan-100 text-cyan-800'
-                          : 'text-muted-foreground hover:bg-muted',
-                      )}
-                    >
-                      <MessageSquare className="inline h-3 w-3 mr-1" /> Mensagem pública
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setInterna(true)}
-                      className={cn(
-                        'text-[11px] px-2 py-1 rounded font-medium transition-colors',
-                        interna
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'text-muted-foreground hover:bg-muted',
-                      )}
-                    >
-                      <Lock className="inline h-3 w-3 mr-1" /> Nota interna
-                    </button>
-                  </div>
+                  {/* Nota interna é embutida em "atuar como agente": só agentes
+                      escolhem entre pública/interna. Sem podeAtuar, só pública. */}
+                  {podeAtuar && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setInterna(false)}
+                        className={cn(
+                          'text-[11px] px-2 py-1 rounded font-medium transition-colors',
+                          !interna
+                            ? 'bg-cyan-100 text-cyan-800'
+                            : 'text-muted-foreground hover:bg-muted',
+                        )}
+                      >
+                        <MessageSquare className="inline h-3 w-3 mr-1" /> Mensagem pública
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInterna(true)}
+                        className={cn(
+                          'text-[11px] px-2 py-1 rounded font-medium transition-colors',
+                          interna
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'text-muted-foreground hover:bg-muted',
+                        )}
+                      >
+                        <Lock className="inline h-3 w-3 mr-1" /> Nota interna
+                      </button>
+                    </div>
+                  )}
                   <RichEditor
                     value={novaMsg}
                     onChange={(html) => setNovaMsg(html)}

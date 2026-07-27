@@ -191,11 +191,21 @@ export function createCertificadoDigitalRouter(
     // com ou sem confirmação de senha. Substitui o antigo validarSenha e os
     // eventos separados de ver senha / baixar PFX.
     acessar: writeProcedure(MODULE)
-      .input(z.object({ id: z.string(), senhaUser: z.string().optional(), motivo: z.string().optional() }))
+      .input(z.object({ id: z.string(), senhaUser: z.string().optional(), motivo: z.string().optional(), origem: z.enum(['gestao', 'cliente']).optional() }))
       .mutation(async ({ input, ctx }) => {
         const cert = await prisma.certificadoDigital.findUnique({ where: { id: input.id }, select: { empresaId: true } })
-        const motivo = await gateAcessoCert(authService, ctx, cert?.empresaId ?? ctx.empresaId, input.senhaUser, input.motivo)
-        await certService.registrarAcessoArquivoSenha(input.id, motivo, {
+        const empresaId = cert?.empresaId ?? ctx.empresaId
+        const exige = await isReautObrigatoria(empresaId)
+        const base = await gateAcessoCert(authService, ctx, empresaId, input.senhaUser, input.motivo)
+        // Acesso pelo cadastro do cliente prefixa a origem na trilha (#HLP0301):
+        //  - reaut ligada:   "Acessado pelo cadastro do cliente. Justificativa: <...>"
+        //  - reaut desligada:"Acessado pelo cadastro do cliente. Liberado sem reautenticação (...)"
+        const detalhes = input.origem === 'cliente'
+          ? (exige
+              ? `Acessado pelo cadastro do cliente. Justificativa: ${base}`
+              : `Acessado pelo cadastro do cliente. ${base}`)
+          : base
+        await certService.registrarAcessoArquivoSenha(input.id, detalhes, {
           userId: ctx.userId,
           ipAddress: (ctx as any).ipAddress,
           userAgent: (ctx as any).userAgent,

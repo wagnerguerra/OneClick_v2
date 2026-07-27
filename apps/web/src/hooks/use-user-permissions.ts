@@ -14,7 +14,10 @@ interface UserPermissionsState {
   loading: boolean
 }
 
-const REFRESH_EVENT = 'user-permissions-refresh'
+/** Evento de janela que sinaliza "as permissões mudaram, re-busque". Exportado
+ *  pra que outras buscas de permissão (ex.: probes do HelpDesk) possam assinar. */
+export const USER_PERMISSIONS_REFRESH_EVENT = 'user-permissions-refresh'
+const REFRESH_EVENT = USER_PERMISSIONS_REFRESH_EVENT
 
 export function refreshUserPermissions() {
   window.dispatchEvent(new Event(REFRESH_EVENT))

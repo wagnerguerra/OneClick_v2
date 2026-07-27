@@ -241,7 +241,7 @@ export default function FaqHelpdeskPage() {
           <DefRow termo="Qualquer usuário logado" texto="Abre tickets como solicitante. Vê só os próprios em /helpdesk/meus." />
           <DefRow termo="atuar_agente" texto="Atende tickets — assume, comenta (público/interno), muda status, fecha." />
           <DefRow termo="change_responsavel" texto="Reatribui entre agentes — líder TI e cargos seniores." />
-          <DefRow termo="scope_proprios / scope_area / scope_todos" texto="Define o que aparece no kanban: meus tickets, da minha área, ou todos da empresa." />
+          <DefRow termo="Escopo de visualização" texto="Escolha única: só os meus (solicitante/responsável), os da minha área, ou todos da empresa. Define o que aparece no painel e as opções do filtro." />
           <DefRow termo="gerenciar_categorias" texto="Edita o catálogo de categorias e SLA — apenas master/empresa-master por padrão." />
           <DefRow termo="panel_metricas" texto="Acessa a página de métricas TI (CSAT médio, MTTR, % SLA cumprido)." />
         </div>
