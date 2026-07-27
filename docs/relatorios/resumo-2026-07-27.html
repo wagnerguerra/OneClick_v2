@@ -1,0 +1,167 @@
+<title>Resumo do dia — OneClick v2 · 27/07/2026</title>
+<style>
+  :root {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --cadastros: #10b981; --dashboard: #0ea5e9; --comercial: #fb7185; --agenda: #8b5cf6;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+      --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+      --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+    --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+    --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 56px 24px 80px; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  header { animation: rise .5s ease-out both; }
+  .eyebrow {
+    text-transform: uppercase; letter-spacing: .13em; font-size: 11px; font-weight: 700;
+    color: var(--accent-deep); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px); line-height: 1.08; margin: 0 0 8px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .sub { color: var(--muted); font-size: 15px; margin: 0; }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 8px; }
+  .stat {
+    flex: 1 1 150px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .stat .n { font-size: 24px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  main { margin-top: 30px; display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; box-shadow: var(--shadow);
+    animation: rise .5s ease-out both;
+  }
+  .card-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .card-head h2 { font-size: 16px; margin: 0; letter-spacing: -.01em; font-weight: 700; }
+  .card-head .tag {
+    margin-left: auto; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
+  }
+  ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  li { display: flex; gap: 10px; font-size: 14.5px; }
+  li::before {
+    content: ""; margin-top: 9px; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--muted); flex: none; opacity: .55;
+  }
+  li b { font-weight: 650; }
+  .hash {
+    display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 5px;
+    background: var(--chip-bg); color: var(--chip-ink); margin-left: 4px; vertical-align: baseline;
+  }
+
+  .note {
+    margin-top: 22px; border: 1px dashed var(--border); border-radius: 12px;
+    padding: 14px 18px; font-size: 13.5px; color: var(--muted); background: transparent;
+  }
+  .note b { color: var(--ink); }
+  footer { margin-top: 34px; text-align: center; color: var(--muted); font-size: 12px; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Resumo do dia · sessão de desenvolvimento</p>
+    <h1>O que fizemos hoje no OneClick v2</h1>
+    <p class="sub">27 de julho de 2026 — visão geral, sem entrar no detalhe.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="n">17</div><div class="l">commits (locais)</div></div>
+    <div class="stat"><div class="n">5</div><div class="l">módulos tocados</div></div>
+    <div class="stat"><div class="n">2</div><div class="l">features maiores</div></div>
+    <div class="stat"><div class="n">1</div><div class="l">investigação sem bug</div></div>
+  </div>
+
+  <main>
+    <section class="card" style="animation-delay:.05s">
+      <div class="card-head"><span class="dot" style="background:var(--comercial)"></span><h2>Orçamentos</h2><span class="tag">Comercial · feature</span></div>
+      <ul>
+        <li><span><b>Relatório por coluna do kanban</b> — menu ⋮ na coluna → modal de configuração → nova página com resumo + lista; filtros clicáveis por área/tipo; item de serviço clicável abre modal de edição. <span class="hash mono">38bd06d</span><span class="hash mono">a7abf4b</span><span class="hash mono">1a5586d</span><span class="hash mono">9a5c72f</span></span></li>
+        <li><span><b>Exportação Excel / CSV / PDF</b> — passou a ser gerada no servidor (download por navegação), contornando o bloqueio de download do navegador que impedia baixar os arquivos. <span class="hash mono">e073508</span><span class="hash mono">b4ecc65</span></span></li>
+        <li><span><b>Vínculo de CRM ao orçamento</b> (o inverso do fluxo que já existia) — buscar e vincular um card, modal de resumo do CRM, chip “CRM #N” no card do kanban; só Comercial e master vinculam. <span class="hash mono">ef3c6f9</span><span class="hash mono">3f5a14b</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.1s">
+      <div class="card-head"><span class="dot" style="background:var(--cadastros)"></span><h2>Sócios</h2><span class="tag">Cadastros</span></div>
+      <ul>
+        <li><span>Módulo padronizado conforme o /areas (sub-abas e tokens de tema). <span class="hash mono">ee2d6b0</span></span></li>
+        <li><span>Lista ordenada por <b>nome (A→Z)</b> por padrão. <span class="hash mono">b2ea9ec</span></span></li>
+        <li><span>Observações com editor HTML e checkbox “Assina pela empresa” removido. <span class="hash mono">0514937</span></span></li>
+        <li><span><b>Exclusão virou inativação</b> — não apaga mais; a tela lista só sócios ativos (inclusive no detalhe do cliente). <span class="hash mono">9b4e8b0</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.15s">
+      <div class="card-head"><span class="dot" style="background:var(--cadastros)"></span><h2>Serviços</h2><span class="tag">Cadastros</span></div>
+      <ul>
+        <li><span>Campo “Descrição completa” virou editor HTML (RichEditor). <span class="hash mono">63a9587</span></span></li>
+        <li><span>Listagem com ordenação por coluna, busca em todas as colunas e filtros num painel colapsável; colunas SLA/Etapas removidas. <span class="hash mono">29900b0</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.2s">
+      <div class="card-head"><span class="dot" style="background:var(--cadastros)"></span><h2>Clientes</h2><span class="tag">Cadastros</span></div>
+      <ul>
+        <li><span>O <b>coordenador</b> passou a editar as particularidades de todas as áreas contratadas da própria tenant. <span class="hash mono">984af9c</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.25s">
+      <div class="card-head"><span class="dot" style="background:var(--dashboard)"></span><h2>Dashboard</h2><span class="tag">correção</span></div>
+      <ul>
+        <li><span>Widget <b>“Serviços da Área”</b> quebrava para líderes de área (query Prisma inválida — relação inexistente). Corrigido; mesmo bug latente no módulo Processos também resolvido. <span class="hash mono">7ca425c</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.3s">
+      <div class="card-head"><span class="dot" style="background:var(--agenda)"></span><h2>Agenda</h2><span class="tag">investigação</span></div>
+      <ul>
+        <li><span>“Conflito fantasma” investigado: não era bug — a pessoa tinha um <b>evento particular real</b>, oculto por privacidade. Mantido o bloqueio, com uma nota explicativa no modal de conflito. <span class="hash mono">23756c5</span></span></li>
+      </ul>
+    </section>
+  </main>
+
+  <div class="note">
+    <b>Além do código:</b> respondida a viabilidade de autopreenchimento por <b>CPF</b> no cadastro de sócios (só via serviço pago tipo SERPRO — dado de CPF é protegido, ao contrário do CNPJ).
+  </div>
+  <div class="note" style="margin-top:10px">
+    <b>Situação:</b> tudo commitado localmente, <b>aguardando o deploy</b> pelo Service Manager. Nada foi publicado em produção nesta sessão.
+  </div>
+
+  <footer>Resumo gerado ao fim da sessão · OneClick v2</footer>
+</div>
