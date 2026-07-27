@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button, Card } from '@saas/ui'
-import { BarChart3, FileSpreadsheet, FileText, Printer, Loader2, AlertCircle } from 'lucide-react'
+import { BarChart3, FileSpreadsheet, FileText, Printer, Loader2, AlertCircle, X } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { ORCAMENTO_STATUS_LABELS } from '@saas/types'
 import { alerts } from '@/lib/alerts'
@@ -28,10 +28,14 @@ function RelatorioInner() {
   const [loading, setLoading] = useState(true)
   const [res, setRes] = useState<Resultado | null>(null)
   const [erro, setErro] = useState<string | null>(null)
+  // Drill-down: clicar numa linha de "Por área"/"Por tipo" filtra a lista abaixo.
+  const [filtroArea, setFiltroArea] = useState<string | null>(null)
+  const [filtroTipo, setFiltroTipo] = useState<string | null>(null)
 
   const paramsStr = params.toString()
   useEffect(() => {
     if (!status) { setErro('Coluna não informada.'); setLoading(false); return }
+    setFiltroArea(null); setFiltroTipo(null)
     document.title = `Relatório — ${statusLabel}`
     const input: Record<string, unknown> = { status }
     const de = params.get('de'); const ate = params.get('ate'); const tipo = params.get('tipo')
@@ -50,6 +54,16 @@ function RelatorioInner() {
   }, [paramsStr])
 
   const nomeArquivo = `relatorio-${status.toLowerCase()}-${new Date().toISOString().slice(0, 10)}`
+
+  // Lista exibida = linhas filtradas pelo drill-down (área E tipo, se ativos).
+  const linhasView = (res?.linhas ?? []).filter(l => {
+    const okArea = !filtroArea || (filtroArea === '(sem área)' ? l.areas.length === 0 : l.areas.includes(filtroArea))
+    const okTipo = !filtroTipo || l.natureza === filtroTipo
+    return okArea && okTipo
+  })
+  const filtrando = !!filtroArea || !!filtroTipo
+  const toggleArea = (nome: string) => setFiltroArea(prev => (prev === nome ? null : nome))
+  const toggleTipo = (nome: string) => setFiltroTipo(prev => (prev === nome ? null : nome))
 
   async function onPdf() {
     if (!res) return
@@ -113,27 +127,41 @@ function RelatorioInner() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {res.resumo.porArea.length > 0 && (
                 <Card className="overflow-hidden">
-                  <div className="px-3 py-1.5 bg-muted/40 text-[11px] font-semibold">Por área</div>
+                  <div className="px-3 py-1.5 bg-muted/40 text-[11px] font-semibold">Por área <span className="font-normal text-muted-foreground">— clique para filtrar</span></div>
                   <div className="divide-y divide-border/60">
-                    {res.resumo.porArea.map(a => (
-                      <div key={a.nome} className="flex items-center justify-between px-3 py-1.5 text-xs">
-                        <span className="truncate">{a.nome}</span>
-                        <span className="text-muted-foreground shrink-0">{a.count} · {brl(a.soma)}</span>
-                      </div>
-                    ))}
+                    {res.resumo.porArea.map(a => {
+                      const active = filtroArea === a.nome
+                      return (
+                        <button key={a.nome} type="button" onClick={() => toggleArea(a.nome)}
+                          className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition-colors ${active ? 'bg-[var(--mod-comercial,#fb7185)]/10 font-semibold' : 'hover:bg-muted/40'}`}>
+                          <span className="truncate flex items-center gap-1.5">
+                            {active && <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: MODULE_COLOR }} />}
+                            {a.nome}
+                          </span>
+                          <span className="text-muted-foreground shrink-0">{a.count} · {brl(a.soma)}</span>
+                        </button>
+                      )
+                    })}
                   </div>
                 </Card>
               )}
               {res.resumo.porTipo.length > 0 && (
                 <Card className="overflow-hidden">
-                  <div className="px-3 py-1.5 bg-muted/40 text-[11px] font-semibold">Por tipo</div>
+                  <div className="px-3 py-1.5 bg-muted/40 text-[11px] font-semibold">Por tipo <span className="font-normal text-muted-foreground">— clique para filtrar</span></div>
                   <div className="divide-y divide-border/60">
-                    {res.resumo.porTipo.map(t => (
-                      <div key={t.nome} className="flex items-center justify-between px-3 py-1.5 text-xs">
-                        <span className="truncate">{t.nome}</span>
-                        <span className="text-muted-foreground shrink-0">{t.count} · {brl(t.soma)}</span>
-                      </div>
-                    ))}
+                    {res.resumo.porTipo.map(t => {
+                      const active = filtroTipo === t.nome
+                      return (
+                        <button key={t.nome} type="button" onClick={() => toggleTipo(t.nome)}
+                          className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition-colors ${active ? 'bg-[var(--mod-comercial,#fb7185)]/10 font-semibold' : 'hover:bg-muted/40'}`}>
+                          <span className="truncate flex items-center gap-1.5">
+                            {active && <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: MODULE_COLOR }} />}
+                            {t.nome}
+                          </span>
+                          <span className="text-muted-foreground shrink-0">{t.count} · {brl(t.soma)}</span>
+                        </button>
+                      )
+                    })}
                   </div>
                 </Card>
               )}
@@ -142,16 +170,33 @@ function RelatorioInner() {
 
           {/* Lista */}
           <Card className="overflow-hidden">
-            <div className="px-3 py-2 bg-muted/40 text-[11px] font-semibold border-b border-border">Orçamentos ({res.linhas.length})</div>
+            <div className="px-3 py-2 bg-muted/40 text-[11px] font-semibold border-b border-border flex items-center justify-between gap-2 flex-wrap">
+              <span>Orçamentos ({filtrando ? `${linhasView.length} de ${res.linhas.length}` : res.linhas.length})</span>
+              {filtrando && (
+                <div className="flex items-center gap-1.5">
+                  {filtroArea && (
+                    <button type="button" onClick={() => setFiltroArea(null)} className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-medium hover:bg-muted/50">
+                      Área: {filtroArea} <X className="h-3 w-3" />
+                    </button>
+                  )}
+                  {filtroTipo && (
+                    <button type="button" onClick={() => setFiltroTipo(null)} className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-medium hover:bg-muted/50">
+                      Tipo: {filtroTipo} <X className="h-3 w-3" />
+                    </button>
+                  )}
+                  <button type="button" onClick={() => { setFiltroArea(null); setFiltroTipo(null) }} className="text-[10px] font-medium text-muted-foreground hover:text-foreground underline">limpar</button>
+                </div>
+              )}
+            </div>
             <div className="overflow-auto">
               <table className="w-full text-xs">
                 <thead className="bg-muted/20">
                   <tr>{camposSel.map(c => <th key={c.key} className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-border uppercase tracking-wider">{c.label}</th>)}</tr>
                 </thead>
                 <tbody>
-                  {res.linhas.length === 0 ? (
-                    <tr><td colSpan={camposSel.length} className="px-3 py-10 text-center text-muted-foreground">Nenhum orçamento nesta coluna com os filtros aplicados.</td></tr>
-                  ) : res.linhas.map(l => (
+                  {linhasView.length === 0 ? (
+                    <tr><td colSpan={camposSel.length} className="px-3 py-10 text-center text-muted-foreground">Nenhum orçamento {filtrando ? 'com o filtro selecionado' : 'nesta coluna com os filtros aplicados'}.</td></tr>
+                  ) : linhasView.map(l => (
                     <tr key={l.id} className="hover:bg-muted/30">
                       {camposSel.map(c => <td key={c.key} className="px-3 py-1.5 whitespace-nowrap border-b border-border/50 max-w-[320px] truncate" title={formatCampo(l, c.key)}>{formatCampo(l, c.key)}</td>)}
                     </tr>
