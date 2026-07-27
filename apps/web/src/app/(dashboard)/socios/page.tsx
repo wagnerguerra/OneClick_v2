@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Trash2,
+  Plus, Pencil,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
-  UserPlus, FileUp, Download, Users,
+  UserPlus, FileUp, Download, Users, UserX,
 } from 'lucide-react'
 import {
   Button, Input, Badge,
@@ -55,7 +55,7 @@ export default function SociosPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    try { setData(await trpc.socio.list.query({ page, limit, search: debouncedSearch || undefined, sortBy: sort.column, sortDir: sort.dir })) }
+    try { setData(await trpc.socio.list.query({ page, limit, search: debouncedSearch || undefined, sortBy: sort.column, sortDir: sort.dir, isActive: true })) }
     catch { /* silencioso */ }
     finally { setLoading(false) }
   }, [page, limit, debouncedSearch, sort])
@@ -68,10 +68,17 @@ export default function SociosPage() {
     return sort.dir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
   }
 
-  async function handleDelete(id: string, name: string) {
-    if (!await alerts.confirmDelete(name)) return
-    try { await trpc.socio.delete.mutate({ id }); await alerts.success('Sócio excluído', `"${name}" foi removido.`); fetchData() }
-    catch { alerts.error('Erro', 'Não foi possível excluir.') }
+  // Sócios não são excluídos — apenas inativados (some da lista de ativos; histórico preservado).
+  async function handleInactivate(id: string, name: string) {
+    const ok = await alerts.confirm({
+      title: 'Inativar sócio',
+      text: `"${name}" deixará de aparecer na lista de sócios ativos. O histórico e os vínculos são preservados.`,
+      confirmText: 'Sim, inativar',
+      icon: 'warning',
+    })
+    if (!ok) return
+    try { await trpc.socio.delete.mutate({ id }); await alerts.success('Sócio inativado', `"${name}" foi inativado.`); fetchData() }
+    catch { alerts.error('Erro', 'Não foi possível inativar.') }
   }
 
   async function handleExport() {
@@ -145,7 +152,7 @@ export default function SociosPage() {
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
                     <Button variant="soft-info" size="icon-sm" onClick={() => router.push(`/socios/${s.id}`)}><Pencil className="h-3.5 w-3.5" /></Button>
-                    <Button variant="soft-destructive" size="icon-sm" onClick={() => handleDelete(s.id, s.nomeCompleto)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    <Button variant="soft-destructive" size="icon-sm" title="Inativar sócio" onClick={() => handleInactivate(s.id, s.nomeCompleto)}><UserX className="h-3.5 w-3.5" /></Button>
                   </div>
                 </TableCell>
               </TableRow>

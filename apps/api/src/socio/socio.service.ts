@@ -143,12 +143,20 @@ export class SocioService {
     })
   }
 
+  /**
+   * Regra de negócio: sócios NÃO são excluídos do banco — apenas INATIVADOS
+   * (isActive=false). Preserva o histórico societário e os vínculos. O botão
+   * "Excluir" da UI chama este método, que faz a inativação (soft-delete).
+   */
   async delete(id: string, userId?: string, isMaster?: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
       const existing = await db.socio.findUniqueOrThrow({ where: { id } })
       if (!isMaster && empresaId && existing.empresaId !== empresaId) throw new Error('Acesso negado.')
-      await db.socioEvent.create({ data: { socioId: id, userId: userId || null, type: 'deleted', version: existing.version } })
-      return db.socio.delete({ where: { id } })
+      if (!existing.isActive) return existing // já inativo — idempotente
+      const newVersion = existing.version + 1
+      const updated = await db.socio.update({ where: { id }, data: { isActive: false, version: newVersion } })
+      await db.socioEvent.create({ data: { socioId: id, userId: userId || null, type: 'inactivated', version: newVersion } })
+      return updated
     })
   }
 
@@ -265,7 +273,7 @@ export class SocioService {
 
   async listByCliente(clienteId: string) {
     return prisma.socio.findMany({
-      where: { clienteId },
+      where: { clienteId, isActive: true },
       select: { id: true, nomeCompleto: true, cpf: true, tipoSocio: true, participacao: true, createdAt: true },
       orderBy: { nomeCompleto: 'asc' },
     })
