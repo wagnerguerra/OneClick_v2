@@ -45,7 +45,7 @@ export default function SociosPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
-  const [sort, setSort] = useState<{ column: string; dir: SortDir }>({ column: 'code', dir: 'asc' })
+  const [sort, setSort] = useState<{ column: string; dir: SortDir }>({ column: 'nomeCompleto', dir: 'asc' })
   const [data, setData] = useState<{ data: Socio[]; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean } | null>(null)
   const [loading, setLoading] = useState(true)
   const [importOpen, setImportOpen] = useState(false)
