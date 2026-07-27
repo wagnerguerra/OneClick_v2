@@ -12,8 +12,7 @@ import {
 import {
   Button, Input, Label, Checkbox, Card, Badge,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  TooltipProvider,
-  Tabs, TabsList, TabsTrigger, TabsContent,
+  TooltipProvider, cn,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
@@ -45,10 +44,24 @@ interface SocioFormProps {
 
 const UF_OPTIONS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
 
+const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
+
+// Sub-abas laterais (padrão da casa: pills compactas na cor do módulo).
+// `editOnly` só aparecem no modo edição (dependem de socioId).
+const SOCIO_TABS = [
+  { id: 'pessoal', label: 'Dados Pessoais', icon: User },
+  { id: 'contato', label: 'Contato', icon: Phone },
+  { id: 'endereco', label: 'Endereço', icon: MapPin },
+  { id: 'societario', label: 'Societário', icon: Briefcase },
+  { id: 'arquivos', label: 'Arquivos', icon: FileText, editOnly: true },
+  { id: 'mensagens', label: 'Mensagens', icon: MessageSquare, editOnly: true },
+] as const
+
 export function SocioForm({ mode, socioId, title, description, icon, defaultValues }: SocioFormProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [clientes, setClientes] = useState<SelectOption[]>([])
+  const [activeTab, setActiveTab] = useState<string>('pessoal')
 
   // Arquivos
   const [arquivos, setArquivos] = useState<Arquivo[]>([])
@@ -182,7 +195,7 @@ export function SocioForm({ mode, socioId, title, description, icon, defaultValu
             {icon && (
               <div
                 className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-                style={{ backgroundColor: 'var(--mod-cadastros, #10b981)' }}
+                style={{ backgroundColor: MODULE_COLOR }}
               >
                 {icon}
               </div>
@@ -196,19 +209,35 @@ export function SocioForm({ mode, socioId, title, description, icon, defaultValu
         </div>
 
         <Card className="overflow-hidden">
-          <Tabs defaultValue="pessoal" orientation="vertical" className="flex min-h-[550px]">
-            <TabsList variant="pills" className="w-[140px] shrink-0 border-r border-border bg-muted/30 p-3 items-center">
-              <TabsTrigger variant="pills" value="pessoal" icon={<User className="h-4 w-4" />}>Dados Pessoais</TabsTrigger>
-              <TabsTrigger variant="pills" value="contato" icon={<Phone className="h-4 w-4" />}>Contato</TabsTrigger>
-              <TabsTrigger variant="pills" value="endereco" icon={<MapPin className="h-4 w-4" />}>Endereço</TabsTrigger>
-              <TabsTrigger variant="pills" value="societario" icon={<Briefcase className="h-4 w-4" />}>Societário</TabsTrigger>
-              {isEdit && <TabsTrigger variant="pills" value="arquivos" icon={<FileText className="h-4 w-4" />}>Arquivos</TabsTrigger>}
-              {isEdit && <TabsTrigger variant="pills" value="mensagens" icon={<MessageSquare className="h-4 w-4" />}>Mensagens</TabsTrigger>}
-            </TabsList>
-            <div className="flex-1 min-w-0">
+          <div className="flex min-h-[550px]">
+            {/* Pills laterais — padrão da casa (w-170, bg-muted/40, ativa = cor do módulo) */}
+            <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 space-y-1">
+              {SOCIO_TABS.filter((t) => !('editOnly' in t && t.editOnly) || isEdit).map((t) => {
+                const Icon = t.icon
+                const active = activeTab === t.id
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setActiveTab(t.id)}
+                    className={cn(
+                      'flex items-center gap-2 w-full rounded-md px-3 py-2 text-[11px] font-medium transition-colors text-left',
+                      active ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-muted/60',
+                    )}
+                    style={active ? { backgroundColor: MODULE_COLOR } : undefined}
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    <span className="flex-1 truncate">{t.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Conteúdo — key={activeTab} + fadeSlideIn (padrão da casa) */}
+            <div key={activeTab} className="flex-1 min-w-0 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
 
               {/* DADOS PESSOAIS */}
-              <TabsContent value="pessoal" className="p-5">
+              {activeTab === 'pessoal' && (
                 <div className="grid grid-cols-12 gap-4">
                   {isEdit && defaultValues?.code !== undefined && (
                     <div className="col-span-2"><Label>ID</Label><Input value={defaultValues.code} disabled className="bg-muted mt-1.5" /></div>
@@ -226,19 +255,19 @@ export function SocioForm({ mode, socioId, title, description, icon, defaultValu
                   <div className="col-span-4"><Label htmlFor="nacionalidade">Nacionalidade</Label><Input id="nacionalidade" {...register('nacionalidade')} className="mt-1.5" /></div>
                   <div className="col-span-4"><Label htmlFor="profissao">Profissão</Label><Input id="profissao" {...register('profissao')} className="mt-1.5" /></div>
                 </div>
-              </TabsContent>
+              )}
 
               {/* CONTATO */}
-              <TabsContent value="contato" className="p-5">
+              {activeTab === 'contato' && (
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-6"><Label htmlFor="email">E-mail</Label><Input id="email" type="email" {...register('email')} className="mt-1.5" /></div>
                   <div className="col-span-3"><Label htmlFor="telefone">Telefone</Label><Input id="telefone" {...register('telefone')} onChange={e => setValue('telefone', masks.telefone(e.target.value))} className="mt-1.5" /></div>
                   <div className="col-span-3"><Label htmlFor="celular">Celular</Label><Input id="celular" {...register('celular')} onChange={e => setValue('celular', masks.telefone(e.target.value))} className="mt-1.5" /></div>
                 </div>
-              </TabsContent>
+              )}
 
               {/* ENDEREÇO */}
-              <TabsContent value="endereco" className="p-5">
+              {activeTab === 'endereco' && (
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-3"><Label htmlFor="cep">CEP</Label><Input id="cep" {...register('cep')} onChange={e => setValue('cep', masks.cep(e.target.value))} className="mt-1.5" /></div>
                   <div className="col-span-7"><Label htmlFor="logradouro">Logradouro</Label><Input id="logradouro" {...register('logradouro')} className="mt-1.5" /></div>
@@ -248,10 +277,10 @@ export function SocioForm({ mode, socioId, title, description, icon, defaultValu
                   <div className="col-span-4"><Label htmlFor="cidade">Cidade</Label><Input id="cidade" {...register('cidade')} className="mt-1.5" /></div>
                   <div className="col-span-3"><Label>UF</Label><Controller control={control} name="uf" render={({ field }) => (<Select value={field.value || '__none__'} onValueChange={v => field.onChange(v === '__none__' ? '' : v)}><SelectTrigger className="mt-1.5"><SelectValue placeholder="UF" /></SelectTrigger><SelectContent><SelectItem value="__none__">—</SelectItem>{UF_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select>)} /></div>
                 </div>
-              </TabsContent>
+              )}
 
               {/* SOCIETÁRIO */}
-              <TabsContent value="societario" className="p-5">
+              {activeTab === 'societario' && (
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-4"><Label>Tipo de Sócio</Label><Controller control={control} name="tipoSocio" render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(TIPO_SOCIO_LABELS).map(([k,v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select>)} /></div>
                   <div className="col-span-4"><Label htmlFor="participacao">Participação (%)</Label><Input id="participacao" type="number" step="0.01" min="0" max="100" {...register('participacao')} className="mt-1.5" /></div>
@@ -262,14 +291,13 @@ export function SocioForm({ mode, socioId, title, description, icon, defaultValu
                   <div className="col-span-4 flex items-end pb-1"><Controller control={control} name="assinaNaEmpresa" render={({ field }) => (<label className="flex items-center gap-2 cursor-pointer"><Checkbox checked={field.value} onCheckedChange={field.onChange} /><span className="text-sm">Assina pela empresa</span></label>)} /></div>
                   <div className="col-span-4 flex items-end pb-1"><Controller control={control} name="responsavelLegal" render={({ field }) => (<label className="flex items-center gap-2 cursor-pointer"><Checkbox checked={field.value} onCheckedChange={field.onChange} /><span className="text-sm">Responsável legal</span></label>)} /></div>
                   <div className="col-span-4 flex items-end pb-1"><Controller control={control} name="isActive" render={({ field }) => (<label className="flex items-center gap-2 cursor-pointer"><Checkbox checked={field.value} onCheckedChange={field.onChange} /><span className="text-sm">Sócio ativo</span></label>)} /></div>
-                  <div className="col-span-12"><Label htmlFor="observacoes">Observações</Label><textarea id="observacoes" rows={3} {...register('observacoes')} className="mt-1.5 w-full rounded border border-[#ced4da] bg-transparent px-3 py-2 text-sm focus:border-[#5ea3cb] focus:outline-none" /></div>
+                  <div className="col-span-12"><Label htmlFor="observacoes">Observações</Label><textarea id="observacoes" rows={3} {...register('observacoes')} className="mt-1.5 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" /></div>
                 </div>
-              </TabsContent>
+              )}
 
               {/* ARQUIVOS */}
-              {isEdit && (
-                <TabsContent value="arquivos" className="p-5">
-                  <div className="space-y-4">
+              {isEdit && activeTab === 'arquivos' && (
+                <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <h4 className="text-sm font-semibold text-foreground">Documentos do Sócio</h4>
@@ -289,11 +317,11 @@ export function SocioForm({ mode, socioId, title, description, icon, defaultValu
                     ) : (
                       <div className="space-y-2">
                         {arquivos.map((arq) => (
-                          <div key={arq.id} className="flex items-center justify-between p-3 rounded-lg border border-[rgba(0,0,0,0.08)] bg-muted/10 hover:bg-muted/20 transition-colors">
+                          <div key={arq.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/10 hover:bg-muted/20 transition-colors">
                             <div className="flex items-center gap-3 min-w-0">
                               <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                               <div className="min-w-0">
-                                <a href={arq.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-foreground hover:text-[#5ea3cb] truncate block">
+                                <a href={arq.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-foreground hover:text-primary truncate block">
                                   {arq.fileName}
                                 </a>
                                 <p className="text-[11px] text-muted-foreground">
@@ -309,13 +337,11 @@ export function SocioForm({ mode, socioId, title, description, icon, defaultValu
                       </div>
                     )}
                   </div>
-                </TabsContent>
               )}
 
               {/* MENSAGENS */}
-              {isEdit && (
-                <TabsContent value="mensagens" className="p-5">
-                  <div className="space-y-4">
+              {isEdit && activeTab === 'mensagens' && (
+                <div className="space-y-4">
                     <h4 className="text-sm font-semibold text-foreground">Histórico de Mensagens</h4>
 
                     {/* Lista de mensagens */}
@@ -326,7 +352,7 @@ export function SocioForm({ mode, socioId, title, description, icon, defaultValu
                           <p className="text-sm">Nenhuma mensagem registrada</p>
                         </div>
                       ) : mensagens.map((msg) => (
-                        <div key={msg.id} className="p-3 rounded-lg border border-[rgba(0,0,0,0.08)] bg-muted/10">
+                        <div key={msg.id} className="p-3 rounded-lg border border-border bg-muted/10">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
@@ -360,26 +386,25 @@ export function SocioForm({ mode, socioId, title, description, icon, defaultValu
                     </div>
 
                     {/* Campo de nova mensagem */}
-                    <div className="flex items-center gap-2 pt-3 border-t border-[rgba(0,0,0,0.08)]">
+                    <div className="flex items-center gap-2 pt-3 border-t border-border">
                       <textarea
                         rows={2}
                         placeholder="Escreva uma mensagem..."
                         value={novaMensagem}
                         onChange={(e) => setNovaMensagem(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEnviarMensagem() } }}
-                        className="flex-1 rounded border border-[#ced4da] bg-transparent px-3 py-2 text-sm focus:border-[#5ea3cb] focus:outline-none resize-none"
+                        className="flex-1 rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       />
                       <Button type="button" variant="success" size="sm" onClick={handleEnviarMensagem} disabled={enviando || !novaMensagem.trim()} className="gap-1.5 self-end">
                         {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                         Enviar
                       </Button>
                     </div>
-                  </div>
-                </TabsContent>
+                </div>
               )}
 
             </div>
-          </Tabs>
+          </div>
         </Card>
       </form>
     </TooltipProvider>

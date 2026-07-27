@@ -53,7 +53,7 @@ export default function EditSocioPage() {
       .finally(() => setLoading(false))
   }, [params.id])
 
-  if (loading) return <div className="flex items-center justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-[#5ea3cb] border-t-transparent" /></div>
+  if (loading) return <div className="flex items-center justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
   if (error || !socio) return <div className="py-12 text-center text-muted-foreground">{error ?? 'Sócio não encontrado'}</div>
 
   return <SocioForm mode="edit" socioId={params.id} title="Editar Sócio" description={`Altere os dados do sócio #${socio.code}`} icon={<UserPlus className="h-6 w-6" />} defaultValues={socio} />

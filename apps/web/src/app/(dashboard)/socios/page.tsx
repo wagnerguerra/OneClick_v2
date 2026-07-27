@@ -119,7 +119,7 @@ export default function SociosPage() {
           <div className="max-w-xs w-full sm:w-auto"><Input placeholder="Buscar por nome, CPF ou e-mail..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs bg-card" /></div>
         </div>
 
-        <Table>
+        <Table className="table-fixed">
           <TableHeader><TableRow>
             <TableHead className="w-[70px]"><button onClick={() => toggleSort('code')} className="flex items-center gap-1 hover:text-foreground transition-colors">ID <SortIcon column="code" /></button></TableHead>
             <TableHead><button onClick={() => toggleSort('nomeCompleto')} className="flex items-center gap-1 hover:text-foreground transition-colors">Nome <SortIcon column="nomeCompleto" /></button></TableHead>
