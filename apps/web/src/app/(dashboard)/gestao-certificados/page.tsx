@@ -223,9 +223,7 @@ export default function GestaoCertificadosPage() {
     try {
       await (trpc.certificadoDigital as any).setReautConfig.mutate({ reautObrigatoria: valor })
       setReautObrigatoria(valor)
-      alerts.success('Configuração salva', valor
-        ? 'Passará a exigir senha + justificativa para ver/baixar.'
-        : 'Reautenticação desativada. Os acessos continuam registrados na auditoria.')
+      alerts.toast(valor ? 'Reautenticação ativada' : 'Reautenticação desativada', { timer: 2500 })
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
     } finally { setSavingConfig(false) }

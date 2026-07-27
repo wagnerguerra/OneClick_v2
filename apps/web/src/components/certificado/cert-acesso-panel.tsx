@@ -66,7 +66,7 @@ export function CertAcessoPanel({ certId, titular, active, autoDownload = true, 
         } else {
           // Sem reautenticação: já registra o acesso (arquivo + senha) e abre o
           // painel. Best-effort — falha no log não bloqueia o acesso. #HLP0301
-          ;(trpc.certificadoDigital as any).acessar.mutate({ id: certId }).catch(() => {})
+          ;(trpc.certificadoDigital as any).acessar.mutate({ id: certId, origem }).catch(() => {})
           setFase('painel')
         }
       })
@@ -86,7 +86,7 @@ export function CertAcessoPanel({ certId, titular, active, autoDownload = true, 
     try {
       // Valida senha+justificativa (bloqueia se incorreta) e JÁ registra o
       // acesso ao arquivo + senha na trilha, num único evento. #HLP0301
-      await (trpc.certificadoDigital as any).acessar.mutate({ id: certId, senhaUser, motivo: motivo.trim() })
+      await (trpc.certificadoDigital as any).acessar.mutate({ id: certId, senhaUser, motivo: motivo.trim(), origem })
       setFase('painel')
     } catch (e) {
       setErro((e as Error).message || 'Senha incorreta.')
@@ -165,11 +165,26 @@ export function CertAcessoPanel({ certId, titular, active, autoDownload = true, 
     } finally { setBaixando(false) }
   }
 
-  // Auto-download ao chegar no painel (quando expandido inline). Uma vez só.
+  // QoL (#HLP0301): com autoDownload, um único clique já baixa o PFX E copia a
+  // senha pra área de transferência, com um toast confirmando os dois.
+  async function autoBaixarECopiar() {
+    const dl = baixar()
+    const senha = await revelarSenha()
+    const copiou = senha != null ? await copyText(senha) : false
+    if (copiou) { setCopiado(true); setTimeout(() => setCopiado(false), 1500) }
+    await dl
+    if (copiou) {
+      alerts.success('Download iniciado', 'A senha foi copiada para a área de transferência.', { timer: 5000 })
+    } else {
+      alerts.success('Download iniciado', 'Não foi possível copiar a senha automaticamente — use o botão Copiar.', { timer: 5000 })
+    }
+  }
+
+  // Auto-ação ao chegar no painel (quando expandido inline). Uma vez só.
   useEffect(() => {
     if (autoDownload && fase === 'painel' && !autoBaixouRef.current) {
       autoBaixouRef.current = true
-      void baixar()
+      void autoBaixarECopiar()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoDownload, fase])

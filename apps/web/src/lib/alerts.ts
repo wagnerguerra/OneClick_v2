@@ -3,15 +3,35 @@ import Swal from 'sweetalert2'
 const themeColor = '#5ea3cb'
 
 export const alerts = {
-  success(title: string, text?: string) {
+  success(title: string, text?: string, opts?: { timer?: number }) {
     return Swal.fire({
       icon: 'success',
       title,
       text,
       confirmButtonColor: themeColor,
-      timer: 2000,
+      timer: opts?.timer ?? 2000,
       timerProgressBar: true,
       showConfirmButton: false,
+    })
+  },
+
+  /**
+   * Toast discreto no canto (top-end), não-bloqueante — centraliza o padrão que
+   * já era usado inline (ex.: lembretes da agenda). Para feedback rápido que não
+   * deve interromper o fluxo (ex.: "config salva", "senha copiada"). `timer` em
+   * ms (default 4000).
+   */
+  toast(title: string, opts?: { text?: string; icon?: 'success' | 'error' | 'warning' | 'info'; timer?: number }) {
+    return Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: opts?.icon ?? 'success',
+      title,
+      text: opts?.text,
+      showConfirmButton: false,
+      timer: opts?.timer ?? 4000,
+      timerProgressBar: true,
+      showCloseButton: true,
     })
   },
 
