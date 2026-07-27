@@ -8,6 +8,7 @@ import {
   Clock, CheckCircle2, LayoutGrid, List, Play, XCircle, Eye,
   GripVertical, ToggleLeft, ToggleRight, Pause, MessageSquare, Paperclip, Send, ChevronDown, ChevronUp,
   AlertCircle, Check, SkipForward, Network, Repeat, Zap, FileText, Type, ListChecks, Layers, Lock, ShieldCheck, Wand2,
+  SlidersHorizontal, X, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, Label,
@@ -168,6 +169,13 @@ function truncate(s: string | null, max: number) {
   return s.length > max ? s.slice(0, max) + '...' : s
 }
 
+/** Rótulo textual do "Tipo" do serviço — usado na busca e na ordenação da coluna. */
+function tipoLabel(s: Servico): string {
+  if (s.categoriaServico === 'FLUXO') return 'Fluxo'
+  if (s.categoriaServico === 'MENSAL' || s.recorrenteMensal) return 'Mensal'
+  return 'Extra'
+}
+
 // ============================================================
 // Page
 // ============================================================
@@ -185,6 +193,12 @@ export default function ServicosPage() {
   const [limit, setLimit] = useState(20)
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<Stats | null>(null)
+  // Ordenação da tabela de templates (clicável por coluna; padrão nome asc).
+  const [sort, setSort] = useState<{ column: string; dir: 'asc' | 'desc' }>({ column: 'nome', dir: 'asc' })
+  // Painel de filtros colapsável (espelha /orcamentos). filtrosOverflow libera
+  // `overflow: visible` ~320ms após abrir, pra os dropdowns não serem cortados.
+  const [filtrosOpen, setFiltrosOpen] = useState(false)
+  const [filtrosOverflow, setFiltrosOverflow] = useState(false)
 
   // Templates
   const [servicos, setServicos] = useState<Servico[]>([])
@@ -277,6 +291,28 @@ export default function ServicosPage() {
 
   useEffect(() => { const t = setTimeout(() => { setDebouncedSearch(search); setPage(1) }, 400); return () => clearTimeout(t) }, [search])
 
+  useEffect(() => {
+    if (!filtrosOpen) { setFiltrosOverflow(false); return }
+    const t = setTimeout(() => setFiltrosOverflow(true), 320)
+    return () => clearTimeout(t)
+  }, [filtrosOpen])
+
+  // Quantidade de filtros ativos (badge no botão) + limpar.
+  const filtrosAtivos = (areaFilter ? 1 : 0) + (cadeiaFilter ? 1 : 0) + (segmentoFilter ? 1 : 0)
+    + (cobrancaFilter ? 1 : 0) + (tipoCadastroFilter === 'internos' ? 1 : 0)
+  function limparFiltros() {
+    setAreaFilter(''); setCadeiaFilter(''); setSegmentoFilter(''); setCobrancaFilter('')
+    setTipoCadastroFilter('comerciais'); setPage(1)
+  }
+
+  function toggleSort(col: string) {
+    setSort(p => ({ column: col, dir: p.column === col && p.dir === 'asc' ? 'desc' : 'asc' })); setPage(1)
+  }
+  function SortIcon({ column }: { column: string }) {
+    if (sort.column !== column) return <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
+    return sort.dir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+  }
+
   // ── Fetch ──
 
   const fetchStats = useCallback(async () => {
@@ -299,7 +335,17 @@ export default function ServicosPage() {
       if (cobrancaFilter === 'fluxo') input.categoria = 'FLUXO'
       const result = await (trpc.servico as any).listServicos.query(input)
       const filtered = (result as Servico[]).filter(s => {
-        if (debouncedSearch && !s.nome.toLowerCase().includes(debouncedSearch.toLowerCase())) return false
+        if (debouncedSearch) {
+          // Busca em TODAS as colunas visíveis: Nome, Área, Tipo, Grupo, Execuções.
+          const hay = [
+            s.nome,
+            s.categoria ?? '',
+            tipoLabel(s),
+            (s.grupos ?? []).map(g => g.grupo.nome).join(' '),
+            String(s._count?.execucoes ?? 0),
+          ].join(' ').toLowerCase()
+          if (!hay.includes(debouncedSearch.toLowerCase())) return false
+        }
         if (areaFilter && s.categoria !== areaFilter) return false
         if (cadeiaFilter) {
           const ori = s._count?.encadeamentosOrigem ?? 0
@@ -320,11 +366,22 @@ export default function ServicosPage() {
         if (cobrancaFilter === 'acessoria' && s.ehObrigacaoAcessoria !== true) return false
         return true
       })
-      setTotalServicos(filtered.length)
-      setServicos(filtered.slice((page - 1) * limit, page * limit))
+      // Ordenação client-side (a lista já vem completa do backend).
+      const dir = sort.dir === 'asc' ? 1 : -1
+      const sorted = [...filtered].sort((a, b) => {
+        if (sort.column === 'execucoes') return ((a._count?.execucoes ?? 0) - (b._count?.execucoes ?? 0)) * dir
+        let av: string, bv: string
+        if (sort.column === 'categoria') { av = a.categoria ?? ''; bv = b.categoria ?? '' }
+        else if (sort.column === 'tipo') { av = tipoLabel(a); bv = tipoLabel(b) }
+        else if (sort.column === 'grupo') { av = a.grupos?.[0]?.grupo.nome ?? ''; bv = b.grupos?.[0]?.grupo.nome ?? '' }
+        else { av = a.nome; bv = b.nome }
+        return av.localeCompare(bv, 'pt-BR', { sensitivity: 'base' }) * dir
+      })
+      setTotalServicos(sorted.length)
+      setServicos(sorted.slice((page - 1) * limit, page * limit))
     } catch { setServicos([]); setTotalServicos(0) }
     finally { setLoading(false) }
-  }, [debouncedSearch, page, limit, areaFilter, cadeiaFilter, segmentoFilter, cobrancaFilter, tipoCadastroFilter])
+  }, [debouncedSearch, page, limit, areaFilter, cadeiaFilter, segmentoFilter, cobrancaFilter, tipoCadastroFilter, sort])
 
   const fetchExecucoes = useCallback(async () => {
     setLoading(true)
@@ -1041,61 +1098,117 @@ export default function ServicosPage() {
       {/* ══════════════════ VIEW: TEMPLATES ══════════════════ */}
       {view === 'templates' && (
         <Card>
-          <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3 flex-1 flex-wrap">
-              <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
-                <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
-                <SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
-              </Select>
-              <Select value={tipoCadastroFilter} onValueChange={v => { setTipoCadastroFilter(v as 'comerciais' | 'internos'); setPage(1) }}>
-                <SelectTrigger className="h-8 w-[170px] text-xs bg-card"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="comerciais">Comerciais</SelectItem>
-                  <SelectItem value="internos">Internos</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={areaFilter || '__all__'} onValueChange={v => { setAreaFilter(v === '__all__' ? '' : v); setPage(1) }}>
-                <SelectTrigger className="h-8 w-[180px] text-xs bg-card"><SelectValue placeholder="Filtrar por área" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">Todas as áreas</SelectItem>
-                  {areas.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={cadeiaFilter || '__all__'} onValueChange={v => { setCadeiaFilter(v === '__all__' ? '' : v as typeof cadeiaFilter); setPage(1) }}>
-                <SelectTrigger className="h-8 w-[180px] text-xs bg-card"><SelectValue placeholder="Cadeia" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">Toda a cadeia</SelectItem>
-                  <SelectItem value="unicos">Únicos (sem cadeia)</SelectItem>
-                  <SelectItem value="cadeia">Em cadeia (qualquer)</SelectItem>
-                  <SelectItem value="inicio">Início de cadeia (raiz)</SelectItem>
-                  <SelectItem value="meio">Meio de cadeia</SelectItem>
-                  <SelectItem value="final">Final de cadeia</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={segmentoFilter || '__all__'} onValueChange={v => { setSegmentoFilter(v === '__all__' ? '' : v as typeof segmentoFilter); setPage(1) }}>
-                <SelectTrigger className="h-8 w-[200px] text-xs bg-card"><SelectValue placeholder="Segmento" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">Todos os segmentos</SelectItem>
-                  <SelectItem value="avulsos">Avulsos (sem segmento)</SelectItem>
-                  {SEGMENTO_SLUGS.map(slug => (
-                    <SelectItem key={slug} value={slug}>{SEGMENTO_META[slug].label} ({SEGMENTO_META[slug].regime})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={cobrancaFilter || '__all__'} onValueChange={v => { setCobrancaFilter(v === '__all__' ? '' : v as typeof cobrancaFilter); setPage(1) }}>
-                <SelectTrigger className="h-8 w-[200px] text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">Todos os tipos</SelectItem>
-                  <SelectItem value="recorrente">Serviço Recorrente</SelectItem>
-                  <SelectItem value="extra">Serviço Extraordinário</SelectItem>
-                  <SelectItem value="fluxo">Parte do Fluxo</SelectItem>
-                  <SelectItem value="interno">Serviço Interno</SelectItem>
-                  <SelectItem value="acessoria">Obrigação Acessória</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="border-b border-border/60 bg-muted/20 px-4 py-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3 flex-wrap">
+                <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
+                  <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                  <SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
+                </Select>
+                <button
+                  type="button"
+                  onClick={() => setFiltrosOpen(v => !v)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border transition-colors shrink-0',
+                    filtrosOpen || filtrosAtivos > 0
+                      ? 'bg-muted border-border text-foreground'
+                      : 'bg-card border-border text-muted-foreground hover:bg-muted/50',
+                  )}
+                  title="Filtros"
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                  Filtros
+                  {filtrosAtivos > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-white text-[10px] font-semibold leading-none" style={{ backgroundColor: MODULE_COLOR }}>{filtrosAtivos}</span>
+                  )}
+                  <ChevronDown className={cn('h-3.5 w-3.5 transition-transform duration-300', filtrosOpen && 'rotate-180')} />
+                </button>
+              </div>
+              <div className="max-w-xs w-full sm:w-auto">
+                <Input placeholder="Buscar serviço..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+              </div>
             </div>
-            <div className="max-w-xs w-full sm:w-auto">
-              <Input placeholder="Buscar serviço..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+
+            {/* Painel de filtros colapsável — anima via grid-template-rows (0fr↔1fr). */}
+            <div
+              className="grid transition-all duration-300 ease-out motion-reduce:transition-none"
+              style={{ gridTemplateRows: filtrosOpen ? '1fr' : '0fr', opacity: filtrosOpen ? 1 : 0, marginTop: filtrosOpen ? '0.75rem' : 0 }}
+              aria-hidden={!filtrosOpen}
+            >
+              <div className="min-h-0" style={{ overflow: filtrosOverflow ? 'visible' : 'hidden' }}>
+                <div className="rounded-lg border border-border bg-card/60 p-3">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-medium text-muted-foreground">Natureza</Label>
+                      <Select value={tipoCadastroFilter} onValueChange={v => { setTipoCadastroFilter(v as 'comerciais' | 'internos'); setPage(1) }}>
+                        <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="comerciais">Comerciais</SelectItem>
+                          <SelectItem value="internos">Internos</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-medium text-muted-foreground">Área</Label>
+                      <Select value={areaFilter || '__all__'} onValueChange={v => { setAreaFilter(v === '__all__' ? '' : v); setPage(1) }}>
+                        <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue placeholder="Filtrar por área" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__all__">Todas as áreas</SelectItem>
+                          {areas.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-medium text-muted-foreground">Cadeia</Label>
+                      <Select value={cadeiaFilter || '__all__'} onValueChange={v => { setCadeiaFilter(v === '__all__' ? '' : v as typeof cadeiaFilter); setPage(1) }}>
+                        <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue placeholder="Cadeia" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__all__">Toda a cadeia</SelectItem>
+                          <SelectItem value="unicos">Únicos (sem cadeia)</SelectItem>
+                          <SelectItem value="cadeia">Em cadeia (qualquer)</SelectItem>
+                          <SelectItem value="inicio">Início de cadeia (raiz)</SelectItem>
+                          <SelectItem value="meio">Meio de cadeia</SelectItem>
+                          <SelectItem value="final">Final de cadeia</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-medium text-muted-foreground">Segmento</Label>
+                      <Select value={segmentoFilter || '__all__'} onValueChange={v => { setSegmentoFilter(v === '__all__' ? '' : v as typeof segmentoFilter); setPage(1) }}>
+                        <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue placeholder="Segmento" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__all__">Todos os segmentos</SelectItem>
+                          <SelectItem value="avulsos">Avulsos (sem segmento)</SelectItem>
+                          {SEGMENTO_SLUGS.map(slug => (
+                            <SelectItem key={slug} value={slug}>{SEGMENTO_META[slug].label} ({SEGMENTO_META[slug].regime})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-medium text-muted-foreground">Tipo</Label>
+                      <Select value={cobrancaFilter || '__all__'} onValueChange={v => { setCobrancaFilter(v === '__all__' ? '' : v as typeof cobrancaFilter); setPage(1) }}>
+                        <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__all__">Todos os tipos</SelectItem>
+                          <SelectItem value="recorrente">Serviço Recorrente</SelectItem>
+                          <SelectItem value="extra">Serviço Extraordinário</SelectItem>
+                          <SelectItem value="fluxo">Parte do Fluxo</SelectItem>
+                          <SelectItem value="interno">Serviço Interno</SelectItem>
+                          <SelectItem value="acessoria">Obrigação Acessória</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {filtrosAtivos > 0 && (
+                    <div className="mt-3 flex justify-end">
+                      <button type="button" onClick={limparFiltros} className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors">
+                        <X className="h-3.5 w-3.5" /> Limpar filtros
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1230,23 +1343,21 @@ export default function ServicosPage() {
                       aria-label="Selecionar todos"
                     />
                   </TableHead>
-                  <TableHead className="w-[140px] whitespace-nowrap">Área</TableHead>
-                  <TableHead className="w-[170px] whitespace-nowrap">Tipo</TableHead>
-                  <TableHead className="w-[180px] whitespace-nowrap">Grupo</TableHead>
-                  <TableHead className="whitespace-nowrap">Nome</TableHead>
-                  <TableHead className="w-[80px] text-center whitespace-nowrap">SLA (h)</TableHead>
-                  <TableHead className="w-[80px] text-center whitespace-nowrap">Etapas</TableHead>
-                  <TableHead className="w-[90px] text-center whitespace-nowrap">Execuções</TableHead>
+                  <TableHead className="w-[140px] whitespace-nowrap"><button onClick={() => toggleSort('categoria')} className="flex items-center gap-1 hover:text-foreground transition-colors">Área <SortIcon column="categoria" /></button></TableHead>
+                  <TableHead className="w-[170px] whitespace-nowrap"><button onClick={() => toggleSort('tipo')} className="flex items-center gap-1 hover:text-foreground transition-colors">Tipo <SortIcon column="tipo" /></button></TableHead>
+                  <TableHead className="w-[180px] whitespace-nowrap"><button onClick={() => toggleSort('grupo')} className="flex items-center gap-1 hover:text-foreground transition-colors">Grupo <SortIcon column="grupo" /></button></TableHead>
+                  <TableHead className="whitespace-nowrap"><button onClick={() => toggleSort('nome')} className="flex items-center gap-1 hover:text-foreground transition-colors">Nome <SortIcon column="nome" /></button></TableHead>
+                  <TableHead className="w-[90px] text-center whitespace-nowrap"><button onClick={() => toggleSort('execucoes')} className="flex items-center gap-1 mx-auto hover:text-foreground transition-colors">Execuções <SortIcon column="execucoes" /></button></TableHead>
                   <TableHead className="w-[50px] text-right whitespace-nowrap">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={9} className="text-center py-10">
+                  <TableRow><TableCell colSpan={7} className="text-center py-10">
                     <div className="flex items-center justify-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Carregando...</div>
                   </TableCell></TableRow>
                 ) : !servicos.length ? (
-                  <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
+                  <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
                     <ClipboardCheck className="h-8 w-8 mx-auto mb-2 opacity-30" />Nenhum serviço encontrado
                   </TableCell></TableRow>
                 ) : servicos.map(s => (
@@ -1340,8 +1451,6 @@ export default function ServicosPage() {
                         })()}
                       </div>
                     </TableCell>
-                    <TableCell className="text-center text-xs whitespace-nowrap">{s.slaHoras ?? '—'}</TableCell>
-                    <TableCell className="text-center text-xs whitespace-nowrap">{s.etapas.length}</TableCell>
                     <TableCell className="text-center text-xs whitespace-nowrap">{s._count?.execucoes ?? 0}</TableCell>
                     <TableCell className="text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                       <DropdownMenu>
