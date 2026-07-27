@@ -1372,21 +1372,41 @@ export class ClienteService {
 
   private readonly CPT = 'cliente_particularidades'
 
-  // Só o responsável pelo serviço na área, o gestor (líder) da área e o master
-  // podem alterar as particularidades daquela área.
+  // Podem alterar as particularidades de uma área:
+  //  - master / empresa-master;
+  //  - o COORDENADOR da própria tenant (acesso a TODAS as áreas contratadas);
+  //  - o responsável pelo serviço na área (naquele cliente);
+  //  - o gestor (líder) da área.
   private podeEditarParticularidade(opts: {
     responsavelId: string | null
     leaderId: string | null
     userId: string
     master: boolean
+    coordenador: boolean
   }) {
     if (opts.master) return true
+    if (opts.coordenador) return true
     if (opts.responsavelId && opts.responsavelId === opts.userId) return true
     if (opts.leaderId && opts.leaderId === opts.userId) return true
     return false
   }
 
+  // COORDENADOR tem acesso de edição a TODAS as áreas contratadas dos clientes
+  // da própria tenant. Confirma o papel e o pertencimento à mesma empresa do
+  // cliente (isolamento de tenant) antes de liberar o acesso amplo.
+  private async ehCoordenadorDaTenant(userId: string, clienteEmpresaId: string | null): Promise<boolean> {
+    if (!clienteEmpresaId) return false
+    const u = await prisma.user
+      .findUnique({ where: { id: userId }, select: { role: true, empresaId: true } })
+      .catch(() => null)
+    return !!u && String(u.role) === 'COORDENADOR' && u.empresaId === clienteEmpresaId
+  }
+
   async listParticularidades(clienteId: string, userId: string, master: boolean) {
+    // Coordenador da mesma tenant do cliente edita todas as áreas contratadas.
+    const cliente = await prisma.cliente.findUnique({ where: { id: clienteId }, select: { empresaId: true } })
+    const coordenador = master ? false : await this.ehCoordenadorDaTenant(userId, cliente?.empresaId ?? null)
+
     // Todas as areas contratadas com suas particularidades
     const allAreas = await prisma.clienteAreaContratada.findMany({
       where: { clienteId, contratado: true },
@@ -1420,20 +1440,23 @@ export class ClienteService {
           leaderId: a.area.leaderId,
           userId,
           master,
+          coordenador,
         }),
       }
     })
   }
 
   async saveParticularidade(clienteAreaContratadaId: string, texto: string, userId: string, master: boolean) {
-    // Permissão: só responsável da área no cliente, gestor da área ou master.
+    // Permissão: responsável da área no cliente, gestor da área, coordenador da
+    // tenant do cliente, ou master.
     const cac = await prisma.clienteAreaContratada.findUnique({
       where: { id: clienteAreaContratadaId },
-      select: { responsavelId: true, area: { select: { leaderId: true } } },
+      select: { responsavelId: true, area: { select: { leaderId: true } }, cliente: { select: { empresaId: true } } },
     })
     if (!cac) throw new Error('Área contratada não encontrada')
-    if (!this.podeEditarParticularidade({ responsavelId: cac.responsavelId, leaderId: cac.area.leaderId, userId, master })) {
-      throw new Error('Acesso negado: apenas o responsável pelo serviço na área, o gestor da área ou o master podem editar as particularidades.')
+    const coordenador = master ? false : await this.ehCoordenadorDaTenant(userId, cac.cliente?.empresaId ?? null)
+    if (!this.podeEditarParticularidade({ responsavelId: cac.responsavelId, leaderId: cac.area.leaderId, userId, master, coordenador })) {
+      throw new Error('Acesso negado: apenas o responsável pelo serviço na área, o gestor da área, o coordenador da tenant ou o master podem editar as particularidades.')
     }
 
     // Buscar texto anterior para historico
