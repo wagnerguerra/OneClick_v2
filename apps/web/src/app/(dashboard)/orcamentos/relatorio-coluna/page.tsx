@@ -10,8 +10,9 @@ import { alerts } from '@/lib/alerts'
 import {
   getCampos, DEFAULT_CAMPOS, brl, formatCampo,
   exportExcel, exportCsv, exportPdf, imprimir,
-  type Resultado, type CampoDef,
+  type Resultado, type CampoDef, type Linha,
 } from '../_components/relatorio-coluna-lib'
+import { ServicoDetalheModal } from '../_components/servico-detalhe-modal'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
@@ -31,6 +32,8 @@ function RelatorioInner() {
   // Drill-down: clicar numa linha de "Por área"/"Por tipo" filtra a lista abaixo.
   const [filtroArea, setFiltroArea] = useState<string | null>(null)
   const [filtroTipo, setFiltroTipo] = useState<string | null>(null)
+  // Serviço aberto para edição (clique no item da coluna Itens/serviços).
+  const [servicoModalId, setServicoModalId] = useState<string | null>(null)
 
   const paramsStr = params.toString()
   useEffect(() => {
@@ -64,6 +67,23 @@ function RelatorioInner() {
   const filtrando = !!filtroArea || !!filtroTipo
   const toggleArea = (nome: string) => setFiltroArea(prev => (prev === nome ? null : nome))
   const toggleTipo = (nome: string) => setFiltroTipo(prev => (prev === nome ? null : nome))
+
+  // Coluna "Itens/serviços": itens com servicoId viram link → abre o serviço.
+  function renderItens(l: Linha) {
+    if (!l.itens.length) return '—'
+    return (
+      <span>
+        {l.itens.map((it, i) => (
+          <span key={i}>
+            {it.servicoId ? (
+              <button type="button" onClick={() => setServicoModalId(it.servicoId)} className="text-sky-600 dark:text-sky-400 hover:underline" title="Editar serviço">{it.descricao}</button>
+            ) : it.descricao}
+            {i < l.itens.length - 1 ? '; ' : ''}
+          </span>
+        ))}
+      </span>
+    )
+  }
 
   async function onPdf() {
     if (!res) return
@@ -198,7 +218,10 @@ function RelatorioInner() {
                     <tr><td colSpan={camposSel.length} className="px-3 py-10 text-center text-muted-foreground">Nenhum orçamento {filtrando ? 'com o filtro selecionado' : 'nesta coluna com os filtros aplicados'}.</td></tr>
                   ) : linhasView.map(l => (
                     <tr key={l.id} className="hover:bg-muted/30">
-                      {camposSel.map(c => <td key={c.key} className="px-3 py-1.5 whitespace-nowrap border-b border-border/50 max-w-[320px] truncate" title={formatCampo(l, c.key)}>{formatCampo(l, c.key)}</td>)}
+                      {camposSel.map(c => c.key === 'itens'
+                        ? <td key={c.key} className="px-3 py-1.5 whitespace-nowrap border-b border-border/50">{renderItens(l)}</td>
+                        : <td key={c.key} className="px-3 py-1.5 whitespace-nowrap border-b border-border/50 max-w-[320px] truncate" title={formatCampo(l, c.key)}>{formatCampo(l, c.key)}</td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -207,6 +230,10 @@ function RelatorioInner() {
           </Card>
         </div>
       ) : null}
+
+      {servicoModalId && (
+        <ServicoDetalheModal servicoId={servicoModalId} open={!!servicoModalId} onClose={() => setServicoModalId(null)} />
+      )}
     </div>
   )
 }

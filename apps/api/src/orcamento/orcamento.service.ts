@@ -579,15 +579,21 @@ export class OrcamentoService {
       : []
     const clienteMap = new Map(clientes.map(c => [c.id, c.razaoSocial || c.nomeFantasia || '—']))
 
-    // catalogoIds por orçamento (para derivar natureza).
+    // Itens por orçamento — catalogoIds p/ natureza + descrição/servicoId p/ a
+    // coluna "Itens/serviços" (o servicoId permite abrir o serviço no relatório).
+    // Para itens tipo SERVICO, o catalogoId É o Servico.id.
     const itens = orcIds.length
-      ? await prisma.orcamentoItem.findMany({ where: { orcamentoId: { in: orcIds } }, select: { orcamentoId: true, catalogoId: true } }).catch(() => [] as Array<{ orcamentoId: string; catalogoId: string | null }>)
+      ? await prisma.orcamentoItem.findMany({ where: { orcamentoId: { in: orcIds } }, select: { orcamentoId: true, catalogoId: true, descricao: true, tipo: true }, orderBy: { createdAt: 'asc' } }).catch(() => [] as Array<{ orcamentoId: string; catalogoId: string | null; descricao: string; tipo: string }>)
       : []
     const catalogoPorOrc = new Map<string, Array<string | null>>()
+    const itensDetalhePorOrc = new Map<string, Array<{ descricao: string; servicoId: string | null }>>()
     for (const it of itens) {
       const arr = catalogoPorOrc.get(it.orcamentoId) ?? []
       arr.push(it.catalogoId)
       catalogoPorOrc.set(it.orcamentoId, arr)
+      const det = itensDetalhePorOrc.get(it.orcamentoId) ?? []
+      det.push({ descricao: it.descricao, servicoId: it.tipo === 'SERVICO' ? it.catalogoId : null })
+      itensDetalhePorOrc.set(it.orcamentoId, det)
     }
     const naturezaPorOrc = await this.derivarNaturezaEmLote(
       data.map(o => ({ id: o.id, catalogoIds: catalogoPorOrc.get(o.id) ?? [], servicoId: (o as any).servicoId })),
@@ -618,7 +624,7 @@ export class OrcamentoService {
         createdAt: o.createdAt,
         dataStatus: campoDataStatus ? ((o as any)[campoDataStatus] ?? null) : null,
         validadeDias: o.validadeDias,
-        itens: ((o as any).itensDescricoes ?? []) as string[],
+        itens: itensDetalhePorOrc.get(o.id) ?? [],
         descontoAplicado: Number(o.descontoAplicado) || 0,
         formaPagamento: o.formaPagamento ?? '—',
         // Textos são HTML do TipTap — convertidos p/ texto plano no relatório.

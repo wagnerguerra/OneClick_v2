@@ -4,6 +4,7 @@
 import * as XLSX from 'xlsx'
 import { renderPdf } from '../../ferramentas/fiscal/nfse-pdf/_lib/pdf'
 
+export interface ItemServico { descricao: string; servicoId: string | null }
 export interface Linha {
   id: string
   numero: number
@@ -16,7 +17,7 @@ export interface Linha {
   createdAt: string
   dataStatus: string | null
   validadeDias: number
-  itens: string[]
+  itens: ItemServico[]
   descontoAplicado: number
   formaPagamento: string
   textoInterno: string
@@ -59,7 +60,7 @@ export function formatCampo(l: Linha, key: string): string {
     case 'createdAt': return dt(l.createdAt)
     case 'dataStatus': return dt(l.dataStatus)
     case 'areas': return l.areas.length ? l.areas.join(', ') : '—'
-    case 'itens': return l.itens.length ? l.itens.join('; ') : '—'
+    case 'itens': return l.itens.length ? l.itens.map(i => i.descricao).join('; ') : '—'
     case 'validadeDias': return l.validadeDias != null ? String(l.validadeDias) : '—'
     default: {
       const v = (l as unknown as Record<string, unknown>)[key]
