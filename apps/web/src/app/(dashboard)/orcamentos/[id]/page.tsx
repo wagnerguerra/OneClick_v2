@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { createPortal } from 'react-dom'
 import { useParams, useRouter } from 'next/navigation'
 import {
   FileText, Loader2, Plus, Trash2, Pencil, Check, X,
@@ -37,6 +36,7 @@ import { useTabLabel } from '@/hooks/use-tab-label'
 import { ORCAMENTO_STATUS_ORDER, ORCAMENTO_STATUS_LABELS } from '@saas/types'
 import { ClienteCombobox } from '../_components/cliente-combobox'
 import { UserCombobox } from '../_components/user-combobox'
+import { CatalogoCombobox } from '../_components/catalogo-combobox'
 
 // ============================================================
 // Constantes
@@ -378,121 +378,8 @@ function UserMultiPicker({ users, value, onChange, placeholder, disabled }: {
   )
 }
 
-function CatalogoCombobox({ catalogo, tipo, selectedId, onSelect, disabled, currentLabel }: {
-  catalogo: Array<{ id: string; nome: string; tipo: string; valorPadrao: number | string | null }>
-  tipo: string
-  selectedId: string
-  onSelect: (id: string) => void
-  disabled?: boolean
-  // Rótulo a exibir quando o valor atual não casa com nenhum item do catálogo
-  // (ex.: edição de item com descrição livre/legada) — evita esconder o texto.
-  currentLabel?: string
-}) {
-  const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState('')
-  const ref = useRef<HTMLDivElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  // Posição do dropdown (fixed) — calculada a partir do gatilho. Renderizado
-  // via portal pra escapar de containers com overflow (ex.: a <Table> da
-  // edição inline, que senão recorta o menu — #HLP0088).
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
-
-  const opcoes = catalogo.filter(c => c.tipo === tipo)
-  const filtered = query.trim()
-    ? opcoes.filter(c => c.nome.toLowerCase().includes(query.toLowerCase()))
-    : opcoes
-  const selected = opcoes.find(c => c.id === selectedId)
-
-  const atualizarPos = useCallback(() => {
-    const el = ref.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    setPos({ top: r.bottom + 4, left: r.left, width: r.width })
-  }, [])
-
-  useEffect(() => {
-    if (!open) return
-    atualizarPos()
-    function handler(e: MouseEvent) {
-      const t = e.target as Node
-      if (ref.current?.contains(t) || panelRef.current?.contains(t)) return
-      setOpen(false)
-      setQuery('')
-    }
-    function reposiciona() { atualizarPos() }
-    document.addEventListener('mousedown', handler)
-    window.addEventListener('scroll', reposiciona, true)
-    window.addEventListener('resize', reposiciona)
-    return () => {
-      document.removeEventListener('mousedown', handler)
-      window.removeEventListener('scroll', reposiciona, true)
-      window.removeEventListener('resize', reposiciona)
-    }
-  }, [open, atualizarPos])
-
-  // Limpa busca/fecha quando o tipo muda externamente
-  useEffect(() => { setQuery(''); setOpen(false) }, [tipo])
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => !disabled && setOpen(o => !o)}
-        className={cn(
-          'flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-sm',
-          'focus:outline-none focus:ring-1 focus:ring-ring',
-          disabled && 'cursor-not-allowed opacity-50',
-        )}
-      >
-        <span className={cn('truncate', !selected && !currentLabel && 'text-muted-foreground', (selected || currentLabel) && 'uppercase')}>
-          {disabled ? 'Selecione um tipo primeiro' : selected ? selected.nome : currentLabel || 'Selecione um item'}
-        </span>
-        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
-      </button>
-      {open && pos && createPortal(
-        <div
-          ref={panelRef}
-          style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 70 }}
-          className="overflow-hidden rounded-md border bg-popover shadow-md"
-        >
-          <div className="p-1.5 border-b bg-popover sticky top-0">
-            <Input
-              autoFocus
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Buscar..."
-              className="h-7 text-xs"
-            />
-          </div>
-          <div className="max-h-56 overflow-y-auto py-1">
-            {filtered.length === 0 ? (
-              <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhum item encontrado</p>
-            ) : filtered.map(c => (
-              <button
-                key={c.id}
-                type="button"
-                className={cn(
-                  'w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center justify-between gap-2 uppercase',
-                  selectedId === c.id && 'bg-accent text-accent-foreground',
-                )}
-                onClick={() => { onSelect(c.id); setOpen(false); setQuery('') }}
-              >
-                <span className="truncate">{c.nome}</span>
-                {c.valorPadrao != null && (
-                  <span className="text-muted-foreground whitespace-nowrap shrink-0">
-                    R$ {Number(c.valorPadrao).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>,
-        document.body,
-      )}
-    </div>
-  )
-}
+// CatalogoCombobox foi extraído para ../_components/catalogo-combobox (compartilhado
+// com o filtro "Item" da lista de orçamentos — #HLP0296).
 
 // Input estilo Gmail: emails viram badges ao pressionar Enter/Tab/espaco/virgula/ponto-e-virgula.
 // Sugestoes filtraveis aparecem ao digitar, baseadas na lista fornecida.

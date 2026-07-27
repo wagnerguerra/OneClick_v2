@@ -19,6 +19,7 @@ import {
 } from '@saas/ui'
 import { ClienteCombobox } from './_components/cliente-combobox'
 import { UserCombobox } from './_components/user-combobox'
+import { CatalogoCombobox } from './_components/catalogo-combobox'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { FormasPagamentoModal } from '@/components/orcamento/formas-pagamento-modal'
@@ -272,21 +273,21 @@ export default function OrcamentosPage() {
   const [dataInicial, setDataInicial] = useState('')
   const [dataFinal, setDataFinal] = useState('')
   const [clienteFilter, setClienteFilter] = useState('')
-  const [servicoFilter, setServicoFilter] = useState('')
+  const [itemFilter, setItemFilter] = useState('')
   const [solicitanteFilter, setSolicitanteFilter] = useState('')
   const [responsavelFilter, setResponsavelFilter] = useState('')
   const [incluirParalizados, setIncluirParalizados] = useState(true)
-  const [servicosFiltro, setServicosFiltro] = useState<{ id: string; nome: string }[]>([])
+  const [catalogo, setCatalogo] = useState<Array<{ id: string; nome: string; tipo: string; valorPadrao: number | string | null }>>([])
   const [filtrosDataLoaded, setFiltrosDataLoaded] = useState(false)
   const filtrosAtivos = (
     (debouncedNumero.trim() ? 1 : 0) + (dataInicial ? 1 : 0) + (dataFinal ? 1 : 0) +
-    (clienteFilter ? 1 : 0) + (servicoFilter ? 1 : 0) +
+    (clienteFilter ? 1 : 0) + (itemFilter ? 1 : 0) +
     (solicitanteFilter ? 1 : 0) + (responsavelFilter ? 1 : 0) +
     (!incluirParalizados ? 1 : 0)
   )
   function limparFiltros() {
     setNumeroFilter(''); setDataInicial(''); setDataFinal('')
-    setClienteFilter(''); setServicoFilter('')
+    setClienteFilter(''); setItemFilter('')
     setSolicitanteFilter(''); setResponsavelFilter('')
     setIncluirParalizados(true); setPage(1)
   }
@@ -526,12 +527,12 @@ export default function OrcamentosPage() {
     if (!filtrosOpen || filtrosDataLoaded) return
     void (async () => {
       try {
-        const [cls, usrs, svs] = await Promise.all([
+        const [cls, usrs, cat] = await Promise.all([
           (trpc.cliente as any).listForSelect.query(),
           (trpc.orcamento as any).listUsuarios.query(),
-          (trpc.orcamento as any).listServicosParaFiltro.query(),
+          (trpc.orcamento as any).listCatalogo.query({ somenteDisponiveis: true, tipoOrcamento: null }),
         ])
-        setClientes(cls); setUsuarios(usrs); setServicosFiltro(svs)
+        setClientes(cls); setUsuarios(usrs); setCatalogo(cat)
         setFiltrosDataLoaded(true)
       } catch { /* mantém vazio; tenta de novo na próxima abertura */ }
     })()
@@ -548,7 +549,7 @@ export default function OrcamentosPage() {
       if (dataInicial) input.dataInicial = dataInicial
       if (dataFinal) input.dataFinal = dataFinal
       if (clienteFilter) input.clienteId = clienteFilter
-      if (servicoFilter) input.servicoId = servicoFilter
+      if (itemFilter) input.itemCatalogoId = itemFilter
       if (solicitanteFilter) input.solicitanteId = solicitanteFilter
       if (responsavelFilter) input.responsavelId = responsavelFilter
       if (!incluirParalizados) input.incluirParalizados = false
@@ -574,7 +575,7 @@ export default function OrcamentosPage() {
       if (!silent) setLoading(false)
     }
   }, [page, limit, debouncedSearch, statusFilter, arquivado, comReaberturas, viewMode, listScope, sort,
-      debouncedNumero, dataInicial, dataFinal, clienteFilter, servicoFilter, solicitanteFilter, responsavelFilter, incluirParalizados])
+      debouncedNumero, dataInicial, dataFinal, clienteFilter, itemFilter, solicitanteFilter, responsavelFilter, incluirParalizados])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -877,8 +878,8 @@ export default function OrcamentosPage() {
                 <ClienteCombobox clientes={clientes} value={clienteFilter} onSelect={v => { setClienteFilter(v); setPage(1) }} placeholder="Todos os clientes" />
               </div>
               <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-muted-foreground">Serviço</Label>
-                <UserCombobox users={servicosFiltro.map(s => ({ id: s.id, name: s.nome }))} value={servicoFilter} onSelect={v => { setServicoFilter(v); setPage(1) }} placeholder="Todos os serviços" />
+                <Label className="text-[11px] font-medium text-muted-foreground">Item</Label>
+                <CatalogoCombobox catalogo={catalogo} selectedId={itemFilter} onSelect={v => { setItemFilter(v); setPage(1) }} placeholder="Todos os itens" />
               </div>
               <div className="space-y-1">
                 <Label className="text-[11px] font-medium text-muted-foreground">Solicitante</Label>

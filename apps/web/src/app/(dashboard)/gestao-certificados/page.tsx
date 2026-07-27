@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { masks, limparCnpj } from '@/lib/masks'
 import {
-  ShieldCheck, Loader2, Plus, MoreVertical, Eye, Download, Key, Archive, ArchiveRestore,
+  ShieldCheck, Loader2, Plus, MoreVertical, Eye, Archive, ArchiveRestore,
   Ban, Trash2, AlertTriangle, CheckCircle2, Clock, XCircle, FileLock,
   Upload, Lock, FileText, RefreshCw, History, DatabaseBackup, UploadCloud, X, FileCheck, Bell,
+  Settings2, KeyRound,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, Label, cn, Checkbox,
@@ -15,10 +16,13 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { CertAcessoModal } from '@/components/certificado/cert-acesso-modal'
+import { SenhaPfxInput } from '@/components/certificado/senha-pfx-input'
+import { CertCadastroModal } from '@/components/certificado/cert-cadastro-modal'
+import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useTabLabel } from '@/hooks/use-tab-label'
-import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
@@ -111,12 +115,19 @@ export default function GestaoCertificadosPage() {
   const certPerm = permissions.find(p => p.moduleSlug === 'gestao-certificados')
   const certSubs = (certPerm?.subPermissions ?? {}) as Record<string, boolean>
   const canDelete = isAdmin || certSubs.delete_certificados === true
+  // Sub-permissão dedicada para a config de segurança (engrenagem) — #HLP0301
+  const canManageConfig = isAdmin || certSubs.gerenciar_config === true
   const empresaIdAtual = profile?.empresa?.id ?? null
   const [items, setItems] = useState<Certificado[]>([])
+  const [arquivados, setArquivados] = useState<Certificado[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [filtroStatus, setFiltroStatus] = useState<string>('__all__')
   const [filtroBusca, setFiltroBusca] = useState('')
+  // Anti-autofill do Chrome: o campo fica readonly sempre que NÃO está em foco
+  // (é quando o autofill dispara — no load, ao tabular, na detecção de form).
+  // Vira editável só enquanto o usuário digita. O browser nunca injeta e-mail.
+  const [buscaReadonly, setBuscaReadonly] = useState(true)
   const [legacyImportOpen, setLegacyImportOpen] = useState(false)
   const [bulkImportOpen, setBulkImportOpen] = useState(false)
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
@@ -137,6 +148,12 @@ export default function GestaoCertificadosPage() {
     requireMotivo: boolean
     onConfirm: (senha: string, motivo: string) => Promise<void>
   } | null>(null)
+  // Fluxo unificado de acesso ao certificado (#HLP0301)
+  const [acessoTarget, setAcessoTarget] = useState<Certificado | null>(null)
+  // Config de tenant (engrenagem) — reautenticação obrigatória
+  const [configOpen, setConfigOpen] = useState(false)
+  const [reautObrigatoria, setReautObrigatoria] = useState<boolean | null>(null)
+  const [savingConfig, setSavingConfig] = useState(false)
 
   // Dados auxiliares (clientes para vínculo)
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -144,12 +161,14 @@ export default function GestaoCertificadosPage() {
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const [list, st] = await Promise.all([
+      const [list, st, arq] = await Promise.all([
         (trpc.certificadoDigital as any).list.query({ incluirArquivados: false }) as Promise<Certificado[]>,
         (trpc.certificadoDigital as any).getStats.query() as Promise<Stats>,
+        (trpc.certificadoDigital as any).list.query({ apenasArquivados: true }) as Promise<Certificado[]>,
       ])
       setItems(list)
       setStats(st)
+      setArquivados(arq)
     } catch (e) {
       if (!silent) alerts.error('Erro', 'Falha ao carregar certificados: ' + (e as Error).message)
     } finally {
@@ -169,8 +188,10 @@ export default function GestaoCertificadosPage() {
   }, [novoOpen])
 
   const filtered = useMemo(() => {
-    let out = items
-    if (filtroStatus !== '__all__') {
+    // Aba "Arquivados" usa a lista dedicada (arquivados); os demais filtros de
+    // status operam sobre os ativos (items). Busca aplica em ambos.
+    let out = filtroStatus === 'ARQUIVADO' ? arquivados : items
+    if (filtroStatus !== '__all__' && filtroStatus !== 'ARQUIVADO') {
       const agora = Date.now()
       if (filtroStatus === 'ATIVO') out = out.filter(c => c.status === 'ATIVO' && new Date(c.expiraEm).getTime() > agora + 60 * 86400000)
       else if (filtroStatus === 'VENCENDO') out = out.filter(c => c.status === 'ATIVO' && new Date(c.expiraEm).getTime() > agora && new Date(c.expiraEm).getTime() <= agora + 60 * 86400000)
@@ -187,7 +208,28 @@ export default function GestaoCertificadosPage() {
       )
     }
     return out
-  }, [items, filtroStatus, filtroBusca])
+  }, [items, arquivados, filtroStatus, filtroBusca])
+
+  // Config de reautenticação — carrega ao abrir a engrenagem.
+  useEffect(() => {
+    if (!configOpen) return
+    ;(trpc.certificadoDigital as any).getReautConfig.query()
+      .then((c: { reautObrigatoria: boolean }) => setReautObrigatoria(c.reautObrigatoria))
+      .catch(() => setReautObrigatoria(true))
+  }, [configOpen])
+
+  async function salvarReautConfig(valor: boolean) {
+    setSavingConfig(true)
+    try {
+      await (trpc.certificadoDigital as any).setReautConfig.mutate({ reautObrigatoria: valor })
+      setReautObrigatoria(valor)
+      alerts.success('Configuração salva', valor
+        ? 'Passará a exigir senha + justificativa para ver/baixar.'
+        : 'Reautenticação desativada. Os acessos continuam registrados na auditoria.')
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally { setSavingConfig(false) }
+  }
 
   // ── Ações ───────────────────────────────────────────────
 
@@ -196,44 +238,8 @@ export default function GestaoCertificadosPage() {
     setReauthOpen(true)
   }
 
-  async function handleDownload(cert: Certificado) {
-    abrirReauth({
-      titulo: 'Confirmar download',
-      descricao: `Vou baixar o arquivo PFX de ${cert.titular}. Confirme sua senha e informe o motivo.`,
-      requireMotivo: true,
-      onConfirm: async (senhaUser, motivo) => {
-        const r = await (trpc.certificadoDigital as any).downloadPfx.mutate({ id: cert.id, senhaUser, motivo })
-        // Cria download
-        const blob = new Blob([Uint8Array.from(atob(r.pfxBase64), c => c.charCodeAt(0))], { type: 'application/x-pkcs12' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${cert.titular.replace(/\s+/g, '_')}.pfx`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
-        alerts.success('Download iniciado', 'Trilha de auditoria registrada.')
-      },
-    })
-  }
-
-  async function handleVerSenha(cert: Certificado) {
-    abrirReauth({
-      titulo: 'Visualizar senha',
-      descricao: `Vou exibir a senha do certificado de ${cert.titular}. Confirme sua senha e o motivo.`,
-      requireMotivo: true,
-      onConfirm: async (senhaUser, motivo) => {
-        const r = await (trpc.certificadoDigital as any).getSenha.mutate({ id: cert.id, senhaUser, motivo })
-        await alerts.custom({
-          title: 'Senha do certificado',
-          html: `<div style="font-family: ui-monospace, monospace; font-size: 16px; padding: 12px; background: #f3f4f6; border-radius: 6px; user-select: all;">${r.senha}</div><p style="font-size: 11px; color: #6b7280; margin-top: 8px;">Esta visualização foi registrada na trilha de auditoria.</p>`,
-          confirmButtonText: 'Fechar',
-          showCancelButton: false,
-        })
-      },
-    })
-  }
+  // Ver senha / baixar PFX agora usam o fluxo unificado (CertAcessoModal),
+  // acionado por setAcessoTarget(cert). #HLP0301
 
   async function handleRevogar(cert: Certificado) {
     const motivo = await alerts.input({
@@ -258,6 +264,14 @@ export default function GestaoCertificadosPage() {
     try {
       await (trpc.certificadoDigital as any).arquivar.mutate({ id: cert.id })
       await alerts.success('Arquivado', 'Certificado arquivado.')
+      fetchData(true)
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
+  async function handleDesarquivar(cert: Certificado) {
+    try {
+      await (trpc.certificadoDigital as any).desarquivar.mutate({ id: cert.id })
+      await alerts.success('Desarquivado', 'Certificado voltou para a listagem padrão.')
       fetchData(true)
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
@@ -467,6 +481,17 @@ export default function GestaoCertificadosPage() {
               </Button>
             </>
           )}
+          {canManageConfig && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfigOpen(true)}
+              className="gap-1.5"
+              title="Configurações de segurança (reautenticação para ver senha / baixar PFX)"
+            >
+              <Settings2 className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             size="sm"
             onClick={() => setNovoOpen(true)}
@@ -481,11 +506,12 @@ export default function GestaoCertificadosPage() {
       {/* KPIs / Filtros */}
       <div className="flex flex-wrap items-center gap-2 shrink-0">
         {[
-          { key: '__all__', label: 'Todos', count: items.length, color: '#94a3b8', icon: FileLock },
+          { key: '__all__', label: 'Todos', count: items.length, color: '#3b82f6', icon: FileLock },
           { key: 'ATIVO', label: 'Vigentes', count: stats?.ativos ?? 0, color: '#10b981', icon: CheckCircle2 },
           { key: 'VENCENDO', label: 'Vencendo', count: (stats?.vencendo60 ?? 0) + (stats?.vencendo30 ?? 0), color: '#f59e0b', icon: Clock },
           { key: 'VENCIDO', label: 'Vencidos', count: stats?.vencidos ?? 0, color: '#ef4444', icon: XCircle },
-          { key: 'REVOGADO', label: 'Revogados', count: stats?.revogados ?? 0, color: '#94a3b8', icon: Ban },
+          { key: 'REVOGADO', label: 'Revogados', count: stats?.revogados ?? 0, color: '#a855f7', icon: Ban },
+          { key: 'ARQUIVADO', label: 'Arquivados', count: arquivados.length, color: '#64748b', icon: Archive },
         ].map(f => {
           const Icon = f.icon
           const active = filtroStatus === f.key
@@ -496,6 +522,8 @@ export default function GestaoCertificadosPage() {
               onClick={() => setFiltroStatus(f.key)}
               className={cn(
                 'inline-flex items-center gap-2 h-8 px-3 rounded-md border text-xs font-medium transition-colors',
+                // Arquivados fica encostado à direita, junto da barra de pesquisa.
+                f.key === 'ARQUIVADO' && 'ml-auto',
                 active
                   ? 'border-foreground/20'
                   : 'border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground',
@@ -514,8 +542,16 @@ export default function GestaoCertificadosPage() {
             </button>
           )
         })}
-        <div className="ml-auto">
+        <div>
           <Input
+            type="search"
+            name={`cert-busca-${empresaIdAtual ?? 'x'}`}
+            autoComplete="off"
+            data-1p-ignore
+            data-lpignore="true"
+            readOnly={buscaReadonly}
+            onFocus={() => setBuscaReadonly(false)}
+            onBlur={() => setBuscaReadonly(true)}
             placeholder="Buscar por titular, documento, cliente..."
             value={filtroBusca}
             onChange={e => setFiltroBusca(e.target.value)}
@@ -621,11 +657,8 @@ export default function GestaoCertificadosPage() {
                           <DropdownMenuItem onClick={() => { setDetalhesId(c.id); setDetalhesOpen(true) }}>
                             <Eye className="h-3.5 w-3.5 mr-2" /> Ver detalhes
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDownload(c)}>
-                            <Download className="h-3.5 w-3.5 mr-2" /> Baixar PFX
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleVerSenha(c)}>
-                            <Key className="h-3.5 w-3.5 mr-2" /> Ver senha
+                          <DropdownMenuItem onClick={() => setAcessoTarget(c)}>
+                            <KeyRound className="h-3.5 w-3.5 mr-2" /> Baixar PFX / Ver senha
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setRenovarTarget(c)}>
                             <RefreshCw className="h-3.5 w-3.5 mr-2" /> Renovar
@@ -633,9 +666,15 @@ export default function GestaoCertificadosPage() {
                           <DropdownMenuItem onClick={() => handleRevogar(c)}>
                             <Ban className="h-3.5 w-3.5 mr-2" /> Revogar
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleArquivar(c)}>
-                            <Archive className="h-3.5 w-3.5 mr-2" /> Arquivar
-                          </DropdownMenuItem>
+                          {c.arquivado ? (
+                            <DropdownMenuItem onClick={() => handleDesarquivar(c)}>
+                              <ArchiveRestore className="h-3.5 w-3.5 mr-2" /> Desarquivar
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onClick={() => handleArquivar(c)}>
+                              <Archive className="h-3.5 w-3.5 mr-2" /> Arquivar
+                            </DropdownMenuItem>
+                          )}
                           {canDelete && (
                             <DropdownMenuItem className="text-destructive" onClick={() => handleExcluir(c)}>
                               <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
@@ -653,11 +692,12 @@ export default function GestaoCertificadosPage() {
       )}
 
       {/* ── Modais ── */}
-      <NovoCertificadoModal
+      <CertCadastroModal
         open={novoOpen}
         onOpenChange={setNovoOpen}
         clientes={clientes}
         onCreated={() => { setNovoOpen(false); fetchData(true) }}
+        subtitle="Envie o arquivo .pfx e informe a senha. O sistema vai extrair os dados (titular, validade, emissor) automaticamente."
       />
       <RenovarCertificadoModal
         target={renovarTarget}
@@ -683,197 +723,59 @@ export default function GestaoCertificadosPage() {
         onClose={() => { setReauthOpen(false); setReauthState(null) }}
       />
       {detalhesId && (
-        <DetalhesModal
+        <CertDetalhesModal
           open={detalhesOpen}
           onOpenChange={(o) => { setDetalhesOpen(o); if (!o) setDetalhesId(null) }}
           certId={detalhesId}
         />
       )}
+
+      {/* Fluxo unificado: ver senha / baixar PFX (#HLP0301) */}
+      <CertAcessoModal
+        certId={acessoTarget?.id ?? null}
+        titular={acessoTarget?.titular ?? ''}
+        open={!!acessoTarget}
+        onOpenChange={(o) => { if (!o) setAcessoTarget(null) }}
+      />
+
+      {/* Config do tenant: reautenticação obrigatória (engrenagem) */}
+      <Dialog open={configOpen} onOpenChange={setConfigOpen}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeaderIcon icon={Settings2} color="violet">
+            <DialogTitle>Segurança dos certificados</DialogTitle>
+            <DialogDescription>Vale para o módulo e para os certificados no cadastro do cliente.</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-4">
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="h-4 w-4 mt-0.5 rounded border-input cursor-pointer"
+                style={{ accentColor: MODULE_COLOR }}
+                checked={reautObrigatoria ?? true}
+                disabled={reautObrigatoria === null || savingConfig}
+                onChange={e => salvarReautConfig(e.target.checked)}
+              />
+              <span className="text-sm">
+                <span className="font-semibold text-foreground">Exigir senha e justificativa</span>
+                <span className="block text-muted-foreground text-[13px] mt-0.5">
+                  Ligado: ver a senha ou baixar o PFX pede a sua senha + justificativa. Desligado: o acesso é liberado — mas <strong>continua registrado na trilha de auditoria</strong>.
+                </span>
+              </span>
+            </label>
+            {(reautObrigatoria === null || savingConfig) && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {savingConfig ? 'Salvando...' : 'Carregando...'}</div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfigOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
-// ============================================================
-// Modal: Novo Certificado (upload PFX)
-// ============================================================
-
-function NovoCertificadoModal({ open, onOpenChange, clientes, onCreated }: {
-  open: boolean
-  onOpenChange: (o: boolean) => void
-  clientes: Cliente[]
-  onCreated: () => void
-}) {
-  const [arquivo, setArquivo] = useState<File | null>(null)
-  const [senha, setSenha] = useState('')
-  const [confirmaSenha, setConfirmaSenha] = useState('')
-  const [clienteId, setClienteId] = useState('')
-  const [observacoes, setObservacoes] = useState('')
-  const [salvando, setSalvando] = useState(false)
-  const [showSenha, setShowSenha] = useState(false)
-
-  // Reset ao fechar
-  useEffect(() => {
-    if (!open) {
-      setArquivo(null); setSenha(''); setConfirmaSenha('')
-      setClienteId(''); setObservacoes(''); setShowSenha(false)
-    }
-  }, [open])
-
-  async function handleSalvar() {
-    if (!arquivo) { alerts.error('Erro', 'Selecione o arquivo PFX'); return }
-    if (!senha) { alerts.error('Erro', 'Informe a senha do certificado'); return }
-    if (senha !== confirmaSenha) { alerts.error('Erro', 'As senhas não conferem'); return }
-    if (arquivo.size > 5 * 1024 * 1024) { alerts.error('Erro', 'Arquivo maior que 5MB'); return }
-
-    setSalvando(true)
-    try {
-      // Lê arquivo como base64
-      const buffer = await arquivo.arrayBuffer()
-      const bytes = new Uint8Array(buffer)
-      let binary = ''
-      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]!)
-      const pfxBase64 = btoa(binary)
-
-      await (trpc.certificadoDigital as any).create.mutate({
-        pfxBase64,
-        senha,
-        clienteId: clienteId || null,
-        observacoes: observacoes || null,
-      })
-      await alerts.success('Cadastrado', 'Certificado adicionado com sucesso. Senha cifrada e arquivo armazenado.')
-      onCreated()
-    } catch (e) {
-      alerts.error('Erro', (e as Error).message)
-    } finally {
-      setSalvando(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[560px]">
-        <DialogHeaderIcon icon={ShieldCheck} color="fuchsia">
-          <DialogTitle>Novo Certificado Digital</DialogTitle>
-          <DialogDescription>
-            Envie o arquivo .pfx e informe a senha. O sistema vai extrair os dados (titular, validade, emissor) automaticamente.
-          </DialogDescription>
-        </DialogHeaderIcon>
-        <DialogBody className="space-y-4">
-          {/* Upload */}
-          <div className="space-y-1.5">
-            <Label className="text-[13px] font-semibold">Arquivo PFX *</Label>
-            <label
-              className={cn(
-                'flex items-center gap-3 px-4 py-3 border border-dashed rounded-md cursor-pointer transition-colors',
-                arquivo ? 'border-fuchsia-300 bg-fuchsia-50/50 dark:bg-fuchsia-900/10' : 'border-border hover:bg-muted/30',
-              )}
-            >
-              {arquivo ? <FileLock className="h-5 w-5 text-fuchsia-600" /> : <Upload className="h-5 w-5 text-muted-foreground" />}
-              <div className="flex-1 min-w-0">
-                {arquivo ? (
-                  <>
-                    <p className="text-sm font-medium truncate">{arquivo.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{Math.round(arquivo.size / 1024)} KB · clique para trocar</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm">Selecione o arquivo .pfx ou .p12</p>
-                    <p className="text-[11px] text-muted-foreground">Máx 5 MB · será armazenado de forma segura</p>
-                  </>
-                )}
-              </div>
-              <input
-                type="file"
-                accept=".pfx,.p12"
-                onChange={e => setArquivo(e.target.files?.[0] ?? null)}
-                className="hidden"
-              />
-            </label>
-          </div>
-
-          {/* Senha */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-[13px] font-semibold">Senha *</Label>
-              <div className="relative">
-                <Input
-                  type={showSenha ? 'text' : 'password'}
-                  value={senha}
-                  onChange={e => setSenha(e.target.value)}
-                  placeholder="Senha do PFX"
-                  className="h-9 text-sm pr-9"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowSenha(s => !s)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <Eye className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[13px] font-semibold">Confirmar senha *</Label>
-              <Input
-                type={showSenha ? 'text' : 'password'}
-                value={confirmaSenha}
-                onChange={e => setConfirmaSenha(e.target.value)}
-                placeholder="Repita a senha"
-                className="h-9 text-sm"
-              />
-            </div>
-          </div>
-
-          {/* Vínculo cliente — combobox filtrável (só clientes mensais) */}
-          <div className="space-y-1.5">
-            <Label className="text-[13px] font-semibold">Cliente vinculado</Label>
-            <ClienteCombobox
-              clientes={clientes}
-              value={clienteId}
-              onSelect={setClienteId}
-              placeholder="Buscar cliente mensal por razão social ou CNPJ..."
-            />
-            <p className="text-[10px] text-muted-foreground">
-              Apenas clientes com situação <strong>Mensal</strong> são listados. Você poderá vincular sócio/empresa nos detalhes depois.
-            </p>
-          </div>
-
-          {/* Observações */}
-          <div className="space-y-1.5">
-            <Label className="text-[13px] font-semibold">Observações</Label>
-            <textarea
-              value={observacoes}
-              onChange={e => setObservacoes(e.target.value)}
-              rows={2}
-              placeholder="Notas sobre este certificado..."
-              className="w-full text-sm rounded-md border border-input bg-background px-3 py-2"
-            />
-          </div>
-
-          {/* Aviso de segurança */}
-          <div className="flex items-start gap-2 p-3 rounded-md bg-fuchsia-50/50 dark:bg-fuchsia-900/10 border border-fuchsia-200 dark:border-fuchsia-800">
-            <Lock className="h-4 w-4 text-fuchsia-600 mt-0.5 shrink-0" />
-            <p className="text-[11px] text-fuchsia-900 dark:text-fuchsia-300 leading-relaxed">
-              A senha será cifrada com AES-256-GCM antes de gravar no banco. O arquivo PFX é armazenado com permissões restritas e SHA-256 para verificação de integridade. Toda operação é registrada na trilha de auditoria.
-            </p>
-          </div>
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={salvando}>Cancelar</Button>
-          <Button
-            onClick={handleSalvar}
-            disabled={salvando || !arquivo || !senha || senha !== confirmaSenha}
-            style={{ backgroundColor: MODULE_COLOR }}
-            className="text-white gap-1.5"
-          >
-            {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            {salvando ? 'Cadastrando...' : 'Cadastrar'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
+// NovoCertificadoModal foi unificado em @/components/certificado/cert-cadastro-modal (#HLP0301)
 
 // ============================================================
 // Modal: Reauth (confirma senha do user + motivo)
@@ -890,6 +792,7 @@ function ReauthModal({ open, onOpenChange, state, onClose }: {
   } | null
   onClose: () => void
 }) {
+  const { profile } = useCurrentUserProfile()
   const [senha, setSenha] = useState('')
   const [motivo, setMotivo] = useState('')
   const [executando, setExecutando] = useState(false)
@@ -922,10 +825,23 @@ function ReauthModal({ open, onOpenChange, state, onClose }: {
           <DialogDescription>{state.descricao}</DialogDescription>
         </DialogHeaderIcon>
         <DialogBody className="space-y-3">
+          {/* Usuário (e-mail) OCULTO: dá ao Chrome um "username" aqui dentro pra
+              parear com a senha — mantém o autofill e tira a barra de busca da
+              jogada (que virava "usuário" e disparava o salvar-senha). #HLP0301 */}
+          <input
+            type="text"
+            autoComplete="username"
+            readOnly
+            tabIndex={-1}
+            aria-hidden="true"
+            value={profile?.email ?? ''}
+            style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+          />
           <div className="space-y-1.5">
             <Label className="text-[13px] font-semibold">Sua senha *</Label>
             <Input
               type="password"
+              autoComplete="current-password"
               value={senha}
               onChange={e => setSenha(e.target.value)}
               placeholder="Digite sua senha de login"
@@ -961,184 +877,6 @@ function ReauthModal({ open, onOpenChange, state, onClose }: {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
-}
-
-// ============================================================
-// Modal: Detalhes (Geral + Trilha de auditoria)
-// ============================================================
-
-interface AcessoLog {
-  id: string
-  acao: string
-  detalhes: string | null
-  ipAddress: string | null
-  userAgent: string | null
-  createdAt: string
-  usuario: { id: string; name: string; email: string } | null
-}
-
-const ACAO_LABELS: Record<string, string> = {
-  cadastrado: '📝 Cadastrado',
-  visualizado: '👁 Visualizado',
-  editado: '✏️ Editado',
-  download_pfx: '⬇ Download PFX',
-  senha_visualizada: '🔑 Senha visualizada',
-  usado_assinatura: '✍ Usado para assinar',
-  renovado: '🔄 Renovado',
-  revogado: '🚫 Revogado',
-  arquivado: '📦 Arquivado',
-  desarquivado: '📤 Desarquivado',
-  excluido: '🗑 Excluído',
-  integridade_falhou: '⚠️ Falha de integridade',
-}
-
-function DetalhesModal({ open, onOpenChange, certId }: {
-  open: boolean
-  onOpenChange: (o: boolean) => void
-  certId: string
-}) {
-  const [tab, setTab] = useState<'geral' | 'acessos'>('geral')
-  const [cert, setCert] = useState<Certificado | null>(null)
-  const [acessos, setAcessos] = useState<AcessoLog[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (!open) return
-    setLoading(true)
-    setTab('geral')
-    ;(trpc.certificadoDigital as any).getById.query({ id: certId })
-      .then((data: Certificado) => setCert(data))
-      .catch(() => setCert(null))
-      .finally(() => setLoading(false))
-  }, [open, certId])
-
-  useEffect(() => {
-    if (tab !== 'acessos' || !open) return
-    ;(trpc.certificadoDigital as any).listAcessos.query({ id: certId })
-      .then((data: AcessoLog[]) => setAcessos(data))
-      .catch((e: Error) => alerts.error('Erro', e.message))
-  }, [tab, certId, open])
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[640px] max-h-[88vh] overflow-y-auto">
-        <DialogHeaderIcon icon={ShieldCheck} color="fuchsia">
-          <DialogTitle>{cert?.titular || 'Carregando...'}</DialogTitle>
-          {cert && (
-            <DialogDescription>
-              {cert.tipo} · {formatDocumento(cert.documento)} · Expira em {formatDate(cert.expiraEm)}
-            </DialogDescription>
-          )}
-        </DialogHeaderIcon>
-        <div className="px-6 -mb-px flex border-b">
-          <button
-            type="button"
-            onClick={() => setTab('geral')}
-            className={cn('px-3 py-2 text-xs font-semibold border-b-2 -mb-px', tab === 'geral' ? 'border-fuchsia-500 text-fuchsia-700' : 'border-transparent text-muted-foreground')}
-          >
-            Geral
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('acessos')}
-            className={cn('px-3 py-2 text-xs font-semibold border-b-2 -mb-px', tab === 'acessos' ? 'border-fuchsia-500 text-fuchsia-700' : 'border-transparent text-muted-foreground')}
-          >
-            Trilha de auditoria
-          </button>
-        </div>
-        <DialogBody>
-          {loading || !cert ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando...
-            </div>
-          ) : tab === 'geral' ? (
-            <div className="space-y-3 py-2">
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Tipo" value={cert.tipo} />
-                <Field label="Status"><StatusBadge status={cert.status} expiraEm={cert.expiraEm} /></Field>
-                <Field label="Titular" value={cert.titular} />
-                <Field label="Documento" value={formatDocumento(cert.documento)} mono />
-                <Field label="Número de série" value={cert.numeroSerie || '—'} mono />
-                <Field label="Emissor" value={cert.emissor || '—'} />
-                <Field label="Emitido em" value={formatDate(cert.emitidoEm)} />
-                <Field label="Expira em" value={formatDate(cert.expiraEm)} />
-              </div>
-              <div className="border-t pt-3 space-y-2">
-                <Field label="Cliente" value={cert.cliente?.razaoSocial || '—'} />
-                <Field label="Empresa" value={cert.empresa?.razaoSocial || '—'} />
-                <Field label="Sócio" value={cert.socio?.nomeCompleto || '—'} />
-              </div>
-              {cert.observacoes && (
-                <div className="border-t pt-3">
-                  <Field label="Observações" value={cert.observacoes} />
-                </div>
-              )}
-
-              {/* Histórico de versões anteriores (renovações) */}
-              {(cert as any).versoesAnteriores && (cert as any).versoesAnteriores.length > 0 && (
-                <div className="border-t pt-3 space-y-2">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <History className="h-3 w-3" /> Versões anteriores ({(cert as any).versoesAnteriores.length})
-                  </p>
-                  <div className="space-y-1.5">
-                    {(cert as any).versoesAnteriores.map((v: { id: string; numeroSerie: string | null; emitidoEm: string; expiraEm: string; status: string }, idx: number) => (
-                      <div key={v.id} className="flex items-center gap-3 px-3 py-2 rounded-md border bg-muted/20 text-[11px]">
-                        <span className="shrink-0 inline-flex items-center justify-center h-5 w-5 rounded-full bg-muted text-muted-foreground font-mono text-[10px]">
-                          v{(cert as any).versoesAnteriores.length - idx}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          {v.numeroSerie && <p className="font-mono text-[10px] text-muted-foreground truncate">{v.numeroSerie}</p>}
-                          <p>
-                            Emitido em <strong>{formatDate(v.emitidoEm)}</strong>
-                            {' '}· Expirou em <strong>{formatDate(v.expiraEm)}</strong>
-                          </p>
-                        </div>
-                        <Badge variant="secondary" className="text-[9px]">{v.status}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="py-2">
-              {acessos.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-8 italic">Nenhum acesso registrado.</p>
-              ) : (
-                <ul className="divide-y divide-border/60">
-                  {acessos.map(a => (
-                    <li key={a.id} className="py-2.5 flex items-start gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium">{ACAO_LABELS[a.acao] || a.acao}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {a.usuario?.name ?? 'usuário'} · {new Date(a.createdAt).toLocaleString('pt-BR')}
-                          {a.ipAddress && <> · IP {a.ipAddress}</>}
-                        </p>
-                        {a.detalhes && (
-                          <p className="text-[11px] mt-1 italic text-foreground/80">"{a.detalhes}"</p>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </DialogBody>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function Field({ label, value, children, mono }: { label: string; value?: string; children?: React.ReactNode; mono?: boolean }) {
-  return (
-    <div>
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{label}</p>
-      {children ?? (
-        <p className={cn('text-[13px]', mono && 'font-mono')}>{value}</p>
-      )}
-    </div>
   )
 }
 
@@ -1249,8 +987,8 @@ function RenovarCertificadoModal({ target, onClose, onRenovado }: {
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Senha *</Label>
               <div className="relative">
-                <Input
-                  type={showSenha ? 'text' : 'password'}
+                <SenhaPfxInput
+                  show={showSenha}
                   value={senha}
                   onChange={e => setSenha(e.target.value)}
                   placeholder="Senha do novo PFX"
@@ -1267,8 +1005,8 @@ function RenovarCertificadoModal({ target, onClose, onRenovado }: {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Confirmar senha *</Label>
-              <Input
-                type={showSenha ? 'text' : 'password'}
+              <SenhaPfxInput
+                show={showSenha}
                 value={confirmaSenha}
                 onChange={e => setConfirmaSenha(e.target.value)}
                 placeholder="Repita a senha"

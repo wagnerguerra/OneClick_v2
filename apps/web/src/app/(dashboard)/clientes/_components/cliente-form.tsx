@@ -24,6 +24,8 @@ import {
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
+import { CertCadastroModal } from '@/components/certificado/cert-cadastro-modal'
 import { OrcamentosTab } from './orcamentos-tab'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -3407,7 +3409,7 @@ type CertSidebarItem = {
 }
 
 function ArquivosSidebar({ clienteId }: { clienteId: string }) {
-  const { canManageFiles, canEditCertificados, canDownloadCert } = useClientesPerms()
+  const { canManageFiles, canEditCertificados } = useClientesPerms()
   const [arquivos, setArquivos] = useState<Array<{ id: string; fileName: string; fileUrl: string; fileSize: number | null; mimeType: string | null; descricao: string | null; createdAt: string; user: { name: string } | null }>>([])
   const [certificados, setCertificados] = useState<CertSidebarItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -3417,30 +3419,12 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
   // Modal de edição de observações do certificado
   const [editingCert, setEditingCert] = useState<{ id: string; titular: string; emissor: string; observacoes: string } | null>(null)
   const [savingCert, setSavingCert] = useState(false)
-  // Modal de VISUALIZAÇÃO (read-only) + download do certificado
+  // Modal de detalhes (read-only) do certificado — componente compartilhado com o
+  // módulo Legalização; embute o fluxo de acesso (ver senha / baixar PFX). #HLP0301
   const [viewCert, setViewCert] = useState<CertSidebarItem | null>(null)
-  const [baixando, setBaixando] = useState(false)
-
-  async function handleDownloadCert() {
-    if (!viewCert) return
-    setBaixando(true)
-    try {
-      const r = await (trpc.certificadoDigital as any).downloadPfx.mutate({ id: viewCert.id })
-      const blob = new Blob([Uint8Array.from(atob(r.pfxBase64), c => c.charCodeAt(0))], { type: 'application/x-pkcs12' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${(viewCert.titular || 'certificado').replace(/\s+/g, '_')}.pfx`
-      document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      alerts.success('Download iniciado', '')
-    } catch (e) {
-      alerts.error('Erro', (e as Error).message || 'Não foi possível baixar.')
-    } finally { setBaixando(false) }
-  }
-  // Modal de cadastro de certificado quando um .pfx/.p12 é solto no card de Arquivos.
-  const [certUpload, setCertUpload] = useState<{ file: File; senha: string; confirmar: string; observacoes: string } | null>(null)
-  const [savingCertUpload, setSavingCertUpload] = useState(false)
+  // Cadastro de certificado ao soltar um .pfx/.p12 no card de Arquivos — usa o
+  // modal unificado (CertCadastroModal) com arquivo + cliente pré-selecionados.
+  const [certUpload, setCertUpload] = useState<File | null>(null)
 
   function load() {
     trpc.cliente.listArquivos.query({ clienteId })
@@ -3512,40 +3496,13 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
           alerts.error('Sem permissão', 'O arquivo é um certificado digital (.pfx). Você não tem permissão para cadastrá-lo — peça a um responsável pela legalização.')
         } else {
           // Cadastra um certificado por vez (o modal pede a senha e extrai os dados).
-          setCertUpload({ file: certs[0]!, senha: '', confirmar: '', observacoes: '' })
+          setCertUpload(certs[0]!)
         }
       }
     }
     input.click()
   }
 
-  function fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-  }
-
-  async function submitCertUpload() {
-    if (!certUpload) return
-    if (!certUpload.senha) return alerts.error('Senha obrigatória', 'Informe a senha do certificado (.pfx).')
-    if (certUpload.senha !== certUpload.confirmar) return alerts.error('Senhas não conferem', 'A confirmação está diferente da senha.')
-    setSavingCertUpload(true)
-    try {
-      const pfxBase64 = await fileToBase64(certUpload.file)
-      await trpc.certificadoDigital.create.mutate({
-        pfxBase64, senha: certUpload.senha, clienteId,
-        observacoes: certUpload.observacoes.trim() || null,
-      })
-      setCertUpload(null)
-      loadCertificados()
-      alerts.success('Certificado cadastrado', 'O .pfx foi registrado como certificado digital e vinculado ao cliente. Ele aparece aqui e na aba Certificado Digital.')
-    } catch (e) {
-      alerts.error('Erro ao cadastrar certificado', (e as Error).message || 'Verifique se a senha do .pfx está correta.')
-    } finally { setSavingCertUpload(false) }
-  }
 
   async function handleRemove(id: string, name: string) {
     const ok = await alerts.confirmDelete(name)
@@ -3604,13 +3561,21 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
                     ? 'text-amber-600 dark:text-amber-400 font-semibold'
                     : 'text-muted-foreground'
               return (
-                <div key={cert.id} className="flex items-start gap-2 text-xs group rounded-md border border-border p-2 bg-muted/30">
+                <div
+                  key={cert.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setViewCert(cert)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewCert(cert) } }}
+                  className="flex items-start gap-2 text-xs group rounded-md border border-border p-2 bg-muted/30 cursor-pointer hover:bg-muted/50 hover:border-fuchsia-300 dark:hover:border-fuchsia-800 transition-colors"
+                  title="Ver detalhes do certificado"
+                >
                   <ShieldCheck className="h-4 w-4 shrink-0 text-fuchsia-600 dark:text-fuchsia-400 mt-0.5" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <button type="button" onClick={() => { setViewCert(cert) }} className="truncate font-medium text-left hover:text-primary hover:underline" title="Ver detalhes do certificado">
+                      <span className="truncate font-medium">
                         {cert.titular || cert.documento || cert.id}
-                      </button>
+                      </span>
                       <Badge variant="outline" className="h-4 px-1 text-[9px] shrink-0">Certificado</Badge>
                     </div>
                     {cert.emissor && <p className="text-muted-foreground truncate" title={cert.emissor}>{cert.emissor}</p>}
@@ -3622,11 +3587,11 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
                   </div>
                   <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                     {canEditCertificados && (
-                      <button type="button" onClick={() => setEditingCert({ id: cert.id, titular: cert.titular || '', emissor: cert.emissor || '', observacoes: cert.observacoes || '' })} className="text-muted-foreground hover:text-foreground" title="Editar observações">
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setEditingCert({ id: cert.id, titular: cert.titular || '', emissor: cert.emissor || '', observacoes: cert.observacoes || '' }) }} className="text-muted-foreground hover:text-foreground" title="Editar observações">
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
                     )}
-                    <a href={`/gestao-certificados?openId=${cert.id}`} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground" title="Abrir na gestão de certificados">
+                    <a href={`/gestao-certificados?openId=${cert.id}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:text-foreground" title="Abrir na gestão de certificados">
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                   </div>
@@ -3733,86 +3698,34 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: VISUALIZAÇÃO (read-only) do certificado + download seguro */}
-      <Dialog open={!!viewCert} onOpenChange={(o) => { if (!o) { setViewCert(null) } }}>
-        <DialogContent className="sm:max-w-[520px]">
-          <DialogHeaderIcon icon={ShieldCheck} color="fuchsia">
-            <DialogTitle>Certificado digital</DialogTitle>
-            <DialogDescription>Detalhes do certificado (somente leitura).</DialogDescription>
-          </DialogHeaderIcon>
-          <DialogBody className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 space-y-0.5"><Label className="text-[11px] font-semibold text-muted-foreground uppercase">Titular</Label><p className="text-sm">{viewCert?.titular || '—'}</p></div>
-              <div className="space-y-0.5"><Label className="text-[11px] font-semibold text-muted-foreground uppercase">Documento</Label><p className="text-sm">{viewCert?.documento || '—'}</p></div>
-              <div className="space-y-0.5"><Label className="text-[11px] font-semibold text-muted-foreground uppercase">Status</Label><p className="text-sm">{viewCert?.status || '—'}</p></div>
-              <div className="col-span-2 space-y-0.5"><Label className="text-[11px] font-semibold text-muted-foreground uppercase">Emissor</Label><p className="text-sm">{viewCert?.emissor || '—'}</p></div>
-              <div className="space-y-0.5"><Label className="text-[11px] font-semibold text-muted-foreground uppercase">Emitido em</Label><p className="text-sm">{formatDate(viewCert?.emitidoEm ?? null)}</p></div>
-              <div className="space-y-0.5"><Label className="text-[11px] font-semibold text-muted-foreground uppercase">Expira em</Label><p className="text-sm">{formatDate(viewCert?.expiraEm ?? null)}</p></div>
-            </div>
-            {viewCert?.observacoes && (
-              <div className="space-y-1"><Label className="text-[13px] font-semibold">Observações</Label><p className="text-sm text-muted-foreground whitespace-pre-wrap">{viewCert.observacoes}</p></div>
-            )}
-            {canDownloadCert ? (
-              <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2.5">
-                <p className="text-[13px] font-semibold flex items-center gap-1.5"><Download className="h-3.5 w-3.5" /> Baixar certificado (.pfx)</p>
-                <Button type="button" variant="success" onClick={handleDownloadCert} disabled={baixando} className="w-full gap-1.5">
-                  {baixando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Baixar .pfx
-                </Button>
-              </div>
-            ) : (
-              <p className="text-[11px] text-muted-foreground">Você não tem permissão para baixar o arquivo .pfx deste certificado.</p>
-            )}
-          </DialogBody>
-          <DialogFooter>
-            <a href={`/gestao-certificados?openId=${viewCert?.id}`} target="_blank" rel="noreferrer"><Button type="button" variant="outline" className="gap-1.5"><ExternalLink className="h-4 w-4" /> Abrir na gestão</Button></a>
-            <Button type="button" variant="outline" onClick={() => { setViewCert(null) }}>Fechar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Detalhes (read-only) + acesso seguro — componente compartilhado (#HLP0301).
+          Sem as abas Geral/Auditoria: dentro do cliente é só o conteúdo da Geral. */}
+      <CertDetalhesModal
+        certId={viewCert?.id ?? null}
+        open={!!viewCert}
+        onOpenChange={(o) => { if (!o) setViewCert(null) }}
+        showAcessosTab={false}
+        hideClienteSection
+        origem="cliente"
+        canDownload
+      />
 
-      {/* Modal: .pfx solto no card de Arquivos → cadastrar como certificado digital */}
-      <Dialog open={!!certUpload} onOpenChange={(o) => { if (!o && !savingCertUpload) setCertUpload(null) }}>
-        <DialogContent>
-          <DialogHeaderIcon icon={ShieldCheck} color="amber">
-            <DialogTitle>Cadastrar certificado digital</DialogTitle>
-            <DialogDescription>O arquivo é um certificado (.pfx). Informe a senha — o sistema extrai titular, validade e emissor automaticamente.</DialogDescription>
-          </DialogHeaderIcon>
-          <DialogBody className="space-y-4">
-            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
-              <ShieldCheck className="h-4 w-4 text-amber-500 shrink-0" />
-              <span className="truncate font-medium">{certUpload?.file.name}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-[13px] font-semibold">Senha *</Label>
-                <Input type="password" className="h-9 text-sm" value={certUpload?.senha || ''} onChange={(e) => setCertUpload((s) => (s ? { ...s, senha: e.target.value } : s))} placeholder="Senha do .pfx" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[13px] font-semibold">Confirmar senha *</Label>
-                <Input type="password" className="h-9 text-sm" value={certUpload?.confirmar || ''} onChange={(e) => setCertUpload((s) => (s ? { ...s, confirmar: e.target.value } : s))} placeholder="Repita a senha" />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[13px] font-semibold">Observações</Label>
-              <textarea
-                className="flex min-h-[70px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={certUpload?.observacoes || ''}
-                onChange={(e) => setCertUpload((s) => (s ? { ...s, observacoes: e.target.value } : s))}
-                placeholder="Notas sobre este certificado..."
-              />
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              🔒 A senha é cifrada com AES-256-GCM. O certificado fica vinculado a este cliente e aparece também na aba <b>Legalização → Certificado Digital</b>.
-            </p>
-          </DialogBody>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setCertUpload(null)} disabled={savingCertUpload}>Cancelar</Button>
-            <Button type="button" variant="success" onClick={submitCertUpload} disabled={savingCertUpload || !certUpload?.senha}>
-              {savingCertUpload ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Cadastrar certificado
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Cadastro de certificado (unificado #HLP0301) — arquivo e cliente já
+          pré-selecionados, então esses campos não aparecem. */}
+      <CertCadastroModal
+        open={!!certUpload}
+        onOpenChange={(o) => { if (!o) setCertUpload(null) }}
+        onCreated={() => { setCertUpload(null); loadCertificados() }}
+        presetFile={certUpload}
+        presetClienteId={clienteId}
+        title="Cadastrar certificado digital"
+        subtitle="O arquivo é um certificado (.pfx). Informe a senha — o sistema extrai titular, validade e emissor automaticamente."
+        note={
+          <p className="text-[11px] text-muted-foreground">
+            🔒 A senha é cifrada com AES-256-GCM. O certificado fica vinculado a este cliente e aparece também na aba <b>Legalização → Certificado Digital</b>.
+          </p>
+        }
+      />
     </Card>
   )
 }

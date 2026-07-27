@@ -30,15 +30,16 @@ export function useClientesPerms() {
   const canManageClientUsers = sub('manage_client_users') // aba usuários do cliente
   const canRenegotiation = sub('renegotiation')          // situação renegociação
 
-  // Edição de observações de certificado: módulo gestao-certificados (writeProcedure no backend)
+  // Edição de observações de certificado: módulo gestao-certificados (writeProcedure no backend).
+  // O acesso ao arquivo/senha pelo cadastro do cliente NÃO usa a sub-permissão
+  // 'acessar_certificados' (#HLP0301) — é liberado pelo próprio vínculo com o cliente.
   const certPerm = permissions.find((p) => p.moduleSlug === 'gestao-certificados')
   const canEditCertificados = isAdmin || !!certPerm?.canWrite
-  const canDownloadCert = isAdmin || certPerm?.subPermissions?.['download_arquivo'] === true
 
   return {
     loading,
     isAdmin, canWrite, canDelete, canCreate,
-    canManageActivitiesBenefits, canManageFiles, canEditCertificados, canDownloadCert,
+    canManageActivitiesBenefits, canManageFiles, canEditCertificados,
     canEditDetails, canManageServices, canManageResponsible, canManageContracts, canManageCommercial,
     canEditTaxation, canManageFiscal, canManageRegistration, canManageClientUsers, canRenegotiation,
   }

@@ -47,6 +47,40 @@ async function assertReauth(authService: AuthService, userId: string, senhaUser:
   }
 }
 
+/**
+ * Lê a flag de reautenticação obrigatória do tenant (#HLP0301). Default true
+ * (mais seguro) quando não há empresa ou registro.
+ */
+async function isReautObrigatoria(empresaId: string | null | undefined): Promise<boolean> {
+  if (!empresaId) return true
+  const emp = await prisma.empresa.findUnique({ where: { id: empresaId }, select: { certReautObrigatoria: true } })
+  return emp?.certReautObrigatoria ?? true
+}
+
+/**
+ * Gate unificado de acesso sensível ao certificado (ver senha / baixar PFX):
+ * se o tenant DONO do certificado exige reautenticação, valida senha do usuário
+ * + justificativa; senão, libera. Retorna o motivo a registrar na auditoria —
+ * que é gravada de qualquer forma pelo service, independente desta flag.
+ * Usar o empresaId do PRÓPRIO certificado cobre o master cross-tenant.
+ */
+async function gateAcessoCert(
+  authService: AuthService,
+  ctx: { userId: string | null },
+  certEmpresaId: string | null | undefined,
+  senhaUser: string | undefined,
+  motivo: string | undefined,
+): Promise<string> {
+  const exige = await isReautObrigatoria(certEmpresaId)
+  if (!exige) return (motivo && motivo.trim()) || 'Liberado sem reautenticação do usuário (desativada nas configurações)'
+  if (!senhaUser) throw new TRPCError({ code: 'FORBIDDEN', message: 'Confirme sua senha para continuar.' })
+  if (!motivo || motivo.trim().length < 3) {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Informe a justificativa (mínimo 3 caracteres).' })
+  }
+  await assertReauth(authService, ctx.userId!, senhaUser)
+  return motivo.trim()
+}
+
 /** Verifica sub-permissão. Master/Empresa-master sempre passam. */
 async function assertSubPerm(ctx: any, subKey: string, label: string) {
   if (ctx.isMaster || ctx.isEmpresaMaster) return
@@ -74,12 +108,14 @@ export function createCertificadoDigitalRouter(
         clienteId: z.string().optional(),
         status: z.string().optional(),
         incluirArquivados: z.boolean().optional(),
+        apenasArquivados: z.boolean().optional(),
       }).optional())
       .query(({ input, ctx }) => certService.list({
         empresaId: ctx.empresaId,
         clienteId: input?.clienteId,
         status: input?.status,
         incluirArquivados: input?.incluirArquivados,
+        apenasArquivados: input?.apenasArquivados,
       })),
 
     getById: readProcedure(MODULE)
@@ -133,24 +169,67 @@ export function createCertificadoDigitalRouter(
       }))
       .mutation(({ input, ctx }) => certService.renovar(input, { userId: ctx.userId })),
 
-    // ── Operações sensíveis (requerem reauth) ────────────
+    // ── Config do tenant: reautenticação obrigatória (#HLP0301) ──
+    // Gate de senha+justificativa vira flag por tenant. Auditoria NÃO depende
+    // dela (ver senha / baixar PFX sempre registram na trilha).
+    getReautConfig: readProcedure(MODULE)
+      .query(async ({ ctx }) => ({ reautObrigatoria: await isReautObrigatoria(ctx.empresaId) })),
 
-    // Download do .pfx — não exige reauth nem motivo (decisão de produto). Continua
-    // gated pela sub-permissão download_arquivo e registrado na trilha de auditoria.
-    downloadPfx: writeProcedure(MODULE)
-      .input(z.object({ id: z.string() }))
+    setReautConfig: writeProcedure(MODULE)
+      .input(z.object({ reautObrigatoria: z.boolean() }))
       .mutation(async ({ input, ctx }) => {
-        await assertSubPerm(ctx, 'download_arquivo', 'Baixar arquivo PFX')
-        const buffer = await certService.downloadPfx(input.id, 'Download pelo cadastro do cliente', { userId: ctx.userId })
+        await assertSubPerm(ctx, 'gerenciar_config', 'Gerenciar configurações de segurança')
+        if (!ctx.empresaId) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Sem empresa no contexto.' })
+        await prisma.empresa.update({ where: { id: ctx.empresaId }, data: { certReautObrigatoria: input.reautObrigatoria } })
+        return { ok: true }
+      }),
+
+    // Acesso unificado ao certificado (arquivo + senha) — #HLP0301. O pessoal
+    // sempre usa os dois juntos, então UM evento cobre o acesso. Quando o tenant
+    // exige reautenticação, valida senha+justificativa aqui (e bloqueia se
+    // incorreta); quando NÃO exige, libera e apenas registra. Dispara SEMPRE,
+    // com ou sem confirmação de senha. Substitui o antigo validarSenha e os
+    // eventos separados de ver senha / baixar PFX.
+    acessar: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), senhaUser: z.string().optional(), motivo: z.string().optional() }))
+      .mutation(async ({ input, ctx }) => {
+        const cert = await prisma.certificadoDigital.findUnique({ where: { id: input.id }, select: { empresaId: true } })
+        const motivo = await gateAcessoCert(authService, ctx, cert?.empresaId ?? ctx.empresaId, input.senhaUser, input.motivo)
+        await certService.registrarAcessoArquivoSenha(input.id, motivo, {
+          userId: ctx.userId,
+          ipAddress: (ctx as any).ipAddress,
+          userAgent: (ctx as any).userAgent,
+        })
+        return { ok: true }
+      }),
+
+    // ── Operações sensíveis: gate por tenant (ver senha / baixar PFX) ────
+    // Fluxo unificado (#HLP0301): arquivo PFX e senha são sempre acessados
+    // juntos, então uma única sub-permissão ('acessar_certificados') cobre os
+    // dois. A mesma senha+justificativa (reauth) libera ver e baixar; quando a
+    // flag do tenant está desligada, senhaUser/motivo são opcionais e o acesso é
+    // liberado — mas SEMPRE auditado (no service).
+    //
+    // origem='cliente': acesso pelo cadastro do cliente NÃO exige a sub-permissão
+    // (o vínculo com o cliente já autoriza). Pela gestão, exige.
+
+    downloadPfx: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), senhaUser: z.string().optional(), motivo: z.string().optional(), origem: z.enum(['gestao', 'cliente']).optional() }))
+      .mutation(async ({ input, ctx }) => {
+        if (input.origem !== 'cliente') await assertSubPerm(ctx, 'acessar_certificados', 'Acessar certificados (arquivos PFX e senhas)')
+        const cert = await prisma.certificadoDigital.findUnique({ where: { id: input.id }, select: { empresaId: true } })
+        const motivo = await gateAcessoCert(authService, ctx, cert?.empresaId ?? ctx.empresaId, input.senhaUser, input.motivo)
+        const buffer = await certService.downloadPfx(input.id, motivo, { userId: ctx.userId })
         return { pfxBase64: buffer.toString('base64') }
       }),
 
     getSenha: writeProcedure(MODULE)
-      .input(z.object({ id: z.string(), senhaUser: z.string().min(1), motivo: z.string().min(3) }))
+      .input(z.object({ id: z.string(), senhaUser: z.string().optional(), motivo: z.string().optional(), origem: z.enum(['gestao', 'cliente']).optional() }))
       .mutation(async ({ input, ctx }) => {
-        await assertSubPerm(ctx, 'ver_senha', 'Visualizar senha em claro')
-        await assertReauth(authService, ctx.userId!, input.senhaUser)
-        const senha = await certService.getSenha(input.id, input.motivo, { userId: ctx.userId })
+        if (input.origem !== 'cliente') await assertSubPerm(ctx, 'acessar_certificados', 'Acessar certificados (arquivos PFX e senhas)')
+        const cert = await prisma.certificadoDigital.findUnique({ where: { id: input.id }, select: { empresaId: true } })
+        const motivo = await gateAcessoCert(authService, ctx, cert?.empresaId ?? ctx.empresaId, input.senhaUser, input.motivo)
+        const senha = await certService.getSenha(input.id, motivo, { userId: ctx.userId })
         return { senha }
       }),
 
