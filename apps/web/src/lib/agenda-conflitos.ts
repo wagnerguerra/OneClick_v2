@@ -8,6 +8,9 @@ export interface ConflitoAgenda {
   evento: string
   horario: string
   image?: string | null
+  /** Evento particular que o solicitante não pode ver — explica por que ele
+   *  não aparece na agenda (não é um conflito fantasma). */
+  particularOculto?: boolean
 }
 
 /**
@@ -36,7 +39,13 @@ export function renderConflitosHtml(conflitos: ConflitoAgenda[], bloqueado: bool
   const participantes = conflitos.filter(c => c.tipo === 'participante')
   const salas = conflitos.filter(c => c.tipo === 'sala')
 
-  const card = (visual: string, color: string, badge: string, nome: string, evento: string, horario: string) => `
+  const notaOculto = `
+    <div style="display:flex;align-items:flex-start;gap:5px;margin-top:5px;padding:5px 8px;border-radius:6px;background:#fef9c3;color:#854d0e;font-size:11px;line-height:1.35">
+      <span style="flex-shrink:0">🔒</span>
+      <span>Compromisso <strong>particular</strong>: você não tem acesso ao detalhe e por isso ele não aparece na sua agenda. Mesmo assim, ele ocupa o horário desta pessoa.</span>
+    </div>`
+
+  const card = (visual: string, color: string, badge: string, nome: string, evento: string, horario: string, particularOculto?: boolean) => `
     <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;text-align:left">
       ${visual}
       <div style="flex:1;min-width:0">
@@ -48,6 +57,7 @@ export function renderConflitosHtml(conflitos: ConflitoAgenda[], bloqueado: bool
           Em <span style="color:#0f172a;font-weight:500">"${esc(evento)}"</span>
         </div>
         <div style="font-size:11px;color:#94a3b8;margin-top:2px;font-variant-numeric:tabular-nums">⏰ ${esc(horario)}</div>
+        ${particularOculto ? notaOculto : ''}
       </div>
     </div>
   `
@@ -58,7 +68,7 @@ export function renderConflitosHtml(conflitos: ConflitoAgenda[], bloqueado: bool
       <div style="margin-top:8px">
         <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">Participantes ocupados (${participantes.length})</div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          ${participantes.map(c => card(avatar(c.nome, '#0ea5e9', c.image), '#0ea5e9', 'Participante', c.nome, c.evento, c.horario)).join('')}
+          ${participantes.map(c => card(avatar(c.nome, '#0ea5e9', c.image), '#0ea5e9', 'Participante', c.nome, c.evento, c.horario, c.particularOculto)).join('')}
         </div>
       </div>`)
   }
@@ -67,7 +77,7 @@ export function renderConflitosHtml(conflitos: ConflitoAgenda[], bloqueado: bool
       <div style="margin-top:8px">
         <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">Salas ocupadas (${salas.length})</div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          ${salas.map(c => card(iconBox('🚪', '#a855f7'), '#a855f7', 'Sala', c.nome, c.evento, c.horario)).join('')}
+          ${salas.map(c => card(iconBox('🚪', '#a855f7'), '#a855f7', 'Sala', c.nome, c.evento, c.horario, c.particularOculto)).join('')}
         </div>
       </div>`)
   }

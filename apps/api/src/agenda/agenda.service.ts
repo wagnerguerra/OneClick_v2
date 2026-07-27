@@ -1400,6 +1400,9 @@ export class AgendaService {
       horario: string
       /** Avatar do user — só preenchido para tipo='participante' (pode ser null se o user não tem foto) */
       image?: string | null
+      /** true quando o evento em conflito é particular e o solicitante NÃO pode
+       *  vê-lo — o front explica que é um compromisso oculto (não um fantasma). */
+      particularOculto?: boolean
     }> = []
 
     // Se o tipo escolhido não bloqueia agenda, ele NUNCA gera nem sofre conflito —
@@ -1458,6 +1461,7 @@ export class AgendaService {
               evento: this.tituloVisivelPara(ev, viewerId),
               horario: `${ev.horaInicio} — ${ev.horaFim}`,
               image: u.image ?? null,
+              particularOculto: !!ev.particular && !this.podeVerEvento(ev, viewerId),
             })
           }
         }
@@ -1490,6 +1494,7 @@ export class AgendaService {
             // evento particular alheio, redige o título (#HLP0270).
             evento: this.tituloVisivelPara(ev, viewerId),
             horario: `${ev.horaInicio} — ${ev.horaFim}`,
+            particularOculto: !!ev.particular && !this.podeVerEvento(ev, viewerId),
           })
         }
       }
