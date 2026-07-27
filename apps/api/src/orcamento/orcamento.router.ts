@@ -491,6 +491,21 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ dias: z.number().optional() }).optional())
       .query(({ input, ctx }) => orcamentoService.reportPorArea(ctx.empresaId, input?.dias)),
 
+    // Relatório de UMA coluna do kanban (um status). O escopo/visibilidade do
+    // usuário é resolvido aqui (resolveScopeDoUsuario) igual ao `list`.
+    reportColuna: readProcedure(MODULE)
+      .input(z.object({
+        status: z.string(),
+        dataInicio: z.string().optional(),
+        dataFim: z.string().optional(),
+        areas: z.array(z.string()).optional(),
+        tipo: z.enum(['MENSAL', 'EXTRA']).optional(),
+      }))
+      .query(async ({ input, ctx }) => {
+        const scope = await resolveScopeDoUsuario(ctx.userId)
+        return orcamentoService.reportColuna({ ...input, scope }, ctx.isMaster ?? false, ctx.empresaId, ctx.userId)
+      }),
+
     // ── Catalogo de Servicos ───────────────────────────────
     listCatalogo: readProcedure(MODULE)
       .input(z.object({

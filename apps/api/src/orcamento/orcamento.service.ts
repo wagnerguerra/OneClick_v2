@@ -494,6 +494,168 @@ export class OrcamentoService {
     return resultado
   }
 
+  /**
+   * Deriva a NATUREZA (Mensal / Extra / Misto) de cada orçamento a partir da
+   * natureza dos SERVIÇOS que ele contém — regra do produto: o que define
+   * mensal×extra é o tipo do serviço (`recorrenteMensal`/`categoriaServico`),
+   * NÃO o campo `Orcamento.tipo` (estático e em desuso). Mesma mecânica em lote
+   * de derivarAreasDosOrcamentosEmLote (ids de item/serviço → Servico).
+   */
+  private async derivarNaturezaEmLote(
+    orcamentos: Array<{ id: string; catalogoIds: Array<string | null>; servicoId?: string | null }>,
+  ): Promise<Map<string, 'MENSAL' | 'EXTRA' | 'MISTO' | null>> {
+    const out = new Map<string, 'MENSAL' | 'EXTRA' | 'MISTO' | null>()
+    const todosIds = [...new Set(
+      orcamentos.flatMap(o => [...o.catalogoIds, o.servicoId]).filter(Boolean) as string[],
+    )]
+    const servicos = todosIds.length
+      ? await prisma.servico.findMany({
+          where: { id: { in: todosIds } },
+          select: { id: true, recorrenteMensal: true, categoriaServico: true },
+        }).catch(() => [] as Array<{ id: string; recorrenteMensal: boolean; categoriaServico: string }>)
+      : []
+    // TAXA/DESPESA são ServicoCatalogo (não casam aqui) → ignorados na natureza.
+    const mensalPorId = new Map(servicos.map(s => [s.id, s.recorrenteMensal === true || s.categoriaServico === 'MENSAL']))
+    for (const o of orcamentos) {
+      let temMensal = false
+      let temExtra = false
+      for (const ref of [...o.catalogoIds, o.servicoId]) {
+        if (!ref) continue
+        const m = mensalPorId.get(ref)
+        if (m === undefined) continue
+        if (m) temMensal = true
+        else temExtra = true
+      }
+      out.set(o.id, temMensal && temExtra ? 'MISTO' : temMensal ? 'MENSAL' : temExtra ? 'EXTRA' : null)
+    }
+    return out
+  }
+
+  /**
+   * Relatório de UMA coluna do kanban (um status). Reusa `list` (respeita o
+   * escopo/visibilidade do usuário, deriva áreas e resolve usuários), pega a
+   * coluna inteira (sem paginação) e enriquece com nome do cliente + natureza
+   * do serviço. Aplica filtros extras (área/tipo) em memória e devolve
+   * `{ resumo, linhas }`. O `scope` REAL vem do router (resolveScopeDoUsuario).
+   */
+  async reportColuna(
+    input: { status: string; scope?: string; dataInicio?: string; dataFim?: string; areas?: string[]; tipo?: 'MENSAL' | 'EXTRA' },
+    isMaster: boolean, empresaId?: string, userId?: string,
+  ) {
+    const { data } = await this.list({
+      status: input.status,
+      scope: input.scope,
+      dataInicial: input.dataInicio,
+      dataFinal: input.dataFim,
+      incluirParalizados: true,
+      arquivado: false,
+      page: 1,
+      limit: 1_000_000,
+      sortKey: 'numero',
+      sortDir: 'asc',
+    } as any, isMaster, empresaId, userId)
+
+    const orcIds = data.map(o => o.id)
+
+    // Nome do cliente (FK escalar — não é relação Prisma).
+    const clienteIds = [...new Set(data.map(o => o.clienteId).filter(Boolean))] as string[]
+    const clientes = clienteIds.length
+      ? await prisma.cliente.findMany({ where: { id: { in: clienteIds } }, select: { id: true, razaoSocial: true, nomeFantasia: true } }).catch(() => [] as Array<{ id: string; razaoSocial: string | null; nomeFantasia: string | null }>)
+      : []
+    const clienteMap = new Map(clientes.map(c => [c.id, c.razaoSocial || c.nomeFantasia || '—']))
+
+    // catalogoIds por orçamento (para derivar natureza).
+    const itens = orcIds.length
+      ? await prisma.orcamentoItem.findMany({ where: { orcamentoId: { in: orcIds } }, select: { orcamentoId: true, catalogoId: true } }).catch(() => [] as Array<{ orcamentoId: string; catalogoId: string | null }>)
+      : []
+    const catalogoPorOrc = new Map<string, Array<string | null>>()
+    for (const it of itens) {
+      const arr = catalogoPorOrc.get(it.orcamentoId) ?? []
+      arr.push(it.catalogoId)
+      catalogoPorOrc.set(it.orcamentoId, arr)
+    }
+    const naturezaPorOrc = await this.derivarNaturezaEmLote(
+      data.map(o => ({ id: o.id, catalogoIds: catalogoPorOrc.get(o.id) ?? [], servicoId: (o as any).servicoId })),
+    )
+
+    // Data da transição correspondente à coluna (dtEnviado p/ ENVIADO, etc).
+    const CAMPO_DATA_STATUS: Record<string, string> = {
+      ENVIADO: 'dtEnviado', APROVADO: 'dtAprovado', LIBERADO: 'dtLiberado',
+      FINALIZADO: 'dtFinalizado', ENCERRADO: 'dtEncerrado', CANCELADO: 'dtCancelado',
+    }
+    const campoDataStatus = CAMPO_DATA_STATUS[input.status]
+    const NATUREZA_LABEL: Record<string, string> = { MENSAL: 'Mensal', EXTRA: 'Extra', MISTO: 'Misto' }
+
+    let linhas = data.map(o => {
+      const natRaw = naturezaPorOrc.get(o.id) ?? null
+      const areas = ((o as any).areas ?? []) as Array<{ id: string; nome: string }>
+      return {
+        id: o.id,
+        numero: o.numero,
+        cliente: (o.clienteId && clienteMap.get(o.clienteId)) || '—',
+        valorTotal: Number(o.totalGeral) || 0,
+        naturezaRaw: natRaw,
+        natureza: natRaw ? (NATUREZA_LABEL[natRaw] ?? '—') : '—',
+        areaIds: areas.map(a => a.id),
+        areas: areas.map(a => a.nome),
+        solicitante: (o as any).solicitante?.name ?? '—',
+        responsavel: (o as any).responsavel?.name ?? '—',
+        createdAt: o.createdAt,
+        dataStatus: campoDataStatus ? ((o as any)[campoDataStatus] ?? null) : null,
+        validadeDias: o.validadeDias,
+        itens: ((o as any).itensDescricoes ?? []) as string[],
+        descontoAplicado: Number(o.descontoAplicado) || 0,
+        formaPagamento: o.formaPagamento ?? '—',
+        observacoes: o.observacoes ?? '',
+      }
+    })
+
+    // Filtros extras (área por id, tipo por natureza — MISTO casa os dois).
+    if (input.areas && input.areas.length > 0) {
+      const set = new Set(input.areas)
+      linhas = linhas.filter(l => l.areaIds.some(id => set.has(id)))
+    }
+    if (input.tipo) {
+      linhas = linhas.filter(l =>
+        input.tipo === 'MENSAL' ? (l.naturezaRaw === 'MENSAL' || l.naturezaRaw === 'MISTO')
+          : (l.naturezaRaw === 'EXTRA' || l.naturezaRaw === 'MISTO'),
+      )
+    }
+
+    // Resumo agregado.
+    const count = linhas.length
+    const somaTotal = linhas.reduce((s, l) => s + l.valorTotal, 0)
+    const ticketMedio = count > 0 ? somaTotal / count : 0
+    // Por área: um orçamento com N áreas conta em cada uma (valor cheio).
+    const porAreaMap = new Map<string, { count: number; soma: number }>()
+    for (const l of linhas) {
+      const chaves = l.areas.length ? l.areas : ['(sem área)']
+      for (const nome of chaves) {
+        const e = porAreaMap.get(nome) ?? { count: 0, soma: 0 }
+        e.count += 1
+        e.soma += l.valorTotal
+        porAreaMap.set(nome, e)
+      }
+    }
+    const porArea = [...porAreaMap.entries()].map(([nome, v]) => ({ nome, ...v })).sort((a, b) => b.soma - a.soma)
+    // Por tipo (natureza) — cada orçamento em um único balde.
+    const porTipoMap = new Map<string, { count: number; soma: number }>()
+    for (const l of linhas) {
+      const nome = l.natureza
+      const e = porTipoMap.get(nome) ?? { count: 0, soma: 0 }
+      e.count += 1
+      e.soma += l.valorTotal
+      porTipoMap.set(nome, e)
+    }
+    const porTipo = [...porTipoMap.entries()].map(([nome, v]) => ({ nome, ...v })).sort((a, b) => b.soma - a.soma)
+
+    return {
+      resumo: { count, somaTotal, ticketMedio, porArea, porTipo },
+      // Remove campos auxiliares de filtro do payload de linha.
+      linhas: linhas.map(({ naturezaRaw, areaIds, ...rest }) => rest),
+    }
+  }
+
   async getByToken(token: string) {
     const orc = await prisma.orcamento.findUnique({
       where: { token },

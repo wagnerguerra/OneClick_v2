@@ -20,6 +20,7 @@ import {
 import { ClienteCombobox } from './_components/cliente-combobox'
 import { UserCombobox } from './_components/user-combobox'
 import { CatalogoCombobox } from './_components/catalogo-combobox'
+import { RelatorioColunaModal } from './_components/relatorio-coluna-modal'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { FormasPagamentoModal } from '@/components/orcamento/formas-pagamento-modal'
@@ -311,6 +312,8 @@ export default function OrcamentosPage() {
   }
 
   // Colunas recolhidas (kanban) — persistido no localStorage
+  // Coluna cujo relatório está aberto (status) — null = fechado.
+  const [relatorioColuna, setRelatorioColuna] = useState<string | null>(null)
   const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('orcamentos-kanban-collapsed')
@@ -942,6 +945,7 @@ export default function OrcamentosPage() {
                       dropDisabled={dropDisabled}
                       draggable={canMoverKanban}
                       onToggleCollapse={() => toggleColumnCollapse(status)}
+                      onRelatorio={() => setRelatorioColuna(status)}
                       getClienteNome={getClienteNome}
                       onOpenDetail={(id) => router.push(`/orcamentos/${id}`)}
                       onDuplicar={handleDuplicar}
@@ -1084,6 +1088,17 @@ export default function OrcamentosPage() {
 
       {/* Gerência de formas de pagamento (menu do header) */}
       <FormasPagamentoModal open={formasModal} onOpenChange={(o) => { setFormasModal(o); if (!o) void loadFormasCatalogo() }} />
+
+      {/* Relatório de uma coluna do kanban (menu ⋮ da coluna) */}
+      {relatorioColuna && (
+        <RelatorioColunaModal
+          open={!!relatorioColuna}
+          onClose={() => setRelatorioColuna(null)}
+          status={relatorioColuna}
+          statusLabel={STATUS_LABELS[relatorioColuna] || relatorioColuna}
+          moduleColor={MODULE_COLOR}
+        />
+      )}
 
       {/* Create Modal — espelha o legado crp_orcamentos/modal-create-orc.asp */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -1242,7 +1257,7 @@ function SortHead({ label, sortKey, sort, onSort, className, align = 'left' }: {
 // Kanban DnD Components
 // ============================================================
 
-function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisabled, draggable, onToggleCollapse, getClienteNome, onOpenDetail, onDuplicar, onArquivar, onCancelar }: {
+function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisabled, draggable, onToggleCollapse, onRelatorio, getClienteNome, onOpenDetail, onDuplicar, onArquivar, onCancelar }: {
   status: string
   items: OrcamentoRow[]
   isOver: boolean
@@ -1251,6 +1266,7 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
   dropDisabled: boolean
   draggable: boolean
   onToggleCollapse: () => void
+  onRelatorio: () => void
   getClienteNome: (orc: OrcamentoRow) => string | null
   onOpenDetail: (id: string) => void
   onDuplicar: (id: string) => void
@@ -1326,6 +1342,22 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">{items.length}</Badge>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                title="Opções da coluna"
+                className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <MoreVertical className="h-3.5 w-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onRelatorio}>
+                <BarChart3 className="h-4 w-4 mr-2" /> Relatório da coluna
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <button
             type="button"
             onClick={onToggleCollapse}
