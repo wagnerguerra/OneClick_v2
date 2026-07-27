@@ -12,7 +12,7 @@ import {
 import {
   Button, Input, Label, Checkbox, Card, Badge,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  TooltipProvider, cn,
+  TooltipProvider, cn, RichEditor,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
@@ -288,10 +288,19 @@ export function SocioForm({ mode, socioId, title, description, icon, defaultValu
                   <div className="col-span-4"><Label htmlFor="dataEntrada">Data de Entrada</Label><Input id="dataEntrada" type="date" {...register('dataEntrada')} className="mt-1.5" /></div>
                   <div className="col-span-4"><Label htmlFor="dataSaida">Data de Saída</Label><Input id="dataSaida" type="date" {...register('dataSaida')} className="mt-1.5" /></div>
                   <div className="col-span-4"><Label>Empresa/Cliente</Label><Controller control={control} name="clienteId" render={({ field }) => (<Select value={field.value || '__none__'} onValueChange={v => field.onChange(v === '__none__' ? '' : v)}><SelectTrigger className="mt-1.5"><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent><SelectItem value="__none__">Nenhum</SelectItem>{clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.razaoSocial || c.nomeCompleto}</SelectItem>)}</SelectContent></Select>)} /></div>
-                  <div className="col-span-4 flex items-end pb-1"><Controller control={control} name="assinaNaEmpresa" render={({ field }) => (<label className="flex items-center gap-2 cursor-pointer"><Checkbox checked={field.value} onCheckedChange={field.onChange} /><span className="text-sm">Assina pela empresa</span></label>)} /></div>
-                  <div className="col-span-4 flex items-end pb-1"><Controller control={control} name="responsavelLegal" render={({ field }) => (<label className="flex items-center gap-2 cursor-pointer"><Checkbox checked={field.value} onCheckedChange={field.onChange} /><span className="text-sm">Responsável legal</span></label>)} /></div>
-                  <div className="col-span-4 flex items-end pb-1"><Controller control={control} name="isActive" render={({ field }) => (<label className="flex items-center gap-2 cursor-pointer"><Checkbox checked={field.value} onCheckedChange={field.onChange} /><span className="text-sm">Sócio ativo</span></label>)} /></div>
-                  <div className="col-span-12"><Label htmlFor="observacoes">Observações</Label><textarea id="observacoes" rows={3} {...register('observacoes')} className="mt-1.5 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" /></div>
+                  <div className="col-span-6 flex items-end pb-1"><Controller control={control} name="responsavelLegal" render={({ field }) => (<label className="flex items-center gap-2 cursor-pointer"><Checkbox checked={field.value} onCheckedChange={field.onChange} /><span className="text-sm">Responsável legal</span></label>)} /></div>
+                  <div className="col-span-6 flex items-end pb-1"><Controller control={control} name="isActive" render={({ field }) => (<label className="flex items-center gap-2 cursor-pointer"><Checkbox checked={field.value} onCheckedChange={field.onChange} /><span className="text-sm">Sócio ativo</span></label>)} /></div>
+                  <div className="col-span-12">
+                    <Label htmlFor="observacoes" className="mb-1.5 block">Observações</Label>
+                    <Controller control={control} name="observacoes" render={({ field }) => (
+                      <RichEditor
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                        placeholder="Informações relevantes sobre o sócio..."
+                        maxHeight={260}
+                      />
+                    )} />
+                  </div>
                 </div>
               )}
 
