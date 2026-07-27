@@ -103,6 +103,7 @@ export const listTicketSchema = z.object({
   prioridade: z.array(z.enum(HELPDESK_PRIORIDADE)).optional(),
   categoriaId: z.string().optional(),
   responsavelId: z.string().optional(),
+  solicitanteId: z.string().optional(),
   search: z.string().optional(),
   arquivado: z.boolean().optional().default(false),
   page: z.coerce.number().int().min(1).default(1),

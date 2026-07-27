@@ -37,6 +37,18 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
         ok: await helpdeskService.canAtuarAgente(ctx.userId!),
       })),
 
+    /**
+     * Escopo efetivo de visualização do usuário (#HLP0139) — usado pela página
+     * pra montar o filtro: opções disponíveis = as que o escopo abrange; padrão =
+     * a mais abrangente. `temArea` habilita a opção "minha área".
+     */
+    meuEscopo: protectedProcedure
+      .query(({ ctx }) => helpdeskService.getMeuEscopo(ctx.userId!)),
+
+    /** Agentes (podem ser responsável) da empresa — filtro por responsável (#HLP0139). */
+    listAgentes: readProcedure(MODULE)
+      .query(({ ctx }) => helpdeskService.listAgentes(ctx.empresaId ?? null)),
+
     // ── Tickets ────────────────────────────────────────────────
 
     /** Qualquer logado abre ticket (mesmo sem permissão helpdesk admin). */

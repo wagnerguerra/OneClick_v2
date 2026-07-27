@@ -222,6 +222,44 @@ export function resolveOrcamentoScope(
   return ORCAMENTO_SCOPE_DEFAULT
 }
 
+// ── Escopo de listagem do HelpDesk ────────────────────────────────────────
+// Mesma ideia dos orçamentos (#HLP0139): é UMA escolha (proprios ⊂ area ⊂ todos),
+// não flags soltas que podiam ser ligadas juntas sem sentido.
+
+export type HelpdeskScope = 'proprios' | 'area' | 'todos'
+
+export const HELPDESK_SCOPE_OPTIONS: SubPermissionChoice[] = [
+  { value: 'proprios', label: 'Só os meus (solicitante ou responsável)' },
+  { value: 'area',     label: 'Os da minha área' },
+  { value: 'todos',    label: 'Todos os tickets da empresa' },
+]
+
+export const HELPDESK_SCOPE_DEFAULT: HelpdeskScope = 'proprios'
+
+/** Ordem de abrangência — usada pra clampar o escopo pedido ao permitido. */
+export const HELPDESK_SCOPE_RANK: Record<HelpdeskScope, number> = { proprios: 0, area: 1, todos: 2 }
+
+const HELPDESK_SCOPE_VALUES = new Set<string>(HELPDESK_SCOPE_OPTIONS.map(o => o.value))
+
+/**
+ * Resolve o escopo de listagem do HelpDesk a partir das sub-permissões gravadas.
+ * Escolha única (`scope`) tem precedência; aceita o formato antigo (3 toggles
+ * `scope_*`) pra não exigir migração — o mais permissivo vence. Padrão/fallback
+ * é 'proprios'.
+ */
+export function resolveHelpdeskScope(
+  subPermissions: Record<string, unknown> | null | undefined,
+): HelpdeskScope {
+  const subs = subPermissions ?? {}
+  const escolhido = subs['scope']
+  if (typeof escolhido === 'string' && HELPDESK_SCOPE_VALUES.has(escolhido)) {
+    return escolhido as HelpdeskScope
+  }
+  if (subs['scope_todos'] === true) return 'todos'
+  if (subs['scope_area'] === true) return 'area'
+  return HELPDESK_SCOPE_DEFAULT
+}
+
 export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
   // Ferramentas (integração webapp). Sub-permissão por tool = opt-out:
   // desmarcar bloqueia aquela ferramenta; marcado/ausente = liberado.
@@ -358,10 +396,16 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'change_prazo', label: 'Alterar prazo/SLA do ticket', group: 'Atendimento' },
     { key: 'change_prioridade', label: 'Alterar prioridade', group: 'Atendimento' },
     { key: 'nota_interna', label: 'Escrever notas internas (não visíveis ao solicitante)', group: 'Atendimento' },
-    // Escopo de listagem
-    { key: 'scope_proprios', label: 'Ver tickets em que sou solicitante ou responsável', group: 'Escopo' },
-    { key: 'scope_area', label: 'Ver tickets da minha área', group: 'Escopo' },
-    { key: 'scope_todos', label: 'Ver todos os tickets da empresa', group: 'Escopo' },
+    // Escopo de listagem — escolha única (#HLP0139). proprios ⊂ area ⊂ todos.
+    {
+      key: 'scope',
+      label: '',
+      group: 'Escopo de visualização',
+      type: 'choice',
+      options: HELPDESK_SCOPE_OPTIONS,
+      default: HELPDESK_SCOPE_DEFAULT,
+      observacao: 'Define quais tickets o usuário pode visualizar na listagem.',
+    },
     // Operações
     { key: 'mover_kanban', label: 'Mover cards no kanban (arrastar status)', group: 'Ações' },
     { key: 'arquivar', label: 'Arquivar tickets', group: 'Ações' },
