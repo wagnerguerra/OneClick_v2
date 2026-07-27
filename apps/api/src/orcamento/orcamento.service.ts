@@ -412,9 +412,18 @@ export class OrcamentoService {
       { id: orc.id, catalogoIds: orc.itens.map(i => i.catalogoId), servicoId: orc.servicoId },
     ])).get(orc.id) ?? []
 
+    // Card de CRM vinculado (FK solto orcamento.oportunidadeId → Oportunidade).
+    const oportunidade = orc.oportunidadeId
+      ? await prisma.oportunidade.findUnique({
+          where: { id: orc.oportunidadeId },
+          select: { id: true, numero: true, titulo: true, etapa: { select: { nome: true } } },
+        }).catch(() => null)
+      : null
+
     return {
       ...orc, arquivos, mensagens, eventos, cliente, empresa, solicitante, responsavel,
       areas,
+      oportunidade: oportunidade ? { id: oportunidade.id, numero: oportunidade.numero, titulo: oportunidade.titulo, etapa: oportunidade.etapa?.nome ?? null } : null,
       decisaoCnpjFaturamento: fat[0]?.decisaoCnpjFaturamento ?? null,
       decisaoEmailFinanceiro: fat[0]?.decisaoEmailFinanceiro ?? null,
     }
@@ -1526,6 +1535,98 @@ export class OrcamentoService {
         descricao: `Movido para "${etapa.nome}" — orçamento #${numeroOrc} ${alvo === 'ganho' ? 'aprovado' : 'encerrado'}`,
       },
     }).catch(() => null)
+  }
+
+  /**
+   * Move o card de CRM para a etapa de "Orçamento Criado" APENAS se ele estiver
+   * numa etapa ANTERIOR (ordem menor) e não for ganho/perda — decisão do Wagner:
+   * não rebaixa cards que já avançaram. Etapa detectada por nome (mesma heurística
+   * do forward em crm.service.moverEtapa), escopada por empresa (como sincronizarEtapaCrm).
+   */
+  private async moverCardParaOrcamentoSePendente(
+    op: { id: string; etapaId: string; empresaId: string | null; etapa: { ordem: number; ehGanho: boolean; ehPerda: boolean } | null },
+    numeroOrc: number, userId?: string,
+  ) {
+    if (op.etapa?.ehGanho || op.etapa?.ehPerda) return
+    const etapas = await prisma.crmEtapa.findMany({
+      where: { OR: [{ empresaId: op.empresaId }, { empresaId: null }] },
+      select: { id: true, nome: true, ordem: true },
+      orderBy: { ordem: 'asc' },
+    }).catch(() => [] as Array<{ id: string; nome: string; ordem: number }>)
+    const alvo = etapas.find(e => /or[çc]amento/i.test(e.nome))
+    if (!alvo || alvo.id === op.etapaId) return
+    if (op.etapa && op.etapa.ordem >= alvo.ordem) return // já está na etapa ou depois
+    await prisma.oportunidade.update({ where: { id: op.id }, data: { etapaId: alvo.id } })
+    await prisma.oportunidadeEvento.create({
+      data: { oportunidadeId: op.id, userId: userId ?? null, tipo: 'etapa', descricao: `Movido para "${alvo.nome}" — orçamento #${numeroOrc} vinculado` },
+    }).catch(() => null)
+  }
+
+  /** Vincula um card de CRM (Oportunidade) a este orçamento — o inverso do forward. */
+  async vincularOportunidade(orcamentoId: string, oportunidadeId: string, userId?: string) {
+    const orc = await prisma.orcamento.findUnique({ where: { id: orcamentoId }, select: { id: true, numero: true } })
+    if (!orc) throw new Error('Orçamento não encontrado')
+    const op = await prisma.oportunidade.findUnique({
+      where: { id: oportunidadeId },
+      select: { id: true, numero: true, titulo: true, empresaId: true, etapaId: true, responsavelId: true, etapa: { select: { ordem: true, ehGanho: true, ehPerda: true } } },
+    })
+    if (!op) throw new Error('Card de CRM não encontrado')
+    // Invariante 1:1 — a oportunidade não pode já estar em outro orçamento.
+    const outro = await prisma.orcamento.findFirst({ where: { oportunidadeId, id: { not: orcamentoId } }, select: { numero: true } })
+    if (outro) throw new Error(`Este card de CRM já está vinculado ao orçamento #${outro.numero}. Desvincule-o antes.`)
+
+    await prisma.orcamento.update({ where: { id: orcamentoId }, data: { oportunidadeId } })
+    await this.moverCardParaOrcamentoSePendente(op, orc.numero, userId)
+      .catch(e => console.warn('[Orcamento] Falha ao mover card do CRM:', (e as Error).message))
+    await prisma.oportunidadeEvento.create({
+      data: { oportunidadeId, userId: userId ?? null, tipo: 'orcamento', descricao: `Orçamento #${orc.numero} vinculado manualmente` },
+    }).catch(() => null)
+    // Avisa o responsável do card (se houver e não for quem vinculou).
+    if (op.responsavelId && op.responsavelId !== userId) {
+      await this.notificationService.criar({
+        userId: op.responsavelId,
+        titulo: `Orçamento #${orc.numero} vinculado`,
+        mensagem: `O card de CRM "${op.titulo}" foi vinculado ao orçamento #${orc.numero}.`,
+        tipo: 'info', link: `/orcamentos/${orcamentoId}`, origem: 'orcamentos',
+      }).catch(() => {})
+    }
+    return { ok: true }
+  }
+
+  /** Remove o vínculo do card de CRM deste orçamento (não move o card de volta). */
+  async desvincularOportunidade(orcamentoId: string, userId?: string) {
+    const orc = await prisma.orcamento.findUnique({ where: { id: orcamentoId }, select: { oportunidadeId: true, numero: true } })
+    if (!orc?.oportunidadeId) return { ok: true }
+    const oportunidadeId = orc.oportunidadeId
+    await prisma.orcamento.update({ where: { id: orcamentoId }, data: { oportunidadeId: null } })
+    await prisma.oportunidadeEvento.create({
+      data: { oportunidadeId, userId: userId ?? null, tipo: 'orcamento', descricao: `Orçamento #${orc.numero} desvinculado` },
+    }).catch(() => null)
+    return { ok: true }
+  }
+
+  /** Busca cards de CRM para o seletor de vínculo (por nº/título), escopado por empresa. */
+  async buscarOportunidades(search: string | undefined, isMaster: boolean, empresaId?: string) {
+    const where: any = {}
+    if (!isMaster && empresaId) where.empresaId = empresaId
+    const t = (search ?? '').trim()
+    if (t) {
+      const n = parseInt(t.replace(/\D/g, ''), 10)
+      where.OR = [
+        { titulo: { contains: t, mode: 'insensitive' } },
+        ...(Number.isFinite(n) && n > 0 ? [{ numero: n }] : []),
+      ]
+    }
+    const ops = await prisma.oportunidade.findMany({
+      where, select: { id: true, numero: true, titulo: true, clienteId: true, etapa: { select: { nome: true } } },
+      orderBy: { createdAt: 'desc' }, take: 20,
+    }).catch(() => [] as Array<{ id: string; numero: number | null; titulo: string; clienteId: string | null; etapa: { nome: string } | null }>)
+    const clienteIds = [...new Set(ops.map(o => o.clienteId).filter(Boolean))] as string[]
+    const clientes = clienteIds.length
+      ? await prisma.cliente.findMany({ where: { id: { in: clienteIds } }, select: { id: true, razaoSocial: true, nomeFantasia: true } }).catch(() => [])
+      : []
+    const cmap = new Map(clientes.map(c => [c.id, c.razaoSocial || c.nomeFantasia || '—']))
+    return ops.map(o => ({ id: o.id, numero: o.numero, titulo: o.titulo, cliente: o.clienteId ? (cmap.get(o.clienteId) ?? null) : null, etapa: o.etapa?.nome ?? null }))
   }
 
   async changeStatus(id: string, novoStatus: string, userId?: string, opts?: { skipNotifications?: boolean; notificarCliente?: boolean }) {

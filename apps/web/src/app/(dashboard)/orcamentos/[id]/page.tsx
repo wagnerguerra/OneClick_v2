@@ -37,6 +37,7 @@ import { ORCAMENTO_STATUS_ORDER, ORCAMENTO_STATUS_LABELS } from '@saas/types'
 import { ClienteCombobox } from '../_components/cliente-combobox'
 import { UserCombobox } from '../_components/user-combobox'
 import { CatalogoCombobox } from '../_components/catalogo-combobox'
+import { OportunidadeCombobox, type OportunidadeOpt } from '../_components/oportunidade-combobox'
 
 // ============================================================
 // Constantes
@@ -1356,6 +1357,24 @@ export default function OrcamentoDetailPage() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
+  // ── Vínculo com CRM (inverso do forward CRM→orçamento) ──
+  async function handleVincularCrm(op: OportunidadeOpt) {
+    try {
+      await (trpc.orcamento as any).vincularOportunidade.mutate({ id, oportunidadeId: op.id })
+      alerts.success('Vinculado', `Card de CRM "${op.titulo}" vinculado ao orçamento.`)
+      fetchOrc(true)
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+  async function handleDesvincularCrm() {
+    const ok = await alerts.confirm({ title: 'Desvincular CRM', text: 'O card de CRM deixará de estar vinculado a este orçamento. O card não volta de coluna.', confirmText: 'Desvincular', icon: 'warning' })
+    if (!ok) return
+    try {
+      await (trpc.orcamento as any).desvincularOportunidade.mutate({ id })
+      alerts.success('Desvinculado', 'Vínculo com o CRM removido.')
+      fetchOrc(true)
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
   // Editar data da timeline (datas dedicadas dtEnviado/dtAprovado/...)
   async function handleEditarData(campo: string, valor: string | null) {
     try {
@@ -2226,6 +2245,36 @@ export default function OrcamentoDetailPage() {
                                 Este orçamento não possui nenhum serviço com área definida. Adicione serviços na aba &quot;Itens&quot;.
                               </p>
                             </div>
+                          )}
+                        </div>
+
+                        {/* Linha 5: CRM vinculado — o inverso do forward CRM→orçamento */}
+                        <div className="col-span-12 space-y-1.5">
+                          <Label className="text-[13px] font-semibold text-foreground">CRM vinculado</Label>
+                          {(orc as any)?.oportunidade ? (
+                            <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/20 px-3 py-2">
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium truncate">
+                                  {(orc as any).oportunidade.numero != null ? `#${(orc as any).oportunidade.numero} · ` : ''}{(orc as any).oportunidade.titulo}
+                                </div>
+                                {(orc as any).oportunidade.etapa && (
+                                  <div className="text-[11px] text-muted-foreground truncate">Etapa: {(orc as any).oportunidade.etapa}</div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Button type="button" variant="ghost" size="xs" className="h-7 gap-1 text-[11px]" onClick={() => window.open('/crm', '_blank')} title="Abrir o CRM">
+                                  <ExternalLink className="h-3.5 w-3.5" /> Ver no CRM
+                                </Button>
+                                <Button type="button" variant="ghost" size="xs" className="h-7 gap-1 text-[11px] text-rose-600 dark:text-rose-400" onClick={handleDesvincularCrm} title="Desvincular">
+                                  <X className="h-3.5 w-3.5" /> Desvincular
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <OportunidadeCombobox onSelect={handleVincularCrm} />
+                              <p className="text-[11px] text-muted-foreground">Vincule um card do CRM a este orçamento. Se o card estiver numa etapa anterior, ele é movido para &quot;Orçamento Criado&quot;.</p>
+                            </>
                           )}
                         </div>
                       </div>

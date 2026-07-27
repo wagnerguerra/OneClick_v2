@@ -107,6 +107,20 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ id: z.string(), data: updateOrcamentoSchema }))
       .mutation(({ input, ctx }) => orcamentoService.update(input.id, input.data, ctx.userId, ctx.isMaster ?? false)),
 
+    // ── Vínculo com CRM (o inverso do forward CRM→orçamento) ──
+    // Funciona mesmo em orçamento congelado (APROVADO+): é metadado, não escopo/valor.
+    buscarOportunidadesParaVinculo: readProcedure(MODULE)
+      .input(z.object({ search: z.string().optional() }))
+      .query(({ input, ctx }) => orcamentoService.buscarOportunidades(input.search, ctx.isMaster ?? false, ctx.empresaId)),
+
+    vincularOportunidade: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), oportunidadeId: z.string() }))
+      .mutation(({ input, ctx }) => orcamentoService.vincularOportunidade(input.id, input.oportunidadeId, ctx.userId)),
+
+    desvincularOportunidade: writeProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => orcamentoService.desvincularOportunidade(input.id, ctx.userId)),
+
     // Endpoint dedicado para texto interno — funciona mesmo em orcamentos
     // congelados (APROVADO+). E uma anotacao interna, nao altera escopo/valores.
     updateTextoInterno: writeProcedure(MODULE)
