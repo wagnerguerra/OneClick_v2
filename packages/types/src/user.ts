@@ -389,14 +389,8 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'gerir_pesquisas', label: 'Gerir a pesquisa de satisfação (cadastro/versões)', group: 'Configurações' },
   ],
   helpdesk: [
-    // Atuação como agente (quem tem 'canRead' já abre tickets como solicitante;
-    // estas sub-perms diferenciam o agente da TI)
-    { key: 'atuar_agente', label: 'Atuar como agente (assumir, atender, mudar status)', group: 'Atendimento' },
-    { key: 'change_responsavel', label: 'Atribuir/reatribuir responsável', group: 'Atendimento' },
-    { key: 'change_prazo', label: 'Alterar prazo/SLA do ticket', group: 'Atendimento' },
-    { key: 'change_prioridade', label: 'Alterar prioridade', group: 'Atendimento' },
-    { key: 'nota_interna', label: 'Escrever notas internas (não visíveis ao solicitante)', group: 'Atendimento' },
     // Escopo de listagem — escolha única (#HLP0139). proprios ⊂ area ⊂ todos.
+    // Primeiro bloco da lista.
     {
       key: 'scope',
       label: '',
@@ -406,9 +400,14 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
       default: HELPDESK_SCOPE_DEFAULT,
       observacao: 'Define quais tickets o usuário pode visualizar na listagem.',
     },
-    // Operações
-    { key: 'mover_kanban', label: 'Mover cards no kanban (arrastar status)', group: 'Ações' },
-    { key: 'arquivar', label: 'Arquivar tickets', group: 'Ações' },
+    // Atendimento — quem tem 'canRead' já abre tickets como solicitante; estas
+    // sub-perms diferenciam o agente da TI. "Atuar como agente" engloba mover
+    // cards no kanban e escrever notas internas (não são mais permissões à parte).
+    { key: 'atuar_agente', label: 'Atuar como agente (assumir, atender, mudar status, mover cards no kanban, notas internas)', group: 'Atendimento' },
+    { key: 'change_responsavel', label: 'Atribuir/reatribuir responsável', group: 'Atendimento' },
+    { key: 'change_prazo', label: 'Alterar prazo/SLA do ticket', group: 'Atendimento' },
+    { key: 'change_prioridade', label: 'Alterar prioridade', group: 'Atendimento' },
+    { key: 'arquivar', label: 'Arquivar tickets', group: 'Atendimento' },
     // Administração
     { key: 'gerenciar_categorias', label: 'Gerenciar categorias e SLA padrão', group: 'Administração' },
     { key: 'panel_metricas', label: 'Acesso ao painel de métricas', group: 'Administração' },

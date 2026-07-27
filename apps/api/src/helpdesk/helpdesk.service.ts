@@ -995,6 +995,11 @@ export class HelpdeskService {
   // ── Mensagens ──────────────────────────────────────────────────
 
   async addMensagem(input: AddMensagemInput, userId: string) {
+    // Nota interna é embutida em "atuar como agente" (#HLP0139): só agente pode
+    // escrever mensagens internas. Solicitante só manda mensagem pública.
+    if (input.interna && !(await this.canAtuarAgente(userId))) {
+      throw new Error('Apenas agentes podem escrever notas internas.')
+    }
     const ticket = await prisma.helpdeskTicket.findUnique({
       where: { id: input.ticketId },
       select: {
