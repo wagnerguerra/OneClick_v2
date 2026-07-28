@@ -1759,12 +1759,17 @@ export default function ServicosPage() {
               </div>
               <div className="col-span-12 space-y-1.5">
                 <Label className="text-xs font-medium">Descrição</Label>
-                <textarea
+                {/* #HLP0158: a MESMA descrição já era editada com toolbar na página
+                    de detalhe do serviço (/servicos/[id] → pill Descrição). Aqui no
+                    modal da lista tinha sobrado um textarea puro, então quem cadastrava
+                    por este caminho não conseguia formatar o texto que vai para a
+                    proposta e para o contrato. */}
+                <RichEditor
                   value={formDescricao}
-                  onChange={e => setFormDescricao(e.target.value)}
+                  onChange={setFormDescricao}
                   placeholder="Descrição completa do serviço — pode ser usada como texto orientativo no orçamento e no contrato."
-                  rows={4}
-                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  minHeight={120}
+                  maxHeight={260}
                 />
               </div>
               <div className="col-span-12 sm:col-span-4 flex items-center gap-2 pt-6">
