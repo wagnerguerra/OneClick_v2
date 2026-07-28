@@ -1559,6 +1559,13 @@ enum TipoFornecedor {
   AMBOS
 }
 
+// Grau de risco do fornecedor (ISO 9001 — port v1 cad_for.RISCO 1/2/3).
+enum RiscoFornecedor {
+  BAIXO
+  MEDIO
+  ALTO
+}
+
 model Fornecedor {
   id   String @id @default(cuid())
   code Int    @default(autoincrement())
@@ -1573,6 +1580,10 @@ model Fornecedor {
   tipoFornecedor     TipoFornecedor @default(AMBOS) @map("tipo_fornecedor")
   categoria          String?
   logoUrl            String?        @map("logo_url")
+
+  // Qualidade / ISO (port v1)
+  risco                RiscoFornecedor @default(MEDIO)
+  avaliacaoObrigatoria Boolean         @default(false) @map("avaliacao_obrigatoria")
 
   // Contato
   telefone         String?
@@ -1615,6 +1626,9 @@ model Fornecedor {
   events           FornecedorEvent[]
   ativos           Ativo[]
   ativoManutencoes AtivoManutencao[]
+  anexos           FornecedorAnexo[]
+  qualificacoes    FornecedorQualificacao[]
+  mensagens        FornecedorMensagem[]
 
   @@map("fornecedores")
 }
@@ -1632,6 +1646,77 @@ model FornecedorEvent {
   user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("fornecedor_events")
+}
+
+// Anexos do fornecedor (port v1 cad_for_arq). Arquivos físicos em storage
+// (S3/Minio); `fileUrl` guarda o caminho relativo. uploadedById é id solto
+// (sem FK) p/ não acoplar ao model User — resolvido na leitura quando preciso.
+model FornecedorAnexo {
+  id           String   @id @default(cuid())
+  fornecedorId String   @map("fornecedor_id")
+  descricao    String?
+  fileUrl      String   @map("file_url")
+  fileName     String   @map("file_name")
+  mimeType     String?  @map("mime_type")
+  tamanho      Int?
+  uploadedById String?  @map("uploaded_by_id")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  fornecedor Fornecedor @relation(fields: [fornecedorId], references: [id], onDelete: Cascade)
+
+  @@index([fornecedorId])
+  @@map("fornecedor_anexos")
+}
+
+// Critério de seleção/homologação (port v1 cad_for_cri, QA='S'). Catálogo por
+// tipo de fornecedor + empresa. O fornecedor responde Sim/Não (FornecedorQualificacao).
+model FornecedorCriterio {
+  id             String         @id @default(cuid())
+  empresaId      String?        @map("empresa_id")
+  tipoFornecedor TipoFornecedor @default(AMBOS) @map("tipo_fornecedor")
+  criterio       String         @db.Text
+  ordem          Int            @default(0)
+  isActive       Boolean        @default(true) @map("is_active")
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  qualificacoes FornecedorQualificacao[]
+
+  @@index([empresaId])
+  @@map("fornecedor_criterios")
+}
+
+// Resposta do fornecedor a um critério de seleção (port v1 cad_for_qua.QUALIFICACAO 1/0).
+model FornecedorQualificacao {
+  id             String   @id @default(cuid())
+  fornecedorId   String   @map("fornecedor_id")
+  criterioId     String   @map("criterio_id")
+  atende         Boolean
+  respondidoById String?  @map("respondido_por_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  fornecedor Fornecedor         @relation(fields: [fornecedorId], references: [id], onDelete: Cascade)
+  criterio   FornecedorCriterio @relation(fields: [criterioId], references: [id], onDelete: Cascade)
+
+  @@unique([fornecedorId, criterioId])
+  @@index([fornecedorId])
+  @@map("fornecedor_qualificacoes")
+}
+
+// Mensagens/interações no fornecedor (port v1 cad_for_msg). autorId é id solto.
+model FornecedorMensagem {
+  id           String   @id @default(cuid())
+  fornecedorId String   @map("fornecedor_id")
+  autorId      String?  @map("autor_id")
+  texto        String   @db.Text
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  fornecedor Fornecedor @relation(fields: [fornecedorId], references: [id], onDelete: Cascade)
+
+  @@index([fornecedorId])
+  @@map("fornecedor_mensagens")
 }
 
 // ============================================================
