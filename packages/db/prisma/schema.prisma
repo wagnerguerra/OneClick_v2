@@ -550,6 +550,7 @@ model Empresa {
   cargos               Cargo[]
   clientes             Cliente[]
   fornecedores         Fornecedor[]
+  compras              Compra[]
   socios               Socio[]
   events               EmpresaEvent[]
   certificadosDigitais CertificadoDigital[]
@@ -1629,6 +1630,7 @@ model Fornecedor {
   anexos           FornecedorAnexo[]
   qualificacoes    FornecedorQualificacao[]
   mensagens        FornecedorMensagem[]
+  compras          Compra[]
 
   @@map("fornecedores")
 }
@@ -1717,6 +1719,162 @@ model FornecedorMensagem {
 
   @@index([fornecedorId])
   @@map("fornecedor_mensagens")
+}
+
+// ============================================================
+// Módulo Qualidade — Compras / Aquisições (port v1 sgq_aquisicoes)
+// ============================================================
+
+enum StatusCompra {
+  NOVO
+  AGUARDANDO_APROVACAO
+  APROVADO
+  REPROVADO
+  RECEBIDO
+  AVALIADO
+  CANCELADO
+}
+
+// Tipo de fornecimento (port v1 sgq_com.TIPO_FORN 1-5) — informado na avaliação.
+enum TipoFornecimento {
+  NORMAL
+  CONTRATO_PERMANENTE
+  CONTRATO_TEMPORARIO
+  CURSO_TREINAMENTO
+  MANUTENCAO_SOFTWARE
+}
+
+// Pedido de compra/aquisição (port v1 sgq_com). solicitante/aprovador/recebedor
+// são ids soltos de User (sem FK) p/ não poluir o model User.
+model Compra {
+  id   String @id @default(cuid())
+  code Int    @default(autoincrement())
+
+  fornecedorId  String       @map("fornecedor_id")
+  solicitanteId String?      @map("solicitante_id")
+  status        StatusCompra @default(NOVO)
+
+  formaPagamento String?  @map("forma_pagamento")
+  prazoEntrega   String?  @map("prazo_entrega")
+  prazoPagamento String?  @map("prazo_pagamento")
+  frete          Decimal? @db.Decimal(14, 2)
+  observacoes    String?  @db.Text
+
+  // Aprovação (apr/)
+  aprovadorId      String?   @map("aprovador_id")
+  dataSolicitacao  DateTime? @map("data_solicitacao")
+  dataAprovacao    DateTime? @map("data_aprovacao")
+  motivoReprovacao String?   @map("motivo_reprovacao") @db.Text
+
+  // Recebimento
+  recebedorId     String?   @map("recebedor_id")
+  dataRecebimento DateTime? @map("data_recebimento")
+
+  // Avaliação (fechamento — P1..P5 ficam em CompraAvaliacaoResposta)
+  dataAvaliacao    DateTime?         @map("data_avaliacao")
+  tipoFornecimento TipoFornecimento? @map("tipo_fornecimento")
+  nfNumero         String?           @map("nf_numero")
+  nfValor          Decimal?          @map("nf_valor") @db.Decimal(14, 2)
+  melhoria         Boolean           @default(false)
+  melhoriaObs      String?           @map("melhoria_obs") @db.Text
+  setor            String?
+
+  empresaId String?  @map("empresa_id")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  fornecedor Fornecedor                @relation(fields: [fornecedorId], references: [id])
+  empresa    Empresa?                  @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  itens      CompraItem[]
+  anexos     CompraAnexo[]
+  mensagens  CompraMensagem[]
+  avaliacoes CompraAvaliacaoResposta[]
+
+  @@index([empresaId])
+  @@index([fornecedorId])
+  @@index([status])
+  @@map("compras")
+}
+
+model CompraItem {
+  id            String   @id @default(cuid())
+  compraId      String   @map("compra_id")
+  descricao     String
+  unidade       String?
+  quantidade    Int      @default(1)
+  valorUnitario Decimal  @default(0) @map("valor_unitario") @db.Decimal(14, 2)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  compra Compra @relation(fields: [compraId], references: [id], onDelete: Cascade)
+
+  @@index([compraId])
+  @@map("compra_itens")
+}
+
+model CompraAnexo {
+  id           String   @id @default(cuid())
+  compraId     String   @map("compra_id")
+  descricao    String?
+  fileUrl      String   @map("file_url")
+  fileName     String   @map("file_name")
+  mimeType     String?  @map("mime_type")
+  tamanho      Int?
+  uploadedById String?  @map("uploaded_by_id")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  compra Compra @relation(fields: [compraId], references: [id], onDelete: Cascade)
+
+  @@index([compraId])
+  @@map("compra_anexos")
+}
+
+model CompraMensagem {
+  id        String   @id @default(cuid())
+  compraId  String   @map("compra_id")
+  autorId   String?  @map("autor_id")
+  texto     String   @db.Text
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  compra Compra @relation(fields: [compraId], references: [id], onDelete: Cascade)
+
+  @@index([compraId])
+  @@map("compra_mensagens")
+}
+
+// Critério de avaliação de fornecimento (P1..P5 — catálogo, port v1 sgq_com_cri).
+model CompraCriterio {
+  id        String   @id @default(cuid())
+  empresaId String?  @map("empresa_id")
+  criterio  String   @db.Text
+  ordem     Int      @default(0)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  respostas CompraAvaliacaoResposta[]
+
+  @@index([empresaId])
+  @@map("compra_criterios")
+}
+
+// Resposta (atende/não) de um critério na avaliação de um pedido (port P1..P5).
+model CompraAvaliacaoResposta {
+  id         String   @id @default(cuid())
+  compraId   String   @map("compra_id")
+  criterioId String   @map("criterio_id")
+  atende     Boolean
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  compra   Compra         @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  criterio CompraCriterio @relation(fields: [criterioId], references: [id], onDelete: Cascade)
+
+  @@unique([compraId, criterioId])
+  @@index([compraId])
+  @@map("compra_avaliacao_respostas")
 }
 
 // ============================================================
