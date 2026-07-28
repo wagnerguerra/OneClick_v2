@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Paperclip, Upload, Loader2, Trash2, Pencil, MessageSquare, History,
-  Download, Send, FileText, X, ClipboardCheck, Check, Ban, Plus,
+  Download, Send, FileText, X, ClipboardCheck, Check, Ban, Plus, Gauge, ExternalLink,
 } from 'lucide-react'
+import Link from 'next/link'
 import {
   Button, Card, Input, cn,
   Tabs, TabsList, TabsTrigger, TabsContent,
@@ -67,12 +68,14 @@ export function FornecedorIsoTabs({ fornecedorId, currentUserId }: { fornecedorI
         <TabsList variant="pills" className="w-[140px] shrink-0 border-r border-border bg-muted/30 p-3 items-center">
           <TabsTrigger variant="pills" value="anexos" icon={<Paperclip className="h-4 w-4" />}>Anexos</TabsTrigger>
           <TabsTrigger variant="pills" value="qualificacao" icon={<ClipboardCheck className="h-4 w-4" />}>Qualificação</TabsTrigger>
+          <TabsTrigger variant="pills" value="avaliacao" icon={<Gauge className="h-4 w-4" />}>Avaliação</TabsTrigger>
           <TabsTrigger variant="pills" value="mensagens" icon={<MessageSquare className="h-4 w-4" />}>Mensagens</TabsTrigger>
           <TabsTrigger variant="pills" value="historico" icon={<History className="h-4 w-4" />}>Histórico</TabsTrigger>
         </TabsList>
         <div className="flex-1 min-w-0">
           <TabsContent value="anexos" className="p-5"><AnexosTab fornecedorId={fornecedorId} /></TabsContent>
           <TabsContent value="qualificacao" className="p-5"><QualificacaoTab fornecedorId={fornecedorId} /></TabsContent>
+          <TabsContent value="avaliacao" className="p-5"><AvaliacaoTab fornecedorId={fornecedorId} /></TabsContent>
           <TabsContent value="mensagens" className="p-5"><MensagensTab fornecedorId={fornecedorId} currentUserId={currentUserId} /></TabsContent>
           <TabsContent value="historico" className="p-5"><HistoricoTab fornecedorId={fornecedorId} /></TabsContent>
         </div>
@@ -276,6 +279,63 @@ function QualificacaoTab({ fornecedorId }: { fornecedorId: string }) {
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Adicionar
         </Button>
       </div>
+    </div>
+  )
+}
+
+// ── Avaliação de fornecimento (nota derivada das compras) ────
+interface AvalFornecimento {
+  nota: number | null
+  faixa: 'verde' | 'amarelo' | 'vermelho' | null
+  totalPedidos: number
+  pedidos: Array<{ id: string; code: number; dataAvaliacao: string | null; nfNumero: string | null; pct: number | null }>
+}
+const FAIXA_COR: Record<string, string> = {
+  verde: 'text-emerald-600 dark:text-emerald-400',
+  amarelo: 'text-amber-600 dark:text-amber-400',
+  vermelho: 'text-rose-600 dark:text-rose-400',
+}
+const FAIXA_LABEL: Record<string, string> = { verde: 'Aprovado', amarelo: 'Atenção', vermelho: 'Crítico' }
+const corPct = (p: number) => (p >= 90 ? FAIXA_COR.verde : p >= 60 ? FAIXA_COR.amarelo : FAIXA_COR.vermelho)
+
+function AvaliacaoTab({ fornecedorId }: { fornecedorId: string }) {
+  const [data, setData] = useState<AvalFornecimento | null>(null)
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    setLoading(true)
+    ;(trpc.fornecedor as any).getAvaliacaoFornecimento.query({ fornecedorId })
+      .then((d: AvalFornecimento) => setData(d)).catch(() => setData(null)).finally(() => setLoading(false))
+  }, [fornecedorId])
+
+  if (loading) return <div className="flex items-center justify-center py-8 text-muted-foreground gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-6 rounded-lg border border-border p-4">
+        <div className="text-center shrink-0 min-w-[110px]">
+          <div className={cn('text-4xl font-bold tabular-nums', data?.faixa ? FAIXA_COR[data.faixa] : 'text-muted-foreground')}>
+            {data?.nota != null ? `${data.nota.toFixed(1)}%` : '—'}
+          </div>
+          <div className="text-[11px] text-muted-foreground mt-1">{data?.faixa ? FAIXA_LABEL[data.faixa] : 'Sem avaliações'}</div>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          Média dos <strong className="text-foreground">{data?.totalPedidos ?? 0}</strong> pedido(s) avaliados nos últimos 365 dias.
+          <p className="text-[11px] mt-1">A nota vem das avaliações de compras (Aquisições): cada critério “atende” pesa igual e a nota do pedido é a % de critérios atendidos. Faixas: ≥90 verde · 60–89 amarelo · &lt;60 vermelho.</p>
+        </div>
+      </div>
+      {data?.pedidos.length ? (
+        <div className="divide-y divide-border/60 rounded-lg border border-border">
+          {data.pedidos.map((p) => (
+            <Link key={p.id} href={`/aquisicoes/${p.id}`} className="flex items-center gap-3 px-3 py-2 hover:bg-muted/30">
+              <span className="font-mono text-xs text-muted-foreground">#{p.code}</span>
+              <span className="text-sm flex-1">{p.nfNumero ? `NF ${p.nfNumero}` : 'Pedido'}</span>
+              <span className="text-[11px] text-muted-foreground">{p.dataAvaliacao ? new Date(p.dataAvaliacao).toLocaleDateString('pt-BR') : ''}</span>
+              <span className={cn('text-sm font-semibold tabular-nums', p.pct != null ? corPct(p.pct) : 'text-muted-foreground')}>{p.pct != null ? `${p.pct}%` : '—'}</span>
+              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+            </Link>
+          ))}
+        </div>
+      ) : <p className="text-center text-sm text-muted-foreground py-4">Nenhum pedido avaliado no período.</p>}
     </div>
   )
 }

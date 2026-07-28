@@ -386,4 +386,31 @@ export class FornecedorService {
       return db.fornecedorMensagem.update({ where: { id }, data: { isActive: false } })
     })
   }
+
+  // ── Avaliação de fornecimento (nota DERIVADA das compras) ────
+  /**
+   * Nota % do fornecedor derivada dos pedidos AVALIADOS nos últimos 365 dias
+   * (port v1: cada critério "atende" pesa igual; % do pedido = atende/total×100;
+   * nota = média das % dos pedidos). Faixas: >=90 verde, 60–89 amarelo, <60 vermelho.
+   */
+  async getAvaliacaoFornecimento(fornecedorId: string, tenantSchema?: string) {
+    return scoped(tenantSchema, async (db) => {
+      const limite = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
+      const pedidos = await db.compra.findMany({
+        where: { fornecedorId, status: 'AVALIADO', isActive: true, dataAvaliacao: { gte: limite } },
+        select: { id: true, code: true, dataAvaliacao: true, nfNumero: true, avaliacoes: { select: { atende: true } } },
+        orderBy: { dataAvaliacao: 'desc' },
+      })
+      const porPedido = pedidos.map((p) => {
+        const total = p.avaliacoes.length
+        const atende = p.avaliacoes.filter((a) => a.atende).length
+        const pct = total > 0 ? Math.round((atende / total) * 10000) / 100 : null
+        return { id: p.id, code: p.code, dataAvaliacao: p.dataAvaliacao, nfNumero: p.nfNumero, pct }
+      })
+      const comNota = porPedido.filter((p) => p.pct !== null) as Array<{ pct: number }>
+      const nota = comNota.length ? Math.round((comNota.reduce((s, p) => s + p.pct, 0) / comNota.length) * 100) / 100 : null
+      const faixa = nota === null ? null : nota >= 90 ? 'verde' : nota >= 60 ? 'amarelo' : 'vermelho'
+      return { nota, faixa, totalPedidos: pedidos.length, pedidos: porPedido }
+    })
+  }
 }

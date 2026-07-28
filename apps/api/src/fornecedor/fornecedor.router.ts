@@ -78,6 +78,11 @@ export function createFornecedorRouter(fornecedorService: FornecedorService) {
     getQualificacoes: readProcedure(MODULE)
       .input(z.object({ fornecedorId: z.string() }))
       .query(({ input, ctx }) => fornecedorService.getQualificacoes(input.fornecedorId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
+
+    // ── Avaliação de fornecimento (nota derivada das compras) ──
+    getAvaliacaoFornecimento: readProcedure(MODULE)
+      .input(z.object({ fornecedorId: z.string() }))
+      .query(({ input, ctx }) => fornecedorService.getAvaliacaoFornecimento(input.fornecedorId, ctx.tenantSchema)),
     responderQualificacao: writeProcedure(MODULE)
       .input(responderQualificacaoSchema)
       .mutation(({ input, ctx }) => fornecedorService.responderQualificacao(input, ctx.userId, ctx.tenantSchema)),
