@@ -282,18 +282,13 @@ export class CndSchedulerService implements OnModuleInit, OnModuleDestroy {
 
   // ── Cron management ───────────────────────────────────
 
+  // CRON PERMANENTEMENTE DESATIVADO — decisão: as consultas ao SERPRO (CND
+  // federal) passam a ser feitas APENAS manualmente (botão "Executar agora"/
+  // runNow ou os endpoints do router). Este método virou no-op: nem o
+  // onModuleInit nem o updateConfig iniciam mais o agendamento automático.
+  // Para reativar no futuro, restaure a criação do CronJob (histórico no git).
   private startCron(cronExpression: string) {
-    this.stopCron()
-    try {
-      this.cronJob = CronJob.from({
-        cronTime: cronExpression,
-        onTick: () => this.executeFetch('automatico', undefined, this.homeEmpresaId),
-        timeZone: 'America/Sao_Paulo',
-        start: true,
-      })
-    } catch (e) {
-      console.error('[CND Scheduler] Cron invalida:', cronExpression, (e as Error).message)
-    }
+    console.log(`[CND Scheduler] Cron desativado permanentemente (era '${cronExpression}') — consultas apenas manuais.`)
   }
 
   private stopCron() {

@@ -266,7 +266,7 @@ export const navigation: NavGroup[] = [
       // ⚠️ Módulo Qualidade ainda não publicado — todas as rotas 404 em produção
       // (F-006). Marcado wip p/ esconder do menu até as páginas existirem.
       { label: 'Análise de Contexto', href: '/analise-contexto', icon: Search, wip: true },
-      { label: 'Aquisições', href: '/aquisicoes', icon: ShoppingCart, wip: true },
+      { label: 'Aquisições', href: '/aquisicoes', icon: ShoppingCart },
       { label: 'Capacitações', href: '/capacitacoes', icon: GraduationCap, wip: true },
       { label: 'Documentos Externos', href: '/documentos-externos', icon: FileBox, wip: true },
       { label: 'Documentos Internos', href: '/documentos-internos', icon: FileCheck, wip: true },

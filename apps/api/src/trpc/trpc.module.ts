@@ -14,6 +14,7 @@ import { AuthModule } from '../auth/auth.module'
 import { StripeModule } from '../stripe/stripe.module'
 import { ColaboradorModule } from '../colaborador/colaborador.module'
 import { FornecedorModule } from '../fornecedor/fornecedor.module'
+import { CompraModule } from '../compra/compra.module'
 import { TratamentoLancamentosModule } from '../tratamento-lancamentos/tratamento-lancamentos.module'
 import { QaModule } from '../qa/qa.module'
 import { SqlConsoleModule } from '../sql-console/sql-console.module'
@@ -73,7 +74,7 @@ import { ReformaTributariaModule } from '../reforma-tributaria/reforma-tributari
 import { CusteioModule } from '../custeio/custeio.module'
 
 @Module({
-  imports: [AreaModule, FerramentasModule, EmpresaModule, UserModule, CargoModule, OnboardingModule, ClienteModule, AdminModule, AdminTenantModule, AuthModule, StripeModule, ColaboradorModule, FornecedorModule, SocioModule, CnpjModule, SitfisModule, CaixaPostalModule, CndModule, DctfwebModule, BiModule, FolhaModule, FolhaBiModule, AgendaModule, DteModule, CrmModule, OrcamentoModule, BeneficioFiscalModule, ReformaTributariaModule, CusteioModule, NotaModule, WhatsappModule, FaqModule, ServicoModule, ProcessoModule, PesquisaModule, ContratoModule, NotificationModule, TabsModule, CertificadoDigitalModule, DashboardLayoutModule, PermissionsEventsModule, NotificationsEventsModule, DashboardCalendarioModule, HelpdeskModule, AcessoriasModule, NotificacaoModule, ObrigacaoModule, FeriadoModule, GrupoObrigacaoModule, ProjetoModule, MinhasObrigacoesModule, AtivoModule, ClientErrorModule, ThemeModule, DanfeModule, DriveSyncModule, NfeDistModule, NfseDistModule, AgendamentoModule, GoogleBackupModule, SignatureModule, OnlineUsersModule, ChatModule, PushModule, PainelTvModule, LeadModule, BeneficioModule, TratamentoLancamentosModule, QaModule, SqlConsoleModule],
+  imports: [AreaModule, FerramentasModule, EmpresaModule, UserModule, CargoModule, OnboardingModule, ClienteModule, AdminModule, AdminTenantModule, AuthModule, StripeModule, ColaboradorModule, FornecedorModule, CompraModule, SocioModule, CnpjModule, SitfisModule, CaixaPostalModule, CndModule, DctfwebModule, BiModule, FolhaModule, FolhaBiModule, AgendaModule, DteModule, CrmModule, OrcamentoModule, BeneficioFiscalModule, ReformaTributariaModule, CusteioModule, NotaModule, WhatsappModule, FaqModule, ServicoModule, ProcessoModule, PesquisaModule, ContratoModule, NotificationModule, TabsModule, CertificadoDigitalModule, DashboardLayoutModule, PermissionsEventsModule, NotificationsEventsModule, DashboardCalendarioModule, HelpdeskModule, AcessoriasModule, NotificacaoModule, ObrigacaoModule, FeriadoModule, GrupoObrigacaoModule, ProjetoModule, MinhasObrigacoesModule, AtivoModule, ClientErrorModule, ThemeModule, DanfeModule, DriveSyncModule, NfeDistModule, NfseDistModule, AgendamentoModule, GoogleBackupModule, SignatureModule, OnlineUsersModule, ChatModule, PushModule, PainelTvModule, LeadModule, BeneficioModule, TratamentoLancamentosModule, QaModule, SqlConsoleModule],
   providers: [TrpcService],
   controllers: [TrpcController],
   exports: [TrpcService],

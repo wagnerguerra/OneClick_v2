@@ -8,6 +8,7 @@ import { UploadModule } from './upload/upload.module'
 import { StripeModule } from './stripe/stripe.module'
 import { ColaboradorModule } from './colaborador/colaborador.module'
 import { FornecedorModule } from './fornecedor/fornecedor.module'
+import { CompraModule } from './compra/compra.module'
 import { SocioModule } from './socio/socio.module'
 import { CnpjModule } from './cnpj/cnpj.module'
 import { SitfisModule } from './sitfis/sitfis.module'
@@ -50,6 +51,7 @@ import { CusteioModule } from './custeio/custeio.module'
     StripeModule,
     ColaboradorModule,
     FornecedorModule,
+    CompraModule,
     SocioModule,
     CnpjModule,
     SitfisModule,

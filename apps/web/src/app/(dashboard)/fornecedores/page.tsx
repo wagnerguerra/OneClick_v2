@@ -18,7 +18,7 @@ import {
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { exportToExcel } from '@/lib/export-data'
-import { TIPO_FORNECEDOR_LABELS } from '@saas/types'
+import { TIPO_FORNECEDOR_LABELS, RISCO_FORNECEDOR_LABELS } from '@saas/types'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { ImportModal } from './_components/import-modal'
@@ -31,11 +31,18 @@ interface Fornecedor {
   documento: string
   tipoDocumento: string
   tipoFornecedor: string
+  risco: string
   telefone: string | null
   email: string | null
   cidade: string | null
   uf: string | null
   isActive: boolean
+}
+
+const RISCO_COLORS: Record<string, string> = {
+  BAIXO: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800',
+  MEDIO: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800',
+  ALTO: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800',
 }
 
 type SortDir = 'asc' | 'desc'
@@ -177,16 +184,17 @@ export default function FornecedoresPage() {
               <TableHead className="hidden lg:table-cell w-[160px]">CNPJ/CPF</TableHead>
               <TableHead className="hidden md:table-cell">Cidade/UF</TableHead>
               <TableHead className="hidden xl:table-cell w-[120px]">Tipo</TableHead>
+              <TableHead className="hidden lg:table-cell w-[90px]">Risco</TableHead>
               <TableHead className="w-[90px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-10">
+              <TableRow><TableCell colSpan={7} className="text-center py-10">
                 <div className="flex items-center justify-center gap-2 text-muted-foreground"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />Carregando...</div>
               </TableCell></TableRow>
             ) : !data?.data.length ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">Nenhum fornecedor encontrado</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">Nenhum fornecedor encontrado</TableCell></TableRow>
             ) : (
               data.data.map((f) => (
                 <TableRow key={f.id} className="cursor-pointer" onClick={() => router.push(`/fornecedores/${f.id}`)}>
@@ -199,6 +207,9 @@ export default function FornecedoresPage() {
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{f.cidade && f.uf ? `${f.cidade}/${f.uf}` : '—'}</TableCell>
                   <TableCell className="hidden xl:table-cell">
                     <Badge variant="outline" className="text-[10px]">{TIPO_FORNECEDOR_LABELS[f.tipoFornecedor] ?? f.tipoFornecedor}</Badge>
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    <Badge variant="outline" className={`text-[10px] ${RISCO_COLORS[f.risco] ?? ''}`}>{RISCO_FORNECEDOR_LABELS[f.risco] ?? f.risco}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
