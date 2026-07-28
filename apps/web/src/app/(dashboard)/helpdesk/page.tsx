@@ -55,6 +55,8 @@ interface Ticket {
   aiScore?: number | null
   aiElegivel?: boolean | null
   aiPlanoStatus?: 'pendente' | 'aprovado' | 'rejeitado' | null
+  /** Arquivado — usado pra separar em dois quadros na visão de lista. */
+  arquivado?: boolean
 }
 
 // Colunas do kanban — ordem visual horizontal
@@ -106,6 +108,11 @@ export default function HelpdeskPage() {
   const [isAgente, setIsAgente] = useState<boolean | null>(null)
   const [podeAtuar, setPodeAtuar] = useState<boolean | null>(null)
   const [items, setItems] = useState<Ticket[]>([])
+  // Arquivados — quadro inferior na visão de lista (#HLP0318). Fica separado
+  // de `items` (ativos) pra renderizar os dois quadros: ativos em cima,
+  // arquivados embaixo. Só é populado quando a visão é lista e não estamos no
+  // modo "arquivados only" da TI.
+  const [arquivados, setArquivados] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
   // Escolha manual do filtro (null = usar o padrão do escopo efetivo). #HLP0139
   const [scopeManual, setScopeManual] = useState<ScopeFiltro | null>(null)
@@ -223,18 +230,35 @@ export default function HelpdeskPage() {
       if (isAgente) {
         // Agente (canRead): painel completo, filtrado pelo escopo efetivo. O
         // backend clampa o scope pedido ao permitido, então nunca vaza.
-        const res = await (trpc.helpdesk as any).list.query({
+        const baseParams = {
           scope,
           search: debouncedSearch || undefined,
           status: filtroStatus ? [filtroStatus] : undefined,
           prioridade: filtroPrioridade ? [filtroPrioridade] : undefined,
           solicitanteId: filtroSolicitante || undefined,
           responsavelId: filtroResponsavel || undefined,
-          arquivado: verArquivados, // false=ativos | true=arquivados
           page: 1,
           limit: 200,
-        })
-        setItems(res.data || [])
+        }
+        if (verArquivados) {
+          // Modo "arquivados only" da TI — quadro único de arquivados.
+          const res = await (trpc.helpdesk as any).list.query({ ...baseParams, arquivado: true })
+          setItems(res.data || [])
+          setArquivados([])
+        } else {
+          // Modo normal: ativos sempre; arquivados só na visão de lista (o
+          // kanban não tem quadro de arquivados). Assim a Erica e demais
+          // colaboradores passam a ver os dois quadros (#HLP0318).
+          const querArq = viewMode === 'lista'
+          const [ativosRes, arqRes] = await Promise.all([
+            (trpc.helpdesk as any).list.query({ ...baseParams, arquivado: false }),
+            querArq
+              ? (trpc.helpdesk as any).list.query({ ...baseParams, arquivado: true })
+              : Promise.resolve({ data: [] }),
+          ])
+          setItems(ativosRes.data || [])
+          setArquivados(arqRes.data || [])
+        }
       } else {
         // Sem canRead: vê APENAS os próprios tickets (solicitante/responsável) em lista
         const data = await (trpc.helpdesk as any).listMeus.query({ incluirHistorico: true })
@@ -255,14 +279,16 @@ export default function HelpdeskPage() {
           }
           return true
         })
-        setItems(filtered)
+        // Separa ativos (topo) de arquivados (embaixo) — #HLP0318.
+        setItems(filtered.filter((t: Ticket) => !t.arquivado))
+        setArquivados(filtered.filter((t: Ticket) => t.arquivado))
       }
     } catch (e) {
       alerts.error('Erro ao listar', (e as Error).message)
     } finally {
       setLoading(false)
     }
-  }, [isAgente, meuEscopo, scope, debouncedSearch, filtroStatus, filtroPrioridade, filtroSolicitante, filtroResponsavel, verArquivados])
+  }, [isAgente, meuEscopo, scope, debouncedSearch, filtroStatus, filtroPrioridade, filtroSolicitante, filtroResponsavel, verArquivados, viewMode])
   // Nota: no finally o setLoading(false) é inofensivo mesmo no modo silent
   // (loading já estava false). O que importa é NÃO subir pra true no silent.
 
@@ -561,6 +587,22 @@ export default function HelpdeskPage() {
             <Loader2 className="h-4 w-4 animate-spin" /> Carregando tickets...
           </div>
         </Card>
+      ) : (viewMode === 'lista' && !verArquivados) ? (
+        // Visão de lista normal — dois quadros: ativos em cima, arquivados
+        // embaixo (#HLP0318). O container rola; cada quadro tem altura natural.
+        (items.length === 0 && arquivados.length === 0) ? (
+          <Card className="flex-1 flex flex-col items-center justify-center py-16 text-muted-foreground">
+            <Inbox className="h-10 w-10 opacity-30 mb-2" />
+            <p className="text-sm">Nenhum ticket encontrado</p>
+          </Card>
+        ) : (
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
+            <TicketPanel titulo="Ativos" icon={Inbox} tickets={items} vazio="Nenhum ticket ativo no momento." />
+            {arquivados.length > 0 && (
+              <TicketPanel titulo="Arquivados" icon={Archive} tickets={arquivados} vazio="Nenhum ticket arquivado." arquivado />
+            )}
+          </div>
+        )
       ) : items.length === 0 ? (
         <Card className="flex-1 flex flex-col items-center justify-center py-16 text-muted-foreground">
           <Inbox className="h-10 w-10 opacity-30 mb-2" />
@@ -1006,5 +1048,44 @@ function TicketRow({ ticket, onUnarchive }: { ticket: Ticket; onUnarchive?: () =
         {new Date(ticket.createdAt).toLocaleDateString('pt-BR')}
       </span>
     </div>
+  )
+}
+
+/**
+ * Quadro de tickets da visão de lista (#HLP0318). Card com header (título +
+ * contagem) e a lista de TicketRow. Usado duas vezes: "Ativos" no topo e
+ * "Arquivados" embaixo (variante `arquivado` = header âmbar + linhas suaves),
+ * pra que colaboradores como a Erica vejam também os tickets já arquivados.
+ */
+function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false }: {
+  titulo: string
+  icon: typeof Inbox
+  tickets: Ticket[]
+  vazio: string
+  arquivado?: boolean
+}) {
+  return (
+    <Card className="overflow-hidden flex flex-col shrink-0">
+      <div className={cn(
+        'flex items-center gap-2 px-4 py-2.5 border-b border-border',
+        arquivado ? 'bg-amber-50 dark:bg-amber-950/30' : 'bg-muted/30',
+      )}>
+        <Icon className={cn('h-4 w-4', arquivado ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground')} />
+        <span className={cn('text-sm font-semibold', arquivado && 'text-amber-800 dark:text-amber-300')}>{titulo}</span>
+        <span className={cn(
+          'inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold',
+          arquivado ? 'bg-amber-500 text-white' : 'bg-muted text-muted-foreground',
+        )}>
+          {tickets.length}
+        </span>
+      </div>
+      {tickets.length === 0 ? (
+        <p className="px-4 py-6 text-center text-xs text-muted-foreground">{vazio}</p>
+      ) : (
+        <div className={cn('divide-y divide-border/60', arquivado && 'opacity-80')}>
+          {tickets.map(t => <TicketRow key={t.id} ticket={t} />)}
+        </div>
+      )}
+    </Card>
   )
 }
