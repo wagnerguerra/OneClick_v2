@@ -10,6 +10,7 @@ import {
   Collapsible, CollapsibleTrigger, CollapsibleContent,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { resolveAssetUrl } from '@/lib/api-url'
@@ -75,6 +76,11 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
   accentColor?: string
   onChange?: () => void
 }) {
+  // Sub-permissão da fase de implantação: pode concluir ignorando o checklist.
+  const { permissions, isMaster, isEmpresaMaster } = useUserPermissions()
+  const podeIgnorarChecklist = isMaster || isEmpresaMaster
+    || permissions.find(p => p.moduleSlug === 'meus-servicos')?.subPermissions?.['concluir_sem_checklist'] === true
+
   const [execucao, setExecucao] = useState<ExecucaoData | null>(null)
   const [loading, setLoading] = useState(false)
   const [pausarOpen, setPausarOpen] = useState(false)
@@ -261,7 +267,15 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
 
   async function handleConcluir() {
     if (!execucao) return
-    const ok = await alerts.confirm({ title: 'Concluir execução', text: 'Deseja marcar esta execução como concluída?', icon: 'question' })
+    // Se houver obrigatórios pendentes e o usuário tem permissão de pular o
+    // checklist, o aviso é mais forte (icon warning + contagem).
+    const ok = ignorandoChecklist
+      ? await alerts.confirm({
+          title: 'Concluir sem o checklist?',
+          text: `Há ${passosObrigatoriosPendentes} passo${passosObrigatoriosPendentes > 1 ? 's' : ''} obrigatório${passosObrigatoriosPendentes > 1 ? 's' : ''} pendente${passosObrigatoriosPendentes > 1 ? 's' : ''}. Você tem permissão para finalizar mesmo assim — o serviço será concluído sem passar pelo checklist. Confirmar?`,
+          icon: 'warning',
+        })
+      : await alerts.confirm({ title: 'Concluir execução', text: 'Deseja marcar esta execução como concluída?', icon: 'question' })
     if (!ok) return
     try {
       await (trpc.servico as any).concluirExecucao.mutate({ id: execucao.id })
@@ -334,7 +348,10 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
   // Para fins de "podeConcluir" e bloqueio, passos IGNORADOS contam como fechados —
   // eles desbloqueiam os próximos sem precisar serem concluídos.
   const passosObrigatoriosPendentes = execucao?.passos?.filter(p => p.obrigatorio && !p.concluido && !p.ignorado).length ?? 0
-  const podeConcluir = totalPassos > 0 && passosObrigatoriosPendentes === 0
+  // Quem tem a sub-permissão (ou é master) pode concluir mesmo com obrigatórios
+  // pendentes — o botão fica liberado e a confirmação avisa que vai pular o checklist.
+  const ignorandoChecklist = podeIgnorarChecklist && passosObrigatoriosPendentes > 0
+  const podeConcluir = totalPassos > 0 && (passosObrigatoriosPendentes === 0 || podeIgnorarChecklist)
 
   // Calcula quais passos estão bloqueados por obrigatório anterior ainda em aberto.
   // "Em aberto" = não concluído E não ignorado.
@@ -782,7 +799,9 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                       title={
                         !podeConcluir
                           ? `Conclua os ${passosObrigatoriosPendentes} passo${passosObrigatoriosPendentes > 1 ? 's' : ''} obrigatório${passosObrigatoriosPendentes > 1 ? 's' : ''} pendente${passosObrigatoriosPendentes > 1 ? 's' : ''} antes de finalizar a execução`
-                          : 'Marcar execução como concluída'
+                          : ignorandoChecklist
+                            ? 'Você tem permissão para concluir sem cumprir o checklist'
+                            : 'Marcar execução como concluída'
                       }
                     >
                       <CheckCircle2 className="h-4 w-4" /> Concluir

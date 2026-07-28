@@ -3090,11 +3090,35 @@ export class ServicoService {
     return updated
   }
 
+  /**
+   * Pode finalizar uma execução SEM cumprir o checklist (ignorando passos
+   * obrigatórios pendentes)? Master/empresa-master sempre; demais via a
+   * sub-permissão `meus-servicos.concluir_sem_checklist`. Pensado pra fase de
+   * implantação do módulo, onde nem todos os checklists estão maduros.
+   */
+  async podeConcluirSemChecklist(userId: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isMaster: true, isEmpresaMaster: true },
+    })
+    if (!user) return false
+    if (user.isMaster || user.isEmpresaMaster) return true
+    const perm = await prisma.userPermission.findFirst({
+      where: { userId, moduleSlug: 'meus-servicos' },
+      select: { subPermissions: true },
+    })
+    const sub = (perm?.subPermissions ?? {}) as Record<string, unknown>
+    return sub.concluir_sem_checklist === true
+  }
+
   async concluirExecucao(id: string, userId?: string) {
     // Bloqueia conclusão se houver algum passo obrigatório pendente (não concluído E não
     // ignorado) — defesa contra chamadas diretas (sem passar pelo frontend, que já desabilita
     // o botão). Passos ignorados contam como "fechados" para fins de conclusão.
-    const pendentes = await prisma.servicoExecucaoPasso.count({
+    // Exceção: usuários com `meus-servicos.concluir_sem_checklist` (ou master)
+    // podem finalizar ignorando o checklist — fase de implantação do módulo.
+    const podeIgnorarChecklist = userId ? await this.podeConcluirSemChecklist(userId) : false
+    const pendentes = podeIgnorarChecklist ? 0 : await prisma.servicoExecucaoPasso.count({
       where: { execucaoId: id, obrigatorio: true, concluido: false, ignorado: false } as any,
     })
     if (pendentes > 0) {

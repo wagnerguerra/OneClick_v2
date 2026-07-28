@@ -300,6 +300,14 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'gerenciar_anotacoes_anexos', label: 'Editar/excluir anotações e anexos de outros usuários', group: 'Anotações & Anexos' },
     { key: 'ver_relatorios', label: 'Acessar relatórios da agenda', group: 'Relatórios' },
   ],
+  'meus-servicos': [
+    {
+      key: 'concluir_sem_checklist',
+      label: 'Concluir serviço sem cumprir o checklist (ignora passos obrigatórios pendentes)',
+      group: 'Execução',
+      observacao: 'Uso na fase de implantação do módulo — permite finalizar a execução mesmo com passos obrigatórios em aberto.',
+    },
+  ],
   'beneficios-fiscais': [
     { key: 'manage_catalogo', label: 'Gerenciar catálogo de benefícios', group: 'Catálogo' },
     { key: 'gerar_orcamento', label: 'Gerar orçamento a partir do benefício', group: 'Operações' },
