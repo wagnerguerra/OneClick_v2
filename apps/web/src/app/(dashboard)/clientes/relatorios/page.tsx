@@ -343,13 +343,23 @@ export default function RelatoriosClientesPage() {
           <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Carregando...</div>
         ) : resp ? (
           <div className="space-y-3">
-            <Card className="p-2.5 flex flex-wrap items-center gap-2 justify-start">
-              <MultiSelect label="Responsável" options={resp.responsaveis.map(r => ({ value: r.responsavelId, label: r.responsavelNome }))} selected={respSel} onChange={setRespSel} />
-              {setores.length > 0 && <MultiSelect label="Setor" options={setores.map(s => ({ value: s, label: s }))} selected={setorSel} onChange={setSetorSel} />}
-              <span className="text-[12px] text-muted-foreground">{respVisiveis.length} de {resp.responsaveis.length} responsáveis</span>
-              <div className="ml-auto flex items-center gap-1.5">
-                <Button variant="outline" size="xs" className="gap-1" onClick={() => setOpenResp(new Set(respVisiveis.map(r => r.responsavelId)))}><ChevronsDownUp className="h-3.5 w-3.5 rotate-180" />Expandir todos</Button>
-                <Button variant="outline" size="xs" className="gap-1" onClick={() => setOpenResp(new Set())}><ChevronsDownUp className="h-3.5 w-3.5" />Recolher todos</Button>
+            <Card className="p-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-muted-foreground">Responsável</Label>
+                  <MultiSelect label="Responsável" options={resp.responsaveis.map(r => ({ value: r.responsavelId, label: r.responsavelNome }))} selected={respSel} onChange={setRespSel} />
+                </div>
+                {setores.length > 0 && (
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-medium text-muted-foreground">Setor</Label>
+                    <MultiSelect label="Setor" options={setores.map(s => ({ value: s, label: s }))} selected={setorSel} onChange={setSetorSel} />
+                  </div>
+                )}
+                <span className="text-[12px] text-muted-foreground pb-2.5">{respVisiveis.length} de {resp.responsaveis.length} responsáveis</span>
+                <div className="ml-auto flex items-center gap-1.5 pb-1">
+                  <Button variant="outline" size="xs" className="gap-1" onClick={() => setOpenResp(new Set(respVisiveis.map(r => r.responsavelId)))}><ChevronsDownUp className="h-3.5 w-3.5 rotate-180" />Expandir todos</Button>
+                  <Button variant="outline" size="xs" className="gap-1" onClick={() => setOpenResp(new Set())}><ChevronsDownUp className="h-3.5 w-3.5" />Recolher todos</Button>
+                </div>
               </div>
             </Card>
 
