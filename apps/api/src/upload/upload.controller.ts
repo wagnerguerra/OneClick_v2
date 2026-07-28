@@ -142,4 +142,23 @@ export class UploadController {
     }
     res.sendFile(filePath)
   }
+
+  /**
+   * Serve anexos de fornecedores migrados do legado (subpasta fornecedores-legado/).
+   * Mesmo padrão do orcamentos-legado: nomes preservados do v1 (cad_for_*.ext);
+   * sanitização só anti-path-traversal.
+   */
+  @Get('fornecedores-legado/:filename')
+  serveFornecedorLegado(@Param('filename') filename: string, @Res() res: Response) {
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      res.status(400).json({ message: 'Nome inválido.' })
+      return
+    }
+    const filePath = join(UPLOADS_DIR, 'fornecedores-legado', filename)
+    if (!existsSync(filePath)) {
+      res.status(404).json({ message: 'Arquivo não encontrado.' })
+      return
+    }
+    res.sendFile(filePath)
+  }
 }
