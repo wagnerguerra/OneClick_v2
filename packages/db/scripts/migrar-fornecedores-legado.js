@@ -93,14 +93,14 @@ function parseData(s) { const d = new Date(s); return isNaN(d.getTime()) ? new D
         `INSERT INTO fornecedores
           (id, razao_social, documento, tipo_documento, tipo_fornecedor, risco, avaliacao_obrigatoria,
            inscricao_estadual, inscricao_municipal, cep, logradouro, numero, complemento, bairro, cidade, uf,
-           telefone, email, contato_principal, observacoes, is_active, empresa_id, version, created_at, updated_at)
+           telefone, email, contato_principal, observacoes, is_active, empresa_id, legacy_id, version, created_at, updated_at)
          VALUES (gen_random_uuid()::text,$1,$2,$3::"TipoDocumento",$4::"TipoFornecedor",$5::"RiscoFornecedor",$6,
-           $7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,1,NOW(),NOW())
+           $7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,1,NOW(),NOW())
          RETURNING id`,
         [data.razaoSocial, data.documento, data.tipoDocumento, data.tipoFornecedor, data.risco, data.avaliacaoObrigatoria,
          data.inscricaoEstadual, data.inscricaoMunicipal, data.cep, data.logradouro, data.numero, data.complemento,
          data.bairro, data.cidade, data.uf, data.telefone, data.email, data.contatoPrincipal, data.observacoes,
-         data.isActive, empresaId],
+         data.isActive, empresaId, Number(f.ID)],
       )
       mapForn.set(f.ID, ins.rows[0].id)
       stats.forn++

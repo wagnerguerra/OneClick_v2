@@ -161,4 +161,19 @@ export class UploadController {
     }
     res.sendFile(filePath)
   }
+
+  /** Serve anexos de pedidos de compra migrados do legado (sgq_com_arq → /files/aquisicoes). */
+  @Get('aquisicoes-legado/:filename')
+  serveAquisicaoLegado(@Param('filename') filename: string, @Res() res: Response) {
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      res.status(400).json({ message: 'Nome inválido.' })
+      return
+    }
+    const filePath = join(UPLOADS_DIR, 'aquisicoes-legado', filename)
+    if (!existsSync(filePath)) {
+      res.status(404).json({ message: 'Arquivo não encontrado.' })
+      return
+    }
+    res.sendFile(filePath)
+  }
 }

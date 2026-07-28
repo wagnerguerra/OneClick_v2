@@ -1586,6 +1586,9 @@ model Fornecedor {
   risco                RiscoFornecedor @default(MEDIO)
   avaliacaoObrigatoria Boolean         @default(false) @map("avaliacao_obrigatoria")
 
+  // Provenância do port (cad_for.ID do v1) — usado p/ mapear FKs na migração.
+  legacyId Int? @map("legacy_id")
+
   // Contato
   telefone         String?
   celular          String?
@@ -1632,6 +1635,7 @@ model Fornecedor {
   mensagens        FornecedorMensagem[]
   compras          Compra[]
 
+  @@index([legacyId])
   @@map("fornecedores")
 }
 
@@ -1779,6 +1783,7 @@ model Compra {
   melhoriaObs      String?           @map("melhoria_obs") @db.Text
   setor            String?
 
+  legacyId  Int?     @map("legacy_id")
   empresaId String?  @map("empresa_id")
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
@@ -1794,6 +1799,7 @@ model Compra {
   @@index([empresaId])
   @@index([fornecedorId])
   @@index([status])
+  @@index([legacyId])
   @@map("compras")
 }
 
