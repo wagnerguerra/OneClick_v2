@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Paperclip, Upload, Loader2, Trash2, Pencil, MessageSquare, History,
-  Download, Send, FileText, X,
+  Download, Send, FileText, X, ClipboardCheck, Check, Ban, Plus,
 } from 'lucide-react'
 import {
   Button, Card, Input, cn,
   Tabs, TabsList, TabsTrigger, TabsContent,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { TIPO_FORNECEDOR_LABELS } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -64,11 +66,13 @@ export function FornecedorIsoTabs({ fornecedorId, currentUserId }: { fornecedorI
       <Tabs defaultValue="anexos" orientation="vertical" className="flex min-h-[420px]">
         <TabsList variant="pills" className="w-[140px] shrink-0 border-r border-border bg-muted/30 p-3 items-center">
           <TabsTrigger variant="pills" value="anexos" icon={<Paperclip className="h-4 w-4" />}>Anexos</TabsTrigger>
+          <TabsTrigger variant="pills" value="qualificacao" icon={<ClipboardCheck className="h-4 w-4" />}>Qualificação</TabsTrigger>
           <TabsTrigger variant="pills" value="mensagens" icon={<MessageSquare className="h-4 w-4" />}>Mensagens</TabsTrigger>
           <TabsTrigger variant="pills" value="historico" icon={<History className="h-4 w-4" />}>Histórico</TabsTrigger>
         </TabsList>
         <div className="flex-1 min-w-0">
           <TabsContent value="anexos" className="p-5"><AnexosTab fornecedorId={fornecedorId} /></TabsContent>
+          <TabsContent value="qualificacao" className="p-5"><QualificacaoTab fornecedorId={fornecedorId} /></TabsContent>
           <TabsContent value="mensagens" className="p-5"><MensagensTab fornecedorId={fornecedorId} currentUserId={currentUserId} /></TabsContent>
           <TabsContent value="historico" className="p-5"><HistoricoTab fornecedorId={fornecedorId} /></TabsContent>
         </div>
@@ -182,6 +186,96 @@ function AnexosTab({ fornecedorId }: { fornecedorId: string }) {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Qualificação (critérios de seleção — checklist Sim/Não) ──
+interface QualRow { id: string; criterio: string; tipoFornecedor: string; ordem: number; atende: boolean | null; respondidoEm: string | null }
+
+function QualificacaoTab({ fornecedorId }: { fornecedorId: string }) {
+  const [rows, setRows] = useState<QualRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [novo, setNovo] = useState('')
+  const [novoTipo, setNovoTipo] = useState<'PRODUTO' | 'SERVICO' | 'AMBOS'>('AMBOS')
+  const [saving, setSaving] = useState(false)
+
+  const carregar = useCallback(() => {
+    setLoading(true)
+    ;(trpc.fornecedor as any).getQualificacoes.query({ fornecedorId })
+      .then((d: QualRow[]) => setRows(d || []))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false))
+  }, [fornecedorId])
+  useEffect(() => { carregar() }, [carregar])
+
+  async function responder(criterioId: string, atende: boolean) {
+    // otimista
+    setRows((prev) => prev.map((r) => r.id === criterioId ? { ...r, atende } : r))
+    try { await (trpc.fornecedor as any).responderQualificacao.mutate({ fornecedorId, criterioId, atende }) }
+    catch (e) { alerts.error('Erro', (e as Error).message); carregar() }
+  }
+  async function addCriterio() {
+    if (!novo.trim()) return
+    setSaving(true)
+    try { await (trpc.fornecedor as any).createCriterio.mutate({ criterio: novo.trim(), tipoFornecedor: novoTipo, ordem: rows.length }); setNovo(''); carregar() }
+    catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setSaving(false) }
+  }
+
+  const respondidos = rows.filter((r) => r.atende !== null).length
+  const atendidos = rows.filter((r) => r.atende === true).length
+
+  return (
+    <div className="space-y-4">
+      {!loading && rows.length > 0 && (
+        <div className="flex items-center gap-3 text-sm">
+          <span className="text-muted-foreground">Atende <strong className="text-emerald-600 dark:text-emerald-400">{atendidos}</strong> de <strong>{rows.length}</strong> critérios</span>
+          <span className="text-muted-foreground">·</span>
+          <span className="text-muted-foreground">{respondidos} respondidos</span>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-8 text-muted-foreground gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
+      ) : rows.length === 0 ? (
+        <p className="text-center text-sm text-muted-foreground py-6">Nenhum critério de seleção cadastrado. Adicione abaixo.</p>
+      ) : (
+        <div className="divide-y divide-border/60 rounded-lg border border-border">
+          {rows.map((r) => (
+            <div key={r.id} className="flex items-center gap-3 px-3 py-2.5">
+              <p className="text-sm flex-1 min-w-0">{r.criterio}</p>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button type="button" onClick={() => responder(r.id, true)}
+                  className={cn('inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-xs font-medium border transition-colors',
+                    r.atende === true ? 'bg-emerald-500 text-white border-transparent' : 'border-border text-muted-foreground hover:bg-muted')}>
+                  <Check className="h-3.5 w-3.5" /> Atende
+                </button>
+                <button type="button" onClick={() => responder(r.id, false)}
+                  className={cn('inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-xs font-medium border transition-colors',
+                    r.atende === false ? 'bg-rose-500 text-white border-transparent' : 'border-border text-muted-foreground hover:bg-muted')}>
+                  <Ban className="h-3.5 w-3.5" /> Não
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Adicionar critério (catálogo da empresa) */}
+      <div className="flex items-end gap-2 border-t border-border pt-3">
+        <div className="flex-1">
+          <label className="text-[11px] font-medium text-muted-foreground">Novo critério de seleção</label>
+          <Input value={novo} onChange={(e) => setNovo(e.target.value)} placeholder="Ex.: Possui certificação ISO 9001" className="h-9 mt-1" />
+        </div>
+        <Select value={novoTipo} onValueChange={(v) => setNovoTipo(v as typeof novoTipo)}>
+          <SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger>
+          <SelectContent>{Object.entries(TIPO_FORNECEDOR_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+        </Select>
+        <Button type="button" variant="success" size="sm" disabled={saving || !novo.trim()} onClick={addCriterio}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Adicionar
+        </Button>
+      </div>
     </div>
   )
 }
