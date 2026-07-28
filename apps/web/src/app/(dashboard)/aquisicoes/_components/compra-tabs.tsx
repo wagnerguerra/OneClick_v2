@@ -5,10 +5,7 @@ import {
   Paperclip, Upload, Loader2, Trash2, Pencil, MessageSquare,
   Download, Send, FileText, X,
 } from 'lucide-react'
-import {
-  Button, Card, Input, cn,
-  Tabs, TabsList, TabsTrigger, TabsContent,
-} from '@saas/ui'
+import { Button, Card, Input, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -35,19 +32,43 @@ function fmtTamanho(b: number | null) {
   return `${(b / 1024 / 1024).toFixed(1)} MB`
 }
 
+const COMPRA_TABS = [
+  { key: 'anexos', label: 'Anexos', icon: Paperclip },
+  { key: 'mensagens', label: 'Mensagens', icon: MessageSquare },
+] as const
+
 export function CompraTabs({ compraId, currentUserId }: { compraId: string; currentUserId?: string }) {
+  const [tab, setTab] = useState<string>('anexos')
   return (
     <Card className="overflow-hidden">
-      <Tabs defaultValue="anexos" orientation="vertical" className="flex min-h-[360px]">
-        <TabsList variant="pills" className="w-[140px] shrink-0 border-r border-border bg-muted/30 p-3 items-center">
-          <TabsTrigger variant="pills" value="anexos" icon={<Paperclip className="h-4 w-4" />}>Anexos</TabsTrigger>
-          <TabsTrigger variant="pills" value="mensagens" icon={<MessageSquare className="h-4 w-4" />}>Mensagens</TabsTrigger>
-        </TabsList>
-        <div className="flex-1 min-w-0">
-          <TabsContent value="anexos" className="p-5"><AnexosTab compraId={compraId} /></TabsContent>
-          <TabsContent value="mensagens" className="p-5"><MensagensTab compraId={compraId} currentUserId={currentUserId} /></TabsContent>
+      <div className="flex min-h-[360px]">
+        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="space-y-1">
+            {COMPRA_TABS.map((t) => {
+              const Icon = t.icon
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTab(t.key)}
+                  className={cn(
+                    'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
+                    tab === t.key ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground',
+                  )}
+                  style={tab === t.key ? { backgroundColor: MODULE_COLOR } : undefined}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  {t.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
-      </Tabs>
+        <div key={tab} className="flex-1 min-w-0 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+          {tab === 'anexos' && <AnexosTab compraId={compraId} />}
+          {tab === 'mensagens' && <MensagensTab compraId={compraId} currentUserId={currentUserId} />}
+        </div>
+      </div>
     </Card>
   )
 }
