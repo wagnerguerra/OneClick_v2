@@ -16,6 +16,8 @@ import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { STATUS_COMPRA_LABELS, TIPO_FORNECIMENTO_LABELS } from '@saas/types'
+import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { CompraTabs } from '../_components/compra-tabs'
 
 const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 const brl = (v: number) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -44,6 +46,7 @@ interface Compra {
 
 export default function PedidoDetalhePage() {
   const params = useParams<{ id: string }>()
+  const { profile } = useCurrentUserProfile()
   const [c, setC] = useState<Compra | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -177,6 +180,9 @@ export default function PedidoDetalhePage() {
         {editavel ? <div className="mt-1.5"><RichEditor value={obs} onChange={setObs} placeholder="Detalhamento..." /></div>
           : <div className="mt-1.5 prose prose-sm max-w-none dark:prose-invert text-sm" dangerouslySetInnerHTML={{ __html: c.observacoes || '<p class="text-muted-foreground">Sem observações.</p>' }} />}
       </Card>
+
+      {/* Anexos + Mensagens */}
+      <CompraTabs compraId={c.id} currentUserId={profile?.id} />
 
       {/* Reprovar modal */}
       <Dialog open={reprovarOpen} onOpenChange={setReprovarOpen}>
