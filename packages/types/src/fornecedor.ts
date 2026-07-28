@@ -15,6 +15,20 @@ export const TIPO_FORNECEDOR_LABELS: Record<string, string> = {
   AMBOS: 'Produto e Serviço',
 }
 
+export const RiscoFornecedor = {
+  BAIXO: 'BAIXO',
+  MEDIO: 'MEDIO',
+  ALTO: 'ALTO',
+} as const
+
+export type RiscoFornecedor = (typeof RiscoFornecedor)[keyof typeof RiscoFornecedor]
+
+export const RISCO_FORNECEDOR_LABELS: Record<string, string> = {
+  BAIXO: 'Baixo',
+  MEDIO: 'Médio',
+  ALTO: 'Alto',
+}
+
 export const createFornecedorSchema = z.object({
   // Identificação
   razaoSocial: z.string().min(2, 'Razão Social deve ter no mínimo 2 caracteres'),
@@ -26,6 +40,10 @@ export const createFornecedorSchema = z.object({
   tipoFornecedor: z.enum(['PRODUTO', 'SERVICO', 'AMBOS']).default('AMBOS'),
   categoria: z.string().optional().or(z.literal('')),
   logoUrl: z.string().optional().or(z.literal('')),
+
+  // Qualidade / ISO (port v1)
+  risco: z.enum(['BAIXO', 'MEDIO', 'ALTO']).default('MEDIO'),
+  avaliacaoObrigatoria: z.boolean().default(false),
 
   // Contato
   telefone: z.string().optional().or(z.literal('')),
@@ -70,3 +88,58 @@ export const listFornecedorSchema = paginationSchema.extend({
 export type CreateFornecedorInput = z.infer<typeof createFornecedorSchema>
 export type UpdateFornecedorInput = z.infer<typeof updateFornecedorSchema>
 export type ListFornecedorInput = z.infer<typeof listFornecedorSchema>
+
+// ── Sub-entidades ISO (port v1) ──────────────────────────────
+
+// Anexos (cad_for_arq) — o arquivo é enviado via /api/upload e aqui só gravamos os metadados.
+export const createFornecedorAnexoSchema = z.object({
+  fornecedorId: z.string(),
+  descricao: z.string().optional().or(z.literal('')),
+  fileUrl: z.string().min(1),
+  fileName: z.string().min(1),
+  mimeType: z.string().optional().or(z.literal('')),
+  tamanho: z.number().int().nonnegative().optional(),
+})
+export const updateFornecedorAnexoSchema = z.object({
+  id: z.string(),
+  descricao: z.string().optional().or(z.literal('')),
+})
+
+// Critérios de seleção/homologação (cad_for_cri, QA='S')
+export const createFornecedorCriterioSchema = z.object({
+  tipoFornecedor: z.enum(['PRODUTO', 'SERVICO', 'AMBOS']).default('AMBOS'),
+  criterio: z.string().min(2),
+  ordem: z.number().int().nonnegative().default(0),
+})
+export const updateFornecedorCriterioSchema = z.object({
+  id: z.string(),
+  criterio: z.string().min(2).optional(),
+  tipoFornecedor: z.enum(['PRODUTO', 'SERVICO', 'AMBOS']).optional(),
+  ordem: z.number().int().nonnegative().optional(),
+  isActive: z.boolean().optional(),
+})
+
+// Qualificação — resposta Sim/Não do fornecedor a um critério (cad_for_qua)
+export const responderQualificacaoSchema = z.object({
+  fornecedorId: z.string(),
+  criterioId: z.string(),
+  atende: z.boolean(),
+})
+
+// Mensagens/interações (cad_for_msg)
+export const createFornecedorMensagemSchema = z.object({
+  fornecedorId: z.string(),
+  texto: z.string().min(1),
+})
+export const updateFornecedorMensagemSchema = z.object({
+  id: z.string(),
+  texto: z.string().min(1),
+})
+
+export type CreateFornecedorAnexoInput = z.infer<typeof createFornecedorAnexoSchema>
+export type UpdateFornecedorAnexoInput = z.infer<typeof updateFornecedorAnexoSchema>
+export type CreateFornecedorCriterioInput = z.infer<typeof createFornecedorCriterioSchema>
+export type UpdateFornecedorCriterioInput = z.infer<typeof updateFornecedorCriterioSchema>
+export type ResponderQualificacaoInput = z.infer<typeof responderQualificacaoSchema>
+export type CreateFornecedorMensagemInput = z.infer<typeof createFornecedorMensagemSchema>
+export type UpdateFornecedorMensagemInput = z.infer<typeof updateFornecedorMensagemSchema>

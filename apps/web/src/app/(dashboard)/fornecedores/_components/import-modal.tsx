@@ -73,6 +73,8 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
     try {
       const TIPO_MAP: Record<string, string> = { produto: 'PRODUTO', servico: 'SERVICO', 'serviço': 'SERVICO', ambos: 'AMBOS' }
       const items: CreateFornecedorInput[] = validRows.map(r => ({
+        risco: 'MEDIO',
+        avaliacaoObrigatoria: false,
         razaoSocial: r.data.razaoSocial ?? '',
         documento: r.data.documento ?? '',
         nomeFantasia: r.data.nomeFantasia ?? '',

@@ -8,6 +8,7 @@ import {
   createFornecedorSchema,
   type CreateFornecedorInput,
   TIPO_FORNECEDOR_LABELS,
+  RISCO_FORNECEDOR_LABELS,
 } from '@saas/types'
 import {
   Building2, FileText, MapPin, CreditCard, Phone,
@@ -56,6 +57,7 @@ export function FornecedorForm({ mode, fornecedorId, title, description, icon, d
     defaultValues: {
       razaoSocial: '', nomeFantasia: '', documento: '', tipoDocumento: 'CNPJ',
       inscricaoEstadual: '', inscricaoMunicipal: '', tipoFornecedor: 'AMBOS', categoria: '', logoUrl: '',
+      risco: 'MEDIO', avaliacaoObrigatoria: false,
       telefone: '', celular: '', email: '', site: '', contatoPrincipal: '', cargoContato: '',
       cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '',
       banco: '', agencia: '', conta: '', tipoConta: '', pixChave: '', pixTipo: '',
@@ -161,7 +163,19 @@ export function FornecedorForm({ mode, fornecedorId, title, description, icon, d
                     <Label htmlFor="categoria">Categoria</Label>
                     <Input id="categoria" placeholder="Ex: Materiais, TI, Consultoria..." {...register('categoria')} className="mt-1.5" />
                   </div>
-                  <div className="col-span-4 flex items-end pb-1">
+                  <div className="col-span-4">
+                    <Label className="flex items-center gap-1.5">Grau de Risco <FieldHint text="Classificação de risco do fornecedor (ISO 9001). Usada na avaliação e priorização." /></Label>
+                    <Controller control={control} name="risco" render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                        <SelectContent>{Object.entries(RISCO_FORNECEDOR_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+                      </Select>
+                    )} />
+                  </div>
+                  <div className="col-span-8 flex items-center gap-6 pt-1">
+                    <Controller control={control} name="avaliacaoObrigatoria" render={({ field }) => (
+                      <label className="flex items-center gap-2 cursor-pointer"><Checkbox checked={field.value} onCheckedChange={field.onChange} /><span className="text-sm flex items-center gap-1.5">Avaliação obrigatória <FieldHint text="Marca o fornecedor como sujeito à avaliação de qualidade obrigatória." /></span></label>
+                    )} />
                     <Controller control={control} name="isActive" render={({ field }) => (
                       <label className="flex items-center gap-2 cursor-pointer"><Checkbox checked={field.value} onCheckedChange={field.onChange} /><span className="text-sm">Fornecedor ativo</span></label>
                     )} />

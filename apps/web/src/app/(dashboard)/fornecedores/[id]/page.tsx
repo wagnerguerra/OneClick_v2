@@ -29,6 +29,8 @@ export default function EditFornecedorPage() {
           tipoFornecedor: data.tipoFornecedor as CreateFornecedorInput['tipoFornecedor'],
           categoria: data.categoria ?? '',
           logoUrl: data.logoUrl ?? '',
+          risco: (data.risco ?? 'MEDIO') as CreateFornecedorInput['risco'],
+          avaliacaoObrigatoria: data.avaliacaoObrigatoria ?? false,
           telefone: data.telefone ?? '',
           celular: data.celular ?? '',
           email: data.email ?? '',
