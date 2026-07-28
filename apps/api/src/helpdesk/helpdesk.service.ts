@@ -480,7 +480,7 @@ export class HelpdeskService {
     // Escopo efetivo (#HLP0139): privilegiado = 'todos'; senão, a escolha única
     // da sub-permissão. O scope PEDIDO é clampado ao permitido (nunca excede).
     //  - 'todos'    → sem restrição de escopo
-    //  - 'area'     → tickets da área + os próprios (solicitante/responsável/watcher)
+    //  - 'area'     → os próprios + tickets ABERTOS por membros da área (gestor)
     //  - 'proprios' → só os próprios
     const meusConds = [
       { solicitanteId: userId },
@@ -503,7 +503,16 @@ export class HelpdeskService {
     if (aplicRank >= HELPDESK_SCOPE_RANK.todos) {
       // sem restrição de escopo
     } else if (aplicRank === HELPDESK_SCOPE_RANK.area && user?.areaId) {
-      where.AND = [{ OR: [...meusConds, { areaId: user.areaId }] }]
+      // "Área" (gestor): além dos próprios, inclui os tickets ABERTOS por
+      // membros da área. O ticket.areaId vem da CATEGORIA e quase nunca é
+      // preenchido (na prática ~todos ficam null), então filtrar só por ele não
+      // traz nada — o que o gestor espera ver é "tickets abertos pela minha
+      // área", i.e. cujo solicitante pertence à área dele. #HLP0318
+      where.AND = [{ OR: [
+        ...meusConds,
+        { areaId: user.areaId },
+        { solicitante: { is: { areaId: user.areaId } } },
+      ] }]
     } else {
       where.AND = [{ OR: meusConds }]
     }
