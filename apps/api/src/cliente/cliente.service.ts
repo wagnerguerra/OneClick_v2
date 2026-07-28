@@ -1180,6 +1180,97 @@ export class ClienteService {
   // SERVIÇOS (ÁREAS CONTRATADAS)
   // ============================================================
 
+  // ============================================================
+  // RELATÓRIOS (portados do OneClick v1 — menu de opções de clientes)
+  // ============================================================
+
+  /** Acompanhamento anual: entradas (dataEntrada no período) × saídas (dataSaida no período),
+   *  série mensal para o gráfico, KPIs e as duas listas. Escopo por empresa. */
+  async reportMovimentacao(dataInicio: string, dataFim: string, isMaster?: boolean, empresaId?: string) {
+    const ini = new Date(`${dataInicio}T00:00:00.000Z`)
+    const fim = new Date(`${dataFim}T23:59:59.999Z`)
+    const base: Prisma.ClienteWhereInput = { ...empresaFilter(isMaster, empresaId), deletedAt: null }
+    const sel = { id: true, code: true, documento: true, razaoSocial: true, grupo: true, situacao: true, dataEntrada: true, dataSaida: true } as const
+    const [entradas, saidas] = await Promise.all([
+      prisma.cliente.findMany({ where: { ...base, dataEntrada: { gte: ini, lte: fim } }, select: sel, orderBy: { dataEntrada: 'asc' } }),
+      prisma.cliente.findMany({ where: { ...base, dataSaida: { gte: ini, lte: fim } }, select: sel, orderBy: { dataSaida: 'asc' } }),
+    ])
+
+    // Série mensal (UTC) — mesmos meses do período, alinhado ao gráfico.
+    const NM = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    const chave = (d: Date) => `${d.getUTCFullYear()}-${d.getUTCMonth()}`
+    const contar = (rows: Array<{ dataEntrada: Date | null; dataSaida: Date | null }>, campo: 'dataEntrada' | 'dataSaida') => {
+      const m = new Map<string, number>()
+      for (const r of rows) { const d = r[campo]; if (!d) continue; const k = chave(new Date(d)); m.set(k, (m.get(k) ?? 0) + 1) }
+      return m
+    }
+    const mapEnt = contar(entradas, 'dataEntrada')
+    const mapSai = contar(saidas, 'dataSaida')
+    const meses: string[] = []; const serieEntradas: number[] = []; const serieSaidas: number[] = []
+    const cur = new Date(Date.UTC(ini.getUTCFullYear(), ini.getUTCMonth(), 1))
+    const lim = new Date(Date.UTC(fim.getUTCFullYear(), fim.getUTCMonth(), 1))
+    while (cur <= lim) {
+      meses.push(`${NM[cur.getUTCMonth()]}/${String(cur.getUTCFullYear()).slice(2)}`)
+      serieEntradas.push(mapEnt.get(chave(cur)) ?? 0)
+      serieSaidas.push(mapSai.get(chave(cur)) ?? 0)
+      cur.setUTCMonth(cur.getUTCMonth() + 1)
+    }
+
+    return {
+      totalEntradas: entradas.length,
+      totalSaidas: saidas.length,
+      meses, serieEntradas, serieSaidas,
+      entradas: entradas.map(r => ({ id: r.id, code: r.code, documento: r.documento, razaoSocial: r.razaoSocial, grupo: r.grupo, situacao: r.situacao, data: r.dataEntrada })),
+      saidas: saidas.map(r => ({ id: r.id, code: r.code, documento: r.documento, razaoSocial: r.razaoSocial, grupo: r.grupo, situacao: r.situacao, data: r.dataSaida })),
+    }
+  }
+
+  /** Clientes por área contratada — agrupado pelas áreas realmente contratadas (dinâmicas),
+   *  com o responsável de cada área. Escopo por empresa. */
+  async reportPorArea(isMaster?: boolean, empresaId?: string) {
+    const cacs = await prisma.clienteAreaContratada.findMany({
+      where: { contratado: true, cliente: { ...empresaFilter(isMaster, empresaId), deletedAt: null } },
+      select: {
+        area: { select: { id: true, name: true } },
+        responsavel: { select: { name: true } },
+        cliente: { select: { id: true, code: true, documento: true, razaoSocial: true, email: true, telefone: true } },
+      },
+      orderBy: [{ area: { name: 'asc' } }, { cliente: { razaoSocial: 'asc' } }],
+    })
+    const map = new Map<string, { areaId: string; areaNome: string; clientes: Array<{ id: string; code: number; documento: string; razaoSocial: string; email: string | null; telefone: string | null; responsavel: string | null }> }>()
+    for (const c of cacs) {
+      if (!c.area) continue
+      const g = map.get(c.area.id) ?? { areaId: c.area.id, areaNome: c.area.name, clientes: [] }
+      g.clientes.push({ id: c.cliente.id, code: c.cliente.code, documento: c.cliente.documento, razaoSocial: c.cliente.razaoSocial, email: c.cliente.email, telefone: c.cliente.telefone, responsavel: c.responsavel?.name ?? null })
+      map.set(c.area.id, g)
+    }
+    const areas = [...map.values()].map(g => ({ ...g, total: g.clientes.length })).sort((a, b) => b.total - a.total)
+    return { areas, totalVinculos: cacs.length }
+  }
+
+  /** Clientes por responsável — agrupado pelo responsável da área contratada,
+   *  listando cliente × área. Escopo por empresa. */
+  async reportPorResponsavel(isMaster?: boolean, empresaId?: string) {
+    const cacs = await prisma.clienteAreaContratada.findMany({
+      where: { contratado: true, responsavelId: { not: null }, cliente: { ...empresaFilter(isMaster, empresaId), deletedAt: null } },
+      select: {
+        area: { select: { name: true } },
+        responsavel: { select: { id: true, name: true } },
+        cliente: { select: { id: true, code: true, documento: true, razaoSocial: true } },
+      },
+      orderBy: [{ responsavel: { name: 'asc' } }, { cliente: { razaoSocial: 'asc' } }],
+    })
+    const map = new Map<string, { responsavelId: string; responsavelNome: string; clientes: Array<{ clienteId: string; code: number; documento: string; razaoSocial: string; area: string | null }> }>()
+    for (const c of cacs) {
+      if (!c.responsavel) continue
+      const g = map.get(c.responsavel.id) ?? { responsavelId: c.responsavel.id, responsavelNome: c.responsavel.name, clientes: [] }
+      g.clientes.push({ clienteId: c.cliente.id, code: c.cliente.code, documento: c.cliente.documento, razaoSocial: c.cliente.razaoSocial, area: c.area?.name ?? null })
+      map.set(c.responsavel.id, g)
+    }
+    const responsaveis = [...map.values()].map(g => ({ ...g, total: g.clientes.length })).sort((a, b) => a.responsavelNome.localeCompare(b.responsavelNome, 'pt-BR'))
+    return { responsaveis, totalVinculos: cacs.length }
+  }
+
   async listServicos(clienteId: string, empresaId: string | null = null) {
     const [areas, contratos, usuarios] = await Promise.all([
       prisma.area.findMany({ where: { isActive: true, availableForHiring: true }, select: { id: true, name: true, leaderId: true }, orderBy: { name: 'asc' } }),

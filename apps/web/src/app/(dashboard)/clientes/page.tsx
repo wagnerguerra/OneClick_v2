@@ -7,7 +7,7 @@ import {
   Plus, Pencil, Trash2, Search, Filter, Settings2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
-  MoreVertical, FileUp, FileDown, Plug,
+  MoreVertical, FileUp, FileDown, Plug, BarChart3,
   ChevronDown, RotateCcw, Archive, X, Database, Loader2, Sparkles, UserCog,
   Building2, ExternalLink,
   Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
@@ -464,6 +464,7 @@ export default function ClientesPage() {
                   <Button variant="outline" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => router.push('/clientes/relatorios')}><BarChart3 className="h-4 w-4 text-emerald-600" />Relatórios</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setImportOpen(true)}><FileUp className="h-4 w-4" />Importar Excel/CSV</DropdownMenuItem>
                   <DropdownMenuItem onClick={handleLegacyImport} disabled={legacyImporting}>
                     {legacyImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}

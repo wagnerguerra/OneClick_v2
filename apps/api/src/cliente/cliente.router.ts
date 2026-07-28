@@ -55,6 +55,17 @@ export function createClienteRouter(
       .input(z.object({ id: z.string() }))
       .query(({ input, ctx }) => clienteService.getById(input.id, ctx.isMaster, ctx.empresaId)),
 
+    // ── Relatórios (portados do v1) ──
+    reportMovimentacao: readProcedure(MODULE)
+      .input(z.object({ dataInicio: z.string(), dataFim: z.string() }))
+      .query(({ input, ctx }) => clienteService.reportMovimentacao(input.dataInicio, input.dataFim, ctx.isMaster, ctx.empresaId)),
+
+    reportPorArea: readProcedure(MODULE)
+      .query(({ ctx }) => clienteService.reportPorArea(ctx.isMaster, ctx.empresaId)),
+
+    reportPorResponsavel: readProcedure(MODULE)
+      .query(({ ctx }) => clienteService.reportPorResponsavel(ctx.isMaster, ctx.empresaId)),
+
     // Criar — sub-permissão dedicada 'create_client' (separada de edit_details).
     create: writeSubProcedure(MODULE, 'create_client', 'Cadastrar novos clientes')
       .input(createClienteSchema)
