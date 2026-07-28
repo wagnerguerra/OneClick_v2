@@ -317,6 +317,11 @@ export function FloatingFeedbackButton() {
             // 'evento' tem mais campos (modalidade/sala/garagem) → um pouco mais largo.
             'fixed bottom-20 right-5 lg:right-16 z-[60] pointer-events-auto max-w-[calc(100vw-2.5rem)]',
             mode === 'evento' ? 'w-[420px]' : 'w-[360px]',
+            // Cap na altura da viewport (100dvh - folga p/ FAB e topo) + flex-col:
+            // em telas baixas o formulário mais alto (orçamento/evento) transborda pra
+            // cima e o topo (header + Cliente) fica inacessível sem scroll (HLP0316).
+            // O corpo rola internamente; header fica fixo.
+            'flex flex-col max-h-[calc(100dvh-6.5rem)]',
             'rounded-lg border border-border bg-card shadow-2xl overflow-hidden',
             // Transição manual (origin no canto inferior direito = "sai do botão FAB").
             'origin-bottom-right transition-all duration-200 ease-out',
@@ -328,7 +333,7 @@ export function FloatingFeedbackButton() {
         >
           {/* Header */}
           {!(mode === 'ticket' && ticketCriado) && (
-            <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+            <div className="shrink-0 px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
               {mode !== 'menu' && (
                 <button
                   type="button"
@@ -362,6 +367,9 @@ export function FloatingFeedbackButton() {
           <div
             key={mode}
             className={cn(
+              // flex-1 min-h-0 overflow-y-auto: o corpo rola quando o formulário
+              // é mais alto que a viewport (header fica fixo acima). Resolve HLP0316.
+              'flex-1 min-h-0 overflow-y-auto',
               'animate-in fade-in-0 duration-200 ease-out',
               dir === 'fwd' ? 'slide-in-from-right-5' : 'slide-in-from-left-5',
             )}
