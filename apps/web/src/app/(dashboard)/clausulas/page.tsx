@@ -504,7 +504,9 @@ export default function ClausulasPage() {
                   <p className="text-xs text-muted-foreground italic">📝 {v.notasVersao}</p>
                 )}
                 <div
-                  className="text-xs text-muted-foreground mt-2 line-clamp-2 prose prose-xs"
+                  // Prévia com line-clamp: achata o HTML de propósito, então NÃO usa
+                  // <RichContent> (margens e marcadores brigariam com o clamp).
+                  className="text-xs text-muted-foreground mt-2 line-clamp-2 [&_*]:inline [&_p]:m-0"
                   dangerouslySetInnerHTML={{ __html: v.conteudo || '<i>(sem conteúdo)</i>' }}
                 />
               </div>

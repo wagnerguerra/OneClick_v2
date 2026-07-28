@@ -9,6 +9,7 @@ import {
 import {
   Button, Input, Badge, Card, Label,
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  RichContent,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -247,7 +248,7 @@ export default function ContratoPublicoPage() {
               {items.sort((a, b) => a.ordem - b.ordem).map(s => (
                 <div key={s.id}>
                   <h3 className="text-sm font-semibold mb-1">{s.titulo}</h3>
-                  <div className="text-sm prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: renderPlaceholders(s.conteudo, contrato) }} />
+                  <RichContent className="text-sm" html={renderPlaceholders(s.conteudo, contrato)} />
                 </div>
               ))}
             </div>

@@ -16,6 +16,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  RichContent,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { MarkdownView } from '@/components/ui/markdown-view'
@@ -881,9 +882,9 @@ export default function HelpdeskTicketDetailPage() {
               </div>
               {/* Conteúdo da descrição + anexos enviados na solicitação */}
               <CardContent className="px-5 py-4">
-                <div
-                  className="text-sm leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-cyan-600 [&_a]:underline"
-                  dangerouslySetInnerHTML={{ __html: linkifyHelpdesk(ticket.descricao) }}
+                <RichContent
+                  className="text-sm leading-relaxed [&_a]:text-cyan-600"
+                  html={linkifyHelpdesk(ticket.descricao)}
                 />
                 <AnexoThumbs anexos={anexosIniciais} onOpen={setAnexoPreview} />
               </CardContent>

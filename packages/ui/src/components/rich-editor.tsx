@@ -151,7 +151,7 @@ export function RichEditor({
       // Heading habilitado (níveis 1-3) — útil pra títulos em e-mails.
       // Demais features (bold/italic/strike/code/blockquote/lists/HR/history) vêm
       // do StarterKit por padrão. HTMLAttributes nas listas garantem marker visível
-      // mesmo sem @tailwindcss/typography (o `prose` no editor não está ativo).
+      // mesmo sem @tailwindcss/typography, que não é usado no projeto.
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
         bulletList:  { HTMLAttributes: { class: 'list-disc pl-6 my-2' } },
@@ -190,7 +190,11 @@ export function RichEditor({
       attributes: {
         // A altura mínima sai por CSS var (ver <style> abaixo) porque `minHeight`
         // é dinâmico — classe arbitrária do Tailwind não aceita valor de runtime.
-        class: 'prose prose-sm dark:prose-invert max-w-none px-3 py-2 focus:outline-none text-sm',
+        // Sem `prose` aqui: o plugin @tailwindcss/typography não é usado no
+        // projeto — o visual vem do <style> escopado em `.rich-editor-root`
+        // logo abaixo (e o mesmo conjunto de regras vive em `rich-content.tsx`,
+        // que renderiza esse HTML depois de salvo).
+        class: 'max-w-none px-3 py-2 focus:outline-none text-sm',
       },
       handlePaste: (_view, event) => {
         const handler = pasteFilesRef.current
@@ -337,8 +341,9 @@ export function RichEditor({
       style={{ ['--rich-editor-min-h' as string]: minH }}
     >
       {/* CSS escopado por `.rich-editor-root` — garante marker visível em listas
-          mesmo sem @tailwindcss/typography (o `prose` aplicado no editor é só
-          uma classe sem efeito quando o plugin não está instalado).
+          sem depender do @tailwindcss/typography, que não é usado no projeto.
+          O MESMO conjunto de regras existe em `rich-content.tsx`, que renderiza
+          esse HTML depois de salvo: mexeu aqui, mexa lá.
           Usa <style> regular (sem jsx) pra ser portável fora do Next.js. */}
       <style dangerouslySetInnerHTML={{ __html: `
         .rich-editor-root .ProseMirror { min-height: var(--rich-editor-min-h, 250px); }

@@ -11,6 +11,7 @@ import {
   Button, Input, Label, Card, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
+  RichContent,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
@@ -621,11 +622,7 @@ export default function AgendaDisponibilidadePage() {
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                       <FileText className="h-3.5 w-3.5" /> Descrição
                     </div>
-                    <div
-                      className="text-sm prose prose-sm dark:prose-invert max-w-none"
-                      // eslint-disable-next-line react/no-danger
-                      dangerouslySetInnerHTML={{ __html: viewEvento.descricao }}
-                    />
+                    <RichContent className="text-sm" html={viewEvento.descricao} />
                   </div>
                 )}
               </>

@@ -12,6 +12,7 @@ import {
   Button, Badge, Card, Label,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Tabs, TabsTrigger, TabsContent, SlidingTabsList,
+  RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
@@ -726,7 +727,7 @@ export default function ContratoDetailPage() {
                             <span className="text-[10px] text-muted-foreground">v{s.versao}</span>
                             <h4 className="text-sm font-semibold flex-1">{s.titulo}</h4>
                           </div>
-                          <div className="text-sm prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: renderPlaceholders(s.conteudo, contrato) }} />
+                          <RichContent className="text-sm" html={renderPlaceholders(s.conteudo, contrato)} />
                         </div>
                       ))}
                     </div>
