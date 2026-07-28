@@ -6,9 +6,12 @@ import { Package } from 'lucide-react'
 import type { CreateFornecedorInput } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { FornecedorForm } from '../_components/fornecedor-form'
+import { FornecedorIsoTabs } from '../_components/fornecedor-iso-tabs'
+import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
 export default function EditFornecedorPage() {
   const params = useParams<{ id: string }>()
+  const { profile } = useCurrentUserProfile()
   const [loading, setLoading] = useState(true)
   const [fornecedor, setFornecedor] = useState<(Partial<CreateFornecedorInput> & { code?: number }) | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -67,13 +70,16 @@ export default function EditFornecedorPage() {
   }
 
   return (
-    <FornecedorForm
-      mode="edit"
-      fornecedorId={params.id}
-      title="Editar Fornecedor"
-      description={`Altere os dados do fornecedor #${fornecedor.code}`}
-      icon={<Package className="h-6 w-6" />}
-      defaultValues={fornecedor}
-    />
+    <div className="space-y-5">
+      <FornecedorForm
+        mode="edit"
+        fornecedorId={params.id}
+        title="Editar Fornecedor"
+        description={`Altere os dados do fornecedor #${fornecedor.code}`}
+        icon={<Package className="h-6 w-6" />}
+        defaultValues={fornecedor}
+      />
+      <FornecedorIsoTabs fornecedorId={params.id} currentUserId={profile?.id} />
+    </div>
   )
 }
