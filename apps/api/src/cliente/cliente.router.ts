@@ -57,8 +57,8 @@ export function createClienteRouter(
 
     // ── Relatórios (portados do v1) ──
     reportMovimentacao: readProcedure(MODULE)
-      .input(z.object({ dataInicio: z.string(), dataFim: z.string() }))
-      .query(({ input, ctx }) => clienteService.reportMovimentacao(input.dataInicio, input.dataFim, ctx.isMaster, ctx.empresaId)),
+      .input(z.object({ dataInicio: z.string(), dataFim: z.string(), situacoes: z.array(z.string()).optional() }))
+      .query(({ input, ctx }) => clienteService.reportMovimentacao(input.dataInicio, input.dataFim, input.situacoes, ctx.isMaster, ctx.empresaId)),
 
     reportPorArea: readProcedure(MODULE)
       .query(({ ctx }) => clienteService.reportPorArea(ctx.isMaster, ctx.empresaId)),

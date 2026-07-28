@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button, Card, Input, Label, Badge, cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
@@ -8,7 +8,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   PieChart, Pie, Cell,
 } from 'recharts'
-import { BarChart3, Loader2, ArrowUpCircle, ArrowDownCircle, FileSpreadsheet, FileText, Users, Layers } from 'lucide-react'
+import { BarChart3, Loader2, ArrowUpCircle, ArrowDownCircle, FileSpreadsheet, FileText, Users, Layers, Search, ChevronDown } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { SITUACAO_LABELS } from '@saas/types'
 import { exportToExcel, exportToCsv, type ExportColumn } from '@/lib/export-data'
@@ -20,11 +20,91 @@ const COR_SAIDA = '#f43f5e'
 type Tab = 'movimentacao' | 'area' | 'responsavel'
 const situ = (s: string) => (SITUACAO_LABELS as Record<string, string>)[s] ?? s
 const fmtDate = (v: string | null) => (v ? new Date(v).toLocaleDateString('pt-BR') : '—')
+const SITUACAO_OPTS = Object.entries(SITUACAO_LABELS).map(([value, label]) => ({ value, label: label as string }))
 
 interface MovLinha { id: string; code: number; documento: string; razaoSocial: string; grupo: string | null; situacao: string; data: string | null }
 interface MovData { totalEntradas: number; totalSaidas: number; meses: string[]; serieEntradas: number[]; serieSaidas: number[]; entradas: MovLinha[]; saidas: MovLinha[] }
-interface AreaData { areas: Array<{ areaId: string; areaNome: string; total: number; clientes: Array<{ id: string; code: number; documento: string; razaoSocial: string; email: string | null; telefone: string | null; responsavel: string | null }> }>; totalVinculos: number }
-interface RespData { responsaveis: Array<{ responsavelId: string; responsavelNome: string; total: number; clientes: Array<{ clienteId: string; code: number; documento: string; razaoSocial: string; area: string | null }> }>; totalVinculos: number }
+interface AreaCliente { id: string; code: number; documento: string; razaoSocial: string; email: string | null; telefone: string | null; responsavel: string | null }
+interface AreaData { areas: Array<{ areaId: string; areaNome: string; total: number; clientes: AreaCliente[] }>; totalVinculos: number }
+interface RespCliente { clienteId: string; code: number; documento: string; razaoSocial: string; area: string | null }
+interface RespData { responsaveis: Array<{ responsavelId: string; responsavelNome: string; setor: string | null; total: number; clientes: RespCliente[] }>; totalVinculos: number }
+
+// ── Coluna genérica: get() alimenta busca+export; render() a exibição ──
+interface Col<T> { label: string; get: (r: T) => string; render?: (r: T) => React.ReactNode; className?: string }
+
+function TabelaRelatorio<T>({ titulo, cols, rows, nomeArquivo, onRowClick, rowKey }: {
+  titulo: string; cols: Col<T>[]; rows: T[]; nomeArquivo: string; onRowClick?: (r: T) => void; rowKey: (r: T, i: number) => string
+}) {
+  const [q, setQ] = useState('')
+  const termo = q.trim().toLowerCase()
+  const filtered = termo ? rows.filter(r => cols.some(c => c.get(r).toLowerCase().includes(termo))) : rows
+  const expCols: ExportColumn[] = cols.map(c => ({ header: c.label, accessor: (row) => c.get(row as unknown as T) }))
+  const doExport = (fmt: 'xlsx' | 'csv') => {
+    const data = filtered as unknown as Record<string, unknown>[]
+    if (fmt === 'xlsx') exportToExcel(data, expCols, nomeArquivo); else exportToCsv(data, expCols, nomeArquivo)
+  }
+  return (
+    <Card className="overflow-hidden">
+      <div className="px-3 py-2 bg-muted/40 border-b border-border flex items-center justify-between gap-2 flex-wrap">
+        <span className="text-[13px] font-semibold">{titulo} <span className="text-muted-foreground font-normal">· {termo && filtered.length !== rows.length ? `${filtered.length} de ${rows.length}` : rows.length}</span></span>
+        <div className="flex items-center gap-1.5">
+          <div className="relative"><Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Filtrar..." className="h-7 text-xs pl-7 w-[150px]" /></div>
+          <Button variant="outline" size="xs" className="gap-1" onClick={() => doExport('xlsx')}><FileSpreadsheet className="h-3.5 w-3.5" />Excel</Button>
+          <Button variant="outline" size="xs" className="gap-1" onClick={() => doExport('csv')}><FileText className="h-3.5 w-3.5" />CSV</Button>
+        </div>
+      </div>
+      <div className="overflow-auto max-h-[360px]">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/20 sticky top-0"><tr>{cols.map(c => <th key={c.label} className="text-left font-semibold px-3 py-2 uppercase tracking-wider whitespace-nowrap">{c.label}</th>)}</tr></thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr><td colSpan={cols.length} className="px-3 py-8 text-center text-muted-foreground">Nenhum registro.</td></tr>
+            ) : filtered.map((r, i) => (
+              <tr key={rowKey(r, i)} className={cn('border-b border-border/50 hover:bg-muted/30', onRowClick && 'cursor-pointer')} onClick={onRowClick ? () => onRowClick(r) : undefined}>
+                {cols.map(c => <td key={c.label} className={cn('px-3 py-1.5', c.className)}>{c.render ? c.render(r) : c.get(r)}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  )
+}
+
+function MultiSelect({ label, options, selected, onChange }: {
+  label: string; options: Array<{ value: string; label: string }>; selected: Set<string>; onChange: (s: Set<string>) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    function h(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h)
+  }, [])
+  const toggle = (v: string) => { const n = new Set(selected); if (n.has(v)) n.delete(v); else n.add(v); onChange(n) }
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setOpen(o => !o)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-sm border border-border bg-card hover:bg-muted/50">
+        <span className="text-muted-foreground">{label}:</span>
+        <span className="font-medium">{selected.size === 0 ? 'Todos' : `${selected.size} selec.`}</span>
+        <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 min-w-[230px] max-h-[300px] overflow-auto rounded-md border border-border bg-popover shadow-lg p-1">
+          <div className="flex items-center justify-between px-2 py-1 border-b border-border/50 mb-1">
+            <span className="text-[11px] text-muted-foreground">{options.length} opções</span>
+            {selected.size > 0 && <button type="button" onClick={() => onChange(new Set())} className="text-[11px] text-muted-foreground hover:text-foreground underline">Limpar</button>}
+          </div>
+          {options.map(o => (
+            <label key={o.value} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-sm">
+              <input type="checkbox" className="h-3.5 w-3.5" style={{ accentColor: MODULE_COLOR }} checked={selected.has(o.value)} onChange={() => toggle(o.value)} />
+              <span className="truncate">{o.label}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function RelatoriosClientesPage() {
   const router = useRouter()
@@ -32,24 +112,29 @@ export default function RelatoriosClientesPage() {
   const ano = new Date().getFullYear()
   const [de, setDe] = useState(`${ano}-01-01`)
   const [ate, setAte] = useState(`${ano}-12-31`)
+  const [tipos, setTipos] = useState<Set<string>>(new Set())
 
   const [mov, setMov] = useState<MovData | null>(null)
   const [movLoading, setMovLoading] = useState(false)
   const [area, setArea] = useState<AreaData | null>(null)
   const [areaLoading, setAreaLoading] = useState(false)
+  const [areaSel, setAreaSel] = useState<Set<string>>(new Set())
   const [resp, setResp] = useState<RespData | null>(null)
   const [respLoading, setRespLoading] = useState(false)
+  const [respSel, setRespSel] = useState<Set<string>>(new Set())
+  const [setorSel, setSetorSel] = useState<Set<string>>(new Set())
 
   const carregarMov = useCallback(async () => {
     setMovLoading(true)
     try {
-      const r = await (trpc.cliente as unknown as { reportMovimentacao: { query: (i: { dataInicio: string; dataFim: string }) => Promise<MovData> } })
-        .reportMovimentacao.query({ dataInicio: de, dataFim: ate })
+      const r = await (trpc.cliente as unknown as { reportMovimentacao: { query: (i: { dataInicio: string; dataFim: string; situacoes?: string[] }) => Promise<MovData> } })
+        .reportMovimentacao.query({ dataInicio: de, dataFim: ate, situacoes: tipos.size ? [...tipos] : undefined })
       setMov(r)
     } catch { setMov(null) } finally { setMovLoading(false) }
-  }, [de, ate])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [de, ate, tipos])
 
-  useEffect(() => { if (tab === 'movimentacao') carregarMov() }, [tab, carregarMov])
+  useEffect(() => { if (tab === 'movimentacao' && !mov) carregarMov() }, [tab, mov, carregarMov])
   useEffect(() => {
     if (tab !== 'area' || area) return
     setAreaLoading(true)
@@ -69,13 +154,17 @@ export default function RelatoriosClientesPage() {
     { id: 'responsavel', label: 'Por Responsável', icon: Users },
   ]
 
-  function exportar(nome: string, cols: ExportColumn[], rows: Record<string, unknown>[], formato: 'xlsx' | 'csv') {
-    if (formato === 'xlsx') exportToExcel(rows, cols, nome)
-    else exportToCsv(rows, cols, nome)
-  }
-
   const pieData = mov ? [{ name: 'Entradas', value: mov.totalEntradas }, { name: 'Saídas', value: mov.totalSaidas }] : []
   const barData = mov ? mov.meses.map((m, i) => ({ mes: m, Entradas: mov.serieEntradas[i] ?? 0, Saídas: mov.serieSaidas[i] ?? 0 })) : []
+
+  // Área: cards clicáveis filtram a exibição
+  const areasVisiveis = area ? (areaSel.size ? area.areas.filter(a => areaSel.has(a.areaId)) : area.areas) : []
+
+  // Responsável: filtros por usuário e por setor
+  const setores = resp ? [...new Set(resp.responsaveis.map(r => r.setor).filter(Boolean))] as string[] : []
+  const respVisiveis = resp ? resp.responsaveis.filter(r =>
+    (respSel.size === 0 || respSel.has(r.responsavelId)) && (setorSel.size === 0 || (r.setor && setorSel.has(r.setor)))
+  ) : []
 
   return (
     <div className="space-y-5">
@@ -113,41 +202,50 @@ export default function RelatoriosClientesPage() {
       {/* ── Acompanhamento Anual ── */}
       {tab === 'movimentacao' && (
         <div className="space-y-4">
-          <Card className="p-4 flex flex-wrap items-end gap-3">
-            <div className="space-y-1">
-              <Label className="text-[11px] font-medium text-muted-foreground">De</Label>
-              <Input type="date" className="h-9 text-sm" value={de} onChange={e => setDe(e.target.value)} />
+          {/* Toolbar compacta: filtros à esquerda, KPIs à direita */}
+          <Card className="p-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">De</Label>
+                <Input type="date" className="h-9 text-sm w-[150px]" value={de} onChange={e => setDe(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">Até</Label>
+                <Input type="date" className="h-9 text-sm w-[150px]" value={ate} onChange={e => setAte(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">Tipo de cliente</Label>
+                <MultiSelect label="Tipos" options={SITUACAO_OPTS} selected={tipos} onChange={setTipos} />
+              </div>
+              <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5 h-9" onClick={carregarMov} disabled={movLoading}>
+                {movLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />} Filtrar
+              </Button>
+
+              {mov && (
+                <div className="ml-auto flex items-center gap-2">
+                  <div className="rounded-md border border-border px-3 py-1.5 flex items-center gap-2">
+                    <ArrowUpCircle className="h-4 w-4 text-emerald-500" />
+                    <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">Entradas</p><p className="text-lg font-bold tabular-nums leading-tight text-emerald-600 dark:text-emerald-400">{mov.totalEntradas}</p></div>
+                  </div>
+                  <div className="rounded-md border border-border px-3 py-1.5 flex items-center gap-2">
+                    <ArrowDownCircle className="h-4 w-4 text-rose-500" />
+                    <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">Saídas</p><p className="text-lg font-bold tabular-nums leading-tight text-rose-600 dark:text-rose-400">{mov.totalSaidas}</p></div>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="space-y-1">
-              <Label className="text-[11px] font-medium text-muted-foreground">Até</Label>
-              <Input type="date" className="h-9 text-sm" value={ate} onChange={e => setAte(e.target.value)} />
-            </div>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={carregarMov} disabled={movLoading}>
-              {movLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />} Filtrar
-            </Button>
           </Card>
 
           {movLoading ? (
             <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Carregando...</div>
           ) : mov ? (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <Card className="p-4 flex items-center justify-between">
-                  <div><p className="text-[11px] uppercase tracking-wider text-muted-foreground">Entradas</p><p className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{mov.totalEntradas}</p></div>
-                  <ArrowUpCircle className="h-8 w-8 text-emerald-500/70" />
-                </Card>
-                <Card className="p-4 flex items-center justify-between">
-                  <div><p className="text-[11px] uppercase tracking-wider text-muted-foreground">Saídas</p><p className="text-2xl font-bold tabular-nums text-rose-600 dark:text-rose-400">{mov.totalSaidas}</p></div>
-                  <ArrowDownCircle className="h-8 w-8 text-rose-500/70" />
-                </Card>
-              </div>
-
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 <Card className="p-4">
                   <p className="text-[13px] font-semibold mb-2">Entradas × Saídas</p>
-                  <ResponsiveContainer width="100%" height={220}>
+                  <ResponsiveContainer width="100%" height={190}>
                     <PieChart>
-                      <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80} label>
+                      <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={40} outerRadius={70} label>
                         <Cell fill={COR_ENTRADA} /><Cell fill={COR_SAIDA} />
                       </Pie>
                       <Tooltip /><Legend />
@@ -156,7 +254,7 @@ export default function RelatoriosClientesPage() {
                 </Card>
                 <Card className="p-4 lg:col-span-2">
                   <p className="text-[13px] font-semibold mb-2">Acompanhamento mensal</p>
-                  <ResponsiveContainer width="100%" height={220}>
+                  <ResponsiveContainer width="100%" height={190}>
                     <BarChart data={barData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="mes" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
@@ -171,51 +269,15 @@ export default function RelatoriosClientesPage() {
               {(['entradas', 'saidas'] as const).map(tipo => {
                 const rows = tipo === 'entradas' ? mov.entradas : mov.saidas
                 const titulo = tipo === 'entradas' ? 'Clientes que entraram' : 'Clientes que saíram'
-                const cols: ExportColumn[] = [
-                  { header: 'Nº', accessor: (r) => `#${(r as unknown as MovLinha).code}` },
-                  { header: 'CNPJ/CPF', accessor: 'documento' },
-                  { header: 'Cliente', accessor: 'razaoSocial' },
-                  { header: 'Grupo', accessor: (r) => (r as unknown as MovLinha).grupo ?? '—' },
-                  { header: 'Situação', accessor: (r) => situ((r as unknown as MovLinha).situacao) },
-                  { header: tipo === 'entradas' ? 'Data Entrada' : 'Data Saída', accessor: (r) => fmtDate((r as unknown as MovLinha).data) },
+                const cols: Col<MovLinha>[] = [
+                  { label: 'Nº', get: r => `#${r.code}`, className: 'tabular-nums' },
+                  { label: 'CNPJ/CPF', get: r => r.documento, className: 'font-mono' },
+                  { label: 'Cliente', get: r => r.razaoSocial, className: 'font-medium' },
+                  { label: 'Grupo', get: r => r.grupo ?? '—' },
+                  { label: 'Situação', get: r => situ(r.situacao), render: r => <Badge variant="secondary" className="text-[10px]">{situ(r.situacao)}</Badge> },
+                  { label: tipo === 'entradas' ? 'Data Entrada' : 'Data Saída', get: r => fmtDate(r.data), className: 'tabular-nums' },
                 ]
-                return (
-                  <Card key={tipo} className="overflow-hidden">
-                    <div className="px-3 py-2 bg-muted/40 border-b border-border flex items-center justify-between gap-2">
-                      <span className="text-[13px] font-semibold">{titulo} ({rows.length})</span>
-                      <div className="flex gap-1.5">
-                        <Button variant="outline" size="xs" className="gap-1" onClick={() => exportar(`clientes-${tipo}`, cols, rows as unknown as Record<string, unknown>[], 'xlsx')}><FileSpreadsheet className="h-3.5 w-3.5" />Excel</Button>
-                        <Button variant="outline" size="xs" className="gap-1" onClick={() => exportar(`clientes-${tipo}`, cols, rows as unknown as Record<string, unknown>[], 'csv')}><FileText className="h-3.5 w-3.5" />CSV</Button>
-                      </div>
-                    </div>
-                    <div className="overflow-auto max-h-[360px]">
-                      <table className="w-full text-xs">
-                        <thead className="bg-muted/20 sticky top-0"><tr>
-                          <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">Nº</th>
-                          <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">CNPJ/CPF</th>
-                          <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">Cliente</th>
-                          <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">Grupo</th>
-                          <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">Situação</th>
-                          <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">Data</th>
-                        </tr></thead>
-                        <tbody>
-                          {rows.length === 0 ? (
-                            <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">Nenhum cliente no período.</td></tr>
-                          ) : rows.map(c => (
-                            <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => router.push(`/clientes/${c.id}`)}>
-                              <td className="px-3 py-1.5 tabular-nums">#{c.code}</td>
-                              <td className="px-3 py-1.5 font-mono">{c.documento}</td>
-                              <td className="px-3 py-1.5 font-medium">{c.razaoSocial}</td>
-                              <td className="px-3 py-1.5">{c.grupo ?? '—'}</td>
-                              <td className="px-3 py-1.5"><Badge variant="secondary" className="text-[10px]">{situ(c.situacao)}</Badge></td>
-                              <td className="px-3 py-1.5 tabular-nums">{fmtDate(c.data)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </Card>
-                )
+                return <TabelaRelatorio key={tipo} titulo={titulo} cols={cols} rows={rows} nomeArquivo={`clientes-${tipo}`} rowKey={r => r.id} onRowClick={r => router.push(`/clientes/${r.id}`)} />
               })}
             </>
           ) : null}
@@ -228,56 +290,34 @@ export default function RelatoriosClientesPage() {
           <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Carregando...</div>
         ) : area ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-start gap-3 flex-wrap">
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 flex-1">
-                {area.areas.map(a => (
-                  <Card key={a.areaId} className="p-3">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">{a.areaNome}</p>
-                    <p className="text-xl font-bold tabular-nums">{a.total}</p>
-                  </Card>
-                ))}
+                {area.areas.map(a => {
+                  const active = areaSel.has(a.areaId)
+                  return (
+                    <button key={a.areaId} type="button" onClick={() => { const n = new Set(areaSel); if (n.has(a.areaId)) n.delete(a.areaId); else n.add(a.areaId); setAreaSel(n) }}
+                      className={cn('text-left rounded-lg border p-3 transition-colors', active ? 'text-white' : 'bg-card border-border hover:bg-muted/40')}
+                      style={active ? { backgroundColor: MODULE_COLOR, borderColor: MODULE_COLOR } : undefined}>
+                      <p className={cn('text-[10px] uppercase tracking-wider truncate', active ? 'text-white/80' : 'text-muted-foreground')}>{a.areaNome}</p>
+                      <p className="text-xl font-bold tabular-nums">{a.total}</p>
+                    </button>
+                  )
+                })}
               </div>
-              <Button variant="outline" size="sm" className="gap-1.5 shrink-0" onClick={() => {
-                const cols: ExportColumn[] = [
-                  { header: 'Área', accessor: 'areaNome' }, { header: 'Nº', accessor: (r) => `#${(r as Record<string, unknown>).code}` },
-                  { header: 'CNPJ/CPF', accessor: 'documento' }, { header: 'Cliente', accessor: 'razaoSocial' },
-                  { header: 'E-mail', accessor: (r) => (r as Record<string, unknown>).email ?? '—' }, { header: 'Telefone', accessor: (r) => (r as Record<string, unknown>).telefone ?? '—' },
-                  { header: 'Responsável', accessor: (r) => (r as Record<string, unknown>).responsavel ?? '—' },
-                ]
-                const flat = area.areas.flatMap(a => a.clientes.map(c => ({ areaNome: a.areaNome, ...c })))
-                exportToExcel(flat, cols, 'clientes-por-area')
-              }}><FileSpreadsheet className="h-4 w-4" />Exportar tudo</Button>
             </div>
+            {areaSel.size > 0 && <p className="text-[11px] text-muted-foreground -mt-2">Mostrando {areasVisiveis.length} de {area.areas.length} áreas · <button type="button" className="underline hover:text-foreground" onClick={() => setAreaSel(new Set())}>limpar seleção</button></p>}
 
-            {area.areas.map(a => (
-              <Card key={a.areaId} className="overflow-hidden">
-                <div className="px-3 py-2 bg-muted/40 border-b border-border text-[13px] font-semibold">{a.areaNome} <span className="text-muted-foreground font-normal">· {a.total} cliente(s)</span></div>
-                <div className="overflow-auto max-h-[340px]">
-                  <table className="w-full text-xs">
-                    <thead className="bg-muted/20 sticky top-0"><tr>
-                      <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">Nº</th>
-                      <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">CNPJ/CPF</th>
-                      <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">Cliente</th>
-                      <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">E-mail</th>
-                      <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">Telefone</th>
-                      <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">Responsável</th>
-                    </tr></thead>
-                    <tbody>
-                      {a.clientes.map(c => (
-                        <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => router.push(`/clientes/${c.id}`)}>
-                          <td className="px-3 py-1.5 tabular-nums">#{c.code}</td>
-                          <td className="px-3 py-1.5 font-mono">{c.documento}</td>
-                          <td className="px-3 py-1.5 font-medium">{c.razaoSocial}</td>
-                          <td className="px-3 py-1.5">{c.email ?? '—'}</td>
-                          <td className="px-3 py-1.5">{c.telefone ?? '—'}</td>
-                          <td className="px-3 py-1.5">{c.responsavel ?? '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            ))}
+            {areasVisiveis.map(a => {
+              const cols: Col<AreaCliente>[] = [
+                { label: 'Nº', get: r => `#${r.code}`, className: 'tabular-nums' },
+                { label: 'CNPJ/CPF', get: r => r.documento, className: 'font-mono' },
+                { label: 'Cliente', get: r => r.razaoSocial, className: 'font-medium' },
+                { label: 'E-mail', get: r => r.email ?? '—' },
+                { label: 'Telefone', get: r => r.telefone ?? '—' },
+                { label: 'Responsável', get: r => r.responsavel ?? '—' },
+              ]
+              return <TabelaRelatorio key={a.areaId} titulo={a.areaNome} cols={cols} rows={a.clientes} nomeArquivo={`clientes-area-${a.areaNome}`} rowKey={r => r.id} onRowClick={r => router.push(`/clientes/${r.id}`)} />
+            })}
           </div>
         ) : <p className="text-sm text-muted-foreground">Sem dados.</p>
       )}
@@ -288,42 +328,21 @@ export default function RelatoriosClientesPage() {
           <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Carregando...</div>
         ) : resp ? (
           <div className="space-y-4">
-            <div className="flex justify-end">
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => {
-                const cols: ExportColumn[] = [
-                  { header: 'Responsável', accessor: 'responsavelNome' }, { header: 'Nº', accessor: (r) => `#${(r as Record<string, unknown>).code}` },
-                  { header: 'CNPJ/CPF', accessor: 'documento' }, { header: 'Cliente', accessor: 'razaoSocial' }, { header: 'Área', accessor: (r) => (r as Record<string, unknown>).area ?? '—' },
-                ]
-                const flat = resp.responsaveis.flatMap(r => r.clientes.map(c => ({ responsavelNome: r.responsavelNome, ...c })))
-                exportToExcel(flat, cols, 'clientes-por-responsavel')
-              }}><FileSpreadsheet className="h-4 w-4" />Exportar tudo</Button>
-            </div>
+            <Card className="p-3 flex flex-wrap items-center gap-3">
+              <MultiSelect label="Responsável" options={resp.responsaveis.map(r => ({ value: r.responsavelId, label: r.responsavelNome }))} selected={respSel} onChange={setRespSel} />
+              {setores.length > 0 && <MultiSelect label="Setor" options={setores.map(s => ({ value: s, label: s }))} selected={setorSel} onChange={setSetorSel} />}
+              <span className="text-[12px] text-muted-foreground">Mostrando {respVisiveis.length} de {resp.responsaveis.length} responsáveis</span>
+            </Card>
 
-            {resp.responsaveis.map(r => (
-              <Card key={r.responsavelId} className="overflow-hidden">
-                <div className="px-3 py-2 bg-muted/40 border-b border-border text-[13px] font-semibold">{r.responsavelNome} <span className="text-muted-foreground font-normal">· {r.total} cliente(s)</span></div>
-                <div className="overflow-auto max-h-[340px]">
-                  <table className="w-full text-xs">
-                    <thead className="bg-muted/20 sticky top-0"><tr>
-                      <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">Nº</th>
-                      <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">CNPJ/CPF</th>
-                      <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">Cliente</th>
-                      <th className="text-left font-semibold px-3 py-2 uppercase tracking-wider">Área</th>
-                    </tr></thead>
-                    <tbody>
-                      {r.clientes.map((c, i) => (
-                        <tr key={`${c.clienteId}-${i}`} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => router.push(`/clientes/${c.clienteId}`)}>
-                          <td className="px-3 py-1.5 tabular-nums">#{c.code}</td>
-                          <td className="px-3 py-1.5 font-mono">{c.documento}</td>
-                          <td className="px-3 py-1.5 font-medium">{c.razaoSocial}</td>
-                          <td className="px-3 py-1.5">{c.area ?? '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            ))}
+            {respVisiveis.map(r => {
+              const cols: Col<RespCliente>[] = [
+                { label: 'Nº', get: c => `#${c.code}`, className: 'tabular-nums' },
+                { label: 'CNPJ/CPF', get: c => c.documento, className: 'font-mono' },
+                { label: 'Cliente', get: c => c.razaoSocial, className: 'font-medium' },
+                { label: 'Área', get: c => c.area ?? '—' },
+              ]
+              return <TabelaRelatorio key={r.responsavelId} titulo={`${r.responsavelNome}${r.setor ? ` · ${r.setor}` : ''}`} cols={cols} rows={r.clientes} nomeArquivo={`clientes-resp-${r.responsavelNome}`} rowKey={(c, i) => `${c.clienteId}-${i}`} onRowClick={c => router.push(`/clientes/${c.clienteId}`)} />
+            })}
           </div>
         ) : <p className="text-sm text-muted-foreground">Sem dados.</p>
       )}

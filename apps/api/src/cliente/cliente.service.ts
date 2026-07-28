@@ -1186,10 +1186,13 @@ export class ClienteService {
 
   /** Acompanhamento anual: entradas (dataEntrada no período) × saídas (dataSaida no período),
    *  série mensal para o gráfico, KPIs e as duas listas. Escopo por empresa. */
-  async reportMovimentacao(dataInicio: string, dataFim: string, isMaster?: boolean, empresaId?: string) {
+  async reportMovimentacao(dataInicio: string, dataFim: string, situacoes: string[] | undefined, isMaster?: boolean, empresaId?: string) {
     const ini = new Date(`${dataInicio}T00:00:00.000Z`)
     const fim = new Date(`${dataFim}T23:59:59.999Z`)
-    const base: Prisma.ClienteWhereInput = { ...empresaFilter(isMaster, empresaId), deletedAt: null }
+    const base: Prisma.ClienteWhereInput = {
+      ...empresaFilter(isMaster, empresaId), deletedAt: null,
+      ...(situacoes && situacoes.length ? { situacao: { in: situacoes as Prisma.EnumClienteSituacaoFilter['in'] } } : {}),
+    }
     const sel = { id: true, code: true, documento: true, razaoSocial: true, grupo: true, situacao: true, dataEntrada: true, dataSaida: true } as const
     const [entradas, saidas] = await Promise.all([
       prisma.cliente.findMany({ where: { ...base, dataEntrada: { gte: ini, lte: fim } }, select: sel, orderBy: { dataEntrada: 'asc' } }),
@@ -1255,15 +1258,15 @@ export class ClienteService {
       where: { contratado: true, responsavelId: { not: null }, cliente: { ...empresaFilter(isMaster, empresaId), deletedAt: null } },
       select: {
         area: { select: { name: true } },
-        responsavel: { select: { id: true, name: true } },
+        responsavel: { select: { id: true, name: true, area: { select: { name: true } } } },
         cliente: { select: { id: true, code: true, documento: true, razaoSocial: true } },
       },
       orderBy: [{ responsavel: { name: 'asc' } }, { cliente: { razaoSocial: 'asc' } }],
     })
-    const map = new Map<string, { responsavelId: string; responsavelNome: string; clientes: Array<{ clienteId: string; code: number; documento: string; razaoSocial: string; area: string | null }> }>()
+    const map = new Map<string, { responsavelId: string; responsavelNome: string; setor: string | null; clientes: Array<{ clienteId: string; code: number; documento: string; razaoSocial: string; area: string | null }> }>()
     for (const c of cacs) {
       if (!c.responsavel) continue
-      const g = map.get(c.responsavel.id) ?? { responsavelId: c.responsavel.id, responsavelNome: c.responsavel.name, clientes: [] }
+      const g = map.get(c.responsavel.id) ?? { responsavelId: c.responsavel.id, responsavelNome: c.responsavel.name, setor: c.responsavel.area?.name ?? null, clientes: [] }
       g.clientes.push({ clienteId: c.cliente.id, code: c.cliente.code, documento: c.cliente.documento, razaoSocial: c.cliente.razaoSocial, area: c.area?.name ?? null })
       map.set(c.responsavel.id, g)
     }
