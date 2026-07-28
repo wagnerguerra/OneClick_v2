@@ -8,7 +8,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   PieChart, Pie, Cell,
 } from 'recharts'
-import { BarChart3, Loader2, ArrowUpCircle, ArrowDownCircle, FileSpreadsheet, FileText, Users, Layers, Search, ChevronDown } from 'lucide-react'
+import { BarChart3, Loader2, ArrowUpCircle, ArrowDownCircle, FileSpreadsheet, FileText, Users, Layers, Search, ChevronDown, ChevronsDownUp } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { SITUACAO_LABELS } from '@saas/types'
 import { exportToExcel, exportToCsv, type ExportColumn } from '@/lib/export-data'
@@ -32,10 +32,14 @@ interface RespData { responsaveis: Array<{ responsavelId: string; responsavelNom
 // ── Coluna genérica: get() alimenta busca+export; render() a exibição ──
 interface Col<T> { label: string; get: (r: T) => string; render?: (r: T) => React.ReactNode; className?: string }
 
-function TabelaRelatorio<T>({ titulo, cols, rows, nomeArquivo, onRowClick, rowKey }: {
+function TabelaRelatorio<T>({ titulo, cols, rows, nomeArquivo, onRowClick, rowKey, collapsible, open, onToggle }: {
   titulo: string; cols: Col<T>[]; rows: T[]; nomeArquivo: string; onRowClick?: (r: T) => void; rowKey: (r: T, i: number) => string
+  collapsible?: boolean; open?: boolean; onToggle?: () => void
 }) {
   const [q, setQ] = useState('')
+  const [selfOpen, setSelfOpen] = useState(true)
+  const aberto = collapsible ? (open ?? selfOpen) : true
+  const toggle = () => { if (!collapsible) return; if (onToggle) onToggle(); else setSelfOpen(o => !o) }
   const termo = q.trim().toLowerCase()
   const filtered = termo ? rows.filter(r => cols.some(c => c.get(r).toLowerCase().includes(termo))) : rows
   const expCols: ExportColumn[] = cols.map(c => ({ header: c.label, accessor: (row) => c.get(row as unknown as T) }))
@@ -45,27 +49,37 @@ function TabelaRelatorio<T>({ titulo, cols, rows, nomeArquivo, onRowClick, rowKe
   }
   return (
     <Card className="overflow-hidden">
-      <div className="px-3 py-2 bg-muted/40 border-b border-border flex items-center justify-between gap-2 flex-wrap">
-        <span className="text-[13px] font-semibold">{titulo} <span className="text-muted-foreground font-normal">· {termo && filtered.length !== rows.length ? `${filtered.length} de ${rows.length}` : rows.length}</span></span>
-        <div className="flex items-center gap-1.5">
-          <div className="relative"><Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Filtrar..." className="h-7 text-xs pl-7 w-[150px]" /></div>
+      <div
+        className={cn('px-3 py-2 bg-muted/40 border-b border-border flex items-center justify-between gap-2 flex-wrap', collapsible && 'cursor-pointer select-none')}
+        onClick={collapsible ? toggle : undefined}
+      >
+        <span className="text-[13px] font-semibold flex items-center gap-1.5">
+          {collapsible && <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform duration-300', !aberto && '-rotate-90')} />}
+          {titulo} <span className="text-muted-foreground font-normal">· {termo && filtered.length !== rows.length ? `${filtered.length} de ${rows.length}` : rows.length}</span>
+        </span>
+        <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+          {aberto && <div className="relative"><Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" /><Input value={q} onChange={e => setQ(e.target.value)} placeholder="Filtrar..." className="h-7 text-xs pl-7 w-[150px]" /></div>}
           <Button variant="outline" size="xs" className="gap-1" onClick={() => doExport('xlsx')}><FileSpreadsheet className="h-3.5 w-3.5" />Excel</Button>
           <Button variant="outline" size="xs" className="gap-1" onClick={() => doExport('csv')}><FileText className="h-3.5 w-3.5" />CSV</Button>
         </div>
       </div>
-      <div className="overflow-auto max-h-[360px]">
-        <table className="w-full text-xs">
-          <thead className="bg-muted/20 sticky top-0"><tr>{cols.map(c => <th key={c.label} className="text-left font-semibold px-3 py-2 uppercase tracking-wider whitespace-nowrap">{c.label}</th>)}</tr></thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr><td colSpan={cols.length} className="px-3 py-8 text-center text-muted-foreground">Nenhum registro.</td></tr>
-            ) : filtered.map((r, i) => (
-              <tr key={rowKey(r, i)} className={cn('border-b border-border/50 hover:bg-muted/30', onRowClick && 'cursor-pointer')} onClick={onRowClick ? () => onRowClick(r) : undefined}>
-                {cols.map(c => <td key={c.label} className={cn('px-3 py-1.5', c.className)}>{c.render ? c.render(r) : c.get(r)}</td>)}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="grid transition-all duration-300 ease-out motion-reduce:transition-none" style={{ gridTemplateRows: aberto ? '1fr' : '0fr' }} aria-hidden={!aberto}>
+        <div className="min-h-0 overflow-hidden">
+          <div className="overflow-auto max-h-[360px]">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/20 sticky top-0"><tr>{cols.map(c => <th key={c.label} className="text-left font-semibold px-3 py-2 uppercase tracking-wider whitespace-nowrap">{c.label}</th>)}</tr></thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={cols.length} className="px-3 py-8 text-center text-muted-foreground">Nenhum registro.</td></tr>
+                ) : filtered.map((r, i) => (
+                  <tr key={rowKey(r, i)} className={cn('border-b border-border/50 hover:bg-muted/30', onRowClick && 'cursor-pointer')} onClick={onRowClick ? () => onRowClick(r) : undefined}>
+                    {cols.map(c => <td key={c.label} className={cn('px-3 py-1.5', c.className)}>{c.render ? c.render(r) : c.get(r)}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </Card>
   )
@@ -123,6 +137,7 @@ export default function RelatoriosClientesPage() {
   const [respLoading, setRespLoading] = useState(false)
   const [respSel, setRespSel] = useState<Set<string>>(new Set())
   const [setorSel, setSetorSel] = useState<Set<string>>(new Set())
+  const [openResp, setOpenResp] = useState<Set<string>>(new Set()) // cards abertos (padrão: todos recolhidos)
 
   const carregarMov = useCallback(async () => {
     setMovLoading(true)
@@ -327,11 +342,15 @@ export default function RelatoriosClientesPage() {
         respLoading ? (
           <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Carregando...</div>
         ) : resp ? (
-          <div className="space-y-4">
-            <Card className="p-3 flex flex-wrap items-center gap-3">
+          <div className="space-y-3">
+            <Card className="p-2.5 flex flex-wrap items-center gap-2 justify-start">
               <MultiSelect label="Responsável" options={resp.responsaveis.map(r => ({ value: r.responsavelId, label: r.responsavelNome }))} selected={respSel} onChange={setRespSel} />
               {setores.length > 0 && <MultiSelect label="Setor" options={setores.map(s => ({ value: s, label: s }))} selected={setorSel} onChange={setSetorSel} />}
-              <span className="text-[12px] text-muted-foreground">Mostrando {respVisiveis.length} de {resp.responsaveis.length} responsáveis</span>
+              <span className="text-[12px] text-muted-foreground">{respVisiveis.length} de {resp.responsaveis.length} responsáveis</span>
+              <div className="ml-auto flex items-center gap-1.5">
+                <Button variant="outline" size="xs" className="gap-1" onClick={() => setOpenResp(new Set(respVisiveis.map(r => r.responsavelId)))}><ChevronsDownUp className="h-3.5 w-3.5 rotate-180" />Expandir todos</Button>
+                <Button variant="outline" size="xs" className="gap-1" onClick={() => setOpenResp(new Set())}><ChevronsDownUp className="h-3.5 w-3.5" />Recolher todos</Button>
+              </div>
             </Card>
 
             {respVisiveis.map(r => {
@@ -341,7 +360,12 @@ export default function RelatoriosClientesPage() {
                 { label: 'Cliente', get: c => c.razaoSocial, className: 'font-medium' },
                 { label: 'Área', get: c => c.area ?? '—' },
               ]
-              return <TabelaRelatorio key={r.responsavelId} titulo={`${r.responsavelNome}${r.setor ? ` · ${r.setor}` : ''}`} cols={cols} rows={r.clientes} nomeArquivo={`clientes-resp-${r.responsavelNome}`} rowKey={(c, i) => `${c.clienteId}-${i}`} onRowClick={c => router.push(`/clientes/${c.clienteId}`)} />
+              return (
+                <TabelaRelatorio key={r.responsavelId} titulo={`${r.responsavelNome}${r.setor ? ` · ${r.setor}` : ''}`} cols={cols} rows={r.clientes}
+                  nomeArquivo={`clientes-resp-${r.responsavelNome}`} rowKey={(c, i) => `${c.clienteId}-${i}`} onRowClick={c => router.push(`/clientes/${c.clienteId}`)}
+                  collapsible open={openResp.has(r.responsavelId)}
+                  onToggle={() => { const n = new Set(openResp); if (n.has(r.responsavelId)) n.delete(r.responsavelId); else n.add(r.responsavelId); setOpenResp(n) }} />
+              )
             })}
           </div>
         ) : <p className="text-sm text-muted-foreground">Sem dados.</p>
