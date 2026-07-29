@@ -720,6 +720,9 @@ model Cliente {
   grupo       String?
   categoria   String?         @default("NAO_INFORMADO")
   origem      String?
+  // Capital social (vem do QSA/Receita ou da importação legada). Lido/gravado por
+  // socio.* e cnpj.service; precisa existir fisicamente (era usado só em SQL cru).
+  capitalSocial Decimal?      @map("capital_social") @db.Decimal(14, 2)
   dataEntrada DateTime?       @map("data_entrada")
   dataSaida   DateTime?       @map("data_saida")
   observacoes String?         @db.Text

@@ -39,6 +39,7 @@ import { useBeneficioFiscalPerms } from '@/hooks/use-beneficio-fiscal'
 import { ServicosCard } from './servicos-card'
 import { ParticularidadesCard } from './particularidades-card'
 import { LegalizacaoCard } from './legalizacao-card'
+import { CnpjFilialSelect } from './cnpj-filial-select'
 import { ContabilCard } from './contabil-card'
 import { ObrigacoesCard } from './obrigacoes-card'
 import { ObrigacoesClienteSection } from './obrigacoes-cliente-section'
@@ -478,7 +479,9 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                 <p className="text-sm text-muted-foreground mt-0.5">
                   #{defaultValues.code}
                   &nbsp;&nbsp;|&nbsp;&nbsp;
-                  CNPJ: {tipoDocumento === 'CPF' ? masks.cpf(defaultValues.documento || '') : masks.cnpj(defaultValues.documento || '')}
+                  {clienteId
+                    ? <CnpjFilialSelect clienteId={clienteId} documento={defaultValues.documento || ''} tipoDocumento={tipoDocumento} />
+                    : <>CNPJ: {tipoDocumento === 'CPF' ? masks.cpf(defaultValues.documento || '') : masks.cnpj(defaultValues.documento || '')}</>}
                   &nbsp;&nbsp;|&nbsp;&nbsp;
                   Criado em: {defaultValues.createdAt ? new Date(defaultValues.createdAt).toLocaleDateString('pt-BR') + ', ' + new Date(defaultValues.createdAt).toLocaleTimeString('pt-BR') : '—'}
                 </p>

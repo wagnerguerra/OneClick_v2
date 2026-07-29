@@ -50,6 +50,11 @@ export function createClienteRouter(
       .input(z.object({ documento: z.string() }))
       .query(({ input, ctx }) => clienteService.listFiliais(input.documento, ctx.isMaster, ctx.empresaId)),
 
+    // Demais CNPJs da mesma raiz (matriz + filiais), exceto o atual — seletor do header.
+    listMesmaRaiz: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string(), documento: z.string() }))
+      .query(({ input, ctx }) => clienteService.listMesmaRaiz(input.clienteId, input.documento, ctx.isMaster, ctx.empresaId)),
+
     // Obter por ID (inclui arquivos e contatos)
     getById: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
@@ -982,10 +987,14 @@ export function createClienteRouter(
     getCapitalSocial: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
       .query(async ({ input }) => {
-        const rows = await prisma.$queryRawUnsafe<Array<{ capital_social: number | null }>>(
-          `SELECT capital_social FROM clientes WHERE id = $1`, input.clienteId,
-        )
-        return { capitalSocial: rows[0]?.capital_social != null ? Number(rows[0].capital_social) : null }
+        // Prisma type-safe (a coluna capital_social agora existe no schema). Defensivo:
+        // se por drift a coluna ainda não existir em algum ambiente, devolve null em vez de 500.
+        try {
+          const cli = await prisma.cliente.findUnique({ where: { id: input.clienteId }, select: { capitalSocial: true } })
+          return { capitalSocial: cli?.capitalSocial != null ? Number(cli.capitalSocial) : null }
+        } catch {
+          return { capitalSocial: null }
+        }
       }),
 
     // ── Import CNAEs via Receita Federal ───────────────
@@ -1086,29 +1095,36 @@ export function createClienteRouter(
             const nome = String(s.nome || '').trim()
             if (!nome) continue
 
-            // Verificar se já existe
-            const exists = await prisma.socio.findFirst({ where: { clienteId: input.clienteId, nomeCompleto: { equals: nome, mode: 'insensitive' } }, select: { id: true } })
-            if (exists) { skipped++; continue }
-
-            // Mapear qualificação
+            // Importar APENAS sócios cotistas (não administradores/demais).
             const qualStr = String(s.qualificacao || '').toLowerCase()
-            let tipoSocio: 'SOCIO_ADMINISTRADOR' | 'SOCIO_DIRETOR' | 'REPRESENTANTE_LEGAL' | 'SOCIO_QUOTISTA' | 'TITULAR' = 'SOCIO_QUOTISTA'
-            if (qualStr.includes('administrador')) tipoSocio = 'SOCIO_ADMINISTRADOR'
-            else if (qualStr.includes('diretor') || qualStr.includes('presidente')) tipoSocio = 'SOCIO_DIRETOR'
-            else if (qualStr.includes('titular')) tipoSocio = 'TITULAR'
-            else if (qualStr.includes('representante') || qualStr.includes('procurador')) tipoSocio = 'REPRESENTANTE_LEGAL'
+            const ehCotista = qualStr.includes('cotista') || qualStr.includes('quotista')
+            if (!ehCotista) { skipped++; continue }
 
-            await prisma.socio.create({
-              data: {
-                nomeCompleto: nome,
-                cpf: s.documento ? String(s.documento).replace(/\D/g, '') : '',
-                tipoSocio,
-                participacao: s.percentual_participacao != null ? Number(s.percentual_participacao) : undefined,
-                valorQuotas: s.valor_participacao != null ? Number(s.valor_participacao) : undefined,
-                clienteId: input.clienteId,
-                observacoes: `Importado do OneClick — ${s.qualificacao || ''}${s.representante_nome ? ' | Rep: ' + s.representante_nome : ''}`,
-              },
+            const doc = s.documento ? String(s.documento).replace(/\D/g, '') : ''
+            const participacao = s.percentual_participacao != null ? Number(s.percentual_participacao) : undefined
+            const valorQuotas = s.valor_participacao != null ? Number(s.valor_participacao) : undefined
+
+            // Casa por documento (mais confiável que nome) e cai pro nome. Se já existir
+            // (ex.: veio do QSA sem participação), completa participação/valor em vez de pular.
+            const existing = await prisma.socio.findFirst({
+              where: { clienteId: input.clienteId, OR: [...(doc ? [{ cpf: doc }] : []), { nomeCompleto: { equals: nome, mode: 'insensitive' as const } }] },
+              select: { id: true },
             })
+            if (existing) {
+              await prisma.socio.update({ where: { id: existing.id }, data: { tipoSocio: 'SOCIO_QUOTISTA', participacao, valorQuotas, ...(doc ? { cpf: doc } : {}) } })
+            } else {
+              await prisma.socio.create({
+                data: {
+                  nomeCompleto: nome,
+                  cpf: doc,
+                  tipoSocio: 'SOCIO_QUOTISTA',
+                  participacao,
+                  valorQuotas,
+                  clienteId: input.clienteId,
+                  observacoes: `Importado do OneClick — ${s.qualificacao || ''}${s.representante_nome ? ' | Rep: ' + s.representante_nome : ''}`,
+                },
+              })
+            }
             imported++
           }
 

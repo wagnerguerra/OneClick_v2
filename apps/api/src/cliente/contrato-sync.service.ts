@@ -114,7 +114,11 @@ export class ContratoSyncService {
    * Pedido de import do cadastro legado (registros/acessos/vencimentos/sócios)
    * pelo Launcher, que lê o MySQL local e devolve as linhas via callback.
    */
-  async requestClienteImport(cnpj: string, timeoutMs = 45_000): Promise<Record<string, unknown>> {
+  // 25s: precisa ser MENOR que o gateway timeout do proxy da VPS (~30s). Se o Launcher
+  // demora mais que isso (leitura legada lenta/travada), rejeitamos com erro JSON limpo
+  // ANTES do proxy devolver a página HTML "Internal Server Error" (que quebrava o front
+  // com "Unexpected token 'I'... is not valid JSON").
+  async requestClienteImport(cnpj: string, timeoutMs = 25_000): Promise<Record<string, unknown>> {
     this.assertServiceManagerConectado('o cadastro legado (OneClick v1)')
     const requestId = randomUUID()
     return new Promise<Record<string, unknown>>((resolve, reject) => {

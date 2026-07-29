@@ -310,6 +310,35 @@ export class ClienteService {
     )
   }
 
+  /**
+   * Todos os CNPJs da MESMA RAIZ (matriz + filiais), EXCETO o cliente atual —
+   * para o seletor de filiais no header do detalhe. Ordena a matriz (/0001) primeiro.
+   */
+  async listMesmaRaiz(clienteId: string, documento: string, isMaster?: boolean, empresaId?: string) {
+    const doc = limparCnpj(documento)
+    if (doc.length !== 14) return []
+    const base = doc.slice(0, 8)
+    const params: unknown[] = [base, clienteId]
+    if (!isMaster) params.push(empresaId)
+    return prisma.$queryRawUnsafe<Array<{
+      id: string; documento: string; razaoSocial: string; nomeFantasia: string | null
+      ehMatriz: boolean | null; status: string; situacao: string
+    }>>(
+      `SELECT c.id, c.documento, c.razao_social AS "razaoSocial",
+              c.nome_fantasia AS "nomeFantasia", c.eh_matriz AS "ehMatriz",
+              c.status::text AS status, c.situacao::text AS situacao
+       FROM clientes c
+       WHERE c.deleted_at IS NULL
+         AND c.tipo_documento = 'CNPJ'
+         AND length(c.documento) = 14
+         AND substring(c.documento, 1, 8) = $1
+         AND c.id <> $2
+         ${isMaster ? '' : 'AND c.empresa_id = $3'}
+       ORDER BY (substring(c.documento, 9, 4) = '0001') DESC, substring(c.documento, 9, 4)`,
+      ...params,
+    )
+  }
+
   // ============================================================
   // Lixeira (soft-deleted)
   // ============================================================

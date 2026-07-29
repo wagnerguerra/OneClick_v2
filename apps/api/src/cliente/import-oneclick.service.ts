@@ -182,29 +182,41 @@ export class ImportOneclickService {
       } catch (e) { console.error('[ImportOneClick] Erro andamento:', (e as Error).message) }
     }
 
-    // --- Sócios (incorporado ao Importar OneClick) ---
+    // --- Sócios (incorporado ao Importar OneClick) — SÓ COTISTAS, com participação/valor ---
     for (const s of dados.socios ?? []) {
       const nome = String(s.nome || '').trim()
       if (!nome) continue
-      const exists = await prisma.socio.findFirst({ where: { clienteId, nomeCompleto: { equals: nome, mode: 'insensitive' } }, select: { id: true } }).catch(() => null)
-      if (exists) continue
       const qualStr = String(s.qualificacao || '').toLowerCase()
-      let tipoSocio: 'SOCIO_ADMINISTRADOR' | 'SOCIO_DIRETOR' | 'REPRESENTANTE_LEGAL' | 'SOCIO_QUOTISTA' | 'TITULAR' = 'SOCIO_QUOTISTA'
-      if (qualStr.includes('administrador')) tipoSocio = 'SOCIO_ADMINISTRADOR'
-      else if (qualStr.includes('diretor') || qualStr.includes('presidente')) tipoSocio = 'SOCIO_DIRETOR'
-      else if (qualStr.includes('titular')) tipoSocio = 'TITULAR'
-      else if (qualStr.includes('representante') || qualStr.includes('procurador')) tipoSocio = 'REPRESENTANTE_LEGAL'
-      await prisma.socio.create({
-        data: {
-          nomeCompleto: nome,
-          cpf: s.documento ? String(s.documento).replace(/\D/g, '') : '',
-          tipoSocio,
-          participacao: s.percentual_participacao != null ? Number(s.percentual_participacao) : undefined,
-          valorQuotas: s.valor_participacao != null ? Number(s.valor_participacao) : undefined,
-          clienteId,
-          observacoes: `Importado do OneClick — ${s.qualificacao || ''}${s.representante_nome ? ' | Rep: ' + s.representante_nome : ''}`,
-        },
-      }).then(() => { sociosCount++ }).catch((e) => { console.error('[ImportOneClick] Erro sócio:', nome, (e as Error).message) })
+      // Importar APENAS sócios cotistas (quem detém quotas/participação). Administradores e
+      // demais qualificações do v1 não interessam.
+      const ehCotista = qualStr.includes('cotista') || qualStr.includes('quotista')
+      if (!ehCotista) continue
+
+      const doc = s.documento ? String(s.documento).replace(/\D/g, '') : ''
+      const participacao = s.percentual_participacao != null ? Number(s.percentual_participacao) : undefined
+      const valorQuotas = s.valor_participacao != null ? Number(s.valor_participacao) : undefined
+      const observacoes = `Importado do OneClick — ${s.qualificacao || ''}${s.representante_nome ? ' | Rep: ' + s.representante_nome : ''}`
+
+      // Casa por DOCUMENTO (QSA e v1 divergem em acentos no nome → nome é frágil) e cai pro nome.
+      const existing = await prisma.socio.findFirst({
+        where: { clienteId, OR: [...(doc ? [{ cpf: doc }] : []), { nomeCompleto: { equals: nome, mode: 'insensitive' as const } }] },
+        select: { id: true },
+      }).catch(() => null)
+
+      try {
+        if (existing) {
+          // Já existe (ex.: veio do QSA sem participação) — completa participação/valor/tipo.
+          await prisma.socio.update({
+            where: { id: existing.id },
+            data: { tipoSocio: 'SOCIO_QUOTISTA', participacao, valorQuotas, ...(doc ? { cpf: doc } : {}) },
+          })
+        } else {
+          await prisma.socio.create({
+            data: { nomeCompleto: nome, cpf: doc, tipoSocio: 'SOCIO_QUOTISTA', participacao, valorQuotas, clienteId, observacoes },
+          })
+        }
+        sociosCount++
+      } catch (e) { console.error('[ImportOneClick] Erro sócio:', nome, (e as Error).message) }
     }
 
     const parts: string[] = []
