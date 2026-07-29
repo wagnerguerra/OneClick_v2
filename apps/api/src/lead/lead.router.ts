@@ -31,6 +31,10 @@ export function createLeadRouter(leadService: LeadService) {
       .input(z.object({ oportunidadeId: z.string() }))
       .query(({ input, ctx }) => leadService.conversaPorOportunidade(input.oportunidadeId, ctx.empresaId)),
 
+    conversaSessao: readSubAnyProcedure(MODULE, ACESSO_FUNIL, 'Acessar funil de captação')
+      .input(z.object({ sessaoId: z.string() }))
+      .query(({ input, ctx }) => leadService.conversaPorSessao(input.sessaoId, ctx.empresaId)),
+
     reportFunil: readSubAnyProcedure(MODULE, ACESSO_FUNIL, 'Acessar funil de captação')
       .input(z.object({ dias: z.number().int().nullable().optional() }))
       .query(({ input, ctx }) => leadService.reportFunil(input.dias ?? null, ctx.empresaId)),
