@@ -43,6 +43,7 @@ export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableC
 export { FormSection } from './components/form-section'
 export { Tabs, TabsList, TabsTrigger, TabsContent, SlidingTabsList } from './components/tabs'
 export { RichEditor } from './components/rich-editor'
+export { RichContent } from './components/rich-content'
 export {
   Sheet,
   SheetTrigger,

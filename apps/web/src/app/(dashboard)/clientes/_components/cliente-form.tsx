@@ -21,6 +21,7 @@ import {
   Tabs, TabsTrigger, TabsContent, SlidingTabsList,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  RichContent,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -1648,7 +1649,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
                               {new Date(h.createdAt).toLocaleString('pt-BR')}
                             </span>
                           </div>
-                          <div className="text-xs prose prose-sm max-w-none" style={h.tipo !== 'cliente' ? { color: '#fff' } : undefined} dangerouslySetInnerHTML={{ __html: h.mensagem }} />
+                          <RichContent className="text-xs" style={h.tipo !== 'cliente' ? { color: '#fff' } : undefined} html={h.mensagem} />
                           <button
                             type="button"
                             onClick={() => deleteHistorico(h.id)}
@@ -4237,7 +4238,7 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
                 {/* Corpo */}
                 {(() => {
                   const corpo = extrairCorpoMensagem(detalheData)
-                  if (corpo) return <div className="prose prose-sm max-w-none text-sm leading-relaxed [&_p]:mb-3 [&_a]:text-sky-600 [&_a]:underline" dangerouslySetInnerHTML={{ __html: corpo }} />
+                  if (corpo) return <RichContent className="text-sm leading-relaxed [&_p]:mb-3 [&_a]:text-sky-600" html={corpo} />
                   if (detalheData) return (<div><p className="text-xs text-muted-foreground mb-2">Resposta bruta da API:</p><pre className="text-xs whitespace-pre-wrap bg-muted/30 rounded-lg p-4 overflow-x-auto max-h-[400px]">{JSON.stringify(detalheData, null, 2)}</pre></div>)
                   return <p className="text-center text-muted-foreground py-10">Nenhum conteúdo disponível.</p>
                 })()}

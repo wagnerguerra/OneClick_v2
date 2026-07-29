@@ -18,6 +18,7 @@ import {
   Checkbox, RichEditor,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   Tabs, TabsList, TabsTrigger, TabsContent,
+  RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -2380,9 +2381,15 @@ export default function AgendaPage() {
                       {ev.descricao && (
                         <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
                           <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Descrição</div>
-                          <div
-                            className="text-sm prose prose-sm dark:prose-invert max-w-none [&_*]:text-sm [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-sky-600"
-                            dangerouslySetInnerHTML={{ __html: ev.descricao }}
+                          <RichContent
+                            // `[&_*]:text-sm` achata o tamanho de TODO descendente
+                            // (inclusive títulos) — mantido de propósito: aqui a
+                            // descrição é um bloco informativo do card, não um
+                            // documento, e a hierarquia de títulos desequilibra o
+                            // layout. Os marcadores de lista continuam vindo do
+                            // RichContent, que é o que estava faltando.
+                            className="text-sm [&_*]:text-sm [&_a]:text-sky-600"
+                            html={ev.descricao}
                           />
                         </div>
                       )}
@@ -2589,10 +2596,12 @@ export default function AgendaPage() {
                           {op.descricao && op.descricao.trim() && (
                             <div className="space-y-1.5">
                               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</span>
-                              <div
-                                className="rounded-md border border-border bg-background/40 p-2.5 max-h-44 overflow-y-auto nice-scrollbar prose prose-sm dark:prose-invert max-w-none break-words [&_*]:text-[12px] [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:pl-4 [&_li]:my-0.5 [&_a]:text-violet-600 dark:[&_a]:text-violet-400"
-                                // eslint-disable-next-line react/no-danger
-                                dangerouslySetInnerHTML={{ __html: op.descricao }}
+                              <RichContent
+                                // `[&_*]:text-[12px]` achata o tamanho de todo
+                                // descendente de propósito (mesmo motivo do bloco
+                                // de descrição do evento, acima).
+                                className="rounded-md border border-border bg-background/40 p-2.5 max-h-44 overflow-y-auto nice-scrollbar break-words text-[12px] [&_*]:text-[12px] [&_p]:my-1 [&_ul]:my-1 [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:pl-4 [&_a]:text-violet-600 dark:[&_a]:text-violet-400"
+                                html={op.descricao}
                               />
                             </div>
                           )}

@@ -20,6 +20,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Sheet, SheetContent, SheetTitle,
   sanitizeInlineTextColors,
+  RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
@@ -3261,9 +3262,9 @@ export default function OrcamentoDetailPage() {
           </DialogHeaderIcon>
           <DialogBody className="space-y-3">
             <h4 className="text-sm font-semibold">{textoPadraoModal?.nome}</h4>
-            <div
-              className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed [&_p]:mb-2 [&_a]:text-sky-600 [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
-              dangerouslySetInnerHTML={{ __html: textoPadraoModal?.texto || '' }}
+            <RichContent
+              className="text-sm leading-relaxed [&_a]:text-sky-600"
+              html={textoPadraoModal?.texto || ''}
             />
           </DialogBody>
           <DialogFooter>
@@ -3531,9 +3532,9 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
                 </div>
               </div>
             ) : (
-              <div
-                className="text-sm text-foreground prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-a:text-rose-600"
-                dangerouslySetInnerHTML={{ __html: mensagemHtml }}
+              <RichContent
+                className="text-sm text-foreground [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_a]:text-rose-600"
+                html={mensagemHtml}
               />
             )}
           </div>

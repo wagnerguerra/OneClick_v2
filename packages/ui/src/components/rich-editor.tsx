@@ -110,9 +110,35 @@ interface RichEditorProps {
   maxHeight?: number | string
   /** Modo somente-leitura: oculta o toolbar e desabilita a edição. */
   readOnly?: boolean
+  /** Conjunto de botões do toolbar.
+   *  - `completo` (default): tudo — títulos, cores, alinhamento, links, imagem, HTML.
+   *  - `basico` (#HLP0160): só negrito/itálico/sublinhado, listas e limpar formatação.
+   *    Pensado para caixas pequenas (balão de chamado, anotação de CRM), onde o
+   *    toolbar completo ocuparia mais espaço que o próprio campo. */
+  toolbar?: 'completo' | 'basico'
+  /** Altura mínima da área de conteúdo. Default 250px. */
+  minHeight?: number | string
+  /** Intercepta a colagem de ARQUIVOS (ex.: print via Ctrl+V). Retorne `true`
+   *  para consumir o evento e impedir que o TipTap embuta a imagem no conteúdo —
+   *  usado onde o print deve virar anexo, não imagem inline. */
+  onPasteFiles?: (files: File[]) => boolean
+  /** Intercepta teclas na área de edição. Retorne `true` para consumir o evento
+   *  (ex.: Ctrl+Enter para enviar). */
+  onKeyDown?: (event: KeyboardEvent) => boolean
 }
 
-export function RichEditor({ value, onChange, placeholder, className, onReady, maxHeight = 420, readOnly = false }: RichEditorProps) {
+export function RichEditor({
+  value, onChange, placeholder, className, onReady, maxHeight = 420, readOnly = false,
+  toolbar = 'completo', minHeight = 250, onPasteFiles, onKeyDown,
+}: RichEditorProps) {
+  const basico = toolbar === 'basico'
+  const minH = typeof minHeight === 'number' ? `${minHeight}px` : minHeight
+  // Callbacks em ref: o `useEditor` captura os `editorProps` na criação, então
+  // uma função nova a cada render ficaria presa na primeira versão (closure velha).
+  const pasteFilesRef = useRef(onPasteFiles)
+  const keyDownRef = useRef(onKeyDown)
+  pasteFilesRef.current = onPasteFiles
+  keyDownRef.current = onKeyDown
   // Último HTML que ESTE editor emitiu via onChange. Usado pra distinguir um
   // eco do próprio onChange (não deve re-setar o conteúdo) de uma mudança
   // externa de `value` (deve sincronizar). Sem isso, o setContent de eco
@@ -125,7 +151,7 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
       // Heading habilitado (níveis 1-3) — útil pra títulos em e-mails.
       // Demais features (bold/italic/strike/code/blockquote/lists/HR/history) vêm
       // do StarterKit por padrão. HTMLAttributes nas listas garantem marker visível
-      // mesmo sem @tailwindcss/typography (o `prose` no editor não está ativo).
+      // mesmo sem @tailwindcss/typography, que não é usado no projeto.
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
         bulletList:  { HTMLAttributes: { class: 'list-disc pl-6 my-2' } },
@@ -162,8 +188,25 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
     editable: !readOnly,
     editorProps: {
       attributes: {
-        class: 'prose prose-sm dark:prose-invert max-w-none px-3 py-2 min-h-[250px] focus:outline-none text-sm',
+        // A altura mínima sai por CSS var (ver <style> abaixo) porque `minHeight`
+        // é dinâmico — classe arbitrária do Tailwind não aceita valor de runtime.
+        // Sem `prose` aqui: o plugin @tailwindcss/typography não é usado no
+        // projeto — o visual vem do <style> escopado em `.rich-editor-root`
+        // logo abaixo (e o mesmo conjunto de regras vive em `rich-content.tsx`,
+        // que renderiza esse HTML depois de salvo).
+        class: 'max-w-none px-3 py-2 focus:outline-none text-sm',
       },
+      handlePaste: (_view, event) => {
+        const handler = pasteFilesRef.current
+        if (!handler) return false
+        const files = Array.from(event.clipboardData?.items ?? [])
+          .filter(i => i.kind === 'file')
+          .map(i => i.getAsFile())
+          .filter((f): f is File => f !== null)
+        if (files.length === 0) return false
+        return handler(files)
+      },
+      handleKeyDown: (_view, event) => keyDownRef.current?.(event) ?? false,
     },
     onUpdate: ({ editor }) => {
       const html = editor.getHTML()
@@ -293,12 +336,17 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
   }
 
   return (
-    <div className={cn('rich-editor-root rounded-[2px] border border-input bg-white dark:bg-[#262a33] transition-colors duration-200 focus-within:border-[#9ca3af] dark:focus-within:border-[#4b5263]', className)}>
+    <div
+      className={cn('rich-editor-root rounded-[2px] border border-input bg-white dark:bg-[#262a33] transition-colors duration-200 focus-within:border-[#9ca3af] dark:focus-within:border-[#4b5263]', className)}
+      style={{ ['--rich-editor-min-h' as string]: minH }}
+    >
       {/* CSS escopado por `.rich-editor-root` — garante marker visível em listas
-          mesmo sem @tailwindcss/typography (o `prose` aplicado no editor é só
-          uma classe sem efeito quando o plugin não está instalado).
+          sem depender do @tailwindcss/typography, que não é usado no projeto.
+          O MESMO conjunto de regras existe em `rich-content.tsx`, que renderiza
+          esse HTML depois de salvo: mexeu aqui, mexa lá.
           Usa <style> regular (sem jsx) pra ser portável fora do Next.js. */}
       <style dangerouslySetInnerHTML={{ __html: `
+        .rich-editor-root .ProseMirror { min-height: var(--rich-editor-min-h, 250px); }
         .rich-editor-root ul { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
         .rich-editor-root ol { list-style: decimal; padding-left: 1.5rem; margin: 0.5rem 0; }
         .rich-editor-root li > p { margin: 0; }
@@ -311,7 +359,8 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
       {/* Toolbar (oculto em modo leitura) */}
       {!readOnly && (
       <div className="flex items-center gap-0.5 border-b border-border/40 px-1.5 py-1 flex-wrap">
-        {/* Histórico (undo/redo) */}
+        {/* Histórico (undo/redo) + títulos — ocultos no modo básico */}
+        {!basico && (<>
         <ToolbarButton
           active={false}
           onClick={() => editor.chain().focus().undo().run()}
@@ -355,6 +404,7 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
         </ToolbarButton>
 
         <div className="mx-1 h-4 w-px bg-border/60" />
+        </>)}
 
         {/* Inline formatting */}
         <ToolbarButton
@@ -388,6 +438,8 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
 
         <div className="mx-1 h-4 w-px bg-border/60" />
 
+        {/* Cores + alinhamento — ocultos no modo básico */}
+        {!basico && (<>
         {/* Cor de texto + Highlight (marca-texto) */}
         <ColorPicker
           icon={<Palette className="h-3.5 w-3.5" />}
@@ -441,6 +493,7 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
         </ToolbarButton>
 
         <div className="mx-1 h-4 w-px bg-border/60" />
+        </>)}
 
         {/* Blocos */}
         <ToolbarButton
@@ -457,6 +510,8 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
         >
           <ListOrdered className="h-3.5 w-3.5" />
         </ToolbarButton>
+        {/* Citação, linha, link e imagem — ocultos no modo básico */}
+        {!basico && (<>
         <ToolbarButton
           active={editor.isActive('blockquote')}
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
@@ -491,6 +546,7 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
         </ToolbarButton>
 
         <div className="mx-1 h-4 w-px bg-border/60" />
+        </>)}
 
         <ToolbarButton
           active={false}
@@ -500,10 +556,11 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
           <RemoveFormatting className="h-3.5 w-3.5" />
         </ToolbarButton>
 
+        {/* Toggle HTML source — útil pra ajustes finos no markup
+            (estilos inline, atributos, etc). Oculto no modo básico. */}
+        {!basico && (<>
         <div className="mx-1 h-4 w-px bg-border/60" />
 
-        {/* Toggle HTML source — útil pra ajustes finos no markup
-            (estilos inline, atributos, etc). */}
         <ToolbarButton
           active={htmlMode}
           onClick={toggleHtmlMode}
@@ -511,6 +568,7 @@ export function RichEditor({ value, onChange, placeholder, className, onReady, m
         >
           <Code2 className="h-3.5 w-3.5" />
         </ToolbarButton>
+        </>)}
       </div>
       )}
 

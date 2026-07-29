@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { CheckCircle2, XCircle, FileText, Loader2, Printer, Calendar, Building2, Phone, Mail, Paperclip, Download, Pencil } from 'lucide-react'
+import { RichContent } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
 
@@ -280,9 +281,9 @@ export default function PublicOrcamentoPage() {
 
         {orc.textoCorpoCliente && (
           <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700">
-            <div
-              className="richtext-render prose prose-sm max-w-none text-slate-700 dark:text-slate-300 max-h-[420px] overflow-y-auto select-text rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-4 print:max-h-none print:overflow-visible print:border-0 print:bg-transparent print:p-0"
-              dangerouslySetInnerHTML={{ __html: orc.textoCorpoCliente }}
+            <RichContent
+              className="richtext-render text-slate-700 dark:text-slate-300 max-h-[420px] overflow-y-auto select-text rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-4 print:max-h-none print:overflow-visible print:border-0 print:bg-transparent print:p-0"
+              html={orc.textoCorpoCliente}
             />
           </div>
         )}

@@ -26,6 +26,7 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetBody, SheetTitle, SheetDescription,
   Button, cn, RichEditor,
+  RichContent,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -291,9 +292,9 @@ export function TicketDetailSheet({ ticketId, onClose, onChange }: Props) {
                   {/* Descrição */}
                   <Section icon={AlignLeft} title="Descrição">
                     <div className="pl-9">
-                      <div
-                        className="text-sm leading-relaxed text-foreground/90 prose prose-sm prose-neutral dark:prose-invert max-w-none [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-cyan-400 [&_a]:underline"
-                        dangerouslySetInnerHTML={{ __html: linkifyHelpdesk(ticket.descricao) }}
+                      <RichContent
+                        className="text-sm leading-relaxed text-foreground/90 [&_a]:text-cyan-400"
+                        html={linkifyHelpdesk(ticket.descricao)}
                       />
                     </div>
                   </Section>

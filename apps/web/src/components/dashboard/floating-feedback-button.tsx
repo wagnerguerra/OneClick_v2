@@ -76,7 +76,6 @@ export function FloatingFeedbackButton() {
   const [ticketCriado, setTicketCriado] = useState<{ numero: number; id: string; hash: string } | null>(null)
 
   const popoverRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   /** Toggle com animação de entrada/saída — atrasa o unmount em 200ms pra rolar o fade-out. */
@@ -109,10 +108,13 @@ export function FloatingFeedbackButton() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
-  // Auto-foca no textarea ao entrar no formulário de ticket
+  // Auto-foca no editor ao entrar no formulário de ticket. Busca pelo DOM do
+  // TipTap (#HLP0160) — o RichEditor não expõe ref de input como o textarea.
   useEffect(() => {
     if (open && mode === 'ticket' && !ticketCriado) {
-      setTimeout(() => textareaRef.current?.focus(), 50)
+      setTimeout(() => {
+        popoverRef.current?.querySelector<HTMLElement>('.rich-editor-root .ProseMirror')?.focus()
+      }, 50)
     }
   }, [open, mode, ticketCriado])
 
@@ -177,21 +179,29 @@ export function FloatingFeedbackButton() {
     }
   }
 
-  /** Captura Ctrl+V de imagem do clipboard (prints colados direto no textarea). */
-  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
-    const items = e.clipboardData?.items
-    if (!items) return
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i]!
-      if (item.kind === 'file' && item.type.startsWith('image/')) {
-        e.preventDefault()  // evita colar nome de arquivo no texto
-        const blob = item.getAsFile()
-        if (blob) {
-          const ext = item.type.split('/')[1] || 'png'
-          uploadFile(blob, `print-${Date.now()}.${ext}`)
-        }
-      }
+  /** Captura Ctrl+V de imagem do clipboard (prints colados direto no editor).
+   *  #HLP0160: com o RichEditor no lugar do textarea, o print precisa continuar
+   *  virando ANEXO — sem isso o TipTap embutiria a imagem em base64 no corpo do
+   *  chamado, inchando a descrição e sumindo da lista de anexos. Retornar `true`
+   *  consome o evento e impede o comportamento padrão do editor. */
+  function handlePasteFiles(files: File[]) {
+    const imagens = files.filter(f => f.type.startsWith('image/'))
+    if (imagens.length === 0) return false
+    for (const blob of imagens) {
+      const ext = blob.type.split('/')[1] || 'png'
+      uploadFile(blob, `print-${Date.now()}.${ext}`)
     }
+    return true
+  }
+
+  /** Ctrl/Cmd+Enter envia — atalho que já existia no textarea. */
+  function handleEditorKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault()
+      handleEnviar()
+      return true
+    }
+    return false
   }
 
   /** Botão "anexar imagem" pra quem não sabe usar Ctrl+V. */
@@ -210,7 +220,10 @@ export function FloatingFeedbackButton() {
       alerts.error('Selecione o tipo do chamado (Erro, Sugestão ou Outro)')
       return
     }
-    if (!texto.trim()) {
+    // #HLP0160: o RichEditor devolve HTML — valida pelo texto puro, senão um
+    // "<p></p>" vazio passaria pela checagem.
+    const textoPuro = texto.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
+    if (!textoPuro) {
       alerts.error('Descreva o que aconteceu')
       return
     }
@@ -224,12 +237,11 @@ export function FloatingFeedbackButton() {
       const tipoLabel = TIPOS.find((t) => t.valor === tipo)?.label ?? 'Outro'
       // Título: primeira linha truncada (máx 80 chars) — depois o time da TI ajusta no triagem.
       // Mínimo 3 chars exigido pelo schema.
-      const tituloBase = texto.trim().split('\n')[0]?.slice(0, 80) || 'Sem título'
+      const tituloBase = textoPuro.slice(0, 80) || 'Sem título'
       const titulo = `[${tipoLabel}] ${tituloBase}`
-      // Corpo: descrição em HTML (compatível com RichEditor) + contexto da URL atual.
+      // Corpo: o HTML do editor já vem pronto (#HLP0160) + contexto da URL atual.
       const url = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/'
-      const textoEscapado = escapeHtml(texto.trim()).replace(/\n/g, '<br>')
-      const descricao = `<p>${textoEscapado}</p><hr><p><small>📍 Página: <code>${escapeHtml(url)}</code></small></p>`
+      const descricao = `${texto.trim()}<hr><p><small>📍 Página: <code>${escapeHtml(url)}</code></small></p>`
 
       const ticket = await trpc.helpdesk.create.mutate({
         titulo,
@@ -432,22 +444,19 @@ export function FloatingFeedbackButton() {
                   ))}
                 </div>
 
-                {/* Textarea + anexos */}
+                {/* Editor + anexos — #HLP0160: toolbar básico (negrito/itálico e
+                    tópicos) para o usuário formatar o chamado ao abrir. */}
                 <div className="px-4 py-3">
-                  <textarea
-                    ref={textareaRef}
+                  <RichEditor
                     value={texto}
-                    onChange={(e) => setTexto(e.target.value)}
-                    onPaste={handlePaste}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                        e.preventDefault()
-                        handleEnviar()
-                      }
-                    }}
-                    rows={5}
+                    onChange={setTexto}
+                    toolbar="basico"
+                    minHeight={110}
+                    maxHeight={240}
+                    onPasteFiles={handlePasteFiles}
+                    onKeyDown={handleEditorKeyDown}
                     placeholder="Descreva o que aconteceu ou sua sugestão... (cole prints com Ctrl+V)"
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                    className="rounded-md border-border"
                   />
 
                   {/* Thumbnails dos anexos */}

@@ -832,8 +832,11 @@ export default function CrmPage() {
   }
 
   // ── Mensagens ──
+  // #HLP0218: a anotação passou a ser HTML (RichEditor) — valida pelo texto puro
+  // pra não gravar um "<p></p>" vazio quando o usuário só clica no botão.
+  const novaMensagemPura = novaMensagem.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
   const addMensagem = async () => {
-    if (!novaMensagem.trim() || !detail) return
+    if (!novaMensagemPura || !detail) return
     setSaving(true)
     try {
       await (trpc.crm as any).addMensagem.mutate({ oportunidadeId: detail.id, mensagem: novaMensagem.trim() })
@@ -1377,18 +1380,34 @@ export default function CrmPage() {
                 {/* ── Mensagens Tab ── */}
                 {detailTab === 'mensagens' && (
                   <div className="space-y-3">
-                    {/* Campo no topo (igual às Tarefas) — evita colidir com o widget de ajuda. */}
-                    <div className="flex gap-2">
-                      <Input
+                    {/* Campo no topo (igual às Tarefas) — evita colidir com o widget de ajuda.
+                        #HLP0218: era um Input de uma linha só; virou editor com toolbar
+                        (negrito e tópicos), igual ao campo de Detalhes da oportunidade.
+                        Cada anotação já é carimbada com autor e data/hora abaixo, que é
+                        o histórico que antes era digitado à mão dentro dos Detalhes. */}
+                    <div className="space-y-2">
+                      <RichEditor
                         placeholder="Escreva uma anotação..."
                         value={novaMensagem}
-                        onChange={e => setNovaMensagem(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && !e.shiftKey && addMensagem()}
-                        className="h-9 text-sm flex-1"
+                        onChange={setNovaMensagem}
+                        toolbar="basico"
+                        minHeight={80}
+                        maxHeight={200}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                            e.preventDefault()
+                            addMensagem()
+                            return true
+                          }
+                          return false
+                        }}
                       />
-                      <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={addMensagem} disabled={saving || !novaMensagem.trim()}>
-                        <Send className="h-4 w-4" />
-                      </Button>
+                      <div className="flex justify-end">
+                        <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={addMensagem} disabled={saving || !novaMensagemPura}>
+                          <Send className="h-4 w-4 mr-1.5" />
+                          Registrar anotação
+                        </Button>
+                      </div>
                     </div>
                     {detail.mensagens.length === 0 && (
                       <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma anotação</p>
@@ -1400,7 +1419,16 @@ export default function CrmPage() {
                             <span className="text-xs font-semibold">{m.user?.name || 'Sistema'}</span>
                             <span className="text-[10px] text-muted-foreground">{new Date(m.createdAt).toLocaleString('pt-BR')}</span>
                           </div>
-                          <p className="text-sm whitespace-pre-wrap">{m.mensagem}</p>
+                          {/* Anotações gravadas antes do #HLP0218 são texto puro;
+                              as novas vêm em HTML do editor. */}
+                          {/<[a-z][\s\S]*>/i.test(m.mensagem) ? (
+                            <div
+                              className="text-sm [&_p]:my-0.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold"
+                              dangerouslySetInnerHTML={{ __html: m.mensagem }}
+                            />
+                          ) : (
+                            <p className="text-sm whitespace-pre-wrap">{m.mensagem}</p>
+                          )}
                         </div>
                       ))}
                     </div>
