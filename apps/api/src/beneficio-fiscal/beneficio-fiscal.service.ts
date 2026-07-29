@@ -3,6 +3,8 @@ import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 import { randomUUID } from 'crypto'
 import { OrcamentoService } from '../orcamento/orcamento.service'
+import { EmailService } from '../common/email.service'
+import { NotificationService } from '../notification/notification.service'
 
 // Status derivado de data_vencimento (não persistido) — espelha o dashboard do legado.
 export type BeneficioStatus = 'NO_PRAZO' | 'VENCENDO' | 'VENCIDO' | 'SEM_DATA'
@@ -22,6 +24,12 @@ function calcStatus(dataVencimento: Date | string | null, notificaDias: number |
   limite.setDate(limite.getDate() + dias)
   if (venc.getTime() <= limite.getTime()) return 'VENCENDO'
   return 'NO_PRAZO'
+}
+
+function fmtDataBR(d: Date | string | null): string {
+  if (!d) return '—'
+  const dt = new Date(d)
+  return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
 }
 
 interface CatalogoInput {
@@ -45,7 +53,11 @@ interface VinculoInput {
 export class BeneficioFiscalService {
   // Tabelas novas via raw SQL (client Prisma typado não regenera por lock de DLL no Windows;
   // os models existem no schema para o build do prod). OrcamentoService reusado no auto-orçamento.
-  constructor(@Inject(OrcamentoService) private readonly orcamentoService: OrcamentoService) {}
+  constructor(
+    @Inject(OrcamentoService) private readonly orcamentoService: OrcamentoService,
+    private readonly emailService: EmailService,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   // ============================================================
   // Catálogo
@@ -240,6 +252,7 @@ export class BeneficioFiscalService {
   async gerarOrcamento(vinculoId: string, userId?: string, empresaId?: string | null) {
     const rows = (await prisma.$queryRawUnsafe(
       `SELECT v.id, v.cliente_id AS "clienteId", v.orcamento_id AS "orcamentoId",
+              v.data_vencimento AS "dataVencimento", v.portaria, v.processo,
               cat.nome AS "beneficioNome", cat.servico_id AS "servicoId"
          FROM beneficio_fiscal_cliente v
          JOIN beneficio_fiscal_catalogo cat ON cat.id = v.catalogo_id
@@ -260,12 +273,23 @@ export class BeneficioFiscalService {
     })
     if (!servico) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Serviço do benefício não encontrado.' })
 
+    // Observações do orçamento: deixa explícito que é RENOVAÇÃO e carrega os dados do
+    // benefício (portaria/processo/vencimento) pra quem for atender não precisar voltar.
+    const detalhes = [
+      v.portaria ? `Portaria: ${v.portaria}` : null,
+      v.processo ? `Processo: ${v.processo}` : null,
+      v.dataVencimento ? `Vencimento atual: ${fmtDataBR(v.dataVencimento)}` : null,
+    ].filter(Boolean)
+    const observacoes = `Renovação de benefício fiscal: ${v.beneficioNome}`
+      + (detalhes.length ? `\n${detalhes.join(' · ')}` : '')
+      + '\n(orçamento gerado automaticamente pelo módulo de Benefícios Fiscais)'
+
     const orc = await this.orcamentoService.create(
       {
         clienteId: v.clienteId,
         tipo: servico.recorrenteMensal ? 'SERVICO_MENSAL' : 'SERVICO_EXTRA',
         area: servico.categoria ?? null,
-        observacoes: `Gerado automaticamente a partir do benefício fiscal: ${v.beneficioNome}`,
+        observacoes,
       },
       userId,
       empresaId ?? undefined,
@@ -273,7 +297,7 @@ export class BeneficioFiscalService {
     await this.orcamentoService.addItem({
       orcamentoId: orc.id,
       tipo: 'SERVICO',
-      descricao: servico.nome,
+      descricao: `${servico.nome} — renovação (${v.beneficioNome})`,
       quantidade: 1,
       valorUnitario: servico.valorPadrao != null ? Number(servico.valorPadrao) : 0,
       catalogoId: servico.id,
@@ -298,5 +322,105 @@ export class BeneficioFiscalService {
       }
     }
     return { total: vinculoIds.length, gerados: gerados.length, pulados, itens: gerados }
+  }
+
+  // ============================================================
+  // Alerta proativo de vencimento (sino + e-mail)
+  // ============================================================
+  /**
+   * Varre os benefícios ativos e avisa sobre os que estão VENCENDO/VENCIDO e ainda
+   * NÃO têm orçamento gerado (quem já tem foi tratado). Um aviso consolidado por
+   * empresa, para quem tem acesso de leitura ao módulo (+ masters da empresa).
+   * Idempotente no dia: chamável à vontade (o scheduler roda 1x/dia).
+   */
+  async notificarVencimentos(empresaIdFiltro?: string | null) {
+    const rows = (await prisma.$queryRawUnsafe(
+      `SELECT v.id, v.empresa_id AS "empresaId", v.data_vencimento AS "dataVencimento",
+              cl.razao_social AS "clienteNome",
+              cat.nome AS "beneficioNome", cat.notifica_vencimento_dias AS "notificaVencimentoDias"
+         FROM beneficio_fiscal_cliente v
+         JOIN clientes cl ON cl.id = v.cliente_id
+         JOIN beneficio_fiscal_catalogo cat ON cat.id = v.catalogo_id
+        WHERE v.ativo = true
+          AND v.orcamento_id IS NULL
+          AND v.data_vencimento IS NOT NULL
+          AND ($1::text IS NULL OR v.empresa_id = $1)
+        ORDER BY v.data_vencimento ASC`,
+      empresaIdFiltro ?? null,
+    )) as any[]
+
+    // Só o que está vencendo/vencido (mesma regra do farol da tela).
+    const alvos = rows
+      .map(r => ({ ...r, status: calcStatus(r.dataVencimento, r.notificaVencimentoDias) }))
+      .filter(r => r.status === 'VENCENDO' || r.status === 'VENCIDO')
+    if (!alvos.length) return { empresas: 0, notificados: 0, itens: 0 }
+
+    // Agrupa por empresa (aviso consolidado, não um por benefício).
+    const porEmpresa = new Map<string, typeof alvos>()
+    for (const a of alvos) {
+      const k = a.empresaId ?? ''
+      const arr = porEmpresa.get(k) ?? []
+      arr.push(a)
+      porEmpresa.set(k, arr)
+    }
+
+    let notificados = 0
+    for (const [empresaId, itens] of porEmpresa) {
+      const destinatarios = (await prisma.$queryRawUnsafe(
+        `SELECT DISTINCT u.id, u.name AS nome, u.email
+           FROM users u
+           LEFT JOIN user_permissions p ON p.user_id = u.id AND p.module_slug = 'beneficios-fiscais'
+          WHERE u.is_active = true
+            AND ($1::text = '' OR u.empresa_id = $1)
+            AND (p.can_read = true OR u.is_empresa_master = true)`,
+        empresaId,
+      ).catch(() => [])) as any[]
+      if (!destinatarios.length) continue
+
+      const vencidos = itens.filter(i => i.status === 'VENCIDO')
+      const vencendo = itens.filter(i => i.status === 'VENCENDO')
+      const resumo = [
+        vencidos.length ? `${vencidos.length} vencido(s)` : null,
+        vencendo.length ? `${vencendo.length} vencendo` : null,
+      ].filter(Boolean).join(' e ')
+      const link = '/beneficios-fiscais'
+
+      await this.notificationService.criarParaUsers(destinatarios.map(d => d.id), {
+        titulo: 'Benefícios fiscais a renovar',
+        mensagem: `${resumo} sem orçamento de renovação. Gere o orçamento para não perder o prazo.`,
+        tipo: vencidos.length ? 'warning' : 'info',
+        link,
+        origem: 'beneficios-fiscais',
+        empresaId: empresaId || undefined,
+      }).catch(() => {})
+      notificados += destinatarios.length
+
+      const linhas = itens.slice(0, 30).map(i =>
+        `<tr><td style="padding:4px 10px 4px 0">${i.clienteNome}</td><td style="padding:4px 10px 4px 0">${i.beneficioNome}</td>`
+        + `<td style="padding:4px 10px 4px 0">${fmtDataBR(i.dataVencimento)}</td>`
+        + `<td style="padding:4px 0;color:${i.status === 'VENCIDO' ? '#dc2626' : '#d97706'};font-weight:600">${i.status === 'VENCIDO' ? 'Vencido' : 'Vencendo'}</td></tr>`,
+      ).join('')
+      const base = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+      const botao = base
+        ? `<p style="margin-top:14px"><a href="${base}${link}" style="display:inline-block;background:#65a30d;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600">Abrir Benefícios Fiscais</a></p>`
+        : `<p>Acesse o sistema em <strong>Benefícios Fiscais</strong> para gerar os orçamentos.</p>`
+
+      for (const d of destinatarios) {
+        if (!d.email) continue
+        await this.emailService.sendMail({
+          to: d.email,
+          subject: `Benefícios fiscais a renovar — ${resumo}`,
+          html: `<p>Olá, ${d.nome?.split(' ')[0] || ''}!</p>
+          <p>Existem benefícios fiscais que precisam de <strong>renovação</strong> e ainda não têm orçamento gerado:</p>
+          <table style="border-collapse:collapse;font-size:14px">
+            <tr style="text-align:left;color:#6b7280"><th style="padding:0 10px 6px 0">Cliente</th><th style="padding:0 10px 6px 0">Benefício</th><th style="padding:0 10px 6px 0">Vencimento</th><th style="padding:0 0 6px 0">Situação</th></tr>
+            ${linhas}
+          </table>
+          ${itens.length > 30 ? `<p style="color:#6b7280;font-size:13px">…e mais ${itens.length - 30} benefício(s).</p>` : ''}
+          ${botao}`,
+        }).catch(() => {})
+      }
+    }
+    return { empresas: porEmpresa.size, notificados, itens: alvos.length }
   }
 }

@@ -79,5 +79,10 @@ export function createBeneficioFiscalRouter(service: BeneficioFiscalService) {
     gerarOrcamentoMassa: writeSubProcedure(MODULE, 'gerar_orcamento', 'Gerar orçamento a partir do benefício')
       .input(z.object({ ids: z.array(z.string()).min(1) }))
       .mutation(({ input, ctx }) => service.gerarOrcamentoMassa(input.ids, ctx.userId ?? undefined, ctx.empresaId)),
+
+    // Dispara o alerta de vencimentos na hora (o mesmo que o cron das 08:30 faz).
+    // Útil pra testar/forçar o aviso sem esperar o agendamento.
+    notificarVencimentos: writeSubProcedure(MODULE, 'gerar_orcamento', 'Gerar orçamento a partir do benefício')
+      .mutation(({ ctx }) => service.notificarVencimentos(ctx.empresaId)),
   })
 }

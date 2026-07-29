@@ -210,10 +210,10 @@ export default function BeneficiosFiscaisPage() {
       `<li style="margin-bottom:4px"><strong>${escHtml(v.clienteNome)}</strong> — <em>${escHtml(v.beneficioNome)}</em> <span style="color:#9ca3af">(${escHtml(v.servicoNome!)})</span></li>`,
     ).join('')
     const res = await alerts.custom({
-      title: 'Gerar orçamentos automáticos?',
+      title: 'Gerar orçamentos de renovação?',
       icon: 'question',
       html: `<ol style="text-align:left;margin:0 auto;max-width:360px;padding-left:1.4em;font-size:14px;line-height:1.45">${linhas}</ol>`
-        + `<p style="margin-top:14px;font-size:13px;color:#6b7280">Será criado um orçamento para cada item elegível (vencendo/vencido e com serviço vinculado).</p>`,
+        + `<p style="margin-top:14px;font-size:13px;color:#6b7280">Será criado um orçamento de renovação para cada item elegível (vencendo/vencido e com serviço vinculado).</p>`,
       confirmButtonText: 'Sim, gerar',
       cancelButtonText: 'Cancelar',
     })
@@ -433,7 +433,7 @@ export default function BeneficiosFiscaisPage() {
                           )}
                           {canGerarOrcamento && elegivelParaOrcar(v) && (
                             <DropdownMenuItem onClick={() => gerarOrcamento(v)}>
-                              <Receipt className="h-3.5 w-3.5" /> Gerar orçamento
+                              <Receipt className="h-3.5 w-3.5" /> Gerar orçamento de renovação
                             </DropdownMenuItem>
                           )}
                           {canDelete && (
