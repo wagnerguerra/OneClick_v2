@@ -8,7 +8,6 @@ import {
 import Link from 'next/link'
 import {
   Button, Card, Input, cn,
-  Tabs, TabsList, TabsTrigger, TabsContent,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { TIPO_FORNECEDOR_LABELS } from '@saas/types'
@@ -61,25 +60,50 @@ function fmtTamanho(b: number | null) {
   return `${(b / 1024 / 1024).toFixed(1)} MB`
 }
 
+const ISO_TABS = [
+  { key: 'anexos', label: 'Anexos', icon: Paperclip },
+  { key: 'qualificacao', label: 'Qualificação', icon: ClipboardCheck },
+  { key: 'avaliacao', label: 'Avaliação', icon: Gauge },
+  { key: 'mensagens', label: 'Mensagens', icon: MessageSquare },
+  { key: 'historico', label: 'Histórico', icon: History },
+] as const
+
 export function FornecedorIsoTabs({ fornecedorId, currentUserId }: { fornecedorId: string; currentUserId?: string }) {
+  const [tab, setTab] = useState<string>('anexos')
   return (
     <Card className="overflow-hidden">
-      <Tabs defaultValue="anexos" orientation="vertical" className="flex min-h-[420px]">
-        <TabsList variant="pills" className="w-[140px] shrink-0 border-r border-border bg-muted/30 p-3 items-center">
-          <TabsTrigger variant="pills" value="anexos" icon={<Paperclip className="h-4 w-4" />}>Anexos</TabsTrigger>
-          <TabsTrigger variant="pills" value="qualificacao" icon={<ClipboardCheck className="h-4 w-4" />}>Qualificação</TabsTrigger>
-          <TabsTrigger variant="pills" value="avaliacao" icon={<Gauge className="h-4 w-4" />}>Avaliação</TabsTrigger>
-          <TabsTrigger variant="pills" value="mensagens" icon={<MessageSquare className="h-4 w-4" />}>Mensagens</TabsTrigger>
-          <TabsTrigger variant="pills" value="historico" icon={<History className="h-4 w-4" />}>Histórico</TabsTrigger>
-        </TabsList>
-        <div className="flex-1 min-w-0">
-          <TabsContent value="anexos" className="p-5"><AnexosTab fornecedorId={fornecedorId} /></TabsContent>
-          <TabsContent value="qualificacao" className="p-5"><QualificacaoTab fornecedorId={fornecedorId} /></TabsContent>
-          <TabsContent value="avaliacao" className="p-5"><AvaliacaoTab fornecedorId={fornecedorId} /></TabsContent>
-          <TabsContent value="mensagens" className="p-5"><MensagensTab fornecedorId={fornecedorId} currentUserId={currentUserId} /></TabsContent>
-          <TabsContent value="historico" className="p-5"><HistoricoTab fornecedorId={fornecedorId} /></TabsContent>
+      <div className="flex min-h-[420px]">
+        {/* Pills laterais (padrão detalhe) */}
+        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="space-y-1">
+            {ISO_TABS.map((t) => {
+              const Icon = t.icon
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTab(t.key)}
+                  className={cn(
+                    'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
+                    tab === t.key ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground',
+                  )}
+                  style={tab === t.key ? { backgroundColor: MODULE_COLOR } : undefined}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  {t.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
-      </Tabs>
+        <div key={tab} className="flex-1 min-w-0 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+          {tab === 'anexos' && <AnexosTab fornecedorId={fornecedorId} />}
+          {tab === 'qualificacao' && <QualificacaoTab fornecedorId={fornecedorId} />}
+          {tab === 'avaliacao' && <AvaliacaoTab fornecedorId={fornecedorId} />}
+          {tab === 'mensagens' && <MensagensTab fornecedorId={fornecedorId} currentUserId={currentUserId} />}
+          {tab === 'historico' && <HistoricoTab fornecedorId={fornecedorId} />}
+        </div>
+      </div>
     </Card>
   )
 }

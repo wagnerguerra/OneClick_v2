@@ -18,7 +18,6 @@ import {
   Button, Input, Label, Checkbox, Card,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
-  Tabs, TabsList, TabsTrigger, TabsContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
@@ -27,6 +26,14 @@ import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
+
+const FORM_TABS = [
+  { key: 'identificacao', label: 'Identificação', icon: Building2 },
+  { key: 'contato', label: 'Contato', icon: Phone },
+  { key: 'endereco', label: 'Endereço', icon: MapPin },
+  { key: 'bancario', label: 'Dados Bancários', icon: CreditCard },
+  { key: 'observacoes', label: 'Observações', icon: FileText },
+] as const
 
 interface FornecedorFormProps {
   mode: 'create' | 'edit'
@@ -51,6 +58,7 @@ const UF_OPTIONS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS',
 export function FornecedorForm({ mode, fornecedorId, title, description, icon, defaultValues }: FornecedorFormProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
+  const [activeTab, setActiveTab] = useState<string>('identificacao')
 
   const { register, handleSubmit, control, setValue, formState: { errors } } = useForm<CreateFornecedorInput>({
     resolver: zodResolver(createFornecedorSchema),
@@ -103,18 +111,33 @@ export function FornecedorForm({ mode, fornecedorId, title, description, icon, d
         </div>
 
         <Card className="overflow-hidden">
-          <Tabs defaultValue="identificacao" orientation="vertical" className="flex min-h-[550px]">
-            <TabsList variant="pills" className="w-[140px] shrink-0 border-r border-border bg-muted/30 p-3 items-center">
-              <TabsTrigger variant="pills" value="identificacao" icon={<Building2 className="h-4 w-4" />}>Identificação</TabsTrigger>
-              <TabsTrigger variant="pills" value="contato" icon={<Phone className="h-4 w-4" />}>Contato</TabsTrigger>
-              <TabsTrigger variant="pills" value="endereco" icon={<MapPin className="h-4 w-4" />}>Endereço</TabsTrigger>
-              <TabsTrigger variant="pills" value="bancario" icon={<CreditCard className="h-4 w-4" />}>Dados Bancários</TabsTrigger>
-              <TabsTrigger variant="pills" value="observacoes" icon={<FileText className="h-4 w-4" />}>Observações</TabsTrigger>
-            </TabsList>
+          <div className="flex min-h-[550px]">
+            <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+              <div className="space-y-1">
+                {FORM_TABS.map((t) => {
+                  const Icon = t.icon
+                  return (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => setActiveTab(t.key)}
+                      className={cn(
+                        'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
+                        activeTab === t.key ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground',
+                      )}
+                      style={activeTab === t.key ? { backgroundColor: MODULE_COLOR } : undefined}
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" />
+                      {t.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
 
-            <div className="flex-1 min-w-0">
+            <div key={activeTab} className="flex-1 min-w-0 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
               {/* IDENTIFICAÇÃO */}
-              <TabsContent value="identificacao" className="p-5">
+              {activeTab === 'identificacao' && (
                 <div className="grid grid-cols-12 gap-4">
                   {mode === 'edit' && defaultValues?.code !== undefined && (
                     <div className="col-span-2"><Label>ID</Label><Input value={defaultValues.code} disabled className="bg-muted mt-1.5" /></div>
@@ -181,10 +204,10 @@ export function FornecedorForm({ mode, fornecedorId, title, description, icon, d
                     )} />
                   </div>
                 </div>
-              </TabsContent>
+              )}
 
               {/* CONTATO */}
-              <TabsContent value="contato" className="p-5">
+              {activeTab === 'contato' && (
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-6"><Label htmlFor="contatoPrincipal">Contato Principal</Label><Input id="contatoPrincipal" placeholder="Nome do contato" {...register('contatoPrincipal')} className="mt-1.5" /></div>
                   <div className="col-span-6"><Label htmlFor="cargoContato">Cargo do Contato</Label><Input id="cargoContato" placeholder="Cargo" {...register('cargoContato')} className="mt-1.5" /></div>
@@ -193,10 +216,10 @@ export function FornecedorForm({ mode, fornecedorId, title, description, icon, d
                   <div className="col-span-3"><Label htmlFor="celular">Celular</Label><Input id="celular" placeholder="(00) 00000-0000" {...register('celular')} onChange={(e) => setValue('celular', masks.telefone(e.target.value))} className="mt-1.5" /></div>
                   <div className="col-span-6"><Label htmlFor="site">Site</Label><Input id="site" placeholder="https://www.fornecedor.com.br" {...register('site')} className="mt-1.5" /></div>
                 </div>
-              </TabsContent>
+              )}
 
               {/* ENDEREÇO */}
-              <TabsContent value="endereco" className="p-5">
+              {activeTab === 'endereco' && (
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-3"><Label htmlFor="cep">CEP</Label><Input id="cep" placeholder="00000-000" {...register('cep')} onChange={(e) => setValue('cep', masks.cep(e.target.value))} className="mt-1.5" /></div>
                   <div className="col-span-7"><Label htmlFor="logradouro">Logradouro</Label><Input id="logradouro" placeholder="Rua, Avenida..." {...register('logradouro')} className="mt-1.5" /></div>
@@ -214,10 +237,10 @@ export function FornecedorForm({ mode, fornecedorId, title, description, icon, d
                     )} />
                   </div>
                 </div>
-              </TabsContent>
+              )}
 
               {/* DADOS BANCÁRIOS */}
-              <TabsContent value="bancario" className="p-5">
+              {activeTab === 'bancario' && (
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-4"><Label htmlFor="banco">Banco</Label><Input id="banco" placeholder="Nome do banco" {...register('banco')} className="mt-1.5" /></div>
                   <div className="col-span-3"><Label htmlFor="agencia">Agência</Label><Input id="agencia" placeholder="0000" {...register('agencia')} className="mt-1.5" /></div>
@@ -243,19 +266,19 @@ export function FornecedorForm({ mode, fornecedorId, title, description, icon, d
                   </div>
                   <div className="col-span-8"><Label htmlFor="pixChave">Chave PIX</Label><Input id="pixChave" placeholder="Chave PIX" {...register('pixChave')} className="mt-1.5" /></div>
                 </div>
-              </TabsContent>
+              )}
 
               {/* OBSERVAÇÕES */}
-              <TabsContent value="observacoes" className="p-5">
+              {activeTab === 'observacoes' && (
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-12">
                     <Label htmlFor="observacoes">Observações</Label>
                     <textarea id="observacoes" rows={6} placeholder="Observações sobre o fornecedor..." {...register('observacoes')} className="mt-1.5 w-full rounded border border-[#ced4da] bg-transparent px-3 py-2 text-sm focus:border-[#5ea3cb] focus:outline-none" />
                   </div>
                 </div>
-              </TabsContent>
+              )}
             </div>
-          </Tabs>
+          </div>
         </Card>
       </form>
     </TooltipProvider>
