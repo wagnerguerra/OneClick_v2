@@ -111,13 +111,34 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
       atualizarEtapa('cnae', { status: 'error', detail: (e as Error).message })
     }
     setImportDone(true)
-    // Zera as pills → os useEffects por aba refazem o fetch (a ativa na hora).
-    setSocios([]); setAcessos([]); setVencimentos([]); setAndamentos([]); setCnaes([]); setCertidoes([])
+    // Re-fetch DIRETO do que a importação altera (sócios, CNAEs, capital). NÃO usar o
+    // truque de setXxx([]) → o lazy-load só re-dispara quando o length MUDA, então se a
+    // lista já estava vazia antes do import ele não recarregava (dados só apareciam após F5).
+    ;(trpc.socio as any).listByCliente.query({ clienteId }).then((d: Socio[]) => setSocios(d)).catch(() => {})
+    ;(trpc.cliente as any).listCnaes?.query({ clienteId }).then((d: typeof cnaes) => setCnaes(d)).catch(() => {})
     ;(trpc.cliente as { getCapitalSocial: { query: (i: { clienteId: string }) => Promise<{ capitalSocial: number | null }> } }).getCapitalSocial.query({ clienteId }).then((cs) => setCapitalSocial(cs.capitalSocial)).catch(() => {})
   }
   const [socios, setSocios] = useState<Socio[]>([])
   const [sociosLoading, setSociosLoading] = useState(false)
   const [capitalSocial, setCapitalSocial] = useState<number | null>(null)
+  // Seleção múltipla de sócios (exclusão em massa)
+  const [selectedSocioIds, setSelectedSocioIds] = useState<Set<string>>(new Set())
+  const allSociosSelected = socios.length > 0 && socios.every(s => selectedSocioIds.has(s.id))
+  const toggleSocioSelected = (id: string) => setSelectedSocioIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const toggleSelectAllSocios = () => setSelectedSocioIds(prev => (socios.length > 0 && socios.every(s => prev.has(s.id))) ? new Set() : new Set(socios.map(s => s.id)))
+  async function handleBulkDeleteSocios() {
+    const ids = [...selectedSocioIds]
+    if (!ids.length) return
+    const ok = await alerts.confirm({ title: 'Excluir sócios?', text: `Excluir ${ids.length} sócio(s) selecionado(s)? Esta ação não pode ser desfeita.`, confirmText: 'Excluir', icon: 'warning' })
+    if (!ok) return
+    try {
+      await (trpc.socio as any).deleteMany.mutate({ ids })
+      const data = await (trpc.socio as any).listByCliente.query({ clienteId }) as Socio[]
+      setSocios(data)
+      setSelectedSocioIds(new Set())
+      alerts.success('Excluídos', `${ids.length} sócio(s) removido(s).`)
+    } catch (err) { alerts.error('Erro', (err as Error).message) }
+  }
   // Modal de edição de sócio in-place (não redireciona pra /socios/[id])
   const [editSocioId, setEditSocioId] = useState<string | null>(null)
   // Modal de cadastro novo (in-place, pré-vinculado ao cliente)
@@ -585,6 +606,14 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                   </div>
                   {clienteId && (
                     <div className="flex items-center gap-1.5">
+                      {canManageRegistration && selectedSocioIds.size > 0 && (
+                        <Button
+                          variant="soft-destructive" size="sm" className="h-7 text-[11px] gap-1" type="button"
+                          onClick={e => { e.preventDefault(); e.stopPropagation(); handleBulkDeleteSocios() }}
+                        >
+                          <Trash2 className="h-3 w-3" />Excluir ({selectedSocioIds.size})
+                        </Button>
+                      )}
                       {/* Cadastro manual — abre o modal in-place no contexto do cliente */}
                       {canManageRegistration && (
                         <Button
@@ -614,6 +643,10 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     <table className="w-full text-[12px]">
                       <thead>
                         <tr className="bg-muted/30 text-[11px] text-muted-foreground">
+                          <th className="px-3 py-2 w-8">
+                            <input type="checkbox" className="cursor-pointer align-middle" checked={allSociosSelected}
+                              onChange={toggleSelectAllSocios} title="Selecionar todos" />
+                          </th>
                           <th className="text-left px-3 py-2 font-medium">Nome</th>
                           <th className="text-left px-3 py-2 font-medium">CPF/CNPJ</th>
                           <th className="text-right px-3 py-2 font-medium">Participação</th>
@@ -626,7 +659,11 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           const pct = s.participacao != null ? Number(s.participacao) : null
                           const valor = pct != null && capitalSocial != null ? (capitalSocial * pct) / 100 : null
                           return (
-                          <tr key={s.id} className="hover:bg-muted/20">
+                          <tr key={s.id} className={cn('hover:bg-muted/20', selectedSocioIds.has(s.id) && 'bg-primary/5')}>
+                            <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                              <input type="checkbox" className="cursor-pointer align-middle" checked={selectedSocioIds.has(s.id)}
+                                onChange={() => toggleSocioSelected(s.id)} />
+                            </td>
                             <td className="px-3 py-2 font-medium text-foreground">{s.nomeCompleto}</td>
                             <td className="px-3 py-2 font-mono text-muted-foreground">{fmtDocumento(s.cpf)}</td>
                             <td className="px-3 py-2 text-right text-muted-foreground">{pct != null ? `${pct.toFixed(2)}%` : '--'}</td>
@@ -686,7 +723,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                       {socios.length > 0 && (
                         <tfoot>
                           <tr className="border-t bg-muted/20 text-[12px] font-semibold text-foreground">
-                            <td className="px-3 py-2" colSpan={2}>Total</td>
+                            <td className="px-3 py-2" colSpan={3}>Total</td>
                             <td className="px-3 py-2 text-right">
                               {socios.reduce((a, s) => a + (s.participacao != null ? Number(s.participacao) : 0), 0).toFixed(2)}%
                             </td>

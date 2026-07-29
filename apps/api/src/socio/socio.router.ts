@@ -41,6 +41,10 @@ export function createSocioRouter(socioService: SocioService, cnpjService: CnpjS
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => socioService.delete(input.id, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
+    deleteMany: deleteProcedure()
+      .input(z.object({ ids: z.array(z.string()).min(1) }))
+      .mutation(({ input, ctx }) => socioService.deleteMany(input.ids, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
+
     listForSelect: readProcedure()
       .query(({ ctx }) => socioService.listForSelect(ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
 
