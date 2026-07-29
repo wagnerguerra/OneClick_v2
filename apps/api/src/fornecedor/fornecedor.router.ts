@@ -6,6 +6,7 @@ import {
   createFornecedorCriterioSchema, updateFornecedorCriterioSchema,
   responderQualificacaoSchema,
   createFornecedorMensagemSchema, updateFornecedorMensagemSchema,
+  createFornecedorCategoriaSchema, updateFornecedorCategoriaSchema,
 } from '@saas/types'
 import { FornecedorService } from './fornecedor.service'
 
@@ -32,6 +33,23 @@ export function createFornecedorRouter(fornecedorService: FornecedorService) {
     delete: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => fornecedorService.delete(input.id, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
+
+    restore: writeProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => fornecedorService.restore(input.id, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
+
+    // Categorias (tags)
+    listCategorias: readProcedure(MODULE)
+      .query(({ ctx }) => fornecedorService.listCategorias(ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
+    createCategoria: writeProcedure(MODULE)
+      .input(createFornecedorCategoriaSchema)
+      .mutation(({ input, ctx }) => fornecedorService.createCategoria(input.nome, ctx.empresaId, ctx.tenantSchema)),
+    updateCategoria: writeProcedure(MODULE)
+      .input(updateFornecedorCategoriaSchema)
+      .mutation(({ input, ctx }) => fornecedorService.updateCategoria(input.id, input.nome, ctx.tenantSchema)),
+    deleteCategoria: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => fornecedorService.deleteCategoria(input.id, ctx.tenantSchema)),
 
     listForSelect: readProcedure(MODULE)
       .query(({ ctx }) => fornecedorService.listForSelect(ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),

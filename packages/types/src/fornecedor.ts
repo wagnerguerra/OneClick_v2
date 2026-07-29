@@ -38,7 +38,8 @@ export const createFornecedorSchema = z.object({
   inscricaoEstadual: z.string().optional().or(z.literal('')),
   inscricaoMunicipal: z.string().optional().or(z.literal('')),
   tipoFornecedor: z.enum(['PRODUTO', 'SERVICO', 'AMBOS']).default('AMBOS'),
-  categoria: z.string().optional().or(z.literal('')),
+  categoria: z.string().optional().or(z.literal('')), // legado: mantido p/ importação/exibição (nomes concatenados)
+  categoriaIds: z.array(z.string()).optional(),        // tags: ids das categorias vinculadas
   logoUrl: z.string().optional().or(z.literal('')),
 
   // Qualidade / ISO (port v1)
@@ -81,6 +82,7 @@ export const updateFornecedorSchema = createFornecedorSchema.partial()
 
 export const listFornecedorSchema = paginationSchema.extend({
   isActive: z.coerce.boolean().optional(),
+  incluirInativos: z.coerce.boolean().optional(), // quando true, a lista inclui os inativos
   tipoFornecedor: z.string().optional(),
   tipoDocumento: z.string().optional(),
 })
@@ -88,6 +90,17 @@ export const listFornecedorSchema = paginationSchema.extend({
 export type CreateFornecedorInput = z.infer<typeof createFornecedorSchema>
 export type UpdateFornecedorInput = z.infer<typeof updateFornecedorSchema>
 export type ListFornecedorInput = z.infer<typeof listFornecedorSchema>
+
+// ── Categorias (tags) de fornecedor ──────────────────────────
+export const createFornecedorCategoriaSchema = z.object({
+  nome: z.string().min(1, 'Informe o nome da categoria').max(60),
+})
+export const updateFornecedorCategoriaSchema = z.object({
+  id: z.string(),
+  nome: z.string().min(1).max(60),
+})
+export type CreateFornecedorCategoriaInput = z.infer<typeof createFornecedorCategoriaSchema>
+export type UpdateFornecedorCategoriaInput = z.infer<typeof updateFornecedorCategoriaSchema>
 
 // ── Sub-entidades ISO (port v1) ──────────────────────────────
 

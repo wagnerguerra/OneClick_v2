@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -27,6 +27,7 @@ import { masks } from '@/lib/masks'
 import {
   ISO_TABS, AnexosTab, QualificacaoTab, AvaliacaoTab, MensagensTab, HistoricoTab,
 } from './fornecedor-iso-tabs'
+import { CategoriaTagsInput } from './categoria-tags'
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
 
@@ -77,10 +78,16 @@ export function FornecedorForm({ mode, fornecedorId, currentUserId, title, descr
       telefone: '', celular: '', email: '', site: '', contatoPrincipal: '', cargoContato: '',
       cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '',
       banco: '', agencia: '', conta: '', tipoConta: '', pixChave: '', pixTipo: '',
-      observacoes: '', isActive: true,
+      observacoes: '', isActive: true, categoriaIds: [],
       ...defaultValues,
     },
   })
+
+  // Formata o Documento (CNPJ/CPF) já na abertura — vem cru do banco.
+  useEffect(() => {
+    if (defaultValues?.documento) setValue('documento', masks.cpfCnpj(defaultValues.documento))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function onSubmit(data: CreateFornecedorInput) {
     setSaving(true)
@@ -171,10 +178,7 @@ export function FornecedorForm({ mode, fornecedorId, currentUserId, title, descr
               {/* IDENTIFICAÇÃO */}
               {activeTab === 'identificacao' && (
                 <div className="grid grid-cols-12 gap-4">
-                  {mode === 'edit' && defaultValues?.code !== undefined && (
-                    <div className="col-span-2"><Label>ID</Label><Input value={defaultValues.code} disabled className="bg-muted mt-1.5" /></div>
-                  )}
-                  <div className={mode === 'edit' ? 'col-span-10' : 'col-span-12'}>
+                  <div className="col-span-12">
                     <Label htmlFor="razaoSocial">Razão Social *</Label>
                     <Input id="razaoSocial" placeholder="Razão social do fornecedor" {...register('razaoSocial')} className="mt-1.5" />
                     {errors.razaoSocial && <p className="text-xs text-destructive mt-1">{errors.razaoSocial.message}</p>}
@@ -194,7 +198,7 @@ export function FornecedorForm({ mode, fornecedorId, currentUserId, title, descr
                   </div>
                   <div className="col-span-3">
                     <Label htmlFor="documento">Documento *</Label>
-                    <Input id="documento" placeholder="00.000.000/0000-00" {...register('documento')} onChange={(e) => setValue('documento', masks.cnpj(e.target.value))} className="mt-1.5" />
+                    <Input id="documento" placeholder="CNPJ ou CPF" {...register('documento')} onChange={(e) => setValue('documento', masks.cpfCnpj(e.target.value))} className="mt-1.5" />
                     {errors.documento && <p className="text-xs text-destructive mt-1">{errors.documento.message}</p>}
                   </div>
                   <div className="col-span-4">
@@ -215,8 +219,10 @@ export function FornecedorForm({ mode, fornecedorId, currentUserId, title, descr
                     )} />
                   </div>
                   <div className="col-span-4">
-                    <Label htmlFor="categoria">Categoria</Label>
-                    <Input id="categoria" placeholder="Ex: Materiais, TI, Consultoria..." {...register('categoria')} className="mt-1.5" />
+                    <Label className="flex items-center gap-1.5">Categorias <FieldHint text="Marque uma ou mais categorias (tags). Digite um nome novo para criá-lo na hora; use a engrenagem para renomear/excluir." /></Label>
+                    <Controller control={control} name="categoriaIds" render={({ field }) => (
+                      <CategoriaTagsInput value={field.value ?? []} onChange={field.onChange} />
+                    )} />
                   </div>
                   <div className="col-span-4">
                     <Label className="flex items-center gap-1.5">Grau de Risco <FieldHint text="Classificação de risco do fornecedor (ISO 9001). Usada na avaliação e priorização." /></Label>
@@ -227,12 +233,9 @@ export function FornecedorForm({ mode, fornecedorId, currentUserId, title, descr
                       </Select>
                     )} />
                   </div>
-                  <div className="col-span-8 flex items-center gap-6 pt-1">
+                  <div className="col-span-12 flex items-center gap-6 pt-1">
                     <Controller control={control} name="avaliacaoObrigatoria" render={({ field }) => (
                       <label className="flex items-center gap-2 cursor-pointer"><Checkbox checked={field.value} onCheckedChange={field.onChange} /><span className="text-sm flex items-center gap-1.5">Avaliação obrigatória <FieldHint text="Marca o fornecedor como sujeito à avaliação de qualidade obrigatória." /></span></label>
-                    )} />
-                    <Controller control={control} name="isActive" render={({ field }) => (
-                      <label className="flex items-center gap-2 cursor-pointer"><Checkbox checked={field.value} onCheckedChange={field.onChange} /><span className="text-sm">Fornecedor ativo</span></label>
                     )} />
                   </div>
                 </div>

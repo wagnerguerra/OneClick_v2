@@ -15,7 +15,7 @@ function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.Fornecedor
 @Injectable()
 export class FornecedorService {
   async list(input: ListFornecedorInput, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
-    const { page, limit, search, sortBy, sortDir, isActive, tipoFornecedor, tipoDocumento } = input
+    const { page, limit, search, sortBy, sortDir, isActive, incluirInativos, tipoFornecedor, tipoDocumento } = input
     const { skip, take } = getPrismaSkipTake(page, limit)
 
     return scoped(tenantSchema, async (db) => {
@@ -29,7 +29,8 @@ export class FornecedorService {
             { email: { contains: search, mode: 'insensitive' as const } },
           ],
         } : {}),
-        ...(isActive !== undefined ? { isActive } : {}),
+        // Por padrão a lista mostra só ativos; "Mostrar inativos" (incluirInativos) traz todos.
+        ...(incluirInativos ? {} : { isActive: isActive ?? true }),
         ...(tipoFornecedor ? { tipoFornecedor: tipoFornecedor as Prisma.EnumTipoFornecedorFilter['equals'] } : {}),
         ...(tipoDocumento ? { tipoDocumento: tipoDocumento as Prisma.EnumTipoDocumentoFilter['equals'] } : {}),
       }
@@ -47,11 +48,16 @@ export class FornecedorService {
 
   async getById(id: string, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
-      const fornecedor = await db.fornecedor.findUniqueOrThrow({ where: { id } })
+      const fornecedor = await db.fornecedor.findUniqueOrThrow({
+        where: { id },
+        include: { categoriaLinks: { include: { categoria: { select: { id: true, nome: true } } } } },
+      })
       if (!isMaster && empresaId && fornecedor.empresaId !== empresaId) {
         throw new Error('Acesso negado.')
       }
-      return fornecedor
+      const categorias = fornecedor.categoriaLinks.map((l) => l.categoria)
+      const { categoriaLinks: _links, ...rest } = fornecedor
+      return { ...rest, categorias, categoriaIds: categorias.map((c) => c.id) }
     })
   }
 
@@ -104,6 +110,22 @@ export class FornecedorService {
         },
       })
 
+      // Categorias (tags): vincula e mantém a coluna legada "categoria" com os nomes.
+      if (input.categoriaIds?.length) {
+        const cats = await db.fornecedorCategoria.findMany({
+          where: { id: { in: input.categoriaIds }, ...(empresaId ? { empresaId } : {}) },
+        })
+        if (cats.length) {
+          await db.fornecedorCategoriaLink.createMany({
+            data: cats.map((c) => ({ fornecedorId: fornecedor.id, categoriaId: c.id })),
+          })
+          await db.fornecedor.update({
+            where: { id: fornecedor.id },
+            data: { categoria: cats.map((c) => c.nome).join(', ') },
+          })
+        }
+      }
+
       return fornecedor
     })
   }
@@ -146,6 +168,25 @@ export class FornecedorService {
 
       const updated = await db.fornecedor.update({ where: { id }, data })
 
+      // Categorias (tags): quando enviadas, redefine os vínculos e a coluna legada.
+      if (input.categoriaIds !== undefined) {
+        const cats = input.categoriaIds.length
+          ? await db.fornecedorCategoria.findMany({
+              where: { id: { in: input.categoriaIds }, ...(empresaId ? { empresaId } : {}) },
+            })
+          : []
+        await db.fornecedorCategoriaLink.deleteMany({ where: { fornecedorId: id } })
+        if (cats.length) {
+          await db.fornecedorCategoriaLink.createMany({
+            data: cats.map((c) => ({ fornecedorId: id, categoriaId: c.id })),
+          })
+        }
+        await db.fornecedor.update({
+          where: { id },
+          data: { categoria: cats.map((c) => c.nome).join(', ') || null },
+        })
+      }
+
       if (Object.keys(changes).length > 0) {
         await db.fornecedorEvent.create({
           data: {
@@ -178,8 +219,61 @@ export class FornecedorService {
         },
       })
 
-      return db.fornecedor.delete({ where: { id } })
+      // Exclusão = inativação (soft delete). Não some do banco; some da tabela padrão.
+      return db.fornecedor.update({ where: { id }, data: { isActive: false } })
     })
+  }
+
+  async restore(id: string, userId?: string, isMaster?: boolean, empresaId?: string, tenantSchema?: string) {
+    return scoped(tenantSchema, async (db) => {
+      const existing = await db.fornecedor.findUniqueOrThrow({ where: { id } })
+      if (!isMaster && empresaId && existing.empresaId !== empresaId) {
+        throw new Error('Acesso negado.')
+      }
+      const restored = await db.fornecedor.update({ where: { id }, data: { isActive: true } })
+      await db.fornecedorEvent.create({
+        data: { fornecedorId: id, userId: userId || null, type: 'updated', version: existing.version },
+      })
+      return restored
+    })
+  }
+
+  // ── Categorias (tags) ────────────────────────────────────────
+  async listCategorias(isMaster: boolean, empresaId?: string, tenantSchema?: string) {
+    return scoped(tenantSchema, (db) =>
+      db.fornecedorCategoria.findMany({
+        where: { isActive: true, ...(!isMaster && empresaId ? { empresaId } : {}) },
+        orderBy: { nome: 'asc' },
+        select: { id: true, nome: true, _count: { select: { vinculos: true } } },
+      }),
+    )
+  }
+
+  async createCategoria(nome: string, empresaId?: string, tenantSchema?: string) {
+    return scoped(tenantSchema, async (db) => {
+      const nomeT = nome.trim()
+      const existing = await db.fornecedorCategoria.findFirst({
+        where: { nome: nomeT, empresaId: empresaId ?? null },
+      })
+      if (existing) {
+        return existing.isActive
+          ? existing
+          : db.fornecedorCategoria.update({ where: { id: existing.id }, data: { isActive: true } })
+      }
+      return db.fornecedorCategoria.create({ data: { nome: nomeT, empresaId: empresaId || null } })
+    })
+  }
+
+  async updateCategoria(id: string, nome: string, tenantSchema?: string) {
+    return scoped(tenantSchema, (db) =>
+      db.fornecedorCategoria.update({ where: { id }, data: { nome: nome.trim() } }),
+    )
+  }
+
+  async deleteCategoria(id: string, tenantSchema?: string) {
+    // Hard delete: o vínculo com os fornecedores é removido em cascata (a coluna
+    // legada "categoria" pode ficar defasada, mas as tags refletem a exclusão).
+    return scoped(tenantSchema, (db) => db.fornecedorCategoria.delete({ where: { id } }))
   }
 
   async listForSelect(isMaster: boolean, empresaId?: string, tenantSchema?: string) {

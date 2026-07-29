@@ -1634,9 +1634,40 @@ model Fornecedor {
   qualificacoes    FornecedorQualificacao[]
   mensagens        FornecedorMensagem[]
   compras          Compra[]
+  categoriaLinks   FornecedorCategoriaLink[]
 
   @@index([legacyId])
   @@map("fornecedores")
+}
+
+// Cadastro de categorias (tags) de fornecedor — por empresa. O usuário cria
+// na hora ao digitar no campo e pode gerenciar (renomear/excluir) numa tela própria.
+model FornecedorCategoria {
+  id        String   @id @default(cuid())
+  nome      String
+  empresaId String?  @map("empresa_id")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  vinculos FornecedorCategoriaLink[]
+
+  @@unique([empresaId, nome])
+  @@index([empresaId])
+  @@map("fornecedor_categorias")
+}
+
+// Vínculo N:N entre Fornecedor e categoria (tags).
+model FornecedorCategoriaLink {
+  fornecedorId String @map("fornecedor_id")
+  categoriaId  String @map("categoria_id")
+
+  fornecedor Fornecedor          @relation(fields: [fornecedorId], references: [id], onDelete: Cascade)
+  categoria  FornecedorCategoria @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+
+  @@id([fornecedorId, categoriaId])
+  @@index([categoriaId])
+  @@map("fornecedor_categoria_links")
 }
 
 model FornecedorEvent {

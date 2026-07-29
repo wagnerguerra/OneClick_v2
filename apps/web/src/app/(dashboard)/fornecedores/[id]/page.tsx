@@ -30,6 +30,7 @@ export default function EditFornecedorPage() {
           inscricaoMunicipal: data.inscricaoMunicipal ?? '',
           tipoFornecedor: data.tipoFornecedor as CreateFornecedorInput['tipoFornecedor'],
           categoria: data.categoria ?? '',
+          categoriaIds: data.categoriaIds ?? [],
           logoUrl: data.logoUrl ?? '',
           risco: (data.risco ?? 'MEDIO') as CreateFornecedorInput['risco'],
           avaliacaoObrigatoria: data.avaliacaoObrigatoria ?? false,

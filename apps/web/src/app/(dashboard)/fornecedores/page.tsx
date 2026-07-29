@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Trash2,
+  Plus, Pencil, Trash2, RotateCcw, Eye, EyeOff,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
   Package, FileUp, Download,
@@ -62,6 +62,7 @@ export default function FornecedoresPage() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [importOpen, setImportOpen] = useState(false)
+  const [incluirInativos, setIncluirInativos] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(() => { setDebouncedSearch(search); setPage(1) }, 400)
@@ -73,11 +74,12 @@ export default function FornecedoresPage() {
     try {
       const result = await trpc.fornecedor.list.query({
         page, limit, search: debouncedSearch || undefined, sortBy: sort.column, sortDir: sort.dir,
+        incluirInativos: incluirInativos || undefined,
       })
       setData(result)
     } catch { /* silencioso */ }
     finally { setLoading(false) }
-  }, [page, limit, debouncedSearch, sort])
+  }, [page, limit, debouncedSearch, sort, incluirInativos])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -92,13 +94,25 @@ export default function FornecedoresPage() {
   }
 
   async function handleDelete(id: string, name: string) {
-    const confirmed = await alerts.confirmDelete(name)
+    const confirmed = await alerts.confirm({
+      title: 'Inativar fornecedor?',
+      text: `"${name}" deixará de aparecer na lista, mas o histórico é mantido. Você pode reativá-lo depois em "Mostrar inativos".`,
+      icon: 'warning', confirmText: 'Inativar',
+    })
     if (!confirmed) return
     try {
       await trpc.fornecedor.delete.mutate({ id })
-      await alerts.success('Fornecedor excluído', `"${name}" foi removido com sucesso.`)
+      await alerts.success('Fornecedor inativado', `"${name}" foi inativado.`)
       fetchData()
-    } catch { alerts.error('Erro ao excluir', 'Não foi possível excluir o fornecedor.') }
+    } catch { alerts.error('Erro', 'Não foi possível inativar o fornecedor.') }
+  }
+
+  async function handleRestore(id: string, name: string) {
+    try {
+      await trpc.fornecedor.restore.mutate({ id })
+      await alerts.success('Fornecedor reativado', `"${name}" voltou para a lista.`)
+      fetchData()
+    } catch { alerts.error('Erro', 'Não foi possível reativar o fornecedor.') }
   }
 
   async function handleExport() {
@@ -167,8 +181,20 @@ export default function FornecedoresPage() {
             </Select>
             <span className="hidden sm:inline">registros</span>
           </div>
-          <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar por nome, CNPJ ou e-mail..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+          <div className="flex items-center gap-2">
+            <Button
+              variant={incluirInativos ? 'soft' : 'outline'}
+              size="sm"
+              className="h-8 shrink-0 text-xs"
+              onClick={() => { setIncluirInativos((v) => !v); setPage(1) }}
+              title={incluirInativos ? 'Ocultar inativos' : 'Mostrar inativos'}
+            >
+              {incluirInativos ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{incluirInativos ? 'Ocultar inativos' : 'Mostrar inativos'}</span>
+            </Button>
+            <div className="max-w-xs w-full sm:w-auto">
+              <Input placeholder="Buscar por nome, CNPJ ou e-mail..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            </div>
           </div>
         </div>
 
@@ -197,11 +223,12 @@ export default function FornecedoresPage() {
               <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">Nenhum fornecedor encontrado</TableCell></TableRow>
             ) : (
               data.data.map((f) => (
-                <TableRow key={f.id} className="cursor-pointer" onClick={() => router.push(`/fornecedores/${f.id}`)}>
+                <TableRow key={f.id} className={`cursor-pointer ${!f.isActive ? 'opacity-60' : ''}`} onClick={() => router.push(`/fornecedores/${f.id}`)}>
                   <TableCell className="font-mono text-muted-foreground text-xs">{f.code}</TableCell>
                   <TableCell className="font-medium text-sm">
                     {f.razaoSocial}
                     {f.nomeFantasia && <span className="text-muted-foreground text-xs ml-1">({f.nomeFantasia})</span>}
+                    {!f.isActive && <Badge variant="outline" className="ml-2 text-[10px] border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-400">Inativo</Badge>}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-xs font-mono text-muted-foreground">{formatDoc(f.documento, f.tipoDocumento)}</TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{f.cidade && f.uf ? `${f.cidade}/${f.uf}` : '—'}</TableCell>
@@ -214,7 +241,11 @@ export default function FornecedoresPage() {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                       <Button variant="soft-info" size="icon-sm" onClick={() => router.push(`/fornecedores/${f.id}`)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="soft-destructive" size="icon-sm" onClick={() => handleDelete(f.id, f.razaoSocial)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      {f.isActive ? (
+                        <Button variant="soft-destructive" size="icon-sm" title="Inativar" onClick={() => handleDelete(f.id, f.razaoSocial)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      ) : (
+                        <Button variant="soft" size="icon-sm" title="Reativar" onClick={() => handleRestore(f.id, f.razaoSocial)}><RotateCcw className="h-3.5 w-3.5" /></Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
