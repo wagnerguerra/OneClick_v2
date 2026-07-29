@@ -1,0 +1,182 @@
+<title>Resumo do dia — OneClick v2 · 28/07/2026</title>
+<style>
+  :root {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+    --cadastros:#10b981; --comercial:#fb7185; --corporativo:#8b5cf6; --administrativo:#64748b;
+    --legalizacao:#0ea5e9; --trabalhista:#f97316; --fiscal:#6366f1; --contabil:#14b8a6;
+    --ti:#3b82f6; --qualidade:#f59e0b; --configuracoes:#64748b; --processos:#a855f7;
+    --faq:#22c55e; --perfil:#ec4899; --dashboard:#0ea5e9; --agenda:#8b5cf6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+      --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+      --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+    --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+    --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 56px 24px 80px; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  header { animation: rise .5s ease-out both; }
+  .eyebrow {
+    text-transform: uppercase; letter-spacing: .13em; font-size: 11px; font-weight: 700;
+    color: var(--accent-deep); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px); line-height: 1.08; margin: 0 0 8px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .sub { color: var(--muted); font-size: 15px; margin: 0; }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 8px; }
+  .stat {
+    flex: 1 1 150px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .stat .n { font-size: 24px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  main { margin-top: 30px; display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; box-shadow: var(--shadow);
+    animation: rise .5s ease-out both;
+  }
+  .card-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .card-head h2 { font-size: 16px; margin: 0; letter-spacing: -.01em; font-weight: 700; }
+  .card-head .tag {
+    margin-left: auto; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
+  }
+  ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  li { display: flex; gap: 10px; font-size: 14.5px; }
+  li::before {
+    content: ""; margin-top: 9px; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--muted); flex: none; opacity: .55;
+  }
+  li b { font-weight: 650; }
+  .hash {
+    display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 5px;
+    background: var(--chip-bg); color: var(--chip-ink); margin-left: 4px; vertical-align: baseline;
+  }
+
+  .note {
+    margin-top: 22px; border: 1px dashed var(--border); border-radius: 12px;
+    padding: 14px 18px; font-size: 13.5px; color: var(--muted); background: transparent;
+  }
+  .note b { color: var(--ink); }
+  footer { margin-top: 34px; text-align: center; color: var(--muted); font-size: 12px; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Resumo do dia · sessão de desenvolvimento</p>
+    <h1>O que fizemos hoje no OneClick v2</h1>
+    <p class="sub">28 de julho de 2026 — visão geral, sem entrar no detalhe.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="n">25</div><div class="l">commits do dia</div></div>
+    <div class="stat"><div class="n">7</div><div class="l">áreas tocadas</div></div>
+    <div class="stat"><div class="n">3</div><div class="l">entregas maiores</div></div>
+    <div class="stat"><div class="n">5</div><div class="l">correções</div></div>
+  </div>
+
+  <main>
+    <section class="card" style="animation-delay:.05s">
+      <div class="card-head"><span class="dot" style="background:var(--cadastros)"></span><h2>Fornecedores</h2><span class="tag">Cadastros · reconstrução</span></div>
+      <ul>
+        <li><span><b>Cadastro de fornecedores reconstruído do sistema antigo</b> — trouxemos todos os fornecedores já existentes e seus anexos para o sistema novo, mantendo as mesmas funções. <span class="hash mono">b838b0e</span><span class="hash mono">149663a</span><span class="hash mono">e1d6540</span></span></li>
+        <li><span><b>Ficha do fornecedor mais completa</b> — novas abas de Anexos, Qualificação (uma lista de verificação no padrão ISO), Mensagens e Histórico. <span class="hash mono">db0982f</span><span class="hash mono">88c4c6f</span></span></li>
+        <li><span><b>Grau de risco</b> (Alto / Médio / Baixo) por fornecedor, com destaque colorido já na listagem. <span class="hash mono">149663a</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.1s">
+      <div class="card-head"><span class="dot" style="background:var(--qualidade)"></span><h2>Compras (Aquisições)</h2><span class="tag">Qualidade · novo módulo</span></div>
+      <ul>
+        <li><span><b>Módulo de Compras criado do zero</b>, também vindo do sistema antigo — com todos os pedidos históricos migrados. <span class="hash mono">f6d88c0</span><span class="hash mono">f2166cc</span><span class="hash mono">5eea699</span></span></li>
+        <li><span><b>Fluxo completo do pedido</b> — criação, aprovação, recebimento e avaliação de qualidade, tudo dentro do sistema. <span class="hash mono">1f67a8e</span><span class="hash mono">b4a6d75</span><span class="hash mono">05686c9</span></span></li>
+        <li><span><b>Nota do fornecedor calculada sozinha</b> — a partir das avaliações das compras, cada fornecedor passa a ter uma nota de qualidade automática. <span class="hash mono">3359786</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.15s">
+      <div class="card-head"><span class="dot" style="background:var(--cadastros)"></span><h2>Relatórios de Clientes</h2><span class="tag">Cadastros · melhoria</span></div>
+      <ul>
+        <li><span><b>Três relatórios trazidos do sistema antigo</b> — movimentação, por área e por responsável. <span class="hash mono">910452f</span></span></li>
+        <li><span>Deixamos mais fáceis de usar: filtros, busca e cartões clicáveis; no "Por Responsável", cada cartão abre e fecha, com um botão para expandir ou recolher todos de uma vez. <span class="hash mono">83f0cdc</span><span class="hash mono">e274d12</span></span></li>
+        <li><span>Barra de filtros do "Por Responsável" alinhada visualmente à do "Acompanhamento Anual", para ficarem iguais. <span class="hash mono">46088ac</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.2s">
+      <div class="card-head"><span class="dot" style="background:var(--ti)"></span><h2>Chamados (Helpdesk)</h2><span class="tag">Suporte · correção</span></div>
+      <ul>
+        <li><span><b>Chamados que "sumiram" — esclarecido</b> — não tinham sido apagados: estavam arquivados, e a tela só mostrava os ativos. <span class="hash mono">7c3522b</span></span></li>
+        <li><span>A lista de chamados agora separa em dois blocos: <b>Ativos</b> em cima e <b>Arquivados</b> embaixo, então nada mais "desaparece" da visão. <span class="hash mono">7c3522b</span></span></li>
+        <li><span><b>Gestor enxerga a área toda</b> — quem é gestor passa a ver todos os chamados abertos pelos membros da sua área. <span class="hash mono">e71476b</span></span></li>
+        <li><span>O balão de "novo chamado" ganhou rolagem em telas baixas, para não cortar os campos. <span class="hash mono">d754b12</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.25s">
+      <div class="card-head"><span class="dot" style="background:var(--processos)"></span><h2>Meus Serviços</h2><span class="tag">Processos · melhoria</span></div>
+      <ul>
+        <li><span><b>Permissão para concluir sem o checklist</b> — como o módulo ainda está em implantação, criamos uma opção no cadastro do usuário que permite finalizar um serviço sem passar pela lista de verificação obrigatória. <span class="hash mono">a800ea8</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.3s">
+      <div class="card-head"><span class="dot" style="background:var(--fiscal)"></span><h2>Integrações SERPRO</h2><span class="tag">Fiscal · decisão</span></div>
+      <ul>
+        <li><span><b>Mapa de tudo que usa o SERPRO</b> — levantamos todos os pontos do sistema que consultam a API do SERPRO, com documento e planilha. <span class="hash mono">0f9f789</span></span></li>
+        <li><span><b>Consultas automáticas desligadas em definitivo</b> — as buscas agendadas de Caixa Postal e CND foram encerradas; a partir de agora essas consultas são feitas apenas manualmente. <span class="hash mono">7aa5faa</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.35s">
+      <div class="card-head"><span class="dot" style="background:var(--configuracoes)"></span><h2>Editor de texto</h2><span class="tag">correção</span></div>
+      <ul>
+        <li><span>Corrigida a <b>barra de formatação</b> (negrito, listas, etc.) no balão de chamado, no cadastro de serviço e nas anotações do CRM. <span class="hash mono">d40e3cb</span></span></li>
+        <li><span>Textos com formatação passaram a aparecer <b>exatamente como foram digitados</b>, sem diferença entre editar e visualizar. <span class="hash mono">7d28262</span></span></li>
+      </ul>
+    </section>
+  </main>
+
+  <div class="note">
+    <b>Além do código:</b> a investigação dos chamados "sumidos" foi feita direto na base de produção (apenas consulta, sem alterar nada). Também decidimos, ao longo do dia, ampliar o trabalho de Fornecedores para <b>incluir o módulo de Compras</b> e migrar todo o histórico dos dois — e desligar as consultas automáticas do SERPRO para permitir a troca segura da chave de acesso.
+  </div>
+  <div class="note" style="margin-top:10px">
+    <b>Situação:</b> tudo foi desenvolvido e revisado ao longo do dia. A publicação em produção — o novo Fornecedores, o módulo de Compras e as correções de chamados — foi realizada na manhã seguinte, pelo Service Manager.
+  </div>
+
+  <footer>Resumo gerado ao fim da sessão · OneClick v2</footer>
+</div>
