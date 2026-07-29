@@ -68,14 +68,14 @@ export function CnpjFilialSelect({ clienteId, documento, tipoDocumento }: {
           Outros CNPJs vinculados ({filiais.length})
         </DropdownMenuLabel>
         {filiais.map((f) => (
-          <DropdownMenuItem key={f.id} onClick={() => router.push(`/clientes/${f.id}`)} className="flex items-start gap-2">
-            <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <div className="min-w-0">
-              <div className="font-mono text-xs">
-                {masks.cnpj(f.documento)}
-                {ehMatriz(f) && <span className="ml-1.5 rounded bg-violet-100 px-1 text-[10px] font-medium text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">matriz</span>}
+          <DropdownMenuItem key={f.id} onClick={() => router.push(`/clientes/${f.id}`)} className="flex cursor-pointer items-center gap-2">
+            <Building2 className="h-3.5 w-3.5 shrink-0 opacity-60" />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 font-mono text-xs">
+                <span>{masks.cnpj(f.documento)}</span>
+                {ehMatriz(f) && <span className="rounded border border-current px-1 text-[9px] font-semibold uppercase tracking-wide opacity-70">matriz</span>}
               </div>
-              <div className="truncate text-[11px] text-muted-foreground">{f.nomeFantasia || f.razaoSocial}</div>
+              <div className="truncate text-[11px] opacity-70">{f.nomeFantasia || f.razaoSocial}</div>
             </div>
           </DropdownMenuItem>
         ))}
