@@ -61,12 +61,18 @@ export class ContratoSyncController {
     @Body() body: { dados?: Record<string, unknown>; erro?: string },
   ): Promise<{ ok: boolean; resolved: boolean }> {
     await this.assertAuth(req)
-    if (body.erro) {
-      const ok = this.syncService.rejectRemoteRequest(requestId, body.erro)
+    // erro pode vir como string vazia (Launcher que perdeu a mensagem original); ainda
+    // assim é um erro — rejeita o pedido pendente (não trata "" como sucesso).
+    if (body.erro !== undefined) {
+      const msg = String(body.erro || '').trim() || 'Falha ao ler o cadastro legado no Service Manager (sem detalhe do erro).'
+      const ok = this.syncService.rejectRemoteRequest(requestId, msg)
       return { ok: true, resolved: ok }
     }
-    if (!body.dados) {
-      throw new Error('Callback sem dados nem erro')
+    // Nem dados nem erro: NÃO derruba em 500 (isso deixava a promise pendurada até o
+    // timeout). Rejeita o pedido com mensagem clara e responde 200.
+    if (body.dados === undefined) {
+      const ok = this.syncService.rejectRemoteRequest(requestId, 'Service Manager respondeu sem dados nem erro.')
+      return { ok: true, resolved: ok }
     }
     const resolved = this.syncService.resolveRemoteRequest(requestId, body.dados)
     return { ok: true, resolved }

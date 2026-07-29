@@ -1798,9 +1798,13 @@ function registerIpcHandlers() {
       console.log(`[ClienteImport] ✓ ${requestId} concluído`)
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('contrato-sync-event', { type: 'cliente-import-completed', requestId })
     } catch (e) {
-      console.warn(`[ClienteImport] ✗ ${requestId}: ${e.message}`)
-      try { await postarContratoCallback(baseUrl, requestId, { erro: e.message }) } catch {}
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('contrato-sync-event', { type: 'cliente-import-failed', requestId, erro: e.message })
+      // e.message às vezes vem vazio (ex.: erro de driver); inclui sqlMessage/code/name
+      // pra não mandar "erro vazio" que a API não conseguia diagnosticar.
+      const detalhe = (e && (e.sqlMessage || e.message || e.code || e.errno)) || (e && String(e)) || ''
+      const erroMsg = String(detalhe).trim() || `Falha ao ler o cadastro legado (${(e && e.name) || 'erro'} sem mensagem)`
+      console.warn(`[ClienteImport] ✗ ${requestId}: ${erroMsg}`, e && e.code ? `(code=${e.code})` : '', e)
+      try { await postarContratoCallback(baseUrl, requestId, { erro: erroMsg }) } catch {}
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('contrato-sync-event', { type: 'cliente-import-failed', requestId, erro: erroMsg })
     }
   }
 
