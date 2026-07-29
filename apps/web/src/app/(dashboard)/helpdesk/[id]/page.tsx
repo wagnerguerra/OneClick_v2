@@ -30,6 +30,7 @@ import { AnexosDropzone, type AnexoStaged } from '../_components/anexos-dropzone
 import {
   HELPDESK_STATUS, HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE, HELPDESK_PRIORIDADE_LABELS,
   HELPDESK_PRIORIDADE_COLORS, HELPDESK_TIPO_LABELS,
+  solicitantePodeCancelar,
   type HelpdeskStatus, type HelpdeskPrioridade,
 } from '@saas/types'
 
@@ -718,8 +719,12 @@ export default function HelpdeskTicketDetailPage() {
   // Solicitante pode cancelar o próprio ticket enquanto está aberto.
   // TI também pode cancelar (via sidebar/select de status), então aqui foco no solicitante.
   const isSolicitante = !!currentUserId && ticket.solicitante?.id === currentUserId
-  const ticketAberto = !['CONCLUIDO', 'CANCELADO'].includes(ticket.status)
-  const podeCancelar = isSolicitante && ticketAberto
+  // #HLP0172: regra vem de @saas/types — mesma fonte que o backend impõe.
+  const podeCancelar = solicitantePodeCancelar({
+    status: ticket.status,
+    solicitanteId: ticket.solicitante?.id,
+    userId: currentUserId,
+  })
 
   return (
     <div className="space-y-0 pb-6">
