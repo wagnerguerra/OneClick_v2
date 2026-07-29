@@ -36,6 +36,7 @@ interface CatalogoInput {
   nome: string
   servicoId?: string | null
   notificaVencimentoDias?: number | null
+  validadeMeses?: number | null
   obs?: string | null
   ativo?: boolean
 }
@@ -66,6 +67,7 @@ export class BeneficioFiscalService {
     const rows = (await prisma.$queryRawUnsafe(
       `SELECT c.id, c.nome, c.servico_id AS "servicoId",
               c.notifica_vencimento_dias AS "notificaVencimentoDias",
+              c.validade_meses AS "validadeMeses",
               c.obs, c.ativo,
               s.nome AS "servicoNome", s.valor_padrao AS "servicoValor",
               (SELECT count(*)::int FROM beneficio_fiscal_cliente v WHERE v.catalogo_id = c.id AND v.ativo = true) AS "emUso"
@@ -111,10 +113,10 @@ export class BeneficioFiscalService {
     // visível a todas as empresas/usuários. Ignora o empresaId do contexto de propósito
     // (senão itens criados por não-master ficariam presos à empresa e sumiriam pros demais).
     await prisma.$executeRawUnsafe(
-      `INSERT INTO beneficio_fiscal_catalogo (id, nome, servico_id, notifica_vencimento_dias, obs, ativo, empresa_id, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      `INSERT INTO beneficio_fiscal_catalogo (id, nome, servico_id, notifica_vencimento_dias, validade_meses, obs, ativo, empresa_id, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       id, input.nome, input.servicoId ?? null, input.notificaVencimentoDias ?? null,
-      input.obs ?? null, input.ativo ?? true,
+      input.validadeMeses ?? null, input.obs ?? null, input.ativo ?? true,
     )
     return { id }
   }
@@ -125,12 +127,13 @@ export class BeneficioFiscalService {
          nome = COALESCE($2, nome),
          servico_id = $3,
          notifica_vencimento_dias = $4,
-         obs = $5,
-         ativo = COALESCE($6, ativo),
+         validade_meses = $5,
+         obs = $6,
+         ativo = COALESCE($7, ativo),
          updated_at = CURRENT_TIMESTAMP
        WHERE id = $1`,
       id, input.nome ?? null, input.servicoId ?? null, input.notificaVencimentoDias ?? null,
-      input.obs ?? null, input.ativo ?? null,
+      input.validadeMeses ?? null, input.obs ?? null, input.ativo ?? null,
     )
     return { id }
   }
@@ -262,7 +265,13 @@ export class BeneficioFiscalService {
     const v = rows[0]
     if (!v) throw new TRPCError({ code: 'NOT_FOUND', message: 'Vínculo não encontrado.' })
     if (v.orcamentoId) {
-      throw new TRPCError({ code: 'CONFLICT', message: 'Este benefício já tem um orçamento gerado.' })
+      // Só bloqueia se o orçamento vinculado ainda está VIVO. Se foi cancelado/encerrado,
+      // o benefício ficaria preso pra sempre — nesse caso liberamos um novo.
+      const ant = await prisma.orcamento.findUnique({ where: { id: v.orcamentoId }, select: { status: true, numero: true } }).catch(() => null)
+      const morto = !ant || ant.status === 'CANCELADO' || ant.status === 'ENCERRADO'
+      if (!morto) {
+        throw new TRPCError({ code: 'CONFLICT', message: `Este benefício já tem o orçamento #${ant.numero} em andamento (${ant.status}).` })
+      }
     }
     if (!v.servicoId) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: `O benefício "${v.beneficioNome}" não tem serviço vinculado no catálogo.` })

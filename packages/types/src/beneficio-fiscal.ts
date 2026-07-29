@@ -16,6 +16,8 @@ export const createBeneficioCatalogoSchema = z.object({
   nome: z.string().min(1, 'Informe o nome do benefício'),
   servicoId: z.string().optional().nullable(),
   notificaVencimentoDias: z.coerce.number().int().min(0).max(365).optional().nullable(),
+  // Validade do benefício em meses — base do novo vencimento na renovação (default 12).
+  validadeMeses: z.coerce.number().int().min(1).max(600).optional().nullable(),
   obs: z.string().optional().nullable(),
   ativo: z.boolean().optional(),
 })

@@ -1679,6 +1679,49 @@ export class OrcamentoService {
     return ops.map(o => ({ id: o.id, numero: o.numero, titulo: o.titulo, cliente: o.clienteId ? (cmap.get(o.clienteId) ?? null) : null, etapa: o.etapa?.nome ?? null }))
   }
 
+  /**
+   * Renova o benefício fiscal vinculado a este orçamento (se houver): empurra
+   * data_vencimento pela validade do catálogo (validade_meses, default 12) e libera o
+   * vínculo pra um novo ciclo (orcamento_id = NULL), registrando o histórico em obs.
+   *
+   * SQL cru de propósito: BeneficioFiscalModule importa OrcamentoModule, então injetar
+   * o BeneficioFiscalService aqui criaria dependência circular.
+   */
+  private async renovarBeneficioFiscalDoOrcamento(orcamentoId: string, numero: number, userId?: string) {
+    const vinculos = (await prisma.$queryRawUnsafe(
+      `SELECT v.id, v.data_vencimento AS "dataVencimento", v.obs,
+              COALESCE(cat.validade_meses, 12) AS "validadeMeses", cat.nome AS "beneficioNome"
+         FROM beneficio_fiscal_cliente v
+         JOIN beneficio_fiscal_catalogo cat ON cat.id = v.catalogo_id
+        WHERE v.orcamento_id = $1 AND v.ativo = true`,
+      orcamentoId,
+    ).catch(() => [])) as Array<{ id: string; dataVencimento: Date | null; obs: string | null; validadeMeses: number; beneficioNome: string }>
+    if (!vinculos.length) return
+
+    for (const v of vinculos) {
+      // Base: o vencimento atual (mantém o aniversário do benefício); se já passou ou
+      // não existe, conta de hoje pra não gerar um vencimento retroativo.
+      const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+      const atual = v.dataVencimento ? new Date(v.dataVencimento) : null
+      const base = atual && !isNaN(atual.getTime()) && atual.getTime() >= hoje.getTime() ? atual : hoje
+      const novo = new Date(base)
+      novo.setMonth(novo.getMonth() + (v.validadeMeses || 12))
+      const novoISO = novo.toISOString().slice(0, 10)
+      const hist = `Renovado pelo orçamento #${numero} em ${hoje.toLocaleDateString('pt-BR')} — vencimento até ${novo.toLocaleDateString('pt-BR')}.`
+
+      await prisma.$executeRawUnsafe(
+        `UPDATE beneficio_fiscal_cliente
+            SET data_vencimento = $2::date,
+                orcamento_id = NULL,
+                obs = CASE WHEN COALESCE(obs,'') = '' THEN $3 ELSE obs || E'\n' || $3 END,
+                updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1`,
+        v.id, novoISO, hist,
+      )
+      console.log(`[Orcamento] Benefício fiscal renovado: ${v.beneficioNome} → ${novoISO} (orçamento #${numero}${userId ? `, user ${userId}` : ''})`)
+    }
+  }
+
   async changeStatus(id: string, novoStatus: string, userId?: string, opts?: { skipNotifications?: boolean; notificarCliente?: boolean }) {
     const orc = await prisma.orcamento.findUnique({ where: { id } })
     if (!orc) throw new Error('Orçamento não encontrado')
@@ -1724,6 +1767,13 @@ export class OrcamentoService {
     }
 
     const updated = await prisma.orcamento.update({ where: { id }, data })
+
+    // Renovação de benefício fiscal: quando o orçamento de renovação é FINALIZADO,
+    // empurra o vencimento do benefício do cliente pela validade do catálogo.
+    if (novoStatus === 'FINALIZADO') {
+      await this.renovarBeneficioFiscalDoOrcamento(id, orc.numero, userId)
+        .catch(e => console.warn('[Orcamento] Falha ao renovar benefício fiscal:', (e as Error).message))
+    }
 
     // Ao ENCERRAR (cancelar) um orçamento, cancela em cascata os serviços/processos
     // ainda abertos que foram disparados na aprovação. Sem efeito se nunca foi aprovado

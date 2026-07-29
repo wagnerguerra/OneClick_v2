@@ -1103,6 +1103,9 @@ model BeneficioFiscalCatalogo {
   servicoId              String?  @map("servico_id")
   // Dias de antecedência do vencimento pra marcar como "Vencendo" (default 30).
   notificaVencimentoDias Int?     @map("notifica_vencimento_dias")
+  // Validade do benefício em meses — usada pra calcular o novo vencimento quando o
+  // orçamento de renovação é FINALIZADO (default 12). Cada benefício tem a sua.
+  validadeMeses          Int?     @map("validade_meses")
   obs                    String?  @db.Text
   ativo                  Boolean  @default(true)
   empresaId              String?  @map("empresa_id")
