@@ -81,6 +81,7 @@ contextBridge.exposeInMainWorld('api', {
   // Settings
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
+  testLegacyDb: (cfg) => ipcRenderer.invoke('test-legacy-db', cfg),
 
   // Claude Code
   launchClaude: (dir) => ipcRenderer.invoke('launch-claude', dir),

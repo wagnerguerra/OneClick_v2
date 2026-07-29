@@ -1647,7 +1647,7 @@ function registerIpcHandlers() {
     const result = spawnSync('python', args, {
       cwd: path.dirname(sciScript),
       encoding: 'buffer',
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', ...sciEnvOverride() },
       timeout: 90000,
       windowsHide: true,
     })
@@ -1710,7 +1710,7 @@ function registerIpcHandlers() {
     const result = spawnSync('python', [sciScript, cnpj], {
       cwd: path.dirname(sciScript),
       encoding: 'buffer',
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', ...sciEnvOverride() },
       timeout: 60000,
       windowsHide: true,
     })
@@ -1749,6 +1749,17 @@ function registerIpcHandlers() {
       database: s.database || process.env.LEGACY_DB_NAME || 'oneclick_fiscal_serpro',
       connectTimeout: 8000,
     }
+  }
+
+  // Override do Firebird SCI (aba Conexões). Só entra se preenchido — o sci_env.py
+  // só usa o .env quando a var NÃO está no ambiente, então isso tem precedência.
+  function sciEnvOverride() {
+    const s = (loadSettings().firebirdSci) || {}
+    const env = {}
+    if (s.dsn) env.SCI_DSN = String(s.dsn)
+    if (s.user) env.SCI_USER = String(s.user)
+    if (s.password != null && s.password !== '') env.SCI_PASSWORD = String(s.password)
+    return env
   }
 
   async function lerClienteLegado(payload) {
@@ -2918,7 +2929,7 @@ function registerIpcHandlers() {
         {
           cwd: path.dirname(sciScript),
           encoding: 'buffer',
-          env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+          env: { ...process.env, PYTHONIOENCODING: 'utf-8', ...sciEnvOverride() },
           timeout: 60000,
           windowsHide: true,
         },
@@ -2968,6 +2979,27 @@ function registerIpcHandlers() {
       ...result,
       autoStart: autoStartResult,
     };
+  });
+
+  // Testa a conexão com o MySQL legado (aba Conexões das Configurações).
+  ipcMain.handle('test-legacy-db', async (_e, cfg) => {
+    let conn;
+    try {
+      // eslint-disable-next-line global-require
+      const mysql = require('mysql2/promise');
+      conn = await mysql.createConnection({
+        host: (cfg && cfg.host) || 'localhost',
+        port: Number(cfg && cfg.port) || 3306,
+        user: (cfg && cfg.user) || 'root',
+        password: (cfg && cfg.password != null) ? cfg.password : '',
+        database: (cfg && cfg.database) || undefined,
+        connectTimeout: 6000,
+      });
+      const [r] = await conn.query('SELECT DATABASE() AS db, VERSION() AS v');
+      return { ok: true, info: `${(r[0] && r[0].db) || '(sem db)'} · MySQL ${(r[0] && r[0].v) || ''}` };
+    } catch (e) {
+      return { ok: false, error: e && e.code ? `${e.code}: ${e.message}` : (e && e.message) || 'Falha desconhecida' };
+    } finally { try { if (conn) await conn.end(); } catch {} }
   });
 
   // ── Claude Code launcher ──
