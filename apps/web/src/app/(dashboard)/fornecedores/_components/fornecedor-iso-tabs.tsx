@@ -60,7 +60,7 @@ function fmtTamanho(b: number | null) {
   return `${(b / 1024 / 1024).toFixed(1)} MB`
 }
 
-const ISO_TABS = [
+export const ISO_TABS = [
   { key: 'anexos', label: 'Anexos', icon: Paperclip },
   { key: 'qualificacao', label: 'Qualificação', icon: ClipboardCheck },
   { key: 'avaliacao', label: 'Avaliação', icon: Gauge },
@@ -109,7 +109,7 @@ export function FornecedorIsoTabs({ fornecedorId, currentUserId }: { fornecedorI
 }
 
 // ── Anexos ───────────────────────────────────────────────────
-function AnexosTab({ fornecedorId }: { fornecedorId: string }) {
+export function AnexosTab({ fornecedorId }: { fornecedorId: string }) {
   const [anexos, setAnexos] = useState<AnexoRow[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -220,7 +220,7 @@ function AnexosTab({ fornecedorId }: { fornecedorId: string }) {
 // ── Qualificação (critérios de seleção — checklist Sim/Não) ──
 interface QualRow { id: string; criterio: string; tipoFornecedor: string; ordem: number; atende: boolean | null; respondidoEm: string | null }
 
-function QualificacaoTab({ fornecedorId }: { fornecedorId: string }) {
+export function QualificacaoTab({ fornecedorId }: { fornecedorId: string }) {
   const [rows, setRows] = useState<QualRow[]>([])
   const [loading, setLoading] = useState(true)
   const [novo, setNovo] = useState('')
@@ -322,7 +322,7 @@ const FAIXA_COR: Record<string, string> = {
 const FAIXA_LABEL: Record<string, string> = { verde: 'Aprovado', amarelo: 'Atenção', vermelho: 'Crítico' }
 const corPct = (p: number) => (p >= 90 ? FAIXA_COR.verde : p >= 60 ? FAIXA_COR.amarelo : FAIXA_COR.vermelho)
 
-function AvaliacaoTab({ fornecedorId }: { fornecedorId: string }) {
+export function AvaliacaoTab({ fornecedorId }: { fornecedorId: string }) {
   const [data, setData] = useState<AvalFornecimento | null>(null)
   const [loading, setLoading] = useState(true)
   useEffect(() => {
@@ -365,7 +365,7 @@ function AvaliacaoTab({ fornecedorId }: { fornecedorId: string }) {
 }
 
 // ── Mensagens ────────────────────────────────────────────────
-function MensagensTab({ fornecedorId, currentUserId }: { fornecedorId: string; currentUserId?: string }) {
+export function MensagensTab({ fornecedorId, currentUserId }: { fornecedorId: string; currentUserId?: string }) {
   const [msgs, setMsgs] = useState<MensagemRow[]>([])
   const [loading, setLoading] = useState(true)
   const [texto, setTexto] = useState('')
@@ -453,7 +453,7 @@ function MensagensTab({ fornecedorId, currentUserId }: { fornecedorId: string; c
 }
 
 // ── Histórico (eventos) ──────────────────────────────────────
-function HistoricoTab({ fornecedorId }: { fornecedorId: string }) {
+export function HistoricoTab({ fornecedorId }: { fornecedorId: string }) {
   const [eventos, setEventos] = useState<EventoRow[]>([])
   const [loading, setLoading] = useState(true)
   useEffect(() => {

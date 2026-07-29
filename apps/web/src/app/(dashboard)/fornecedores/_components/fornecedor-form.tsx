@@ -24,6 +24,9 @@ import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
+import {
+  ISO_TABS, AnexosTab, QualificacaoTab, AvaliacaoTab, MensagensTab, HistoricoTab,
+} from './fornecedor-iso-tabs'
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
 
@@ -41,6 +44,7 @@ interface FornecedorFormProps {
   description: string
   icon?: React.ReactNode
   fornecedorId?: string
+  currentUserId?: string
   defaultValues?: Partial<CreateFornecedorInput> & { code?: number }
 }
 
@@ -55,10 +59,14 @@ function FieldHint({ text }: { text: string }) {
 
 const UF_OPTIONS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
 
-export function FornecedorForm({ mode, fornecedorId, title, description, icon, defaultValues }: FornecedorFormProps) {
+export function FornecedorForm({ mode, fornecedorId, currentUserId, title, description, icon, defaultValues }: FornecedorFormProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<string>('identificacao')
+
+  // No modo edição, as abas de ISO/Qualidade (Anexos, Qualificação, Avaliação,
+  // Mensagens, Histórico) entram na mesma barra de pills — dependem do fornecedorId.
+  const showIsoTabs = mode === 'edit' && !!fornecedorId
 
   const { register, handleSubmit, control, setValue, formState: { errors } } = useForm<CreateFornecedorInput>({
     resolver: zodResolver(createFornecedorSchema),
@@ -132,6 +140,30 @@ export function FornecedorForm({ mode, fornecedorId, title, description, icon, d
                     </button>
                   )
                 })}
+
+                {showIsoTabs && (
+                  <>
+                    <div className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Qualidade</div>
+                    {ISO_TABS.map((t) => {
+                      const Icon = t.icon
+                      return (
+                        <button
+                          key={t.key}
+                          type="button"
+                          onClick={() => setActiveTab(t.key)}
+                          className={cn(
+                            'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
+                            activeTab === t.key ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground',
+                          )}
+                          style={activeTab === t.key ? { backgroundColor: MODULE_COLOR } : undefined}
+                        >
+                          <Icon className="h-3.5 w-3.5 shrink-0" />
+                          {t.label}
+                        </button>
+                      )
+                    })}
+                  </>
+                )}
               </div>
             </div>
 
@@ -276,6 +308,17 @@ export function FornecedorForm({ mode, fornecedorId, title, description, icon, d
                     <textarea id="observacoes" rows={6} placeholder="Observações sobre o fornecedor..." {...register('observacoes')} className="mt-1.5 w-full rounded border border-[#ced4da] bg-transparent px-3 py-2 text-sm focus:border-[#5ea3cb] focus:outline-none" />
                   </div>
                 </div>
+              )}
+
+              {/* ISO / QUALIDADE (somente edição — dependem do fornecedorId) */}
+              {showIsoTabs && fornecedorId && (
+                <>
+                  {activeTab === 'anexos' && <AnexosTab fornecedorId={fornecedorId} />}
+                  {activeTab === 'qualificacao' && <QualificacaoTab fornecedorId={fornecedorId} />}
+                  {activeTab === 'avaliacao' && <AvaliacaoTab fornecedorId={fornecedorId} />}
+                  {activeTab === 'mensagens' && <MensagensTab fornecedorId={fornecedorId} currentUserId={currentUserId} />}
+                  {activeTab === 'historico' && <HistoricoTab fornecedorId={fornecedorId} />}
+                </>
               )}
             </div>
           </div>
