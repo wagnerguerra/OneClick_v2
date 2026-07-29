@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, ArrowLeft } from 'lucide-react'
-import { Button } from '@saas/ui'
+import { Button, RichContent } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { ArticleShell } from '../_components/article-shell'
 import { resolveFaqIcon } from '../_components/faq-icons'
@@ -69,10 +69,11 @@ export default function FaqArtigoPage() {
         titulo={artigo.titulo}
         descricao={artigo.descricao}
       >
-        {/* styles escopados p/ o HTML editável (RichEditor); o HTML migrado dos
-            artigos de sistema já traz suas classes utilitárias. */}
-        <style dangerouslySetInnerHTML={{ __html: FAQ_HTML_CSS }} />
-        <div className="faq-html" dangerouslySetInnerHTML={{ __html: artigo.conteudoHtml }} />
+        {/* O HTML migrado dos artigos de sistema já traz suas classes
+            utilitárias; o escrito no RichEditor depende do RichContent, que
+            aplica as MESMAS regras do editor. Antes havia aqui um bloco
+            `.faq-html` que replicava essas regras à mão. */}
+        <RichContent className="text-sm leading-relaxed [&_a]:text-primary" html={artigo.conteudoHtml} />
       </ArticleShell>
     )
   }
@@ -92,19 +93,3 @@ export default function FaqArtigoPage() {
   )
 }
 
-// Estilo do corpo HTML editável — cobre títulos/listas/citações/links/regra.
-const FAQ_HTML_CSS = `
-  .faq-html { font-size: 0.875rem; line-height: 1.65; }
-  .faq-html > * + * { margin-top: 0.75rem; }
-  .faq-html h1 { font-size: 1.4em; font-weight: 700; margin: 0.6em 0 0.3em; }
-  .faq-html h2 { font-size: 1.2em; font-weight: 700; margin: 0.8em 0 0.3em; }
-  .faq-html h3 { font-size: 1.05em; font-weight: 600; margin: 0.6em 0 0.2em; }
-  .faq-html ul { list-style: disc; padding-left: 1.5rem; }
-  .faq-html ol { list-style: decimal; padding-left: 1.5rem; }
-  .faq-html li { margin: 0.15rem 0; }
-  .faq-html a { color: var(--color-primary, #0891b2); text-decoration: underline; }
-  .faq-html blockquote { border-left: 3px solid var(--color-border); padding-left: 0.75rem; color: var(--color-muted-foreground); margin: 0.5rem 0; }
-  .faq-html hr { border: 0; border-top: 1px solid var(--color-border); margin: 0.9rem 0; }
-  .faq-html strong { font-weight: 600; }
-  .faq-html img { max-width: 100%; border-radius: 6px; }
-`

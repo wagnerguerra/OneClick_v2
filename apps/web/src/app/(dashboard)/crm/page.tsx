@@ -17,6 +17,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Sheet, SheetContent, SheetHeader, SheetBody, SheetTitle, SheetDescription,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
+  RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -1422,10 +1423,7 @@ export default function CrmPage() {
                           {/* Anotações gravadas antes do #HLP0218 são texto puro;
                               as novas vêm em HTML do editor. */}
                           {/<[a-z][\s\S]*>/i.test(m.mensagem) ? (
-                            <div
-                              className="text-sm [&_p]:my-0.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold"
-                              dangerouslySetInnerHTML={{ __html: m.mensagem }}
-                            />
+                            <RichContent className="text-sm" html={m.mensagem} />
                           ) : (
                             <p className="text-sm whitespace-pre-wrap">{m.mensagem}</p>
                           )}

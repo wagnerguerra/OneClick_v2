@@ -554,12 +554,12 @@ function ComentarioItem({ msg }: { msg: TicketDetail['mensagens'][number] }) {
           </span>
           {msg.editadoEm && <span className="text-muted-foreground italic">(editada)</span>}
         </div>
-        <div
+        <RichContent
           className={cn(
-            'rounded-md px-3 py-2 text-[13px] leading-relaxed',
+            'rounded-md px-3 py-2 text-[13px] leading-relaxed [&_a]:text-cyan-400',
             msg.interna ? 'bg-amber-500/[0.08]' : 'bg-white/[0.04]',
           )}
-          dangerouslySetInnerHTML={{ __html: linkifyHelpdesk(msg.conteudo) }}
+          html={linkifyHelpdesk(msg.conteudo)}
         />
         {msg.anexos.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">

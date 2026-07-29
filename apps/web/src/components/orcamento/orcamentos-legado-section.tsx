@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Archive, Loader2, MessageSquare, History as HistoryIcon, Receipt } from 'lucide-react'
-import { cn, Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription } from '@saas/ui'
+import { cn, Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, RichContent } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 
@@ -127,7 +127,7 @@ export function OrcamentosLegadoSection({ clienteId, className }: { clienteId?: 
                   {sel.contato ? <span>Contato: {sel.contato}</span> : null}
                 </div>
                 {sel.descricao && (
-                  <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: sel.descricao }} />
+                  <RichContent className="rounded-md border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground" html={sel.descricao} />
                 )}
                 {/* Valores */}
                 {sel.itens.length > 0 && (
@@ -159,7 +159,7 @@ export function OrcamentosLegadoSection({ clienteId, className }: { clienteId?: 
                     <div className="space-y-1.5">
                       {sel.mensagens.map((m, i) => (
                         <div key={i} className="text-xs rounded-md border border-border bg-muted/20 px-3 py-2">
-                          <div className="[&_*]:text-xs [&_p]:m-0 break-words" dangerouslySetInnerHTML={{ __html: m.conteudo }} />
+                          <RichContent className="text-xs break-words" html={m.conteudo} />
                           {fmtData(m.data) && <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(m.data!).toLocaleString('pt-BR')}</p>}
                         </div>
                       ))}

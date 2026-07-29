@@ -111,6 +111,18 @@ Doc viva: `/admin/design-system` → aba "Modais".
 ### Sub-abas (Card com pills laterais)
 Wrapper `<Card>` + `flex min-h-[450px]` + sidebar de pills `w-[170px] bg-muted/40 border-r border-border`. Pill ativa = cor do módulo (CSS var). Conteúdo com `key={activeTab}` + `animation: fadeSlideIn 0.25s`. Títulos internos `text-[13px] font-semibold text-foreground` com `border-b` full-width via `-mx-5`. Textareas = `<RichEditor>` (TipTap), nunca textarea puro. Grid 12 colunas.
 
+### Texto rico: `RichEditor` para editar, `RichContent` para exibir (PROIBIDO `prose`)
+
+O **`@tailwindcss/typography` NÃO é usado neste projeto** — nunca foi instalado. Logo, as classes `prose`, `prose-sm`, `dark:prose-invert`, `prose-p:*` etc. **não aplicam estilo nenhum**: são silenciosamente inertes. Quem as escreve não vê erro, mas o conteúdo sai sem marcador de lista, sem hierarquia de título e sem barra de citação. Isso já vazou para ~15 telas, incluindo o **contrato e a proposta que o cliente abre**.
+
+- **Editar** HTML rico → `<RichEditor>` (`@saas/ui`). É a única instância de TipTap do repo; não crie outra.
+- **Exibir** o HTML salvo → `<RichContent html={...} />` (`@saas/ui`). Espelha as regras do editor, então o que se vê digitando é o que se vê depois de salvo. **Nunca** `dangerouslySetInnerHTML` solto com CSS improvisado.
+- **Markdown** (ex.: plano da IA) → `<MarkdownView>`.
+
+Exceções legítimas, todas com o motivo registrado no código: prévias com `line-clamp` (achatam o HTML de propósito) e a proposta impressa (`.descricao-content`, que usa `em` relativo aos 13px do documento e precisa vencer a especificidade de `.quote-doc h1,h2,h3`).
+
+Trava: `pnpm check:prose` falha se a classe reaparecer.
+
 ### Tokens semânticos de tema (CRÍTICO para dark mode)
 **Sempre** `bg-muted/40`, `border-border`, `text-foreground`. **Nunca** `bg-[#f8f9fa]`, `border-[rgba(0,0,0,0.08)]`. Hex hardcoded quebra dark mode.
 

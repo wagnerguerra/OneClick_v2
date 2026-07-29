@@ -1157,9 +1157,14 @@ export default function HelpdeskTicketDetailPage() {
                           <div className="text-muted-foreground line-clamp-2 [&_*]:inline [&_p]:m-0" dangerouslySetInnerHTML={{ __html: msg.respostaPara.conteudo }} />
                         </div>
                       )}
-                      <div
-                        className="text-sm whitespace-pre-wrap"
-                        dangerouslySetInnerHTML={{ __html: linkifyHelpdesk(msg.conteudo) }}
+                      {/* `whitespace-pre-wrap` era herança de quando a mensagem
+                          era texto puro; hoje o conteúdo é HTML do editor e
+                          precisa das regras de parágrafo/lista do RichContent —
+                          sem elas, parágrafos ficavam colados e a linha em
+                          branco digitada pelo autor sumia. */}
+                      <RichContent
+                        className="text-sm [&_a]:text-cyan-600"
+                        html={linkifyHelpdesk(msg.conteudo)}
                       />
                       {/* Anexos vinculados a esta mensagem — abrem no visualizador inline */}
                       <AnexoThumbs anexos={msg.anexos ?? []} onOpen={setAnexoPreview} />
