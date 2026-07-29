@@ -406,17 +406,31 @@ export default function CrmFunilPage() {
       <Dialog open={conversaOpen} onOpenChange={(o) => { if (!o) { setConversaOpen(false); setConversa(null) } }}>
         <DialogContent className="max-w-lg">
           <DialogHeaderIcon icon={MessageSquare} color="violet">Conversa do atendimento</DialogHeaderIcon>
-          <div className="max-h-[60vh] space-y-2 overflow-y-auto py-1">
+          <div className="max-h-[60vh] space-y-3 overflow-y-auto rounded-2xl bg-muted/20 px-2 py-3">
             {conversaLoading ? (
               <div className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></div>
             ) : !conversa || !conversa.mensagens?.length ? (
               <p className="py-10 text-center text-sm text-muted-foreground">Sem mensagens nesta conversa.</p>
-            ) : conversa.mensagens.map((m, i) => (
-              <div key={i} className={cn('max-w-[85%] rounded-lg px-3 py-2 text-sm', m.role === 'user' ? 'ml-auto bg-primary/10' : 'bg-muted')}>
-                <div className="mb-0.5 text-[10px] text-muted-foreground">{m.role === 'user' ? 'Visitante' : 'Atendente'}{m.createdAt ? ` · ${new Date(m.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''}</div>
-                <div className="whitespace-pre-wrap break-words">{m.conteudo}</div>
-              </div>
-            ))}
+            ) : conversa.mensagens.map((m, i) => {
+              const time = m.createdAt ? new Date(m.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
+              if (m.role === 'user') {
+                return (
+                  <div key={i} className="flex flex-col items-end">
+                    <span className="mb-0.5 pr-1 text-[10px] text-muted-foreground">Visitante{time ? ` · ${time}` : ''}</span>
+                    <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-3xl rounded-br-md px-4 py-2.5 text-sm leading-relaxed text-white shadow-sm" style={{ background: MODULE_COLOR }}>{m.conteudo}</div>
+                  </div>
+                )
+              }
+              return (
+                <div key={i} className="flex items-end gap-2.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white shadow-sm" style={{ background: MODULE_COLOR }}><Sparkles className="h-3.5 w-3.5" /></div>
+                  <div className="flex min-w-0 max-w-[85%] flex-col items-start">
+                    <span className="mb-0.5 pl-1 text-[10px] text-muted-foreground">Atendente{time ? ` · ${time}` : ''}</span>
+                    <div className="whitespace-pre-wrap break-words rounded-3xl rounded-tl-md border border-border/70 bg-card px-4 py-2.5 text-sm leading-relaxed shadow-sm">{m.conteudo}</div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </DialogContent>
       </Dialog>
