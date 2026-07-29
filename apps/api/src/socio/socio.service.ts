@@ -165,7 +165,7 @@ export class SocioService {
     if (!ids?.length) return { count: 0 }
     return scoped(tenantSchema, async (db) => {
       const socios = await db.socio.findMany({
-        where: { id: { in: ids }, isActive: true, ...empresaFilter(isMaster, empresaId) },
+        where: { id: { in: ids }, isActive: true, ...empresaFilter(!!isMaster, empresaId) },
         select: { id: true, version: true },
       })
       for (const s of socios) {

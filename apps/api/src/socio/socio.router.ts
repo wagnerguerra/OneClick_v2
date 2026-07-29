@@ -185,9 +185,16 @@ export function createSocioRouter(socioService: SocioService, cnpjService: CnpjS
         let imported = 0
         let skipped = 0
 
+        // Casa por DOCUMENTO (dígitos) ou NOME sem acento — evita duplicar o mesmo sócio
+        // que o import legado já criou (o v1 tem acento no nome; o QSA vem sem acento).
+        const existentes = (await socioService.listByCliente(input.clienteId)).map(e => ({ cpf: e.cpf, nome: e.nomeCompleto }))
+        const soDigitos = (v: string | null | undefined) => String(v || '').replace(/\D/g, '')
+        const semAcento = (v: string | null | undefined) => String(v || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+
         for (const s of result.qsa) {
-          const existing = await socioService.findByNameAndCliente(s.nome, input.clienteId)
-          if (existing) { skipped++; continue }
+          const docDig = soDigitos(s.cpfCnpj)
+          const jaExiste = existentes.some(e => (docDig !== '' && soDigitos(e.cpf) === docDig) || semAcento(e.nome) === semAcento(s.nome))
+          if (jaExiste) { skipped++; continue }
 
           let tipoSocio = 'SOCIO_QUOTISTA'
           for (const [key, val] of Object.entries(qualifToTipo)) {
@@ -207,6 +214,7 @@ export function createSocioRouter(socioService: SocioService, cnpjService: CnpjS
             clienteId: input.clienteId,
             observacoes: `Importado via ${result.fonte} — ${s.qualificacao}${pctPdf != null ? ' (% do PDF Sitfis)' : ''}`,
           }, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)
+          existentes.push({ cpf: s.cpfCnpj || '', nome: s.nome })
           imported++
         }
 
