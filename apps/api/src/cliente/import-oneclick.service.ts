@@ -182,41 +182,44 @@ export class ImportOneclickService {
       } catch (e) { console.error('[ImportOneClick] Erro andamento:', (e as Error).message) }
     }
 
-    // --- Sócios (incorporado ao Importar OneClick) — SÓ COTISTAS, com participação/valor ---
-    for (const s of dados.socios ?? []) {
-      const nome = String(s.nome || '').trim()
-      if (!nome) continue
-      const qualStr = String(s.qualificacao || '').toLowerCase()
-      // Importar APENAS sócios cotistas (quem detém quotas/participação). Administradores e
-      // demais qualificações do v1 não interessam.
-      const ehCotista = qualStr.includes('cotista') || qualStr.includes('quotista')
-      if (!ehCotista) continue
+    // --- Sócios (legado db_intranet: cad_soc_vin) — são os COTISTAS (só eles têm
+    //     participação). O valor vem em R$ (texto BR, ex. "2.664.000,00"); o % é
+    //     DERIVADO (valor ÷ total). O tipo (quotista/adm) vem do QSA da Receita.
+    const parseBrl = (v: unknown): number | undefined => {
+      const n = Number(String(v ?? '').replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, ''))
+      return Number.isFinite(n) ? n : undefined
+    }
+    const socLegado = (dados.socios ?? [])
+      .map((s) => ({
+        nome: String((s as { nome?: unknown }).nome || '').trim(),
+        doc: String((s as { documento?: unknown }).documento || '').replace(/\D/g, ''),
+        valor: parseBrl((s as { participacao?: unknown }).participacao),
+      }))
+      .filter((s) => s.nome)
+    const totalValor = socLegado.reduce((acc, s) => acc + (s.valor || 0), 0)
 
-      const doc = s.documento ? String(s.documento).replace(/\D/g, '') : ''
-      const participacao = s.percentual_participacao != null ? Number(s.percentual_participacao) : undefined
-      const valorQuotas = s.valor_participacao != null ? Number(s.valor_participacao) : undefined
-      const observacoes = `Importado do OneClick — ${s.qualificacao || ''}${s.representante_nome ? ' | Rep: ' + s.representante_nome : ''}`
-
+    for (const s of socLegado) {
+      const pct = totalValor > 0 && s.valor != null ? Number(((s.valor / totalValor) * 100).toFixed(4)) : undefined
       // Casa por DOCUMENTO (QSA e v1 divergem em acentos no nome → nome é frágil) e cai pro nome.
       const existing = await prisma.socio.findFirst({
-        where: { clienteId, OR: [...(doc ? [{ cpf: doc }] : []), { nomeCompleto: { equals: nome, mode: 'insensitive' as const } }] },
+        where: { clienteId, OR: [...(s.doc ? [{ cpf: s.doc }] : []), { nomeCompleto: { equals: s.nome, mode: 'insensitive' as const } }] },
         select: { id: true },
       }).catch(() => null)
 
       try {
         if (existing) {
-          // Já existe (ex.: veio do QSA sem participação) — completa participação/valor/tipo.
+          // Já existe (ex.: veio do QSA) — completa participação (valor + % derivado) e marca cotista.
           await prisma.socio.update({
             where: { id: existing.id },
-            data: { tipoSocio: 'SOCIO_QUOTISTA', participacao, valorQuotas, ...(doc ? { cpf: doc } : {}) },
+            data: { tipoSocio: 'SOCIO_QUOTISTA', valorQuotas: s.valor, participacao: pct, ...(s.doc ? { cpf: s.doc } : {}) },
           })
         } else {
           await prisma.socio.create({
-            data: { nomeCompleto: nome, cpf: doc, tipoSocio: 'SOCIO_QUOTISTA', participacao, valorQuotas, clienteId, observacoes },
+            data: { nomeCompleto: s.nome, cpf: s.doc, tipoSocio: 'SOCIO_QUOTISTA', valorQuotas: s.valor, participacao: pct, clienteId, observacoes: 'Participação importada do OneClick (legado)' },
           })
         }
         sociosCount++
-      } catch (e) { console.error('[ImportOneClick] Erro sócio:', nome, (e as Error).message) }
+      } catch (e) { console.error('[ImportOneClick] Erro sócio:', s.nome, (e as Error).message) }
     }
 
     const parts: string[] = []
