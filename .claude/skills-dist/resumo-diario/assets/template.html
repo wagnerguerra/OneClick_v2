@@ -1,0 +1,138 @@
+<title>Resumo do dia — {{PROJETO}} · {{DATA_BR}}</title>
+<style>
+  :root {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+    /* Paleta genérica de "dots" — atribua uma cor a cada frente/assunto do dia,
+       começando por --c1 e reutilizando a mesma cor sempre que o assunto repetir.
+       São cores de destaque; funcionam em tema claro e escuro. */
+    --c1:#10b981; --c2:#6366f1; --c3:#0ea5e9; --c4:#f97316;
+    --c5:#a855f7; --c6:#14b8a6; --c7:#fb7185; --c8:#64748b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+      --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+      --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+    --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+    --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 56px 24px 80px; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  header { animation: rise .5s ease-out both; }
+  .eyebrow {
+    text-transform: uppercase; letter-spacing: .13em; font-size: 11px; font-weight: 700;
+    color: var(--accent-deep); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px); line-height: 1.08; margin: 0 0 8px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .sub { color: var(--muted); font-size: 15px; margin: 0; }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 8px; }
+  .stat {
+    flex: 1 1 150px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .stat .n { font-size: 24px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  main { margin-top: 30px; display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; box-shadow: var(--shadow);
+    animation: rise .5s ease-out both;
+  }
+  .card-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .card-head h2 { font-size: 16px; margin: 0; letter-spacing: -.01em; font-weight: 700; }
+  .card-head .tag {
+    margin-left: auto; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
+  }
+  ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  li { display: flex; gap: 10px; font-size: 14.5px; }
+  li::before {
+    content: ""; margin-top: 9px; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--muted); flex: none; opacity: .55;
+  }
+  li b { font-weight: 650; }
+  .hash {
+    display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 5px;
+    background: var(--chip-bg); color: var(--chip-ink); margin-left: 4px; vertical-align: baseline;
+  }
+
+  .note {
+    margin-top: 22px; border: 1px dashed var(--border); border-radius: 12px;
+    padding: 14px 18px; font-size: 13.5px; color: var(--muted); background: transparent;
+  }
+  .note b { color: var(--ink); }
+  footer { margin-top: 34px; text-align: center; color: var(--muted); font-size: 12px; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Resumo do dia · {{PROJETO}}</p>
+    <h1>O que fizemos hoje</h1>
+    <p class="sub">{{DATA_EXTENSO}} — visão geral, sem entrar no detalhe.</p>
+  </header>
+
+  <!-- STATS: 3 a 4 números que resumem o dia. Ajuste rótulos ao que de fato aconteceu. -->
+  <div class="stats">
+    <div class="stat"><div class="n">{{N}}</div><div class="l">commits do dia</div></div>
+    <div class="stat"><div class="n">{{N}}</div><div class="l">frentes tocadas</div></div>
+    <div class="stat"><div class="n">{{N}}</div><div class="l">entregas maiores</div></div>
+    <div class="stat"><div class="n">{{N}}</div><div class="l">correções</div></div>
+  </div>
+
+  <main>
+    <!-- Um <section class="card"> por assunto/frente. Repita o bloco abaixo.
+         - dot: background = var(--cN)  (atribua c1, c2, c3... por frente, na ordem em que aparecem)
+         - tag: frente + natureza (ex.: "Financeiro · melhoria" / "novo" / "correção" / "investigação")
+         - anime em cascata: style="animation-delay:.05s" e vá somando .05s por card
+         - Cada <li>: frase em linguagem simples + <span class="hash mono">hash</span> quando houver commit. -->
+    <section class="card" style="animation-delay:.05s">
+      <div class="card-head"><span class="dot" style="background:var(--c1)"></span><h2>{{Nome da frente/assunto}}</h2><span class="tag">{{Frente · natureza}}</span></div>
+      <ul>
+        <li><span><b>{{Título curto}}</b> — {{o que mudou, em português claro, e por que isso ajuda no dia a dia}}. <span class="hash mono">{{hash}}</span></span></li>
+      </ul>
+    </section>
+  </main>
+
+  <!-- Notas opcionais: coisas fora do código (decisões, respostas de viabilidade) e a situação de publicação.
+       Use quantas <div class="note"> precisar; a última deve ser sempre a "Situação". Remova se não se aplicar. -->
+  <div class="note">
+    <b>Além do código:</b> {{decisões, esclarecimentos ou investigações que não geraram commit}}.
+  </div>
+  <div class="note" style="margin-top:10px">
+    <b>Situação:</b> {{o que já está no ar e o que aguarda publicação}}.
+  </div>
+
+  <footer>Resumo gerado ao fim da sessão · {{PROJETO}}</footer>
+</div>
