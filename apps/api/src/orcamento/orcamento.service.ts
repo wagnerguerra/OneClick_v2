@@ -580,16 +580,31 @@ export class OrcamentoService {
    * `{ resumo, linhas }`. O `scope` REAL vem do router (resolveScopeDoUsuario).
    */
   async reportColuna(
-    input: { status: string; scope?: string; dataInicio?: string; dataFim?: string; areas?: string[]; tipo?: 'MENSAL' | 'EXTRA' },
+    input: {
+      /** Coluna do kanban. Opcional (#HLP0265): sem status, o relatório cobre
+       *  todas as etapas e vira a exportação da LISTA, que atravessa status. */
+      status?: string
+      scope?: string; dataInicio?: string; dataFim?: string; areas?: string[]; tipo?: 'MENSAL' | 'EXTRA'
+      /** #HLP0265 — filtros da barra da lista (HLP0296), repassados ao `list()`
+       *  para que a exportação devolva EXATAMENTE as linhas que estão na tela.
+       *  É o comportamento do DataTables do sistema legado, a que o time está
+       *  acostumado: o botão de Excel exporta o que está filtrado, não a base. */
+      filtrosLista?: Record<string, unknown>
+    },
     isMaster: boolean, empresaId?: string, userId?: string,
   ) {
     const { data } = await this.list({
+      // Os filtros da lista vêm primeiro para que os parâmetros explícitos do
+      // relatório (status/período/paginação) continuem mandando.
+      ...(input.filtrosLista ?? {}),
       status: input.status,
       scope: input.scope,
-      dataInicial: input.dataInicio,
-      dataFinal: input.dataFim,
+      dataInicial: input.dataInicio ?? (input.filtrosLista?.dataInicial as string | undefined),
+      dataFinal: input.dataFim ?? (input.filtrosLista?.dataFinal as string | undefined),
       incluirParalizados: true,
-      arquivado: false,
+      // Default histórico do relatório da coluna: sem arquivados. A lista pode
+      // sobrescrever (ela tem o próprio controle de arquivados).
+      arquivado: (input.filtrosLista?.arquivado as boolean | undefined) ?? false,
       page: 1,
       limit: 1_000_000,
       sortKey: 'numero',
@@ -630,7 +645,9 @@ export class OrcamentoService {
       ENVIADO: 'dtEnviado', APROVADO: 'dtAprovado', LIBERADO: 'dtLiberado',
       FINALIZADO: 'dtFinalizado', ENCERRADO: 'dtEncerrado', CANCELADO: 'dtCancelado',
     }
-    const campoDataStatus = CAMPO_DATA_STATUS[input.status]
+    // Sem status (exportação da lista, #HLP0265) não existe "data na etapa" —
+    // as linhas atravessam etapas diferentes, então a coluna fica vazia.
+    const campoDataStatus = input.status ? CAMPO_DATA_STATUS[input.status] : undefined
     const NATUREZA_LABEL: Record<string, string> = { MENSAL: 'Mensal', EXTRA: 'Extra', MISTO: 'Misto' }
 
     let linhas = data.map(o => {
@@ -712,7 +729,13 @@ export class OrcamentoService {
    * então respeita a visibilidade do usuário (não vaza orçamento fora do escopo).
    */
   async gerarRelatorioColunaArquivo(
-    input: { status: string; dataInicio?: string; dataFim?: string; areas?: string[]; tipo?: 'MENSAL' | 'EXTRA'; campos?: string[] },
+    input: {
+      /** Sem status (#HLP0265) o arquivo é a exportação da LISTA, atravessando etapas. */
+      status?: string
+      dataInicio?: string; dataFim?: string; areas?: string[]; tipo?: 'MENSAL' | 'EXTRA'; campos?: string[]
+      /** Filtros da barra da lista, repassados ao `list()` via reportColuna. */
+      filtrosLista?: Record<string, unknown>
+    },
     userId: string,
     formato: 'xlsx' | 'csv' | 'pdf',
   ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
@@ -723,11 +746,17 @@ export class OrcamentoService {
     const scope = resolveOrcamentoScope((perm?.subPermissions ?? null) as Record<string, unknown> | null)
 
     const { resumo, linhas } = await this.reportColuna(
-      { status: input.status, scope, dataInicio: input.dataInicio, dataFim: input.dataFim, areas: input.areas, tipo: input.tipo },
+      {
+        status: input.status, scope, dataInicio: input.dataInicio, dataFim: input.dataFim,
+        areas: input.areas, tipo: input.tipo, filtrosLista: input.filtrosLista,
+      },
       isMaster, empresaId, userId,
     )
 
-    const statusLabel = (ORCAMENTO_STATUS_LABELS as Record<string, string>)[input.status] ?? input.status
+    // Com status é o relatório da coluna; sem status é a lista filtrada.
+    const statusLabel = input.status
+      ? ((ORCAMENTO_STATUS_LABELS as Record<string, string>)[input.status] ?? input.status)
+      : 'Lista de orçamentos'
     const CAMPO_LABELS: Record<string, string> = {
       numero: 'Número', cliente: 'Cliente', valorTotal: 'Valor total', natureza: 'Tipo (Extra/Mensal)',
       areas: 'Área(s)', solicitante: 'Solicitante', responsavel: 'Responsável', createdAt: 'Criado em',
@@ -755,7 +784,9 @@ export class OrcamentoService {
     }
     const headers = camposKeys.map(k => CAMPO_LABELS[k]!)
     const rows = linhas.map(l => camposKeys.map(k => fmt(l, k)))
-    const nomeArquivo = `relatorio-${input.status.toLowerCase()}-${new Date().toISOString().slice(0, 10)}`
+    const nomeArquivo = input.status
+      ? `relatorio-${input.status.toLowerCase()}-${new Date().toISOString().slice(0, 10)}`
+      : `orcamentos-${new Date().toISOString().slice(0, 10)}`
     const geradoEm = new Date().toLocaleString('pt-BR')
 
     if (formato === 'csv') {
