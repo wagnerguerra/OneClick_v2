@@ -1,0 +1,173 @@
+<title>Resumo do dia — OneClick v2 · 29/07/2026</title>
+<style>
+  :root {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+    /* dots por bloco (cores dos módulos) */
+    --cadastros:#10b981; --comercial:#fb7185; --corporativo:#8b5cf6; --administrativo:#64748b;
+    --legalizacao:#0ea5e9; --trabalhista:#f97316; --fiscal:#6366f1; --contabil:#14b8a6;
+    --ti:#3b82f6; --qualidade:#f59e0b; --configuracoes:#64748b; --processos:#a855f7;
+    --faq:#22c55e; --perfil:#ec4899; --dashboard:#0ea5e9; --agenda:#8b5cf6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+      --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+      --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+    --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+    --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 56px 24px 80px; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  header { animation: rise .5s ease-out both; }
+  .eyebrow {
+    text-transform: uppercase; letter-spacing: .13em; font-size: 11px; font-weight: 700;
+    color: var(--accent-deep); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px); line-height: 1.08; margin: 0 0 8px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .sub { color: var(--muted); font-size: 15px; margin: 0; }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 8px; }
+  .stat {
+    flex: 1 1 150px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .stat .n { font-size: 24px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  main { margin-top: 30px; display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; box-shadow: var(--shadow);
+    animation: rise .5s ease-out both;
+  }
+  .card-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .card-head h2 { font-size: 16px; margin: 0; letter-spacing: -.01em; font-weight: 700; }
+  .card-head .tag {
+    margin-left: auto; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
+  }
+  ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  li { display: flex; gap: 10px; font-size: 14.5px; }
+  li::before {
+    content: ""; margin-top: 9px; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--muted); flex: none; opacity: .55;
+  }
+  li b { font-weight: 650; }
+  .hash {
+    display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 5px;
+    background: var(--chip-bg); color: var(--chip-ink); margin-left: 4px; vertical-align: baseline;
+  }
+
+  .note {
+    margin-top: 22px; border: 1px dashed var(--border); border-radius: 12px;
+    padding: 14px 18px; font-size: 13.5px; color: var(--muted); background: transparent;
+  }
+  .note b { color: var(--ink); }
+  footer { margin-top: 34px; text-align: center; color: var(--muted); font-size: 12px; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Resumo do dia · sessão de desenvolvimento</p>
+    <h1>O que fizemos hoje no OneClick v2</h1>
+    <p class="sub">29 de julho de 2026 — visão geral, sem entrar no detalhe.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="n">18</div><div class="l">commits (locais)</div></div>
+    <div class="stat"><div class="n">5</div><div class="l">módulos tocados</div></div>
+    <div class="stat"><div class="n">6</div><div class="l">melhorias maiores</div></div>
+    <div class="stat"><div class="n">6</div><div class="l">correções</div></div>
+  </div>
+
+  <main>
+    <section class="card" style="animation-delay:.05s">
+      <div class="card-head"><span class="dot" style="background:var(--fiscal)"></span><h2>Benefícios fiscais</h2><span class="tag">Fiscal · novo</span></div>
+      <ul>
+        <li><span><b>O sistema avisa antes de vencer</b> — todo dia, de manhã, quem cuida do módulo recebe um e-mail e um aviso dentro do sistema com a lista de benefícios que estão vencendo ou já venceram e ainda não têm orçamento de renovação. Antes, alguém precisava lembrar de olhar a tela. <span class="hash mono">d40af21</span></span></li>
+        <li><span><b>Renovar deixou de ser corrida contra o prazo</b> — antes o orçamento de renovação só podia ser criado quando o vencimento já estava em cima. Agora pode ser feito a qualquer momento: a data passou a servir como lembrete, não como trava. <span class="hash mono">26a48ff</span></span></li>
+        <li><span><b>Benefício se renova sozinho quando o serviço é concluído</b> — ao finalizar o orçamento de renovação, o sistema já empurra o vencimento do benefício para o próximo período e registra no histórico quem renovou e até quando vale. Cada tipo de benefício ganhou um campo de validade (padrão: 12 meses), porque uns valem 1 ano e outros 5. <span class="hash mono">26a48ff</span></span></li>
+        <li><span><b>Beco sem saída corrigido</b> — se o orçamento de renovação fosse cancelado, o benefício ficava travado para sempre, sem poder ser orçado de novo. Agora o sistema libera um novo orçamento. <span class="hash mono">26a48ff</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.10s">
+      <div class="card-head"><span class="dot" style="background:var(--cadastros)"></span><h2>Clientes — sócios e filiais</h2><span class="tag">Cadastros · melhoria + correção</span></div>
+      <ul>
+        <li><span><b>Importação de sócios do OneClick v1 voltou a funcionar</b> — ela nunca havia funcionado de verdade: buscava os dados num banco antigo que não existe mais. Passamos o dia rastreando isso até achar o banco correto. Agora traz os sócios com nome, CPF, valor e percentual de participação — e só os <b>sócios cotistas</b>, como pedido, sem trazer os administradores. <span class="hash mono">8c945a4</span> <span class="hash mono">b03490e</span> <span class="hash mono">92a41c4</span></span></li>
+        <li><span><b>Sócios aparecem na hora, sem recarregar a página</b> — depois de importar, a lista já se atualiza sozinha. <span class="hash mono">415bf87</span></span></li>
+        <li><span><b>Excluir vários sócios de uma vez</b> — dá para marcar as linhas e apagar em lote, em vez de um por um. <span class="hash mono">415bf87</span></span></li>
+        <li><span><b>Sem sócios repetidos</b> — quando os dados vinham da Receita Federal e do sistema antigo, o mesmo sócio entrava duas vezes (por diferença de acento no nome ou formato do CPF). Corrigido na raiz. <span class="hash mono">b691cb5</span></span></li>
+        <li><span><b>Tabela de sócios mais limpa</b> — CNPJ e CPF formatados, total de participação somado no pé da tabela, coluna de tipo removida e o campo "Assina pela empresa" saiu dos formulários. <span class="hash mono">b7f6d70</span></span></li>
+        <li><span><b>Trocar entre as empresas do grupo pelo topo da tela</b> — ao passar o mouse sobre o CNPJ do cliente, aparece a lista das outras empresas do mesmo grupo (matriz e filiais) para abrir direto. Também ajustamos a legibilidade dessa lista, que estava ruim no tema claro e no escuro. <span class="hash mono">8c945a4</span> <span class="hash mono">18cbd59</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.15s">
+      <div class="card-head"><span class="dot" style="background:var(--cadastros)"></span><h2>Fornecedores</h2><span class="tag">Cadastros · melhoria</span></div>
+      <ul>
+        <li><span><b>Excluir agora é inativar</b> — apagar um fornecedor não destrói mais o histórico: ele sai da lista mas continua guardado, e existe um botão "mostrar inativos" para consultar ou reativar. <span class="hash mono">32c5842</span></span></li>
+        <li><span><b>Categorias funcionam como etiquetas</b> — o fornecedor pode ter várias, escolhidas de um cadastro próprio (e criadas na hora, se ainda não existirem). Antes era um texto livre, que cada um digitava diferente. <span class="hash mono">32c5842</span> <span class="hash mono">405ef56</span></span></li>
+        <li><span><b>Formulário mais enxuto</b> — o campo de código interno, que não servia para nada no dia a dia, foi removido; o campo de documento passou a mostrar CNPJ e CPF já formatados. <span class="hash mono">32c5842</span></span></li>
+        <li><span><b>Abas todas no mesmo lugar</b> — a tela de detalhe tinha as abas espalhadas em dois blocos; agora ficam reunidas em um só, igual aos outros módulos. <span class="hash mono">4e4a3d9</span> <span class="hash mono">2878379</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.20s">
+      <div class="card-head"><span class="dot" style="background:var(--comercial)"></span><h2>CRM — Funil</h2><span class="tag">Comercial · melhoria</span></div>
+      <ul>
+        <li><span><b>Ler a conversa de qualquer atendimento</b> — antes, se o contato do chat não tinha virado oportunidade no funil, ninguém conseguia ver o que havia sido conversado. Agora qualquer linha da lista abre a conversa completa. <span class="hash mono">faeca11</span></span></li>
+        <li><span><b>Data e hora de início do atendimento</b> — nova coluna na lista, para saber quando aquele contato começou. <span class="hash mono">faeca11</span></span></li>
+        <li><span><b>A conversa aparece como o cliente vê</b> — a janela de leitura ganhou o mesmo formato do chat do cliente (mensagens em balões, lado a lado), muito mais fácil de acompanhar. <span class="hash mono">9767746</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.25s">
+      <div class="card-head"><span class="dot" style="background:var(--ti)"></span><h2>Service Manager (ferramenta interna)</h2><span class="tag">TI · novo</span></div>
+      <ul>
+        <li><span><b>Tela para configurar as conexões com os sistemas antigos</b> — o acesso ao banco do OneClick v1 e ao SCI ficava escondido em arquivo de configuração, e qualquer erro de senha virava um problema difícil de descobrir. Agora existe uma aba "Conexões" com os campos à vista e um botão "Testar conexão" que diz na hora se funcionou. <span class="hash mono">2809ed2</span></span></li>
+        <li><span><b>Mensagens de erro que dizem o que aconteceu</b> — quando a leitura do sistema antigo falhava, a tela mostrava um erro genérico e a operação ficava pendurada. Agora o motivo real chega até o usuário. <span class="hash mono">b03490e</span></span></li>
+        <li><span><b>Atualizações automáticas</b> — três versões publicadas ao longo do dia (1.2.107 a 1.2.110), instaladas sozinhas ao fechar e reabrir o programa, sem ninguém precisar reinstalar nada. <span class="hash mono">b0367c2</span> <span class="hash mono">92a41c4</span> <span class="hash mono">2809ed2</span></span></li>
+      </ul>
+    </section>
+  </main>
+
+  <div class="note">
+    <b>Além do código:</b> boa parte do dia foi <b>investigação</b>. Descobrimos que a importação de sócios apontava para um banco de dados que nunca existiu — por isso ela nunca havia funcionado; achamos o banco correto conectando direto nele. Também destravamos a ferramenta de publicação, que recusava novas publicações por estar presa a uma versão antiga no servidor. E, no caso dos benefícios fiscais, fomos conferir no sistema antigo (SERPRO2) o recurso de renovação que se acreditava existir lá: ele nunca existiu — o módulo novo já era mais completo, e o que faltava eram as duas melhorias entregues hoje. Fora isso, criamos o padrão deste próprio relatório diário e preparamos uma versão dele para ser usada por colegas em outros projetos.
+  </div>
+  <div class="note" style="margin-top:10px">
+    <b>Situação:</b> já está no ar a correção da barra de formatação dos tickets do Helpdesk (chamados HLP0158, HLP0160 e HLP0218) e a padronização das telas de Fornecedores e Compras. As demais entregas do dia estão prontas e aguardam publicação em produção, que é feita pelo Wagner.
+  </div>
+
+  <footer>Resumo gerado ao fim da sessão · OneClick v2</footer>
+</div>
