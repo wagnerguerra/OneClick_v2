@@ -19,6 +19,7 @@ const MODULE_COLOR = 'var(--mod-ti, #22d3ee)'
 interface Config {
   slaPorPrioridade: { BAIXA: number; MEDIA: number; ALTA: number; URGENTE: number }
   autoFechamentoDias: number
+  avaliacaoPosConclusaoDias: number
   inboundEmail: string
   notificarTodosAgentes: boolean
   destinatarios: string[]
@@ -37,6 +38,8 @@ export default function HelpdeskConfiguracoesPage() {
   const [destinatarios, setDestinatarios] = useState('')
   const [notificarTodos, setNotificarTodos] = useState(false)
   const [autoFechamentoDias, setAutoFechamentoDias] = useState('3')
+  // Sem default hardcoded: o valor vem sempre do getConfig (default mora no backend).
+  const [avaliacaoPosDias, setAvaliacaoPosDias] = useState('')
   const [inboundEmail, setInboundEmail] = useState('')
   const [savingField, setSavingField] = useState<string | null>(null)
 
@@ -48,6 +51,7 @@ export default function HelpdeskConfiguracoesPage() {
       setDestinatarios((c.destinatarios ?? []).join('; '))
       setNotificarTodos(!!c.notificarTodosAgentes)
       setAutoFechamentoDias(c.autoFechamentoDias.toString())
+      setAvaliacaoPosDias(c.avaliacaoPosConclusaoDias.toString())
       setInboundEmail(c.inboundEmail ?? '')
     } catch (e) {
       // Sem permissão → redireciona pra listagem
@@ -97,6 +101,14 @@ export default function HelpdeskConfiguracoesPage() {
     if (!n || n < 1) { setAutoFechamentoDias(config?.autoFechamentoDias.toString() ?? '3'); return }
     if (n === config?.autoFechamentoDias) return
     await saveField('autoFechamentoDias', { autoFechamentoDias: n })
+  }
+
+  async function handleBlurAvaliacaoPos() {
+    const n = Number(avaliacaoPosDias)
+    // Inválido → reverte pro valor atual do config (que veio do backend).
+    if (!n || n < 1) { setAvaliacaoPosDias(config?.avaliacaoPosConclusaoDias?.toString() ?? ''); return }
+    if (n === config?.avaliacaoPosConclusaoDias) return
+    await saveField('avaliacaoPos', { avaliacaoPosConclusaoDias: n } as Partial<Config>)
   }
 
   async function handleBlurInbound() {
@@ -213,20 +225,43 @@ export default function HelpdeskConfiguracoesPage() {
                 </p>
               </div>
             </div>
-            <div className="p-4 space-y-1.5">
-              <Label htmlFor="auto-dias" className="text-[13px] font-semibold">Dias após resolução</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="auto-dias"
-                  type="number" min={1} max={30}
-                  value={autoFechamentoDias}
-                  onChange={(e) => setAutoFechamentoDias(e.target.value)}
-                  onBlur={handleBlurAutoFechamento}
-                  disabled={!canWrite}
-                  className="h-9 w-28 text-sm"
-                />
-                <span className="text-[13px] text-muted-foreground">dias</span>
-                {savingField === 'autoFechamentoDias' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+            <div className="p-4 space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="auto-dias" className="text-[13px] font-semibold">Dias após resolução</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="auto-dias"
+                    type="number" min={1} max={30}
+                    value={autoFechamentoDias}
+                    onChange={(e) => setAutoFechamentoDias(e.target.value)}
+                    onBlur={handleBlurAutoFechamento}
+                    disabled={!canWrite}
+                    className="h-9 w-28 text-sm"
+                  />
+                  <span className="text-[13px] text-muted-foreground">dias</span>
+                  {savingField === 'autoFechamentoDias' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                </div>
+              </div>
+              {/* R5.2 — janela em que o solicitante ainda pode avaliar depois que
+                  o chamado foi concluído (ex.: por auto-fechamento). */}
+              <div className="space-y-1.5 border-t border-border/60 pt-4">
+                <Label htmlFor="aval-pos-dias" className="text-[13px] font-semibold">Prazo para avaliar depois de concluído</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="aval-pos-dias"
+                    type="number" min={1} max={365}
+                    value={avaliacaoPosDias}
+                    onChange={(e) => setAvaliacaoPosDias(e.target.value)}
+                    onBlur={handleBlurAvaliacaoPos}
+                    disabled={!canWrite}
+                    className="h-9 w-28 text-sm"
+                  />
+                  <span className="text-[13px] text-muted-foreground">dias após a conclusão</span>
+                  {savingField === 'avaliacaoPos' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Chamados concluídos sem avaliação (ex.: auto-fechados) ainda podem ser avaliados pelo solicitante dentro deste prazo.
+                </p>
               </div>
             </div>
           </Card>

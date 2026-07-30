@@ -87,6 +87,11 @@ interface Ticket {
   csatNota: number | null
   csatRespondidoEm: string | null
   arquivado: boolean
+  // R5.2 — computados no backend (getById): se a avaliação ainda está
+  // disponível e se o ticket foi concluído sem avaliação (ex.: auto-fechado).
+  avaliacaoDisponivel?: boolean
+  concluidoSemAvaliacao?: boolean
+  avaliacaoPosConclusaoDias?: number
   tags: string[]
   createdAt: string
   solicitante: { id: string; name: string; email: string | null; image: string | null } | null
@@ -716,7 +721,9 @@ export default function HelpdeskTicketDetailPage() {
   const corPrioridade = HELPDESK_PRIORIDADE_COLORS[ticket.prioridade]
   // Anexos da solicitação inicial = os que não estão vinculados a nenhuma mensagem.
   const anexosIniciais = ticket.anexos.filter(a => !ticket.mensagens.some(m => (m.anexos ?? []).some(ma => ma.id === a.id)))
-  const podeAvaliar = ticket.status === 'RESOLVIDO' && !ticket.csatRespondidoEm
+  // R5.2 — usa a flag do backend: cobre RESOLVIDO e também CONCLUÍDO sem
+  // avaliação dentro da janela configurável.
+  const podeAvaliar = ticket.avaliacaoDisponivel === true
   // R5.1 — congelamento: CONCLUÍDO, CANCELADO ou ARQUIVADO travam a edição dos
   // campos de conteúdo; o responsável trava adicionalmente de "Aguardando
   // avaliação" (RESOLVIDO) em diante (evita "roubar" a avaliação). O STATUS não
@@ -925,9 +932,19 @@ export default function HelpdeskTicketDetailPage() {
                     <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                     <h3 className="text-sm font-semibold">Como foi seu atendimento?</h3>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Sua avaliação encerra o ticket — sem ela, o chamado auto-fecha em 3 dias úteis sem registrar nota.
-                  </p>
+                  {/* R5.2 — texto muda se o ticket já foi concluído sem avaliação
+                      (ex.: auto-fechado); nesse caso avaliar não reencerra, só
+                      registra a nota, e vale até a janela configurada. */}
+                  {ticket.concluidoSemAvaliacao ? (
+                    <p className="text-xs text-muted-foreground">
+                      Este chamado foi <strong>concluído sem avaliação</strong>. Você ainda pode avaliá-lo
+                      {ticket.avaliacaoPosConclusaoDias ? ` por até ${ticket.avaliacaoPosConclusaoDias} dias após a conclusão` : ''} — sua nota fica registrada mesmo com o chamado já encerrado.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Sua avaliação encerra o ticket — sem ela, o chamado auto-fecha após alguns dias, sem registrar nota.
+                    </p>
+                  )}
                   <div className="flex items-center gap-1">
                     {[1, 2, 3, 4, 5].map(n => (
                       <button

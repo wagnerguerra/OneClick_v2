@@ -226,6 +226,7 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
       .input(z.object({
         slaPorPrioridade: z.record(z.string(), z.number().int().min(1).max(2400)).optional(),
         autoFechamentoDias: z.number().int().min(1).max(30).optional(),
+        avaliacaoPosConclusaoDias: z.number().int().min(1).max(365).optional(),
         inboundEmail: z.string().email().optional().or(z.literal('')),
         notificarTodosAgentes: z.boolean().optional(),
         // Lista de e-mails; entradas vazias são filtradas no service.

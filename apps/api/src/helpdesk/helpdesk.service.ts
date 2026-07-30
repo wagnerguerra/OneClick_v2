@@ -498,7 +498,16 @@ export class HelpdeskService {
           : null,
       }
     })
-    return { ...ticket, mensagens }
+    // R5.2 — flags de avaliação para o solicitante (a config de janela é
+    // agente-only, então computamos aqui):
+    //  - avaliacaoDisponivel: pode avaliar agora (RESOLVIDO, ou CONCLUÍDO sem
+    //    nota dentro da janela).
+    //  - concluidoSemAvaliacao: foi concluído sem avaliação registrada (ex.:
+    //    auto-fechado) — a UI mostra o aviso disso.
+    const janela = await this.avaliacaoPosConclusaoDias()
+    const avaliacaoDisponivel = this.avaliacaoDisponivel(ticket, janela)
+    const concluidoSemAvaliacao = ticket.status === 'CONCLUIDO' && ticket.csatNota == null && !ticket.csatRespondidoEm
+    return { ...ticket, mensagens, avaliacaoDisponivel, concluidoSemAvaliacao, avaliacaoPosConclusaoDias: janela }
   }
 
   /** Listagem do agente (kanban e tabela). Escopo via `resolverEscopoEfetivo`. */
@@ -1421,13 +1430,17 @@ export class HelpdeskService {
   async responderCsat(ticketId: string, nota: number, comentario: string | null, userId: string) {
     const ticket = await prisma.helpdeskTicket.findUnique({
       where: { id: ticketId },
-      select: { solicitanteId: true, status: true, csatRespondidoEm: true },
+      select: { solicitanteId: true, status: true, csatNota: true, csatRespondidoEm: true, concluidoEm: true },
     })
     if (!ticket) throw new Error('Ticket não encontrado')
     if (ticket.solicitanteId !== userId) throw new Error('Apenas o solicitante pode responder a avaliação')
     if (ticket.csatRespondidoEm) throw new Error('Avaliação já registrada')
-    if (ticket.status !== 'RESOLVIDO' && ticket.status !== 'CONCLUIDO') {
-      throw new Error('Avaliação só disponível após resolução')
+    // R5.2 — RESOLVIDO sempre; CONCLUÍDO sem nota só dentro da janela configurável.
+    const janela = await this.avaliacaoPosConclusaoDias()
+    if (!this.avaliacaoDisponivel(ticket, janela)) {
+      throw new Error(ticket.status === 'CONCLUIDO'
+        ? `O prazo para avaliar este chamado (${janela} dias após a conclusão) já passou.`
+        : 'Avaliação só disponível após a resolução.')
     }
 
     const updated = await prisma.helpdeskTicket.update({
@@ -1847,6 +1860,10 @@ export class HelpdeskService {
   // um array JSON de e-mails (os "Destinatários" / "Destinatários adicionais").
   private static readonly CFG_DESTINATARIOS = 'helpdesk.email_notificacao'
   private static readonly CFG_NOTIFICAR_TODOS_AGENTES = 'helpdesk.notificar_todos_agentes'
+  // R5.2 — janela (dias) em que o solicitante ainda pode avaliar um ticket
+  // CONCLUÍDO sem avaliação (ex.: auto-fechado). Contada a partir de concluidoEm.
+  private static readonly CFG_AVALIACAO_POS_CONCLUSAO_DIAS = 'helpdesk.avaliacao_pos_conclusao_dias'
+  private static readonly DEFAULT_AVALIACAO_POS_CONCLUSAO_DIAS = 25
   private static readonly DEFAULT_DESTINATARIO = 'ti@central-rnc.com.br'
   // SLA por prioridade — chaves helpdesk.sla.BAIXA / MEDIA / ALTA / URGENTE
 
@@ -1885,6 +1902,7 @@ export class HelpdeskService {
     return {
       slaPorPrioridade,
       autoFechamentoDias: Number(map.get(HelpdeskService.CFG_AUTO_FECHAMENTO_DIAS) ?? 3),
+      avaliacaoPosConclusaoDias: Number(map.get(HelpdeskService.CFG_AVALIACAO_POS_CONCLUSAO_DIAS) ?? HelpdeskService.DEFAULT_AVALIACAO_POS_CONCLUSAO_DIAS),
       inboundEmail: map.get(HelpdeskService.CFG_INBOUND_EMAIL) ?? '',
       notificarTodosAgentes: map.get(HelpdeskService.CFG_NOTIFICAR_TODOS_AGENTES) === 'true',
       destinatarios: this.parseDestinatarios(map.get(HelpdeskService.CFG_DESTINATARIOS)),
@@ -1892,9 +1910,34 @@ export class HelpdeskService {
     }
   }
 
+  /** R5.2 — janela (dias) de avaliação pós-conclusão. Leitura barata (1 chave). */
+  private async avaliacaoPosConclusaoDias(): Promise<number> {
+    const cfg = await prisma.systemConfig.findUnique({ where: { key: HelpdeskService.CFG_AVALIACAO_POS_CONCLUSAO_DIAS } }).catch(() => null)
+    const n = Number(cfg?.value ?? HelpdeskService.DEFAULT_AVALIACAO_POS_CONCLUSAO_DIAS)
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : HelpdeskService.DEFAULT_AVALIACAO_POS_CONCLUSAO_DIAS
+  }
+
+  /**
+   * R5.2 — a avaliação (CSAT) ainda está disponível para o solicitante?
+   *   - RESOLVIDO ("Aguardando avaliação") sem resposta → sempre.
+   *   - CONCLUÍDO sem nota registrada (ex.: auto-fechado) → dentro da janela
+   *     configurável contada a partir de concluidoEm.
+   */
+  private avaliacaoDisponivel(t: { status: string; csatNota: number | null; csatRespondidoEm: Date | null; concluidoEm: Date | null }, janelaDias: number): boolean {
+    if (t.csatRespondidoEm) return false
+    if (t.status === 'RESOLVIDO') return true
+    if (t.status === 'CONCLUIDO' && t.csatNota == null) {
+      if (!t.concluidoEm) return false
+      const limite = t.concluidoEm.getTime() + janelaDias * 24 * 60 * 60 * 1000
+      return Date.now() <= limite
+    }
+    return false
+  }
+
   async updateConfig(input: {
     slaPorPrioridade?: Partial<Record<HelpdeskPrioridade, number>>
     autoFechamentoDias?: number
+    avaliacaoPosConclusaoDias?: number
     inboundEmail?: string
     notificarTodosAgentes?: boolean
     destinatarios?: string[]
@@ -1916,6 +1959,13 @@ export class HelpdeskService {
         key: HelpdeskService.CFG_AUTO_FECHAMENTO_DIAS,
         value: String(Math.max(1, Math.floor(input.autoFechamentoDias))),
         label: 'Dias para auto-fechar RESOLVIDO sem CSAT',
+      })
+    }
+    if (typeof input.avaliacaoPosConclusaoDias === 'number' && input.avaliacaoPosConclusaoDias > 0) {
+      upserts.push({
+        key: HelpdeskService.CFG_AVALIACAO_POS_CONCLUSAO_DIAS,
+        value: String(Math.max(1, Math.floor(input.avaliacaoPosConclusaoDias))),
+        label: 'Dias em que ainda se pode avaliar um ticket concluído sem avaliação',
       })
     }
     if (input.inboundEmail !== undefined) {
