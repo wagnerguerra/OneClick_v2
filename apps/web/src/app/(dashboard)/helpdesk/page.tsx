@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   Plus, Loader2, Search, Filter, AlertTriangle, Clock, MessageSquare,
   CheckCircle2, ListChecks, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
-  Paperclip, Bot, BarChart3, XCircle, MoreVertical, ExternalLink,
+  Paperclip, Bot, BarChart3, XCircle, MoreVertical, ExternalLink, X, FilterX,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors,
@@ -228,6 +228,17 @@ export default function HelpdeskPage() {
   useEffect(() => {
     if (emKanban && filtroStatus) setFiltroStatus('')
   }, [emKanban, filtroStatus])
+
+  // C11 — filtros de NARROWING ativos (não conta o escopo/abrangência, que tem
+  // padrão próprio). Alimenta o "x" da busca e o botão "Limpar filtros".
+  const temFiltroAtivo = !!(search || filtroPrioridade || filtroStatus || filtroSolicitante || filtroResponsavel)
+  function limparFiltros() {
+    setSearch('')
+    setFiltroPrioridade('')
+    setFiltroStatus('')
+    setFiltroSolicitante('')
+    setFiltroResponsavel('')
+  }
 
   const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
     // Espera saber se é agente (canRead) e o escopo efetivo (#HLP0139).
@@ -518,8 +529,20 @@ export default function HelpdeskPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder={isAgente ? 'Buscar título, descrição, tags...' : 'Buscar nos meus tickets...'}
-            className="h-8 pl-8 text-xs"
+            className="h-8 pl-8 pr-8 text-xs"
           />
+          {/* C11 — limpa só a busca */}
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+              title="Limpar busca"
+              aria-label="Limpar busca"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
@@ -593,6 +616,19 @@ export default function HelpdeskPage() {
                 ))}
               </SelectContent>
             </Select>
+          )}
+          {/* C11 — limpa todos os filtros de narrowing de uma vez. Aparece só
+              quando há algo pra limpar. */}
+          {temFiltroAtivo && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={limparFiltros}
+              className="h-8 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+              title="Limpar todos os filtros"
+            >
+              <FilterX className="h-3.5 w-3.5" /> Limpar filtros
+            </Button>
           )}
         </div>
       </div>
