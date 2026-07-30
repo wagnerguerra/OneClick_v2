@@ -19,6 +19,7 @@ import {
   helpdeskSolicitantePodeReabrir,
   HELPDESK_STATUS_REABERTURA,
   helpdeskStatusRank,
+  helpdeskPodeArquivar,
 } from '@saas/types'
 import { NotificationService } from '../notification/notification.service'
 import { EmailService } from '../common/email.service'
@@ -858,6 +859,12 @@ export class HelpdeskService {
         && helpdeskSolicitantePodeReabrir({ status: before.status as HelpdeskStatus, arquivado: before.arquivado })
       if (!podeCom('arquivar') && !desarquivandoParaReabrir) {
         throw new Error('Você não tem permissão para arquivar tickets')
+      }
+      // Só se ARQUIVA a partir das etapas finais (CONCLUÍDO/CANCELADO) — fonte
+      // única compartilhada com o kanban e a sidebar. Desarquivar é livre (é o
+      // caminho de reabertura).
+      if (data.arquivado === true && !helpdeskPodeArquivar(before.status as HelpdeskStatus)) {
+        throw new Error('Só é possível arquivar chamados concluídos ou cancelados')
       }
       patch.arquivado = data.arquivado
       eventos.push({

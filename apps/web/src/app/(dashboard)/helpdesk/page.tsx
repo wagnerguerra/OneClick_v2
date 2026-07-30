@@ -27,7 +27,7 @@ import { useSession } from '@/lib/auth-client'
 import {
   HELPDESK_STATUS, HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE, HELPDESK_PRIORIDADE_LABELS,
   HELPDESK_PRIORIDADE_COLORS,
-  solicitantePodeCancelar,
+  solicitantePodeCancelar, helpdeskPodeArquivar,
   type HelpdeskStatus, type HelpdeskPrioridade,
 } from '@saas/types'
 import { NovoTicketModal } from './_components/novo-ticket-modal'
@@ -699,7 +699,7 @@ export default function HelpdeskPage() {
                   tickets={porStatus.get(status) ?? []}
                   onCardClick={(id) => setOpenTicketId(id)}
                   onCardAuxClick={(id) => window.open(`/helpdesk/${id}`, '_blank', 'noopener,noreferrer')}
-                  podeArquivarLote={!!podeAtuar && (status === 'CANCELADO' || status === 'CONCLUIDO')}
+                  podeArquivarLote={!!podeAtuar && helpdeskPodeArquivar(status)}
                   onArchiveAll={async () => {
                     const labelStatus = HELPDESK_STATUS_LABELS[status]
                     const qtd = porStatus.get(status)?.length ?? 0

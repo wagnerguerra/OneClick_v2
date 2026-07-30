@@ -115,6 +115,20 @@ export function helpdeskSolicitantePodeReabrir(args: { status: HelpdeskStatus; a
     || helpdeskStatusRank(args.status) >= helpdeskStatusRank('RESOLVIDO')
 }
 
+/**
+ * Etapas em que faz sentido ARQUIVAR um chamado — as finais do kanban. Arquivar
+ * é para tirar da vista o que já se encerrou; um chamado ainda em atendimento não
+ * se arquiva. FONTE ÚNICA consumida pelo kanban (arquivar em lote), pela sidebar
+ * do detalhe e pelo backend (`update`). Desarquivar não usa isto (é sempre
+ * permitido — é o caminho de reabertura).
+ */
+export const HELPDESK_STATUS_ARQUIVAVEL: HelpdeskStatus[] = ['CONCLUIDO', 'CANCELADO']
+
+/** O chamado pode ser arquivado a partir deste status? (só as etapas finais). */
+export function helpdeskPodeArquivar(status: HelpdeskStatus): boolean {
+  return HELPDESK_STATUS_ARQUIVAVEL.includes(status)
+}
+
 // SLA padrão (horas) por prioridade — pode ser overridden em SystemConfig
 // e por categoria. Valores baseados em Freshservice/Jira ITSM padrão.
 export const HELPDESK_SLA_PADRAO_HORAS: Record<HelpdeskPrioridade, number> = {

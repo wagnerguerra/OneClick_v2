@@ -8,7 +8,7 @@ import {
   Eye, Star, Save, Tag, Building2, Image as ImageIcon,
   FileVideo, FileAudio, File as FileIcon, FileSpreadsheet,
   MoreVertical, Pencil, Trash2, Bot, ThumbsUp, ThumbsDown,
-  Terminal, Copy, Zap, FileCheck, Reply, X, RotateCcw, Info,
+  Terminal, Copy, Zap, FileCheck, Reply, X, RotateCcw, Info, Archive, ArchiveRestore,
 } from 'lucide-react'
 import {
   Button, Card, CardContent, Badge, Label, cn, RichEditor, Input,
@@ -30,7 +30,7 @@ import { AnexosDropzone, type AnexoStaged } from '../_components/anexos-dropzone
 import {
   HELPDESK_STATUS, HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE, HELPDESK_PRIORIDADE_LABELS,
   HELPDESK_PRIORIDADE_COLORS, HELPDESK_TIPO_LABELS,
-  solicitantePodeCancelar, helpdeskStatusRank,
+  solicitantePodeCancelar, helpdeskStatusRank, helpdeskPodeArquivar,
   type HelpdeskStatus, type HelpdeskPrioridade,
 } from '@saas/types'
 
@@ -1609,6 +1609,45 @@ export default function HelpdeskTicketDetailPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* C10 — arquivar/desarquivar pela sidebar. Só agente (podeAtuar);
+                arquivar só nas etapas finais (fonte única helpdeskPodeArquivar,
+                mesma do kanban e do backend); desarquivar é sempre liberado. */}
+            {podeAtuar && (ticket.arquivado || helpdeskPodeArquivar(ticket.status)) && (
+              <Card>
+                <CardContent className="p-3">
+                  {ticket.arquivado ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => patch({ arquivado: false }, 'arquivado')}
+                        disabled={savingField === 'arquivado'}
+                        className="w-full gap-1.5"
+                      >
+                        {savingField === 'arquivado' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArchiveRestore className="h-3.5 w-3.5" />}
+                        Desarquivar
+                      </Button>
+                      <p className="mt-1.5 text-[11px] text-muted-foreground">Chamado arquivado — fora das listas ativas. Desarquive para trazê-lo de volta.</p>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => patch({ arquivado: true }, 'arquivado')}
+                        disabled={savingField === 'arquivado'}
+                        className="w-full gap-1.5"
+                      >
+                        {savingField === 'arquivado' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}
+                        Arquivar chamado
+                      </Button>
+                      <p className="mt-1.5 text-[11px] text-muted-foreground">Some das listas ativas, mas continua acessível pelo histórico.</p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </aside>
         </div>
       </Tabs>
