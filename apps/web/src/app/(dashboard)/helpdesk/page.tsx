@@ -110,8 +110,10 @@ export default function HelpdeskPage() {
   const currentUserId = session?.user?.id ?? null
   // Estados independentes:
   //   - isAgente: tem permissão helpdesk.canRead → vê o módulo (qualquer um que tenha o slug)
-  //   - podeAtuar: É TI/DIRETOR/COORDENADOR ou tem sub-permissão atuar_agente — vê tudo,
-  //     pode arrastar, configurar, etc. É o critério REAL pra distinguir "TI" dos demais.
+  //   - podeAtuar: é agente da TI (master/empresa-master, sub-permissão
+  //     atuar_agente ou área de TI — NÃO os cargos DIRETOR/COORDENADOR). Vê o
+  //     kanban, arrasta, configura. Valor vem do probe do backend (fonte única
+  //     ehAgenteHelpdesk), então não recalcular papel aqui.
   // Colaborador comum: isAgente=true (vê módulo) MAS podeAtuar=false (vê só os próprios).
   const [isAgente, setIsAgente] = useState<boolean | null>(null)
   const [podeAtuar, setPodeAtuar] = useState<boolean | null>(null)

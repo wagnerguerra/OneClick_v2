@@ -64,37 +64,31 @@ export class HelpdeskService {
    *  - Líder da área do ticket → o próprio
    */
   async canAccess(userId: string, ticketId: string): Promise<boolean> {
-    // Agentes da TI (master/empresa-master, DIRETOR/COORDENADOR, sub-perm
-    // helpdesk.atuar_agente, ou pertencer à área de TI/Suporte/Tecnologia)
-    // veem TODOS os tickets — consistente com o `isPriv` do list().
-    // Sem essa checagem, um agente apareceria na listagem (sem filtro de escopo)
-    // mas receberia FORBIDDEN ao clicar num ticket de outra área.
-    if (await this.canAtuarAgente(userId)) return true
+    // Espelha a visibilidade do list(): o que o usuário vê na lista é o que ele
+    // pode abrir. Sem isso, um ticket que aparece na listagem por escopo de área
+    // (ex.: chefia) receberia FORBIDDEN ao clicar.
+    const { scope, areaId } = await this.resolverEscopoEfetivo(userId)
+    if (scope === 'todos') return true
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { areaId: true },
-    })
-    if (!user) return false
+    const filtro = this.filtroVisibilidade(scope, userId, areaId)
+    if (filtro) {
+      const visivel = await prisma.helpdeskTicket.findFirst({
+        where: { id: ticketId, ...filtro },
+        select: { id: true },
+      })
+      if (visivel) return true
+    }
 
+    // Bônus preservados do comportamento anterior, independentes do escopo:
+    // líder da área do ticket, e membro da mesma área com permissão de leitura.
     const t = await prisma.helpdeskTicket.findUnique({
       where: { id: ticketId },
-      select: { solicitanteId: true, responsavelId: true, areaId: true, watchers: { select: { userId: true } } },
+      select: { areaId: true },
     })
-    if (!t) return false
-    if (t.solicitanteId === userId) return true
-    if (t.responsavelId === userId) return true
-    if (t.watchers.some(w => w.userId === userId)) return true
-
-    if (t.areaId) {
-      const area = await prisma.area.findUnique({
-        where: { id: t.areaId },
-        select: { leaderId: true },
-      })
+    if (t?.areaId) {
+      const area = await prisma.area.findUnique({ where: { id: t.areaId }, select: { leaderId: true } })
       if (area?.leaderId === userId) return true
-      // Mesma área do user (qualquer agente)
-      if (user.areaId === t.areaId) {
-        // Tem permissão helpdesk?
+      if (areaId && areaId === t.areaId) {
         const perm = await prisma.userPermission.findFirst({
           where: { userId, moduleSlug: 'helpdesk', canRead: true },
           select: { id: true },
@@ -112,14 +106,9 @@ export class HelpdeskService {
   }
 
   /**
-   * Verifica se o usuário pode ATUAR como agente (TI real). Critérios (qualquer um basta):
-   *  1. master / empresa-master
-   *  2. role DIRETOR / COORDENADOR
-   *  3. sub-permissão helpdesk.atuar_agente = true (explícita)
-   *  4. está em uma ÁREA de TI/Tecnologia/Suporte/Helpdesk (auto — qualquer usuário
-   *     dessas áreas é considerado agente sem precisar de sub-permissão manual)
-   *
-   * Usar em qualquer ação restrita à TI (kanban, configurações, mover/atribuir cards).
+   * Pode ATUAR como agente da TI (kanban, configurações, mover/atribuir cards,
+   * notas internas). Delega para a fonte única `ehAgenteHelpdesk` — ver a doc
+   * dela para os critérios. NÃO inclui mais os cargos DIRETOR/COORDENADOR.
    */
   async canAtuarAgente(userId: string): Promise<boolean> {
     const user = await prisma.user.findUnique({
@@ -127,46 +116,78 @@ export class HelpdeskService {
       select: {
         isMaster: true,
         isEmpresaMaster: true,
-        role: true,
         area: { select: { name: true } },
+        permissions: { where: { moduleSlug: 'helpdesk' }, select: { subPermissions: true } },
       },
     })
     if (!user) return false
-    if (user.isMaster || user.isEmpresaMaster) return true
-    if (user.role === 'DIRETOR' || user.role === 'COORDENADOR') return true
-
-    // Sub-permissão explícita
-    const perm = await prisma.userPermission.findFirst({
-      where: { userId, moduleSlug: 'helpdesk' },
-      select: { subPermissions: true },
+    return ehAgenteHelpdesk({
+      isMaster: user.isMaster,
+      isEmpresaMaster: user.isEmpresaMaster,
+      subPermissions: user.permissions[0]?.subPermissions,
+      areaName: user.area?.name,
     })
-    const sub = (perm?.subPermissions ?? {}) as Record<string, boolean>
-    if (sub.atuar_agente === true) return true
-
-    // Área do usuário pertence ao suporte/TI? (auto-agente)
-    if (user.area?.name && isAreaTi(user.area.name)) return true
-
-    return false
   }
 
   /**
-   * Escopo EFETIVO de visualização do usuário no HelpDesk (#HLP0139). Privilegiado
-   * (canAtuarAgente: TI/diretor/coordenador/master) enxerga tudo ('todos'); os
-   * demais seguem a sub-permissão de escopo (escolha única proprios/area/todos).
-   * `temArea` indica se a opção "minha área" faz sentido (usuário tem área). Sem
-   * área, 'area' degrada para 'proprios'.
+   * Escopo EFETIVO de visualização do usuário no HelpDesk (#HLP0139) — FONTE
+   * ÚNICA, consumida por `getMeuEscopo` (UI), `list()`, `canAccess()` e
+   * `relatorioTickets()`. Regra decidida:
+   *   - master / empresa-master        → 'todos'  (toda a empresa)
+   *   - DIRETOR / COORDENADOR (cargos) → 'area'   (a própria área — não são agentes)
+   *   - agente (sub-perm / área de TI) → 'todos'
+   *   - demais                         → sub-permissão de escopo (proprios/area/todos)
+   * Sem área cadastrada, 'area' degrada para 'proprios'.
    */
-  async getMeuEscopo(userId: string): Promise<{ scope: HelpdeskScope; temArea: boolean; areaId: string | null }> {
-    const [user, perm, isPriv] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId }, select: { areaId: true } }),
-      prisma.userPermission.findFirst({ where: { userId, moduleSlug: 'helpdesk' }, select: { subPermissions: true } }),
-      this.canAtuarAgente(userId),
-    ])
+  private async resolverEscopoEfetivo(userId: string): Promise<{ scope: HelpdeskScope; temArea: boolean; areaId: string | null }> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        areaId: true, isMaster: true, isEmpresaMaster: true, role: true,
+        area: { select: { name: true } },
+        permissions: { where: { moduleSlug: 'helpdesk' }, select: { subPermissions: true } },
+      },
+    })
     const temArea = !!user?.areaId
-    let scope: HelpdeskScope = isPriv ? 'todos' : resolveHelpdeskScope(perm?.subPermissions as Record<string, unknown> | null)
-    // Sem área cadastrada, "minha área" não se aplica → cai pra 'proprios'.
+    const sub = user?.permissions[0]?.subPermissions as Record<string, unknown> | null
+    let scope: HelpdeskScope
+    if (user?.isMaster || user?.isEmpresaMaster) {
+      scope = 'todos'
+    } else if (user?.role === 'DIRETOR' || user?.role === 'COORDENADOR') {
+      scope = 'area'
+    } else if (ehAgenteHelpdesk({ isMaster: user?.isMaster, isEmpresaMaster: user?.isEmpresaMaster, subPermissions: sub, areaName: user?.area?.name })) {
+      scope = 'todos'
+    } else {
+      scope = resolveHelpdeskScope(sub)
+    }
     if (scope === 'area' && !temArea) scope = 'proprios'
     return { scope, temArea, areaId: user?.areaId ?? null }
+  }
+
+  /** Endpoint tRPC — a UI usa pra saber quais opções de escopo oferecer. */
+  async getMeuEscopo(userId: string): Promise<{ scope: HelpdeskScope; temArea: boolean; areaId: string | null }> {
+    return this.resolverEscopoEfetivo(userId)
+  }
+
+  /**
+   * Condições Prisma de visibilidade de um escopo. `null` = sem restrição
+   * (scope 'todos'). Fonte única usada por `list()`, `canAccess()` e
+   * `relatorioTickets()` — garante que "o que aparece na lista" == "o que dá
+   * pra abrir". O escopo 'area' inclui os próprios + tickets cujo ticket.areaId
+   * é a área OU cujo solicitante pertence à área (o ticket.areaId quase nunca é
+   * preenchido — ver #HLP0318).
+   */
+  private filtroVisibilidade(scope: HelpdeskScope, userId: string, areaId: string | null): Prisma.HelpdeskTicketWhereInput | null {
+    if (scope === 'todos') return null
+    const meus: Prisma.HelpdeskTicketWhereInput[] = [
+      { solicitanteId: userId },
+      { responsavelId: userId },
+      { watchers: { some: { userId } } },
+    ]
+    if (scope === 'area' && areaId) {
+      return { OR: [...meus, { areaId }, { solicitante: { is: { areaId } } }] }
+    }
+    return { OR: meus }
   }
 
   /**
@@ -182,20 +203,19 @@ export class HelpdeskService {
         OR: empresaId ? [{ empresaId }, { empresaId: null }] : [{ empresaId: null }],
       },
       select: {
-        id: true, name: true, image: true, isMaster: true,
+        id: true, name: true, image: true, isMaster: true, isEmpresaMaster: true,
         area: { select: { name: true } },
         permissions: { where: { moduleSlug: 'helpdesk' }, select: { subPermissions: true } },
       },
       orderBy: { name: 'asc' },
     })
     return users
-      .filter((u) => {
-        if (u.isMaster) return true
-        const sub = (u.permissions[0]?.subPermissions ?? {}) as Record<string, boolean>
-        if (sub.atuar_agente === true) return true
-        if (u.area?.name && isAreaTi(u.area.name)) return true
-        return false
-      })
+      .filter((u) => ehAgenteHelpdesk({
+        isMaster: u.isMaster,
+        isEmpresaMaster: u.isEmpresaMaster,
+        subPermissions: u.permissions[0]?.subPermissions,
+        areaName: u.area?.name,
+      }))
       .map((u) => ({ id: u.id, name: u.name, image: u.image, areaName: u.area?.name ?? null }))
   }
 
@@ -437,18 +457,8 @@ export class HelpdeskService {
     return { ...ticket, mensagens }
   }
 
-  /** Listagem do agente (kanban e tabela). Escopo definido por sub-permissões. */
+  /** Listagem do agente (kanban e tabela). Escopo via `resolverEscopoEfetivo`. */
   async list(input: ListTicketInput, userId: string, empresaId?: string | null) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, isMaster: true, isEmpresaMaster: true, role: true, areaId: true },
-    })
-    // Privilegiado vê tudo sem filtro de escopo. Usa o mesmo critério do
-    // canAtuarAgente: master/empresa-master, DIRETOR/COORDENADOR, sub-perm
-    // helpdesk.atuar_agente, OU pertencer à área de TI/Suporte/Tecnologia.
-    const isPriv = await this.canAtuarAgente(userId)
-    console.log(`[Helpdesk.list] userId=${userId} scope=${input.scope} isPriv=${isPriv}`)
-
     // Where base
     const where: any = {
       arquivado: input.arquivado,
@@ -480,45 +490,18 @@ export class HelpdeskService {
       where.OR = or
     }
 
-    // Escopo efetivo (#HLP0139): privilegiado = 'todos'; senão, a escolha única
-    // da sub-permissão. O scope PEDIDO é clampado ao permitido (nunca excede).
-    //  - 'todos'    → sem restrição de escopo
-    //  - 'area'     → os próprios + tickets ABERTOS por membros da área (gestor)
-    //  - 'proprios' → só os próprios
-    const meusConds = [
-      { solicitanteId: userId },
-      { responsavelId: userId },
-      { watchers: { some: { userId } } },
-    ]
-    const perm = isPriv ? null : await prisma.userPermission.findFirst({
-      where: { userId, moduleSlug: 'helpdesk' }, select: { subPermissions: true },
-    })
-    let efetivo: HelpdeskScope = isPriv
-      ? 'todos'
-      : resolveHelpdeskScope(perm?.subPermissions as Record<string, unknown> | null)
-    if (efetivo === 'area' && !user?.areaId) efetivo = 'proprios'
-
+    // Escopo efetivo (#HLP0139) via fonte única. O scope PEDIDO pela UI é
+    // clampado ao permitido (nunca excede), e a visibilidade sai do mesmo
+    // `filtroVisibilidade` que canAccess/relatorioTickets usam.
+    const { scope: efetivo, areaId } = await this.resolverEscopoEfetivo(userId)
     const pedidoScope: HelpdeskScope = input.scope === 'TODOS' ? 'todos' : input.scope === 'AREA' ? 'area' : 'proprios'
     const aplicRank = Math.min(HELPDESK_SCOPE_RANK[pedidoScope], HELPDESK_SCOPE_RANK[efetivo])
-
-    console.log(`[Helpdesk.list] userId=${userId} pedido=${input.scope} efetivo=${efetivo} aplicRank=${aplicRank} isPriv=${isPriv}`)
-
-    if (aplicRank >= HELPDESK_SCOPE_RANK.todos) {
-      // sem restrição de escopo
-    } else if (aplicRank === HELPDESK_SCOPE_RANK.area && user?.areaId) {
-      // "Área" (gestor): além dos próprios, inclui os tickets ABERTOS por
-      // membros da área. O ticket.areaId vem da CATEGORIA e quase nunca é
-      // preenchido (na prática ~todos ficam null), então filtrar só por ele não
-      // traz nada — o que o gestor espera ver é "tickets abertos pela minha
-      // área", i.e. cujo solicitante pertence à área dele. #HLP0318
-      where.AND = [{ OR: [
-        ...meusConds,
-        { areaId: user.areaId },
-        { solicitante: { is: { areaId: user.areaId } } },
-      ] }]
-    } else {
-      where.AND = [{ OR: meusConds }]
-    }
+    const scopeAplicado: HelpdeskScope =
+      aplicRank >= HELPDESK_SCOPE_RANK.todos ? 'todos'
+      : aplicRank === HELPDESK_SCOPE_RANK.area ? 'area'
+      : 'proprios'
+    const filtro = this.filtroVisibilidade(scopeAplicado, userId, areaId)
+    if (filtro) where.AND = [filtro]
 
     const [total, items] = await Promise.all([
       prisma.helpdeskTicket.count({ where }),
@@ -583,13 +566,14 @@ export class HelpdeskService {
    * vê só os próprios/responsável/watcher.
    */
   async relatorioTickets(userId: string, empresaId?: string | null) {
-    const isAgente = await this.canAtuarAgente(userId)
+    const { scope, areaId } = await this.resolverEscopoEfetivo(userId)
+    const filtro = this.filtroVisibilidade(scope, userId, areaId)
     const where: Prisma.HelpdeskTicketWhereInput = {
       ativo: true,
       arquivado: false,
       status: { notIn: ['CONCLUIDO', 'CANCELADO'] },
       ...(empresaId ? { empresaId } : {}),
-      ...(isAgente ? {} : { OR: [{ solicitanteId: userId }, { responsavelId: userId }, { watchers: { some: { userId } } }] }),
+      ...(filtro ?? {}),
     }
     return prisma.helpdeskTicket.findMany({
       where,
@@ -2237,10 +2221,10 @@ export class HelpdeskService {
     })
     if (!ticket) return []
     void callerId
-    // ATRIBUIÇÃO de responsável usa o mesmo critério do listAgentes (isMaster /
-    // sub-perm atuar_agente / área de TI) — DIRETOR/COORDENADOR/empresaMaster veem
-    // tudo mas não tratam tickets, então não entram. Escopado à empresa do ticket
-    // (+ contas globais); sem empresa → default-deny (nunca lista de outro tenant).
+    // ATRIBUIÇÃO de responsável usa a mesma fonte única (ehAgenteHelpdesk):
+    // master/empresa-master, sub-perm atuar_agente ou área de TI. DIRETOR e
+    // COORDENADOR NÃO entram — chefia enxerga a área mas não trata tickets.
+    // Escopado à empresa do ticket (+ contas globais); sem empresa → default-deny.
     return this.listAgentes(ticket.empresaId)
   }
 }
@@ -2265,4 +2249,33 @@ function isAreaTi(areaName: string): boolean {
   const tiTokens = new Set(['ti', 'tecnologia', 'suporte', 'helpdesk', 'sistemas', 'informatica'])
   // Match se qualquer palavra da área bate com um token de TI
   return palavras.some((p) => tiTokens.has(p))
+}
+
+/**
+ * FONTE ÚNICA de "quem é agente do HelpDesk". Consumida por `canAtuarAgente`
+ * (permissão de atuar), `listAgentes` (filtro de Responsável) e pelo roteamento
+ * de e-mail (item 1.3). Critérios — qualquer um basta:
+ *   1. master ou empresa-master
+ *   2. sub-permissão `helpdesk.atuar_agente`
+ *   3. lotado numa área de TI/Suporte/Tecnologia
+ *
+ * NÃO inclui os cargos DIRETOR/COORDENADOR: chefia não é agente da TI por si só
+ * (isso era um bug — dava poder de agente a quem não atende). A chefia continua
+ * enxergando a própria área via `resolverEscopoEfetivo`, mas não atua.
+ *
+ * Antes existiam DUAS definições divergentes (`canAtuarAgente` incluía os cargos
+ * e o `isEmpresaMaster`; `listAgentes` não incluía nem os cargos nem o
+ * empresa-master). Agora as duas passam por aqui.
+ */
+function ehAgenteHelpdesk(u: {
+  isMaster?: boolean | null
+  isEmpresaMaster?: boolean | null
+  subPermissions?: unknown
+  areaName?: string | null
+}): boolean {
+  if (u.isMaster || u.isEmpresaMaster) return true
+  const sub = (u.subPermissions ?? {}) as Record<string, unknown>
+  if (sub.atuar_agente === true) return true
+  if (u.areaName && isAreaTi(u.areaName)) return true
+  return false
 }
