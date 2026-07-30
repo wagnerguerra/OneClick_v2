@@ -9,6 +9,7 @@ import { SciService } from './sci.service'
 import { OmieService } from './omie.service'
 import { IntegrationService } from './integration.service'
 import { ImportOneclickService } from './import-oneclick.service'
+import { DuplicidadeService } from './duplicidade.service'
 import { CnpjService } from '../cnpj/cnpj.service'
 
 const MODULE = 'clientes'
@@ -32,6 +33,7 @@ export function createClienteRouter(
   sincronizarResponsaveisService?: import('./sincronizar-responsaveis.service').SincronizarResponsaveisService,
   contratoSyncService?: import('./contrato-sync.service').ContratoSyncService,
   omieService?: OmieService,
+  duplicidadeService?: DuplicidadeService,
 ) {
   return router({
     // Listagem (ativos)
@@ -1264,5 +1266,22 @@ export function createClienteRouter(
           empresaId: ctx.empresaId,
         })
       }),
+
+    // ── Cadastros repetidos (relatório, só leitura) ──
+    // Restrito a master/empresa-master: expõe o mapa de inconsistências da base
+    // e é a porta de entrada da mesclagem, que é operação destrutiva e rara.
+    duplicidades: readProcedure(MODULE)
+      .input(z.object({ apenasComDado: z.boolean().optional() }).optional())
+      .query(({ input, ctx }) => {
+        if (!ctx.isMaster && !ctx.isEmpresaMaster) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Relatório restrito ao administrador.' })
+        }
+        if (!duplicidadeService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return duplicidadeService.listar(ctx.isMaster ?? false, ctx.empresaId, {
+          apenasComDado: input?.apenasComDado,
+        })
+      }),
+    duplicidadesTipos: readProcedure(MODULE)
+      .query(() => duplicidadeService?.tiposVinculo ?? []),
   })
 }

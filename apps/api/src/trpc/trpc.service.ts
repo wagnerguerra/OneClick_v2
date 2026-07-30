@@ -21,6 +21,7 @@ import { ClienteService } from '../cliente/cliente.service'
 import { ClienteEnriquecimentoService } from '../cliente/cliente-enriquecimento.service'
 import { SincronizarResponsaveisService } from '../cliente/sincronizar-responsaveis.service'
 import { ImportOneclickService } from '../cliente/import-oneclick.service'
+import { DuplicidadeService } from '../cliente/duplicidade.service'
 import { LegacyImportService } from '../cliente/legacy-import.service'
 import { SciService } from '../cliente/sci.service'
 import { OmieService } from '../cliente/omie.service'
@@ -609,6 +610,7 @@ export class TrpcService {
     @Inject(FornecedorService) private readonly fornecedorService: FornecedorService,
     @Inject(CompraService) private readonly compraService: CompraService,
     @Inject(CotacaoService) private readonly cotacaoService: CotacaoService,
+    @Inject(DuplicidadeService) private readonly duplicidadeService: DuplicidadeService,
     @Inject(TratamentoLancamentosService) private readonly tratamentoLancamentosService: TratamentoLancamentosService,
     @Inject(SocioService) private readonly socioService: SocioService,
     @Inject(CnpjService) private readonly cnpjService: CnpjService,
@@ -722,7 +724,7 @@ export class TrpcService {
       onboarding: createOnboardingRouter(this.onboardingService),
       admin: createAdminRouter(this.adminService),
       adminTenant: createAdminTenantRouter(this.adminTenantService),
-      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService),
+      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService),
       billing: createBillingRouter(this.stripeService),
       colaborador: createColaboradorRouter(this.colaboradorService),
       fornecedor: createFornecedorRouter(this.fornecedorService),

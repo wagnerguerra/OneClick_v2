@@ -9,7 +9,7 @@ import {
   ArrowUpDown, ArrowUp, ArrowDown,
   MoreVertical, FileUp, FileDown, Plug, BarChart3,
   ChevronDown, RotateCcw, Archive, X, Database, Loader2, Sparkles, UserCog,
-  Building2, ExternalLink,
+  Building2, ExternalLink, Copy,
   Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
   ShieldCheck, ShieldAlert, ShieldX, ShieldOff,
   type LucideIcon,
@@ -25,6 +25,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { alerts } from '@/lib/alerts'
 import { ImportModal } from './_components/import-modal'
 import { IntegracoesModal } from './_components/integracoes-modal'
@@ -81,6 +82,8 @@ const TRIBUTACAO_LABELS: Record<string, string> = {
 
 export default function ClientesPage() {
   const router = useRouter()
+  // Relatório de cadastros repetidos é só para administrador (mesma regra do backend).
+  const { isMaster, isEmpresaMaster } = useUserPermissions()
   const { canCreate } = useClientesPerms()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -477,6 +480,11 @@ export default function ClientesPage() {
                   <DropdownMenuItem onClick={() => setResponsaveisOpen(true)}>
                     <UserCog className="h-4 w-4 text-orange-500" />Sincronizar Responsáveis
                   </DropdownMenuItem>
+                  {(isMaster || isEmpresaMaster) && (
+                    <DropdownMenuItem onClick={() => router.push('/clientes/duplicidades')}>
+                      <Copy className="h-4 w-4 text-amber-600" />Cadastros repetidos
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => { setTrashMode(true); setPage(1) }}><Archive className="h-4 w-4" />Lixeira</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
