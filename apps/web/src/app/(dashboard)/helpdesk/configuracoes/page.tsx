@@ -43,8 +43,10 @@ export default function HelpdeskConfiguracoesPage() {
   const [inboundEmail, setInboundEmail] = useState('')
   const [savingField, setSavingField] = useState<string | null>(null)
 
-  const fetchConfig = useCallback(async () => {
-    setLoading(true)
+  // `silent` = refetch pós-save: NÃO aciona o loader full-page (senão a tela
+  // pisca a cada chip de e-mail adicionado). O spinner inline do campo já sinaliza.
+  const fetchConfig = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     try {
       const c = await trpc.helpdesk.getConfig.query()
       setConfig(c as unknown as Config)
@@ -63,7 +65,7 @@ export default function HelpdeskConfiguracoesPage() {
       }
       alerts.error('Erro ao carregar config: ' + msg)
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [router])
 
@@ -73,7 +75,7 @@ export default function HelpdeskConfiguracoesPage() {
     setSavingField(campo)
     try {
       await trpc.helpdesk.updateConfig.mutate(patch as never)
-      await fetchConfig()
+      await fetchConfig({ silent: true })
     } catch (e) {
       alerts.error('Erro: ' + (e as Error).message)
     } finally {
@@ -173,25 +175,26 @@ export default function HelpdeskConfiguracoesPage() {
               </div>
             )}
 
-            {/* Toggle: notificar todos os agentes */}
-            <div className="p-4 flex items-start justify-between gap-4 border-b border-border/60">
-              <div className="min-w-0">
+            {/* Toggle: notificar todos os agentes. Switch fica JUNTO do rótulo
+                (não jogado na outra ponta do card); a descrição vem abaixo. */}
+            <div className="p-4 space-y-1 border-b border-border/60">
+              <div className="flex items-center gap-2.5">
                 <Label className="text-[13px] font-semibold flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5" /> Notificar todos os agentes
                 </Label>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  {notificarTodos
-                    ? 'Ligado: todo novo ticket avisa (sino + e-mail) TODOS os agentes do HelpDesk, além dos destinatários adicionais abaixo.'
-                    : 'Desligado: novo ticket avisa (sino + e-mail) os membros da área do ticket. Sem área, cai nos destinatários abaixo.'}
-                </p>
+                <Switch checked={notificarTodos} onCheckedChange={alternarNotificarTodos} disabled={!canWrite} />
               </div>
-              <Switch checked={notificarTodos} onCheckedChange={alternarNotificarTodos} disabled={!canWrite} />
+              <p className="text-[11px] text-muted-foreground">
+                {notificarTodos
+                  ? 'Ligado: todo novo ticket avisa (sino + e-mail) TODOS os agentes do HelpDesk, além dos destinatários alternativos abaixo.'
+                  : 'Desligado: novo ticket avisa (sino + e-mail) os membros da área do ticket. Sem área, cai nos destinatários alternativos abaixo.'}
+              </p>
             </div>
 
             {/* Lista de e-mails (rótulo/texto mudam conforme o toggle) */}
             <div className="p-4 space-y-1.5">
               <Label className="text-[13px] font-semibold flex items-center gap-1.5">
-                <Mail className="h-3 w-3" /> {notificarTodos ? 'Destinatários adicionais' : 'Destinatários'}
+                <Mail className="h-3 w-3" /> {notificarTodos ? 'Destinatários adicionais' : 'Destinatários alternativos'}
                 {savingField === 'destinatarios' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
               </Label>
               <EmailChipsInput
