@@ -365,11 +365,22 @@ export class AcessoriasService {
    *   - acessoriasLastDH > existente.acessoriasLastDH → UPDATE
    *   - registro novo → CREATE
    *   - mesma DH → SKIP */
+  /**
+   * Dispara a sincronização de entregas e RETORNA NA HORA, com o id do log.
+   *
+   * A varredura é cliente a cliente contra a API do Acessórias (não existe
+   * /deliveries/ListAll funcional), então a carteira inteira leva minutos —
+   * muito além dos 30s em que o proxy derruba a requisição. Quando isso
+   * acontecia, o proxy devolvia uma página de texto e o navegador tentava lê-la
+   * como JSON ("Unexpected token 'I', \"Internal S\"...").
+   *
+   * O trabalho segue em segundo plano gravando em `acessorias_sync_logs`, que é
+   * o que a tela acompanha. Para um único cliente continua rápido, mas o caminho
+   * é o mesmo — um só comportamento para depurar.
+   */
   async syncDeliveries(opts: {
-    dtInicio: string  // YYYY-MM-DD
-    dtFinal: string   // YYYY-MM-DD
-    /** Quando passado, sincroniza só esse cliente. Senão, varre todos os clientes
-     *  com idAcessorias preenchido. */
+    dtInicio: string
+    dtFinal: string
     clienteId?: string
     triggeredBy?: string
     empresaId?: string | null
@@ -380,9 +391,36 @@ export class AcessoriasService {
         status: 'running',
         triggeredBy: opts.triggeredBy ?? null,
         empresaId: opts.empresaId ?? null,
-        parametros: { dtInicio: opts.dtInicio, dtFinal: opts.dtFinal, clienteId: opts.clienteId ?? null } as any,
+        parametros: { dtInicio: opts.dtInicio, dtFinal: opts.dtFinal, clienteId: opts.clienteId ?? null } as never,
       },
     })
+
+    // Fire-and-forget: o erro é registrado no log, nunca sobe como exceção não
+    // tratada do processo.
+    void this.executarSyncDeliveries(opts, log.id).catch(async (e: Error) => {
+      await prisma.acessoriasSyncLog.update({
+        where: { id: log.id },
+        data: { status: 'error', finishedAt: new Date(), erroMensagem: e.message },
+      }).catch(() => null)
+    })
+
+    return {
+      ok: true,
+      emAndamento: true,
+      logId: log.id,
+      mensagem: 'Sincronização iniciada. Acompanhe pelo histórico — ela roda em segundo plano.',
+    }
+  }
+
+  private async executarSyncDeliveries(opts: {
+    dtInicio: string
+    dtFinal: string
+    clienteId?: string
+    triggeredBy?: string
+    empresaId?: string | null
+  }, logId: string) {
+    // O log já foi criado por quem disparou — aqui só atualizamos o progresso.
+    const log = { id: logId }
 
     let novas = 0, atualizadas = 0, ignoradas = 0
     const erros: string[] = []
@@ -407,7 +445,7 @@ export class AcessoriasService {
         where: {
           ...(opts.clienteId ? { id: opts.clienteId } : { idAcessorias: { not: null } }),
         },
-        select: { id: true, documento: true, idAcessorias: true, cnpjAcessorias: true },
+        select: { id: true, documento: true, idAcessorias: true, cnpjAcessorias: true, empresaId: true },
       })
 
       if (clientes.length === 0) {
@@ -456,7 +494,7 @@ export class AcessoriasService {
           if (entregas.length === 0) break
 
           for (const e of entregas) {
-            const r = await this.upsertDelivery(cli.id, e, obligationMap)
+            const r = await this.upsertDelivery(cli.id, e, obligationMap, cli.empresaId ?? null)
             novas += r.created
             atualizadas += r.updated
             ignoradas += r.skipped
@@ -516,7 +554,7 @@ export class AcessoriasService {
    * Guarda a entrega crua em `acessorias_entregas` — o espelho que o painel de
    * prazos e leitura consulta. Independente do mapeamento de obrigações.
    */
-  private async espelharEntrega(clienteId: string, delivery: Record<string, unknown>) {
+  private async espelharEntrega(clienteId: string, delivery: Record<string, unknown>, empresaId: string | null) {
     const config = (delivery.Config ?? {}) as Record<string, unknown>
     const entId = config.EntID ? String(config.EntID).trim() : ''
     // Sem EntID não há chave estável: o mesmo registro entraria duplicado a cada
@@ -524,7 +562,6 @@ export class AcessoriasService {
     if (!entId) return
 
     const guiaLida = delivery.EntGuiaLida != null ? String(delivery.EntGuiaLida).trim() : null
-    const cliente = await prisma.cliente.findUnique({ where: { id: clienteId }, select: { empresaId: true } })
 
     const dados = {
       nome: String(delivery.Nome ?? '').trim(),
@@ -542,7 +579,7 @@ export class AcessoriasService {
       dpto: config.DptoNome ? String(config.DptoNome).trim() || null : null,
       lastDH: this.parseDateTime(String(delivery.EntLastDH ?? '')),
       syncedAt: new Date(),
-      empresaId: cliente?.empresaId ?? null,
+      empresaId,
     }
 
     await prisma.acessoriasEntrega.upsert({
@@ -556,6 +593,7 @@ export class AcessoriasService {
     clienteId: string,
     delivery: Record<string, unknown>,
     obligationMap: Map<string, Array<string | null>>,
+    empresaId: string | null,
   ): Promise<{ created: number; updated: number; skipped: number }> {
     const out = { created: 0, updated: 0, skipped: 0 }
     const nome = String(delivery.Nome ?? '').trim()
@@ -563,7 +601,7 @@ export class AcessoriasService {
 
     // Espelha a entrega ANTES do filtro de mapeamento. O que vem abaixo só cria
     // execução para obrigação mapeada; o painel de prazos precisa de todas.
-    await this.espelharEntrega(clienteId, delivery).catch(() => null)
+    await this.espelharEntrega(clienteId, delivery, empresaId).catch(() => null)
 
     // Resolve TODOS os servicoIds vinculados a essa obrigação
     const servicoIds = obligationMap.get(nome.toLowerCase())

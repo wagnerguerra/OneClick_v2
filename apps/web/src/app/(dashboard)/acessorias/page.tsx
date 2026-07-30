@@ -782,13 +782,16 @@ function DeliveriesPanel({ firstDay, lastDay }: { firstDay: string; lastDay: str
   async function runSync() {
     setRunning(true)
     try {
+      // A varredura roda em segundo plano: é cliente a cliente contra a API do
+      // Acessórias e leva minutos, muito além dos 30s em que o proxy derruba a
+      // requisição. A resposta aqui é só a confirmação de que começou.
       const r = await (trpc as any).acessorias.syncDeliveries.mutate({
         dtInicio,
         dtFinal,
-      }) as { ok: boolean; novas: number; atualizadas: number; ignoradas: number; erro?: string }
-      setLastResult({ novas: r.novas, atualizadas: r.atualizadas, ignoradas: r.ignoradas })
+      }) as { ok: boolean; emAndamento?: boolean; mensagem?: string; erro?: string }
+      setLastResult(null)
       if (r.erro) alerts.error('Aviso', r.erro)
-      else await alerts.success('Sync concluída', `${r.novas} criadas, ${r.atualizadas} atualizadas, ${r.ignoradas} ignoradas (sem mapeamento).`)
+      else await alerts.success('Sincronização iniciada', r.mensagem ?? 'Ela roda em segundo plano — acompanhe pelo histórico logo abaixo.')
     } catch (e) {
       alerts.error('Falhou', (e as Error).message)
     } finally {
