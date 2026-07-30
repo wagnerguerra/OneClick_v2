@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import { buscarClientePorDocumento } from '../cliente/documento-unico'
 import * as mysql from 'mysql2/promise'
 import path from 'node:path'
 import fs from 'node:fs/promises'
@@ -763,6 +764,21 @@ export class LegacyImportCertService {
     if (!alvoId && cnpjLimpo) {
       const emp = empresaPorCnpj.get(cnpjLimpo)
       if (emp) { alvoId = emp.id; alvoRazao = emp.razaoSocial; vincularA = 'empresa' }
+    }
+    // Última conferência antes de desistir: consulta o BANCO pelo documento
+    // normalizado. Os mapas acima são montados no início do job e comparam
+    // texto — deixam passar cadastro com documento gravado com máscara, criado
+    // nesse meio-tempo ou com a razão social escrita diferente. Foi por aí que
+    // nasceram os cadastros gêmeos que hoje escondem orçamentos do cliente.
+    if (!alvoId && cnpjLimpo) {
+      const jaExiste = await buscarClientePorDocumento(cnpjLimpo, empresaId)
+      if (jaExiste) {
+        byCnpj.set(cnpjLimpo, { id: jaExiste.id, documento: cnpjLimpo, razaoSocial: jaExiste.razaoSocial })
+        alvoId = jaExiste.id
+        alvoRazao = jaExiste.razaoSocial
+        vincularA = 'cliente'
+        this.log(jobId, 'info', `    Cliente já cadastrado (#${jaExiste.code} ${jaExiste.razaoSocial}) — vinculado sem criar duplicata.`)
+      }
     }
     // Se ainda não tem match, cria o cliente automaticamente
     if (!alvoId || !vincularA) {

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import { buscarClientePorDocumento } from '../cliente/documento-unico'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -165,7 +166,7 @@ export class BulkImportCertService {
 
       let item: InternalFile
       try {
-        item = await this.processarArquivo(f, senhaPadrao, byCnpj, empresaPorCnpj, seriesExistentes)
+        item = await this.processarArquivo(f, senhaPadrao, byCnpj, empresaPorCnpj, seriesExistentes, empresaId)
       } catch (e) {
         this.log(jobId, 'error', `  ✗ Erro inesperado: ${(e as Error).message}`)
         item = {
@@ -212,6 +213,9 @@ export class BulkImportCertService {
     byCnpj: Map<string, { id: string; razaoSocial: string | null }>,
     empresaPorCnpj: Map<string, { id: string; razaoSocial: string | null }>,
     seriesExistentes: Set<string>,
+    // `empresaId` era usado no corpo sem existir como parâmetro — o auto-cadastro
+    // de cliente aqui estourava ReferenceError e caía no catch, silenciosamente.
+    empresaId: string,
   ): Promise<InternalFile> {
     const base: InternalFile = {
       nome: f.nome,
@@ -262,6 +266,15 @@ export class BulkImportCertService {
       if (!alvoId) {
         const emp = empresaPorCnpj.get(cnpjCert)
         if (emp) { alvoId = emp.id; alvoRazao = emp.razaoSocial; vincularA = 'empresa' }
+      }
+    }
+    // Conferência no BANCO antes de criar — o mapa em memória compara texto e
+    // deixa passar cadastro com o documento gravado com máscara.
+    if (!alvoId && cnpjCert) {
+      const jaExiste = await buscarClientePorDocumento(cnpjCert, empresaId)
+      if (jaExiste) {
+        byCnpj.set(cnpjCert, { id: jaExiste.id, razaoSocial: jaExiste.razaoSocial })
+        alvoId = jaExiste.id; alvoRazao = jaExiste.razaoSocial; vincularA = 'cliente'
       }
     }
     // Cria cliente automaticamente se não existir

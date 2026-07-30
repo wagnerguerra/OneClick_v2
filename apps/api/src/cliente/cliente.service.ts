@@ -5,6 +5,7 @@ import type { CreateClienteInput, UpdateClienteInput, ListClienteInput } from '@
 import { limparCnpj, ehMatrizCnpj } from '@saas/types'
 import { BiSyncEventsService } from '../bi/bi-sync-events.service'
 import { isValidDocumento } from './documento.util'
+import { assertDocumentoUnico } from './documento-unico'
 
 const FIELD_LABELS: Record<string, string> = {
   razaoSocial: 'Razão Social', nomeFantasia: 'Nome Fantasia', documento: 'Documento',
@@ -397,6 +398,10 @@ export class ClienteService {
     if (docLimpo && !isValidDocumento(docLimpo)) {
       throw new Error('Documento inválido: verifique o CPF/CNPJ informado.')
     }
+    // Não duplicar o mesmo CNPJ/CPF na empresa. Só trava quando o documento
+    // identifica de fato — cliente em constituição (sem CNPJ) passa livre, e
+    // vários deles podem coexistir. Ver documento-unico.ts.
+    await assertDocumentoUnico(docLimpo, empresaId)
     // ehMatriz (Fase 3): explícito só faz sentido no CNPJ ALFANUMÉRICO. Se o
     // usuário informou, respeita. Senão, auto-default APENAS para alfanumérico:
     // primeiro da raiz = matriz; se já há alguém com a mesma raiz, é filial.
@@ -479,6 +484,12 @@ export class ClienteService {
           // alfanumérico (limparCnpj; para CPF é idêntico ao \D), vazio vira ''
           // (nunca null, senão o update quebra).
           data[key] = typeof value === 'string' ? limparCnpj(value) : value
+          // Momento crítico: é aqui que o cliente em constituição RECEBE o CNPJ.
+          // Sem esta checagem, ele poderia assumir um documento que já é de
+          // outro cadastro — a mesma duplicidade, só que pela porta dos fundos.
+          if (typeof data[key] === 'string' && data[key] !== before.documento) {
+            await assertDocumentoUnico(data[key] as string, before.empresaId, id)
+          }
         } else {
           data[key] = typeof value === 'string' && value === '' ? null : value
         }
