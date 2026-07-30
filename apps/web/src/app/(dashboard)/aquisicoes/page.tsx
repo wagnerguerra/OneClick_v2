@@ -15,7 +15,6 @@ import {
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { STATUS_COMPRA_LABELS } from '@saas/types'
-import { BackButton } from '@/components/ui/back-button'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
@@ -104,7 +103,6 @@ export default function AquisicoesPage() {
               <Link href="/aquisicoes/configuracoes"><Settings className="h-4 w-4" /></Link>
             </Button>
           )}
-          <BackButton href="/dashboard" label="Voltar" />
         </div>
       </div>
 
