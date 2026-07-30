@@ -322,16 +322,20 @@ export default function HelpdeskTicketDetailPage() {
     const soNotaInterna = (ticket?.arquivado || ticket?.status === 'CANCELADO') && podeAtuar
     const internaFinal = soNotaInterna ? true : interna
     setEnviando(true)
+    // Anexos prontos entram em chamadas addAnexo separadas logo abaixo; a
+    // contagem é enviada ao addMensagem só pro CONTADOR do e-mail (montado antes
+    // de os anexos existirem no banco).
+    const prontos = msgAnexos.filter(a => a.status === 'ready' && a.fileUrl)
     try {
       const msg = await (trpc.helpdesk as any).addMensagem.mutate({
         ticketId: id,
         conteudo: conteudo || '<p>(anexo)</p>',
         interna: internaFinal,
         respostaParaId: respondendoA?.id ?? undefined,
+        numAnexos: prontos.length,
       })
       setRespondendoA(null)
       // Grava anexos vinculados à mensagem
-      const prontos = msgAnexos.filter(a => a.status === 'ready' && a.fileUrl)
       for (const a of prontos) {
         try {
           await (trpc.helpdesk as any).addAnexo.mutate({

@@ -1155,7 +1155,7 @@ export class HelpdeskService {
             tipo: 'info',
           },
           {
-            subject: `HelpDesk ${ticketNum} — responsável alterado`,
+            subject: `HelpDesk ${ticketNum} — Responsável alterado`,
             html: await this.emailTpl(ticketNum, corpo, link),
           },
         )
@@ -1189,7 +1189,7 @@ export class HelpdeskService {
             tipo: mudouStatus && (patch.status === 'RESOLVIDO' || patch.status === 'CONCLUIDO') ? 'success' : 'info',
           },
           {
-            subject: soDesarquivou ? `HelpDesk ${ticketNum} — reaberto` : `HelpDesk ${ticketNum} — ${statusLabel}`,
+            subject: soDesarquivou ? `HelpDesk ${ticketNum} — Reaberto` : `HelpDesk ${ticketNum} — ${statusLabel}`,
             html: await this.emailTpl(ticketNum, corpo, link),
           },
         )
@@ -1207,7 +1207,7 @@ export class HelpdeskService {
           if (t.solicitante.email) {
             void this.emailService.sendMail({
               to: t.solicitante.email,
-              subject: `HelpDesk ${ticketNum} resolvido — avalie o atendimento`,
+              subject: `HelpDesk ${ticketNum} resolvido — Avalie o atendimento!`,
               html: await this.emailTpl(
                 ticketNum,
                 `Seu ticket <strong>${escapeHtml(t.titulo)}</strong> foi resolvido e está <strong>aguardando sua avaliação</strong>. ` +
@@ -1307,7 +1307,7 @@ export class HelpdeskService {
         `em vez de avaliá-lo, então ele voltou para <strong>Em andamento</strong>. Confira e dê sequência.`
       const dest = Array.from(new Set(emails.map(e => e.trim().toLowerCase()).filter(Boolean)))
       // Um único e-mail com todos em BCC (não expõe endereços, sem N cópias).
-      await this.emailService.sendMail({ bcc: dest, subject: `HelpDesk ${ticketNum} — reaberto pelo solicitante`, html: await this.emailTpl(ticketNum, corpo, link) })
+      await this.emailService.sendMail({ bcc: dest, subject: `HelpDesk ${ticketNum} — Reaberto pelo solicitante`, html: await this.emailTpl(ticketNum, corpo, link) })
     } catch (e) {
       console.warn('[Helpdesk] Falha ao notificar retorno:', (e as Error).message)
     }
@@ -1387,7 +1387,7 @@ export class HelpdeskService {
     }
 
     // Notifica o outro lado da conversa (sino + e-mail se pública)
-    void this.notifyMensagem(input.ticketId, msg.id, input.interna, userId)
+    void this.notifyMensagem(input.ticketId, msg.id, input.interna, userId, input.numAnexos)
 
     return msg
   }
@@ -1503,7 +1503,7 @@ export class HelpdeskService {
     return { ok: true }
   }
 
-  private async notifyMensagem(ticketId: string, mensagemId: string, interna: boolean, autorId: string) {
+  private async notifyMensagem(ticketId: string, mensagemId: string, interna: boolean, autorId: string, numAnexosOverride?: number) {
     try {
       const t = await prisma.helpdeskTicket.findUnique({
         where: { id: ticketId },
@@ -1554,7 +1554,10 @@ export class HelpdeskService {
           this.blocoMensagemEmail({
             autorNome: msg.autor?.name ?? 'Participante',
             conteudoHtml: msg.conteudo,
-            numAnexos: msg._count.anexos,
+            // Anexos ainda não estão no banco neste ponto (o front os vincula
+            // logo depois via addAnexo), então usamos a contagem informada pelo
+            // front; cai no _count só como fallback.
+            numAnexos: numAnexosOverride ?? msg._count.anexos,
           })
       })()
 
@@ -1562,7 +1565,7 @@ export class HelpdeskService {
       if (!interna && t.solicitante?.email && autorId !== t.solicitanteId) {
         void this.emailService.sendMail({
           to: t.solicitante.email,
-          subject: `HelpDesk ${ticketNum} — nova resposta`,
+          subject: `HelpDesk ${ticketNum} — Nova resposta`,
           html: await this.emailTpl(ticketNum, corpoEmail, link),
         })
       }
@@ -1571,7 +1574,7 @@ export class HelpdeskService {
       if (!interna && t.responsavel?.email && autorId !== t.responsavelId) {
         void this.emailService.sendMail({
           to: t.responsavel.email,
-          subject: `HelpDesk ${ticketNum} — nova resposta`,
+          subject: `HelpDesk ${ticketNum} — Nova resposta`,
           html: await this.emailTpl(ticketNum, corpoEmail, link),
         })
       }
@@ -1740,13 +1743,13 @@ export class HelpdeskService {
       if (ehSolicitante && t.responsavel?.email) {
         void this.emailService.sendMail({
           to: t.responsavel.email,
-          subject: `HelpDesk ${ticketNum} — solicitante anexou um arquivo`,
+          subject: `HelpDesk ${ticketNum} — Solicitante anexou um arquivo`,
           html: await this.emailTpl(ticketNum, corpo, link),
         })
       } else if (!ehSolicitante && t.solicitante?.email) {
         void this.emailService.sendMail({
           to: t.solicitante.email,
-          subject: `HelpDesk ${ticketNum} — novo anexo`,
+          subject: `HelpDesk ${ticketNum} — Novo anexo`,
           html: await this.emailTpl(ticketNum, corpo, link),
         })
       }

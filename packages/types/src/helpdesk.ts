@@ -184,6 +184,10 @@ export const addMensagemSchema = z.object({
   conteudo: z.string().min(1, 'Mensagem vazia'),
   interna: z.boolean().default(false),
   respostaParaId: z.string().optional().nullable(),
+  // Nº de anexos que o front vai vincular a esta mensagem logo após criá-la (os
+  // addAnexo vêm em chamadas seguintes). Serve só pro CONTADOR do e-mail de
+  // notificação, que é montado antes dos anexos existirem no banco.
+  numAnexos: z.number().int().min(0).optional(),
 })
 export type AddMensagemInput = z.infer<typeof addMensagemSchema>
 
