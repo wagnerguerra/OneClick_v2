@@ -5,8 +5,9 @@ import {
   BarChart3, Loader2, AlertTriangle, CheckCircle2, Star, Clock,
   Inbox, RefreshCcw, TrendingUp, Tag, Users, ListChecks, Activity,
 } from 'lucide-react'
+import Link from 'next/link'
 import {
-  Card, CardContent, Badge, Button, Input,
+  Card, CardContent, Badge, Button, Input, cn,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import {
@@ -56,6 +57,17 @@ interface Dashboard {
   }>
 }
 
+// C9 — visão do próprio agente sem acesso às métricas completas: só as
+// avaliações que ele recebeu como responsável.
+interface MinhasAvaliacoes {
+  media: number | null
+  total: number
+  avaliacoes: Array<{
+    ticketId: string; numero: number; titulo: string
+    nota: number | null; comentario: string | null; respondidoEm: string | null
+  }>
+}
+
 function formatHoras(h: number | null): string {
   if (h === null || h === undefined) return '—'
   if (h < 1) return `${Math.round(h * 60)} min`
@@ -81,20 +93,93 @@ const CSAT_COR: Record<number, string> = {
   1: '#ef4444', 2: '#f59e0b', 3: '#eab308', 4: '#84cc16', 5: '#10b981',
 }
 
+/**
+ * C9 — visão do agente sem acesso às métricas completas: só as avaliações que
+ * ele recebeu como responsável (média + total + lista com nota/comentário).
+ */
+function MinhasAvaliacoesView({ minhas }: { minhas: MinhasAvaliacoes | null }) {
+  if (!minhas) return null
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Card><CardContent className="p-4">
+          <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+            <Star className="h-3.5 w-3.5" /> Minha média de CSAT
+          </div>
+          <p className="text-3xl font-bold tabular-nums">
+            {minhas.media === null ? '—' : minhas.media.toFixed(1)}
+            {minhas.media !== null && <span className="ml-1 text-lg text-muted-foreground">/ 5</span>}
+          </p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Avaliações recebidas
+          </div>
+          <p className="text-3xl font-bold tabular-nums">{minhas.total}</p>
+        </CardContent></Card>
+      </div>
+      <Card><CardContent className="p-4">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <Star className="h-4 w-4" /> Minhas avaliações
+        </h3>
+        {minhas.avaliacoes.length === 0 ? (
+          <div className="py-12 text-center text-xs text-muted-foreground">Você ainda não recebeu avaliações no período.</div>
+        ) : (
+          <div className="divide-y">
+            {minhas.avaliacoes.map(a => (
+              <div key={a.ticketId} className="flex items-start gap-3 py-2.5">
+                <div className="flex shrink-0 items-center gap-0.5 pt-0.5">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <Star key={n} className={cn('h-3.5 w-3.5', n <= (a.nota ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30')} />
+                  ))}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <Link href={`/helpdesk/${a.ticketId}`} className="text-sm font-medium hover:underline">
+                    <span className="font-mono text-[11px] text-muted-foreground">#HLP{String(a.numero).padStart(4, '0')}</span> {a.titulo}
+                  </Link>
+                  {a.comentario?.trim() && (
+                    <p className="mt-0.5 text-xs italic text-muted-foreground">“{a.comentario.trim()}”</p>
+                  )}
+                </div>
+                <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                  {a.respondidoEm ? new Date(a.respondidoEm).toLocaleDateString('pt-BR') : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent></Card>
+    </div>
+  )
+}
+
 export default function HelpdeskIndicadoresPage() {
   const hoje = useMemo(() => new Date(), [])
   const [inicio, setInicio] = useState(() => toInputDate(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000)))
   const [fim, setFim] = useState(() => toInputDate(new Date()))
   const [data, setData] = useState<Dashboard | null>(null)
+  const [minhas, setMinhas] = useState<MinhasAvaliacoes | null>(null)
   const [loading, setLoading] = useState(true)
+  // null = ainda probando; governa a bifurcação completa × só minhas avaliações.
+  const [completas, setCompletas] = useState<boolean | null>(null)
+
+  // Probe uma vez: define se o usuário vê as métricas completas ou só as próprias.
+  useEffect(() => {
+    ;(trpc.helpdesk as any).probeMetricasCompletas.query()
+      .then((c: boolean) => setCompletas(!!c))
+      .catch(() => setCompletas(false))
+  }, [])
 
   const fetchData = useCallback(() => {
+    if (completas === null) return
     setLoading(true)
-    ;(trpc.helpdesk as any).dashboard.query({ inicio, fim })
-      .then((d: Dashboard) => setData(d))
-      .catch((e: Error) => { alerts.error('Erro ao carregar indicadores', e.message); setData(null) })
+    const req = completas
+      ? (trpc.helpdesk as any).dashboard.query({ inicio, fim }).then((d: Dashboard) => setData(d))
+      : (trpc.helpdesk as any).minhasAvaliacoes.query({ inicio, fim }).then((m: MinhasAvaliacoes) => setMinhas(m))
+    req
+      .catch((e: Error) => { alerts.error('Erro ao carregar indicadores', e.message) })
       .finally(() => setLoading(false))
-  }, [inicio, fim])
+  }, [inicio, fim, completas])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -117,7 +202,9 @@ export default function HelpdeskIndicadoresPage() {
           <div>
             <h1>HelpDesk — Indicadores</h1>
             <p className="text-sm text-muted-foreground">
-              Volume, SLA, tempos de atendimento, CSAT e relatórios por categoria e responsável.
+              {completas === false
+                ? 'Suas avaliações (CSAT) recebidas como responsável no período.'
+                : 'Volume, SLA, tempos de atendimento, CSAT e relatórios por categoria e responsável.'}
             </p>
           </div>
         </div>
@@ -149,11 +236,13 @@ export default function HelpdeskIndicadoresPage() {
         </div>
       </div>
 
-      {loading || !data ? (
+      {completas === null || loading || (completas && !data) ? (
         <Card><CardContent className="flex items-center justify-center gap-2 p-16 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Carregando indicadores...
         </CardContent></Card>
-      ) : (
+      ) : !completas ? (
+        <MinhasAvaliacoesView minhas={minhas} />
+      ) : data ? (
         <>
           {/* KPI cards */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -464,6 +553,10 @@ export default function HelpdeskIndicadoresPage() {
             </CardContent></Card>
           </div>
         </>
+      ) : (
+        <Card><CardContent className="flex items-center justify-center gap-2 p-16 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Carregando indicadores...
+        </CardContent></Card>
       )}
     </div>
   )

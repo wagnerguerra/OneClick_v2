@@ -117,6 +117,10 @@ export default function HelpdeskPage() {
   // Colaborador comum: isAgente=true (vê módulo) MAS podeAtuar=false (vê só os próprios).
   const [isAgente, setIsAgente] = useState<boolean | null>(null)
   const [podeAtuar, setPodeAtuar] = useState<boolean | null>(null)
+  // C9 — pode ver as MÉTRICAS COMPLETAS (panel_metricas / master / cargo). Governa
+  // o link de indicadores pra quem não é agente (chefia). O agente também vê o
+  // link, mas cai na visão "minhas avaliações" se não tiver esta permissão.
+  const [podeVerMetricas, setPodeVerMetricas] = useState<boolean | null>(null)
   const [items, setItems] = useState<Ticket[]>([])
   // Arquivados — quadro inferior na visão de lista (#HLP0318). Fica separado
   // de `items` (ativos) pra renderizar os dois quadros: ativos em cima,
@@ -168,15 +172,17 @@ export default function HelpdeskPage() {
   useEffect(() => {
     let cancelled = false
     async function carregar() {
-      const [acc, atuar, esc] = await Promise.allSettled([
+      const [acc, atuar, esc, metr] = await Promise.allSettled([
         (trpc.helpdesk as any).probeAccess.query(),
         (trpc.helpdesk as any).probeAtuarAgente.query(),
         (trpc.helpdesk as any).meuEscopo.query(),
+        (trpc.helpdesk as any).probeMetricasCompletas.query(),
       ])
       if (cancelled) return
       const agente = acc.status === 'fulfilled'
       setIsAgente(agente)
       setPodeAtuar(atuar.status === 'fulfilled' ? !!(atuar.value as { ok?: boolean })?.ok : false)
+      setPodeVerMetricas(metr.status === 'fulfilled' ? !!metr.value : false)
       setMeuEscopo(esc.status === 'fulfilled'
         ? (esc.value as { scope: 'proprios' | 'area' | 'todos'; temArea: boolean; areaId: string | null })
         : { scope: 'proprios', temArea: false, areaId: null })
@@ -492,8 +498,9 @@ export default function HelpdeskPage() {
               {verArquivados ? 'Sair dos arquivados' : 'Arquivados'}
             </Button>
           )}
-          {/* Indicadores (dashboard + relatórios) — só TI (podeAtuar) */}
-          {podeAtuar && (
+          {/* Indicadores (dashboard + relatórios) — agente (visão própria ou
+              completa) ou chefia/painel de métricas (só completa). C9 */}
+          {(podeAtuar || podeVerMetricas) && (
             <Button
               variant="outline"
               size="icon"

@@ -195,16 +195,33 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
       .query(({ input, ctx }) => helpdeskService.listAgentesAtribuiveis(input.ticketId, ctx.userId!)),
 
     /**
-     * Dashboard completo de indicadores + relatórios (rota /helpdesk/indicadores).
+     * Dashboard COMPLETO de indicadores + relatórios (rota /helpdesk/indicadores).
      * Aceita intervalo de datas (ISO). Sem intervalo → últimos 30 dias.
-     * Requer leitura de helpdesk.
+     * Restrito: métricas de TODOS exigem panel_metricas / master / DIRETOR /
+     * COORDENADOR. Quem não tem usa `minhasAvaliacoes` (visão própria).
      */
-    dashboard: readProcedure(MODULE)
+    dashboard: protectedProcedure
       .input(z.object({
         inicio: z.string().optional(),
         fim: z.string().optional(),
       }).optional())
-      .query(({ input, ctx }) => helpdeskService.getDashboard(ctx.empresaId ?? null, input)),
+      .query(async ({ input, ctx }) => {
+        if (!(await helpdeskService.podeVerMetricasCompletas(ctx.userId!))) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem acesso às métricas completas do HelpDesk' })
+        }
+        return helpdeskService.getDashboard(ctx.empresaId ?? null, input)
+      }),
+
+    /** Probe pra UI: o usuário pode ver as métricas completas? Governa o link de
+     *  indicadores e a bifurcação da tela (completa × só minhas avaliações). */
+    probeMetricasCompletas: protectedProcedure
+      .query(({ ctx }) => helpdeskService.podeVerMetricasCompletas(ctx.userId!)),
+
+    /** Avaliações (CSAT) do próprio usuário como responsável — visão de quem NÃO
+     *  tem acesso às métricas completas. Intervalo de datas opcional (ISO). */
+    minhasAvaliacoes: protectedProcedure
+      .input(z.object({ inicio: z.string().optional(), fim: z.string().optional() }).optional())
+      .query(({ input, ctx }) => helpdeskService.minhasAvaliacoes(ctx.userId!, ctx.empresaId ?? null, input)),
 
     // ── Configurações do módulo (pill /configuracoes → Helpdesk) ──
     // Config — só TI real (master/empresa-master, DIRETOR/COORDENADOR ou

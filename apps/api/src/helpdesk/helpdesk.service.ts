@@ -131,6 +131,70 @@ export class HelpdeskService {
   }
 
   /**
+   * Pode ver as MÉTRICAS COMPLETAS do HelpDesk (indicadores de todos): exige
+   * master/empresa-master, o cargo DIRETOR/COORDENADOR, ou a sub-permissão
+   * helpdesk.panel_metricas. NÃO basta ser agente da TI. Quem não tem só enxerga
+   * as PRÓPRIAS avaliações (ver `minhasAvaliacoes`).
+   */
+  async podeVerMetricasCompletas(userId: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        isMaster: true, isEmpresaMaster: true, role: true,
+        permissions: { where: { moduleSlug: 'helpdesk' }, select: { subPermissions: true } },
+      },
+    })
+    if (!user) return false
+    if (user.isMaster || user.isEmpresaMaster) return true
+    if (user.role === 'DIRETOR' || user.role === 'COORDENADOR') return true
+    const sub = user.permissions[0]?.subPermissions as Record<string, unknown> | null
+    return sub?.panel_metricas === true
+  }
+
+  /**
+   * Avaliações (CSAT) recebidas pelo usuário como RESPONSÁVEL — a visão do
+   * próprio agente quando ele NÃO tem acesso às métricas completas. Retorna nota
+   * + comentário + ticket, além de média e total. Intervalo de datas opcional
+   * (ISO) sobre `csatRespondidoEm`.
+   */
+  async minhasAvaliacoes(
+    userId: string,
+    empresaId?: string | null,
+    range?: { inicio?: string | null; fim?: string | null },
+  ) {
+    const tenantFilter = empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}
+    const respondidoRange: Prisma.DateTimeNullableFilter = {}
+    if (range?.inicio) respondidoRange.gte = new Date(range.inicio)
+    if (range?.fim) respondidoRange.lte = new Date(range.fim)
+    const rows = await prisma.helpdeskTicket.findMany({
+      where: {
+        ativo: true,
+        ...tenantFilter,
+        responsavelId: userId,
+        csatNota: { not: null },
+        ...(Object.keys(respondidoRange).length ? { csatRespondidoEm: respondidoRange } : {}),
+      },
+      select: { id: true, numero: true, titulo: true, csatNota: true, csatComentario: true, csatRespondidoEm: true },
+      orderBy: { csatRespondidoEm: 'desc' },
+      take: 200,
+    })
+    const notas = rows.map(r => r.csatNota ?? 0).filter(n => n > 0)
+    const media = notas.length ? notas.reduce((a, b) => a + b, 0) / notas.length : null
+    return {
+      media,
+      total: notas.length,
+      avaliacoes: rows.map(r => ({
+        ticketId: r.id,
+        numero: r.numero,
+        titulo: r.titulo,
+        nota: r.csatNota,
+        comentario: r.csatComentario,
+        respondidoEm: r.csatRespondidoEm ? r.csatRespondidoEm.toISOString() : null,
+      })),
+    }
+  }
+
+  /**
    * Escopo EFETIVO de visualização do usuário no HelpDesk (#HLP0139) — FONTE
    * ÚNICA, consumida por `getMeuEscopo` (UI), `list()`, `canAccess()` e
    * `relatorioTickets()`. Regra decidida:
