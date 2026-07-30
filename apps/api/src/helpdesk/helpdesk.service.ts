@@ -18,6 +18,7 @@ import {
   HELPDESK_STATUS_CANCELAVEL_PELO_SOLICITANTE,
   helpdeskSolicitantePodeReabrir,
   HELPDESK_STATUS_REABERTURA,
+  helpdeskStatusRank,
 } from '@saas/types'
 import { NotificationService } from '../notification/notification.service'
 import { EmailService } from '../common/email.service'
@@ -726,11 +727,27 @@ export class HelpdeskService {
 
     const querMudarTitulo = data.titulo !== undefined && data.titulo !== before.titulo
     const querMudarDescricao = data.descricao !== undefined && data.descricao !== before.descricao
-    if (querMudarTitulo || querMudarDescricao) {
-      if (before.status === 'CANCELADO') {
-        throw new Error('Ticket cancelado — edição não permitida')
-      }
 
+    // R5.1 — congelamento por ESTADO ENCERRADO: com o ticket CONCLUÍDO,
+    // CANCELADO ou ARQUIVADO, os campos de CONTEÚDO/meta ficam bloqueados para
+    // edição. O ciclo de vida (status e arquivamento) fica de fora de propósito
+    // — é o que permite REABRIR/desarquivar (5.4) e o agente arquivar/desarquivar.
+    const congeladoTotal = ticketCongelado(before.status as HelpdeskStatus, before.arquivado)
+    const querEditarConteudo = querMudarTitulo || querMudarDescricao
+      || (data.tipo !== undefined && data.tipo !== before.tipo)
+      || (data.tags !== undefined)
+      || (data.prioridade !== undefined && data.prioridade !== before.prioridade)
+      || (data.categoriaId !== undefined && data.categoriaId !== before.categoriaId)
+      || (data.areaId !== undefined && data.areaId !== before.areaId)
+      || (data.prazoSla !== undefined)
+      || (data.responsavelId !== undefined && data.responsavelId !== before.responsavelId)
+    if (congeladoTotal && querEditarConteudo) {
+      const estado = before.arquivado ? 'arquivado'
+        : before.status === 'CANCELADO' ? 'cancelado' : 'concluído'
+      throw new Error(`Ticket ${estado} — reabra o chamado para poder editá-lo.`)
+    }
+
+    if (querMudarTitulo || querMudarDescricao) {
       if (querMudarTitulo) {
         if (!ehSolicitante && !ehAgente) {
           throw new Error('Só o criador do ticket ou um agente da TI pode editar o título')
@@ -813,6 +830,12 @@ export class HelpdeskService {
     }
 
     if (data.responsavelId !== undefined && data.responsavelId !== before.responsavelId) {
+      // R5.1 — de "Aguardando avaliação" (RESOLVIDO) em diante, o responsável
+      // congela mesmo com permissão: evita "roubar" a avaliação de outro agente.
+      // Comparação por POSIÇÃO na ordem dos status (pegajoso), não por igualdade.
+      if (helpdeskStatusRank(before.status as HelpdeskStatus) >= helpdeskStatusRank('RESOLVIDO')) {
+        throw new Error('Da etapa "Aguardando avaliação" em diante o responsável não pode ser alterado.')
+      }
       if (!podeCom('change_responsavel')) throw new Error('Você não tem permissão para atribuir responsável')
       patch.responsavelId = data.responsavelId
       const novoNome = data.responsavelId
@@ -1075,7 +1098,7 @@ export class HelpdeskService {
         // R1.2 — RESOLVIDO: sino + e-mail ao solicitante com CTA de AVALIAR.
         if (virouAvaliacao && t.solicitante && t.solicitante.id !== actorId) {
           await this.notificationService.criarParaUsers([t.solicitante.id], {
-            titulo: `${ticketNum} — avalie o atendimento`,
+            titulo: `${ticketNum} — RESOLVIDO - Avalie o atendimento`,
             mensagem: t.titulo,
             tipo: 'success',
             link,
@@ -1204,15 +1227,17 @@ export class HelpdeskService {
       where: { id: input.id },
       select: {
         id: true, autorId: true, ticketId: true, interna: true,
-        ticket: { select: { status: true } },
+        ticket: { select: { status: true, arquivado: true } },
       },
     })
     if (!msg) throw new Error('Mensagem não encontrada')
     if (msg.autorId !== userId) {
       throw new Error('Só o autor pode editar a mensagem')
     }
-    if (msg.ticket?.status === 'CANCELADO') {
-      throw new Error('Ticket cancelado — edição não permitida')
+    // R5.1 — no estado congelado (concluído/cancelado/arquivado) o histórico de
+    // mensagens fica travado (nem editar, nem excluir).
+    if (msg.ticket && ticketCongelado(msg.ticket.status as HelpdeskStatus, msg.ticket.arquivado)) {
+      throw new Error('Chamado encerrado — não é possível editar mensagens.')
     }
     const atualizada = await prisma.helpdeskMensagem.update({
       where: { id: input.id },
@@ -1238,15 +1263,16 @@ export class HelpdeskService {
       where: { id: input.id },
       select: {
         id: true, autorId: true, ticketId: true, interna: true,
-        ticket: { select: { status: true } },
+        ticket: { select: { status: true, arquivado: true } },
       },
     })
     if (!msg) throw new Error('Mensagem não encontrada')
     if (msg.autorId !== userId) {
       throw new Error('Só o autor pode excluir a mensagem')
     }
-    if (msg.ticket?.status === 'CANCELADO') {
-      throw new Error('Ticket cancelado — exclusão não permitida')
+    // R5.1 — estado congelado trava o histórico (ver editMensagem).
+    if (msg.ticket && ticketCongelado(msg.ticket.status as HelpdeskStatus, msg.ticket.arquivado)) {
+      throw new Error('Chamado encerrado — não é possível excluir mensagens.')
     }
     // Remove anexos vinculados explicitamente — a FK do schema é SetNull,
     // mas anexo sem mensagem vira órfão na thread. Deletamos junto pra
@@ -2403,4 +2429,14 @@ function ehAgenteHelpdesk(u: {
   if (sub.atuar_agente === true) return true
   if (u.areaName && isAreaTi(u.areaName)) return true
   return false
+}
+
+/**
+ * "Estado congelado" (R5.1): CONCLUÍDO, CANCELADO ou ARQUIVADO. Nesse estado a
+ * edição dos campos de conteúdo e a edição/exclusão de mensagens ficam travadas.
+ * NÃO governa a criação de nova mensagem — essa tem regra própria (permitida em
+ * CONCLUÍDO como gatilho de reabertura; bloqueada em arquivado/cancelado).
+ */
+function ticketCongelado(status: HelpdeskStatus, arquivado: boolean): boolean {
+  return arquivado || helpdeskStatusRank(status) >= helpdeskStatusRank('CONCLUIDO')
 }

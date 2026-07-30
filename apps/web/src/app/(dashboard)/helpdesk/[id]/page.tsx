@@ -30,7 +30,7 @@ import { AnexosDropzone, type AnexoStaged } from '../_components/anexos-dropzone
 import {
   HELPDESK_STATUS, HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE, HELPDESK_PRIORIDADE_LABELS,
   HELPDESK_PRIORIDADE_COLORS, HELPDESK_TIPO_LABELS,
-  solicitantePodeCancelar,
+  solicitantePodeCancelar, helpdeskStatusRank,
   type HelpdeskStatus, type HelpdeskPrioridade,
 } from '@saas/types'
 
@@ -86,6 +86,7 @@ interface Ticket {
   concluidoEm: string | null
   csatNota: number | null
   csatRespondidoEm: string | null
+  arquivado: boolean
   tags: string[]
   createdAt: string
   solicitante: { id: string; name: string; email: string | null; image: string | null } | null
@@ -716,6 +717,15 @@ export default function HelpdeskTicketDetailPage() {
   // Anexos da solicitação inicial = os que não estão vinculados a nenhuma mensagem.
   const anexosIniciais = ticket.anexos.filter(a => !ticket.mensagens.some(m => (m.anexos ?? []).some(ma => ma.id === a.id)))
   const podeAvaliar = ticket.status === 'RESOLVIDO' && !ticket.csatRespondidoEm
+  // R5.1 — congelamento: CONCLUÍDO, CANCELADO ou ARQUIVADO travam a edição dos
+  // campos de conteúdo; o responsável trava adicionalmente de "Aguardando
+  // avaliação" (RESOLVIDO) em diante (evita "roubar" a avaliação). O STATUS não
+  // congela — é o caminho de reabertura. Reflete o que o backend impõe no update().
+  const congelado = ticket.arquivado
+    || helpdeskStatusRank(ticket.status) >= helpdeskStatusRank('CONCLUIDO')
+  const podeEditarCampos = podeAtuar && !congelado
+  const podeEditarResponsavel = podeAtuar && !congelado
+    && helpdeskStatusRank(ticket.status) < helpdeskStatusRank('RESOLVIDO')
   // Solicitante pode cancelar o próprio ticket enquanto está aberto.
   // TI também pode cancelar (via sidebar/select de status), então aqui foco no solicitante.
   const isSolicitante = !!currentUserId && ticket.solicitante?.id === currentUserId
@@ -771,7 +781,7 @@ export default function HelpdeskTicketDetailPage() {
                   ) : (
                     <div className="group flex items-center gap-1.5 min-w-0">
                       <h1 className="text-xl font-semibold truncate">{ticket.titulo}</h1>
-                      {podeAtuar && (
+                      {podeEditarCampos && (
                         <button
                           type="button"
                           onClick={abrirEditTituloInline}
@@ -838,6 +848,17 @@ export default function HelpdeskTicketDetailPage() {
         {/* Body em 2 colunas: conteúdo + sidebar */}
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
           <div className="min-w-0 space-y-4">
+            {/* R5.1 — aviso ao AGENTE sobre por que os campos estão congelados. */}
+            {podeAtuar && congelado && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-200">
+                <Lock className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  Chamado <strong>{ticket.arquivado ? 'arquivado' : HELPDESK_STATUS_LABELS[ticket.status].toLowerCase()}</strong> —
+                  a maioria dos campos fica <strong>congelada</strong> neste estado, para preservar o registro do
+                  atendimento. Para voltar a editá-lo ou tratá-lo, reabra o chamado (mudando o status).
+                </span>
+              </div>
+            )}
             {/* Aba CONVERSAÇÃO — reúne descrição inicial, triagem/plano IA, CSAT e
                 as mensagens. Antes esses cards ficavam FORA das abas e apareciam
                 em todas (impressão de abas "misturadas"). Agora são só desta aba. */}
@@ -874,7 +895,7 @@ export default function HelpdeskTicketDetailPage() {
                     <span>{new Date(ticket.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                   </p>
                 </div>
-                {!!currentUserId && ticket.solicitante?.id === currentUserId && ticket.status !== 'CANCELADO' && (
+                {!!currentUserId && ticket.solicitante?.id === currentUserId && !congelado && (
                   <button
                     type="button"
                     onClick={abrirEditDescricao}
@@ -1084,8 +1105,9 @@ export default function HelpdeskTicketDetailPage() {
                 // Edição/exclusão liberadas para o autor enquanto o ticket
                 // não estiver cancelado. O campo editadoEm + evento de
                 // auditoria garantem a rastreabilidade.
-                const podeEditar = !!currentUserId && msg.autor?.id === currentUserId
-                  && ticket.status !== 'CANCELADO'
+                // R5.1 — no estado congelado (concluído/cancelado/arquivado) o
+                // histórico trava: nem editar, nem excluir mensagens.
+                const podeEditar = !!currentUserId && msg.autor?.id === currentUserId && !congelado
                 return (
                   <Card
                     key={msg.id}
@@ -1336,7 +1358,7 @@ export default function HelpdeskTicketDetailPage() {
                 </SideField>
 
                 <SideField label="Prioridade" icon={AlertTriangle}>
-                  {podeAtuar ? (
+                  {podeEditarCampos ? (
                     <Select
                       value={ticket.prioridade}
                       onValueChange={v => patch({ prioridade: v }, 'prioridade')}
@@ -1362,7 +1384,7 @@ export default function HelpdeskTicketDetailPage() {
                 </SideField>
 
                 <SideField label="Responsável" icon={UserCog}>
-                  {!podeAtuar ? (
+                  {!podeEditarResponsavel ? (
                     <p className="text-xs">{ticket.responsavel?.name || <span className="text-muted-foreground italic">Não atribuído</span>}</p>
                   ) : savingField === 'responsavel' ? (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -1388,7 +1410,7 @@ export default function HelpdeskTicketDetailPage() {
                 </SideField>
 
                 <SideField label="Categoria" icon={Tag}>
-                  {!podeAtuar ? (
+                  {!podeEditarCampos ? (
                     <p className="text-xs">{ticket.categoria ? `${ticket.categoria.parent ? ticket.categoria.parent.nome + ' › ' : ''}${ticket.categoria.nome}` : <span className="text-muted-foreground italic">—</span>}</p>
                   ) : savingField === 'categoria' ? (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
