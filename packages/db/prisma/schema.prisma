@@ -551,6 +551,7 @@ model Empresa {
   clientes             Cliente[]
   fornecedores         Fornecedor[]
   compras              Compra[]
+  compraCotacoes       CompraCotacao[]
   socios               Socio[]
   events               EmpresaEvent[]
   certificadosDigitais CertificadoDigital[]
@@ -1640,6 +1641,7 @@ model Fornecedor {
   qualificacoes    FornecedorQualificacao[]
   mensagens        FornecedorMensagem[]
   compras          Compra[]
+  cotacoes         CompraCotacaoFornecedor[]
   categoriaLinks   FornecedorCategoriaLink[]
 
   @@index([legacyId])
@@ -1827,7 +1829,11 @@ model Compra {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   fornecedor Fornecedor                @relation(fields: [fornecedorId], references: [id])
+  /// Cotação que originou este pedido (quando nasceu de uma apuração).
+  cotacaoId String? @map("cotacao_id")
+
   empresa    Empresa?                  @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  cotacao    CompraCotacao?            @relation(fields: [cotacaoId], references: [id], onDelete: SetNull)
   itens      CompraItem[]
   anexos     CompraAnexo[]
   mensagens  CompraMensagem[]
@@ -1837,7 +1843,123 @@ model Compra {
   @@index([fornecedorId])
   @@index([status])
   @@index([legacyId])
+  @@index([cotacaoId])
   @@map("compras")
+}
+
+// ============================================================
+// Cotação (RFQ) — o passo ANTES do pedido: monta-se a lista de
+// itens, convida-se N fornecedores, lançam-se os preços de cada
+// um e premia-se item por item. Cada fornecedor premiado gera
+// um pedido de compra próprio (split award por item de linha).
+// ============================================================
+
+enum StatusCotacao {
+  RASCUNHO // montando a lista de itens e escolhendo os fornecedores
+  ENVIADA // pedido de cotação enviado, aguardando retorno
+  APURACAO // ao menos um retorno lançado; premiando os itens
+  CONVERTIDA // pedidos de compra gerados
+  CANCELADA
+}
+
+model CompraCotacao {
+  id     String        @id @default(cuid())
+  code   Int           @default(autoincrement())
+  status StatusCotacao @default(RASCUNHO)
+
+  titulo        String? // "Material de expediente — agosto/2026"
+  observacoes   String?   @db.Text
+  prazoResposta DateTime? @map("prazo_resposta") @db.Date
+
+  solicitanteId String? @map("solicitante_id")
+  empresaId     String? @map("empresa_id")
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  empresa      Empresa?                  @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  itens        CompraCotacaoItem[]
+  fornecedores CompraCotacaoFornecedor[]
+  compras      Compra[]
+
+  @@index([empresaId])
+  @@index([status])
+  @@map("compra_cotacoes")
+}
+
+model CompraCotacaoItem {
+  id         String  @id @default(cuid())
+  cotacaoId  String  @map("cotacao_id")
+  descricao  String
+  unidade    String?
+  quantidade Int     @default(1)
+  ordem      Int     @default(0)
+
+  /// Fornecedor premiado NESTE item — id de CompraCotacaoFornecedor.
+  /// Coluna solta de propósito (sem relação Prisma): já existe uma relação
+  /// Item↔Fornecedor via `precos`, e uma segunda tornaria o schema ambíguo.
+  vencedorId String? @map("vencedor_id")
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  cotacao CompraCotacao        @relation(fields: [cotacaoId], references: [id], onDelete: Cascade)
+  precos  CompraCotacaoPreco[]
+
+  @@index([cotacaoId])
+  @@map("compra_cotacao_itens")
+}
+
+model CompraCotacaoFornecedor {
+  id           String @id @default(cuid())
+  cotacaoId    String @map("cotacao_id")
+  fornecedorId String @map("fornecedor_id")
+
+  enviadoEm    DateTime? @map("enviado_em")
+  respondidoEm DateTime? @map("respondido_em")
+
+  // Condições comerciais são POR FORNECEDOR — cada um responde as suas, e elas
+  // seguem para o pedido que ele vier a ganhar.
+  frete            Decimal? @db.Decimal(14, 2)
+  prazoEntrega     String?  @map("prazo_entrega")
+  prazoPagamento   String?  @map("prazo_pagamento")
+  formaPagamento   String?  @map("forma_pagamento")
+  validadeProposta String?  @map("validade_proposta")
+  observacoes      String?  @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cotacao    CompraCotacao        @relation(fields: [cotacaoId], references: [id], onDelete: Cascade)
+  fornecedor Fornecedor           @relation(fields: [fornecedorId], references: [id])
+  precos     CompraCotacaoPreco[]
+
+  @@unique([cotacaoId, fornecedorId])
+  @@index([cotacaoId])
+  @@map("compra_cotacao_fornecedores")
+}
+
+/// Uma célula da matriz de apuração: o preço do item X no fornecedor Y.
+model CompraCotacaoPreco {
+  id                  String @id @default(cuid())
+  cotacaoItemId       String @map("cotacao_item_id")
+  cotacaoFornecedorId String @map("cotacao_fornecedor_id")
+
+  valorUnitario Decimal? @map("valor_unitario") @db.Decimal(14, 2)
+  /// false = fornecedor informou que não atende este item.
+  disponivel    Boolean  @default(true)
+  observacoes   String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  item       CompraCotacaoItem       @relation(fields: [cotacaoItemId], references: [id], onDelete: Cascade)
+  fornecedor CompraCotacaoFornecedor @relation(fields: [cotacaoFornecedorId], references: [id], onDelete: Cascade)
+
+  @@unique([cotacaoItemId, cotacaoFornecedorId])
+  @@index([cotacaoFornecedorId])
+  @@map("compra_cotacao_precos")
 }
 
 model CompraItem {
