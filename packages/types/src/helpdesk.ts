@@ -105,6 +105,10 @@ export const HELPDESK_STATUS_REABERTURA: HelpdeskStatus = 'EM_ANDAMENTO'
  * sido resolvido. É a SEGUNDA transição permitida ao solicitante — a primeira é
  * cancelar (acima). Sem ela, o gatilho de reabertura que existe desde o #HLP0062
  * fica inacessível para quem abriu o chamado.
+ *
+ * OBS: CANCELADO é terminal para o solicitante, mas essa trava fica no próprio
+ * `update()` (guarda localizada da operação de reabertura), não aqui — assim esta
+ * função continua sendo só "está num estado encerrado?".
  */
 export function helpdeskSolicitantePodeReabrir(args: { status: HelpdeskStatus; arquivado: boolean }): boolean {
   return args.arquivado

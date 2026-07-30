@@ -887,6 +887,12 @@ export class HelpdeskService {
             throw new Error('O chamado já está em atendimento — fale com o responsável para encerrá-lo')
           }
         } else if (querReabrir) {
+          // CANCELADO é terminal para o solicitante (funciona como um soft-delete):
+          // só o agente reverte um cancelamento. Guarda aqui na operação, não no
+          // helper de estado (que segue genérico).
+          if (before.status === 'CANCELADO') {
+            throw new Error('Chamado cancelado não pode ser reaberto — abra um novo chamado.')
+          }
           if (!helpdeskSolicitantePodeReabrir({ status: before.status as HelpdeskStatus, arquivado: before.arquivado })) {
             throw new Error('Este chamado ainda está em atendimento — acompanhe por aqui mesmo.')
           }
@@ -1165,6 +1171,53 @@ export class HelpdeskService {
       ${anexos}`
   }
 
+  /**
+   * R5.5 — avisa que o solicitante retornou num ticket que estava "Aguardando
+   * avaliação" e ele voltou pra "Em andamento". Vai para o responsável; se não
+   * houver, para todos os agentes do HelpDesk (fonte única). Sino + e-mail.
+   */
+  private async notificarRetorno(ticketId: string, responsavelId: string | null, empresaId: string | null) {
+    try {
+      const t = await prisma.helpdeskTicket.findUnique({
+        where: { id: ticketId },
+        select: { numero: true, titulo: true },
+      })
+      if (!t) return
+      const ticketNum = `#HLP${String(t.numero).padStart(4, '0')}`
+      const link = `/helpdesk/${ticketId}`
+
+      let userIds: string[] = []
+      let emails: string[] = []
+      if (responsavelId) {
+        const r = await prisma.user.findUnique({ where: { id: responsavelId }, select: { id: true, email: true } })
+        if (r) { userIds = [r.id]; if (r.email) emails = [r.email] }
+      } else {
+        const agentes = await this.usuariosAgentes(empresaId)
+        userIds = agentes.map(a => a.id)
+        emails = agentes.map(a => a.email).filter((e): e is string => !!e)
+      }
+
+      if (userIds.length) {
+        await this.notificationService.criarParaUsers(userIds, {
+          titulo: `${ticketNum} — solicitante retornou`,
+          mensagem: t.titulo,
+          tipo: 'warning',
+          link,
+          origem: 'helpdesk',
+          empresaId: empresaId || null,
+        }).catch(() => {})
+      }
+      const corpo = `O solicitante enviou uma nova mensagem no ticket <strong>${escapeHtml(t.titulo)}</strong> ` +
+        `em vez de avaliá-lo, então ele voltou para <strong>Em andamento</strong>. Confira e dê sequência.`
+      const dest = Array.from(new Set(emails.map(e => e.trim().toLowerCase()).filter(Boolean)))
+      await Promise.allSettled(dest.map(to =>
+        this.emailService.sendMail({ to, subject: `HelpDesk ${ticketNum} — reaberto pelo solicitante`, html: this.emailTpl(ticketNum, corpo, link) }),
+      ))
+    } catch (e) {
+      console.warn('[Helpdesk] Falha ao notificar retorno:', (e as Error).message)
+    }
+  }
+
   // ── Mensagens ──────────────────────────────────────────────────
 
   async addMensagem(input: AddMensagemInput, userId: string) {
@@ -1177,10 +1230,20 @@ export class HelpdeskService {
       where: { id: input.ticketId },
       select: {
         id: true, status: true, solicitanteId: true, responsavelId: true,
-        primeiroAtendimentoEm: true,
+        primeiroAtendimentoEm: true, arquivado: true, empresaId: true,
       },
     })
     if (!ticket) throw new Error('Ticket não encontrado')
+
+    // R5.1/5.4 — mensagem PÚBLICA fica bloqueada em ARQUIVADO ou CANCELADO (o
+    // retorno do solicitante é via botão de reabertura). CONCLUÍDO é a exceção:
+    // permite mensagem (gatilho de reabertura, 5.3). Notas internas: sempre.
+    if (!input.interna && (ticket.arquivado || ticket.status === 'CANCELADO')) {
+      // Neutro de propósito: arquivado é reabrível, mas cancelado é terminal
+      // para o solicitante — a wording não deve prometer reabertura a quem não
+      // pode. Quem pode reabrir usa o botão dedicado.
+      throw new Error('Este chamado está encerrado e não recebe novas mensagens.')
+    }
 
     const msg = await prisma.helpdeskMensagem.create({
       data: {
@@ -1209,13 +1272,22 @@ export class HelpdeskService {
 
     // Comportamentos automáticos em mensagem pública:
     //  - marca primeiroAtendimentoEm se for primeira resposta de agente
+    //  - R5.5: solicitante escrever no RESOLVIDO ("Aguardando avaliação") =
+    //    não considera resolvido → volta pra EM_ANDAMENTO e avisa o responsável
+    //    (ou todos os agentes, se não houver).
     if (!input.interna) {
       const patch: any = {}
       if (userId !== ticket.solicitanteId && !ticket.primeiroAtendimentoEm) {
         patch.primeiroAtendimentoEm = new Date()
       }
+      const solicitanteRetornou = userId === ticket.solicitanteId && ticket.status === 'RESOLVIDO'
+      if (solicitanteRetornou) patch.status = 'EM_ANDAMENTO'
       if (Object.keys(patch).length) {
         await prisma.helpdeskTicket.update({ where: { id: input.ticketId }, data: patch })
+      }
+      if (solicitanteRetornou) {
+        await this.addEvento(input.ticketId, userId, 'status_alterado', 'RESOLVIDO → EM_ANDAMENTO (solicitante retornou antes de avaliar)')
+        void this.notificarRetorno(input.ticketId, ticket.responsavelId, ticket.empresaId)
       }
     }
 

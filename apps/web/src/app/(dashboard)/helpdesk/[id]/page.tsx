@@ -8,7 +8,7 @@ import {
   Eye, Star, Save, Tag, Building2, Image as ImageIcon,
   FileVideo, FileAudio, File as FileIcon, FileSpreadsheet,
   MoreVertical, Pencil, Trash2, Bot, ThumbsUp, ThumbsDown,
-  Terminal, Copy, Zap, FileCheck, Reply, X,
+  Terminal, Copy, Zap, FileCheck, Reply, X, RotateCcw, Info,
 } from 'lucide-react'
 import {
   Button, Card, CardContent, Badge, Label, cn, RichEditor, Input,
@@ -315,12 +315,17 @@ export default function HelpdeskTicketDetailPage() {
     // sobre reabertura (#HLP0062). A mensagem é sempre registrada primeiro,
     // independente do status, pra não perder o que o usuário escreveu.
     const statusAntes = ticket?.status
+    // R5.4 — em arquivado/cancelado o backend só aceita nota interna. Se quem
+    // envia é agente, forçamos interna; o solicitante nem vê o compositor (usa
+    // o botão de reabrir). Assim a mensagem nunca é rejeitada pelo backend.
+    const soNotaInterna = (ticket?.arquivado || ticket?.status === 'CANCELADO') && podeAtuar
+    const internaFinal = soNotaInterna ? true : interna
     setEnviando(true)
     try {
       const msg = await (trpc.helpdesk as any).addMensagem.mutate({
         ticketId: id,
         conteudo: conteudo || '<p>(anexo)</p>',
-        interna,
+        interna: internaFinal,
         respostaParaId: respondendoA?.id ?? undefined,
       })
       setRespondendoA(null)
@@ -343,15 +348,14 @@ export default function HelpdeskTicketDetailPage() {
       setNovaMsg('')
       setMsgAnexos([])
       await fetchData(true)
-      // Mensagem registrada — se o ticket estava encerrado, pergunta se quer
-      // reabrir (#HLP0062). Notas internas ficam de fora: agente pode anotar
-      // sem reativar o ticket pro solicitante.
-      const encerrado = statusAntes === 'CONCLUIDO' || statusAntes === 'CANCELADO'
-      if (encerrado && !interna) {
-        const labelStatus = statusAntes === 'CONCLUIDO' ? 'concluído' : 'cancelado'
+      // R5.3 — mensagem pública registrada num ticket CONCLUÍDO: pergunta se
+      // quer reabrir (#HLP0062). Arquivado/cancelado não chegam aqui (só nota
+      // interna, e o solicitante reabre pelo botão). RESOLVIDO reabre sozinho
+      // no backend (5.5). Notas internas nunca reabrem.
+      if (statusAntes === 'CONCLUIDO' && !internaFinal) {
         const ok = await alerts.confirm({
-          title: 'Reabrir ticket?',
-          text: `Este ticket está ${labelStatus}, mas sua mensagem foi registrada. Deseja reabri-lo (voltar para Em andamento)?`,
+          title: 'Reabrir chamado?',
+          text: 'Este chamado está concluído, mas sua mensagem foi registrada. Deseja reabri-lo (voltar para Em andamento)?',
           confirmText: 'Reabrir',
           icon: 'question',
         })
@@ -373,6 +377,30 @@ export default function HelpdeskTicketDetailPage() {
       alerts.error('Erro', (e as Error).message)
     } finally {
       setEnviando(false)
+    }
+  }
+
+  /**
+   * R5.4 — reabre um chamado arquivado/cancelado por BOTÃO (sem depender de
+   * enviar mensagem). Volta pra Em andamento E desarquiva, senão reabre mas
+   * some da lista por continuar arquivado.
+   */
+  async function reabrirTicket() {
+    const ok = await alerts.confirm({
+      title: 'Reabrir chamado?',
+      text: 'O chamado volta para "Em andamento" e fica visível novamente para tratamento.',
+      confirmText: 'Reabrir',
+      icon: 'question',
+    })
+    if (!ok) return
+    try {
+      await (trpc.helpdesk as any).update.mutate({
+        id,
+        data: { status: 'EM_ANDAMENTO', arquivado: false },
+      })
+      await fetchData(true)
+    } catch (e) {
+      alerts.error('Erro ao reabrir', (e as Error).message)
     }
   }
 
@@ -736,6 +764,25 @@ export default function HelpdeskTicketDetailPage() {
   // Solicitante pode cancelar o próprio ticket enquanto está aberto.
   // TI também pode cancelar (via sidebar/select de status), então aqui foco no solicitante.
   const isSolicitante = !!currentUserId && ticket.solicitante?.id === currentUserId
+  // R5.3/5.4/5.5 — compositor conforme o estado:
+  //  • concluído → mensagem pública liberada; ela pergunta se reabre (5.3). Se
+  //    também estiver arquivado, a mensagem trava e a reabertura vira BOTÃO (5.4).
+  //  • cancelado → encerrado; sem aviso/botão de reabertura. Agente ainda pode
+  //    registrar nota interna; o solicitante não reabre (cancelado é terminal).
+  //  • RESOLVIDO ("Aguardando avaliação") → mensagem do solicitante reverte
+  //    pra Em andamento automaticamente no backend, e a equipe é avisada (5.5).
+  const estaCancelado = ticket.status === 'CANCELADO'
+  const bloqueiaMsgPublica = ticket.arquivado || estaCancelado
+  const soNotaInterna = bloqueiaMsgPublica && podeAtuar
+  const estaResolvido = ticket.status === 'RESOLVIDO'
+  const internaEfetiva = soNotaInterna ? true : interna
+  // R5.3 — o aviso de reabertura pertence ao CONCLUÍDO (arquivado ou não). Só
+  // interessa a quem interage com o chamado (solicitante ou agente).
+  const avisoReabertura = ticket.status === 'CONCLUIDO' && (isSolicitante || podeAtuar)
+  // R5.4 — é o MESMO aviso, mas com BOTÃO, quando novas mensagens estão bloqueadas
+  // (concluído + arquivado): sem compositor, o botão dispara o gatilho. Concluído
+  // não-arquivado reabre enviando mensagem, então lá não há botão.
+  const mostrarBotaoReabrir = avisoReabertura && bloqueiaMsgPublica
   // #HLP0172: regra vem de @saas/types — mesma fonte que o backend impõe.
   const podeCancelar = solicitantePodeCancelar({
     status: ticket.status,
@@ -1212,9 +1259,50 @@ export default function HelpdeskTicketDetailPage() {
                 )
               })}
 
-              {/* Composer */}
+              {/* R5.3/5.4 — aviso de reabertura, ancorado no CONCLUÍDO (arquivado
+                  ou não). Ganha BOTÃO quando novas mensagens estão bloqueadas
+                  (concluído + arquivado); senão, reabre-se enviando mensagem. */}
+              {avisoReabertura && (
+                <Card className="border-l-4 border-l-sky-400 bg-sky-50/40 dark:bg-sky-900/20">
+                  <CardContent className="p-3 flex flex-col gap-2.5 sm:flex-row sm:items-center">
+                    <div className="flex items-start gap-2 text-[12px] text-muted-foreground flex-1">
+                      <Info className="h-4 w-4 text-sky-500 shrink-0 mt-0.5" />
+                      <span>
+                        Chamado <span className="font-medium text-foreground">concluído</span>.{' '}
+                        {mostrarBotaoReabrir
+                          ? <>Novas mensagens estão bloqueadas — use o botão para reabri-lo (volta para <span className="font-medium text-foreground">Em andamento</span>).</>
+                          : <>Ao enviar uma mensagem, o sistema pergunta se deseja reabri-lo (volta para <span className="font-medium text-foreground">Em andamento</span>).</>}
+                      </span>
+                    </div>
+                    {mostrarBotaoReabrir && (
+                      <Button size="sm" variant="outline" onClick={reabrirTicket} className="gap-1.5 shrink-0">
+                        <RotateCcw className="h-3.5 w-3.5" /> Reabrir chamado
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Composer — escondido pro solicitante quando a mensagem pública
+                  está bloqueada (arquivado/cancelado); o agente mantém pra
+                  registrar nota interna. */}
+              {(!bloqueiaMsgPublica || podeAtuar) && (
               <Card id="helpdesk-composer">
                 <CardContent className="p-3 space-y-2">
+                  {/* R5.5 — RESOLVIDO/aguardando avaliação: mensagem do solicitante reverte. */}
+                  {estaResolvido && isSolicitante && (
+                    <div className="flex items-start gap-2 rounded border border-amber-200/70 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1.5 text-[11px] text-amber-800 dark:text-amber-200">
+                      <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span>Se você enviar uma mensagem em vez de avaliar, o chamado volta para <strong>Em andamento</strong> e a equipe é avisada.</span>
+                    </div>
+                  )}
+                  {/* R5.4 — agente em arquivado/cancelado: só nota interna liberada. */}
+                  {soNotaInterna && (
+                    <div className="flex items-start gap-2 rounded border border-amber-200/70 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1.5 text-[11px] text-amber-800 dark:text-amber-200">
+                      <Lock className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span>Chamado encerrado: só nota interna. Para responder ao solicitante, reabra o chamado.</span>
+                    </div>
+                  )}
                   {/* Respondendo a uma mensagem específica */}
                   {respondendoA && (
                     <div className="flex items-start gap-2 border-l-2 border-cyan-400 bg-muted/40 rounded-r px-2.5 py-1.5 text-xs">
@@ -1226,8 +1314,9 @@ export default function HelpdeskTicketDetailPage() {
                     </div>
                   )}
                   {/* Nota interna é embutida em "atuar como agente": só agentes
-                      escolhem entre pública/interna. Sem podeAtuar, só pública. */}
-                  {podeAtuar && (
+                      escolhem entre pública/interna. Sem podeAtuar, só pública.
+                      Em arquivado/cancelado o toggle some (só interna é possível). */}
+                  {podeAtuar && !soNotaInterna && (
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
@@ -1258,7 +1347,7 @@ export default function HelpdeskTicketDetailPage() {
                   <RichEditor
                     value={novaMsg}
                     onChange={(html) => setNovaMsg(html)}
-                    placeholder={interna ? 'Nota privada (só agentes veem)' : 'Resposta visível ao solicitante'}
+                    placeholder={internaEfetiva ? 'Nota privada (só agentes veem)' : 'Resposta visível ao solicitante'}
                     className="min-h-[100px]"
                   />
                   <AnexosDropzone value={msgAnexos} onChange={setMsgAnexos} compact />
@@ -1276,6 +1365,7 @@ export default function HelpdeskTicketDetailPage() {
                   </div>
                 </CardContent>
               </Card>
+              )}
             </div>
             </TabsContent>
 
