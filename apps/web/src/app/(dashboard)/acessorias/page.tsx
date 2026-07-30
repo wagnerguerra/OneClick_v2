@@ -16,7 +16,7 @@ import { useRouter } from 'next/navigation'
 import {
   Zap, Loader2, Play, Copy, CheckCircle2, XCircle, Database,
   ChevronRight, ChevronDown, Building2, FileSearch, Link as LinkIcon,
-  History, Search, RefreshCw, AlertCircle, Trash2, Save, Plus, MailWarning,
+  History, Search, RefreshCw, AlertCircle, Trash2, Save, Plus, MailWarning, GitCompareArrows,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn,
@@ -133,6 +133,11 @@ export default function AcessoriasPage() {
           <Button variant="outline" size="sm" asChild>
             <Link href="/acessorias/painel"><MailWarning className="h-4 w-4" />Painel de entregas</Link>
           </Button>
+          {isAdmin && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/acessorias/divergencias"><GitCompareArrows className="h-4 w-4" />Divergências</Link>
+            </Button>
+          )}
           <BackButton href="/" />
         </div>
       </div>
