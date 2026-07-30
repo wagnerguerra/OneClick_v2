@@ -194,11 +194,6 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
       .input(z.object({ ticketId: z.string() }))
       .query(({ input, ctx }) => helpdeskService.listAgentesAtribuiveis(input.ticketId, ctx.userId!)),
 
-    // ── Métricas (painel TI) — requer permissão helpdesk ──
-    getMetricas: readProcedure(MODULE)
-      .input(z.object({ periodoDias: z.number().int().min(7).max(365).optional() }).optional())
-      .query(({ input, ctx }) => helpdeskService.getMetricas(ctx.empresaId ?? null, input?.periodoDias ?? 30)),
-
     /**
      * Dashboard completo de indicadores + relatórios (rota /helpdesk/indicadores).
      * Aceita intervalo de datas (ISO). Sem intervalo → últimos 30 dias.

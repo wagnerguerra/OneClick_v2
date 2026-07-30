@@ -286,7 +286,7 @@ export default function FaqHelpdeskPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <QuickLink href="/helpdesk" label="Painel TI (kanban)" cor={MODULO_COLOR} />
           <QuickLink href="/helpdesk/meus" label="Meus tickets" cor={MODULO_COLOR} />
-          <QuickLink href="/helpdesk/metricas" label="Métricas (CSAT, MTTR, SLA)" cor={MODULO_COLOR} />
+          <QuickLink href="/helpdesk/indicadores" label="Indicadores (CSAT, MTTR, SLA)" cor={MODULO_COLOR} />
           <QuickLink href="/configuracoes" label="Configurar categorias e SLA" cor={MODULO_COLOR} />
         </div>
       </Section>
