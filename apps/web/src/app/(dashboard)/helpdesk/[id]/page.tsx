@@ -85,6 +85,7 @@ interface Ticket {
   resolvidoEm: string | null
   concluidoEm: string | null
   csatNota: number | null
+  csatComentario: string | null
   csatRespondidoEm: string | null
   arquivado: boolean
   // R5.2 — computados no backend (getById): se a avaliação ainda está
@@ -1023,6 +1024,40 @@ export default function HelpdeskTicketDetailPage() {
                     {csatEnviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Star className="h-3.5 w-3.5" />}
                     Enviar avaliação
                   </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Item 6 / C8 — avaliação já registrada: nota + comentário, em modo
+                leitura. Visível a todos que abrem o ticket (o solicitante confere
+                a própria nota; o agente vê o retorno). csatComentario é texto puro
+                do textarea, então exibe como texto (sem RichContent). */}
+            {ticket.csatRespondidoEm && ticket.csatNota != null && (
+              <Card className="border-l-4 border-l-amber-400 bg-amber-50/30 dark:bg-amber-900/15">
+                <CardContent className="p-4 space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+                    <h3 className="text-sm font-semibold">Avaliação do atendimento</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map(n => (
+                        <Star
+                          key={n}
+                          className={cn('h-5 w-5', n <= (ticket.csatNota ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30')}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground tabular-nums">{ticket.csatNota}/5</span>
+                  </div>
+                  {ticket.csatComentario?.trim() && (
+                    <p className="text-sm text-foreground/90 whitespace-pre-wrap border-l-2 border-amber-300 pl-2.5 italic">
+                      “{ticket.csatComentario.trim()}”
+                    </p>
+                  )}
+                  <p className="text-[11px] text-muted-foreground">
+                    Avaliado {ticket.solicitante ? `por ${ticket.solicitante.name} ` : ''}em {new Date(ticket.csatRespondidoEm).toLocaleString('pt-BR')}
+                  </p>
                 </CardContent>
               </Card>
             )}
