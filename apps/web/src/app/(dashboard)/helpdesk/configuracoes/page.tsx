@@ -3,11 +3,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Settings, ArrowLeft, Mail, Loader2, Bell, Clock, Inbox,
+  Settings, ArrowLeft, Mail, Loader2, Bell, Clock, Inbox, Users, AlertTriangle,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card,
+  Button, Input, Label, Card, Switch,
 } from '@saas/ui'
+import { EmailChipsInput } from '@/components/ui/email-chips-input'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -19,7 +20,9 @@ interface Config {
   slaPorPrioridade: { BAIXA: number; MEDIA: number; ALTA: number; URGENTE: number }
   autoFechamentoDias: number
   inboundEmail: string
-  emailNotificacao: string
+  notificarTodosAgentes: boolean
+  destinatarios: string[]
+  temAgentes: boolean
 }
 
 export default function HelpdeskConfiguracoesPage() {
@@ -30,7 +33,9 @@ export default function HelpdeskConfiguracoesPage() {
 
   const [config, setConfig] = useState<Config | null>(null)
   const [loading, setLoading] = useState(true)
-  const [emailNotificacao, setEmailNotificacao] = useState('')
+  // Chips guardam os e-mails como string "a@b; c@d" (formato do EmailChipsInput).
+  const [destinatarios, setDestinatarios] = useState('')
+  const [notificarTodos, setNotificarTodos] = useState(false)
   const [autoFechamentoDias, setAutoFechamentoDias] = useState('3')
   const [inboundEmail, setInboundEmail] = useState('')
   const [savingField, setSavingField] = useState<string | null>(null)
@@ -40,7 +45,8 @@ export default function HelpdeskConfiguracoesPage() {
     try {
       const c = await trpc.helpdesk.getConfig.query()
       setConfig(c as unknown as Config)
-      setEmailNotificacao(c.emailNotificacao ?? '')
+      setDestinatarios((c.destinatarios ?? []).join('; '))
+      setNotificarTodos(!!c.notificarTodosAgentes)
       setAutoFechamentoDias(c.autoFechamentoDias.toString())
       setInboundEmail(c.inboundEmail ?? '')
     } catch (e) {
@@ -71,11 +77,19 @@ export default function HelpdeskConfiguracoesPage() {
     }
   }
 
-  async function handleBlurEmailNotificacao() {
-    const v = emailNotificacao.trim()
-    if (!v) { setEmailNotificacao(config?.emailNotificacao ?? ''); return }
-    if (v === config?.emailNotificacao) return
-    await saveField('emailNotificacao', { emailNotificacao: v })
+  // Salva os destinatários (string de chips → array). Cada add/remove de chip é
+  // uma ação deliberada, então persiste na hora; ignora se não mudou.
+  async function salvarDestinatarios(next: string) {
+    setDestinatarios(next)
+    const arr = next.split(/[,;]/).map(s => s.trim()).filter(Boolean)
+    const atual = (config?.destinatarios ?? [])
+    if (arr.join('|') === atual.join('|')) return
+    await saveField('destinatarios', { destinatarios: arr } as Partial<Config>)
+  }
+
+  async function alternarNotificarTodos(v: boolean) {
+    setNotificarTodos(v)
+    await saveField('notificarTodos', { notificarTodosAgentes: v } as Partial<Config>)
   }
 
   async function handleBlurAutoFechamento() {
@@ -118,7 +132,7 @@ export default function HelpdeskConfiguracoesPage() {
         </div>
       ) : (
         <>
-          {/* Card: Email de notificação */}
+          {/* Card: Notificação de novos tickets */}
           <Card className="overflow-hidden">
             <div className="px-4 py-3 border-b border-border flex items-center gap-3">
               <div
@@ -128,33 +142,56 @@ export default function HelpdeskConfiguracoesPage() {
                 <Bell className="h-4 w-4" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-foreground">Email de notificação de tickets</h3>
+                <h3 className="text-sm font-semibold text-foreground">Notificação de novos tickets</h3>
                 <p className="text-[12px] text-muted-foreground">
-                  Quando um ticket é criado <strong>sem categoria/área</strong> (ex: via balão "Fale com a TI"),
-                  enviamos o resumo do ticket pra esse email.
+                  Como os agentes ficam sabendo quando um ticket é aberto (sino no app + e-mail).
                 </p>
               </div>
             </div>
-            <div className="p-4 space-y-1.5">
-              <Label htmlFor="email-not" className="text-[13px] font-semibold flex items-center gap-1.5">
-                <Mail className="h-3 w-3" /> Destinatário
-              </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="email-not"
-                  type="email"
-                  value={emailNotificacao}
-                  onChange={(e) => setEmailNotificacao(e.target.value)}
-                  onBlur={handleBlurEmailNotificacao}
-                  disabled={!canWrite}
-                  placeholder="ti@central-rnc.com.br"
-                  className="h-9 text-sm max-w-md"
-                />
-                {savingField === 'emailNotificacao' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+
+            {/* Aviso: sem agentes = ninguém é notificado nem pode atender */}
+            {config && !config.temAgentes && (
+              <div className="mx-4 mt-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-200">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Nenhum usuário é agente do HelpDesk.</strong> Isso significa que ninguém será
+                  notificado de novos tickets nem poderá atendê-los. Defina agentes nas permissões do
+                  módulo (sub-permissão "Atuar como agente" ou lotando usuários numa área de TI).
+                </span>
               </div>
+            )}
+
+            {/* Toggle: notificar todos os agentes */}
+            <div className="p-4 flex items-start justify-between gap-4 border-b border-border/60">
+              <div className="min-w-0">
+                <Label className="text-[13px] font-semibold flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5" /> Notificar todos os agentes
+                </Label>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {notificarTodos
+                    ? 'Ligado: todo novo ticket avisa (sino + e-mail) TODOS os agentes do HelpDesk, além dos destinatários adicionais abaixo.'
+                    : 'Desligado: novo ticket avisa (sino + e-mail) os membros da área do ticket. Sem área, cai nos destinatários abaixo.'}
+                </p>
+              </div>
+              <Switch checked={notificarTodos} onCheckedChange={alternarNotificarTodos} disabled={!canWrite} />
+            </div>
+
+            {/* Lista de e-mails (rótulo/texto mudam conforme o toggle) */}
+            <div className="p-4 space-y-1.5">
+              <Label className="text-[13px] font-semibold flex items-center gap-1.5">
+                <Mail className="h-3 w-3" /> {notificarTodos ? 'Destinatários adicionais' : 'Destinatários'}
+                {savingField === 'destinatarios' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+              </Label>
+              <EmailChipsInput
+                value={destinatarios}
+                onChange={salvarDestinatarios}
+                disabled={!canWrite}
+                placeholder="Digite um e-mail e pressione Enter"
+              />
               <p className="text-[11px] text-muted-foreground">
-                Recomenda-se um endereço de grupo (ex: <code className="bg-muted px-1 rounded">ti@</code>) pra
-                garantir que alguém leia. Tickets COM categoria definida continuam indo pros agentes da área.
+                {notificarTodos
+                  ? 'E-mails que também recebem o aviso de novos tickets, além de todos os agentes. Útil pra caixas de grupo (ex: ti@).'
+                  : 'E-mails avisados por e-mail quando um ticket é aberto SEM área definida (ex: via balão "Fale com a TI"). Tickets com área vão para os membros da área.'}
               </p>
             </div>
           </Card>

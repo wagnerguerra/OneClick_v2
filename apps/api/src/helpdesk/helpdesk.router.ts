@@ -219,7 +219,7 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
         if (!(await helpdeskService.canAtuarAgente(ctx.userId!))) {
           throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas a TI pode acessar as configurações' })
         }
-        return helpdeskService.getConfig()
+        return helpdeskService.getConfig(ctx.empresaId ?? null)
       }),
 
     updateConfig: protectedProcedure
@@ -227,7 +227,9 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
         slaPorPrioridade: z.record(z.string(), z.number().int().min(1).max(2400)).optional(),
         autoFechamentoDias: z.number().int().min(1).max(30).optional(),
         inboundEmail: z.string().email().optional().or(z.literal('')),
-        emailNotificacao: z.string().email().optional().or(z.literal('')),
+        notificarTodosAgentes: z.boolean().optional(),
+        // Lista de e-mails; entradas vazias são filtradas no service.
+        destinatarios: z.array(z.string().email()).optional(),
       }))
       .mutation(async ({ input, ctx }) => {
         if (!(await helpdeskService.canAtuarAgente(ctx.userId!))) {

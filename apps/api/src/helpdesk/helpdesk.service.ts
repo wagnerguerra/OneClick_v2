@@ -291,14 +291,9 @@ export class HelpdeskService {
       tipo: input.tipo,
     })
 
-    // Notifica agentes da área (sino) — Fase 5 também manda e-mail
-    const notificouAgentes = await this.notificarAgentesArea(ticket.id, areaId, userId, empresaId)
-
-    // Fallback: se não há agentes da área (ex: ticket veio sem categoria via FAB
-    // "Fale com a TI"), envia email pro endereço configurado em HelpdeskConfig.
-    if (!notificouAgentes) {
-      await this.notificarEmailFallback(ticket.id)
-    }
+    // Notificação de novo ticket (sino in-app + e-mail). Quem recebe depende da
+    // config `notificarTodosAgentes` — ver o método (R1.3).
+    await this.notificarNovoTicket(ticket.id, empresaId)
 
     // Triagem IA — fire-and-forget. Não bloqueia o create (retorno em <100ms).
     // O agente classifica simples/complexo e atualiza o ticket de forma assíncrona;
@@ -311,93 +306,142 @@ export class HelpdeskService {
   }
 
   /**
-   * Notificação por email quando nenhum agente da área foi notificado
-   * (ticket sem categoria/área — ex: FAB "Fale com a TI").
+   * Notificação de um novo ticket: sino (in-app) para usuários + e-mail. Quem
+   * recebe depende do toggle `notificarTodosAgentes` da config (R1.3):
+   *   - LIGADO:    todos os agentes do HelpDesk (sino + e-mail) + e-mail aos
+   *                Destinatários adicionais.
+   *   - DESLIGADO: se o ticket tem área, os membros dela (sino + e-mail); se
+   *                não tem área, e-mail aos Destinatários.
+   * Sempre exclui o próprio solicitante. Falhas são logadas, não propagam.
    */
-  private async notificarEmailFallback(ticketId: string) {
+  private async notificarNovoTicket(ticketId: string, empresaId?: string | null) {
     try {
-      const cfg = await this.getConfig()
-      const destinatario = cfg.emailNotificacao
-      if (!destinatario) return
-
       const ticket = await prisma.helpdeskTicket.findUnique({
         where: { id: ticketId },
-        select: {
-          numero: true, titulo: true, descricao: true, tipo: true, prioridade: true, tags: true,
-          solicitante: { select: { name: true, email: true } },
-        },
+        select: { areaId: true, solicitanteId: true, solicitante: { select: { email: true } } },
       })
       if (!ticket) return
+      const cfg = await this.getConfig(empresaId ?? null)
+      const solicitanteEmail = ticket.solicitante?.email?.trim().toLowerCase() ?? null
 
-      const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
-      const origem = ticket.tags.includes('fab-feedback') ? '🔔 Via balão "Fale com a TI"' : 'Sem categoria definida'
-      const html = `
-        <p>Um novo ticket foi aberto e precisa de atenção:</p>
-        <p><strong>${ticketNum}</strong> — ${escapeHtml(ticket.titulo)}</p>
-        <p style="font-size:12px;color:#6b7280;margin-top:4px;">
-          Tipo: <strong>${ticket.tipo}</strong> · Prioridade: <strong>${ticket.prioridade}</strong> · ${origem}
-        </p>
-        <p style="font-size:12px;color:#6b7280;">
-          Solicitante: ${ticket.solicitante ? escapeHtml(`${ticket.solicitante.name} <${ticket.solicitante.email}>`) : '—'}
-        </p>
-        <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb;">
-        ${ticket.descricao}
-        <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb;">
-        <p style="font-size:11px;color:#9ca3af;">
-          Para responder, abra o ticket no HelpDesk do OneClick.
-        </p>`
+      if (cfg.notificarTodosAgentes) {
+        const agentes = (await this.usuariosAgentes(empresaId ?? null)).filter(a => a.id !== ticket.solicitanteId)
+        await this.sinoNovoTicket(ticketId, agentes.map(a => a.id), empresaId ?? null)
+        await this.emailNovoTicket(ticketId, [...agentes.map(a => a.email), ...cfg.destinatarios], solicitanteEmail)
+        return
+      }
 
-      await this.emailService.sendMail({
-        to: destinatario,
-        subject: `HelpDesk ${ticketNum} — ${ticket.titulo.slice(0, 60)}`,
-        html,
-      })
+      // Toggle desligado: por área, ou (sem área) aos Destinatários.
+      if (ticket.areaId) {
+        const membros = await this.usuariosDaArea(ticket.areaId, ticket.solicitanteId, empresaId ?? null)
+        await this.sinoNovoTicket(ticketId, membros.map(m => m.id), empresaId ?? null)
+        await this.emailNovoTicket(ticketId, membros.map(m => m.email), solicitanteEmail)
+      } else {
+        await this.emailNovoTicket(ticketId, cfg.destinatarios, solicitanteEmail)
+      }
     } catch (e) {
-      console.warn('[Helpdesk] Falha no fallback email:', (e as Error).message)
+      console.warn('[Helpdesk] Falha ao notificar novo ticket:', (e as Error).message)
     }
   }
 
-  private async notificarAgentesArea(
-    ticketId: string,
-    areaId: string | null,
-    solicitanteId: string,
-    empresaId?: string | null,
-  ): Promise<boolean> {
-    if (!areaId) return false
-    // Pega usuários da área com permissão helpdesk.atuar_agente
-    const agentes = await prisma.user.findMany({
+  /** Usuários ativos que são agentes do HelpDesk (fonte única ehAgenteHelpdesk), com e-mail. */
+  private async usuariosAgentes(empresaId: string | null): Promise<Array<{ id: string; email: string | null }>> {
+    const users = await prisma.user.findMany({
+      where: { isActive: true, OR: empresaId ? [{ empresaId }, { empresaId: null }] : [{ empresaId: null }] },
+      select: {
+        id: true, email: true, isMaster: true, isEmpresaMaster: true,
+        area: { select: { name: true } },
+        permissions: { where: { moduleSlug: 'helpdesk' }, select: { subPermissions: true } },
+      },
+    })
+    return users
+      .filter(u => ehAgenteHelpdesk({ isMaster: u.isMaster, isEmpresaMaster: u.isEmpresaMaster, subPermissions: u.permissions[0]?.subPermissions, areaName: u.area?.name }))
+      .map(u => ({ id: u.id, email: u.email }))
+  }
+
+  /** Usuários ativos da área do ticket (exceto o solicitante), com e-mail. */
+  private async usuariosDaArea(areaId: string, exceptId: string | null, empresaId: string | null): Promise<Array<{ id: string; email: string | null }>> {
+    return prisma.user.findMany({
       where: {
-        areaId,
-        isActive: true,
-        id: { not: solicitanteId },
+        areaId, isActive: true,
+        ...(exceptId ? { id: { not: exceptId } } : {}),
         ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}),
       },
-      select: { id: true },
+      select: { id: true, email: true },
     })
-    if (agentes.length === 0) return false
+  }
+
+  /** Sino (in-app) de novo ticket para os usuários dados. */
+  private async sinoNovoTicket(ticketId: string, userIds: string[], empresaId: string | null) {
+    const ids = Array.from(new Set(userIds.filter(Boolean)))
+    if (ids.length === 0) return
     const ticket = await prisma.helpdeskTicket.findUnique({
       where: { id: ticketId },
       select: { numero: true, titulo: true, prioridade: true },
     })
-    if (!ticket) return false
+    if (!ticket) return
     const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
     try {
-      await this.notificationService.criarParaUsers(
-        agentes.map(a => a.id),
-        {
-          titulo: `Novo ticket ${ticketNum}`,
-          mensagem: `${ticket.titulo} (${ticket.prioridade})`,
-          tipo: 'info',
-          link: `/helpdesk/${ticketId}`,
-          origem: 'helpdesk',
-          empresaId: empresaId || null,
-        },
-      )
-      return true
+      await this.notificationService.criarParaUsers(ids, {
+        titulo: `Novo ticket ${ticketNum}`,
+        mensagem: `${ticket.titulo} (${ticket.prioridade})`,
+        tipo: 'info',
+        link: `/helpdesk/${ticketId}`,
+        origem: 'helpdesk',
+        empresaId: empresaId || null,
+      })
     } catch (e) {
-      console.warn('[Helpdesk] Falha ao notificar agentes:', (e as Error).message)
-      return false
+      console.warn('[Helpdesk] Falha no sino de novo ticket:', (e as Error).message)
     }
+  }
+
+  /** E-mail de novo ticket para a lista de endereços (dedup, exceto o solicitante). */
+  private async emailNovoTicket(ticketId: string, emails: Array<string | null | undefined>, exceptEmail: string | null) {
+    const dest = Array.from(new Set(
+      emails.map(e => e?.trim().toLowerCase()).filter((e): e is string => !!e),
+    )).filter(e => e !== exceptEmail)
+    if (dest.length === 0) return
+
+    const ticket = await prisma.helpdeskTicket.findUnique({
+      where: { id: ticketId },
+      select: {
+        numero: true, titulo: true, descricao: true, tipo: true, prioridade: true, tags: true,
+        area: { select: { name: true } },
+        solicitante: { select: { name: true, email: true } },
+      },
+    })
+    if (!ticket) return
+
+    const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
+    const origem = ticket.area?.name
+      ? `Área: ${escapeHtml(ticket.area.name)}`
+      : (ticket.tags.includes('fab-feedback') ? '🔔 Via balão "Fale com a TI"' : 'Sem área definida')
+    const html = `
+      <p>Um novo ticket foi aberto e precisa de atenção:</p>
+      <p><strong>${ticketNum}</strong> — ${escapeHtml(ticket.titulo)}</p>
+      <p style="font-size:12px;color:#6b7280;margin-top:4px;">
+        Tipo: <strong>${ticket.tipo}</strong> · Prioridade: <strong>${ticket.prioridade}</strong> · ${origem}
+      </p>
+      <p style="font-size:12px;color:#6b7280;">
+        Solicitante: ${ticket.solicitante ? escapeHtml(`${ticket.solicitante.name} <${ticket.solicitante.email ?? ''}>`) : '—'}
+      </p>
+      <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb;">
+      ${ticket.descricao}
+      <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb;">
+      <p style="font-size:11px;color:#9ca3af;">
+        Este é um e-mail automático — <strong>não responda por aqui</strong>, a resposta se perde.
+        Abra o ticket no HelpDesk do OneClick pra responder ou tratar.
+      </p>`
+
+    // Envio individual (não expõe os endereços uns aos outros); falha de um não
+    // impede os demais.
+    await Promise.allSettled(dest.map(to =>
+      this.emailService.sendMail({
+        to,
+        subject: `HelpDesk ${ticketNum} — ${ticket.titulo.slice(0, 60)}`,
+        html,
+      }),
+    ))
   }
 
   /** Detalhe completo do ticket (com mensagens, anexos, eventos, watchers, autores enriquecidos). */
@@ -1729,11 +1773,33 @@ export class HelpdeskService {
   private static readonly CFG_PREFIX = 'helpdesk.'
   private static readonly CFG_AUTO_FECHAMENTO_DIAS = 'helpdesk.auto_fechamento_dias'
   private static readonly CFG_INBOUND_EMAIL = 'helpdesk.inbound_email'
-  private static readonly CFG_EMAIL_NOTIFICACAO = 'helpdesk.email_notificacao'
-  private static readonly DEFAULT_EMAIL_NOTIFICACAO = 'ti@central-rnc.com.br'
+  // Reusa a chave antiga (back-compat): antes guardava 1 e-mail; agora guarda
+  // um array JSON de e-mails (os "Destinatários" / "Destinatários adicionais").
+  private static readonly CFG_DESTINATARIOS = 'helpdesk.email_notificacao'
+  private static readonly CFG_NOTIFICAR_TODOS_AGENTES = 'helpdesk.notificar_todos_agentes'
+  private static readonly DEFAULT_DESTINATARIO = 'ti@central-rnc.com.br'
   // SLA por prioridade — chaves helpdesk.sla.BAIXA / MEDIA / ALTA / URGENTE
 
-  async getConfig() {
+  /**
+   * Lê os destinatários do valor cru do SystemConfig. Back-compat:
+   *   - '' (nunca configurado) → [DEFAULT_DESTINATARIO]
+   *   - '[]' → [] (esvaziado de propósito)
+   *   - '["a@b","c@d"]' → array JSON
+   *   - 'a@b, c@d' → split (formato antigo de e-mail único ou lista por vírgula)
+   */
+  private parseDestinatarios(raw: string | undefined | null): string[] {
+    const t = (raw ?? '').trim()
+    if (!t) return [HelpdeskService.DEFAULT_DESTINATARIO]
+    if (t.startsWith('[')) {
+      try {
+        const arr = JSON.parse(t)
+        if (Array.isArray(arr)) return arr.filter((x): x is string => typeof x === 'string' && !!x.trim()).map(x => x.trim())
+      } catch { /* cai pro split abaixo */ }
+    }
+    return t.split(/[,;\n]/).map(s => s.trim()).filter(Boolean)
+  }
+
+  async getConfig(empresaId?: string | null) {
     const cfgs = await prisma.systemConfig.findMany({
       where: { key: { startsWith: HelpdeskService.CFG_PREFIX } },
     })
@@ -1744,11 +1810,15 @@ export class HelpdeskService {
       ALTA: Number(map.get('helpdesk.sla.ALTA') ?? HELPDESK_SLA_PADRAO_HORAS.ALTA),
       URGENTE: Number(map.get('helpdesk.sla.URGENTE') ?? HELPDESK_SLA_PADRAO_HORAS.URGENTE),
     }
+    // `temAgentes` alimenta o aviso de "ninguém pra notificar/atender" (R1.3).
+    const temAgentes = (await this.listAgentes(empresaId ?? null)).length > 0
     return {
       slaPorPrioridade,
       autoFechamentoDias: Number(map.get(HelpdeskService.CFG_AUTO_FECHAMENTO_DIAS) ?? 3),
       inboundEmail: map.get(HelpdeskService.CFG_INBOUND_EMAIL) ?? '',
-      emailNotificacao: map.get(HelpdeskService.CFG_EMAIL_NOTIFICACAO) ?? HelpdeskService.DEFAULT_EMAIL_NOTIFICACAO,
+      notificarTodosAgentes: map.get(HelpdeskService.CFG_NOTIFICAR_TODOS_AGENTES) === 'true',
+      destinatarios: this.parseDestinatarios(map.get(HelpdeskService.CFG_DESTINATARIOS)),
+      temAgentes,
     }
   }
 
@@ -1756,7 +1826,8 @@ export class HelpdeskService {
     slaPorPrioridade?: Partial<Record<HelpdeskPrioridade, number>>
     autoFechamentoDias?: number
     inboundEmail?: string
-    emailNotificacao?: string
+    notificarTodosAgentes?: boolean
+    destinatarios?: string[]
   }) {
     const upserts: Array<{ key: string; value: string; label: string }> = []
     if (input.slaPorPrioridade) {
@@ -1784,11 +1855,21 @@ export class HelpdeskService {
         label: 'Endereço inbound para abertura de tickets por e-mail',
       })
     }
-    if (input.emailNotificacao !== undefined) {
+    if (input.notificarTodosAgentes !== undefined) {
       upserts.push({
-        key: HelpdeskService.CFG_EMAIL_NOTIFICACAO,
-        value: String(input.emailNotificacao).trim(),
-        label: 'Email pra receber notificação de tickets sem categoria/área (ex: via FAB)',
+        key: HelpdeskService.CFG_NOTIFICAR_TODOS_AGENTES,
+        value: input.notificarTodosAgentes ? 'true' : 'false',
+        label: 'Notificar todos os agentes do HelpDesk em cada novo ticket',
+      })
+    }
+    if (input.destinatarios !== undefined) {
+      const limpos = Array.from(new Set(
+        input.destinatarios.map(e => e.trim().toLowerCase()).filter(Boolean),
+      ))
+      upserts.push({
+        key: HelpdeskService.CFG_DESTINATARIOS,
+        value: JSON.stringify(limpos),
+        label: 'Destinatários (adicionais) de notificações por e-mail do HelpDesk',
       })
     }
     for (const u of upserts) {
