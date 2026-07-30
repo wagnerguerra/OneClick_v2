@@ -509,6 +509,22 @@ ${cfg.regrasFinalizacao || LeadService.REGRAS_FINALIZACAO_PADRAO}`
     return { sessao, mensagens }
   }
 
+  /** Conversa por ID de sessão — funciona mesmo quando a sessão NÃO virou CRM. */
+  async conversaPorSessao(sessaoId: string, empresaId?: string | null) {
+    const sessoes = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id, slug, origem, status, score, temperatura, dados, oportunidade_id AS "oportunidadeId", created_at AS "createdAt"
+         FROM lead_sessao WHERE id=$1 AND empresa_id IS NOT DISTINCT FROM $2 LIMIT 1`,
+      sessaoId, empresaId ?? null,
+    ).catch(() => [] as any[])
+    const sessao = sessoes[0]
+    if (!sessao) return null
+    const mensagens = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT role, conteudo, created_at AS "createdAt" FROM lead_sessao_mensagem WHERE sessao_id=$1 ORDER BY created_at ASC`,
+      sessao.id,
+    ).catch(() => [] as any[])
+    return { sessao, mensagens }
+  }
+
   async reportFunil(dias: number | null, empresaId?: string | null) {
     const desde = dias ? new Date(Date.now() - dias * 86400000) : null
     const rows = await prisma.$queryRawUnsafe<any[]>(

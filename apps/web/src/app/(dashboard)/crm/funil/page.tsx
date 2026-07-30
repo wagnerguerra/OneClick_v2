@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sparkles, Loader2, Save, Copy, ExternalLink, Flame, Thermometer, Snowflake, Plus, Trash2, Megaphone } from 'lucide-react'
-import { Button, Card, Input, Label, Switch, Badge, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn } from '@saas/ui'
+import { Sparkles, Loader2, Save, Copy, ExternalLink, Flame, Thermometer, Snowflake, Plus, Trash2, Megaphone, MessageSquare } from 'lucide-react'
+import { Button, Card, Input, Label, Switch, Badge, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn, Dialog, DialogContent } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { masks } from '@/lib/masks'
 import { alerts } from '@/lib/alerts'
@@ -50,6 +51,18 @@ export default function CrmFunilPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [sessoes, setSessoes] = useState<Sessao[]>([])
+  // Modal de conversa (funciona pra qualquer sessão, tenha virado CRM ou não)
+  const [conversa, setConversa] = useState<{ mensagens: Array<{ role: string; conteudo: string; createdAt: string }> } | null>(null)
+  const [conversaOpen, setConversaOpen] = useState(false)
+  const [conversaLoading, setConversaLoading] = useState(false)
+  async function abrirConversa(sessaoId: string) {
+    setConversaOpen(true); setConversaLoading(true); setConversa(null)
+    try {
+      const r = await (trpc.lead as { conversaSessao: { query: (i: { sessaoId: string }) => Promise<{ mensagens: Array<{ role: string; conteudo: string; createdAt: string }> } | null> } }).conversaSessao.query({ sessaoId })
+      setConversa(r)
+    } catch { setConversa(null) }
+    finally { setConversaLoading(false) }
+  }
   const [report, setReport] = useState<ReportFunil | null>(null)
   const [tipos, setTipos] = useState<Array<{ id: string; nome: string }>>([])
 
@@ -378,15 +391,49 @@ export default function CrmFunilPage() {
               return (
                 <div key={s.id} className="flex items-center gap-3 p-2.5 text-xs">
                   <span className="flex-1 min-w-0 truncate"><span className="font-medium">{nome}</span> <span className="text-muted-foreground">· {camp?.nome || s.slug || 'campanha'}{s.origem ? ` · ${s.origem}` : ''}</span></span>
+                  <span className="shrink-0 w-[118px] text-right text-[11px] text-muted-foreground tabular-nums" title="Início do atendimento">{s.createdAt ? new Date(s.createdAt as unknown as string).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}</span>
                   {t && <Badge variant="outline" className="text-[10px] gap-1" style={{ color: t.cor, borderColor: t.cor + '55' }}><t.icon className="h-3 w-3" /> {t.label}{s.score != null ? ` ${s.score}` : ''}</Badge>}
                   <Badge variant={s.status === 'registrado' ? 'secondary' : 'outline'} className="text-[10px]">{s.status === 'registrado' ? 'no CRM' : s.status}</Badge>
-                  {s.oportunidadeId && <a href={`/crm?op=${s.oportunidadeId}&tab=conversa`} title="Abrir conversa no CRM" className="text-muted-foreground hover:text-foreground"><ExternalLink className="h-3.5 w-3.5" /></a>}
+                  <button type="button" onClick={() => abrirConversa(s.id)} title="Ver conversa" className="shrink-0 text-muted-foreground hover:text-foreground"><MessageSquare className="h-3.5 w-3.5" /></button>
+                  {s.oportunidadeId && <a href={`/crm?op=${s.oportunidadeId}&tab=conversa`} title="Abrir no CRM" className="shrink-0 text-muted-foreground hover:text-foreground"><ExternalLink className="h-3.5 w-3.5" /></a>}
                 </div>
               )
             })}
           </div>
         )}
       </Card>
+
+      <Dialog open={conversaOpen} onOpenChange={(o) => { if (!o) { setConversaOpen(false); setConversa(null) } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeaderIcon icon={MessageSquare} color="violet">Conversa do atendimento</DialogHeaderIcon>
+          <div className="max-h-[60vh] space-y-3 overflow-y-auto rounded-2xl bg-muted/20 px-2 py-3">
+            {conversaLoading ? (
+              <div className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></div>
+            ) : !conversa || !conversa.mensagens?.length ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">Sem mensagens nesta conversa.</p>
+            ) : conversa.mensagens.map((m, i) => {
+              const time = m.createdAt ? new Date(m.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
+              if (m.role === 'user') {
+                return (
+                  <div key={i} className="flex flex-col items-end">
+                    <span className="mb-0.5 pr-1 text-[10px] text-muted-foreground">Visitante{time ? ` · ${time}` : ''}</span>
+                    <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-3xl rounded-br-md px-4 py-2.5 text-sm leading-relaxed text-white shadow-sm" style={{ background: MODULE_COLOR }}>{m.conteudo}</div>
+                  </div>
+                )
+              }
+              return (
+                <div key={i} className="flex items-end gap-2.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white shadow-sm" style={{ background: MODULE_COLOR }}><Sparkles className="h-3.5 w-3.5" /></div>
+                  <div className="flex min-w-0 max-w-[85%] flex-col items-start">
+                    <span className="mb-0.5 pl-1 text-[10px] text-muted-foreground">Atendente{time ? ` · ${time}` : ''}</span>
+                    <div className="whitespace-pre-wrap break-words rounded-3xl rounded-tl-md border border-border/70 bg-card px-4 py-2.5 text-sm leading-relaxed shadow-sm">{m.conteudo}</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

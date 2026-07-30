@@ -160,6 +160,23 @@ export class SocioService {
     })
   }
 
+  /** Exclusão múltipla (soft delete). Respeita empresa e ignora os já inativos. */
+  async deleteMany(ids: string[], userId?: string, isMaster?: boolean, empresaId?: string, tenantSchema?: string) {
+    if (!ids?.length) return { count: 0 }
+    return scoped(tenantSchema, async (db) => {
+      const socios = await db.socio.findMany({
+        where: { id: { in: ids }, isActive: true, ...empresaFilter(!!isMaster, empresaId) },
+        select: { id: true, version: true },
+      })
+      for (const s of socios) {
+        const newVersion = s.version + 1
+        await db.socio.update({ where: { id: s.id }, data: { isActive: false, version: newVersion } })
+        await db.socioEvent.create({ data: { socioId: s.id, userId: userId || null, type: 'inactivated', version: newVersion } })
+      }
+      return { count: socios.length }
+    })
+  }
+
   async listForSelect(isMaster: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, (db) =>
       db.socio.findMany({

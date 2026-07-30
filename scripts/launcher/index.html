@@ -2153,6 +2153,9 @@
           <button class="settings-tab" type="button" data-settings-tab="diagnostics" role="tab" aria-selected="false">
             <span class="settings-tab-icon">&#128202;</span> Diagnóstico
           </button>
+          <button class="settings-tab" type="button" data-settings-tab="connections" role="tab" aria-selected="false">
+            <span class="settings-tab-icon">&#128279;</span> Conexões
+          </button>
         </div>
 
         <div class="settings-tab-panel active" data-settings-panel="general">
@@ -2202,6 +2205,46 @@
           </div>
         </div>
 
+        </div>
+
+        <div class="settings-tab-panel" data-settings-panel="connections">
+          <!-- MySQL Legado (OneClick v1) -->
+          <div class="settings-section">
+            <div class="settings-section-title">
+              <span style="color:var(--green);font-size:18px;">&#128279;</span> MySQL Legado (OneClick v1)
+            </div>
+            <div class="settings-hint" style="margin-bottom:10px;">Usado pelo "Importar do OneClick" (sócios etc.) no cadastro do cliente. Ex.: host <b>192.168.0.7</b>, banco <b>db_intranet</b>, usuário <b>rose</b>.</div>
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;">
+              <div class="settings-row"><label class="settings-label">Host</label><input class="settings-input" id="settingLegacyHost" placeholder="192.168.0.7"></div>
+              <div class="settings-row"><label class="settings-label">Porta</label><input class="settings-input" id="settingLegacyPort" placeholder="3306"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="settings-row"><label class="settings-label">Usuário</label><input class="settings-input" id="settingLegacyUser" placeholder="rose"></div>
+              <div class="settings-row"><label class="settings-label">Senha</label><input class="settings-input" id="settingLegacyPassword" type="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;"></div>
+            </div>
+            <div class="settings-row"><label class="settings-label">Banco de dados</label><input class="settings-input" id="settingLegacyDatabase" placeholder="db_intranet"></div>
+            <div class="settings-row" style="display:flex;gap:10px;align-items:center;margin-top:4px;">
+              <button class="btn btn-sky" type="button" onclick="testLegacyDb()">Testar conexão</button>
+              <span id="legacyTestResult" class="settings-hint" style="margin:0;"></span>
+            </div>
+          </div>
+
+          <!-- Firebird SCI (opcional) -->
+          <div class="settings-section">
+            <div class="settings-section-title">
+              <span style="color:var(--sky);font-size:18px;">&#128279;</span> Firebird SCI (opcional)
+            </div>
+            <div class="settings-hint" style="margin-bottom:10px;">Sobrescreve a conexão do SCI (balancete/BI Sync). Deixe <b>vazio</b> para manter a configuração atual (arquivo .env).</div>
+            <div class="settings-row"><label class="settings-label">DSN / caminho do .fdb</label><input class="settings-input" id="settingSciDsn" placeholder="\\192.168.0.2\s\SCI\dados\SCI.FDB"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="settings-row"><label class="settings-label">Usuário</label><input class="settings-input" id="settingSciUser" placeholder="SYSDBA"></div>
+              <div class="settings-row"><label class="settings-label">Senha</label><input class="settings-input" id="settingSciPassword" type="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;"></div>
+            </div>
+          </div>
+
+          <div class="settings-section" style="border:none;background:none;padding-top:0;">
+            <button class="btn btn-green" type="button" onclick="saveAllSettings()">Salvar conexões</button>
+          </div>
         </div>
 
         <div class="settings-tab-panel" data-settings-panel="diagnostics">
@@ -2889,6 +2932,24 @@
     // ═══════════════════════════════════════════════════════════
     // Settings & Claude Code
     // ═══════════════════════════════════════════════════════════
+    async function testLegacyDb() {
+      const el = document.getElementById('legacyTestResult');
+      const gv = (id) => (document.getElementById(id)?.value ?? '');
+      if (el) { el.textContent = 'Testando...'; el.style.color = 'var(--text-muted)'; }
+      const cfg = {
+        host: gv('settingLegacyHost').trim(),
+        port: Number(gv('settingLegacyPort').trim()) || 3306,
+        user: gv('settingLegacyUser').trim(),
+        password: gv('settingLegacyPassword'),
+        database: gv('settingLegacyDatabase').trim(),
+      };
+      try {
+        const r = await api.testLegacyDb(cfg);
+        if (r && r.ok) { el.textContent = '✓ Conectou' + (r.info ? ' — ' + r.info : ''); el.style.color = '#16a34a'; }
+        else { el.textContent = '✗ ' + ((r && r.error) || 'Falhou'); el.style.color = '#dc2626'; }
+      } catch (e) { if (el) { el.textContent = '✗ ' + (e.message || e); el.style.color = '#dc2626'; } }
+    }
+
     async function loadSettingsUI() {
       const settings = await api.getSettings();
       document.getElementById('settingClaudeDir').value = settings.claudeDir || '';
@@ -2921,6 +2982,20 @@
         const v = await api.getAppVersion();
         document.getElementById('settingAppVersion').textContent = `${v.version}`;
       } catch {}
+
+      // Conexões (bancos legados)
+      const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = (val ?? ''); };
+      const ldb = settings.legacyDb || {};
+      setVal('settingLegacyHost', ldb.host);
+      setVal('settingLegacyPort', ldb.port);
+      setVal('settingLegacyUser', ldb.user);
+      setVal('settingLegacyPassword', ldb.password);
+      setVal('settingLegacyDatabase', ldb.database);
+      const sci = settings.firebirdSci || {};
+      setVal('settingSciDsn', sci.dsn);
+      setVal('settingSciUser', sci.user);
+      setVal('settingSciPassword', sci.password);
+
       if (typeof refreshDiagnostics === 'function') refreshDiagnostics();
     }
 
@@ -2939,11 +3014,24 @@
       }
 
       const currentSettings = await api.getSettings();
+      const val = (id) => (document.getElementById(id)?.value ?? '');
       const settings = {
         ...currentSettings,
         claudeDir: document.getElementById('settingClaudeDir').value.trim(),
         autoStart: document.getElementById('settingAutoStart').checked,
         autoStartServices: document.getElementById('settingAutoStartServices').checked,
+        legacyDb: {
+          host: val('settingLegacyHost').trim(),
+          port: Number(val('settingLegacyPort').trim()) || 3306,
+          user: val('settingLegacyUser').trim(),
+          password: val('settingLegacyPassword'),
+          database: val('settingLegacyDatabase').trim(),
+        },
+        firebirdSci: {
+          dsn: val('settingSciDsn').trim(),
+          user: val('settingSciUser').trim(),
+          password: val('settingSciPassword'),
+        },
       };
       const result = await api.saveSettings(settings);
       if (result.ok) {
