@@ -13,6 +13,7 @@ import {
   CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen, HardDriveDownload,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, MoreVertical,
   Image as ImageIcon, Activity, Percent, ShieldCheck,
+  FileSpreadsheet, FileArchive, FileCode, FileSignature, Lock,
 } from 'lucide-react'
 import {
   cn, Button, Input, Label, Card, CardHeader, Checkbox, RichEditor, Badge,
@@ -3431,9 +3432,58 @@ type CertSidebarItem = {
   observacoes: string | null; arquivado: boolean
 }
 
+/**
+ * Classifica o arquivo para exibi-lo no mesmo padrão do certificado: ícone com
+ * cor própria + etiqueta do tipo. Sem isso todo arquivo vira um "papelzinho
+ * cinza" e a lista fica ilegível — o certificado já provava que o tipo à vista
+ * ajuda a achar o que se procura.
+ *
+ * A extensão manda mais que o mime-type: uploads antigos e os que vieram do
+ * legado costumam chegar com `application/octet-stream` ou sem mime nenhum.
+ */
+const TIPOS_ARQUIVO = [
+  { chave: 'certificado', label: 'Certificado', icon: ShieldCheck, cor: 'text-fuchsia-600 dark:text-fuchsia-400', hover: 'hover:border-fuchsia-300 dark:hover:border-fuchsia-800', ext: ['pfx', 'p12', 'cer', 'crt', 'pem'], mime: ['x-pkcs12', 'pkix-cert'] },
+  { chave: 'pdf', label: 'PDF', icon: FileText, cor: 'text-rose-600 dark:text-rose-400', hover: 'hover:border-rose-300 dark:hover:border-rose-800', ext: ['pdf'], mime: ['pdf'] },
+  { chave: 'planilha', label: 'Planilha', icon: FileSpreadsheet, cor: 'text-emerald-600 dark:text-emerald-400', hover: 'hover:border-emerald-300 dark:hover:border-emerald-800', ext: ['xls', 'xlsx', 'xlsm', 'csv', 'ods'], mime: ['spreadsheet', 'excel', 'csv'] },
+  { chave: 'documento', label: 'Documento', icon: FileSignature, cor: 'text-sky-600 dark:text-sky-400', hover: 'hover:border-sky-300 dark:hover:border-sky-800', ext: ['doc', 'docx', 'odt', 'rtf', 'txt'], mime: ['word', 'document', 'text/plain', 'rtf'] },
+  { chave: 'imagem', label: 'Imagem', icon: ImageIcon, cor: 'text-violet-600 dark:text-violet-400', hover: 'hover:border-violet-300 dark:hover:border-violet-800', ext: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'heic'], mime: ['image/'] },
+  { chave: 'compactado', label: 'Compactado', icon: FileArchive, cor: 'text-amber-600 dark:text-amber-400', hover: 'hover:border-amber-300 dark:hover:border-amber-800', ext: ['zip', 'rar', '7z', 'gz', 'tar'], mime: ['zip', 'compressed', 'rar'] },
+  { chave: 'fiscal', label: 'Arquivo fiscal', icon: FileCode, cor: 'text-indigo-600 dark:text-indigo-400', hover: 'hover:border-indigo-300 dark:hover:border-indigo-800', ext: ['xml', 'sped', 'ecd', 'efd', 'ret', 'json'], mime: ['xml', 'json'] },
+] as const
+
+const TIPO_GENERICO = {
+  chave: 'arquivo', label: 'Arquivo', icon: File,
+  cor: 'text-slate-500 dark:text-slate-400',
+  hover: 'hover:border-slate-300 dark:hover:border-slate-700',
+} as const
+
+function classificarArquivo(fileName: string | null, mimeType: string | null) {
+  const ext = String(fileName ?? '').split('.').pop()?.toLowerCase() ?? ''
+  const mime = String(mimeType ?? '').toLowerCase()
+  for (const t of TIPOS_ARQUIVO) {
+    if (ext && (t.ext as readonly string[]).includes(ext)) return t
+    if (mime && (t.mime as readonly string[]).some((m) => mime.includes(m))) return t
+  }
+  return TIPO_GENERICO
+}
+
+/** Cor do prazo, igual à do certificado: vencido grita, perto de vencer avisa. */
+function corDoVencimento(dias: number | null) {
+  if (dias === null) return 'text-muted-foreground'
+  if (dias < 0) return 'text-rose-600 dark:text-rose-400 font-semibold'
+  if (dias < 30) return 'text-amber-600 dark:text-amber-400 font-semibold'
+  return 'text-muted-foreground'
+}
+function diasAte(data: string | null) {
+  if (!data) return null
+  const d = new Date(data)
+  if (Number.isNaN(d.getTime())) return null
+  return Math.ceil((d.getTime() - Date.now()) / 86400000)
+}
+
 function ArquivosSidebar({ clienteId }: { clienteId: string }) {
   const { canManageFiles, canEditCertificados } = useClientesPerms()
-  const [arquivos, setArquivos] = useState<Array<{ id: string; fileName: string; fileUrl: string; fileSize: number | null; mimeType: string | null; descricao: string | null; createdAt: string; user: { name: string } | null }>>([])
+  const [arquivos, setArquivos] = useState<Array<{ id: string; fileName: string; fileUrl: string; fileSize: number | null; mimeType: string | null; descricao: string | null; vencimento: string | null; createdAt: string; user: { name: string } | null }>>([])
   const [certificados, setCertificados] = useState<CertSidebarItem[]>([])
   const [loading, setLoading] = useState(true)
   // Modal de edição (#2): renomear + descrição/detalhes
@@ -3572,17 +3622,8 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
         <div className="mb-4">
           <div className="space-y-2">
             {certificados.map((cert) => {
-              const exp = cert.expiraEm ? new Date(cert.expiraEm) : null
-              const dias = exp && !Number.isNaN(exp.getTime())
-                ? Math.ceil((exp.getTime() - Date.now()) / 86400000)
-                : null
-              const expColor = dias === null
-                ? 'text-muted-foreground'
-                : dias < 0
-                  ? 'text-rose-600 dark:text-rose-400 font-semibold'
-                  : dias < 30
-                    ? 'text-amber-600 dark:text-amber-400 font-semibold'
-                    : 'text-muted-foreground'
+              const dias = diasAte(cert.expiraEm)
+              const expColor = corDoVencimento(dias)
               return (
                 <div
                   key={cert.id}
@@ -3635,28 +3676,73 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
         ) : null
       ) : (
         <div className="space-y-2 max-h-[300px] overflow-y-auto scrollbar-none">
-          {arquivos.map((arq) => (
-            <div key={arq.id} className="flex items-start gap-2 text-xs group">
-              <File className="h-3.5 w-3.5 shrink-0 text-muted-foreground mt-0.5" />
-              <div className="min-w-0 flex-1">
-                <a href={arq.fileUrl} target="_blank" rel="noopener noreferrer" className="truncate block hover:text-primary font-medium">{arq.fileName}</a>
-                {arq.descricao && <p className="text-muted-foreground truncate" title={arq.descricao}>{arq.descricao}</p>}
-                <span className="text-muted-foreground">{formatSize(arq.fileSize)}</span>
-              </div>
-              <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                {canManageFiles && (
-                  <button type="button" onClick={() => setEditing({ id: arq.id, fileName: arq.fileName, descricao: arq.descricao || '' })} className="text-muted-foreground hover:text-foreground" title="Editar arquivo">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
+          {arquivos.map((arq) => {
+            const tipo = classificarArquivo(arq.fileName, arq.mimeType)
+            const Icone = tipo.icon
+            const dias = diasAte(arq.vencimento ?? null)
+            return (
+              <div
+                key={arq.id}
+                className={cn(
+                  'flex items-start gap-2 text-xs group rounded-md border border-border p-2 bg-muted/30 transition-colors',
+                  tipo.hover,
                 )}
-                {canManageFiles && (
-                  <button type="button" onClick={() => handleRemove(arq.id, arq.fileName)} className="text-destructive hover:text-destructive/80" title="Excluir arquivo">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
+              >
+                <Icone className={cn('h-4 w-4 shrink-0 mt-0.5', tipo.cor)} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <a
+                      href={arq.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="truncate font-medium hover:text-primary"
+                      title={arq.fileName}
+                    >
+                      {arq.fileName}
+                    </a>
+                    <Badge variant="outline" className="h-4 px-1 text-[9px] shrink-0">{tipo.label}</Badge>
+                    {/* Sem permissão de gestão o item é só leitura — o cadeado
+                        explica a ausência dos botões, que de outro modo pareceria
+                        um item quebrado. */}
+                    {!canManageFiles && (
+                      <Lock className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Somente leitura" />
+                    )}
+                  </div>
+                  {arq.descricao && <p className="text-muted-foreground truncate" title={arq.descricao}>{arq.descricao}</p>}
+                  {arq.vencimento && (
+                    <p className={corDoVencimento(dias)}>
+                      Vence: {formatDate(arq.vencimento)}
+                      {dias !== null && (dias < 0 ? ` (vencido há ${Math.abs(dias)}d)` : ` (${dias}d)`)}
+                    </p>
+                  )}
+                  <p className="text-muted-foreground">
+                    {[formatSize(arq.fileSize), arq.user?.name, formatDate(arq.createdAt)].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <a
+                    href={arq.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground"
+                    title="Abrir / baixar"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </a>
+                  {canManageFiles && (
+                    <button type="button" onClick={() => setEditing({ id: arq.id, fileName: arq.fileName, descricao: arq.descricao || '' })} className="text-muted-foreground hover:text-foreground" title="Editar arquivo">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {canManageFiles && (
+                    <button type="button" onClick={() => handleRemove(arq.id, arq.fileName)} className="text-destructive hover:text-destructive/80" title="Excluir arquivo">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
