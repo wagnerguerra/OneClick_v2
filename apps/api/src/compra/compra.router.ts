@@ -1,5 +1,7 @@
 import { z } from 'zod'
-import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
+import {
+  router, readProcedure, writeProcedure, deleteProcedure, readSubProcedure,
+} from '../trpc/trpc.service'
 import {
   createCompraSchema, updateCompraSchema, listCompraSchema,
   createCompraItemSchema, updateCompraItemSchema,
@@ -10,7 +12,13 @@ import {
 } from '@saas/types'
 import { CompraService } from './compra.service'
 
-const MODULE = 'compras'
+// Slug do módulo nas permissões. Precisa ser EXATAMENTE o do cadastro de
+// usuários e do menu ('aquisicoes'). Já esteve como 'compras', um slug que não
+// existe no registro de módulos — com isso todo usuário sem master/empresa
+// master levava FORBIDDEN no módulo inteiro, mesmo com Aquisições liberado.
+const MODULE = 'aquisicoes'
+const SUB_APROVAR = 'aprovar_pedidos'
+const SUB_CONFIG = 'gerenciar_configuracoes'
 
 export function createCompraRouter(compraService: CompraService) {
   return router({
@@ -37,10 +45,13 @@ export function createCompraRouter(compraService: CompraService) {
     enviar: writeProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => compraService.enviar(input.id, ctx.tenantSchema)),
-    aprovar: writeProcedure(MODULE)
+    // Aprovar/reprovar: LEITURA no módulo + sub-permissão de aprovação. De
+    // propósito não exige escrita — ser aprovador (um diretor, p.ex.) não deve
+    // implicar o direito de criar/editar pedidos.
+    aprovar: readSubProcedure(MODULE, SUB_APROVAR, 'Aprovar pedidos de compra')
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => compraService.aprovar(input.id, ctx.userId, ctx.tenantSchema)),
-    reprovar: writeProcedure(MODULE)
+    reprovar: readSubProcedure(MODULE, SUB_APROVAR, 'Aprovar pedidos de compra')
       .input(reprovarCompraSchema)
       .mutation(({ input, ctx }) => compraService.reprovar(input, ctx.userId, ctx.tenantSchema)),
     receber: writeProcedure(MODULE)
@@ -71,9 +82,20 @@ export function createCompraRouter(compraService: CompraService) {
     removeMensagem: deleteProcedure(MODULE).input(z.object({ id: z.string() })).mutation(({ input, ctx }) => compraService.removeMensagem(input.id, ctx.userId, ctx.tenantSchema)),
 
     // ── Critérios de avaliação ──
+    // Listar é livre p/ quem lê o módulo (o modal de avaliação precisa deles);
+    // manter o cadastro é da alçada de quem gerencia as configurações.
     listCriterios: readProcedure(MODULE).query(({ ctx }) => compraService.listCriterios(ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)),
-    createCriterio: writeProcedure(MODULE).input(createCompraCriterioSchema).mutation(({ input, ctx }) => compraService.createCriterio(input, ctx.empresaId, ctx.tenantSchema)),
-    updateCriterio: writeProcedure(MODULE).input(updateCompraCriterioSchema).mutation(({ input, ctx }) => compraService.updateCriterio(input, ctx.tenantSchema)),
-    deleteCriterio: deleteProcedure(MODULE).input(z.object({ id: z.string() })).mutation(({ input, ctx }) => compraService.deleteCriterio(input.id, ctx.tenantSchema)),
+    createCriterio: readSubProcedure(MODULE, SUB_CONFIG, 'Gerenciar configurações de Aquisições').input(createCompraCriterioSchema).mutation(({ input, ctx }) => compraService.createCriterio(input, ctx.empresaId, ctx.tenantSchema)),
+    updateCriterio: readSubProcedure(MODULE, SUB_CONFIG, 'Gerenciar configurações de Aquisições').input(updateCompraCriterioSchema).mutation(({ input, ctx }) => compraService.updateCriterio(input, ctx.tenantSchema)),
+    deleteCriterio: readSubProcedure(MODULE, SUB_CONFIG, 'Gerenciar configurações de Aquisições').input(z.object({ id: z.string() })).mutation(({ input, ctx }) => compraService.deleteCriterio(input.id, ctx.tenantSchema)),
+
+    // ── Configurações › Aprovadores ──
+    // A marca de aprovador é a MESMA sub-permissão do cadastro do usuário; esta
+    // tela é só o caminho pelo módulo, para o gestor não abrir usuário por usuário.
+    listAprovadores: readSubProcedure(MODULE, SUB_CONFIG, 'Gerenciar configurações de Aquisições')
+      .query(({ ctx }) => compraService.listAprovadores(ctx.isMaster ?? false, ctx.empresaId)),
+    setAprovador: readSubProcedure(MODULE, SUB_CONFIG, 'Gerenciar configurações de Aquisições')
+      .input(z.object({ userId: z.string(), ativo: z.boolean() }))
+      .mutation(({ input, ctx }) => compraService.setAprovador(input.userId, input.ativo, ctx.isMaster ?? false, ctx.empresaId)),
   })
 }

@@ -19,6 +19,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { STATUS_COMPRA_LABELS, TIPO_FORNECIMENTO_LABELS } from '@saas/types'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AnexosTab, MensagensTab } from '../_components/compra-tabs'
 
 const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
@@ -57,6 +58,11 @@ interface Compra {
 export default function PedidoDetalhePage() {
   const params = useParams<{ id: string }>()
   const { profile } = useCurrentUserProfile()
+  const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
+  // Aprovar/reprovar é da alçada de quem tem a marca de aprovador (Configurações
+  // do módulo, ou a sub-permissão no cadastro do usuário — é a mesma coisa).
+  const subsAquisicoes = (permissions.find((p) => p.moduleSlug === 'aquisicoes')?.subPermissions ?? {}) as Record<string, boolean>
+  const podeAprovar = isMaster || isEmpresaMaster || subsAquisicoes.aprovar_pedidos === true
   const [c, setC] = useState<Compra | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -128,7 +134,7 @@ export default function PedidoDetalhePage() {
         <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           {editavel && <Button variant="success" size="sm" onClick={salvar} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Salvar</Button>}
           {(c.status === 'NOVO' || c.status === 'REPROVADO') && <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" disabled={acting} onClick={() => acao(() => (trpc.compra as any).enviar.mutate({ id: c.id }), 'Enviado para aprovação.')}><Send className="h-4 w-4" />Enviar p/ aprovação</Button>}
-          {c.status === 'AGUARDANDO_APROVACAO' && <>
+          {c.status === 'AGUARDANDO_APROVACAO' && podeAprovar && <>
             <Button variant="success" size="sm" disabled={acting} onClick={() => acao(() => (trpc.compra as any).aprovar.mutate({ id: c.id }), 'Pedido aprovado.')}><Check className="h-4 w-4" />Aprovar</Button>
             <Button variant="destructive" size="sm" disabled={acting} onClick={() => { setMotivo(''); setReprovarOpen(true) }}><Ban className="h-4 w-4" />Reprovar</Button>
           </>}

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, ShoppingCart, Trash2, Pencil,
+  Plus, ShoppingCart, Trash2, Pencil, Settings,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import {
@@ -16,6 +16,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { STATUS_COMPRA_LABELS } from '@saas/types'
 import { BackButton } from '@/components/ui/back-button'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 const PAGE_SIZES = [10, 20, 50]
@@ -46,6 +47,9 @@ const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', curren
 
 export default function AquisicoesPage() {
   const router = useRouter()
+  const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
+  const subsAquisicoes = (permissions.find((p) => p.moduleSlug === 'aquisicoes')?.subPermissions ?? {}) as Record<string, boolean>
+  const podeConfigurar = isMaster || isEmpresaMaster || subsAquisicoes.gerenciar_configuracoes === true
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')
   const [status, setStatus] = useState('')
@@ -95,6 +99,11 @@ export default function AquisicoesPage() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="success" size="sm" asChild><Link href="/aquisicoes/new"><Plus className="h-4 w-4" />Novo Pedido</Link></Button>
+          {podeConfigurar && (
+            <Button variant="outline" size="icon-sm" asChild title="Configurações do módulo">
+              <Link href="/aquisicoes/configuracoes"><Settings className="h-4 w-4" /></Link>
+            </Button>
+          )}
           <BackButton href="/dashboard" label="Voltar" />
         </div>
       </div>

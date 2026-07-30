@@ -308,6 +308,19 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
       observacao: 'Uso na fase de implantação do módulo — permite finalizar a execução mesmo com passos obrigatórios em aberto.',
     },
   ],
+  aquisicoes: [
+    {
+      key: 'aprovar_pedidos',
+      label: 'Aprovar e reprovar pedidos de compra',
+      group: 'Aprovação',
+      observacao: 'Quem tem esta marca é aprovador. Também pode ser concedida em Aquisições › Configurações › Aprovadores — é a mesma permissão, vista dos dois lados.',
+    },
+    {
+      key: 'gerenciar_configuracoes',
+      label: 'Gerenciar configurações do módulo (aprovadores e critérios de avaliação)',
+      group: 'Configurações',
+    },
+  ],
   'beneficios-fiscais': [
     { key: 'manage_catalogo', label: 'Gerenciar catálogo de benefícios', group: 'Catálogo' },
     { key: 'gerar_orcamento', label: 'Gerar orçamento a partir do benefício', group: 'Operações' },

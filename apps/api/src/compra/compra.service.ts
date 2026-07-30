@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common'
-import { buildPaginatedResponse, getPrismaSkipTake, scoped, Prisma } from '@saas/db'
+import { buildPaginatedResponse, getPrismaSkipTake, scoped, prisma, Prisma } from '@saas/db'
+import { PermissionsEventsService } from '../permissions-events/permissions-events.service'
+import { invalidateUserPermissionsCache } from '../trpc/trpc.service'
 import type {
   CreateCompraInput, UpdateCompraInput, ListCompraInput,
   CreateCompraItemInput, UpdateCompraItemInput,
@@ -24,8 +26,13 @@ async function resolverUsuarios(db: ScopedDb, ids: (string | null)[]) {
   return new Map(us.map((u) => [u.id, u]))
 }
 
+/** Slug do módulo nas permissões — o mesmo do cadastro de usuários e do menu. */
+const MODULE_SLUG = 'aquisicoes'
+
 @Injectable()
 export class CompraService {
+  constructor(private readonly permissionsEvents: PermissionsEventsService) {}
+
   private serializar(c: any) {
     return {
       ...c,
@@ -325,5 +332,91 @@ export class CompraService {
 
   async getEmpresaId(id: string, tenantSchema?: string) {
     return scoped(tenantSchema, (db) => db.compra.findUnique({ where: { id }, select: { empresaId: true } }))
+  }
+
+  // ── Configurações › Aprovadores ──────────────────────────────
+  // "Quem aprova" é a sub-permissão `aprovar_pedidos` do módulo — mesma fonte
+  // da verdade do cadastro do usuário. A tela do módulo é só um outro caminho
+  // para a MESMA marca, para o gestor não precisar entrar em cada usuário.
+
+  /**
+   * Usuários da empresa com a marca de aprovador. Master e Empresa Master
+   * entram como aprovadores implícitos (o guard os libera sempre), sinalizados
+   * com `implicito` para a tela não oferecer um toggle que não faria nada.
+   */
+  async listAprovadores(isMaster: boolean, empresaId?: string) {
+    const users = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        ...(!isMaster && empresaId ? { empresaId } : {}),
+        // Colaborador de cliente não aprova compra interna.
+        role: { not: 'COLABORADOR_CLIENTE' },
+      },
+      select: { id: true, name: true, email: true, image: true, role: true, isMaster: true, isEmpresaMaster: true },
+      orderBy: { name: 'asc' },
+    })
+    const perms = await prisma.userPermission.findMany({
+      where: { userId: { in: users.map((u) => u.id) }, moduleSlug: MODULE_SLUG },
+      select: { userId: true, canRead: true, subPermissions: true },
+    })
+    const porUser = new Map(perms.map((p) => [p.userId, p]))
+
+    return users.map((u) => {
+      const p = porUser.get(u.id)
+      const subs = (p?.subPermissions ?? {}) as Record<string, boolean>
+      const implicito = u.isMaster || u.isEmpresaMaster
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        image: u.image,
+        role: String(u.role),
+        implicito,
+        aprovador: implicito || subs.aprovar_pedidos === true,
+        // Sem acesso de leitura ao módulo a marca não serve de nada — a tela
+        // avisa, e o toggle concede o acesso junto.
+        temAcesso: !!p?.canRead,
+      }
+    })
+  }
+
+  /**
+   * Liga/desliga a marca de aprovador. Ao ligar, garante o acesso de leitura ao
+   * módulo (sem ele o guard barraria antes de olhar a sub-permissão) — sem
+   * conceder escrita: aprovar não deve dar o direito de criar/editar pedidos.
+   */
+  async setAprovador(userId: string, ativo: boolean, isMaster: boolean, empresaId?: string) {
+    const alvo = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, empresaId: true, isActive: true, isMaster: true, isEmpresaMaster: true },
+    })
+    if (!alvo) throw new Error('Usuário não encontrado.')
+    if (!isMaster && empresaId && alvo.empresaId !== empresaId) {
+      throw new Error('Usuário fora da sua empresa.')
+    }
+    if (alvo.isMaster || alvo.isEmpresaMaster) {
+      throw new Error('Master e Empresa Master já aprovam por padrão — não há o que marcar.')
+    }
+
+    const where = { userId_moduleSlug: { userId, moduleSlug: MODULE_SLUG } }
+    const atual = await prisma.userPermission.findUnique({ where, select: { subPermissions: true } })
+    const subs = { ...((atual?.subPermissions ?? {}) as Record<string, boolean>), aprovar_pedidos: ativo }
+
+    if (atual) {
+      await prisma.userPermission.update({
+        where,
+        data: { subPermissions: subs, ...(ativo ? { canRead: true } : {}) },
+      })
+    } else {
+      await prisma.userPermission.create({
+        data: { userId, moduleSlug: MODULE_SLUG, canRead: true, canWrite: false, canDelete: false, subPermissions: subs },
+      })
+    }
+
+    // Sem isto o backend seguiria decidindo pelo cache (TTL 30s) e a sessão
+    // aberta do usuário não veria a mudança.
+    invalidateUserPermissionsCache(userId)
+    this.permissionsEvents.emit({ type: 'updated', userId, actorUserId: null })
+    return { success: true }
   }
 }
