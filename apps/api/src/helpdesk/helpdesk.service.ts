@@ -1052,11 +1052,15 @@ export class HelpdeskService {
       if (mudouStatus || desarquivou) {
         const statusLabel = (mudouStatus ? patch.status : t.status) as string
         const soDesarquivou = desarquivou && !mudouStatus
+        const virouAvaliacao = patch.status === 'RESOLVIDO'
         const corpo = soDesarquivou
-          ? `O ticket <strong>${t.titulo}</strong> foi reaberto (desarquivado). Status atual: <strong>${statusLabel}</strong>.`
-          : `Status do ticket <strong>${t.titulo}</strong> alterado para <strong>${statusLabel}</strong>.`
+          ? `O ticket <strong>${escapeHtml(t.titulo)}</strong> foi reaberto (desarquivado). Status atual: <strong>${statusLabel}</strong>.`
+          : `Status do ticket <strong>${escapeHtml(t.titulo)}</strong> alterado para <strong>${statusLabel}</strong>.`
+        // R1.2 — em RESOLVIDO ("Aguardando avaliação") o solicitante recebe a
+        // versão "avalie" (abaixo), com CTA próprio; então o e-mail genérico vai
+        // só ao responsável, evitando dois e-mails ao solicitante.
         await notificarLote(
-          [t.solicitante, t.responsavel],
+          virouAvaliacao ? [t.responsavel] : [t.solicitante, t.responsavel],
           {
             titulo: soDesarquivou ? `${ticketNum} — reaberto` : `${ticketNum} → ${statusLabel}`,
             mensagem: t.titulo,
@@ -1068,24 +1072,30 @@ export class HelpdeskService {
           },
         )
 
-        // E-mail extra pro solicitante quando RESOLVIDO — pedindo CSAT.
-        // Mantém comportamento existente (sobrepõe ao genérico acima — é ok,
-        // são dois e-mails: "status alterado" + "avalie").
-        if (patch.status === 'RESOLVIDO' && t.solicitante?.email && t.solicitante.id !== actorId) {
-          void this.emailService.sendMail({
-            to: t.solicitante.email,
-            subject: `HelpDesk ${ticketNum} resolvido — avalie o atendimento`,
-            html: this.emailTpl(
-              ticketNum,
-              `Seu ticket <strong>${t.titulo}</strong> foi resolvido. ` +
-              `Avalie o atendimento (5 estrelas máx) para fechar o chamado. ` +
-              // #HLP0180: o auto-fechamento deixou de gravar nota (ver
-              // autoFecharResolvidos), então prometer "nota neutra" era falso — e
-              // ainda desincentivava responder, já que a nota sairia de graça.
-              `Após 3 dias sem resposta, o chamado é fechado automaticamente, sem registrar avaliação.`,
-              link,
-            ),
-          })
+        // R1.2 — RESOLVIDO: sino + e-mail ao solicitante com CTA de AVALIAR.
+        if (virouAvaliacao && t.solicitante && t.solicitante.id !== actorId) {
+          await this.notificationService.criarParaUsers([t.solicitante.id], {
+            titulo: `${ticketNum} — avalie o atendimento`,
+            mensagem: t.titulo,
+            tipo: 'success',
+            link,
+            origem: 'helpdesk',
+            empresaId: t.empresaId,
+          }).catch(() => {})
+          if (t.solicitante.email) {
+            void this.emailService.sendMail({
+              to: t.solicitante.email,
+              subject: `HelpDesk ${ticketNum} resolvido — avalie o atendimento`,
+              html: this.emailTpl(
+                ticketNum,
+                `Seu ticket <strong>${escapeHtml(t.titulo)}</strong> foi resolvido e está <strong>aguardando sua avaliação</strong>. ` +
+                `Abra o ticket e dê sua nota (e um comentário, se quiser) para fechar o chamado. ` +
+                `Se não avaliar, ele é encerrado automaticamente após alguns dias, sem registrar nota.`,
+                link,
+                'Avaliar atendimento',
+              ),
+            })
+          }
         }
       }
     } catch (e) {
