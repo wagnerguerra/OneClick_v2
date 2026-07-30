@@ -22,6 +22,7 @@ import { ClienteEnriquecimentoService } from '../cliente/cliente-enriquecimento.
 import { SincronizarResponsaveisService } from '../cliente/sincronizar-responsaveis.service'
 import { ImportOneclickService } from '../cliente/import-oneclick.service'
 import { DuplicidadeService } from '../cliente/duplicidade.service'
+import { MesclagemService } from '../cliente/mesclagem.service'
 import { LegacyImportService } from '../cliente/legacy-import.service'
 import { SciService } from '../cliente/sci.service'
 import { OmieService } from '../cliente/omie.service'
@@ -611,6 +612,7 @@ export class TrpcService {
     @Inject(CompraService) private readonly compraService: CompraService,
     @Inject(CotacaoService) private readonly cotacaoService: CotacaoService,
     @Inject(DuplicidadeService) private readonly duplicidadeService: DuplicidadeService,
+    @Inject(MesclagemService) private readonly mesclagemService: MesclagemService,
     @Inject(TratamentoLancamentosService) private readonly tratamentoLancamentosService: TratamentoLancamentosService,
     @Inject(SocioService) private readonly socioService: SocioService,
     @Inject(CnpjService) private readonly cnpjService: CnpjService,
@@ -724,7 +726,7 @@ export class TrpcService {
       onboarding: createOnboardingRouter(this.onboardingService),
       admin: createAdminRouter(this.adminService),
       adminTenant: createAdminTenantRouter(this.adminTenantService),
-      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService),
+      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService, this.mesclagemService),
       billing: createBillingRouter(this.stripeService),
       colaborador: createColaboradorRouter(this.colaboradorService),
       fornecedor: createFornecedorRouter(this.fornecedorService),

@@ -3,10 +3,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Copy, Loader2, AlertTriangle, ExternalLink, ShieldCheck } from 'lucide-react'
-import { Card, Badge, Checkbox, cn } from '@saas/ui'
+import { Copy, Loader2, AlertTriangle, ExternalLink, ShieldCheck, Merge, ArrowRight } from 'lucide-react'
+import {
+  Button, Card, Badge, Checkbox, cn,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
+} from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
+import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
@@ -33,6 +38,43 @@ interface Grupo {
 interface Resultado { grupos: Grupo[]; totalGrupos: number; totalExcedentes: number }
 interface TipoVinculo { chave: string; label: string }
 
+interface Plano {
+  origem: { id: string; code: number; razaoSocial: string }
+  destino: { id: string; code: number; razaoSocial: string }
+  linhas: Array<{ tabela: string; mover: number; colidem: number }>
+  totalMover: number
+  totalColidem: number
+  camposHerdados: Array<{ campo: string; valor: string }>
+}
+
+/** Nome legível das tabelas na pré-visualização — "orcamentos" não diz nada. */
+const TABELA_LABEL: Record<string, string> = {
+  orcamentos: 'Orçamentos', orcamento_legado: 'Orçamentos (sistema antigo)',
+  contratos: 'Contratos', certificados_digitais: 'Certificados digitais',
+  cliente_obrigacoes: 'Obrigações', servico_execucoes: 'Serviços executados',
+  socios: 'Sócios', cliente_arquivos: 'Arquivos', processos: 'Processos',
+  oportunidades: 'Oportunidades', ativos: 'Ativos', cliente_contatos: 'Contatos',
+  cliente_inscricoes: 'Inscrições', cliente_acessos: 'Acessos',
+  cliente_areas_contratadas: 'Áreas contratadas', cliente_events: 'Histórico de alterações',
+  cliente_andamentos: 'Andamentos', cliente_historicos: 'Históricos',
+  cliente_vencimentos: 'Vencimentos', cliente_protocolos: 'Protocolos',
+  cliente_atividades: 'Atividades', cliente_cnaes: 'CNAEs',
+  beneficio_fiscal_cliente: 'Benefícios fiscais', cliente_beneficios: 'Benefícios',
+  pesquisas_satisfacao: 'Pesquisas de satisfação', whatsapp_contatos: 'Contatos do WhatsApp',
+  lead_sessao: 'Conversas do funil', danfes: 'DANFEs', nfse_importadas: 'NFS-e importadas',
+  situacao_fiscal: 'Situação fiscal', cliente_ocorrencias: 'Ocorrências',
+}
+const nomeTabela = (t: string) => TABELA_LABEL[t] ?? t.replace(/_/g, ' ')
+
+const CAMPO_LABEL: Record<string, string> = {
+  id_oneclick: 'Código no OneClick v1', id_acessorias: 'Código na Acessórias',
+  cnpj_acessorias: 'CNPJ na Acessórias', id_sistema: 'Código no sistema contábil',
+  id_omie: 'Código no Omie', omie_empresa: 'Empresa no Omie',
+  drive_folder_id: 'Pasta no Drive', drive_folder_name: 'Nome da pasta no Drive',
+  nome_fantasia: 'Nome fantasia', email: 'E-mail', telefone: 'Telefone',
+  inscricao_estadual: 'Inscrição estadual', inscricao_municipal: 'Inscrição municipal',
+}
+
 const fmtData = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
 
 export default function DuplicidadesPage() {
@@ -44,6 +86,9 @@ export default function DuplicidadesPage() {
   const [tipos, setTipos] = useState<TipoVinculo[]>([])
   const [loading, setLoading] = useState(true)
   const [apenasComDado, setApenasComDado] = useState(false)
+  /** Cadastro escolhido para FICAR, por grupo. */
+  const [destinos, setDestinos] = useState<Record<string, string>>({})
+  const [mesclando, setMesclando] = useState<Grupo | null>(null)
 
   useEffect(() => {
     if (!permsLoading && !pode) router.replace('/clientes')
@@ -52,7 +97,23 @@ export default function DuplicidadesPage() {
   const carregar = useCallback(() => {
     setLoading(true)
     ;(trpc.cliente as any).duplicidades.query({ apenasComDado })
-      .then((d: Resultado) => setRes(d))
+      .then((d: Resultado) => {
+        setRes(d)
+        // Sugestão de destino: o cadastro ATIVO tem prioridade absoluta — é o que
+        // o time usa hoje e o que aparece nas listagens. Entre ativos, fica o que
+        // tem mais histórico; empatou, o mais antigo.
+        const sugestao: Record<string, string> = {}
+        for (const g of d.grupos) {
+          const ativos = g.cadastros.filter((c) => c.isActive)
+          const candidatos = ativos.length ? ativos : g.cadastros
+          const escolhido = [...candidatos].sort((a, b) =>
+            b.totalVinculos - a.totalVinculos
+            || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          )[0]
+          if (escolhido) sugestao[g.documento] = escolhido.id
+        }
+        setDestinos(sugestao)
+      })
       .catch(() => setRes(null))
       .finally(() => setLoading(false))
   }, [apenasComDado])
@@ -150,11 +211,48 @@ export default function DuplicidadesPage() {
                     <AlertTriangle className="h-3 w-3" />histórico dos dois lados
                   </Badge>
                 )}
+                <Button
+                  variant="outline"
+                  size="xs"
+                  className="ml-auto"
+                  disabled={!destinos[g.documento]}
+                  title={destinos[g.documento] ? 'Ver o que será movido' : 'Marque antes qual cadastro deve ficar'}
+                  onClick={() => setMesclando(g)}
+                >
+                  <Merge className="h-3.5 w-3.5" />Mesclar
+                </Button>
               </div>
 
               <div className="divide-y divide-border/60">
                 {g.cadastros.map((c, idx) => (
-                  <div key={c.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div key={c.id} className={cn(
+                    'flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:justify-between',
+                    destinos[g.documento] === c.id && 'bg-emerald-50/60 dark:bg-emerald-950/20',
+                  )}>
+                    {(() => {
+                      // Cadastro inativo não pode ficar quando existe um ativo no
+                      // grupo — o ativo é o que o time usa hoje.
+                      const temAtivo = g.cadastros.some((x) => x.isActive)
+                      const bloqueado = temAtivo && !c.isActive
+                      return (
+                        <label
+                          className={cn('flex items-start gap-2 sm:pt-0.5', bloqueado ? 'cursor-not-allowed opacity-40' : 'cursor-pointer')}
+                          title={bloqueado
+                            ? 'Há um cadastro ativo neste grupo — é ele que deve ficar'
+                            : 'Este cadastro fica; os outros são mesclados nele'}
+                        >
+                          <input
+                            type="radio"
+                            name={`destino-${g.documento}`}
+                            disabled={bloqueado}
+                            checked={destinos[g.documento] === c.id}
+                            onChange={() => setDestinos((p) => ({ ...p, [g.documento]: c.id }))}
+                            className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600"
+                          />
+                          <span className="sr-only">Manter este cadastro</span>
+                        </label>
+                      )
+                    })()}
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <Link href={`/clientes/${c.id}`} target="_blank"
@@ -200,9 +298,157 @@ export default function DuplicidadesPage() {
         </div>
       )}
 
-      <p className="pb-2 text-center text-xs text-muted-foreground">
-        A mesclagem dos cadastros é a próxima etapa — por enquanto, este relatório serve para decidir qual deles fica.
-      </p>
+      {mesclando && destinos[mesclando.documento] && (
+        <MesclarModal
+          grupo={mesclando}
+          destinoId={destinos[mesclando.documento]!}
+          onClose={() => setMesclando(null)}
+          onDone={() => { setMesclando(null); carregar() }}
+        />
+      )}
     </div>
+  )
+}
+
+// ── Pré-visualização + execução da mesclagem ───────────────────
+function MesclarModal({ grupo, destinoId, onClose, onDone }: {
+  grupo: Grupo; destinoId: string; onClose: () => void; onDone: () => void
+}) {
+  const destino = grupo.cadastros.find((c) => c.id === destinoId)!
+  const origens = grupo.cadastros.filter((c) => c.id !== destinoId)
+
+  const [planos, setPlanos] = useState<Plano[]>([])
+  const [carregando, setCarregando] = useState(true)
+  const [erro, setErro] = useState<string | null>(null)
+  const [executando, setExecutando] = useState(false)
+
+  useEffect(() => {
+    let cancel = false
+    Promise.all(origens.map((o) =>
+      (trpc.cliente as any).mesclarPreview.query({ origemId: o.id, destinoId }) as Promise<Plano>,
+    ))
+      .then((ps) => { if (!cancel) setPlanos(ps) })
+      .catch((e: Error) => { if (!cancel) setErro(e.message) })
+      .finally(() => { if (!cancel) setCarregando(false) })
+    return () => { cancel = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destinoId])
+
+  const totalMover = planos.reduce((s, p) => s + p.totalMover, 0)
+  const totalColidem = planos.reduce((s, p) => s + p.totalColidem, 0)
+
+  async function executar() {
+    const ok = await alerts.confirm({
+      title: `Mesclar ${origens.length} cadastro(s) no #${destino.code}?`,
+      text: `${totalMover} registro(s) serão movidos. Os cadastros mesclados vão para a lixeira. Não há como desfazer.`,
+      icon: 'warning',
+      confirmText: 'Mesclar',
+    })
+    if (!ok) return
+    setExecutando(true)
+    try {
+      for (const o of origens) {
+        await (trpc.cliente as any).mesclarExecutar.mutate({ origemId: o.id, destinoId })
+      }
+      await alerts.success('Cadastros unificados', `${totalMover} registro(s) movidos para o cliente #${destino.code}.`)
+      onDone()
+    } catch (e) {
+      alerts.error('Erro na mesclagem', (e as Error).message)
+    } finally { setExecutando(false) }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeaderIcon icon={Merge} color="violet">
+          <DialogTitle>Mesclar cadastros — {masks.cpfCnpj(grupo.documento)}</DialogTitle>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+            <span className="text-muted-foreground">
+              {origens.map((o) => `#${o.code}`).join(', ')}
+            </span>
+            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="font-semibold">#{destino.code} — {destino.razaoSocial}</span>
+            {destino.isActive
+              ? <Badge className="bg-emerald-100 text-[10px] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">ativo</Badge>
+              : <Badge variant="secondary" className="text-[10px]">inativo</Badge>}
+          </div>
+
+          {carregando ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Calculando o que será movido...
+            </div>
+          ) : erro ? (
+            <p className="rounded border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">{erro}</p>
+          ) : (
+            <>
+              <div>
+                <p className="mb-2 text-[13px] font-semibold">O que será movido</p>
+                {totalMover === 0 ? (
+                  <p className="py-3 text-center text-sm text-muted-foreground">
+                    Nada a mover — os outros cadastros estão vazios. Serão apenas descartados.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-border/60 rounded-lg border border-border">
+                    {Object.entries(
+                      planos.flatMap((p) => p.linhas).reduce((acc, l) => {
+                        acc[l.tabela] = (acc[l.tabela] ?? 0) + l.mover
+                        return acc
+                      }, {} as Record<string, number>),
+                    )
+                      .filter(([, n]) => n > 0)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([tabela, n]) => (
+                        <div key={tabela} className="flex items-center justify-between px-3 py-1.5 text-sm">
+                          <span>{nomeTabela(tabela)}</span>
+                          <span className="font-medium tabular-nums">{n}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              {planos.some((p) => p.camposHerdados.length > 0) && (
+                <div>
+                  <p className="mb-2 text-[13px] font-semibold">Campos que o cadastro mantido vai herdar</p>
+                  <div className="divide-y divide-border/60 rounded-lg border border-border">
+                    {planos.flatMap((p) => p.camposHerdados).map((c, i) => (
+                      <div key={`${c.campo}-${i}`} className="flex items-center justify-between gap-3 px-3 py-1.5 text-sm">
+                        <span className="text-muted-foreground">{CAMPO_LABEL[c.campo] ?? c.campo}</span>
+                        <span className="truncate font-medium">{c.valor}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">
+                    Só campos que estão vazios no cadastro mantido — nada é sobrescrito.
+                  </p>
+                </div>
+              )}
+
+              {totalColidem > 0 && (
+                <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/20 dark:text-amber-400">
+                  <strong>{totalColidem} registro(s)</strong> já existem no cadastro mantido (mesma área, mesmo mês de
+                  cache, etc.) e ficam onde estão — o dado do cadastro mantido prevalece. Nada é apagado: eles seguem
+                  recuperáveis no cadastro que vai para a lixeira.
+                </p>
+              )}
+
+              <p className="rounded border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                Os cadastros mesclados vão para a <strong className="text-foreground">lixeira</strong>, com a anotação de
+                para onde o histórico foi. <strong className="text-foreground">Não há como desfazer</strong> pela tela.
+              </p>
+            </>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button size="sm" variant="success" disabled={carregando || !!erro || executando} onClick={executar}>
+            {executando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Merge className="h-4 w-4" />}
+            Mesclar {totalMover > 0 ? `(${totalMover} registros)` : ''}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
