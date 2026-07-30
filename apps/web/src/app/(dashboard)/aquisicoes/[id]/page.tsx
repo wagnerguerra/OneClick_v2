@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import {
   ShoppingCart, Save, Plus, Trash2, Loader2, Send, Check, Ban, PackageCheck, ClipboardCheck,
+  FileText, Package, StickyNote, Paperclip, MessageSquare,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card, Badge, cn,
@@ -17,10 +18,18 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { STATUS_COMPRA_LABELS, TIPO_FORNECIMENTO_LABELS } from '@saas/types'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
-import { CompraTabs } from '../_components/compra-tabs'
+import { AnexosTab, MensagensTab } from '../_components/compra-tabs'
 
 const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 const brl = (v: number) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+const PEDIDO_TABS = [
+  { key: 'dados', label: 'Dados', icon: FileText },
+  { key: 'itens', label: 'Itens', icon: Package },
+  { key: 'observacoes', label: 'Observações', icon: StickyNote },
+  { key: 'anexos', label: 'Anexos', icon: Paperclip },
+  { key: 'mensagens', label: 'Mensagens', icon: MessageSquare },
+] as const
 
 const STATUS_COLORS: Record<string, string> = {
   NOVO: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
@@ -54,6 +63,7 @@ export default function PedidoDetalhePage() {
   const [reprovarOpen, setReprovarOpen] = useState(false)
   const [motivo, setMotivo] = useState('')
   const [avaliarOpen, setAvaliarOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<string>('dados')
 
   // campos editáveis
   const [forma, setForma] = useState(''); const [pEnt, setPEnt] = useState(''); const [pPag, setPPag] = useState('')
@@ -131,58 +141,106 @@ export default function PedidoDetalhePage() {
         <Card className="p-3 border-rose-300 bg-rose-50 dark:bg-rose-950/20 text-sm text-rose-700 dark:text-rose-400"><strong>Reprovado:</strong> {c.motivoReprovacao}</Card>
       )}
 
-      {/* Dados */}
-      <Card className="p-5">
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 md:col-span-4"><Label>Forma de Pagamento</Label><Input value={forma} onChange={(e) => setForma(e.target.value)} disabled={!editavel} className="mt-1.5" /></div>
-          <div className="col-span-6 md:col-span-3"><Label>Prazo de Entrega</Label><Input value={pEnt} onChange={(e) => setPEnt(e.target.value)} disabled={!editavel} className="mt-1.5" /></div>
-          <div className="col-span-6 md:col-span-3"><Label>Prazo de Pagamento</Label><Input value={pPag} onChange={(e) => setPPag(e.target.value)} disabled={!editavel} className="mt-1.5" /></div>
-          <div className="col-span-6 md:col-span-2"><Label>Frete (R$)</Label><Input value={frete} onChange={(e) => setFrete(e.target.value)} disabled={!editavel} className="mt-1.5" placeholder="0,00" /></div>
-        </div>
-        <div className="flex flex-wrap gap-x-6 gap-y-1 mt-4 pt-3 border-t border-border text-xs text-muted-foreground">
-          {c.solicitante && <span>Solicitante: <strong className="text-foreground">{c.solicitante.name}</strong></span>}
-          {c.aprovador && <span>Aprovador: <strong className="text-foreground">{c.aprovador.name}</strong></span>}
-          {c.recebedor && <span>Recebido por: <strong className="text-foreground">{c.recebedor.name}</strong></span>}
-        </div>
-      </Card>
-
-      {/* Itens */}
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-[13px] font-semibold">Itens do pedido</h4>
-          {editavel && <Button type="button" variant="outline" size="xs" onClick={addItem} disabled={acting}><Plus className="h-3.5 w-3.5" />Adicionar item</Button>}
-        </div>
-        {c.itens.length === 0 ? <p className="text-sm text-muted-foreground text-center py-4">Sem itens.</p> : (
-          <div className="space-y-2">
-            {c.itens.map((it) => (
-              <div key={it.id} className="grid grid-cols-12 gap-2 items-center">
-                <Input className="col-span-12 md:col-span-5 h-9" value={it.descricao} disabled={!editavel} onChange={(e) => patchItem(it.id, { descricao: e.target.value })} onBlur={() => editavel && saveItem(it)} />
-                <Input className="col-span-3 md:col-span-2 h-9" placeholder="Unid." value={it.unidade ?? ''} disabled={!editavel} onChange={(e) => patchItem(it.id, { unidade: e.target.value })} onBlur={() => editavel && saveItem(it)} />
-                <Input className="col-span-3 md:col-span-1 h-9" type="number" min={1} value={it.quantidade} disabled={!editavel} onChange={(e) => patchItem(it.id, { quantidade: Number(e.target.value) || 1 })} onBlur={() => editavel && saveItem(it)} />
-                <Input className="col-span-4 md:col-span-2 h-9" type="number" min={0} step="0.01" value={it.valorUnitario} disabled={!editavel} onChange={(e) => patchItem(it.id, { valorUnitario: Number(e.target.value) || 0 })} onBlur={() => editavel && saveItem(it)} />
-                <div className="col-span-2 md:col-span-2 flex items-center justify-end gap-2">
-                  <span className="text-xs tabular-nums text-muted-foreground hidden md:inline">{brl(it.quantidade * it.valorUnitario)}</span>
-                  {editavel && <Button type="button" variant="soft-destructive" size="icon-sm" onClick={() => removeItem(it.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}
-                </div>
-              </div>
-            ))}
+      {/* Card único — todas as abas do pedido nas pills laterais */}
+      <Card className="overflow-hidden">
+        <div className="flex min-h-[450px]">
+          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+            <div className="space-y-1">
+              {PEDIDO_TABS.map((t) => {
+                const Icon = t.icon
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setActiveTab(t.key)}
+                    className={cn(
+                      'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
+                      activeTab === t.key ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground',
+                    )}
+                    style={activeTab === t.key ? { backgroundColor: MODULE_COLOR } : undefined}
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    {t.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
-        )}
-        <div className="flex justify-end gap-6 mt-4 pt-3 border-t border-border text-sm">
-          <span className="text-muted-foreground">Frete: <strong className="tabular-nums text-foreground">{brl(freteNum)}</strong></span>
-          <span className="text-muted-foreground">Total: <strong className="tabular-nums" style={{ color: MODULE_COLOR }}>{brl(c.total)}</strong></span>
+
+          <div key={activeTab} className="flex-1 min-w-0 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+            {/* DADOS */}
+            {activeTab === 'dados' && (<>
+              <div className="-mx-5 px-5 pb-2.5 mb-4 border-b border-border">
+                <h4 className="text-[13px] font-semibold text-foreground">Dados do pedido</h4>
+              </div>
+              <div className="grid grid-cols-12 gap-4">
+                <div className="col-span-12 md:col-span-6"><Label>Forma de Pagamento</Label><Input value={forma} onChange={(e) => setForma(e.target.value)} disabled={!editavel} className="mt-1.5" /></div>
+                <div className="col-span-6 md:col-span-3"><Label>Prazo de Entrega</Label><Input value={pEnt} onChange={(e) => setPEnt(e.target.value)} disabled={!editavel} className="mt-1.5" /></div>
+                <div className="col-span-6 md:col-span-3"><Label>Prazo de Pagamento</Label><Input value={pPag} onChange={(e) => setPPag(e.target.value)} disabled={!editavel} className="mt-1.5" /></div>
+                <div className="col-span-6 md:col-span-3"><Label>Frete (R$)</Label><Input value={frete} onChange={(e) => setFrete(e.target.value)} disabled={!editavel} className="mt-1.5" placeholder="0,00" /></div>
+              </div>
+              <div className="flex flex-wrap gap-x-6 gap-y-1 mt-5 pt-3 border-t border-border text-xs text-muted-foreground">
+                {c.solicitante && <span>Solicitante: <strong className="text-foreground">{c.solicitante.name}</strong></span>}
+                {c.aprovador && <span>Aprovador: <strong className="text-foreground">{c.aprovador.name}</strong></span>}
+                {c.recebedor && <span>Recebido por: <strong className="text-foreground">{c.recebedor.name}</strong></span>}
+              </div>
+            </>)}
+
+            {/* ITENS */}
+            {activeTab === 'itens' && (<>
+              <div className="-mx-5 px-5 pb-2.5 mb-4 border-b border-border flex items-center justify-between gap-2">
+                <h4 className="text-[13px] font-semibold text-foreground">Itens do pedido</h4>
+                {editavel && <Button type="button" variant="outline" size="xs" onClick={addItem} disabled={acting}><Plus className="h-3.5 w-3.5" />Adicionar item</Button>}
+              </div>
+              {c.itens.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Sem itens.</p> : (
+                <div className="space-y-2">
+                  {c.itens.map((it) => (
+                    <div key={it.id} className="grid grid-cols-12 gap-2 items-center">
+                      <Input className="col-span-12 md:col-span-5 h-9" value={it.descricao} disabled={!editavel} onChange={(e) => patchItem(it.id, { descricao: e.target.value })} onBlur={() => editavel && saveItem(it)} />
+                      <Input className="col-span-3 md:col-span-2 h-9" placeholder="Unid." value={it.unidade ?? ''} disabled={!editavel} onChange={(e) => patchItem(it.id, { unidade: e.target.value })} onBlur={() => editavel && saveItem(it)} />
+                      <Input className="col-span-3 md:col-span-1 h-9" type="number" min={1} value={it.quantidade} disabled={!editavel} onChange={(e) => patchItem(it.id, { quantidade: Number(e.target.value) || 1 })} onBlur={() => editavel && saveItem(it)} />
+                      <Input className="col-span-4 md:col-span-2 h-9" type="number" min={0} step="0.01" value={it.valorUnitario} disabled={!editavel} onChange={(e) => patchItem(it.id, { valorUnitario: Number(e.target.value) || 0 })} onBlur={() => editavel && saveItem(it)} />
+                      <div className="col-span-2 md:col-span-2 flex items-center justify-end gap-2">
+                        <span className="text-xs tabular-nums text-muted-foreground hidden md:inline">{brl(it.quantidade * it.valorUnitario)}</span>
+                        {editavel && <Button type="button" variant="soft-destructive" size="icon-sm" onClick={() => removeItem(it.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex justify-end gap-6 mt-4 pt-3 border-t border-border text-sm">
+                <span className="text-muted-foreground">Frete: <strong className="tabular-nums text-foreground">{brl(freteNum)}</strong></span>
+                <span className="text-muted-foreground">Total: <strong className="tabular-nums" style={{ color: MODULE_COLOR }}>{brl(c.total)}</strong></span>
+              </div>
+            </>)}
+
+            {/* OBSERVAÇÕES */}
+            {activeTab === 'observacoes' && (<>
+              <div className="-mx-5 px-5 pb-2.5 mb-4 border-b border-border">
+                <h4 className="text-[13px] font-semibold text-foreground">Observações</h4>
+              </div>
+              {editavel ? <RichEditor value={obs} onChange={setObs} placeholder="Detalhamento..." />
+                : <div className="prose prose-sm max-w-none dark:prose-invert text-sm" dangerouslySetInnerHTML={{ __html: c.observacoes || '<p class="text-muted-foreground">Sem observações.</p>' }} />}
+            </>)}
+
+            {/* ANEXOS */}
+            {activeTab === 'anexos' && (<>
+              <div className="-mx-5 px-5 pb-2.5 mb-4 border-b border-border">
+                <h4 className="text-[13px] font-semibold text-foreground">Anexos</h4>
+              </div>
+              <AnexosTab compraId={c.id} />
+            </>)}
+
+            {/* MENSAGENS */}
+            {activeTab === 'mensagens' && (<>
+              <div className="-mx-5 px-5 pb-2.5 mb-4 border-b border-border">
+                <h4 className="text-[13px] font-semibold text-foreground">Mensagens</h4>
+              </div>
+              <MensagensTab compraId={c.id} currentUserId={profile?.id} />
+            </>)}
+          </div>
         </div>
       </Card>
-
-      {/* Observações */}
-      <Card className="p-5">
-        <Label>Observações</Label>
-        {editavel ? <div className="mt-1.5"><RichEditor value={obs} onChange={setObs} placeholder="Detalhamento..." /></div>
-          : <div className="mt-1.5 prose prose-sm max-w-none dark:prose-invert text-sm" dangerouslySetInnerHTML={{ __html: c.observacoes || '<p class="text-muted-foreground">Sem observações.</p>' }} />}
-      </Card>
-
-      {/* Anexos + Mensagens */}
-      <CompraTabs compraId={c.id} currentUserId={profile?.id} />
 
       {/* Reprovar modal */}
       <Dialog open={reprovarOpen} onOpenChange={setReprovarOpen}>
