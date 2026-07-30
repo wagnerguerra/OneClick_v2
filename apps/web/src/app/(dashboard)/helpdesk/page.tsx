@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   Plus, Loader2, Search, Filter, AlertTriangle, Clock, MessageSquare,
   CheckCircle2, ListChecks, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
-  Paperclip, Bot, BarChart3,
+  Paperclip, Bot, BarChart3, XCircle, MoreVertical, ExternalLink,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors,
@@ -17,14 +17,17 @@ import { CSS } from '@dnd-kit/utilities'
 import {
   Button, Card, Badge, Input, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { resolveAssetUrl } from '@/lib/api-url'
 import { USER_PERMISSIONS_REFRESH_EVENT } from '@/hooks/use-user-permissions'
+import { useSession } from '@/lib/auth-client'
 import {
   HELPDESK_STATUS, HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE, HELPDESK_PRIORIDADE_LABELS,
   HELPDESK_PRIORIDADE_COLORS,
+  solicitantePodeCancelar,
   type HelpdeskStatus, type HelpdeskPrioridade,
 } from '@saas/types'
 import { NovoTicketModal } from './_components/novo-ticket-modal'
@@ -100,6 +103,11 @@ function scopeOptionsFor(escopo: 'proprios' | 'area' | 'todos', temArea: boolean
 
 export default function HelpdeskPage() {
   const router = useRouter()
+  // #HLP0172: identidade do usuário para liberar o cancelamento do PRÓPRIO
+  // ticket direto na lista — a solicitante do ticket procurou a opção aqui e
+  // não achou, porque ela só existia dentro da página do chamado.
+  const { data: session } = useSession()
+  const currentUserId = session?.user?.id ?? null
   // Estados independentes:
   //   - isAgente: tem permissão helpdesk.canRead → vê o módulo (qualquer um que tenha o slug)
   //   - podeAtuar: É TI/DIRETOR/COORDENADOR ou tem sub-permissão atuar_agente — vê tudo,
@@ -291,6 +299,30 @@ export default function HelpdeskPage() {
   }, [isAgente, meuEscopo, scope, debouncedSearch, filtroStatus, filtroPrioridade, filtroSolicitante, filtroResponsavel, verArquivados, viewMode])
   // Nota: no finally o setLoading(false) é inofensivo mesmo no modo silent
   // (loading já estava false). O que importa é NÃO subir pra true no silent.
+
+  /**
+   * #HLP0172 — cancelamento do PRÓPRIO chamado direto na lista.
+   * A regra é a mesma do botão que já existia dentro do ticket (ser solicitante
+   * e o chamado estar aberto); o que faltava era o caminho aqui, que é onde a
+   * solicitante procurou. O backend agora impõe essa regra de fato: um
+   * não-agente só consegue levar o próprio ticket para CANCELADO.
+   */
+  const cancelarProprio = useCallback(async (t: Ticket) => {
+    const ok = await alerts.confirm({
+      title: `Cancelar #HLP${String(t.numero).padStart(4, '0')}?`,
+      text: 'O chamado fica registrado como cancelado e sai da fila de atendimento.',
+      confirmText: 'Cancelar chamado',
+      icon: 'warning',
+    })
+    if (!ok) return
+    try {
+      await (trpc.helpdesk as any).update.mutate({ id: t.id, data: { status: 'CANCELADO' } })
+      alerts.toast('Chamado cancelado')
+      fetchData()
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    }
+  }, [fetchData])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -597,8 +629,10 @@ export default function HelpdeskPage() {
           </Card>
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
-            <TicketPanel titulo="Ativos" icon={Inbox} tickets={items} vazio="Nenhum ticket ativo no momento." />
+            <TicketPanel titulo="Ativos" icon={Inbox} tickets={items} vazio="Nenhum ticket ativo no momento."
+              currentUserId={currentUserId} onCancelar={cancelarProprio} />
             {arquivados.length > 0 && (
+              // Arquivados não recebem o cancelar: são chamados já encerrados.
               <TicketPanel titulo="Arquivados" icon={Archive} tickets={arquivados} vazio="Nenhum ticket arquivado." arquivado />
             )}
           </div>
@@ -655,6 +689,8 @@ export default function HelpdeskPage() {
               <TicketRow
                 key={t.id}
                 ticket={t}
+                currentUserId={currentUserId}
+                onCancelar={cancelarProprio}
                 // Em modo arquivado, oferece desarquivar in-place (sem entrar no ticket)
                 onUnarchive={verArquivados && podeAtuar ? async () => {
                   try {
@@ -993,8 +1029,21 @@ function ScoreIaBadge({ ticket }: { ticket: Ticket }) {
   )
 }
 
-function TicketRow({ ticket, onUnarchive }: { ticket: Ticket; onUnarchive?: () => void }) {
+function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar }: {
+  ticket: Ticket
+  onUnarchive?: () => void
+  /** Id do usuário logado — habilita o cancelar quando ele é o solicitante (#HLP0172). */
+  currentUserId?: string | null
+  onCancelar?: (t: Ticket) => void
+}) {
   const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
+  // #HLP0172: regra vem de @saas/types — mesma fonte que o backend impõe e que
+  // a página do chamado consulta.
+  const podeCancelar = !!onCancelar && solicitantePodeCancelar({
+    status: ticket.status,
+    solicitanteId: ticket.solicitante?.id,
+    userId: currentUserId,
+  })
   return (
     <div className="relative flex items-center gap-3 px-4 py-3 hover:bg-muted/30 group">
       {/* Link esticado cobre a linha → clique abre; Ctrl/⌘+clique, botão do meio
@@ -1047,6 +1096,38 @@ function TicketRow({ ticket, onUnarchive }: { ticket: Ticket; onUnarchive?: () =
       <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
         {new Date(ticket.createdAt).toLocaleDateString('pt-BR')}
       </span>
+      {/* Kebab de ações, à direita da data. z-10 + stopPropagation: precisa ficar
+          ACIMA do <Link> esticado que cobre a linha, senão o clique abriria o
+          chamado em vez de abrir o menu. */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost" size="sm"
+            onClick={e => { e.preventDefault(); e.stopPropagation() }}
+            className="relative z-10 h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-foreground"
+            title="Ações"
+          >
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem asChild>
+            <Link href={`/helpdesk/${ticket.id}`} className="gap-2">
+              <ExternalLink className="h-3.5 w-3.5" />
+              Ver detalhes
+            </Link>
+          </DropdownMenuItem>
+          {podeCancelar && (
+            <DropdownMenuItem
+              onClick={() => onCancelar!(ticket)}
+              className="gap-2 text-rose-600 focus:text-rose-600"
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              Cancelar
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }
@@ -1057,12 +1138,14 @@ function TicketRow({ ticket, onUnarchive }: { ticket: Ticket; onUnarchive?: () =
  * "Arquivados" embaixo (variante `arquivado` = header âmbar + linhas suaves),
  * pra que colaboradores como a Erica vejam também os tickets já arquivados.
  */
-function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false }: {
+function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, currentUserId, onCancelar }: {
   titulo: string
   icon: typeof Inbox
   tickets: Ticket[]
   vazio: string
   arquivado?: boolean
+  currentUserId?: string | null
+  onCancelar?: (t: Ticket) => void
 }) {
   return (
     <Card className="overflow-hidden flex flex-col shrink-0">
@@ -1083,7 +1166,9 @@ function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false }: 
         <p className="px-4 py-6 text-center text-xs text-muted-foreground">{vazio}</p>
       ) : (
         <div className={cn('divide-y divide-border/60', arquivado && 'opacity-80')}>
-          {tickets.map(t => <TicketRow key={t.id} ticket={t} />)}
+          {tickets.map(t => (
+            <TicketRow key={t.id} ticket={t} currentUserId={currentUserId} onCancelar={onCancelar} />
+          ))}
         </div>
       )}
     </Card>

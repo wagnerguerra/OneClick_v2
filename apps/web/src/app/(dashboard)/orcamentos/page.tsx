@@ -7,12 +7,13 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
   Clock, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
   MessageSquare, Paperclip, RotateCcw, Star, SlidersHorizontal, X, Target,
+  Download, FileSpreadsheet, FileDown,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   Label, RichEditor,
@@ -544,6 +545,43 @@ export default function OrcamentosPage() {
     })()
   }, [filtrosOpen, filtrosDataLoaded])
 
+  /**
+   * #HLP0265 — URL de exportação da lista COM OS FILTROS DA TELA. É consumida
+   * por um `<a href download>`, e NÃO por `window.location.href`: com resposta
+   * `Content-Disposition: attachment`, atribuir o location faz o Chrome iniciar
+   * o download mas deixar a aba presa no estado de carregamento (o arquivo
+   * chega, a aba fica girando pra sempre). O `<a>` é o mesmo padrão que o
+   * relatório da coluna já usava, e de graça ganha o "salvar como" do botão
+   * direito e a abertura em nova aba.
+   *
+   * Os parâmetros abaixo espelham 1:1 o `input` montado no fetchData — se um
+   * filtro novo entrar lá, precisa entrar aqui, senão a planilha deixa de
+   * corresponder ao que está na tela. `scope` não vai: o backend o deriva da
+   * permissão do usuário e sobrescreve o que o cliente manda, tanto na listagem
+   * quanto na exportação, então os dois já batem.
+   */
+  const urlExportLista = useCallback((formato: 'xlsx' | 'csv' | 'pdf') => {
+    const p = new URLSearchParams()
+    p.set('formato', formato)
+    if (debouncedSearch) p.set('search', debouncedSearch)
+    if (statusFilter) p.set('status', statusFilter)
+    if (comReaberturas) p.set('comReaberturas', '1')
+    if (debouncedNumero.trim()) {
+      const n = parseInt(debouncedNumero.replace(/\D/g, ''), 10)
+      if (n > 0) p.set('numero', String(n))
+    }
+    if (dataInicial) p.set('de', dataInicial)
+    if (dataFinal) p.set('ate', dataFinal)
+    if (clienteFilter) p.set('clienteId', clienteFilter)
+    if (itemFilter) p.set('itemCatalogoId', itemFilter)
+    if (solicitanteFilter) p.set('solicitanteId', solicitanteFilter)
+    if (responsavelFilter) p.set('responsavelId', responsavelFilter)
+    if (!incluirParalizados) p.set('incluirParalizados', '0')
+    if (arquivado) p.set('arquivado', '1')
+    return `${getApiUrl()}/api/orcamento-report/lista?${p.toString()}`
+  }, [debouncedSearch, statusFilter, comReaberturas, debouncedNumero, dataInicial, dataFinal,
+      clienteFilter, itemFilter, solicitanteFilter, responsavelFilter, incluirParalizados, arquivado])
+
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
@@ -1012,6 +1050,39 @@ export default function OrcamentosPage() {
                 <RotateCcw className="h-3.5 w-3.5" />
                 Com reaberturas
               </button>
+              {/* #HLP0265 — exportação da lista, junto dos demais controles
+                  desta linha. Fica aqui, e não na barra do topo, porque exporta
+                  exatamente o que estes filtros produziram — é o comportamento
+                  do DataTables do sistema legado, a que o time está acostumado.
+                  No kanban não aparece: lá o caminho é o relatório da coluna. */}
+              <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs bg-card shrink-0" title="Exportar a lista com os filtros aplicados">
+                  <Download className="h-3.5 w-3.5" />
+                  Exportar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+                  {total} orçamento{total === 1 ? '' : 's'} no filtro atual
+                </DropdownMenuLabel>
+                <DropdownMenuItem asChild>
+                  <a href={urlExportLista('xlsx')} download className="gap-2">
+                    <FileSpreadsheet className="h-3.5 w-3.5" /> Excel (.xlsx)
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href={urlExportLista('csv')} download className="gap-2">
+                    <FileText className="h-3.5 w-3.5" /> CSV
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href={urlExportLista('pdf')} download className="gap-2">
+                    <FileDown className="h-3.5 w-3.5" /> PDF
+                  </a>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 

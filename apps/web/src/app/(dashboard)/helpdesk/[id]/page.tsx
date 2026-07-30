@@ -30,6 +30,7 @@ import { AnexosDropzone, type AnexoStaged } from '../_components/anexos-dropzone
 import {
   HELPDESK_STATUS, HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE, HELPDESK_PRIORIDADE_LABELS,
   HELPDESK_PRIORIDADE_COLORS, HELPDESK_TIPO_LABELS,
+  solicitantePodeCancelar,
   type HelpdeskStatus, type HelpdeskPrioridade,
 } from '@saas/types'
 
@@ -718,8 +719,12 @@ export default function HelpdeskTicketDetailPage() {
   // Solicitante pode cancelar o próprio ticket enquanto está aberto.
   // TI também pode cancelar (via sidebar/select de status), então aqui foco no solicitante.
   const isSolicitante = !!currentUserId && ticket.solicitante?.id === currentUserId
-  const ticketAberto = !['CONCLUIDO', 'CANCELADO'].includes(ticket.status)
-  const podeCancelar = isSolicitante && ticketAberto
+  // #HLP0172: regra vem de @saas/types — mesma fonte que o backend impõe.
+  const podeCancelar = solicitantePodeCancelar({
+    status: ticket.status,
+    solicitanteId: ticket.solicitante?.id,
+    userId: currentUserId,
+  })
 
   return (
     <div className="space-y-0 pb-6">
@@ -1152,9 +1157,14 @@ export default function HelpdeskTicketDetailPage() {
                           <div className="text-muted-foreground line-clamp-2 [&_*]:inline [&_p]:m-0" dangerouslySetInnerHTML={{ __html: msg.respostaPara.conteudo }} />
                         </div>
                       )}
-                      <div
-                        className="text-sm whitespace-pre-wrap"
-                        dangerouslySetInnerHTML={{ __html: linkifyHelpdesk(msg.conteudo) }}
+                      {/* `whitespace-pre-wrap` era herança de quando a mensagem
+                          era texto puro; hoje o conteúdo é HTML do editor e
+                          precisa das regras de parágrafo/lista do RichContent —
+                          sem elas, parágrafos ficavam colados e a linha em
+                          branco digitada pelo autor sumia. */}
+                      <RichContent
+                        className="text-sm [&_a]:text-cyan-600"
+                        html={linkifyHelpdesk(msg.conteudo)}
                       />
                       {/* Anexos vinculados a esta mensagem — abrem no visualizador inline */}
                       <AnexoThumbs anexos={msg.anexos ?? []} onOpen={setAnexoPreview} />

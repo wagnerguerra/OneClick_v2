@@ -15,6 +15,9 @@ import {
   type HelpdeskPrioridade,
   type HelpdeskStatus,
   type HelpdeskScope,
+  HELPDESK_STATUS_CANCELAVEL_PELO_SOLICITANTE,
+  helpdeskSolicitantePodeReabrir,
+  HELPDESK_STATUS_REABERTURA,
 } from '@saas/types'
 import { NotificationService } from '../notification/notification.service'
 import { EmailService } from '../common/email.service'
@@ -651,7 +654,7 @@ export class HelpdeskService {
         status: true, responsavelId: true, prioridade: true, categoriaId: true,
         areaId: true, prazoSla: true, pausadoEm: true, totalPausadoMs: true,
         primeiroAtendimentoEm: true, solicitanteId: true, titulo: true, descricao: true,
-        arquivado: true,
+        arquivado: true, tipo: true,
       },
     })
     if (!before) throw new Error('Ticket não encontrado')
@@ -665,15 +668,38 @@ export class HelpdeskService {
     //    COORDENADOR, sub-permissão helpdesk.atuar_agente ou área de TI).
     //  - Descrição: continua restrita ao solicitante (criador).
     // Em ambos os casos o ticket não pode estar CANCELADO. Auditoria via evento.
+    // ── Autorização de escrita ────────────────────────────────────────────
+    // ATENÇÃO: até aqui o único gate era o `assertCanAccess` do router, que
+    // responde "pode VER este ticket?" — não "pode ALTERAR". Sem as checagens
+    // abaixo, qualquer usuário autenticado com visibilidade do ticket conseguia
+    // mudar status (inclusive CANCELAR ticket de outra pessoa), responsável,
+    // prioridade, prazo, categoria e arquivamento chamando o endpoint direto.
+    // A interface escondia os controles; o backend não impedia.
+    //
+    // As sub-permissões (change_responsavel, change_prazo, change_prioridade,
+    // arquivar) já existiam em packages/types e eram usadas SÓ pela UI — agora
+    // valem de fato. Resolvidas uma vez só, e apenas quando algum campo
+    // restrito está sendo tocado, pra não custar query em update trivial.
+    const ehSolicitante = before.solicitanteId === userId
+    const querCampoRestrito = (
+      data.status !== undefined || data.responsavelId !== undefined
+      || data.prioridade !== undefined || data.prazoSla !== undefined
+      || data.categoriaId !== undefined || data.areaId !== undefined
+      || data.arquivado !== undefined || data.tipo !== undefined || data.tags !== undefined
+      || (data.titulo !== undefined && !ehSolicitante)
+    )
+    const ehAgente = querCampoRestrito ? await this.canAtuarAgente(userId) : false
+    const subPerms: Record<string, boolean> = querCampoRestrito && !ehAgente
+      ? (((await prisma.userPermission.findFirst({
+          where: { userId, moduleSlug: 'helpdesk' },
+          select: { subPermissions: true },
+        }))?.subPermissions ?? {}) as Record<string, boolean>)
+      : {}
+    const podeCom = (chave: string) => ehAgente || subPerms[chave] === true
+
     const querMudarTitulo = data.titulo !== undefined && data.titulo !== before.titulo
     const querMudarDescricao = data.descricao !== undefined && data.descricao !== before.descricao
     if (querMudarTitulo || querMudarDescricao) {
-      const ehSolicitante = before.solicitanteId === userId
-      // Resolve agente só quando necessário (edição de título por não-solicitante)
-      const ehAgente = querMudarTitulo && !ehSolicitante
-        ? await this.canAtuarAgente(userId)
-        : false
-
       if (before.status === 'CANCELADO') {
         throw new Error('Ticket cancelado — edição não permitida')
       }
@@ -698,9 +724,24 @@ export class HelpdeskService {
         eventos.push({ tipo: 'descricao_editada', descricao: 'Descrição inicial editada pelo solicitante' })
       }
     }
-    if (data.tipo !== undefined) patch.tipo = data.tipo
-    if (data.tags !== undefined) patch.tags = data.tags
-    if (data.arquivado !== undefined) {
+    if (data.tipo !== undefined && data.tipo !== before.tipo) {
+      if (!ehAgente) throw new Error('Só um agente da TI pode alterar o tipo do ticket')
+      patch.tipo = data.tipo
+    }
+    if (data.tags !== undefined) {
+      if (!ehAgente) throw new Error('Só um agente da TI pode alterar as tags do ticket')
+      patch.tags = data.tags
+    }
+    if (data.arquivado !== undefined && data.arquivado !== before.arquivado) {
+      // A reabertura manda status + arquivado na MESMA chamada (senão o ticket
+      // volta pra fila mas continua escondido). Sem esta brecha, o guard de
+      // `arquivar` barraria a reabertura feita pelo solicitante.
+      const desarquivandoParaReabrir = ehSolicitante
+        && data.arquivado === false
+        && helpdeskSolicitantePodeReabrir({ status: before.status as HelpdeskStatus, arquivado: before.arquivado })
+      if (!podeCom('arquivar') && !desarquivandoParaReabrir) {
+        throw new Error('Você não tem permissão para arquivar tickets')
+      }
       patch.arquivado = data.arquivado
       eventos.push({
         tipo: data.arquivado ? 'arquivado' : 'desarquivado',
@@ -709,6 +750,7 @@ export class HelpdeskService {
     }
 
     if (data.prioridade !== undefined && data.prioridade !== before.prioridade) {
+      if (!podeCom('change_prioridade')) throw new Error('Você não tem permissão para alterar a prioridade')
       patch.prioridade = data.prioridade
       // Recalcula SLA se ainda está em aberto
       patch.prazoSla = await this.calcularPrazoSla(data.prioridade, data.categoriaId ?? before.categoriaId)
@@ -719,6 +761,7 @@ export class HelpdeskService {
     }
 
     if (data.categoriaId !== undefined && data.categoriaId !== before.categoriaId) {
+      if (!ehAgente) throw new Error('Só um agente da TI pode alterar a categoria do ticket')
       patch.categoriaId = data.categoriaId
       // Re-roteia área se categoria mudou
       if (data.categoriaId) {
@@ -732,15 +775,18 @@ export class HelpdeskService {
     }
 
     if (data.areaId !== undefined && data.areaId !== before.areaId) {
+      if (!ehAgente) throw new Error('Só um agente da TI pode alterar a área do ticket')
       patch.areaId = data.areaId
     }
 
     if (data.prazoSla !== undefined) {
+      if (!podeCom('change_prazo')) throw new Error('Você não tem permissão para alterar o prazo/SLA')
       patch.prazoSla = data.prazoSla ? new Date(data.prazoSla) : null
       eventos.push({ tipo: 'prazo_alterado', descricao: 'Prazo SLA alterado' })
     }
 
     if (data.responsavelId !== undefined && data.responsavelId !== before.responsavelId) {
+      if (!podeCom('change_responsavel')) throw new Error('Você não tem permissão para atribuir responsável')
       patch.responsavelId = data.responsavelId
       const novoNome = data.responsavelId
         ? (await prisma.user.findUnique({ where: { id: data.responsavelId }, select: { name: true } }))?.name ?? '—'
@@ -758,6 +804,37 @@ export class HelpdeskService {
     }
 
     if (data.status !== undefined && data.status !== before.status) {
+      // Agente move o ticket livremente. O SOLICITANTE só tem um caminho:
+      // cancelar o PRÓPRIO chamado, e só na janela definida em @saas/types
+      // (HELPDESK_STATUS_CANCELAVEL_PELO_SOLICITANTE) — a mesma constante que
+      // as telas usam pra decidir se mostram o botão. Aqui é onde a regra é
+      // IMPOSTA; lá é só exibição.
+      //
+      // As checagens ficam destrinchadas (em vez de um único `solicitantePodeCancelar`)
+      // pra devolver a mensagem certa em cada caso — quem não é solicitante e quem
+      // pediu tarde demais precisam ouvir coisas diferentes.
+      if (!ehAgente) {
+        if (!ehSolicitante) {
+          throw new Error('Você não tem permissão para alterar o status deste ticket')
+        }
+        // O solicitante tem DUAS transições permitidas — não uma. Tratar
+        // "cancelar" como a única fazia a REABERTURA (#HLP0062), que também é
+        // ação dele, cair no erro genérico e falhar.
+        const querCancelar = data.status === 'CANCELADO'
+        const querReabrir = data.status === HELPDESK_STATUS_REABERTURA
+
+        if (querCancelar) {
+          if (!HELPDESK_STATUS_CANCELAVEL_PELO_SOLICITANTE.includes(before.status as HelpdeskStatus)) {
+            throw new Error('O chamado já está em atendimento — fale com o responsável para encerrá-lo')
+          }
+        } else if (querReabrir) {
+          if (!helpdeskSolicitantePodeReabrir({ status: before.status as HelpdeskStatus, arquivado: before.arquivado })) {
+            throw new Error('Este chamado ainda está em atendimento — acompanhe por aqui mesmo.')
+          }
+        } else {
+          throw new Error('Como solicitante, você só pode cancelar ou reabrir o próprio ticket')
+        }
+      }
       patch.status = data.status
       eventos.push({
         tipo: 'status_alterado',

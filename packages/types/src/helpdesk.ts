@@ -61,6 +61,56 @@ export const HELPDESK_STATUS_PAUSADOS: HelpdeskStatus[] = []
 // Status finais (não conta como aberto)
 export const HELPDESK_STATUS_FINAIS: HelpdeskStatus[] = ['CONCLUIDO', 'CANCELADO']
 
+/**
+ * #HLP0172 — janela em que o SOLICITANTE pode cancelar o próprio chamado sem
+ * passar pela TI. Só enquanto ninguém assumiu: a partir do momento em que o
+ * chamado entra em atendimento já houve trabalho, e o encerramento passa a ser
+ * conversado com o responsável.
+ *
+ * FONTE ÚNICA da regra: é consumida pelo backend (helpdesk.service → update,
+ * que a IMPÕE) e pelas duas telas que oferecem a ação (página do chamado e
+ * linha da lista, que só decidem se mostram o botão). Mudou aqui, mudou nos
+ * três — era exatamente o que estava duplicado antes.
+ */
+export const HELPDESK_STATUS_CANCELAVEL_PELO_SOLICITANTE: HelpdeskStatus[] = ['NOVO']
+
+/**
+ * O usuário `userId` pode cancelar este chamado por ser o solicitante?
+ * NÃO cobre o caso do agente da TI, que cancela por outra via (permissão de
+ * atendimento) — por isso o nome é explícito quanto ao papel.
+ */
+export function solicitantePodeCancelar(args: {
+  status: HelpdeskStatus
+  solicitanteId: string | null | undefined
+  userId: string | null | undefined
+}): boolean {
+  if (!args.userId || !args.solicitanteId) return false
+  if (args.solicitanteId !== args.userId) return false
+  return HELPDESK_STATUS_CANCELAVEL_PELO_SOLICITANTE.includes(args.status)
+}
+
+/** Posição da etapa na ordem progressiva do atendimento. */
+export function helpdeskStatusRank(status: HelpdeskStatus): number {
+  return HELPDESK_STATUS.indexOf(status)
+}
+
+/** Etapa para onde o chamado volta quando é reaberto. */
+export const HELPDESK_STATUS_REABERTURA: HelpdeskStatus = 'EM_ANDAMENTO'
+
+/**
+ * O SOLICITANTE pode reabrir o próprio chamado a partir daqui?
+ *
+ * Vale de "Aguardando avaliação" em diante, e também quando arquivado: são os
+ * estados em que o atendimento se deu por encerrado mas o problema pode não ter
+ * sido resolvido. É a SEGUNDA transição permitida ao solicitante — a primeira é
+ * cancelar (acima). Sem ela, o gatilho de reabertura que existe desde o #HLP0062
+ * fica inacessível para quem abriu o chamado.
+ */
+export function helpdeskSolicitantePodeReabrir(args: { status: HelpdeskStatus; arquivado: boolean }): boolean {
+  return args.arquivado
+    || helpdeskStatusRank(args.status) >= helpdeskStatusRank('RESOLVIDO')
+}
+
 // SLA padrão (horas) por prioridade — pode ser overridden em SystemConfig
 // e por categoria. Valores baseados em Freshservice/Jira ITSM padrão.
 export const HELPDESK_SLA_PADRAO_HORAS: Record<HelpdeskPrioridade, number> = {

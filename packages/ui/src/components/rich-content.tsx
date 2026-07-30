@@ -34,9 +34,17 @@ export function RichContent({ html, className, style }: {
     <div
       style={style}
       className={cn(
-        // Parágrafos — sem margem sobrando na primeira/última linha, que é o que
-        // desalinha o texto dentro de cards e caixas.
-        '[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0',
+        // Parágrafo SEM margem — de propósito. Dentro do editor o preflight do
+        // Tailwind zera a margem de <p>, então lá dois parágrafos seguidos ficam
+        // colados e o espaçamento vem de quem escreveu, apertando Enter duas
+        // vezes. Se aqui houvesse margem automática, ela se somaria à linha em
+        // branco e o texto exibido ganharia um respiro que o autor não pediu.
+        '[&_p]:m-0',
+        // Linha em branco: o TipTap salva `<p></p>`, que tem altura zero fora do
+        // contenteditable — o espaçamento digitado sumia na exibição. Uma linha
+        // de altura reproduz exatamente o que se vê editando. min-height (em vez
+        // de injetar `&nbsp;` via ::before) não suja o texto ao copiar.
+        '[&_p:empty]:min-h-[1.5em]',
         // Listas — o que estava quebrado na maioria das telas.
         '[&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2',
         '[&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2',

@@ -6,6 +6,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
+    "check:prose": "node scripts/check-prose.mjs",
     "test": "turbo test",
     "db:generate": "turbo db:generate",
     "db:migrate": "turbo db:migrate",

@@ -194,6 +194,20 @@ export function FloatingFeedbackButton() {
     return true
   }
 
+  /**
+   * #HLP0161 — volta do "ticket criado" para um formulário limpo, sem fechar o
+   * balão. Zera os mesmos campos do reset-ao-fechar, exceto `mode`: continua no
+   * fluxo de chamado. Não precisa focar aqui — o efeito de autofoco tem
+   * `ticketCriado` nas dependências, então volta o cursor pro editor sozinho.
+   */
+  function abrirOutroChamado() {
+    setTicketCriado(null)
+    setTexto('')
+    setTipo(null)
+    setAnexos([])
+    setEnviando(false)
+  }
+
   /** Ctrl/Cmd+Enter envia — atalho que já existia no textarea. */
   function handleEditorKeyDown(e: KeyboardEvent) {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -420,6 +434,8 @@ export function FloatingFeedbackButton() {
                 ctaLabel="Ver ticket"
                 color="var(--mod-ti, #22d3ee)"
                 onClose={() => setOpenAnimated(false)}
+                novoLabel="Abrir outro chamado"
+                onNovo={abrirOutroChamado}
               />
             ) : (
               <>
@@ -1200,9 +1216,12 @@ function EventoRequestForm({
 
 /** Tela de sucesso genérica (ticket ou orçamento). */
 function SuccessState({
-  titulo, subtitulo, href, ctaLabel, color, onClose,
+  titulo, subtitulo, href, ctaLabel, color, onClose, onNovo, novoLabel,
 }: {
   titulo: string; subtitulo: string; href: string; ctaLabel: string; color: string; onClose: () => void
+  /** #HLP0161: ação opcional de "abrir mais um" sem fechar e reabrir o balão. */
+  onNovo?: () => void
+  novoLabel?: string
 }) {
   return (
     <div className="px-4 py-6 flex flex-col items-center text-center gap-3">
@@ -1227,6 +1246,15 @@ function SuccessState({
           {ctaLabel} <ExternalLink className="h-3.5 w-3.5" />
         </a>
       </div>
+      {/* #HLP0161: quem registra várias coisas em sequência (caso comum aqui —
+          houve dia com nove chamados abertos pela mesma pessoa) tinha que fechar
+          o balão e clicar no botão flutuante de novo a cada um. */}
+      {onNovo && (
+        <Button variant="ghost" size="sm" onClick={onNovo} className="w-full gap-1.5 text-muted-foreground hover:text-foreground">
+          <Plus className="h-3.5 w-3.5" />
+          {novoLabel ?? 'Abrir outro'}
+        </Button>
+      )}
     </div>
   )
 }

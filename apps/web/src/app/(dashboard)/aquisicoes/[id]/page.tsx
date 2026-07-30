@@ -11,6 +11,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   RichEditor,
+  RichContent,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
@@ -220,7 +221,7 @@ export default function PedidoDetalhePage() {
                 <h4 className="text-[13px] font-semibold text-foreground">Observações</h4>
               </div>
               {editavel ? <RichEditor value={obs} onChange={setObs} placeholder="Detalhamento..." />
-                : <div className="prose prose-sm max-w-none dark:prose-invert text-sm" dangerouslySetInnerHTML={{ __html: c.observacoes || '<p class="text-muted-foreground">Sem observações.</p>' }} />}
+                : <RichContent className="text-sm" html={c.observacoes || '<p class="text-muted-foreground">Sem observações.</p>'} />}
             </>)}
 
             {/* ANEXOS */}
