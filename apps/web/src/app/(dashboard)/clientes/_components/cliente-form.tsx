@@ -351,6 +351,25 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
     } finally { setSaving(false) }
   }
 
+  /**
+   * Grava na hora uma escolha feita direto no cabeçalho (situação e status).
+   * São cliques de um passo só — trocar para "Ativa" e ainda ter de achar o
+   * disquete no canto é um jeito fácil de perder a alteração ao sair da tela.
+   * No cadastro novo (sem id) só atualiza o formulário; grava junto no salvar.
+   */
+  async function salvarCampoDoCabecalho(campo: 'situacao' | 'status', valor: string, aplicar: (v: string) => void) {
+    const anterior = watchedValues[campo]
+    aplicar(valor)
+    if (mode !== 'edit' || !clienteId) return
+    try {
+      await trpc.cliente.update.mutate({ id: clienteId, data: { [campo]: valor } as never })
+    } catch {
+      // Volta ao valor anterior para a tela não mostrar algo que o banco não tem.
+      if (anterior !== undefined) aplicar(String(anterior))
+      alerts.error('Erro', 'Não foi possível salvar a alteração.')
+    }
+  }
+
   const isEdit = mode === 'edit' && defaultValues?.code
 
   return (
@@ -497,7 +516,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
                         {Object.entries(SITUACAO_LABELS).map(([v, l]) => (
-                          <DropdownMenuItem key={v} onClick={() => field.onChange(v)} className={field.value === v ? 'font-bold' : ''}>{l}</DropdownMenuItem>
+                          <DropdownMenuItem key={v} onClick={() => salvarCampoDoCabecalho('situacao', v, field.onChange)} className={field.value === v ? 'font-bold' : ''}>{l}</DropdownMenuItem>
                         ))}
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -512,7 +531,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
                         {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                          <DropdownMenuItem key={v} onClick={() => field.onChange(v)} className={field.value === v ? 'font-bold' : ''}>{l}</DropdownMenuItem>
+                          <DropdownMenuItem key={v} onClick={() => salvarCampoDoCabecalho('status', v, field.onChange)} className={field.value === v ? 'font-bold' : ''}>{l}</DropdownMenuItem>
                         ))}
                       </DropdownMenuContent>
                     </DropdownMenu>
