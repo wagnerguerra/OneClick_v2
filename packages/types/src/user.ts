@@ -52,7 +52,7 @@ export const MODULE_SLUGS = [
   'custeio-clientes', 'graficos-contrato-erp',
   'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios',
   // Administrativo
-  'agenda', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma',
+  'agenda', 'acessorias', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma',
   // Legalização
   'beneficios-fiscais', 'gestao-certificados', 'processos', 'quadro-societario',
   // Trabalhista
@@ -105,6 +105,7 @@ export const MODULE_LABELS: Record<string, string> = {
   agenda: 'Agenda Corporativa', 'coleta-documentos': 'Coleta e Recebimento',
   contatos: 'Contatos', estoque: 'Controle de Estoque',
   'meus-servicos': 'Meus Serviços', 'minhas-obrigacoes': 'Minhas Obrigações', organograma: 'Organograma',
+  acessorias: 'Acessórias',
   // Legalização
   'gestao-certificados': 'Certificados Digitais',
   processos: 'Processos', 'quadro-societario': 'Quadro Societário',
@@ -138,7 +139,7 @@ export const MODULE_LABELS: Record<string, string> = {
 export const MODULE_GROUPS = {
   'Cadastros': ['areas', 'cargos', 'clientes', 'colaboradores', 'empresas', 'fornecedores', 'grupos-empresariais', 'obrigacoes', 'obrigacoes-fixas', 'obrigacoes-demanda', 'servicos', 'socios', 'usuarios'],
   'Comercial': ['crm', 'whatsapp', 'clausulas', 'comercial', 'contratos', 'contrato-templates', 'custeio-clientes', 'graficos-contrato-erp', 'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios'],
-  'Administrativo': ['agenda', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma'],
+  'Administrativo': ['agenda', 'acessorias', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma'],
   'Legalização': ['beneficios-fiscais', 'gestao-certificados', 'processos', 'quadro-societario'],
   'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento', 'folha-bi'],
   'Fiscal': ['caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal', 'reforma-tributaria', 'ferramentas-fiscal'],
@@ -306,6 +307,25 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
       label: 'Concluir serviço sem cumprir o checklist (ignora passos obrigatórios pendentes)',
       group: 'Execução',
       observacao: 'Uso na fase de implantação do módulo — permite finalizar a execução mesmo com passos obrigatórios em aberto.',
+    },
+  ],
+  acessorias: [
+    {
+      key: 'ver_painel_entregas',
+      label: 'Ver o painel de entregas e leitura das guias',
+      group: 'Acompanhamento',
+      observacao: 'É a tela que mostra quais clientes ainda não abriram a guia antes do vencimento — quem cobra o cliente precisa dela.',
+    },
+    {
+      key: 'gerenciar_integracao',
+      label: 'Gerenciar a integração (sincronizar empresas, obrigações e entregas)',
+      group: 'Integração',
+    },
+    {
+      key: 'conciliar_cadastro',
+      label: 'Conciliar divergências e gravar os dados do Acessórias no cadastro de clientes',
+      group: 'Integração',
+      observacao: 'Permite aplicar no cliente o que vem do Acessórias (razão social, telefone, datas). Altera o cadastro.',
     },
   ],
   aquisicoes: [
