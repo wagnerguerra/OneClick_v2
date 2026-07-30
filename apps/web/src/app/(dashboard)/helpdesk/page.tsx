@@ -18,6 +18,7 @@ import {
   Button, Card, Badge, Input, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -920,6 +921,22 @@ function KanbanCardOverlay({ ticket, cor, velocityX, width }: { ticket: Ticket; 
   )
 }
 
+/** Avatar compacto (rosto ou iniciais) do rodapé do card do kanban. */
+function CardAvatar({ user, bg }: { user: { name: string; image: string | null } | null; bg: string }) {
+  if (!user) {
+    return <span className="h-6 w-6 rounded-full bg-muted text-muted-foreground text-[10px] flex items-center justify-center font-bold">?</span>
+  }
+  if (user.image) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={resolveAssetUrl(user.image)} alt={user.name} className="h-6 w-6 rounded-full object-cover" />
+  }
+  return (
+    <span className={cn('h-6 w-6 rounded-full text-white text-[10px] flex items-center justify-center font-bold', bg)}>
+      {user.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+    </span>
+  )
+}
+
 function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: string; dragging?: boolean }) {
   const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
   const corPrioridade = HELPDESK_PRIORIDADE_COLORS[ticket.prioridade]
@@ -1011,18 +1028,29 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
             apertado e com fontes 9-10px que cansavam a vista. */}
         <div className="flex items-center justify-between gap-2 mt-1 pt-1.5 border-t border-border/40">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            {ticket.responsavel ? (
-              ticket.responsavel.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={resolveAssetUrl(ticket.responsavel.image)} alt={ticket.responsavel.name} className="h-6 w-6 rounded-full object-cover shrink-0" />
-              ) : (
-                <span className="h-6 w-6 rounded-full bg-[#5ea3cb] text-white text-[10px] flex items-center justify-center font-bold shrink-0">
-                  {ticket.responsavel.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                </span>
-              )
-            ) : (
-              <span className="h-6 w-6 rounded-full bg-muted text-muted-foreground text-[10px] flex items-center justify-center font-bold shrink-0">?</span>
-            )}
+            {/* Avatar group horizontal, sobreposto (frente→trás, da direita p/ a
+                esquerda): solicitante ATRÁS à esquerda, peeking — nome em tooltip
+                no hover (que o traz pra frente + zoom); responsável na FRENTE à
+                direita, com o nome ao lado (como antes). O tooltip é portalizado
+                (não é cortado pelo overflow-hidden do card). Sem responsável, só o
+                solicitante aparece. */}
+            <div className="flex items-center shrink-0">
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative z-0 rounded-full ring-2 ring-card transition-transform duration-150 hover:z-20 hover:scale-110">
+                      <CardAvatar user={ticket.solicitante} bg="bg-slate-400" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Solicitante: {ticket.solicitante?.name ?? '—'}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {ticket.responsavel && (
+                <div className="relative z-10 -ml-2.5 rounded-full ring-2 ring-card">
+                  <CardAvatar user={ticket.responsavel} bg="bg-[#5ea3cb]" />
+                </div>
+              )}
+            </div>
             <span className="text-[12px] text-muted-foreground truncate min-w-0">
               {ticket.responsavel?.name || ticket.solicitante?.name || 'Não atribuído'}
             </span>
