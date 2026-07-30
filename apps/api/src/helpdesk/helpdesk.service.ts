@@ -16,6 +16,8 @@ import {
   type HelpdeskStatus,
   type HelpdeskScope,
   HELPDESK_STATUS_CANCELAVEL_PELO_SOLICITANTE,
+  helpdeskSolicitantePodeReabrir,
+  HELPDESK_STATUS_REABERTURA,
 } from '@saas/types'
 import { NotificationService } from '../notification/notification.service'
 import { EmailService } from '../common/email.service'
@@ -731,7 +733,15 @@ export class HelpdeskService {
       patch.tags = data.tags
     }
     if (data.arquivado !== undefined && data.arquivado !== before.arquivado) {
-      if (!podeCom('arquivar')) throw new Error('Você não tem permissão para arquivar tickets')
+      // A reabertura manda status + arquivado na MESMA chamada (senão o ticket
+      // volta pra fila mas continua escondido). Sem esta brecha, o guard de
+      // `arquivar` barraria a reabertura feita pelo solicitante.
+      const desarquivandoParaReabrir = ehSolicitante
+        && data.arquivado === false
+        && helpdeskSolicitantePodeReabrir({ status: before.status as HelpdeskStatus, arquivado: before.arquivado })
+      if (!podeCom('arquivar') && !desarquivandoParaReabrir) {
+        throw new Error('Você não tem permissão para arquivar tickets')
+      }
       patch.arquivado = data.arquivado
       eventos.push({
         tipo: data.arquivado ? 'arquivado' : 'desarquivado',
@@ -807,11 +817,22 @@ export class HelpdeskService {
         if (!ehSolicitante) {
           throw new Error('Você não tem permissão para alterar o status deste ticket')
         }
-        if (data.status !== 'CANCELADO') {
-          throw new Error('Como solicitante, você só pode cancelar o próprio ticket')
-        }
-        if (!HELPDESK_STATUS_CANCELAVEL_PELO_SOLICITANTE.includes(before.status as HelpdeskStatus)) {
-          throw new Error('O chamado já está em atendimento — fale com o responsável para encerrá-lo')
+        // O solicitante tem DUAS transições permitidas — não uma. Tratar
+        // "cancelar" como a única fazia a REABERTURA (#HLP0062), que também é
+        // ação dele, cair no erro genérico e falhar.
+        const querCancelar = data.status === 'CANCELADO'
+        const querReabrir = data.status === HELPDESK_STATUS_REABERTURA
+
+        if (querCancelar) {
+          if (!HELPDESK_STATUS_CANCELAVEL_PELO_SOLICITANTE.includes(before.status as HelpdeskStatus)) {
+            throw new Error('O chamado já está em atendimento — fale com o responsável para encerrá-lo')
+          }
+        } else if (querReabrir) {
+          if (!helpdeskSolicitantePodeReabrir({ status: before.status as HelpdeskStatus, arquivado: before.arquivado })) {
+            throw new Error('Este chamado ainda está em atendimento — acompanhe por aqui mesmo.')
+          }
+        } else {
+          throw new Error('Como solicitante, você só pode cancelar ou reabrir o próprio ticket')
         }
       }
       patch.status = data.status

@@ -89,6 +89,28 @@ export function solicitantePodeCancelar(args: {
   return HELPDESK_STATUS_CANCELAVEL_PELO_SOLICITANTE.includes(args.status)
 }
 
+/** Posição da etapa na ordem progressiva do atendimento. */
+export function helpdeskStatusRank(status: HelpdeskStatus): number {
+  return HELPDESK_STATUS.indexOf(status)
+}
+
+/** Etapa para onde o chamado volta quando é reaberto. */
+export const HELPDESK_STATUS_REABERTURA: HelpdeskStatus = 'EM_ANDAMENTO'
+
+/**
+ * O SOLICITANTE pode reabrir o próprio chamado a partir daqui?
+ *
+ * Vale de "Aguardando avaliação" em diante, e também quando arquivado: são os
+ * estados em que o atendimento se deu por encerrado mas o problema pode não ter
+ * sido resolvido. É a SEGUNDA transição permitida ao solicitante — a primeira é
+ * cancelar (acima). Sem ela, o gatilho de reabertura que existe desde o #HLP0062
+ * fica inacessível para quem abriu o chamado.
+ */
+export function helpdeskSolicitantePodeReabrir(args: { status: HelpdeskStatus; arquivado: boolean }): boolean {
+  return args.arquivado
+    || helpdeskStatusRank(args.status) >= helpdeskStatusRank('RESOLVIDO')
+}
+
 // SLA padrão (horas) por prioridade — pode ser overridden em SystemConfig
 // e por categoria. Valores baseados em Freshservice/Jira ITSM padrão.
 export const HELPDESK_SLA_PADRAO_HORAS: Record<HelpdeskPrioridade, number> = {
