@@ -135,6 +135,8 @@ import { createHelpdeskRouter } from '../helpdesk/helpdesk.router'
 import { PainelTvService } from '../painel-tv/painel-tv.service'
 import { createPainelTvRouter } from '../painel-tv/painel-tv.router'
 import { AcessoriasService } from '../acessorias/acessorias.service'
+import { DivergenciaAcessoriasService } from '../acessorias/divergencia.service'
+import { PainelEntregasService } from '../acessorias/painel-entregas.service'
 import { createAcessoriasRouter } from '../acessorias/acessorias.router'
 import { RecorrenciaScheduler } from '../notificacao/recorrencia.scheduler'
 import { NotificacaoService } from '../notificacao/notificacao.service'
@@ -674,6 +676,8 @@ export class TrpcService {
     @Inject(HelpdeskAiAgentService) private readonly helpdeskAiAgent: HelpdeskAiAgentService,
     @Inject(PainelTvService) private readonly painelTvService: PainelTvService,
     @Inject(AcessoriasService) private readonly acessoriasService: AcessoriasService,
+    @Inject(DivergenciaAcessoriasService) private readonly divergenciaAcessoriasService: DivergenciaAcessoriasService,
+    @Inject(PainelEntregasService) private readonly painelEntregasService: PainelEntregasService,
     @Inject(RecorrenciaScheduler) private readonly recorrenciaScheduler: RecorrenciaScheduler,
     @Inject(NotificacaoService) private readonly notificacaoServiceTrpc: NotificacaoService,
     @Inject(ObrigacaoService) private readonly obrigacaoService: ObrigacaoService,
@@ -769,7 +773,7 @@ export class TrpcService {
       dashboardCalendario: createDashboardCalendarioRouter(this.dashboardCalendarioService),
       helpdesk: createHelpdeskRouter(this.helpdeskService, this.helpdeskAiAgent),
       painelTv: createPainelTvRouter(this.painelTvService),
-      acessorias: createAcessoriasRouter(this.acessoriasService),
+      acessorias: createAcessoriasRouter(this.acessoriasService, this.divergenciaAcessoriasService, this.painelEntregasService),
       notificacao: createNotificacaoRouter(this.recorrenciaScheduler, this.notificacaoServiceTrpc),
       obrigacao: createObrigacaoRouter(this.obrigacaoService),
       feriado: createFeriadoRouter(this.feriadoService),

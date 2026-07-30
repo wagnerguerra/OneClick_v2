@@ -836,6 +836,7 @@ model Cliente {
   folhaImportacoes     FolhaImportacao[]
   contratos            Contrato[]
   servicoExecucoes     ServicoExecucao[]       @relation("ClienteServicoExecucoes")
+  acessoriasEntregas   AcessoriasEntrega[]
   certificadosDigitais CertificadoDigital[]
   processos            Processo[]              @relation("ClienteProcessos")
   obrigacoes           ClienteObrigacao[]
@@ -4530,6 +4531,54 @@ model AcessoriasObligationMap {
   @@index([nome])
   @@index([servicoId])
   @@map("acessorias_obligation_maps")
+}
+
+/// Espelho bruto das entregas do Acessórias — uma linha por entrega, do jeito
+/// que ela vem de lá.
+///
+/// Existe separado de `ServicoExecucao` de propósito: a execução só nasce quando
+/// a obrigação tem mapeamento para um Serviço nosso, e obrigação sem mapeamento
+/// é descartada no sync. Para acompanhar prazo e leitura das guias isso seria um
+/// ponto cego justamente onde dói — o imposto que o cliente não abriu costuma
+/// ser o que ninguém mapeou. Aqui guardamos tudo, mapeado ou não.
+model AcessoriasEntrega {
+  id        String @id @default(cuid())
+  clienteId String @map("cliente_id")
+  /// Config.EntID — identificador da entrega no Acessórias.
+  entId     String @map("ent_id")
+
+  nome          String // nome da obrigação, como vem de lá
+  competencia   DateTime? @db.Date
+  prazo         DateTime? @db.Date
+  dtAtraso      DateTime? @map("dt_atraso") @db.Date
+  dtEntrega     DateTime? @map("dt_entrega") @db.Date
+  dtFinalizacao DateTime? @map("dt_finalizacao")
+
+  /// Texto cru do Acessórias ("Guia já acessada/lida", "Guia ainda não
+  /// acessada/lida" ou vazio quando a entrega não tem guia para ler).
+  guiaLida String? @map("guia_lida")
+  /// Derivado do texto acima: true = lida, false = não lida, null = sem guia.
+  /// Guardar o derivado permite filtrar e indexar sem depender da frase.
+  lida     Boolean?
+
+  status      String?
+  multa       Boolean @default(false)
+  respPrazo   String? @map("resp_prazo")
+  respEntrega String? @map("resp_entrega")
+  dpto        String?
+
+  lastDH    DateTime? @map("last_dh")
+  syncedAt  DateTime  @default(now()) @map("synced_at")
+  empresaId String?   @map("empresa_id")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, entId])
+  @@index([clienteId])
+  @@index([prazo])
+  @@index([lida])
+  @@index([empresaId])
+  @@map("acessorias_entregas")
 }
 
 /// Log de execução de sync — última vez que rodamos polling, quantos registros

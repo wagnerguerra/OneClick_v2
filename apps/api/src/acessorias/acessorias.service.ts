@@ -498,6 +498,60 @@ export class AcessoriasService {
   /** Upsert de uma delivery individual.
    *  Como o mapeamento agora é M:N, uma delivery pode gerar **N execuções**
    *  (uma por servicoId vinculado). Retorna contadores agregados. */
+  /**
+   * Interpreta o campo `EntGuiaLida`. Ele vem como frase ("Guia já acessada/lida",
+   * "Guia ainda não acessada/lida") ou vazio quando a entrega não tem guia para
+   * o cliente abrir. Vazio NÃO é "não lida" — tratar assim inflaria o painel com
+   * obrigações que nunca geraram documento.
+   */
+  private interpretarGuiaLida(v: unknown): boolean | null {
+    const s = String(v ?? '').trim().toLowerCase()
+    if (!s) return null
+    if (s.includes('não') || s.includes('nao')) return false
+    if (s.includes('lida') || s.includes('acessada')) return true
+    return null
+  }
+
+  /**
+   * Guarda a entrega crua em `acessorias_entregas` — o espelho que o painel de
+   * prazos e leitura consulta. Independente do mapeamento de obrigações.
+   */
+  private async espelharEntrega(clienteId: string, delivery: Record<string, unknown>) {
+    const config = (delivery.Config ?? {}) as Record<string, unknown>
+    const entId = config.EntID ? String(config.EntID).trim() : ''
+    // Sem EntID não há chave estável: o mesmo registro entraria duplicado a cada
+    // sync. Melhor não espelhar do que poluir o painel.
+    if (!entId) return
+
+    const guiaLida = delivery.EntGuiaLida != null ? String(delivery.EntGuiaLida).trim() : null
+    const cliente = await prisma.cliente.findUnique({ where: { id: clienteId }, select: { empresaId: true } })
+
+    const dados = {
+      nome: String(delivery.Nome ?? '').trim(),
+      competencia: this.parseDate(String(delivery.EntCompetencia ?? '')),
+      prazo: this.parseDate(String(delivery.EntDtPrazo ?? '')),
+      dtAtraso: this.parseDate(String(delivery.EntDtAtraso ?? '')),
+      dtEntrega: this.parseDate(String(delivery.EntDtEntrega ?? '')),
+      dtFinalizacao: this.parseDateTime(String(delivery.EntDtFinalizacao ?? '')),
+      guiaLida: guiaLida || null,
+      lida: this.interpretarGuiaLida(guiaLida),
+      status: String(delivery.Status ?? '').trim() || null,
+      multa: String(delivery.EntMulta ?? '').trim().toUpperCase() === 'S',
+      respPrazo: config.RespPrazo ? String(config.RespPrazo).trim() || null : null,
+      respEntrega: config.RespEntrega ? String(config.RespEntrega).trim() || null : null,
+      dpto: config.DptoNome ? String(config.DptoNome).trim() || null : null,
+      lastDH: this.parseDateTime(String(delivery.EntLastDH ?? '')),
+      syncedAt: new Date(),
+      empresaId: cliente?.empresaId ?? null,
+    }
+
+    await prisma.acessoriasEntrega.upsert({
+      where: { clienteId_entId: { clienteId, entId } },
+      create: { clienteId, entId, ...dados },
+      update: dados,
+    })
+  }
+
   private async upsertDelivery(
     clienteId: string,
     delivery: Record<string, unknown>,
@@ -506,6 +560,10 @@ export class AcessoriasService {
     const out = { created: 0, updated: 0, skipped: 0 }
     const nome = String(delivery.Nome ?? '').trim()
     if (!nome) { out.skipped++; return out }
+
+    // Espelha a entrega ANTES do filtro de mapeamento. O que vem abaixo só cria
+    // execução para obrigação mapeada; o painel de prazos precisa de todas.
+    await this.espelharEntrega(clienteId, delivery).catch(() => null)
 
     // Resolve TODOS os servicoIds vinculados a essa obrigação
     const servicoIds = obligationMap.get(nome.toLowerCase())
