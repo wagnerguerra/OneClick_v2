@@ -416,22 +416,21 @@ export class HelpdeskService {
     const origem = ticket.area?.name
       ? `Área: ${escapeHtml(ticket.area.name)}`
       : (ticket.tags.includes('fab-feedback') ? '🔔 Via balão "Fale com a TI"' : 'Sem área definida')
-    const html = `
-      <p>Um novo ticket foi aberto e precisa de atenção:</p>
-      <p><strong>${ticketNum}</strong> — ${escapeHtml(ticket.titulo)}</p>
-      <p style="font-size:12px;color:#6b7280;margin-top:4px;">
-        Tipo: <strong>${ticket.tipo}</strong> · Prioridade: <strong>${ticket.prioridade}</strong> · ${origem}
-      </p>
-      <p style="font-size:12px;color:#6b7280;">
-        Solicitante: ${ticket.solicitante ? escapeHtml(`${ticket.solicitante.name} <${ticket.solicitante.email ?? ''}>`) : '—'}
-      </p>
-      <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb;">
-      ${ticket.descricao}
-      <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb;">
-      <p style="font-size:11px;color:#9ca3af;">
-        Este é um e-mail automático — <strong>não responda por aqui</strong>, a resposta se perde.
-        Abra o ticket no HelpDesk do OneClick pra responder ou tratar.
-      </p>`
+    // Anexos iniciais do ticket (os da descrição, sem mensagem) pro contador (R1.1).
+    const numAnexos = await prisma.helpdeskAnexo.count({ where: { ticketId, mensagemId: null } })
+
+    // R1.1 — corpo com autor (solicitante) + a descrição (com imagens embutidas)
+    // + contador de anexos. Rodapé de "não responda" vem do emailTpl.
+    const corpo =
+      `<p style="margin:0 0 8px">Um novo ticket foi aberto e precisa de atenção:</p>` +
+      `<p style="margin:0 0 4px"><strong>${ticketNum}</strong> — ${escapeHtml(ticket.titulo)}</p>` +
+      `<p style="font-size:12px;color:#6b7280;margin:0 0 12px">Tipo: <strong>${ticket.tipo}</strong> · Prioridade: <strong>${ticket.prioridade}</strong> · ${origem}</p>` +
+      this.blocoMensagemEmail({
+        autorNome: ticket.solicitante?.name ?? 'Solicitante',
+        conteudoHtml: ticket.descricao,
+        numAnexos,
+      })
+    const html = this.emailTpl(ticketNum, corpo, `/helpdesk/${ticketId}`)
 
     // Envio individual (não expõe os endereços uns aos outros); falha de um não
     // impede os demais.
@@ -1094,16 +1093,34 @@ export class HelpdeskService {
     }
   }
 
-  private emailTpl(ticketNum: string, corpoHtml: string, linkRel: string): string {
+  private emailTpl(ticketNum: string, corpoHtml: string, linkRel: string, ctaLabel = 'Abrir ticket'): string {
     const base = process.env.NEXT_PUBLIC_APP_URL || 'https://app.oneclick.com.br'
+    // R1.1 — sem replyTo (inbound não configurado), então o rodapé deixa claro
+    // que NÃO se deve responder o e-mail; a resposta se perderia.
     return `<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:560px;margin:0 auto;padding:20px;color:#1f2937">
       <div style="border-left:4px solid #22d3ee;padding:12px 16px;background:#ecfeff;border-radius:4px">
         <h2 style="margin:0 0 4px 0;font-size:14px;color:#0e7490">HelpDesk · ${ticketNum}</h2>
       </div>
       <div style="padding:16px 0;font-size:14px;line-height:1.5">${corpoHtml}</div>
-      <a href="${base}${linkRel}" style="display:inline-block;background:#22d3ee;color:white;padding:10px 16px;border-radius:4px;text-decoration:none;font-size:13px">Abrir ticket</a>
-      <p style="margin-top:24px;font-size:11px;color:#9ca3af">E-mail automático. Para responder ao agente, use o link acima ou responda esta mensagem (o sistema reconhece o número do ticket no assunto).</p>
+      <a href="${base}${linkRel}" style="display:inline-block;background:#22d3ee;color:white;padding:10px 16px;border-radius:4px;text-decoration:none;font-size:13px">${escapeHtml(ctaLabel)}</a>
+      <p style="margin-top:24px;font-size:11px;color:#9ca3af">E-mail automático — <strong>não responda por aqui</strong>, a resposta se perde. Para responder ou acompanhar, abra o ticket no botão acima.</p>
     </div>`
+  }
+
+  /**
+   * Bloco de "mensagem" pro corpo do e-mail (R1.1): autor + o conteúdo da
+   * mensagem (com as imagens embutidas nele) + contador de anexos, se houver.
+   * O conteúdo é o HTML do editor; imagens inseridas pelo editor já têm URL
+   * absoluta e renderizam no cliente de e-mail.
+   */
+  private blocoMensagemEmail(args: { autorNome: string; conteudoHtml: string; numAnexos: number }): string {
+    const anexos = args.numAnexos > 0
+      ? `<p style="margin:10px 0 0;font-size:12px;color:#6b7280">📎 ${args.numAnexos} anexo${args.numAnexos > 1 ? 's' : ''}</p>`
+      : ''
+    return `
+      <p style="margin:0 0 8px;font-size:13px;color:#374151"><strong>${escapeHtml(args.autorNome)}</strong> escreveu:</p>
+      <div style="border-left:3px solid #e5e7eb;padding-left:12px;font-size:14px;line-height:1.5">${args.conteudoHtml}</div>
+      ${anexos}`
   }
 
   // ── Mensagens ──────────────────────────────────────────────────
@@ -1290,6 +1307,12 @@ export class HelpdeskService {
       const ticketNum = `#HLP${String(t.numero).padStart(4, '0')}`
       const link = `/helpdesk/${ticketId}`
 
+      // Mensagem (autor + conteúdo + nº de anexos) pro corpo do e-mail (R1.1).
+      const msg = interna ? null : await prisma.helpdeskMensagem.findUnique({
+        where: { id: mensagemId },
+        select: { conteudo: true, autor: { select: { name: true } }, _count: { select: { anexos: true } } },
+      })
+
       // Destinatários do sino:
       //  - pública: solicitante + responsável + watchers, exceto o autor
       //  - interna: apenas responsável + watchers (NÃO o solicitante)
@@ -1311,22 +1334,33 @@ export class HelpdeskService {
         })
       }
 
+      // R1.1 — o corpo do e-mail traz autor + a própria mensagem (com imagens
+      // embutidas) + contador de anexos. Só para mensagem pública.
+      const corpoEmail = (() => {
+        if (interna || !msg) return ''
+        return `Nova resposta no ticket <strong>${escapeHtml(t.titulo)}</strong>:<br><br>` +
+          this.blocoMensagemEmail({
+            autorNome: msg.autor?.name ?? 'Participante',
+            conteudoHtml: msg.conteudo,
+            numAnexos: msg._count.anexos,
+          })
+      })()
+
       // E-mail apenas em mensagem pública e quando o destinatário é o "outro lado"
       if (!interna && t.solicitante?.email && autorId !== t.solicitanteId) {
         void this.emailService.sendMail({
           to: t.solicitante.email,
           subject: `HelpDesk ${ticketNum} — nova resposta`,
-          html: this.emailTpl(ticketNum, `Você recebeu uma nova mensagem no ticket <strong>${t.titulo}</strong>.`, link),
+          html: this.emailTpl(ticketNum, corpoEmail, link),
         })
       }
       // Responsável é avisado sempre que quem escreveu NÃO é ele — cobre o
       // solicitante E um terceiro (ex.: outro operador da TI). #HLP0056.
       if (!interna && t.responsavel?.email && autorId !== t.responsavelId) {
-        const quem = autorId === t.solicitanteId ? 'O solicitante' : 'Um participante'
         void this.emailService.sendMail({
           to: t.responsavel.email,
           subject: `HelpDesk ${ticketNum} — nova resposta`,
-          html: this.emailTpl(ticketNum, `${quem} respondeu o ticket <strong>${t.titulo}</strong>.`, link),
+          html: this.emailTpl(ticketNum, corpoEmail, link),
         })
       }
       void mensagemId
