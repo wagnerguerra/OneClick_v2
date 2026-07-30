@@ -48,7 +48,7 @@ interface Dashboard {
   csatDist: Array<{ nota: number; total: number }>
   serie: Array<{ periodo: string; criados: number; resolvidos: number }>
   porCategoria: Array<{ id: string | null; nome: string; cor: string | null; total: number; pct: number }>
-  porResponsavel: Array<{ id: string; name: string; image: string | null; total: number; mttrHoras: number | null; slaPct: number | null }>
+  porResponsavel: Array<{ id: string; name: string; image: string | null; total: number; mttrHoras: number | null; slaPct: number | null; csatMedio: number | null; csatRespostas: number }>
   slaEstourados: Array<{
     id: string; numero: number; titulo: string; prioridade: HelpdeskPrioridade
     status: HelpdeskStatus; prazoSla: string | null; createdAt: string
@@ -352,6 +352,7 @@ export default function HelpdeskIndicadoresPage() {
                       <TableHead className="text-right text-xs">Resolvidos</TableHead>
                       <TableHead className="text-right text-xs">MTTR</TableHead>
                       <TableHead className="text-right text-xs">SLA</TableHead>
+                      <TableHead className="text-right text-xs">CSAT</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -372,6 +373,18 @@ export default function HelpdeskIndicadoresPage() {
                             >
                               {a.slaPct}%
                             </Badge>
+                          )}
+                        </TableCell>
+                        {/* C9 — CSAT médio por responsável (nº de avaliações no período entre parênteses) */}
+                        <TableCell className="text-right text-sm tabular-nums">
+                          {a.csatMedio === null ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <span className="inline-flex items-center justify-end gap-1" title={`${a.csatRespostas} avaliação${a.csatRespostas === 1 ? '' : 'ões'} no período`}>
+                              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                              <span className="font-medium">{a.csatMedio.toFixed(1)}</span>
+                              <span className="text-[11px] text-muted-foreground">({a.csatRespostas})</span>
+                            </span>
                           )}
                         </TableCell>
                       </TableRow>

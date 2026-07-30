@@ -2286,9 +2286,21 @@ export class HelpdeskService {
       ? await prisma.user.findMany({ where: { id: { in: agenteIds } }, select: { id: true, name: true, image: true } })
       : []
     const agenteMap = new Map(agenteNames.map(a => [a.id, a]))
+    // C9 — CSAT por responsável, sobre a MESMA população do CSAT global (nota
+    // registrada + respondida no período), agrupado por responsável. Anexa média
+    // e nº de avaliações à tabela de desempenho. Responsável sem avaliação no
+    // período aparece com csatMedio null / csatRespostas 0.
+    const csatPorRespRaw = await prisma.helpdeskTicket.groupBy({
+      by: ['responsavelId'],
+      where: { ...baseWhere, csatNota: { not: null }, csatRespondidoEm: { gte: inicio, lte: fim }, responsavelId: { not: null } },
+      _avg: { csatNota: true },
+      _count: { csatNota: true },
+    })
+    const csatRespMap = new Map(csatPorRespRaw.map(c => [c.responsavelId as string, { media: c._avg.csatNota, n: c._count.csatNota }]))
     const porResponsavel = agenteIds.map(id => {
       const s = agStat.get(id)!
       const u = agenteMap.get(id)
+      const csat = csatRespMap.get(id)
       return {
         id,
         name: u?.name ?? '—',
@@ -2296,6 +2308,8 @@ export class HelpdeskService {
         total: s.total,
         mttrHoras: s.mttrCount > 0 ? s.mttrSum / s.mttrCount / 3600_000 : null,
         slaPct: s.slaTotal > 0 ? Math.round((s.slaDentro / s.slaTotal) * 100) : null,
+        csatMedio: csat?.media ?? null,
+        csatRespostas: csat?.n ?? 0,
       }
     }).sort((a, b) => b.total - a.total)
 
