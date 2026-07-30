@@ -20,6 +20,7 @@ import {
   HELPDESK_STATUS_REABERTURA,
   helpdeskStatusRank,
   helpdeskPodeArquivar,
+  HELPDESK_STATUS_LABELS,
 } from '@saas/types'
 import { NotificationService } from '../notification/notification.service'
 import { EmailService } from '../common/email.service'
@@ -377,7 +378,9 @@ export class HelpdeskService {
    *   - LIGADO:    todos os agentes do HelpDesk (sino + e-mail) + e-mail aos
    *                Destinatários adicionais.
    *   - DESLIGADO: se o ticket tem área, os membros dela (sino + e-mail); se
-   *                não tem área, e-mail aos Destinatários.
+   *                não tem área, e-mail aos Destinatários alternativos. Se a área
+   *                não tem ninguém com e-mail, o e-mail cai (fallback) nos
+   *                Destinatários alternativos pra não se perder.
    * Sempre exclui o próprio solicitante. Falhas são logadas, não propagam.
    */
   private async notificarNovoTicket(ticketId: string, empresaId?: string | null) {
@@ -397,11 +400,19 @@ export class HelpdeskService {
         return
       }
 
-      // Toggle desligado: por área, ou (sem área) aos Destinatários.
+      // Toggle desligado: por área, ou (sem área) aos Destinatários alternativos.
       if (ticket.areaId) {
         const membros = await this.usuariosDaArea(ticket.areaId, ticket.solicitanteId, empresaId ?? null)
         await this.sinoNovoTicket(ticketId, membros.map(m => m.id), empresaId ?? null)
-        await this.emailNovoTicket(ticketId, membros.map(m => m.email), solicitanteEmail)
+        // E-mail: membros da área. Se a área não rende nenhum destinatário de
+        // e-mail (sem membros, ou nenhum com e-mail cadastrado além do próprio
+        // solicitante), FALLBACK para os Destinatários alternativos — senão o
+        // aviso por e-mail se perde. O sino já foi só para os membros (se houver).
+        const emailsArea = membros
+          .map(m => m.email?.trim().toLowerCase())
+          .filter((e): e is string => !!e && e !== solicitanteEmail)
+        const destinoEmail = emailsArea.length > 0 ? emailsArea : cfg.destinatarios
+        await this.emailNovoTicket(ticketId, destinoEmail, solicitanteEmail)
       } else {
         await this.emailNovoTicket(ticketId, cfg.destinatarios, solicitanteEmail)
       }
@@ -496,17 +507,15 @@ export class HelpdeskService {
         conteudoHtml: ticket.descricao,
         numAnexos,
       })
-    const html = this.emailTpl(ticketNum, corpo, `/helpdesk/${ticketId}`)
+    const html = await this.emailTpl(ticketNum, corpo, `/helpdesk/${ticketId}`)
 
-    // Envio individual (não expõe os endereços uns aos outros); falha de um não
-    // impede os demais.
-    await Promise.allSettled(dest.map(to =>
-      this.emailService.sendMail({
-        to,
-        subject: `HelpDesk ${ticketNum} — ${ticket.titulo.slice(0, 60)}`,
-        html,
-      }),
-    ))
+    // Um único e-mail com todos em BCC — não expõe os endereços uns aos outros
+    // e evita inflar a caixa com N cópias idênticas.
+    await this.emailService.sendMail({
+      bcc: dest,
+      subject: `HelpDesk ${ticketNum} — ${ticket.titulo.slice(0, 60)}`,
+      html,
+    })
   }
 
   /** Detalhe completo do ticket (com mensagens, anexos, eventos, watchers, autores enriquecidos). */
@@ -1147,7 +1156,7 @@ export class HelpdeskService {
           },
           {
             subject: `HelpDesk ${ticketNum} — responsável alterado`,
-            html: this.emailTpl(ticketNum, corpo, link),
+            html: await this.emailTpl(ticketNum, corpo, link),
           },
         )
       }
@@ -1159,7 +1168,11 @@ export class HelpdeskService {
       const mudouStatus = !!patch.status && patch.status !== before.status && patch.status !== 'NOVO'
       const desarquivou = patch.arquivado === false && before.arquivado === true
       if (mudouStatus || desarquivou) {
-        const statusLabel = (mudouStatus ? patch.status : t.status) as string
+        // Rótulo da etapa (não o valor cru do enum), em CAIXA ALTA. Ex.: RESOLVIDO
+        // → "AGUARDANDO AVALIAÇÃO", batendo com a UI. Alimenta corpo + assunto do
+        // e-mail e o título do sino.
+        const statusVal = (mudouStatus ? patch.status : t.status) as HelpdeskStatus
+        const statusLabel = (HELPDESK_STATUS_LABELS[statusVal] ?? statusVal).toUpperCase()
         const soDesarquivou = desarquivou && !mudouStatus
         const virouAvaliacao = patch.status === 'RESOLVIDO'
         const corpo = soDesarquivou
@@ -1177,7 +1190,7 @@ export class HelpdeskService {
           },
           {
             subject: soDesarquivou ? `HelpDesk ${ticketNum} — reaberto` : `HelpDesk ${ticketNum} — ${statusLabel}`,
-            html: this.emailTpl(ticketNum, corpo, link),
+            html: await this.emailTpl(ticketNum, corpo, link),
           },
         )
 
@@ -1195,7 +1208,7 @@ export class HelpdeskService {
             void this.emailService.sendMail({
               to: t.solicitante.email,
               subject: `HelpDesk ${ticketNum} resolvido — avalie o atendimento`,
-              html: this.emailTpl(
+              html: await this.emailTpl(
                 ticketNum,
                 `Seu ticket <strong>${escapeHtml(t.titulo)}</strong> foi resolvido e está <strong>aguardando sua avaliação</strong>. ` +
                 `Abra o ticket e dê sua nota (e um comentário, se quiser) para fechar o chamado. ` +
@@ -1212,17 +1225,29 @@ export class HelpdeskService {
     }
   }
 
-  private emailTpl(ticketNum: string, corpoHtml: string, linkRel: string, ctaLabel = 'Abrir ticket'): string {
+  /** Endereço inbound configurado (respostas por e-mail). Vazio = não configurado. */
+  private async inboundEmailConfig(): Promise<string> {
+    const cfg = await prisma.systemConfig.findUnique({ where: { key: HelpdeskService.CFG_INBOUND_EMAIL } }).catch(() => null)
+    return (cfg?.value ?? '').trim()
+  }
+
+  private async emailTpl(ticketNum: string, corpoHtml: string, linkRel: string, ctaLabel = 'Abrir ticket'): Promise<string> {
     const base = process.env.NEXT_PUBLIC_APP_URL || 'https://app.oneclick.com.br'
-    // R1.1 — sem replyTo (inbound não configurado), então o rodapé deixa claro
-    // que NÃO se deve responder o e-mail; a resposta se perderia.
+    // Rodapé condicional: se o módulo tem endereço inbound configurado (respostas
+    // por e-mail habilitadas), o texto convida a responder; senão, avisa que a
+    // resposta se perde e manda abrir o ticket. (O Reply-To para o endereço
+    // inbound ainda não é setado — depende da configuração do inbound.)
+    const inbound = await this.inboundEmailConfig()
+    const rodape = inbound
+      ? `<p style="margin-top:24px;font-size:11px;color:#9ca3af">Você pode <strong>responder este e-mail</strong> para adicionar ao ticket, ou abrir no botão acima para acompanhar.</p>`
+      : `<p style="margin-top:24px;font-size:11px;color:#9ca3af">E-mail automático — <strong>não responda por aqui</strong>, a resposta se perde. Para responder ou acompanhar, abra o ticket no botão acima.</p>`
     return `<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:560px;margin:0 auto;padding:20px;color:#1f2937">
       <div style="border-left:4px solid #22d3ee;padding:12px 16px;background:#ecfeff;border-radius:4px">
         <h2 style="margin:0 0 4px 0;font-size:14px;color:#0e7490">HelpDesk · ${ticketNum}</h2>
       </div>
       <div style="padding:16px 0;font-size:14px;line-height:1.5">${corpoHtml}</div>
       <a href="${base}${linkRel}" style="display:inline-block;background:#22d3ee;color:white;padding:10px 16px;border-radius:4px;text-decoration:none;font-size:13px">${escapeHtml(ctaLabel)}</a>
-      <p style="margin-top:24px;font-size:11px;color:#9ca3af">E-mail automático — <strong>não responda por aqui</strong>, a resposta se perde. Para responder ou acompanhar, abra o ticket no botão acima.</p>
+      ${rodape}
     </div>`
   }
 
@@ -1281,9 +1306,8 @@ export class HelpdeskService {
       const corpo = `O solicitante enviou uma nova mensagem no ticket <strong>${escapeHtml(t.titulo)}</strong> ` +
         `em vez de avaliá-lo, então ele voltou para <strong>Em andamento</strong>. Confira e dê sequência.`
       const dest = Array.from(new Set(emails.map(e => e.trim().toLowerCase()).filter(Boolean)))
-      await Promise.allSettled(dest.map(to =>
-        this.emailService.sendMail({ to, subject: `HelpDesk ${ticketNum} — reaberto pelo solicitante`, html: this.emailTpl(ticketNum, corpo, link) }),
-      ))
+      // Um único e-mail com todos em BCC (não expõe endereços, sem N cópias).
+      await this.emailService.sendMail({ bcc: dest, subject: `HelpDesk ${ticketNum} — reaberto pelo solicitante`, html: await this.emailTpl(ticketNum, corpo, link) })
     } catch (e) {
       console.warn('[Helpdesk] Falha ao notificar retorno:', (e as Error).message)
     }
@@ -1539,7 +1563,7 @@ export class HelpdeskService {
         void this.emailService.sendMail({
           to: t.solicitante.email,
           subject: `HelpDesk ${ticketNum} — nova resposta`,
-          html: this.emailTpl(ticketNum, corpoEmail, link),
+          html: await this.emailTpl(ticketNum, corpoEmail, link),
         })
       }
       // Responsável é avisado sempre que quem escreveu NÃO é ele — cobre o
@@ -1548,7 +1572,7 @@ export class HelpdeskService {
         void this.emailService.sendMail({
           to: t.responsavel.email,
           subject: `HelpDesk ${ticketNum} — nova resposta`,
-          html: this.emailTpl(ticketNum, corpoEmail, link),
+          html: await this.emailTpl(ticketNum, corpoEmail, link),
         })
       }
       void mensagemId
@@ -1717,13 +1741,13 @@ export class HelpdeskService {
         void this.emailService.sendMail({
           to: t.responsavel.email,
           subject: `HelpDesk ${ticketNum} — solicitante anexou um arquivo`,
-          html: this.emailTpl(ticketNum, corpo, link),
+          html: await this.emailTpl(ticketNum, corpo, link),
         })
       } else if (!ehSolicitante && t.solicitante?.email) {
         void this.emailService.sendMail({
           to: t.solicitante.email,
           subject: `HelpDesk ${ticketNum} — novo anexo`,
-          html: this.emailTpl(ticketNum, corpo, link),
+          html: await this.emailTpl(ticketNum, corpo, link),
         })
       }
     } catch (e) {
@@ -1866,9 +1890,9 @@ export class HelpdeskService {
         const emails = users.filter(u => u.isActive && u.email).map(u => u.email!)
         if (emails.length > 0) {
           void this.emailService.sendMail({
-            to: emails,
+            bcc: emails,
             subject: `⚠ SLA estourou — ${ticketNum} (${ticket.prioridade})`,
-            html: this.emailTpl(
+            html: await this.emailTpl(
               ticketNum,
               `O SLA do ticket <strong>${ticket.titulo}</strong> foi <strong>estourado</strong>. ` +
               `Prioridade: <strong>${ticket.prioridade}</strong>. ` +

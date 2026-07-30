@@ -65,7 +65,12 @@ export class EmailService {
   }
 
   async sendMail(opts: {
-    to: string | string[]
+    /** Destinatário(s) visível(is). Opcional quando só se usa `bcc` (blast de
+     *  notificação): nesse caso o `to` cai no próprio remetente. */
+    to?: string | string[]
+    /** Cópia oculta — um único e-mail para vários destinatários sem expor os
+     *  endereços entre si. Ideal para notificar uma lista (agentes, etc.). */
+    bcc?: string | string[]
     subject: string
     html: string
     from?: string
@@ -75,7 +80,9 @@ export class EmailService {
     attachments?: Array<{ filename: string; content: Buffer | string; encoding?: string; cid?: string }>
   }): Promise<boolean> {
     const fromAddr = await this.resolveFrom({ from: opts.from })
-    const to = Array.isArray(opts.to) ? opts.to : [opts.to]
+    const bcc = opts.bcc ? (Array.isArray(opts.bcc) ? opts.bcc : [opts.bcc]) : undefined
+    // Sem `to` explícito (blast só-BCC) → endereça ao próprio remetente.
+    const to = opts.to ? (Array.isArray(opts.to) ? opts.to : [opts.to]) : [fromAddr]
 
     // 1. Tenta Resend
     const resend = await this.getResend()
@@ -84,6 +91,7 @@ export class EmailService {
         const res = await resend.emails.send({
           from: fromAddr,
           to,
+          ...(bcc ? { bcc } : {}),
           subject: opts.subject,
           html: opts.html,
           replyTo: opts.replyTo,
@@ -95,7 +103,7 @@ export class EmailService {
           })),
         })
         if (res.error) throw new Error(res.error.message)
-        console.log(`[EmailService/Resend] OK ${opts.subject} → ${to.join(', ')}`)
+        console.log(`[EmailService/Resend] OK ${opts.subject} → ${to.join(', ')}${bcc ? ` (bcc: ${bcc.length})` : ''}`)
         return true
       } catch (e) {
         console.warn('[EmailService/Resend] Falhou, caindo pra SMTP:', (e as Error).message)
@@ -113,6 +121,7 @@ export class EmailService {
       await transport.sendMail({
         from: fromAddr,
         to: to.join(', '),
+        ...(bcc ? { bcc: bcc.join(', ') } : {}),
         subject: opts.subject,
         html: opts.html,
         replyTo: opts.replyTo,
@@ -124,7 +133,7 @@ export class EmailService {
           ...(a.cid ? { cid: a.cid } : {}),
         })),
       })
-      console.log(`[EmailService/SMTP] OK ${opts.subject} → ${to.join(', ')}`)
+      console.log(`[EmailService/SMTP] OK ${opts.subject} → ${to.join(', ')}${bcc ? ` (bcc: ${bcc.length})` : ''}`)
       return true
     } catch (e) {
       console.error('[EmailService] Falha total:', (e as Error).message)
