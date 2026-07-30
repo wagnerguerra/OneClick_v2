@@ -24,11 +24,29 @@ import { prisma } from '@saas/db'
  * permanece recuperável.
  */
 
-/** Campos de integração: se o destino está vazio e a origem tem, o destino herda. */
+/**
+ * Campos que o destino herda quando está vazio e a origem tem.
+ *
+ * A gravação é feita pelo Prisma (e não por SQL cru) de propósito: `idAcessorias`
+ * é INTEGER e os demais são TEXT. Montar o UPDATE à mão exigiria acertar o cast
+ * de cada coluna — e errar um só aborta a transação inteira no Postgres, que
+ * então recusa todo o resto com "current transaction is aborted". O Prisma
+ * conhece os tipos do schema e resolve isso sozinho.
+ */
 const CAMPOS_HERDAVEIS = [
-  'id_oneclick', 'id_acessorias', 'cnpj_acessorias', 'id_sistema', 'id_omie', 'omie_empresa',
-  'drive_folder_id', 'drive_folder_name',
-  'nome_fantasia', 'email', 'telefone', 'inscricao_estadual', 'inscricao_municipal',
+  { campo: 'idOneClick', coluna: 'id_oneclick' },
+  { campo: 'idAcessorias', coluna: 'id_acessorias' },
+  { campo: 'cnpjAcessorias', coluna: 'cnpj_acessorias' },
+  { campo: 'idSistema', coluna: 'id_sistema' },
+  { campo: 'idOmie', coluna: 'id_omie' },
+  { campo: 'omieEmpresa', coluna: 'omie_empresa' },
+  { campo: 'driveFolderId', coluna: 'drive_folder_id' },
+  { campo: 'driveFolderName', coluna: 'drive_folder_name' },
+  { campo: 'nomeFantasia', coluna: 'nome_fantasia' },
+  { campo: 'email', coluna: 'email' },
+  { campo: 'telefone', coluna: 'telefone' },
+  { campo: 'inscricaoEstadual', coluna: 'inscricao_estadual' },
+  { campo: 'inscricaoMunicipal', coluna: 'inscricao_municipal' },
 ] as const
 
 interface TabelaAlvo {
@@ -49,7 +67,8 @@ export interface PlanoMesclagem {
   linhas: LinhaPlano[]
   totalMover: number
   totalColidem: number
-  camposHerdados: Array<{ campo: string; valor: string }>
+  /** `valor` é para exibir; `bruto`/`prismaField` são o que a gravação usa. */
+  camposHerdados: Array<{ campo: string; valor: string; bruto: unknown; prismaField: string }>
 }
 
 @Injectable()
@@ -208,17 +227,20 @@ export class MesclagemService {
 
   /** Campos vazios no destino que a origem consegue preencher. */
   private async camposHerdaveis(origemId: string, destinoId: string) {
-    const cols = CAMPOS_HERDAVEIS.map((c) => `"${c}"`).join(', ')
-    const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-      `SELECT id, ${cols} FROM clientes WHERE id IN ($1, $2)`, origemId, destinoId,
-    ).catch(() => [])
-    const o = rows.find((r) => r.id === origemId)
-    const d = rows.find((r) => r.id === destinoId)
+    const selecao = Object.fromEntries(CAMPOS_HERDAVEIS.map((c) => [c.campo, true]))
+    const [o, d] = await Promise.all([
+      prisma.cliente.findUnique({ where: { id: origemId }, select: selecao }),
+      prisma.cliente.findUnique({ where: { id: destinoId }, select: selecao }),
+    ])
     if (!o || !d) return []
     const vazio = (v: unknown) => v === null || v === undefined || String(v).trim() === ''
+    const origem = o as Record<string, unknown>
+    const destino = d as Record<string, unknown>
     return CAMPOS_HERDAVEIS
-      .filter((c) => vazio(d[c]) && !vazio(o[c]))
-      .map((c) => ({ campo: c, valor: String(o[c]) }))
+      .filter((c) => vazio(destino[c.campo]) && !vazio(origem[c.campo]))
+      // `valor` é só para exibir na pré-visualização; a gravação usa `bruto`,
+      // que preserva o tipo original (importa para o idAcessorias, que é número).
+      .map((c) => ({ campo: c.coluna, valor: String(origem[c.campo]), bruto: origem[c.campo], prismaField: c.campo }))
   }
 
   /**
@@ -236,20 +258,43 @@ export class MesclagemService {
     await prisma.$transaction(async (tx) => {
       for (const t of tabelas) {
         const cond = this.condicaoSemColisao(t, '$2')
-        const n = await tx.$executeRawUnsafe(
-          `UPDATE "${t.tabela}" o SET cliente_id = $2 WHERE o.cliente_id = $1${cond}`,
-          origemId, destinoId,
-        ).catch(() => 0)
+        // SEM catch aqui, de propósito. No Postgres, um comando que falha aborta
+        // a transação inteira: tudo que vier depois responde 25P02 ("current
+        // transaction is aborted"). Engolir o erro só troca a causa real por
+        // esse eco, e foi exatamente o que escondeu o problema do idAcessorias.
+        // Deixando estourar, a transação desfaz tudo e o usuário vê o motivo.
+        let n = 0
+        try {
+          n = await tx.$executeRawUnsafe(
+            `UPDATE "${t.tabela}" o SET cliente_id = $2 WHERE o.cliente_id = $1${cond}`,
+            origemId, destinoId,
+          )
+        } catch (e) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Falha ao mover os registros de "${t.tabela}": ${(e as Error).message}. `
+              + 'Nenhuma alteração foi gravada.',
+          })
+        }
         if (n > 0) movidos.push({ tabela: t.tabela, mover: n, colidem: 0 })
       }
 
-      // Destino herda o que não tinha (chaves de integração, contato).
+      // Destino herda o que não tinha (chaves de integração, contato). Via
+      // Prisma: `idAcessorias` é INTEGER e o resto TEXT — montar o UPDATE à mão
+      // exigiria o cast certo em cada coluna.
       if (plano.camposHerdados.length) {
-        const sets = plano.camposHerdados.map((c, i) => `"${c.campo}" = $${i + 2}`).join(', ')
-        await tx.$executeRawUnsafe(
-          `UPDATE clientes SET ${sets} WHERE id = $1`,
-          destinoId, ...plano.camposHerdados.map((c) => c.valor),
-        ).catch(() => 0)
+        const data = Object.fromEntries(
+          plano.camposHerdados.map((c) => [c.prismaField, c.bruto]),
+        )
+        try {
+          await tx.cliente.update({ where: { id: destinoId }, data: data as never })
+        } catch (e) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Falha ao completar os dados do cadastro mantido: ${(e as Error).message}. `
+              + 'Nenhuma alteração foi gravada.',
+          })
+        }
       }
 
       // Origem sai de cena: inativada e marcada na lixeira, com o rastro de para
