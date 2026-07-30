@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ShoppingCart, Save, Plus, Trash2, Loader2, FileText, Package, StickyNote } from 'lucide-react'
 import { Button, Input, Label, Card, cn } from '@saas/ui'
 import { RichEditor } from '@saas/ui'
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { EntityCombobox } from '@/components/ui/entity-combobox'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { masks } from '@/lib/masks'
 
 const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 
@@ -43,6 +44,12 @@ export default function NovoPedidoPage() {
   function setItem(i: number, patch: Partial<ItemRow>) {
     setItens((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)))
   }
+  // Opções do combobox: documento formatado só para exibição — a busca do
+  // componente casa com e sem pontuação.
+  const fornecedorOpcoes = useMemo(
+    () => fornecedores.map((f) => ({ id: f.id, label: f.razaoSocial, sublabel: f.documento ? masks.cpfCnpj(f.documento) : null })),
+    [fornecedores],
+  )
   const freteNum = Number(frete.replace(/\./g, '').replace(',', '.')) || 0
   const totalItens = itens.reduce((s, it) => s + it.quantidade * it.valorUnitario, 0)
   const total = totalItens + freteNum
@@ -118,10 +125,16 @@ export default function NovoPedidoPage() {
               <div className="grid grid-cols-12 gap-4">
                 <div className="col-span-12 md:col-span-6">
                   <Label>Fornecedor *</Label>
-                  <Select value={fornecedorId} onValueChange={setFornecedorId}>
-                    <SelectTrigger className="mt-1.5"><SelectValue placeholder="Selecione o fornecedor" /></SelectTrigger>
-                    <SelectContent>{fornecedores.map((f) => <SelectItem key={f.id} value={f.id}>{f.razaoSocial}</SelectItem>)}</SelectContent>
-                  </Select>
+                  <div className="mt-1.5">
+                    <EntityCombobox
+                      items={fornecedorOpcoes}
+                      value={fornecedorId}
+                      onSelect={setFornecedorId}
+                      placeholder="Selecione o fornecedor"
+                      searchPlaceholder="Buscar por nome ou CNPJ/CPF..."
+                      emptyText="Nenhum fornecedor encontrado"
+                    />
+                  </div>
                 </div>
                 <div className="col-span-12 md:col-span-6"><Label>Forma de Pagamento</Label><Input value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value)} placeholder="Ex.: Boleto, PIX..." className="mt-1.5" /></div>
                 <div className="col-span-6 md:col-span-4"><Label>Prazo de Entrega</Label><Input value={prazoEntrega} onChange={(e) => setPrazoEntrega(e.target.value)} placeholder="Ex.: 15 dias" className="mt-1.5" /></div>
