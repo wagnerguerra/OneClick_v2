@@ -32,6 +32,8 @@ export interface FiltroPainel {
 
 export interface LinhaPainel {
   id: string
+  /** Código da entrega no Acessórias — usado para montar o atalho para lá. */
+  entId: string
   clienteId: string
   clienteCode: number
   clienteNome: string
@@ -95,6 +97,7 @@ export class PainelEntregasService {
 
     const linhas: LinhaPainel[] = rows.map((r) => ({
       id: r.id,
+      entId: r.entId,
       clienteId: r.clienteId,
       clienteCode: r.cliente.code,
       clienteNome: r.cliente.razaoSocial,
@@ -144,7 +147,15 @@ export class PainelEntregasService {
       }
     })()
 
-    return { linhas: filtradas, resumo, janelaDias: janela }
+    return {
+      linhas: filtradas,
+      resumo,
+      janelaDias: janela,
+      // Template do atalho para o Acessórias, configurado em /configuracoes.
+      // Vazio = a tela simplesmente não mostra o botão, em vez de abrir um link
+      // quebrado.
+      urlEntregaTemplate: process.env.ACESSORIAS_APP_ENTREGA_URL?.trim() || null,
+    }
   }
 
   /** Agrupamento por cliente — a visão de quem vai ligar para cobrar. */

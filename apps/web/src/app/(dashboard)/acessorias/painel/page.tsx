@@ -24,6 +24,7 @@ type Foco = 'a_vencer' | 'nao_lidas' | 'atrasadas' | 'todas'
 
 interface Linha {
   id: string
+  entId: string
   clienteId: string
   clienteCode: number
   clienteNome: string
@@ -76,6 +77,7 @@ export default function PainelEntregasPage() {
   const [clientes, setClientes] = useState<PorCliente[]>([])
   const [opcoes, setOpcoes] = useState<{ departamentos: string[]; responsaveis: string[] }>({ departamentos: [], responsaveis: [] })
   const [loading, setLoading] = useState(true)
+  const [urlTemplate, setUrlTemplate] = useState<string | null>(null)
   const [regrasOpen, setRegrasOpen] = useState(false)
   const [novaRegra, setNovaRegra] = useState<Linha | null>(null)
   const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
@@ -96,9 +98,13 @@ export default function PainelEntregasPage() {
       (trpc.acessorias as any).painelEntregas.query(f),
       (trpc.acessorias as any).painelEntregasPorCliente.query(f),
     ])
-      .then(([lista, porCliente]: [{ linhas: Linha[]; resumo: Resumo }, { clientes: PorCliente[] }]) => {
+      .then(([lista, porCliente]: [
+        { linhas: Linha[]; resumo: Resumo; urlEntregaTemplate?: string | null },
+        { clientes: PorCliente[] },
+      ]) => {
         setLinhas(lista.linhas || [])
         setResumo(lista.resumo)
+        setUrlTemplate(lista.urlEntregaTemplate ?? null)
         setClientes(porCliente.clientes || [])
       })
       .catch(() => { setLinhas([]); setResumo(null); setClientes([]) })
@@ -300,6 +306,17 @@ export default function PainelEntregasPage() {
                     {l.respEntrega && <span className="text-muted-foreground">{l.respEntrega}</span>}
                     <span className="text-muted-foreground tabular-nums">{fmtData(l.prazo)}</span>
                     <span className={cn('tabular-nums', p.cor)}>{p.texto}</span>
+                    {urlTemplate && (
+                      <a
+                        href={urlTemplate.replace('{entId}', l.entId).replace('{cnpj}', l.documento.replace(/\D/g, ''))}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Abrir esta entrega no Acessórias"
+                        className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-foreground"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    )}
                     {podeRegras && (
                       <button
                         type="button"

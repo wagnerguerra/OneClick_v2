@@ -186,6 +186,7 @@ const CONFIG_FIELDS: ConfigField[] = [
   { key: 'ACESSORIAS_API_URL', label: 'URL Base da API', group: 'Acessórias', type: 'text', default: 'https://api.acessorias.com', placeholder: 'https://api.acessorias.com', help: 'Endpoint REST do Acessórias (sem /v1 ou afins)' },
   { key: 'ACESSORIAS_API_TOKEN', label: 'API Token', group: 'Acessórias', type: 'password', secret: true, help: 'Bearer Token gerado em Configurações → API Token no Acessórias. Rate limit 100 req/min.' },
   { key: 'ACESSORIAS_USER', label: 'Usuário (e-mail)', group: 'Acessórias', type: 'text', placeholder: 'usuario@empresa.com.br', help: 'E-mail do usuário no Acessórias (auditoria/identificação)' },
+  { key: 'ACESSORIAS_APP_ENTREGA_URL', label: 'Link para a entrega no Acessórias', group: 'Acessórias', type: 'text', placeholder: 'https://app.acessorias.com/...{entId}...', help: 'Endereço de uma entrega no site do Acessórias, com {entId} no lugar do código. Abra uma entrega lá, copie a URL e troque o número pelo marcador. Em branco: o painel não mostra o atalho. Aceita também {cnpj}.' },
   { key: 'ACESSORIAS_PASSWORD', label: 'Senha', group: 'Acessórias', type: 'password', secret: true, help: 'Mantida só pra fallback ou geração programática de token, se necessário' },
 ]
 
