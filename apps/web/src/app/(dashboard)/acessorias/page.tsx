@@ -514,7 +514,7 @@ function EmpresasDaSyncModal({ situacao, onClose, onVinculou }: {
 // ════════════════════════════════════════════════════════════════════
 function MappingPanel() {
   const [grupos, setGrupos] = useState<ObligationGroup[]>([])
-  const [observed, setObserved] = useState<Array<{ nome: string; ocorrencias: number }>>([])
+  const [observed, setObserved] = useState<Array<{ nome: string; ocorrencias: number; departamento?: string | null }>>([])
   const [servicos, setServicos] = useState<ServicoLite[]>([])
   const [areas, setAreas] = useState<Array<{ id: string; name: string }>>([])
   const [loading, setLoading] = useState(false)
@@ -689,13 +689,15 @@ function MappingPanel() {
 
   // Junta grupos existentes + observadas sem grupo ainda
   const linhas = useMemo(() => {
-    const byNome = new Map<string, { nome: string; grupo?: ObligationGroup; ocorrencias?: number }>()
+    const byNome = new Map<string, {
+      nome: string; grupo?: ObligationGroup; ocorrencias?: number; departamento?: string | null
+    }>()
     for (const g of grupos) byNome.set(g.nome.toLowerCase(), { nome: g.nome, grupo: g })
     for (const o of observed) {
       const key = o.nome.toLowerCase()
       const ex = byNome.get(key)
-      if (ex) ex.ocorrencias = o.ocorrencias
-      else byNome.set(key, { nome: o.nome, ocorrencias: o.ocorrencias })
+      if (ex) { ex.ocorrencias = o.ocorrencias; ex.departamento = o.departamento ?? null }
+      else byNome.set(key, { nome: o.nome, ocorrencias: o.ocorrencias, departamento: o.departamento ?? null })
     }
     return [...byNome.values()]
       .filter(r => !filter || r.nome.toLowerCase().includes(filter.toLowerCase()))
@@ -747,6 +749,7 @@ function MappingPanel() {
         <TableHeader>
           <TableRow>
             <TableHead className="whitespace-nowrap">Nome no Acessórias</TableHead>
+            <TableHead className="w-[150px] whitespace-nowrap" title="Departamento responsável no Acessórias">Depto. no Acessórias</TableHead>
             <TableHead className="w-[90px] text-center whitespace-nowrap" title="Empresas com esta obrigação">Ocorr.</TableHead>
             <TableHead className="whitespace-nowrap">→ Serviços OneClick vinculados</TableHead>
             <TableHead className="w-[120px] text-center whitespace-nowrap">Status</TableHead>
@@ -754,16 +757,16 @@ function MappingPanel() {
         </TableHeader>
         <TableBody>
           {loading ? (
-            <TableRow><TableCell colSpan={4} className="text-center py-10">
+            <TableRow><TableCell colSpan={5} className="text-center py-10">
               <Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" />
             </TableCell></TableRow>
           ) : linhas.length === 0 ? (
-            <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
+            <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
               <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-30" />
               Clique em <strong>Importar obrigações</strong> pra puxar a lista do Acessórias.<br />
               Depois use <strong>Sugerir mapeamentos</strong> pra auto-classificar tudo.
             </TableCell></TableRow>
-          ) : linhas.map(({ nome, grupo, ocorrencias }) => {
+          ) : linhas.map(({ nome, grupo, ocorrencias, departamento }) => {
             const vinculados = grupo?.servicos ?? []
             const ignorada = grupo?.ignorada ?? false
             const semVinculo = vinculados.length === 0 && !ignorada
@@ -772,6 +775,11 @@ function MappingPanel() {
             return (
               <TableRow key={nome}>
                 <TableCell className="text-xs font-medium font-mono align-top py-3">{nome}</TableCell>
+                <TableCell className="align-top py-3">
+                  {departamento
+                    ? <Badge variant="outline" className="text-[10px]">{departamento}</Badge>
+                    : <span className="text-[11px] text-muted-foreground">—</span>}
+                </TableCell>
                 <TableCell className="text-center text-xs tabular-nums align-top py-3">{ocorrencias ?? '—'}</TableCell>
                 <TableCell className="align-top py-3">
                   <div className="flex flex-wrap items-center gap-1.5">

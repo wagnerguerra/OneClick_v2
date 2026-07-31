@@ -910,7 +910,7 @@ export class AcessoriasService {
    *  mapping mostrar os candidatos sem precisar puxar deliveries individuais.
    *  Usa /companies/ListAll com flag `?obligations` (sem valor — Acessórias
    *  reconhece presença do param, não valor). */
-  async listObligationsObserved(): Promise<Array<{ nome: string; ocorrencias: number }>> {
+  async listObligationsObserved(): Promise<Array<{ nome: string; ocorrencias: number; departamento: string | null }>> {
     const counter = new Map<string, number>()
     let pagina = 1
     let totalCompanies = 0
@@ -947,8 +947,35 @@ export class AcessoriasService {
       if (pagina > 200) break
     }
     console.log(`[listObligationsObserved] total: ${totalCompanies} empresas, ${totalObs} obrigações brutas, ${counter.size} distintas`)
+
+    // O departamento NÃO vem em /companies/ListAll?obligations — só no bloco
+    // Config das entregas. Como o espelho local já guarda isso por entrega,
+    // derivamos daqui em vez de gastar mais requisição na API.
+    const dptos = await prisma.acessoriasEntrega.groupBy({
+      by: ['nome', 'dpto'],
+      where: { dpto: { not: null } },
+      _count: { _all: true },
+    }).catch(() => [] as Array<{ nome: string; dpto: string | null; _count: { _all: number } }>)
+
+    // Uma obrigação pode aparecer em mais de um departamento (configuração por
+    // cliente). Vale o predominante — e o rótulo avisa que há mistura.
+    const porNome = new Map<string, Array<{ dpto: string; n: number }>>()
+    for (const d of dptos) {
+      if (!d.dpto) continue
+      const arr = porNome.get(d.nome) ?? []
+      arr.push({ dpto: d.dpto, n: d._count._all })
+      porNome.set(d.nome, arr)
+    }
+    const departamentoDe = (nome: string): string | null => {
+      const arr = porNome.get(nome)
+      if (!arr || arr.length === 0) return null
+      const ordenado = [...arr].sort((a, b) => b.n - a.n)
+      const principal = ordenado[0]!.dpto
+      return ordenado.length > 1 ? `${principal} +${ordenado.length - 1}` : principal
+    }
+
     return [...counter.entries()]
-      .map(([nome, ocorrencias]) => ({ nome, ocorrencias }))
+      .map(([nome, ocorrencias]) => ({ nome, ocorrencias, departamento: departamentoDe(nome) }))
       .sort((a, b) => b.ocorrencias - a.ocorrencias)
   }
 
@@ -1183,6 +1210,7 @@ export class AcessoriasService {
   async suggestMappings(): Promise<Array<{
     nome: string
     ocorrencias: number
+    departamento: string | null
     area: string
     regime?: string
     confidence: string
@@ -1192,7 +1220,10 @@ export class AcessoriasService {
     razao: string | null
     /** Já tem mapping cadastrado? (pula no apply automático) */
     alreadyMapped: boolean
-    currentServicoId: string | null
+    /** Vínculos atuais. A assinatura declarava `currentServicoId` no singular,
+     *  mas o retorno sempre foi a lista — o M:N chegou depois e a assinatura
+     *  ficou para trás. */
+    currentServicoIds: string[]
   }>> {
     const [observed, maps, servicos] = await Promise.all([
       this.listObligationsObserved(),
@@ -1220,6 +1251,7 @@ export class AcessoriasService {
       return {
         nome: o.nome,
         ocorrencias: o.ocorrencias,
+        departamento: o.departamento ?? null,
         area: classified.area,
         regime: classified.regime,
         confidence: classified.confidence,
