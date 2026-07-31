@@ -109,10 +109,14 @@ function situacao(l: Linha) {
   if (l.entregue && l.lida !== false) {
     const adiantada = l.dtEntrega && l.prazo && new Date(l.dtEntrega) < new Date(l.prazo)
     return {
-      texto: l.lida === true ? 'entregue e lida' : 'entregue',
-      titulo: adiantada
-        ? `Entregue antes do prazo interno (${fmtData(l.prazo)}) · vencimento ${fmtData(l.vencimento)}`
-        : `Prazo interno: ${fmtData(l.prazo)} · vencimento ${fmtData(l.vencimento)}`,
+      // Sem data e sem a palavra "entregue": isso é o que a coluna Entrega já
+      // mostra. Aqui só o desfecho.
+      texto: 'concluída',
+      titulo: [
+        l.lida === true ? 'Entregue e lida pelo cliente' : 'Entregue (sem guia para o cliente abrir)',
+        adiantada ? `antes do prazo interno (${fmtData(l.prazo)})` : `prazo interno ${fmtData(l.prazo)}`,
+        `vencimento ${fmtData(l.vencimento)}`,
+      ].join(' · '),
       cor: 'text-emerald-600 dark:text-emerald-400',
     }
   }
