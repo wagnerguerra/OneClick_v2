@@ -279,6 +279,18 @@ export class AcessoriasService {
     const erros: string[] = []
 
     try {
+      // Guarda o desfecho de cada empresa para a tela poder listar por grupo.
+      const detalhes: Array<{
+        situacao: 'casada' | 'atualizada' | 'ignorada'
+        idAcessorias: number
+        documento: string
+        razaoAcessorias: string
+        statusAcessorias: string
+        clienteId?: string
+        clienteCode?: number
+        clienteNome?: string
+      }> = []
+
       // /companies/ListAll é paginado (20 por página). Loop até array vazio.
       let pagina = 1
       while (true) {
@@ -301,10 +313,19 @@ export class AcessoriasService {
                 { documento: cnpjKey },
               ],
             },
-            select: { id: true, idAcessorias: true, cnpjAcessorias: true },
+            select: { id: true, code: true, razaoSocial: true, idAcessorias: true, cnpjAcessorias: true },
           })
           if (!cliente) {
             ignoradas++
+            // Sem registrar QUAL empresa ficou de fora, o número "46 ignoradas"
+            // não leva a lugar nenhum — é o que permite vincular à mão depois.
+            detalhes.push({
+              situacao: 'ignorada',
+              idAcessorias: idAcess,
+              documento: cnpjKey,
+              razaoAcessorias: String(raw.Razao ?? ''),
+              statusAcessorias: String(raw.Status ?? ''),
+            })
             continue
           }
           // Atualiza apenas o que falta
@@ -317,8 +338,28 @@ export class AcessoriasService {
           if (Object.keys(patch).length > 0) {
             await prisma.cliente.update({ where: { id: cliente.id }, data: patch })
             atualizadas++
+            detalhes.push({
+              situacao: 'atualizada',
+              idAcessorias: idAcess,
+              documento: cnpjKey,
+              razaoAcessorias: String(raw.Razao ?? ''),
+              statusAcessorias: String(raw.Status ?? ''),
+              clienteId: cliente.id,
+              clienteCode: cliente.code,
+              clienteNome: cliente.razaoSocial,
+            })
           } else {
             novas++ // já estava sincronizada (vamos contar como "ok-novas")
+            detalhes.push({
+              situacao: 'casada',
+              idAcessorias: idAcess,
+              documento: cnpjKey,
+              razaoAcessorias: String(raw.Razao ?? ''),
+              statusAcessorias: String(raw.Status ?? ''),
+              clienteId: cliente.id,
+              clienteCode: cliente.code,
+              clienteNome: cliente.razaoSocial,
+            })
           }
         }
         pagina++
@@ -335,6 +376,8 @@ export class AcessoriasService {
           empresasNovas: novas,
           empresasAtualizadas: atualizadas,
           empresasIgnoradas: ignoradas,
+          detalhes: detalhes as never,
+          progressoMsg: 'Concluída',
           erroMensagem: erros.length > 0 ? erros.join('\n') : null,
         },
       })
@@ -1193,6 +1236,54 @@ export class AcessoriasService {
       }
     }
     return { ok: erros.length === 0, aplicados, erros }
+  }
+
+  /**
+   * Lista o desfecho da última sincronização de empresas, por grupo. É o que
+   * transforma o número do card ("46 ignoradas") em uma lista sobre a qual dá
+   * para agir.
+   */
+  async empresasDaUltimaSync(situacao: 'casada' | 'atualizada' | 'ignorada', empresaId?: string | null) {
+    const log = await prisma.acessoriasSyncLog.findFirst({
+      where: { tipo: 'companies', status: { not: 'running' }, ...(empresaId ? { empresaId } : {}) },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true, startedAt: true, detalhes: true },
+    })
+    if (!log?.detalhes) return { logId: null, quando: null, itens: [] }
+    const todos = (Array.isArray(log.detalhes) ? log.detalhes : []) as Array<Record<string, unknown>>
+    return {
+      logId: log.id,
+      quando: log.startedAt,
+      itens: todos.filter(d => d.situacao === situacao),
+    }
+  }
+
+  /**
+   * Vincula à mão uma empresa do Acessórias a um cliente do OneClick — o
+   * caminho para resolver as "ignoradas", que são as que o CNPJ não casou.
+   */
+  async vincularEmpresaCliente(input: {
+    clienteId: string
+    idAcessorias: number
+    cnpjAcessorias?: string | null
+  }) {
+    const jaUsado = await prisma.cliente.findFirst({
+      where: { idAcessorias: input.idAcessorias, id: { not: input.clienteId } },
+      select: { id: true, code: true, razaoSocial: true },
+    })
+    if (jaUsado) {
+      // Dois clientes com o mesmo código do Acessórias fariam as entregas
+      // aparecerem no lugar errado — pior que não vincular.
+      throw new Error(`Este código do Acessórias já está no cliente #${jaUsado.code} — ${jaUsado.razaoSocial}.`)
+    }
+    await prisma.cliente.update({
+      where: { id: input.clienteId },
+      data: {
+        idAcessorias: input.idAcessorias,
+        ...(input.cnpjAcessorias ? { cnpjAcessorias: input.cnpjAcessorias } : {}),
+      },
+    })
+    return { ok: true }
   }
 
   /**

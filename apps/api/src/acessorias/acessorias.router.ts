@@ -149,6 +149,18 @@ export function createAcessoriasRouter(
       }))
       .mutation(({ input, ctx }) => svc.applySuggestions(input.items, ctx.empresaId ?? null)),
 
+    empresasDaUltimaSync: integracaoProc()
+      .input(z.object({ situacao: z.enum(['casada', 'atualizada', 'ignorada']) }))
+      .query(({ input, ctx }) => svc.empresasDaUltimaSync(input.situacao, ctx.empresaId ?? null)),
+
+    vincularEmpresaCliente: integracaoProc()
+      .input(z.object({
+        clienteId: z.string(),
+        idAcessorias: z.coerce.number().int().positive(),
+        cnpjAcessorias: z.string().optional(),
+      }))
+      .mutation(({ input }) => svc.vincularEmpresaCliente(input)),
+
     resumoVinculos: integracaoProc()
       .query(({ ctx }) => svc.resumoVinculos(ctx.empresaId ?? null)),
 

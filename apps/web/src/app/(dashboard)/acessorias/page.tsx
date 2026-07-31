@@ -27,7 +27,9 @@ import {
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { EntityCombobox } from '@/components/ui/entity-combobox'
 import { trpc } from '@/lib/trpc'
+import { masks } from '@/lib/masks'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
@@ -197,6 +199,7 @@ export default function AcessoriasPage() {
 function CompaniesPanel() {
   const [running, setRunning] = useState(false)
   const [lastResult, setLastResult] = useState<{ novas: number; atualizadas: number; ignoradas: number; quando?: string } | null>(null)
+  const [verGrupo, setVerGrupo] = useState<'casada' | 'atualizada' | 'ignorada' | null>(null)
 
   // O resultado vinha só da memória da tela: sair e voltar apagava os números,
   // dando a impressão de que a sincronização não tinha acontecido. Agora ele é
@@ -265,23 +268,220 @@ function CompaniesPanel() {
         </div>
         {lastResult && (
           <div className="grid grid-cols-3 gap-3">
-            <Card className="p-3">
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Já casadas</div>
-              <div className="text-xl font-semibold tabular-nums">{lastResult.novas}</div>
-            </Card>
-            <Card className="p-3">
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Atualizadas</div>
-              <div className="text-xl font-semibold tabular-nums text-emerald-600">{lastResult.atualizadas}</div>
-            </Card>
-            <Card className="p-3">
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Ignoradas</div>
-              <div className="text-xl font-semibold tabular-nums text-amber-600">{lastResult.ignoradas}</div>
-              <div className="text-[10px] text-muted-foreground">não encontradas no OneClick</div>
-            </Card>
+            <button type="button" className="text-left" onClick={() => setVerGrupo('casada')}>
+              <Card className="p-3 transition-colors hover:bg-muted/40">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Já casadas</div>
+                <div className="text-xl font-semibold tabular-nums">{lastResult.novas}</div>
+                <div className="text-[10px] text-muted-foreground">clique para ver a lista</div>
+              </Card>
+            </button>
+            <button type="button" className="text-left" onClick={() => setVerGrupo('atualizada')}>
+              <Card className="p-3 transition-colors hover:bg-muted/40">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Atualizadas</div>
+                <div className="text-xl font-semibold tabular-nums text-emerald-600">{lastResult.atualizadas}</div>
+                <div className="text-[10px] text-muted-foreground">clique para ver a lista</div>
+              </Card>
+            </button>
+            <button type="button" className="text-left" onClick={() => setVerGrupo('ignorada')}>
+              <Card className="p-3 transition-colors hover:bg-muted/40">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Ignoradas</div>
+                <div className="text-xl font-semibold tabular-nums text-amber-600">{lastResult.ignoradas}</div>
+                <div className="text-[10px] text-muted-foreground">clique para vincular à mão</div>
+              </Card>
+            </button>
           </div>
+        )}
+        {verGrupo && (
+          <EmpresasDaSyncModal
+            situacao={verGrupo}
+            onClose={() => setVerGrupo(null)}
+            onVinculou={() => { void carregarUltima() }}
+          />
         )}
       </div>
     </Card>
+  )
+}
+
+interface EmpresaSync {
+  situacao: 'casada' | 'atualizada' | 'ignorada'
+  idAcessorias: number
+  documento: string
+  razaoAcessorias: string
+  statusAcessorias: string
+  clienteId?: string
+  clienteCode?: number
+  clienteNome?: string
+}
+
+const TITULO_GRUPO: Record<string, string> = {
+  casada: 'Empresas já casadas',
+  atualizada: 'Empresas atualizadas nesta sincronização',
+  ignorada: 'Empresas sem cliente correspondente',
+}
+
+/**
+ * Lista as empresas de um grupo da última sincronização.
+ *
+ * O número no card não levava a lugar nenhum: "46 ignoradas" não diz quais são
+ * nem permite agir. Aqui elas aparecem uma a uma e, no caso das ignoradas, dá
+ * para escolher o cliente do OneClick e vincular na hora — que é o único jeito
+ * de resolver quando o CNPJ não casa (filial cadastrada com outro documento,
+ * cliente que ainda não existe aqui, etc).
+ */
+function EmpresasDaSyncModal({ situacao, onClose, onVinculou }: {
+  situacao: 'casada' | 'atualizada' | 'ignorada'
+  onClose: () => void
+  onVinculou: () => void
+}) {
+  const [itens, setItens] = useState<EmpresaSync[]>([])
+  const [quando, setQuando] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [busca, setBusca] = useState('')
+  const [clientes, setClientes] = useState<Array<{ id: string; razaoSocial: string; documento: string }>>([])
+  const [escolha, setEscolha] = useState<Record<number, string>>({})
+  const [salvando, setSalvando] = useState<number | null>(null)
+  const [resolvidos, setResolvidos] = useState<Set<number>>(new Set())
+
+  const carregar = useCallback(() => {
+    setLoading(true)
+    ;(trpc as any).acessorias.empresasDaUltimaSync.query({ situacao })
+      .then((d: { quando: string | null; itens: EmpresaSync[] }) => {
+        setItens(d.itens || [])
+        setQuando(d.quando)
+      })
+      .catch((e: Error) => alerts.error('Erro', e.message))
+      .finally(() => setLoading(false))
+  }, [situacao])
+  useEffect(() => { carregar() }, [carregar])
+
+  // Só carrega a lista de clientes quando é para vincular — nas outras abas
+  // seria peso sem uso.
+  useEffect(() => {
+    if (situacao !== 'ignorada') return
+    ;(trpc as any).cliente.list.query({ page: 1, limit: 100, sortBy: 'razaoSocial', sortDir: 'asc' })
+      .then((r: { data: Array<{ id: string; razaoSocial: string; documento: string }> }) => setClientes(r?.data || []))
+      .catch(() => setClientes([]))
+  }, [situacao])
+
+  async function vincular(emp: EmpresaSync) {
+    const clienteId = escolha[emp.idAcessorias]
+    if (!clienteId) return
+    setSalvando(emp.idAcessorias)
+    try {
+      await (trpc as any).acessorias.vincularEmpresaCliente.mutate({
+        clienteId,
+        idAcessorias: emp.idAcessorias,
+        cnpjAcessorias: emp.documento || undefined,
+      })
+      setResolvidos(prev => new Set(prev).add(emp.idAcessorias))
+      onVinculou()
+    } catch (e) {
+      alerts.error('Não foi possível vincular', (e as Error).message)
+    } finally { setSalvando(null) }
+  }
+
+  const q = busca.trim().toLowerCase()
+  const filtrados = q
+    ? itens.filter(i =>
+        i.razaoAcessorias.toLowerCase().includes(q)
+        || i.documento.includes(q.replace(/\D/g, ''))
+        || (i.clienteNome ?? '').toLowerCase().includes(q))
+    : itens
+
+  const opcoesClientes = clientes.map(c => ({
+    id: c.id,
+    label: c.razaoSocial,
+    sublabel: c.documento ? masks.cpfCnpj(c.documento) : null,
+  }))
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[860px] max-h-[85vh] flex flex-col">
+        <DialogHeaderIcon icon={Building2} color={situacao === 'ignorada' ? 'amber' : 'sky'}>
+          <DialogTitle>{TITULO_GRUPO[situacao]}</DialogTitle>
+          <DialogDescription>
+            {situacao === 'ignorada'
+              ? 'O CNPJ dessas empresas não casou com nenhum cliente. Escolha o cliente correspondente e vincule.'
+              : 'Resultado da última sincronização de empresas.'}
+            {quando ? ` Sincronizado em ${new Date(quando).toLocaleString('pt-BR')}.` : ''}
+          </DialogDescription>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-3 overflow-y-auto">
+          <Input value={busca} onChange={e => setBusca(e.target.value)}
+            placeholder="Buscar por empresa, CNPJ ou cliente..." className="h-9 max-w-sm text-sm" />
+
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
+            </div>
+          ) : filtrados.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              {itens.length === 0
+                ? 'Nada neste grupo na última sincronização. Se ela nunca rodou depois desta atualização, rode de novo para gravar o detalhe.'
+                : 'Nenhum resultado para a busca.'}
+            </p>
+          ) : (
+            <div className="divide-y divide-border/60 rounded-lg border border-border">
+              {filtrados.map(emp => {
+                const feito = resolvidos.has(emp.idAcessorias)
+                return (
+                  <div key={emp.idAcessorias} className="flex flex-col gap-2 px-3 py-2.5 lg:flex-row lg:items-center">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{emp.razaoAcessorias || '(sem razão social)'}</p>
+                      <p className="truncate font-mono text-[11px] text-muted-foreground">
+                        {masks.cpfCnpj(emp.documento)} · Acessórias #{emp.idAcessorias}
+                        {emp.statusAcessorias ? ` · ${emp.statusAcessorias}` : ''}
+                      </p>
+                    </div>
+
+                    {situacao === 'ignorada' ? (
+                      feito ? (
+                        <Badge className="shrink-0 gap-1 bg-emerald-100 text-[10px] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                          <CheckCircle2 className="h-3 w-3" />vinculada
+                        </Badge>
+                      ) : (
+                        <div className="flex shrink-0 items-center gap-2 lg:w-[420px]">
+                          <div className="min-w-0 flex-1">
+                            <EntityCombobox
+                              items={opcoesClientes}
+                              value={escolha[emp.idAcessorias] ?? ''}
+                              onSelect={(id) => setEscolha(prev => ({ ...prev, [emp.idAcessorias]: id }))}
+                              placeholder="Escolher cliente"
+                              searchPlaceholder="Buscar por nome ou CNPJ/CPF..."
+                              emptyText="Nenhum cliente encontrado"
+                            />
+                          </div>
+                          <Button
+                            size="xs"
+                            variant="success"
+                            disabled={!escolha[emp.idAcessorias] || salvando === emp.idAcessorias}
+                            onClick={() => vincular(emp)}
+                          >
+                            {salvando === emp.idAcessorias
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              : <LinkIcon className="h-3.5 w-3.5" />}
+                            Vincular
+                          </Button>
+                        </div>
+                      )
+                    ) : (
+                      <div className="shrink-0 text-right">
+                        <p className="text-sm">#{emp.clienteCode} — {emp.clienteNome}</p>
+                        <p className="text-[10px] text-muted-foreground">cliente no OneClick</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
