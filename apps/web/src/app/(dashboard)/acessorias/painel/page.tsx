@@ -35,6 +35,8 @@ interface Linha {
   competencia: string | null
   prazo: string | null
   diasParaPrazo: number | null
+  vencimento: string | null
+  diasParaVencimento: number | null
   dtEntrega: string | null
   lidaEm: string | null
   status: string | null
@@ -65,6 +67,14 @@ interface PorCliente {
 const fmtData = (v: string | null) =>
   v ? new Date(v).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'
 
+/** Competência no formato do Acessórias: "Jun/2026". */
+const fmtComp = (v: string | null) => {
+  if (!v) return '—'
+  const d = new Date(v)
+  const m = d.toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' }).replace('.', '')
+  return `${m.charAt(0).toUpperCase()}${m.slice(1)}/${d.getUTCFullYear()}`
+}
+
 /** Data + hora, para o momento em que o cliente abriu a guia. */
 const fmtDataHora = (v: string | null) =>
   v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
@@ -82,22 +92,27 @@ function situacao(l: Linha) {
     const adiantada = l.dtEntrega && l.prazo && new Date(l.dtEntrega) < new Date(l.prazo)
     return {
       texto: `entregue ${fmtData(l.dtEntrega)}`,
-      titulo: adiantada ? `Entregue antes do prazo (${fmtData(l.prazo)})` : `Prazo: ${fmtData(l.prazo)}`,
+      titulo: adiantada
+        ? `Entregue antes do prazo interno (${fmtData(l.prazo)}) · vencimento ${fmtData(l.vencimento)}`
+        : `Prazo interno: ${fmtData(l.prazo)} · vencimento ${fmtData(l.vencimento)}`,
       cor: 'text-emerald-600 dark:text-emerald-400',
     }
   }
   if (l.dispensada) {
     return { texto: 'dispensada', titulo: 'Não era devida no período', cor: 'text-muted-foreground' }
   }
-  const dias = l.diasParaPrazo
-  if (dias === null) return { texto: 'sem prazo', titulo: '', cor: 'text-muted-foreground' }
-  if (dias < 0) return { texto: `venceu há ${Math.abs(dias)}d`, titulo: `Prazo: ${fmtData(l.prazo)}`, cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
-  if (dias === 0) return { texto: 'vence hoje', titulo: `Prazo: ${fmtData(l.prazo)}`, cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
-  if (dias <= 3) return { texto: `vence em ${dias}d`, titulo: `Prazo: ${fmtData(l.prazo)}`, cor: 'text-amber-600 dark:text-amber-400 font-semibold' }
-  return { texto: `vence em ${dias}d`, titulo: `Prazo: ${fmtData(l.prazo)}`, cor: 'text-muted-foreground' }
+  // Conta contra o VENCIMENTO da guia, não contra o prazo interno de entrega:
+  // é a data em que o cliente sofre a consequência.
+  const dias = l.diasParaVencimento
+  const t = `Vencimento: ${fmtData(l.vencimento)} · prazo interno: ${fmtData(l.prazo)}`
+  if (dias === null) return { texto: 'sem vencimento', titulo: '', cor: 'text-muted-foreground' }
+  if (dias < 0) return { texto: `venceu há ${Math.abs(dias)}d`, titulo: t, cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
+  if (dias === 0) return { texto: 'vence hoje', titulo: t, cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
+  if (dias <= 3) return { texto: `vence em ${dias}d`, titulo: t, cor: 'text-amber-600 dark:text-amber-400 font-semibold' }
+  return { texto: `vence em ${dias}d`, titulo: t, cor: 'text-muted-foreground' }
 }
 
-type CampoOrdem = 'obrigacao' | 'clienteNome' | 'dpto' | 'respEntrega' | 'prazo' | 'dtEntrega' | 'situacao'
+type CampoOrdem = 'obrigacao' | 'clienteNome' | 'dpto' | 'respEntrega' | 'competencia' | 'prazo' | 'vencimento' | 'dtEntrega' | 'situacao'
 
 /**
  * Chave de ordenação por coluna. Datas viram número (ausente vai para o fim,
@@ -106,13 +121,15 @@ type CampoOrdem = 'obrigacao' | 'clienteNome' | 'dpto' | 'respEntrega' | 'prazo'
  */
 function chaveOrdem(l: Linha, campo: CampoOrdem): string | number {
   switch (campo) {
-    case 'prazo':     return l.prazo ? new Date(l.prazo).getTime() : Number.MAX_SAFE_INTEGER
-    case 'dtEntrega': return l.dtEntrega ? new Date(l.dtEntrega).getTime() : Number.MAX_SAFE_INTEGER
+    case 'competencia': return l.competencia ? new Date(l.competencia).getTime() : Number.MAX_SAFE_INTEGER
+    case 'prazo':       return l.prazo ? new Date(l.prazo).getTime() : Number.MAX_SAFE_INTEGER
+    case 'vencimento':  return l.vencimento ? new Date(l.vencimento).getTime() : Number.MAX_SAFE_INTEGER
+    case 'dtEntrega':   return l.dtEntrega ? new Date(l.dtEntrega).getTime() : Number.MAX_SAFE_INTEGER
     case 'situacao': {
       if (l.dispensada) return 4
       if (l.entregue) return 3
-      const d = l.diasParaPrazo
-      if (d === null) return 2          // sem prazo
+      const d = l.diasParaVencimento
+      if (d === null) return 2          // sem vencimento
       return d < 0 ? 0 : 1              // vencido primeiro, depois a vencer
     }
     default: return String(l[campo] ?? '').toLowerCase()
@@ -156,7 +173,7 @@ export default function PainelEntregasPage() {
   const [dpto, setDpto] = useState('')
   const [responsavel, setResponsavel] = useState('')
   const [clienteId, setClienteId] = useState('')
-  const [ordem, setOrdem] = useState<CampoOrdem>('prazo')
+  const [ordem, setOrdem] = useState<CampoOrdem>('vencimento')
   const [dir, setDir] = useState<'asc' | 'desc'>('asc')
   const [busca, setBusca] = useState('')
   const [visao, setVisao] = useState<'obrigacao' | 'cliente'>('obrigacao')
@@ -396,8 +413,10 @@ export default function PainelEntregasPage() {
                   <Th campo="obrigacao"   atual={ordem} dir={dir} onOrdenar={ordenar}>Obrigação</Th>
                   <Th campo="clienteNome" atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[24%] md:table-cell">Cliente</Th>
                   <Th campo="dpto"        atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[100px] lg:table-cell">Área</Th>
-                  <Th campo="respEntrega" atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[150px] xl:table-cell">Responsável</Th>
-                  <Th campo="prazo"       atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[96px]">Prazo</Th>
+                  <Th campo="respEntrega" atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[150px] 2xl:table-cell">Responsável</Th>
+                  <Th campo="competencia" atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[104px] lg:table-cell">Competência</Th>
+                  <Th campo="prazo"       atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[96px] xl:table-cell">Prazo interno</Th>
+                  <Th campo="vencimento"  atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[104px]">Vencimento</Th>
                   <Th campo="dtEntrega"   atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[104px] sm:table-cell">Entrega</Th>
                   <Th campo="situacao"    atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[126px]">Situação</Th>
                   <Th atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[64px]" />
@@ -458,12 +477,22 @@ export default function PainelEntregasPage() {
                         {l.dpto || '—'}
                       </td>
 
-                      <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground xl:table-cell" title={l.respEntrega ?? ''}>
+                      <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground 2xl:table-cell" title={l.respEntrega ?? ''}>
                         {l.respEntrega || '—'}
                       </td>
 
-                      <td className="px-3 py-2 text-[12px] text-muted-foreground tabular-nums">
+                      <td className="hidden px-3 py-2 text-[12px] text-muted-foreground lg:table-cell">
+                        {fmtComp(l.competencia)}
+                      </td>
+
+                      <td className="hidden px-3 py-2 text-[12px] text-muted-foreground tabular-nums xl:table-cell"
+                        title="Prazo do escritório para entregar">
                         {fmtData(l.prazo)}
+                      </td>
+
+                      <td className="px-3 py-2 text-[12px] font-medium tabular-nums"
+                        title={`Vencimento da guia · prazo interno ${fmtData(l.prazo)}`}>
+                        {fmtData(l.vencimento)}
                       </td>
 
                       <td className="hidden px-3 py-2 text-[12px] tabular-nums sm:table-cell">

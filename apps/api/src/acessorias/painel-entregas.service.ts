@@ -40,8 +40,12 @@ export interface LinhaPainel {
   documento: string
   obrigacao: string
   competencia: Date | null
+  /** Prazo INTERNO do escritório para entregar (EntDtPrazo). */
   prazo: Date | null
   diasParaPrazo: number | null
+  /** Vencimento da guia para o cliente (EntDtAtraso) — a data que conta. */
+  vencimento: Date | null
+  diasParaVencimento: number | null
   /** Quando o responsável de fato entregou — pode ser ANTES do prazo. */
   dtEntrega: Date | null
   /** Momento da primeira abertura da guia pelo cliente (EntLastDH). */
@@ -125,6 +129,13 @@ export class PainelEntregasService {
       competencia: r.competencia,
       prazo: r.prazo,
       diasParaPrazo: diasAte(r.prazo),
+      // O Acessórias guarda duas datas: EntDtPrazo é o prazo interno do
+      // escritório e EntDtAtraso é o vencimento da guia para o cliente (o log
+      // deles diz "Guia de pagto p/ o dia ..."). O painel pergunta quem ainda
+      // não abriu ANTES DE VENCER, então a régua é o vencimento. Fallback no
+      // prazo para a obrigação que não tenha vencimento próprio.
+      vencimento: r.dtAtraso ?? r.prazo,
+      diasParaVencimento: diasAte(r.dtAtraso ?? r.prazo),
       dtEntrega: r.dtEntrega,
       lidaEm: r.lastDH,
       status: r.status,
@@ -140,7 +151,7 @@ export class PainelEntregasService {
     // O alvo do painel: guia já entregue, cliente ainda não abriu, prazo ainda
     // não venceu. É o único momento em que dá para agir antes do estrago.
     const naoLidasAVencer = linhas.filter(
-      (l) => l.entregue && l.lida === false && l.diasParaPrazo !== null && l.diasParaPrazo >= 0,
+      (l) => l.entregue && l.lida === false && l.diasParaVencimento !== null && l.diasParaVencimento >= 0,
     )
 
     const resumo = {
@@ -151,10 +162,10 @@ export class PainelEntregasService {
       naoLidas: linhas.filter((l) => l.lida === false).length,
       naoLidasAVencer: naoLidasAVencer.length,
       /** Não lidas com vencimento dentro da janela — o que precisa de telefonema hoje. */
-      naoLidasCriticas: naoLidasAVencer.filter((l) => (l.diasParaPrazo ?? 99) <= janela).length,
+      naoLidasCriticas: naoLidasAVencer.filter((l) => (l.diasParaVencimento ?? 99) <= janela).length,
       // Nem entregue nem dispensada, com prazo vencido. Dispensada ficava aqui
       // dentro e inflava o número com obrigação que sequer era devida.
-      atrasadas: linhas.filter((l) => !l.entregue && !l.dispensada && (l.diasParaPrazo ?? 1) < 0).length,
+      atrasadas: linhas.filter((l) => !l.entregue && !l.dispensada && (l.diasParaVencimento ?? 1) < 0).length,
       comMulta: linhas.filter((l) => l.multa).length,
     }
 
@@ -163,9 +174,9 @@ export class PainelEntregasService {
         case 'nao_lidas':
           return linhas.filter((l) => l.entregue && l.lida === false)
         case 'a_vencer':
-          return naoLidasAVencer.filter((l) => (l.diasParaPrazo ?? 99) <= janela)
+          return naoLidasAVencer.filter((l) => (l.diasParaVencimento ?? 99) <= janela)
         case 'atrasadas':
-          return linhas.filter((l) => !l.entregue && !l.dispensada && (l.diasParaPrazo ?? 1) < 0)
+          return linhas.filter((l) => !l.entregue && !l.dispensada && (l.diasParaVencimento ?? 1) < 0)
         default:
           return linhas
       }
@@ -205,12 +216,12 @@ export class PainelEntregasService {
       if (naoLida) {
         atual.naoLidas++
         atual.obrigacoesNaoLidas.push(l.obrigacao)
-        if (l.diasParaPrazo !== null && l.diasParaPrazo >= 0 && l.diasParaPrazo <= janelaDias) {
+        if (l.diasParaVencimento !== null && l.diasParaVencimento >= 0 && l.diasParaVencimento <= janelaDias) {
           atual.naoLidasCriticas++
         }
-        if (l.prazo && (!atual.proximoPrazo || l.prazo < atual.proximoPrazo)) atual.proximoPrazo = l.prazo
+        if (l.vencimento && (!atual.proximoPrazo || l.vencimento < atual.proximoPrazo)) atual.proximoPrazo = l.vencimento
       }
-      if (!l.entregue && !l.dispensada && (l.diasParaPrazo ?? 1) < 0) atual.atrasadas++
+      if (!l.entregue && !l.dispensada && (l.diasParaVencimento ?? 1) < 0) atual.atrasadas++
       mapa.set(l.clienteId, atual)
     }
 
