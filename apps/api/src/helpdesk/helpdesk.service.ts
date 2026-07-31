@@ -1168,11 +1168,11 @@ export class HelpdeskService {
       const mudouStatus = !!patch.status && patch.status !== before.status && patch.status !== 'NOVO'
       const desarquivou = patch.arquivado === false && before.arquivado === true
       if (mudouStatus || desarquivou) {
-        // Rótulo da etapa (não o valor cru do enum), em CAIXA ALTA. Ex.: RESOLVIDO
-        // → "AGUARDANDO AVALIAÇÃO", batendo com a UI. Alimenta corpo + assunto do
-        // e-mail e o título do sino.
+        // Rótulo da etapa (não o valor cru do enum). Ex.: RESOLVIDO → "Aguardando
+        // avaliação", batendo com a UI. Alimenta corpo + assunto do e-mail e o
+        // título do sino.
         const statusVal = (mudouStatus ? patch.status : t.status) as HelpdeskStatus
-        const statusLabel = (HELPDESK_STATUS_LABELS[statusVal] ?? statusVal).toUpperCase()
+        const statusLabel = HELPDESK_STATUS_LABELS[statusVal] ?? statusVal
         const soDesarquivou = desarquivou && !mudouStatus
         const virouAvaliacao = patch.status === 'RESOLVIDO'
         const corpo = soDesarquivou
