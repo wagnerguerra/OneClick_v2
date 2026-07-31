@@ -412,6 +412,24 @@ export class AcessoriasService {
     }
   }
 
+  /**
+   * Grava o andamento no log para a tela acompanhar em tempo real. Falha aqui
+   * nunca interrompe a sincronização — progresso é informação, não trabalho.
+   */
+  private async marcarProgresso(
+    logId: string,
+    dados: { atual?: number; total?: number; msg?: string },
+  ) {
+    await prisma.acessoriasSyncLog.update({
+      where: { id: logId },
+      data: {
+        ...(dados.atual !== undefined ? { progressoAtual: dados.atual } : {}),
+        ...(dados.total !== undefined ? { progressoTotal: dados.total } : {}),
+        ...(dados.msg !== undefined ? { progressoMsg: dados.msg } : {}),
+      },
+    }).catch(() => null)
+  }
+
   private async executarSyncDeliveries(opts: {
     dtInicio: string
     dtFinal: string
@@ -445,7 +463,7 @@ export class AcessoriasService {
         where: {
           ...(opts.clienteId ? { id: opts.clienteId } : { idAcessorias: { not: null } }),
         },
-        select: { id: true, documento: true, idAcessorias: true, cnpjAcessorias: true, empresaId: true },
+        select: { id: true, documento: true, idAcessorias: true, cnpjAcessorias: true, empresaId: true, razaoSocial: true },
       })
 
       if (clientes.length === 0) {
@@ -462,9 +480,22 @@ export class AcessoriasService {
         return { ok: false, novas, atualizadas, ignoradas, logId: log.id, erro: 'Nenhum cliente pra sincronizar' }
       }
 
+      await this.marcarProgresso(log.id, {
+        atual: 0, total: clientes.length,
+        msg: `${clientes.length} cliente(s) a consultar`,
+      })
+
+      // Registro do que aconteceu por cliente — é o que a tela abre ao clicar
+      // na linha do histórico. Limitado para o log não crescer sem controle.
+      const detalhes: Array<{ cliente: string; entregas: number; novas: number; atualizadas: number; erro?: string }> = []
+      let indice = 0
+
       for (const cli of clientes) {
+        indice++
         const cnpj = this.normCnpj(cli.cnpjAcessorias ?? cli.documento)
         if (!cnpj) continue
+        const antesNovas = novas, antesAtual = atualizadas
+        let entregasDoCliente = 0
 
         // /deliveries/{cnpj} paginado (50 por página). Inclui `config` (sem valor)
         // pra trazer Config.RespPrazo / Config.RespEntrega / Config.DptoNome —
@@ -498,11 +529,28 @@ export class AcessoriasService {
             novas += r.created
             atualizadas += r.updated
             ignoradas += r.skipped
+            entregasDoCliente++
           }
           pagina++
           await new Promise(r => setTimeout(r, 200))
           if (pagina > 50) break
         }
+
+        // Só registra quem teve movimento — uma linha por cliente vazio encheria
+        // o detalhe de ruído e esconderia o que importa.
+        if (entregasDoCliente > 0 && detalhes.length < 500) {
+          detalhes.push({
+            cliente: cli.razaoSocial ?? cnpj,
+            entregas: entregasDoCliente,
+            novas: novas - antesNovas,
+            atualizadas: atualizadas - antesAtual,
+          })
+        }
+        // Atualiza a cada cliente: é o que faz a barra andar de verdade.
+        await this.marcarProgresso(log.id, {
+          atual: indice,
+          msg: `${indice}/${clientes.length} · ${cli.razaoSocial ?? cnpj}`,
+        })
       }
 
       await prisma.acessoriasSyncLog.update({
@@ -510,6 +558,10 @@ export class AcessoriasService {
         data: {
           status: erros.length > 0 ? 'partial' : 'success',
           finishedAt: new Date(),
+          progressoAtual: clientes.length,
+          progressoTotal: clientes.length,
+          progressoMsg: 'Concluída',
+          detalhes: detalhes as never,
           deliveriesNovas: novas,
           deliveriesAtualizadas: atualizadas,
           deliveriesIgnoradas: ignoradas,
@@ -1054,23 +1106,12 @@ export class AcessoriasService {
       if (m) return { ...m, razao: 'Área fiscal · regime Lucro Real detectado' }
     }
 
-    // Sem regime claro → escolhe o serviço da área que cobre mais casos:
-    //   Fiscal: prefere Lucro Real (mais abrangente — cobre Presumido por extensão)
-    //   Contábil: prefere "Presumido/Real" (mais comum em escritórios médios)
-    //   Trabalhista: o genérico (só tem 1 mesmo)
-    if (classified.area === 'fiscal') {
-      const real = candidatos.find(s => has(s.nome, 'real'))
-      if (real) return { ...real, razao: 'Área fiscal · regime não detectado, sugerido Lucro Real (cobertura mais ampla)' }
-    }
-    if (classified.area === 'contabil') {
-      const pr = candidatos.find(s => has(s.nome, 'presumido') || has(s.nome, 'real'))
-      if (pr) return { ...pr, razao: 'Área contábil · padrão Presumido/Real (escrituração completa)' }
-    }
-    if (classified.area === 'trabalhista') {
-      return { ...candidatos[0], razao: 'Área trabalhista · único serviço genérico' }
-    }
-
-    return { ...candidatos[0], razao: 'Match aproximado por área' }
+    // Sem regime detectado NÃO se chuta. Antes, qualquer obrigação da área caía
+    // no serviço "que cobre mais casos" e o resultado foi vincular a carteira
+    // inteira num serviço mensal só. Sem casamento pelo nome, a sugestão fica
+    // vazia e o vínculo é feito à mão — que é o certo: quem conhece a obrigação
+    // é o time, não a heurística.
+    return null
   }
 
   /** Sugere mapeamentos automáticos pra cada obrigação observada.

@@ -89,6 +89,16 @@ interface SyncLog {
   erroMensagem: string | null
   parametros: unknown
   triggeredBy: string | null
+  progressoAtual: number | null
+  progressoTotal: number | null
+  progressoMsg: string | null
+  detalhes: Array<{ cliente: string; entregas: number; novas: number; atualizadas: number; erro?: string }> | null
+}
+
+/** Data em pt-BR a partir do formato ISO usado pelos campos de data. */
+const dataBR = (iso: string) => {
+  const [a, m, d] = String(iso ?? '').split('-')
+  return a && m && d ? `${d}/${m}/${a}` : String(iso ?? '')
 }
 
 function fmtDate(d: Date) { return d.toISOString().slice(0, 10) }
@@ -161,7 +171,7 @@ export default function AcessoriasPage() {
               <TabsTrigger
                 key={v}
                 value={v}
-                className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/60 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-sky-800 dark:data-[state=active]:!text-sky-200 gap-1.5 leading-none"
+                className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-2 !text-xs !font-semibold !text-foreground/60 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-sky-800 dark:data-[state=active]:!text-sky-200 gap-1.5 leading-none !items-center"
               >
                 <Icon className="h-3.5 w-3.5" /> {label}
               </TabsTrigger>
@@ -186,13 +196,42 @@ export default function AcessoriasPage() {
 // ════════════════════════════════════════════════════════════════════
 function CompaniesPanel() {
   const [running, setRunning] = useState(false)
-  const [lastResult, setLastResult] = useState<{ novas: number; atualizadas: number; ignoradas: number } | null>(null)
+  const [lastResult, setLastResult] = useState<{ novas: number; atualizadas: number; ignoradas: number; quando?: string } | null>(null)
+
+  // O resultado vinha só da memória da tela: sair e voltar apagava os números,
+  // dando a impressão de que a sincronização não tinha acontecido. Agora ele é
+  // lido do histórico, que é onde o dado de fato mora.
+  const carregarUltima = useCallback(async () => {
+    try {
+      const logs = await (trpc as any).acessorias.listSyncLogs.query({ limit: 20 }) as SyncLog[]
+      const ultima = (logs || []).find(l => l.tipo === 'companies' && l.status !== 'running')
+      if (ultima) {
+        setLastResult({
+          novas: ultima.empresasNovas,
+          atualizadas: ultima.empresasAtualizadas,
+          ignoradas: ultima.empresasIgnoradas,
+          quando: ultima.finishedAt ?? ultima.startedAt,
+        })
+      }
+    } catch { /* sem histórico é só não mostrar */ }
+  }, [])
+  useEffect(() => { void carregarUltima() }, [carregarUltima])
 
   async function runSync() {
+    // Refazer custa dezenas de requisições e alguns minutos — confirma antes.
+    if (lastResult) {
+      const ok = await alerts.confirm({
+        title: 'Sincronizar as empresas de novo?',
+        text: 'A última sincronização já foi feita. Refazer percorre a carteira inteira no Acessórias e leva alguns minutos.',
+        icon: 'question',
+        confirmText: 'Sincronizar',
+      })
+      if (!ok) return
+    }
     setRunning(true)
     try {
       const r = await (trpc as any).acessorias.syncCompanies.mutate() as { ok: boolean; novas: number; atualizadas: number; ignoradas: number }
-      setLastResult({ novas: r.novas, atualizadas: r.atualizadas, ignoradas: r.ignoradas })
+      setLastResult({ novas: r.novas, atualizadas: r.atualizadas, ignoradas: r.ignoradas, quando: new Date().toISOString() })
       await alerts.success('Sync concluída', `${r.novas} já casadas, ${r.atualizadas} atualizadas, ${r.ignoradas} ignoradas (não encontradas no OneClick).`)
     } catch (e) {
       alerts.error('Falhou', (e as Error).message)
@@ -780,6 +819,15 @@ function DeliveriesPanel({ firstDay, lastDay }: { firstDay: string; lastDay: str
   const [lastResult, setLastResult] = useState<{ novas: number; atualizadas: number; ignoradas: number } | null>(null)
 
   async function runSync() {
+    // Refazer o mesmo período reconsulta a carteira inteira e leva minutos —
+    // vale confirmar, principalmente porque o botão fica sempre disponível.
+    const ok = await alerts.confirm({
+      title: 'Sincronizar as entregas deste período?',
+      text: `Período de ${dataBR(dtInicio)} a ${dataBR(dtFinal)}. A consulta percorre cliente a cliente no Acessórias e leva alguns minutos.`,
+      icon: 'question',
+      confirmText: 'Sincronizar',
+    })
+    if (!ok) return
     setRunning(true)
     try {
       // A varredura roda em segundo plano: é cliente a cliente contra a API do
@@ -813,7 +861,7 @@ function DeliveriesPanel({ firstDay, lastDay }: { firstDay: string; lastDay: str
       </div>
       <div className="p-5 space-y-4">
         <div className="rounded-lg border border-sky-200 bg-sky-50/60 dark:bg-sky-950/20 dark:border-sky-900/50 px-4 py-3 text-[12px] text-sky-900 dark:text-sky-200">
-          <strong>Janela do sync</strong>: <code>{firstDay}</code> a <code>{lastDay}</code> (mês corrente). Filtra por <strong>data do prazo da entrega</strong>, não competência. Ajuste se quiser puxar entregas com prazo de outro período.
+          <strong>Janela do sync</strong>: <code>{dataBR(firstDay)}</code> a <code>{dataBR(lastDay)}</code> (mês corrente). Filtra por <strong>data do prazo da entrega</strong>, não competência. Ajuste se quiser puxar entregas com prazo de outro período.
         </div>
         <div className="grid grid-cols-12 gap-3">
           <div className="col-span-12 sm:col-span-4 space-y-1.5">
@@ -859,6 +907,7 @@ function DeliveriesPanel({ firstDay, lastDay }: { firstDay: string; lastDay: str
 function LogsPanel() {
   const [logs, setLogs] = useState<SyncLog[]>([])
   const [loading, setLoading] = useState(false)
+  const [detalhe, setDetalhe] = useState<SyncLog | null>(null)
   const fetchLogs = useCallback(async () => {
     setLoading(true)
     try {
@@ -872,12 +921,26 @@ function LogsPanel() {
   }, [])
   useEffect(() => { void fetchLogs() }, [fetchLogs])
 
+  // Enquanto houver sincronização em andamento, recarrega sozinho a cada 3s —
+  // é o que faz a barra de progresso andar sem o usuário clicar em Atualizar.
+  const temRodando = logs.some(l => l.status === 'running')
+  useEffect(() => {
+    if (!temRodando) return
+    const t = setInterval(() => { void fetchLogs() }, 3000)
+    return () => clearInterval(t)
+  }, [temRodando, fetchLogs])
+
   return (
     <Card className="p-0 overflow-hidden">
       <div className="px-5 py-3 border-b border-border/60 flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <History className="h-4 w-4 text-sky-600" />
           Histórico de Sincronizações
+          {temRodando && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-normal text-sky-600">
+              <Loader2 className="h-3 w-3 animate-spin" />atualizando sozinho
+            </span>
+          )}
         </h3>
         <Button variant="ghost" size="sm" onClick={fetchLogs} disabled={loading} className="gap-1.5">
           <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
@@ -911,8 +974,11 @@ function LogsPanel() {
               : log.status === 'partial' ? 'bg-amber-50 border-amber-300 text-amber-700'
               : log.status === 'error' ? 'bg-rose-50 border-rose-300 text-rose-700'
               : 'bg-sky-50 border-sky-300 text-sky-700'
+            const total = log.progressoTotal ?? 0
+            const atual = log.progressoAtual ?? 0
+            const pct = total > 0 ? Math.min(100, Math.round((atual / total) * 100)) : 0
             return (
-              <TableRow key={log.id}>
+              <TableRow key={log.id} className="cursor-pointer" onClick={() => setDetalhe(log)}>
                 <TableCell className="text-xs whitespace-nowrap">
                   <div>{new Date(log.startedAt).toLocaleDateString('pt-BR')}</div>
                   <div className="text-[10px] text-muted-foreground">{new Date(log.startedAt).toLocaleTimeString('pt-BR')}</div>
@@ -923,16 +989,104 @@ function LogsPanel() {
                 <TableCell>
                   <Badge variant="outline" className={cn('text-[10px]', statusCls)}>{log.status}</Badge>
                 </TableCell>
-                <TableCell className="text-xs tabular-nums">{counters}</TableCell>
-                <TableCell className="text-xs text-muted-foreground max-w-[400px] truncate" title={log.erroMensagem ?? ''}>
-                  {log.erroMensagem ?? '—'}
+                <TableCell className="text-xs tabular-nums">
+                  {log.status === 'running' && total > 0 ? (
+                    <div className="min-w-[160px] space-y-1">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                        <div className="h-full rounded-full bg-sky-500 transition-all duration-500" style={{ width: pct + '%' }} />
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">{atual}/{total} ({pct}%)</div>
+                    </div>
+                  ) : counters}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground max-w-[400px] truncate"
+                  title={log.erroMensagem ?? log.progressoMsg ?? ''}>
+                  {log.status === 'running'
+                    ? (log.progressoMsg ?? 'iniciando...')
+                    : (log.erroMensagem ?? 'clique para ver o detalhe')}
                 </TableCell>
               </TableRow>
             )
           })}
         </TableBody>
       </Table>
+
+      {detalhe && <DetalheSyncModal log={detalhe} onClose={() => setDetalhe(null)} />}
     </Card>
+  )
+}
+
+/** Detalhe de uma sincronização — o que aconteceu, cliente a cliente. */
+function DetalheSyncModal({ log, onClose }: { log: SyncLog; onClose: () => void }) {
+  const params = (log.parametros ?? {}) as { dtInicio?: string; dtFinal?: string }
+  const linhas = log.detalhes ?? []
+  const duracao = log.finishedAt
+    ? Math.max(1, Math.round((new Date(log.finishedAt).getTime() - new Date(log.startedAt).getTime()) / 1000))
+    : null
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeaderIcon icon={History} color="sky">
+          <DialogTitle>Sincronização de {log.tipo === 'companies' ? 'empresas' : 'entregas'}</DialogTitle>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Início</p>
+              <p className="tabular-nums">{new Date(log.startedAt).toLocaleString('pt-BR')}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Duração</p>
+              <p className="tabular-nums">{duracao != null ? duracao + 's' : 'em andamento'}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Situação</p>
+              <p>{log.status}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Período</p>
+              <p className="tabular-nums">
+                {params.dtInicio ? dataBR(params.dtInicio) + ' a ' + dataBR(params.dtFinal ?? '') : '—'}
+              </p>
+            </div>
+          </div>
+
+          {log.erroMensagem && (
+            <p className="rounded border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              {log.erroMensagem}
+            </p>
+          )}
+
+          <div>
+            <p className="mb-2 text-[13px] font-semibold">
+              Clientes com movimento {linhas.length > 0 && <span className="text-muted-foreground">({linhas.length})</span>}
+            </p>
+            {linhas.length === 0 ? (
+              <p className="py-4 text-center text-xs text-muted-foreground">
+                {log.status === 'running'
+                  ? 'A sincronização ainda está rodando — o detalhe aparece ao terminar.'
+                  : 'Nenhum cliente teve entregas no período. Clientes sem movimento não são listados.'}
+              </p>
+            ) : (
+              <div className="max-h-72 divide-y divide-border/60 overflow-y-auto rounded-lg border border-border">
+                {linhas.map((l, i) => (
+                  <div key={l.cliente + '-' + i} className="flex items-center gap-3 px-3 py-2 text-xs">
+                    <span className="min-w-0 flex-1 truncate">{l.cliente}</span>
+                    <span className="tabular-nums text-muted-foreground">{l.entregas} entrega(s)</span>
+                    {l.novas > 0 && <Badge variant="outline" className="text-[10px] text-emerald-700">+{l.novas}</Badge>}
+                    {l.atualizadas > 0 && <Badge variant="outline" className="text-[10px] text-sky-700">~{l.atualizadas}</Badge>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

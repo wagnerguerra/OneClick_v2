@@ -4602,6 +4602,20 @@ model AcessoriasSyncLog {
   erroMensagem          String?   @map("erro_mensagem") @db.Text
   /// Parâmetros da chamada (period, filtros) — debug.
   parametros            Json?
+
+  // ── Progresso em tempo real ──
+  // A sincronização roda em segundo plano e leva minutos; sem isto a tela só
+  // conseguiria dizer "rodando", sem noção de quanto falta.
+  /// Quantos itens já foram processados (clientes, no caso das entregas).
+  progressoAtual        Int?      @map("progresso_atual")
+  /// Total previsto. Null enquanto a contagem ainda não é conhecida.
+  progressoTotal        Int?      @map("progresso_total")
+  /// O que está sendo feito agora, em linguagem de usuário.
+  progressoMsg          String?   @map("progresso_msg")
+  /// Registro do que aconteceu, item a item — é o que a tela abre ao clicar na
+  /// linha do histórico. Limitado no serviço para não crescer sem controle.
+  detalhes              Json?
+
   /// Usuário que disparou (null = cron automático).
   triggeredBy           String?   @map("triggered_by")
   empresaId             String?   @map("empresa_id")
