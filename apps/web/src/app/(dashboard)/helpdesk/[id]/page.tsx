@@ -30,7 +30,7 @@ import { AnexosDropzone, type AnexoStaged } from '../_components/anexos-dropzone
 import {
   HELPDESK_STATUS, HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE, HELPDESK_PRIORIDADE_LABELS,
   HELPDESK_PRIORIDADE_COLORS, HELPDESK_TIPO_LABELS,
-  solicitantePodeCancelar, helpdeskStatusRank, helpdeskPodeArquivar,
+  solicitantePodeCancelar, helpdeskPodeArquivar,
   type HelpdeskStatus, type HelpdeskPrioridade,
 } from '@saas/types'
 
@@ -93,6 +93,11 @@ interface Ticket {
   avaliacaoDisponivel?: boolean
   concluidoSemAvaliacao?: boolean
   avaliacaoPosConclusaoDias?: number
+  // R5.1 — flags de ESTADO vindas do backend (fonte única). O front só compõe o
+  // papel do usuário por cima (não repete a regra).
+  congelado?: boolean
+  bloqueiaMensagemPublica?: boolean
+  permiteTrocarResponsavel?: boolean
   tags: string[]
   createdAt: string
   solicitante: { id: string; name: string; email: string | null; image: string | null } | null
@@ -316,10 +321,10 @@ export default function HelpdeskTicketDetailPage() {
     // sobre reabertura (#HLP0062). A mensagem é sempre registrada primeiro,
     // independente do status, pra não perder o que o usuário escreveu.
     const statusAntes = ticket?.status
-    // R5.4 — em arquivado/cancelado o backend só aceita nota interna. Se quem
-    // envia é agente, forçamos interna; o solicitante nem vê o compositor (usa
+    // R5.4 — onde a mensagem pública está bloqueada (flag do back), o agente só
+    // pode nota interna; forçamos interna. O solicitante nem vê o compositor (usa
     // o botão de reabrir). Assim a mensagem nunca é rejeitada pelo backend.
-    const soNotaInterna = (ticket?.arquivado || ticket?.status === 'CANCELADO') && podeAtuar
+    const soNotaInterna = !!ticket?.bloqueiaMensagemPublica && podeAtuar
     const internaFinal = soNotaInterna ? true : interna
     setEnviando(true)
     // Anexos prontos entram em chamadas addAnexo separadas logo abaixo; a
@@ -757,15 +762,12 @@ export default function HelpdeskTicketDetailPage() {
   // R5.2 — usa a flag do backend: cobre RESOLVIDO e também CONCLUÍDO sem
   // avaliação dentro da janela configurável.
   const podeAvaliar = ticket.avaliacaoDisponivel === true
-  // R5.1 — congelamento: CONCLUÍDO, CANCELADO ou ARQUIVADO travam a edição dos
-  // campos de conteúdo; o responsável trava adicionalmente de "Aguardando
-  // avaliação" (RESOLVIDO) em diante (evita "roubar" a avaliação). O STATUS não
-  // congela — é o caminho de reabertura. Reflete o que o backend impõe no update().
-  const congelado = ticket.arquivado
-    || helpdeskStatusRank(ticket.status) >= helpdeskStatusRank('CONCLUIDO')
+  // R5.1 — flags de ESTADO (congelamento e troca de responsável) vêm do backend
+  // (fonte única, getById) — o front NÃO repete a regra, só compõe o papel do
+  // usuário por cima. Ver memória [[flags-de-estado-vem-do-backend]].
+  const congelado = ticket.congelado ?? false
   const podeEditarCampos = podeAtuar && !congelado
-  const podeEditarResponsavel = podeAtuar && !congelado
-    && helpdeskStatusRank(ticket.status) < helpdeskStatusRank('RESOLVIDO')
+  const podeEditarResponsavel = podeAtuar && (ticket.permiteTrocarResponsavel ?? false)
   // Solicitante pode cancelar o próprio ticket enquanto está aberto.
   // TI também pode cancelar (via sidebar/select de status), então aqui foco no solicitante.
   const isSolicitante = !!currentUserId && ticket.solicitante?.id === currentUserId
@@ -776,8 +778,7 @@ export default function HelpdeskTicketDetailPage() {
   //    registrar nota interna; o solicitante não reabre (cancelado é terminal).
   //  • RESOLVIDO ("Aguardando avaliação") → mensagem do solicitante reverte
   //    pra Em andamento automaticamente no backend, e a equipe é avisada (5.5).
-  const estaCancelado = ticket.status === 'CANCELADO'
-  const bloqueiaMsgPublica = ticket.arquivado || estaCancelado
+  const bloqueiaMsgPublica = ticket.bloqueiaMensagemPublica ?? false
   const soNotaInterna = bloqueiaMsgPublica && podeAtuar
   const estaResolvido = ticket.status === 'RESOLVIDO'
   const internaEfetiva = soNotaInterna ? true : interna

@@ -581,7 +581,16 @@ export class HelpdeskService {
     const janela = await this.avaliacaoPosConclusaoDias()
     const avaliacaoDisponivel = this.avaliacaoDisponivel(ticket, janela)
     const concluidoSemAvaliacao = ticket.status === 'CONCLUIDO' && ticket.csatNota == null && !ticket.csatRespondidoEm
-    return { ...ticket, mensagens, avaliacaoDisponivel, concluidoSemAvaliacao, avaliacaoPosConclusaoDias: janela }
+    // R5.1 — flags de ESTADO (freeze/bloqueio) computadas na fonte única do back;
+    // o front só as consome e compõe o papel do usuário por cima (sem repetir a
+    // regra). Ver [[flags-de-estado-vem-do-backend]].
+    const status = ticket.status as HelpdeskStatus
+    return {
+      ...ticket, mensagens, avaliacaoDisponivel, concluidoSemAvaliacao, avaliacaoPosConclusaoDias: janela,
+      congelado: ticketCongelado(status, ticket.arquivado),
+      bloqueiaMensagemPublica: bloqueiaMensagemPublica(status, ticket.arquivado),
+      permiteTrocarResponsavel: permiteTrocarResponsavel(status, ticket.arquivado),
+    }
   }
 
   /** Listagem do agente (kanban e tabela). Escopo via `resolverEscopoEfetivo`. */
@@ -1358,13 +1367,11 @@ export class HelpdeskService {
     })
     if (!ticket) throw new Error('Ticket não encontrado')
 
-    // R5.1/5.4 — mensagem PÚBLICA fica bloqueada em ARQUIVADO ou CANCELADO (o
-    // retorno do solicitante é via botão de reabertura). CONCLUÍDO é a exceção:
-    // permite mensagem (gatilho de reabertura, 5.3). Notas internas: sempre.
-    if (!input.interna && (ticket.arquivado || ticket.status === 'CANCELADO')) {
-      // Neutro de propósito: arquivado é reabrível, mas cancelado é terminal
-      // para o solicitante — a wording não deve prometer reabertura a quem não
-      // pode. Quem pode reabrir usa o botão dedicado.
+    // R5.1/5.4 — mensagem PÚBLICA bloqueada segue a FONTE ÚNICA (mesma flag que o
+    // getById devolve ao front). Notas internas: sempre liberadas.
+    if (!input.interna && bloqueiaMensagemPublica(ticket.status as HelpdeskStatus, ticket.arquivado)) {
+      // Neutro de propósito: quem pode reabrir (arquivado) usa o botão dedicado;
+      // cancelado é terminal para o solicitante.
       throw new Error('Este chamado está encerrado e não recebe novas mensagens.')
     }
 
@@ -2579,4 +2586,23 @@ function ehAgenteHelpdesk(u: {
  */
 function ticketCongelado(status: HelpdeskStatus, arquivado: boolean): boolean {
   return arquivado || helpdeskStatusRank(status) >= helpdeskStatusRank('CONCLUIDO')
+}
+
+/**
+ * Nova mensagem PÚBLICA está bloqueada? Segue o freeze (`ticketCongelado`), com
+ * a única exceção do CONCLUÍDO NÃO-arquivado — ali a mensagem é permitida como
+ * gatilho de reabertura (5.3). Notas internas não passam por aqui (sempre ok).
+ * FONTE ÚNICA: usada pelo guard do `addMensagem` E pela flag do `getById`.
+ */
+function bloqueiaMensagemPublica(status: HelpdeskStatus, arquivado: boolean): boolean {
+  return ticketCongelado(status, arquivado) && !(status === 'CONCLUIDO' && !arquivado)
+}
+
+/**
+ * O responsável ainda pode ser trocado? Trava no congelamento e a partir de
+ * "Aguardando avaliação" (RESOLVIDO) — evita "roubar" a avaliação. Estado puro:
+ * o papel de agente é composto no front (`podeAtuar && permiteTrocarResponsavel`).
+ */
+function permiteTrocarResponsavel(status: HelpdeskStatus, arquivado: boolean): boolean {
+  return !ticketCongelado(status, arquivado) && helpdeskStatusRank(status) < helpdeskStatusRank('RESOLVIDO')
 }
