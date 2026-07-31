@@ -42,10 +42,16 @@ export interface LinhaPainel {
   competencia: Date | null
   prazo: Date | null
   diasParaPrazo: number | null
+  /** Quando o responsável de fato entregou — pode ser ANTES do prazo. */
+  dtEntrega: Date | null
+  /** Momento da primeira abertura da guia pelo cliente (EntLastDH). */
+  lidaEm: Date | null
   status: string | null
   lida: boolean | null
   guiaLida: string | null
   entregue: boolean
+  /** Obrigação que o Acessórias marcou como não aplicável no período. */
+  dispensada: boolean
   multa: boolean
   dpto: string | null
   respEntrega: string | null
@@ -54,9 +60,22 @@ export interface LinhaPainel {
 /** Status do Acessórias que significam "a guia já está com o cliente". */
 const STATUS_ENTREGUE = ['ent. antecipada', 'ent. pztéc', 'ent. pztec', 'ent. atrasada', 'entregue']
 
-function ehEntregue(status: string | null): boolean {
+/**
+ * Entregue = o status diz que foi, OU existe data de entrega.
+ *
+ * A data manda porque a entrega antecipada é comum: o responsável fecha a
+ * obrigação dias antes do prazo. Olhando só para o vencimento, essas linhas
+ * apareciam como "venceu há Nd" mesmo já resolvidas.
+ */
+function ehEntregue(status: string | null, dtEntrega: Date | null): boolean {
+  if (dtEntrega) return true
   const s = String(status ?? '').trim().toLowerCase()
   return STATUS_ENTREGUE.some((x) => s.startsWith(x))
+}
+
+/** "Dispensada" = não era devida no período. Não é entrega, mas também não é atraso. */
+function ehDispensada(status: string | null): boolean {
+  return String(status ?? '').trim().toLowerCase().startsWith('dispensad')
 }
 
 function diasAte(d: Date | null): number | null {
@@ -106,10 +125,13 @@ export class PainelEntregasService {
       competencia: r.competencia,
       prazo: r.prazo,
       diasParaPrazo: diasAte(r.prazo),
+      dtEntrega: r.dtEntrega,
+      lidaEm: r.lastDH,
       status: r.status,
       lida: r.lida,
       guiaLida: r.guiaLida,
-      entregue: ehEntregue(r.status),
+      entregue: ehEntregue(r.status, r.dtEntrega),
+      dispensada: ehDispensada(r.status),
       multa: r.multa,
       dpto: r.dpto,
       respEntrega: r.respEntrega,
@@ -130,7 +152,9 @@ export class PainelEntregasService {
       naoLidasAVencer: naoLidasAVencer.length,
       /** Não lidas com vencimento dentro da janela — o que precisa de telefonema hoje. */
       naoLidasCriticas: naoLidasAVencer.filter((l) => (l.diasParaPrazo ?? 99) <= janela).length,
-      atrasadas: linhas.filter((l) => !l.entregue && (l.diasParaPrazo ?? 1) < 0).length,
+      // Nem entregue nem dispensada, com prazo vencido. Dispensada ficava aqui
+      // dentro e inflava o número com obrigação que sequer era devida.
+      atrasadas: linhas.filter((l) => !l.entregue && !l.dispensada && (l.diasParaPrazo ?? 1) < 0).length,
       comMulta: linhas.filter((l) => l.multa).length,
     }
 
@@ -141,7 +165,7 @@ export class PainelEntregasService {
         case 'a_vencer':
           return naoLidasAVencer.filter((l) => (l.diasParaPrazo ?? 99) <= janela)
         case 'atrasadas':
-          return linhas.filter((l) => !l.entregue && (l.diasParaPrazo ?? 1) < 0)
+          return linhas.filter((l) => !l.entregue && !l.dispensada && (l.diasParaPrazo ?? 1) < 0)
         default:
           return linhas
       }
@@ -186,7 +210,7 @@ export class PainelEntregasService {
         }
         if (l.prazo && (!atual.proximoPrazo || l.prazo < atual.proximoPrazo)) atual.proximoPrazo = l.prazo
       }
-      if (!l.entregue && (l.diasParaPrazo ?? 1) < 0) atual.atrasadas++
+      if (!l.entregue && !l.dispensada && (l.diasParaPrazo ?? 1) < 0) atual.atrasadas++
       mapa.set(l.clienteId, atual)
     }
 
@@ -215,9 +239,21 @@ export class PainelEntregasService {
         select: { respEntrega: true }, distinct: ['respEntrega'], orderBy: { respEntrega: 'asc' }, take: 100,
       }),
     ])
+    // Só os clientes que têm entrega espelhada — filtrar por quem não aparece
+    // no painel não serviria para nada.
+    const comEntrega = await prisma.acessoriasEntrega.findMany({
+      where, select: { clienteId: true }, distinct: ['clienteId'], take: 2000,
+    })
+    const clientes = await prisma.cliente.findMany({
+      where: { id: { in: comEntrega.map((c) => c.clienteId) } },
+      select: { id: true, code: true, razaoSocial: true, documento: true },
+      orderBy: { razaoSocial: 'asc' },
+    })
+
     return {
       departamentos: dptos.map((d) => d.dpto).filter(Boolean) as string[],
       responsaveis: resps.map((r) => r.respEntrega).filter(Boolean) as string[],
+      clientes,
     }
   }
 }

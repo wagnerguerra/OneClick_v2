@@ -16,6 +16,7 @@ import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
+import { EntityCombobox } from '@/components/ui/entity-combobox'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
@@ -33,10 +34,13 @@ interface Linha {
   competencia: string | null
   prazo: string | null
   diasParaPrazo: number | null
+  dtEntrega: string | null
+  lidaEm: string | null
   status: string | null
   lida: boolean | null
   guiaLida: string | null
   entregue: boolean
+  dispensada: boolean
   multa: boolean
   dpto: string | null
   respEntrega: string | null
@@ -45,6 +49,11 @@ interface Resumo {
   total: number; entregues: number; comGuia: number; lidas: number
   naoLidas: number; naoLidasAVencer: number; naoLidasCriticas: number
   atrasadas: number; comMulta: number
+}
+interface OpcoesPainel {
+  departamentos: string[]
+  responsaveis: string[]
+  clientes: { id: string; code: number; razaoSocial: string; documento: string }[]
 }
 interface PorCliente {
   clienteId: string; clienteCode: number; clienteNome: string; documento: string
@@ -55,13 +64,36 @@ interface PorCliente {
 const fmtData = (v: string | null) =>
   v ? new Date(v).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'
 
-/** Texto do prazo em linguagem de quem cobra: "vence em 3 dias", "venceu há 2". */
-function prazoTexto(dias: number | null) {
-  if (dias === null) return { texto: 'sem prazo', cor: 'text-muted-foreground' }
-  if (dias < 0) return { texto: `venceu há ${Math.abs(dias)}d`, cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
-  if (dias === 0) return { texto: 'vence hoje', cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
-  if (dias <= 3) return { texto: `vence em ${dias}d`, cor: 'text-amber-600 dark:text-amber-400 font-semibold' }
-  return { texto: `vence em ${dias}d`, cor: 'text-muted-foreground' }
+/** Data + hora, para o momento em que o cliente abriu a guia. */
+const fmtDataHora = (v: string | null) =>
+  v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
+
+/**
+ * Situação da linha, na linguagem de quem cobra.
+ *
+ * A entrega tem precedência sobre o vencimento: obrigação entregue — em especial
+ * a antecipada, que é rotina — está resolvida, e anunciar "venceu há 16d" numa
+ * linha já fechada só tira a confiança do painel. Só quem continua em aberto
+ * recebe a contagem do prazo.
+ */
+function situacao(l: Linha) {
+  if (l.entregue) {
+    const adiantada = l.dtEntrega && l.prazo && new Date(l.dtEntrega) < new Date(l.prazo)
+    return {
+      texto: `entregue ${fmtData(l.dtEntrega)}`,
+      titulo: adiantada ? `Entregue antes do prazo (${fmtData(l.prazo)})` : `Prazo: ${fmtData(l.prazo)}`,
+      cor: 'text-emerald-600 dark:text-emerald-400',
+    }
+  }
+  if (l.dispensada) {
+    return { texto: 'dispensada', titulo: 'Não era devida no período', cor: 'text-muted-foreground' }
+  }
+  const dias = l.diasParaPrazo
+  if (dias === null) return { texto: 'sem prazo', titulo: '', cor: 'text-muted-foreground' }
+  if (dias < 0) return { texto: `venceu há ${Math.abs(dias)}d`, titulo: `Prazo: ${fmtData(l.prazo)}`, cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
+  if (dias === 0) return { texto: 'vence hoje', titulo: `Prazo: ${fmtData(l.prazo)}`, cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
+  if (dias <= 3) return { texto: `vence em ${dias}d`, titulo: `Prazo: ${fmtData(l.prazo)}`, cor: 'text-amber-600 dark:text-amber-400 font-semibold' }
+  return { texto: `vence em ${dias}d`, titulo: `Prazo: ${fmtData(l.prazo)}`, cor: 'text-muted-foreground' }
 }
 
 export default function PainelEntregasPage() {
@@ -69,13 +101,14 @@ export default function PainelEntregasPage() {
   const [janelaDias, setJanelaDias] = useState(7)
   const [dpto, setDpto] = useState('')
   const [responsavel, setResponsavel] = useState('')
+  const [clienteId, setClienteId] = useState('')
   const [busca, setBusca] = useState('')
   const [visao, setVisao] = useState<'obrigacao' | 'cliente'>('obrigacao')
 
   const [linhas, setLinhas] = useState<Linha[]>([])
   const [resumo, setResumo] = useState<Resumo | null>(null)
   const [clientes, setClientes] = useState<PorCliente[]>([])
-  const [opcoes, setOpcoes] = useState<{ departamentos: string[]; responsaveis: string[] }>({ departamentos: [], responsaveis: [] })
+  const [opcoes, setOpcoes] = useState<OpcoesPainel>({ departamentos: [], responsaveis: [], clientes: [] })
   const [loading, setLoading] = useState(true)
   const [urlTemplate, setUrlTemplate] = useState<string | null>(null)
   const [regrasOpen, setRegrasOpen] = useState(false)
@@ -89,7 +122,8 @@ export default function PainelEntregasPage() {
     janelaDias,
     dpto: dpto || undefined,
     responsavel: responsavel || undefined,
-  }), [foco, janelaDias, dpto, responsavel])
+    clienteId: clienteId || undefined,
+  }), [foco, janelaDias, dpto, responsavel, clienteId])
 
   const carregar = useCallback(() => {
     setLoading(true)
@@ -114,7 +148,7 @@ export default function PainelEntregasPage() {
   useEffect(() => { carregar() }, [carregar])
   useEffect(() => {
     ;(trpc.acessorias as any).painelEntregasOpcoes.query()
-      .then((d: typeof opcoes) => setOpcoes(d)).catch(() => {})
+      .then((d: OpcoesPainel) => setOpcoes({ ...d, clientes: d.clientes ?? [] })).catch(() => {})
   }, [])
 
   const q = busca.trim().toLowerCase()
@@ -215,6 +249,18 @@ export default function PainelEntregasPage() {
               </SelectContent>
             </Select>
 
+            <EntityCombobox
+              className="w-[230px]"
+              items={opcoes.clientes.map((c) => ({
+                id: c.id, label: c.razaoSocial, sublabel: `#${c.code} · ${masks.cpfCnpj(c.documento)}`,
+              }))}
+              value={clienteId}
+              onSelect={(id) => setClienteId(id === clienteId ? '' : id)}
+              placeholder="Todos os clientes"
+              searchPlaceholder="Buscar cliente..."
+              emptyText="Nenhum cliente com entrega"
+            />
+
             <Select value={String(janelaDias)} onValueChange={(v) => setJanelaDias(Number(v))}>
               <SelectTrigger className="h-8 w-[130px] bg-card text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -278,23 +324,38 @@ export default function PainelEntregasPage() {
         ) : (
           <div className="max-h-[620px] divide-y divide-border/60 overflow-y-auto">
             {linhasFiltradas.map((l) => {
-              const p = prazoTexto(l.diasParaPrazo)
+              const p = situacao(l)
               return (
                 <div key={l.id} className="group flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                  {/* Coluna de sinais: largura fixa para os ícones ficarem
+                      alinhados de uma linha para a outra. Só ícone + title —
+                      as etiquetas escritas empurravam o nome da obrigação para
+                      uma posição diferente em cada linha. */}
+                  {/* O `title` fica no <span>: o ícone do lucide não repassa a
+                      prop para o <svg>, então o tooltip nativo nunca apareceria. */}
+                  <div className="flex w-12 shrink-0 items-center gap-1.5">
+                    {l.lida === false && (
+                      <span title="Cliente ainda não abriu a guia" className="inline-flex">
+                        <MailWarning className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      </span>
+                    )}
+                    {l.lida === true && (
+                      <span
+                        title={l.lidaEm ? `Cliente abriu a guia em ${fmtDataHora(l.lidaEm)}` : 'Cliente abriu a guia'}
+                        className="inline-flex"
+                      >
+                        <MailOpen className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      </span>
+                    )}
+                    {l.multa && (
+                      <span title="Obrigação sujeita a multa" className="inline-flex">
+                        <AlertTriangle className="h-4 w-4 text-rose-500 dark:text-rose-400" />
+                      </span>
+                    )}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="truncate text-sm font-medium">{l.obrigacao}</span>
-                      {l.lida === false && (
-                        <Badge className="gap-1 bg-amber-100 text-[10px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
-                          <MailWarning className="h-3 w-3" />não abriu
-                        </Badge>
-                      )}
-                      {l.lida === true && (
-                        <Badge className="gap-1 bg-emerald-100 text-[10px] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
-                          <MailOpen className="h-3 w-3" />abriu
-                        </Badge>
-                      )}
-                      {l.multa && <Badge variant="outline" className="text-[10px]">multa</Badge>}
                     </div>
                     <Link href={`/clientes/${l.clienteId}`} target="_blank"
                       className="truncate text-[11px] text-muted-foreground hover:underline">
@@ -305,7 +366,7 @@ export default function PainelEntregasPage() {
                     {l.dpto && <span className="text-muted-foreground">{l.dpto}</span>}
                     {l.respEntrega && <span className="text-muted-foreground">{l.respEntrega}</span>}
                     <span className="text-muted-foreground tabular-nums">{fmtData(l.prazo)}</span>
-                    <span className={cn('tabular-nums', p.cor)}>{p.texto}</span>
+                    <span className={cn('tabular-nums', p.cor)} title={p.titulo}>{p.texto}</span>
                     {urlTemplate && (
                       <a
                         href={urlTemplate.replace('{entId}', l.entId).replace('{cnpj}', l.documento.replace(/\D/g, ''))}

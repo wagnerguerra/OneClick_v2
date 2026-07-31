@@ -270,7 +270,7 @@ export function createAcessoriasRouter(
 
     painelEntregasOpcoes: painelProc()
       .query(({ ctx }) => {
-        if (!painelSvc) return { departamentos: [], responsaveis: [] }
+        if (!painelSvc) return { departamentos: [], responsaveis: [], clientes: [] }
         return painelSvc.opcoes(ctx.isMaster ?? false, ctx.empresaId)
       }),
   })
