@@ -278,18 +278,18 @@ export default function PainelEntregasPage() {
           nota={`guia entregue, cliente não abriu, vence em até ${janelaDias}d`}
         />
         <CartaoFoco
-          ativo={foco === 'nao_lidas'} onClick={() => setFoco('nao_lidas')}
-          icone={<MailWarning className="h-4 w-4" />} cor="text-amber-600 dark:text-amber-400"
-          valor={resumo?.naoLidas ?? 0}
-          titulo="Guias não abertas"
-          nota="em todo o período consultado"
-        />
-        <CartaoFoco
           ativo={foco === 'atrasadas'} onClick={() => setFoco('atrasadas')}
           icone={<Clock className="h-4 w-4" />} cor="text-orange-600 dark:text-orange-400"
           valor={resumo?.atrasadas ?? 0}
           titulo="Entregas atrasadas"
-          nota="não entregues com prazo vencido"
+          nota="não entregues com vencimento passado"
+        />
+        <CartaoFoco
+          ativo={foco === 'nao_lidas'} onClick={() => setFoco('nao_lidas')}
+          icone={<MailWarning className="h-4 w-4" />} cor="text-amber-600 dark:text-amber-400"
+          valor={resumo?.naoLidas ?? 0}
+          titulo="Obrigações entregues, porém não lidas pelo cliente"
+          nota="em todo o período consultado"
         />
         <CartaoFoco
           ativo={foco === 'todas'} onClick={() => setFoco('todas')}
@@ -750,16 +750,18 @@ function CartaoFoco({ ativo, onClick, icone, cor, valor, titulo, nota }: {
   ativo: boolean; onClick: () => void; icone: React.ReactNode; cor: string
   valor: number; titulo: string; nota: string
 }) {
+  // h-full nos dois: os títulos têm comprimentos bem diferentes e, sem isso, o
+  // cartão de texto mais longo fica mais alto que os vizinhos.
   return (
-    <button type="button" onClick={onClick} className="text-left">
-      <Card className={cn('p-4 transition-colors hover:bg-muted/40', ativo && 'border-current')}
+    <button type="button" onClick={onClick} className="h-full text-left">
+      <Card className={cn('flex h-full flex-col p-4 transition-colors hover:bg-muted/40', ativo && 'border-current')}
         style={ativo ? { borderColor: MODULE_COLOR } : undefined}>
         <div className={cn('flex items-center gap-1.5', cor)}>
           {icone}
           <span className="text-2xl font-bold tabular-nums">{valor}</span>
         </div>
-        <p className="mt-0.5 text-[13px] font-medium">{titulo}</p>
-        <p className="text-[11px] text-muted-foreground">{nota}</p>
+        <p className="mt-0.5 text-[13px] font-medium text-balance">{titulo}</p>
+        <p className="mt-auto pt-0.5 text-[11px] text-muted-foreground">{nota}</p>
       </Card>
     </button>
   )
