@@ -588,8 +588,9 @@ export class HelpdeskService {
     return {
       ...ticket, mensagens, avaliacaoDisponivel, concluidoSemAvaliacao, avaliacaoPosConclusaoDias: janela,
       congelado: ticketCongelado(status, ticket.arquivado),
-      bloqueiaMensagemPublica: bloqueiaMensagemPublica(status, ticket.arquivado),
+      bloqueiaMensagemPublica: bloqueiaMensagemPublica(status, ticket.arquivado, ticket.csatRespondidoEm != null),
       permiteTrocarResponsavel: permiteTrocarResponsavel(status, ticket.arquivado),
+      reaberturaDisponivel: podeReabrirSolicitante(status, ticket.arquivado, ticket.csatRespondidoEm != null),
     }
   }
 
@@ -774,7 +775,7 @@ export class HelpdeskService {
         status: true, responsavelId: true, prioridade: true, categoriaId: true,
         areaId: true, prazoSla: true, pausadoEm: true, totalPausadoMs: true,
         primeiroAtendimentoEm: true, solicitanteId: true, titulo: true, descricao: true,
-        arquivado: true, tipo: true,
+        arquivado: true, tipo: true, csatRespondidoEm: true,
       },
     })
     if (!before) throw new Error('Ticket não encontrado')
@@ -976,14 +977,17 @@ export class HelpdeskService {
             throw new Error('O chamado já está em atendimento — fale com o responsável para encerrá-lo')
           }
         } else if (querReabrir) {
-          // CANCELADO é terminal para o solicitante (funciona como um soft-delete):
-          // só o agente reverte um cancelamento. Guarda aqui na operação, não no
-          // helper de estado (que segue genérico).
-          if (before.status === 'CANCELADO') {
-            throw new Error('Chamado cancelado não pode ser reaberto — abra um novo chamado.')
-          }
-          if (!helpdeskSolicitantePodeReabrir({ status: before.status as HelpdeskStatus, arquivado: before.arquivado })) {
-            throw new Error('Este chamado ainda está em atendimento — acompanhe por aqui mesmo.')
+          // Fonte única `podeReabrirSolicitante` (mesma regra que o getById
+          // devolve ao front como `reaberturaDisponivel`): cancelado é terminal,
+          // avaliado já fechou o loop, e o resto segue o estado reabrível.
+          if (!podeReabrirSolicitante(before.status as HelpdeskStatus, before.arquivado, before.csatRespondidoEm != null)) {
+            throw new Error(
+              before.status === 'CANCELADO'
+                ? 'Chamado cancelado não pode ser reaberto — abra um novo chamado.'
+                : before.csatRespondidoEm != null
+                  ? 'Este chamado já foi avaliado e não pode ser reaberto.'
+                  : 'Este chamado ainda está em atendimento — acompanhe por aqui mesmo.',
+            )
           }
         } else {
           throw new Error('Como solicitante, você só pode cancelar ou reabrir o próprio ticket')
@@ -1362,14 +1366,14 @@ export class HelpdeskService {
       where: { id: input.ticketId },
       select: {
         id: true, status: true, solicitanteId: true, responsavelId: true,
-        primeiroAtendimentoEm: true, arquivado: true, empresaId: true,
+        primeiroAtendimentoEm: true, arquivado: true, empresaId: true, csatRespondidoEm: true,
       },
     })
     if (!ticket) throw new Error('Ticket não encontrado')
 
     // R5.1/5.4 — mensagem PÚBLICA bloqueada segue a FONTE ÚNICA (mesma flag que o
     // getById devolve ao front). Notas internas: sempre liberadas.
-    if (!input.interna && bloqueiaMensagemPublica(ticket.status as HelpdeskStatus, ticket.arquivado)) {
+    if (!input.interna && bloqueiaMensagemPublica(ticket.status as HelpdeskStatus, ticket.arquivado, ticket.csatRespondidoEm != null)) {
       // Neutro de propósito: quem pode reabrir (arquivado) usa o botão dedicado;
       // cancelado é terminal para o solicitante.
       throw new Error('Este chamado está encerrado e não recebe novas mensagens.')
@@ -2590,12 +2594,13 @@ function ticketCongelado(status: HelpdeskStatus, arquivado: boolean): boolean {
 
 /**
  * Nova mensagem PÚBLICA está bloqueada? Segue o freeze (`ticketCongelado`), com
- * a única exceção do CONCLUÍDO NÃO-arquivado — ali a mensagem é permitida como
- * gatilho de reabertura (5.3). Notas internas não passam por aqui (sempre ok).
- * FONTE ÚNICA: usada pelo guard do `addMensagem` E pela flag do `getById`.
+ * a única exceção do CONCLUÍDO NÃO-arquivado e AINDA NÃO avaliado — ali a mensagem
+ * é permitida como gatilho de reabertura (5.3). Depois de avaliado, o loop se
+ * fechou: mensagem nova bloqueia (a reabertura vira botão). Notas internas não
+ * passam por aqui (sempre ok). FONTE ÚNICA: `addMensagem` + flag do `getById`.
  */
-function bloqueiaMensagemPublica(status: HelpdeskStatus, arquivado: boolean): boolean {
-  return ticketCongelado(status, arquivado) && !(status === 'CONCLUIDO' && !arquivado)
+function bloqueiaMensagemPublica(status: HelpdeskStatus, arquivado: boolean, avaliado: boolean): boolean {
+  return ticketCongelado(status, arquivado) && !(status === 'CONCLUIDO' && !arquivado && !avaliado)
 }
 
 /**
@@ -2605,4 +2610,17 @@ function bloqueiaMensagemPublica(status: HelpdeskStatus, arquivado: boolean): bo
  */
 function permiteTrocarResponsavel(status: HelpdeskStatus, arquivado: boolean): boolean {
   return !ticketCongelado(status, arquivado) && helpdeskStatusRank(status) < helpdeskStatusRank('RESOLVIDO')
+}
+
+/**
+ * O SOLICITANTE pode reabrir este chamado? Reabrível pelo ESTADO
+ * (`helpdeskSolicitantePodeReabrir`: encerrado ou arquivado), MENOS: cancelado
+ * (terminal pra ele) e já avaliado (loop fechado — reabrir só cabe antes da nota).
+ * FONTE ÚNICA: guard do `update()` + flag `reaberturaDisponivel` do `getById` — o
+ * front deriva da flag, não recomputa a regra.
+ */
+function podeReabrirSolicitante(status: HelpdeskStatus, arquivado: boolean, avaliado: boolean): boolean {
+  if (status === 'CANCELADO') return false
+  if (avaliado) return false
+  return helpdeskSolicitantePodeReabrir({ status, arquivado })
 }

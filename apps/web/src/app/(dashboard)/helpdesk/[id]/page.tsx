@@ -98,6 +98,7 @@ interface Ticket {
   congelado?: boolean
   bloqueiaMensagemPublica?: boolean
   permiteTrocarResponsavel?: boolean
+  reaberturaDisponivel?: boolean
   tags: string[]
   createdAt: string
   solicitante: { id: string; name: string; email: string | null; image: string | null } | null
@@ -786,12 +787,15 @@ export default function HelpdeskTicketDetailPage() {
   const soNotaInterna = bloqueiaMsgPublica && podeAtuar
   const estaResolvido = ticket.status === 'RESOLVIDO'
   const internaEfetiva = soNotaInterna ? true : interna
-  // R5.3 — o aviso de reabertura pertence ao CONCLUÍDO (arquivado ou não). Só
-  // interessa a quem interage com o chamado (solicitante ou agente).
-  const avisoReabertura = ticket.status === 'CONCLUIDO' && (isSolicitante || podeAtuar)
-  // R5.4 — é o MESMO aviso, mas com BOTÃO, quando novas mensagens estão bloqueadas
-  // (concluído + arquivado): sem compositor, o botão dispara o gatilho. Concluído
-  // não-arquivado reabre enviando mensagem, então lá não há botão.
+  // R5.3 — aviso de reabertura do CONCLUÍDO. A DISPONIBILIDADE de reabertura vem
+  // do back (`reaberturaDisponivel` — já exclui avaliado/cancelado; fonte única
+  // com o guard do update). O front só decide QUANDO mostrar o aviso: no CONCLUÍDO
+  // e pra quem interage com o chamado (solicitante ou agente).
+  const avisoReabertura = ticket.status === 'CONCLUIDO' && (ticket.reaberturaDisponivel ?? false) && (isSolicitante || podeAtuar)
+  // R5.4 — é o MESMO aviso, mas com BOTÃO, quando NÃO dá pra adicionar mensagem
+  // pública (aí não há compositor pra disparar a reabertura via mensagem, então o
+  // botão faz esse papel). Quando dá pra mandar mensagem, reabre-se por ela — sem
+  // botão. (Na prática, "não pode msg pública" = concluído arquivado.)
   const mostrarBotaoReabrir = avisoReabertura && bloqueiaMsgPublica
   // #HLP0172: regra vem de @saas/types — mesma fonte que o backend impõe.
   const podeCancelar = solicitantePodeCancelar({
@@ -1255,14 +1259,19 @@ export default function HelpdeskTicketDetailPage() {
                           <span className="text-muted-foreground italic">(editada)</span>
                         )}
                         <div className="ml-auto flex items-center gap-0.5">
-                          <button
-                            type="button"
-                            onClick={() => { setRespondendoA(msg); document.getElementById('helpdesk-composer')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }}
-                            className="inline-flex items-center gap-1 p-1 px-1.5 rounded hover:bg-muted text-muted-foreground"
-                            title="Responder esta mensagem"
-                          >
-                            <Reply className="h-3.5 w-3.5" /> Responder
-                          </button>
+                          {/* "Responder" acompanha o compositor: some quando novas
+                              mensagens estão bloqueadas e não há compositor pra
+                              onde responder (mesma condição do compositor). */}
+                          {(!bloqueiaMsgPublica || podeAtuar) && (
+                            <button
+                              type="button"
+                              onClick={() => { setRespondendoA(msg); document.getElementById('helpdesk-composer')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }}
+                              className="inline-flex items-center gap-1 p-1 px-1.5 rounded hover:bg-muted text-muted-foreground"
+                              title="Responder esta mensagem"
+                            >
+                              <Reply className="h-3.5 w-3.5" /> Responder
+                            </button>
+                          )}
                           {podeEditar && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -1317,48 +1326,43 @@ export default function HelpdeskTicketDetailPage() {
                 )
               })}
 
-              {/* R5.3/5.4 — aviso de reabertura, ancorado no CONCLUÍDO (arquivado
-                  ou não). Ganha BOTÃO quando novas mensagens estão bloqueadas
-                  (concluído + arquivado); senão, reabre-se enviando mensagem. */}
-              {avisoReabertura && (
-                <Card className="border-l-4 border-l-sky-400 bg-sky-50/40 dark:bg-sky-900/20">
-                  <CardContent className="p-3 flex flex-col gap-2.5 sm:flex-row sm:items-center">
-                    <div className="flex items-start gap-2 text-[12px] text-muted-foreground flex-1">
-                      <Info className="h-4 w-4 text-sky-500 shrink-0 mt-0.5" />
-                      <span>
-                        Chamado <span className="font-medium text-foreground">concluído</span>.{' '}
-                        {mostrarBotaoReabrir
-                          ? <>Novas mensagens estão bloqueadas — use o botão para reabri-lo (volta para <span className="font-medium text-foreground">Em andamento</span>).</>
-                          : <>Ao enviar uma mensagem, o sistema pergunta se deseja reabri-lo (volta para <span className="font-medium text-foreground">Em andamento</span>).</>}
-                      </span>
-                    </div>
-                    {mostrarBotaoReabrir && (
-                      <Button size="sm" variant="outline" onClick={reabrirTicket} className="gap-1.5 shrink-0">
-                        <RotateCcw className="h-3.5 w-3.5" /> Reabrir chamado
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Composer — escondido pro solicitante quando a mensagem pública
-                  está bloqueada (arquivado/cancelado); o agente mantém pra
-                  registrar nota interna. */}
-              {(!bloqueiaMsgPublica || podeAtuar) && (
+              {/* Bloco de mensagens = aviso de reabertura (5.3/5.4) no TOPO +
+                  compositor, num Card só. Quando novas mensagens estão bloqueadas
+                  e o usuário não é agente, só o COMPOSITOR (input) some — o bloco
+                  e o aviso continuam (o botão de reabrir vive no aviso). */}
+              {(avisoReabertura || !bloqueiaMsgPublica || podeAtuar) && (
               <Card id="helpdesk-composer">
                 <CardContent className="p-3 space-y-2">
+                  {/* R5.3/5.4 — aviso de reabertura (concluído). Só pra quem NÃO é
+                      agente: o agente reabre/muda status pela sidebar, então não
+                      precisa do aviso. Ganha BOTÃO quando não dá pra mandar mensagem
+                      (concluído + arquivado). */}
+                  {avisoReabertura && !podeAtuar && (
+                    <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center rounded border border-sky-200/70 bg-sky-50 dark:bg-sky-900/20 px-2.5 py-2">
+                      <div className="flex items-start gap-2 text-[12px] text-muted-foreground flex-1">
+                        <Lock className="h-4 w-4 text-sky-500 shrink-0 mt-0.5" />
+                        <span>
+                          Chamado <span className="font-medium text-foreground">concluído</span>. Se o problema não foi resolvido,{' '}
+                          {mostrarBotaoReabrir
+                            ? <>use o botão para reabri-lo (volta para <span className="font-medium text-foreground">Em andamento</span>).</>
+                            : <>envie uma mensagem para reabri-lo (volta para <span className="font-medium text-foreground">Em andamento</span>).</>}
+                        </span>
+                      </div>
+                      {mostrarBotaoReabrir && (
+                        <Button size="sm" variant="outline" onClick={reabrirTicket} className="gap-1.5 shrink-0">
+                          <RotateCcw className="h-3.5 w-3.5" /> Reabrir chamado
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  {/* Compositor (input): some quando novas mensagens estão
+                      bloqueadas e o usuário não é agente. */}
+                  {(!bloqueiaMsgPublica || podeAtuar) && (<>
                   {/* R5.5 — RESOLVIDO/aguardando avaliação: mensagem do solicitante reverte. */}
                   {estaResolvido && isSolicitante && (
                     <div className="flex items-start gap-2 rounded border border-amber-200/70 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1.5 text-[11px] text-amber-800 dark:text-amber-200">
                       <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                      <span>Se você enviar uma mensagem em vez de avaliar, o chamado volta para <strong>Em andamento</strong> e a equipe é avisada.</span>
-                    </div>
-                  )}
-                  {/* R5.4 — agente em arquivado/cancelado: só nota interna liberada. */}
-                  {soNotaInterna && (
-                    <div className="flex items-start gap-2 rounded border border-amber-200/70 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1.5 text-[11px] text-amber-800 dark:text-amber-200">
-                      <Lock className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                      <span>Chamado encerrado: só nota interna. Para responder ao solicitante, reabra o chamado.</span>
+                      <span>Se o problema não foi resolvido, envie uma mensagem em vez de avaliar — o chamado volta para <strong>Em andamento</strong> e a equipe é avisada.</span>
                     </div>
                   )}
                   {/* Respondendo a uma mensagem específica */}
@@ -1373,17 +1377,21 @@ export default function HelpdeskTicketDetailPage() {
                   )}
                   {/* Nota interna é embutida em "atuar como agente": só agentes
                       escolhem entre pública/interna. Sem podeAtuar, só pública.
-                      Em arquivado/cancelado o toggle some (só interna é possível). */}
-                  {podeAtuar && !soNotaInterna && (
-                    <div className="flex items-center gap-1.5">
+                      Com mensagem pública bloqueada (soNotaInterna), as abas
+                      continuam, mas "Mensagem pública" fica DESABILITADA e um aviso
+                      inline explica o porquê — força-se nota interna (internaEfetiva). */}
+                  {podeAtuar && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <button
                         type="button"
                         onClick={() => setInterna(false)}
+                        disabled={soNotaInterna}
                         className={cn(
                           'text-[11px] px-2 py-1 rounded font-medium transition-colors',
-                          !interna
+                          !internaEfetiva
                             ? 'bg-cyan-100 text-cyan-800'
                             : 'text-muted-foreground hover:bg-muted',
+                          soNotaInterna && 'opacity-40 cursor-not-allowed hover:bg-transparent',
                         )}
                       >
                         <MessageSquare className="inline h-3 w-3 mr-1" /> Mensagem pública
@@ -1393,13 +1401,18 @@ export default function HelpdeskTicketDetailPage() {
                         onClick={() => setInterna(true)}
                         className={cn(
                           'text-[11px] px-2 py-1 rounded font-medium transition-colors',
-                          interna
+                          internaEfetiva
                             ? 'bg-amber-100 text-amber-800'
                             : 'text-muted-foreground hover:bg-muted',
                         )}
                       >
                         <Lock className="inline h-3 w-3 mr-1" /> Nota interna
                       </button>
+                      {soNotaInterna && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-300">
+                          <Lock className="h-3 w-3 shrink-0" /> Chamado encerrado — reabra para responder ao solicitante.
+                        </span>
+                      )}
                     </div>
                   )}
                   <RichEditor
@@ -1421,6 +1434,7 @@ export default function HelpdeskTicketDetailPage() {
                       Enviar
                     </Button>
                   </div>
+                  </>)}
                 </CardContent>
               </Card>
               )}
