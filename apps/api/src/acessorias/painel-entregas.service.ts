@@ -58,7 +58,25 @@ export interface LinhaPainel {
   dispensada: boolean
   multa: boolean
   dpto: string | null
+  /** Quem ENTREGOU. Só existe depois da entrega. */
   respEntrega: string | null
+  /** Quem é o responsável designado pelo prazo. Sempre preenchido. */
+  respPrazo: string | null
+  /** O nome a exibir, com a origem — ver `responsavelDe`. */
+  responsavel: string | null
+  responsavelEntregou: boolean
+}
+
+/**
+ * O Acessórias só preenche RespEntrega depois que alguém entrega — é "quem
+ * entregou", não "quem deve entregar". Numa lista de atrasadas, portanto, ele
+ * é vazio em todas as linhas, e é justamente ali que saber o responsável mais
+ * importa. RespPrazo é o designado e vem sempre preenchido: serve de origem
+ * enquanto a entrega não acontece.
+ */
+function responsavelDe(respEntrega: string | null, respPrazo: string | null) {
+  if (respEntrega) return { responsavel: respEntrega, responsavelEntregou: true }
+  return { responsavel: respPrazo, responsavelEntregou: false }
 }
 
 /** Status do Acessórias que significam "a guia já está com o cliente". */
@@ -100,7 +118,12 @@ export class PainelEntregasService {
       ...(!isMaster && empresaId ? { empresaId } : {}),
       ...(filtro.clienteId ? { clienteId: filtro.clienteId } : {}),
       ...(filtro.dpto ? { dpto: filtro.dpto } : {}),
-      ...(filtro.responsavel ? { respEntrega: filtro.responsavel } : {}),
+      // Casa nos dois papéis: quem entregou OU quem responde pelo prazo. Só
+      // por respEntrega, filtrar um colaborador escondia tudo que ele ainda
+      // não entregou — o oposto do que se quer ao cobrar.
+      ...(filtro.responsavel
+        ? { OR: [{ respEntrega: filtro.responsavel }, { respPrazo: filtro.responsavel }] }
+        : {}),
       ...(filtro.de || filtro.ate
         ? {
             prazo: {
@@ -146,6 +169,8 @@ export class PainelEntregasService {
       multa: r.multa,
       dpto: r.dpto,
       respEntrega: r.respEntrega,
+      respPrazo: r.respPrazo,
+      ...responsavelDe(r.respEntrega, r.respPrazo),
     }))
 
     // O alvo do painel: guia já entregue, cliente ainda não abriu, prazo ainda
@@ -240,7 +265,7 @@ export class PainelEntregasService {
   /** Valores distintos para preencher os filtros da tela. */
   async opcoes(isMaster: boolean, empresaId?: string) {
     const where = !isMaster && empresaId ? { empresaId } : {}
-    const [dptos, resps] = await Promise.all([
+    const [dptos, resps, respsPrazo] = await Promise.all([
       prisma.acessoriasEntrega.findMany({
         where: { ...where, dpto: { not: null } },
         select: { dpto: true }, distinct: ['dpto'], orderBy: { dpto: 'asc' }, take: 50,
@@ -248,6 +273,10 @@ export class PainelEntregasService {
       prisma.acessoriasEntrega.findMany({
         where: { ...where, respEntrega: { not: null } },
         select: { respEntrega: true }, distinct: ['respEntrega'], orderBy: { respEntrega: 'asc' }, take: 100,
+      }),
+      prisma.acessoriasEntrega.findMany({
+        where: { ...where, respPrazo: { not: null } },
+        select: { respPrazo: true }, distinct: ['respPrazo'], orderBy: { respPrazo: 'asc' }, take: 100,
       }),
     ])
     // Só os clientes que têm entrega espelhada — filtrar por quem não aparece
@@ -263,7 +292,12 @@ export class PainelEntregasService {
 
     return {
       departamentos: dptos.map((d) => d.dpto).filter(Boolean) as string[],
-      responsaveis: resps.map((r) => r.respEntrega).filter(Boolean) as string[],
+      // União dos dois papéis: quem só tem obrigação em aberto não aparecia na
+      // lista de responsáveis, e era impossível filtrar por ele.
+      responsaveis: [...new Set([
+        ...resps.map((r) => r.respEntrega),
+        ...respsPrazo.map((r) => r.respPrazo),
+      ].filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
       clientes,
     }
   }

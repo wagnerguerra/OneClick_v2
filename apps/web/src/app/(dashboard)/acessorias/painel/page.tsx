@@ -47,6 +47,9 @@ interface Linha {
   multa: boolean
   dpto: string | null
   respEntrega: string | null
+  respPrazo: string | null
+  responsavel: string | null
+  responsavelEntregou: boolean
 }
 interface Resumo {
   total: number; entregues: number; comGuia: number; lidas: number
@@ -132,6 +135,7 @@ function chaveOrdem(l: Linha, campo: CampoOrdem): string | number {
       if (d === null) return 2          // sem vencimento
       return d < 0 ? 0 : 1              // vencido primeiro, depois a vencer
     }
+    case 'respEntrega': return String(l.responsavel ?? '').toLowerCase()
     default: return String(l[campo] ?? '').toLowerCase()
   }
 }
@@ -477,8 +481,22 @@ export default function PainelEntregasPage() {
                         {l.dpto || '—'}
                       </td>
 
-                      <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground 2xl:table-cell" title={l.respEntrega ?? ''}>
-                        {l.respEntrega || '—'}
+                      {/* Enquanto ninguém entrega, mostra o responsável pelo
+                          prazo — em itálico, para diferenciar de quem de fato
+                          entregou. */}
+                      <td
+                        className={cn(
+                          'hidden truncate px-3 py-2 text-[12px] text-muted-foreground 2xl:table-cell',
+                          l.responsavel && !l.responsavelEntregou && 'italic',
+                        )}
+                        title={
+                          !l.responsavel ? ''
+                            : l.responsavelEntregou
+                              ? `Entregue por ${l.responsavel}`
+                              : `Responsável pelo prazo: ${l.responsavel} (ainda não entregue)`
+                        }
+                      >
+                        {l.responsavel || '—'}
                       </td>
 
                       <td className="hidden px-3 py-2 text-[12px] text-muted-foreground lg:table-cell">
