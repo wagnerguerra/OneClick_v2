@@ -215,6 +215,7 @@ export default function PainelEntregasPage() {
   const [regrasOpen, setRegrasOpen] = useState(false)
   const [novaRegra, setNovaRegra] = useState<Linha | null>(null)
   const [detalhe, setDetalhe] = useState<Linha | null>(null)
+  const [drill, setDrill] = useState<{ cliente: PorCliente; foco: Foco; rotulo: string } | null>(null)
   const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
   const subs = (permissions.find(p => p.moduleSlug === 'acessorias')?.subPermissions ?? {}) as Record<string, boolean>
   const podeRegras = isMaster || isEmpresaMaster || subs.gerenciar_integracao === true
@@ -422,19 +423,34 @@ export default function PainelEntregasPage() {
                       </p>
                     )}
                   </div>
+                  {/* Cada totalizador abre a lista que o compõe. Os três
+                      correspondem exatamente aos focos que a consulta já
+                      aceita — o modal só reusa a mesma chamada com o cliente
+                      fixado. */}
                   <div className="flex shrink-0 items-center gap-2">
                     {c.naoLidasCriticas > 0 && (
-                      <Badge className="bg-rose-100 text-[10px] text-rose-700 dark:bg-rose-950/40 dark:text-rose-400">
-                        {c.naoLidasCriticas} vencendo
-                      </Badge>
+                      <button type="button" title="Ver as obrigações vencendo"
+                        onClick={() => setDrill({ cliente: c, foco: 'a_vencer', rotulo: 'Vencendo' })}>
+                        <Badge className="cursor-pointer bg-rose-100 text-[10px] text-rose-700 hover:brightness-95 dark:bg-rose-950/40 dark:text-rose-400">
+                          {c.naoLidasCriticas} vencendo
+                        </Badge>
+                      </button>
                     )}
                     {c.naoLidas > 0 && (
-                      <Badge variant="outline" className="text-[10px]">{c.naoLidas} não abertas</Badge>
+                      <button type="button" title="Ver as guias que o cliente não abriu"
+                        onClick={() => setDrill({ cliente: c, foco: 'nao_lidas', rotulo: 'Não abertas pelo cliente' })}>
+                        <Badge variant="outline" className="cursor-pointer text-[10px] hover:bg-muted">
+                          {c.naoLidas} não abertas
+                        </Badge>
+                      </button>
                     )}
                     {c.atrasadas > 0 && (
-                      <Badge className="bg-amber-100 text-[10px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
-                        {c.atrasadas} atrasadas
-                      </Badge>
+                      <button type="button" title="Ver as obrigações atrasadas"
+                        onClick={() => setDrill({ cliente: c, foco: 'atrasadas', rotulo: 'Atrasadas' })}>
+                        <Badge className="cursor-pointer bg-amber-100 text-[10px] text-amber-800 hover:brightness-95 dark:bg-amber-950/40 dark:text-amber-400">
+                          {c.atrasadas} atrasadas
+                        </Badge>
+                      </button>
                     )}
                     {c.proximoPrazo && (
                       <span className="text-[11px] text-muted-foreground tabular-nums">{fmtData(c.proximoPrazo)}</span>
@@ -617,6 +633,15 @@ export default function PainelEntregasPage() {
         o cliente abrir não entram na contagem de &ldquo;não abertas&rdquo;.
       </p>
 
+      {drill && (
+        <ObrigacoesDoClienteModal
+          cliente={drill.cliente} foco={drill.foco} rotulo={drill.rotulo}
+          dpto={dpto} responsavel={responsavel} janelaDias={janelaDias}
+          onAbrirDetalhe={(l) => { setDrill(null); setDetalhe(l) }}
+          onClose={() => setDrill(null)}
+        />
+      )}
+
       {detalhe && <DetalheEntregaModal linha={detalhe} urlTemplate={urlTemplate} onClose={() => setDetalhe(null)} />}
 
       {novaRegra && (
@@ -636,6 +661,95 @@ export default function PainelEntregasPage() {
  * Obrigar a ir a uma tela de configuração para dizer "isso aqui não é devido"
  * faria a maioria simplesmente conviver com o ruído.
  */
+/**
+ * As obrigações por trás de um totalizador da visão por cliente.
+ *
+ * Não há consulta nova: os três totalizadores são os mesmos focos da tela, e
+ * aqui a busca só fixa o cliente. Assim o modal nunca discorda do número que
+ * foi clicado.
+ */
+function ObrigacoesDoClienteModal({
+  cliente, foco, rotulo, dpto, responsavel, janelaDias, onAbrirDetalhe, onClose,
+}: {
+  cliente: PorCliente; foco: Foco; rotulo: string
+  dpto: string; responsavel: string; janelaDias: number
+  onAbrirDetalhe: (l: Linha) => void
+  onClose: () => void
+}) {
+  const [linhas, setLinhas] = useState<Linha[]>([])
+  const [carregando, setCarregando] = useState(true)
+
+  useEffect(() => {
+    setCarregando(true)
+    ;(trpc.acessorias as any).painelEntregas
+      .query({
+        foco, janelaDias, clienteId: cliente.clienteId,
+        dpto: dpto || undefined, responsavel: responsavel || undefined,
+      })
+      .then((d: { linhas: Linha[] }) => setLinhas(d.linhas || []))
+      .catch(() => setLinhas([]))
+      .finally(() => setCarregando(false))
+  }, [cliente.clienteId, foco, janelaDias, dpto, responsavel])
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeaderIcon icon={ListChecks} color="sky">
+          <DialogTitle>{rotulo}</DialogTitle>
+          <DialogDescription>
+            #{cliente.clienteCode} — {cliente.clienteNome} · {masks.cpfCnpj(cliente.documento)}
+          </DialogDescription>
+        </DialogHeaderIcon>
+        <DialogBody className="max-h-[65vh] overflow-y-auto p-0">
+          {carregando ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : linhas.length === 0 ? (
+            <p className="py-12 text-center text-sm text-muted-foreground">Nenhuma obrigação aqui.</p>
+          ) : (
+            <table className="w-full table-fixed border-collapse text-sm">
+              <thead className="sticky top-0 bg-muted/40">
+                <tr className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <th className="px-3 py-2 text-left">Obrigação</th>
+                  <th className="hidden w-[92px] px-3 py-2 text-left sm:table-cell">Área</th>
+                  <th className="w-[104px] px-3 py-2 text-left">Vencimento</th>
+                  <th className="hidden w-[100px] px-3 py-2 text-left sm:table-cell">Entrega</th>
+                  <th className="w-[118px] px-3 py-2 text-left">Situação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {linhas.map((l) => {
+                  const p = situacao(l)
+                  return (
+                    <tr key={l.id} className="hover:bg-muted/30">
+                      <td className="px-3 py-2">
+                        <button type="button" onClick={() => onAbrirDetalhe(l)}
+                          className="block w-full truncate text-left font-medium hover:underline"
+                          title="Ver tudo que veio do Acessórias nesta entrega">
+                          {l.obrigacao}
+                        </button>
+                        <span className="text-[11px] text-muted-foreground">{fmtComp(l.competencia)}</span>
+                      </td>
+                      <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground sm:table-cell">{l.dpto || '—'}</td>
+                      <td className="px-3 py-2 text-[12px] tabular-nums">{fmtData(l.vencimento)}</td>
+                      <td className="hidden px-3 py-2 text-[12px] text-muted-foreground tabular-nums sm:table-cell">{fmtData(l.dtEntrega)}</td>
+                      <td className={cn('px-3 py-2 text-[12px]', p.cor)} title={p.titulo}>{p.texto}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button size="sm" onClick={onClose}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 /** Uma linha "rótulo: valor" do detalhe. Valor ausente aparece como "—". */
 function Campo({ label, valor, mono }: { label: string; valor: React.ReactNode; mono?: boolean }) {
   const vazio = valor === null || valor === undefined || valor === ''
