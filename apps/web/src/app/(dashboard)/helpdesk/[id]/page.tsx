@@ -1505,9 +1505,10 @@ export default function HelpdeskTicketDetailPage() {
                 </SideField>
 
                 <SideField label="Prioridade" icon={AlertTriangle}>
-                  {podeEditarCampos ? (
+                  {podeAtuar ? (
                     <Select
                       value={ticket.prioridade}
+                      disabled={congelado}
                       onValueChange={v => patch({ prioridade: v }, 'prioridade')}
                     >
                       <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -1531,13 +1532,14 @@ export default function HelpdeskTicketDetailPage() {
                 </SideField>
 
                 <SideField label="Responsável" icon={UserCog}>
-                  {!podeEditarResponsavel ? (
+                  {!podeAtuar ? (
                     <p className="text-xs">{ticket.responsavel?.name || <span className="text-muted-foreground italic">Não atribuído</span>}</p>
                   ) : savingField === 'responsavel' ? (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   ) : (
                     <Select
                       value={ticket.responsavel?.id ?? '__null__'}
+                      disabled={!podeEditarResponsavel}
                       onValueChange={v => patch({ responsavelId: v === '__null__' ? null : v }, 'responsavel')}
                     >
                       <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Não atribuído" /></SelectTrigger>
@@ -1557,13 +1559,14 @@ export default function HelpdeskTicketDetailPage() {
                 </SideField>
 
                 <SideField label="Categoria" icon={Tag}>
-                  {!podeEditarCampos ? (
+                  {!podeAtuar ? (
                     <p className="text-xs">{ticket.categoria ? `${ticket.categoria.parent ? ticket.categoria.parent.nome + ' › ' : ''}${ticket.categoria.nome}` : <span className="text-muted-foreground italic">—</span>}</p>
                   ) : savingField === 'categoria' ? (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   ) : (
                     <Select
                       value={ticket.categoria?.id ?? '__null__'}
+                      disabled={congelado}
                       onValueChange={v => patch({ categoriaId: v === '__null__' ? null : v }, 'categoria')}
                     >
                       <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sem categoria" /></SelectTrigger>
