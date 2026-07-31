@@ -516,7 +516,6 @@ function MappingPanel() {
   const [grupos, setGrupos] = useState<ObligationGroup[]>([])
   const [observed, setObserved] = useState<Array<{ nome: string; ocorrencias: number; departamento?: string | null }>>([])
   const [servicos, setServicos] = useState<ServicoLite[]>([])
-  const [areas, setAreas] = useState<Array<{ id: string; name: string }>>([])
   const [loading, setLoading] = useState(false)
   const [loadingObs, setLoadingObs] = useState(false)
   const [filter, setFilter] = useState('')
@@ -541,17 +540,19 @@ function MappingPanel() {
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [mapsRes, servRes, areasRes, obsRes] = await Promise.all([
+      const [mapsRes, servRes, obsRes] = await Promise.all([
         (trpc as any).acessorias.listObligationMaps.query(),
-        (trpc as any).servico.listServicos.query({ categoria: 'MENSAL' as const }).catch(() => []),
-        (trpc as any).area.listForSelect.query().catch(() => []),
+        // Obrigação do Acessórias casa com OBRIGAÇÃO ACESSÓRIA do OneClick —
+        // não com serviço mensal qualquer. São o mesmo cadastro, distinguidos
+        // pela marca `ehObrigacaoAcessoria`, e misturar os dois traria serviço
+        // comercial para uma lista que é de rotina fiscal.
+        (trpc as any).obrigacao.list.query({}).catch(() => []),
         // Lista guardada da última importação — sem isso, sair da tela apagava
         // tudo e obrigava a repetir uma varredura de dezenas de requisições.
         (trpc as any).acessorias.listObligationsObservedCache.query().catch(() => ({ itens: [] })),
       ])
       setGrupos((mapsRes as ObligationGroup[]) || [])
       setServicos((servRes as ServicoLite[]) || [])
-      setAreas((areasRes as Array<{ id: string; name: string }>) || [])
       const obs = obsRes as { itens?: Array<{ nome: string; ocorrencias: number; departamento: string | null }> }
       setObserved(obs?.itens ?? [])
     } catch (e) {
@@ -573,10 +574,17 @@ function MappingPanel() {
       .join('')
   }
 
-  function abrirCriacao(obrigacao: string) {
+  function abrirCriacao(obrigacao: string, departamento?: string | null) {
     setCreateForObrigation(obrigacao)
     setCreateNome(sugestaoNomeServico(obrigacao))
-    setCreateArea('')
+    // Aproveita o departamento que veio do Acessórias como palpite da categoria
+    // — o usuário confirma, mas na maioria das vezes já vem certo.
+    const d = String(departamento ?? '').toLowerCase()
+    setCreateArea(
+      d.includes('pessoal') || d.includes('trabalh') ? 'Trabalhista'
+        : d.includes('cont') ? 'Contábil'
+        : 'Fiscal',
+    )
     setCreateOpen(true)
   }
 
@@ -584,21 +592,17 @@ function MappingPanel() {
     if (!createNome.trim()) { alerts.error('Validação', 'Informe o nome do serviço.'); return }
     setCreateSaving(true)
     try {
-      // 1. Cria o Servico MENSAL com defaults sensatos
-      const created = await (trpc as any).servico.createServico.mutate({
+      // 1. Cria a OBRIGAÇÃO ACESSÓRIA (marca ehObrigacaoAcessoria; é o mesmo
+      //    cadastro de serviços, mas com a natureza correta — antes nascia como
+      //    serviço mensal comum e ia parar na lista comercial).
+      const created = await (trpc as any).obrigacao.create.mutate({
         nome: createNome.trim(),
-        categoria: createArea || undefined,
-        categoriaServico: 'MENSAL',
-        tipo: 'ATIVIDADE',
-        prioridadePadrao: 'MEDIA',
-        disponivelOrcamento: true,
-        recorrenteMensal: true,
+        categoria: createArea || 'Fiscal',
       }) as { id: string; nome: string }
-      // 2. Vincula a obrigação ao serviço recém-criado
-      await (trpc as any).acessorias.upsertObligationMap.mutate({
+      // 2. Vincula a obrigação do Acessórias à recém-criada.
+      await (trpc as any).acessorias.addObligationServico.mutate({
         nome: createForObrigation,
         servicoId: created.id,
-        ativo: true,
       })
       await alerts.success('Criado e vinculado', `"${created.nome}" criado e vinculado à obrigação "${createForObrigation}".`)
       setCreateOpen(false)
@@ -718,7 +722,7 @@ function MappingPanel() {
             Mapeamento de Obrigações
           </h3>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            Casa o nome da obrigação no Acessórias com um Serviço Mensal do OneClick. Sem map ou map desativado → ignorado no sync.
+            Casa o nome da obrigação no Acessórias com uma Obrigação Acessória do OneClick. Sem vínculo, a entrega é ignorada na sincronização.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -756,7 +760,7 @@ function MappingPanel() {
             <TableHead className="whitespace-nowrap">Nome no Acessórias</TableHead>
             <TableHead className="w-[150px] whitespace-nowrap" title="Departamento responsável no Acessórias">Depto. no Acessórias</TableHead>
             <TableHead className="w-[90px] text-center whitespace-nowrap" title="Empresas com esta obrigação">Ocorr.</TableHead>
-            <TableHead className="whitespace-nowrap">→ Serviços OneClick vinculados</TableHead>
+            <TableHead className="whitespace-nowrap">→ Obrigações OneClick vinculadas</TableHead>
             <TableHead className="w-[120px] text-center whitespace-nowrap">Status</TableHead>
           </TableRow>
         </TableHeader>
@@ -814,7 +818,7 @@ function MappingPanel() {
                       <Select
                         value="__none__"
                         onValueChange={(v) => {
-                          if (v === '__create__') { abrirCriacao(nome); return }
+                          if (v === '__create__') { abrirCriacao(nome, departamento); return }
                           if (v !== '__none__') addServicoToObligation(nome, v)
                         }}
                       >
@@ -1009,7 +1013,7 @@ function MappingPanel() {
       <Dialog open={createOpen} onOpenChange={(o) => !o && setCreateOpen(false)}>
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeaderIcon icon={Plus} color="emerald">
-            <DialogTitle>Criar Serviço Mensal a partir da obrigação</DialogTitle>
+            <DialogTitle>Criar Obrigação Acessória</DialogTitle>
             <DialogDescription>
               Cria um <strong>Serviço Mensal</strong> novo no OneClick com defaults sensatos
               (categoria MENSAL · tipo Atividade · disponível em orçamento) e já
@@ -1032,18 +1036,23 @@ function MappingPanel() {
               </p>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px] font-semibold">Área (opcional)</Label>
-              <Select value={createArea || '__none__'} onValueChange={v => setCreateArea(v === '__none__' ? '' : v)}>
+              <Label className="text-[13px] font-semibold">Categoria *</Label>
+              {/* A obrigação acessória aceita exatamente estas três — não são as
+                  áreas do sistema. Oferecer as áreas fazia o cadastro ser
+                  recusado por valor inválido. */}
+              <Select value={createArea || 'Fiscal'} onValueChange={setCreateArea}>
                 <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Selecione uma área" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">— Sem área —</SelectItem>
-                  {areas.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}
+                  <SelectItem value="Fiscal">Fiscal</SelectItem>
+                  <SelectItem value="Trabalhista">Trabalhista</SelectItem>
+                  <SelectItem value="Contábil">Contábil</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-[10px] text-muted-foreground">
-                Pra obrigações fiscais: <em>Fiscal</em>; pra folha: <em>Trabalhista</em>; contábeis: <em>Contábil</em>.
+                Guias e apurações: <em>Fiscal</em>. Folha e encargos: <em>Trabalhista</em>. Balancete e
+                demonstrações: <em>Contábil</em>.
               </p>
             </div>
           </DialogBody>
