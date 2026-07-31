@@ -149,6 +149,9 @@ export function createAcessoriasRouter(
       }))
       .mutation(({ input, ctx }) => svc.applySuggestions(input.items, ctx.empresaId ?? null)),
 
+    clientesElegiveis: integracaoProc()
+      .query(({ ctx }) => svc.clientesElegiveis(ctx.isMaster ? null : (ctx.empresaId ?? null))),
+
     entregasDoCliente: integracaoProc()
       .input(z.object({
         clienteId: z.string(),

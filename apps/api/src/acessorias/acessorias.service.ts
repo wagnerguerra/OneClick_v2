@@ -36,6 +36,15 @@ export interface AcessoriasResponse<T = unknown> {
   rateLimitRemaining?: number
 }
 
+/**
+ * Recorte da carteira que a integração enxerga: cliente ATIVO e de situação
+ * MENSAL. É quem o escritório atende de forma recorrente e, portanto, quem tem
+ * obrigação e entrega no Acessórias. Sem este corte a sincronização varre
+ * prospect, potencial, avulso e paralisado — gasta requisição, infla o
+ * histórico e enche a lista de pendências com quem não deveria estar lá.
+ */
+const CLIENTE_ATIVO_MENSAL = { status: 'ATIVA', situacao: 'MENSAL', deletedAt: null } as const
+
 @Injectable()
 export class AcessoriasService {
   /** Lê config corrente do process.env (atualizado por /configuracoes ao salvar).
@@ -308,6 +317,7 @@ export class AcessoriasService {
           // Match: por idAcessorias OU documento (normalizado)
           const cliente = await prisma.cliente.findFirst({
             where: {
+              ...CLIENTE_ATIVO_MENSAL,
               OR: [
                 { idAcessorias: idAcess },
                 { documento: cnpjKey },
@@ -504,6 +514,7 @@ export class AcessoriasService {
       // Resolve lista de clientes a sincronizar
       const clientes = await prisma.cliente.findMany({
         where: {
+          ...CLIENTE_ATIVO_MENSAL,
           ...(opts.clienteId ? { id: opts.clienteId } : { idAcessorias: { not: null } }),
         },
         select: { id: true, documento: true, idAcessorias: true, cnpjAcessorias: true, empresaId: true, razaoSocial: true },
@@ -517,7 +528,7 @@ export class AcessoriasService {
             finishedAt: new Date(),
             erroMensagem: opts.clienteId
               ? 'Cliente não encontrado.'
-              : 'Nenhum cliente com idAcessorias resolvido. Rode "Sync de Empresas" primeiro.',
+              : 'Nenhum cliente ativo e mensal com código do Acessórias. Rode "Sincronizar Empresas" primeiro.',
           },
         })
         return { ok: false, novas, atualizadas, ignoradas, logId: log.id, erro: 'Nenhum cliente pra sincronizar' }
@@ -1240,6 +1251,19 @@ export class AcessoriasService {
   }
 
   /**
+   * Clientes elegíveis para vincular a uma empresa do Acessórias — ativos e
+   * mensais. Alimenta o seletor da tela de empresas ignoradas.
+   */
+  async clientesElegiveis(empresaId?: string | null) {
+    return prisma.cliente.findMany({
+      where: { ...CLIENTE_ATIVO_MENSAL, ...(empresaId ? { empresaId } : {}) },
+      select: { id: true, code: true, razaoSocial: true, documento: true },
+      orderBy: { razaoSocial: 'asc' },
+      take: 2000,
+    })
+  }
+
+  /**
    * Entregas espelhadas de um cliente no período — é o detalhe por trás do
    * "41 entrega(s)" que aparece no resumo da sincronização. Sai do espelho
    * local, não da API: instantâneo e sem gastar requisição.
@@ -1297,6 +1321,13 @@ export class AcessoriasService {
     idAcessorias: number
     cnpjAcessorias?: string | null
   }) {
+    const alvo = await prisma.cliente.findFirst({
+      where: { id: input.clienteId, ...CLIENTE_ATIVO_MENSAL },
+      select: { id: true },
+    })
+    if (!alvo) {
+      throw new Error('Só é possível vincular a um cliente ativo e de situação mensal.')
+    }
     const jaUsado = await prisma.cliente.findFirst({
       where: { idAcessorias: input.idAcessorias, id: { not: input.clienteId } },
       select: { id: true, code: true, razaoSocial: true },

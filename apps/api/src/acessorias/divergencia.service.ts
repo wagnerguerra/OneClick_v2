@@ -113,7 +113,12 @@ export class DivergenciaAcessoriasService {
     const empresas = await this.baixarEmpresas()
 
     const clientes = await prisma.cliente.findMany({
-      where: { deletedAt: null, ...(!isMaster && empresaId ? { empresaId } : {}) },
+      // Mesmo recorte da sincronização: ativo e mensal. Comparar prospect e
+      // avulso encheria o relatório de divergência que ninguém vai conciliar.
+      where: {
+        deletedAt: null, status: 'ATIVA', situacao: 'MENSAL',
+        ...(!isMaster && empresaId ? { empresaId } : {}),
+      },
       select: {
         id: true, code: true, razaoSocial: true, nomeFantasia: true, documento: true,
         telefone: true, uf: true, dataEntrada: true, dataSaida: true, status: true,

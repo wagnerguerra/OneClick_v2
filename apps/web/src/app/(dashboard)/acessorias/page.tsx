@@ -356,11 +356,12 @@ function EmpresasDaSyncModal({ situacao, onClose, onVinculou }: {
   useEffect(() => { carregar() }, [carregar])
 
   // Só carrega a lista de clientes quando é para vincular — nas outras abas
-  // seria peso sem uso.
+  // seria peso sem uso. A lista já vem recortada em ativos e mensais, que é a
+  // carteira que a integração enxerga.
   useEffect(() => {
     if (situacao !== 'ignorada') return
-    ;(trpc as any).cliente.list.query({ page: 1, limit: 100, sortBy: 'razaoSocial', sortDir: 'asc' })
-      .then((r: { data: Array<{ id: string; razaoSocial: string; documento: string }> }) => setClientes(r?.data || []))
+    ;(trpc as any).acessorias.clientesElegiveis.query()
+      .then((r: Array<{ id: string; razaoSocial: string; documento: string }>) => setClientes(r || []))
       .catch(() => setClientes([]))
   }, [situacao])
 
