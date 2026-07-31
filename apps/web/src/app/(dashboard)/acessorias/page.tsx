@@ -113,6 +113,13 @@ export default function AcessoriasPage() {
   const { profile, loading: profileLoading } = useCurrentUserProfile()
   const isAdmin = !!(profile?.isMaster || profile?.isEmpresaMaster)
   const [tab, setTab] = useState<Tab>('companies')
+  /**
+   * Avisa o histórico de que uma sincronização acabou de ser disparada. Sem
+   * isso ele só descobre no próximo carregamento da página: o auto-refresh só
+   * liga quando ele JÁ enxerga algo em andamento, e a lista dele ainda era a
+   * anterior ao clique.
+   */
+  const [syncTick, setSyncTick] = useState(0)
 
   useEffect(() => {
     if (!profileLoading && !isAdmin) router.replace('/')
@@ -183,11 +190,15 @@ export default function AcessoriasPage() {
         <TabsContent value="companies" className="mt-4"><CompaniesPanel /></TabsContent>
         <TabsContent value="mapping" className="mt-4"><MappingPanel /></TabsContent>
         <TabsContent value="deliveries" className="mt-4 space-y-4">
-          <DeliveriesPanel firstDay={fmtDate(firstDayOfMonth)} lastDay={fmtDate(lastDayOfMonth)} />
+          <DeliveriesPanel
+            firstDay={fmtDate(firstDayOfMonth)}
+            lastDay={fmtDate(lastDayOfMonth)}
+            onSyncIniciada={() => setSyncTick(t => t + 1)}
+          />
           {/* Histórico logo abaixo: é onde o resultado da sincronização que se
               acabou de disparar aparece — separar em outra aba obrigava a
               procurar o andamento em outro lugar. */}
-          <LogsPanel />
+          <LogsPanel atualizarEm={syncTick} />
         </TabsContent>
         <TabsContent value="explorer" className="mt-4"><ExplorerPanel /></TabsContent>
       </Tabs>
@@ -1180,7 +1191,11 @@ function LimparVinculosModal({ onClose, onDone }: { onClose: () => void; onDone:
 // ════════════════════════════════════════════════════════════════════
 // 3. ENTREGAS
 // ════════════════════════════════════════════════════════════════════
-function DeliveriesPanel({ firstDay, lastDay }: { firstDay: string; lastDay: string }) {
+function DeliveriesPanel({ firstDay, lastDay, onSyncIniciada }: {
+  firstDay: string
+  lastDay: string
+  onSyncIniciada?: () => void
+}) {
   const [dtInicio, setDtInicio] = useState(firstDay)
   const [dtFinal, setDtFinal] = useState(lastDay)
   const [running, setRunning] = useState(false)
@@ -1206,6 +1221,8 @@ function DeliveriesPanel({ firstDay, lastDay }: { firstDay: string; lastDay: str
         dtFinal,
       }) as { ok: boolean; emAndamento?: boolean; mensagem?: string; erro?: string }
       setLastResult(null)
+      // O histórico precisa saber agora, não no próximo carregamento da página.
+      onSyncIniciada?.()
       if (r.erro) alerts.error('Aviso', r.erro)
       else await alerts.success('Sincronização iniciada', r.mensagem ?? 'Ela roda em segundo plano — acompanhe pelo histórico logo abaixo.')
     } catch (e) {
@@ -1272,7 +1289,7 @@ function DeliveriesPanel({ firstDay, lastDay }: { firstDay: string; lastDay: str
 // ════════════════════════════════════════════════════════════════════
 // 4. HISTÓRICO de SYNC
 // ════════════════════════════════════════════════════════════════════
-function LogsPanel() {
+function LogsPanel({ atualizarEm }: { atualizarEm?: number }) {
   const [logs, setLogs] = useState<SyncLog[]>([])
   const [loading, setLoading] = useState(false)
   const [detalhe, setDetalhe] = useState<SyncLog | null>(null)
@@ -1295,6 +1312,14 @@ function LogsPanel() {
     }
   }, [])
   useEffect(() => { void fetchLogs() }, [fetchLogs])
+
+  // Recarrega quando o card acima dispara uma sincronização. Um pequeno atraso
+  // porque o registro é criado no servidor logo depois da resposta chegar aqui.
+  useEffect(() => {
+    if (!atualizarEm) return
+    const t = setTimeout(() => { void fetchLogs(true) }, 600)
+    return () => clearTimeout(t)
+  }, [atualizarEm, fetchLogs])
 
   // Enquanto houver sincronização em andamento, recarrega sozinho a cada 3s —
   // é o que faz a barra de progresso andar sem o usuário clicar em Atualizar.
