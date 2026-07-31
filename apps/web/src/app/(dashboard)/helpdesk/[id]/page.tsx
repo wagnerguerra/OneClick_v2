@@ -196,7 +196,10 @@ export default function HelpdeskTicketDetailPage() {
   }, [])
 
   // CSAT
-  const [csatNota, setCsatNota] = useState<number>(5)
+  // Começa em 0 (nenhuma estrela) pra não parecer avaliação já registrada; o
+  // hover dá o preview de preenchimento antes do clique.
+  const [csatNota, setCsatNota] = useState<number>(0)
+  const [csatHover, setCsatHover] = useState<number>(0)
   const [csatComentario, setCsatComentario] = useState('')
   const [csatEnviando, setCsatEnviando] = useState(false)
 
@@ -721,6 +724,7 @@ export default function HelpdeskTicketDetailPage() {
   }
 
   async function enviarCsat() {
+    if (csatNota < 1) return // nenhuma estrela escolhida ainda
     setCsatEnviando(true)
     try {
       await (trpc.helpdesk as any).responderCsat.mutate({
@@ -998,17 +1002,18 @@ export default function HelpdeskTicketDetailPage() {
                       Sua avaliação encerra o ticket — sem ela, o chamado auto-fecha após alguns dias, sem registrar nota.
                     </p>
                   )}
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1" onMouseLeave={() => setCsatHover(0)}>
                     {[1, 2, 3, 4, 5].map(n => (
                       <button
                         key={n}
                         type="button"
                         onClick={() => setCsatNota(n)}
+                        onMouseEnter={() => setCsatHover(n)}
                         className="p-1 hover:scale-110 transition-transform"
                         title={`${n} estrela${n > 1 ? 's' : ''}`}
                       >
                         <Star
-                          className={cn('h-7 w-7', n <= csatNota ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/40')}
+                          className={cn('h-7 w-7 transition-colors', n <= (csatHover || csatNota) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/40')}
                         />
                       </button>
                     ))}
@@ -1023,12 +1028,28 @@ export default function HelpdeskTicketDetailPage() {
                   <Button
                     size="sm"
                     onClick={enviarCsat}
-                    disabled={csatEnviando}
+                    disabled={csatEnviando || csatNota < 1}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
                   >
                     {csatEnviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Star className="h-3.5 w-3.5" />}
                     Enviar avaliação
                   </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* R5.2 — concluído SEM avaliação e FORA da janela: o card de avaliar
+                não aparece (avaliacaoDisponivel=false); um aviso passivo explica
+                que o prazo passou. Não conflita com o card de avaliação registrada
+                (concluidoSemAvaliacao exige csat não respondido). */}
+            {ticket.concluidoSemAvaliacao && !podeAvaliar && (
+              <Card className="border-l-4 border-l-slate-300 dark:border-l-slate-600 bg-muted/30">
+                <CardContent className="p-3 flex items-start gap-2 text-[12px] text-muted-foreground">
+                  <Clock className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>
+                    Este chamado foi <strong className="text-foreground">concluído sem avaliação</strong> e o prazo para avaliar
+                    {ticket.avaliacaoPosConclusaoDias ? ` (${ticket.avaliacaoPosConclusaoDias} dias após a conclusão)` : ''} já encerrou.
+                  </span>
                 </CardContent>
               </Card>
             )}
@@ -1040,10 +1061,7 @@ export default function HelpdeskTicketDetailPage() {
             {ticket.csatRespondidoEm && ticket.csatNota != null && (
               <Card className="border-l-4 border-l-amber-400 bg-amber-50/30 dark:bg-amber-900/15">
                 <CardContent className="p-4 space-y-2.5">
-                  <div className="flex items-center gap-2">
-                    <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
-                    <h3 className="text-sm font-semibold">Avaliação do atendimento</h3>
-                  </div>
+                  <h3 className="text-sm font-semibold">Avaliação do atendimento:</h3>
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-0.5">
                       {[1, 2, 3, 4, 5].map(n => (
