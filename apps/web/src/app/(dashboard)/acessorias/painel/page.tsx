@@ -83,32 +83,46 @@ const fmtDataHora = (v: string | null) =>
   v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
 
 /**
+ * Nada mais a fazer nesta linha?
+ *
+ * Entregar é só metade do trabalho: enquanto o cliente não abre a guia, o
+ * vencimento continua correndo contra ele. Por isso "entregue" sozinho NÃO
+ * encerra a linha — encerra quando foi entregue E lida, ou quando a obrigação
+ * nem tem guia para abrir (`lida === null`, caso dos relatórios).
+ */
+function resolvida(l: Linha) {
+  return l.dispensada || (l.entregue && l.lida !== false)
+}
+
+/**
  * Situação da linha, na linguagem de quem cobra.
  *
- * A entrega tem precedência sobre o vencimento: obrigação entregue — em especial
- * a antecipada, que é rotina — está resolvida, e anunciar "venceu há 16d" numa
- * linha já fechada só tira a confiança do painel. Só quem continua em aberto
- * recebe a contagem do prazo.
+ * A data de entrega já tem coluna própria — repeti-la aqui apagava a única
+ * informação que a coluna deveria dar nas linhas que mais importam: as guias
+ * entregues que o cliente ainda não abriu e estão vencendo. Agora a Situação
+ * fala sempre do vencimento, exceto quando não há mais o que cobrar.
  */
 function situacao(l: Linha) {
-  if (l.entregue) {
+  if (l.dispensada) {
+    return { texto: 'dispensada', titulo: 'Não era devida no período', cor: 'text-muted-foreground' }
+  }
+  if (l.entregue && l.lida !== false) {
     const adiantada = l.dtEntrega && l.prazo && new Date(l.dtEntrega) < new Date(l.prazo)
     return {
-      texto: `entregue ${fmtData(l.dtEntrega)}`,
+      texto: l.lida === true ? 'entregue e lida' : 'entregue',
       titulo: adiantada
         ? `Entregue antes do prazo interno (${fmtData(l.prazo)}) · vencimento ${fmtData(l.vencimento)}`
         : `Prazo interno: ${fmtData(l.prazo)} · vencimento ${fmtData(l.vencimento)}`,
       cor: 'text-emerald-600 dark:text-emerald-400',
     }
   }
-  if (l.dispensada) {
-    return { texto: 'dispensada', titulo: 'Não era devida no período', cor: 'text-muted-foreground' }
-  }
   // Conta contra o VENCIMENTO da guia, não contra o prazo interno de entrega:
   // é a data em que o cliente sofre a consequência.
   const dias = l.diasParaVencimento
-  const t = `Vencimento: ${fmtData(l.vencimento)} · prazo interno: ${fmtData(l.prazo)}`
-  if (dias === null) return { texto: 'sem vencimento', titulo: '', cor: 'text-muted-foreground' }
+  const t = l.entregue
+    ? `Guia entregue em ${fmtData(l.dtEntrega)}, cliente ainda não abriu · vence ${fmtData(l.vencimento)}`
+    : `Ainda não entregue · vencimento ${fmtData(l.vencimento)} · prazo interno ${fmtData(l.prazo)}`
+  if (dias === null) return { texto: 'sem vencimento', titulo: t, cor: 'text-muted-foreground' }
   if (dias < 0) return { texto: `venceu há ${Math.abs(dias)}d`, titulo: t, cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
   if (dias === 0) return { texto: 'vence hoje', titulo: t, cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
   if (dias <= 3) return { texto: `vence em ${dias}d`, titulo: t, cor: 'text-amber-600 dark:text-amber-400 font-semibold' }
@@ -129,11 +143,14 @@ function chaveOrdem(l: Linha, campo: CampoOrdem): string | number {
     case 'vencimento':  return l.vencimento ? new Date(l.vencimento).getTime() : Number.MAX_SAFE_INTEGER
     case 'dtEntrega':   return l.dtEntrega ? new Date(l.dtEntrega).getTime() : Number.MAX_SAFE_INTEGER
     case 'situacao': {
-      if (l.dispensada) return 4
-      if (l.entregue) return 3
+      // Mesmo critério de `situacao()`: entregue-mas-não-lida continua sendo
+      // pendência e disputa o topo com as vencidas, em vez de cair junto do
+      // que já está resolvido.
+      if (l.dispensada) return 5
+      if (resolvida(l)) return 4
       const d = l.diasParaVencimento
-      if (d === null) return 2          // sem vencimento
-      return d < 0 ? 0 : 1              // vencido primeiro, depois a vencer
+      if (d === null) return 3          // sem vencimento
+      return d < 0 ? 0 : d === 0 ? 1 : 2
     }
     case 'respEntrega': return String(l.responsavel ?? '').toLowerCase()
     default: return String(l[campo] ?? '').toLowerCase()
