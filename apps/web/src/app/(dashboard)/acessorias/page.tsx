@@ -35,7 +35,7 @@ import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)' // Sky — Administrativo
 
-type Tab = 'companies' | 'mapping' | 'deliveries' | 'logs' | 'explorer'
+type Tab = 'companies' | 'mapping' | 'deliveries' | 'explorer'
 
 interface ExploreResult {
   ok: boolean
@@ -167,7 +167,6 @@ export default function AcessoriasPage() {
               { v: 'companies',  Icon: Building2,  label: 'Empresas' },
               { v: 'mapping',    Icon: LinkIcon,   label: 'Mapeamento' },
               { v: 'deliveries', Icon: RefreshCw,  label: 'Entregas' },
-              { v: 'logs',       Icon: History,    label: 'Histórico' },
               { v: 'explorer',   Icon: FileSearch, label: 'Explorer' },
             ] as const).map(({ v, Icon, label }) => (
               <TabsTrigger
@@ -183,10 +182,13 @@ export default function AcessoriasPage() {
 
         <TabsContent value="companies" className="mt-4"><CompaniesPanel /></TabsContent>
         <TabsContent value="mapping" className="mt-4"><MappingPanel /></TabsContent>
-        <TabsContent value="deliveries" className="mt-4">
+        <TabsContent value="deliveries" className="mt-4 space-y-4">
           <DeliveriesPanel firstDay={fmtDate(firstDayOfMonth)} lastDay={fmtDate(lastDayOfMonth)} />
+          {/* Histórico logo abaixo: é onde o resultado da sincronização que se
+              acabou de disparar aparece — separar em outra aba obrigava a
+              procurar o andamento em outro lugar. */}
+          <LogsPanel />
         </TabsContent>
-        <TabsContent value="logs" className="mt-4"><LogsPanel /></TabsContent>
         <TabsContent value="explorer" className="mt-4"><ExplorerPanel /></TabsContent>
       </Tabs>
     </div>
@@ -1274,15 +1276,22 @@ function LogsPanel() {
   const [logs, setLogs] = useState<SyncLog[]>([])
   const [loading, setLoading] = useState(false)
   const [detalhe, setDetalhe] = useState<SyncLog | null>(null)
-  const fetchLogs = useCallback(async () => {
-    setLoading(true)
+  /**
+   * `silencioso` evita ligar o estado de carregamento na atualização automática.
+   * Sem isso, a cada 3 segundos a tabela inteira era substituída pelo spinner e
+   * o card piscava — a barra de progresso não chegava a ser lida.
+   */
+  const fetchLogs = useCallback(async (silencioso = false) => {
+    if (!silencioso) setLoading(true)
     try {
       const r = await (trpc as any).acessorias.listSyncLogs.query() as SyncLog[]
       setLogs(r || [])
     } catch (e) {
-      alerts.error('Erro', (e as Error).message)
+      // Falha na atualização automática não vira alerta: seria um popup a cada
+      // 3 segundos se a rede oscilasse.
+      if (!silencioso) alerts.error('Erro', (e as Error).message)
     } finally {
-      setLoading(false)
+      if (!silencioso) setLoading(false)
     }
   }, [])
   useEffect(() => { void fetchLogs() }, [fetchLogs])
@@ -1292,7 +1301,7 @@ function LogsPanel() {
   const temRodando = logs.some(l => l.status === 'running')
   useEffect(() => {
     if (!temRodando) return
-    const t = setInterval(() => { void fetchLogs() }, 3000)
+    const t = setInterval(() => { void fetchLogs(true) }, 3000)
     return () => clearInterval(t)
   }, [temRodando, fetchLogs])
 
@@ -1308,7 +1317,7 @@ function LogsPanel() {
             </span>
           )}
         </h3>
-        <Button variant="ghost" size="sm" onClick={fetchLogs} disabled={loading} className="gap-1.5">
+        <Button variant="ghost" size="sm" onClick={() => fetchLogs()} disabled={loading} className="gap-1.5">
           <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
           Atualizar
         </Button>
