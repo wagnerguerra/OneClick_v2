@@ -1250,7 +1250,7 @@ function SuccessState({
           houve dia com nove chamados abertos pela mesma pessoa) tinha que fechar
           o balão e clicar no botão flutuante de novo a cada um. */}
       {onNovo && (
-        <Button variant="ghost" size="sm" onClick={onNovo} className="w-full gap-1.5 text-muted-foreground hover:text-foreground">
+        <Button variant="outline" size="sm" onClick={onNovo} className="w-full gap-1.5">
           <Plus className="h-3.5 w-3.5" />
           {novoLabel ?? 'Abrir outro'}
         </Button>

@@ -557,6 +557,20 @@ export default function HelpdeskPage() {
           <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap mr-1">
             {items.length} ticket{items.length === 1 ? '' : 's'}
           </span>
+          {/* C11 — limpa todos os filtros de narrowing de uma vez; fica entre o
+              contador e os filtros. Só aparece quando há algo pra limpar. Outline
+              (não ghost) pra ter borda visível também no dark. */}
+          {temFiltroAtivo && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={limparFiltros}
+              className="h-8 gap-1.5 px-2 text-xs"
+              title="Limpar todos os filtros"
+            >
+              <FilterX className="h-3.5 w-3.5" /> Limpar filtros
+            </Button>
+          )}
           {/* Escopo — abrangência (mostra sempre o valor: Meus / Área / Todos) */}
           {isAgente && (
             <Select value={scope} onValueChange={v => setScopeManual(v as ScopeFiltro)} disabled={scopeOptions.length <= 1}>
@@ -624,19 +638,6 @@ export default function HelpdeskPage() {
                 ))}
               </SelectContent>
             </Select>
-          )}
-          {/* C11 — limpa todos os filtros de narrowing de uma vez. Aparece só
-              quando há algo pra limpar. */}
-          {temFiltroAtivo && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={limparFiltros}
-              className="h-8 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
-              title="Limpar todos os filtros"
-            >
-              <FilterX className="h-3.5 w-3.5" /> Limpar filtros
-            </Button>
           )}
         </div>
       </div>
