@@ -1,0 +1,184 @@
+<title>Resumo do dia — OneClick v2 · 30/07/2026</title>
+<style>
+  :root {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+    /* dots por bloco (cores dos módulos) */
+    --cadastros:#10b981; --comercial:#fb7185; --corporativo:#8b5cf6; --administrativo:#64748b;
+    --legalizacao:#0ea5e9; --trabalhista:#f97316; --fiscal:#6366f1; --contabil:#14b8a6;
+    --ti:#3b82f6; --qualidade:#f59e0b; --configuracoes:#64748b; --processos:#a855f7;
+    --faq:#22c55e; --perfil:#ec4899; --dashboard:#0ea5e9; --agenda:#8b5cf6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+      --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+      --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+    --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+    --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 56px 24px 80px; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  header { animation: rise .5s ease-out both; }
+  .eyebrow {
+    text-transform: uppercase; letter-spacing: .13em; font-size: 11px; font-weight: 700;
+    color: var(--accent-deep); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px); line-height: 1.08; margin: 0 0 8px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .sub { color: var(--muted); font-size: 15px; margin: 0; }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 8px; }
+  .stat {
+    flex: 1 1 150px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .stat .n { font-size: 24px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  main { margin-top: 30px; display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; box-shadow: var(--shadow);
+    animation: rise .5s ease-out both;
+  }
+  .card-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .card-head h2 { font-size: 16px; margin: 0; letter-spacing: -.01em; font-weight: 700; }
+  .card-head .tag {
+    margin-left: auto; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
+  }
+  ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  li { display: flex; gap: 10px; font-size: 14.5px; }
+  li::before {
+    content: ""; margin-top: 9px; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--muted); flex: none; opacity: .55;
+  }
+  li b { font-weight: 650; }
+  .hash {
+    display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 5px;
+    background: var(--chip-bg); color: var(--chip-ink); margin-left: 4px; vertical-align: baseline;
+  }
+
+  .note {
+    margin-top: 22px; border: 1px dashed var(--border); border-radius: 12px;
+    padding: 14px 18px; font-size: 13.5px; color: var(--muted); background: transparent;
+  }
+  .note b { color: var(--ink); }
+  footer { margin-top: 34px; text-align: center; color: var(--muted); font-size: 12px; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Resumo do dia · sessão de desenvolvimento</p>
+    <h1>O que fizemos hoje no OneClick v2</h1>
+    <p class="sub">30 de julho de 2026 — visão geral, sem entrar no detalhe.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="n">19</div><div class="l">commits (locais)</div></div>
+    <div class="stat"><div class="n">3</div><div class="l">módulos trabalhados</div></div>
+    <div class="stat"><div class="n">7</div><div class="l">melhorias maiores</div></div>
+    <div class="stat"><div class="n">5</div><div class="l">investigações</div></div>
+  </div>
+
+  <main>
+    <section class="card" style="animation-delay:.05s">
+      <div class="card-head"><span class="dot" style="background:var(--qualidade)"></span><h2>Aquisições — pedidos de compra</h2><span class="tag">Qualidade · novo</span></div>
+      <ul>
+        <li><span><b>Pedir preço a vários fornecedores antes de comprar</b> — o módulo obrigava a escolher o fornecedor logo de cara, antes de saber quanto custava. Agora existe o passo anterior: monta-se a lista de itens, convidam-se quantos fornecedores quiser, e o sistema envia a cada um um documento em PDF com a marca da empresa e as colunas de preço em branco para preencher. <span class="hash mono">1441a74</span></span></li>
+        <li><span><b>Comprar parte com um fornecedor e parte com outro</b> — quando as propostas voltam, os preços entram numa tabela comparativa e o comprador escolhe o vencedor <b>item por item</b>. O sistema então gera um pedido separado para cada fornecedor escolhido, só com o que ele ganhou. É comum em material de expediente, e antes só dava para fazer no papel. <span class="hash mono">1441a74</span></span></li>
+        <li><span><b>O sistema avisa que dividir nem sempre compensa</b> — comprar de três fornecedores significa pagar três fretes. A tela mostra lado a lado quanto custa dividir e quanto custa comprar tudo no melhor fornecedor único, e diz de quanto é a diferença antes de você decidir. <span class="hash mono">1441a74</span></span></li>
+        <li><span><b>Quem pode aprovar agora é você quem define</b> — nova área de configurações do módulo onde se marca quem são os aprovadores. Também apareceu a tela de critérios de avaliação de fornecimento, que era citada pelo sistema mas nunca havia sido construída — sem ela, avaliar um fornecedor era impossível. <span class="hash mono">6c6feea</span></span></li>
+        <li><span><b>Aprovador é avisado quando um pedido chega</b> — ao enviar o pedido para aprovação, quem aprova recebe aviso no sistema e e-mail com fornecedor, solicitante, valor e a lista de itens. Antes o pedido ficava esperando até alguém lembrar de olhar. <span class="hash mono">32fc99b</span></span></li>
+        <li><span><b>Correção importante de acesso</b> — descobrimos que o módulo checava a permissão com um nome que não existia no cadastro. Na prática, <b>qualquer pessoa que não fosse administradora ficava bloqueada no módulo inteiro</b>, mesmo com Aquisições liberada. Passava despercebido porque administrador não sofre o bloqueio. <span class="hash mono">6c6feea</span></span></li>
+        <li><span><b>Telas mais organizadas</b> — as informações do pedido estavam espalhadas em blocos soltos e agora ficam num único quadro com abas laterais. O campo de fornecedor virou uma busca (por nome ou CNPJ), em vez de uma lista enorme para rolar. <span class="hash mono">88fa24d</span> <span class="hash mono">ab3c358</span> <span class="hash mono">d879c88</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.10s">
+      <div class="card-head"><span class="dot" style="background:var(--cadastros)"></span><h2>Clientes — cadastros repetidos</h2><span class="tag">Cadastros · investigação + novo</span></div>
+      <ul>
+        <li><span><b>Um chamado revelou um problema bem maior</b> — a reclamação era que um orçamento aparecia no módulo de orçamentos mas sumia dentro do cliente. Investigando, descobrimos que a tela estava certa: <b>o cliente tinha dois cadastros com o mesmo CNPJ</b>, e o orçamento estava pendurado no outro. Levantamos a base inteira: <b>129 CNPJs repetidos</b> e <b>16 orçamentos invisíveis</b> pelo mesmo motivo.</span></li>
+        <li><span><b>A porta foi fechada</b> — o sistema não impedia cadastrar o mesmo CNPJ duas vezes. Agora impede, e a mensagem diz qual cadastro já ocupa aquele documento. Com um cuidado que a diretoria pediu: <b>cliente em constituição, que ainda não tem CNPJ, continua podendo ser cadastrado livremente</b> — vários deles convivem sem se atrapalhar. <span class="hash mono">db4c47c</span></span></li>
+        <li><span><b>Relatório de cadastros repetidos</b> — nova tela que agrupa os clientes duplicados e mostra o que está pendurado em cada cadastro (orçamentos, contratos, certificados, obrigações). É o que permite decidir, caso a caso, qual deles fica. <span class="hash mono">2c8afec</span></span></li>
+        <li><span><b>Unificação dos cadastros</b> — escolhido qual fica, o sistema move todo o histórico do outro para ele, completa os campos que faltavam e manda o cadastro descartado para a lixeira, anotando para onde o histórico foi. Antes de gravar, mostra exatamente o que será movido e pede confirmação; se algo der errado no meio, nada é alterado. O cadastro <b>ativo</b> tem prioridade e o sistema não deixa unificar ao contrário. <span class="hash mono">78382da</span> <span class="hash mono">110f600</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.15s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Acessórias — acompanhamento de prazos</h2><span class="tag">Administrativo · novo</span></div>
+      <ul>
+        <li><span><b>Saber quem ainda não abriu a guia do imposto</b> — novo painel que mostra, cliente por cliente, quais guias já foram entregues mas o cliente <b>ainda não abriu</b>, com o vencimento chegando. É a informação que permite ligar antes do prazo, em vez de descobrir o atraso depois. Tem visão por obrigação (lista de trabalho) e por cliente (lista de quem cobrar), com filtros por departamento e responsável. <span class="hash mono">133cb21</span> <span class="hash mono">3356d84</span></span></li>
+        <li><span><b>Conferência do cadastro contra o Acessórias</b> — nova tela que compara nosso cadastro de clientes com o que está lá (razão social, telefone, datas, situação) e lista as diferenças. Nada é alterado sozinho: escolhe-se campo a campo o que deve vir de lá, e cada mudança fica registrada no histórico do cliente. Também aponta empresas que existem só de um lado. <span class="hash mono">133cb21</span> <span class="hash mono">0e2cacc</span></span></li>
+        <li><span><b>Controle de quem usa cada tela</b> — o Acessórias virou um módulo próprio no cadastro de usuários, no bloco Administrativo, com três permissões separadas: ver o painel de prazos, administrar a integração e conferir o cadastro. Assim quem só precisa cobrar o cliente não recebe poder de alterar cadastro. <span class="hash mono">0945ea2</span> <span class="hash mono">4f432ff</span></span></li>
+        <li><span><b>Correção: a sincronização travava</b> — ao sincronizar as entregas, a tela mostrava um erro incompreensível. O motivo era tempo: a consulta percorre cliente por cliente e leva minutos, mas o servidor derruba qualquer pedido que passe de 30 segundos. Agora ela roda em segundo plano e o andamento aparece no histórico da própria tela. <span class="hash mono">b19aad9</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.20s">
+      <div class="card-head"><span class="dot" style="background:var(--cadastros)"></span><h2>Ficha do cliente</h2><span class="tag">Cadastros · melhoria</span></div>
+      <ul>
+        <li><span><b>Arquivos organizados por tipo</b> — no quadro de arquivos, só o certificado digital tinha destaque; todo o resto era um item cinza sem identificação. Agora cada arquivo mostra ícone colorido e etiqueta do tipo (PDF, planilha, documento, imagem, compactado, arquivo fiscal). Quem não tem permissão de alterar vê um cadeado, em vez de simplesmente não ver os botões. <span class="hash mono">b10556c</span></span></li>
+        <li><span><b>Aviso de validade dos arquivos</b> — a data de vencimento do arquivo já existia guardada, mas nunca aparecia na tela. Agora aparece com a mesma sinalização do certificado: vermelho para vencido, amarelo quando falta menos de 30 dias. <span class="hash mono">b10556c</span></span></li>
+        <li><span><b>Situação do cliente salva no clique</b> — trocar a situação (Mensal/Anual) ou a situação cadastral (Ativa/Inativa) no topo da ficha exigia clicar em salvar depois; quem saía da tela perdia a alteração. Agora grava na hora. <span class="hash mono">2830b78</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.25s">
+      <div class="card-head"><span class="dot" style="background:var(--ti)"></span><h2>Trabalho do time integrado</h2><span class="tag">TI · integração</span></div>
+      <ul>
+        <li><span><b>Entrega de colega incorporada</b> — foram integradas as correções da leva 7: permissões do HelpDesk, cancelar o próprio chamado, exibição do texto formatado e exportação da lista de orçamentos em Excel, CSV e PDF. Houve um conflito com o nosso trabalho no mesmo arquivo, resolvido preservando as duas mudanças. <span class="hash mono">952659a</span></span></li>
+      </ul>
+    </section>
+  </main>
+
+  <div class="note">
+    <b>Além do código:</b> boa parte do dia foi <b>investigação</b>. Estudamos a fundo o que a
+    integração com o Acessórias consegue trazer e descobrimos que o sistema baixava 11 informações
+    de cada empresa e usava apenas 2 — as outras 9 eram descartadas a cada sincronização. Também
+    verificamos que o log de e-mails do Acessórias <b>não é acessível por integração</b>, mas que a
+    informação de "o cliente abriu ou não a guia" está disponível de outra forma, por obrigação, que
+    é até mais útil. No caso das Aquisições, conferimos no sistema antigo se a cotação já existia
+    por lá: <b>nunca existiu</b> — era feita por fora, no e-mail e no telefone. E no caso dos
+    cadastros repetidos, descobrimos que nove tabelas do banco não tinham a ligação formal com o
+    cliente, o que teria feito a unificação deixar justamente os orçamentos para trás — o problema
+    original do chamado.
+  </div>
+  <div class="note" style="margin-top:10px">
+    <b>Situação:</b> já está no ar tudo até a mesclagem de cadastros repetidos, e a limpeza dos 129
+    CNPJs duplicados já começou (o caso do chamado foi resolvido e conferido). Aguardam publicação
+    em produção: o padrão dos arquivos na ficha do cliente, o painel de prazos do Acessórias, a
+    conferência de cadastro, as permissões novas e a correção da sincronização.
+  </div>
+
+  <footer>Resumo gerado ao fim da sessão · OneClick v2</footer>
+</div>
