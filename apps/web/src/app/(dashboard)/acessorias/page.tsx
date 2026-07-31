@@ -1347,13 +1347,16 @@ function LogsPanel({ atualizarEm }: { atualizarEm?: number }) {
           Atualizar
         </Button>
       </div>
-      <Table>
+      {/* table-fixed: a coluna de contadores troca de conteúdo a cada 3s
+          (barra de progresso ↔ texto do resultado). Sem largura fixa o
+          navegador recalcula as colunas e a linha inteira dança. */}
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[150px]">Data</TableHead>
-            <TableHead className="w-[100px]">Tipo</TableHead>
-            <TableHead className="w-[100px]">Status</TableHead>
-            <TableHead className="whitespace-nowrap">Contadores</TableHead>
+            <TableHead className="w-[130px]">Data</TableHead>
+            <TableHead className="w-[110px]">Tipo</TableHead>
+            <TableHead className="w-[110px]">Status</TableHead>
+            <TableHead className="w-[300px]">Contadores</TableHead>
             <TableHead>Erro / Detalhe</TableHead>
           </TableRow>
         </TableHeader>
@@ -1389,9 +1392,9 @@ function LogsPanel({ atualizarEm }: { atualizarEm?: number }) {
                 <TableCell>
                   <Badge variant="outline" className={cn('text-[10px]', statusCls)}>{log.status}</Badge>
                 </TableCell>
-                <TableCell className="text-xs tabular-nums">
+                <TableCell className="text-xs tabular-nums truncate">
                   {log.status === 'running' && total > 0 ? (
-                    <div className="min-w-[160px] space-y-1">
+                    <div className="w-full space-y-1">
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                         <div className="h-full rounded-full bg-sky-500 transition-all duration-500" style={{ width: pct + '%' }} />
                       </div>
@@ -1399,7 +1402,7 @@ function LogsPanel({ atualizarEm }: { atualizarEm?: number }) {
                     </div>
                   ) : counters}
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground max-w-[400px] truncate"
+                <TableCell className="truncate text-xs text-muted-foreground"
                   title={log.erroMensagem ?? log.progressoMsg ?? ''}>
                   {log.status === 'running'
                     ? (log.progressoMsg ?? 'iniciando...')
