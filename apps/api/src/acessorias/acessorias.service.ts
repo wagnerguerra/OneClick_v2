@@ -285,12 +285,14 @@ export class AcessoriasService {
     })
 
     let novas = 0, atualizadas = 0, ignoradas = 0
+    /** Empresas encerradas no Acessórias e que não são clientes nossos. */
+    let inativas = 0
     const erros: string[] = []
 
     try {
       // Guarda o desfecho de cada empresa para a tela poder listar por grupo.
       const detalhes: Array<{
-        situacao: 'casada' | 'atualizada' | 'ignorada'
+        situacao: 'casada' | 'atualizada' | 'ignorada' | 'inativa'
         idAcessorias: number
         documento: string
         razaoAcessorias: string
@@ -326,16 +328,20 @@ export class AcessoriasService {
             select: { id: true, code: true, razaoSocial: true, idAcessorias: true, cnpjAcessorias: true },
           })
           if (!cliente) {
-            ignoradas++
-            // Sem registrar QUAL empresa ficou de fora, o número "46 ignoradas"
-            // não leva a lugar nenhum — é o que permite vincular à mão depois.
+            // Empresa que o Acessórias já encerrou e que não é cliente nosso não
+            // tem o que resolver: não entra na fila de vínculo manual. Fica
+            // registrada à parte para o número continuar honesto — some da lista
+            // de pendências, não do relatório.
+            const statusLa = String(raw.Status ?? '')
+            const ativaLa = statusLa.trim().toLowerCase().startsWith('ativ')
             detalhes.push({
-              situacao: 'ignorada',
+              situacao: ativaLa ? 'ignorada' : 'inativa',
               idAcessorias: idAcess,
               documento: cnpjKey,
               razaoAcessorias: String(raw.Razao ?? ''),
-              statusAcessorias: String(raw.Status ?? ''),
+              statusAcessorias: statusLa,
             })
+            if (ativaLa) ignoradas++; else inativas++
             continue
           }
           // Atualiza apenas o que falta
@@ -391,7 +397,7 @@ export class AcessoriasService {
           erroMensagem: erros.length > 0 ? erros.join('\n') : null,
         },
       })
-      return { ok: true, novas, atualizadas, ignoradas, logId: log.id }
+      return { ok: true, novas, atualizadas, ignoradas, inativas, logId: log.id }
     } catch (e) {
       await prisma.acessoriasSyncLog.update({
         where: { id: log.id },
@@ -1297,18 +1303,27 @@ export class AcessoriasService {
    * transforma o número do card ("46 ignoradas") em uma lista sobre a qual dá
    * para agir.
    */
-  async empresasDaUltimaSync(situacao: 'casada' | 'atualizada' | 'ignorada', empresaId?: string | null) {
+  async empresasDaUltimaSync(
+    situacao: 'casada' | 'atualizada' | 'ignorada' | 'inativa',
+    empresaId?: string | null,
+  ) {
     const log = await prisma.acessoriasSyncLog.findFirst({
       where: { tipo: 'companies', status: { not: 'running' }, ...(empresaId ? { empresaId } : {}) },
       orderBy: { startedAt: 'desc' },
       select: { id: true, startedAt: true, detalhes: true },
     })
-    if (!log?.detalhes) return { logId: null, quando: null, itens: [] }
+    if (!log?.detalhes) return { logId: null, quando: null, itens: [], totais: {} as Record<string, number> }
     const todos = (Array.isArray(log.detalhes) ? log.detalhes : []) as Array<Record<string, unknown>>
+    const totais: Record<string, number> = {}
+    for (const d of todos) {
+      const k = String(d.situacao ?? '')
+      totais[k] = (totais[k] ?? 0) + 1
+    }
     return {
       logId: log.id,
       quando: log.startedAt,
       itens: todos.filter(d => d.situacao === situacao),
+      totais,
     }
   }
 

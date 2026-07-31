@@ -304,7 +304,7 @@ function CompaniesPanel() {
 }
 
 interface EmpresaSync {
-  situacao: 'casada' | 'atualizada' | 'ignorada'
+  situacao: 'casada' | 'atualizada' | 'ignorada' | 'inativa'
   idAcessorias: number
   documento: string
   razaoAcessorias: string
@@ -318,6 +318,7 @@ const TITULO_GRUPO: Record<string, string> = {
   casada: 'Empresas já casadas',
   atualizada: 'Empresas atualizadas nesta sincronização',
   ignorada: 'Empresas sem cliente correspondente',
+  inativa: 'Empresas encerradas no Acessórias',
 }
 
 /**
@@ -330,11 +331,12 @@ const TITULO_GRUPO: Record<string, string> = {
  * cliente que ainda não existe aqui, etc).
  */
 function EmpresasDaSyncModal({ situacao, onClose, onVinculou }: {
-  situacao: 'casada' | 'atualizada' | 'ignorada'
+  situacao: 'casada' | 'atualizada' | 'ignorada' | 'inativa'
   onClose: () => void
   onVinculou: () => void
 }) {
   const [itens, setItens] = useState<EmpresaSync[]>([])
+  const [totais, setTotais] = useState<Record<string, number>>({})
   const [quando, setQuando] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState('')
@@ -346,8 +348,9 @@ function EmpresasDaSyncModal({ situacao, onClose, onVinculou }: {
   const carregar = useCallback(() => {
     setLoading(true)
     ;(trpc as any).acessorias.empresasDaUltimaSync.query({ situacao })
-      .then((d: { quando: string | null; itens: EmpresaSync[] }) => {
+      .then((d: { quando: string | null; itens: EmpresaSync[]; totais?: Record<string, number> }) => {
         setItens(d.itens || [])
+        setTotais(d.totais || {})
         setQuando(d.quando)
       })
       .catch((e: Error) => alerts.error('Erro', e.message))
@@ -409,6 +412,13 @@ function EmpresasDaSyncModal({ situacao, onClose, onVinculou }: {
           </DialogDescription>
         </DialogHeaderIcon>
         <DialogBody className="space-y-3 overflow-y-auto">
+          {situacao === 'ignorada' && (totais.inativa ?? 0) > 0 && (
+            <p className="rounded border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+              <strong className="text-foreground">{totais.inativa}</strong> empresa(s) encerrada(s) no Acessórias
+              ficaram fora desta lista — não são clientes nossos e não há o que vincular.
+            </p>
+          )}
+
           <Input value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar por empresa, CNPJ ou cliente..." className="h-9 max-w-sm text-sm" />
 

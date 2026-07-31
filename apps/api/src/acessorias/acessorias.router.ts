@@ -161,7 +161,7 @@ export function createAcessoriasRouter(
       .query(({ input }) => svc.entregasDoCliente(input)),
 
     empresasDaUltimaSync: integracaoProc()
-      .input(z.object({ situacao: z.enum(['casada', 'atualizada', 'ignorada']) }))
+      .input(z.object({ situacao: z.enum(['casada', 'atualizada', 'ignorada', 'inativa']) }))
       .query(({ input, ctx }) => svc.empresasDaUltimaSync(input.situacao, ctx.empresaId ?? null)),
 
     vincularEmpresaCliente: integracaoProc()
