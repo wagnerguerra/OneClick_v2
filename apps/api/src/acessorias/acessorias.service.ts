@@ -530,7 +530,7 @@ export class AcessoriasService {
 
       // Registro do que aconteceu por cliente — é o que a tela abre ao clicar
       // na linha do histórico. Limitado para o log não crescer sem controle.
-      const detalhes: Array<{ cliente: string; entregas: number; novas: number; atualizadas: number; erro?: string }> = []
+      const detalhes: Array<{ clienteId: string; cliente: string; entregas: number; novas: number; atualizadas: number; erro?: string }> = []
       let indice = 0
 
       for (const cli of clientes) {
@@ -583,6 +583,7 @@ export class AcessoriasService {
         // o detalhe de ruído e esconderia o que importa.
         if (entregasDoCliente > 0 && detalhes.length < 500) {
           detalhes.push({
+            clienteId: cli.id,
             cliente: cli.razaoSocial ?? cnpj,
             entregas: entregasDoCliente,
             novas: novas - antesNovas,
@@ -1236,6 +1237,35 @@ export class AcessoriasService {
       }
     }
     return { ok: erros.length === 0, aplicados, erros }
+  }
+
+  /**
+   * Entregas espelhadas de um cliente no período — é o detalhe por trás do
+   * "41 entrega(s)" que aparece no resumo da sincronização. Sai do espelho
+   * local, não da API: instantâneo e sem gastar requisição.
+   */
+  async entregasDoCliente(input: { clienteId: string; de?: string; ate?: string }) {
+    const rows = await prisma.acessoriasEntrega.findMany({
+      where: {
+        clienteId: input.clienteId,
+        ...(input.de || input.ate
+          ? {
+              prazo: {
+                ...(input.de ? { gte: new Date(`${input.de}T00:00:00`) } : {}),
+                ...(input.ate ? { lte: new Date(`${input.ate}T00:00:00`) } : {}),
+              },
+            }
+          : {}),
+      },
+      orderBy: [{ prazo: 'asc' }, { nome: 'asc' }],
+      take: 500,
+      select: {
+        id: true, nome: true, competencia: true, prazo: true, status: true,
+        lida: true, guiaLida: true, multa: true, dpto: true, respEntrega: true,
+        dtEntrega: true,
+      },
+    })
+    return rows
   }
 
   /**

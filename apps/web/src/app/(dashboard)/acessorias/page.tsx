@@ -94,7 +94,7 @@ interface SyncLog {
   progressoAtual: number | null
   progressoTotal: number | null
   progressoMsg: string | null
-  detalhes: Array<{ cliente: string; entregas: number; novas: number; atualizadas: number; erro?: string }> | null
+  detalhes: Array<{ clienteId?: string; cliente: string; entregas: number; novas: number; atualizadas: number; erro?: string }> | null
 }
 
 /** Data em pt-BR a partir do formato ISO usado pelos campos de data. */
@@ -1371,6 +1371,113 @@ function LogsPanel() {
   )
 }
 
+interface EntregaEspelho {
+  id: string
+  nome: string
+  competencia: string | null
+  prazo: string | null
+  status: string | null
+  lida: boolean | null
+  guiaLida: string | null
+  multa: boolean
+  dpto: string | null
+  respEntrega: string | null
+  dtEntrega: string | null
+}
+
+/**
+ * Uma linha do resumo por cliente que abre para mostrar QUAIS entregas foram
+ * processadas. O "41 entrega(s)" sozinho não diz o que entrou — e é justamente
+ * isso que se quer conferir depois de sincronizar.
+ *
+ * Busca só quando expande: carregar as entregas dos 138 clientes de uma vez
+ * seria peso à toa para ver uma linha.
+ */
+function LinhaClienteSync({ linha, de, ate }: {
+  linha: { clienteId?: string; cliente: string; entregas: number; novas: number; atualizadas: number }
+  de?: string
+  ate?: string
+}) {
+  const [aberto, setAberto] = useState(false)
+  const [entregas, setEntregas] = useState<EntregaEspelho[] | null>(null)
+  const [carregando, setCarregando] = useState(false)
+
+  async function alternar() {
+    if (aberto) { setAberto(false); return }
+    setAberto(true)
+    if (entregas || !linha.clienteId) return
+    setCarregando(true)
+    try {
+      const r = await (trpc as any).acessorias.entregasDoCliente.query({
+        clienteId: linha.clienteId, de, ate,
+      }) as EntregaEspelho[]
+      setEntregas(r || [])
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+      setEntregas([])
+    } finally { setCarregando(false) }
+  }
+
+  const fmt = (v: string | null) => v ? new Date(v).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={alternar}
+        disabled={!linha.clienteId}
+        className={cn(
+          'flex w-full items-center gap-3 px-3 py-2 text-left text-xs',
+          linha.clienteId ? 'hover:bg-muted/30' : 'cursor-default',
+        )}
+      >
+        {linha.clienteId && (
+          <ChevronRight className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform', aberto && 'rotate-90')} />
+        )}
+        <span className="min-w-0 flex-1 truncate">{linha.cliente}</span>
+        <span className="tabular-nums text-muted-foreground">{linha.entregas} entrega(s)</span>
+        {linha.novas > 0 && <Badge variant="outline" className="text-[10px] text-emerald-700">+{linha.novas}</Badge>}
+        {linha.atualizadas > 0 && <Badge variant="outline" className="text-[10px] text-sky-700">~{linha.atualizadas}</Badge>}
+      </button>
+
+      {aberto && (
+        <div className="border-t border-border/60 bg-muted/20 px-3 py-2">
+          {carregando ? (
+            <div className="flex items-center gap-2 py-2 text-[11px] text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> Carregando entregas...
+            </div>
+          ) : !entregas || entregas.length === 0 ? (
+            <p className="py-2 text-[11px] text-muted-foreground">
+              Nenhuma entrega espelhada para este cliente no período.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {entregas.map(e => (
+                <div key={e.id} className="flex flex-wrap items-center gap-2 rounded bg-card px-2 py-1.5 text-[11px]">
+                  <span className="min-w-0 flex-1 truncate font-medium">{e.nome}</span>
+                  {e.competencia && (
+                    <span className="text-muted-foreground">comp. {fmt(e.competencia)}</span>
+                  )}
+                  <span className="tabular-nums text-muted-foreground">prazo {fmt(e.prazo)}</span>
+                  {e.status && <Badge variant="outline" className="text-[9px]">{e.status}</Badge>}
+                  {e.lida === true && (
+                    <Badge className="bg-emerald-100 text-[9px] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">abriu</Badge>
+                  )}
+                  {e.lida === false && (
+                    <Badge className="bg-amber-100 text-[9px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-400">não abriu</Badge>
+                  )}
+                  {e.multa && <Badge variant="outline" className="text-[9px] text-rose-700">multa</Badge>}
+                  {e.dpto && <span className="text-muted-foreground">{e.dpto}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** Detalhe de uma sincronização — o que aconteceu, cliente a cliente. */
 function DetalheSyncModal({ log, onClose }: { log: SyncLog; onClose: () => void }) {
   const params = (log.parametros ?? {}) as { dtInicio?: string; dtFinal?: string }
@@ -1426,12 +1533,12 @@ function DetalheSyncModal({ log, onClose }: { log: SyncLog; onClose: () => void 
             ) : (
               <div className="max-h-72 divide-y divide-border/60 overflow-y-auto rounded-lg border border-border">
                 {linhas.map((l, i) => (
-                  <div key={l.cliente + '-' + i} className="flex items-center gap-3 px-3 py-2 text-xs">
-                    <span className="min-w-0 flex-1 truncate">{l.cliente}</span>
-                    <span className="tabular-nums text-muted-foreground">{l.entregas} entrega(s)</span>
-                    {l.novas > 0 && <Badge variant="outline" className="text-[10px] text-emerald-700">+{l.novas}</Badge>}
-                    {l.atualizadas > 0 && <Badge variant="outline" className="text-[10px] text-sky-700">~{l.atualizadas}</Badge>}
-                  </div>
+                  <LinhaClienteSync
+                    key={l.cliente + '-' + i}
+                    linha={l}
+                    de={params.dtInicio}
+                    ate={params.dtFinal}
+                  />
                 ))}
               </div>
             )}

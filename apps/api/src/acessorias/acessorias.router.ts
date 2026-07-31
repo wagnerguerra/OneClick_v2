@@ -149,6 +149,14 @@ export function createAcessoriasRouter(
       }))
       .mutation(({ input, ctx }) => svc.applySuggestions(input.items, ctx.empresaId ?? null)),
 
+    entregasDoCliente: integracaoProc()
+      .input(z.object({
+        clienteId: z.string(),
+        de: z.string().optional(),
+        ate: z.string().optional(),
+      }))
+      .query(({ input }) => svc.entregasDoCliente(input)),
+
     empresasDaUltimaSync: integracaoProc()
       .input(z.object({ situacao: z.enum(['casada', 'atualizada', 'ignorada']) }))
       .query(({ input, ctx }) => svc.empresasDaUltimaSync(input.situacao, ctx.empresaId ?? null)),
