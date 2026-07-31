@@ -188,6 +188,7 @@ export default function PainelEntregasPage() {
   const [opcoes, setOpcoes] = useState<OpcoesPainel>({ departamentos: [], responsaveis: [], clientes: [] })
   const [loading, setLoading] = useState(true)
   const [urlTemplate, setUrlTemplate] = useState<string | null>(null)
+  const [truncado, setTruncado] = useState<{ limite: number } | null>(null)
   const [regrasOpen, setRegrasOpen] = useState(false)
   const [novaRegra, setNovaRegra] = useState<Linha | null>(null)
   const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
@@ -210,15 +211,17 @@ export default function PainelEntregasPage() {
       (trpc.acessorias as any).painelEntregasPorCliente.query(f),
     ])
       .then(([lista, porCliente]: [
-        { linhas: Linha[]; resumo: Resumo; urlEntregaTemplate?: string | null },
+        { linhas: Linha[]; resumo: Resumo; urlEntregaTemplate?: string | null
+          truncado?: boolean; limiteLinhas?: number },
         { clientes: PorCliente[] },
       ]) => {
         setLinhas(lista.linhas || [])
         setResumo(lista.resumo)
         setUrlTemplate(lista.urlEntregaTemplate ?? null)
+        setTruncado(lista.truncado ? { limite: lista.limiteLinhas ?? 0 } : null)
         setClientes(porCliente.clientes || [])
       })
-      .catch(() => { setLinhas([]); setResumo(null); setClientes([]) })
+      .catch(() => { setLinhas([]); setResumo(null); setClientes([]); setTruncado(null) })
       .finally(() => setLoading(false))
   }, [filtro])
 
@@ -410,6 +413,12 @@ export default function PainelEntregasPage() {
           <VazioPainel />
         ) : (
           <div className="max-h-[620px] overflow-auto">
+            {truncado && (
+              <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-[12px] text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                Mostrando as primeiras {truncado.limite} linhas. Os indicadores acima contam
+                a carteira inteira — use os filtros para reduzir a lista.
+              </p>
+            )}
             <table className="w-full table-fixed border-collapse text-sm">
               <thead className="sticky top-0 z-10 bg-muted/40 backdrop-blur">
                 <tr className="border-b border-border">

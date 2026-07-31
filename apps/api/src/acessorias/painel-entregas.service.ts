@@ -100,6 +100,56 @@ function ehDispensada(status: string | null): boolean {
   return String(status ?? '').trim().toLowerCase().startsWith('dispensad')
 }
 
+/**
+ * Os mesmos predicados acima, em forma de filtro do banco.
+ *
+ * Precisam existir dos dois lados: em JS para marcar a linha que vai para a
+ * tela, e em SQL para contar sem trazer tudo para a memória. Derivam da MESMA
+ * constante STATUS_ENTREGUE justamente para não divergirem com o tempo.
+ */
+const W_ENTREGUE: Prisma.AcessoriasEntregaWhereInput = {
+  OR: [
+    { dtEntrega: { not: null } },
+    ...STATUS_ENTREGUE.map((x) => ({ status: { startsWith: x, mode: 'insensitive' as const } })),
+  ],
+}
+const W_DISPENSADA: Prisma.AcessoriasEntregaWhereInput = {
+  status: { startsWith: 'dispensad', mode: 'insensitive' },
+}
+
+/**
+ * Comparação contra o vencimento (dtAtraso, com fallback no prazo). O banco não
+ * tem a coluna calculada, então o COALESCE vira um OR entre os dois casos.
+ */
+function wVencimento(op: 'lt' | 'gte' | 'lte', d: Date): Prisma.AcessoriasEntregaWhereInput {
+  return {
+    OR: [
+      { dtAtraso: { [op]: d } },
+      { dtAtraso: null, prazo: { [op]: d } },
+    ],
+  }
+}
+
+/** Junta filtros em AND — vários `OR` no mesmo nível se sobrescreveriam. */
+function e(...partes: Array<Prisma.AcessoriasEntregaWhereInput | null>): Prisma.AcessoriasEntregaWhereInput {
+  return { AND: partes.filter(Boolean) as Prisma.AcessoriasEntregaWhereInput[] }
+}
+
+function inicioDoDia(): Date {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function emDias(base: Date, dias: number): Date {
+  const d = new Date(base)
+  d.setDate(d.getDate() + dias)
+  return d
+}
+
+/** Teto de linhas devolvidas para a tela. Os contadores NÃO dependem dele. */
+const LIMITE_LINHAS = 2000
+
 function diasAte(d: Date | null): number | null {
   if (!d) return null
   const hoje = new Date()
@@ -111,10 +161,9 @@ function diasAte(d: Date | null): number | null {
 
 @Injectable()
 export class PainelEntregasService {
-  async listar(filtro: FiltroPainel, isMaster: boolean, empresaId?: string) {
-    const janela = filtro.janelaDias ?? 7
-
-    const where: Prisma.AcessoriasEntregaWhereInput = {
+  /** Filtros da tela — comuns às duas visões. */
+  private baseWhere(filtro: FiltroPainel, isMaster: boolean, empresaId?: string): Prisma.AcessoriasEntregaWhereInput {
+    return {
       ...(!isMaster && empresaId ? { empresaId } : {}),
       ...(filtro.clienteId ? { clienteId: filtro.clienteId } : {}),
       ...(filtro.dpto ? { dpto: filtro.dpto } : {}),
@@ -133,15 +182,64 @@ export class PainelEntregasService {
           }
         : {}),
     }
+  }
+
+  async listar(filtro: FiltroPainel, isMaster: boolean, empresaId?: string) {
+    const janela = filtro.janelaDias ?? 7
+    const where = this.baseWhere(filtro, isMaster, empresaId)
+
+    const hoje = inicioDoDia()
+    const limiteJanela = emDias(hoje, janela)
+
+    // Guia entregue que o cliente ainda não abriu. É o coração do painel, e o
+    // rótulo do cartão diz exatamente isso — por isso exige `entregue`.
+    const wNaoLidas = e(where, W_ENTREGUE, { lida: false })
+    const wAVencer = e(wNaoLidas, wVencimento('gte', hoje))
+    const wCriticas = e(wAVencer, wVencimento('lte', limiteJanela))
+    const wAtrasadas = e(where, { NOT: W_ENTREGUE }, { NOT: W_DISPENSADA }, wVencimento('lt', hoje))
+
+    // Contagem no banco, e não sobre a fatia carregada: com o teto aplicado
+    // antes, o resumo descrevia as N linhas mais antigas em vez da carteira.
+    // Era isso que zerava "não abertas e vencendo" ao abrir a tela — as linhas
+    // que estavam por vencer ficavam fora do corte.
+    const [total, entregues, comGuia, lidas, naoLidas, naoLidasAVencer, naoLidasCriticas, atrasadas, comMulta] =
+      await Promise.all([
+        prisma.acessoriasEntrega.count({ where }),
+        prisma.acessoriasEntrega.count({ where: e(where, W_ENTREGUE) }),
+        prisma.acessoriasEntrega.count({ where: e(where, { lida: { not: null } }) }),
+        prisma.acessoriasEntrega.count({ where: e(where, { lida: true }) }),
+        prisma.acessoriasEntrega.count({ where: wNaoLidas }),
+        prisma.acessoriasEntrega.count({ where: wAVencer }),
+        prisma.acessoriasEntrega.count({ where: wCriticas }),
+        prisma.acessoriasEntrega.count({ where: wAtrasadas }),
+        prisma.acessoriasEntrega.count({ where: e(where, { multa: true }) }),
+      ])
+
+    const resumo = {
+      total, entregues, comGuia, lidas, naoLidas, naoLidasAVencer,
+      /** Não lidas com vencimento dentro da janela — o que precisa de telefonema hoje. */
+      naoLidasCriticas,
+      /** Nem entregue nem dispensada, com o vencimento já passado. */
+      atrasadas,
+      comMulta,
+    }
+
+    // O foco entra na consulta, não depois dela: filtrar em memória sobre uma
+    // fatia truncada devolvia lista vazia justamente no foco mais usado.
+    const wFoco =
+      filtro.foco === 'nao_lidas' ? wNaoLidas
+      : filtro.foco === 'a_vencer' ? wCriticas
+      : filtro.foco === 'atrasadas' ? wAtrasadas
+      : where
 
     const rows = await prisma.acessoriasEntrega.findMany({
-      where,
+      where: wFoco,
       orderBy: [{ prazo: 'asc' }, { nome: 'asc' }],
-      take: 3000,
+      take: LIMITE_LINHAS,
       include: { cliente: { select: { id: true, code: true, razaoSocial: true, documento: true } } },
     })
 
-    const linhas: LinhaPainel[] = rows.map((r) => ({
+    const filtradas: LinhaPainel[] = rows.map((r) => ({
       id: r.id,
       entId: r.entId,
       clienteId: r.clienteId,
@@ -173,44 +271,14 @@ export class PainelEntregasService {
       ...responsavelDe(r.respEntrega, r.respPrazo),
     }))
 
-    // O alvo do painel: guia já entregue, cliente ainda não abriu, prazo ainda
-    // não venceu. É o único momento em que dá para agir antes do estrago.
-    const naoLidasAVencer = linhas.filter(
-      (l) => l.entregue && l.lida === false && l.diasParaVencimento !== null && l.diasParaVencimento >= 0,
-    )
-
-    const resumo = {
-      total: linhas.length,
-      entregues: linhas.filter((l) => l.entregue).length,
-      comGuia: linhas.filter((l) => l.lida !== null).length,
-      lidas: linhas.filter((l) => l.lida === true).length,
-      naoLidas: linhas.filter((l) => l.lida === false).length,
-      naoLidasAVencer: naoLidasAVencer.length,
-      /** Não lidas com vencimento dentro da janela — o que precisa de telefonema hoje. */
-      naoLidasCriticas: naoLidasAVencer.filter((l) => (l.diasParaVencimento ?? 99) <= janela).length,
-      // Nem entregue nem dispensada, com prazo vencido. Dispensada ficava aqui
-      // dentro e inflava o número com obrigação que sequer era devida.
-      atrasadas: linhas.filter((l) => !l.entregue && !l.dispensada && (l.diasParaVencimento ?? 1) < 0).length,
-      comMulta: linhas.filter((l) => l.multa).length,
-    }
-
-    const filtradas = (() => {
-      switch (filtro.foco) {
-        case 'nao_lidas':
-          return linhas.filter((l) => l.entregue && l.lida === false)
-        case 'a_vencer':
-          return naoLidasAVencer.filter((l) => (l.diasParaVencimento ?? 99) <= janela)
-        case 'atrasadas':
-          return linhas.filter((l) => !l.entregue && !l.dispensada && (l.diasParaVencimento ?? 1) < 0)
-        default:
-          return linhas
-      }
-    })()
-
     return {
       linhas: filtradas,
       resumo,
       janelaDias: janela,
+      // A tela avisa quando bateu no teto. Truncar em silêncio faz uma lista
+      // parcial parecer completa.
+      truncado: filtradas.length >= LIMITE_LINHAS,
+      limiteLinhas: LIMITE_LINHAS,
       // Template do atalho para o Acessórias, configurado em /configuracoes.
       // Vazio = a tela simplesmente não mostra o botão, em vez de abrir um link
       // quebrado.
@@ -218,36 +286,81 @@ export class PainelEntregasService {
     }
   }
 
-  /** Agrupamento por cliente — a visão de quem vai ligar para cobrar. */
+  /**
+   * Agrupamento por cliente — a visão de quem vai ligar para cobrar.
+   *
+   * Contava em cima do retorno de `listar`, que é limitado ao que cabe na tela:
+   * cliente fora do corte simplesmente não existia aqui. Agora agrega no banco.
+   */
   async porCliente(filtro: FiltroPainel, isMaster: boolean, empresaId?: string) {
-    const { linhas, janelaDias } = await this.listar(
-      { ...filtro, foco: 'todas' }, isMaster, empresaId,
-    )
+    const janelaDias = filtro.janelaDias ?? 7
+    const where = this.baseWhere(filtro, isMaster, empresaId)
+    const hoje = inicioDoDia()
 
-    const mapa = new Map<string, {
+    const wNaoLidas = e(where, W_ENTREGUE, { lida: false })
+    const wAtrasadas = e(where, { NOT: W_ENTREGUE }, { NOT: W_DISPENSADA }, wVencimento('lt', hoje))
+
+    const [naoLidasRows, atrasadasPorCliente, totalPorCliente] = await Promise.all([
+      // As não lidas vêm como linhas porque a tela mostra os nomes das
+      // obrigações e o próximo vencimento — não só a contagem.
+      prisma.acessoriasEntrega.findMany({
+        where: wNaoLidas,
+        select: {
+          clienteId: true, nome: true, prazo: true, dtAtraso: true,
+          cliente: { select: { code: true, razaoSocial: true, documento: true } },
+        },
+      }),
+      prisma.acessoriasEntrega.groupBy({ by: ['clienteId'], where: wAtrasadas, _count: { _all: true } }),
+      prisma.acessoriasEntrega.groupBy({ by: ['clienteId'], where, _count: { _all: true } }),
+    ])
+
+    type Agregado = {
       clienteId: string; clienteCode: number; clienteNome: string; documento: string
       total: number; naoLidas: number; naoLidasCriticas: number; atrasadas: number
       proximoPrazo: Date | null; obrigacoesNaoLidas: string[]
-    }>()
+    }
+    const mapa = new Map<string, Agregado>()
+    const novo = (id: string): Agregado => ({
+      clienteId: id, clienteCode: 0, clienteNome: '', documento: '',
+      total: 0, naoLidas: 0, naoLidasCriticas: 0, atrasadas: 0,
+      proximoPrazo: null, obrigacoesNaoLidas: [],
+    })
 
-    for (const l of linhas) {
-      const atual = mapa.get(l.clienteId) ?? {
-        clienteId: l.clienteId, clienteCode: l.clienteCode, clienteNome: l.clienteNome,
-        documento: l.documento, total: 0, naoLidas: 0, naoLidasCriticas: 0, atrasadas: 0,
-        proximoPrazo: null as Date | null, obrigacoesNaoLidas: [] as string[],
+    for (const r of naoLidasRows) {
+      const a = mapa.get(r.clienteId) ?? novo(r.clienteId)
+      a.clienteCode = r.cliente.code
+      a.clienteNome = r.cliente.razaoSocial
+      a.documento = r.cliente.documento
+      a.naoLidas++
+      a.obrigacoesNaoLidas.push(r.nome)
+      const venc = r.dtAtraso ?? r.prazo
+      const dias = diasAte(venc)
+      if (dias !== null && dias >= 0 && dias <= janelaDias) a.naoLidasCriticas++
+      if (venc && (!a.proximoPrazo || venc < a.proximoPrazo)) a.proximoPrazo = venc
+      mapa.set(r.clienteId, a)
+    }
+
+    for (const g of atrasadasPorCliente) {
+      const a = mapa.get(g.clienteId) ?? novo(g.clienteId)
+      a.atrasadas = g._count._all
+      mapa.set(g.clienteId, a)
+    }
+    for (const g of totalPorCliente) {
+      const a = mapa.get(g.clienteId)
+      if (a) a.total = g._count._all
+    }
+
+    // Quem entrou só pela contagem de atrasadas ainda não tem nome preenchido.
+    const semNome = [...mapa.values()].filter((a) => !a.clienteNome).map((a) => a.clienteId)
+    if (semNome.length) {
+      const cs = await prisma.cliente.findMany({
+        where: { id: { in: semNome } },
+        select: { id: true, code: true, razaoSocial: true, documento: true },
+      })
+      for (const c of cs) {
+        const a = mapa.get(c.id)
+        if (a) { a.clienteCode = c.code; a.clienteNome = c.razaoSocial; a.documento = c.documento }
       }
-      atual.total++
-      const naoLida = l.entregue && l.lida === false
-      if (naoLida) {
-        atual.naoLidas++
-        atual.obrigacoesNaoLidas.push(l.obrigacao)
-        if (l.diasParaVencimento !== null && l.diasParaVencimento >= 0 && l.diasParaVencimento <= janelaDias) {
-          atual.naoLidasCriticas++
-        }
-        if (l.vencimento && (!atual.proximoPrazo || l.vencimento < atual.proximoPrazo)) atual.proximoPrazo = l.vencimento
-      }
-      if (!l.entregue && !l.dispensada && (l.diasParaVencimento ?? 1) < 0) atual.atrasadas++
-      mapa.set(l.clienteId, atual)
     }
 
     // Só interessa quem tem algo pendente; ordena pelo que aperta primeiro.
