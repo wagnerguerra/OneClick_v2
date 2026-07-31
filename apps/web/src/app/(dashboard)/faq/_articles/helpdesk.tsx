@@ -243,7 +243,7 @@ export default function FaqHelpdeskPage() {
           <DefRow termo="change_responsavel" texto="Reatribui entre agentes — líder TI e cargos seniores." />
           <DefRow termo="Escopo de visualização" texto="Escolha única: só os meus (solicitante/responsável), os da minha área, ou todos da empresa. Define o que aparece no painel e as opções do filtro." />
           <DefRow termo="gerenciar_categorias" texto="Edita o catálogo de categorias e SLA — apenas master/empresa-master por padrão." />
-          <DefRow termo="panel_metricas" texto="Acessa a página de métricas TI (CSAT médio, MTTR, % SLA cumprido)." />
+          <DefRow termo="panel_metricas" texto="Acessa a página de indicadores TI (CSAT médio, MTTR, % SLA cumprido)." />
         </div>
         <Callout tipo="aviso">
           <AlertTriangle className="inline h-3 w-3" /> A permissão <code className="text-[11px]">helpdesk</code> sem
@@ -276,7 +276,7 @@ export default function FaqHelpdeskPage() {
             <p className="text-foreground/70">
               Notificação dispara para responsável + líder TI + coordenador. O card no kanban
               ganha borda vermelha pulsante. O histórico de SLA estourado fica visível no
-              painel de métricas para identificar gargalos.
+              painel de indicadores para identificar gargalos.
             </p>
           </div>
         </div>

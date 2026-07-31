@@ -418,7 +418,7 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'arquivar', label: 'Arquivar tickets', group: 'Atendimento' },
     // Administração
     { key: 'gerenciar_categorias', label: 'Gerenciar categorias e SLA padrão', group: 'Administração' },
-    { key: 'panel_metricas', label: 'Acesso ao painel de métricas', group: 'Administração' },
+    { key: 'panel_metricas', label: 'Acesso ao painel completo de indicadores', group: 'Administração' },
   ],
   'gestao-certificados': [
     { key: 'acessar_certificados', label: 'Acessar certificados (arquivos PFX e senhas)', group: 'Acesso ao certificado' },
