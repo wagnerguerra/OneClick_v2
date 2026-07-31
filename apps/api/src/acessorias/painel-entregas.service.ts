@@ -381,28 +381,47 @@ export class PainelEntregasService {
     return { clientes, janelaDias }
   }
 
-  /** Valores distintos para preencher os filtros da tela. */
-  async opcoes(isMaster: boolean, empresaId?: string) {
-    const where = !isMaster && empresaId ? { empresaId } : {}
-    const [dptos, resps, respsPrazo] = await Promise.all([
+  /**
+   * Valores distintos para preencher os filtros da tela.
+   *
+   * Cada campo é montado ignorando a si mesmo e respeitando os demais: escolher
+   * a área PESSOAL deixa em "Responsável" só quem tem entrega em PESSOAL. Sem
+   * isso, a lista oferecia combinações que só devolvem tela vazia.
+   */
+  async opcoes(
+    isMaster: boolean,
+    empresaId?: string,
+    filtro: { dpto?: string; responsavel?: string; clienteId?: string } = {},
+  ) {
+    const escopo: Prisma.AcessoriasEntregaWhereInput = !isMaster && empresaId ? { empresaId } : {}
+    const porDpto = filtro.dpto ? { dpto: filtro.dpto } : {}
+    const porCliente = filtro.clienteId ? { clienteId: filtro.clienteId } : {}
+    const porResp = filtro.responsavel
+      ? { OR: [{ respEntrega: filtro.responsavel }, { respPrazo: filtro.responsavel }] }
+      : {}
+
+    const [dptos, resps, respsPrazo, comEntrega] = await Promise.all([
+      // Departamento não se filtra por departamento — sobraria só o escolhido.
       prisma.acessoriasEntrega.findMany({
-        where: { ...where, dpto: { not: null } },
+        where: e(escopo, porCliente, porResp, { dpto: { not: null } }),
         select: { dpto: true }, distinct: ['dpto'], orderBy: { dpto: 'asc' }, take: 50,
       }),
       prisma.acessoriasEntrega.findMany({
-        where: { ...where, respEntrega: { not: null } },
-        select: { respEntrega: true }, distinct: ['respEntrega'], orderBy: { respEntrega: 'asc' }, take: 100,
+        where: e(escopo, porDpto, porCliente, { respEntrega: { not: null } }),
+        select: { respEntrega: true }, distinct: ['respEntrega'], orderBy: { respEntrega: 'asc' }, take: 200,
       }),
       prisma.acessoriasEntrega.findMany({
-        where: { ...where, respPrazo: { not: null } },
-        select: { respPrazo: true }, distinct: ['respPrazo'], orderBy: { respPrazo: 'asc' }, take: 100,
+        where: e(escopo, porDpto, porCliente, { respPrazo: { not: null } }),
+        select: { respPrazo: true }, distinct: ['respPrazo'], orderBy: { respPrazo: 'asc' }, take: 200,
+      }),
+      // Só os clientes que têm entrega no recorte atual — filtrar por quem não
+      // aparece no painel não serviria para nada.
+      prisma.acessoriasEntrega.findMany({
+        where: e(escopo, porDpto, porResp),
+        select: { clienteId: true }, distinct: ['clienteId'], take: 3000,
       }),
     ])
-    // Só os clientes que têm entrega espelhada — filtrar por quem não aparece
-    // no painel não serviria para nada.
-    const comEntrega = await prisma.acessoriasEntrega.findMany({
-      where, select: { clienteId: true }, distinct: ['clienteId'], take: 2000,
-    })
+
     const clientes = await prisma.cliente.findMany({
       where: { id: { in: comEntrega.map((c) => c.clienteId) } },
       select: { id: true, code: true, razaoSocial: true, documento: true },
@@ -410,13 +429,13 @@ export class PainelEntregasService {
     })
 
     return {
-      departamentos: dptos.map((d) => d.dpto).filter(Boolean) as string[],
+      departamentos: dptos.map((x) => x.dpto).filter(Boolean) as string[],
       // União dos dois papéis: quem só tem obrigação em aberto não aparecia na
       // lista de responsáveis, e era impossível filtrar por ele.
       responsaveis: [...new Set([
         ...resps.map((r) => r.respEntrega),
         ...respsPrazo.map((r) => r.respPrazo),
-      ].filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      ].filter(Boolean) as string[])].sort((x, y) => x.localeCompare(y, 'pt-BR')),
       clientes,
     }
   }

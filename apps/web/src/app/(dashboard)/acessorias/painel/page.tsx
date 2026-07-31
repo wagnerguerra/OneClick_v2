@@ -250,10 +250,21 @@ export default function PainelEntregasPage() {
   }, [filtro])
 
   useEffect(() => { carregar() }, [carregar])
+  // As opções acompanham o que já foi filtrado: escolher a área PESSOAL deixa
+  // em "Responsável" só quem tem entrega em PESSOAL, e vice-versa.
   useEffect(() => {
-    ;(trpc.acessorias as any).painelEntregasOpcoes.query()
-      .then((d: OpcoesPainel) => setOpcoes({ ...d, clientes: d.clientes ?? [] })).catch(() => {})
-  }, [])
+    ;(trpc.acessorias as any).painelEntregasOpcoes
+      .query({ dpto: dpto || undefined, responsavel: responsavel || undefined, clienteId: clienteId || undefined })
+      .then((d: OpcoesPainel) => {
+        const novas = { ...d, clientes: d.clientes ?? [] }
+        setOpcoes(novas)
+        // Se a escolha anterior não existe mais no recorte, limpa: manter um
+        // filtro invisível na tela só produziria lista vazia sem explicação.
+        if (responsavel && !novas.responsaveis.includes(responsavel)) setResponsavel('')
+        if (clienteId && !novas.clientes.some((c) => c.id === clienteId)) setClienteId('')
+      })
+      .catch(() => {})
+  }, [dpto, responsavel, clienteId])
 
   const ordenar = (campo: CampoOrdem) => {
     if (campo === ordem) setDir((d) => (d === 'asc' ? 'desc' : 'asc'))

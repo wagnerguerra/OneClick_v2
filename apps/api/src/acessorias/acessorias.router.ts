@@ -268,10 +268,17 @@ export function createAcessoriasRouter(
         return regrasSvc.remover(input.id)
       }),
 
+    // Recebe o filtro atual: cada campo passa a oferecer só o que ainda produz
+    // resultado dado o que já foi escolhido.
     painelEntregasOpcoes: painelProc()
-      .query(({ ctx }) => {
+      .input(z.object({
+        dpto: z.string().optional(),
+        responsavel: z.string().optional(),
+        clienteId: z.string().optional(),
+      }).optional())
+      .query(({ input, ctx }) => {
         if (!painelSvc) return { departamentos: [], responsaveis: [], clientes: [] }
-        return painelSvc.opcoes(ctx.isMaster ?? false, ctx.empresaId)
+        return painelSvc.opcoes(ctx.isMaster ?? false, ctx.empresaId, input ?? {})
       }),
   })
 }
