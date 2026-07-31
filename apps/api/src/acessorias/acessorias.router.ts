@@ -100,8 +100,13 @@ export function createAcessoriasRouter(
         empresaId: ctx.empresaId ?? null,
       })),
 
+    // Varre a carteira no Acessórias e GRAVA o resultado — ação sob demanda.
     listObligationsObserved: integracaoProc()
-      .query(() => svc.listObligationsObserved()),
+      .query(({ ctx }) => svc.listObligationsObserved(ctx.empresaId ?? null)),
+
+    // Lê o que já foi importado — é o que a tela carrega ao abrir.
+    listObligationsObservedCache: integracaoProc()
+      .query(({ ctx }) => svc.listObligationsObservedCache(ctx.empresaId ?? null)),
 
     listObligationMaps: integracaoProc()
       .query(({ ctx }) => svc.listObligationMaps(ctx.empresaId ?? null)),

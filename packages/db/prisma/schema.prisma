@@ -4537,6 +4537,29 @@ model AcessoriasObligationMap {
   @@map("acessorias_obligation_maps")
 }
 
+/// Obrigações observadas no Acessórias — o resultado de "Importar obrigações".
+///
+/// A importação percorre a carteira inteira lá (dezenas de requisições) e por
+/// isso é uma ação sob demanda. Sem guardar o resultado, sair da tela apagava a
+/// lista e obrigava a repetir a varredura só para voltar a ver o que já se
+/// sabia.
+model AcessoriasObrigacaoObservada {
+  id           String   @id @default(cuid())
+  /// Nome exato como vem do Acessórias — é a chave do mapeamento.
+  nome         String
+  /// Em quantas empresas a obrigação aparece.
+  ocorrencias  Int      @default(0)
+  /// Departamento responsável, derivado das entregas. Null quando ainda não há
+  /// entrega espelhada para essa obrigação.
+  departamento String?
+  empresaId    String?  @map("empresa_id")
+  atualizadoEm DateTime @default(now()) @map("atualizado_em")
+
+  @@unique([empresaId, nome])
+  @@index([nome])
+  @@map("acessorias_obrigacoes_observadas")
+}
+
 /// Espelho bruto das entregas do Acessórias — uma linha por entrega, do jeito
 /// que ela vem de lá.
 ///

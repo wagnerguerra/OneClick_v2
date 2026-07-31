@@ -541,14 +541,19 @@ function MappingPanel() {
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [mapsRes, servRes, areasRes] = await Promise.all([
+      const [mapsRes, servRes, areasRes, obsRes] = await Promise.all([
         (trpc as any).acessorias.listObligationMaps.query(),
         (trpc as any).servico.listServicos.query({ categoria: 'MENSAL' as const }).catch(() => []),
         (trpc as any).area.listForSelect.query().catch(() => []),
+        // Lista guardada da última importação — sem isso, sair da tela apagava
+        // tudo e obrigava a repetir uma varredura de dezenas de requisições.
+        (trpc as any).acessorias.listObligationsObservedCache.query().catch(() => ({ itens: [] })),
       ])
       setGrupos((mapsRes as ObligationGroup[]) || [])
       setServicos((servRes as ServicoLite[]) || [])
       setAreas((areasRes as Array<{ id: string; name: string }>) || [])
+      const obs = obsRes as { itens?: Array<{ nome: string; ocorrencias: number; departamento: string | null }> }
+      setObserved(obs?.itens ?? [])
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
     } finally {

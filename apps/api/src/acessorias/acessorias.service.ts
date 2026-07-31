@@ -910,7 +910,7 @@ export class AcessoriasService {
    *  mapping mostrar os candidatos sem precisar puxar deliveries individuais.
    *  Usa /companies/ListAll com flag `?obligations` (sem valor — Acessórias
    *  reconhece presença do param, não valor). */
-  async listObligationsObserved(): Promise<Array<{ nome: string; ocorrencias: number; departamento: string | null }>> {
+  async listObligationsObserved(empresaId?: string | null): Promise<Array<{ nome: string; ocorrencias: number; departamento: string | null }>> {
     const counter = new Map<string, number>()
     let pagina = 1
     let totalCompanies = 0
@@ -974,9 +974,15 @@ export class AcessoriasService {
       return ordenado.length > 1 ? `${principal} +${ordenado.length - 1}` : principal
     }
 
-    return [...counter.entries()]
+    const resultado = [...counter.entries()]
       .map(([nome, ocorrencias]) => ({ nome, ocorrencias, departamento: departamentoDe(nome) }))
       .sort((a, b) => b.ocorrencias - a.ocorrencias)
+
+    // Guarda o resultado: a varredura custa dezenas de requisições e o usuário
+    // não deve pagar de novo só por ter saído da tela.
+    await this.guardarObservadas(resultado, empresaId ?? null).catch(() => null)
+
+    return resultado
   }
 
   /** Mapeia regime do OneClick (Cliente.tributacao) pro código numérico do Acessórias.
@@ -1225,8 +1231,8 @@ export class AcessoriasService {
      *  ficou para trás. */
     currentServicoIds: string[]
   }>> {
-    const [observed, maps, servicos] = await Promise.all([
-      this.listObligationsObserved(),
+    const [observedCache, maps, servicos] = await Promise.all([
+      this.listObligationsObservedCache(),
       prisma.acessoriasObligationMap.findMany({ select: { nome: true, servicoId: true } }),
       prisma.servico.findMany({
         where: { ativo: true, categoriaServico: 'MENSAL' },
@@ -1242,7 +1248,7 @@ export class AcessoriasService {
       mappedByNome.get(key)!.push(m.servicoId)
     }
 
-    return observed.map(o => {
+    return observedCache.itens.map(o => {
       const classified = this.classifyObligation(o.nome)
       const sug = this.pickServico(classified, servicos)
       const currentIds = mappedByNome.get(o.nome.toLowerCase()) ?? []
@@ -1392,6 +1398,43 @@ export class AcessoriasService {
       },
     })
     return { ok: true }
+  }
+
+  /** Grava o resultado da importação, substituindo o anterior da empresa. */
+  private async guardarObservadas(
+    itens: Array<{ nome: string; ocorrencias: number; departamento: string | null }>,
+    empresaId: string | null,
+  ) {
+    await prisma.$transaction(async (tx) => {
+      await tx.acessoriasObrigacaoObservada.deleteMany({ where: { empresaId } })
+      if (itens.length === 0) return
+      await tx.acessoriasObrigacaoObservada.createMany({
+        data: itens.map(i => ({
+          nome: i.nome,
+          ocorrencias: i.ocorrencias,
+          departamento: i.departamento,
+          empresaId,
+        })),
+        skipDuplicates: true,
+      })
+    })
+  }
+
+  /**
+   * Lista guardada da última importação. É o que a tela carrega ao abrir —
+   * instantâneo e sem tocar na API. Vazia significa "nunca importou", e a tela
+   * orienta a rodar a importação.
+   */
+  async listObligationsObservedCache(empresaId?: string | null) {
+    const rows = await prisma.acessoriasObrigacaoObservada.findMany({
+      where: { empresaId: empresaId ?? null },
+      orderBy: [{ ocorrencias: 'desc' }, { nome: 'asc' }],
+      select: { nome: true, ocorrencias: true, departamento: true, atualizadoEm: true },
+    }).catch(() => [])
+    return {
+      itens: rows.map(r => ({ nome: r.nome, ocorrencias: r.ocorrencias, departamento: r.departamento })),
+      atualizadoEm: rows[0]?.atualizadoEm ?? null,
+    }
   }
 
   /**
