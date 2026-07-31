@@ -4,15 +4,19 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
   MailWarning, Loader2, AlertTriangle, Clock, CheckCircle2, ExternalLink,
-  Users, ListChecks, RefreshCw, MailOpen,
+  Users, ListChecks, RefreshCw, MailOpen, Ban, SlidersHorizontal, Trash2,
 } from 'lucide-react'
 import {
   Button, Card, Badge, Input, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
+import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
 
@@ -72,6 +76,11 @@ export default function PainelEntregasPage() {
   const [clientes, setClientes] = useState<PorCliente[]>([])
   const [opcoes, setOpcoes] = useState<{ departamentos: string[]; responsaveis: string[] }>({ departamentos: [], responsaveis: [] })
   const [loading, setLoading] = useState(true)
+  const [regrasOpen, setRegrasOpen] = useState(false)
+  const [novaRegra, setNovaRegra] = useState<Linha | null>(null)
+  const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
+  const subs = (permissions.find(p => p.moduleSlug === 'acessorias')?.subPermissions ?? {}) as Record<string, boolean>
+  const podeRegras = isMaster || isEmpresaMaster || subs.gerenciar_integracao === true
 
   const filtro = useCallback(() => ({
     foco,
@@ -124,6 +133,11 @@ export default function PainelEntregasPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {podeRegras && (
+            <Button variant="outline" size="sm" onClick={() => setRegrasOpen(true)}>
+              <SlidersHorizontal className="h-4 w-4" />Regras
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={carregar} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}Atualizar
           </Button>
@@ -260,7 +274,7 @@ export default function PainelEntregasPage() {
             {linhasFiltradas.map((l) => {
               const p = prazoTexto(l.diasParaPrazo)
               return (
-                <div key={l.id} className="flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <div key={l.id} className="group flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="truncate text-sm font-medium">{l.obrigacao}</span>
@@ -286,6 +300,16 @@ export default function PainelEntregasPage() {
                     {l.respEntrega && <span className="text-muted-foreground">{l.respEntrega}</span>}
                     <span className="text-muted-foreground tabular-nums">{fmtData(l.prazo)}</span>
                     <span className={cn('tabular-nums', p.cor)}>{p.texto}</span>
+                    {podeRegras && (
+                      <button
+                        type="button"
+                        onClick={() => setNovaRegra(l)}
+                        title="Esta obrigação não é devida — criar regra"
+                        className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                      >
+                        <Ban className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               )
@@ -298,7 +322,202 @@ export default function PainelEntregasPage() {
         Dados espelhados do Acessórias na última sincronização de entregas. Obrigações sem guia para
         o cliente abrir não entram na contagem de &ldquo;não abertas&rdquo;.
       </p>
+
+      {novaRegra && (
+        <NovaRegraModal
+          linha={novaRegra}
+          onClose={() => setNovaRegra(null)}
+          onSalvo={() => { setNovaRegra(null); carregar() }}
+        />
+      )}
+      {regrasOpen && <RegrasModal onClose={() => setRegrasOpen(false)} onMudou={carregar} />}
     </div>
+  )
+}
+
+/**
+ * Cria a regra a partir de uma linha do painel — que é onde o problema aparece.
+ * Obrigar a ir a uma tela de configuração para dizer "isso aqui não é devido"
+ * faria a maioria simplesmente conviver com o ruído.
+ */
+function NovaRegraModal({ linha, onClose, onSalvo }: {
+  linha: Linha; onClose: () => void; onSalvo: () => void
+}) {
+  const [escopo, setEscopo] = useState<'cliente' | 'todos'>('cliente')
+  const [motivo, setMotivo] = useState('')
+  const [salvando, setSalvando] = useState(false)
+
+  async function salvar() {
+    setSalvando(true)
+    try {
+      const r = await (trpc.acessorias as any).salvarRegraObrigacao.mutate({
+        nome: linha.obrigacao,
+        clienteId: escopo === 'cliente' ? linha.clienteId : null,
+        considerar: false,
+        motivo: motivo.trim() || undefined,
+      }) as { removidos: number }
+      await alerts.success(
+        'Regra criada',
+        r.removidos > 0
+          ? `${r.removidos} entrega(s) saíram do painel. A próxima sincronização já não traz esta obrigação.`
+          : 'A próxima sincronização já não traz esta obrigação.',
+      )
+      onSalvo()
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally { setSalvando(false) }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeaderIcon icon={Ban} color="rose">
+          <DialogTitle>Obrigação não devida</DialogTitle>
+          <DialogDescription>
+            A sincronização deixa de trazer esta obrigação, e ela sai do painel.
+          </DialogDescription>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-4">
+          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+            <p className="font-medium">{linha.obrigacao}</p>
+            <p className="text-[11px] text-muted-foreground">
+              #{linha.clienteCode} — {linha.clienteNome}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-[13px] font-semibold">Vale para</p>
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted/30">
+              <input type="radio" checked={escopo === 'cliente'} onChange={() => setEscopo('cliente')} className="mt-0.5 h-4 w-4" />
+              <span>
+                <strong>Só este cliente</strong>
+                <span className="block text-[11px] text-muted-foreground">
+                  Os demais continuam com a obrigação normalmente.
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted/30">
+              <input type="radio" checked={escopo === 'todos'} onChange={() => setEscopo('todos')} className="mt-0.5 h-4 w-4" />
+              <span>
+                <strong>Todos os clientes</strong>
+                <span className="block text-[11px] text-muted-foreground">
+                  A obrigação sai do painel inteiro. Depois dá para abrir exceção por cliente.
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <div>
+            <p className="mb-1.5 text-[13px] font-semibold">Motivo (opcional)</p>
+            <Input value={motivo} onChange={e => setMotivo(e.target.value)}
+              placeholder="Ex.: cliente não tem empregados" className="h-9 text-sm" />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Quem revisar a regra daqui a um ano vai precisar disto.
+            </p>
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button variant="destructive" size="sm" disabled={salvando} onClick={salvar}>
+            {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+            Não considerar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface Regra {
+  id: string
+  nome: string
+  considerar: boolean
+  motivo: string | null
+  criadoEm: string
+  cliente: { id: string; code: number; razaoSocial: string } | null
+}
+
+/** Regras existentes, com a possibilidade de desfazer. */
+function RegrasModal({ onClose, onMudou }: { onClose: () => void; onMudou: () => void }) {
+  const [regras, setRegras] = useState<Regra[]>([])
+  const [loading, setLoading] = useState(true)
+  const [removendo, setRemovendo] = useState<string | null>(null)
+
+  const carregar = useCallback(() => {
+    setLoading(true)
+    ;(trpc.acessorias as any).listarRegrasObrigacao.query()
+      .then((d: Regra[]) => setRegras(d || []))
+      .catch((e: Error) => alerts.error('Erro', e.message))
+      .finally(() => setLoading(false))
+  }, [])
+  useEffect(() => { carregar() }, [carregar])
+
+  async function remover(r: Regra) {
+    const ok = await alerts.confirm({
+      title: 'Remover a regra?',
+      text: `"${r.nome}" volta a ser considerada${r.cliente ? ` para ${r.cliente.razaoSocial}` : ''} na próxima sincronização.`,
+      icon: 'warning',
+      confirmText: 'Remover',
+    })
+    if (!ok) return
+    setRemovendo(r.id)
+    try {
+      await (trpc.acessorias as any).removerRegraObrigacao.mutate({ id: r.id })
+      carregar()
+      onMudou()
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally { setRemovendo(null) }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[720px] max-h-[85vh] flex flex-col">
+        <DialogHeaderIcon icon={SlidersHorizontal} color="violet">
+          <DialogTitle>Regras de obrigações</DialogTitle>
+          <DialogDescription>
+            O que a sincronização deixa de trazer. Regra por cliente vence a regra geral.
+          </DialogDescription>
+        </DialogHeaderIcon>
+        <DialogBody className="overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
+            </div>
+          ) : regras.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              Nenhuma regra ainda. Use o ícone de bloqueio na linha do painel para criar a primeira.
+            </p>
+          ) : (
+            <div className="divide-y divide-border/60 rounded-lg border border-border">
+              {regras.map(r => (
+                <div key={r.id} className="flex items-center gap-3 px-3 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="truncate text-sm font-medium">{r.nome}</span>
+                      {r.considerar
+                        ? <Badge className="bg-emerald-100 text-[10px] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">exceção: considerar</Badge>
+                        : <Badge className="bg-rose-100 text-[10px] text-rose-700 dark:bg-rose-950/40 dark:text-rose-400">não considerar</Badge>}
+                    </div>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {r.cliente ? `#${r.cliente.code} — ${r.cliente.razaoSocial}` : 'todos os clientes'}
+                      {r.motivo ? ` · ${r.motivo}` : ''}
+                    </p>
+                  </div>
+                  <Button variant="soft-destructive" size="icon-sm" disabled={removendo === r.id}
+                    onClick={() => remover(r)} title="Remover regra">
+                    {removendo === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

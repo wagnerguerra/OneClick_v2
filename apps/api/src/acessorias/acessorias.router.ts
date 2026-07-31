@@ -4,6 +4,7 @@ import { router, readSubProcedure } from '../trpc/trpc.service'
 import { AcessoriasService } from './acessorias.service'
 import { DivergenciaAcessoriasService } from './divergencia.service'
 import { PainelEntregasService } from './painel-entregas.service'
+import { RegrasObrigacaoService } from './regras-obrigacao.service'
 
 /**
  * Router tRPC do Acessórias. Endpoints protegidos por auth padrão (qualquer
@@ -39,6 +40,7 @@ export function createAcessoriasRouter(
   svc: AcessoriasService,
   divergenciaSvc?: DivergenciaAcessoriasService,
   painelSvc?: PainelEntregasService,
+  regrasSvc?: RegrasObrigacaoService,
 ) {
   return router({
     /** Valida que o token configurado funciona — chama /companies?limit=1
@@ -241,6 +243,31 @@ export function createAcessoriasRouter(
         if (!painelSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
         return painelSvc.porCliente(input ?? {}, ctx.isMaster ?? false, ctx.empresaId)
       }),
+    // ── Regras de aplicabilidade das obrigações ──
+    // Leitura para qualquer um que veja o painel; gravar exige a permissão de
+    // integração, porque muda o que a sincronização passa a trazer.
+    listarRegrasObrigacao: painelProc()
+      .query(({ ctx }) => regrasSvc?.listar(ctx.empresaId ?? null) ?? []),
+
+    salvarRegraObrigacao: integracaoProc()
+      .input(z.object({
+        nome: z.string().min(1),
+        clienteId: z.string().nullable().optional(),
+        considerar: z.boolean(),
+        motivo: z.string().optional(),
+      }))
+      .mutation(({ input, ctx }) => {
+        if (!regrasSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return regrasSvc.salvar(input, ctx.empresaId ?? null, ctx.userId)
+      }),
+
+    removerRegraObrigacao: integracaoProc()
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => {
+        if (!regrasSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return regrasSvc.remover(input.id)
+      }),
+
     painelEntregasOpcoes: painelProc()
       .query(({ ctx }) => {
         if (!painelSvc) return { departamentos: [], responsaveis: [] }

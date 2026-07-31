@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import { RegrasObrigacaoService } from './regras-obrigacao.service'
 
 /**
  * Cliente HTTP do Acessórias (https://api.acessorias.com).
@@ -47,6 +48,8 @@ const CLIENTE_ATIVO_MENSAL = { status: 'ATIVA', situacao: 'MENSAL', deletedAt: n
 
 @Injectable()
 export class AcessoriasService {
+  constructor(private readonly regras: RegrasObrigacaoService) {}
+
   /** Lê config corrente do process.env (atualizado por /configuracoes ao salvar).
    *  Throws se token/url ausentes — caller deve tratar pra mostrar mensagem útil. */
   private getConfig(): AcessoriasConfig {
@@ -540,6 +543,11 @@ export class AcessoriasService {
         return { ok: false, novas, atualizadas, ignoradas, logId: log.id, erro: 'Nenhum cliente pra sincronizar' }
       }
 
+      // Índice de regras carregado UMA vez: são milhares de entregas e uma
+      // consulta por entrega seria o gargalo da rodada.
+      const deveConsiderar = await this.regras.carregarIndice(opts.empresaId ?? null)
+      let excluidasPorRegra = 0
+
       await this.marcarProgresso(log.id, {
         atual: 0, total: clientes.length,
         msg: `${clientes.length} cliente(s) a consultar`,
@@ -585,6 +593,12 @@ export class AcessoriasService {
           if (entregas.length === 0) break
 
           for (const e of entregas) {
+            // Regra do time vence a lista do Acessórias: obrigação marcada como
+            // não devida não entra no espelho nem vira execução.
+            if (!deveConsiderar(String(e.Nome ?? ''), cli.id)) {
+              excluidasPorRegra++
+              continue
+            }
             const r = await this.upsertDelivery(cli.id, e, obligationMap, cli.empresaId ?? null)
             novas += r.created
             atualizadas += r.updated
@@ -621,7 +635,9 @@ export class AcessoriasService {
           finishedAt: new Date(),
           progressoAtual: clientes.length,
           progressoTotal: clientes.length,
-          progressoMsg: 'Concluída',
+          progressoMsg: excluidasPorRegra > 0
+            ? `Concluída · ${excluidasPorRegra} entrega(s) fora por regra`
+            : 'Concluída',
           detalhes: detalhes as never,
           deliveriesNovas: novas,
           deliveriesAtualizadas: atualizadas,

@@ -837,6 +837,7 @@ model Cliente {
   contratos            Contrato[]
   servicoExecucoes     ServicoExecucao[]       @relation("ClienteServicoExecucoes")
   acessoriasEntregas   AcessoriasEntrega[]
+  acessoriasRegras     AcessoriasRegraObrigacao[]
   certificadosDigitais CertificadoDigital[]
   processos            Processo[]              @relation("ClienteProcessos")
   obrigacoes           ClienteObrigacao[]
@@ -4535,6 +4536,41 @@ model AcessoriasObligationMap {
   @@index([nome])
   @@index([servicoId])
   @@map("acessorias_obligation_maps")
+}
+
+/// Regra de aplicabilidade de uma obrigação do Acessórias.
+///
+/// O Acessórias lista obrigações que nem sempre são devidas — configuração
+/// antiga, cliente que mudou de regime, obrigação criada por engano. Sem uma
+/// regra, elas voltam a cada sincronização e o painel de prazos vira ruído:
+/// quem cobra desiste de olhar uma lista cheia de coisa que não interessa.
+///
+/// Precedência: regra com cliente vence regra geral. Assim dá para dizer "esta
+/// obrigação não é devida por ninguém, exceto o cliente X" com duas linhas.
+model AcessoriasRegraObrigacao {
+  id String @id @default(cuid())
+
+  /// Nome exato da obrigação no Acessórias.
+  nome String
+  /// Null = a regra vale para todos os clientes.
+  clienteId String? @map("cliente_id")
+
+  /// false = a obrigação NÃO é devida e sai da sincronização.
+  considerar Boolean @default(false)
+  /// Por que a regra existe — quem revisar daqui a um ano vai precisar.
+  motivo     String? @db.Text
+
+  empresaId String?  @map("empresa_id")
+  criadoPor String?  @map("criado_por")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, nome, clienteId])
+  @@index([nome])
+  @@index([clienteId])
+  @@map("acessorias_regras_obrigacao")
 }
 
 /// Obrigações observadas no Acessórias — o resultado de "Importar obrigações".
