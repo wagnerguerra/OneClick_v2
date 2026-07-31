@@ -149,6 +149,20 @@ export function createAcessoriasRouter(
       }))
       .mutation(({ input, ctx }) => svc.applySuggestions(input.items, ctx.empresaId ?? null)),
 
+    resumoVinculos: integracaoProc()
+      .query(({ ctx }) => svc.resumoVinculos(ctx.empresaId ?? null)),
+
+    removerVinculosEmLote: integracaoProc()
+      .input(z.object({
+        servicoIds: z.array(z.string()).optional(),
+        apenasAuto: z.boolean().optional(),
+      }))
+      .mutation(({ input, ctx }) => svc.removerVinculosEmLote({
+        servicoIds: input.servicoIds,
+        apenasAuto: input.apenasAuto,
+        empresaId: ctx.empresaId ?? null,
+      })),
+
     listSyncLogs: integracaoProc()
       .input(z.object({ limit: z.coerce.number().int().min(1).max(200).optional() }).optional())
       .query(({ input }) => svc.listSyncLogs(input?.limit)),

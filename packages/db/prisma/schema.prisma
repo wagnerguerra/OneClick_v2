@@ -4519,6 +4519,10 @@ model AcessoriasObligationMap {
   /// Quando false, este vínculo específico é desabilitado (não cria execução)
   /// sem precisar deletar — útil pra pausar temporariamente.
   ativo       Boolean  @default(true)
+  /// 'manual' (alguém vinculou na tela) ou 'auto' (veio da sugestão em lote).
+  /// Sem isso não dá para desfazer só o que a máquina criou — foi o que faltou
+  /// quando a sugestão automática vinculou obrigação demais.
+  origem      String   @default("manual")
   observacoes String?  @db.Text
   empresaId   String?  @map("empresa_id")
   createdAt   DateTime @default(now()) @map("created_at")

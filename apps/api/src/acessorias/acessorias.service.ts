@@ -784,6 +784,8 @@ export class AcessoriasService {
     nome: string
     servicoId: string
     empresaId?: string | null
+    /** 'manual' (tela) ou 'auto' (sugestão em lote). Default manual. */
+    origem?: 'manual' | 'auto'
   }) {
     const existing = await prisma.acessoriasObligationMap.findFirst({
       where: { empresaId: input.empresaId ?? null, nome: input.nome, servicoId: input.servicoId },
@@ -797,6 +799,7 @@ export class AcessoriasService {
     }
     return prisma.acessoriasObligationMap.create({
       data: {
+        origem: input.origem ?? 'manual',
         nome: input.nome,
         servicoId: input.servicoId,
         ativo: true,
@@ -1182,6 +1185,7 @@ export class AcessoriasService {
           nome: it.nome,
           servicoId: it.servicoId,
           empresaId: empresaId ?? null,
+          origem: 'auto',
         })
         aplicados++
       } catch (e) {
@@ -1189,5 +1193,64 @@ export class AcessoriasService {
       }
     }
     return { ok: erros.length === 0, aplicados, erros }
+  }
+
+  /**
+   * Vínculos agrupados por serviço — a visão que permite enxergar o estrago
+   * quando uma sugestão em lote concentra obrigações demais num serviço só.
+   */
+  async resumoVinculos(empresaId?: string | null) {
+    const maps = await prisma.acessoriasObligationMap.findMany({
+      where: { ...(empresaId !== undefined ? { empresaId } : {}), servicoId: { not: null } },
+      select: { id: true, nome: true, servicoId: true, origem: true, ativo: true },
+    })
+    const servicoIds = [...new Set(maps.map(m => m.servicoId).filter(Boolean) as string[])]
+    const servicos = await prisma.servico.findMany({
+      where: { id: { in: servicoIds } },
+      select: { id: true, nome: true },
+    })
+    const nomePorId = new Map(servicos.map(s => [s.id, s.nome]))
+
+    const porServico = new Map<string, {
+      servicoId: string; servicoNome: string
+      total: number; auto: number; manual: number; obrigacoes: string[]
+    }>()
+    for (const m of maps) {
+      if (!m.servicoId) continue
+      const atual = porServico.get(m.servicoId) ?? {
+        servicoId: m.servicoId,
+        servicoNome: nomePorId.get(m.servicoId) ?? '(serviço removido)',
+        total: 0, auto: 0, manual: 0, obrigacoes: [] as string[],
+      }
+      atual.total++
+      if (m.origem === 'auto') atual.auto++; else atual.manual++
+      if (atual.obrigacoes.length < 100) atual.obrigacoes.push(m.nome)
+      porServico.set(m.servicoId, atual)
+    }
+    // Mais vínculos primeiro: é onde a sugestão automática costuma ter exagerado.
+    return [...porServico.values()].sort((a, b) => b.total - a.total)
+  }
+
+  /**
+   * Remove vínculos em lote. Os filtros se somam — sem nenhum, não remove nada
+   * (uma limpeza sem alvo apagaria o mapeamento inteiro por engano).
+   */
+  async removerVinculosEmLote(input: {
+    servicoIds?: string[]
+    /** Quando true, só remove os que vieram da sugestão automática. */
+    apenasAuto?: boolean
+    empresaId?: string | null
+  }) {
+    const temAlvo = (input.servicoIds && input.servicoIds.length > 0) || input.apenasAuto === true
+    if (!temAlvo) return { removidos: 0 }
+
+    const res = await prisma.acessoriasObligationMap.deleteMany({
+      where: {
+        ...(input.empresaId !== undefined ? { empresaId: input.empresaId } : {}),
+        ...(input.servicoIds && input.servicoIds.length > 0 ? { servicoId: { in: input.servicoIds } } : {}),
+        ...(input.apenasAuto ? { origem: 'auto' } : {}),
+      },
+    })
+    return { removidos: res.count }
   }
 }

@@ -304,6 +304,9 @@ function MappingPanel() {
   const [createArea, setCreateArea] = useState('')
   const [createSaving, setCreateSaving] = useState(false)
 
+  // Modal de limpeza de vínculos em lote
+  const [limpezaOpen, setLimpezaOpen] = useState(false)
+
   // Modal de sugestões automáticas
   const [sugOpen, setSugOpen] = useState(false)
   const [sugLoading, setSugLoading] = useState(false)
@@ -496,6 +499,10 @@ function MappingPanel() {
             {loadingObs ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
             {loadingObs ? 'Carregando...' : 'Importar obrigações'}
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setLimpezaOpen(true)} className="gap-1.5">
+            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+            Limpar vínculos
+          </Button>
         </div>
       </div>
       <div className="px-5 py-3 border-b border-border/40 flex items-center gap-3">
@@ -629,6 +636,13 @@ function MappingPanel() {
       </Table>
 
       {/* Modal: sugestões automáticas */}
+      {limpezaOpen && (
+        <LimparVinculosModal
+          onClose={() => setLimpezaOpen(false)}
+          onDone={() => { setLimpezaOpen(false); void fetchAll() }}
+        />
+      )}
+
       <Dialog open={sugOpen} onOpenChange={(o) => !o && setSugOpen(false)}>
         <DialogContent className="sm:max-w-[900px] max-h-[85vh] flex flex-col">
           <DialogHeaderIcon icon={Zap} color="sky">
@@ -806,6 +820,147 @@ function MappingPanel() {
         </DialogContent>
       </Dialog>
     </Card>
+  )
+}
+
+/**
+ * Limpeza em lote dos vínculos obrigação → serviço.
+ *
+ * Existe porque a sugestão automática chegou a vincular quase toda a carteira
+ * a um único serviço mensal. Desfazer um a um seria inviável.
+ *
+ * Os vínculos criados a partir de agora ficam marcados como automáticos, o que
+ * permite desfazer só o que a máquina fez. Os antigos não têm essa marca — para
+ * eles, a seleção é por serviço, que é como o exagero se concentra.
+ */
+function LimparVinculosModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  interface Resumo {
+    servicoId: string; servicoNome: string
+    total: number; auto: number; manual: number; obrigacoes: string[]
+  }
+  const [resumo, setResumo] = useState<Resumo[]>([])
+  const [loading, setLoading] = useState(true)
+  const [sel, setSel] = useState<Set<string>>(new Set())
+  const [apenasAuto, setApenasAuto] = useState(false)
+  const [removendo, setRemovendo] = useState(false)
+  const [expandido, setExpandido] = useState<string | null>(null)
+
+  useEffect(() => {
+    ;(trpc as any).acessorias.resumoVinculos.query()
+      .then((d: Resumo[]) => setResumo(d || []))
+      .catch((e: Error) => alerts.error('Erro', e.message))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const totalAuto = resumo.reduce((n, r) => n + r.auto, 0)
+  const aRemover = apenasAuto
+    ? resumo.filter(r => sel.has(r.servicoId)).reduce((n, r) => n + r.auto, 0)
+    : resumo.filter(r => sel.has(r.servicoId)).reduce((n, r) => n + r.total, 0)
+
+  async function remover() {
+    if (sel.size === 0) return
+    const ok = await alerts.confirm({
+      title: `Remover ${aRemover} vínculo(s)?`,
+      text: apenasAuto
+        ? 'Só os vínculos criados pela sugestão automática serão removidos. Os feitos à mão permanecem.'
+        : 'Todos os vínculos dos serviços marcados serão removidos, inclusive os feitos à mão. Não há como desfazer.',
+      icon: 'warning',
+      confirmText: 'Remover',
+    })
+    if (!ok) return
+    setRemovendo(true)
+    try {
+      const r = await (trpc as any).acessorias.removerVinculosEmLote.mutate({
+        servicoIds: [...sel],
+        apenasAuto: apenasAuto || undefined,
+      }) as { removidos: number }
+      await alerts.success('Vínculos removidos', `${r.removidos} vínculo(s) removido(s).`)
+      onDone()
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally { setRemovendo(false) }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[720px] max-h-[85vh] flex flex-col">
+        <DialogHeaderIcon icon={Trash2} color="rose">
+          <DialogTitle>Limpar vínculos de obrigações</DialogTitle>
+          <DialogDescription>
+            Marque os serviços cujos vínculos devem ser desfeitos. Nada é removido até você confirmar.
+          </DialogDescription>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-3 overflow-y-auto">
+          {totalAuto > 0 && (
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-amber-300 bg-amber-50/60 px-3 py-2 text-xs dark:border-amber-900 dark:bg-amber-950/20">
+              <input type="checkbox" checked={apenasAuto} onChange={e => setApenasAuto(e.target.checked)} className="mt-0.5 h-4 w-4" />
+              <span>
+                <strong>Remover só os vínculos automáticos</strong> ({totalAuto} no total).
+                Preserva o que foi vinculado à mão. Vínculos criados antes desta atualização não têm
+                essa marca e contam como manuais.
+              </span>
+            </label>
+          )}
+
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Carregando vínculos...
+            </div>
+          ) : resumo.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">Nenhum vínculo cadastrado.</p>
+          ) : (
+            <div className="divide-y divide-border/60 rounded-lg border border-border">
+              {resumo.map(r => (
+                <div key={r.servicoId}>
+                  <label className="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-muted/30">
+                    <input
+                      type="checkbox"
+                      checked={sel.has(r.servicoId)}
+                      onChange={() => setSel(prev => {
+                        const n = new Set(prev)
+                        if (n.has(r.servicoId)) n.delete(r.servicoId); else n.add(r.servicoId)
+                        return n
+                      })}
+                      className="h-4 w-4 shrink-0"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.servicoNome}</span>
+                    <Badge variant="outline" className="text-[10px]">{r.total} obrigações</Badge>
+                    {r.auto > 0 && (
+                      <Badge className="bg-amber-100 text-[10px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
+                        {r.auto} automáticos
+                      </Badge>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); setExpandido(expandido === r.servicoId ? null : r.servicoId) }}
+                      className="shrink-0 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      {expandido === r.servicoId ? 'ocultar' : 'ver'}
+                    </button>
+                  </label>
+                  {expandido === r.servicoId && (
+                    <div className="border-t border-border/60 bg-muted/20 px-3 py-2">
+                      <div className="flex flex-wrap gap-1">
+                        {r.obrigacoes.map((o, i) => (
+                          <span key={o + i} className="rounded bg-card px-1.5 py-0.5 text-[10px]">{o}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button variant="destructive" size="sm" disabled={sel.size === 0 || removendo} onClick={remover}>
+            {removendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Remover {aRemover > 0 ? `(${aRemover})` : ''}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
