@@ -1208,14 +1208,7 @@ export class HelpdeskService {
             void this.emailService.sendMail({
               to: t.solicitante.email,
               subject: `HelpDesk ${ticketNum} resolvido — Avalie o atendimento!`,
-              html: await this.emailTpl(
-                ticketNum,
-                `Seu ticket <strong>${escapeHtml(t.titulo)}</strong> foi resolvido e está <strong>aguardando sua avaliação</strong>. ` +
-                `Abra o ticket e dê sua nota (e um comentário, se quiser) para fechar o chamado. ` +
-                `Se não avaliar, ele é encerrado automaticamente após alguns dias, sem registrar nota.`,
-                link,
-                'Avaliar atendimento',
-              ),
+              html: await this.emailAvaliacaoTpl(ticketNum, t.titulo, link),
             })
           }
         }
@@ -1231,22 +1224,57 @@ export class HelpdeskService {
     return (cfg?.value ?? '').trim()
   }
 
-  private async emailTpl(ticketNum: string, corpoHtml: string, linkRel: string, ctaLabel = 'Abrir ticket'): Promise<string> {
+  /**
+   * R1.2 — e-mail de "avalie o atendimento" (RESOLVIDO). Reaproveita a MOLDURA do
+   * `emailTpl` (container + cabeçalho + rodapé condicional a inbound) e passa
+   * apenas o CORPO — título, 5 estrelas grandes clicáveis (abrem o ticket p/
+   * avaliar) e CTA próprio. Por isso vai com `ctaLabel: null` (sem o botão padrão).
+   * Email-safe: estilos inline; botão em tabela; estrela ★ (U+2605).
+   */
+  private emailAvaliacaoTpl(ticketNum: string, tituloTicket: string, linkRel: string): Promise<string> {
+    const base = process.env.NEXT_PUBLIC_APP_URL || 'https://app.oneclick.com.br'
+    const url = `${base}${linkRel}`
+    const corpo = `<div style="text-align:center;padding:8px 8px 0">
+      <div style="font-size:19px;font-weight:800;color:#0f172a">Como foi o seu atendimento?</div>
+      <p style="margin:10px 0 0;font-size:14.5px;line-height:1.55;color:#374151">
+        O seu chamado <strong style="color:#0f172a">${escapeHtml(tituloTicket)}</strong> foi <strong style="color:#0e7490">resolvido</strong> &#127881;<br>Sua opinião ajuda a TI a melhorar — dê a sua nota:
+      </p>
+      <div style="padding:18px 0 2px">
+        <a href="${url}" style="text-decoration:none;font-size:40px;line-height:1;letter-spacing:8px;color:#f59e0b">&#9733;&#9733;&#9733;&#9733;&#9733;</a>
+      </div>
+      <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:10px auto 0">
+        <tr><td align="center" bgcolor="#0e7490" style="border-radius:8px">
+          <a href="${url}" style="display:inline-block;padding:13px 32px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:8px">Avaliar agora</a>
+        </td></tr>
+      </table>
+    </div>`
+    return this.emailTpl(ticketNum, corpo, linkRel, null, 'Sem avaliação, o chamado é encerrado automaticamente em alguns dias, sem registrar nota. E-mail automático — <strong>não responda por aqui</strong>.')
+  }
+
+  private async emailTpl(ticketNum: string, corpoHtml: string, linkRel: string, ctaLabel: string | null = 'Abrir ticket', notaRodape?: string): Promise<string> {
     const base = process.env.NEXT_PUBLIC_APP_URL || 'https://app.oneclick.com.br'
     // Rodapé condicional: se o módulo tem endereço inbound configurado (respostas
     // por e-mail habilitadas), o texto convida a responder; senão, avisa que a
     // resposta se perde e manda abrir o ticket. (O Reply-To para o endereço
     // inbound ainda não é setado — depende da configuração do inbound.)
-    const inbound = await this.inboundEmailConfig()
-    const rodape = inbound
-      ? `<p style="margin-top:24px;font-size:11px;color:#9ca3af">Você pode <strong>responder este e-mail</strong> para adicionar ao ticket, ou abrir no botão acima para acompanhar.</p>`
-      : `<p style="margin-top:24px;font-size:11px;color:#9ca3af">E-mail automático — <strong>não responda por aqui</strong>, a resposta se perde. Para responder ou acompanhar, abra o ticket no botão acima.</p>`
+    // `notaRodape` (opcional, HTML confiável vindo do código) SUBSTITUI por
+    // completo o texto padrão do rodapé — usado quando o e-mail NÃO deve sugerir
+    // resposta por e-mail (ex.: o de avaliação, que só se conclui pelo botão).
+    // Sem ela, usa o texto condicional ao inbound.
+    let rodapeTexto = notaRodape
+    if (!rodapeTexto) {
+      const inbound = await this.inboundEmailConfig()
+      rodapeTexto = inbound
+        ? 'Você pode <strong>responder este e-mail</strong> para adicionar ao ticket, ou abrir no botão acima para acompanhar.'
+        : 'E-mail automático — <strong>não responda por aqui</strong>, a resposta se perde. Para responder ou acompanhar, abra o ticket no botão acima.'
+    }
+    const rodape = `<p style="margin-top:24px;font-size:11px;color:#9ca3af">${rodapeTexto}</p>`
     return `<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:560px;margin:0 auto;padding:20px;color:#1f2937">
       <div style="border-left:4px solid #22d3ee;padding:12px 16px;background:#ecfeff;border-radius:4px">
         <h2 style="margin:0 0 4px 0;font-size:14px;color:#0e7490">HelpDesk · ${ticketNum}</h2>
       </div>
       <div style="padding:16px 0;font-size:14px;line-height:1.5">${corpoHtml}</div>
-      <a href="${base}${linkRel}" style="display:inline-block;background:#22d3ee;color:white;padding:10px 16px;border-radius:4px;text-decoration:none;font-size:13px">${escapeHtml(ctaLabel)}</a>
+      ${ctaLabel ? `<a href="${base}${linkRel}" style="display:inline-block;background:#22d3ee;color:white;padding:10px 16px;border-radius:4px;text-decoration:none;font-size:13px">${escapeHtml(ctaLabel)}</a>` : ''}
       ${rodape}
     </div>`
   }
