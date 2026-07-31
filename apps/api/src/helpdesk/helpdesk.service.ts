@@ -1180,7 +1180,15 @@ export class HelpdeskService {
       // E mudou status na mesma operação (ex.: reabrir), dispara só uma vez.
       const mudouStatus = !!patch.status && patch.status !== before.status && patch.status !== 'NOVO'
       const desarquivou = patch.arquivado === false && before.arquivado === true
-      if (mudouStatus || desarquivou) {
+      // Reabertura = voltou pra "Em andamento" vindo de um estado encerrado
+      // (RESOLVIDO+ ou arquivado). Aí o responsável — ou TODOS os agentes, se não
+      // houver — recebe um e-mail ESPECÍFICO de "reaberto", em vez do genérico de
+      // status. (A reabertura por mensagem no RESOLVIDO é tratada no addMensagem.)
+      const ehReabertura = patch.status === HELPDESK_STATUS_REABERTURA
+        && (helpdeskStatusRank(before.status as HelpdeskStatus) >= helpdeskStatusRank('RESOLVIDO') || !!before.arquivado)
+      if (ehReabertura) {
+        void this.notificarReabertura(ticketId, before.responsavelId, t.empresaId, { actorId })
+      } else if (mudouStatus || desarquivou) {
         // Rótulo da etapa (não o valor cru do enum). Ex.: RESOLVIDO → "Aguardando
         // avaliação", batendo com a UI. Alimenta corpo + assunto do e-mail e o
         // título do sino.
@@ -1309,11 +1317,18 @@ export class HelpdeskService {
   }
 
   /**
-   * R5.5 — avisa que o solicitante retornou num ticket que estava "Aguardando
-   * avaliação" e ele voltou pra "Em andamento". Vai para o responsável; se não
-   * houver, para todos os agentes do HelpDesk (fonte única). Sino + e-mail.
+   * Avisa que o chamado foi REABERTO (voltou para "Em andamento"). Vai para o
+   * responsável; se não houver, para TODOS os agentes do HelpDesk (fallback —
+   * fonte única `usuariosAgentes`). Sino + e-mail único em BCC. Pula o `actorId`
+   * (quem reabriu não se notifica). `motivoHtml` acrescenta um contexto ao corpo
+   * (ex.: o retorno do solicitante no lugar de avaliar, R5.5).
    */
-  private async notificarRetorno(ticketId: string, responsavelId: string | null, empresaId: string | null) {
+  private async notificarReabertura(
+    ticketId: string,
+    responsavelId: string | null,
+    empresaId: string | null,
+    opts?: { motivoHtml?: string; actorId?: string },
+  ) {
     try {
       const t = await prisma.helpdeskTicket.findUnique({
         where: { id: ticketId },
@@ -1323,34 +1338,35 @@ export class HelpdeskService {
       const ticketNum = `#HLP${String(t.numero).padStart(4, '0')}`
       const link = `/helpdesk/${ticketId}`
 
-      let userIds: string[] = []
-      let emails: string[] = []
+      let users: Array<{ id: string; email: string | null }> = []
       if (responsavelId) {
         const r = await prisma.user.findUnique({ where: { id: responsavelId }, select: { id: true, email: true } })
-        if (r) { userIds = [r.id]; if (r.email) emails = [r.email] }
+        if (r) users = [r]
       } else {
-        const agentes = await this.usuariosAgentes(empresaId)
-        userIds = agentes.map(a => a.id)
-        emails = agentes.map(a => a.email).filter((e): e is string => !!e)
+        users = await this.usuariosAgentes(empresaId)
       }
+      users = users.filter(u => u.id !== opts?.actorId)
+      if (users.length === 0) return
 
-      if (userIds.length) {
-        await this.notificationService.criarParaUsers(userIds, {
-          titulo: `${ticketNum} — solicitante retornou`,
-          mensagem: t.titulo,
-          tipo: 'warning',
-          link,
-          origem: 'helpdesk',
-          empresaId: empresaId || null,
-        }).catch(() => {})
-      }
-      const corpo = `O solicitante enviou uma nova mensagem no ticket <strong>${escapeHtml(t.titulo)}</strong> ` +
-        `em vez de avaliá-lo, então ele voltou para <strong>Em andamento</strong>. Confira e dê sequência.`
-      const dest = Array.from(new Set(emails.map(e => e.trim().toLowerCase()).filter(Boolean)))
+      await this.notificationService.criarParaUsers(users.map(u => u.id), {
+        titulo: `${ticketNum} — reaberto`,
+        mensagem: t.titulo,
+        tipo: 'warning',
+        link,
+        origem: 'helpdesk',
+        empresaId: empresaId || null,
+      }).catch(() => {})
+
+      const corpo = `O chamado <strong>${escapeHtml(t.titulo)}</strong> foi <strong>reaberto</strong> e voltou para <strong>Em andamento</strong>.` +
+        (opts?.motivoHtml ? ` ${opts.motivoHtml}` : '') +
+        ` Confira e dê sequência.`
+      const dest = Array.from(new Set(users.map(u => u.email?.trim().toLowerCase()).filter((e): e is string => !!e)))
       // Um único e-mail com todos em BCC (não expõe endereços, sem N cópias).
-      await this.emailService.sendMail({ bcc: dest, subject: `HelpDesk ${ticketNum} — Reaberto pelo solicitante`, html: await this.emailTpl(ticketNum, corpo, link) })
+      if (dest.length) {
+        await this.emailService.sendMail({ bcc: dest, subject: `HelpDesk ${ticketNum} — Reaberto`, html: await this.emailTpl(ticketNum, corpo, link) })
+      }
     } catch (e) {
-      console.warn('[Helpdesk] Falha ao notificar retorno:', (e as Error).message)
+      console.warn('[Helpdesk] Falha ao notificar reabertura:', (e as Error).message)
     }
   }
 
@@ -1421,7 +1437,10 @@ export class HelpdeskService {
       }
       if (solicitanteRetornou) {
         await this.addEvento(input.ticketId, userId, 'status_alterado', 'RESOLVIDO → EM_ANDAMENTO (solicitante retornou antes de avaliar)')
-        void this.notificarRetorno(input.ticketId, ticket.responsavelId, ticket.empresaId)
+        void this.notificarReabertura(input.ticketId, ticket.responsavelId, ticket.empresaId, {
+          motivoHtml: 'O solicitante enviou uma nova mensagem, ao invés de avaliar o atendimento.',
+          actorId: userId,
+        })
       }
     }
 
