@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   MailWarning, Loader2, AlertTriangle, Clock, CheckCircle2, ExternalLink,
   Users, ListChecks, RefreshCw, MailOpen, Ban, SlidersHorizontal, Trash2,
-  ArrowUp, ArrowDown,
+  ArrowUp, ArrowDown, FileText,
 } from 'lucide-react'
 import {
   Button, Card, Badge, Input, cn,
@@ -38,7 +38,9 @@ interface Linha {
   vencimento: string | null
   diasParaVencimento: number | null
   dtEntrega: string | null
+  dtFinalizacao: string | null
   lidaEm: string | null
+  syncedAt: string
   status: string | null
   lida: boolean | null
   guiaLida: string | null
@@ -212,6 +214,7 @@ export default function PainelEntregasPage() {
   const [truncado, setTruncado] = useState<{ limite: number } | null>(null)
   const [regrasOpen, setRegrasOpen] = useState(false)
   const [novaRegra, setNovaRegra] = useState<Linha | null>(null)
+  const [detalhe, setDetalhe] = useState<Linha | null>(null)
   const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
   const subs = (permissions.find(p => p.moduleSlug === 'acessorias')?.subPermissions ?? {}) as Record<string, boolean>
   const podeRegras = isMaster || isEmpresaMaster || subs.gerenciar_integracao === true
@@ -490,7 +493,14 @@ export default function PainelEntregasPage() {
                       </td>
 
                       <td className="px-3 py-2">
-                        <p className="truncate font-medium" title={l.obrigacao}>{l.obrigacao}</p>
+                        <button
+                          type="button"
+                          onClick={() => setDetalhe(l)}
+                          title="Ver tudo que veio do Acessórias nesta entrega"
+                          className="block w-full truncate text-left font-medium hover:underline"
+                        >
+                          {l.obrigacao}
+                        </button>
                         {/* Abaixo do nome só nas telas onde a coluna Cliente
                             some — senão o dado apareceria duas vezes. */}
                         <Link href={`/clientes/${l.clienteId}`} target="_blank"
@@ -596,6 +606,8 @@ export default function PainelEntregasPage() {
         o cliente abrir não entram na contagem de &ldquo;não abertas&rdquo;.
       </p>
 
+      {detalhe && <DetalheEntregaModal linha={detalhe} urlTemplate={urlTemplate} onClose={() => setDetalhe(null)} />}
+
       {novaRegra && (
         <NovaRegraModal
           linha={novaRegra}
@@ -613,6 +625,115 @@ export default function PainelEntregasPage() {
  * Obrigar a ir a uma tela de configuração para dizer "isso aqui não é devido"
  * faria a maioria simplesmente conviver com o ruído.
  */
+/** Uma linha "rótulo: valor" do detalhe. Valor ausente aparece como "—". */
+function Campo({ label, valor, mono }: { label: string; valor: React.ReactNode; mono?: boolean }) {
+  const vazio = valor === null || valor === undefined || valor === ''
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-border/40 py-1.5 last:border-0">
+      <span className="shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className={cn('text-right text-[13px]', mono && 'font-mono text-[12px]', vazio && 'text-muted-foreground')}>
+        {vazio ? '—' : valor}
+      </span>
+    </div>
+  )
+}
+
+function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="mb-1 text-[13px] font-semibold text-foreground">{titulo}</p>
+      <div className="rounded-lg border border-border bg-muted/20 px-3 py-1">{children}</div>
+    </div>
+  )
+}
+
+/**
+ * Tudo o que o Acessórias devolveu para esta entrega.
+ *
+ * Mostra os campos crus (Status, EntGuiaLida) ao lado dos derivados, porque
+ * quando um número do painel surpreende, a pergunta seguinte é sempre "o que
+ * exatamente veio de lá?".
+ */
+function DetalheEntregaModal({ linha: l, urlTemplate, onClose }: {
+  linha: Linha; urlTemplate: string | null; onClose: () => void
+}) {
+  const dh = (v: string | null) => (v ? new Date(v).toLocaleString('pt-BR') : null)
+  const sim = (b: boolean) => (b ? 'Sim' : 'Não')
+  const href = urlTemplate
+    ? urlTemplate.replace('{entId}', l.entId).replace('{cnpj}', l.documento.replace(/\D/g, ''))
+    : null
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeaderIcon icon={FileText} color="sky">
+          <DialogTitle>{l.obrigacao}</DialogTitle>
+          <DialogDescription>
+            #{l.clienteCode} — {l.clienteNome} · {masks.cpfCnpj(l.documento)}
+          </DialogDescription>
+        </DialogHeaderIcon>
+        <DialogBody className="max-h-[65vh] space-y-4 overflow-y-auto">
+          <Secao titulo="Datas">
+            <Campo label="Competência" valor={fmtComp(l.competencia)} />
+            <Campo label="Prazo interno (EntDtPrazo)" valor={fmtData(l.prazo)} />
+            <Campo label="Vencimento (EntDtAtraso)" valor={fmtData(l.vencimento)} />
+            <Campo label="Entrega (EntDtEntrega)" valor={fmtData(l.dtEntrega)} />
+            <Campo label="Finalização (EntDtFinalizacao)" valor={dh(l.dtFinalizacao)} />
+          </Secao>
+
+          <Secao titulo="Situação">
+            <Campo label="Status no Acessórias" valor={l.status} mono />
+            <Campo label="Entregue" valor={sim(l.entregue)} />
+            <Campo label="Dispensada" valor={sim(l.dispensada)} />
+            <Campo label="Sujeita a multa (EntMulta)" valor={sim(l.multa)} />
+            <Campo
+              label="Dias até o vencimento"
+              valor={l.diasParaVencimento === null ? null : `${l.diasParaVencimento}d`}
+            />
+          </Secao>
+
+          <Secao titulo="Leitura da guia pelo cliente">
+            {/* O texto cru importa: vazio significa "não tem guia para abrir",
+                que é diferente de "não abriu". */}
+            <Campo label="EntGuiaLida (texto original)" valor={l.guiaLida} mono />
+            <Campo
+              label="Interpretação"
+              valor={l.lida === null ? 'Sem guia para abrir' : l.lida ? 'Lida' : 'Não lida'}
+            />
+            <Campo label="Última atividade (EntLastDH)" valor={dh(l.lidaEm)} />
+          </Secao>
+
+          <Secao titulo="Responsáveis e área">
+            <Campo label="Área / departamento" valor={l.dpto} />
+            <Campo label="Responsável pelo prazo" valor={l.respPrazo} />
+            <Campo label="Quem entregou" valor={l.respEntrega} />
+          </Secao>
+
+          <Secao titulo="Origem">
+            <Campo label="EntID no Acessórias" valor={l.entId} mono />
+            <Campo label="Espelhado em" valor={dh(l.syncedAt)} />
+          </Secao>
+
+          <p className="text-[11px] text-muted-foreground">
+            Estes são todos os campos que a API do Acessórias devolve para uma entrega.
+            O log por destinatário do e-mail existe só na tela deles e não é exposto pela API.
+          </p>
+        </DialogBody>
+        <DialogFooter>
+          {href && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={href} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />Abrir no Acessórias
+              </a>
+            </Button>
+          )}
+          <Button size="sm" onClick={onClose}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function NovaRegraModal({ linha, onClose, onSalvo }: {
   linha: Linha; onClose: () => void; onSalvo: () => void
 }) {

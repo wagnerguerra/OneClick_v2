@@ -48,8 +48,12 @@ export interface LinhaPainel {
   diasParaVencimento: number | null
   /** Quando o responsável de fato entregou — pode ser ANTES do prazo. */
   dtEntrega: Date | null
+  /** EntDtFinalizacao — quando o responsável fechou a entrega no Acessórias. */
+  dtFinalizacao: Date | null
   /** Momento da primeira abertura da guia pelo cliente (EntLastDH). */
   lidaEm: Date | null
+  /** Quando esta linha foi espelhada do Acessórias pela última vez. */
+  syncedAt: Date
   status: string | null
   lida: boolean | null
   guiaLida: string | null
@@ -258,7 +262,9 @@ export class PainelEntregasService {
       vencimento: r.dtAtraso ?? r.prazo,
       diasParaVencimento: diasAte(r.dtAtraso ?? r.prazo),
       dtEntrega: r.dtEntrega,
+      dtFinalizacao: r.dtFinalizacao,
       lidaEm: r.lastDH,
+      syncedAt: r.syncedAt,
       status: r.status,
       lida: r.lida,
       guiaLida: r.guiaLida,
