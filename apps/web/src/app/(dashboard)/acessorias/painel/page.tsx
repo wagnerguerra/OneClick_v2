@@ -5,6 +5,7 @@ import Link from 'next/link'
 import {
   MailWarning, Loader2, AlertTriangle, Clock, CheckCircle2, ExternalLink,
   Users, ListChecks, RefreshCw, MailOpen, Ban, SlidersHorizontal, Trash2,
+  ArrowUp, ArrowDown,
 } from 'lucide-react'
 import {
   Button, Card, Badge, Input, cn,
@@ -96,12 +97,67 @@ function situacao(l: Linha) {
   return { texto: `vence em ${dias}d`, titulo: `Prazo: ${fmtData(l.prazo)}`, cor: 'text-muted-foreground' }
 }
 
+type CampoOrdem = 'obrigacao' | 'clienteNome' | 'dpto' | 'respEntrega' | 'prazo' | 'dtEntrega' | 'situacao'
+
+/**
+ * Chave de ordenação por coluna. Datas viram número (ausente vai para o fim,
+ * em qualquer direção); a situação usa um ranking de urgência em vez da ordem
+ * alfabética do texto, senão "dispensada" cairia antes de "venceu há 30d".
+ */
+function chaveOrdem(l: Linha, campo: CampoOrdem): string | number {
+  switch (campo) {
+    case 'prazo':     return l.prazo ? new Date(l.prazo).getTime() : Number.MAX_SAFE_INTEGER
+    case 'dtEntrega': return l.dtEntrega ? new Date(l.dtEntrega).getTime() : Number.MAX_SAFE_INTEGER
+    case 'situacao': {
+      if (l.dispensada) return 4
+      if (l.entregue) return 3
+      const d = l.diasParaPrazo
+      if (d === null) return 2          // sem prazo
+      return d < 0 ? 0 : 1              // vencido primeiro, depois a vencer
+    }
+    default: return String(l[campo] ?? '').toLowerCase()
+  }
+}
+
+/** Cabeçalho clicável: alterna asc/desc e sinaliza a coluna ativa. */
+function Th({
+  campo, atual, dir, onOrdenar, className, children, alinhar,
+}: {
+  campo?: CampoOrdem
+  atual: CampoOrdem
+  dir: 'asc' | 'desc'
+  onOrdenar: (c: CampoOrdem) => void
+  className?: string
+  children?: React.ReactNode
+  alinhar?: 'right'
+}) {
+  const ativo = campo && campo === atual
+  return (
+    <th
+      className={cn(
+        'px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground',
+        alinhar === 'right' && 'text-right',
+        campo && 'cursor-pointer select-none hover:text-foreground',
+        className,
+      )}
+      onClick={campo ? () => onOrdenar(campo) : undefined}
+    >
+      <span className={cn('inline-flex items-center gap-1', ativo && 'text-foreground')}>
+        {children}
+        {ativo && (dir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+      </span>
+    </th>
+  )
+}
+
 export default function PainelEntregasPage() {
   const [foco, setFoco] = useState<Foco>('a_vencer')
   const [janelaDias, setJanelaDias] = useState(7)
   const [dpto, setDpto] = useState('')
   const [responsavel, setResponsavel] = useState('')
   const [clienteId, setClienteId] = useState('')
+  const [ordem, setOrdem] = useState<CampoOrdem>('prazo')
+  const [dir, setDir] = useState<'asc' | 'desc'>('asc')
   const [busca, setBusca] = useState('')
   const [visao, setVisao] = useState<'obrigacao' | 'cliente'>('obrigacao')
 
@@ -151,10 +207,20 @@ export default function PainelEntregasPage() {
       .then((d: OpcoesPainel) => setOpcoes({ ...d, clientes: d.clientes ?? [] })).catch(() => {})
   }, [])
 
+  const ordenar = (campo: CampoOrdem) => {
+    if (campo === ordem) setDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else { setOrdem(campo); setDir('asc') }
+  }
+
   const q = busca.trim().toLowerCase()
-  const linhasFiltradas = q
+  const linhasFiltradas = (q
     ? linhas.filter((l) => l.clienteNome.toLowerCase().includes(q) || l.obrigacao.toLowerCase().includes(q))
     : linhas
+  ).slice().sort((a, b) => {
+    const va = chaveOrdem(a, ordem), vb = chaveOrdem(b, ordem)
+    const cmp = va < vb ? -1 : va > vb ? 1 : 0
+    return dir === 'asc' ? cmp : -cmp
+  })
   const clientesFiltrados = q
     ? clientes.filter((c) => c.clienteNome.toLowerCase().includes(q))
     : clientes
@@ -322,76 +388,128 @@ export default function PainelEntregasPage() {
         ) : linhasFiltradas.length === 0 ? (
           <VazioPainel />
         ) : (
-          <div className="max-h-[620px] divide-y divide-border/60 overflow-y-auto">
-            {linhasFiltradas.map((l) => {
-              const p = situacao(l)
-              return (
-                <div key={l.id} className="group flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-                  {/* Coluna de sinais: largura fixa para os ícones ficarem
-                      alinhados de uma linha para a outra. Só ícone + title —
-                      as etiquetas escritas empurravam o nome da obrigação para
-                      uma posição diferente em cada linha. */}
-                  {/* O `title` fica no <span>: o ícone do lucide não repassa a
-                      prop para o <svg>, então o tooltip nativo nunca apareceria. */}
-                  <div className="flex w-12 shrink-0 items-center gap-1.5">
-                    {l.lida === false && (
-                      <span title="Cliente ainda não abriu a guia" className="inline-flex">
-                        <MailWarning className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                      </span>
-                    )}
-                    {l.lida === true && (
-                      <span
-                        title={l.lidaEm ? `Cliente abriu a guia em ${fmtDataHora(l.lidaEm)}` : 'Cliente abriu a guia'}
-                        className="inline-flex"
-                      >
-                        <MailOpen className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                      </span>
-                    )}
-                    {l.multa && (
-                      <span title="Obrigação sujeita a multa" className="inline-flex">
-                        <AlertTriangle className="h-4 w-4 text-rose-500 dark:text-rose-400" />
-                      </span>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="truncate text-sm font-medium">{l.obrigacao}</span>
-                    </div>
-                    <Link href={`/clientes/${l.clienteId}`} target="_blank"
-                      className="truncate text-[11px] text-muted-foreground hover:underline">
-                      #{l.clienteCode} — {l.clienteNome}
-                    </Link>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap items-center gap-3 text-[11px]">
-                    {l.dpto && <span className="text-muted-foreground">{l.dpto}</span>}
-                    {l.respEntrega && <span className="text-muted-foreground">{l.respEntrega}</span>}
-                    <span className="text-muted-foreground tabular-nums">{fmtData(l.prazo)}</span>
-                    <span className={cn('tabular-nums', p.cor)} title={p.titulo}>{p.texto}</span>
-                    {urlTemplate && (
-                      <a
-                        href={urlTemplate.replace('{entId}', l.entId).replace('{cnpj}', l.documento.replace(/\D/g, ''))}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Abrir esta entrega no Acessórias"
-                        className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-foreground"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    )}
-                    {podeRegras && (
-                      <button
-                        type="button"
-                        onClick={() => setNovaRegra(l)}
-                        title="Esta obrigação não é devida — criar regra"
-                        className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                      >
-                        <Ban className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+          <div className="max-h-[620px] overflow-auto">
+            <table className="w-full table-fixed border-collapse text-sm">
+              <thead className="sticky top-0 z-10 bg-muted/40 backdrop-blur">
+                <tr className="border-b border-border">
+                  <Th atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[62px]" />
+                  <Th campo="obrigacao"   atual={ordem} dir={dir} onOrdenar={ordenar}>Obrigação</Th>
+                  <Th campo="clienteNome" atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[24%] md:table-cell">Cliente</Th>
+                  <Th campo="dpto"        atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[100px] lg:table-cell">Área</Th>
+                  <Th campo="respEntrega" atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[150px] xl:table-cell">Responsável</Th>
+                  <Th campo="prazo"       atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[96px]">Prazo</Th>
+                  <Th campo="dtEntrega"   atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[104px] sm:table-cell">Entrega</Th>
+                  <Th campo="situacao"    atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[126px]">Situação</Th>
+                  <Th atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[64px]" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {linhasFiltradas.map((l) => {
+                  const p = situacao(l)
+                  return (
+                    <tr key={l.id} className="group align-middle hover:bg-muted/30">
+                      {/* Sinais: coluna própria e estreita, só ícone + title. As
+                          etiquetas escritas empurravam o nome da obrigação para
+                          uma posição diferente em cada linha.
+                          O `title` fica no <span> porque o ícone do lucide não
+                          repassa a prop para o <svg>. */}
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1.5">
+                          {l.lida === false && (
+                            <span title="Cliente ainda não abriu a guia" className="inline-flex">
+                              <MailWarning className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                            </span>
+                          )}
+                          {l.lida === true && (
+                            <span
+                              title={l.lidaEm ? `Cliente abriu a guia em ${fmtDataHora(l.lidaEm)}` : 'Cliente abriu a guia'}
+                              className="inline-flex"
+                            >
+                              <MailOpen className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                            </span>
+                          )}
+                          {l.multa && (
+                            <span title="Obrigação sujeita a multa" className="inline-flex">
+                              <AlertTriangle className="h-4 w-4 text-rose-500 dark:text-rose-400" />
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="px-3 py-2">
+                        <p className="truncate font-medium" title={l.obrigacao}>{l.obrigacao}</p>
+                        {/* Abaixo do nome só nas telas onde a coluna Cliente
+                            some — senão o dado apareceria duas vezes. */}
+                        <Link href={`/clientes/${l.clienteId}`} target="_blank"
+                          className="truncate text-[11px] text-muted-foreground hover:underline md:hidden">
+                          #{l.clienteCode} — {l.clienteNome}
+                        </Link>
+                      </td>
+
+                      <td className="hidden px-3 py-2 md:table-cell">
+                        <Link href={`/clientes/${l.clienteId}`} target="_blank"
+                          className="block truncate text-[12px] text-muted-foreground hover:underline"
+                          title={`#${l.clienteCode} — ${l.clienteNome}`}>
+                          #{l.clienteCode} — {l.clienteNome}
+                        </Link>
+                      </td>
+
+                      <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground lg:table-cell" title={l.dpto ?? ''}>
+                        {l.dpto || '—'}
+                      </td>
+
+                      <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground xl:table-cell" title={l.respEntrega ?? ''}>
+                        {l.respEntrega || '—'}
+                      </td>
+
+                      <td className="px-3 py-2 text-[12px] text-muted-foreground tabular-nums">
+                        {fmtData(l.prazo)}
+                      </td>
+
+                      <td className="hidden px-3 py-2 text-[12px] tabular-nums sm:table-cell">
+                        {l.dtEntrega
+                          ? <span className={cn(l.dtEntrega && l.prazo && new Date(l.dtEntrega) < new Date(l.prazo)
+                              ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')}>
+                              {fmtData(l.dtEntrega)}
+                            </span>
+                          : <span className="text-muted-foreground">—</span>}
+                      </td>
+
+                      <td className={cn('px-3 py-2 text-[12px] tabular-nums', p.cor)} title={p.titulo}>
+                        {p.texto}
+                      </td>
+
+                      <td className="px-3 py-2">
+                        <div className="flex items-center justify-end gap-2">
+                          {urlTemplate && (
+                            <a
+                              href={urlTemplate.replace('{entId}', l.entId).replace('{cnpj}', l.documento.replace(/\D/g, ''))}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Abrir esta entrega no Acessórias"
+                              className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-foreground"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          )}
+                          {podeRegras && (
+                            <button
+                              type="button"
+                              onClick={() => setNovaRegra(l)}
+                              title="Esta obrigação não é devida — criar regra"
+                              className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                            >
+                              <Ban className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+
           </div>
         )}
       </Card>
