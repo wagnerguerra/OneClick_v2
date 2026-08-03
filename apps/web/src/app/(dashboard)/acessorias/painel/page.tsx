@@ -521,7 +521,10 @@ export default function PainelEntregasPage() {
               </p>
             )}
             <table className="w-full table-fixed border-collapse text-sm">
-              <thead className="sticky top-0 z-10 bg-muted/40 backdrop-blur">
+              {/* O fundo vai no <th>: <thead> com position:sticky não pinta
+                  background de forma confiável, e a translucidez deixava as
+                  linhas passarem por trás ao rolar. */}
+              <thead className="sticky top-0 z-10 [&_th]:bg-muted">
                 <tr className="border-b border-border">
                   <Th atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[62px]" />
                   <Th campo="obrigacao"   atual={ordem} dir={dir} onOrdenar={ordenar}>Obrigação</Th>
@@ -756,7 +759,10 @@ function ObrigacoesDoClienteModal({
             <p className="py-12 text-center text-sm text-muted-foreground">Nenhuma obrigação aqui.</p>
           ) : (
             <table className="w-full table-fixed border-collapse text-sm">
-              <thead className="sticky top-0 bg-muted/40">
+              {/* O fundo vai no <th>: <thead> com position:sticky não pinta
+                  background de forma confiável, e a translucidez deixava as
+                  linhas passarem por trás ao rolar. */}
+              <thead className="sticky top-0 z-10 [&_th]:bg-muted">
                 <tr className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
                   <th className="px-3 py-2 text-left">Obrigação</th>
                   <th className="hidden w-[92px] px-3 py-2 text-left sm:table-cell">Área</th>
