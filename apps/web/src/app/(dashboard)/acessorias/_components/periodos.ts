@@ -28,6 +28,32 @@ function segundaDa(d: Date) {
   return x
 }
 
+/**
+ * Valor do seletor: ou um período (recorta por VENCIMENTO) ou uma competência
+ * (recorta pelo mês de referência da obrigação).
+ *
+ * Os dois convivem no mesmo campo de propósito: são duas maneiras de responder
+ * "qual fatia do tempo eu quero", e em campos separados o usuário poderia
+ * combinar recortes que se anulam e receber tela vazia sem entender por quê.
+ */
+export type Recorte = Periodo | `comp:${string}`
+
+export const ehCompetencia = (v: Recorte): v is `comp:${string}` => v.startsWith('comp:')
+
+/** O que enviar ao servidor para o recorte escolhido. */
+export function filtroDe(v: Recorte): { de?: string; ate?: string; competencia?: string } {
+  if (ehCompetencia(v)) return { competencia: v.slice(5) }
+  return intervaloDe(v as Periodo)
+}
+
+/** "2026-07" → "Jul/2026", para o rótulo do seletor. */
+export function rotuloCompetencia(v: string): string {
+  const [ano, mes] = v.split('-')
+  const d = new Date(Number(ano), Number(mes) - 1, 1)
+  const m = d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+  return `${m.charAt(0).toUpperCase()}${m.slice(1)}/${ano}`
+}
+
 export function intervaloDe(p: Periodo): { de?: string; ate?: string } {
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)

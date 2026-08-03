@@ -24,6 +24,8 @@ export interface FiltroPainel {
   dpto?: string
   responsavel?: string
   clienteId?: string
+  /** "YYYY-MM" — recorta pela competência e ignora de/ate. */
+  competencia?: string
   /** 'nao_lidas' | 'a_vencer' | 'atrasadas' | 'todas' */
   foco?: 'nao_lidas' | 'a_vencer' | 'atrasadas' | 'todas'
   /** Janela de "a vencer", em dias. Padrão 7. */
@@ -139,6 +141,15 @@ function e(...partes: Array<Prisma.AcessoriasEntregaWhereInput | null>): Prisma.
   return { AND: partes.filter(Boolean) as Prisma.AcessoriasEntregaWhereInput[] }
 }
 
+/** Início e fim do mês de uma competência "YYYY-MM". */
+function mesDaCompetencia(v: string) {
+  const [ano, mes] = v.split('-').map(Number)
+  return {
+    gte: new Date(Date.UTC(ano ?? 1970, (mes ?? 1) - 1, 1)),
+    lte: new Date(Date.UTC(ano ?? 1970, mes ?? 1, 0)),
+  }
+}
+
 function inicioDoDia(): Date {
   const d = new Date()
   d.setHours(0, 0, 0, 0)
@@ -177,10 +188,13 @@ export class PainelEntregasService {
       ...(filtro.responsavel
         ? { OR: [{ respEntrega: filtro.responsavel }, { respPrazo: filtro.responsavel }] }
         : {}),
+      // Competência manda sobre o período: quem escolheu o mês de referência
+      // quer o fechamento inteiro, independentemente de quando vence.
+      ...(filtro.competencia ? { competencia: mesDaCompetencia(filtro.competencia) } : {}),
       // Recorte de período pelo VENCIMENTO, e não pelo prazo interno — é a data
       // que o resto do painel usa. Vai em AND porque cada limite já é um OR
       // (dtAtraso, com fallback no prazo).
-      ...(filtro.de || filtro.ate
+      ...(!filtro.competencia && (filtro.de || filtro.ate)
         ? {
             AND: [
               ...(filtro.de ? [wVencimento('gte', new Date(`${filtro.de}T00:00:00`))] : []),
@@ -431,7 +445,17 @@ export class PainelEntregasService {
       orderBy: { razaoSocial: 'asc' },
     })
 
+    const comps = await prisma.acessoriasEntrega.findMany({
+      where: e(escopo, { competencia: { not: null } }),
+      select: { competencia: true }, distinct: ['competencia'],
+      orderBy: { competencia: 'desc' }, take: 36,
+    })
+
     return {
+      competencias: comps
+        .map((c) => c.competencia)
+        .filter((c): c is Date => !!c)
+        .map((c) => `${c.getUTCFullYear()}-${String(c.getUTCMonth() + 1).padStart(2, '0')}`),
       departamentos: dptos.map((x) => x.dpto).filter(Boolean) as string[],
       // União dos dois papéis: quem só tem obrigação em aberto não aparecia na
       // lista de responsáveis, e era impossível filtrar por ele.

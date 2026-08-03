@@ -136,8 +136,30 @@ export class IndicadoresAcessoriasService {
     return { escopo: 'PROPRIO' as EscopoPainel, user: u }
   }
 
+  /** Início e fim do mês de uma competência "YYYY-MM". */
+  private mesDaCompetencia(v: string) {
+    const [ano, mes] = v.split('-').map(Number)
+    return {
+      gte: new Date(Date.UTC(ano ?? 1970, (mes ?? 1) - 1, 1)),
+      lte: new Date(Date.UTC(ano ?? 1970, mes ?? 1, 0)),
+    }
+  }
+
+  /** Competências presentes no espelho, da mais recente para a mais antiga. */
+  private async competenciasDisponiveis(escopo: Prisma.AcessoriasEntregaWhereInput) {
+    const rows = await prisma.acessoriasEntrega.findMany({
+      where: { ...escopo, competencia: { not: null } },
+      select: { competencia: true }, distinct: ['competencia'],
+      orderBy: { competencia: 'desc' }, take: 36,
+    })
+    return rows
+      .map((r) => r.competencia)
+      .filter((c): c is Date => !!c)
+      .map((c) => `${c.getUTCFullYear()}-${String(c.getUTCMonth() + 1).padStart(2, '0')}`)
+  }
+
   async painel(
-    filtro: { de?: string; ate?: string; dpto?: string },
+    filtro: { de?: string; ate?: string; dpto?: string; competencia?: string },
     ctx: { userId: string; isMaster: boolean; isEmpresaMaster: boolean; empresaId?: string },
   ) {
     const empresaId = ctx.empresaId ?? null
@@ -155,38 +177,47 @@ export class IndicadoresAcessoriasService {
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
 
+    const escopoEmpresa: Prisma.AcessoriasEntregaWhereInput =
+      !ctx.isMaster && empresaId ? { empresaId } : {}
+
+    // Competência e período são excludentes: quem escolheu a competência quer o
+    // fechamento daquele mês inteiro, independentemente de quando vence.
     const where: Prisma.AcessoriasEntregaWhereInput = {
-      ...(!ctx.isMaster && empresaId ? { empresaId } : {}),
+      ...escopoEmpresa,
       ...(filtro.dpto ? { dpto: filtro.dpto } : {}),
-      ...(filtro.de || filtro.ate
-        ? {
-            AND: [
-              ...(filtro.de ? [{ OR: [
-                { dtAtraso: { gte: new Date(`${filtro.de}T00:00:00`) } },
-                { dtAtraso: null, prazo: { gte: new Date(`${filtro.de}T00:00:00`) } },
-              ] }] : []),
-              ...(filtro.ate ? [{ OR: [
-                { dtAtraso: { lte: new Date(`${filtro.ate}T00:00:00`) } },
-                { dtAtraso: null, prazo: { lte: new Date(`${filtro.ate}T00:00:00`) } },
-              ] }] : []),
-            ],
-          }
-        : {}),
+      ...(filtro.competencia
+        ? { competencia: this.mesDaCompetencia(filtro.competencia) }
+        : filtro.de || filtro.ate
+          ? {
+              AND: [
+                ...(filtro.de ? [{ OR: [
+                  { dtAtraso: { gte: new Date(`${filtro.de}T00:00:00`) } },
+                  { dtAtraso: null, prazo: { gte: new Date(`${filtro.de}T00:00:00`) } },
+                ] }] : []),
+                ...(filtro.ate ? [{ OR: [
+                  { dtAtraso: { lte: new Date(`${filtro.ate}T00:00:00`) } },
+                  { dtAtraso: null, prazo: { lte: new Date(`${filtro.ate}T00:00:00`) } },
+                ] }] : []),
+              ],
+            }
+          : {}),
     }
+
+    const competencias = await this.competenciasDisponiveis(escopoEmpresa)
 
     // ── recorte por permissão, aplicado na consulta ──
     // O responsável do Acessórias é texto; traduzimos o usuário (ou a área)
     // para os nomes/departamentos correspondentes antes de filtrar.
     if (escopo === 'PROPRIO') {
       const meus = idx.nomesDoUsuario.get(ctx.userId) ?? []
-      if (meus.length === 0) return { escopo, cartoes: [], pendentes: [], semVinculo: true, areaNome: user?.area?.name ?? null }
+      if (meus.length === 0) return { escopo, cartoes: [], pendentes: [], semVinculo: true, areaNome: user?.area?.name ?? null, competencias }
       Object.assign(where, {
         AND: [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
           { OR: [{ respPrazo: { in: meus } }, { respEntrega: { in: meus } }] }],
       })
     } else if (escopo === 'COLABORADORES') {
       const dptos = user?.areaId ? idx.dptosDaArea.get(user.areaId) ?? [] : []
-      if (dptos.length === 0) return { escopo, cartoes: [], pendentes: [], semVinculo: true, areaNome: user?.area?.name ?? null }
+      if (dptos.length === 0) return { escopo, cartoes: [], pendentes: [], semVinculo: true, areaNome: user?.area?.name ?? null, competencias }
       Object.assign(where, {
         AND: [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
           { dpto: { in: dptos } }],
@@ -215,6 +246,7 @@ export class IndicadoresAcessoriasService {
         pendentes: emAberto,
         semVinculo: false,
         areaNome: user?.area?.name ?? null,
+        competencias,
       }
     }
 
@@ -293,6 +325,7 @@ export class IndicadoresAcessoriasService {
       semVinculo: false,
       areaNome: user?.area?.name ?? null,
       ocultosInativos,
+      competencias,
     }
   }
 
@@ -304,7 +337,7 @@ export class IndicadoresAcessoriasService {
    * o usuário acabou de clicar.
    */
   async detalhe(
-    input: { de?: string; ate?: string; grupo: string; tipo: 'pessoa' | 'area'; medida: keyof Indicadores },
+    input: { de?: string; ate?: string; competencia?: string; grupo: string; tipo: 'pessoa' | 'area'; medida: keyof Indicadores },
     ctx: { userId: string; isMaster: boolean; isEmpresaMaster: boolean; empresaId?: string },
   ) {
     const empresaId = ctx.empresaId ?? null
@@ -316,11 +349,12 @@ export class IndicadoresAcessoriasService {
 
     const filtros: Prisma.AcessoriasEntregaWhereInput[] = [
       ...(!ctx.isMaster && empresaId ? [{ empresaId }] : []),
-      ...(input.de ? [{ OR: [
+      ...(input.competencia ? [{ competencia: this.mesDaCompetencia(input.competencia) }] : []),
+      ...(input.competencia ? [] : input.de ? [{ OR: [
         { dtAtraso: { gte: new Date(`${input.de}T00:00:00`) } },
         { dtAtraso: null, prazo: { gte: new Date(`${input.de}T00:00:00`) } },
       ] }] : []),
-      ...(input.ate ? [{ OR: [
+      ...(input.competencia ? [] : input.ate ? [{ OR: [
         { dtAtraso: { lte: new Date(`${input.ate}T00:00:00`) } },
         { dtAtraso: null, prazo: { lte: new Date(`${input.ate}T00:00:00`) } },
       ] }] : []),

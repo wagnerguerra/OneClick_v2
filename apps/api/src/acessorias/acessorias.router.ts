@@ -34,6 +34,7 @@ const painelFiltroSchema = z.object({
   dpto: z.string().optional(),
   responsavel: z.string().optional(),
   clienteId: z.string().optional(),
+  competencia: z.string().regex(/^\d{4}-\d{2}$/).optional(),
   foco: z.enum(['nao_lidas', 'a_vencer', 'atrasadas', 'todas']).optional(),
   janelaDias: z.coerce.number().int().min(1).max(60).optional(),
 }).optional()
@@ -281,6 +282,8 @@ export function createAcessoriasRouter(
         de: z.string().optional(),
         ate: z.string().optional(),
         dpto: z.string().optional(),
+        /** "YYYY-MM" — quando vem, manda no lugar do período. */
+        competencia: z.string().regex(/^\d{4}-\d{2}$/).optional(),
       }).optional())
       .query(({ input, ctx }) => {
         if (!indicadoresSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
@@ -297,6 +300,7 @@ export function createAcessoriasRouter(
       .input(z.object({
         de: z.string().optional(),
         ate: z.string().optional(),
+        competencia: z.string().regex(/^\d{4}-\d{2}$/).optional(),
         grupo: z.string().min(1),
         tipo: z.enum(['pessoa', 'area']),
         medida: z.enum([
@@ -345,7 +349,7 @@ export function createAcessoriasRouter(
         clienteId: z.string().optional(),
       }).optional())
       .query(({ input, ctx }) => {
-        if (!painelSvc) return { departamentos: [], responsaveis: [], clientes: [] }
+        if (!painelSvc) return { departamentos: [], responsaveis: [], clientes: [], competencias: [] }
         return painelSvc.opcoes(ctx.isMaster ?? false, ctx.empresaId, input ?? {})
       }),
   })

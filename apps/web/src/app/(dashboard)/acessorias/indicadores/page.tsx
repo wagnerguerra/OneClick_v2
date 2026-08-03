@@ -15,7 +15,7 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
-import { PERIODOS, intervaloDe, type Periodo } from '../_components/periodos'
+import { PERIODOS, filtroDe, rotuloCompetencia, type Recorte } from '../_components/periodos'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
@@ -53,6 +53,7 @@ interface Retorno {
   semVinculo: boolean
   areaNome: string | null
   ocultosInativos?: number
+  competencias?: string[]
 }
 interface LinhaDetalhe {
   id: string
@@ -114,16 +115,16 @@ const fmtComp = (v: string | null) => {
 export default function IndicadoresPage() {
   const [dados, setDados] = useState<Retorno | null>(null)
   const [loading, setLoading] = useState(true)
-  const [periodo, setPeriodo] = useState<Periodo>('mes')
+  const [recorte, setRecorte] = useState<Recorte>('mes')
   const [detalhe, setDetalhe] = useState<{ cartao: Cartao; medida: Medida } | null>(null)
 
   const carregar = useCallback(() => {
     setLoading(true)
-    ;(trpc.acessorias as any).indicadores.query(intervaloDe(periodo))
+    ;(trpc.acessorias as any).indicadores.query(filtroDe(recorte))
       .then((d: Retorno) => setDados(d))
       .catch(() => setDados(null))
       .finally(() => setLoading(false))
-  }, [periodo])
+  }, [recorte])
 
   useEffect(() => { carregar() }, [carregar])
 
@@ -148,10 +149,25 @@ export default function IndicadoresPage() {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Select value={periodo} onValueChange={(v) => setPeriodo(v as Periodo)}>
-            <SelectTrigger className="h-9 w-[170px] text-xs"><SelectValue placeholder="Prazo" /></SelectTrigger>
+          {/* Um campo só, com as duas formas de recortar o tempo. Separados,
+              dava para combinar recortes que se anulam e receber tela vazia. */}
+          <Select value={recorte} onValueChange={(v) => setRecorte(v as Recorte)}>
+            <SelectTrigger className="h-9 w-[180px] text-xs"><SelectValue placeholder="Recorte" /></SelectTrigger>
             <SelectContent>
+              <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Por vencimento
+              </p>
               {PERIODOS.map((p) => <SelectItem key={p.valor} value={p.valor}>{p.label}</SelectItem>)}
+              {!!dados?.competencias?.length && (
+                <>
+                  <p className="mt-1 border-t border-border px-2 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Por competência
+                  </p>
+                  {dados.competencias.map((c) => (
+                    <SelectItem key={c} value={`comp:${c}`}>{rotuloCompetencia(c)}</SelectItem>
+                  ))}
+                </>
+              )}
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={carregar} disabled={loading}>
@@ -210,7 +226,7 @@ export default function IndicadoresPage() {
           cartao={detalhe.cartao}
           medida={detalhe.medida}
           tipo={tipoGrupo}
-          periodo={periodo}
+          recorte={recorte}
           onClose={() => setDetalhe(null)}
         />
       )}
@@ -362,8 +378,8 @@ function CartaoIndicador({ cartao, destaque, onAbrir }: {
 }
 
 /** A lista por trás de um número do cartão. */
-function DetalheMedidaModal({ cartao, medida, tipo, periodo, onClose }: {
-  cartao: Cartao; medida: Medida; tipo: 'pessoa' | 'area'; periodo: Periodo; onClose: () => void
+function DetalheMedidaModal({ cartao, medida, tipo, recorte, onClose }: {
+  cartao: Cartao; medida: Medida; tipo: 'pessoa' | 'area'; recorte: Recorte; onClose: () => void
 }) {
   const [linhas, setLinhas] = useState<LinhaDetalhe[]>([])
   const [carregando, setCarregando] = useState(true)
@@ -372,11 +388,11 @@ function DetalheMedidaModal({ cartao, medida, tipo, periodo, onClose }: {
   useEffect(() => {
     setCarregando(true)
     ;(trpc.acessorias as any).indicadoresDetalhe
-      .query({ ...intervaloDe(periodo), grupo: cartao.titulo, tipo, medida })
+      .query({ ...filtroDe(recorte), grupo: cartao.titulo, tipo, medida })
       .then((d: LinhaDetalhe[]) => setLinhas(d || []))
       .catch(() => setLinhas([]))
       .finally(() => setCarregando(false))
-  }, [cartao.titulo, medida, tipo, periodo])
+  }, [cartao.titulo, medida, tipo, recorte])
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>

@@ -18,7 +18,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
 import { EntityCombobox } from '@/components/ui/entity-combobox'
-import { PERIODOS, intervaloDe, type Periodo } from '../_components/periodos'
+import { PERIODOS, filtroDe, rotuloCompetencia, type Recorte } from '../_components/periodos'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 
@@ -61,6 +61,7 @@ interface Resumo {
   atrasadas: number; comMulta: number
 }
 interface OpcoesPainel {
+  competencias: string[]
   departamentos: string[]
   responsaveis: string[]
   clientes: { id: string; code: number; razaoSocial: string; documento: string }[]
@@ -224,7 +225,7 @@ export default function PainelEntregasPage() {
   const [dpto, setDpto] = useState('')
   const [responsavel, setResponsavel] = useState('')
   const [clienteId, setClienteId] = useState('')
-  const [periodo, setPeriodo] = useState<Periodo>('todo')
+  const [recorte, setRecorte] = useState<Recorte>('todo')
   const [ordem, setOrdem] = useState<CampoOrdem>('vencimento')
   const [dir, setDir] = useState<'asc' | 'desc'>('asc')
   const [busca, setBusca] = useState('')
@@ -233,7 +234,7 @@ export default function PainelEntregasPage() {
   const [linhas, setLinhas] = useState<Linha[]>([])
   const [resumo, setResumo] = useState<Resumo | null>(null)
   const [clientes, setClientes] = useState<PorCliente[]>([])
-  const [opcoes, setOpcoes] = useState<OpcoesPainel>({ departamentos: [], responsaveis: [], clientes: [] })
+  const [opcoes, setOpcoes] = useState<OpcoesPainel>({ competencias: [], departamentos: [], responsaveis: [], clientes: [] })
   const [loading, setLoading] = useState(true)
   const [urlTemplate, setUrlTemplate] = useState<string | null>(null)
   const [truncado, setTruncado] = useState<{ limite: number } | null>(null)
@@ -251,8 +252,8 @@ export default function PainelEntregasPage() {
     dpto: dpto || undefined,
     responsavel: responsavel || undefined,
     clienteId: clienteId || undefined,
-    ...intervaloDe(periodo),
-  }), [foco, janelaDias, dpto, responsavel, clienteId, periodo])
+    ...filtroDe(recorte),
+  }), [foco, janelaDias, dpto, responsavel, clienteId, recorte])
 
   const carregar = useCallback(() => {
     setLoading(true)
@@ -418,10 +419,25 @@ export default function PainelEntregasPage() {
               emptyText="Nenhum cliente com entrega"
             />
 
-            <Select value={periodo} onValueChange={(v) => setPeriodo(v as Periodo)}>
-              <SelectTrigger className="h-8 w-[160px] bg-card text-xs"><SelectValue placeholder="Prazo" /></SelectTrigger>
+            {/* Um campo só, com as duas formas de recortar o tempo. Separados,
+                dava para combinar recortes que se anulam e receber tela vazia. */}
+            <Select value={recorte} onValueChange={(v) => setRecorte(v as Recorte)}>
+              <SelectTrigger className="h-8 w-[170px] bg-card text-xs"><SelectValue placeholder="Recorte" /></SelectTrigger>
               <SelectContent>
+                <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Por vencimento
+                </p>
                 {PERIODOS.map((p) => <SelectItem key={p.valor} value={p.valor}>{p.label}</SelectItem>)}
+                {opcoes.competencias.length > 0 && (
+                  <>
+                    <p className="mt-1 border-t border-border px-2 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Por competência
+                    </p>
+                    {opcoes.competencias.map((c) => (
+                      <SelectItem key={c} value={`comp:${c}`}>{rotuloCompetencia(c)}</SelectItem>
+                    ))}
+                  </>
+                )}
               </SelectContent>
             </Select>
 
