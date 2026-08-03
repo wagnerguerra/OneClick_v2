@@ -571,15 +571,6 @@ export default function HelpdeskPage() {
               <FilterX className="h-3.5 w-3.5" /> Limpar filtros
             </Button>
           )}
-          {/* Escopo — abrangência (mostra sempre o valor: Meus / Área / Todos) */}
-          {isAgente && (
-            <Select value={scope} onValueChange={v => setScopeManual(v as ScopeFiltro)} disabled={scopeOptions.length <= 1}>
-              <SelectTrigger className="h-8 text-xs w-[140px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {scopeOptions.map(o => <SelectItem key={o} value={o}>{SCOPE_FILTRO_LABEL[o]}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          )}
           {/* Solicitante — só fora do escopo "meus" e quando há opções. O value
               deriva pra "Todos os solicitantes" sempre que o selecionado não for
               uma opção válida (ex.: troquei de escopo), em vez de ficar em branco. */}
@@ -588,7 +579,9 @@ export default function HelpdeskPage() {
               value={filtroSolicitante && solicitanteOptions.some(u => u.id === filtroSolicitante) ? filtroSolicitante : '__all__'}
               onValueChange={v => setFiltroSolicitante(v === '__all__' ? '' : v)}
             >
-              <SelectTrigger className="h-8 text-xs w-[170px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs w-[170px]">
+                <span>{(filtroSolicitante && solicitanteOptions.find(u => u.id === filtroSolicitante)?.name) || 'Solicitante'}</span>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os solicitantes</SelectItem>
                 {solicitanteOptions.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
@@ -598,7 +591,9 @@ export default function HelpdeskPage() {
           {/* Responsável — só agentes */}
           {isAgente && agentes.length > 0 && (
             <Select value={filtroResponsavel || '__all__'} onValueChange={v => setFiltroResponsavel(v === '__all__' ? '' : v)}>
-              <SelectTrigger className="h-8 text-xs w-[160px]"><SelectValue placeholder="Responsável" /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs w-[160px]">
+                <span>{(filtroResponsavel && agentes.find(a => a.id === filtroResponsavel)?.name) || 'Responsável'}</span>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os responsáveis</SelectItem>
                 {agentes.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
@@ -608,7 +603,9 @@ export default function HelpdeskPage() {
           {/* Status — só na lista (no kanban as colunas já são os status) */}
           {isAgente && !emKanban && (
             <Select value={filtroStatus || '__all__'} onValueChange={v => setFiltroStatus(v === '__all__' ? '' : v as HelpdeskStatus)}>
-              <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs w-[150px]">
+                <span>{(filtroStatus && HELPDESK_STATUS_LABELS[filtroStatus]) || 'Status'}</span>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os status</SelectItem>
                 {HELPDESK_STATUS.map(s => (
@@ -625,7 +622,9 @@ export default function HelpdeskPage() {
           {/* Prioridade */}
           {isAgente && (
             <Select value={filtroPrioridade || '__all__'} onValueChange={v => setFiltroPrioridade(v === '__all__' ? '' : v as HelpdeskPrioridade)}>
-              <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs w-[150px]">
+                <span>{(filtroPrioridade && HELPDESK_PRIORIDADE_LABELS[filtroPrioridade]) || 'Prioridade'}</span>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as prioridades</SelectItem>
                 {HELPDESK_PRIORIDADE.map(p => (
@@ -636,6 +635,17 @@ export default function HelpdeskPage() {
                     </span>
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          )}
+          {/* Escopo — último da linha. Fica à direita dos demais para que a
+              troca de escopo (que faz o filtro de solicitante aparecer/sumir)
+              não desloque os filtros estáveis, ancorados à direita. */}
+          {isAgente && (
+            <Select value={scope} onValueChange={v => setScopeManual(v as ScopeFiltro)} disabled={scopeOptions.length <= 1}>
+              <SelectTrigger className="h-8 text-xs w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {scopeOptions.map(o => <SelectItem key={o} value={o}>{SCOPE_FILTRO_LABEL[o]}</SelectItem>)}
               </SelectContent>
             </Select>
           )}
