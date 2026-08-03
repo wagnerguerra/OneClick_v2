@@ -25,6 +25,26 @@ const SINGULAR_LABELS: Record<string, string> = {
 }
 
 /**
+ * Rotas que só encaminham para outra e não têm tela própria.
+ *
+ * `/acessorias` decide, pela permissão do usuário, qual das abas do módulo
+ * abrir. Sem esta lista, entrar no módulo criava DUAS abas: uma ao pisar no
+ * encaminhador e outra ao chegar no destino.
+ */
+const ROTAS_ENCAMINHADORAS = new Set(['/acessorias'])
+
+/**
+ * Rótulo das telas internas de um módulo de item único. Sem isto, todas cairiam
+ * no prefixo e virariam abas homônimas — três "Acessórias" indistinguíveis.
+ */
+const LABELS_INTERNOS: Record<string, string> = {
+  '/acessorias/indicadores': 'Acessórias · Indicadores',
+  '/acessorias/painel': 'Acessórias · Entregas',
+  '/acessorias/integracao': 'Acessórias · Integração',
+  '/acessorias/divergencias': 'Acessórias · Divergências',
+}
+
+/**
  * Resolve label e icon de uma rota a partir da configuração da sidebar.
  * Procura primeiro match exato no href; se não achar, é uma rota de detalhe
  * (ex: /clientes/abc) → usa o label singular do recurso (ex: "Cliente").
@@ -34,7 +54,9 @@ const SINGULAR_LABELS: Record<string, string> = {
  * com label do plural ou ignoram.
  */
 function resolveRouteMeta(pathname: string): { label: string; icon: string } | null {
-  const pathClean = pathname.split('?')[0]!.split('#')[0]
+  const pathClean = pathname.split('?')[0]!.split('#')[0]!
+  const interno = LABELS_INTERNOS[pathClean]
+  if (interno) return { label: interno, icon: 'acessorias' }
   const allItems = navigation.flatMap(g => [
     ...g.items,
     ...g.items.flatMap(it => it.subItems ?? []),
@@ -85,12 +107,13 @@ export function useSyncRouteTab() {
       || pathname === '/onboarding'
       || pathname.startsWith('/login/')
       || pathname.startsWith('/api/')
+      || ROTAS_ENCAMINHADORAS.has(pathname)
     ) return
 
     if (lastSyncedRef.current === pathname) return
     lastSyncedRef.current = pathname
 
-    const pathClean = pathname.split('?')[0]!.split('#')[0]
+    const pathClean = pathname.split('?')[0]!.split('#')[0]!
     const existing = tabs.find(t => {
       const tClean = t.href.split('?')[0]!.split('#')[0]
       return tClean === pathClean
