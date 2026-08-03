@@ -6,14 +6,13 @@ import {
   BarChart3, Loader2, RefreshCw, Users, Link2Off, AlertTriangle,
 } from 'lucide-react'
 import {
-  Button, Card, cn,
+  Button, Card, cn, Switch,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Recorte } from '../_components/periodos'
 import { AbasAcessorias } from '../_components/abas-acessorias'
@@ -123,14 +122,20 @@ export default function IndicadoresPage() {
   const [loading, setLoading] = useState(true)
   const [recorte, setRecorte] = useState<Recorte>('mes')
   const [detalhe, setDetalhe] = useState<{ cartao: Cartao; medida: Medida } | null>(null)
+  /**
+   * Contra qual prazo medir. O legal é o do órgão — a exposição do cliente. O
+   * técnico é o acordado com ele — o compromisso do escritório. Entre os dois
+   * fica a faixa do "Ent. PzTéc": entrega que o órgão aceita e o contrato não.
+   */
+  const [regua, setRegua] = useState<'legal' | 'tecnico'>('legal')
 
   const carregar = useCallback(() => {
     setLoading(true)
-    ;(trpc.acessorias as any).indicadores.query(filtroDe(recorte))
+    ;(trpc.acessorias as any).indicadores.query({ ...filtroDe(recorte), regua })
       .then((d: Retorno) => setDados(d))
       .catch(() => setDados(null))
       .finally(() => setLoading(false))
-  }, [recorte])
+  }, [recorte, regua])
 
   useEffect(() => { carregar() }, [carregar])
 
@@ -154,7 +159,18 @@ export default function IndicadoresPage() {
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5"
+            title="Prazo legal é o do órgão — o que expõe o cliente. Prazo técnico é o acordado com ele — o compromisso do escritório.">
+            <span className={cn('text-xs', regua === 'legal' ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
+              Legal
+            </span>
+            <Switch checked={regua === 'tecnico'} onCheckedChange={(v) => setRegua(v ? 'tecnico' : 'legal')} />
+            <span className={cn('text-xs', regua === 'tecnico' ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
+              Técnico
+            </span>
+          </label>
+
           {/* Um campo só, com as duas formas de recortar o tempo. Separados,
               dava para combinar recortes que se anulam e receber tela vazia. */}
           <Select value={recorte} onValueChange={(v) => setRecorte(v as Recorte)}>
@@ -175,7 +191,6 @@ export default function IndicadoresPage() {
           <Button variant="outline" size="sm" onClick={carregar} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}Atualizar
           </Button>
-          <BackButton href="/" label="Voltar" />
         </div>
       </div>
 
@@ -232,6 +247,7 @@ export default function IndicadoresPage() {
           medida={detalhe.medida}
           tipo={tipoGrupo}
           recorte={recorte}
+          regua={regua}
           onClose={() => setDetalhe(null)}
         />
       )}
@@ -302,14 +318,17 @@ function RoscaSituacao({ cartao, tamanho = 96, destaque }: {
       <div className="absolute inset-0 flex items-center justify-center" style={{ padding: espessuraMax + 3 }}>
         <Avatar cartao={cartao} />
       </div>
-      {/* No foco, o centro dá o número em percentual — é a leitura que a fatia
-          sozinha não entrega. */}
+      {/* O percentual da fatia em foco, AO LADO do gráfico: embaixo ele ficava
+          coberto pelo nome, que vem depois no fluxo e pinta por cima. É a
+          leitura que o tamanho do arco sozinho não entrega. */}
       {destaque && (() => {
         const f = fatias.find((x) => x.campo === destaque)
         if (!f) return null
         return (
-          <span className="pointer-events-none absolute inset-x-0 -bottom-1 text-center text-[11px] font-semibold tabular-nums"
-            style={{ color: f.cor }}>
+          <span
+            className="pointer-events-none absolute left-[calc(100%+6px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[12px] font-semibold tabular-nums"
+            style={{ color: f.cor, backgroundColor: `color-mix(in srgb, ${f.cor} 14%, transparent)` }}
+          >
             {Math.round(f.fracao * 100)}%
           </span>
         )
@@ -412,8 +431,9 @@ function CartaoIndicador({ cartao, destaque, onAbrir }: {
 }
 
 /** A lista por trás de um número do cartão. */
-function DetalheMedidaModal({ cartao, medida, tipo, recorte, onClose }: {
-  cartao: Cartao; medida: Medida; tipo: 'pessoa' | 'area'; recorte: Recorte; onClose: () => void
+function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
+  cartao: Cartao; medida: Medida; tipo: 'pessoa' | 'area'; recorte: Recorte
+  regua: 'legal' | 'tecnico'; onClose: () => void
 }) {
   const [linhas, setLinhas] = useState<LinhaDetalhe[]>([])
   const [carregando, setCarregando] = useState(true)
@@ -422,11 +442,11 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, onClose }: {
   useEffect(() => {
     setCarregando(true)
     ;(trpc.acessorias as any).indicadoresDetalhe
-      .query({ ...filtroDe(recorte), grupo: cartao.titulo, tipo, medida })
+      .query({ ...filtroDe(recorte), regua, grupo: cartao.titulo, tipo, medida })
       .then((d: LinhaDetalhe[]) => setLinhas(d || []))
       .catch(() => setLinhas([]))
       .finally(() => setCarregando(false))
-  }, [cartao.titulo, medida, tipo, recorte])
+  }, [cartao.titulo, medida, tipo, recorte, regua])
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -456,7 +476,7 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, onClose }: {
                   <th className="px-3 py-2 text-left">Obrigação</th>
                   <th className="hidden w-[26%] px-3 py-2 text-left md:table-cell">Cliente</th>
                   <th className="hidden w-[100px] px-3 py-2 text-left lg:table-cell">Competência</th>
-                  <th className="w-[110px] px-3 py-2 text-left">Prazo legal</th>
+                  <th className="w-[110px] px-3 py-2 text-left">{regua === 'tecnico' ? 'Prazo técnico' : 'Prazo legal'}</th>
                   <th className="hidden w-[112px] px-3 py-2 text-left sm:table-cell">Entrega</th>
                 </tr>
               </thead>
@@ -478,9 +498,11 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, onClose }: {
                       </Link>
                     </td>
                     <td className="hidden whitespace-nowrap px-3 py-2 text-[12px] text-muted-foreground lg:table-cell">{fmtComp(l.competencia)}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-[12px] tabular-nums">{fmtData(l.vencimento)}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-[12px] tabular-nums">
+                      {fmtData(regua === 'tecnico' ? l.prazo : l.vencimento)}
+                    </td>
                     <td className="hidden whitespace-nowrap px-3 py-2 text-[12px] sm:table-cell">
-                      <BadgeEntrega entrega={l.dtEntrega} vencimento={l.vencimento} />
+                      <BadgeEntrega entrega={l.dtEntrega} vencimento={regua === 'tecnico' ? l.prazo : l.vencimento} />
                     </td>
                   </tr>
                 ))}

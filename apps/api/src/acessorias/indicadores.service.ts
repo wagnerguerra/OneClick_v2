@@ -17,6 +17,17 @@ import { VinculosAcessoriasService } from './vinculos.service'
 
 export type EscopoPainel = 'PROPRIO' | 'COLABORADORES' | 'AREAS' | 'GERAL'
 
+/**
+ * Contra qual prazo medir.
+ *
+ *   legal    o do órgão (EntDtAtraso) — é a exposição do cliente
+ *   tecnico  o acordado com o cliente (EntDtPrazo) — é o compromisso do escritório
+ *
+ * A diferença não é cosmética: a faixa entre os dois é onde mora o "Ent. PzTéc"
+ * do Acessórias, entrega que o órgão considera em dia e o contrato, não.
+ */
+export type Regua = 'legal' | 'tecnico'
+
 export interface Indicadores {
   pendenteNoPrazo: number
   pendenteAtrasado: number
@@ -81,27 +92,24 @@ export class IndicadoresAcessoriasService {
    * Então os dois baldes de multa passam a exigir o ATRASO junto: só há
    * exposição real quando a obrigação sujeita a multa de fato passou do prazo.
    */
-  private acumular(acc: Indicadores, l: LinhaCrua, hoje: Date) {
+  private acumular(acc: Indicadores, l: LinhaCrua, hoje: Date, regua: Regua) {
     const s = norm(l.status)
     if (s.startsWith('dispensad')) return // não era devida: não conta em lugar nenhum
 
+    // O limite muda com a régua escolhida — é o que separa "cumprimos o
+    // combinado com o cliente" de "o cliente não vai ser multado".
+    const limite = regua === 'tecnico' ? l.prazo : (l.dtAtraso ?? l.prazo)
+
     const entregue = l.dtEntrega !== null || STATUS_ENTREGUE.some((x) => s.startsWith(norm(x)))
     if (entregue) {
-      // Quem classifica é o Acessórias, que tem TRÊS categorias de entrega e só
-      // uma delas é atraso:
-      //
-      //   Ent. antecipada  entregue antes do prazo interno       → em dia
-      //   Ent. PzTéc       depois do prazo interno, mas dentro
-      //                    do vencimento ("prazo técnico")       → em dia
-      //   Ent. atrasada    depois do vencimento                  → atraso
-      //
-      // A regra anterior desempatava por `entrega > prazo interno` e derrubava
-      // toda a faixa do prazo técnico no balde de atraso — 9 de 12 na amostra
-      // conferida. O desempate por data só entra quando o status não classifica,
-      // e aí compara com o VENCIMENTO, que é o limite real.
-      const venc = l.dtAtraso ?? l.prazo
+      // Comparar a data de entrega com o limite responde às duas réguas com a
+      // mesma conta. Pela legal, o "Ent. PzTéc" cai como em dia (foi entregue
+      // antes do prazo do órgão); pela técnica, cai como atraso — que é
+      // exatamente o que essa categoria significa.
+      // O status ainda vale como piso: "Ent. atrasada" é atraso em qualquer
+      // régua, mesmo que falte alguma data.
       const atrasada = s.startsWith('ent. atrasada') || s.startsWith('ent atrasada')
-        || (!s.startsWith('ent') && !!l.dtEntrega && !!venc && l.dtEntrega > venc)
+        || (!!l.dtEntrega && !!limite && l.dtEntrega > limite)
       if (atrasada) {
         acc.entregueComAtraso++
         if (l.multa) acc.entregueComMulta++
@@ -111,13 +119,22 @@ export class IndicadoresAcessoriasService {
       return
     }
 
-    const venc = l.dtAtraso ?? l.prazo
-    if (venc && venc < hoje) {
+    if (limite && limite < hoje) {
       acc.pendenteAtrasado++
       if (l.multa) acc.pendenteComMulta++
     } else {
       acc.pendenteNoPrazo++
     }
+  }
+
+  /**
+   * Recorte de período contra o prazo da régua escolhida. Pela legal, o COALESCE
+   * de dtAtraso com prazo vira um OR; pela técnica, é o prazo direto.
+   */
+  private limiteNoPeriodo(regua: Regua, op: 'gte' | 'lte', data: string): Prisma.AcessoriasEntregaWhereInput {
+    const d = new Date(`${data}T00:00:00`)
+    if (regua === 'tecnico') return { prazo: { [op]: d } }
+    return { OR: [{ dtAtraso: { [op]: d } }, { dtAtraso: null, prazo: { [op]: d } }] }
   }
 
   /** Início e fim do mês de uma competência "YYYY-MM". */
@@ -130,10 +147,11 @@ export class IndicadoresAcessoriasService {
   }
 
   async painel(
-    filtro: { de?: string; ate?: string; dpto?: string; competencia?: string },
+    filtro: { de?: string; ate?: string; dpto?: string; competencia?: string; regua?: Regua },
     ctx: { userId: string; isMaster: boolean; isEmpresaMaster: boolean; empresaId?: string },
   ) {
     const empresaId = ctx.empresaId ?? null
+    const regua: Regua = filtro.regua ?? 'legal'
     const { escopo, user } = await this.vinculos.escopoDoUsuario(ctx.userId, ctx.isMaster, ctx.isEmpresaMaster)
 
     // Reconfere os vínculos a cada consulta. Rodar só quando a tabela estava
@@ -161,14 +179,8 @@ export class IndicadoresAcessoriasService {
         : filtro.de || filtro.ate
           ? {
               AND: [
-                ...(filtro.de ? [{ OR: [
-                  { dtAtraso: { gte: new Date(`${filtro.de}T00:00:00`) } },
-                  { dtAtraso: null, prazo: { gte: new Date(`${filtro.de}T00:00:00`) } },
-                ] }] : []),
-                ...(filtro.ate ? [{ OR: [
-                  { dtAtraso: { lte: new Date(`${filtro.ate}T00:00:00`) } },
-                  { dtAtraso: null, prazo: { lte: new Date(`${filtro.ate}T00:00:00`) } },
-                ] }] : []),
+                ...(filtro.de ? [this.limiteNoPeriodo(regua, 'gte', filtro.de)] : []),
+                ...(filtro.ate ? [this.limiteNoPeriodo(regua, 'lte', filtro.ate)] : []),
               ],
             }
           : {}),
@@ -218,7 +230,7 @@ export class IndicadoresAcessoriasService {
     // ── lista simples para quem só vê as próprias ──
     if (escopo === 'PROPRIO') {
       const acc = zerado()
-      for (const l of linhas) this.acumular(acc, l as LinhaCrua, hoje)
+      for (const l of linhas) this.acumular(acc, l as LinhaCrua, hoje, regua)
       const emAberto = await this.pendentesDetalhadas(where)
       return {
         escopo,
@@ -249,7 +261,7 @@ export class IndicadoresAcessoriasService {
         sub: agrupaPorPessoa ? (l.dpto ?? null) : null,
         acc: zerado(),
       }
-      this.acumular(atual.acc, l as LinhaCrua, hoje)
+      this.acumular(atual.acc, l as LinhaCrua, hoje, regua)
       porChave.set(k, atual)
     }
 
@@ -320,10 +332,11 @@ export class IndicadoresAcessoriasService {
    * o usuário acabou de clicar.
    */
   async detalhe(
-    input: { de?: string; ate?: string; competencia?: string; grupo: string; tipo: 'pessoa' | 'area'; medida: keyof Indicadores },
+    input: { de?: string; ate?: string; competencia?: string; regua?: Regua; grupo: string; tipo: 'pessoa' | 'area'; medida: keyof Indicadores },
     ctx: { userId: string; isMaster: boolean; isEmpresaMaster: boolean; empresaId?: string },
   ) {
     const empresaId = ctx.empresaId ?? null
+    const regua: Regua = input.regua ?? 'legal'
     const { escopo, user } = await this.vinculos.escopoDoUsuario(ctx.userId, ctx.isMaster, ctx.isEmpresaMaster)
     const idx = await this.vinculos.indices(empresaId)
 
@@ -333,14 +346,8 @@ export class IndicadoresAcessoriasService {
     const filtros: Prisma.AcessoriasEntregaWhereInput[] = [
       ...(!ctx.isMaster && empresaId ? [{ empresaId }] : []),
       ...(input.competencia ? [{ competencia: this.mesDaCompetencia(input.competencia) }] : []),
-      ...(input.competencia ? [] : input.de ? [{ OR: [
-        { dtAtraso: { gte: new Date(`${input.de}T00:00:00`) } },
-        { dtAtraso: null, prazo: { gte: new Date(`${input.de}T00:00:00`) } },
-      ] }] : []),
-      ...(input.competencia ? [] : input.ate ? [{ OR: [
-        { dtAtraso: { lte: new Date(`${input.ate}T00:00:00`) } },
-        { dtAtraso: null, prazo: { lte: new Date(`${input.ate}T00:00:00`) } },
-      ] }] : []),
+      ...(input.competencia || !input.de ? [] : [this.limiteNoPeriodo(regua, 'gte', input.de)]),
+      ...(input.competencia || !input.ate ? [] : [this.limiteNoPeriodo(regua, 'lte', input.ate)]),
     ]
 
     // O grupo pedido precisa caber no que este usuário pode ver — senão o
@@ -373,7 +380,7 @@ export class IndicadoresAcessoriasService {
     // `acumular`, aplicada a uma entrega de cada vez.
     const linhas = rows.filter((r) => {
       const acc = zerado()
-      this.acumular(acc, r as unknown as LinhaCrua, hoje)
+      this.acumular(acc, r as unknown as LinhaCrua, hoje, regua)
       return acc[input.medida] > 0
     })
 

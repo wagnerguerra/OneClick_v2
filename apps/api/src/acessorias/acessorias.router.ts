@@ -284,6 +284,7 @@ export function createAcessoriasRouter(
         dpto: z.string().optional(),
         /** "YYYY-MM" — quando vem, manda no lugar do período. */
         competencia: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+        regua: z.enum(['legal', 'tecnico']).optional(),
       }).optional())
       .query(({ input, ctx }) => {
         if (!indicadoresSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
@@ -301,6 +302,7 @@ export function createAcessoriasRouter(
         de: z.string().optional(),
         ate: z.string().optional(),
         competencia: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+        regua: z.enum(['legal', 'tecnico']).optional(),
         grupo: z.string().min(1),
         tipo: z.enum(['pessoa', 'area']),
         medida: z.enum([
