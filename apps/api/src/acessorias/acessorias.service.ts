@@ -706,6 +706,12 @@ export class AcessoriasService {
       respPrazo: config.RespPrazo ? String(config.RespPrazo).trim() || null : null,
       respEntrega: config.RespEntrega ? String(config.RespEntrega).trim() || null : null,
       dpto: config.DptoNome ? String(config.DptoNome).trim() || null : null,
+      // Os identificadores vinham na resposta e eram descartados. O vínculo com
+      // o nosso cadastro se apoia neles: nome muda de grafia entre as bases,
+      // ID não.
+      respPrazoId: config.RespPrazoID ? String(config.RespPrazoID).trim() || null : null,
+      respEntregaId: config.RespEntregaID ? String(config.RespEntregaID).trim() || null : null,
+      dptoId: config.DptoID ? String(config.DptoID).trim() || null : null,
       lastDH: this.parseDateTime(String(delivery.EntLastDH ?? '')),
       syncedAt: new Date(),
       empresaId,

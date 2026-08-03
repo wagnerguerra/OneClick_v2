@@ -248,6 +248,7 @@ model User {
   tenant                 Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   empresa                Empresa?                @relation(fields: [empresaId], references: [id], onDelete: SetNull)
   area                   Area?                   @relation("UserArea", fields: [areaId], references: [id], onDelete: SetNull)
+  acessoriasColaborador  AcessoriasColaborador[] @relation("AcessoriasColaboradorUser")
   cargo                  Cargo?                  @relation(fields: [cargoId], references: [id], onDelete: SetNull)
   sessions               Session[]
   accounts               Account[]
@@ -423,6 +424,7 @@ model Area {
   helpdeskCategorias HelpdeskCategoria[]
   helpdeskTickets    HelpdeskTicket[]
   ativos             Ativo[]                 @relation("AtivoArea")
+  acessoriasDptos    AcessoriasDepartamento[] @relation("AcessoriasDepartamentoArea")
 
   @@map("areas")
 }
@@ -4630,6 +4632,12 @@ model AcessoriasEntrega {
   respEntrega String? @map("resp_entrega")
   dpto        String?
 
+  /// IDs de origem no Acessórias (Config.RespPrazoID / RespEntregaID / DptoID).
+  /// O vínculo com o nosso cadastro se apoia neles, não na grafia do nome.
+  respPrazoId   String? @map("resp_prazo_id")
+  respEntregaId String? @map("resp_entrega_id")
+  dptoId        String? @map("dpto_id")
+
   lastDH    DateTime? @map("last_dh")
   syncedAt  DateTime  @default(now()) @map("synced_at")
   empresaId String?   @map("empresa_id")
@@ -4641,7 +4649,53 @@ model AcessoriasEntrega {
   @@index([prazo])
   @@index([lida])
   @@index([empresaId])
+  @@index([respPrazoId])
+  @@index([dptoId])
   @@map("acessorias_entregas")
+}
+
+/// Colaborador do Acessórias ↔ usuário do OneClick.
+///
+/// Os nomes divergem entre as bases ("Millian de Souza" lá, "Millian Souza"
+/// aqui), então o par é resolvido por proximidade e GRAVADO — assim uma
+/// correção manual sobrevive, em vez de ser recalculada a cada consulta.
+model AcessoriasColaborador {
+  id           String  @id @default(cuid())
+  empresaId    String? @map("empresa_id")
+  acessoriasId String? @map("acessorias_id")
+  nome         String
+  userId       String? @map("user_id")
+  /// AUTO = casado por proximidade; MANUAL = corrigido à mão (a rotina
+  /// automática nunca sobrescreve MANUAL).
+  origem       String  @default("AUTO")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User? @relation("AcessoriasColaboradorUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([empresaId])
+  @@map("acessorias_colaboradores")
+}
+
+/// Departamento do Acessórias ↔ área do OneClick.
+model AcessoriasDepartamento {
+  id           String  @id @default(cuid())
+  empresaId    String? @map("empresa_id")
+  acessoriasId String? @map("acessorias_id")
+  nome         String
+  areaId       String? @map("area_id")
+  origem       String  @default("AUTO")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  area Area? @relation("AcessoriasDepartamentoArea", fields: [areaId], references: [id], onDelete: SetNull)
+
+  @@index([areaId])
+  @@index([empresaId])
+  @@map("acessorias_departamentos")
 }
 
 /// Log de execução de sync — última vez que rodamos polling, quantos registros

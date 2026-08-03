@@ -138,6 +138,8 @@ import { AcessoriasService } from '../acessorias/acessorias.service'
 import { DivergenciaAcessoriasService } from '../acessorias/divergencia.service'
 import { PainelEntregasService } from '../acessorias/painel-entregas.service'
 import { RegrasObrigacaoService } from '../acessorias/regras-obrigacao.service'
+import { VinculosAcessoriasService } from '../acessorias/vinculos.service'
+import { IndicadoresAcessoriasService } from '../acessorias/indicadores.service'
 import { createAcessoriasRouter } from '../acessorias/acessorias.router'
 import { RecorrenciaScheduler } from '../notificacao/recorrencia.scheduler'
 import { NotificacaoService } from '../notificacao/notificacao.service'
@@ -680,6 +682,8 @@ export class TrpcService {
     @Inject(DivergenciaAcessoriasService) private readonly divergenciaAcessoriasService: DivergenciaAcessoriasService,
     @Inject(PainelEntregasService) private readonly painelEntregasService: PainelEntregasService,
     @Inject(RegrasObrigacaoService) private readonly regrasObrigacaoService: RegrasObrigacaoService,
+    @Inject(VinculosAcessoriasService) private readonly vinculosAcessoriasService: VinculosAcessoriasService,
+    @Inject(IndicadoresAcessoriasService) private readonly indicadoresAcessoriasService: IndicadoresAcessoriasService,
     @Inject(RecorrenciaScheduler) private readonly recorrenciaScheduler: RecorrenciaScheduler,
     @Inject(NotificacaoService) private readonly notificacaoServiceTrpc: NotificacaoService,
     @Inject(ObrigacaoService) private readonly obrigacaoService: ObrigacaoService,
@@ -775,7 +779,8 @@ export class TrpcService {
       dashboardCalendario: createDashboardCalendarioRouter(this.dashboardCalendarioService),
       helpdesk: createHelpdeskRouter(this.helpdeskService, this.helpdeskAiAgent),
       painelTv: createPainelTvRouter(this.painelTvService),
-      acessorias: createAcessoriasRouter(this.acessoriasService, this.divergenciaAcessoriasService, this.painelEntregasService, this.regrasObrigacaoService),
+      acessorias: createAcessoriasRouter(this.acessoriasService, this.divergenciaAcessoriasService, this.painelEntregasService, this.regrasObrigacaoService,
+        this.vinculosAcessoriasService, this.indicadoresAcessoriasService),
       notificacao: createNotificacaoRouter(this.recorrenciaScheduler, this.notificacaoServiceTrpc),
       obrigacao: createObrigacaoRouter(this.obrigacaoService),
       feriado: createFeriadoRouter(this.feriadoService),

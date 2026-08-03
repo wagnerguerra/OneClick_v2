@@ -1,0 +1,292 @@
+import { Injectable } from '@nestjs/common'
+import { prisma, Prisma } from '@saas/db'
+import { VinculosAcessoriasService } from './vinculos.service'
+
+/**
+ * Painel de indicadores das obrigações — seis números por cartão.
+ *
+ * O que cada um vê depende do cargo, e essa decisão é do SERVIDOR: a tela só
+ * desenha o que recebe. Filtrar no navegador deixaria o dado de todo mundo
+ * trafegando para quem só pode ver o próprio.
+ *
+ *   colaborador          → as obrigações dele
+ *   gestor/coordenador   → um cartão por colaborador da área dele
+ *   gerente/diretor      → um cartão por área
+ *   master               → um cartão por área, mais o total da empresa
+ */
+
+export type EscopoPainel = 'PROPRIO' | 'COLABORADORES' | 'AREAS' | 'GERAL'
+
+export interface Indicadores {
+  pendenteNoPrazo: number
+  pendenteAtrasado: number
+  pendenteComMulta: number
+  entregueNoPrazo: number
+  entregueComAtraso: number
+  entregueComMulta: number
+}
+
+export interface CartaoIndicadores extends Indicadores {
+  chave: string
+  titulo: string
+  /** Subtítulo: a área do colaborador, ou o departamento de origem. */
+  subtitulo: string | null
+  /** Nulo quando o nome do Acessórias não casou com nenhum usuário nosso. */
+  userId: string | null
+  imagem: string | null
+}
+
+const zerado = (): Indicadores => ({
+  pendenteNoPrazo: 0, pendenteAtrasado: 0, pendenteComMulta: 0,
+  entregueNoPrazo: 0, entregueComAtraso: 0, entregueComMulta: 0,
+})
+
+const STATUS_ENTREGUE = ['ent. antecipada', 'ent. pztéc', 'ent. pztec', 'ent. atrasada', 'entregue']
+
+function norm(v: string | null): string {
+  return String(v ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+interface LinhaCrua {
+  status: string | null
+  prazo: Date | null
+  dtAtraso: Date | null
+  dtEntrega: Date | null
+  multa: boolean
+  respPrazo: string | null
+  respEntrega: string | null
+  dpto: string | null
+  nome: string
+  clienteId: string
+}
+
+@Injectable()
+export class IndicadoresAcessoriasService {
+  constructor(private readonly vinculos: VinculosAcessoriasService) {}
+
+  /** Classifica uma entrega nos seis baldes e soma no acumulador. */
+  private acumular(acc: Indicadores, l: LinhaCrua, hoje: Date) {
+    const s = norm(l.status)
+    if (s.startsWith('dispensad')) return // não era devida: não conta em lugar nenhum
+
+    const entregue = l.dtEntrega !== null || STATUS_ENTREGUE.some((x) => s.startsWith(norm(x)))
+    if (entregue) {
+      // "No prazo" aqui é o prazo INTERNO do escritório: é o compromisso do
+      // colaborador. O Acessórias já classifica no próprio status; a data serve
+      // de desempate quando o status não diz.
+      const atrasada = s.startsWith('ent. atrasada') || s.startsWith('ent atrasada')
+        || (!!l.dtEntrega && !!l.prazo && l.dtEntrega > l.prazo)
+      if (atrasada) acc.entregueComAtraso++
+      else acc.entregueNoPrazo++
+      if (l.multa) acc.entregueComMulta++
+      return
+    }
+
+    const venc = l.dtAtraso ?? l.prazo
+    if (venc && venc < hoje) acc.pendenteAtrasado++
+    else acc.pendenteNoPrazo++
+    if (l.multa) acc.pendenteComMulta++
+  }
+
+  /** Decide o recorte a partir do cargo e do perfil. */
+  private async escopoDe(userId: string, isMaster: boolean, isEmpresaMaster: boolean) {
+    const u = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, role: true, profile: true, areaId: true, area: { select: { name: true } } },
+    })
+    if (isMaster || isEmpresaMaster) return { escopo: 'GERAL' as EscopoPainel, user: u }
+    const role = String(u?.role ?? '')
+    const perfil = String(u?.profile ?? '')
+    if (role === 'DIRETOR' || perfil === 'ADMIN' || perfil === 'GERENTE') return { escopo: 'AREAS' as EscopoPainel, user: u }
+    if (role === 'GESTOR' || role === 'COORDENADOR' || perfil === 'SUPERVISOR') {
+      return { escopo: 'COLABORADORES' as EscopoPainel, user: u }
+    }
+    return { escopo: 'PROPRIO' as EscopoPainel, user: u }
+  }
+
+  async painel(
+    filtro: { de?: string; ate?: string; dpto?: string },
+    ctx: { userId: string; isMaster: boolean; isEmpresaMaster: boolean; empresaId?: string },
+  ) {
+    const empresaId = ctx.empresaId ?? null
+    const { escopo, user } = await this.escopoDe(ctx.userId, ctx.isMaster, ctx.isEmpresaMaster)
+
+    // Primeira visita: resolve os vínculos sozinho. Sem isso o painel abriria
+    // vazio até alguém lembrar de rodar a conferência na aba de integração —
+    // e o usuário comum, que é quem mais usa esta tela, nem tem acesso a ela.
+    let idx = await this.vinculos.indices(empresaId)
+    if (idx.usuarioDe.size === 0 && idx.areaDe.size === 0) {
+      await this.vinculos.sincronizar(empresaId)
+      idx = await this.vinculos.indices(empresaId)
+    }
+
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+
+    const where: Prisma.AcessoriasEntregaWhereInput = {
+      ...(!ctx.isMaster && empresaId ? { empresaId } : {}),
+      ...(filtro.dpto ? { dpto: filtro.dpto } : {}),
+      ...(filtro.de || filtro.ate
+        ? {
+            AND: [
+              ...(filtro.de ? [{ OR: [
+                { dtAtraso: { gte: new Date(`${filtro.de}T00:00:00`) } },
+                { dtAtraso: null, prazo: { gte: new Date(`${filtro.de}T00:00:00`) } },
+              ] }] : []),
+              ...(filtro.ate ? [{ OR: [
+                { dtAtraso: { lte: new Date(`${filtro.ate}T00:00:00`) } },
+                { dtAtraso: null, prazo: { lte: new Date(`${filtro.ate}T00:00:00`) } },
+              ] }] : []),
+            ],
+          }
+        : {}),
+    }
+
+    // ── recorte por permissão, aplicado na consulta ──
+    // O responsável do Acessórias é texto; traduzimos o usuário (ou a área)
+    // para os nomes/departamentos correspondentes antes de filtrar.
+    if (escopo === 'PROPRIO') {
+      const meus = idx.nomesDoUsuario.get(ctx.userId) ?? []
+      if (meus.length === 0) return { escopo, cartoes: [], pendentes: [], semVinculo: true, areaNome: user?.area?.name ?? null }
+      Object.assign(where, {
+        AND: [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+          { OR: [{ respPrazo: { in: meus } }, { respEntrega: { in: meus } }] }],
+      })
+    } else if (escopo === 'COLABORADORES') {
+      const dptos = user?.areaId ? idx.dptosDaArea.get(user.areaId) ?? [] : []
+      if (dptos.length === 0) return { escopo, cartoes: [], pendentes: [], semVinculo: true, areaNome: user?.area?.name ?? null }
+      Object.assign(where, {
+        AND: [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+          { dpto: { in: dptos } }],
+      })
+    }
+
+    const linhas = await prisma.acessoriasEntrega.findMany({
+      where,
+      select: {
+        status: true, prazo: true, dtAtraso: true, dtEntrega: true, multa: true,
+        respPrazo: true, respEntrega: true, dpto: true, nome: true, clienteId: true,
+      },
+    })
+
+    // ── lista simples para quem só vê as próprias ──
+    if (escopo === 'PROPRIO') {
+      const acc = zerado()
+      for (const l of linhas) this.acumular(acc, l as LinhaCrua, hoje)
+      const emAberto = await this.pendentesDetalhadas(where)
+      return {
+        escopo,
+        cartoes: [{
+          chave: ctx.userId, titulo: user?.name ?? 'Minhas obrigações',
+          subtitulo: user?.area?.name ?? null, userId: ctx.userId, imagem: null, ...acc,
+        }] as CartaoIndicadores[],
+        pendentes: emAberto,
+        semVinculo: false,
+        areaNome: user?.area?.name ?? null,
+      }
+    }
+
+    // ── agrupamento ──
+    const porChave = new Map<string, { titulo: string; sub: string | null; acc: Indicadores }>()
+    const agrupaPorPessoa = escopo === 'COLABORADORES'
+
+    for (const l of linhas) {
+      // O responsável designado manda: "quem entregou" só existe depois da
+      // entrega, e deixaria toda pendência sem dono.
+      const chaveBruta = agrupaPorPessoa
+        ? (l.respPrazo ?? l.respEntrega ?? 'Sem responsável')
+        : (l.dpto ?? 'Sem área')
+      const k = norm(chaveBruta) || 'sem'
+      const atual = porChave.get(k) ?? {
+        titulo: chaveBruta,
+        sub: agrupaPorPessoa ? (l.dpto ?? null) : null,
+        acc: zerado(),
+      }
+      this.acumular(atual.acc, l as LinhaCrua, hoje)
+      porChave.set(k, atual)
+    }
+
+    const cartoes: CartaoIndicadores[] = [...porChave.entries()].map(([k, v]) => ({
+      chave: k,
+      titulo: v.titulo,
+      subtitulo: v.sub,
+      userId: agrupaPorPessoa ? idx.usuarioDe.get(k) ?? null : null,
+      imagem: null,
+      ...v.acc,
+    }))
+
+    // Quem tem mais pendência em atraso aparece primeiro — é onde se age.
+    cartoes.sort((a, b) =>
+      b.pendenteAtrasado - a.pendenteAtrasado
+      || b.pendenteComMulta - a.pendenteComMulta
+      || a.titulo.localeCompare(b.titulo, 'pt-BR'),
+    )
+
+    // Foto de perfil, para o cartão de pessoa.
+    if (agrupaPorPessoa) {
+      const ids = cartoes.map((c) => c.userId).filter((v): v is string => !!v)
+      if (ids.length) {
+        const us = await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, image: true } })
+        const fotos = new Map(us.map((u) => [u.id, u.image]))
+        for (const c of cartoes) if (c.userId) c.imagem = fotos.get(c.userId) ?? null
+      }
+    }
+
+    const total = zerado()
+    for (const c of cartoes) {
+      total.pendenteNoPrazo += c.pendenteNoPrazo
+      total.pendenteAtrasado += c.pendenteAtrasado
+      total.pendenteComMulta += c.pendenteComMulta
+      total.entregueNoPrazo += c.entregueNoPrazo
+      total.entregueComAtraso += c.entregueComAtraso
+      total.entregueComMulta += c.entregueComMulta
+    }
+
+    return {
+      escopo,
+      cartoes,
+      total,
+      pendentes: [],
+      semVinculo: false,
+      areaNome: user?.area?.name ?? null,
+    }
+  }
+
+  /** As obrigações ainda em aberto, para a lista do colaborador. */
+  private async pendentesDetalhadas(where: Prisma.AcessoriasEntregaWhereInput) {
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    const rows = await prisma.acessoriasEntrega.findMany({
+      where: {
+        AND: [
+          where,
+          { dtEntrega: null },
+          { NOT: { status: { startsWith: 'dispensad', mode: 'insensitive' } } },
+          { NOT: { OR: STATUS_ENTREGUE.map((x) => ({ status: { startsWith: x, mode: 'insensitive' as const } })) } },
+        ],
+      },
+      orderBy: [{ dtAtraso: 'asc' }, { prazo: 'asc' }],
+      take: 500,
+      select: {
+        id: true, nome: true, competencia: true, prazo: true, dtAtraso: true, multa: true, dpto: true,
+        cliente: { select: { id: true, code: true, razaoSocial: true } },
+      },
+    })
+    return rows.map((r) => {
+      const venc = r.dtAtraso ?? r.prazo
+      return {
+        id: r.id,
+        obrigacao: r.nome,
+        competencia: r.competencia,
+        vencimento: venc,
+        atrasada: !!venc && venc < hoje,
+        multa: r.multa,
+        dpto: r.dpto,
+        clienteId: r.cliente.id,
+        clienteCode: r.cliente.code,
+        clienteNome: r.cliente.razaoSocial,
+      }
+    })
+  }
+}

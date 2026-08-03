@@ -5,6 +5,8 @@ import { AcessoriasService } from './acessorias.service'
 import { DivergenciaAcessoriasService } from './divergencia.service'
 import { PainelEntregasService } from './painel-entregas.service'
 import { RegrasObrigacaoService } from './regras-obrigacao.service'
+import { VinculosAcessoriasService } from './vinculos.service'
+import { IndicadoresAcessoriasService } from './indicadores.service'
 
 /**
  * Router tRPC do Acessórias. Endpoints protegidos por auth padrão (qualquer
@@ -41,6 +43,8 @@ export function createAcessoriasRouter(
   divergenciaSvc?: DivergenciaAcessoriasService,
   painelSvc?: PainelEntregasService,
   regrasSvc?: RegrasObrigacaoService,
+  vinculosSvc?: VinculosAcessoriasService,
+  indicadoresSvc?: IndicadoresAcessoriasService,
 ) {
   return router({
     /** Valida que o token configurado funciona — chama /companies?limit=1
@@ -270,6 +274,48 @@ export function createAcessoriasRouter(
 
     // Recebe o filtro atual: cada campo passa a oferecer só o que ainda produz
     // resultado dado o que já foi escolhido.
+    // ── Painel de indicadores ──
+    // O recorte por cargo é decidido no servidor; a tela só desenha.
+    indicadores: painelProc()
+      .input(z.object({
+        de: z.string().optional(),
+        ate: z.string().optional(),
+        dpto: z.string().optional(),
+      }).optional())
+      .query(({ input, ctx }) => {
+        if (!indicadoresSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return indicadoresSvc.painel(input ?? {}, {
+          userId: ctx.userId,
+          isMaster: ctx.isMaster ?? false,
+          isEmpresaMaster: ctx.isEmpresaMaster ?? false,
+          empresaId: ctx.empresaId,
+        })
+      }),
+
+    // ── Vínculos com o nosso cadastro ──
+    listarVinculos: integracaoProc()
+      .query(({ ctx }) => vinculosSvc?.listar(ctx.empresaId ?? null) ?? { colaboradores: [], departamentos: [] }),
+
+    sincronizarVinculos: integracaoProc()
+      .mutation(({ ctx }) => {
+        if (!vinculosSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return vinculosSvc.sincronizar(ctx.empresaId ?? null)
+      }),
+
+    vincularColaborador: integracaoProc()
+      .input(z.object({ id: z.string(), userId: z.string().nullable() }))
+      .mutation(({ input }) => {
+        if (!vinculosSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return vinculosSvc.vincularColaborador(input.id, input.userId)
+      }),
+
+    vincularDepartamento: integracaoProc()
+      .input(z.object({ id: z.string(), areaId: z.string().nullable() }))
+      .mutation(({ input }) => {
+        if (!vinculosSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return vinculosSvc.vincularDepartamento(input.id, input.areaId)
+      }),
+
     painelEntregasOpcoes: painelProc()
       .input(z.object({
         dpto: z.string().optional(),

@@ -18,6 +18,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
 import { EntityCombobox } from '@/components/ui/entity-combobox'
+import { PERIODOS, intervaloDe, type Periodo } from '../_components/periodos'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
@@ -71,66 +72,6 @@ interface PorCliente {
 
 const fmtData = (v: string | null) =>
   v ? new Date(v).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'
-
-/**
- * Recortes de período oferecidos no filtro de prazo.
- *
- * Os recortes "atual" incluem os dias que ainda vêm (a semana e o mês inteiros),
- * porque o painel também olha para a frente; os "últimos N dias" e os
- * "anterior" são só passado, como o nome diz.
- */
-const PERIODOS = [
-  { valor: 'todo',       label: 'Todo o período' },
-  { valor: 'ultimos7',   label: 'Últimos 7 dias' },
-  { valor: 'ultimos30',  label: 'Últimos 30 dias' },
-  { valor: 'semana',     label: 'Semana atual' },
-  { valor: 'semanaAnt',  label: 'Semana anterior' },
-  { valor: 'mes',        label: 'Mês atual' },
-  { valor: 'mesAnt',     label: 'Mês anterior' },
-] as const
-type Periodo = (typeof PERIODOS)[number]['valor']
-
-const iso = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
-/** Segunda-feira da semana de `d` (a semana comercial começa na segunda). */
-function segundaDa(d: Date) {
-  const x = new Date(d)
-  const diaDaSemana = (x.getDay() + 6) % 7 // domingo (0) vira 6
-  x.setDate(x.getDate() - diaDaSemana)
-  return x
-}
-
-function intervaloDe(p: Periodo): { de?: string; ate?: string } {
-  const hoje = new Date()
-  hoje.setHours(0, 0, 0, 0)
-  const mais = (dias: number) => { const x = new Date(hoje); x.setDate(x.getDate() + dias); return x }
-  switch (p) {
-    case 'ultimos7':  return { de: iso(mais(-7)), ate: iso(hoje) }
-    case 'ultimos30': return { de: iso(mais(-30)), ate: iso(hoje) }
-    case 'semana': {
-      const ini = segundaDa(hoje)
-      const fim = new Date(ini); fim.setDate(fim.getDate() + 6)
-      return { de: iso(ini), ate: iso(fim) }
-    }
-    case 'semanaAnt': {
-      const ini = segundaDa(hoje); ini.setDate(ini.getDate() - 7)
-      const fim = new Date(ini); fim.setDate(fim.getDate() + 6)
-      return { de: iso(ini), ate: iso(fim) }
-    }
-    case 'mes': {
-      const ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
-      const fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
-      return { de: iso(ini), ate: iso(fim) }
-    }
-    case 'mesAnt': {
-      const ini = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1)
-      const fim = new Date(hoje.getFullYear(), hoje.getMonth(), 0)
-      return { de: iso(ini), ate: iso(fim) }
-    }
-    default: return {}
-  }
-}
 
 /** Competência no formato do Acessórias: "Jun/2026". */
 const fmtComp = (v: string | null) => {
