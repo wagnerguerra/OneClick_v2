@@ -349,8 +349,8 @@ export default function PainelEntregasPage() {
           ativo={foco === 'a_vencer'} onClick={() => setFoco('a_vencer')}
           icone={<AlertTriangle className="h-4 w-4" />} cor="text-rose-600 dark:text-rose-400"
           valor={resumo?.naoLidasCriticas ?? 0}
-          titulo="Não abertas e vencendo"
-          nota={`guia entregue, cliente não abriu, vence em até ${janelaDias}d`}
+          titulo="Obrigações entregues e não lidas"
+          nota={`Obrigações entregues, porém os clientes não abriram, vencendo em ${janelaDias} ${janelaDias === 1 ? 'dia' : 'dias'}`}
         />
         <CartaoFoco
           ativo={foco === 'atrasadas'} onClick={() => setFoco('atrasadas')}
