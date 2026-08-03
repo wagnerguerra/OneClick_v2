@@ -31,10 +31,16 @@ function tokens(v: string): string[] {
 /**
  * Quão perto dois nomes estão. Devolve 0 quando não dá para afirmar nada.
  *
- * O primeiro nome precisa bater — é o que impede "Arthur Vieira" de casar com
- * "Arthur" nenhum. Dos demais, conta quantos coincidem: é o que separa
- * "Joao Victor de Souza" → "João Victor Carvalho" (dois tokens em comum) de
- * "João Vitor Castiglioni" (um só, porque "vitor" ≠ "victor").
+ * O primeiro nome precisa bater, e mais um pedaço qualquer do nome também —
+ * primeiro nome sozinho não é semelhança, é coincidência. Foi o que ligou
+ * "Maria da Conceição Alves Meneses" a uma "Maria Helena": nenhum sobrenome em
+ * comum, mas era a única Maria da lista, então venceu sem concorrência.
+ *
+ * Com dois tokens exigidos, "Joao Victor de Souza" ainda vai para "João Victor
+ * Carvalho" (joao+victor) e não para "João Vitor Castiglioni" (só joao, porque
+ * "vitor" ≠ "victor").
+ *
+ * Nome de uma palavra só é a exceção: aí o único token é tudo o que existe.
  */
 export function proximidade(a: string, b: string): number {
   const ta = tokens(a)
@@ -44,6 +50,8 @@ export function proximidade(a: string, b: string): number {
   const resto = new Set(tb.slice(1))
   let comuns = 1
   for (const t of ta.slice(1)) if (resto.has(t)) comuns++
+  const exigeSobrenome = ta.length > 1 && tb.length > 1
+  if (exigeSobrenome && comuns < 2) return 0
   return comuns
 }
 
@@ -89,8 +97,8 @@ export class VinculosAcessoriasService {
       // "sem vínculo", indistinguível de um nome que não casou.
       prisma.user.findMany({ select: { id: true, name: true, areaId: true, isActive: true } }),
       prisma.area.findMany({ select: { id: true, name: true } }),
-      prisma.acessoriasColaborador.findMany({ where: escopo, select: { id: true, nome: true, origem: true } }),
-      prisma.acessoriasDepartamento.findMany({ where: escopo, select: { id: true, nome: true, origem: true } }),
+      prisma.acessoriasColaborador.findMany({ where: escopo, select: { id: true, nome: true, origem: true, userId: true, acessoriasId: true } }),
+      prisma.acessoriasDepartamento.findMany({ where: escopo, select: { id: true, nome: true, origem: true, areaId: true, acessoriasId: true } }),
     ])
 
     // ── pessoas ──
@@ -108,10 +116,17 @@ export class VinculosAcessoriasService {
       if (u) casadosP++
       const existente = jaGravados.find((g) => norm(g.nome) === norm(nome))
       if (existente) {
-        await prisma.acessoriasColaborador.update({
-          where: { id: existente.id },
-          data: { userId: u?.id ?? null, acessoriasId: acessoriasId ?? undefined, origem: 'AUTO' },
-        })
+        // Só grava se algo mudou. É o que permite rodar a conferência em toda
+        // consulta ao painel sem custo: uma correção na regra se propaga
+        // sozinha, e no dia a dia não escreve nada.
+        const mudou = existente.userId !== (u?.id ?? null)
+          || (!!acessoriasId && existente.acessoriasId !== acessoriasId)
+        if (mudou) {
+          await prisma.acessoriasColaborador.update({
+            where: { id: existente.id },
+            data: { userId: u?.id ?? null, acessoriasId: acessoriasId ?? undefined, origem: 'AUTO' },
+          })
+        }
       } else {
         await prisma.acessoriasColaborador.create({
           data: { empresaId, nome, acessoriasId, userId: u?.id ?? null, origem: 'AUTO' },
@@ -162,10 +177,14 @@ export class VinculosAcessoriasService {
       if (a) casadosD++
       const existente = dptosGravados.find((g) => norm(g.nome) === norm(nome))
       if (existente) {
-        await prisma.acessoriasDepartamento.update({
-          where: { id: existente.id },
-          data: { areaId: a?.id ?? null, acessoriasId: acessoriasId ?? undefined, origem: 'AUTO' },
-        })
+        const mudou = existente.areaId !== (a?.id ?? null)
+          || (!!acessoriasId && existente.acessoriasId !== acessoriasId)
+        if (mudou) {
+          await prisma.acessoriasDepartamento.update({
+            where: { id: existente.id },
+            data: { areaId: a?.id ?? null, acessoriasId: acessoriasId ?? undefined, origem: 'AUTO' },
+          })
+        }
       } else {
         await prisma.acessoriasDepartamento.create({
           data: { empresaId, nome, acessoriasId, areaId: a?.id ?? null, origem: 'AUTO' },

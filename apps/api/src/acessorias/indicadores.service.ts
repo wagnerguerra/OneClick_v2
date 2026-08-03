@@ -143,14 +143,14 @@ export class IndicadoresAcessoriasService {
     const empresaId = ctx.empresaId ?? null
     const { escopo, user } = await this.escopoDe(ctx.userId, ctx.isMaster, ctx.isEmpresaMaster)
 
-    // Primeira visita: resolve os vínculos sozinho. Sem isso o painel abriria
-    // vazio até alguém lembrar de rodar a conferência na aba de integração —
-    // e o usuário comum, que é quem mais usa esta tela, nem tem acesso a ela.
-    let idx = await this.vinculos.indices(empresaId)
-    if (idx.usuarioDe.size === 0 && idx.areaDe.size === 0) {
-      await this.vinculos.sincronizar(empresaId)
-      idx = await this.vinculos.indices(empresaId)
-    }
+    // Reconfere os vínculos a cada consulta. Rodar só quando a tabela estava
+    // vazia deixava par errado gravado para sempre: foi assim que uma correção
+    // na regra de semelhança não chegou a chegar às linhas já existentes. A
+    // conferência só escreve quando algo muda, então no dia a dia não custa
+    // nada — e o usuário comum, que é quem mais usa esta tela, não tem acesso
+    // à aba de integração para dispará-la à mão.
+    await this.vinculos.sincronizar(empresaId)
+    const idx = await this.vinculos.indices(empresaId)
 
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
