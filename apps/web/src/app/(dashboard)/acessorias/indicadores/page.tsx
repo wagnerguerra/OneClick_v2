@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  BarChart3, Loader2, RefreshCw, Users, Link2Off, AlertTriangle,
+  BarChart3, Loader2, RefreshCw, Users, Link2Off, AlertTriangle, X,
 } from 'lucide-react'
 import {
   Button, Card, cn, Switch,
@@ -105,6 +105,10 @@ const TITULO_ESCOPO: Record<Retorno['escopo'], { titulo: string; nota: string }>
   AREAS:         { titulo: 'Painel por área',     nota: 'todas as áreas' },
   GERAL:         { titulo: 'Painel geral',        nota: 'visão da empresa, por área' },
 }
+
+/** Sem acento e em minúsculo — filtrar por "obrigacao" tem de achar "obrigação". */
+const semAcento = (v: string) =>
+  v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 /** "1 obrigação" / "12 obrigações" — sem o "(ões)" que economiza no lugar errado. */
 const plural = (n: number, singular: string, plural: string) => `${n} ${n === 1 ? singular : plural}`
@@ -450,6 +454,22 @@ function CartaoIndicador({ cartao, destaque, onAbrir }: {
   )
 }
 
+/** Campo de filtro de uma coluna — discreto até receber conteúdo. */
+function FiltroColuna({ valor, onChange }: { valor: string; onChange: (v: string) => void }) {
+  return (
+    <input
+      value={valor}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder="filtrar…"
+      className={cn(
+        'w-full rounded border border-border bg-card px-1.5 py-0.5 text-[11px] font-normal normal-case tracking-normal',
+        'placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1',
+      )}
+      style={valor ? { borderColor: MODULE_COLOR } : undefined}
+    />
+  )
+}
+
 /** A lista por trás de um número do cartão. */
 function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
   cartao: Cartao; medida: Medida; tipo: 'pessoa' | 'area'; recorte: Recorte
@@ -457,6 +477,9 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
 }) {
   const [linhas, setLinhas] = useState<LinhaDetalhe[]>([])
   const [carregando, setCarregando] = useState(true)
+  // Filtro por coluna. A lista inteira já está aqui, então filtrar é imediato —
+  // não vale ida ao servidor para uma tabela que cabe na memória.
+  const [filtros, setFiltros] = useState({ obrigacao: '', cliente: '', responsavel: '', competencia: '' })
   const info = MEDIDAS.find((m) => m.campo === medida)!
 
   useEffect(() => {
@@ -468,12 +491,29 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
       .finally(() => setCarregando(false))
   }, [cartao.titulo, medida, tipo, recorte, regua])
 
+  const casa = (valor: string | null, filtro: string) =>
+    !filtro.trim() || semAcento(String(valor ?? '')).includes(semAcento(filtro.trim()))
+
+  const visiveis = linhas.filter((l) =>
+    casa(l.obrigacao, filtros.obrigacao)
+    && casa(`#${l.clienteCode} ${l.clienteNome}`, filtros.cliente)
+    && casa(l.responsavel, filtros.responsavel)
+    && casa(fmtComp(l.competencia), filtros.competencia))
+
+  const limpar = () => setFiltros({ obrigacao: '', cliente: '', responsavel: '', competencia: '' })
+  const filtrando = Object.values(filtros).some((v) => v.trim())
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-6xl">
         <DialogHeaderIcon icon={BarChart3} color="sky">
           <DialogTitle>{info.label}</DialogTitle>
-          <DialogDescription>{cartao.titulo}{cartao.subtitulo ? ` · ${cartao.subtitulo}` : ''}</DialogDescription>
+          <DialogDescription>
+            {cartao.titulo}{cartao.subtitulo ? ` · ${cartao.subtitulo}` : ''}
+            {!carregando && (
+              <> · {filtrando ? `${visiveis.length} de ${linhas.length}` : plural(linhas.length, 'registro', 'registros')}</>
+            )}
+          </DialogDescription>
         </DialogHeaderIcon>
         <DialogBody className="max-h-[65vh] overflow-y-auto p-0">
           {carregando ? (
@@ -504,9 +544,35 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
                   <th className="w-[110px] px-3 py-2 text-left">{regua === 'tecnico' ? 'Prazo técnico' : 'Prazo legal'}</th>
                   <th className="hidden w-[112px] px-3 py-2 text-left sm:table-cell">Entrega</th>
                 </tr>
+                <tr className="border-b border-border">
+                  <th className="px-2 py-1.5">
+                    {filtrando && (
+                      <button type="button" onClick={limpar} title="Limpar filtros"
+                        className="mx-auto flex text-muted-foreground hover:text-foreground">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </th>
+                  <th className="px-2 py-1.5">
+                    <FiltroColuna valor={filtros.obrigacao} onChange={(v) => setFiltros((f) => ({ ...f, obrigacao: v }))} />
+                  </th>
+                  <th className="hidden px-2 py-1.5 md:table-cell">
+                    <FiltroColuna valor={filtros.cliente} onChange={(v) => setFiltros((f) => ({ ...f, cliente: v }))} />
+                  </th>
+                  {tipo === 'area' && (
+                    <th className="hidden px-2 py-1.5 lg:table-cell">
+                      <FiltroColuna valor={filtros.responsavel} onChange={(v) => setFiltros((f) => ({ ...f, responsavel: v }))} />
+                    </th>
+                  )}
+                  <th className="hidden px-2 py-1.5 xl:table-cell">
+                    <FiltroColuna valor={filtros.competencia} onChange={(v) => setFiltros((f) => ({ ...f, competencia: v }))} />
+                  </th>
+                  <th className="px-2 py-1.5" />
+                  <th className="hidden px-2 py-1.5 sm:table-cell" />
+                </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {linhas.map((l) => (
+                {visiveis.map((l) => (
                   <tr key={l.id} className="hover:bg-muted/30">
                     <td className="px-2 py-2 text-center">
                       {l.multa && (
