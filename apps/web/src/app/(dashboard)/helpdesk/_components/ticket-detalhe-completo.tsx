@@ -902,9 +902,9 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
               <div className="flex items-center gap-2 shrink-0">
                 {podeCancelar && (
                   <Button
-                    variant="outline" size="sm"
+                    variant="destructive" size="sm"
                     onClick={() => setCancelOpen(true)}
-                    className="gap-1.5 text-xs text-rose-600 bg-white/70 hover:bg-rose-50 dark:bg-black/30 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-800"
+                    className="gap-1.5 text-xs"
                     title="Cancelar este ticket"
                   >
                     <XCircle className="h-3.5 w-3.5" />
@@ -912,6 +912,17 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                   </Button>
                 )}
                 {variant === 'page' && <BackButton href="/helpdesk" />}
+                {variant === 'sheet' && (
+                  <button
+                    type="button"
+                    onClick={() => onClose?.()}
+                    title="Fechar"
+                    aria-label="Fechar"
+                    className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-white/70 text-foreground/70 transition-colors hover:bg-white hover:text-foreground dark:bg-black/30 dark:hover:bg-black/50"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
