@@ -87,11 +87,21 @@ export class IndicadoresAcessoriasService {
 
     const entregue = l.dtEntrega !== null || STATUS_ENTREGUE.some((x) => s.startsWith(norm(x)))
     if (entregue) {
-      // "No prazo" aqui é o prazo INTERNO do escritório: é o compromisso do
-      // colaborador. O Acessórias já classifica no próprio status; a data serve
-      // de desempate quando o status não diz.
+      // Quem classifica é o Acessórias, que tem TRÊS categorias de entrega e só
+      // uma delas é atraso:
+      //
+      //   Ent. antecipada  entregue antes do prazo interno       → em dia
+      //   Ent. PzTéc       depois do prazo interno, mas dentro
+      //                    do vencimento ("prazo técnico")       → em dia
+      //   Ent. atrasada    depois do vencimento                  → atraso
+      //
+      // A regra anterior desempatava por `entrega > prazo interno` e derrubava
+      // toda a faixa do prazo técnico no balde de atraso — 9 de 12 na amostra
+      // conferida. O desempate por data só entra quando o status não classifica,
+      // e aí compara com o VENCIMENTO, que é o limite real.
+      const venc = l.dtAtraso ?? l.prazo
       const atrasada = s.startsWith('ent. atrasada') || s.startsWith('ent atrasada')
-        || (!!l.dtEntrega && !!l.prazo && l.dtEntrega > l.prazo)
+        || (!s.startsWith('ent') && !!l.dtEntrega && !!venc && l.dtEntrega > venc)
       if (atrasada) {
         acc.entregueComAtraso++
         if (l.multa) acc.entregueComMulta++
