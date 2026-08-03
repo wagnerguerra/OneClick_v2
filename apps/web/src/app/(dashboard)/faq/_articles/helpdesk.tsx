@@ -36,7 +36,7 @@ export default function FaqHelpdeskPage() {
 
       <h2 className="text-base font-bold pt-2">Fluxo do solicitante</h2>
 
-      <Step n={1} cor={MODULO_COLOR} icon={Headphones} titulo="Abrir um ticket pelo painel" rota="/helpdesk/meus → + Novo Ticket">
+      <Step n={1} cor={MODULO_COLOR} icon={Headphones} titulo="Abrir um ticket pelo painel" rota="/helpdesk → + Novo Ticket">
         <p>
           Qualquer usuário com acesso ao sistema pode abrir um ticket. O modal pede:
         </p>
@@ -74,9 +74,9 @@ export default function FaqHelpdeskPage() {
         </Callout>
       </Step>
 
-      <Step n={3} cor={MODULO_COLOR} icon={Eye} titulo="Acompanhar e responder" rota="/helpdesk/meus">
+      <Step n={3} cor={MODULO_COLOR} icon={Eye} titulo="Acompanhar e responder" rota="/helpdesk">
         <p>
-          A página <code className="text-[11px]">/helpdesk/meus</code> lista todos os seus tickets — abertos
+          A página <code className="text-[11px]">/helpdesk</code> lista os seus tickets — abertos
           e histórico. Clique em qualquer um para ver a conversa, anexar mais arquivos e
           responder às solicitações do agente.
         </p>
@@ -238,7 +238,7 @@ export default function FaqHelpdeskPage() {
 
       <Section icon={ShieldCheck} titulo="Quem faz o quê" cor={FAQ_COLOR}>
         <div className="space-y-2 text-sm">
-          <DefRow termo="Qualquer usuário logado" texto="Abre tickets como solicitante. Vê só os próprios em /helpdesk/meus." />
+          <DefRow termo="Qualquer usuário logado" texto="Abre tickets como solicitante. Vê só os próprios em /helpdesk." />
           <DefRow termo="atuar_agente" texto="Atende tickets — assume, comenta (público/interno), muda status, fecha." />
           <DefRow termo="change_responsavel" texto="Reatribui entre agentes — líder TI e cargos seniores." />
           <DefRow termo="Escopo de visualização" texto="Escolha única: só os meus (solicitante/responsável), os da minha área, ou todos da empresa. Define o que aparece no painel e as opções do filtro." />
@@ -284,8 +284,7 @@ export default function FaqHelpdeskPage() {
 
       <Section icon={ArrowRight} titulo="Atalhos rápidos" cor={FAQ_COLOR}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <QuickLink href="/helpdesk" label="Painel TI (kanban)" cor={MODULO_COLOR} />
-          <QuickLink href="/helpdesk/meus" label="Meus tickets" cor={MODULO_COLOR} />
+          <QuickLink href="/helpdesk" label="Painel de chamados" cor={MODULO_COLOR} />
           <QuickLink href="/helpdesk/indicadores" label="Indicadores (CSAT, MTTR, SLA)" cor={MODULO_COLOR} />
           <QuickLink href="/configuracoes" label="Configurar categorias e SLA" cor={MODULO_COLOR} />
         </div>

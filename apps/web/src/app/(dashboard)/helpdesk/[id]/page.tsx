@@ -754,7 +754,7 @@ export default function HelpdeskTicketDetailPage() {
     return (
       <div className="text-center py-24 text-muted-foreground">
         <p>Ticket não encontrado</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => router.push('/helpdesk/meus')}>
+        <Button variant="outline" size="sm" className="mt-4" onClick={() => router.push('/helpdesk')}>
           Voltar
         </Button>
       </div>

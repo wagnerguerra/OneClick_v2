@@ -35,8 +35,8 @@ export default function HelpdeskByNumeroPage() {
         <CardContent className="p-6 text-center space-y-3">
           <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto" />
           <p className="text-sm text-muted-foreground">{erro}</p>
-          <Button variant="outline" size="sm" onClick={() => router.push('/helpdesk/meus')}>
-            Ver meus tickets
+          <Button variant="outline" size="sm" onClick={() => router.push('/helpdesk')}>
+            Ir para o Helpdesk
           </Button>
         </CardContent>
       </Card>
