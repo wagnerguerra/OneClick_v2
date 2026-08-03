@@ -20,6 +20,9 @@ import { BadgeEntrega } from '../_components/badge-entrega'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
 
+/** Preferência de régua, por navegador — mesmo padrão da agenda e da caixa postal. */
+const LS_REGUA = 'acessorias-indicadores-regua'
+
 interface Cartao {
   chave: string
   titulo: string
@@ -128,14 +131,31 @@ export default function IndicadoresPage() {
    * fica a faixa do "Ent. PzTéc": entrega que o órgão aceita e o contrato não.
    */
   const [regua, setRegua] = useState<'legal' | 'tecnico'>('legal')
+  // A leitura acontece no efeito, não no estado inicial: no primeiro render o
+  // servidor não tem localStorage, e divergir dele quebra a hidratação.
+  const [preferenciaLida, setPreferenciaLida] = useState(false)
+
+  useEffect(() => {
+    const v = typeof window !== 'undefined' ? window.localStorage.getItem(LS_REGUA) : null
+    if (v === 'tecnico' || v === 'legal') setRegua(v)
+    setPreferenciaLida(true)
+  }, [])
+
+  const trocarRegua = (nova: 'legal' | 'tecnico') => {
+    setRegua(nova)
+    try { window.localStorage.setItem(LS_REGUA, nova) } catch { /* modo privado */ }
+  }
 
   const carregar = useCallback(() => {
+    // Espera a preferência para não buscar duas vezes: com a régua padrão e
+    // logo em seguida com a escolhida.
+    if (!preferenciaLida) return
     setLoading(true)
     ;(trpc.acessorias as any).indicadores.query({ ...filtroDe(recorte), regua })
       .then((d: Retorno) => setDados(d))
       .catch(() => setDados(null))
       .finally(() => setLoading(false))
-  }, [recorte, regua])
+  }, [recorte, regua, preferenciaLida])
 
   useEffect(() => { carregar() }, [carregar])
 
@@ -165,7 +185,7 @@ export default function IndicadoresPage() {
             <span className={cn('text-xs', regua === 'legal' ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
               Legal
             </span>
-            <Switch checked={regua === 'tecnico'} onCheckedChange={(v) => setRegua(v ? 'tecnico' : 'legal')} />
+            <Switch checked={regua === 'tecnico'} onCheckedChange={(v) => trocarRegua(v ? 'tecnico' : 'legal')} />
             <span className={cn('text-xs', regua === 'tecnico' ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
               Técnico
             </span>
