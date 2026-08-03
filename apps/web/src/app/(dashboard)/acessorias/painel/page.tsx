@@ -82,6 +82,28 @@ const fmtComp = (v: string | null) => {
   return `${m.charAt(0).toUpperCase()}${m.slice(1)}/${d.getUTCFullYear()}`
 }
 
+/**
+ * Formas de escrever a competência que a busca aceita.
+ *
+ * A mesma competência é dita de vários jeitos — "jun/2026", "junho 2026",
+ * "06/2026", "2026-06" — e exigir a grafia da tela transformaria a busca num
+ * jogo de adivinhação. Todas as variantes viram um texto só, e a busca casa
+ * contra ele.
+ */
+function competenciaBuscavel(v: string | null): string {
+  if (!v) return ''
+  const d = new Date(v)
+  const ano = d.getUTCFullYear()
+  const mes = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const abrev = d.toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' }).replace('.', '')
+  const extenso = d.toLocaleDateString('pt-BR', { month: 'long', timeZone: 'UTC' })
+  return [
+    `${abrev}/${ano}`, `${abrev} ${ano}`,
+    `${extenso}/${ano}`, `${extenso} ${ano}`,
+    `${mes}/${ano}`, `${ano}-${mes}`,
+  ].join(' ').toLowerCase()
+}
+
 /** Data + hora, para o momento em que o cliente abriu a guia. */
 const fmtDataHora = (v: string | null) =>
   v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
@@ -278,7 +300,10 @@ export default function PainelEntregasPage() {
 
   const q = busca.trim().toLowerCase()
   const linhasFiltradas = (q
-    ? linhas.filter((l) => l.clienteNome.toLowerCase().includes(q) || l.obrigacao.toLowerCase().includes(q))
+    ? linhas.filter((l) =>
+        l.clienteNome.toLowerCase().includes(q)
+        || l.obrigacao.toLowerCase().includes(q)
+        || competenciaBuscavel(l.competencia).includes(q))
     : linhas
   ).slice().sort((a, b) => {
     const va = chaveOrdem(a, ordem), vb = chaveOrdem(b, ordem)
@@ -408,7 +433,7 @@ export default function PainelEntregasPage() {
             </Select>
           </div>
           <Input value={busca} onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar cliente ou obrigação..." className="h-8 bg-card text-xs lg:w-72" />
+            placeholder="Buscar cliente, obrigação ou competência..." className="h-8 bg-card text-xs lg:w-80" />
         </div>
 
         {loading ? (
