@@ -45,6 +45,8 @@ interface Ticket {
   tipo: 'INCIDENTE' | 'REQUISICAO' | 'DUVIDA' | 'MELHORIA'
   prazoSla: string | null
   createdAt: string
+  /** Quando o solicitante respondeu o CSAT — usado pra sinalizar avaliação pendente. */
+  csatRespondidoEm?: string | null
   solicitante: { id: string; name: string; image: string | null } | null
   responsavel: { id: string; name: string; image: string | null } | null
   categoria: { id: string; nome: string; cor: string | null } | null
@@ -87,6 +89,17 @@ const STATUS_COR: Record<HelpdeskStatus, string> = {
   RESOLVIDO: '#a855f7',            // purple-500 (= 'Aguardando avaliação' na UI)
   CONCLUIDO: '#10b981',            // emerald-500
   CANCELADO: '#ef4444',            // red-500
+}
+
+// Pill de status preenchida (bg/border/text por estado, com variantes dark).
+// Trazida da antiga /helpdesk/meus — mais legível que o dot + label.
+const STATUS_BADGE: Record<HelpdeskStatus, string> = {
+  NOVO: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400',
+  AGUARDANDO_AUDITORIA: 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 text-cyan-700 dark:text-cyan-400',
+  EM_ANDAMENTO: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400',
+  RESOLVIDO: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-400',
+  CONCLUIDO: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400',
+  CANCELADO: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400',
 }
 
 type ScopeFiltro = 'MEUS' | 'AREA' | 'TODOS'
@@ -235,6 +248,13 @@ export default function HelpdeskPage() {
   useEffect(() => {
     if (emKanban && filtroStatus) setFiltroStatus('')
   }, [emKanban, filtroStatus])
+
+  // Tickets do PRÓPRIO usuário resolvidos e ainda sem avaliação — o solicitante
+  // precisa avaliar. Filtra por solicitante (a lista geral traz tickets de
+  // terceiros, ao contrário da antiga /helpdesk/meus).
+  const pendentesCsat = items.filter(t =>
+    t.status === 'RESOLVIDO' && !t.csatRespondidoEm && t.solicitante?.id === currentUserId,
+  )
 
   // C11 — filtros de NARROWING ativos (não conta o escopo/abrangência, que tem
   // padrão próprio). Alimenta o "x" da busca e o botão "Limpar filtros".
@@ -656,6 +676,21 @@ export default function HelpdeskPage() {
           >
             Voltar pros ativos
           </button>
+        </div>
+      )}
+
+      {/* Aviso: chamados do próprio usuário aguardando avaliação (CSAT).
+          Trazido da antiga /helpdesk/meus. O clique no chamado resolvido abre
+          o detalhe pra avaliar. */}
+      {pendentesCsat.length > 0 && (
+        <div className="flex flex-col gap-1 rounded-md border-l-4 border-l-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 px-3 py-2 shrink-0">
+          <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900 dark:text-emerald-200">
+            <CheckCircle2 className="h-4 w-4" />
+            {pendentesCsat.length} chamado{pendentesCsat.length > 1 ? 's' : ''} aguardando sua avaliação
+          </p>
+          <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+            Abra o chamado resolvido para avaliar o atendimento — leva menos de um minuto.
+          </p>
         </div>
       )}
 
@@ -1118,8 +1153,15 @@ function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar }: {
     solicitanteId: ticket.solicitante?.id,
     userId: currentUserId,
   })
+  // O próprio solicitante precisa avaliar este chamado resolvido? → CTA "Avaliar".
+  const precisaCsat = ticket.status === 'RESOLVIDO' && !ticket.csatRespondidoEm && ticket.solicitante?.id === currentUserId
   return (
-    <div className="relative flex items-center gap-3 px-4 py-3 hover:bg-muted/30 group">
+    <div className={cn(
+      'relative flex items-center gap-3 px-4 py-3 group',
+      precisaCsat
+        ? 'bg-emerald-50/40 dark:bg-emerald-900/10 hover:bg-emerald-50/70 dark:hover:bg-emerald-900/20'
+        : 'hover:bg-muted/30',
+    )}>
       {/* Link esticado cobre a linha → clique abre; Ctrl/⌘+clique, botão do meio
           e botão direito → "abrir em nova aba" nativos (#HLP0139). */}
       <Link
@@ -1129,13 +1171,17 @@ function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar }: {
       />
       {/* Barra vertical = cor do STATUS */}
       <div className="w-1 h-12 rounded-full shrink-0" style={{ backgroundColor: STATUS_COR[ticket.status] }} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{ticketNum}</span>
-          <Badge variant="outline" className="text-[10px] h-5 gap-1">
-            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: STATUS_COR[ticket.status] }} />
+          <Badge variant="outline" className={`text-[10px] h-5 ${STATUS_BADGE[ticket.status]}`}>
             {HELPDESK_STATUS_LABELS[ticket.status]}
           </Badge>
+          {precisaCsat && (
+            <Badge className="relative z-10 h-5 gap-1 bg-emerald-600 text-[10px] text-white hover:bg-emerald-700">
+              <CheckCircle2 className="h-3 w-3" /> Avaliar
+            </Badge>
+          )}
           {/* Prioridade — texto ao lado do status; só o valor colorido (como no kanban) */}
           <span className="text-[10px] text-muted-foreground">
             Prioridade: <span className="font-medium uppercase tracking-wider" style={{ color: HELPDESK_PRIORIDADE_COLORS[ticket.prioridade] }}>{HELPDESK_PRIORIDADE_LABELS[ticket.prioridade]}</span>
