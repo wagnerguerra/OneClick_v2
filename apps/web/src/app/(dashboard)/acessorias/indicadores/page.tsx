@@ -17,6 +17,7 @@ import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Recorte } from '../_components/periodos'
 import { AbasAcessorias } from '../_components/abas-acessorias'
+import { BadgeEntrega } from '../_components/badge-entrega'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
 
@@ -432,7 +433,9 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, onClose }: {
                     </td>
                     <td className="hidden px-3 py-2 text-[12px] text-muted-foreground lg:table-cell">{fmtComp(l.competencia)}</td>
                     <td className="px-3 py-2 text-[12px] tabular-nums">{fmtData(l.vencimento)}</td>
-                    <td className="hidden px-3 py-2 text-[12px] text-muted-foreground tabular-nums sm:table-cell">{fmtData(l.dtEntrega)}</td>
+                    <td className="hidden px-3 py-2 text-[12px] sm:table-cell">
+                      <BadgeEntrega entrega={l.dtEntrega} vencimento={l.vencimento} />
+                    </td>
                   </tr>
                 ))}
               </tbody>

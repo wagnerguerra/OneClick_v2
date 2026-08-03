@@ -21,6 +21,7 @@ import { EntityCombobox } from '@/components/ui/entity-combobox'
 import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Recorte } from '../_components/periodos'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
+import { BadgeEntrega } from '../_components/badge-entrega'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
 
@@ -629,13 +630,10 @@ export default function PainelEntregasPage() {
                         {fmtData(l.vencimento)}
                       </td>
 
-                      <td className="hidden px-3 py-2 text-[12px] tabular-nums sm:table-cell">
-                        {l.dtEntrega
-                          ? <span className={cn(l.dtEntrega && l.prazo && new Date(l.dtEntrega) < new Date(l.prazo)
-                              ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')}>
-                              {fmtData(l.dtEntrega)}
-                            </span>
-                          : <span className="text-muted-foreground">—</span>}
+                      {/* Mesmo selo dos modais: a coluna Entrega responde a
+                          mesma pergunta em toda a tela, contra o vencimento. */}
+                      <td className="hidden px-3 py-2 text-[12px] sm:table-cell">
+                        <BadgeEntrega entrega={l.dtEntrega} vencimento={l.vencimento} />
                       </td>
 
                       <td className={cn('px-3 py-2 text-[12px] tabular-nums', p.cor)} title={p.titulo}>
@@ -782,7 +780,9 @@ function ObrigacoesDoClienteModal({
                       </td>
                       <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground sm:table-cell">{l.dpto || '—'}</td>
                       <td className="px-3 py-2 text-[12px] tabular-nums">{fmtData(l.vencimento)}</td>
-                      <td className="hidden px-3 py-2 text-[12px] text-muted-foreground tabular-nums sm:table-cell">{fmtData(l.dtEntrega)}</td>
+                      <td className="hidden px-3 py-2 text-[12px] sm:table-cell">
+                        <BadgeEntrega entrega={l.dtEntrega} vencimento={l.vencimento} />
+                      </td>
                       <td className={cn('px-3 py-2 text-[12px]', p.cor)} title={p.titulo}>{p.texto}</td>
                     </tr>
                   )
@@ -851,7 +851,7 @@ function DetalheEntregaModal({ linha: l, urlTemplate, onClose }: {
             <Campo label="Competência" valor={fmtComp(l.competencia)} />
             <Campo label="Prazo interno (EntDtPrazo)" valor={fmtData(l.prazo)} />
             <Campo label="Vencimento (EntDtAtraso)" valor={fmtData(l.vencimento)} />
-            <Campo label="Entrega (EntDtEntrega)" valor={fmtData(l.dtEntrega)} />
+            <Campo label="Entrega (EntDtEntrega)" valor={<BadgeEntrega entrega={l.dtEntrega} vencimento={l.vencimento} />} />
             <Campo label="Finalização (EntDtFinalizacao)" valor={dh(l.dtFinalizacao)} />
           </Secao>
 
