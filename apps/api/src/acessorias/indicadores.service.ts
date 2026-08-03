@@ -190,19 +190,33 @@ export class IndicadoresAcessoriasService {
           : {}),
     }
 
+    // Até onde o espelho vai. A sincronização recorta a API pelo prazo TÉCNICO
+    // e o painel filtra pelo LEGAL, então "sincronizei julho" não significa
+    // "tenho tudo que vence em julho": obrigação com prazo técnico em 31/07 e
+    // legal em 14/08 entra, e a de agosto inteira não. Sem este aviso, período
+    // fora da cobertura vira painel meio vazio lido como se fosse a realidade.
+    const limites = await prisma.acessoriasEntrega.aggregate({
+      where: escopoEmpresa,
+      _max: { dtAtraso: true, prazo: true },
+      _min: { dtAtraso: true, prazo: true },
+    })
+    const maiorData = [limites._max.dtAtraso, limites._max.prazo].filter(Boolean).sort().pop() ?? null
+    const menorData = [limites._min.dtAtraso, limites._min.prazo].filter(Boolean).sort().shift() ?? null
+    const cobertura = { de: menorData, ate: maiorData }
+
     // ── recorte por permissão, aplicado na consulta ──
     // O responsável do Acessórias é texto; traduzimos o usuário (ou a área)
     // para os nomes/departamentos correspondentes antes de filtrar.
     if (escopo === 'PROPRIO') {
       const meus = idx.nomesDoUsuario.get(ctx.userId) ?? []
-      if (meus.length === 0) return { escopo, cartoes: [], pendentes: [], semVinculo: true, areaNome: user?.area?.name ?? null }
+      if (meus.length === 0) return { escopo, cartoes: [], pendentes: [], semVinculo: true, areaNome: user?.area?.name ?? null, cobertura }
       Object.assign(where, {
         AND: [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
           { OR: [{ respPrazo: { in: meus } }, { respEntrega: { in: meus } }] }],
       })
     } else if (escopo === 'COLABORADORES') {
       const dptos = user?.areaId ? idx.dptosDaArea.get(user.areaId) ?? [] : []
-      if (dptos.length === 0) return { escopo, cartoes: [], pendentes: [], semVinculo: true, areaNome: user?.area?.name ?? null }
+      if (dptos.length === 0) return { escopo, cartoes: [], pendentes: [], semVinculo: true, areaNome: user?.area?.name ?? null, cobertura }
       Object.assign(where, {
         AND: [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
           { dpto: { in: dptos } }],
@@ -231,6 +245,7 @@ export class IndicadoresAcessoriasService {
         pendentes: emAberto,
         semVinculo: false,
         areaNome: user?.area?.name ?? null,
+        cobertura,
       }
     }
 
@@ -309,6 +324,7 @@ export class IndicadoresAcessoriasService {
       semVinculo: false,
       areaNome: user?.area?.name ?? null,
       ocultosInativos,
+      cobertura,
     }
   }
 

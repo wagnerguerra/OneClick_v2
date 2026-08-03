@@ -54,6 +54,7 @@ interface Retorno {
   semVinculo: boolean
   areaNome: string | null
   ocultosInativos?: number
+  cobertura?: { de: string | null; ate: string | null }
 }
 interface LinhaDetalhe {
   id: string
@@ -179,6 +180,8 @@ export default function IndicadoresPage() {
       </div>
 
       <AbasAcessorias />
+
+      <AvisoCobertura dados={dados} recorte={recorte} />
 
       {loading && !dados ? (
         <div className="flex items-center justify-center py-24 text-muted-foreground">
@@ -325,6 +328,35 @@ function Avatar({ cartao }: { cartao: Cartao }) {
     <div className="flex h-full w-full items-center justify-center rounded-full text-sm font-semibold text-white"
       style={{ backgroundColor: MODULE_COLOR }}>
       {iniciais || '—'}
+    </div>
+  )
+}
+
+/**
+ * Avisa quando o período escolhido vai além do que foi sincronizado.
+ *
+ * A sincronização recorta a API pelo prazo TÉCNICO e o painel filtra pelo
+ * LEGAL, então cobrir julho não significa ter tudo que vence em julho. Sem o
+ * aviso, um painel meio vazio passa por retrato fiel — foi o que fez uma
+ * carteira inteira parecer ter só uma área.
+ */
+function AvisoCobertura({ dados, recorte }: { dados: Retorno | null; recorte: Recorte }) {
+  const ate = dados?.cobertura?.ate
+  if (!ate) return null
+  const alvo = filtroDe(recorte)
+  if (!alvo.ate && !alvo.competencia) return null
+
+  const fimPedido = alvo.competencia
+    ? `${alvo.competencia}-28`   // basta cair dentro do mês pedido
+    : alvo.ate!
+  const fimCoberto = new Date(ate).toISOString().slice(0, 10)
+  if (fimPedido <= fimCoberto) return null
+
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+      A sincronização de entregas cobre até <b>{new Date(ate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</b>,
+      e o período escolhido vai além disso. O que aparece abaixo está incompleto — rode a
+      sincronização para o período desejado na aba <b>Integração</b>.
     </div>
   )
 }
