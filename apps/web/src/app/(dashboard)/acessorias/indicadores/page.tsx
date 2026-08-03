@@ -79,12 +79,18 @@ type Medida = (typeof MEDIDAS)[number]['campo']
  * visivelmente a mesma coisa.
  */
 const MEDIDAS = [
-  { campo: 'pendenteNoPrazo',   label: 'Pendentes no prazo',   cor: 'text-sky-600 dark:text-sky-400',        bg: 'bg-sky-100 dark:bg-sky-950/40',       hex: '#0284c7' },
-  { campo: 'pendenteAtrasado',  label: 'Pendentes em atraso',  cor: 'text-amber-600 dark:text-amber-400',    bg: 'bg-amber-100 dark:bg-amber-950/40',   hex: '#d97706' },
-  { campo: 'pendenteComMulta',  label: 'Pendentes com multa',  cor: 'text-rose-600 dark:text-rose-400',      bg: 'bg-rose-100 dark:bg-rose-950/40',     hex: '#e11d48' },
-  { campo: 'entregueNoPrazo',   label: 'Entregues no prazo',   cor: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-950/40', hex: '#059669' },
-  { campo: 'entregueComAtraso', label: 'Entregues com atraso', cor: 'text-violet-600 dark:text-violet-400',  bg: 'bg-violet-100 dark:bg-violet-950/40', hex: '#7c3aed' },
-  { campo: 'entregueComMulta',  label: 'Entregues com multa',  cor: 'text-rose-700 dark:text-rose-300',      bg: 'bg-rose-100 dark:bg-rose-950/40',     hex: '#be123c' },
+  { campo: 'pendenteNoPrazo',   label: 'Pendentes no prazo',   ajuda: 'Ainda não entregues, com o vencimento à frente.',
+    cor: 'text-sky-600 dark:text-sky-400',        bg: 'bg-sky-100 dark:bg-sky-950/40',       hex: '#0284c7' },
+  { campo: 'pendenteAtrasado',  label: 'Pendentes em atraso',  ajuda: 'Ainda não entregues, com o vencimento já passado.',
+    cor: 'text-amber-600 dark:text-amber-400',    bg: 'bg-amber-100 dark:bg-amber-950/40',   hex: '#d97706' },
+  { campo: 'pendenteComMulta',  label: 'Pendentes com multa',  ajuda: 'Das pendentes em atraso, as que geram multa. É a exposição de hoje.',
+    cor: 'text-rose-600 dark:text-rose-400',      bg: 'bg-rose-100 dark:bg-rose-950/40',     hex: '#e11d48' },
+  { campo: 'entregueNoPrazo',   label: 'Entregues no prazo',   ajuda: 'Entregues até o prazo interno do escritório.',
+    cor: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-950/40', hex: '#059669' },
+  { campo: 'entregueComAtraso', label: 'Entregues com atraso', ajuda: 'Entregues depois do prazo interno.',
+    cor: 'text-violet-600 dark:text-violet-400',  bg: 'bg-violet-100 dark:bg-violet-950/40', hex: '#7c3aed' },
+  { campo: 'entregueComMulta',  label: 'Entregues com multa',  ajuda: 'Das entregues com atraso, as que geram multa.',
+    cor: 'text-rose-700 dark:text-rose-300',      bg: 'bg-rose-100 dark:bg-rose-950/40',     hex: '#be123c' },
 ] as const
 
 const TITULO_ESCOPO: Record<Retorno['escopo'], { titulo: string; nota: string }> = {
@@ -334,7 +340,7 @@ function CartaoIndicador({ cartao, destaque, onAbrir }: {
               onMouseLeave={() => setEmFoco(null)}
               onFocus={() => valor > 0 && setEmFoco(m.campo)}
               onBlur={() => setEmFoco(null)}
-              title={clicavel ? `Ver as obrigações — ${m.label.toLowerCase()}` : undefined}
+              title={clicavel ? `${m.ajuda} Clique para ver a lista.` : m.ajuda}
               className={cn(
                 'flex w-full items-center justify-between px-4 py-1.5 text-left transition-colors',
                 clicavel ? 'cursor-pointer hover:bg-muted/40' : 'cursor-default',

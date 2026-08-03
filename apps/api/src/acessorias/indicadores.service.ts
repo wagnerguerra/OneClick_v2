@@ -65,7 +65,22 @@ interface LinhaCrua {
 export class IndicadoresAcessoriasService {
   constructor(private readonly vinculos: VinculosAcessoriasService) {}
 
-  /** Classifica uma entrega nos seis baldes e soma no acumulador. */
+  /**
+   * Classifica uma entrega nos seis baldes e soma no acumulador.
+   *
+   * Sobre `multa`: o campo EntMulta do Acessórias NÃO diz "gerou multa" — diz
+   * que a obrigação é sujeita a multa caso falhe. É atributo da obrigação, não
+   * do que aconteceu. Conferido na carteira: das 18 entregas ANTECIPADAS de um
+   * mês, 10 vinham com multa='S'; até obrigação dispensada, que sequer era
+   * devida, vinha marcada — enquanto a única realmente atrasada vinha com 'N'.
+   *
+   * Contar toda entrega marcada produzia um número sem sentido ("entregou 4
+   * com multa" tendo entregado tudo com antecedência) e um cartão que se
+   * contradizia: zero pendências em atraso e sete "com multa".
+   *
+   * Então os dois baldes de multa passam a exigir o ATRASO junto: só há
+   * exposição real quando a obrigação sujeita a multa de fato passou do prazo.
+   */
   private acumular(acc: Indicadores, l: LinhaCrua, hoje: Date) {
     const s = norm(l.status)
     if (s.startsWith('dispensad')) return // não era devida: não conta em lugar nenhum
@@ -77,16 +92,22 @@ export class IndicadoresAcessoriasService {
       // de desempate quando o status não diz.
       const atrasada = s.startsWith('ent. atrasada') || s.startsWith('ent atrasada')
         || (!!l.dtEntrega && !!l.prazo && l.dtEntrega > l.prazo)
-      if (atrasada) acc.entregueComAtraso++
-      else acc.entregueNoPrazo++
-      if (l.multa) acc.entregueComMulta++
+      if (atrasada) {
+        acc.entregueComAtraso++
+        if (l.multa) acc.entregueComMulta++
+      } else {
+        acc.entregueNoPrazo++
+      }
       return
     }
 
     const venc = l.dtAtraso ?? l.prazo
-    if (venc && venc < hoje) acc.pendenteAtrasado++
-    else acc.pendenteNoPrazo++
-    if (l.multa) acc.pendenteComMulta++
+    if (venc && venc < hoje) {
+      acc.pendenteAtrasado++
+      if (l.multa) acc.pendenteComMulta++
+    } else {
+      acc.pendenteNoPrazo++
+    }
   }
 
   /** Decide o recorte a partir do cargo e do perfil. */
