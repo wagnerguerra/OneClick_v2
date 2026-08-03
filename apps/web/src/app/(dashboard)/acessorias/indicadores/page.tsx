@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  BarChart3, Loader2, RefreshCw, Users, Link2Off,
+  BarChart3, Loader2, RefreshCw, Users, Link2Off, AlertTriangle,
 } from 'lucide-react'
 import {
   Button, Card, cn,
@@ -394,7 +394,7 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, onClose }: {
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-5xl">
         <DialogHeaderIcon icon={BarChart3} color="sky">
           <DialogTitle>{info.label}</DialogTitle>
           <DialogDescription>{cartao.titulo}{cartao.subtitulo ? ` · ${cartao.subtitulo}` : ''}</DialogDescription>
@@ -408,32 +408,42 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, onClose }: {
             <p className="py-12 text-center text-sm text-muted-foreground">Nenhuma obrigação aqui.</p>
           ) : (
             <table className="w-full table-fixed border-collapse text-sm">
+              {/* Uma linha por registro: a marca de multa saiu de baixo do nome,
+                  onde empurrava a linha para duas alturas, e virou coluna
+                  própria na frente. */}
               <thead className="sticky top-0 bg-muted/40">
                 <tr className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <th className="w-[40px] px-2 py-2 text-center" title="Passível de multa">
+                    <span className="sr-only">Passível de multa</span>
+                    <AlertTriangle className="mx-auto h-3.5 w-3.5" />
+                  </th>
                   <th className="px-3 py-2 text-left">Obrigação</th>
-                  <th className="hidden w-[28%] px-3 py-2 text-left md:table-cell">Cliente</th>
-                  <th className="hidden w-[96px] px-3 py-2 text-left lg:table-cell">Competência</th>
-                  <th className="w-[104px] px-3 py-2 text-left">Prazo legal</th>
-                  <th className="hidden w-[100px] px-3 py-2 text-left sm:table-cell">Entrega</th>
+                  <th className="hidden w-[26%] px-3 py-2 text-left md:table-cell">Cliente</th>
+                  <th className="hidden w-[100px] px-3 py-2 text-left lg:table-cell">Competência</th>
+                  <th className="w-[110px] px-3 py-2 text-left">Prazo legal</th>
+                  <th className="hidden w-[112px] px-3 py-2 text-left sm:table-cell">Entrega</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
                 {linhas.map((l) => (
                   <tr key={l.id} className="hover:bg-muted/30">
-                    <td className="px-3 py-2">
-                      <p className="truncate font-medium" title={l.obrigacao}>{l.obrigacao}</p>
-                      <span className="text-[11px] text-muted-foreground md:hidden">#{l.clienteCode} — {l.clienteNome}</span>
-                      {l.multa && <span className="ml-1 text-[10px] text-rose-500">multa</span>}
+                    <td className="px-2 py-2 text-center">
+                      {l.multa && (
+                        <span title="Passível de multa" className="inline-flex">
+                          <AlertTriangle className="h-4 w-4 text-rose-500 dark:text-rose-400" />
+                        </span>
+                      )}
                     </td>
+                    <td className="truncate px-3 py-2 font-medium" title={l.obrigacao}>{l.obrigacao}</td>
                     <td className="hidden px-3 py-2 md:table-cell">
                       <Link href={`/clientes/${l.clienteId}`} target="_blank"
                         className="block truncate text-[12px] text-muted-foreground hover:underline">
                         #{l.clienteCode} — {l.clienteNome}
                       </Link>
                     </td>
-                    <td className="hidden px-3 py-2 text-[12px] text-muted-foreground lg:table-cell">{fmtComp(l.competencia)}</td>
-                    <td className="px-3 py-2 text-[12px] tabular-nums">{fmtData(l.vencimento)}</td>
-                    <td className="hidden px-3 py-2 text-[12px] sm:table-cell">
+                    <td className="hidden whitespace-nowrap px-3 py-2 text-[12px] text-muted-foreground lg:table-cell">{fmtComp(l.competencia)}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-[12px] tabular-nums">{fmtData(l.vencimento)}</td>
+                    <td className="hidden whitespace-nowrap px-3 py-2 text-[12px] sm:table-cell">
                       <BadgeEntrega entrega={l.dtEntrega} vencimento={l.vencimento} />
                     </td>
                   </tr>
