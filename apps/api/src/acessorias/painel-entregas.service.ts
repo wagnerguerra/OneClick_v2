@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { prisma, Prisma } from '@saas/db'
+import { VinculosAcessoriasService } from './vinculos.service'
 
 /**
  * Painel de acompanhamento das entregas do Acessórias.
@@ -174,8 +175,27 @@ function diasAte(d: Date | null): number | null {
   return Math.round((alvo.getTime() - hoje.getTime()) / 86400000)
 }
 
+/** Quem consulta — o recorte por cargo é decidido aqui, não na tela. */
+export interface CtxPainel {
+  userId: string
+  isMaster: boolean
+  isEmpresaMaster: boolean
+  empresaId?: string
+}
+
 @Injectable()
 export class PainelEntregasService {
+  constructor(private readonly vinculos: VinculosAcessoriasService) {}
+
+  /**
+   * O recorte de quem olha: gerente, diretoria e master veem a carteira toda;
+   * do gestor para baixo, só a própria área.
+   */
+  private async recorte(ctx: CtxPainel): Promise<Prisma.AcessoriasEntregaWhereInput | null> {
+    const { escopo, user } = await this.vinculos.escopoDoUsuario(ctx.userId, ctx.isMaster, ctx.isEmpresaMaster)
+    return this.vinculos.restricaoPorArea(escopo, user, ctx.empresaId ?? null)
+  }
+
   /** Filtros da tela — comuns às duas visões. */
   private baseWhere(filtro: FiltroPainel, isMaster: boolean, empresaId?: string): Prisma.AcessoriasEntregaWhereInput {
     return {
@@ -205,9 +225,12 @@ export class PainelEntregasService {
     }
   }
 
-  async listar(filtro: FiltroPainel, isMaster: boolean, empresaId?: string) {
+  async listar(filtro: FiltroPainel, ctx: CtxPainel) {
+    const { isMaster } = ctx
+    const empresaId = ctx.empresaId
     const janela = filtro.janelaDias ?? 7
-    const where = this.baseWhere(filtro, isMaster, empresaId)
+    const recorte = await this.recorte(ctx)
+    const where = e(this.baseWhere(filtro, isMaster, empresaId), recorte)
 
     const hoje = inicioDoDia()
     const limiteJanela = emDias(hoje, janela)
@@ -315,9 +338,12 @@ export class PainelEntregasService {
    * Contava em cima do retorno de `listar`, que é limitado ao que cabe na tela:
    * cliente fora do corte simplesmente não existia aqui. Agora agrega no banco.
    */
-  async porCliente(filtro: FiltroPainel, isMaster: boolean, empresaId?: string) {
+  async porCliente(filtro: FiltroPainel, ctx: CtxPainel) {
+    const { isMaster } = ctx
+    const empresaId = ctx.empresaId
     const janelaDias = filtro.janelaDias ?? 7
-    const where = this.baseWhere(filtro, isMaster, empresaId)
+    const recorte = await this.recorte(ctx)
+    const where = e(this.baseWhere(filtro, isMaster, empresaId), recorte)
     const hoje = inicioDoDia()
 
     const wNaoLidas = e(where, W_ENTREGUE, { lida: false })
@@ -406,11 +432,18 @@ export class PainelEntregasService {
    * isso, a lista oferecia combinações que só devolvem tela vazia.
    */
   async opcoes(
-    isMaster: boolean,
-    empresaId?: string,
+    ctx: CtxPainel,
     filtro: { dpto?: string; responsavel?: string; clienteId?: string } = {},
   ) {
-    const escopo: Prisma.AcessoriasEntregaWhereInput = !isMaster && empresaId ? { empresaId } : {}
+    const { isMaster } = ctx
+    const empresaId = ctx.empresaId
+    // As opções seguem o mesmo recorte da lista: oferecer área ou responsável
+    // que o usuário não pode ver só produziria tela vazia — e vazaria os nomes.
+    const recorte = await this.recorte(ctx)
+    const escopo: Prisma.AcessoriasEntregaWhereInput = e(
+      !isMaster && empresaId ? { empresaId } : {},
+      recorte,
+    )
     const porDpto = filtro.dpto ? { dpto: filtro.dpto } : {}
     const porCliente = filtro.clienteId ? { clienteId: filtro.clienteId } : {}
     const porResp = filtro.responsavel

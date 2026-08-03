@@ -240,13 +240,13 @@ export function createAcessoriasRouter(
       .input(painelFiltroSchema)
       .query(({ input, ctx }) => {
         if (!painelSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
-        return painelSvc.listar(input ?? {}, ctx.isMaster ?? false, ctx.empresaId)
+        return painelSvc.listar(input ?? {}, { userId: ctx.userId, isMaster: ctx.isMaster ?? false, isEmpresaMaster: ctx.isEmpresaMaster ?? false, empresaId: ctx.empresaId })
       }),
     painelEntregasPorCliente: painelProc()
       .input(painelFiltroSchema)
       .query(({ input, ctx }) => {
         if (!painelSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
-        return painelSvc.porCliente(input ?? {}, ctx.isMaster ?? false, ctx.empresaId)
+        return painelSvc.porCliente(input ?? {}, { userId: ctx.userId, isMaster: ctx.isMaster ?? false, isEmpresaMaster: ctx.isEmpresaMaster ?? false, empresaId: ctx.empresaId })
       }),
     // ── Regras de aplicabilidade das obrigações ──
     // Leitura para qualquer um que veja o painel; gravar exige a permissão de
@@ -350,7 +350,10 @@ export function createAcessoriasRouter(
       }).optional())
       .query(({ input, ctx }) => {
         if (!painelSvc) return { departamentos: [], responsaveis: [], clientes: [] }
-        return painelSvc.opcoes(ctx.isMaster ?? false, ctx.empresaId, input ?? {})
+        return painelSvc.opcoes(
+          { userId: ctx.userId, isMaster: ctx.isMaster ?? false, isEmpresaMaster: ctx.isEmpresaMaster ?? false, empresaId: ctx.empresaId },
+          input ?? {},
+        )
       }),
   })
 }

@@ -120,22 +120,6 @@ export class IndicadoresAcessoriasService {
     }
   }
 
-  /** Decide o recorte a partir do cargo e do perfil. */
-  private async escopoDe(userId: string, isMaster: boolean, isEmpresaMaster: boolean) {
-    const u = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, name: true, role: true, profile: true, areaId: true, area: { select: { name: true } } },
-    })
-    if (isMaster || isEmpresaMaster) return { escopo: 'GERAL' as EscopoPainel, user: u }
-    const role = String(u?.role ?? '')
-    const perfil = String(u?.profile ?? '')
-    if (role === 'DIRETOR' || perfil === 'ADMIN' || perfil === 'GERENTE') return { escopo: 'AREAS' as EscopoPainel, user: u }
-    if (role === 'GESTOR' || role === 'COORDENADOR' || perfil === 'SUPERVISOR') {
-      return { escopo: 'COLABORADORES' as EscopoPainel, user: u }
-    }
-    return { escopo: 'PROPRIO' as EscopoPainel, user: u }
-  }
-
   /** Início e fim do mês de uma competência "YYYY-MM". */
   private mesDaCompetencia(v: string) {
     const [ano, mes] = v.split('-').map(Number)
@@ -150,7 +134,7 @@ export class IndicadoresAcessoriasService {
     ctx: { userId: string; isMaster: boolean; isEmpresaMaster: boolean; empresaId?: string },
   ) {
     const empresaId = ctx.empresaId ?? null
-    const { escopo, user } = await this.escopoDe(ctx.userId, ctx.isMaster, ctx.isEmpresaMaster)
+    const { escopo, user } = await this.vinculos.escopoDoUsuario(ctx.userId, ctx.isMaster, ctx.isEmpresaMaster)
 
     // Reconfere os vínculos a cada consulta. Rodar só quando a tabela estava
     // vazia deixava par errado gravado para sempre: foi assim que uma correção
@@ -340,7 +324,7 @@ export class IndicadoresAcessoriasService {
     ctx: { userId: string; isMaster: boolean; isEmpresaMaster: boolean; empresaId?: string },
   ) {
     const empresaId = ctx.empresaId ?? null
-    const { escopo, user } = await this.escopoDe(ctx.userId, ctx.isMaster, ctx.isEmpresaMaster)
+    const { escopo, user } = await this.vinculos.escopoDoUsuario(ctx.userId, ctx.isMaster, ctx.isEmpresaMaster)
     const idx = await this.vinculos.indices(empresaId)
 
     const hoje = new Date()

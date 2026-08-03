@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { prisma } from '@saas/db'
+import { prisma, Prisma } from '@saas/db'
 
 /**
  * Liga o que vem do Acessórias ao nosso cadastro: colaborador → usuário e
@@ -70,6 +70,13 @@ function melhorPar<T>(alvo: string, candidatos: T[], nomeDe: (c: T) => string): 
   // atribuiria o trabalho de um colaborador a outro sem ninguém perceber.
   return empatado ? null : melhor
 }
+
+/**
+ * Quanto da carteira cada cargo enxerga. Vive aqui, e não em cada tela, porque
+ * duas telas com regras próprias divergem — e divergir aqui significa uma
+ * delas mostrar o que a outra bloqueia.
+ */
+export type EscopoAcessorias = 'PROPRIO' | 'COLABORADORES' | 'AREAS' | 'GERAL'
 
 export interface ResultadoVinculos {
   colaboradores: { total: number; casados: number; semPar: number }
@@ -196,6 +203,77 @@ export class VinculosAcessoriasService {
       colaboradores: { total: nomesPessoas.size, casados: casadosP, semPar: nomesPessoas.size - casadosP },
       departamentos: { total: nomesDptos.size, casados: casadosD, semPar: nomesDptos.size - casadosD },
     }
+  }
+
+  /**
+   * O recorte deste usuário:
+   *
+   *   colaborador          → as obrigações dele
+   *   gestor/coordenador   → a área dele
+   *   gerente/diretor      → todas as áreas
+   *   master               → tudo
+   */
+  async escopoDoUsuario(userId: string, isMaster: boolean, isEmpresaMaster: boolean) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, role: true, profile: true, areaId: true, area: { select: { name: true } } },
+    })
+    if (isMaster || isEmpresaMaster) return { escopo: 'GERAL' as EscopoAcessorias, user }
+    const role = String(user?.role ?? '')
+    const perfil = String(user?.profile ?? '')
+    if (role === 'DIRETOR' || perfil === 'ADMIN' || perfil === 'GERENTE') {
+      return { escopo: 'AREAS' as EscopoAcessorias, user }
+    }
+    if (role === 'GESTOR' || role === 'COORDENADOR' || perfil === 'SUPERVISOR') {
+      return { escopo: 'COLABORADORES' as EscopoAcessorias, user }
+    }
+    return { escopo: 'PROPRIO' as EscopoAcessorias, user }
+  }
+
+  /**
+   * O filtro que traduz o recorte para a consulta. `null` = sem restrição.
+   *
+   * Devolve `{ id: '' }` — que não casa com nada — quando o usuário deveria ser
+   * limitado mas não temos como: sem vínculo, "as obrigações dele" é indefinido,
+   * e abrir tudo seria o erro mais caro dos dois.
+   */
+  async restricaoDeEscopo(
+    escopo: EscopoAcessorias,
+    user: { id: string; areaId: string | null } | null,
+    empresaId: string | null,
+  ): Promise<Prisma.AcessoriasEntregaWhereInput | null> {
+    if (escopo === 'AREAS' || escopo === 'GERAL' || !user) return null
+    const idx = await this.indices(empresaId)
+    if (escopo === 'PROPRIO') {
+      const meus = idx.nomesDoUsuario.get(user.id) ?? []
+      if (meus.length === 0) return { id: '' }
+      return { OR: [{ respPrazo: { in: meus } }, { respEntrega: { in: meus } }] }
+    }
+    const dptos = user.areaId ? idx.dptosDaArea.get(user.areaId) ?? [] : []
+    if (dptos.length === 0) return { id: '' }
+    return { dpto: { in: dptos } }
+  }
+
+  /**
+   * Restrição por ÁREA — usada na tela de entregas, onde o recorte é sempre a
+   * área de quem olha, e não a pessoa.
+   *
+   * Gerente, diretoria e master veem tudo; do gestor para baixo, só a própria
+   * área. Sem área ou sem departamento correspondente devolve um filtro que não
+   * casa com nada: mostrar a carteira inteira por falta de configuração é o
+   * erro mais caro dos dois.
+   */
+  async restricaoPorArea(
+    escopo: EscopoAcessorias,
+    user: { id: string; areaId: string | null } | null,
+    empresaId: string | null,
+  ): Promise<Prisma.AcessoriasEntregaWhereInput | null> {
+    if (escopo === 'AREAS' || escopo === 'GERAL') return null
+    if (!user?.areaId) return { id: '' }
+    const idx = await this.indices(empresaId)
+    const dptos = idx.dptosDaArea.get(user.areaId) ?? []
+    if (dptos.length === 0) return { id: '' }
+    return { dpto: { in: dptos } }
   }
 
   /** Índices prontos para consulta — chave em minúsculo e sem acento. */
