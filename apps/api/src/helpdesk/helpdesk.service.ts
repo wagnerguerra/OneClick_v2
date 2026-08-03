@@ -1440,7 +1440,7 @@ export class HelpdeskService {
       data: {
         ticketId: input.ticketId,
         autorId: userId,
-        conteudo: input.conteudo,
+        conteudo: trimConteudoHtml(input.conteudo),
         interna: input.interna,
       },
     })
@@ -1516,7 +1516,7 @@ export class HelpdeskService {
     }
     const atualizada = await prisma.helpdeskMensagem.update({
       where: { id: input.id },
-      data: { conteudo: input.conteudo, editadoEm: new Date() },
+      data: { conteudo: trimConteudoHtml(input.conteudo), editadoEm: new Date() },
     })
     await this.addEvento(
       msg.ticketId,
@@ -2593,6 +2593,25 @@ export class HelpdeskService {
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+/**
+ * Remove espaços e LINHAS EM BRANCO no começo/fim do HTML de uma mensagem
+ * (conteúdo do RichEditor/TipTap). Tira parágrafos vazios das pontas
+ * (`<p></p>`, `<p><br></p>`, `<p>&nbsp;</p>` etc.) e apara o whitespace — sem
+ * mexer no meio do conteúdo. Aplicado ao criar/editar mensagens.
+ */
+function trimConteudoHtml(html: string): string {
+  let s = (html ?? '').trim()
+  const vazioInicio = /^\s*<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>\s*/i
+  const vazioFim = /\s*<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>\s*$/i
+  let mudou = true
+  while (mudou) {
+    mudou = false
+    if (vazioInicio.test(s)) { s = s.replace(vazioInicio, ''); mudou = true }
+    if (vazioFim.test(s)) { s = s.replace(vazioFim, ''); mudou = true }
+  }
+  return s.trim()
 }
 
 /**
