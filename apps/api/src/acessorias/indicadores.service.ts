@@ -207,7 +207,7 @@ export class IndicadoresAcessoriasService {
       porChave.set(k, atual)
     }
 
-    const cartoes: CartaoIndicadores[] = [...porChave.entries()].map(([k, v]) => ({
+    let cartoes: CartaoIndicadores[] = [...porChave.entries()].map(([k, v]) => ({
       chave: k,
       titulo: v.titulo,
       subtitulo: v.sub,
@@ -215,6 +215,17 @@ export class IndicadoresAcessoriasService {
       imagem: null,
       ...v.acc,
     }))
+
+    // Quem saiu do escritório continua como responsável no histórico do
+    // Acessórias. O painel é de acompanhamento de equipe, então só mostra quem
+    // ainda está aqui — mas informa quantos ficaram de fora, para o número não
+    // encolher sem explicação.
+    let ocultosInativos = 0
+    if (agrupaPorPessoa) {
+      const antes = cartoes.length
+      cartoes = cartoes.filter((c) => c.userId !== null && idx.usuariosAtivos.has(c.userId))
+      ocultosInativos = antes - cartoes.length
+    }
 
     // Quem tem mais pendência em atraso aparece primeiro — é onde se age.
     cartoes.sort((a, b) =>
@@ -250,7 +261,89 @@ export class IndicadoresAcessoriasService {
       pendentes: [],
       semVinculo: false,
       areaNome: user?.area?.name ?? null,
+      ocultosInativos,
     }
+  }
+
+  /**
+   * As obrigações por trás de um número do cartão.
+   *
+   * Reusa o MESMO recorte de permissão e a MESMA classificação do painel: se a
+   * lista fosse montada por outro caminho, ela poderia discordar do número que
+   * o usuário acabou de clicar.
+   */
+  async detalhe(
+    input: { de?: string; ate?: string; grupo: string; tipo: 'pessoa' | 'area'; medida: keyof Indicadores },
+    ctx: { userId: string; isMaster: boolean; isEmpresaMaster: boolean; empresaId?: string },
+  ) {
+    const empresaId = ctx.empresaId ?? null
+    const { escopo, user } = await this.escopoDe(ctx.userId, ctx.isMaster, ctx.isEmpresaMaster)
+    const idx = await this.vinculos.indices(empresaId)
+
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+
+    const filtros: Prisma.AcessoriasEntregaWhereInput[] = [
+      ...(!ctx.isMaster && empresaId ? [{ empresaId }] : []),
+      ...(input.de ? [{ OR: [
+        { dtAtraso: { gte: new Date(`${input.de}T00:00:00`) } },
+        { dtAtraso: null, prazo: { gte: new Date(`${input.de}T00:00:00`) } },
+      ] }] : []),
+      ...(input.ate ? [{ OR: [
+        { dtAtraso: { lte: new Date(`${input.ate}T00:00:00`) } },
+        { dtAtraso: null, prazo: { lte: new Date(`${input.ate}T00:00:00`) } },
+      ] }] : []),
+    ]
+
+    // O grupo pedido precisa caber no que este usuário pode ver — senão o
+    // detalhe viraria uma porta lateral para o dado de quem ele não enxerga.
+    if (escopo === 'PROPRIO') {
+      const meus = idx.nomesDoUsuario.get(ctx.userId) ?? []
+      filtros.push({ OR: [{ respPrazo: { in: meus } }, { respEntrega: { in: meus } }] })
+    } else if (escopo === 'COLABORADORES') {
+      const dptos = user?.areaId ? idx.dptosDaArea.get(user.areaId) ?? [] : []
+      filtros.push({ dpto: { in: dptos } })
+    }
+
+    if (input.tipo === 'pessoa') {
+      filtros.push({ OR: [{ respPrazo: input.grupo }, { respEntrega: input.grupo }] })
+    } else {
+      filtros.push({ dpto: input.grupo })
+    }
+
+    const rows = await prisma.acessoriasEntrega.findMany({
+      where: { AND: filtros },
+      orderBy: [{ dtAtraso: 'asc' }, { prazo: 'asc' }],
+      select: {
+        id: true, nome: true, competencia: true, prazo: true, dtAtraso: true, dtEntrega: true,
+        status: true, multa: true, dpto: true, respPrazo: true, respEntrega: true, clienteId: true,
+        cliente: { select: { id: true, code: true, razaoSocial: true } },
+      },
+    })
+
+    // Fica com as linhas que caem na medida pedida — mesma classificação de
+    // `acumular`, aplicada a uma entrega de cada vez.
+    const linhas = rows.filter((r) => {
+      const acc = zerado()
+      this.acumular(acc, r as unknown as LinhaCrua, hoje)
+      return acc[input.medida] > 0
+    })
+
+    return linhas.map((r) => ({
+      id: r.id,
+      obrigacao: r.nome,
+      competencia: r.competencia,
+      prazo: r.prazo,
+      vencimento: r.dtAtraso ?? r.prazo,
+      dtEntrega: r.dtEntrega,
+      status: r.status,
+      multa: r.multa,
+      dpto: r.dpto,
+      responsavel: r.respEntrega ?? r.respPrazo,
+      clienteId: r.cliente.id,
+      clienteCode: r.cliente.code,
+      clienteNome: r.cliente.razaoSocial,
+    }))
   }
 
   /** As obrigações ainda em aberto, para a lista do colaborador. */

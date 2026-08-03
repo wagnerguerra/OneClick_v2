@@ -13,6 +13,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { AbasAcessorias } from '../_components/abas-acessorias'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
 
@@ -156,6 +157,8 @@ export default function DivergenciasPage() {
           <BackButton href="/" label="Voltar" />
         </div>
       </div>
+
+      <AbasAcessorias />
 
       <Card className="border-sky-200 bg-sky-50/60 p-4 text-sm dark:border-sky-900 dark:bg-sky-950/20">
         <div className="flex gap-3">

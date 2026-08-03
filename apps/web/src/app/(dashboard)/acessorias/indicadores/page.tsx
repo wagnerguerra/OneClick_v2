@@ -9,9 +9,14 @@ import {
   Button, Card, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import {
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+} from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { PERIODOS, intervaloDe, type Periodo } from '../_components/periodos'
+import { AbasAcessorias } from '../_components/abas-acessorias'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
 
@@ -47,16 +52,39 @@ interface Retorno {
   pendentes: Pendente[]
   semVinculo: boolean
   areaNome: string | null
+  ocultosInativos?: number
 }
+interface LinhaDetalhe {
+  id: string
+  obrigacao: string
+  competencia: string | null
+  prazo: string | null
+  vencimento: string | null
+  dtEntrega: string | null
+  status: string | null
+  multa: boolean
+  dpto: string | null
+  responsavel: string | null
+  clienteId: string
+  clienteCode: number
+  clienteNome: string
+}
+type Medida = (typeof MEDIDAS)[number]['campo']
 
-/** As seis medidas do cartão, na ordem em que se lê: pendências antes de entregas. */
+/**
+ * As seis medidas, na ordem em que se lê: pendências antes de entregas.
+ *
+ * O `hex` é o mesmo tom da classe de texto e serve à rosca em volta do avatar —
+ * uma cor só por medida, então a fatia do gráfico e o número embaixo dizem
+ * visivelmente a mesma coisa.
+ */
 const MEDIDAS = [
-  { campo: 'pendenteNoPrazo',   label: 'Pendentes no prazo',  cor: 'text-sky-600 dark:text-sky-400',         bg: 'bg-sky-100 dark:bg-sky-950/40' },
-  { campo: 'pendenteAtrasado',  label: 'Pendentes em atraso', cor: 'text-amber-600 dark:text-amber-400',     bg: 'bg-amber-100 dark:bg-amber-950/40' },
-  { campo: 'pendenteComMulta',  label: 'Pendentes com multa', cor: 'text-rose-600 dark:text-rose-400',       bg: 'bg-rose-100 dark:bg-rose-950/40' },
-  { campo: 'entregueNoPrazo',   label: 'Entregues no prazo',  cor: 'text-sky-600 dark:text-sky-400',         bg: 'bg-sky-100 dark:bg-sky-950/40' },
-  { campo: 'entregueComAtraso', label: 'Entregues com atraso', cor: 'text-violet-600 dark:text-violet-400',  bg: 'bg-violet-100 dark:bg-violet-950/40' },
-  { campo: 'entregueComMulta',  label: 'Entregues com multa', cor: 'text-rose-600 dark:text-rose-400',       bg: 'bg-rose-100 dark:bg-rose-950/40' },
+  { campo: 'pendenteNoPrazo',   label: 'Pendentes no prazo',   cor: 'text-sky-600 dark:text-sky-400',        bg: 'bg-sky-100 dark:bg-sky-950/40',       hex: '#0284c7' },
+  { campo: 'pendenteAtrasado',  label: 'Pendentes em atraso',  cor: 'text-amber-600 dark:text-amber-400',    bg: 'bg-amber-100 dark:bg-amber-950/40',   hex: '#d97706' },
+  { campo: 'pendenteComMulta',  label: 'Pendentes com multa',  cor: 'text-rose-600 dark:text-rose-400',      bg: 'bg-rose-100 dark:bg-rose-950/40',     hex: '#e11d48' },
+  { campo: 'entregueNoPrazo',   label: 'Entregues no prazo',   cor: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-950/40', hex: '#059669' },
+  { campo: 'entregueComAtraso', label: 'Entregues com atraso', cor: 'text-violet-600 dark:text-violet-400',  bg: 'bg-violet-100 dark:bg-violet-950/40', hex: '#7c3aed' },
+  { campo: 'entregueComMulta',  label: 'Entregues com multa',  cor: 'text-rose-700 dark:text-rose-300',      bg: 'bg-rose-100 dark:bg-rose-950/40',     hex: '#be123c' },
 ] as const
 
 const TITULO_ESCOPO: Record<Retorno['escopo'], { titulo: string; nota: string }> = {
@@ -69,10 +97,19 @@ const TITULO_ESCOPO: Record<Retorno['escopo'], { titulo: string; nota: string }>
 const fmtData = (v: string | null) =>
   v ? new Date(v).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'
 
+/** Competência no formato do Acessórias: "Jun/2026". */
+const fmtComp = (v: string | null) => {
+  if (!v) return '—'
+  const d = new Date(v)
+  const m = d.toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' }).replace('.', '')
+  return `${m.charAt(0).toUpperCase()}${m.slice(1)}/${d.getUTCFullYear()}`
+}
+
 export default function IndicadoresPage() {
   const [dados, setDados] = useState<Retorno | null>(null)
   const [loading, setLoading] = useState(true)
   const [periodo, setPeriodo] = useState<Periodo>('mes')
+  const [detalhe, setDetalhe] = useState<{ cartao: Cartao; medida: Medida } | null>(null)
 
   const carregar = useCallback(() => {
     setLoading(true)
@@ -85,6 +122,8 @@ export default function IndicadoresPage() {
   useEffect(() => { carregar() }, [carregar])
 
   const cab = dados ? TITULO_ESCOPO[dados.escopo] : TITULO_ESCOPO.PROPRIO
+
+  const tipoGrupo: 'pessoa' | 'area' = dados?.escopo === 'COLABORADORES' ? 'pessoa' : 'area'
 
   return (
     <div className="space-y-5">
@@ -116,6 +155,8 @@ export default function IndicadoresPage() {
         </div>
       </div>
 
+      <AbasAcessorias />
+
       {loading && !dados ? (
         <div className="flex items-center justify-center py-24 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin" />
@@ -137,48 +178,135 @@ export default function IndicadoresPage() {
           )}
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {dados.cartoes.map((c) => <CartaoIndicador key={c.chave} cartao={c} />)}
+            {dados.cartoes.map((c) => (
+              <CartaoIndicador
+                key={c.chave}
+                cartao={c}
+                onAbrir={(medida) => setDetalhe({ cartao: c, medida })}
+              />
+            ))}
           </div>
+
+          {!!dados.ocultosInativos && (
+            <p className="text-[12px] text-muted-foreground">
+              {dados.ocultosInativos} responsável(is) fora do painel por não estarem mais ativos no OneClick.
+            </p>
+          )}
 
           {dados.escopo === 'PROPRIO' && (
             <ListaPendentes pendentes={dados.pendentes} />
           )}
         </>
       )}
+
+      {detalhe && (
+        <DetalheMedidaModal
+          cartao={detalhe.cartao}
+          medida={detalhe.medida}
+          tipo={tipoGrupo}
+          periodo={periodo}
+          onClose={() => setDetalhe(null)}
+        />
+      )}
     </div>
   )
 }
 
-function CartaoIndicador({ cartao, destaque }: { cartao: Cartao; destaque?: boolean }) {
+/**
+ * Rosca em volta do avatar: cada fatia é uma das seis medidas, na mesma cor do
+ * número correspondente.
+ *
+ * Desenhada com um único círculo SVG e `stroke-dasharray` — um arco por fatia,
+ * deslocado pelo que já foi desenhado. Evita trazer uma biblioteca de gráficos
+ * para um anel de seis fatias.
+ */
+function RoscaSituacao({ cartao, tamanho = 96 }: { cartao: Cartao; tamanho?: number }) {
+  const espessura = 9
+  const raio = (tamanho - espessura) / 2
+  const circunferencia = 2 * Math.PI * raio
+  const total = MEDIDAS.reduce((soma, m) => soma + cartao[m.campo], 0)
+
+  let percorrido = 0
+  const fatias = total === 0 ? [] : MEDIDAS.flatMap((m) => {
+    const valor = cartao[m.campo]
+    if (valor === 0) return []
+    const comprimento = (valor / total) * circunferencia
+    const fatia = { cor: m.hex, comprimento, deslocamento: -percorrido, label: m.label, valor }
+    percorrido += comprimento
+    return [fatia]
+  })
+
+  return (
+    <div className="relative shrink-0" style={{ width: tamanho, height: tamanho }}>
+      <svg width={tamanho} height={tamanho} className="-rotate-90">
+        <circle
+          cx={tamanho / 2} cy={tamanho / 2} r={raio}
+          fill="none" strokeWidth={espessura}
+          className="stroke-muted"
+        />
+        {fatias.map((f, i) => (
+          <circle
+            key={i}
+            cx={tamanho / 2} cy={tamanho / 2} r={raio}
+            fill="none" stroke={f.cor} strokeWidth={espessura}
+            strokeDasharray={`${f.comprimento} ${circunferencia - f.comprimento}`}
+            strokeDashoffset={f.deslocamento}
+          >
+            <title>{`${f.label}: ${f.valor}`}</title>
+          </circle>
+        ))}
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center" style={{ padding: espessura + 4 }}>
+        <Avatar cartao={cartao} />
+      </div>
+    </div>
+  )
+}
+
+function Avatar({ cartao }: { cartao: Cartao }) {
   const iniciais = cartao.titulo.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase()
+  if (cartao.imagem) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={cartao.imagem} alt="" className="h-full w-full rounded-full object-cover" />
+  }
+  return (
+    <div className="flex h-full w-full items-center justify-center rounded-full text-sm font-semibold text-white"
+      style={{ backgroundColor: MODULE_COLOR }}>
+      {iniciais || '—'}
+    </div>
+  )
+}
+
+function CartaoIndicador({ cartao, destaque, onAbrir }: {
+  cartao: Cartao; destaque?: boolean; onAbrir?: (medida: Medida) => void
+}) {
+  const total = MEDIDAS.reduce((soma, m) => soma + cartao[m.campo], 0)
   return (
     <Card className={cn('overflow-hidden', destaque && 'border-current')} style={destaque ? { borderColor: MODULE_COLOR } : undefined}>
-      <div className="flex items-center gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">
-        {cartao.imagem ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={cartao.imagem} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
-        ) : (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white"
-            style={{ backgroundColor: MODULE_COLOR }}>
-            {iniciais || '—'}
-          </div>
-        )}
-        <div className="min-w-0">
+      <div className="flex flex-col items-center gap-2 border-b border-border/60 bg-muted/20 px-4 py-4">
+        <RoscaSituacao cartao={cartao} tamanho={destaque ? 76 : 96} />
+        <div className="min-w-0 text-center">
           <p className="truncate text-[13px] font-semibold" title={cartao.titulo}>{cartao.titulo}</p>
           {cartao.subtitulo && <p className="truncate text-[11px] text-muted-foreground">{cartao.subtitulo}</p>}
-          {/* Sem vínculo, o cartão ainda soma — só não sabemos de quem é. */}
-          {cartao.userId === null && cartao.subtitulo !== null && (
-            <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
-              <Link2Off className="h-3 w-3" />sem usuário vinculado
-            </span>
-          )}
+          <p className="text-[11px] text-muted-foreground">{total} obrigação(ões) no período</p>
         </div>
       </div>
       <div className="divide-y divide-border/40">
         {MEDIDAS.map((m) => {
           const valor = cartao[m.campo]
+          const clicavel = valor > 0 && !!onAbrir
           return (
-            <div key={m.campo} className="flex items-center justify-between px-4 py-1.5">
+            <button
+              key={m.campo}
+              type="button"
+              disabled={!clicavel}
+              onClick={clicavel ? () => onAbrir?.(m.campo) : undefined}
+              title={clicavel ? `Ver as obrigações — ${m.label.toLowerCase()}` : undefined}
+              className={cn(
+                'flex w-full items-center justify-between px-4 py-1.5 text-left transition-colors',
+                clicavel ? 'cursor-pointer hover:bg-muted/40' : 'cursor-default',
+              )}
+            >
               <span className={cn('text-[12px]', m.cor)}>{m.label}</span>
               <span className={cn(
                 'flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[12px] font-semibold tabular-nums',
@@ -186,11 +314,84 @@ function CartaoIndicador({ cartao, destaque }: { cartao: Cartao; destaque?: bool
               )}>
                 {valor}
               </span>
-            </div>
+            </button>
           )
         })}
       </div>
     </Card>
+  )
+}
+
+/** A lista por trás de um número do cartão. */
+function DetalheMedidaModal({ cartao, medida, tipo, periodo, onClose }: {
+  cartao: Cartao; medida: Medida; tipo: 'pessoa' | 'area'; periodo: Periodo; onClose: () => void
+}) {
+  const [linhas, setLinhas] = useState<LinhaDetalhe[]>([])
+  const [carregando, setCarregando] = useState(true)
+  const info = MEDIDAS.find((m) => m.campo === medida)!
+
+  useEffect(() => {
+    setCarregando(true)
+    ;(trpc.acessorias as any).indicadoresDetalhe
+      .query({ ...intervaloDe(periodo), grupo: cartao.titulo, tipo, medida })
+      .then((d: LinhaDetalhe[]) => setLinhas(d || []))
+      .catch(() => setLinhas([]))
+      .finally(() => setCarregando(false))
+  }, [cartao.titulo, medida, tipo, periodo])
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeaderIcon icon={BarChart3} color="sky">
+          <DialogTitle>{info.label}</DialogTitle>
+          <DialogDescription>{cartao.titulo}{cartao.subtitulo ? ` · ${cartao.subtitulo}` : ''}</DialogDescription>
+        </DialogHeaderIcon>
+        <DialogBody className="max-h-[65vh] overflow-y-auto p-0">
+          {carregando ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : linhas.length === 0 ? (
+            <p className="py-12 text-center text-sm text-muted-foreground">Nenhuma obrigação aqui.</p>
+          ) : (
+            <table className="w-full table-fixed border-collapse text-sm">
+              <thead className="sticky top-0 bg-muted/40">
+                <tr className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <th className="px-3 py-2 text-left">Obrigação</th>
+                  <th className="hidden w-[28%] px-3 py-2 text-left md:table-cell">Cliente</th>
+                  <th className="hidden w-[96px] px-3 py-2 text-left lg:table-cell">Competência</th>
+                  <th className="w-[104px] px-3 py-2 text-left">Vencimento</th>
+                  <th className="hidden w-[100px] px-3 py-2 text-left sm:table-cell">Entrega</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {linhas.map((l) => (
+                  <tr key={l.id} className="hover:bg-muted/30">
+                    <td className="px-3 py-2">
+                      <p className="truncate font-medium" title={l.obrigacao}>{l.obrigacao}</p>
+                      <span className="text-[11px] text-muted-foreground md:hidden">#{l.clienteCode} — {l.clienteNome}</span>
+                      {l.multa && <span className="ml-1 text-[10px] text-rose-500">multa</span>}
+                    </td>
+                    <td className="hidden px-3 py-2 md:table-cell">
+                      <Link href={`/clientes/${l.clienteId}`} target="_blank"
+                        className="block truncate text-[12px] text-muted-foreground hover:underline">
+                        #{l.clienteCode} — {l.clienteNome}
+                      </Link>
+                    </td>
+                    <td className="hidden px-3 py-2 text-[12px] text-muted-foreground lg:table-cell">{fmtComp(l.competencia)}</td>
+                    <td className="px-3 py-2 text-[12px] tabular-nums">{fmtData(l.vencimento)}</td>
+                    <td className="hidden px-3 py-2 text-[12px] text-muted-foreground tabular-nums sm:table-cell">{fmtData(l.dtEntrega)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button size="sm" onClick={onClose}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

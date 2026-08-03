@@ -32,6 +32,7 @@ import { trpc } from '@/lib/trpc'
 import { masks } from '@/lib/masks'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { AbasAcessorias } from '../_components/abas-acessorias'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)' // Sky — Administrativo
 
@@ -160,6 +161,8 @@ export default function AcessoriasPage() {
           <BackButton href="/" />
         </div>
       </div>
+
+      <AbasAcessorias />
 
       {/* Tabs (pills) */}
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>

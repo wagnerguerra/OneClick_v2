@@ -20,6 +20,7 @@ import { masks } from '@/lib/masks'
 import { EntityCombobox } from '@/components/ui/entity-combobox'
 import { PERIODOS, intervaloDe, type Periodo } from '../_components/periodos'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { AbasAcessorias } from '../_components/abas-acessorias'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
 
@@ -313,6 +314,8 @@ export default function PainelEntregasPage() {
           <BackButton href="/" label="Voltar" />
         </div>
       </div>
+
+      <AbasAcessorias />
 
       {/* Cartões — clicar troca o foco, que é como se navega neste painel */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

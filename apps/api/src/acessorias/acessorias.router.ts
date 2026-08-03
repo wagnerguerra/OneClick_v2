@@ -292,6 +292,28 @@ export function createAcessoriasRouter(
         })
       }),
 
+    // Detalhe de um número do cartão. Reusa o recorte de permissão do painel.
+    indicadoresDetalhe: painelProc()
+      .input(z.object({
+        de: z.string().optional(),
+        ate: z.string().optional(),
+        grupo: z.string().min(1),
+        tipo: z.enum(['pessoa', 'area']),
+        medida: z.enum([
+          'pendenteNoPrazo', 'pendenteAtrasado', 'pendenteComMulta',
+          'entregueNoPrazo', 'entregueComAtraso', 'entregueComMulta',
+        ]),
+      }))
+      .query(({ input, ctx }) => {
+        if (!indicadoresSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return indicadoresSvc.detalhe(input, {
+          userId: ctx.userId,
+          isMaster: ctx.isMaster ?? false,
+          isEmpresaMaster: ctx.isEmpresaMaster ?? false,
+          empresaId: ctx.empresaId,
+        })
+      }),
+
     // ── Vínculos com o nosso cadastro ──
     listarVinculos: integracaoProc()
       .query(({ ctx }) => vinculosSvc?.listar(ctx.empresaId ?? null) ?? { colaboradores: [], departamentos: [] }),

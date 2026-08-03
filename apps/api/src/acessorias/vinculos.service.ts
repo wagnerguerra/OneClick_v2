@@ -83,7 +83,11 @@ export class VinculosAcessoriasService {
         select: { respPrazo: true, respPrazoId: true, respEntrega: true, respEntregaId: true, dpto: true, dptoId: true },
         distinct: ['respPrazo', 'respEntrega', 'dpto'],
       }),
-      prisma.user.findMany({ where: { isActive: true }, select: { id: true, name: true, areaId: true } }),
+      // Inclui inativos de propósito: quem saiu continua aparecendo como
+      // responsável no histórico do Acessórias, e só dá para ocultar a pessoa
+      // se soubermos QUEM ela é. Filtrar aqui deixaria o ex-colaborador como
+      // "sem vínculo", indistinguível de um nome que não casou.
+      prisma.user.findMany({ select: { id: true, name: true, areaId: true, isActive: true } }),
       prisma.area.findMany({ select: { id: true, name: true } }),
       prisma.acessoriasColaborador.findMany({ where: escopo, select: { id: true, nome: true, origem: true } }),
       prisma.acessoriasDepartamento.findMany({ where: escopo, select: { id: true, nome: true, origem: true } }),
@@ -132,7 +136,7 @@ export class VinculosAcessoriasService {
       const responsavel = l.respPrazo ?? l.respEntrega
       if (!responsavel) continue
       const u = melhorPar(responsavel, usuarios, (x) => x.name)
-      const areaId = u ? areaDoUsuario.get(u.id) : null
+      const areaId = u?.isActive ? areaDoUsuario.get(u.id) : null
       if (!areaId) continue
       const urna = votosPorDpto.get(norm(l.dpto)) ?? new Map<string, number>()
       urna.set(areaId, (urna.get(areaId) ?? 0) + 1)
@@ -179,12 +183,17 @@ export class VinculosAcessoriasService {
   async indices(empresaId: string | null) {
     const escopo = empresaId ? { empresaId } : {}
     const [colabs, dptos] = await Promise.all([
-      prisma.acessoriasColaborador.findMany({ where: escopo, select: { nome: true, userId: true } }),
+      prisma.acessoriasColaborador.findMany({
+        where: escopo,
+        select: { nome: true, userId: true, user: { select: { isActive: true } } },
+      }),
       prisma.acessoriasDepartamento.findMany({ where: escopo, select: { nome: true, areaId: true } }),
     ])
     return {
       /** nome no Acessórias → id do nosso usuário */
       usuarioDe: new Map(colabs.filter((c) => c.userId).map((c) => [norm(c.nome), c.userId as string])),
+      /** Só quem segue ativo no OneClick — o painel não mostra ex-colaborador. */
+      usuariosAtivos: new Set(colabs.filter((c) => c.userId && c.user?.isActive).map((c) => c.userId as string)),
       /** id do nosso usuário → nomes usados no Acessórias (pode ser mais de um) */
       nomesDoUsuario: colabs.reduce((m, c) => {
         if (c.userId) m.set(c.userId, [...(m.get(c.userId) ?? []), c.nome])
