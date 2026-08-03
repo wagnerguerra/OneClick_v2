@@ -152,6 +152,12 @@ src/[modulo]/
 ### Coluna "Ações" em tabelas
 Sempre dropdown `⋮` (`MoreVertical`) — nunca botões inline.
 
+### Scrollbar tematizada — `.nice-scrollbar`
+Todo container com scroll (`overflow-y-auto`/`overflow-auto` em listagens, feeds, painéis roláveis) leva a classe **`.nice-scrollbar`** (definida em `apps/web/src/app/globals.css`: thin + cor `muted-foreground/35`, com variante dark). A scrollbar nativa do SO destoa do tema (sobretudo no dark). Variantes: `.chat-scrollbar` (contexto de chat) e `.scrollbar-none` (esconder). Padrão geral = `.nice-scrollbar`.
+
+### Tooltips — Radix (`Tooltip`) quando pode ser cortado
+Para dicas em hover, prefira o **`Tooltip` do `@saas/ui`** (Radix, `Tooltip`/`TooltipTrigger`/`TooltipContent`/`TooltipProvider`) — ele renderiza em **portal**, então **não é cortado** por ancestrais com `overflow` (modais, sheets, áreas roláveis). Um tooltip via CSS/`absolute` (ex.: `group-hover`) é clipado nesses casos — só use quando tiver certeza de que não há `overflow` no caminho. Detalhe: se o gatilho for um botão `disabled`, o Radix não dispara no botão direto — envolva num `<span>` e use-o como `TooltipTrigger asChild` (o hover no span funciona mesmo com o botão desabilitado).
+
 ### Header de páginas de detalhe — componente `PageHeader` (PADRÃO FIXO)
 **SEMPRE** use `<PageHeader>` (`apps/web/src/components/page-header.tsx`) para o cabeçalho de páginas de detalhe/módulo. **Nunca recrie a capa na mão.** Ele já entrega o wrapper bleed-edge (sangra com `-mx/-mt`) + capa em gradiente da cor do módulo + ícone (lucide via `icon` OU imagem de `/materiais` via `iconImg`) + título/subtítulo + `breadcrumb` + `actions` (botões à direita) + `children` (abas/pills abaixo).
 
