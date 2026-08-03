@@ -82,15 +82,15 @@ type Medida = (typeof MEDIDAS)[number]['campo']
 const MEDIDAS = [
   // "Em aberto e no prazo" é a única das seis que não pede ação: fica em
   // cinza, para o olho ir direto ao que precisa de atenção.
-  { campo: 'pendenteNoPrazo',   label: 'Em aberto e no prazo',  ajuda: 'Ainda não entregues, com o vencimento à frente.',
+  { campo: 'pendenteNoPrazo',   label: 'Em aberto e no prazo',  ajuda: 'Ainda não entregues, com o prazo legal à frente.',
     cor: 'text-slate-600 dark:text-slate-300',    bg: 'bg-slate-100 dark:bg-slate-800/60',   hex: '#475569' },
-  { campo: 'pendenteAtrasado',  label: 'Em aberto e em atraso', ajuda: 'Ainda não entregues, com o vencimento já passado.',
+  { campo: 'pendenteAtrasado',  label: 'Em aberto e em atraso', ajuda: 'Ainda não entregues, com o prazo legal já passado.',
     cor: 'text-amber-600 dark:text-amber-400',    bg: 'bg-amber-100 dark:bg-amber-950/40',   hex: '#d97706' },
   { campo: 'pendenteComMulta',  label: 'Em aberto e passível de multa', ajuda: 'Das que estão em atraso, as que geram multa. É a exposição de hoje.',
     cor: 'text-rose-600 dark:text-rose-400',      bg: 'bg-rose-100 dark:bg-rose-950/40',     hex: '#e11d48' },
-  { campo: 'entregueNoPrazo',   label: 'Entregues no prazo',   ajuda: 'Entregues dentro do vencimento — inclui o prazo técnico, que o Acessórias considera em dia.',
+  { campo: 'entregueNoPrazo',   label: 'Entregues no prazo',   ajuda: 'Entregues dentro do prazo legal — inclui quem passou do prazo técnico, que o Acessórias considera em dia.',
     cor: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-950/40', hex: '#059669' },
-  { campo: 'entregueComAtraso', label: 'Entregues com atraso', ajuda: 'Entregues depois do vencimento.',
+  { campo: 'entregueComAtraso', label: 'Entregues com atraso', ajuda: 'Entregues depois do prazo legal, junto ao órgão.',
     cor: 'text-violet-600 dark:text-violet-400',  bg: 'bg-violet-100 dark:bg-violet-950/40', hex: '#7c3aed' },
   { campo: 'entregueComMulta',  label: 'Entregues com multa',  ajuda: 'Das entregues com atraso, as que geram multa.',
     cor: 'text-rose-700 dark:text-rose-300',      bg: 'bg-rose-100 dark:bg-rose-950/40',     hex: '#be123c' },
@@ -413,7 +413,7 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, onClose }: {
                   <th className="px-3 py-2 text-left">Obrigação</th>
                   <th className="hidden w-[28%] px-3 py-2 text-left md:table-cell">Cliente</th>
                   <th className="hidden w-[96px] px-3 py-2 text-left lg:table-cell">Competência</th>
-                  <th className="w-[104px] px-3 py-2 text-left">Vencimento</th>
+                  <th className="w-[104px] px-3 py-2 text-left">Prazo legal</th>
                   <th className="hidden w-[100px] px-3 py-2 text-left sm:table-cell">Entrega</th>
                 </tr>
               </thead>
@@ -471,7 +471,7 @@ function ListaPendentes({ pendentes }: { pendentes: Pendente[] }) {
               <th className="px-3 py-2 text-left">Obrigação</th>
               <th className="hidden w-[28%] px-3 py-2 text-left md:table-cell">Cliente</th>
               <th className="hidden w-[92px] px-3 py-2 text-left lg:table-cell">Área</th>
-              <th className="w-[104px] px-3 py-2 text-left">Vencimento</th>
+              <th className="w-[104px] px-3 py-2 text-left">Prazo legal</th>
               <th className="w-[92px] px-3 py-2 text-left">Situação</th>
             </tr>
           </thead>

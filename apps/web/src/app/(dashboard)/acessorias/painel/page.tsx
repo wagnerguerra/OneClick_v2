@@ -141,19 +141,19 @@ function situacao(l: Linha) {
       texto: 'concluída',
       titulo: [
         l.lida === true ? 'Entregue e lida pelo cliente' : 'Entregue (sem guia para o cliente abrir)',
-        adiantada ? `antes do prazo interno (${fmtData(l.prazo)})` : `prazo interno ${fmtData(l.prazo)}`,
-        `vencimento ${fmtData(l.vencimento)}`,
+        adiantada ? `antes do prazo técnico (${fmtData(l.prazo)})` : `prazo técnico ${fmtData(l.prazo)}`,
+        `prazo legal ${fmtData(l.vencimento)}`,
       ].join(' · '),
       cor: 'text-emerald-600 dark:text-emerald-400',
     }
   }
-  // Conta contra o VENCIMENTO da guia, não contra o prazo interno de entrega:
-  // é a data em que o cliente sofre a consequência.
+  // Conta contra o prazo LEGAL, não contra o técnico: é a data em que o
+  // cliente sofre a consequência junto ao órgão.
   const dias = l.diasParaVencimento
   const t = l.entregue
-    ? `Guia entregue em ${fmtData(l.dtEntrega)}, cliente ainda não abriu · vence ${fmtData(l.vencimento)}`
-    : `Ainda não entregue · vencimento ${fmtData(l.vencimento)} · prazo interno ${fmtData(l.prazo)}`
-  if (dias === null) return { texto: 'sem vencimento', titulo: t, cor: 'text-muted-foreground' }
+    ? `Guia entregue em ${fmtData(l.dtEntrega)}, cliente ainda não abriu · prazo legal ${fmtData(l.vencimento)}`
+    : `Ainda não entregue · prazo legal ${fmtData(l.vencimento)} · prazo técnico ${fmtData(l.prazo)}`
+  if (dias === null) return { texto: 'sem prazo', titulo: t, cor: 'text-muted-foreground' }
   if (dias < 0) return { texto: `venceu há ${Math.abs(dias)}d`, titulo: t, cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
   if (dias === 0) return { texto: 'vence hoje', titulo: t, cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
   if (dias <= 3) return { texto: `vence em ${dias}d`, titulo: t, cor: 'text-amber-600 dark:text-amber-400 font-semibold' }
@@ -529,8 +529,8 @@ export default function PainelEntregasPage() {
                   <Th campo="dpto"        atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[100px] lg:table-cell">Área</Th>
                   <Th campo="respEntrega" atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[150px] 2xl:table-cell">Responsável</Th>
                   <Th campo="competencia" atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[104px] lg:table-cell">Competência</Th>
-                  <Th campo="prazo"       atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[96px] xl:table-cell">Prazo interno</Th>
-                  <Th campo="vencimento"  atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[104px]">Vencimento</Th>
+                  <Th campo="prazo"       atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[96px] xl:table-cell">Prazo técnico</Th>
+                  <Th campo="vencimento"  atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[110px]">Prazo legal</Th>
                   <Th campo="dtEntrega"   atual={ordem} dir={dir} onOrdenar={ordenar} className="hidden w-[104px] sm:table-cell">Entrega</Th>
                   <Th campo="situacao"    atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[126px]">Situação</Th>
                   <Th atual={ordem} dir={dir} onOrdenar={ordenar} className="w-[64px]" />
@@ -621,12 +621,12 @@ export default function PainelEntregasPage() {
                       </td>
 
                       <td className="hidden px-3 py-2 text-[12px] text-muted-foreground tabular-nums xl:table-cell"
-                        title="Prazo do escritório para entregar">
+                        title="Prazo acordado com o cliente">
                         {fmtData(l.prazo)}
                       </td>
 
                       <td className="px-3 py-2 text-[12px] font-medium tabular-nums"
-                        title={`Vencimento da guia · prazo interno ${fmtData(l.prazo)}`}>
+                        title={`Prazo legal, junto ao órgão · prazo técnico ${fmtData(l.prazo)}`}>
                         {fmtData(l.vencimento)}
                       </td>
 
@@ -760,7 +760,7 @@ function ObrigacoesDoClienteModal({
                 <tr className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
                   <th className="px-3 py-2 text-left">Obrigação</th>
                   <th className="hidden w-[92px] px-3 py-2 text-left sm:table-cell">Área</th>
-                  <th className="w-[104px] px-3 py-2 text-left">Vencimento</th>
+                  <th className="w-[104px] px-3 py-2 text-left">Prazo legal</th>
                   <th className="hidden w-[100px] px-3 py-2 text-left sm:table-cell">Entrega</th>
                   <th className="w-[118px] px-3 py-2 text-left">Situação</th>
                 </tr>
@@ -849,8 +849,8 @@ function DetalheEntregaModal({ linha: l, urlTemplate, onClose }: {
         <DialogBody className="max-h-[65vh] space-y-4 overflow-y-auto">
           <Secao titulo="Datas">
             <Campo label="Competência" valor={fmtComp(l.competencia)} />
-            <Campo label="Prazo interno (EntDtPrazo)" valor={fmtData(l.prazo)} />
-            <Campo label="Vencimento (EntDtAtraso)" valor={fmtData(l.vencimento)} />
+            <Campo label="Prazo técnico (EntDtPrazo)" valor={fmtData(l.prazo)} />
+            <Campo label="Prazo legal (EntDtAtraso)" valor={fmtData(l.vencimento)} />
             <Campo label="Entrega (EntDtEntrega)" valor={<BadgeEntrega entrega={l.dtEntrega} vencimento={l.vencimento} />} />
             <Campo label="Finalização (EntDtFinalizacao)" valor={dh(l.dtFinalizacao)} />
           </Secao>
@@ -861,7 +861,7 @@ function DetalheEntregaModal({ linha: l, urlTemplate, onClose }: {
             <Campo label="Dispensada" valor={sim(l.dispensada)} />
             <Campo label="Sujeita a multa (EntMulta)" valor={sim(l.multa)} />
             <Campo
-              label="Dias até o vencimento"
+              label="Dias até o prazo legal"
               valor={l.diasParaVencimento === null ? null : `${l.diasParaVencimento}d`}
             />
           </Secao>

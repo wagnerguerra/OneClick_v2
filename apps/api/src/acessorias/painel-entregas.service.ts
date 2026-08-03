@@ -42,10 +42,10 @@ export interface LinhaPainel {
   documento: string
   obrigacao: string
   competencia: Date | null
-  /** Prazo INTERNO do escritório para entregar (EntDtPrazo). */
+  /** Prazo TÉCNICO — o acordado com o cliente (EntDtPrazo). */
   prazo: Date | null
   diasParaPrazo: number | null
-  /** Vencimento da guia para o cliente (EntDtAtraso) — a data que conta. */
+  /** Prazo LEGAL — o do órgão (EntDtAtraso). É a data que conta no painel. */
   vencimento: Date | null
   diasParaVencimento: number | null
   /** Quando o responsável de fato entregou — pode ser ANTES do prazo. */
@@ -271,11 +271,11 @@ export class PainelEntregasService {
       competencia: r.competencia,
       prazo: r.prazo,
       diasParaPrazo: diasAte(r.prazo),
-      // O Acessórias guarda duas datas: EntDtPrazo é o prazo interno do
-      // escritório e EntDtAtraso é o vencimento da guia para o cliente (o log
-      // deles diz "Guia de pagto p/ o dia ..."). O painel pergunta quem ainda
-      // não abriu ANTES DE VENCER, então a régua é o vencimento. Fallback no
-      // prazo para a obrigação que não tenha vencimento próprio.
+      // O Acessórias trabalha com DOIS prazos: EntDtPrazo é o TÉCNICO, acordado
+      // com o cliente, e EntDtAtraso é o LEGAL, junto ao órgão. Conferido contra
+      // prazos conhecidos: FGTS, DAS e DCTFWeb caem no dia 20, e a folha do 5º
+      // dia útil cai no 5º dia útil — sempre em EntDtAtraso. A régua do painel é
+      // o legal, com fallback no técnico quando o legal não vem.
       vencimento: r.dtAtraso ?? r.prazo,
       diasParaVencimento: diasAte(r.dtAtraso ?? r.prazo),
       dtEntrega: r.dtEntrega,

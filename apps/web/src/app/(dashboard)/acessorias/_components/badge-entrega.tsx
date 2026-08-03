@@ -3,7 +3,7 @@
 import { cn } from '@saas/ui'
 
 /**
- * A data de entrega, colorida pela comparação com o vencimento.
+ * A data de entrega, colorida pela comparação com o prazo legal.
  *
  * A tabela mostrava as duas datas lado a lado e deixava a conta para o leitor —
  * "16/07 é depois de 15/07?" — em dezenas de linhas seguidas. O selo responde
@@ -22,7 +22,7 @@ export function BadgeEntrega({ entrega, vencimento, className }: {
   const texto = new Date(entrega).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
   const dia = (v: string) => new Date(v).toISOString().slice(0, 10)
 
-  // Sem vencimento não há com o que comparar: mostra a data sem veredito.
+  // Sem prazo legal não há com o que comparar: mostra a data sem veredito.
   if (!vencimento) {
     return <span className={cn('tabular-nums text-muted-foreground', className)}>{texto}</span>
   }
@@ -35,10 +35,10 @@ export function BadgeEntrega({ entrega, vencimento, className }: {
       ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400'
       : 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400'
   const titulo = e < v
-    ? `Entregue antes do vencimento (${new Date(vencimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' })})`
+    ? `Entregue antes do prazo legal (${new Date(vencimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' })})`
     : e === v
-      ? 'Entregue no próprio dia do vencimento'
-      : `Entregue depois do vencimento (${new Date(vencimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' })})`
+      ? 'Entregue no próprio dia do prazo legal'
+      : `Entregue depois do prazo legal (${new Date(vencimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' })})`
 
   return (
     <span
