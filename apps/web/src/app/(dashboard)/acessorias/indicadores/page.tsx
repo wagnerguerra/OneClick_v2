@@ -534,14 +534,22 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
                     <AlertTriangle className="mx-auto h-3.5 w-3.5" />
                   </th>
                   <th className="px-3 py-2 text-left">Obrigação</th>
-                  <th className="hidden w-[24%] px-3 py-2 text-left md:table-cell">Cliente</th>
+                  <th className="hidden w-[22%] px-3 py-2 text-left md:table-cell">Cliente</th>
                   {/* Só na visão por área: agrupado por pessoa, o responsável já
                       é o próprio cartão e a coluna repetiria o cabeçalho. */}
                   {tipo === 'area' && (
                     <th className="hidden w-[170px] px-3 py-2 text-left lg:table-cell">Responsável</th>
                   )}
                   <th className="hidden w-[100px] px-3 py-2 text-left xl:table-cell">Competência</th>
-                  <th className="w-[110px] px-3 py-2 text-left">{regua === 'tecnico' ? 'Prazo técnico' : 'Prazo legal'}</th>
+                  {/* Os dois prazos lado a lado. O da régua ativa vai em
+                      destaque: é ele que classificou a linha, e sem a marca as
+                      duas colunas pareceriam igualmente decisivas. */}
+                  <th className={cn('w-[104px] px-3 py-2 text-left', regua === 'tecnico' && 'text-foreground')}>
+                    Prazo técnico
+                  </th>
+                  <th className={cn('w-[104px] px-3 py-2 text-left', regua === 'legal' && 'text-foreground')}>
+                    Prazo legal
+                  </th>
                   <th className="hidden w-[112px] px-3 py-2 text-left sm:table-cell">Entrega</th>
                 </tr>
                 <tr className="border-b border-border">
@@ -567,6 +575,7 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
                   <th className="hidden px-2 py-1.5 xl:table-cell">
                     <FiltroColuna valor={filtros.competencia} onChange={(v) => setFiltros((f) => ({ ...f, competencia: v }))} />
                   </th>
+                  <th className="px-2 py-1.5" />
                   <th className="px-2 py-1.5" />
                   <th className="hidden px-2 py-1.5 sm:table-cell" />
                 </tr>
@@ -595,8 +604,13 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
                       </td>
                     )}
                     <td className="hidden whitespace-nowrap px-3 py-2 text-[12px] text-muted-foreground xl:table-cell">{fmtComp(l.competencia)}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-[12px] tabular-nums">
-                      {fmtData(regua === 'tecnico' ? l.prazo : l.vencimento)}
+                    <td className={cn('whitespace-nowrap px-3 py-2 text-[12px] tabular-nums',
+                      regua === 'tecnico' ? 'font-medium' : 'text-muted-foreground')}>
+                      {fmtData(l.prazo)}
+                    </td>
+                    <td className={cn('whitespace-nowrap px-3 py-2 text-[12px] tabular-nums',
+                      regua === 'legal' ? 'font-medium' : 'text-muted-foreground')}>
+                      {fmtData(l.vencimento)}
                     </td>
                     <td className="hidden whitespace-nowrap px-3 py-2 text-[12px] sm:table-cell">
                       <BadgeEntrega entrega={l.dtEntrega} vencimento={regua === 'tecnico' ? l.prazo : l.vencimento} />
