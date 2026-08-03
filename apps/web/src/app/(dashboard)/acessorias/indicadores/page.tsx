@@ -80,11 +80,13 @@ type Medida = (typeof MEDIDAS)[number]['campo']
  * visivelmente a mesma coisa.
  */
 const MEDIDAS = [
-  { campo: 'pendenteNoPrazo',   label: 'Pendentes no prazo',   ajuda: 'Ainda não entregues, com o vencimento à frente.',
-    cor: 'text-sky-600 dark:text-sky-400',        bg: 'bg-sky-100 dark:bg-sky-950/40',       hex: '#0284c7' },
-  { campo: 'pendenteAtrasado',  label: 'Pendentes em atraso',  ajuda: 'Ainda não entregues, com o vencimento já passado.',
+  // "Em aberto e no prazo" é a única das seis que não pede ação: fica em
+  // cinza, para o olho ir direto ao que precisa de atenção.
+  { campo: 'pendenteNoPrazo',   label: 'Em aberto e no prazo',  ajuda: 'Ainda não entregues, com o vencimento à frente.',
+    cor: 'text-slate-600 dark:text-slate-300',    bg: 'bg-slate-100 dark:bg-slate-800/60',   hex: '#475569' },
+  { campo: 'pendenteAtrasado',  label: 'Em aberto e em atraso', ajuda: 'Ainda não entregues, com o vencimento já passado.',
     cor: 'text-amber-600 dark:text-amber-400',    bg: 'bg-amber-100 dark:bg-amber-950/40',   hex: '#d97706' },
-  { campo: 'pendenteComMulta',  label: 'Pendentes com multa',  ajuda: 'Das pendentes em atraso, as que geram multa. É a exposição de hoje.',
+  { campo: 'pendenteComMulta',  label: 'Em aberto e passível de multa', ajuda: 'Das que estão em atraso, as que geram multa. É a exposição de hoje.',
     cor: 'text-rose-600 dark:text-rose-400',      bg: 'bg-rose-100 dark:bg-rose-950/40',     hex: '#e11d48' },
   { campo: 'entregueNoPrazo',   label: 'Entregues no prazo',   ajuda: 'Entregues dentro do vencimento — inclui o prazo técnico, que o Acessórias considera em dia.',
     cor: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-950/40', hex: '#059669' },
