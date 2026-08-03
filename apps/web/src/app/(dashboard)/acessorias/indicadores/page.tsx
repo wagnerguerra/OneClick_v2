@@ -470,7 +470,7 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="max-w-6xl">
         <DialogHeaderIcon icon={BarChart3} color="sky">
           <DialogTitle>{info.label}</DialogTitle>
           <DialogDescription>{cartao.titulo}{cartao.subtitulo ? ` · ${cartao.subtitulo}` : ''}</DialogDescription>
@@ -494,8 +494,13 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
                     <AlertTriangle className="mx-auto h-3.5 w-3.5" />
                   </th>
                   <th className="px-3 py-2 text-left">Obrigação</th>
-                  <th className="hidden w-[26%] px-3 py-2 text-left md:table-cell">Cliente</th>
-                  <th className="hidden w-[100px] px-3 py-2 text-left lg:table-cell">Competência</th>
+                  <th className="hidden w-[24%] px-3 py-2 text-left md:table-cell">Cliente</th>
+                  {/* Só na visão por área: agrupado por pessoa, o responsável já
+                      é o próprio cartão e a coluna repetiria o cabeçalho. */}
+                  {tipo === 'area' && (
+                    <th className="hidden w-[170px] px-3 py-2 text-left lg:table-cell">Responsável</th>
+                  )}
+                  <th className="hidden w-[100px] px-3 py-2 text-left xl:table-cell">Competência</th>
                   <th className="w-[110px] px-3 py-2 text-left">{regua === 'tecnico' ? 'Prazo técnico' : 'Prazo legal'}</th>
                   <th className="hidden w-[112px] px-3 py-2 text-left sm:table-cell">Entrega</th>
                 </tr>
@@ -517,7 +522,13 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
                         #{l.clienteCode} — {l.clienteNome}
                       </Link>
                     </td>
-                    <td className="hidden whitespace-nowrap px-3 py-2 text-[12px] text-muted-foreground lg:table-cell">{fmtComp(l.competencia)}</td>
+                    {tipo === 'area' && (
+                      <td className="hidden truncate px-3 py-2 text-[12px] text-muted-foreground lg:table-cell"
+                        title={l.responsavel ?? ''}>
+                        {l.responsavel || '—'}
+                      </td>
+                    )}
+                    <td className="hidden whitespace-nowrap px-3 py-2 text-[12px] text-muted-foreground xl:table-cell">{fmtComp(l.competencia)}</td>
                     <td className="whitespace-nowrap px-3 py-2 text-[12px] tabular-nums">
                       {fmtData(regua === 'tecnico' ? l.prazo : l.vencimento)}
                     </td>
