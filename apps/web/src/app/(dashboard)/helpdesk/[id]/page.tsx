@@ -27,6 +27,7 @@ import { alerts } from '@/lib/alerts'
 import { useSession } from '@/lib/auth-client'
 import { linkifyHelpdesk } from '../_components/linkify'
 import { AnexosDropzone, type AnexoStaged } from '../_components/anexos-dropzone'
+import { HELPDESK_STATUS_BADGE, HELPDESK_MSG_BADGE } from '../_lib/status-styles'
 import {
   HELPDESK_STATUS, HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE, HELPDESK_PRIORIDADE_LABELS,
   HELPDESK_PRIORIDADE_COLORS, HELPDESK_TIPO_LABELS,
@@ -129,15 +130,8 @@ interface Ticket {
   aiExecutionEm?: string | null
 }
 
-// Mesmas cores semânticas do kanban (STATUS_COR em ../page.tsx)
-const STATUS_BADGE: Record<HelpdeskStatus, string> = {
-  NOVO: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 text-blue-700',
-  AGUARDANDO_AUDITORIA: 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 text-cyan-700',
-  EM_ANDAMENTO: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 text-amber-700',
-  RESOLVIDO: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 text-purple-700',
-  CONCLUIDO: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 text-emerald-700',
-  CANCELADO: 'bg-red-50 dark:bg-red-900/20 border-red-200 text-red-700',
-}
+// Cores de status: fonte única em _lib/status-styles.
+const STATUS_BADGE = HELPDESK_STATUS_BADGE
 
 export default function HelpdeskTicketDetailPage() {
   const router = useRouter()
@@ -953,7 +947,7 @@ export default function HelpdeskTicketDetailPage() {
                     <span className="text-sm font-semibold truncate">
                       {ticket.solicitante?.name ?? 'Solicitante externo'}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-cyan-700 dark:text-cyan-400 px-1.5 py-0.5 rounded bg-cyan-500/10">
+                    <span className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded ${HELPDESK_MSG_BADGE.publica}`}>
                       <FileText className="h-2.5 w-2.5" /> Descrição inicial
                     </span>
                   </div>
@@ -1245,11 +1239,11 @@ export default function HelpdeskTicketDetailPage() {
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-2 text-[11px]">
                         {msg.interna ? (
-                          <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 bg-amber-100 text-amber-800 font-semibold text-[10px]">
+                          <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold text-[10px] ${HELPDESK_MSG_BADGE.interna}`}>
                             <Lock className="h-2.5 w-2.5" /> NOTA INTERNA
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 bg-cyan-100 text-cyan-800 font-semibold text-[10px]">
+                          <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold text-[10px] ${HELPDESK_MSG_BADGE.publica}`}>
                             <MessageSquare className="h-2.5 w-2.5" /> PÚBLICA
                           </span>
                         )}
@@ -1339,8 +1333,8 @@ export default function HelpdeskTicketDetailPage() {
                       precisa do aviso. Ganha BOTÃO quando não dá pra mandar mensagem
                       (concluído + arquivado). */}
                   {avisoReabertura && !podeAtuar && (
-                    <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center rounded border border-sky-200/70 bg-sky-50 dark:bg-sky-900/20 px-2.5 py-2">
-                      <div className="flex items-start gap-2 text-[12px] text-muted-foreground flex-1">
+                    <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center rounded border border-sky-200/70 dark:border-sky-800/70 bg-sky-50 dark:bg-sky-900/20 px-2.5 py-2">
+                      <div className="flex items-start gap-2 text-[12px] text-sky-900/90 dark:text-sky-200/90 flex-1">
                         <Lock className="h-4 w-4 text-sky-500 shrink-0 mt-0.5" />
                         <span>
                           Chamado <span className="font-medium text-foreground">concluído</span>. Se o problema não foi resolvido,{' '}
@@ -1390,7 +1384,7 @@ export default function HelpdeskTicketDetailPage() {
                         className={cn(
                           'text-[11px] px-2 py-1 rounded font-medium transition-colors',
                           !internaEfetiva
-                            ? 'bg-cyan-100 text-cyan-800'
+                            ? HELPDESK_MSG_BADGE.publica
                             : 'text-muted-foreground hover:bg-muted',
                           soNotaInterna && 'opacity-40 cursor-not-allowed hover:bg-transparent',
                         )}
@@ -1403,7 +1397,7 @@ export default function HelpdeskTicketDetailPage() {
                         className={cn(
                           'text-[11px] px-2 py-1 rounded font-medium transition-colors',
                           internaEfetiva
-                            ? 'bg-amber-100 text-amber-800'
+                            ? HELPDESK_MSG_BADGE.interna
                             : 'text-muted-foreground hover:bg-muted',
                         )}
                       >

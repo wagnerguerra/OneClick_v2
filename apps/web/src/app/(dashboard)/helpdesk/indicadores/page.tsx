@@ -22,6 +22,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { fmtDateBR } from '@/lib/date'
 import { USER_PERMISSIONS_REFRESH_EVENT } from '@/hooks/use-user-permissions'
+import { HELPDESK_STATUS_COR } from '../_lib/status-styles'
 import {
   HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE_LABELS, HELPDESK_TIPO_LABELS,
   HELPDESK_PRIORIDADE_COLORS,
@@ -101,14 +102,8 @@ function iniciais(nome?: string | null): string {
   return (primeira + ultima).toUpperCase()
 }
 
-const STATUS_COR: Record<HelpdeskStatus, string> = {
-  NOVO: '#3b82f6',
-  AGUARDANDO_AUDITORIA: '#06b6d4',
-  EM_ANDAMENTO: '#f59e0b',
-  RESOLVIDO: '#a855f7',
-  CONCLUIDO: '#10b981',
-  CANCELADO: '#ef4444',
-}
+// Cor de status: fonte única em _lib/status-styles.
+const STATUS_COR = HELPDESK_STATUS_COR
 
 // Cores para distribuição de CSAT (1=ruim → 5=ótimo)
 const CSAT_COR: Record<number, string> = {
@@ -842,12 +837,12 @@ function Kpi({ label, value, sub, icon: Icon, tone }: {
   tone: KpiTone
 }) {
   const styles: Record<KpiTone, string> = {
-    cyan: 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 text-cyan-600',
-    rose: 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-600',
-    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600',
-    violet: 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-600',
-    amber: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-600',
-    slate: 'bg-slate-50 dark:bg-slate-900/20 border-slate-200 dark:border-slate-800 text-slate-600',
+    cyan: 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-300',
+    rose: 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300',
+    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-300',
+    violet: 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-600 dark:text-violet-300',
+    amber: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-300',
+    slate: 'bg-slate-50 dark:bg-slate-900/20 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300',
   }
   return (
     <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${styles[tone]}`}>

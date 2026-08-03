@@ -33,6 +33,7 @@ import {
 } from '@saas/types'
 import { NovoTicketModal } from './_components/novo-ticket-modal'
 import { TicketDetailSheet } from './_components/ticket-detail-sheet'
+import { HELPDESK_STATUS_COR } from './_lib/status-styles'
 
 const MODULO_COLOR = 'var(--mod-ti, #22d3ee)'
 
@@ -75,32 +76,10 @@ const COLUNAS: HelpdeskStatus[] = [
   'CANCELADO',
 ]
 
-// Cores semânticas das colunas — cada uma reflete a função do estado:
-//   NOVO         → azul       (entrada, aguardando triagem)
-//   EM_ANDAMENTO → âmbar      (trabalho ativo)
-//   RESOLVIDO    → violeta    (aguardando confirmação/CSAT do solicitante)
-//                  o label visível é 'Aguardando avaliação' (HELPDESK_STATUS_LABELS)
-//   CONCLUIDO    → verde      (sucesso, fechado)
-//   CANCELADO    → vermelho   (anulado)
-const STATUS_COR: Record<HelpdeskStatus, string> = {
-  NOVO: '#3b82f6',                 // blue-500
-  AGUARDANDO_AUDITORIA: '#06b6d4', // cyan-500 (IA respondeu, aguarda revisão)
-  EM_ANDAMENTO: '#f59e0b',         // amber-500
-  RESOLVIDO: '#a855f7',            // purple-500 (= 'Aguardando avaliação' na UI)
-  CONCLUIDO: '#10b981',            // emerald-500
-  CANCELADO: '#ef4444',            // red-500
-}
-
-// Pill de status preenchida (bg/border/text por estado, com variantes dark).
-// Trazida da antiga /helpdesk/meus — mais legível que o dot + label.
-const STATUS_BADGE: Record<HelpdeskStatus, string> = {
-  NOVO: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400',
-  AGUARDANDO_AUDITORIA: 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 text-cyan-700 dark:text-cyan-400',
-  EM_ANDAMENTO: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400',
-  RESOLVIDO: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-400',
-  CONCLUIDO: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400',
-  CANCELADO: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400',
-}
+// Cor de status: fonte única em _lib/status-styles (hex p/ kanban, barras e a
+// bolinha do badge da lista). O badge com fundo sólido (HELPDESK_STATUS_BADGE)
+// é usado só no detalhe do chamado.
+const STATUS_COR = HELPDESK_STATUS_COR
 
 type ScopeFiltro = 'MEUS' | 'AREA' | 'TODOS'
 const SCOPE_FILTRO_LABEL: Record<ScopeFiltro, string> = { MEUS: 'Meus tickets', AREA: 'Minha área', TODOS: 'Todos' }
@@ -1174,7 +1153,8 @@ function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar }: {
       <div className="flex-1 min-w-0 space-y-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{ticketNum}</span>
-          <Badge variant="outline" className={`text-[10px] h-5 ${STATUS_BADGE[ticket.status]}`}>
+          <Badge variant="outline" className="text-[10px] h-5 gap-1">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: STATUS_COR[ticket.status] }} />
             {HELPDESK_STATUS_LABELS[ticket.status]}
           </Badge>
           {precisaCsat && (
