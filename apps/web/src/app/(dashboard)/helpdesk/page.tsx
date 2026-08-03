@@ -692,10 +692,10 @@ export default function HelpdeskPage() {
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
             <TicketPanel titulo="Ativos" icon={Inbox} tickets={items} vazio="Nenhum ticket ativo no momento."
-              currentUserId={currentUserId} onCancelar={cancelarProprio} />
+              currentUserId={currentUserId} onCancelar={cancelarProprio} onOpen={setOpenTicketId} />
             {arquivados.length > 0 && (
               // Arquivados não recebem o cancelar: são chamados já encerrados.
-              <TicketPanel titulo="Arquivados" icon={Archive} tickets={arquivados} vazio="Nenhum ticket arquivado." arquivado />
+              <TicketPanel titulo="Arquivados" icon={Archive} tickets={arquivados} vazio="Nenhum ticket arquivado." arquivado onOpen={setOpenTicketId} />
             )}
           </div>
         )
@@ -753,6 +753,7 @@ export default function HelpdeskPage() {
                 ticket={t}
                 currentUserId={currentUserId}
                 onCancelar={cancelarProprio}
+                onOpen={setOpenTicketId}
                 // Em modo arquivado, oferece desarquivar in-place (sem entrar no ticket)
                 onUnarchive={verArquivados && podeAtuar ? async () => {
                   try {
@@ -1111,12 +1112,14 @@ function ScoreIaBadge({ ticket }: { ticket: Ticket }) {
   )
 }
 
-function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar }: {
+function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar, onOpen }: {
   ticket: Ticket
   onUnarchive?: () => void
   /** Id do usuário logado — habilita o cancelar quando ele é o solicitante (#HLP0172). */
   currentUserId?: string | null
   onCancelar?: (t: Ticket) => void
+  /** Clique esquerdo simples abre o modal de detalhes (como no kanban). */
+  onOpen?: (id: string) => void
 }) {
   const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
   // #HLP0172: regra vem de @saas/types — mesma fonte que o backend impõe e que
@@ -1135,12 +1138,23 @@ function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar }: {
         ? 'bg-emerald-50/40 dark:bg-emerald-900/10 hover:bg-emerald-50/70 dark:hover:bg-emerald-900/20'
         : 'hover:bg-muted/30',
     )}>
-      {/* Link esticado cobre a linha → clique abre; Ctrl/⌘+clique, botão do meio
-          e botão direito → "abrir em nova aba" nativos (#HLP0139). */}
+      {/* Link esticado cobre a linha. Clique esquerdo simples → modal de detalhes
+          (como no kanban); Ctrl/⌘+clique, botão do meio e "abrir em nova aba"
+          abrem a PÁGINA COMPLETA em nova aba. target="_blank": as vias de nova
+          aba já vão pro href, e o RouteProgress global (que intercepta <a> no
+          capture) IGNORA âncoras _blank — sem ele, o clique-esquerdo (que
+          abrimos via preventDefault) deixava a barra de progresso presa. */}
       <Link
         href={`/helpdesk/${ticket.id}`}
         aria-label={`Abrir ${ticketNum}`}
+        target="_blank"
+        rel="noopener noreferrer"
         className="absolute inset-0 z-0"
+        onClick={e => {
+          if (!onOpen || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+          e.preventDefault()
+          onOpen(ticket.id)
+        }}
       />
       {/* Barra vertical = cor do STATUS */}
       <div className="w-1 h-12 rounded-full shrink-0" style={{ backgroundColor: STATUS_COR[ticket.status] }} />
@@ -1160,19 +1174,20 @@ function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar }: {
           <span className="text-[10px] text-muted-foreground">
             Prioridade: <span className="font-medium uppercase tracking-wider" style={{ color: HELPDESK_PRIORIDADE_COLORS[ticket.prioridade] }}>{HELPDESK_PRIORIDADE_LABELS[ticket.prioridade]}</span>
           </span>
-          {ticket.categoria && (
-            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-              {ticket.categoria.cor && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: ticket.categoria.cor }} />}
-              {ticket.categoria.nome}
-            </span>
-          )}
         </div>
         <p className="text-sm font-semibold truncate">{ticket.titulo}</p>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
           <span>Solicitante: {ticket.solicitante?.name || '—'}</span>
-          {ticket.responsavel && <span>· Resp: {ticket.responsavel.name}</span>}
+          {ticket.responsavel && <span>· Responsável: {ticket.responsavel.name}</span>}
           {ticket._count.mensagens > 0 && (
             <span>· <MessageSquare className="inline h-3 w-3" /> {ticket._count.mensagens}</span>
+          )}
+          {ticket.categoria && (
+            <span className="inline-flex items-center gap-1">
+              <span>·</span>
+              {ticket.categoria.cor && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: ticket.categoria.cor }} />}
+              <span>{ticket.categoria.nome}</span>
+            </span>
           )}
         </div>
       </div>
@@ -1232,7 +1247,7 @@ function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar }: {
  * "Arquivados" embaixo (variante `arquivado` = header âmbar + linhas suaves),
  * pra que colaboradores como a Erica vejam também os tickets já arquivados.
  */
-function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, currentUserId, onCancelar }: {
+function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, currentUserId, onCancelar, onOpen }: {
   titulo: string
   icon: typeof Inbox
   tickets: Ticket[]
@@ -1240,6 +1255,7 @@ function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, cu
   arquivado?: boolean
   currentUserId?: string | null
   onCancelar?: (t: Ticket) => void
+  onOpen?: (id: string) => void
 }) {
   return (
     <Card className="overflow-hidden flex flex-col shrink-0">
@@ -1261,7 +1277,7 @@ function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, cu
       ) : (
         <div className={cn('divide-y divide-border/60', arquivado && 'opacity-80')}>
           {tickets.map(t => (
-            <TicketRow key={t.id} ticket={t} currentUserId={currentUserId} onCancelar={onCancelar} />
+            <TicketRow key={t.id} ticket={t} currentUserId={currentUserId} onCancelar={onCancelar} onOpen={onOpen} />
           ))}
         </div>
       )}
