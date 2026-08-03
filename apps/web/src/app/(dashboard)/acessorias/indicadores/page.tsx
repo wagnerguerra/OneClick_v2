@@ -220,9 +220,14 @@ export default function IndicadoresPage() {
  * deslocado pelo que já foi desenhado. Evita trazer uma biblioteca de gráficos
  * para um anel de seis fatias.
  */
-function RoscaSituacao({ cartao, tamanho = 96 }: { cartao: Cartao; tamanho?: number }) {
+function RoscaSituacao({ cartao, tamanho = 96, destaque }: {
+  cartao: Cartao; tamanho?: number; destaque?: Medida | null
+}) {
   const espessura = 9
-  const raio = (tamanho - espessura) / 2
+  // O raio reserva a espessura MÁXIMA: a fatia em destaque engorda, e sem essa
+  // folga ela seria cortada na borda do desenho.
+  const espessuraMax = espessura + 6
+  const raio = (tamanho - espessuraMax) / 2
   const circunferencia = 2 * Math.PI * raio
   const total = MEDIDAS.reduce((soma, m) => soma + cartao[m.campo], 0)
 
@@ -231,7 +236,10 @@ function RoscaSituacao({ cartao, tamanho = 96 }: { cartao: Cartao; tamanho?: num
     const valor = cartao[m.campo]
     if (valor === 0) return []
     const comprimento = (valor / total) * circunferencia
-    const fatia = { cor: m.hex, comprimento, deslocamento: -percorrido, label: m.label, valor }
+    const fatia = {
+      campo: m.campo, cor: m.hex, comprimento, deslocamento: -percorrido,
+      label: m.label, valor, fracao: valor / total,
+    }
     percorrido += comprimento
     return [fatia]
   })
@@ -244,21 +252,41 @@ function RoscaSituacao({ cartao, tamanho = 96 }: { cartao: Cartao; tamanho?: num
           fill="none" strokeWidth={espessura}
           className="stroke-muted"
         />
-        {fatias.map((f, i) => (
-          <circle
-            key={i}
-            cx={tamanho / 2} cy={tamanho / 2} r={raio}
-            fill="none" stroke={f.cor} strokeWidth={espessura}
-            strokeDasharray={`${f.comprimento} ${circunferencia - f.comprimento}`}
-            strokeDashoffset={f.deslocamento}
-          >
-            <title>{`${f.label}: ${f.valor}`}</title>
-          </circle>
-        ))}
+        {fatias.map((f) => {
+          const ativa = destaque === f.campo
+          return (
+            <circle
+              key={f.campo}
+              cx={tamanho / 2} cy={tamanho / 2} r={raio}
+              fill="none" stroke={f.cor}
+              strokeWidth={ativa ? espessuraMax : espessura}
+              strokeDasharray={`${f.comprimento} ${circunferencia - f.comprimento}`}
+              strokeDashoffset={f.deslocamento}
+              // As demais recuam para a fatia em foco se destacar sem precisar
+              // de outra cor — a paleta já está toda ocupada pelas seis medidas.
+              opacity={destaque && !ativa ? 0.3 : 1}
+              className="transition-all duration-150"
+            >
+              <title>{`${f.label}: ${f.valor}`}</title>
+            </circle>
+          )
+        })}
       </svg>
-      <div className="absolute inset-0 flex items-center justify-center" style={{ padding: espessura + 4 }}>
+      <div className="absolute inset-0 flex items-center justify-center" style={{ padding: espessuraMax + 3 }}>
         <Avatar cartao={cartao} />
       </div>
+      {/* No foco, o centro dá o número em percentual — é a leitura que a fatia
+          sozinha não entrega. */}
+      {destaque && (() => {
+        const f = fatias.find((x) => x.campo === destaque)
+        if (!f) return null
+        return (
+          <span className="pointer-events-none absolute inset-x-0 -bottom-1 text-center text-[11px] font-semibold tabular-nums"
+            style={{ color: f.cor }}>
+            {Math.round(f.fracao * 100)}%
+          </span>
+        )
+      })()}
     </div>
   )
 }
@@ -281,10 +309,11 @@ function CartaoIndicador({ cartao, destaque, onAbrir }: {
   cartao: Cartao; destaque?: boolean; onAbrir?: (medida: Medida) => void
 }) {
   const total = MEDIDAS.reduce((soma, m) => soma + cartao[m.campo], 0)
+  const [emFoco, setEmFoco] = useState<Medida | null>(null)
   return (
     <Card className={cn('overflow-hidden', destaque && 'border-current')} style={destaque ? { borderColor: MODULE_COLOR } : undefined}>
-      <div className="flex flex-col items-center gap-2 border-b border-border/60 bg-muted/20 px-4 py-4">
-        <RoscaSituacao cartao={cartao} tamanho={destaque ? 76 : 96} />
+      <div className="flex flex-col items-center gap-2 border-b border-border/60 bg-muted/20 px-4 pb-5 pt-4">
+        <RoscaSituacao cartao={cartao} tamanho={destaque ? 76 : 96} destaque={emFoco} />
         <div className="min-w-0 text-center">
           <p className="truncate text-[13px] font-semibold" title={cartao.titulo}>{cartao.titulo}</p>
           {cartao.subtitulo && <p className="truncate text-[11px] text-muted-foreground">{cartao.subtitulo}</p>}
@@ -301,6 +330,10 @@ function CartaoIndicador({ cartao, destaque, onAbrir }: {
               type="button"
               disabled={!clicavel}
               onClick={clicavel ? () => onAbrir?.(m.campo) : undefined}
+              onMouseEnter={() => valor > 0 && setEmFoco(m.campo)}
+              onMouseLeave={() => setEmFoco(null)}
+              onFocus={() => valor > 0 && setEmFoco(m.campo)}
+              onBlur={() => setEmFoco(null)}
               title={clicavel ? `Ver as obrigações — ${m.label.toLowerCase()}` : undefined}
               className={cn(
                 'flex w-full items-center justify-between px-4 py-1.5 text-left transition-colors',
