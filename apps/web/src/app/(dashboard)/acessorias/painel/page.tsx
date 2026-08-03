@@ -72,6 +72,66 @@ interface PorCliente {
 const fmtData = (v: string | null) =>
   v ? new Date(v).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'
 
+/**
+ * Recortes de período oferecidos no filtro de prazo.
+ *
+ * Os recortes "atual" incluem os dias que ainda vêm (a semana e o mês inteiros),
+ * porque o painel também olha para a frente; os "últimos N dias" e os
+ * "anterior" são só passado, como o nome diz.
+ */
+const PERIODOS = [
+  { valor: 'todo',       label: 'Todo o período' },
+  { valor: 'ultimos7',   label: 'Últimos 7 dias' },
+  { valor: 'ultimos30',  label: 'Últimos 30 dias' },
+  { valor: 'semana',     label: 'Semana atual' },
+  { valor: 'semanaAnt',  label: 'Semana anterior' },
+  { valor: 'mes',        label: 'Mês atual' },
+  { valor: 'mesAnt',     label: 'Mês anterior' },
+] as const
+type Periodo = (typeof PERIODOS)[number]['valor']
+
+const iso = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+/** Segunda-feira da semana de `d` (a semana comercial começa na segunda). */
+function segundaDa(d: Date) {
+  const x = new Date(d)
+  const diaDaSemana = (x.getDay() + 6) % 7 // domingo (0) vira 6
+  x.setDate(x.getDate() - diaDaSemana)
+  return x
+}
+
+function intervaloDe(p: Periodo): { de?: string; ate?: string } {
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  const mais = (dias: number) => { const x = new Date(hoje); x.setDate(x.getDate() + dias); return x }
+  switch (p) {
+    case 'ultimos7':  return { de: iso(mais(-7)), ate: iso(hoje) }
+    case 'ultimos30': return { de: iso(mais(-30)), ate: iso(hoje) }
+    case 'semana': {
+      const ini = segundaDa(hoje)
+      const fim = new Date(ini); fim.setDate(fim.getDate() + 6)
+      return { de: iso(ini), ate: iso(fim) }
+    }
+    case 'semanaAnt': {
+      const ini = segundaDa(hoje); ini.setDate(ini.getDate() - 7)
+      const fim = new Date(ini); fim.setDate(fim.getDate() + 6)
+      return { de: iso(ini), ate: iso(fim) }
+    }
+    case 'mes': {
+      const ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+      const fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
+      return { de: iso(ini), ate: iso(fim) }
+    }
+    case 'mesAnt': {
+      const ini = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1)
+      const fim = new Date(hoje.getFullYear(), hoje.getMonth(), 0)
+      return { de: iso(ini), ate: iso(fim) }
+    }
+    default: return {}
+  }
+}
+
 /** Competência no formato do Acessórias: "Jun/2026". */
 const fmtComp = (v: string | null) => {
   if (!v) return '—'
@@ -200,6 +260,7 @@ export default function PainelEntregasPage() {
   const [dpto, setDpto] = useState('')
   const [responsavel, setResponsavel] = useState('')
   const [clienteId, setClienteId] = useState('')
+  const [periodo, setPeriodo] = useState<Periodo>('todo')
   const [ordem, setOrdem] = useState<CampoOrdem>('vencimento')
   const [dir, setDir] = useState<'asc' | 'desc'>('asc')
   const [busca, setBusca] = useState('')
@@ -226,7 +287,8 @@ export default function PainelEntregasPage() {
     dpto: dpto || undefined,
     responsavel: responsavel || undefined,
     clienteId: clienteId || undefined,
-  }), [foco, janelaDias, dpto, responsavel, clienteId])
+    ...intervaloDe(periodo),
+  }), [foco, janelaDias, dpto, responsavel, clienteId, periodo])
 
   const carregar = useCallback(() => {
     setLoading(true)
@@ -386,6 +448,13 @@ export default function PainelEntregasPage() {
               searchPlaceholder="Buscar cliente..."
               emptyText="Nenhum cliente com entrega"
             />
+
+            <Select value={periodo} onValueChange={(v) => setPeriodo(v as Periodo)}>
+              <SelectTrigger className="h-8 w-[160px] bg-card text-xs"><SelectValue placeholder="Prazo" /></SelectTrigger>
+              <SelectContent>
+                {PERIODOS.map((p) => <SelectItem key={p.valor} value={p.valor}>{p.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
 
             <Select value={String(janelaDias)} onValueChange={(v) => setJanelaDias(Number(v))}>
               <SelectTrigger className="h-8 w-[130px] bg-card text-xs"><SelectValue /></SelectTrigger>

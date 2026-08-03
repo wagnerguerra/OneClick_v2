@@ -177,12 +177,15 @@ export class PainelEntregasService {
       ...(filtro.responsavel
         ? { OR: [{ respEntrega: filtro.responsavel }, { respPrazo: filtro.responsavel }] }
         : {}),
+      // Recorte de período pelo VENCIMENTO, e não pelo prazo interno — é a data
+      // que o resto do painel usa. Vai em AND porque cada limite já é um OR
+      // (dtAtraso, com fallback no prazo).
       ...(filtro.de || filtro.ate
         ? {
-            prazo: {
-              ...(filtro.de ? { gte: new Date(`${filtro.de}T00:00:00`) } : {}),
-              ...(filtro.ate ? { lte: new Date(`${filtro.ate}T00:00:00`) } : {}),
-            },
+            AND: [
+              ...(filtro.de ? [wVencimento('gte', new Date(`${filtro.de}T00:00:00`))] : []),
+              ...(filtro.ate ? [wVencimento('lte', new Date(`${filtro.ate}T00:00:00`))] : []),
+            ],
           }
         : {}),
     }
