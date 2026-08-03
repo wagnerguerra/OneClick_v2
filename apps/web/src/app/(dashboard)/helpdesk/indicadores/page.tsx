@@ -11,7 +11,6 @@ import {
   Card, CardContent, Badge, Button, Input, cn,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  Avatar, AvatarImage, AvatarFallback,
 } from '@saas/ui'
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis,
@@ -23,6 +22,7 @@ import { alerts } from '@/lib/alerts'
 import { fmtDateBR } from '@/lib/date'
 import { USER_PERMISSIONS_REFRESH_EVENT } from '@/hooks/use-user-permissions'
 import { HELPDESK_STATUS_COR } from '../_lib/status-styles'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import {
   HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE_LABELS, HELPDESK_TIPO_LABELS,
   HELPDESK_PRIORIDADE_COLORS,
@@ -93,15 +93,6 @@ function toInputDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-/** Iniciais (1-2 letras) a partir do nome, para o fallback do avatar. */
-function iniciais(nome?: string | null): string {
-  if (!nome?.trim()) return '?'
-  const partes = nome.trim().split(/\s+/)
-  const primeira = partes[0]?.[0] ?? ''
-  const ultima = partes.length > 1 ? (partes[partes.length - 1]?.[0] ?? '') : ''
-  return (primeira + ultima).toUpperCase()
-}
-
 // Cor de status: fonte única em _lib/status-styles.
 const STATUS_COR = HELPDESK_STATUS_COR
 
@@ -119,10 +110,11 @@ function AvaliacaoRow({ a, showResp, showAvatar }: { a: Avaliacao; showResp?: bo
   return (
     <div className="flex items-start gap-3 py-3">
       {showAvatar && (
-        <Avatar className="mt-0.5 h-8 w-8 shrink-0" title={`Avaliação feita por ${autor}`}>
-          {a.solicitanteImage && <AvatarImage src={a.solicitanteImage} alt={autor} />}
-          <AvatarFallback className="text-[10px]">{iniciais(a.solicitanteNome)}</AvatarFallback>
-        </Avatar>
+        <UserAvatar
+          user={{ name: autor, image: a.solicitanteImage ?? null }}
+          className="mt-0.5 h-8 w-8 text-[10px] shrink-0"
+          title={`Avaliação feita por ${autor}`}
+        />
       )}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -148,10 +140,7 @@ function AvaliacaoRow({ a, showResp, showAvatar }: { a: Avaliacao; showResp?: bo
           {showResp && a.responsavelNome && (
             <span className="inline-flex items-center gap-1">
               · Atendido por:
-              <Avatar className="h-4 w-4">
-                {a.responsavelImage && <AvatarImage src={a.responsavelImage} alt={a.responsavelNome} />}
-                <AvatarFallback className="text-[8px]">{iniciais(a.responsavelNome)}</AvatarFallback>
-              </Avatar>
+              <UserAvatar user={{ name: a.responsavelNome, image: a.responsavelImage ?? null }} className="h-4 w-4 text-[8px]" />
               <span className="font-medium text-foreground/80">{a.responsavelNome}</span>
             </span>
           )}

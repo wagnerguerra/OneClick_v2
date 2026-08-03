@@ -34,6 +34,7 @@ import {
 import { NovoTicketModal } from './_components/novo-ticket-modal'
 import { TicketDetalheCompletoSheet } from './_components/ticket-detalhe-completo-sheet'
 import { HELPDESK_STATUS_COR } from './_lib/status-styles'
+import { UserAvatar } from '@/components/ui/user-avatar'
 
 const MODULO_COLOR = 'var(--mod-ti, #22d3ee)'
 
@@ -938,22 +939,6 @@ function KanbanCardOverlay({ ticket, cor, velocityX, width }: { ticket: Ticket; 
   )
 }
 
-/** Avatar compacto (rosto ou iniciais) do rodapé do card do kanban. */
-function CardAvatar({ user, bg }: { user: { name: string; image: string | null } | null; bg: string }) {
-  if (!user) {
-    return <span className="h-6 w-6 rounded-full bg-muted text-muted-foreground text-[10px] flex items-center justify-center font-bold">?</span>
-  }
-  if (user.image) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={resolveAssetUrl(user.image)} alt={user.name} className="h-6 w-6 rounded-full object-cover" />
-  }
-  return (
-    <span className={cn('h-6 w-6 rounded-full text-white text-[10px] flex items-center justify-center font-bold', bg)}>
-      {user.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-    </span>
-  )
-}
-
 function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: string; dragging?: boolean }) {
   const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
   const corPrioridade = HELPDESK_PRIORIDADE_COLORS[ticket.prioridade]
@@ -1056,7 +1041,7 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="relative z-0 rounded-full ring-2 ring-card transition-transform duration-150 hover:z-20 hover:scale-110">
-                      <CardAvatar user={ticket.solicitante} bg="bg-slate-400" />
+                      <UserAvatar user={ticket.solicitante} bg="bg-slate-400" className="h-6 w-6 text-[10px]" />
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="top">Solicitante: {ticket.solicitante?.name ?? '—'}</TooltipContent>
@@ -1064,7 +1049,7 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
               </TooltipProvider>
               {ticket.responsavel && (
                 <div className="relative z-10 -ml-2.5 rounded-full ring-2 ring-card">
-                  <CardAvatar user={ticket.responsavel} bg="bg-[#5ea3cb]" />
+                  <UserAvatar user={ticket.responsavel} bg="bg-[#5ea3cb]" className="h-6 w-6 text-[10px]" />
                 </div>
               )}
             </div>
