@@ -448,9 +448,9 @@ export default function HelpdeskPage() {
             <p className="text-sm text-muted-foreground">
               {podeAtuar
                 ? 'Atendimento — arraste cards para mudar o status. Filtros por escopo, prioridade e busca.'
-                : isAgente
+                : meuEscopo && meuEscopo.scope !== 'proprios'
                 ? 'Acompanhamento do painel — somente leitura.'
-                : 'Acompanhe seus tickets. Para abrir um novo, clique em "Novo Ticket".'}
+                : 'Acompanhe seus tickets e avalie o atendimento. Para abrir um novo, clique em "Novo Ticket".'}
             </p>
           </div>
         </div>

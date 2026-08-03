@@ -17,6 +17,7 @@ import {
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   RichContent,
+  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { MarkdownView } from '@/components/ui/markdown-view'
@@ -1412,20 +1413,35 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                       inline explica o porquê — força-se nota interna (internaEfetiva). */}
                   {podeAtuar && (
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => setInterna(false)}
-                        disabled={soNotaInterna}
-                        className={cn(
-                          'text-[11px] px-2 py-1 rounded font-medium transition-colors',
-                          !internaEfetiva
-                            ? HELPDESK_MSG_BADGE.publica
-                            : 'text-muted-foreground hover:bg-muted',
-                          soNotaInterna && 'opacity-40 cursor-not-allowed hover:bg-transparent',
-                        )}
-                      >
-                        <MessageSquare className="inline h-3 w-3 mr-1" /> Mensagem pública
-                      </button>
+                      {/* Tooltip (portaled — não é cortado pelo container) só
+                          quando a mensagem pública está bloqueada. */}
+                      <TooltipProvider delayDuration={150}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex">
+                              <button
+                                type="button"
+                                onClick={() => setInterna(false)}
+                                disabled={soNotaInterna}
+                                className={cn(
+                                  'text-[11px] px-2 py-1 rounded font-medium transition-colors',
+                                  !internaEfetiva
+                                    ? HELPDESK_MSG_BADGE.publica
+                                    : 'text-muted-foreground hover:bg-muted',
+                                  soNotaInterna && 'opacity-40 cursor-not-allowed hover:bg-transparent',
+                                )}
+                              >
+                                <MessageSquare className="inline h-3 w-3 mr-1" /> Mensagem pública
+                              </button>
+                            </span>
+                          </TooltipTrigger>
+                          {soNotaInterna && (
+                            <TooltipContent side="top" className="max-w-xs">
+                              Chamado encerrado — reabra para responder ao solicitante.
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
                       <button
                         type="button"
                         onClick={() => setInterna(true)}
@@ -1438,11 +1454,6 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                       >
                         <Lock className="inline h-3 w-3 mr-1" /> Nota interna
                       </button>
-                      {soNotaInterna && (
-                        <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-300">
-                          <Lock className="h-3 w-3 shrink-0" /> Chamado encerrado — reabra para responder ao solicitante.
-                        </span>
-                      )}
                     </div>
                   )}
                   <RichEditor
