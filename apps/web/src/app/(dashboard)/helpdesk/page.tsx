@@ -597,7 +597,7 @@ export default function HelpdeskPage() {
           )}
           {/* Responsável — só agentes */}
           {isAgente && agentes.length > 0 && (
-            <Select value={filtroResponsavel || undefined} onValueChange={v => setFiltroResponsavel(v === '__all__' ? '' : v)}>
+            <Select value={filtroResponsavel || '__all__'} onValueChange={v => setFiltroResponsavel(v === '__all__' ? '' : v)}>
               <SelectTrigger className="h-8 text-xs w-[160px]"><SelectValue placeholder="Responsável" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os responsáveis</SelectItem>
@@ -607,7 +607,7 @@ export default function HelpdeskPage() {
           )}
           {/* Status — só na lista (no kanban as colunas já são os status) */}
           {isAgente && !emKanban && (
-            <Select value={filtroStatus || undefined} onValueChange={v => setFiltroStatus(v === '__all__' ? '' : v as HelpdeskStatus)}>
+            <Select value={filtroStatus || '__all__'} onValueChange={v => setFiltroStatus(v === '__all__' ? '' : v as HelpdeskStatus)}>
               <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os status</SelectItem>
@@ -624,7 +624,7 @@ export default function HelpdeskPage() {
           )}
           {/* Prioridade */}
           {isAgente && (
-            <Select value={filtroPrioridade || undefined} onValueChange={v => setFiltroPrioridade(v === '__all__' ? '' : v as HelpdeskPrioridade)}>
+            <Select value={filtroPrioridade || '__all__'} onValueChange={v => setFiltroPrioridade(v === '__all__' ? '' : v as HelpdeskPrioridade)}>
               <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as prioridades</SelectItem>
