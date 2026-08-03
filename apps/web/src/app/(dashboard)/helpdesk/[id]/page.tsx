@@ -207,6 +207,7 @@ export default function HelpdeskTicketDetailPage() {
   // Cancelar ticket — solicitante pode cancelar o próprio enquanto aberto
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelando, setCancelando] = useState(false)
+  const [arquivarOpen, setArquivarOpen] = useState(false)
   // Aprovar/rejeitar plano da IA (#HLP0083)
   const [processandoPlano, setProcessandoPlano] = useState(false)
   const [rejeitarOpen, setRejeitarOpen] = useState(false)
@@ -1675,7 +1676,7 @@ export default function HelpdeskTicketDetailPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => patch({ arquivado: true }, 'arquivado')}
+                        onClick={() => setArquivarOpen(true)}
                         disabled={savingField === 'arquivado'}
                         className="w-full gap-1.5"
                       >
@@ -1720,6 +1721,37 @@ export default function HelpdeskTicketDetailPage() {
             >
               {cancelando ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
               Sim, cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: confirmação de arquivamento (C10) */}
+      <Dialog open={arquivarOpen} onOpenChange={setArquivarOpen}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeaderIcon icon={Archive} color="amber">
+            <DialogTitle>Arquivar chamado</DialogTitle>
+            <DialogDescription>
+              Tem certeza que quer arquivar o chamado <strong>{ticketNum}</strong>?
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            <p className="text-xs text-muted-foreground">
+              Ele sai das listas ativas, mas continua acessível pelo histórico e
+              pode ser desarquivado a qualquer momento.
+            </p>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setArquivarOpen(false)} disabled={savingField === 'arquivado'}>
+              Voltar
+            </Button>
+            <Button
+              onClick={() => { patch({ arquivado: true }, 'arquivado'); setArquivarOpen(false) }}
+              disabled={savingField === 'arquivado'}
+              className="gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              {savingField === 'arquivado' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+              Sim, arquivar
             </Button>
           </DialogFooter>
         </DialogContent>
