@@ -307,7 +307,7 @@ export default function PainelEntregasPage() {
           <Button variant="outline" size="sm" onClick={carregar} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}Atualizar
           </Button>
-          <BackButton href="/acessorias" label="Voltar" />
+          <BackButton href="/" label="Voltar" />
         </div>
       </div>
 

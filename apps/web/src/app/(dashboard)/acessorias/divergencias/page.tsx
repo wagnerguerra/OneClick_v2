@@ -153,7 +153,7 @@ export default function DivergenciasPage() {
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             {rel ? 'Recarregar' : 'Comparar agora'}
           </Button>
-          <BackButton href="/acessorias" label="Voltar" />
+          <BackButton href="/" label="Voltar" />
         </div>
       </div>
 
