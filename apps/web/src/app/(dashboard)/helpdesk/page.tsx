@@ -700,7 +700,7 @@ export default function HelpdeskPage() {
             <p className="text-sm">Nenhum ticket encontrado</p>
           </Card>
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
+          <div className="nice-scrollbar flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
             <TicketPanel titulo="Ativos" icon={Inbox} tickets={items} vazio="Nenhum ticket ativo no momento."
               currentUserId={currentUserId} onCancelar={cancelarProprio} onOpen={setOpenTicketId} />
             {arquivados.length > 0 && (
@@ -716,7 +716,7 @@ export default function HelpdeskPage() {
         </Card>
       ) : (viewMode === 'kanban' && !verArquivados) ? (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
-          <div className="overflow-x-auto overflow-y-hidden pb-4 -mx-1 flex-1">
+          <div className="nice-scrollbar overflow-x-auto overflow-y-hidden pb-4 -mx-1 flex-1">
             <div className="flex gap-3 px-1 h-full" style={{ minWidth: `${COLUNAS.length * 240}px` }}>
               {COLUNAS.map(status => (
                 <KanbanColumn
@@ -756,7 +756,7 @@ export default function HelpdeskPage() {
         </DndContext>
       ) : (
         <Card className="flex-1 overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-y-auto divide-y divide-border/60">
+          <div className="nice-scrollbar flex-1 overflow-y-auto divide-y divide-border/60">
             {items.map(t => (
               <TicketRow
                 key={t.id}
