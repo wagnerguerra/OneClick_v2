@@ -21,6 +21,7 @@ import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { fmtDateBR } from '@/lib/date'
+import { USER_PERMISSIONS_REFRESH_EVENT } from '@/hooks/use-user-permissions'
 import {
   HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE_LABELS, HELPDESK_TIPO_LABELS,
   HELPDESK_PRIORIDADE_COLORS,
@@ -411,12 +412,19 @@ export default function HelpdeskIndicadoresPage() {
   // null = ainda probando; governa a bifurcação completa × só minhas avaliações.
   const [completas, setCompletas] = useState<boolean | null>(null)
 
-  // Probe uma vez: define se o usuário vê as métricas completas ou só as próprias.
-  useEffect(() => {
+  // Probe: define se o usuário vê as métricas completas ou só as próprias.
+  // Reprobado quando as permissões mudam (SSE → user-permissions-refresh), pra
+  // a bifurcação propagar sem recarregar a página.
+  const probeCompletas = useCallback(() => {
     ;(trpc.helpdesk as any).probeMetricasCompletas.query()
       .then((c: boolean) => setCompletas(!!c))
       .catch(() => setCompletas(false))
   }, [])
+  useEffect(() => {
+    probeCompletas()
+    window.addEventListener(USER_PERMISSIONS_REFRESH_EVENT, probeCompletas)
+    return () => window.removeEventListener(USER_PERMISSIONS_REFRESH_EVENT, probeCompletas)
+  }, [probeCompletas])
 
   const fetchData = useCallback(() => {
     if (completas === null) return
