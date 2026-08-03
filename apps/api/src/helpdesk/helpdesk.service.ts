@@ -164,21 +164,56 @@ export class HelpdeskService {
     empresaId?: string | null,
     range?: { inicio?: string | null; fim?: string | null },
   ) {
+    return this.listarAvaliacoes(empresaId ?? null, { responsavelId: userId, ...range })
+  }
+
+  /**
+   * Lista de avaliações (CSAT) do PAINEL COMPLETO — todas, ou de um responsável
+   * específico (`responsavelId`). O gate (`podeVerMetricasCompletas`) fica no
+   * router; aqui é só a consulta.
+   */
+  async avaliacoesCompletas(
+    empresaId: string | null | undefined,
+    opts: { responsavelId?: string | null; inicio?: string | null; fim?: string | null },
+  ) {
+    return this.listarAvaliacoes(empresaId ?? null, opts)
+  }
+
+  /**
+   * FONTE ÚNICA da lista de avaliações (CSAT): tickets com nota, no período,
+   * opcionalmente de um responsável. Cada linha traz o nome do responsável (útil
+   * na visão "todos"). Consumida por `minhasAvaliacoes` e `avaliacoesCompletas`.
+   */
+  private async listarAvaliacoes(
+    empresaId: string | null,
+    opts: { responsavelId?: string | null; inicio?: string | null; fim?: string | null },
+  ) {
     const tenantFilter = empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}
     const respondidoRange: Prisma.DateTimeNullableFilter = {}
-    if (range?.inicio) respondidoRange.gte = new Date(range.inicio)
-    if (range?.fim) respondidoRange.lte = new Date(range.fim)
+    if (opts.inicio) respondidoRange.gte = new Date(opts.inicio)
+    if (opts.fim) {
+      // fim inclusivo: cobre o dia inteiro (até 23:59:59.999) da data informada
+      const ate = new Date(opts.fim)
+      ate.setHours(23, 59, 59, 999)
+      respondidoRange.lte = ate
+    }
     const rows = await prisma.helpdeskTicket.findMany({
       where: {
         ativo: true,
         ...tenantFilter,
-        responsavelId: userId,
+        ...(opts.responsavelId ? { responsavelId: opts.responsavelId } : {}),
         csatNota: { not: null },
         ...(Object.keys(respondidoRange).length ? { csatRespondidoEm: respondidoRange } : {}),
       },
-      select: { id: true, numero: true, titulo: true, csatNota: true, csatComentario: true, csatRespondidoEm: true },
+      select: {
+        id: true, numero: true, titulo: true, csatNota: true, csatComentario: true, csatRespondidoEm: true,
+        responsavel: { select: { id: true, name: true, image: true } },
+        // Quem fez a avaliação = solicitante (interno OU externo por e-mail)
+        solicitante: { select: { name: true, image: true } },
+        solicitanteExternoNome: true,
+      },
       orderBy: { csatRespondidoEm: 'desc' },
-      take: 200,
+      take: 300,
     })
     const notas = rows.map(r => r.csatNota ?? 0).filter(n => n > 0)
     const media = notas.length ? notas.reduce((a, b) => a + b, 0) / notas.length : null
@@ -191,6 +226,12 @@ export class HelpdeskService {
         titulo: r.titulo,
         nota: r.csatNota,
         comentario: r.csatComentario,
+        responsavelId: r.responsavel?.id ?? null,
+        responsavelNome: r.responsavel?.name ?? null,
+        responsavelImage: r.responsavel?.image ?? null,
+        // Autor da avaliação (solicitante)
+        solicitanteNome: r.solicitante?.name ?? r.solicitanteExternoNome ?? null,
+        solicitanteImage: r.solicitante?.image ?? null,
         respondidoEm: r.csatRespondidoEm ? r.csatRespondidoEm.toISOString() : null,
       })),
     }

@@ -223,6 +223,17 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
       .input(z.object({ inicio: z.string().optional(), fim: z.string().optional() }).optional())
       .query(({ input, ctx }) => helpdeskService.minhasAvaliacoes(ctx.userId!, ctx.empresaId ?? null, input)),
 
+    /** Lista de avaliações do PAINEL COMPLETO — todas, ou de um responsável
+     *  específico. Mesmo gate do dashboard (métricas completas). */
+    avaliacoesCompletas: protectedProcedure
+      .input(z.object({ responsavelId: z.string().optional(), inicio: z.string().optional(), fim: z.string().optional() }).optional())
+      .query(async ({ input, ctx }) => {
+        if (!(await helpdeskService.podeVerMetricasCompletas(ctx.userId!))) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem acesso às métricas completas do HelpDesk' })
+        }
+        return helpdeskService.avaliacoesCompletas(ctx.empresaId ?? null, input ?? {})
+      }),
+
     // ── Configurações do módulo (pill /configuracoes → Helpdesk) ──
     // Config — só TI real (master/empresa-master, DIRETOR/COORDENADOR ou
     // sub-permissão helpdesk.atuar_agente). Mesma porta do probeAtuarAgente.
