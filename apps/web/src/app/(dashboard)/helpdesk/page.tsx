@@ -1048,9 +1048,16 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
                 </Tooltip>
               </TooltipProvider>
               {ticket.responsavel && (
-                <div className="relative z-10 -ml-2.5 rounded-full ring-2 ring-card">
-                  <UserAvatar user={ticket.responsavel} bg="bg-[#5ea3cb]" className="h-6 w-6 text-[10px]" />
-                </div>
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="relative z-10 -ml-2.5 rounded-full ring-2 ring-card transition-transform duration-150 hover:z-20 hover:scale-110">
+                        <UserAvatar user={ticket.responsavel} bg="bg-[#5ea3cb]" className="h-6 w-6 text-[10px]" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">Responsável: {ticket.responsavel.name}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
             <span className="text-[12px] text-muted-foreground truncate min-w-0">
