@@ -32,7 +32,7 @@ import {
   type HelpdeskStatus, type HelpdeskPrioridade,
 } from '@saas/types'
 import { NovoTicketModal } from './_components/novo-ticket-modal'
-import { TicketDetailSheet } from './_components/ticket-detail-sheet'
+import { TicketDetalheCompletoSheet } from './_components/ticket-detalhe-completo-sheet'
 import { HELPDESK_STATUS_COR } from './_lib/status-styles'
 
 const MODULO_COLOR = 'var(--mod-ti, #22d3ee)'
@@ -780,10 +780,12 @@ export default function HelpdeskPage() {
       {/* Sheet de detalhe — abre por click esquerdo no card. Mantém o
           kanban visível por baixo. Botão do meio abre o detalhe completo
           em nova aba via SortableCard.onAuxClick. */}
-      <TicketDetailSheet
+      <TicketDetalheCompletoSheet
         ticketId={openTicketId}
         onClose={() => setOpenTicketId(null)}
-        onChange={fetchData}
+        // silent: refetch do board sem o spinner de loading — senão o kanban
+        // atrás do modal "pisca" a cada interação feita no modal.
+        onChange={() => fetchData({ silent: true })}
       />
     </div>
   )
