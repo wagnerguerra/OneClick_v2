@@ -547,6 +547,8 @@ export class AcessoriasService {
       // consulta por entrega seria o gargalo da rodada.
       const deveConsiderar = await this.regras.carregarIndice(opts.empresaId ?? null)
       let excluidasPorRegra = 0
+      /** Páginas que a API recusou. Sincronização incompleta precisa aparecer. */
+      const falhas: string[] = []
 
       await this.marcarProgresso(log.id, {
         atual: 0, total: clientes.length,
@@ -576,8 +578,20 @@ export class AcessoriasService {
             DtFinal: opts.dtFinal,
             Pagina: String(pagina),
           }).toString()
-          const res = await this.request<unknown>(`/deliveries/${cnpj}?${qs}&config`)
-          if (!res.ok) break
+          // A API permite 100 req/min. Ao estourar ela devolve 429, e a versão
+          // anterior tratava isso como "acabaram as páginas": abandonava o
+          // resto do cliente em silêncio, deixando o espelho incompleto sem
+          // nenhum sinal no histórico. Agora espera e tenta de novo; se ainda
+          // assim falhar, a falha é CONTADA e aparece no log.
+          let res = await this.request<unknown>(`/deliveries/${cnpj}?${qs}&config`)
+          for (let tentativa = 1; tentativa <= 3 && res.status === 429; tentativa++) {
+            await new Promise(r => setTimeout(r, 20_000))
+            res = await this.request<unknown>(`/deliveries/${cnpj}?${qs}&config`)
+          }
+          if (!res.ok) {
+            falhas.push(`${cli.razaoSocial} p.${pagina}: HTTP ${res.status}`)
+            break
+          }
           // Resposta pode ser objeto único (1 empresa) ou array; deliveries em .Entregas
           const data = res.data
           let entregas: Array<Record<string, unknown>> = []
@@ -606,7 +620,9 @@ export class AcessoriasService {
             entregasDoCliente++
           }
           pagina++
-          await new Promise(r => setTimeout(r, 200))
+          // 700ms ≈ 85 req/min, abaixo do teto de 100. Com 200ms a sincronização
+          // pedia 300/min e vivia batendo no limite.
+          await new Promise(r => setTimeout(r, 700))
           if (pagina > 50) break
         }
 
@@ -631,14 +647,17 @@ export class AcessoriasService {
       await prisma.acessoriasSyncLog.update({
         where: { id: log.id },
         data: {
-          status: erros.length > 0 ? 'partial' : 'success',
+          // Página recusada pela API também deixa a sincronização parcial: sem
+          // isso o histórico marcaria "sucesso" sobre um espelho incompleto.
+          status: erros.length > 0 || falhas.length > 0 ? 'partial' : 'success',
           finishedAt: new Date(),
           progressoAtual: clientes.length,
           progressoTotal: clientes.length,
-          progressoMsg: excluidasPorRegra > 0
-            ? `Concluída · ${excluidasPorRegra} entrega(s) fora por regra`
-            : 'Concluída',
-          detalhes: detalhes as never,
+          progressoMsg: [
+            falhas.length > 0 ? `Concluída com ${falhas.length} falha(s)` : 'Concluída',
+            excluidasPorRegra > 0 ? `${excluidasPorRegra} entrega(s) fora por regra` : '',
+          ].filter(Boolean).join(' · '),
+          detalhes: (falhas.length > 0 ? { ...detalhes, falhas } : detalhes) as never,
           deliveriesNovas: novas,
           deliveriesAtualizadas: atualizadas,
           deliveriesIgnoradas: ignoradas,

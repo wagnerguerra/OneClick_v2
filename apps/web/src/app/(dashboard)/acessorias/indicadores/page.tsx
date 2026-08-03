@@ -103,6 +103,9 @@ const TITULO_ESCOPO: Record<Retorno['escopo'], { titulo: string; nota: string }>
   GERAL:         { titulo: 'Painel geral',        nota: 'visão da empresa, por área' },
 }
 
+/** "1 obrigação" / "12 obrigações" — sem o "(ões)" que economiza no lugar errado. */
+const plural = (n: number, singular: string, plural: string) => `${n} ${n === 1 ? singular : plural}`
+
 const fmtData = (v: string | null) =>
   v ? new Date(v).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'
 
@@ -191,7 +194,7 @@ export default function IndicadoresPage() {
             <CartaoIndicador
               cartao={{
                 chave: '__total__', titulo: 'Total da empresa',
-                subtitulo: `${dados.cartoes.length} área(s)`, userId: null, imagem: null, ...dados.total,
+                subtitulo: plural(dados.cartoes.length, 'área', 'áreas'), userId: null, imagem: null, ...dados.total,
               }}
               destaque
             />
@@ -209,7 +212,8 @@ export default function IndicadoresPage() {
 
           {!!dados.ocultosInativos && (
             <p className="text-[12px] text-muted-foreground">
-              {dados.ocultosInativos} responsável(is) fora do painel por não estarem mais ativos no OneClick.
+              {plural(dados.ocultosInativos, 'responsável', 'responsáveis')}{' '}
+              fora do painel por não estar{dados.ocultosInativos === 1 ? '' : 'em'} mais ativo{dados.ocultosInativos === 1 ? '' : 's'} no OneClick.
             </p>
           )}
 
@@ -337,7 +341,7 @@ function CartaoIndicador({ cartao, destaque, onAbrir }: {
         <div className="min-w-0 text-center">
           <p className="truncate text-[13px] font-semibold" title={cartao.titulo}>{cartao.titulo}</p>
           {cartao.subtitulo && <p className="truncate text-[11px] text-muted-foreground">{cartao.subtitulo}</p>}
-          <p className="text-[11px] text-muted-foreground">{total} obrigação(ões) no período</p>
+          <p className="text-[11px] text-muted-foreground">{plural(total, 'obrigação', 'obrigações')} no período</p>
         </div>
       </div>
       <div className="divide-y divide-border/40">
