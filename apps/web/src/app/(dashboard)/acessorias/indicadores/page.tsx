@@ -15,7 +15,7 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
-import { PERIODOS, filtroDe, rotuloCompetencia, type Recorte } from '../_components/periodos'
+import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Recorte } from '../_components/periodos'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
@@ -53,7 +53,6 @@ interface Retorno {
   semVinculo: boolean
   areaNome: string | null
   ocultosInativos?: number
-  competencias?: string[]
 }
 interface LinhaDetalhe {
   id: string
@@ -160,16 +159,12 @@ export default function IndicadoresPage() {
                 Por vencimento
               </p>
               {PERIODOS.map((p) => <SelectItem key={p.valor} value={p.valor}>{p.label}</SelectItem>)}
-              {!!dados?.competencias?.length && (
-                <>
-                  <p className="mt-1 border-t border-border px-2 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Por competência
-                  </p>
-                  {dados.competencias.map((c) => (
-                    <SelectItem key={c} value={`comp:${c}`}>{rotuloCompetencia(c)}</SelectItem>
-                  ))}
-                </>
-              )}
+              <p className="mt-1 border-t border-border px-2 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Por competência
+              </p>
+              {competenciasDisponiveis().map((c) => (
+                <SelectItem key={c} value={`comp:${c}`}>{rotuloCompetencia(c)}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={carregar} disabled={loading}>

@@ -445,17 +445,7 @@ export class PainelEntregasService {
       orderBy: { razaoSocial: 'asc' },
     })
 
-    const comps = await prisma.acessoriasEntrega.findMany({
-      where: e(escopo, { competencia: { not: null } }),
-      select: { competencia: true }, distinct: ['competencia'],
-      orderBy: { competencia: 'desc' }, take: 36,
-    })
-
     return {
-      competencias: comps
-        .map((c) => c.competencia)
-        .filter((c): c is Date => !!c)
-        .map((c) => `${c.getUTCFullYear()}-${String(c.getUTCMonth() + 1).padStart(2, '0')}`),
       departamentos: dptos.map((x) => x.dpto).filter(Boolean) as string[],
       // União dos dois papéis: quem só tem obrigação em aberto não aparecia na
       // lista de responsáveis, e era impossível filtrar por ele.

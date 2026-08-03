@@ -349,7 +349,7 @@ export function createAcessoriasRouter(
         clienteId: z.string().optional(),
       }).optional())
       .query(({ input, ctx }) => {
-        if (!painelSvc) return { departamentos: [], responsaveis: [], clientes: [], competencias: [] }
+        if (!painelSvc) return { departamentos: [], responsaveis: [], clientes: [] }
         return painelSvc.opcoes(ctx.isMaster ?? false, ctx.empresaId, input ?? {})
       }),
   })

@@ -18,7 +18,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
 import { EntityCombobox } from '@/components/ui/entity-combobox'
-import { PERIODOS, filtroDe, rotuloCompetencia, type Recorte } from '../_components/periodos'
+import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Recorte } from '../_components/periodos'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 
@@ -61,7 +61,6 @@ interface Resumo {
   atrasadas: number; comMulta: number
 }
 interface OpcoesPainel {
-  competencias: string[]
   departamentos: string[]
   responsaveis: string[]
   clientes: { id: string; code: number; razaoSocial: string; documento: string }[]
@@ -234,7 +233,7 @@ export default function PainelEntregasPage() {
   const [linhas, setLinhas] = useState<Linha[]>([])
   const [resumo, setResumo] = useState<Resumo | null>(null)
   const [clientes, setClientes] = useState<PorCliente[]>([])
-  const [opcoes, setOpcoes] = useState<OpcoesPainel>({ competencias: [], departamentos: [], responsaveis: [], clientes: [] })
+  const [opcoes, setOpcoes] = useState<OpcoesPainel>({ departamentos: [], responsaveis: [], clientes: [] })
   const [loading, setLoading] = useState(true)
   const [urlTemplate, setUrlTemplate] = useState<string | null>(null)
   const [truncado, setTruncado] = useState<{ limite: number } | null>(null)
@@ -428,16 +427,12 @@ export default function PainelEntregasPage() {
                   Por vencimento
                 </p>
                 {PERIODOS.map((p) => <SelectItem key={p.valor} value={p.valor}>{p.label}</SelectItem>)}
-                {opcoes.competencias.length > 0 && (
-                  <>
-                    <p className="mt-1 border-t border-border px-2 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Por competência
-                    </p>
-                    {opcoes.competencias.map((c) => (
-                      <SelectItem key={c} value={`comp:${c}`}>{rotuloCompetencia(c)}</SelectItem>
-                    ))}
-                  </>
-                )}
+                <p className="mt-1 border-t border-border px-2 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Por competência
+                </p>
+                {competenciasDisponiveis().map((c) => (
+                  <SelectItem key={c} value={`comp:${c}`}>{rotuloCompetencia(c)}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 

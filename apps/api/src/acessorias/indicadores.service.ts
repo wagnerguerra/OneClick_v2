@@ -145,19 +145,6 @@ export class IndicadoresAcessoriasService {
     }
   }
 
-  /** Competências presentes no espelho, da mais recente para a mais antiga. */
-  private async competenciasDisponiveis(escopo: Prisma.AcessoriasEntregaWhereInput) {
-    const rows = await prisma.acessoriasEntrega.findMany({
-      where: { ...escopo, competencia: { not: null } },
-      select: { competencia: true }, distinct: ['competencia'],
-      orderBy: { competencia: 'desc' }, take: 36,
-    })
-    return rows
-      .map((r) => r.competencia)
-      .filter((c): c is Date => !!c)
-      .map((c) => `${c.getUTCFullYear()}-${String(c.getUTCMonth() + 1).padStart(2, '0')}`)
-  }
-
   async painel(
     filtro: { de?: string; ate?: string; dpto?: string; competencia?: string },
     ctx: { userId: string; isMaster: boolean; isEmpresaMaster: boolean; empresaId?: string },
@@ -203,21 +190,19 @@ export class IndicadoresAcessoriasService {
           : {}),
     }
 
-    const competencias = await this.competenciasDisponiveis(escopoEmpresa)
-
     // ── recorte por permissão, aplicado na consulta ──
     // O responsável do Acessórias é texto; traduzimos o usuário (ou a área)
     // para os nomes/departamentos correspondentes antes de filtrar.
     if (escopo === 'PROPRIO') {
       const meus = idx.nomesDoUsuario.get(ctx.userId) ?? []
-      if (meus.length === 0) return { escopo, cartoes: [], pendentes: [], semVinculo: true, areaNome: user?.area?.name ?? null, competencias }
+      if (meus.length === 0) return { escopo, cartoes: [], pendentes: [], semVinculo: true, areaNome: user?.area?.name ?? null }
       Object.assign(where, {
         AND: [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
           { OR: [{ respPrazo: { in: meus } }, { respEntrega: { in: meus } }] }],
       })
     } else if (escopo === 'COLABORADORES') {
       const dptos = user?.areaId ? idx.dptosDaArea.get(user.areaId) ?? [] : []
-      if (dptos.length === 0) return { escopo, cartoes: [], pendentes: [], semVinculo: true, areaNome: user?.area?.name ?? null, competencias }
+      if (dptos.length === 0) return { escopo, cartoes: [], pendentes: [], semVinculo: true, areaNome: user?.area?.name ?? null }
       Object.assign(where, {
         AND: [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
           { dpto: { in: dptos } }],
@@ -246,7 +231,6 @@ export class IndicadoresAcessoriasService {
         pendentes: emAberto,
         semVinculo: false,
         areaNome: user?.area?.name ?? null,
-        competencias,
       }
     }
 
@@ -325,7 +309,6 @@ export class IndicadoresAcessoriasService {
       semVinculo: false,
       areaNome: user?.area?.name ?? null,
       ocultosInativos,
-      competencias,
     }
   }
 

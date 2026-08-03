@@ -46,6 +46,25 @@ export function filtroDe(v: Recorte): { de?: string; ate?: string; competencia?:
   return intervaloDe(v as Periodo)
 }
 
+/**
+ * Competências oferecidas: o mês atual, três à frente e três atrás.
+ *
+ * A janela é fixa, e não a lista do que existe na base. Derivar dos dados
+ * deixava buracos no meio (mês sem entrega sumia) e trazia outliers distantes
+ * — uma obrigação com competência de dezembro aparecia solta entre julho e
+ * agosto. Sete meses cobrem o fechamento em andamento e o que já está lançado
+ * à frente.
+ */
+export function competenciasDisponiveis(): string[] {
+  const hoje = new Date()
+  const meses: string[] = []
+  for (let n = -3; n <= 3; n++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() + n, 1)
+    meses.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+  return meses
+}
+
 /** "2026-07" → "Jul/2026", para o rótulo do seletor. */
 export function rotuloCompetencia(v: string): string {
   const [ano, mes] = v.split('-')
