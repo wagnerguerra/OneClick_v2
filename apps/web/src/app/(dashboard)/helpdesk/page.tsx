@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Plus, Loader2, Search, Filter, AlertTriangle, Clock, MessageSquare,
-  CheckCircle2, ListChecks, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
+  Plus, Loader2, Search, AlertTriangle, MessageSquare,
+  CheckCircle2, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
   Paperclip, Bot, BarChart3, XCircle, MoreVertical, ExternalLink, X, FilterX,
 } from 'lucide-react'
 import {
@@ -771,7 +771,7 @@ export default function HelpdeskPage() {
       <NovoTicketModal
         open={novoOpen}
         onOpenChange={setNovoOpen}
-        permitePrioridade={podeAtuar}
+        permitePrioridade={podeAtuar ?? false}
         onCreated={(id) => {
           fetchData()
           // Quem pode atuar vai direto pro detalhe (triagem); demais ficam na lista
