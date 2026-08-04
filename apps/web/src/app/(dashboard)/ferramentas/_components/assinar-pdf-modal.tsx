@@ -315,6 +315,15 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
                       PAdES-{resultado.padesLevel}
                       {resultado.padesLevel === 'T' ? ' · com carimbo do tempo' : ' · sem carimbo do tempo'}
                     </p>
+                    {/* Sem carimbo, a data da assinatura passa a ser a do
+                        servidor — e o leitor de PDF avisa isso. O motivo da
+                        falha fica à vista, em vez de o documento sair em
+                        silêncio num nível abaixo do esperado. */}
+                    {resultado.padesLevel === 'BES' && resultado.tsaInfo && (
+                      <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">
+                        {resultado.tsaInfo}
+                      </p>
+                    )}
                   </div>
                   <Button variant="outline" size="sm" onClick={() => baixar(resultado.nome, resultado.base64)}>
                     <Download className="h-3.5 w-3.5" />
