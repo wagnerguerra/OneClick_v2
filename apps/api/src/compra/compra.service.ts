@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common'
-import { buildPaginatedResponse, getPrismaSkipTake, scoped, Prisma } from '@saas/db'
+import { buildPaginatedResponse, getPrismaSkipTake, scoped, prisma, Prisma } from '@saas/db'
+import { PermissionsEventsService } from '../permissions-events/permissions-events.service'
+import { EmailService } from '../common/email.service'
+import { NotificationService } from '../notification/notification.service'
+import { invalidateUserPermissionsCache } from '../trpc/trpc.service'
 import type {
   CreateCompraInput, UpdateCompraInput, ListCompraInput,
   CreateCompraItemInput, UpdateCompraItemInput,
@@ -24,8 +28,22 @@ async function resolverUsuarios(db: ScopedDb, ids: (string | null)[]) {
   return new Map(us.map((u) => [u.id, u]))
 }
 
+/** Slug do módulo nas permissões — o mesmo do cadastro de usuários e do menu. */
+const MODULE_SLUG = 'aquisicoes'
+
+const brl = (v: number) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+/** Escapa o que vai pro corpo do e-mail (descrição de item é texto do usuário). */
+const escapeHtml = (v: string) =>
+  String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
 @Injectable()
 export class CompraService {
+  constructor(
+    private readonly permissionsEvents: PermissionsEventsService,
+    private readonly emailService: EmailService,
+    private readonly notificationService: NotificationService,
+  ) {}
+
   private serializar(c: any) {
     return {
       ...c,
@@ -156,10 +174,107 @@ export class CompraService {
   }
 
   async enviar(id: string, tenantSchema?: string) {
-    return scoped(tenantSchema, async (db) => {
+    const atualizado = await scoped(tenantSchema, async (db) => {
       await this.assertStatus(db, id, ['NOVO', 'REPROVADO'])
       return db.compra.update({ where: { id }, data: { status: 'AGUARDANDO_APROVACAO', dataSolicitacao: new Date(), motivoReprovacao: null } })
     })
+    // Avisa quem aprova. Falha de e-mail/notificação NÃO desfaz o envio do
+    // pedido — o pedido já está aguardando aprovação de qualquer forma.
+    await this.notificarAprovadores(id, tenantSchema).catch((e: Error) =>
+      console.warn('[Aquisicoes] Falha ao notificar aprovadores:', e.message),
+    )
+    return atualizado
+  }
+
+  /**
+   * Notificação (in-app + e-mail) aos aprovadores quando um pedido sai de
+   * rascunho e entra na fila de aprovação. Destinatários = quem tem a marca
+   * `aprovar_pedidos` no módulo + Empresa Master (que aprova por padrão).
+   */
+  private async notificarAprovadores(compraId: string, tenantSchema?: string) {
+    const c = await scoped(tenantSchema, async (db) => {
+      const compra = await db.compra.findUnique({
+        where: { id: compraId },
+        select: {
+          id: true, code: true, frete: true, empresaId: true, solicitanteId: true,
+          fornecedor: { select: { razaoSocial: true } },
+          itens: { select: { descricao: true, quantidade: true, valorUnitario: true }, orderBy: { createdAt: 'asc' } },
+        },
+      })
+      if (!compra) return null
+      const solicitante = compra.solicitanteId
+        ? await db.user.findUnique({ where: { id: compra.solicitanteId }, select: { name: true } })
+        : null
+      return { ...compra, solicitanteNome: solicitante?.name ?? null }
+    })
+    if (!c) return { notificados: 0 }
+
+    const destinatarios = (await prisma.$queryRawUnsafe(
+      `SELECT DISTINCT u.id, u.name AS nome, u.email
+         FROM users u
+         LEFT JOIN user_permissions p ON p.user_id = u.id AND p.module_slug = $2
+        WHERE u.is_active = true
+          AND u.role <> 'COLABORADOR_CLIENTE'
+          AND ($1::text = '' OR u.empresa_id = $1)
+          AND (
+            u.is_empresa_master = true
+            OR (p.can_read = true AND COALESCE(p.sub_permissions->>'aprovar_pedidos', 'false') = 'true')
+          )`,
+      c.empresaId ?? '',
+      MODULE_SLUG,
+    ).catch(() => [])) as Array<{ id: string; nome: string | null; email: string | null }>
+
+    // Quem enviou não precisa ser avisado do próprio pedido.
+    const alvos = destinatarios.filter((d) => d.id !== c.solicitanteId)
+    if (!alvos.length) return { notificados: 0 }
+
+    const fornecedor = c.fornecedor?.razaoSocial ?? 'fornecedor não informado'
+    // `total` não é coluna — é itens + frete, igual à listagem e ao detalhe.
+    const total = brl(this.total(c.itens, c.frete))
+    const link = `/aquisicoes/${c.id}`
+
+    await this.notificationService.criarParaUsers(alvos.map((d) => d.id), {
+      titulo: `Pedido #${c.code} aguardando aprovação`,
+      mensagem: `${fornecedor} — ${total}`
+        + (c.solicitanteNome ? ` · solicitado por ${c.solicitanteNome}` : ''),
+      tipo: 'warning',
+      link,
+      origem: 'aquisicoes',
+      empresaId: c.empresaId ?? undefined,
+    }).catch(() => {})
+
+    const linhas = c.itens.slice(0, 20).map((i) =>
+      `<tr><td style="padding:4px 10px 4px 0">${escapeHtml(i.descricao)}</td>`
+      + `<td style="padding:4px 10px 4px 0;text-align:right">${Number(i.quantidade ?? 0)}</td>`
+      + `<td style="padding:4px 0;text-align:right">${brl(Number(i.valorUnitario ?? 0))}</td></tr>`,
+    ).join('')
+    const base = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+    const botao = base
+      ? `<p style="margin-top:14px"><a href="${base}${link}" style="display:inline-block;background:#d97706;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600">Abrir o pedido</a></p>`
+      : `<p>Acesse o sistema em <strong>Aquisições</strong> para aprovar o pedido.</p>`
+
+    for (const d of alvos) {
+      if (!d.email) continue
+      await this.emailService.sendMail({
+        to: d.email,
+        subject: `Pedido de compra #${c.code} aguardando sua aprovação`,
+        html: `<p>Olá, ${escapeHtml(d.nome?.split(' ')[0] ?? '')}!</p>
+        <p>O pedido de compra <strong>#${c.code}</strong> foi enviado para aprovação e está aguardando você.</p>
+        <table style="border-collapse:collapse;font-size:14px;margin-bottom:14px">
+          <tr><td style="padding:2px 10px 2px 0;color:#6b7280">Fornecedor</td><td style="padding:2px 0"><strong>${escapeHtml(fornecedor)}</strong></td></tr>
+          ${c.solicitanteNome ? `<tr><td style="padding:2px 10px 2px 0;color:#6b7280">Solicitante</td><td style="padding:2px 0">${escapeHtml(c.solicitanteNome)}</td></tr>` : ''}
+          <tr><td style="padding:2px 10px 2px 0;color:#6b7280">Total</td><td style="padding:2px 0"><strong>${total}</strong></td></tr>
+        </table>
+        ${c.itens.length ? `<table style="border-collapse:collapse;font-size:14px">
+          <tr style="text-align:left;color:#6b7280"><th style="padding:0 10px 6px 0">Item</th><th style="padding:0 10px 6px 0;text-align:right">Qtd.</th><th style="padding:0 0 6px 0;text-align:right">Valor un.</th></tr>
+          ${linhas}
+        </table>` : ''}
+        ${c.itens.length > 20 ? `<p style="color:#6b7280;font-size:13px">…e mais ${c.itens.length - 20} item(ns).</p>` : ''}
+        ${botao}`,
+      }).catch(() => {})
+    }
+
+    return { notificados: alvos.length }
   }
 
   async aprovar(id: string, userId?: string, tenantSchema?: string) {
@@ -325,5 +440,91 @@ export class CompraService {
 
   async getEmpresaId(id: string, tenantSchema?: string) {
     return scoped(tenantSchema, (db) => db.compra.findUnique({ where: { id }, select: { empresaId: true } }))
+  }
+
+  // ── Configurações › Aprovadores ──────────────────────────────
+  // "Quem aprova" é a sub-permissão `aprovar_pedidos` do módulo — mesma fonte
+  // da verdade do cadastro do usuário. A tela do módulo é só um outro caminho
+  // para a MESMA marca, para o gestor não precisar entrar em cada usuário.
+
+  /**
+   * Usuários da empresa com a marca de aprovador. Master e Empresa Master
+   * entram como aprovadores implícitos (o guard os libera sempre), sinalizados
+   * com `implicito` para a tela não oferecer um toggle que não faria nada.
+   */
+  async listAprovadores(isMaster: boolean, empresaId?: string) {
+    const users = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        ...(!isMaster && empresaId ? { empresaId } : {}),
+        // Colaborador de cliente não aprova compra interna.
+        role: { not: 'COLABORADOR_CLIENTE' },
+      },
+      select: { id: true, name: true, email: true, image: true, role: true, isMaster: true, isEmpresaMaster: true },
+      orderBy: { name: 'asc' },
+    })
+    const perms = await prisma.userPermission.findMany({
+      where: { userId: { in: users.map((u) => u.id) }, moduleSlug: MODULE_SLUG },
+      select: { userId: true, canRead: true, subPermissions: true },
+    })
+    const porUser = new Map(perms.map((p) => [p.userId, p]))
+
+    return users.map((u) => {
+      const p = porUser.get(u.id)
+      const subs = (p?.subPermissions ?? {}) as Record<string, boolean>
+      const implicito = u.isMaster || u.isEmpresaMaster
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        image: u.image,
+        role: String(u.role),
+        implicito,
+        aprovador: implicito || subs.aprovar_pedidos === true,
+        // Sem acesso de leitura ao módulo a marca não serve de nada — a tela
+        // avisa, e o toggle concede o acesso junto.
+        temAcesso: !!p?.canRead,
+      }
+    })
+  }
+
+  /**
+   * Liga/desliga a marca de aprovador. Ao ligar, garante o acesso de leitura ao
+   * módulo (sem ele o guard barraria antes de olhar a sub-permissão) — sem
+   * conceder escrita: aprovar não deve dar o direito de criar/editar pedidos.
+   */
+  async setAprovador(userId: string, ativo: boolean, isMaster: boolean, empresaId?: string) {
+    const alvo = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, empresaId: true, isActive: true, isMaster: true, isEmpresaMaster: true },
+    })
+    if (!alvo) throw new Error('Usuário não encontrado.')
+    if (!isMaster && empresaId && alvo.empresaId !== empresaId) {
+      throw new Error('Usuário fora da sua empresa.')
+    }
+    if (alvo.isMaster || alvo.isEmpresaMaster) {
+      throw new Error('Master e Empresa Master já aprovam por padrão — não há o que marcar.')
+    }
+
+    const where = { userId_moduleSlug: { userId, moduleSlug: MODULE_SLUG } }
+    const atual = await prisma.userPermission.findUnique({ where, select: { subPermissions: true } })
+    const subs = { ...((atual?.subPermissions ?? {}) as Record<string, boolean>), aprovar_pedidos: ativo }
+
+    if (atual) {
+      await prisma.userPermission.update({
+        where,
+        data: { subPermissions: subs, ...(ativo ? { canRead: true } : {}) },
+      })
+    } else {
+      await prisma.userPermission.create({
+        data: { userId, moduleSlug: MODULE_SLUG, canRead: true, canWrite: false, canDelete: false, subPermissions: subs },
+      })
+    }
+
+    // Sem isto o backend seguiria decidindo pelo cache (TTL 30s) e a sessão
+    // aberta do usuário não veria a mudança.
+    invalidateUserPermissionsCache(userId)
+    this.permissionsEvents.emit({ type: 'updated', userId, actorUserId: null })
+    return { success: true }
   }
 }

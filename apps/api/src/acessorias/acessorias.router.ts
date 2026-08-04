@@ -1,6 +1,12 @@
 import { z } from 'zod'
-import { router, protectedProcedure } from '../trpc/trpc.service'
+import { TRPCError } from '@trpc/server'
+import { router, readSubProcedure } from '../trpc/trpc.service'
 import { AcessoriasService } from './acessorias.service'
+import { DivergenciaAcessoriasService } from './divergencia.service'
+import { PainelEntregasService } from './painel-entregas.service'
+import { RegrasObrigacaoService } from './regras-obrigacao.service'
+import { VinculosAcessoriasService } from './vinculos.service'
+import { IndicadoresAcessoriasService } from './indicadores.service'
 
 /**
  * Router tRPC do Acessórias. Endpoints protegidos por auth padrão (qualquer
@@ -10,16 +16,46 @@ import { AcessoriasService } from './acessorias.service'
  * Mapeamento dos endpoints REST do Acessórias documentado em
  * /docs/INTEGRACAO-ACESSORIAS.md.
  */
-export function createAcessoriasRouter(svc: AcessoriasService) {
+// Sub-permissões do módulo (cadastro de usuários → Administrativo → Acessórias).
+// Master e Empresa Master passam sempre, como no resto do sistema.
+const MODULE = 'acessorias'
+const SUB_PAINEL = 'ver_painel_entregas'
+const SUB_INTEGRACAO = 'gerenciar_integracao'
+const SUB_CONCILIAR = 'conciliar_cadastro'
+
+const painelProc = () => readSubProcedure(MODULE, SUB_PAINEL, 'Ver o painel de entregas')
+const integracaoProc = () => readSubProcedure(MODULE, SUB_INTEGRACAO, 'Gerenciar a integração com o Acessórias')
+const conciliarProc = () => readSubProcedure(MODULE, SUB_CONCILIAR, 'Conciliar divergências do Acessórias')
+
+/** Filtros do painel — compartilhado pelas três consultas. */
+const painelFiltroSchema = z.object({
+  de: z.string().optional(),
+  ate: z.string().optional(),
+  dpto: z.string().optional(),
+  responsavel: z.string().optional(),
+  clienteId: z.string().optional(),
+  competencia: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+  foco: z.enum(['nao_lidas', 'a_vencer', 'atrasadas', 'todas']).optional(),
+  janelaDias: z.coerce.number().int().min(1).max(60).optional(),
+}).optional()
+
+export function createAcessoriasRouter(
+  svc: AcessoriasService,
+  divergenciaSvc?: DivergenciaAcessoriasService,
+  painelSvc?: PainelEntregasService,
+  regrasSvc?: RegrasObrigacaoService,
+  vinculosSvc?: VinculosAcessoriasService,
+  indicadoresSvc?: IndicadoresAcessoriasService,
+) {
   return router({
     /** Valida que o token configurado funciona — chama /companies?limit=1
      *  e devolve status + count de empresas pra UI mostrar feedback amigável. */
-    testConnection: protectedProcedure
+    testConnection: integracaoProc()
       .query(() => svc.testConnection()),
 
     /** Lista empresas paginadas. Usado no setup pra escolher qual empresa
      *  do Acessórias corresponde a cada Cliente do OneClick. */
-    listCompanies: protectedProcedure
+    listCompanies: integracaoProc()
       .input(z.object({
         search: z.string().optional(),
         limit: z.coerce.number().int().min(1).max(100).optional(),
@@ -29,7 +65,7 @@ export function createAcessoriasRouter(svc: AcessoriasService) {
 
     /** Exploratório — chama qualquer endpoint da API e devolve a resposta crua.
      *  Pra inspeção do shape antes de modelarmos o sync. Útil também pra debug. */
-    explore: protectedProcedure
+    explore: integracaoProc()
       .input(z.object({
         path: z.string().min(1),
         query: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
@@ -38,7 +74,7 @@ export function createAcessoriasRouter(svc: AcessoriasService) {
 
     /** Lista entregas (deliveries). Filtros: por CNPJ, situação, período.
      *  Sem CNPJ vai pra /deliveries/ListAll. */
-    listDeliveries: protectedProcedure
+    listDeliveries: integracaoProc()
       .input(z.object({
         cnpj: z.string().optional(),
         situacao: z.enum(['pending', 'read', 'delivered']).optional(),
@@ -51,13 +87,13 @@ export function createAcessoriasRouter(svc: AcessoriasService) {
       .query(({ input }) => svc.listDeliveries(input)),
 
     // ── Sync engine ──────────────────────────────────────────
-    syncCompanies: protectedProcedure
+    syncCompanies: integracaoProc()
       .mutation(({ ctx }) => svc.syncCompanies({
         triggeredBy: ctx.userId ?? undefined,
         empresaId: ctx.empresaId ?? null,
       })),
 
-    syncDeliveries: protectedProcedure
+    syncDeliveries: integracaoProc()
       .input(z.object({
         dtInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         dtFinal:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -71,14 +107,19 @@ export function createAcessoriasRouter(svc: AcessoriasService) {
         empresaId: ctx.empresaId ?? null,
       })),
 
-    listObligationsObserved: protectedProcedure
-      .query(() => svc.listObligationsObserved()),
+    // Varre a carteira no Acessórias e GRAVA o resultado — ação sob demanda.
+    listObligationsObserved: integracaoProc()
+      .query(({ ctx }) => svc.listObligationsObserved(ctx.empresaId ?? null)),
 
-    listObligationMaps: protectedProcedure
+    // Lê o que já foi importado — é o que a tela carrega ao abrir.
+    listObligationsObservedCache: integracaoProc()
+      .query(({ ctx }) => svc.listObligationsObservedCache(ctx.empresaId ?? null)),
+
+    listObligationMaps: integracaoProc()
       .query(({ ctx }) => svc.listObligationMaps(ctx.empresaId ?? null)),
 
     // ── M:N: add/remove vínculo de servico a obrigação ──
-    addObligationServico: protectedProcedure
+    addObligationServico: integracaoProc()
       .input(z.object({
         nome: z.string().min(1),
         servicoId: z.string(),
@@ -89,50 +130,232 @@ export function createAcessoriasRouter(svc: AcessoriasService) {
         empresaId: ctx.empresaId ?? null,
       })),
 
-    removeObligationServico: protectedProcedure
+    removeObligationServico: integracaoProc()
       .input(z.object({ mapId: z.string() }))
       .mutation(({ input }) => svc.removeObligationServico(input.mapId)),
 
-    setObligationServicoActive: protectedProcedure
+    setObligationServicoActive: integracaoProc()
       .input(z.object({ mapId: z.string(), ativo: z.boolean() }))
       .mutation(({ input }) => svc.setObligationServicoActive(input.mapId, input.ativo)),
 
-    setObligationIgnored: protectedProcedure
+    setObligationIgnored: integracaoProc()
       .input(z.object({ nome: z.string(), ignored: z.boolean() }))
       .mutation(({ input, ctx }) => svc.setObligationIgnored({
         ...input,
         empresaId: ctx.empresaId ?? null,
       })),
 
-    setObligationObservacoes: protectedProcedure
+    setObligationObservacoes: integracaoProc()
       .input(z.object({ nome: z.string(), observacoes: z.string().nullable() }))
       .mutation(({ input, ctx }) => svc.setObligationObservacoes({
         ...input,
         empresaId: ctx.empresaId ?? null,
       })),
 
-    suggestMappings: protectedProcedure
+    suggestMappings: integracaoProc()
       .query(() => svc.suggestMappings()),
 
-    applySuggestions: protectedProcedure
+    applySuggestions: integracaoProc()
       .input(z.object({
         items: z.array(z.object({ nome: z.string(), servicoId: z.string() })),
       }))
       .mutation(({ input, ctx }) => svc.applySuggestions(input.items, ctx.empresaId ?? null)),
 
-    listSyncLogs: protectedProcedure
+    clientesElegiveis: integracaoProc()
+      .query(({ ctx }) => svc.clientesElegiveis(ctx.isMaster ? null : (ctx.empresaId ?? null))),
+
+    entregasDoCliente: integracaoProc()
+      .input(z.object({
+        clienteId: z.string(),
+        de: z.string().optional(),
+        ate: z.string().optional(),
+      }))
+      .query(({ input }) => svc.entregasDoCliente(input)),
+
+    empresasDaUltimaSync: integracaoProc()
+      .input(z.object({ situacao: z.enum(['casada', 'atualizada', 'ignorada', 'inativa']) }))
+      .query(({ input, ctx }) => svc.empresasDaUltimaSync(input.situacao, ctx.empresaId ?? null)),
+
+    vincularEmpresaCliente: integracaoProc()
+      .input(z.object({
+        clienteId: z.string(),
+        idAcessorias: z.coerce.number().int().positive(),
+        cnpjAcessorias: z.string().optional(),
+      }))
+      .mutation(({ input }) => svc.vincularEmpresaCliente(input)),
+
+    resumoVinculos: integracaoProc()
+      .query(({ ctx }) => svc.resumoVinculos(ctx.empresaId ?? null)),
+
+    removerVinculosEmLote: integracaoProc()
+      .input(z.object({
+        servicoIds: z.array(z.string()).optional(),
+        apenasAuto: z.boolean().optional(),
+      }))
+      .mutation(({ input, ctx }) => svc.removerVinculosEmLote({
+        servicoIds: input.servicoIds,
+        apenasAuto: input.apenasAuto,
+        empresaId: ctx.empresaId ?? null,
+      })),
+
+    listSyncLogs: integracaoProc()
       .input(z.object({ limit: z.coerce.number().int().min(1).max(200).optional() }).optional())
       .query(({ input }) => svc.listSyncLogs(input?.limit)),
 
     /** Cadastra (ou atualiza) o Cliente no Acessórias via POST /companies.
      *  Lê Cliente local, mapeia tributacao→regime, dispara request e grava
      *  Cliente.idAcessorias com o ID retornado. Apenas PJ (CNPJ válido). */
-    createCompanyFromCliente: protectedProcedure
+    createCompanyFromCliente: integracaoProc()
       .input(z.object({ clienteId: z.string() }))
       .mutation(({ input, ctx }) =>
         svc.createCompanyInAcessorias(input.clienteId, {
           triggeredBy: ctx.userId ?? undefined,
         }),
       ),
+
+    // ── Conciliação com o cadastro de clientes ──
+    // Restrito a master/empresa-master: cruza a base inteira e permite gravar
+    // no cadastro. Só leitura em `divergencias`; gravar exige `aplicarDivergencias`.
+    divergencias: conciliarProc()
+      .query(({ ctx }) => {
+        if (!divergenciaSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return divergenciaSvc.gerar(ctx.isMaster ?? false, ctx.empresaId)
+      }),
+    divergenciasCampos: conciliarProc()
+      .query(() => divergenciaSvc?.camposDisponiveis ?? []),
+    aplicarDivergencias: conciliarProc()
+      .input(z.object({
+        itens: z.array(z.object({ clienteId: z.string(), campos: z.array(z.string()).min(1) })).min(1),
+      }))
+      .mutation(({ input, ctx }) => {
+        if (!divergenciaSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return divergenciaSvc.aplicar(input.itens, ctx.userId, ctx.isMaster ?? false, ctx.empresaId)
+      }),
+
+    // ── Painel de entregas e leitura das guias ──
+    // Leitura do espelho local (acessorias_entregas) — não bate na API do
+    // Acessórias, então responde instantâneo e serve para qualquer usuário
+    // logado do escritório, que é quem faz a cobrança.
+    painelEntregas: painelProc()
+      .input(painelFiltroSchema)
+      .query(({ input, ctx }) => {
+        if (!painelSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return painelSvc.listar(input ?? {}, { userId: ctx.userId, isMaster: ctx.isMaster ?? false, isEmpresaMaster: ctx.isEmpresaMaster ?? false, empresaId: ctx.empresaId })
+      }),
+    painelEntregasPorCliente: painelProc()
+      .input(painelFiltroSchema)
+      .query(({ input, ctx }) => {
+        if (!painelSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return painelSvc.porCliente(input ?? {}, { userId: ctx.userId, isMaster: ctx.isMaster ?? false, isEmpresaMaster: ctx.isEmpresaMaster ?? false, empresaId: ctx.empresaId })
+      }),
+    // ── Regras de aplicabilidade das obrigações ──
+    // Leitura para qualquer um que veja o painel; gravar exige a permissão de
+    // integração, porque muda o que a sincronização passa a trazer.
+    listarRegrasObrigacao: painelProc()
+      .query(({ ctx }) => regrasSvc?.listar(ctx.empresaId ?? null) ?? []),
+
+    salvarRegraObrigacao: integracaoProc()
+      .input(z.object({
+        nome: z.string().min(1),
+        clienteId: z.string().nullable().optional(),
+        considerar: z.boolean(),
+        motivo: z.string().optional(),
+      }))
+      .mutation(({ input, ctx }) => {
+        if (!regrasSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return regrasSvc.salvar(input, ctx.empresaId ?? null, ctx.userId)
+      }),
+
+    removerRegraObrigacao: integracaoProc()
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => {
+        if (!regrasSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return regrasSvc.remover(input.id)
+      }),
+
+    // Recebe o filtro atual: cada campo passa a oferecer só o que ainda produz
+    // resultado dado o que já foi escolhido.
+    // ── Painel de indicadores ──
+    // O recorte por cargo é decidido no servidor; a tela só desenha.
+    indicadores: painelProc()
+      .input(z.object({
+        de: z.string().optional(),
+        ate: z.string().optional(),
+        dpto: z.string().optional(),
+        /** "YYYY-MM" — quando vem, manda no lugar do período. */
+        competencia: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+        regua: z.enum(['legal', 'tecnico']).optional(),
+      }).optional())
+      .query(({ input, ctx }) => {
+        if (!indicadoresSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return indicadoresSvc.painel(input ?? {}, {
+          userId: ctx.userId,
+          isMaster: ctx.isMaster ?? false,
+          isEmpresaMaster: ctx.isEmpresaMaster ?? false,
+          empresaId: ctx.empresaId,
+        })
+      }),
+
+    // Detalhe de um número do cartão. Reusa o recorte de permissão do painel.
+    indicadoresDetalhe: painelProc()
+      .input(z.object({
+        de: z.string().optional(),
+        ate: z.string().optional(),
+        competencia: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+        regua: z.enum(['legal', 'tecnico']).optional(),
+        grupo: z.string().min(1),
+        tipo: z.enum(['pessoa', 'area']),
+        medida: z.enum([
+          'pendenteNoPrazo', 'pendenteAtrasado', 'pendenteComMulta',
+          'entregueNoPrazo', 'entregueComAtraso', 'entregueComMulta',
+        ]),
+      }))
+      .query(({ input, ctx }) => {
+        if (!indicadoresSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return indicadoresSvc.detalhe(input, {
+          userId: ctx.userId,
+          isMaster: ctx.isMaster ?? false,
+          isEmpresaMaster: ctx.isEmpresaMaster ?? false,
+          empresaId: ctx.empresaId,
+        })
+      }),
+
+    // ── Vínculos com o nosso cadastro ──
+    listarVinculos: integracaoProc()
+      .query(({ ctx }) => vinculosSvc?.listar(ctx.empresaId ?? null) ?? { colaboradores: [], departamentos: [] }),
+
+    sincronizarVinculos: integracaoProc()
+      .mutation(({ ctx }) => {
+        if (!vinculosSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return vinculosSvc.sincronizar(ctx.empresaId ?? null)
+      }),
+
+    vincularColaborador: integracaoProc()
+      .input(z.object({ id: z.string(), userId: z.string().nullable() }))
+      .mutation(({ input }) => {
+        if (!vinculosSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return vinculosSvc.vincularColaborador(input.id, input.userId)
+      }),
+
+    vincularDepartamento: integracaoProc()
+      .input(z.object({ id: z.string(), areaId: z.string().nullable() }))
+      .mutation(({ input }) => {
+        if (!vinculosSvc) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return vinculosSvc.vincularDepartamento(input.id, input.areaId)
+      }),
+
+    painelEntregasOpcoes: painelProc()
+      .input(z.object({
+        dpto: z.string().optional(),
+        responsavel: z.string().optional(),
+        clienteId: z.string().optional(),
+      }).optional())
+      .query(({ input, ctx }) => {
+        if (!painelSvc) return { departamentos: [], responsaveis: [], clientes: [] }
+        return painelSvc.opcoes(
+          { userId: ctx.userId, isMaster: ctx.isMaster ?? false, isEmpresaMaster: ctx.isEmpresaMaster ?? false, empresaId: ctx.empresaId },
+          input ?? {},
+        )
+      }),
   })
 }

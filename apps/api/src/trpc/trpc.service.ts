@@ -21,6 +21,8 @@ import { ClienteService } from '../cliente/cliente.service'
 import { ClienteEnriquecimentoService } from '../cliente/cliente-enriquecimento.service'
 import { SincronizarResponsaveisService } from '../cliente/sincronizar-responsaveis.service'
 import { ImportOneclickService } from '../cliente/import-oneclick.service'
+import { DuplicidadeService } from '../cliente/duplicidade.service'
+import { MesclagemService } from '../cliente/mesclagem.service'
 import { LegacyImportService } from '../cliente/legacy-import.service'
 import { SciService } from '../cliente/sci.service'
 import { OmieService } from '../cliente/omie.service'
@@ -33,6 +35,7 @@ import { createColaboradorRouter } from '../colaborador/colaborador.router'
 import { FornecedorService } from '../fornecedor/fornecedor.service'
 import { createFornecedorRouter } from '../fornecedor/fornecedor.router'
 import { CompraService } from '../compra/compra.service'
+import { CotacaoService } from '../compra/cotacao.service'
 import { createCompraRouter } from '../compra/compra.router'
 import { TratamentoLancamentosService } from '../tratamento-lancamentos/tratamento-lancamentos.service'
 import { createTratamentoLancamentosRouter } from '../tratamento-lancamentos/tratamento-lancamentos.router'
@@ -132,6 +135,11 @@ import { createHelpdeskRouter } from '../helpdesk/helpdesk.router'
 import { PainelTvService } from '../painel-tv/painel-tv.service'
 import { createPainelTvRouter } from '../painel-tv/painel-tv.router'
 import { AcessoriasService } from '../acessorias/acessorias.service'
+import { DivergenciaAcessoriasService } from '../acessorias/divergencia.service'
+import { PainelEntregasService } from '../acessorias/painel-entregas.service'
+import { RegrasObrigacaoService } from '../acessorias/regras-obrigacao.service'
+import { VinculosAcessoriasService } from '../acessorias/vinculos.service'
+import { IndicadoresAcessoriasService } from '../acessorias/indicadores.service'
 import { createAcessoriasRouter } from '../acessorias/acessorias.router'
 import { RecorrenciaScheduler } from '../notificacao/recorrencia.scheduler'
 import { NotificacaoService } from '../notificacao/notificacao.service'
@@ -607,6 +615,9 @@ export class TrpcService {
     @Inject(ColaboradorService) private readonly colaboradorService: ColaboradorService,
     @Inject(FornecedorService) private readonly fornecedorService: FornecedorService,
     @Inject(CompraService) private readonly compraService: CompraService,
+    @Inject(CotacaoService) private readonly cotacaoService: CotacaoService,
+    @Inject(DuplicidadeService) private readonly duplicidadeService: DuplicidadeService,
+    @Inject(MesclagemService) private readonly mesclagemService: MesclagemService,
     @Inject(TratamentoLancamentosService) private readonly tratamentoLancamentosService: TratamentoLancamentosService,
     @Inject(SocioService) private readonly socioService: SocioService,
     @Inject(CnpjService) private readonly cnpjService: CnpjService,
@@ -668,6 +679,11 @@ export class TrpcService {
     @Inject(HelpdeskAiAgentService) private readonly helpdeskAiAgent: HelpdeskAiAgentService,
     @Inject(PainelTvService) private readonly painelTvService: PainelTvService,
     @Inject(AcessoriasService) private readonly acessoriasService: AcessoriasService,
+    @Inject(DivergenciaAcessoriasService) private readonly divergenciaAcessoriasService: DivergenciaAcessoriasService,
+    @Inject(PainelEntregasService) private readonly painelEntregasService: PainelEntregasService,
+    @Inject(RegrasObrigacaoService) private readonly regrasObrigacaoService: RegrasObrigacaoService,
+    @Inject(VinculosAcessoriasService) private readonly vinculosAcessoriasService: VinculosAcessoriasService,
+    @Inject(IndicadoresAcessoriasService) private readonly indicadoresAcessoriasService: IndicadoresAcessoriasService,
     @Inject(RecorrenciaScheduler) private readonly recorrenciaScheduler: RecorrenciaScheduler,
     @Inject(NotificacaoService) private readonly notificacaoServiceTrpc: NotificacaoService,
     @Inject(ObrigacaoService) private readonly obrigacaoService: ObrigacaoService,
@@ -720,11 +736,11 @@ export class TrpcService {
       onboarding: createOnboardingRouter(this.onboardingService),
       admin: createAdminRouter(this.adminService),
       adminTenant: createAdminTenantRouter(this.adminTenantService),
-      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService),
+      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService, this.mesclagemService),
       billing: createBillingRouter(this.stripeService),
       colaborador: createColaboradorRouter(this.colaboradorService),
       fornecedor: createFornecedorRouter(this.fornecedorService),
-      compra: createCompraRouter(this.compraService),
+      compra: createCompraRouter(this.compraService, this.cotacaoService),
       tratamentoLancamentos: createTratamentoLancamentosRouter(this.tratamentoLancamentosService),
       socio: createSocioRouter(this.socioService, this.cnpjService, this.sitfisService),
       sitfis: createSitfisRouter(this.sitfisService, this.cnpjService, this.socioService),
@@ -763,7 +779,8 @@ export class TrpcService {
       dashboardCalendario: createDashboardCalendarioRouter(this.dashboardCalendarioService),
       helpdesk: createHelpdeskRouter(this.helpdeskService, this.helpdeskAiAgent),
       painelTv: createPainelTvRouter(this.painelTvService),
-      acessorias: createAcessoriasRouter(this.acessoriasService),
+      acessorias: createAcessoriasRouter(this.acessoriasService, this.divergenciaAcessoriasService, this.painelEntregasService, this.regrasObrigacaoService,
+        this.vinculosAcessoriasService, this.indicadoresAcessoriasService),
       notificacao: createNotificacaoRouter(this.recorrenciaScheduler, this.notificacaoServiceTrpc),
       obrigacao: createObrigacaoRouter(this.obrigacaoService),
       feriado: createFeriadoRouter(this.feriadoService),

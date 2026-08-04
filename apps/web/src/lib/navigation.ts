@@ -76,6 +76,7 @@ import {
   FileSearch,
   Monitor,
   MailWarning,
+  Zap,
   Star,
   Workflow,
   Sparkles,
@@ -102,7 +103,12 @@ export interface NavItem {
   // do módulo). Usado p/ rotas cujo acesso é mais restrito que o módulo pai
   // (ex.: /crm/funil exige `crm.acessar_funil_lead`). Master/EmpresaMaster veem
   // sempre. Quem não tem a sub-permissão não vê o link (a página também barra).
-  requirePerm?: { module: string; sub: string }
+  /**
+   * Exige sub-permissão para o item aparecer. Sem `sub`, basta ter QUALQUER
+   * sub-permissão do módulo — usado por módulos de item único cujas telas
+   * internas são abas, cada uma com a sua própria sub-permissão.
+   */
+  requirePerm?: { module: string; sub?: string }
 }
 
 export interface NavGroup {
@@ -178,6 +184,10 @@ export const navigation: NavGroup[] = [
       { label: 'Controle de Estoque', href: '/estoque', icon: Boxes, wip: true },
       { label: 'Gerenciador de Serviços', href: '/meus-servicos', icon: ListChecks },
       { label: 'Minhas Obrigações', href: '/minhas-obrigacoes', icon: ClipboardCheck },
+      // Uma entrada só: as telas (entregas, integração, divergências) viram abas
+      // dentro do módulo, cada uma com a sua sub-permissão. A rota raiz encaminha
+      // para a primeira aba que o usuário pode ver.
+      { label: 'Acessórias', href: '/acessorias', icon: Zap, requirePerm: { module: 'acessorias' } },
       { label: 'Processos', href: '/processos', icon: Workflow },
       { label: 'Organograma', href: '/organograma', icon: GitBranch, wip: true },
     ],

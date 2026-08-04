@@ -9,6 +9,8 @@ import { SciService } from './sci.service'
 import { OmieService } from './omie.service'
 import { IntegrationService } from './integration.service'
 import { ImportOneclickService } from './import-oneclick.service'
+import { DuplicidadeService } from './duplicidade.service'
+import { MesclagemService } from './mesclagem.service'
 import { CnpjService } from '../cnpj/cnpj.service'
 
 const MODULE = 'clientes'
@@ -32,6 +34,8 @@ export function createClienteRouter(
   sincronizarResponsaveisService?: import('./sincronizar-responsaveis.service').SincronizarResponsaveisService,
   contratoSyncService?: import('./contrato-sync.service').ContratoSyncService,
   omieService?: OmieService,
+  duplicidadeService?: DuplicidadeService,
+  mesclagemService?: MesclagemService,
 ) {
   return router({
     // Listagem (ativos)
@@ -1263,6 +1267,44 @@ export function createClienteRouter(
           mesesHistorico: input?.mesesHistorico,
           empresaId: ctx.empresaId,
         })
+      }),
+
+    // ── Cadastros repetidos (relatório, só leitura) ──
+    // Restrito a master/empresa-master: expõe o mapa de inconsistências da base
+    // e é a porta de entrada da mesclagem, que é operação destrutiva e rara.
+    duplicidades: readProcedure(MODULE)
+      .input(z.object({ apenasComDado: z.boolean().optional() }).optional())
+      .query(({ input, ctx }) => {
+        if (!ctx.isMaster && !ctx.isEmpresaMaster) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Relatório restrito ao administrador.' })
+        }
+        if (!duplicidadeService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return duplicidadeService.listar(ctx.isMaster ?? false, ctx.empresaId, {
+          apenasComDado: input?.apenasComDado,
+        })
+      }),
+    duplicidadesTipos: readProcedure(MODULE)
+      .query(() => duplicidadeService?.tiposVinculo ?? []),
+
+    // ── Mesclagem de cadastros repetidos ──
+    // Só master/empresa-master: move histórico e inativa cadastro, sem desfazer.
+    mesclarPreview: readProcedure(MODULE)
+      .input(z.object({ origemId: z.string(), destinoId: z.string() }))
+      .query(({ input, ctx }) => {
+        if (!ctx.isMaster && !ctx.isEmpresaMaster) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Operação restrita ao administrador.' })
+        }
+        if (!mesclagemService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return mesclagemService.previsualizar(input.origemId, input.destinoId, ctx.isMaster ?? false, ctx.empresaId)
+      }),
+    mesclarExecutar: writeProcedure(MODULE)
+      .input(z.object({ origemId: z.string(), destinoId: z.string() }))
+      .mutation(({ input, ctx }) => {
+        if (!ctx.isMaster && !ctx.isEmpresaMaster) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Operação restrita ao administrador.' })
+        }
+        if (!mesclagemService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return mesclagemService.executar(input.origemId, input.destinoId, ctx.userId, ctx.isMaster ?? false, ctx.empresaId)
       }),
   })
 }

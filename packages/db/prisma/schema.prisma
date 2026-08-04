@@ -248,6 +248,7 @@ model User {
   tenant                 Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   empresa                Empresa?                @relation(fields: [empresaId], references: [id], onDelete: SetNull)
   area                   Area?                   @relation("UserArea", fields: [areaId], references: [id], onDelete: SetNull)
+  acessoriasColaborador  AcessoriasColaborador[] @relation("AcessoriasColaboradorUser")
   cargo                  Cargo?                  @relation(fields: [cargoId], references: [id], onDelete: SetNull)
   sessions               Session[]
   accounts               Account[]
@@ -423,6 +424,7 @@ model Area {
   helpdeskCategorias HelpdeskCategoria[]
   helpdeskTickets    HelpdeskTicket[]
   ativos             Ativo[]                 @relation("AtivoArea")
+  acessoriasDptos    AcessoriasDepartamento[] @relation("AcessoriasDepartamentoArea")
 
   @@map("areas")
 }
@@ -551,6 +553,7 @@ model Empresa {
   clientes             Cliente[]
   fornecedores         Fornecedor[]
   compras              Compra[]
+  compraCotacoes       CompraCotacao[]
   socios               Socio[]
   events               EmpresaEvent[]
   certificadosDigitais CertificadoDigital[]
@@ -835,6 +838,8 @@ model Cliente {
   folhaImportacoes     FolhaImportacao[]
   contratos            Contrato[]
   servicoExecucoes     ServicoExecucao[]       @relation("ClienteServicoExecucoes")
+  acessoriasEntregas   AcessoriasEntrega[]
+  acessoriasRegras     AcessoriasRegraObrigacao[]
   certificadosDigitais CertificadoDigital[]
   processos            Processo[]              @relation("ClienteProcessos")
   obrigacoes           ClienteObrigacao[]
@@ -1103,6 +1108,9 @@ model BeneficioFiscalCatalogo {
   servicoId              String?  @map("servico_id")
   // Dias de antecedência do vencimento pra marcar como "Vencendo" (default 30).
   notificaVencimentoDias Int?     @map("notifica_vencimento_dias")
+  // Validade do benefício em meses — usada pra calcular o novo vencimento quando o
+  // orçamento de renovação é FINALIZADO (default 12). Cada benefício tem a sua.
+  validadeMeses          Int?     @map("validade_meses")
   obs                    String?  @db.Text
   ativo                  Boolean  @default(true)
   empresaId              String?  @map("empresa_id")
@@ -1637,6 +1645,7 @@ model Fornecedor {
   qualificacoes    FornecedorQualificacao[]
   mensagens        FornecedorMensagem[]
   compras          Compra[]
+  cotacoes         CompraCotacaoFornecedor[]
   categoriaLinks   FornecedorCategoriaLink[]
 
   @@index([legacyId])
@@ -1824,7 +1833,11 @@ model Compra {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   fornecedor Fornecedor                @relation(fields: [fornecedorId], references: [id])
+  /// Cotação que originou este pedido (quando nasceu de uma apuração).
+  cotacaoId String? @map("cotacao_id")
+
   empresa    Empresa?                  @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  cotacao    CompraCotacao?            @relation(fields: [cotacaoId], references: [id], onDelete: SetNull)
   itens      CompraItem[]
   anexos     CompraAnexo[]
   mensagens  CompraMensagem[]
@@ -1834,7 +1847,123 @@ model Compra {
   @@index([fornecedorId])
   @@index([status])
   @@index([legacyId])
+  @@index([cotacaoId])
   @@map("compras")
+}
+
+// ============================================================
+// Cotação (RFQ) — o passo ANTES do pedido: monta-se a lista de
+// itens, convida-se N fornecedores, lançam-se os preços de cada
+// um e premia-se item por item. Cada fornecedor premiado gera
+// um pedido de compra próprio (split award por item de linha).
+// ============================================================
+
+enum StatusCotacao {
+  RASCUNHO // montando a lista de itens e escolhendo os fornecedores
+  ENVIADA // pedido de cotação enviado, aguardando retorno
+  APURACAO // ao menos um retorno lançado; premiando os itens
+  CONVERTIDA // pedidos de compra gerados
+  CANCELADA
+}
+
+model CompraCotacao {
+  id     String        @id @default(cuid())
+  code   Int           @default(autoincrement())
+  status StatusCotacao @default(RASCUNHO)
+
+  titulo        String? // "Material de expediente — agosto/2026"
+  observacoes   String?   @db.Text
+  prazoResposta DateTime? @map("prazo_resposta") @db.Date
+
+  solicitanteId String? @map("solicitante_id")
+  empresaId     String? @map("empresa_id")
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  empresa      Empresa?                  @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  itens        CompraCotacaoItem[]
+  fornecedores CompraCotacaoFornecedor[]
+  compras      Compra[]
+
+  @@index([empresaId])
+  @@index([status])
+  @@map("compra_cotacoes")
+}
+
+model CompraCotacaoItem {
+  id         String  @id @default(cuid())
+  cotacaoId  String  @map("cotacao_id")
+  descricao  String
+  unidade    String?
+  quantidade Int     @default(1)
+  ordem      Int     @default(0)
+
+  /// Fornecedor premiado NESTE item — id de CompraCotacaoFornecedor.
+  /// Coluna solta de propósito (sem relação Prisma): já existe uma relação
+  /// Item↔Fornecedor via `precos`, e uma segunda tornaria o schema ambíguo.
+  vencedorId String? @map("vencedor_id")
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  cotacao CompraCotacao        @relation(fields: [cotacaoId], references: [id], onDelete: Cascade)
+  precos  CompraCotacaoPreco[]
+
+  @@index([cotacaoId])
+  @@map("compra_cotacao_itens")
+}
+
+model CompraCotacaoFornecedor {
+  id           String @id @default(cuid())
+  cotacaoId    String @map("cotacao_id")
+  fornecedorId String @map("fornecedor_id")
+
+  enviadoEm    DateTime? @map("enviado_em")
+  respondidoEm DateTime? @map("respondido_em")
+
+  // Condições comerciais são POR FORNECEDOR — cada um responde as suas, e elas
+  // seguem para o pedido que ele vier a ganhar.
+  frete            Decimal? @db.Decimal(14, 2)
+  prazoEntrega     String?  @map("prazo_entrega")
+  prazoPagamento   String?  @map("prazo_pagamento")
+  formaPagamento   String?  @map("forma_pagamento")
+  validadeProposta String?  @map("validade_proposta")
+  observacoes      String?  @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cotacao    CompraCotacao        @relation(fields: [cotacaoId], references: [id], onDelete: Cascade)
+  fornecedor Fornecedor           @relation(fields: [fornecedorId], references: [id])
+  precos     CompraCotacaoPreco[]
+
+  @@unique([cotacaoId, fornecedorId])
+  @@index([cotacaoId])
+  @@map("compra_cotacao_fornecedores")
+}
+
+/// Uma célula da matriz de apuração: o preço do item X no fornecedor Y.
+model CompraCotacaoPreco {
+  id                  String @id @default(cuid())
+  cotacaoItemId       String @map("cotacao_item_id")
+  cotacaoFornecedorId String @map("cotacao_fornecedor_id")
+
+  valorUnitario Decimal? @map("valor_unitario") @db.Decimal(14, 2)
+  /// false = fornecedor informou que não atende este item.
+  disponivel    Boolean  @default(true)
+  observacoes   String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  item       CompraCotacaoItem       @relation(fields: [cotacaoItemId], references: [id], onDelete: Cascade)
+  fornecedor CompraCotacaoFornecedor @relation(fields: [cotacaoFornecedorId], references: [id], onDelete: Cascade)
+
+  @@unique([cotacaoItemId, cotacaoFornecedorId])
+  @@index([cotacaoFornecedorId])
+  @@map("compra_cotacao_precos")
 }
 
 model CompraItem {
@@ -4393,6 +4522,10 @@ model AcessoriasObligationMap {
   /// Quando false, este vínculo específico é desabilitado (não cria execução)
   /// sem precisar deletar — útil pra pausar temporariamente.
   ativo       Boolean  @default(true)
+  /// 'manual' (alguém vinculou na tela) ou 'auto' (veio da sugestão em lote).
+  /// Sem isso não dá para desfazer só o que a máquina criou — foi o que faltou
+  /// quando a sugestão automática vinculou obrigação demais.
+  origem      String   @default("manual")
   observacoes String?  @db.Text
   empresaId   String?  @map("empresa_id")
   createdAt   DateTime @default(now()) @map("created_at")
@@ -4405,6 +4538,164 @@ model AcessoriasObligationMap {
   @@index([nome])
   @@index([servicoId])
   @@map("acessorias_obligation_maps")
+}
+
+/// Regra de aplicabilidade de uma obrigação do Acessórias.
+///
+/// O Acessórias lista obrigações que nem sempre são devidas — configuração
+/// antiga, cliente que mudou de regime, obrigação criada por engano. Sem uma
+/// regra, elas voltam a cada sincronização e o painel de prazos vira ruído:
+/// quem cobra desiste de olhar uma lista cheia de coisa que não interessa.
+///
+/// Precedência: regra com cliente vence regra geral. Assim dá para dizer "esta
+/// obrigação não é devida por ninguém, exceto o cliente X" com duas linhas.
+model AcessoriasRegraObrigacao {
+  id String @id @default(cuid())
+
+  /// Nome exato da obrigação no Acessórias.
+  nome String
+  /// Null = a regra vale para todos os clientes.
+  clienteId String? @map("cliente_id")
+
+  /// false = a obrigação NÃO é devida e sai da sincronização.
+  considerar Boolean @default(false)
+  /// Por que a regra existe — quem revisar daqui a um ano vai precisar.
+  motivo     String? @db.Text
+
+  empresaId String?  @map("empresa_id")
+  criadoPor String?  @map("criado_por")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, nome, clienteId])
+  @@index([nome])
+  @@index([clienteId])
+  @@map("acessorias_regras_obrigacao")
+}
+
+/// Obrigações observadas no Acessórias — o resultado de "Importar obrigações".
+///
+/// A importação percorre a carteira inteira lá (dezenas de requisições) e por
+/// isso é uma ação sob demanda. Sem guardar o resultado, sair da tela apagava a
+/// lista e obrigava a repetir a varredura só para voltar a ver o que já se
+/// sabia.
+model AcessoriasObrigacaoObservada {
+  id           String   @id @default(cuid())
+  /// Nome exato como vem do Acessórias — é a chave do mapeamento.
+  nome         String
+  /// Em quantas empresas a obrigação aparece.
+  ocorrencias  Int      @default(0)
+  /// Departamento responsável, derivado das entregas. Null quando ainda não há
+  /// entrega espelhada para essa obrigação.
+  departamento String?
+  empresaId    String?  @map("empresa_id")
+  atualizadoEm DateTime @default(now()) @map("atualizado_em")
+
+  @@unique([empresaId, nome])
+  @@index([nome])
+  @@map("acessorias_obrigacoes_observadas")
+}
+
+/// Espelho bruto das entregas do Acessórias — uma linha por entrega, do jeito
+/// que ela vem de lá.
+///
+/// Existe separado de `ServicoExecucao` de propósito: a execução só nasce quando
+/// a obrigação tem mapeamento para um Serviço nosso, e obrigação sem mapeamento
+/// é descartada no sync. Para acompanhar prazo e leitura das guias isso seria um
+/// ponto cego justamente onde dói — o imposto que o cliente não abriu costuma
+/// ser o que ninguém mapeou. Aqui guardamos tudo, mapeado ou não.
+model AcessoriasEntrega {
+  id        String @id @default(cuid())
+  clienteId String @map("cliente_id")
+  /// Config.EntID — identificador da entrega no Acessórias.
+  entId     String @map("ent_id")
+
+  nome          String // nome da obrigação, como vem de lá
+  competencia   DateTime? @db.Date
+  prazo         DateTime? @db.Date
+  dtAtraso      DateTime? @map("dt_atraso") @db.Date
+  dtEntrega     DateTime? @map("dt_entrega") @db.Date
+  dtFinalizacao DateTime? @map("dt_finalizacao")
+
+  /// Texto cru do Acessórias ("Guia já acessada/lida", "Guia ainda não
+  /// acessada/lida" ou vazio quando a entrega não tem guia para ler).
+  guiaLida String? @map("guia_lida")
+  /// Derivado do texto acima: true = lida, false = não lida, null = sem guia.
+  /// Guardar o derivado permite filtrar e indexar sem depender da frase.
+  lida     Boolean?
+
+  status      String?
+  multa       Boolean @default(false)
+  respPrazo   String? @map("resp_prazo")
+  respEntrega String? @map("resp_entrega")
+  dpto        String?
+
+  /// IDs de origem no Acessórias (Config.RespPrazoID / RespEntregaID / DptoID).
+  /// O vínculo com o nosso cadastro se apoia neles, não na grafia do nome.
+  respPrazoId   String? @map("resp_prazo_id")
+  respEntregaId String? @map("resp_entrega_id")
+  dptoId        String? @map("dpto_id")
+
+  lastDH    DateTime? @map("last_dh")
+  syncedAt  DateTime  @default(now()) @map("synced_at")
+  empresaId String?   @map("empresa_id")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, entId])
+  @@index([clienteId])
+  @@index([prazo])
+  @@index([lida])
+  @@index([empresaId])
+  @@index([respPrazoId])
+  @@index([dptoId])
+  @@map("acessorias_entregas")
+}
+
+/// Colaborador do Acessórias ↔ usuário do OneClick.
+///
+/// Os nomes divergem entre as bases ("Millian de Souza" lá, "Millian Souza"
+/// aqui), então o par é resolvido por proximidade e GRAVADO — assim uma
+/// correção manual sobrevive, em vez de ser recalculada a cada consulta.
+model AcessoriasColaborador {
+  id           String  @id @default(cuid())
+  empresaId    String? @map("empresa_id")
+  acessoriasId String? @map("acessorias_id")
+  nome         String
+  userId       String? @map("user_id")
+  /// AUTO = casado por proximidade; MANUAL = corrigido à mão (a rotina
+  /// automática nunca sobrescreve MANUAL).
+  origem       String  @default("AUTO")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User? @relation("AcessoriasColaboradorUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([empresaId])
+  @@map("acessorias_colaboradores")
+}
+
+/// Departamento do Acessórias ↔ área do OneClick.
+model AcessoriasDepartamento {
+  id           String  @id @default(cuid())
+  empresaId    String? @map("empresa_id")
+  acessoriasId String? @map("acessorias_id")
+  nome         String
+  areaId       String? @map("area_id")
+  origem       String  @default("AUTO")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  area Area? @relation("AcessoriasDepartamentoArea", fields: [areaId], references: [id], onDelete: SetNull)
+
+  @@index([areaId])
+  @@index([empresaId])
+  @@map("acessorias_departamentos")
 }
 
 /// Log de execução de sync — última vez que rodamos polling, quantos registros
@@ -4428,6 +4719,20 @@ model AcessoriasSyncLog {
   erroMensagem          String?   @map("erro_mensagem") @db.Text
   /// Parâmetros da chamada (period, filtros) — debug.
   parametros            Json?
+
+  // ── Progresso em tempo real ──
+  // A sincronização roda em segundo plano e leva minutos; sem isto a tela só
+  // conseguiria dizer "rodando", sem noção de quanto falta.
+  /// Quantos itens já foram processados (clientes, no caso das entregas).
+  progressoAtual        Int?      @map("progresso_atual")
+  /// Total previsto. Null enquanto a contagem ainda não é conhecida.
+  progressoTotal        Int?      @map("progresso_total")
+  /// O que está sendo feito agora, em linguagem de usuário.
+  progressoMsg          String?   @map("progresso_msg")
+  /// Registro do que aconteceu, item a item — é o que a tela abre ao clicar na
+  /// linha do histórico. Limitado no serviço para não crescer sem controle.
+  detalhes              Json?
+
   /// Usuário que disparou (null = cron automático).
   triggeredBy           String?   @map("triggered_by")
   empresaId             String?   @map("empresa_id")

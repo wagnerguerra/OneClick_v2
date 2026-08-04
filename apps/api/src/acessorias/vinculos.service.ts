@@ -1,0 +1,342 @@
+import { Injectable } from '@nestjs/common'
+import { prisma, Prisma } from '@saas/db'
+
+/**
+ * Liga o que vem do Acessórias ao nosso cadastro: colaborador → usuário e
+ * departamento → área.
+ *
+ * Por que não basta comparar o nome: as bases escrevem as pessoas de formas
+ * diferentes — "Millian de Souza" lá, "Millian Souza" aqui; "Gabriel Melo
+ * Scardini" lá, "Gabriel Scardini" aqui. Comparação exata acerta pouco.
+ *
+ * Então o par é resolvido por PROXIMIDADE e **gravado**. Gravar é o ponto: uma
+ * correção manual sobrevive à próxima sincronização, em vez de o palpite ser
+ * refeito a cada consulta. O par gravado guarda o ID do nosso lado e, quando a
+ * sincronização traz, o ID do lado do Acessórias — o nome fica só para exibir.
+ */
+
+const STOPWORDS = new Set(['de', 'da', 'do', 'das', 'dos', 'e'])
+
+/** Sem acento, minúsculo, sem pontuação. */
+function norm(v: string): string {
+  return String(v ?? '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function tokens(v: string): string[] {
+  return norm(v).split(' ').filter((t) => t && !STOPWORDS.has(t))
+}
+
+/**
+ * Quão perto dois nomes estão. Devolve 0 quando não dá para afirmar nada.
+ *
+ * O primeiro nome precisa bater, e mais um pedaço qualquer do nome também —
+ * primeiro nome sozinho não é semelhança, é coincidência. Foi o que ligou
+ * "Maria da Conceição Alves Meneses" a uma "Maria Helena": nenhum sobrenome em
+ * comum, mas era a única Maria da lista, então venceu sem concorrência.
+ *
+ * Com dois tokens exigidos, "Joao Victor de Souza" ainda vai para "João Victor
+ * Carvalho" (joao+victor) e não para "João Vitor Castiglioni" (só joao, porque
+ * "vitor" ≠ "victor").
+ *
+ * Nome de uma palavra só é a exceção: aí o único token é tudo o que existe.
+ */
+export function proximidade(a: string, b: string): number {
+  const ta = tokens(a)
+  const tb = tokens(b)
+  if (ta.length === 0 || tb.length === 0) return 0
+  if (ta[0] !== tb[0]) return 0
+  const resto = new Set(tb.slice(1))
+  let comuns = 1
+  for (const t of ta.slice(1)) if (resto.has(t)) comuns++
+  const exigeSobrenome = ta.length > 1 && tb.length > 1
+  if (exigeSobrenome && comuns < 2) return 0
+  return comuns
+}
+
+/** O melhor candidato, ou null se houver empate ou nenhum. */
+function melhorPar<T>(alvo: string, candidatos: T[], nomeDe: (c: T) => string): T | null {
+  let melhor: T | null = null
+  let melhorNota = 0
+  let empatado = false
+  for (const c of candidatos) {
+    const nota = proximidade(alvo, nomeDe(c))
+    if (nota === 0) continue
+    if (nota > melhorNota) { melhor = c; melhorNota = nota; empatado = false }
+    else if (nota === melhorNota) empatado = true
+  }
+  // Empate fica sem vínculo de propósito: chutar entre dois homônimos
+  // atribuiria o trabalho de um colaborador a outro sem ninguém perceber.
+  return empatado ? null : melhor
+}
+
+/**
+ * Quanto da carteira cada cargo enxerga. Vive aqui, e não em cada tela, porque
+ * duas telas com regras próprias divergem — e divergir aqui significa uma
+ * delas mostrar o que a outra bloqueia.
+ */
+export type EscopoAcessorias = 'PROPRIO' | 'COLABORADORES' | 'AREAS' | 'GERAL'
+
+export interface ResultadoVinculos {
+  colaboradores: { total: number; casados: number; semPar: number }
+  departamentos: { total: number; casados: number; semPar: number }
+}
+
+@Injectable()
+export class VinculosAcessoriasService {
+  /**
+   * Percorre os nomes que aparecem no espelho e grava o par de cada um.
+   * Nunca mexe em linha marcada como MANUAL.
+   */
+  async sincronizar(empresaId: string | null): Promise<ResultadoVinculos> {
+    const escopo = empresaId ? { empresaId } : {}
+
+    const [linhas, usuarios, areas, jaGravados, dptosGravados] = await Promise.all([
+      prisma.acessoriasEntrega.findMany({
+        where: escopo,
+        select: { respPrazo: true, respPrazoId: true, respEntrega: true, respEntregaId: true, dpto: true, dptoId: true },
+        distinct: ['respPrazo', 'respEntrega', 'dpto'],
+      }),
+      // Inclui inativos de propósito: quem saiu continua aparecendo como
+      // responsável no histórico do Acessórias, e só dá para ocultar a pessoa
+      // se soubermos QUEM ela é. Filtrar aqui deixaria o ex-colaborador como
+      // "sem vínculo", indistinguível de um nome que não casou.
+      prisma.user.findMany({ select: { id: true, name: true, areaId: true, isActive: true } }),
+      prisma.area.findMany({ select: { id: true, name: true } }),
+      prisma.acessoriasColaborador.findMany({ where: escopo, select: { id: true, nome: true, origem: true, userId: true, acessoriasId: true } }),
+      prisma.acessoriasDepartamento.findMany({ where: escopo, select: { id: true, nome: true, origem: true, areaId: true, acessoriasId: true } }),
+    ])
+
+    // ── pessoas ──
+    const nomesPessoas = new Map<string, string | null>() // nome → acessoriasId
+    for (const l of linhas) {
+      if (l.respPrazo) nomesPessoas.set(l.respPrazo, l.respPrazoId ?? nomesPessoas.get(l.respPrazo) ?? null)
+      if (l.respEntrega) nomesPessoas.set(l.respEntrega, l.respEntregaId ?? nomesPessoas.get(l.respEntrega) ?? null)
+    }
+    const manualPessoas = new Set(jaGravados.filter((g) => g.origem === 'MANUAL').map((g) => norm(g.nome)))
+
+    let casadosP = 0
+    for (const [nome, acessoriasId] of nomesPessoas) {
+      if (manualPessoas.has(norm(nome))) { casadosP++; continue }
+      const u = melhorPar(nome, usuarios, (x) => x.name)
+      if (u) casadosP++
+      const existente = jaGravados.find((g) => norm(g.nome) === norm(nome))
+      if (existente) {
+        // Só grava se algo mudou. É o que permite rodar a conferência em toda
+        // consulta ao painel sem custo: uma correção na regra se propaga
+        // sozinha, e no dia a dia não escreve nada.
+        const mudou = existente.userId !== (u?.id ?? null)
+          || (!!acessoriasId && existente.acessoriasId !== acessoriasId)
+        if (mudou) {
+          await prisma.acessoriasColaborador.update({
+            where: { id: existente.id },
+            data: { userId: u?.id ?? null, acessoriasId: acessoriasId ?? undefined, origem: 'AUTO' },
+          })
+        }
+      } else {
+        await prisma.acessoriasColaborador.create({
+          data: { empresaId, nome, acessoriasId, userId: u?.id ?? null, origem: 'AUTO' },
+        })
+      }
+    }
+
+    // ── departamentos ──
+    const nomesDptos = new Map<string, string | null>()
+    for (const l of linhas) if (l.dpto) nomesDptos.set(l.dpto, l.dptoId ?? nomesDptos.get(l.dpto) ?? null)
+    const manualDptos = new Set(dptosGravados.filter((g) => g.origem === 'MANUAL').map((g) => norm(g.nome)))
+
+    // Quando o nome do departamento não se parece com nenhuma área nossa, a
+    // resposta está em QUEM trabalha nele: "PESSOAL" não lembra "Trabalhista",
+    // mas todo mundo que entrega ali é da área Trabalhista. Vale a área da
+    // maioria — é dedução a partir do dado real, não uma tradução chumbada no
+    // código que envelhece.
+    const areaDoUsuario = new Map(usuarios.map((u) => [u.id, u.areaId]))
+    const votosPorDpto = new Map<string, Map<string, number>>()
+    for (const l of linhas) {
+      if (!l.dpto) continue
+      const responsavel = l.respPrazo ?? l.respEntrega
+      if (!responsavel) continue
+      const u = melhorPar(responsavel, usuarios, (x) => x.name)
+      const areaId = u?.isActive ? areaDoUsuario.get(u.id) : null
+      if (!areaId) continue
+      const urna = votosPorDpto.get(norm(l.dpto)) ?? new Map<string, number>()
+      urna.set(areaId, (urna.get(areaId) ?? 0) + 1)
+      votosPorDpto.set(norm(l.dpto), urna)
+    }
+    const areaMajoritaria = (dpto: string): string | null => {
+      const urna = votosPorDpto.get(norm(dpto))
+      if (!urna) return null
+      let vencedora: string | null = null
+      let max = 0
+      for (const [areaId, votos] of urna) if (votos > max) { vencedora = areaId; max = votos }
+      return vencedora
+    }
+
+    let casadosD = 0
+    for (const [nome, acessoriasId] of nomesDptos) {
+      if (manualDptos.has(norm(nome))) { casadosD++; continue }
+      const porNome = melhorPar(nome, areas, (x) => x.name)
+      const a = porNome ?? (() => {
+        const id = areaMajoritaria(nome)
+        return id ? { id } : null
+      })()
+      if (a) casadosD++
+      const existente = dptosGravados.find((g) => norm(g.nome) === norm(nome))
+      if (existente) {
+        const mudou = existente.areaId !== (a?.id ?? null)
+          || (!!acessoriasId && existente.acessoriasId !== acessoriasId)
+        if (mudou) {
+          await prisma.acessoriasDepartamento.update({
+            where: { id: existente.id },
+            data: { areaId: a?.id ?? null, acessoriasId: acessoriasId ?? undefined, origem: 'AUTO' },
+          })
+        }
+      } else {
+        await prisma.acessoriasDepartamento.create({
+          data: { empresaId, nome, acessoriasId, areaId: a?.id ?? null, origem: 'AUTO' },
+        })
+      }
+    }
+
+    return {
+      colaboradores: { total: nomesPessoas.size, casados: casadosP, semPar: nomesPessoas.size - casadosP },
+      departamentos: { total: nomesDptos.size, casados: casadosD, semPar: nomesDptos.size - casadosD },
+    }
+  }
+
+  /**
+   * O recorte deste usuário:
+   *
+   *   colaborador          → as obrigações dele
+   *   gestor/coordenador   → a área dele
+   *   gerente/diretor      → todas as áreas
+   *   master               → tudo
+   */
+  async escopoDoUsuario(userId: string, isMaster: boolean, isEmpresaMaster: boolean) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, role: true, profile: true, areaId: true, area: { select: { name: true } } },
+    })
+    if (isMaster || isEmpresaMaster) return { escopo: 'GERAL' as EscopoAcessorias, user }
+    const role = String(user?.role ?? '')
+    const perfil = String(user?.profile ?? '')
+    if (role === 'DIRETOR' || perfil === 'ADMIN' || perfil === 'GERENTE') {
+      return { escopo: 'AREAS' as EscopoAcessorias, user }
+    }
+    if (role === 'GESTOR' || role === 'COORDENADOR' || perfil === 'SUPERVISOR') {
+      return { escopo: 'COLABORADORES' as EscopoAcessorias, user }
+    }
+    return { escopo: 'PROPRIO' as EscopoAcessorias, user }
+  }
+
+  /**
+   * O filtro que traduz o recorte para a consulta. `null` = sem restrição.
+   *
+   * Devolve `{ id: '' }` — que não casa com nada — quando o usuário deveria ser
+   * limitado mas não temos como: sem vínculo, "as obrigações dele" é indefinido,
+   * e abrir tudo seria o erro mais caro dos dois.
+   */
+  async restricaoDeEscopo(
+    escopo: EscopoAcessorias,
+    user: { id: string; areaId: string | null } | null,
+    empresaId: string | null,
+  ): Promise<Prisma.AcessoriasEntregaWhereInput | null> {
+    if (escopo === 'AREAS' || escopo === 'GERAL' || !user) return null
+    const idx = await this.indices(empresaId)
+    if (escopo === 'PROPRIO') {
+      const meus = idx.nomesDoUsuario.get(user.id) ?? []
+      if (meus.length === 0) return { id: '' }
+      return { OR: [{ respPrazo: { in: meus } }, { respEntrega: { in: meus } }] }
+    }
+    const dptos = user.areaId ? idx.dptosDaArea.get(user.areaId) ?? [] : []
+    if (dptos.length === 0) return { id: '' }
+    return { dpto: { in: dptos } }
+  }
+
+  /**
+   * Restrição por ÁREA — usada na tela de entregas, onde o recorte é sempre a
+   * área de quem olha, e não a pessoa.
+   *
+   * Gerente, diretoria e master veem tudo; do gestor para baixo, só a própria
+   * área. Sem área ou sem departamento correspondente devolve um filtro que não
+   * casa com nada: mostrar a carteira inteira por falta de configuração é o
+   * erro mais caro dos dois.
+   */
+  async restricaoPorArea(
+    escopo: EscopoAcessorias,
+    user: { id: string; areaId: string | null } | null,
+    empresaId: string | null,
+  ): Promise<Prisma.AcessoriasEntregaWhereInput | null> {
+    if (escopo === 'AREAS' || escopo === 'GERAL') return null
+    if (!user?.areaId) return { id: '' }
+    const idx = await this.indices(empresaId)
+    const dptos = idx.dptosDaArea.get(user.areaId) ?? []
+    if (dptos.length === 0) return { id: '' }
+    return { dpto: { in: dptos } }
+  }
+
+  /** Índices prontos para consulta — chave em minúsculo e sem acento. */
+  async indices(empresaId: string | null) {
+    const escopo = empresaId ? { empresaId } : {}
+    const [colabs, dptos] = await Promise.all([
+      prisma.acessoriasColaborador.findMany({
+        where: escopo,
+        select: { nome: true, userId: true, user: { select: { isActive: true } } },
+      }),
+      prisma.acessoriasDepartamento.findMany({ where: escopo, select: { nome: true, areaId: true } }),
+    ])
+    return {
+      /** nome no Acessórias → id do nosso usuário */
+      usuarioDe: new Map(colabs.filter((c) => c.userId).map((c) => [norm(c.nome), c.userId as string])),
+      /** Só quem segue ativo no OneClick — o painel não mostra ex-colaborador. */
+      usuariosAtivos: new Set(colabs.filter((c) => c.userId && c.user?.isActive).map((c) => c.userId as string)),
+      /** id do nosso usuário → nomes usados no Acessórias (pode ser mais de um) */
+      nomesDoUsuario: colabs.reduce((m, c) => {
+        if (c.userId) m.set(c.userId, [...(m.get(c.userId) ?? []), c.nome])
+        return m
+      }, new Map<string, string[]>()),
+      /** departamento no Acessórias → id da nossa área */
+      areaDe: new Map(dptos.filter((d) => d.areaId).map((d) => [norm(d.nome), d.areaId as string])),
+      /** id da nossa área → departamentos do Acessórias */
+      dptosDaArea: dptos.reduce((m, d) => {
+        if (d.areaId) m.set(d.areaId, [...(m.get(d.areaId) ?? []), d.nome])
+        return m
+      }, new Map<string, string[]>()),
+    }
+  }
+
+  /** Listagem para a tela de conferência/correção. */
+  async listar(empresaId: string | null) {
+    const escopo = empresaId ? { empresaId } : {}
+    const [colaboradores, departamentos] = await Promise.all([
+      prisma.acessoriasColaborador.findMany({
+        where: escopo, orderBy: { nome: 'asc' },
+        select: {
+          id: true, nome: true, acessoriasId: true, origem: true,
+          user: { select: { id: true, name: true, area: { select: { name: true } } } },
+        },
+      }),
+      prisma.acessoriasDepartamento.findMany({
+        where: escopo, orderBy: { nome: 'asc' },
+        select: { id: true, nome: true, acessoriasId: true, origem: true, area: { select: { id: true, name: true } } },
+      }),
+    ])
+    return { colaboradores, departamentos }
+  }
+
+  /** Correção manual — a partir daqui a rotina automática não mexe mais nesta linha. */
+  async vincularColaborador(id: string, userId: string | null) {
+    return prisma.acessoriasColaborador.update({
+      where: { id }, data: { userId, origem: 'MANUAL' },
+      select: { id: true, nome: true, userId: true, origem: true },
+    })
+  }
+
+  async vincularDepartamento(id: string, areaId: string | null) {
+    return prisma.acessoriasDepartamento.update({
+      where: { id }, data: { areaId, origem: 'MANUAL' },
+      select: { id: true, nome: true, areaId: true, origem: true },
+    })
+  }
+}

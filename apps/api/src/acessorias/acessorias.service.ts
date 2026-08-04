@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import { RegrasObrigacaoService } from './regras-obrigacao.service'
 
 /**
  * Cliente HTTP do Acessórias (https://api.acessorias.com).
@@ -36,8 +37,19 @@ export interface AcessoriasResponse<T = unknown> {
   rateLimitRemaining?: number
 }
 
+/**
+ * Recorte da carteira que a integração enxerga: cliente ATIVO e de situação
+ * MENSAL. É quem o escritório atende de forma recorrente e, portanto, quem tem
+ * obrigação e entrega no Acessórias. Sem este corte a sincronização varre
+ * prospect, potencial, avulso e paralisado — gasta requisição, infla o
+ * histórico e enche a lista de pendências com quem não deveria estar lá.
+ */
+const CLIENTE_ATIVO_MENSAL = { status: 'ATIVA', situacao: 'MENSAL', deletedAt: null } as const
+
 @Injectable()
 export class AcessoriasService {
+  constructor(private readonly regras: RegrasObrigacaoService) {}
+
   /** Lê config corrente do process.env (atualizado por /configuracoes ao salvar).
    *  Throws se token/url ausentes — caller deve tratar pra mostrar mensagem útil. */
   private getConfig(): AcessoriasConfig {
@@ -276,9 +288,23 @@ export class AcessoriasService {
     })
 
     let novas = 0, atualizadas = 0, ignoradas = 0
+    /** Empresas encerradas no Acessórias e que não são clientes nossos. */
+    let inativas = 0
     const erros: string[] = []
 
     try {
+      // Guarda o desfecho de cada empresa para a tela poder listar por grupo.
+      const detalhes: Array<{
+        situacao: 'casada' | 'atualizada' | 'ignorada' | 'inativa'
+        idAcessorias: number
+        documento: string
+        razaoAcessorias: string
+        statusAcessorias: string
+        clienteId?: string
+        clienteCode?: number
+        clienteNome?: string
+      }> = []
+
       // /companies/ListAll é paginado (20 por página). Loop até array vazio.
       let pagina = 1
       while (true) {
@@ -296,15 +322,29 @@ export class AcessoriasService {
           // Match: por idAcessorias OU documento (normalizado)
           const cliente = await prisma.cliente.findFirst({
             where: {
+              ...CLIENTE_ATIVO_MENSAL,
               OR: [
                 { idAcessorias: idAcess },
                 { documento: cnpjKey },
               ],
             },
-            select: { id: true, idAcessorias: true, cnpjAcessorias: true },
+            select: { id: true, code: true, razaoSocial: true, idAcessorias: true, cnpjAcessorias: true },
           })
           if (!cliente) {
-            ignoradas++
+            // Empresa que o Acessórias já encerrou e que não é cliente nosso não
+            // tem o que resolver: não entra na fila de vínculo manual. Fica
+            // registrada à parte para o número continuar honesto — some da lista
+            // de pendências, não do relatório.
+            const statusLa = String(raw.Status ?? '')
+            const ativaLa = statusLa.trim().toLowerCase().startsWith('ativ')
+            detalhes.push({
+              situacao: ativaLa ? 'ignorada' : 'inativa',
+              idAcessorias: idAcess,
+              documento: cnpjKey,
+              razaoAcessorias: String(raw.Razao ?? ''),
+              statusAcessorias: statusLa,
+            })
+            if (ativaLa) ignoradas++; else inativas++
             continue
           }
           // Atualiza apenas o que falta
@@ -317,8 +357,28 @@ export class AcessoriasService {
           if (Object.keys(patch).length > 0) {
             await prisma.cliente.update({ where: { id: cliente.id }, data: patch })
             atualizadas++
+            detalhes.push({
+              situacao: 'atualizada',
+              idAcessorias: idAcess,
+              documento: cnpjKey,
+              razaoAcessorias: String(raw.Razao ?? ''),
+              statusAcessorias: String(raw.Status ?? ''),
+              clienteId: cliente.id,
+              clienteCode: cliente.code,
+              clienteNome: cliente.razaoSocial,
+            })
           } else {
             novas++ // já estava sincronizada (vamos contar como "ok-novas")
+            detalhes.push({
+              situacao: 'casada',
+              idAcessorias: idAcess,
+              documento: cnpjKey,
+              razaoAcessorias: String(raw.Razao ?? ''),
+              statusAcessorias: String(raw.Status ?? ''),
+              clienteId: cliente.id,
+              clienteCode: cliente.code,
+              clienteNome: cliente.razaoSocial,
+            })
           }
         }
         pagina++
@@ -335,10 +395,12 @@ export class AcessoriasService {
           empresasNovas: novas,
           empresasAtualizadas: atualizadas,
           empresasIgnoradas: ignoradas,
+          detalhes: detalhes as never,
+          progressoMsg: 'Concluída',
           erroMensagem: erros.length > 0 ? erros.join('\n') : null,
         },
       })
-      return { ok: true, novas, atualizadas, ignoradas, logId: log.id }
+      return { ok: true, novas, atualizadas, ignoradas, inativas, logId: log.id }
     } catch (e) {
       await prisma.acessoriasSyncLog.update({
         where: { id: log.id },
@@ -365,11 +427,22 @@ export class AcessoriasService {
    *   - acessoriasLastDH > existente.acessoriasLastDH → UPDATE
    *   - registro novo → CREATE
    *   - mesma DH → SKIP */
+  /**
+   * Dispara a sincronização de entregas e RETORNA NA HORA, com o id do log.
+   *
+   * A varredura é cliente a cliente contra a API do Acessórias (não existe
+   * /deliveries/ListAll funcional), então a carteira inteira leva minutos —
+   * muito além dos 30s em que o proxy derruba a requisição. Quando isso
+   * acontecia, o proxy devolvia uma página de texto e o navegador tentava lê-la
+   * como JSON ("Unexpected token 'I', \"Internal S\"...").
+   *
+   * O trabalho segue em segundo plano gravando em `acessorias_sync_logs`, que é
+   * o que a tela acompanha. Para um único cliente continua rápido, mas o caminho
+   * é o mesmo — um só comportamento para depurar.
+   */
   async syncDeliveries(opts: {
-    dtInicio: string  // YYYY-MM-DD
-    dtFinal: string   // YYYY-MM-DD
-    /** Quando passado, sincroniza só esse cliente. Senão, varre todos os clientes
-     *  com idAcessorias preenchido. */
+    dtInicio: string
+    dtFinal: string
     clienteId?: string
     triggeredBy?: string
     empresaId?: string | null
@@ -380,9 +453,54 @@ export class AcessoriasService {
         status: 'running',
         triggeredBy: opts.triggeredBy ?? null,
         empresaId: opts.empresaId ?? null,
-        parametros: { dtInicio: opts.dtInicio, dtFinal: opts.dtFinal, clienteId: opts.clienteId ?? null } as any,
+        parametros: { dtInicio: opts.dtInicio, dtFinal: opts.dtFinal, clienteId: opts.clienteId ?? null } as never,
       },
     })
+
+    // Fire-and-forget: o erro é registrado no log, nunca sobe como exceção não
+    // tratada do processo.
+    void this.executarSyncDeliveries(opts, log.id).catch(async (e: Error) => {
+      await prisma.acessoriasSyncLog.update({
+        where: { id: log.id },
+        data: { status: 'error', finishedAt: new Date(), erroMensagem: e.message },
+      }).catch(() => null)
+    })
+
+    return {
+      ok: true,
+      emAndamento: true,
+      logId: log.id,
+      mensagem: 'Sincronização iniciada. Acompanhe pelo histórico — ela roda em segundo plano.',
+    }
+  }
+
+  /**
+   * Grava o andamento no log para a tela acompanhar em tempo real. Falha aqui
+   * nunca interrompe a sincronização — progresso é informação, não trabalho.
+   */
+  private async marcarProgresso(
+    logId: string,
+    dados: { atual?: number; total?: number; msg?: string },
+  ) {
+    await prisma.acessoriasSyncLog.update({
+      where: { id: logId },
+      data: {
+        ...(dados.atual !== undefined ? { progressoAtual: dados.atual } : {}),
+        ...(dados.total !== undefined ? { progressoTotal: dados.total } : {}),
+        ...(dados.msg !== undefined ? { progressoMsg: dados.msg } : {}),
+      },
+    }).catch(() => null)
+  }
+
+  private async executarSyncDeliveries(opts: {
+    dtInicio: string
+    dtFinal: string
+    clienteId?: string
+    triggeredBy?: string
+    empresaId?: string | null
+  }, logId: string) {
+    // O log já foi criado por quem disparou — aqui só atualizamos o progresso.
+    const log = { id: logId }
 
     let novas = 0, atualizadas = 0, ignoradas = 0
     const erros: string[] = []
@@ -405,9 +523,10 @@ export class AcessoriasService {
       // Resolve lista de clientes a sincronizar
       const clientes = await prisma.cliente.findMany({
         where: {
+          ...CLIENTE_ATIVO_MENSAL,
           ...(opts.clienteId ? { id: opts.clienteId } : { idAcessorias: { not: null } }),
         },
-        select: { id: true, documento: true, idAcessorias: true, cnpjAcessorias: true },
+        select: { id: true, documento: true, idAcessorias: true, cnpjAcessorias: true, empresaId: true, razaoSocial: true },
       })
 
       if (clientes.length === 0) {
@@ -418,15 +537,35 @@ export class AcessoriasService {
             finishedAt: new Date(),
             erroMensagem: opts.clienteId
               ? 'Cliente não encontrado.'
-              : 'Nenhum cliente com idAcessorias resolvido. Rode "Sync de Empresas" primeiro.',
+              : 'Nenhum cliente ativo e mensal com código do Acessórias. Rode "Sincronizar Empresas" primeiro.',
           },
         })
         return { ok: false, novas, atualizadas, ignoradas, logId: log.id, erro: 'Nenhum cliente pra sincronizar' }
       }
 
+      // Índice de regras carregado UMA vez: são milhares de entregas e uma
+      // consulta por entrega seria o gargalo da rodada.
+      const deveConsiderar = await this.regras.carregarIndice(opts.empresaId ?? null)
+      let excluidasPorRegra = 0
+      /** Páginas que a API recusou. Sincronização incompleta precisa aparecer. */
+      const falhas: string[] = []
+
+      await this.marcarProgresso(log.id, {
+        atual: 0, total: clientes.length,
+        msg: `${clientes.length} cliente(s) a consultar`,
+      })
+
+      // Registro do que aconteceu por cliente — é o que a tela abre ao clicar
+      // na linha do histórico. Limitado para o log não crescer sem controle.
+      const detalhes: Array<{ clienteId: string; cliente: string; entregas: number; novas: number; atualizadas: number; erro?: string }> = []
+      let indice = 0
+
       for (const cli of clientes) {
+        indice++
         const cnpj = this.normCnpj(cli.cnpjAcessorias ?? cli.documento)
         if (!cnpj) continue
+        const antesNovas = novas, antesAtual = atualizadas
+        let entregasDoCliente = 0
 
         // /deliveries/{cnpj} paginado (50 por página). Inclui `config` (sem valor)
         // pra trazer Config.RespPrazo / Config.RespEntrega / Config.DptoNome —
@@ -439,8 +578,20 @@ export class AcessoriasService {
             DtFinal: opts.dtFinal,
             Pagina: String(pagina),
           }).toString()
-          const res = await this.request<unknown>(`/deliveries/${cnpj}?${qs}&config`)
-          if (!res.ok) break
+          // A API permite 100 req/min. Ao estourar ela devolve 429, e a versão
+          // anterior tratava isso como "acabaram as páginas": abandonava o
+          // resto do cliente em silêncio, deixando o espelho incompleto sem
+          // nenhum sinal no histórico. Agora espera e tenta de novo; se ainda
+          // assim falhar, a falha é CONTADA e aparece no log.
+          let res = await this.request<unknown>(`/deliveries/${cnpj}?${qs}&config`)
+          for (let tentativa = 1; tentativa <= 3 && res.status === 429; tentativa++) {
+            await new Promise(r => setTimeout(r, 20_000))
+            res = await this.request<unknown>(`/deliveries/${cnpj}?${qs}&config`)
+          }
+          if (!res.ok) {
+            falhas.push(`${cli.razaoSocial} p.${pagina}: HTTP ${res.status}`)
+            break
+          }
           // Resposta pode ser objeto único (1 empresa) ou array; deliveries em .Entregas
           const data = res.data
           let entregas: Array<Record<string, unknown>> = []
@@ -456,22 +607,57 @@ export class AcessoriasService {
           if (entregas.length === 0) break
 
           for (const e of entregas) {
-            const r = await this.upsertDelivery(cli.id, e, obligationMap)
+            // Regra do time vence a lista do Acessórias: obrigação marcada como
+            // não devida não entra no espelho nem vira execução.
+            if (!deveConsiderar(String(e.Nome ?? ''), cli.id)) {
+              excluidasPorRegra++
+              continue
+            }
+            const r = await this.upsertDelivery(cli.id, e, obligationMap, cli.empresaId ?? null)
             novas += r.created
             atualizadas += r.updated
             ignoradas += r.skipped
+            entregasDoCliente++
           }
           pagina++
-          await new Promise(r => setTimeout(r, 200))
+          // 700ms ≈ 85 req/min, abaixo do teto de 100. Com 200ms a sincronização
+          // pedia 300/min e vivia batendo no limite.
+          await new Promise(r => setTimeout(r, 700))
           if (pagina > 50) break
         }
+
+        // Só registra quem teve movimento — uma linha por cliente vazio encheria
+        // o detalhe de ruído e esconderia o que importa.
+        if (entregasDoCliente > 0 && detalhes.length < 500) {
+          detalhes.push({
+            clienteId: cli.id,
+            cliente: cli.razaoSocial ?? cnpj,
+            entregas: entregasDoCliente,
+            novas: novas - antesNovas,
+            atualizadas: atualizadas - antesAtual,
+          })
+        }
+        // Atualiza a cada cliente: é o que faz a barra andar de verdade.
+        await this.marcarProgresso(log.id, {
+          atual: indice,
+          msg: `${indice}/${clientes.length} · ${cli.razaoSocial ?? cnpj}`,
+        })
       }
 
       await prisma.acessoriasSyncLog.update({
         where: { id: log.id },
         data: {
-          status: erros.length > 0 ? 'partial' : 'success',
+          // Página recusada pela API também deixa a sincronização parcial: sem
+          // isso o histórico marcaria "sucesso" sobre um espelho incompleto.
+          status: erros.length > 0 || falhas.length > 0 ? 'partial' : 'success',
           finishedAt: new Date(),
+          progressoAtual: clientes.length,
+          progressoTotal: clientes.length,
+          progressoMsg: [
+            falhas.length > 0 ? `Concluída com ${falhas.length} falha(s)` : 'Concluída',
+            excluidasPorRegra > 0 ? `${excluidasPorRegra} entrega(s) fora por regra` : '',
+          ].filter(Boolean).join(' · '),
+          detalhes: (falhas.length > 0 ? { ...detalhes, falhas } : detalhes) as never,
           deliveriesNovas: novas,
           deliveriesAtualizadas: atualizadas,
           deliveriesIgnoradas: ignoradas,
@@ -498,14 +684,78 @@ export class AcessoriasService {
   /** Upsert de uma delivery individual.
    *  Como o mapeamento agora é M:N, uma delivery pode gerar **N execuções**
    *  (uma por servicoId vinculado). Retorna contadores agregados. */
+  /**
+   * Interpreta o campo `EntGuiaLida`. Ele vem como frase ("Guia já acessada/lida",
+   * "Guia ainda não acessada/lida") ou vazio quando a entrega não tem guia para
+   * o cliente abrir. Vazio NÃO é "não lida" — tratar assim inflaria o painel com
+   * obrigações que nunca geraram documento.
+   */
+  private interpretarGuiaLida(v: unknown): boolean | null {
+    const s = String(v ?? '').trim().toLowerCase()
+    if (!s) return null
+    if (s.includes('não') || s.includes('nao')) return false
+    if (s.includes('lida') || s.includes('acessada')) return true
+    return null
+  }
+
+  /**
+   * Guarda a entrega crua em `acessorias_entregas` — o espelho que o painel de
+   * prazos e leitura consulta. Independente do mapeamento de obrigações.
+   */
+  private async espelharEntrega(clienteId: string, delivery: Record<string, unknown>, empresaId: string | null) {
+    const config = (delivery.Config ?? {}) as Record<string, unknown>
+    const entId = config.EntID ? String(config.EntID).trim() : ''
+    // Sem EntID não há chave estável: o mesmo registro entraria duplicado a cada
+    // sync. Melhor não espelhar do que poluir o painel.
+    if (!entId) return
+
+    const guiaLida = delivery.EntGuiaLida != null ? String(delivery.EntGuiaLida).trim() : null
+
+    const dados = {
+      nome: String(delivery.Nome ?? '').trim(),
+      competencia: this.parseDate(String(delivery.EntCompetencia ?? '')),
+      prazo: this.parseDate(String(delivery.EntDtPrazo ?? '')),
+      dtAtraso: this.parseDate(String(delivery.EntDtAtraso ?? '')),
+      dtEntrega: this.parseDate(String(delivery.EntDtEntrega ?? '')),
+      dtFinalizacao: this.parseDateTime(String(delivery.EntDtFinalizacao ?? '')),
+      guiaLida: guiaLida || null,
+      lida: this.interpretarGuiaLida(guiaLida),
+      status: String(delivery.Status ?? '').trim() || null,
+      multa: String(delivery.EntMulta ?? '').trim().toUpperCase() === 'S',
+      respPrazo: config.RespPrazo ? String(config.RespPrazo).trim() || null : null,
+      respEntrega: config.RespEntrega ? String(config.RespEntrega).trim() || null : null,
+      dpto: config.DptoNome ? String(config.DptoNome).trim() || null : null,
+      // Os identificadores vinham na resposta e eram descartados. O vínculo com
+      // o nosso cadastro se apoia neles: nome muda de grafia entre as bases,
+      // ID não.
+      respPrazoId: config.RespPrazoID ? String(config.RespPrazoID).trim() || null : null,
+      respEntregaId: config.RespEntregaID ? String(config.RespEntregaID).trim() || null : null,
+      dptoId: config.DptoID ? String(config.DptoID).trim() || null : null,
+      lastDH: this.parseDateTime(String(delivery.EntLastDH ?? '')),
+      syncedAt: new Date(),
+      empresaId,
+    }
+
+    await prisma.acessoriasEntrega.upsert({
+      where: { clienteId_entId: { clienteId, entId } },
+      create: { clienteId, entId, ...dados },
+      update: dados,
+    })
+  }
+
   private async upsertDelivery(
     clienteId: string,
     delivery: Record<string, unknown>,
     obligationMap: Map<string, Array<string | null>>,
+    empresaId: string | null,
   ): Promise<{ created: number; updated: number; skipped: number }> {
     const out = { created: 0, updated: 0, skipped: 0 }
     const nome = String(delivery.Nome ?? '').trim()
     if (!nome) { out.skipped++; return out }
+
+    // Espelha a entrega ANTES do filtro de mapeamento. O que vem abaixo só cria
+    // execução para obrigação mapeada; o painel de prazos precisa de todas.
+    await this.espelharEntrega(clienteId, delivery, empresaId).catch(() => null)
 
     // Resolve TODOS os servicoIds vinculados a essa obrigação
     const servicoIds = obligationMap.get(nome.toLowerCase())
@@ -636,6 +886,8 @@ export class AcessoriasService {
     nome: string
     servicoId: string
     empresaId?: string | null
+    /** 'manual' (tela) ou 'auto' (sugestão em lote). Default manual. */
+    origem?: 'manual' | 'auto'
   }) {
     const existing = await prisma.acessoriasObligationMap.findFirst({
       where: { empresaId: input.empresaId ?? null, nome: input.nome, servicoId: input.servicoId },
@@ -649,6 +901,7 @@ export class AcessoriasService {
     }
     return prisma.acessoriasObligationMap.create({
       data: {
+        origem: input.origem ?? 'manual',
         nome: input.nome,
         servicoId: input.servicoId,
         ativo: true,
@@ -698,7 +951,7 @@ export class AcessoriasService {
    *  mapping mostrar os candidatos sem precisar puxar deliveries individuais.
    *  Usa /companies/ListAll com flag `?obligations` (sem valor — Acessórias
    *  reconhece presença do param, não valor). */
-  async listObligationsObserved(): Promise<Array<{ nome: string; ocorrencias: number }>> {
+  async listObligationsObserved(empresaId?: string | null): Promise<Array<{ nome: string; ocorrencias: number; departamento: string | null }>> {
     const counter = new Map<string, number>()
     let pagina = 1
     let totalCompanies = 0
@@ -735,9 +988,42 @@ export class AcessoriasService {
       if (pagina > 200) break
     }
     console.log(`[listObligationsObserved] total: ${totalCompanies} empresas, ${totalObs} obrigações brutas, ${counter.size} distintas`)
-    return [...counter.entries()]
-      .map(([nome, ocorrencias]) => ({ nome, ocorrencias }))
+
+    // O departamento NÃO vem em /companies/ListAll?obligations — só no bloco
+    // Config das entregas. Como o espelho local já guarda isso por entrega,
+    // derivamos daqui em vez de gastar mais requisição na API.
+    const dptos = await prisma.acessoriasEntrega.groupBy({
+      by: ['nome', 'dpto'],
+      where: { dpto: { not: null } },
+      _count: { _all: true },
+    }).catch(() => [] as Array<{ nome: string; dpto: string | null; _count: { _all: number } }>)
+
+    // Uma obrigação pode aparecer em mais de um departamento (configuração por
+    // cliente). Vale o predominante — e o rótulo avisa que há mistura.
+    const porNome = new Map<string, Array<{ dpto: string; n: number }>>()
+    for (const d of dptos) {
+      if (!d.dpto) continue
+      const arr = porNome.get(d.nome) ?? []
+      arr.push({ dpto: d.dpto, n: d._count._all })
+      porNome.set(d.nome, arr)
+    }
+    const departamentoDe = (nome: string): string | null => {
+      const arr = porNome.get(nome)
+      if (!arr || arr.length === 0) return null
+      const ordenado = [...arr].sort((a, b) => b.n - a.n)
+      const principal = ordenado[0]!.dpto
+      return ordenado.length > 1 ? `${principal} +${ordenado.length - 1}` : principal
+    }
+
+    const resultado = [...counter.entries()]
+      .map(([nome, ocorrencias]) => ({ nome, ocorrencias, departamento: departamentoDe(nome) }))
       .sort((a, b) => b.ocorrencias - a.ocorrencias)
+
+    // Guarda o resultado: a varredura custa dezenas de requisições e o usuário
+    // não deve pagar de novo só por ter saído da tela.
+    await this.guardarObservadas(resultado, empresaId ?? null).catch(() => null)
+
+    return resultado
   }
 
   /** Mapeia regime do OneClick (Cliente.tributacao) pro código numérico do Acessórias.
@@ -958,23 +1244,12 @@ export class AcessoriasService {
       if (m) return { ...m, razao: 'Área fiscal · regime Lucro Real detectado' }
     }
 
-    // Sem regime claro → escolhe o serviço da área que cobre mais casos:
-    //   Fiscal: prefere Lucro Real (mais abrangente — cobre Presumido por extensão)
-    //   Contábil: prefere "Presumido/Real" (mais comum em escritórios médios)
-    //   Trabalhista: o genérico (só tem 1 mesmo)
-    if (classified.area === 'fiscal') {
-      const real = candidatos.find(s => has(s.nome, 'real'))
-      if (real) return { ...real, razao: 'Área fiscal · regime não detectado, sugerido Lucro Real (cobertura mais ampla)' }
-    }
-    if (classified.area === 'contabil') {
-      const pr = candidatos.find(s => has(s.nome, 'presumido') || has(s.nome, 'real'))
-      if (pr) return { ...pr, razao: 'Área contábil · padrão Presumido/Real (escrituração completa)' }
-    }
-    if (classified.area === 'trabalhista') {
-      return { ...candidatos[0], razao: 'Área trabalhista · único serviço genérico' }
-    }
-
-    return { ...candidatos[0], razao: 'Match aproximado por área' }
+    // Sem regime detectado NÃO se chuta. Antes, qualquer obrigação da área caía
+    // no serviço "que cobre mais casos" e o resultado foi vincular a carteira
+    // inteira num serviço mensal só. Sem casamento pelo nome, a sugestão fica
+    // vazia e o vínculo é feito à mão — que é o certo: quem conhece a obrigação
+    // é o time, não a heurística.
+    return null
   }
 
   /** Sugere mapeamentos automáticos pra cada obrigação observada.
@@ -982,6 +1257,7 @@ export class AcessoriasService {
   async suggestMappings(): Promise<Array<{
     nome: string
     ocorrencias: number
+    departamento: string | null
     area: string
     regime?: string
     confidence: string
@@ -991,10 +1267,13 @@ export class AcessoriasService {
     razao: string | null
     /** Já tem mapping cadastrado? (pula no apply automático) */
     alreadyMapped: boolean
-    currentServicoId: string | null
+    /** Vínculos atuais. A assinatura declarava `currentServicoId` no singular,
+     *  mas o retorno sempre foi a lista — o M:N chegou depois e a assinatura
+     *  ficou para trás. */
+    currentServicoIds: string[]
   }>> {
-    const [observed, maps, servicos] = await Promise.all([
-      this.listObligationsObserved(),
+    const [observedCache, maps, servicos] = await Promise.all([
+      this.listObligationsObservedCache(),
       prisma.acessoriasObligationMap.findMany({ select: { nome: true, servicoId: true } }),
       prisma.servico.findMany({
         where: { ativo: true, categoriaServico: 'MENSAL' },
@@ -1010,7 +1289,7 @@ export class AcessoriasService {
       mappedByNome.get(key)!.push(m.servicoId)
     }
 
-    return observed.map(o => {
+    return observedCache.itens.map(o => {
       const classified = this.classifyObligation(o.nome)
       const sug = this.pickServico(classified, servicos)
       const currentIds = mappedByNome.get(o.nome.toLowerCase()) ?? []
@@ -1019,6 +1298,7 @@ export class AcessoriasService {
       return {
         nome: o.nome,
         ocorrencias: o.ocorrencias,
+        departamento: o.departamento ?? null,
         area: classified.area,
         regime: classified.regime,
         confidence: classified.confidence,
@@ -1045,6 +1325,7 @@ export class AcessoriasService {
           nome: it.nome,
           servicoId: it.servicoId,
           empresaId: empresaId ?? null,
+          origem: 'auto',
         })
         aplicados++
       } catch (e) {
@@ -1052,5 +1333,207 @@ export class AcessoriasService {
       }
     }
     return { ok: erros.length === 0, aplicados, erros }
+  }
+
+  /**
+   * Clientes elegíveis para vincular a uma empresa do Acessórias — ativos e
+   * mensais. Alimenta o seletor da tela de empresas ignoradas.
+   */
+  async clientesElegiveis(empresaId?: string | null) {
+    return prisma.cliente.findMany({
+      where: { ...CLIENTE_ATIVO_MENSAL, ...(empresaId ? { empresaId } : {}) },
+      select: { id: true, code: true, razaoSocial: true, documento: true },
+      orderBy: { razaoSocial: 'asc' },
+      take: 2000,
+    })
+  }
+
+  /**
+   * Entregas espelhadas de um cliente no período — é o detalhe por trás do
+   * "41 entrega(s)" que aparece no resumo da sincronização. Sai do espelho
+   * local, não da API: instantâneo e sem gastar requisição.
+   */
+  async entregasDoCliente(input: { clienteId: string; de?: string; ate?: string }) {
+    const rows = await prisma.acessoriasEntrega.findMany({
+      where: {
+        clienteId: input.clienteId,
+        ...(input.de || input.ate
+          ? {
+              prazo: {
+                ...(input.de ? { gte: new Date(`${input.de}T00:00:00`) } : {}),
+                ...(input.ate ? { lte: new Date(`${input.ate}T00:00:00`) } : {}),
+              },
+            }
+          : {}),
+      },
+      orderBy: [{ prazo: 'asc' }, { nome: 'asc' }],
+      take: 500,
+      select: {
+        id: true, nome: true, competencia: true, prazo: true, status: true,
+        lida: true, guiaLida: true, multa: true, dpto: true, respEntrega: true,
+        dtEntrega: true,
+      },
+    })
+    return rows
+  }
+
+  /**
+   * Lista o desfecho da última sincronização de empresas, por grupo. É o que
+   * transforma o número do card ("46 ignoradas") em uma lista sobre a qual dá
+   * para agir.
+   */
+  async empresasDaUltimaSync(
+    situacao: 'casada' | 'atualizada' | 'ignorada' | 'inativa',
+    empresaId?: string | null,
+  ) {
+    const log = await prisma.acessoriasSyncLog.findFirst({
+      where: { tipo: 'companies', status: { not: 'running' }, ...(empresaId ? { empresaId } : {}) },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true, startedAt: true, detalhes: true },
+    })
+    if (!log?.detalhes) return { logId: null, quando: null, itens: [], totais: {} as Record<string, number> }
+    const todos = (Array.isArray(log.detalhes) ? log.detalhes : []) as Array<Record<string, unknown>>
+    const totais: Record<string, number> = {}
+    for (const d of todos) {
+      const k = String(d.situacao ?? '')
+      totais[k] = (totais[k] ?? 0) + 1
+    }
+    return {
+      logId: log.id,
+      quando: log.startedAt,
+      itens: todos.filter(d => d.situacao === situacao),
+      totais,
+    }
+  }
+
+  /**
+   * Vincula à mão uma empresa do Acessórias a um cliente do OneClick — o
+   * caminho para resolver as "ignoradas", que são as que o CNPJ não casou.
+   */
+  async vincularEmpresaCliente(input: {
+    clienteId: string
+    idAcessorias: number
+    cnpjAcessorias?: string | null
+  }) {
+    const alvo = await prisma.cliente.findFirst({
+      where: { id: input.clienteId, ...CLIENTE_ATIVO_MENSAL },
+      select: { id: true },
+    })
+    if (!alvo) {
+      throw new Error('Só é possível vincular a um cliente ativo e de situação mensal.')
+    }
+    const jaUsado = await prisma.cliente.findFirst({
+      where: { idAcessorias: input.idAcessorias, id: { not: input.clienteId } },
+      select: { id: true, code: true, razaoSocial: true },
+    })
+    if (jaUsado) {
+      // Dois clientes com o mesmo código do Acessórias fariam as entregas
+      // aparecerem no lugar errado — pior que não vincular.
+      throw new Error(`Este código do Acessórias já está no cliente #${jaUsado.code} — ${jaUsado.razaoSocial}.`)
+    }
+    await prisma.cliente.update({
+      where: { id: input.clienteId },
+      data: {
+        idAcessorias: input.idAcessorias,
+        ...(input.cnpjAcessorias ? { cnpjAcessorias: input.cnpjAcessorias } : {}),
+      },
+    })
+    return { ok: true }
+  }
+
+  /** Grava o resultado da importação, substituindo o anterior da empresa. */
+  private async guardarObservadas(
+    itens: Array<{ nome: string; ocorrencias: number; departamento: string | null }>,
+    empresaId: string | null,
+  ) {
+    await prisma.$transaction(async (tx) => {
+      await tx.acessoriasObrigacaoObservada.deleteMany({ where: { empresaId } })
+      if (itens.length === 0) return
+      await tx.acessoriasObrigacaoObservada.createMany({
+        data: itens.map(i => ({
+          nome: i.nome,
+          ocorrencias: i.ocorrencias,
+          departamento: i.departamento,
+          empresaId,
+        })),
+        skipDuplicates: true,
+      })
+    })
+  }
+
+  /**
+   * Lista guardada da última importação. É o que a tela carrega ao abrir —
+   * instantâneo e sem tocar na API. Vazia significa "nunca importou", e a tela
+   * orienta a rodar a importação.
+   */
+  async listObligationsObservedCache(empresaId?: string | null) {
+    const rows = await prisma.acessoriasObrigacaoObservada.findMany({
+      where: { empresaId: empresaId ?? null },
+      orderBy: [{ ocorrencias: 'desc' }, { nome: 'asc' }],
+      select: { nome: true, ocorrencias: true, departamento: true, atualizadoEm: true },
+    }).catch(() => [])
+    return {
+      itens: rows.map(r => ({ nome: r.nome, ocorrencias: r.ocorrencias, departamento: r.departamento })),
+      atualizadoEm: rows[0]?.atualizadoEm ?? null,
+    }
+  }
+
+  /**
+   * Vínculos agrupados por serviço — a visão que permite enxergar o estrago
+   * quando uma sugestão em lote concentra obrigações demais num serviço só.
+   */
+  async resumoVinculos(empresaId?: string | null) {
+    const maps = await prisma.acessoriasObligationMap.findMany({
+      where: { ...(empresaId !== undefined ? { empresaId } : {}), servicoId: { not: null } },
+      select: { id: true, nome: true, servicoId: true, origem: true, ativo: true },
+    })
+    const servicoIds = [...new Set(maps.map(m => m.servicoId).filter(Boolean) as string[])]
+    const servicos = await prisma.servico.findMany({
+      where: { id: { in: servicoIds } },
+      select: { id: true, nome: true },
+    })
+    const nomePorId = new Map(servicos.map(s => [s.id, s.nome]))
+
+    const porServico = new Map<string, {
+      servicoId: string; servicoNome: string
+      total: number; auto: number; manual: number; obrigacoes: string[]
+    }>()
+    for (const m of maps) {
+      if (!m.servicoId) continue
+      const atual = porServico.get(m.servicoId) ?? {
+        servicoId: m.servicoId,
+        servicoNome: nomePorId.get(m.servicoId) ?? '(serviço removido)',
+        total: 0, auto: 0, manual: 0, obrigacoes: [] as string[],
+      }
+      atual.total++
+      if (m.origem === 'auto') atual.auto++; else atual.manual++
+      if (atual.obrigacoes.length < 100) atual.obrigacoes.push(m.nome)
+      porServico.set(m.servicoId, atual)
+    }
+    // Mais vínculos primeiro: é onde a sugestão automática costuma ter exagerado.
+    return [...porServico.values()].sort((a, b) => b.total - a.total)
+  }
+
+  /**
+   * Remove vínculos em lote. Os filtros se somam — sem nenhum, não remove nada
+   * (uma limpeza sem alvo apagaria o mapeamento inteiro por engano).
+   */
+  async removerVinculosEmLote(input: {
+    servicoIds?: string[]
+    /** Quando true, só remove os que vieram da sugestão automática. */
+    apenasAuto?: boolean
+    empresaId?: string | null
+  }) {
+    const temAlvo = (input.servicoIds && input.servicoIds.length > 0) || input.apenasAuto === true
+    if (!temAlvo) return { removidos: 0 }
+
+    const res = await prisma.acessoriasObligationMap.deleteMany({
+      where: {
+        ...(input.empresaId !== undefined ? { empresaId: input.empresaId } : {}),
+        ...(input.servicoIds && input.servicoIds.length > 0 ? { servicoId: { in: input.servicoIds } } : {}),
+        ...(input.apenasAuto ? { origem: 'auto' } : {}),
+      },
+    })
+    return { removidos: res.count }
   }
 }

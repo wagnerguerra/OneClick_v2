@@ -46,6 +46,7 @@ interface Vinculo {
 }
 interface CatalogoItem {
   id: string; nome: string; servicoId: string | null; notificaVencimentoDias: number | null
+  validadeMeses: number | null
   obs: string | null; ativo: boolean; servicoNome: string | null; servicoValor: number | null; emUso: number
 }
 interface ClienteOpt { id: string; razaoSocial: string; documento: string | null }
@@ -71,9 +72,11 @@ function fmtDateBR(d: string | null): string {
 
 const trpcBF = () => (trpc as any).beneficioFiscal
 
-// Elegível p/ orçamento automático: vencendo/vencido, com serviço vinculado e sem orçamento.
+// Elegível p/ orçamento de renovação: basta ter serviço vinculado e não ter orçamento
+// em andamento. O vencimento é LEMBRETE (farol/alerta), não trava — o usuário pode
+// adiantar a renovação a qualquer momento.
 function elegivelParaOrcar(v: Vinculo) {
-  return !v.orcamentoId && !!v.servicoNome && (v.status === 'VENCENDO' || v.status === 'VENCIDO')
+  return !v.orcamentoId && !!v.servicoNome
 }
 function escHtml(s: string) {
   return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] || c))
@@ -210,10 +213,10 @@ export default function BeneficiosFiscaisPage() {
       `<li style="margin-bottom:4px"><strong>${escHtml(v.clienteNome)}</strong> — <em>${escHtml(v.beneficioNome)}</em> <span style="color:#9ca3af">(${escHtml(v.servicoNome!)})</span></li>`,
     ).join('')
     const res = await alerts.custom({
-      title: 'Gerar orçamentos automáticos?',
+      title: 'Gerar orçamentos de renovação?',
       icon: 'question',
       html: `<ol style="text-align:left;margin:0 auto;max-width:360px;padding-left:1.4em;font-size:14px;line-height:1.45">${linhas}</ol>`
-        + `<p style="margin-top:14px;font-size:13px;color:#6b7280">Será criado um orçamento para cada item elegível (vencendo/vencido e com serviço vinculado).</p>`,
+        + `<p style="margin-top:14px;font-size:13px;color:#6b7280">Será criado um orçamento de renovação para cada item elegível (vencendo/vencido e com serviço vinculado).</p>`,
       confirmButtonText: 'Sim, gerar',
       cancelButtonText: 'Cancelar',
     })
@@ -433,7 +436,7 @@ export default function BeneficiosFiscaisPage() {
                           )}
                           {canGerarOrcamento && elegivelParaOrcar(v) && (
                             <DropdownMenuItem onClick={() => gerarOrcamento(v)}>
-                              <Receipt className="h-3.5 w-3.5" /> Gerar orçamento
+                              <Receipt className="h-3.5 w-3.5" /> Gerar orçamento de renovação
                             </DropdownMenuItem>
                           )}
                           {canDelete && (
@@ -567,6 +570,7 @@ function CatalogoModal({ open, onClose, catalogo, servicos, onChanged }: {
         nome: edit.nome,
         servicoId: edit.servicoId || null,
         notificaVencimentoDias: edit.notificaVencimentoDias ?? null,
+        validadeMeses: edit.validadeMeses ?? null,
         obs: edit.obs || null,
         ativo: edit.ativo ?? true,
       }
@@ -592,7 +596,7 @@ function CatalogoModal({ open, onClose, catalogo, servicos, onChanged }: {
         </DialogHeaderIcon>
         <DialogBody className="space-y-3">
           <div className="flex justify-end">
-            <Button size="sm" variant="outline" onClick={() => setEdit({ _new: true, ativo: true, notificaVencimentoDias: 30 })}>
+            <Button size="sm" variant="outline" onClick={() => setEdit({ _new: true, ativo: true, notificaVencimentoDias: 30, validadeMeses: 12 })}>
               <Plus className="h-3.5 w-3.5" /> Novo
             </Button>
           </div>
@@ -603,7 +607,7 @@ function CatalogoModal({ open, onClose, catalogo, servicos, onChanged }: {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{c.nome} {!c.ativo && <span className="text-[10px] text-muted-foreground">(inativo)</span>}</p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {c.servicoNome ? `Serviço: ${c.servicoNome}` : 'Sem serviço vinculado'} · {c.emUso} em uso · avisa {c.notificaVencimentoDias ?? 30}d antes
+                    {c.servicoNome ? `Serviço: ${c.servicoNome}` : 'Sem serviço vinculado'} · {c.emUso} em uso · avisa {c.notificaVencimentoDias ?? 30}d antes · validade {c.validadeMeses ?? 12}m
                   </p>
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEdit({ ...c })}><Edit2 className="h-3.5 w-3.5" /></Button>
@@ -634,6 +638,12 @@ function CatalogoModal({ open, onClose, catalogo, servicos, onChanged }: {
                   <Label className="text-[13px] font-semibold">Avisar (dias antes)</Label>
                   <Input type="number" className="h-9 text-sm" value={edit.notificaVencimentoDias ?? ''}
                     onChange={e => setEdit(s => ({ ...s, notificaVencimentoDias: e.target.value ? Number(e.target.value) : null }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[13px] font-semibold">Validade (meses)</Label>
+                  <Input type="number" className="h-9 text-sm" placeholder="12" value={edit.validadeMeses ?? ''}
+                    onChange={e => setEdit(s => ({ ...s, validadeMeses: e.target.value ? Number(e.target.value) : null }))} />
+                  <p className="text-[11px] text-muted-foreground">Novo vencimento ao finalizar a renovação (padrão 12).</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">

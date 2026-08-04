@@ -1,0 +1,182 @@
+<title>Resumo do dia — OneClick v2 · 31/07/2026</title>
+<style>
+  :root {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+    /* dots por bloco (cores dos módulos) */
+    --cadastros:#10b981; --comercial:#fb7185; --corporativo:#8b5cf6; --administrativo:#64748b;
+    --legalizacao:#0ea5e9; --trabalhista:#f97316; --fiscal:#6366f1; --contabil:#14b8a6;
+    --ti:#3b82f6; --qualidade:#f59e0b; --configuracoes:#64748b; --processos:#a855f7;
+    --faq:#22c55e; --perfil:#ec4899; --dashboard:#0ea5e9; --agenda:#8b5cf6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+      --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+      --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+    --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+    --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 56px 24px 80px; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  header { animation: rise .5s ease-out both; }
+  .eyebrow {
+    text-transform: uppercase; letter-spacing: .13em; font-size: 11px; font-weight: 700;
+    color: var(--accent-deep); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px); line-height: 1.08; margin: 0 0 8px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .sub { color: var(--muted); font-size: 15px; margin: 0; }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 8px; }
+  .stat {
+    flex: 1 1 150px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .stat .n { font-size: 24px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  main { margin-top: 30px; display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; box-shadow: var(--shadow);
+    animation: rise .5s ease-out both;
+  }
+  .card-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .card-head h2 { font-size: 16px; margin: 0; letter-spacing: -.01em; font-weight: 700; }
+  .card-head .tag {
+    margin-left: auto; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
+  }
+  ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  li { display: flex; gap: 10px; font-size: 14.5px; }
+  li::before {
+    content: ""; margin-top: 9px; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--muted); flex: none; opacity: .55;
+  }
+  li b { font-weight: 650; }
+  .hash {
+    display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 5px;
+    background: var(--chip-bg); color: var(--chip-ink); margin-left: 4px; vertical-align: baseline;
+  }
+
+  .note {
+    margin-top: 22px; border: 1px dashed var(--border); border-radius: 12px;
+    padding: 14px 18px; font-size: 13.5px; color: var(--muted); background: transparent;
+  }
+  .note b { color: var(--ink); }
+  footer { margin-top: 34px; text-align: center; color: var(--muted); font-size: 12px; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Resumo do dia · sessão de desenvolvimento</p>
+    <h1>O que fizemos hoje no OneClick v2</h1>
+    <p class="sub">31 de julho de 2026 — visão geral, sem entrar no detalhe.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="n">25</div><div class="l">commits (locais)</div></div>
+    <div class="stat"><div class="n">16</div><div class="l">melhorias</div></div>
+    <div class="stat"><div class="n">9</div><div class="l">correções</div></div>
+    <div class="stat"><div class="n">2</div><div class="l">investigações</div></div>
+  </div>
+
+  <main>
+    <section class="card" style="animation-delay:.05s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Painel de entregas e leitura das guias</h2><span class="tag">Administrativo · melhoria</span></div>
+      <ul>
+        <li><span><b>Virou uma tabela de verdade</b> — a tela era uma lista de blocos com todas as informações soltas do lado direito, sem cabeçalho: não dava para saber o que era cada data nem comparar dois registros. Agora tem colunas nomeadas (obrigação, cliente, área, responsável, competência, prazo, vencimento, entrega e situação), cabeçalho fixo ao rolar e ordenação por qualquer coluna com um clique. <span class="hash mono">071ebf8</span></span></li>
+        <li><span><b>Filtro por cliente</b> — antes só dava para filtrar por área e responsável. Entrou um campo de cliente com busca por nome ou CNPJ, listando apenas quem de fato tem entregas. <span class="hash mono">104162e</span></span></li>
+        <li><span><b>Os filtros passaram a se limitar entre si</b> — escolher a área Pessoal deixava o campo de responsáveis oferecendo o escritório inteiro, incluindo quem só atende o Fiscal. Combinações assim só devolviam tela vazia. Agora cada campo mostra apenas o que ainda produz resultado, e uma escolha que deixou de valer é apagada sozinha. <span class="hash mono">b4990a4</span></span></li>
+        <li><span><b>Clicar na obrigação abre tudo o que veio do Acessórias</b> — uma janela com todas as datas, a situação, quem é o responsável, se a guia foi lida e quando, além do texto original que o Acessórias enviou. Serve para conferir de onde saiu um número sem depender de quem programou. <span class="hash mono">ead6ee8</span></span></li>
+        <li><span><b>Os totais por cliente abrem a lista que os compõe</b> — os selos “5 vencendo”, “18 não abertas” e “1 atrasada” mostravam o número, mas descobrir <i>quais</i> obrigações exigia trocar de visão e refiltrar à mão. Agora cada selo abre a relação correspondente. <span class="hash mono">5f23e8b</span></span></li>
+        <li><span><b>Atalho para o registro no Acessórias</b> — cada linha ganhou um botão que leva direto à entrega no sistema deles. O endereço é configurável, porque varia de instalação para instalação. <span class="hash mono">1fd68d6</span></span></li>
+        <li><span><b>Indicadores reordenados e renomeados</b> — a sequência passou a ir do mais urgente ao positivo, e “Guias não abertas” virou “Obrigações entregues, porém não lidas pelo cliente”, que diz o que o número é sem depender de contexto. <span class="hash mono">6152e87</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.10s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Números do painel que estavam errados</h2><span class="tag">Administrativo · correção</span></div>
+      <ul>
+        <li><span><b>A contagem de dias usava a data errada</b> — o Acessórias guarda duas datas: o prazo interno do escritório entregar e o vencimento da guia para o cliente. O painel contava contra a primeira. Como em 38 de 41 entregas conferidas o vencimento cai depois do prazo interno, o alarme disparava dias antes da hora e inchava os totais de vencidas e atrasadas. Passou a contar contra o vencimento, que é quando o cliente sofre a consequência. <span class="hash mono">07a0e5e</span></span></li>
+        <li><span><b>Ao abrir a tela, o indicador principal aparecia zerado</b> — a consulta trazia um bloco fixo das entregas mais antigas e só depois somava. Sem filtro, portanto, o painel enxergava apenas o passado: nada estava por vencer, e a lista abria vazia. O sintoma que denunciou foi um filtro fazendo um número <i>subir</i> — o que nunca deveria acontecer. Agora as somas são feitas sobre a carteira inteira, e quando a lista precisa ser cortada a tela avisa. <span class="hash mono">ee899ca</span></span></li>
+        <li><span><b>Obrigação entregue antes do prazo constava como vencida</b> — a tela olhava só o vencimento e ignorava a data de entrega, que já estava guardada. Uma guia entregue no dia 13, com prazo no dia 15, aparecia como “venceu há 16 dias”. <span class="hash mono">104162e</span></span></li>
+        <li><span><b>…e a correção acima escondeu a urgência de quem mais precisa dela</b> — ao dar prioridade ao “entregue”, as guias entregues que o cliente ainda não abriu deixaram de mostrar o prazo, justamente as que o painel existe para acompanhar. Entregar é metade do trabalho: enquanto o cliente não abre, o vencimento continua correndo. A regra foi refeita. <span class="hash mono">90999ff</span> <span class="hash mono">335ba0c</span></span></li>
+        <li><span><b>O responsável aparecia em branco nas atrasadas</b> — o Acessórias preenche “quem entregou” apenas depois da entrega. Como a lista de atrasadas é, por definição, do que ninguém entregou, a coluna vinha vazia em todas as linhas — bem onde saber o responsável mais importa. Passou a mostrar o responsável designado, e o filtro por pessoa também considera esse papel. <span class="hash mono">a28a8f8</span></span></li>
+        <li><span><b>Obrigações dispensadas contavam como atraso</b> — “dispensada” significa que a obrigação não era devida no período. Não há atraso possível, mas elas entravam no total. <span class="hash mono">104162e</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.15s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Sincronização com o Acessórias</h2><span class="tag">Administrativo · melhoria</span></div>
+      <ul>
+        <li><span><b>A integração passou a olhar só quem interessa</b> — apenas clientes ativos em situação mensal, e empresas já encerradas do lado do Acessórias saem da fila de vínculo. Isso tira do caminho um volume de registros que nunca precisariam de atenção. <span class="hash mono">916bad2</span> <span class="hash mono">a257454</span></span></li>
+        <li><span><b>Acompanhar a sincronização ficou utilizável</b> — a barra de progresso deixou de piscar a cada atualização, o histórico passou a aparecer assim que a sincronização é disparada (antes era preciso recarregar a página) e as colunas pararam de mudar de lugar sozinhas. <span class="hash mono">ffb2a04</span> <span class="hash mono">3928677</span> <span class="hash mono">6f32950</span></span></li>
+        <li><span><b>Os cartões do resultado abrem a lista</b> — dá para clicar em cada situação, ver as empresas, vincular à mão as que ficaram de fora e abrir o cliente para conferir as entregas dele. <span class="hash mono">4b96138</span> <span class="hash mono">c68ad48</span> <span class="hash mono">4fdb450</span></span></li>
+        <li><span><b>Limpeza em lote dos vínculos</b> — um botão para desfazer de uma vez os vínculos criados automaticamente, para recomeçar o trabalho com a base limpa. <span class="hash mono">1a543d3</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.20s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Ligação entre as obrigações dos dois sistemas</h2><span class="tag">Administrativo · correção</span></div>
+      <ul>
+        <li><span><b>O botão de vincular estava quebrado desde que foi escrito</b> — ao criar uma obrigação a partir da tela de ligação, o sistema chamava uma função que não existia e dava erro. Além disso, o registro nasceria como serviço mensal comum, indo parar na lista comercial em vez de entrar nas obrigações acessórias. Os dois problemas foram corrigidos. <span class="hash mono">1ea9276</span></span></li>
+        <li><span><b>A lista de obrigações importadas passou a ficar guardada</b> — antes, sair da tela e voltar obrigava a rodar a importação de novo para ver os dados. <span class="hash mono">713d4ca</span></span></li>
+        <li><span><b>Coluna com a área de cada obrigação</b> — vinda do próprio Acessórias, para saber a que setor a obrigação pertence na hora de fazer a ligação. <span class="hash mono">1114ac1</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.25s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Regras de obrigações</h2><span class="tag">Administrativo · novo</span></div>
+      <ul>
+        <li><span><b>Dá para declarar que uma obrigação não é devida</b> — para um cliente específico ou para todos. A partir daí, as sincronizações seguintes deixam de trazê-la, e as entregas já registradas saem do painel na hora. Elimina o retrabalho de ignorar manualmente, todo mês, as mesmas obrigações que não se aplicam. <span class="hash mono">2e192d4</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.30s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Investigações — o que apuramos sem mexer no código</h2><span class="tag">investigação</span></div>
+      <ul>
+        <li><span><b>“O sistema conta como não lida quando um contato interno não abre?”</b> — a suspeita era de que os e-mails enviados também a pessoas do escritório estivessem contaminando o indicador de leitura. Fomos conferir num caso real: a guia foi para seis destinatários, apenas uma contadora do cliente abriu, e o Acessórias registrou como <i>lida</i>, com a hora exata dessa abertura. A regra deles é “qualquer destinatário”, que é justamente o comportamento desejado. Nada a corrigir.</span></li>
+        <li><span><b>Custo de capturar o log de leitura por pessoa</b> — esse detalhe existe apenas na tela do Acessórias; o canal oficial de dados não o entrega. Buscá-lo exigiria um robô entrando no site deles, o que esbarra na proteção contra automação e no segundo fator de segurança do login — ou seja, não é caminho viável. Mesmo se fosse, o esforço corrigiria uma situação que praticamente não ocorre. Recomendamos não construir e resolver os casos isolados pela consulta direta, que agora está a dois cliques.</span></li>
+      </ul>
+    </section>
+  </main>
+
+  <div class="note">
+    <b>Além do código:</b> boa parte dos acertos do dia nasceu de perguntas feitas olhando a tela — “por que este número está zerado?”, “por que o responsável não aparece?”, “como pode ter 17 vencendo e a situação dizer entregue?”. Cada uma delas revelou um erro real de contagem que nenhum teste teria apontado, porque o sistema não quebrava: apenas informava o número errado com confiança. Também ficou documentado que o Acessórias trabalha com duas datas distintas — prazo interno e vencimento —, distinção que agora está explícita na tela.
+  </div>
+  <div class="note" style="margin-top:10px">
+    <b>Situação:</b> a maior parte do dia já foi publicada em produção. Os quatro últimos ajustes do painel — o detalhe completo da entrega, os filtros que se limitam entre si, os totais que abrem a lista e a separação entre as colunas de entrega e situação — estão prontos e aguardam a próxima publicação. Segue pendente uma configuração manual: informar o endereço do Acessórias para que o atalho de cada linha fique visível.
+  </div>
+
+  <footer>Resumo gerado ao fim da sessão · OneClick v2</footer>
+</div>

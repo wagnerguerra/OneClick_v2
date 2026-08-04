@@ -53,9 +53,16 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
     // Sub-permissão satisfeita? Admin (master/empresaMaster) sempre vê.
     const hasSub = (module: string, sub: string): boolean =>
       isAdmin || permissions.find((p) => p.moduleSlug === module)?.subPermissions?.[sub] === true
+    // Alguma sub-permissão do módulo — para item de menu único cujas telas
+    // internas são abas com permissões distintas.
+    const hasAnySub = (module: string): boolean =>
+      isAdmin || Object.values(permissions.find((p) => p.moduleSlug === module)?.subPermissions ?? {}).some(Boolean)
     // Subitem com `requirePerm` só aparece se a sub-permissão estiver concedida.
-    const subOk = (item: NavItem): boolean =>
-      !item.requirePerm || hasSub(item.requirePerm.module, item.requirePerm.sub)
+    const subOk = (item: NavItem): boolean => {
+      if (!item.requirePerm) return true
+      const { module, sub } = item.requirePerm
+      return sub ? hasSub(module, sub) : hasAnySub(module)
+    }
 
     // Permissões por slug — restringem apenas usuários comuns (master vê tudo).
     const byPermission = (item: NavItem): boolean => {

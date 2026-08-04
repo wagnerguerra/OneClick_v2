@@ -8,6 +8,8 @@ import { OmieService } from './omie.service'
 import { IntegrationService } from './integration.service'
 import { ImportOneclickService } from './import-oneclick.service'
 import { ContratoSyncService } from './contrato-sync.service'
+import { DuplicidadeService } from './duplicidade.service'
+import { MesclagemService } from './mesclagem.service'
 import { ContratoSyncController } from './contrato-sync.controller'
 import { AuthModule } from '../auth/auth.module'
 import { CnpjModule } from '../cnpj/cnpj.module'
@@ -18,7 +20,7 @@ import { BiModule } from '../bi/bi.module'
   // (SSE pro Launcher). Bi importa Cliente também → circular resolved por forwardRef.
   imports: [CnpjModule, forwardRef(() => BiModule), AuthModule],
   controllers: [ContratoSyncController],
-  providers: [ClienteService, ClienteEnriquecimentoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService],
-  exports: [ClienteService, ClienteEnriquecimentoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService],
+  providers: [ClienteService, ClienteEnriquecimentoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService],
+  exports: [ClienteService, ClienteEnriquecimentoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService],
 })
 export class ClienteModule {}
