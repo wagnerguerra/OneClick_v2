@@ -6,20 +6,56 @@ import {
   BadRequestException,
   Get,
   Param,
+  Req,
   Res,
+  UnauthorizedException,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { diskStorage } from 'multer'
 import { extname, join } from 'path'
 import { existsSync } from 'fs'
 import { randomUUID } from 'crypto'
-import type { Response } from 'express'
+import type { Request, Response } from 'express'
+import { AuthService } from '../auth/auth.service'
 
 const UPLOADS_DIR = join(process.cwd(), 'uploads')
 const MAX_SIZE = 20 * 1024 * 1024 // 20MB
 
+/**
+ * Extensões que esta rota nunca entrega, mesmo que o arquivo exista.
+ *
+ * A pasta `uploads/` guarda duas coisas de naturezas opostas: anexos que
+ * precisam ser públicos (imagem de e-mail, PDF de proposta) e material
+ * criptográfico que jamais pode sair (o certificado da empresa mora em
+ * `uploads/certificado.pfx`, ao lado deles). Servir a pasta inteira entregava
+ * a chave privada do escritório a quem soubesse o nome do arquivo.
+ *
+ * A lista é por extensão, e não por nome, para valer também para o arquivo que
+ * alguém deixar ali amanhã.
+ */
+const EXTENSOES_PROIBIDAS = new Set([
+  '.pfx', '.p12', '.pem', '.key', '.jks', '.keystore',
+  '.crt', '.cer', '.der', '.env', '.sql', '.pkcs12',
+])
+
 @Controller('api/upload')
 export class UploadController {
+  constructor(private readonly authService: AuthService) {}
+
+  /** Exige sessão válida. Cópia do padrão já usado nos demais controllers REST. */
+  private async exigirSessao(req: Request): Promise<void> {
+    const headers = new Headers()
+    for (const [k, v] of Object.entries(req.headers)) {
+      if (v) headers.set(k, Array.isArray(v) ? v.join(', ') : v)
+    }
+    try {
+      const session = await this.authService.auth.api.getSession({ headers })
+      if (!session?.user?.id) throw new UnauthorizedException('Sessão inválida — faça login.')
+    } catch {
+      throw new UnauthorizedException('Sessão inválida — faça login.')
+    }
+  }
+
   @Post()
   @UseInterceptors(
     FileInterceptor('file', {
@@ -76,7 +112,10 @@ export class UploadController {
       },
     }),
   )
-  uploadCertificado(@UploadedFile() file: Express.Multer.File) {
+  async uploadCertificado(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
+    // Sem sessão, qualquer um na internet trocava o certificado da empresa por
+    // outro — e passaria a assinar em nome dela.
+    await this.exigirSessao(req)
     if (!file) {
       throw new BadRequestException('Nenhum arquivo enviado.')
     }
@@ -103,7 +142,8 @@ export class UploadController {
       },
     }),
   )
-  uploadCertificadoPf(@UploadedFile() file: Express.Multer.File) {
+  async uploadCertificadoPf(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
+    await this.exigirSessao(req)
     if (!file) {
       throw new BadRequestException('Nenhum arquivo enviado.')
     }
@@ -114,6 +154,13 @@ export class UploadController {
   serve(@Param('filename') filename: string, @Res() res: Response) {
     // Sanitizar filename para evitar path traversal
     const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '')
+
+    // 404, e não 403: quem sonda não fica sabendo que o arquivo existe.
+    if (EXTENSOES_PROIBIDAS.has(extname(safe).toLowerCase())) {
+      res.status(404).json({ message: 'Arquivo não encontrado.' })
+      return
+    }
+
     const filePath = join(UPLOADS_DIR, safe)
 
     if (!existsSync(filePath)) {
