@@ -1361,7 +1361,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                   compositor, num Card só. Quando novas mensagens estão bloqueadas
                   e o usuário não é agente, só o COMPOSITOR (input) some — o bloco
                   e o aviso continuam (o botão de reabrir vive no aviso). */}
-              {(avisoReabertura || !bloqueiaMsgPublica || podeAtuar) && (
+              {(avisoReabertura || !bloqueiaMsgPublica || podeAtuar) ? (
               <Card id="helpdesk-composer">
                 <CardContent className="p-3 space-y-2">
                   {/* R5.3/5.4 — aviso de reabertura (concluído). Só pra quem NÃO é
@@ -1478,6 +1478,10 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                   </>)}
                 </CardContent>
               </Card>
+              ) : (
+                <p className="px-1 py-4 text-center text-[13px] text-muted-foreground">
+                  Não é possível adicionar novas mensagens neste ticket.
+                </p>
               )}
             </div>
             </TabsContent>
