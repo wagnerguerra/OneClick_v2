@@ -137,14 +137,14 @@ function AvaliacaoRow({ a, showResp, showAvatar }: { a: Avaliacao; showResp?: bo
             <span className="font-mono shrink-0">#HLP{String(a.numero).padStart(4, '0')}</span>
             <span className="truncate">· {a.titulo}</span>
           </Link>
-          {showResp && a.responsavelNome && (
-            <span className="inline-flex items-center gap-1">
-              · Atendido por:
-              <UserAvatar user={{ name: a.responsavelNome, image: a.responsavelImage ?? null }} className="h-4 w-4 text-[8px]" />
-              <span className="font-medium text-foreground/80">{a.responsavelNome}</span>
-            </span>
-          )}
         </div>
+        {showResp && a.responsavelNome && (
+          <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+            Atendido por:
+            <UserAvatar user={{ name: a.responsavelNome, image: a.responsavelImage ?? null }} className="h-4 w-4 text-[8px]" />
+            <span className="font-medium text-foreground/80">{a.responsavelNome}</span>
+          </div>
+        )}
       </div>
       <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
         {a.respondidoEm ? new Date(a.respondidoEm).toLocaleDateString('pt-BR') : ''}
