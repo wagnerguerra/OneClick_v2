@@ -431,35 +431,48 @@ export class HelpdeskService {
         select: { areaId: true, solicitanteId: true, solicitante: { select: { email: true } } },
       })
       if (!ticket) return
-      const cfg = await this.getConfig(empresaId ?? null)
       const solicitanteEmail = ticket.solicitante?.email?.trim().toLowerCase() ?? null
-
-      if (cfg.notificarTodosAgentes) {
-        const agentes = (await this.usuariosAgentes(empresaId ?? null)).filter(a => a.id !== ticket.solicitanteId)
-        await this.sinoNovoTicket(ticketId, agentes.map(a => a.id), empresaId ?? null)
-        await this.emailNovoTicket(ticketId, [...agentes.map(a => a.email), ...cfg.destinatarios], solicitanteEmail)
-        return
-      }
-
-      // Toggle desligado: por área, ou (sem área) aos Destinatários alternativos.
-      if (ticket.areaId) {
-        const membros = await this.usuariosDaArea(ticket.areaId, ticket.solicitanteId, empresaId ?? null)
-        await this.sinoNovoTicket(ticketId, membros.map(m => m.id), empresaId ?? null)
-        // E-mail: membros da área. Se a área não rende nenhum destinatário de
-        // e-mail (sem membros, ou nenhum com e-mail cadastrado além do próprio
-        // solicitante), FALLBACK para os Destinatários alternativos — senão o
-        // aviso por e-mail se perde. O sino já foi só para os membros (se houver).
-        const emailsArea = membros
-          .map(m => m.email?.trim().toLowerCase())
-          .filter((e): e is string => !!e && e !== solicitanteEmail)
-        const destinoEmail = emailsArea.length > 0 ? emailsArea : cfg.destinatarios
-        await this.emailNovoTicket(ticketId, destinoEmail, solicitanteEmail)
-      } else {
-        await this.emailNovoTicket(ticketId, cfg.destinatarios, solicitanteEmail)
-      }
+      // Público conforme a config do módulo (fonte única — mesma escolha usada
+      // no fallback da reabertura). Exclui o próprio solicitante.
+      const { sinoUserIds, emails } = await this.destinatariosPadrao(ticket.areaId, empresaId ?? null, ticket.solicitanteId)
+      await this.sinoNovoTicket(ticketId, sinoUserIds, empresaId ?? null)
+      await this.emailNovoTicket(ticketId, emails, solicitanteEmail)
     } catch (e) {
       console.warn('[Helpdesk] Falha ao notificar novo ticket:', (e as Error).message)
     }
+  }
+
+  /**
+   * Escolha de PÚBLICO PADRÃO do módulo — para quando não há um destinatário
+   * específico (novo ticket; reabertura sem responsável). Segue o toggle
+   * `notificarTodosAgentes` da config (R1.3):
+   *   - LIGADO:            todos os agentes (sino + e-mail) + Destinatários adicionais (e-mail).
+   *   - DESLIGADO c/ área: membros da área (sino + e-mail); se a área não rende
+   *                        nenhum e-mail, FALLBACK aos Destinatários adicionais.
+   *   - DESLIGADO s/ área: só e-mail aos Destinatários adicionais (sem sino).
+   * Exclui `exceptId` (quem disparou a ação). Devolve ids p/ sino e e-mails já
+   * limpos (trim/lower/dedup) p/ envio. Fonte única de notificarNovoTicket e do
+   * fallback de notificarReabertura.
+   */
+  private async destinatariosPadrao(
+    areaId: string | null,
+    empresaId: string | null,
+    exceptId: string | null,
+  ): Promise<{ sinoUserIds: string[]; emails: string[] }> {
+    const cfg = await this.getConfig(empresaId)
+    const limpar = (arr: Array<string | null | undefined>) =>
+      Array.from(new Set(arr.map(e => e?.trim().toLowerCase()).filter((e): e is string => !!e)))
+
+    if (cfg.notificarTodosAgentes) {
+      const agentes = (await this.usuariosAgentes(empresaId)).filter(a => a.id !== exceptId)
+      return { sinoUserIds: agentes.map(a => a.id), emails: limpar([...agentes.map(a => a.email), ...cfg.destinatarios]) }
+    }
+    if (areaId) {
+      const membros = await this.usuariosDaArea(areaId, exceptId, empresaId)
+      const emailsArea = limpar(membros.map(m => m.email))
+      return { sinoUserIds: membros.map(m => m.id), emails: emailsArea.length > 0 ? emailsArea : limpar(cfg.destinatarios) }
+    }
+    return { sinoUserIds: [], emails: limpar(cfg.destinatarios) }
   }
 
   /** Usuários ativos que são agentes do HelpDesk (fonte única ehAgenteHelpdesk), com e-mail. */
@@ -1359,10 +1372,12 @@ export class HelpdeskService {
 
   /**
    * Avisa que o chamado foi REABERTO (voltou para "Em andamento"). Vai para o
-   * responsável; se não houver, para TODOS os agentes do HelpDesk (fallback —
-   * fonte única `usuariosAgentes`). Sino + e-mail único em BCC. Pula o `actorId`
-   * (quem reabriu não se notifica). `motivoHtml` acrescenta um contexto ao corpo
-   * (ex.: o retorno do solicitante no lugar de avaliar, R5.5).
+   * responsável; se não houver, o fallback segue a MESMA config de notificação
+   * de novo ticket (`destinatariosPadrao`): todos os agentes, ou os membros da
+   * área / Destinatários adicionais quando o toggle está desligado. Sino +
+   * e-mail único em BCC. Pula o `actorId` (quem reabriu não se notifica).
+   * `motivoHtml` acrescenta um contexto ao corpo (ex.: o retorno do solicitante
+   * no lugar de avaliar, R5.5).
    */
   private async notificarReabertura(
     ticketId: string,
@@ -1373,35 +1388,44 @@ export class HelpdeskService {
     try {
       const t = await prisma.helpdeskTicket.findUnique({
         where: { id: ticketId },
-        select: { numero: true, titulo: true },
+        select: { numero: true, titulo: true, areaId: true },
       })
       if (!t) return
       const ticketNum = `#HLP${String(t.numero).padStart(4, '0')}`
       const link = `/helpdesk/${ticketId}`
 
-      let users: Array<{ id: string; email: string | null }> = []
+      let sinoUserIds: string[] = []
+      let emails: string[] = []
       if (responsavelId) {
-        const r = await prisma.user.findUnique({ where: { id: responsavelId }, select: { id: true, email: true } })
-        if (r) users = [r]
+        // Responsável definido: só ele (a não ser que seja quem reabriu).
+        if (responsavelId !== opts?.actorId) {
+          const r = await prisma.user.findUnique({ where: { id: responsavelId }, select: { id: true, email: true } })
+          if (r) { sinoUserIds = [r.id]; emails = r.email ? [r.email.trim().toLowerCase()] : [] }
+        }
       } else {
-        users = await this.usuariosAgentes(empresaId)
+        // Sem responsável: fallback pela config do módulo (fonte única com o
+        // aviso de novo ticket). Exclui quem reabriu.
+        const d = await this.destinatariosPadrao(t.areaId, empresaId, opts?.actorId ?? null)
+        sinoUserIds = d.sinoUserIds
+        emails = d.emails
       }
-      users = users.filter(u => u.id !== opts?.actorId)
-      if (users.length === 0) return
+      if (sinoUserIds.length === 0 && emails.length === 0) return
 
-      await this.notificationService.criarParaUsers(users.map(u => u.id), {
-        titulo: `${ticketNum} — reaberto`,
-        mensagem: t.titulo,
-        tipo: 'warning',
-        link,
-        origem: 'helpdesk',
-        empresaId: empresaId || null,
-      }).catch(() => {})
+      if (sinoUserIds.length) {
+        await this.notificationService.criarParaUsers(sinoUserIds, {
+          titulo: `${ticketNum} — reaberto`,
+          mensagem: t.titulo,
+          tipo: 'warning',
+          link,
+          origem: 'helpdesk',
+          empresaId: empresaId || null,
+        }).catch(() => {})
+      }
 
       const corpo = `O chamado <strong>${escapeHtml(t.titulo)}</strong> foi <strong>reaberto</strong> e voltou para <strong>Em andamento</strong>.` +
         (opts?.motivoHtml ? ` ${opts.motivoHtml}` : '') +
         ` Confira e dê sequência.`
-      const dest = Array.from(new Set(users.map(u => u.email?.trim().toLowerCase()).filter((e): e is string => !!e)))
+      const dest = Array.from(new Set(emails))
       // Um único e-mail com todos em BCC (não expõe endereços, sem N cópias).
       if (dest.length) {
         await this.emailService.sendMail({ bcc: dest, subject: `HelpDesk ${ticketNum} — Reaberto`, html: await this.emailTpl(ticketNum, corpo, link) })
