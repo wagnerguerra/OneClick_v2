@@ -8,16 +8,34 @@ import { OrcamentoService } from './orcamento.service'
 const MODULE = 'orcamentos'
 
 /**
+ * Cargos que enxergam a carteira inteira, sem depender de sub-permissão.
+ *
+ * Diretoria e coordenação acompanham o funil de ponta a ponta — inclusive o que
+ * já foi finalizado ou encerrado em outra área. Preso ao escopo da própria
+ * área, o que sumia da vista eram justamente os orçamentos concluídos alheios,
+ * que é o material de acompanhamento deles.
+ */
+const CARGOS_VEEM_TUDO: ReadonlySet<string> = new Set(['DIRETOR', 'COORDENADOR'])
+
+/**
  * Escopo de listagem efetivo do usuário (#HLP0266). Lê a sub-permissão gravada
  * e cai no padrão 'proprios' quando não há usuário ou registro — a escolha nunca
  * fica vazia, e o padrão é o mais restritivo.
+ *
+ * O cargo vem antes da sub-permissão, e só para AMPLIAR: diretoria e
+ * coordenação veem tudo mesmo sem a permissão marcada, mas ninguém perde acesso
+ * por causa do cargo.
  */
 async function resolveScopeDoUsuario(userId: string | undefined): Promise<OrcamentoScope> {
   if (!userId) return ORCAMENTO_SCOPE_DEFAULT
-  const p = await prisma.userPermission.findFirst({
-    where: { userId, moduleSlug: MODULE },
-    select: { subPermissions: true },
-  }).catch(() => null)
+  const [p, u] = await Promise.all([
+    prisma.userPermission.findFirst({
+      where: { userId, moduleSlug: MODULE },
+      select: { subPermissions: true },
+    }).catch(() => null),
+    prisma.user.findUnique({ where: { id: userId }, select: { role: true } }).catch(() => null),
+  ])
+  if (u && CARGOS_VEEM_TUDO.has(String(u.role))) return 'todos'
   return resolveOrcamentoScope(p?.subPermissions as Record<string, unknown> | null)
 }
 
