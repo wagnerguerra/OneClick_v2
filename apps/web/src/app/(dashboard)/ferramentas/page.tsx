@@ -41,7 +41,7 @@ export default function FerramentasPage() {
         {FERRAMENTAS.map((f) => {
           const Icone = f.icone
           return (
-            <button key={f.slug} type="button" onClick={() => setAberta(f.slug)} className="group text-left">
+            <button key={f.slug} type="button" onClick={() => setAberta(f.slug)} className="group cursor-pointer text-left">
               <Card className="flex h-full min-h-[212px] flex-col rounded-2xl p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
                 {/* Selo em cor cheia com o ícone branco — é o que dá a cada
                     ferramenta uma identidade reconhecível de longe. */}
