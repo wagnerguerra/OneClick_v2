@@ -8,6 +8,7 @@ import { registrarSyncLog, type SyncLogItem } from '../fiscal-dist/sync-log'
 import { parseNFSeXml, XmlNFSeInvalidoError, type ParsedNFSe } from './nfse.parser'
 import { gerarPdfNFSe } from './nfse-pdf'
 import { DanfeStorage } from '../danfe/danfe.storage'
+import { semSegredos } from '../common/segredos'
 
 /** Extrai os campos do ParsedNFSe que não têm coluna dedicada e empacota em JSON. */
 function serializarDadosExtras(p: ParsedNFSe): Record<string, unknown> {
@@ -369,7 +370,7 @@ export class NfseDistService {
           if (status === 404) {
             try { return resolve(body.trim() ? JSON.parse(body) : {}) } catch { /* fallthrough */ }
           }
-          reject(new Error(`HTTP ${status}: ${body.slice(0, 200)}`))
+          reject(new Error(`HTTP ${status}: ${semSegredos(body.slice(0, 200))}`))
         })
         res.on('error', reject)
       })

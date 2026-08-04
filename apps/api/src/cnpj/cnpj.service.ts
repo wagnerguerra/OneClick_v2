@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import * as fs from 'fs'
 import * as path from 'path'
+import { semSegredos } from '../common/segredos'
 
 /**
  * Dados de um sócio retornado pela consulta de QSA.
@@ -130,7 +131,7 @@ export class CnpjService {
     if (!res.ok) {
       if (res.status === 404) throw new Error('CNPJ não encontrado na base do SERPRO.')
       const body = await res.text().catch(() => '')
-      throw new Error(`Erro na consulta SERPRO: HTTP ${res.status} — ${body.slice(0, 200)}`)
+      throw new Error(`Erro na consulta SERPRO: HTTP ${res.status} — ${semSegredos(body.slice(0, 200))}`)
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -286,7 +287,7 @@ export class CnpjService {
     if (!res.ok) {
       const body = await res.text().catch(() => '')
       await prisma.apiLog.create({
-        data: { source: 'serpro', endpoint, method: 'GET', status: res.status, duration: Date.now() - start, documento: doc, error: body.slice(0, 500) },
+        data: { source: 'serpro', endpoint, method: 'GET', status: res.status, duration: Date.now() - start, documento: doc, error: semSegredos(body.slice(0, 500)) },
       }).catch(() => {})
       if (res.status === 404) throw new Error('CPF não encontrado na base do SERPRO.')
       if (res.status === 403 && /subscription/i.test(body)) {

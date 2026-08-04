@@ -3,6 +3,7 @@ import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
 import * as https from 'https'
 import * as fs from 'fs'
 import * as path from 'path'
+import { semSegredos } from '../common/segredos'
 
 // ============================================================
 // Configuracao
@@ -127,7 +128,7 @@ export class CndService {
     }, postData)
 
     if (res.status !== 200) {
-      throw new Error(`Falha na autenticacao SERPRO: HTTP ${res.status} - ${res.data.slice(0, 200)}`)
+      throw new Error(`Falha na autenticacao SERPRO: HTTP ${res.status} - ${semSegredos(res.data.slice(0, 200))}`)
     }
 
     const data = JSON.parse(res.data) as { access_token: string; expires_in?: number }

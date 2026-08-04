@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { TOOL_AREA, type JobToolId, type ToolArea } from '@saas/types/ferramentas'
+import { semSegredos } from '../common/segredos'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Gateway server-to-server para a API Fastify do webapp (porta 8000, /api/v1).
@@ -166,7 +167,7 @@ export class WebappGatewayService {
     const res = await fetch(this.downloadUrl(tool, webappJobId, token), { method: 'GET' })
     if (!res.ok) {
       const body = await res.text().catch(() => '')
-      throw new Error(`webapp download ${tool} falhou: HTTP ${res.status} ${body.slice(0, 200)}`)
+      throw new Error(`webapp download ${tool} falhou: HTTP ${res.status} ${semSegredos(body.slice(0, 200))}`)
     }
     return res
   }
@@ -208,7 +209,7 @@ export class WebappGatewayService {
   private async parseJson<T>(res: Response, ctx: string): Promise<T> {
     if (!res.ok) {
       const body = await res.text().catch(() => '')
-      throw new Error(`webapp ${ctx} falhou: HTTP ${res.status} ${body.slice(0, 200)}`)
+      throw new Error(`webapp ${ctx} falhou: HTTP ${res.status} ${semSegredos(body.slice(0, 200))}`)
     }
     return (await res.json()) as T
   }

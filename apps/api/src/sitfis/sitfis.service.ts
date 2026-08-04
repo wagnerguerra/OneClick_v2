@@ -3,6 +3,7 @@ import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
 import * as https from 'https'
 import * as fs from 'fs'
 import * as path from 'path'
+import { semSegredos } from '../common/segredos'
 // Importar diretamente o lib para evitar o auto-run do index.js com Webpack
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfParse = require('pdf-parse/lib/pdf-parse.js') as (buf: Buffer) => Promise<{ text: string }>
@@ -142,7 +143,7 @@ export class SitfisService {
     }, postData)
 
     if (res.status !== 200) {
-      throw new Error(`Falha na autenticação SERPRO: HTTP ${res.status} — ${res.data.slice(0, 300)}`)
+      throw new Error(`Falha na autenticação SERPRO: HTTP ${res.status} — ${semSegredos(res.data.slice(0, 300))}`)
     }
 
     const data = JSON.parse(res.data) as { access_token: string; jwt_token?: string; expires_in?: number }
@@ -302,7 +303,7 @@ export class SitfisService {
     }
 
     if (!protocolo) {
-      throw new Error(`Protocolo não retornado pelo SERPRO. Status: ${res.status}. Resposta: ${res.data.slice(0, 300)}`)
+      throw new Error(`Protocolo não retornado pelo SERPRO. Status: ${res.status}. Resposta: ${semSegredos(res.data.slice(0, 300))}`)
     }
 
     return { protocolo, headers: res.headers, data: res.data }

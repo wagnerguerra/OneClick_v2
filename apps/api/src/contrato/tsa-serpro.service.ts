@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import * as https from 'https'
 import * as fs from 'fs'
 import * as path from 'path'
+import { semSegredos } from '../common/segredos'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const forge = require('node-forge')
 
@@ -20,6 +21,7 @@ const TSA_SERPRO_PADRAO = 'https://gateway.apiserpro.serpro.gov.br/apitimestamp/
 
 @Injectable()
 export class TsaSerproService {
+  private readonly log = new Logger(TsaSerproService.name)
   private cachedToken: { token: string; expiresAt: number } | null = null
 
   /**
@@ -108,11 +110,17 @@ export class TsaSerproService {
     }, Buffer.from(corpo))
 
     if (res.status !== 200) {
+      // O corpo do gateway ecoa a Consumer Key no `client_id`, e essa mensagem
+      // vai parar na tela de quem assina. O detalhe fica no log do servidor; o
+      // usuário recebe o que ele pode resolver.
+      const detalhe = semSegredos(res.corpo.toString('utf8').slice(0, 300))
+      this.log.error({ status: res.status, detalhe, comCertificado: !!pfx }, 'SERPRO recusou o token do carimbo')
+
       throw new Error(
-        `SERPRO token falhou: ${res.status} ${res.corpo.toString('utf8').slice(0, 200)}`
-        + (res.status === 401 && !pfx
-          ? ' — o certificado da empresa (uploads/certificado.pfx) não foi encontrado, e o gateway exige ele no handshake.'
-          : ''),
+        res.status === 401
+          ? 'SERPRO recusou a autenticação do carimbo do tempo. Confira, em Configurações, a Consumer Key/Secret'
+            + (pfx ? ' e a senha do certificado do escritório.' : ' — e envie o certificado do escritório, que o gateway exige no acesso.')
+          : `SERPRO respondeu HTTP ${res.status} ao autenticar o carimbo do tempo.`,
       )
     }
 
@@ -214,7 +222,11 @@ export class TsaSerproService {
     }, reqBuffer)
 
     if (res.status !== 200) {
-      throw new Error(`Carimbo do tempo falhou: ${res.status} ${res.corpo.toString('utf8').slice(0, 200)}`)
+      this.log.error(
+        { status: res.status, detalhe: semSegredos(res.corpo.toString('utf8').slice(0, 300)), autoridade: alvo.hostname },
+        'Autoridade de carimbo recusou a requisição',
+      )
+      throw new Error(`A autoridade de carimbo do tempo respondeu HTTP ${res.status}.`)
     }
     const respBuffer = res.corpo
 
