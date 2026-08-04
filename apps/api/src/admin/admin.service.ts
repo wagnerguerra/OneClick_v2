@@ -1005,10 +1005,13 @@ oc/
         // Extrair PEM do PFX via openssl (tentar com e sem -legacy para OpenSSL 3.x)
         let output = ''
         for (const extraArgs of [[], ['-legacy']]) {
+          // `pass:` coloca a senha na linha de comando, e a linha de comando de
+          // um processo e legivel por qualquer usuario da maquina (ps/procfs).
+          // `env:` entrega pela variavel de ambiente do filho, que so ele le.
           const result = spawnSync('openssl', [
-            'pkcs12', '-in', certPath, '-passin', `pass:${senha}`,
+            'pkcs12', '-in', certPath, '-passin', 'env:PFX_SENHA',
             '-nokeys', '-clcerts', '-nodes', ...extraArgs,
-          ], { encoding: 'utf8', timeout: 10000 })
+          ], { encoding: 'utf8', timeout: 10000, env: { ...process.env, PFX_SENHA: senha } })
           output = (result.stdout || '') + (result.stderr || '')
           if (output.includes('BEGIN CERTIFICATE')) break
         }
@@ -1105,10 +1108,13 @@ oc/
       try {
         let output = ''
         for (const extraArgs of [[], ['-legacy']]) {
+          // `pass:` coloca a senha na linha de comando, e a linha de comando de
+          // um processo e legivel por qualquer usuario da maquina (ps/procfs).
+          // `env:` entrega pela variavel de ambiente do filho, que so ele le.
           const result = spawnSync('openssl', [
-            'pkcs12', '-in', certPath, '-passin', `pass:${senha}`,
+            'pkcs12', '-in', certPath, '-passin', 'env:PFX_SENHA',
             '-nokeys', '-clcerts', '-nodes', ...extraArgs,
-          ], { encoding: 'utf8', timeout: 10000 })
+          ], { encoding: 'utf8', timeout: 10000, env: { ...process.env, PFX_SENHA: senha } })
           output = (result.stdout || '') + (result.stderr || '')
           if (output.includes('BEGIN CERTIFICATE')) break
         }
