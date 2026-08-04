@@ -137,7 +137,6 @@ export function JuntarPdfModal({ onClose }: { onClose: () => void }) {
         arquivos: arquivos.map(({ nome, base64 }) => ({ nome, base64 })),
       }) as Resultado
       setResultado(r)
-      baixar(r.nome, r.base64)
     } catch (e) {
       await alerts.error('Falha ao juntar', (e as Error).message)
     } finally {

@@ -205,7 +205,6 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
         } : undefined,
       }) as Assinado
       setResultado(r)
-      baixar(r.nome, r.base64)
     } catch (e) {
       await alerts.error('Falha ao assinar', (e as Error).message)
     } finally {

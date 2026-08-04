@@ -12,6 +12,9 @@ const forge = require('node-forge')
  *
  * Doc oficial: https://doc-apitimestamp.estaleiro.serpro.gov.br/
  */
+/** Endereço do produto Carimbo de Tempo do SERPRO — o padrão quando nada é configurado. */
+const TSA_SERPRO_PADRAO = 'https://gateway.apiserpro.serpro.gov.br/apitimestamp/v1/stamps-asn1'
+
 @Injectable()
 export class TsaSerproService {
   private cachedToken: { token: string; expiresAt: number } | null = null
@@ -22,9 +25,26 @@ export class TsaSerproService {
    */
   isConfigured(): boolean {
     return !!(
-      (process.env.TSA_CONSUMER_KEY && process.env.TSA_CONSUMER_SECRET)
+      process.env.TSA_URL
+      || (process.env.TSA_CONSUMER_KEY && process.env.TSA_CONSUMER_SECRET)
       || (process.env.CONSUMER_KEY && process.env.CONSUMER_SECRET)
     )
+  }
+
+  /**
+   * Endereço da autoridade de carimbo.
+   *
+   * Carimbar é RFC 3161 puro: qualquer autoridade que fale o protocolo serve, e
+   * o corpo da requisição é o mesmo. Trocar de fornecedor é trocar esta URL —
+   * por isso ela é configuração, não constante.
+   *
+   * Para valer dentro da ICP-Brasil o carimbo precisa vir de uma ACT
+   * credenciada; para uso interno (provar que o documento existia numa data),
+   * qualquer autoridade RFC 3161 resolve.
+   */
+  private async getUrl(): Promise<string> {
+    const linha = await prisma.systemConfig.findFirst({ where: { key: 'TSA_URL' } }).catch(() => null)
+    return linha?.value || process.env.TSA_URL || TSA_SERPRO_PADRAO
   }
 
   /**
@@ -93,7 +113,11 @@ export class TsaSerproService {
    * @returns TimeStampToken DER (Buffer) pronto para inserir como unsigned attribute
    */
   async timestampHash(hashHex: string): Promise<Buffer> {
-    const token = await this.getAccessToken()
+    const url = await this.getUrl()
+    // Autoridade fora do SERPRO fala RFC 3161 direto, sem OAuth. Exigir token
+    // ali impediria justamente o caminho alternativo.
+    const { key, secret } = await this.getCredenciais()
+    const token = url === TSA_SERPRO_PADRAO && key && secret ? await this.getAccessToken() : null
 
     // Constrói TimeStampReq RFC 3161 manualmente:
     //   TimeStampReq ::= SEQUENCE {
@@ -126,10 +150,10 @@ export class TsaSerproService {
     const reqBuffer = Buffer.from(reqDer, 'binary')
 
     // POST application/timestamp-query
-    const res = await fetch('https://gateway.apiserpro.serpro.gov.br/apitimestamp/v1/stamps-asn1', {
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         'Content-Type': 'application/timestamp-query',
         'Accept': 'application/timestamp-reply',
       },

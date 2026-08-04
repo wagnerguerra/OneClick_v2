@@ -115,8 +115,6 @@ export function HtmlPdfModal({ onClose }: { onClose: () => void }) {
       }
 
       setGerados(prontos)
-      // Um arquivo só: baixa direto, que é o desfecho esperado de qualquer jeito.
-      if (prontos.length === 1) baixar(prontos[0]!.nome, prontos[0]!.base64)
     } catch (e) {
       // O que já converteu fica disponível: perder oito PDFs prontos porque o
       // nono falhou obrigaria a refazer tudo.
