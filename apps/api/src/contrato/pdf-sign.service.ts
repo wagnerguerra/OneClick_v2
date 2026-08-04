@@ -198,11 +198,26 @@ export class PdfSignService {
   private async adicionarTimestampNoPdf(pdfBes: Buffer, placeholderSize: number): Promise<{ buffer: Buffer; tsaInfo: string }> {
     // 1. Localiza o /Contents <hex...> no PDF e extrai o PKCS#7 BES
     const contentsInfo = this.locateContents(pdfBes)
-    const pkcs7HexBes = contentsInfo.hex.replace(/00+$/, '') // remove padding zero
-    const pkcs7DerBes = Buffer.from(pkcs7HexBes, 'hex')
+    // O espaço reservado é preenchido com zeros à direita. Cortar por
+    // "tira os zeros do fim" também comia os zeros que fazem PARTE da
+    // assinatura — e um DER truncado falha com "Too few bytes to read ASN.1
+    // value", sem dizer onde. O tamanho verdadeiro está declarado no próprio
+    // cabeçalho DER: é ele que manda.
+    const pkcs7Completo = Buffer.from(contentsInfo.hex, 'hex')
+    const pkcs7DerBes = pkcs7Completo.subarray(0, this.tamanhoDer(pkcs7Completo))
 
     // 2. Decoda PKCS#7 e extrai o signerInfo
-    const asn1 = forge.asn1.fromDer(forge.util.createBuffer(pkcs7DerBes.toString('binary')))
+    let asn1
+    try {
+      asn1 = forge.asn1.fromDer(forge.util.createBuffer(pkcs7DerBes.toString('binary')))
+    } catch (e) {
+      // Contexto no erro: sem ele, a mensagem crua do parser não diz se o
+      // problema é o recorte, o espaço reservado ou a assinatura em si.
+      throw new Error(
+        `PKCS#7 do PDF ilegível (${pkcs7DerBes.length}b de ${pkcs7Completo.length}b reservados, `
+        + `início ${pkcs7DerBes.subarray(0, 4).toString('hex')}): ${(e as Error).message}`,
+      )
+    }
     const signedData = this.getSignedDataFromContentInfo(asn1)
     const signerInfos = this.getSignerInfos(signedData)
     if (!signerInfos.value || signerInfos.value.length === 0) {
@@ -239,6 +254,25 @@ export class PdfSignService {
     }
     const result = Buffer.concat([before, newContent, after])
     return { buffer: result, tsaInfo: `SERPRO TSA — token ${tsToken.length}b` }
+  }
+
+  /**
+   * Tamanho real de uma estrutura DER, lido do próprio cabeçalho.
+   *
+   * Byte 0 é a etiqueta; o byte seguinte é o comprimento — direto, se menor que
+   * 0x80, ou a quantidade de bytes que carregam o comprimento, se maior. É a
+   * única forma confiável de separar o conteúdo do preenchimento.
+   */
+  private tamanhoDer(buf: Buffer): number {
+    if (buf.length < 2) return buf.length
+    const primeiro = buf[1]!
+    if (primeiro < 0x80) return 2 + primeiro
+    const n = primeiro & 0x7f
+    if (n === 0 || buf.length < 2 + n) return buf.length
+    let len = 0
+    for (let i = 0; i < n; i++) len = len * 256 + buf[2 + i]!
+    const total = 2 + n + len
+    return total <= buf.length ? total : buf.length
   }
 
   /** Localiza o byte range de /Contents <...> no PDF. */

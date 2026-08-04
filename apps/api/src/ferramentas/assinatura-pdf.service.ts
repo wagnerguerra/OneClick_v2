@@ -163,7 +163,14 @@ export class AssinaturaPdfService {
       const larguraDir = area.largura * 0.5 - margem * 1.5
       const preto = rgb(0, 0, 0)
 
-      // A marca vem primeiro, para o texto ficar por cima. É bem clara de
+      // Moldura primeiro, para delimitar o carimbo contra o conteúdo da
+      // página. Sem preenchimento: o que está embaixo continua legível.
+      pagina.drawRectangle({
+        x: area.x, y: area.y, width: area.largura, height: area.altura,
+        borderColor: rgb(0.35, 0.35, 0.35), borderWidth: 0.75,
+      })
+
+      // A marca vem depois, para o texto ficar por cima. É bem clara de
       // propósito: é fundo, não conteúdo.
       const ladoMarca = Math.min(area.altura, larguraEsq) * 0.85
       pagina.drawImage(marca, {
