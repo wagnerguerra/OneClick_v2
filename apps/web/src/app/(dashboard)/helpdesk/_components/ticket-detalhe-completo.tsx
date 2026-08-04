@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Headphones, Loader2, ArrowLeft, MessageSquare, Lock, Send, Paperclip, Clock,
+  Headphones, Loader2, MessageSquare, Lock, Send, Paperclip, Clock,
   AlertTriangle, CheckCircle2, XCircle, History, Layers, FileText, UserCog,
   Eye, Star, Save, Tag, Building2, Image as ImageIcon,
   FileVideo, FileAudio, File as FileIcon, FileSpreadsheet,
@@ -249,12 +249,6 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
       thinkingScrollRef.current.scrollTop = thinkingScrollRef.current.scrollHeight
     }
   }, [thinkingTexto])
-  const [resultadoAuto, setResultadoAuto] = useState<{
-    arquivosModificados: Array<{ path: string; conteudo: string; motivo: string }>
-    arquivosARevisar?: string[]
-    resumo: string
-    raciocinio: string
-  } | null>(null)
   const [custoRealAuto, setCustoRealAuto] = useState<number | null>(null)
   const [copiouPrompt, setCopiouPrompt] = useState(false)
 
@@ -596,7 +590,6 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
       // Abre modal de execução já com a aba "CLI" carregando o prompt
       setExecutarTab('cli')
       setExecutarOpen(true)
-      setResultadoAuto(null)
       setCustoRealAuto(null)
       setEstimativa(null)
       setCopiouPrompt(false)
