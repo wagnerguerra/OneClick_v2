@@ -4,6 +4,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express'
 import { Logger } from 'nestjs-pino'
 import { AppModule } from './app.module'
 import { hidratarConfiguracoes } from './common/config-runtime'
+import { AuthService } from './auth/auth.service'
 
 // Habilita JSON.stringify de BigInt — necessário pra serializar campos
 // Prisma BigInt (ex: HelpdeskTicket.totalPausadoMs) via tRPC. Number() é
@@ -71,7 +72,21 @@ async function bootstrap() {
   })
   const path = require('path')
   const fs = require('fs')
-  express.get('/api/backup/download/:filename', (req: { params: { filename: string } }, res: { download: (p: string, f: string, cb: (e: Error) => void) => void; status: (n: number) => { json: (o: Record<string, string>) => void } }) => {
+  const authService = app.get(AuthService)
+  express.get('/api/backup/download/:filename', async (req: { params: { filename: string }; headers: Record<string, string | string[] | undefined> }, res: { download: (p: string, f: string, cb: (e: Error) => void) => void; status: (n: number) => { json: (o: Record<string, string>) => void } }) => {
+    // O ZIP carrega o dump do banco e a pasta uploads/ — inclusive o
+    // certificado da empresa. O nome tem carimbo de tempo ao segundo, o que
+    // atrasa quem adivinha mas não impede: um dia inteiro cabe em 86.400
+    // tentativas. Sem sessão, não sai.
+    const cabecalhos = new Headers()
+    for (const [k, v] of Object.entries(req.headers)) {
+      if (v) cabecalhos.set(k, Array.isArray(v) ? v.join(', ') : v)
+    }
+    const sessao = await authService.auth.api.getSession({ headers: cabecalhos }).catch(() => null)
+    if (!sessao?.user?.id) {
+      return res.status(401).json({ error: 'Sessao invalida' })
+    }
+
     const filename = req.params.filename
     if (!filename || filename.includes('..') || !filename.endsWith('.zip')) {
       return res.status(400).json({ error: 'Arquivo invalido' })
