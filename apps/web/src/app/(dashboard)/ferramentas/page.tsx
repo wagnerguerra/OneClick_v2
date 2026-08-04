@@ -1,19 +1,26 @@
 'use client'
 
-import Link from 'next/link'
+import { useState } from 'react'
 import { Wrench } from 'lucide-react'
 import { Card } from '@saas/ui'
 import { FERRAMENTAS } from './_components/catalogo'
+import { HtmlPdfModal } from './_components/html-pdf-modal'
 
 const MODULE_COLOR = 'var(--mod-ti, #3b82f6)'
 
 /**
  * Vitrine das ferramentas de uso geral — um cartão por utilitário.
  *
- * Só entra aqui o que existe: cartão de "em breve" ocuparia a grade prometendo
- * o que ninguém pode usar. A grade cresce conforme o catálogo.
+ * Cada uma abre em modal, sobre a própria vitrine: são operações curtas e de
+ * ida e volta, e mandar o usuário para outra página só para ele voltar em
+ * seguida somava navegação sem ganho.
+ *
+ * Só entra na grade o que existe. Cartão de "em breve" ocuparia espaço
+ * prometendo o que ninguém pode usar.
  */
 export default function FerramentasPage() {
+  const [aberta, setAberta] = useState<string | null>(null)
+
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-4">
@@ -28,27 +35,29 @@ export default function FerramentasPage() {
       </div>
 
       {/* Colunas por largura disponível, não por breakpoint: assim o cartão
-          mantém a proporção quadrada em qualquer tela, e a grade se adapta
-          sozinha conforme o catálogo cresce. */}
-      <div className="grid gap-5 grid-cols-[repeat(auto-fill,minmax(248px,1fr))]">
+          mantém a proporção em qualquer tela, e a grade se adapta sozinha
+          conforme o catálogo cresce. */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(228px,1fr))] gap-4">
         {FERRAMENTAS.map((f) => {
           const Icone = f.icone
           return (
-            <Link key={f.slug} href={f.href} className="group">
-              <Card className="flex h-full min-h-[248px] flex-col rounded-2xl p-7 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
+            <button key={f.slug} type="button" onClick={() => setAberta(f.slug)} className="group text-left">
+              <Card className="flex h-full min-h-[212px] flex-col rounded-2xl p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
                 {/* Selo em cor cheia com o ícone branco — é o que dá a cada
                     ferramenta uma identidade reconhecível de longe. */}
-                <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl text-white shadow-sm"
+                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl text-white shadow-sm"
                   style={{ backgroundColor: f.cor }}>
-                  <Icone className="h-[26px] w-[26px]" />
+                  <Icone className="h-[22px] w-[22px]" />
                 </div>
-                <p className="text-[19px] font-semibold leading-tight tracking-tight">{f.titulo}</p>
-                <p className="mt-2.5 text-[13.5px] leading-relaxed text-muted-foreground">{f.descricao}</p>
+                <p className="text-[15px] font-semibold leading-tight tracking-tight">{f.titulo}</p>
+                <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">{f.descricao}</p>
               </Card>
-            </Link>
+            </button>
           )
         })}
       </div>
+
+      {aberta === 'html-pdf' && <HtmlPdfModal onClose={() => setAberta(null)} />}
     </div>
   )
 }
