@@ -364,6 +364,23 @@ export default function HelpdeskPage() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }, [fetchData, verArquivados])
 
+  // Arquivar in-place pelo kebab da lista (só etapas finais — mesma regra do
+  // detalhe/kanban/backend, ver helpdeskPodeArquivar). Confirma antes.
+  const arquivar = useCallback(async (t: Ticket) => {
+    const ok = await alerts.confirm({
+      title: `Arquivar #HLP${String(t.numero).padStart(4, '0')}?`,
+      text: 'O chamado some das listas ativas (kanban e lista), mas continua acessível pelo histórico e pode ser desarquivado a qualquer momento.',
+      confirmText: 'Arquivar',
+      icon: 'warning',
+    })
+    if (!ok) return
+    try {
+      await (trpc.helpdesk as any).update.mutate({ id: t.id, data: { arquivado: true } })
+      alerts.success('Arquivado', 'Ticket movido para os arquivados.')
+      fetchData({ silent: true })
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }, [fetchData])
+
   // Após desarquivar + recarregar: quando o ticket aparece nos ativos, rola até
   // ele e mantém o destaque por ~2,5s.
   useEffect(() => {
@@ -732,7 +749,8 @@ export default function HelpdeskPage() {
         ) : (
           <div className="nice-scrollbar flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
             <TicketPanel titulo="Ativos" icon={Inbox} tickets={items} vazio="Nenhum ticket ativo no momento."
-              currentUserId={currentUserId} onCancelar={cancelarProprio} onOpen={setOpenTicketId} highlightId={recemDesarquivado} />
+              currentUserId={currentUserId} onCancelar={cancelarProprio} onOpen={setOpenTicketId}
+              onArchive={podeAtuar ? arquivar : undefined} highlightId={recemDesarquivado} />
             {arquivados.length > 0 && (
               // Arquivados não recebem o cancelar (já encerrados), mas podem ser
               // desarquivados in-place — o ticket sobe pros Ativos e é destacado.
@@ -1147,9 +1165,11 @@ function ScoreIaBadge({ ticket }: { ticket: Ticket }) {
   )
 }
 
-function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar, onOpen, highlight }: {
+function TicketRow({ ticket, onUnarchive, onArchive, currentUserId, onCancelar, onOpen, highlight }: {
   ticket: Ticket
   onUnarchive?: () => void
+  /** Arquivar pelo kebab — só passado p/ agente e só nas etapas finais. */
+  onArchive?: () => void
   /** Id do usuário logado — habilita o cancelar quando ele é o solicitante (#HLP0172). */
   currentUserId?: string | null
   onCancelar?: (t: Ticket) => void
@@ -1277,6 +1297,15 @@ function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar, onOpen, hig
               Cancelar
             </DropdownMenuItem>
           )}
+          {/* Arquivar — só agente (onArchive vem gateado por podeAtuar) e só nas
+              etapas finais (mesma regra do detalhe/backend). Arquivados nunca
+              recebem onArchive, então não reaparece lá. */}
+          {onArchive && !ticket.arquivado && helpdeskPodeArquivar(ticket.status) && (
+            <DropdownMenuItem onClick={() => onArchive()} className="gap-2">
+              <Archive className="h-3.5 w-3.5" />
+              Arquivar
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -1289,7 +1318,7 @@ function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar, onOpen, hig
  * "Arquivados" embaixo (variante `arquivado` = header âmbar + linhas suaves),
  * pra que colaboradores como a Erica vejam também os tickets já arquivados.
  */
-function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, currentUserId, onCancelar, onOpen, onUnarchive, highlightId }: {
+function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, currentUserId, onCancelar, onOpen, onUnarchive, onArchive, highlightId }: {
   titulo: string
   icon: typeof Inbox
   tickets: Ticket[]
@@ -1299,6 +1328,7 @@ function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, cu
   onCancelar?: (t: Ticket) => void
   onOpen?: (id: string) => void
   onUnarchive?: (t: Ticket) => void
+  onArchive?: (t: Ticket) => void
   highlightId?: string | null
 }) {
   return (
@@ -1321,7 +1351,7 @@ function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, cu
       ) : (
         <div className={cn('divide-y divide-border/60', arquivado && 'opacity-80')}>
           {tickets.map(t => (
-            <TicketRow key={t.id} ticket={t} currentUserId={currentUserId} onCancelar={onCancelar} onOpen={onOpen} onUnarchive={onUnarchive ? () => onUnarchive(t) : undefined} highlight={t.id === highlightId} />
+            <TicketRow key={t.id} ticket={t} currentUserId={currentUserId} onCancelar={onCancelar} onOpen={onOpen} onUnarchive={onUnarchive ? () => onUnarchive(t) : undefined} onArchive={onArchive ? () => onArchive(t) : undefined} highlight={t.id === highlightId} />
           ))}
         </div>
       )}
