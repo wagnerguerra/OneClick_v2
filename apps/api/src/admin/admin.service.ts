@@ -183,6 +183,8 @@ const CONFIG_FIELDS: ConfigField[] = [
   // Acessórias — integração pra dar baixa automática nas rotinas mensais.
   // API REST com Bearer Token (gerado em Configurações → API Token no Acessórias).
   // Documentação: https://api.acessorias.com/documentation
+  { key: 'TSA_CONSUMER_KEY', label: 'Consumer Key — Carimbo de Tempo', group: 'SERPRO', type: 'text', help: 'Produto "API Carimbo de Tempo", que tem assinatura SEPARADA do Integra Contador. Em branco, cai na CONSUMER_KEY geral — que costuma ser recusada por este gateway.' },
+  { key: 'TSA_CONSUMER_SECRET', label: 'Consumer Secret — Carimbo de Tempo', group: 'SERPRO', type: 'password', secret: true, help: 'Par da chave acima.' },
   { key: 'ACESSORIAS_API_URL', label: 'URL Base da API', group: 'Acessórias', type: 'text', default: 'https://api.acessorias.com', placeholder: 'https://api.acessorias.com', help: 'Endpoint REST do Acessórias (sem /v1 ou afins)' },
   { key: 'ACESSORIAS_API_TOKEN', label: 'API Token', group: 'Acessórias', type: 'password', secret: true, help: 'Bearer Token gerado em Configurações → API Token no Acessórias. Rate limit 100 req/min.' },
   { key: 'ACESSORIAS_USER', label: 'Usuário (e-mail)', group: 'Acessórias', type: 'text', placeholder: 'usuario@empresa.com.br', help: 'E-mail do usuário no Acessórias (auditoria/identificação)' },

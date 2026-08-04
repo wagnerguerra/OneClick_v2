@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import { prisma } from '@saas/db'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const forge = require('node-forge')
 
@@ -16,11 +17,39 @@ export class TsaSerproService {
   private cachedToken: { token: string; expiresAt: number } | null = null
 
   /**
-   * Indica se o serviço está configurado. Se faltar CONSUMER_KEY/SECRET o
-   * carimbo é silenciosamente pulado (assinatura permanece BES, ainda válida).
+   * Indica se o serviço está configurado. Sem credencial o carimbo é pulado
+   * (assinatura permanece BES, ainda válida).
    */
   isConfigured(): boolean {
-    return !!(process.env.CONSUMER_KEY && process.env.CONSUMER_SECRET)
+    return !!(
+      (process.env.TSA_CONSUMER_KEY && process.env.TSA_CONSUMER_SECRET)
+      || (process.env.CONSUMER_KEY && process.env.CONSUMER_SECRET)
+    )
+  }
+
+  /**
+   * Credencial do Carimbo de Tempo.
+   *
+   * O Carimbo de Tempo é um PRODUTO À PARTE no SERPRO, com assinatura própria e
+   * gateway próprio (`gateway.apiserpro`), diferente do Integra Contador
+   * (`autenticacao.sapi`, com certificado). A chave de um não vale no outro — o
+   * gateway responde "A valid OAuth client could not be found". Por isso existe
+   * o par TSA_*, e o CONSUMER_* fica só como retrocompatibilidade.
+   *
+   * Lê primeiro do banco, como os demais serviços SERPRO: assim a credencial
+   * pode ser trocada em /configuracoes, sem publicar versão nova.
+   */
+  private async getCredenciais(): Promise<{ key: string; secret: string }> {
+    const linhas = await prisma.systemConfig.findMany({
+      where: { key: { in: ['TSA_CONSUMER_KEY', 'TSA_CONSUMER_SECRET', 'CONSUMER_KEY', 'CONSUMER_SECRET'] } },
+    }).catch(() => [] as Array<{ key: string; value: string }>)
+    const doBanco = new Map(linhas.map((l) => [l.key, l.value]))
+
+    const key = doBanco.get('TSA_CONSUMER_KEY') || process.env.TSA_CONSUMER_KEY
+      || doBanco.get('CONSUMER_KEY') || process.env.CONSUMER_KEY || ''
+    const secret = doBanco.get('TSA_CONSUMER_SECRET') || process.env.TSA_CONSUMER_SECRET
+      || doBanco.get('CONSUMER_SECRET') || process.env.CONSUMER_SECRET || ''
+    return { key, secret }
   }
 
   /** Obtém access token do gateway SERPRO (cache até 1h). */
@@ -28,9 +57,10 @@ export class TsaSerproService {
     if (this.cachedToken && this.cachedToken.expiresAt > Date.now() + 60_000) {
       return this.cachedToken.token
     }
-    const consumerKey = process.env.CONSUMER_KEY
-    const consumerSecret = process.env.CONSUMER_SECRET
-    if (!consumerKey || !consumerSecret) throw new Error('CONSUMER_KEY/CONSUMER_SECRET não configurados')
+    const { key: consumerKey, secret: consumerSecret } = await this.getCredenciais()
+    if (!consumerKey || !consumerSecret) {
+      throw new Error('Credencial do Carimbo de Tempo não configurada (TSA_CONSUMER_KEY/SECRET)')
+    }
 
     const basic = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64')
     const res = await fetch('https://gateway.apiserpro.serpro.gov.br/token', {
@@ -43,7 +73,12 @@ export class TsaSerproService {
     })
     if (!res.ok) {
       const t = await res.text()
-      throw new Error(`SERPRO token falhou: ${res.status} ${t.slice(0, 200)}`)
+      // O 401 aqui costuma ser assinatura ausente no produto Carimbo de Tempo,
+      // e não senha errada: a chave do Integra Contador não vale neste gateway.
+      throw new Error(
+        `SERPRO token falhou: ${res.status} ${t.slice(0, 200)}`
+        + (res.status === 401 ? ' — confira se a chave é a do produto Carimbo de Tempo (TSA_CONSUMER_KEY).' : ''),
+      )
     }
     const json: any = await res.json()
     const token = json.access_token as string
