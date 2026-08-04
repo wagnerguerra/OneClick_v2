@@ -5,6 +5,7 @@ import { listToolJobsSchema } from '@saas/types'
 import { FerramentasService } from './ferramentas.service'
 import { HtmlPdfService } from './html-pdf.service'
 import { JuntarPdfService } from './juntar-pdf.service'
+import { AssinaturaPdfService } from './assinatura-pdf.service'
 
 // tRPC SÓ-LEITURA do histórico de jobs (+ lixeira/restore). Upload/status/download
 // ficam no controller REST (multipart). Gateado por qualquer área de ferramentas;
@@ -47,10 +48,15 @@ export function createFerramentasRouter(
   service: FerramentasService,
   htmlPdf?: HtmlPdfService,
   juntarPdf?: JuntarPdfService,
+  assinatura?: AssinaturaPdfService,
 ) {
   const pdf = () => {
     if (!htmlPdf) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
     return htmlPdf
+  }
+  const assinar = () => {
+    if (!assinatura) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+    return assinatura
   }
   const merge = () => {
     if (!juntarPdf) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
@@ -64,6 +70,39 @@ export function createFerramentasRouter(
       .mutation(({ input }) => {
         validarLote(input.arquivos)
         return pdf().converter(input.arquivos)
+      }),
+
+    /** Certificados A1 disponíveis para assinar. */
+    certificadosParaAssinar: readProcedure(SLUG_GERAIS)
+      .query(({ ctx }) => assinar().listarCertificados(ctx.empresaId ?? null)),
+
+    /**
+     * Assina um PDF com o certificado escolhido, carimbando a área indicada.
+     * A área vem em pontos PDF, com origem no canto inferior esquerdo — a
+     * conversão da tela para essa medida é feita no navegador, onde se sabe a
+     * escala em que a página foi desenhada.
+     */
+    assinarPdf: readProcedure(SLUG_GERAIS)
+      .input(z.object({
+        nome: z.string().min(1).max(255),
+        pdfBase64: z.string().min(1),
+        certificadoId: z.string().min(1),
+        area: z.object({
+          pagina: z.number().int().min(1),
+          x: z.number(),
+          y: z.number(),
+          largura: z.number().positive(),
+          altura: z.number().positive(),
+        }).optional(),
+        motivo: z.string().max(200).optional(),
+        local: z.string().max(120).optional(),
+      }))
+      .mutation(({ input, ctx }) => {
+        const mb = input.pdfBase64.length / (1024 * 1024)
+        if (mb > LIMITE_PDF_MB) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: `O arquivo passa de ${LIMITE_PDF_MB} MB.` })
+        }
+        return assinar().assinar({ ...input, empresaId: ctx.empresaId ?? null })
       }),
 
     /** Junta PDFs na ORDEM recebida — quem ordena é a tela. */

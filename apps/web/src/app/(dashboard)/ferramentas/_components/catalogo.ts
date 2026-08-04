@@ -1,4 +1,4 @@
-import { FileText, Combine, type LucideIcon } from 'lucide-react'
+import { FileText, Combine, PenLine, type LucideIcon } from 'lucide-react'
 
 /**
  * Catálogo das ferramentas de uso geral.
@@ -34,5 +34,13 @@ export const FERRAMENTAS: Ferramenta[] = [
       + 'antes de juntar.',
     icone: Combine,
     cor: '#4f46e5',
+  },
+  {
+    slug: 'assinar-pdf',
+    titulo: 'Assinar PDF',
+    descricao: 'Assina com o certificado digital A1 do cadastro. Marque na página onde a '
+      + 'assinatura deve aparecer.',
+    icone: PenLine,
+    cor: '#059669',
   },
 ]

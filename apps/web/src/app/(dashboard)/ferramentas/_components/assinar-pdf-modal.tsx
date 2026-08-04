@@ -1,0 +1,337 @@
+'use client'
+
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { PenLine, Loader2, Upload, Download, ChevronLeft, ChevronRight, Eraser } from 'lucide-react'
+import {
+  Button,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
+} from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { trpc } from '@/lib/trpc'
+import { alerts } from '@/lib/alerts'
+import { FERRAMENTAS } from './catalogo'
+
+const FERRAMENTA = FERRAMENTAS.find((f) => f.slug === 'assinar-pdf')!
+
+/** Largura em que a página é desenhada. A escala sai daí, e com ela a conversão para pontos PDF. */
+const LARGURA_TELA = 660
+
+interface Certificado {
+  id: string
+  titular: string
+  documento: string
+  tipo: string
+  expiraEm: string
+}
+interface Assinado {
+  nome: string
+  base64: string
+  bytes: number
+  padesLevel: 'BES' | 'T'
+  tsaInfo?: string
+  titular: string
+}
+/** Retângulo em pixels da tela, origem no canto superior esquerdo. */
+interface Retangulo { x: number; y: number; w: number; h: number }
+
+const fmtTamanho = (b: number) =>
+  b < 1024 ? `${b} B` : b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`
+
+function baixar(nome: string, base64: string) {
+  const bin = atob(base64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = nome
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/**
+ * Assina PDF com certificado A1 do cadastro, marcando a área na página.
+ *
+ * É o fluxo do Acrobat com o certificado instalado na máquina: escolhe-se onde
+ * a assinatura aparece e pronto. A senha não é pedida porque o certificado já
+ * está guardado no sistema — o mesmo motivo de o Acrobat não pedir depois de
+ * instalado.
+ */
+export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
+  const [arquivo, setArquivo] = useState<{ nome: string; base64: string; bytes: number } | null>(null)
+  const [certificados, setCertificados] = useState<Certificado[]>([])
+  const [certificadoId, setCertificadoId] = useState('')
+  const [pagina, setPagina] = useState(1)
+  const [totalPaginas, setTotalPaginas] = useState(0)
+  /** Escala usada no desenho — converte pixels da tela em pontos PDF. */
+  const [escala, setEscala] = useState(1)
+  const [alturaTela, setAlturaTela] = useState(0)
+  const [area, setArea] = useState<Retangulo | null>(null)
+  const [desenhando, setDesenhando] = useState<{ x0: number; y0: number } | null>(null)
+  const [assinando, setAssinando] = useState(false)
+  const [resultado, setResultado] = useState<Assinado | null>(null)
+  const [carregandoPagina, setCarregandoPagina] = useState(false)
+
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const docRef = useRef<any>(null)
+
+  useEffect(() => {
+    ;(trpc.ferramentas as any).certificadosParaAssinar.query()
+      .then((c: Certificado[]) => {
+        setCertificados(c || [])
+        // Um só: já vem escolhido. Obrigar a selecionar o único item da lista
+        // é um passo que não decide nada.
+        if (c?.length === 1) setCertificadoId(c[0]!.id)
+      })
+      .catch(() => setCertificados([]))
+  }, [])
+
+  /** Desenha a página pedida e guarda a escala usada. */
+  const desenharPagina = useCallback(async (n: number) => {
+    const doc = docRef.current
+    const canvas = canvasRef.current
+    if (!doc || !canvas) return
+    setCarregandoPagina(true)
+    try {
+      const page = await doc.getPage(n)
+      const base = page.getViewport({ scale: 1 })
+      const s = LARGURA_TELA / base.width
+      const viewport = page.getViewport({ scale: s })
+      canvas.width = viewport.width
+      canvas.height = viewport.height
+      setEscala(s)
+      setAlturaTela(viewport.height)
+      const ctx = canvas.getContext('2d')!
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      await page.render({ canvasContext: ctx, viewport }).promise
+    } finally {
+      setCarregandoPagina(false)
+    }
+  }, [])
+
+  useEffect(() => { if (docRef.current) void desenharPagina(pagina) }, [pagina, desenharPagina])
+
+  const aceitar = useCallback(async (lista: FileList | null) => {
+    const f = lista?.[0]
+    if (!f) return
+    if (!/\.pdf$/i.test(f.name)) {
+      await alerts.warning('Arquivo inválido', 'Selecione um arquivo PDF.')
+      return
+    }
+    const buffer = await f.arrayBuffer()
+    const base64 = btoa(Array.from(new Uint8Array(buffer), (b) => String.fromCharCode(b)).join(''))
+
+    // O worker é servido de /public — o empacotador do Next não resolve o
+    // caminho interno do pacote de forma confiável entre versões.
+    const pdfjs = await import('pdfjs-dist')
+    pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+    const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise
+
+    docRef.current = doc
+    setArquivo({ nome: f.name, base64, bytes: f.size })
+    setTotalPaginas(doc.numPages)
+    setPagina(1)
+    setArea(null)
+    setResultado(null)
+    await desenharPagina(1)
+  }, [desenharPagina])
+
+  // ── seleção da área ──
+  const posicaoNoCanvas = (e: React.MouseEvent) => {
+    const r = (e.target as HTMLElement).closest('[data-folha]')!.getBoundingClientRect()
+    return { x: e.clientX - r.left, y: e.clientY - r.top }
+  }
+  const aoPressionar = (e: React.MouseEvent) => {
+    if (assinando) return
+    const p = posicaoNoCanvas(e)
+    setDesenhando({ x0: p.x, y0: p.y })
+    setArea({ x: p.x, y: p.y, w: 0, h: 0 })
+  }
+  const aoMover = (e: React.MouseEvent) => {
+    if (!desenhando) return
+    const p = posicaoNoCanvas(e)
+    setArea({
+      x: Math.min(desenhando.x0, p.x), y: Math.min(desenhando.y0, p.y),
+      w: Math.abs(p.x - desenhando.x0), h: Math.abs(p.y - desenhando.y0),
+    })
+  }
+  const aoSoltar = () => {
+    setDesenhando(null)
+    // Clique sem arrastar não é uma área — sem isso sobraria um retângulo de
+    // tamanho zero e a assinatura sairia invisível sem ninguém entender.
+    setArea((a) => (a && a.w > 12 && a.h > 8 ? a : null))
+  }
+
+  const assinar = async () => {
+    if (!arquivo || !certificadoId) return
+    setAssinando(true)
+    setResultado(null)
+    try {
+      const r = await (trpc.ferramentas as any).assinarPdf.mutate({
+        nome: arquivo.nome,
+        pdfBase64: arquivo.base64,
+        certificadoId,
+        // Tela (origem em cima) → pontos PDF (origem embaixo). É a conversão
+        // que só o navegador pode fazer, porque só aqui se sabe a escala.
+        area: area ? {
+          pagina,
+          x: area.x / escala,
+          y: (alturaTela - area.y - area.h) / escala,
+          largura: area.w / escala,
+          altura: area.h / escala,
+        } : undefined,
+      }) as Assinado
+      setResultado(r)
+      baixar(r.nome, r.base64)
+    } catch (e) {
+      await alerts.error('Falha ao assinar', (e as Error).message)
+    } finally {
+      setAssinando(false)
+    }
+  }
+
+  const cert = certificados.find((c) => c.id === certificadoId)
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !assinando) onClose() }}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeaderIcon icon={PenLine} color="emerald">
+          <DialogTitle>{FERRAMENTA.titulo}</DialogTitle>
+          <DialogDescription>{FERRAMENTA.descricao}</DialogDescription>
+        </DialogHeaderIcon>
+
+        <DialogBody className="max-h-[70vh] space-y-4 overflow-y-auto">
+          {!arquivo ? (
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); void aceitar(e.dataTransfer.files) }}
+              onClick={() => inputRef.current?.click()}
+              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-6 py-12 text-center hover:bg-muted/20"
+            >
+              <Upload className="h-7 w-7 text-muted-foreground" />
+              <p className="text-sm font-medium">Solte o PDF aqui, ou clique para escolher</p>
+              <p className="text-[12px] text-muted-foreground">Um arquivo por vez</p>
+              <input ref={inputRef} type="file" accept=".pdf,application/pdf" className="hidden"
+                onChange={(e) => { void aceitar(e.target.files); e.target.value = '' }} />
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={certificadoId} onValueChange={setCertificadoId}>
+                  <SelectTrigger className="h-9 w-[320px] text-xs">
+                    <SelectValue placeholder="Escolha o certificado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {certificados.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.titular} · {c.tipo} · vence {new Date(c.expiraEm).toLocaleDateString('pt-BR')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="flex items-center gap-1">
+                  <Button variant="outline" size="icon-sm" disabled={pagina <= 1 || carregandoPagina}
+                    onClick={() => { setPagina((p) => p - 1); setArea(null) }}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="min-w-[76px] text-center text-[12px] text-muted-foreground tabular-nums">
+                    {pagina} / {totalPaginas}
+                  </span>
+                  <Button variant="outline" size="icon-sm" disabled={pagina >= totalPaginas || carregandoPagina}
+                    onClick={() => { setPagina((p) => p + 1); setArea(null) }}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {area && (
+                  <Button variant="outline" size="sm" onClick={() => setArea(null)} disabled={assinando}>
+                    <Eraser className="h-3.5 w-3.5" />Limpar área
+                  </Button>
+                )}
+              </div>
+
+              <p className="text-[12px] text-muted-foreground">
+                Arraste sobre a página para marcar onde a assinatura aparece.
+                {' '}Sem marcar, o documento é assinado sem carimbo visível.
+              </p>
+
+              <div className="flex justify-center">
+                <div
+                  data-folha
+                  className="relative select-none border border-border shadow-sm"
+                  style={{ width: LARGURA_TELA, cursor: assinando ? 'default' : 'crosshair' }}
+                  onMouseDown={aoPressionar}
+                  onMouseMove={aoMover}
+                  onMouseUp={aoSoltar}
+                  onMouseLeave={aoSoltar}
+                >
+                  <canvas ref={canvasRef} className="block w-full" />
+                  {carregandoPagina && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-background/60">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                  {area && (
+                    <div
+                      className="pointer-events-none absolute border-2 bg-emerald-500/15"
+                      style={{ left: area.x, top: area.y, width: area.w, height: area.h, borderColor: FERRAMENTA.cor }}
+                    >
+                      {cert && area.h > 26 && (
+                        <span className="block truncate px-1 pt-0.5 text-[9px] font-semibold" style={{ color: FERRAMENTA.cor }}>
+                          {cert.titular}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {resultado && (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                  <div className="text-[13px]">
+                    <p className="font-semibold text-emerald-800 dark:text-emerald-300">
+                      Assinado por {resultado.titular}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      PAdES-{resultado.padesLevel}
+                      {resultado.padesLevel === 'T' ? ' · com carimbo do tempo' : ' · sem carimbo do tempo'}
+                    </p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => baixar(resultado.nome, resultado.base64)}>
+                    <Download className="h-3.5 w-3.5" />
+                    <span className="max-w-[240px] truncate">{resultado.nome}</span>
+                    <span className="text-[11px] text-muted-foreground">{fmtTamanho(resultado.bytes)}</span>
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+
+          {arquivo && certificados.length === 0 && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+              Nenhum certificado A1 válido com senha guardada. Cadastre em Certificados Digitais.
+            </p>
+          )}
+        </DialogBody>
+
+        <DialogFooter>
+          {arquivo && (
+            <Button variant="outline" size="sm" disabled={assinando}
+              onClick={() => { docRef.current = null; setArquivo(null); setArea(null); setResultado(null) }}>
+              Trocar arquivo
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={onClose} disabled={assinando}>Fechar</Button>
+          <Button variant="success" size="sm" onClick={assinar} disabled={assinando || !arquivo || !certificadoId}>
+            {assinando
+              ? <><Loader2 className="h-4 w-4 animate-spin" />Assinando…</>
+              : <><PenLine className="h-4 w-4" />Assinar</>}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

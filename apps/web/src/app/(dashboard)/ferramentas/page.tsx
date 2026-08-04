@@ -6,6 +6,7 @@ import { Card } from '@saas/ui'
 import { FERRAMENTAS } from './_components/catalogo'
 import { HtmlPdfModal } from './_components/html-pdf-modal'
 import { JuntarPdfModal } from './_components/juntar-pdf-modal'
+import { AssinarPdfModal } from './_components/assinar-pdf-modal'
 
 const MODULE_COLOR = 'var(--mod-ti, #3b82f6)'
 
@@ -60,6 +61,7 @@ export default function FerramentasPage() {
 
       {aberta === 'html-pdf' && <HtmlPdfModal onClose={() => setAberta(null)} />}
       {aberta === 'juntar-pdf' && <JuntarPdfModal onClose={() => setAberta(null)} />}
+      {aberta === 'assinar-pdf' && <AssinarPdfModal onClose={() => setAberta(null)} />}
     </div>
   )
 }
