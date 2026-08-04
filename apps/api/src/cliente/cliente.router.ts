@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
-import { router, readProcedure, writeProcedure, protectedProcedure, writeSubProcedure, deleteSubProcedure, writeSubOrModuleWrite } from '../trpc/trpc.service'
+import { router, readProcedure, writeProcedure, protectedProcedure, writeSubProcedure, deleteSubProcedure, writeSubOrModuleWrite, hasSubPermission } from '../trpc/trpc.service'
 import { createClienteSchema, updateClienteSchema, listClienteSchema } from '@saas/types'
 import { ClienteService } from './cliente.service'
 import { LegacyImportService } from './legacy-import.service'
@@ -83,7 +83,13 @@ export function createClienteRouter(
     // Atualizar
     update: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ id: z.string(), data: updateClienteSchema }))
-      .mutation(({ input, ctx }) => clienteService.update(input.id, input.data, ctx.userId, ctx.isMaster, ctx.empresaId)),
+      .mutation(async ({ input, ctx }) => {
+        // Campos comerciais (situação/origem/grupo) exigem a sub "manage_commercial"
+        // — mesma regra da aba Comercial. O service só barra quando o VALOR muda,
+        // então quem tem só "edit_details" segue salvando o resto do cadastro.
+        const podeComercial = await hasSubPermission(ctx.userId, MODULE, 'manage_commercial', { isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster })
+        return clienteService.update(input.id, input.data, ctx.userId, ctx.isMaster, ctx.empresaId, podeComercial)
+      }),
 
     // Soft delete (mover para lixeira)
     delete: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')

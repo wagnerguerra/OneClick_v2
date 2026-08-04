@@ -263,6 +263,26 @@ async function getUserPermissions(userId: string): Promise<UserPermissionRow[]> 
   return perms
 }
 
+/**
+ * Checa, FORA do middleware, se um usuário tem uma sub-permissão de um módulo —
+ * mesma regra do createSubPermissionMiddleware: master/empresa-master passam;
+ * precisa de canRead no módulo; a sub precisa ser === true (default-deny).
+ * Útil para regra de CAMPO dentro de um service/resolver (ex.: só quem tem
+ * "manage_commercial" pode alterar os campos comerciais do cliente).
+ */
+export async function hasSubPermission(
+  userId: string,
+  moduleSlug: string,
+  subKey: string,
+  opts?: { isMaster?: boolean; isEmpresaMaster?: boolean },
+): Promise<boolean> {
+  if (opts?.isMaster || opts?.isEmpresaMaster) return true
+  const permissions = await getUserPermissions(userId)
+  const modulePerm = permissions.find(p => p.moduleSlug === moduleSlug)
+  if (!modulePerm || !modulePerm.canRead) return false
+  return ((modulePerm.subPermissions ?? {}) as Record<string, boolean>)[subKey] === true
+}
+
 const t = initTRPC.context<TrpcContext>().create()
 
 export const router = t.router
