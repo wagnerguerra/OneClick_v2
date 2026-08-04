@@ -1,0 +1,183 @@
+<title>Resumo do dia — OneClick v2 · 03/08/2026</title>
+<style>
+  :root {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+    /* dots por bloco (cores dos módulos) */
+    --cadastros:#10b981; --comercial:#fb7185; --corporativo:#8b5cf6; --administrativo:#64748b;
+    --legalizacao:#0ea5e9; --trabalhista:#f97316; --fiscal:#6366f1; --contabil:#14b8a6;
+    --ti:#3b82f6; --qualidade:#f59e0b; --configuracoes:#64748b; --processos:#a855f7;
+    --faq:#22c55e; --perfil:#ec4899; --dashboard:#0ea5e9; --agenda:#8b5cf6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+      --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+      --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+    --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+    --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 56px 24px 80px; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  header { animation: rise .5s ease-out both; }
+  .eyebrow {
+    text-transform: uppercase; letter-spacing: .13em; font-size: 11px; font-weight: 700;
+    color: var(--accent-deep); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px); line-height: 1.08; margin: 0 0 8px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .sub { color: var(--muted); font-size: 15px; margin: 0; }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 8px; }
+  .stat {
+    flex: 1 1 150px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .stat .n { font-size: 24px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  main { margin-top: 30px; display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; box-shadow: var(--shadow);
+    animation: rise .5s ease-out both;
+  }
+  .card-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .card-head h2 { font-size: 16px; margin: 0; letter-spacing: -.01em; font-weight: 700; }
+  .card-head .tag {
+    margin-left: auto; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
+  }
+  ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  li { display: flex; gap: 10px; font-size: 14.5px; }
+  li::before {
+    content: ""; margin-top: 9px; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--muted); flex: none; opacity: .55;
+  }
+  li b { font-weight: 650; }
+  .hash {
+    display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 5px;
+    background: var(--chip-bg); color: var(--chip-ink); margin-left: 4px; vertical-align: baseline;
+  }
+
+  .note {
+    margin-top: 22px; border: 1px dashed var(--border); border-radius: 12px;
+    padding: 14px 18px; font-size: 13.5px; color: var(--muted); background: transparent;
+  }
+  .note b { color: var(--ink); }
+  footer { margin-top: 34px; text-align: center; color: var(--muted); font-size: 12px; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Resumo do dia · sessão de desenvolvimento</p>
+    <h1>O que fizemos hoje no OneClick v2</h1>
+    <p class="sub">3 de agosto de 2026 — visão geral, sem entrar no detalhe.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="n">26</div><div class="l">commits (locais)</div></div>
+    <div class="stat"><div class="n">18</div><div class="l">melhorias</div></div>
+    <div class="stat"><div class="n">7</div><div class="l">correções</div></div>
+    <div class="stat"><div class="n">3</div><div class="l">investigações</div></div>
+  </div>
+
+  <main>
+    <section class="card" style="animation-delay:.05s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Painel de indicadores das obrigações</h2><span class="tag">Administrativo · novo</span></div>
+      <ul>
+        <li><span><b>Cada um vê o que lhe cabe</b> — o colaborador vê as obrigações dele; o gestor, um cartão por pessoa da sua área; a gerência e a diretoria, um cartão por área; a direção geral, a empresa inteira com o total. Quem decide o recorte é o servidor, não a tela: assim o dado de uma área não trafega até quem não pode vê-lo. <span class="hash mono">f3bbd98</span></span></li>
+        <li><span><b>Seis medidas por cartão</b> — em aberto no prazo, em aberto em atraso, em aberto passível de multa, entregues no prazo, entregues com atraso e entregues com multa. Ao redor da foto de cada colaborador há um gráfico de rosca com a proporção entre elas. <span class="hash mono">08d4efc</span> <span class="hash mono">653b960</span></span></li>
+        <li><span><b>Todo número abre a lista que o compõe</b> — clicar em qualquer uma das seis medidas mostra exatamente quais obrigações estão ali, com cliente, responsável, prazos e data de entrega. A lista usa a mesma regra do número clicado, então não há como as duas discordarem. <span class="hash mono">08d4efc</span> <span class="hash mono">6978990</span></span></li>
+        <li><span><b>A lista pode ser filtrada coluna a coluna</b> — obrigação, cliente, responsável e competência. Filtra na hora, sem recarregar, e o cabeçalho passa a mostrar "7 de 43" para deixar claro que se está vendo um recorte. <span class="hash mono">04d1926</span></span></li>
+        <li><span><b>Apontar um número destaca a fatia no gráfico</b> — a fatia cresce, as demais recuam e o percentual aparece ao lado. Vinte e um de quarenta e sete é visivelmente "quase metade", mas só o número diz 45%. <span class="hash mono">584ec7f</span> <span class="hash mono">6a01ceb</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.10s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Os dois prazos de cada obrigação</h2><span class="tag">Administrativo · descoberta</span></div>
+      <ul>
+        <li><span><b>Descobrimos que o Acessórias trabalha com dois prazos</b> — o <b>técnico</b>, acordado com o cliente, e o <b>legal</b>, o do órgão. Confirmamos qual é qual conferindo contra prazos que se conhece de cor: FGTS, Simples e DCTFWeb caem no dia 20, e a folha do quinto dia útil cai no quinto dia útil. As telas usavam nomes inventados para essas datas; passaram a usar os nomes corretos. <span class="hash mono">76726d9</span></span></li>
+        <li><span><b>Uma chave para escolher qual prazo medir</b> — pelo prazo legal, vê-se a exposição do cliente a multa. Pelo técnico, vê-se quanto do combinado com o cliente está sendo cumprido. A diferença não é pequena: entre um e outro há uma faixa inteira de entregas que o órgão aceita e o contrato, não. A escolha fica gravada para a próxima visita. <span class="hash mono">fe9dd94</span> <span class="hash mono">950aaad</span></span></li>
+        <li><span><b>As duas datas aparecem lado a lado</b> nas listas, com destaque para a que está valendo. Ver as duas juntas mostra de imediato quanta folga existe entre o compromisso e a obrigação legal. <span class="hash mono">6a01ceb</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.15s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Números que estavam errados</h2><span class="tag">Administrativo · correção</span></div>
+      <ul>
+        <li><span><b>"Entregues com multa" contava o que não devia</b> — o campo do Acessórias não diz "gerou multa", diz que a obrigação <i>é sujeita</i> a multa se falhar. Havia cartões dizendo que alguém entregou quatro obrigações com multa tendo entregado tudo adiantado — e o mesmo cartão mostrava zero pendências em atraso, o que é impossível. Agora os dois indicadores de multa exigem o atraso junto. <span class="hash mono">8d63889</span></span></li>
+        <li><span><b>Entregas em dia apareciam como atrasadas</b> — o Acessórias tem três categorias de entrega e só uma é atraso; a do meio é a entrega feita depois do combinado com o cliente mas dentro do prazo legal. Nosso cálculo jogava essa faixa inteira no balde de atraso: nove de cada doze na amostra conferida. <span class="hash mono">0b360df</span></span></li>
+        <li><span><b>Uma ex-colaboradora aparecia no painel de outra pessoa</b> — o sistema liga o nome que vem do Acessórias ao nosso cadastro por semelhança, e "Maria da Conceição Alves Meneses" havia casado com uma "Maria Helena", que é outra pessoa, de outra área. Bastava o primeiro nome coincidir. Agora exige-se o primeiro nome e mais um pedaço do sobrenome, e a conferência é refeita a cada visita, para que uma correção de regra alcance os vínculos já gravados. <span class="hash mono">eb1cecf</span></span></li>
+        <li><span><b>A gestora via a carteira de outras áreas</b> — a tela de entregas só separava por empresa. Passou a respeitar a área de quem olha: gerência, diretoria e direção geral veem tudo; do gestor para baixo, só a própria área. Os campos de filtro também obedecem, para não oferecer nomes de outra área nem levar a telas vazias. <span class="hash mono">73ba506</span></span></li>
+        <li><span><b>Entrar no módulo abria duas abas iguais</b> — e as telas internas, quando abertas juntas, ficavam todas com o mesmo nome. Cada uma ganhou nome próprio. <span class="hash mono">0759c5c</span></span></li>
+        <li><span><b>O cabeçalho das tabelas ficava transparente ao rolar</b>, com as linhas passando por trás. Corrigido nas quatro tabelas do módulo. <span class="hash mono">3fac294</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.20s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Sincronização com o Acessórias</h2><span class="tag">Administrativo · correção</span></div>
+      <ul>
+        <li><span><b>A sincronização desistia de clientes em silêncio</b> — o Acessórias permite cem consultas por minuto e nós pedíamos trezentas. Ao ser recusada, a rotina entendia que os dados daquele cliente haviam terminado, parava ali e seguia adiante; o histórico marcava "sucesso" sobre um resultado incompleto. Agora o ritmo respeita o limite, uma recusa é reprocessada e o que falhar aparece no histórico como parcial, com o nome do cliente. <span class="hash mono">cf805ef</span></span></li>
+        <li><span><b>O painel avisa quando o período pedido vai além do que foi trazido</b> — escolher um mês que ainda não foi sincronizado mostrava um retrato pela metade, sem nenhum sinal disso. Uma faixa amarela agora diz até que data os dados existem. <span class="hash mono">170c1c1</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.25s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Organização e filtros</h2><span class="tag">Administrativo · melhoria</span></div>
+      <ul>
+        <li><span><b>Um só item de menu para o Acessórias</b> — Indicadores, Entregas e guias, Integração e Divergências ocupavam linhas separadas na lateral e viraram abas dentro de um único item. Cada aba respeita a permissão de quem entra, e quem só acompanha entregas é levado direto para a tela certa. <span class="hash mono">3c2423e</span> <span class="hash mono">08d4efc</span></span></li>
+        <li><span><b>Filtro por competência</b> — além dos recortes por data de vencimento, dá para pedir o fechamento de um mês de referência inteiro. A lista oferece o mês atual, três à frente e três atrás. <span class="hash mono">17e3567</span> <span class="hash mono">14fec25</span></span></li>
+        <li><span><b>Recortes de prazo prontos</b> — últimos sete e trinta dias, semana atual e anterior, mês atual e anterior. <span class="hash mono">058157f</span></span></li>
+        <li><span><b>A busca também acha por competência</b>, escrita de qualquer forma: "jun/2026", "junho 2026", "06/2026". <span class="hash mono">2f731d0</span></span></li>
+        <li><span><b>A data de entrega virou um selo colorido</b> — verde quando entregue antes do prazo, âmbar no próprio dia, vermelho depois. As tabelas mostravam as duas datas lado a lado e deixavam a comparação para quem lia, dezenas de vezes seguidas. <span class="hash mono">7260451</span> <span class="hash mono">d533f15</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.30s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Investigações — o que apuramos</h2><span class="tag">investigação</span></div>
+      <ul>
+        <li><span><b>"Por que o painel geral só mostra uma área?"</b> — consultamos o banco de produção. As quatro áreas estão lá, com mais de duas mil obrigações fiscais. O que faltava eram as <i>datas</i>: a última sincronização cobriu só julho, e como ela recorta pelo prazo técnico enquanto o painel filtra pelo legal, apenas as obrigações de pessoal "vazam" para agosto. Não era falha do painel — e virou o aviso de cobertura citado acima.</span></li>
+        <li><span><b>"A API entrega quem abriu o e-mail?"</b> — testamos doze formatos de endereço contra um registro específico. Não entrega: aquele log com nome, e-mail e horário existe apenas na tela do Acessórias. O caminho limpo seria pedir a eles que exponham o dado.</span></li>
+        <li><span><b>Uma conclusão anterior precisou ser revista</b> — há dias avaliamos que não valia a pena buscar esse log, porque o pessoal interno raramente abre as notificações do cliente. Um registro trazido hoje mostra o contrário: a guia foi marcada como lida às 13h48 por um acesso de um endereço nosso, e o contato do cliente só abriu quase três horas depois. O caso existe, e a avaliação de custo será refeita se ele se mostrar frequente.</span></li>
+      </ul>
+    </section>
+  </main>
+
+  <div class="note">
+    <b>Além do código:</b> boa parte do dia foi ajustar o que os números <i>significam</i>, não o que eles mostram. Três indicadores estavam contando a coisa errada com toda a confiança — nada quebrava, nada dava erro, e só apareceram porque foram questionados olhando a tela. A descoberta dos dois prazos foi a chave: quase todos os erros do dia vinham de medir contra a data errada. Ficou também uma diretriz nova para o time: vínculo entre sistemas se guarda por identificador, nunca por nome — nome muda de grafia, tem homônimo, e casar por semelhança já atribuiu o trabalho de uma pessoa a outra.
+  </div>
+  <div class="note" style="margin-top:10px">
+    <b>Situação:</b> houve duas publicações em produção ao longo do dia, e as últimas vinte e seis alterações estão prontas aguardando a próxima. Uma recomendação para quando subirem: rodar a sincronização de entregas cobrindo agosto, para que as áreas fiscal e contábil apareçam no painel — hoje só existe julho no sistema.
+  </div>
+
+  <footer>Resumo gerado ao fim da sessão · OneClick v2</footer>
+</div>
