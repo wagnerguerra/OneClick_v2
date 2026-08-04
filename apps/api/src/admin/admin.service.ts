@@ -56,8 +56,11 @@ const CONFIG_FIELDS: ConfigField[] = [
   { key: 'PUBLIC_BASE_URL', label: 'URL Pública', group: 'SERPRO', type: 'text', placeholder: 'http://192.168.0.108:5176/' },
   { key: 'CONSUMER_KEY', label: 'Consumer Key', group: 'SERPRO', type: 'password', secret: true },
   { key: 'CONSUMER_SECRET', label: 'Consumer Secret', group: 'SERPRO', type: 'password', secret: true },
-  { key: 'CERTIFICADO_SENHA', label: 'Senha do Certificado PJ (PFX)', group: 'SERPRO', type: 'password', secret: true },
-  { key: 'CERTIFICADO_PF_SENHA', label: 'Senha do Certificado PF (Contador)', group: 'SERPRO', type: 'password', secret: true },
+
+  // Certificados digitais — um lugar só para todos, mesmo que quem os consuma
+  // seja outro serviço (SERPRO, assinatura de PDF, e-CNPJ em portais).
+  { key: 'CERTIFICADO_SENHA', label: 'Senha do certificado do escritório (e-CNPJ)', group: 'Certificados', type: 'password', secret: true },
+  { key: 'CERTIFICADO_PF_SENHA', label: 'Senha do certificado do contador (e-CPF)', group: 'Certificados', type: 'password', secret: true },
 
   // Banco de Dados — PostgreSQL (subgroup: postgresql)
   { key: 'DATABASE_URL', label: 'URL PostgreSQL', group: 'Banco de Dados', type: 'text', placeholder: 'postgresql://user:pass@localhost:5432/db', subgroup: 'postgresql' },

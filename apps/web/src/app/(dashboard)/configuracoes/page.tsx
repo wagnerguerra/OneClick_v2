@@ -8,7 +8,9 @@ import {
   Key, Clock, type LucideIcon, Zap, CheckCircle2, XCircle,
   Play, Terminal, Bookmark, FolderOpen, Trash2, ChevronDown, Search, Pencil, Check, Maximize2, Minimize2,
   FileSignature, Bell, Lock, Unlock, Headphones, FolderKanban, HardDriveDownload, ClipboardCheck,
+  ChevronRight, BadgeCheck,
 } from 'lucide-react'
+import Link from 'next/link'
 import { Button, Input, Label, Card, CardHeader, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -39,6 +41,7 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
   'SERPRO Neo iD': FileSignature,
   'Omie ERP': Globe,
   'OpenAI (ChatGPT)': Brain,
+  'Certificados': BadgeCheck,
   'SERPRO': Key,
   'Servidor': Server,
   'Stripe': CreditCard,
@@ -547,7 +550,6 @@ export default function ConfiguracoesPage() {
             </>
           )}
         </div>
-        <p className="text-[10px] text-muted-foreground font-mono">{field.key}</p>
       </div>
     )
   }
@@ -1456,6 +1458,30 @@ export default function ConfiguracoesPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Certificados — as senhas ficam aqui, os arquivos na tela de
+                    envio. Sem o atalho, quem chega aqui para trocar o
+                    certificado não descobre onde subir o arquivo. */}
+                {activeGroup === 'Certificados' && (
+                  <div className="mt-6 border-t pt-4">
+                    <h5 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
+                      Arquivos (.pfx)
+                    </h5>
+                    <div className="rounded border border-sky-200/70 bg-sky-50/40 px-4 py-3 dark:border-sky-900/40 dark:bg-sky-950/20">
+                      <p className="text-[13px] text-muted-foreground">
+                        O envio dos arquivos, a validade e o titular de cada certificado ficam na tela de
+                        certificado digital.
+                      </p>
+                      <Link
+                        href="/configuracoes/certificado"
+                        className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-sky-700 hover:underline dark:text-sky-400"
+                      >
+                        Abrir certificados digitais
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
+                  </div>
+                )}
 
                 {/* Acessórias — painel de sincronização + teste */}
                 {activeGroup === 'Acessórias' && (
