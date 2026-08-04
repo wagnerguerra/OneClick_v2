@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common'
+import { Injectable, Inject, Logger } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -195,6 +195,8 @@ const CONFIG_FIELDS: ConfigField[] = [
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name)
+
   constructor(@Inject(EmailService) private readonly emailService: EmailService) {}
 
   private getEnvPath(): string {
@@ -281,19 +283,28 @@ export class AdminService {
     return { groups, fields: CONFIG_FIELDS }
   }
 
+  /**
+   * Valor atual de cada campo, na ordem em que as fontes mandam.
+   *
+   * O banco vem primeiro porque é o que a tela grava e o que sobrevive a um
+   * restart; o arquivo `.env` continua valendo no desenvolvimento, onde ele é
+   * de fato a fonte. Segredo nunca é devolvido — o campo aparece em branco e,
+   * em branco, não altera nada ao salvar.
+   */
   async getConfigs() {
     const { values } = this.parseEnvFile()
-    const result: Array<{ key: string; value: string }> = []
+    const doBanco = new Map(
+      (await prisma.systemConfig.findMany({ select: { key: true, value: true } })
+        .catch(() => [] as Array<{ key: string; value: string }>))
+        .map((l) => [l.key, l.value]),
+    )
 
-    for (const field of CONFIG_FIELDS) {
-      const rawValue = values.get(field.key) || ''
-      result.push({
-        key: field.key,
-        value: (field.secret || SECRET_KEYS.has(field.key)) ? '' : rawValue,
-      })
-    }
-
-    return result
+    return CONFIG_FIELDS.map((field) => ({
+      key: field.key,
+      value: (field.secret || SECRET_KEYS.has(field.key))
+        ? ''
+        : (doBanco.get(field.key) || values.get(field.key) || ''),
+    }))
   }
 
   async saveConfigs(items: Record<string, string>) {
@@ -330,10 +341,40 @@ export class AdminService {
     }
 
     if (updates.size > 0) {
+      await this.persistirNoBanco(updates)
       this.writeEnvFile(updates)
     }
 
     return { saved }
+  }
+
+  /**
+   * Grava a configuração no banco — a única fonte que sobrevive a um restart.
+   *
+   * Em produção a API roda em contêiner, recebe as variáveis do compose e não
+   * tem `.env` no diretório de deploy: o que era escrito lá valia só enquanto o
+   * processo estava de pé e sumia na publicação seguinte. O arquivo continua
+   * sendo escrito depois desta gravação, porque no desenvolvimento ele é a
+   * fonte de verdade.
+   */
+  private async persistirNoBanco(updates: Map<string, string | null>) {
+    for (const [key, value] of updates) {
+      const field = CONFIG_FIELDS.find(f => f.key === key)
+      try {
+        if (value === null || value === '') {
+          await prisma.systemConfig.deleteMany({ where: { key } })
+          continue
+        }
+        await prisma.systemConfig.upsert({
+          where: { key },
+          create: { key, value, label: field?.label, group: field?.group },
+          update: { value, label: field?.label, group: field?.group },
+        })
+      } catch (e) {
+        // Uma chave que falha não pode derrubar as outras do mesmo salvamento.
+        this.logger.error({ key, erro: (e as Error).message }, 'Falha ao gravar configuração no banco')
+      }
+    }
   }
 
   // ============================================================

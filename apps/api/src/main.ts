@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core'
 import type { NestExpressApplication } from '@nestjs/platform-express'
 import { Logger } from 'nestjs-pino'
 import { AppModule } from './app.module'
+import { hidratarConfiguracoes } from './common/config-runtime'
 
 // Habilita JSON.stringify de BigInt — necessário pra serializar campos
 // Prisma BigInt (ex: HelpdeskTicket.totalPausadoMs) via tRPC. Number() é
@@ -12,9 +13,16 @@ import { AppModule } from './app.module'
 }
 
 async function bootstrap() {
+  // Antes de qualquer serviço: o que foi configurado pela tela vale mais que o
+  // que veio do contêiner, e há serviço que lê o ambiente na construção.
+  const configsDoBanco = await hidratarConfiguracoes()
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true })
 
   app.useLogger(app.get(Logger))
+  if (configsDoBanco > 0) {
+    app.get(Logger).log(`${configsDoBanco} configuração(ões) carregada(s) do banco`)
+  }
 
   // Desabilita ETag em todas as respostas. Express auto-gerava ETag para
   // /api/auth/get-session, fazendo o cliente receber 304 sem body — better-auth
