@@ -4,6 +4,7 @@ import { prisma } from '@saas/db'
 import { AreaService } from '../area/area.service'
 import { createAreaRouter } from '../area/area.router'
 import { FerramentasService } from '../ferramentas/ferramentas.service'
+import { HtmlPdfService } from '../ferramentas/html-pdf.service'
 import { createFerramentasRouter } from '../ferramentas/ferramentas.router'
 import { EmpresaService } from '../empresa/empresa.service'
 import { createEmpresaRouter } from '../empresa/empresa.router'
@@ -705,6 +706,7 @@ export class TrpcService {
     @Inject(SignatureTemplateService) private readonly signatureTemplateService: SignatureTemplateService,
     @Inject(AuthService) private readonly authServiceForCert: AuthService,
     @Inject(FerramentasService) private readonly ferramentasService: FerramentasService,
+    @Inject(HtmlPdfService) private readonly htmlPdfService: HtmlPdfService,
   ) {
     this.appRouter = this.createRouter()
   }
@@ -718,7 +720,7 @@ export class TrpcService {
         return { userId: ctx.userId, tenantId: ctx.tenantId, empresaId: ctx.empresaId, isMaster: ctx.isMaster }
       }),
       area: createAreaRouter(this.areaService),
-      ferramentas: createFerramentasRouter(this.ferramentasService),
+      ferramentas: createFerramentasRouter(this.ferramentasService, this.htmlPdfService),
       empresa: createEmpresaRouter(this.empresaService),
       user: createUserRouter(this.userService),
       cargo: createCargoRouter(this.cargoService),

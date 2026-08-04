@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { PanelLeftClose, PanelLeft, LayoutDashboard, X } from 'lucide-react'
+import { PanelLeftClose, PanelLeft, LayoutDashboard, Wrench, X } from 'lucide-react'
 import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import { cn, ScrollArea, Separator, TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@saas/ui'
@@ -166,6 +166,13 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
                 icon={LayoutDashboard}
                 collapsed
               />
+              <SidebarItem
+                label="Ferramentas"
+                href="/ferramentas"
+                icon={Wrench}
+                collapsed
+                exact
+              />
             </div>
 
             <Separator />
@@ -194,6 +201,15 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
                 href="/dashboard"
                 icon={LayoutDashboard}
                 collapsed={false}
+              />
+              {/* Utilitários de uso geral, fora dos blocos de negócio. `exact`
+                  porque /ferramentas/fiscal pertence ao bloco Fiscal. */}
+              <SidebarItem
+                label="Ferramentas"
+                href="/ferramentas"
+                icon={Wrench}
+                collapsed={false}
+                exact
               />
 
               <Separator className="my-3" />
