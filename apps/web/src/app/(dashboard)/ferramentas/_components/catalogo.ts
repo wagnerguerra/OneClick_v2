@@ -1,4 +1,4 @@
-import { FileText, type LucideIcon } from 'lucide-react'
+import { FileText, Combine, type LucideIcon } from 'lucide-react'
 
 /**
  * Catálogo das ferramentas de uso geral.
@@ -26,5 +26,13 @@ export const FERRAMENTAS: Ferramenta[] = [
       + 'preservando fundos, cores e a quebra de página dos blocos.',
     icone: FileText,
     cor: '#e11d48',
+  },
+  {
+    slug: 'juntar-pdf',
+    titulo: 'Juntar PDF',
+    descricao: 'Une vários PDFs num documento só. Arraste os arquivos para definir a ordem '
+      + 'antes de juntar.',
+    icone: Combine,
+    cor: '#4f46e5',
   },
 ]

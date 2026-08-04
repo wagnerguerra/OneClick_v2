@@ -4,6 +4,7 @@ import { router, readProcedureAnyOf, readProcedure } from '../trpc/trpc.service'
 import { listToolJobsSchema } from '@saas/types'
 import { FerramentasService } from './ferramentas.service'
 import { HtmlPdfService } from './html-pdf.service'
+import { JuntarPdfService } from './juntar-pdf.service'
 
 // tRPC SÓ-LEITURA do histórico de jobs (+ lixeira/restore). Upload/status/download
 // ficam no controller REST (multipart). Gateado por qualquer área de ferramentas;
@@ -23,6 +24,8 @@ const SLUG_GERAIS = 'ferramentas-gerais'
 
 const LIMITE_ARQUIVOS = 30
 const LIMITE_TOTAL_MB = 20
+/** PDF pesa mais que HTML; o teto acompanha. */
+const LIMITE_PDF_MB = 60
 
 const arquivoHtmlSchema = z.object({
   nome: z.string().min(1).max(255),
@@ -40,10 +43,18 @@ function validarLote(arquivos: Array<{ conteudo: string }>) {
   }
 }
 
-export function createFerramentasRouter(service: FerramentasService, htmlPdf?: HtmlPdfService) {
+export function createFerramentasRouter(
+  service: FerramentasService,
+  htmlPdf?: HtmlPdfService,
+  juntarPdf?: JuntarPdfService,
+) {
   const pdf = () => {
     if (!htmlPdf) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
     return htmlPdf
+  }
+  const merge = () => {
+    if (!juntarPdf) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+    return juntarPdf
   }
 
   return router({
@@ -53,6 +64,27 @@ export function createFerramentasRouter(service: FerramentasService, htmlPdf?: H
       .mutation(({ input }) => {
         validarLote(input.arquivos)
         return pdf().converter(input.arquivos)
+      }),
+
+    /** Junta PDFs na ORDEM recebida — quem ordena é a tela. */
+    juntarPdf: readProcedure(SLUG_GERAIS)
+      .input(z.object({
+        arquivos: z.array(z.object({
+          nome: z.string().min(1).max(255),
+          base64: z.string().min(1),
+        })).min(2),
+        nome: z.string().min(1).max(255).optional(),
+      }))
+      .mutation(({ input }) => {
+        // Base64 infla ~33%: o teto olha o tamanho real, não o do arquivo.
+        const mb = input.arquivos.reduce((s, a) => s + a.base64.length, 0) / (1024 * 1024)
+        if (input.arquivos.length > LIMITE_ARQUIVOS) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: `Envie no máximo ${LIMITE_ARQUIVOS} arquivos por vez.` })
+        }
+        if (mb > LIMITE_PDF_MB) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: `O conjunto passa de ${LIMITE_PDF_MB} MB. Divida em lotes menores.` })
+        }
+        return merge().juntar(input.arquivos, input.nome ?? 'Documento unificado')
       }),
 
     htmlParaPdfUnico: readProcedure(SLUG_GERAIS)

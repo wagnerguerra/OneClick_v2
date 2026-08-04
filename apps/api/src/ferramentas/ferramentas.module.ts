@@ -5,13 +5,14 @@ import { ExtratoEditController } from './extrato-edit.controller'
 import { FerramentasService } from './ferramentas.service'
 import { WebappGatewayService } from './webapp-gateway.service'
 import { HtmlPdfService } from './html-pdf.service'
+import { JuntarPdfService } from './juntar-pdf.service'
 
 // Módulo das Ferramentas (integração webapp → OneClick).
 // AuthModule p/ o controller resolver a sessão (Better Auth).
 @Module({
   imports: [AuthModule],
   controllers: [FerramentasController, ExtratoEditController],
-  providers: [FerramentasService, WebappGatewayService, HtmlPdfService],
-  exports: [FerramentasService, HtmlPdfService],
+  providers: [FerramentasService, WebappGatewayService, HtmlPdfService, JuntarPdfService],
+  exports: [FerramentasService, HtmlPdfService, JuntarPdfService],
 })
 export class FerramentasModule {}

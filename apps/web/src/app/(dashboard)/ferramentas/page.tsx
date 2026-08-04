@@ -5,6 +5,7 @@ import { Wrench } from 'lucide-react'
 import { Card } from '@saas/ui'
 import { FERRAMENTAS } from './_components/catalogo'
 import { HtmlPdfModal } from './_components/html-pdf-modal'
+import { JuntarPdfModal } from './_components/juntar-pdf-modal'
 
 const MODULE_COLOR = 'var(--mod-ti, #3b82f6)'
 
@@ -58,6 +59,7 @@ export default function FerramentasPage() {
       </div>
 
       {aberta === 'html-pdf' && <HtmlPdfModal onClose={() => setAberta(null)} />}
+      {aberta === 'juntar-pdf' && <JuntarPdfModal onClose={() => setAberta(null)} />}
     </div>
   )
 }
