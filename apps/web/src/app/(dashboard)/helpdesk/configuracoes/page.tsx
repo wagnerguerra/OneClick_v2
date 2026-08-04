@@ -186,7 +186,7 @@ export default function HelpdeskConfiguracoesPage() {
               </div>
               <p className="text-[11px] text-muted-foreground">
                 {notificarTodos
-                  ? 'Ligado: todo novo ticket avisa (sino + e-mail) TODOS os agentes do HelpDesk, além dos destinatários alternativos abaixo.'
+                  ? 'Ligado: todo novo ticket avisa (sino + e-mail) TODOS os agentes do HelpDesk, além dos destinatários adicionais abaixo.'
                   : 'Desligado: novo ticket avisa (sino + e-mail) os membros da área do ticket. Sem área, cai nos destinatários alternativos abaixo.'}
               </p>
             </div>
@@ -230,7 +230,7 @@ export default function HelpdeskConfiguracoesPage() {
             </div>
             <div className="p-4 space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="auto-dias" className="text-[13px] font-semibold">Dias após resolução</Label>
+                <Label htmlFor="auto-dias" className="text-[13px] font-semibold">Prazo de auto-fechamento</Label>
                 <div className="flex items-center gap-2">
                   <Input
                     id="auto-dias"
@@ -241,7 +241,7 @@ export default function HelpdeskConfiguracoesPage() {
                     disabled={!canWrite}
                     className="h-9 w-28 text-sm"
                   />
-                  <span className="text-[13px] text-muted-foreground">dias</span>
+                  <span className="text-[13px] text-muted-foreground">dias após resolução</span>
                   {savingField === 'autoFechamentoDias' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
                 </div>
               </div>
