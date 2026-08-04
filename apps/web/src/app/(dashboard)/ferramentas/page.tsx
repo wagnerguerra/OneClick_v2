@@ -27,18 +27,23 @@ export default function FerramentasPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {/* Colunas por largura disponível, não por breakpoint: assim o cartão
+          mantém a proporção quadrada em qualquer tela, e a grade se adapta
+          sozinha conforme o catálogo cresce. */}
+      <div className="grid gap-5 grid-cols-[repeat(auto-fill,minmax(248px,1fr))]">
         {FERRAMENTAS.map((f) => {
           const Icone = f.icone
           return (
             <Link key={f.slug} href={f.href} className="group">
-              <Card className="h-full p-5 transition-all hover:-translate-y-0.5 hover:shadow-md">
-                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: `color-mix(in srgb, ${f.cor} 14%, transparent)`, color: f.cor }}>
-                  <Icone className="h-6 w-6" />
+              <Card className="flex h-full min-h-[248px] flex-col rounded-2xl p-7 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
+                {/* Selo em cor cheia com o ícone branco — é o que dá a cada
+                    ferramenta uma identidade reconhecível de longe. */}
+                <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl text-white shadow-sm"
+                  style={{ backgroundColor: f.cor }}>
+                  <Icone className="h-[26px] w-[26px]" />
                 </div>
-                <p className="text-[15px] font-semibold group-hover:underline">{f.titulo}</p>
-                <p className="mt-1 text-[13px] leading-snug text-muted-foreground">{f.descricao}</p>
+                <p className="text-[19px] font-semibold leading-tight tracking-tight">{f.titulo}</p>
+                <p className="mt-2.5 text-[13.5px] leading-relaxed text-muted-foreground">{f.descricao}</p>
               </Card>
             </Link>
           )
