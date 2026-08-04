@@ -4,6 +4,8 @@ import * as fs from 'fs/promises'
 import { prisma } from '@saas/db'
 import { decryptPassword, parseCipher } from '../certificado-digital/crypto.helper'
 import { PdfSignService } from '../contrato/pdf-sign.service'
+import type { PDFFont } from 'pdf-lib'
+import { LOGO_N_BASE64 } from './logo-n'
 
 /**
  * Assinatura de PDF com certificado A1 do cadastro, com carimbo visível na
@@ -20,6 +22,9 @@ import { PdfSignService } from '../contrato/pdf-sign.service'
  */
 
 const STORAGE_ROOT = path.resolve(process.cwd(), 'uploads', 'certificados')
+
+/** Fuso do escritório — o contêiner roda em UTC. */
+const FUSO = 'America/Sao_Paulo'
 
 export interface AreaAssinatura {
   /** Página, começando em 1. */
@@ -107,7 +112,7 @@ export class AssinaturaPdfService {
     // xref at NaN". Regravar com `useObjectStreams: false` produz a tabela
     // antiga, que ele lê.
     const original: Buffer<ArrayBuffer> = Buffer.from(input.pdfBase64, 'base64')
-    const pdf = await this.prepararParaAssinar(original, input.area, cert.titular, cert.documento)
+    const pdf = await this.prepararParaAssinar(original, input.area, cert.titular)
 
     const assinado = await this.pdfSign.assinarPdf(pdf, {
       certPath,
@@ -136,7 +141,7 @@ export class AssinaturaPdfService {
    * invalidaria a assinatura — é exatamente o que ela existe para detectar.
    */
   private async prepararParaAssinar(
-    pdf: Buffer, area: AreaAssinatura | undefined, titular: string, documento: string,
+    pdf: Buffer, area: AreaAssinatura | undefined, titular: string,
   ): Promise<Buffer<ArrayBuffer>> {
     const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib')
 
@@ -148,35 +153,57 @@ export class AssinaturaPdfService {
       if (!pagina) throw new Error(`O documento não tem a página ${area.pagina}.`)
 
       const fonte = await doc.embedFont(StandardFonts.Helvetica)
-      const negrito = await doc.embedFont(StandardFonts.HelveticaBold)
-      const tinta = rgb(0.06, 0.25, 0.53)
+      const marca = await doc.embedPng(Buffer.from(LOGO_N_BASE64, 'base64'))
 
-      pagina.drawRectangle({
-        x: area.x, y: area.y, width: area.largura, height: area.altura,
-        borderColor: tinta, borderWidth: 1,
-        color: rgb(1, 1, 1), opacity: 0.85, borderOpacity: 1,
+      // Duas colunas, como o carimbo que o Acrobat gera: à esquerda o nome em
+      // corpo grande sobre a marca esmaecida, à direita a descrição miúda.
+      const margem = 5
+      const meio = area.x + area.largura * 0.5
+      const larguraEsq = area.largura * 0.5 - margem * 1.5
+      const larguraDir = area.largura * 0.5 - margem * 1.5
+      const preto = rgb(0, 0, 0)
+
+      // A marca vem primeiro, para o texto ficar por cima. É bem clara de
+      // propósito: é fundo, não conteúdo.
+      const ladoMarca = Math.min(area.altura, larguraEsq) * 0.85
+      pagina.drawImage(marca, {
+        x: area.x + margem + (larguraEsq - ladoMarca) / 2,
+        y: area.y + (area.altura - ladoMarca) / 2,
+        width: ladoMarca,
+        height: ladoMarca,
+        opacity: 0.18,
       })
 
-      // O texto se ajusta à caixa: área pequena não pode cortar o nome de quem
-      // assinou, que é a informação essencial do carimbo.
-      const margem = 4
-      const util = area.largura - margem * 2
-      const linhas: Array<{ texto: string; fonte: typeof fonte; tam: number }> = [
-        { texto: 'Assinado digitalmente por', fonte, tam: 6.5 },
-        { texto: titular, fonte: negrito, tam: 8 },
-        { texto: documento ? `Documento: ${documento}` : '', fonte, tam: 6.5 },
-        { texto: new Date().toLocaleString('pt-BR'), fonte, tam: 6.5 },
-      ].filter((l) => l.texto)
+      // ── coluna esquerda: o nome, no maior corpo que couber ──
+      const nome = titular.toUpperCase()
+      let tamNome = Math.min(area.altura / 4, 22)
+      let linhasNome = this.quebrar(nome, fonte, tamNome, larguraEsq)
+      while (tamNome > 5 && linhasNome.length * tamNome * 1.12 > area.altura - margem * 2) {
+        tamNome -= 0.5
+        linhasNome = this.quebrar(nome, fonte, tamNome, larguraEsq)
+      }
+      let yEsq = area.y + area.altura - margem - tamNome
+      for (const l of linhasNome) {
+        pagina.drawText(l, { x: area.x + margem, y: yEsq, size: tamNome, font: fonte, color: preto })
+        yEsq -= tamNome * 1.12
+      }
 
-      const alturaLinha = area.altura / (linhas.length + 0.6)
-      let y = area.y + area.altura - margem - alturaLinha * 0.75
-
-      for (const l of linhas) {
-        let tam = Math.min(l.tam, alturaLinha * 0.85)
-        // Encolhe até caber na largura, em vez de deixar transbordar a caixa.
-        while (tam > 4 && l.fonte.widthOfTextAtSize(l.texto, tam) > util) tam -= 0.25
-        pagina.drawText(l.texto, { x: area.x + margem, y, size: tam, font: l.fonte, color: tinta })
-        y -= alturaLinha
+      // ── coluna direita: a descrição, no formato do Acrobat ──
+      const textoDir = () => [
+        `Assinado de forma digital por ${nome}`,
+        `Dados: ${this.dataAcrobat(new Date())}`,
+      ]
+      let tamDir = 8
+      let linhasDir = textoDir().flatMap((t) => this.quebrar(t, fonte, tamDir, larguraDir))
+      while (tamDir > 4 && linhasDir.length * tamDir * 1.18 > area.altura - margem * 2) {
+        tamDir -= 0.25
+        // Refaz a quebra a cada passo: o número de linhas muda com o corpo.
+        linhasDir = textoDir().flatMap((t) => this.quebrar(t, fonte, tamDir, larguraDir))
+      }
+      let yDir = area.y + area.altura - margem - tamDir
+      for (const l of linhasDir) {
+        pagina.drawText(l, { x: meio + margem / 2, y: yDir, size: tamDir, font: fonte, color: preto })
+        yDir -= tamDir * 1.18
       }
     }
 
@@ -187,5 +214,52 @@ export class AssinaturaPdfService {
     const saida = Buffer.alloc(bytes.byteLength)
     saida.set(bytes)
     return saida
+  }
+
+  /**
+   * Quebra o texto na largura disponível.
+   *
+   * Quebra também DENTRO da palavra quando ela sozinha não cabe — é o caso do
+   * "INFORMATICA:05930393000156" dos certificados, que não tem espaço nenhum e,
+   * sem isso, sairia cortado na borda da caixa.
+   */
+  private quebrar(texto: string, fonte: PDFFont, tamanho: number, largura: number): string[] {
+    const saida: string[] = []
+    let atual = ''
+    const empurra = () => { if (atual) { saida.push(atual); atual = '' } }
+
+    for (const palavra of String(texto).split(/\s+/).filter(Boolean)) {
+      const candidato = atual ? `${atual} ${palavra}` : palavra
+      if (fonte.widthOfTextAtSize(candidato, tamanho) <= largura) { atual = candidato; continue }
+      empurra()
+      if (fonte.widthOfTextAtSize(palavra, tamanho) <= largura) { atual = palavra; continue }
+      // Palavra maior que a linha inteira: parte caractere a caractere.
+      let pedaco = ''
+      for (const ch of palavra) {
+        if (fonte.widthOfTextAtSize(pedaco + ch, tamanho) > largura) { saida.push(pedaco); pedaco = ch }
+        else pedaco += ch
+      }
+      atual = pedaco
+    }
+    empurra()
+    return saida
+  }
+
+  /**
+   * Data no formato que o Acrobat imprime: "2026.08.04 13:55:12 -03'00'".
+   *
+   * O fuso é o de Brasília, e não o do servidor: o contêiner roda em UTC, e a
+   * hora impressa no documento tem de ser a que o signatário reconhece.
+   */
+  private dataAcrobat(d: Date): string {
+    const partes = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: FUSO, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    }).format(d).split(' ')
+    const data = (partes[0] ?? '').replace(/-/g, '.')
+    const hora = partes[1] ?? ''
+    const offset = new Intl.DateTimeFormat('en-US', { timeZone: FUSO, timeZoneName: 'longOffset' })
+      .formatToParts(d).find((x) => x.type === 'timeZoneName')?.value ?? 'GMT-03:00'
+    return `${data} ${hora} ${offset.replace('GMT', '').replace(':', "'")}'`
   }
 }

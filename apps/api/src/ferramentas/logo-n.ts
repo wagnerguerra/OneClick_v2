@@ -1,0 +1,29 @@
+/**
+ * Marca "N" do OneClick, embutida em base64.
+ *
+ * Embutida, e não lida de arquivo: a API roda em contêiner separado do web e
+ * não enxerga a pasta pública dele. São 1,4 KB — o custo de carregar junto é
+ * menor que o de descobrir em produção que o caminho não existe.
+ */
+export const LOGO_N_BASE64 =
+  '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'
+  + 'WQLnpZKWTCUAAAAASUVORK5CYII='
