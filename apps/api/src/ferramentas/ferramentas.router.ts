@@ -102,8 +102,31 @@ export function createFerramentasRouter(
         if (mb > LIMITE_PDF_MB) {
           throw new TRPCError({ code: 'BAD_REQUEST', message: `O arquivo passa de ${LIMITE_PDF_MB} MB.` })
         }
-        return assinar().assinar({ ...input, empresaId: ctx.empresaId ?? null })
+        return assinar().assinar({ ...input, empresaId: ctx.empresaId ?? null, usuarioId: ctx.userId })
       }),
+
+    /** Assinaturas recentes de quem está na tela — para não assinar de novo. */
+    historicoAssinaturas: readProcedure(SLUG_GERAIS)
+      .query(({ ctx }) => assinar().historico(ctx.empresaId ?? null, ctx.userId)),
+
+    /**
+     * Reconhece um documento já assinado pelo conteúdo.
+     * O navegador manda só o hash — o arquivo não precisa subir para descobrir
+     * que ele já passou por aqui.
+     */
+    assinaturaPorHash: readProcedure(SLUG_GERAIS)
+      .input(z.object({ hash: z.string().length(64) }))
+      .query(({ input, ctx }) => assinar().jaAssinado(input.hash, ctx.empresaId ?? null, ctx.userId)),
+
+    /** Devolve o PDF já assinado, sem assinar outra vez. */
+    baixarAssinatura: readProcedure(SLUG_GERAIS)
+      .input(z.object({ id: z.string().min(1) }))
+      .mutation(({ input, ctx }) => assinar().baixarAssinado(input.id, ctx.empresaId ?? null, ctx.userId)),
+
+    /** Tira do histórico — arquivo e registro. */
+    removerAssinatura: readProcedure(SLUG_GERAIS)
+      .input(z.object({ id: z.string().min(1) }))
+      .mutation(({ input, ctx }) => assinar().removerDoHistorico(input.id, ctx.empresaId ?? null, ctx.userId)),
 
     /** Junta PDFs na ORDEM recebida — quem ordena é a tela. */
     juntarPdf: readProcedure(SLUG_GERAIS)

@@ -6,6 +6,7 @@ import { decryptPassword, parseCipher } from '../certificado-digital/crypto.help
 import { PdfSignService } from '../contrato/pdf-sign.service'
 import type { PDFFont } from 'pdf-lib'
 import { LOGO_N_BASE64 } from './logo-n'
+import { createHash, randomUUID } from 'crypto'
 
 /**
  * Assinatura de PDF com certificado A1 do cadastro, com carimbo visível na
@@ -23,6 +24,24 @@ import { LOGO_N_BASE64 } from './logo-n'
 
 const STORAGE_ROOT = path.resolve(process.cwd(), 'uploads', 'certificados')
 
+/**
+ * Onde ficam os PDFs já assinados.
+ *
+ * Subpasta própria, e não a raiz de `uploads/`: a rota que serve anexos entrega
+ * arquivos da raiz, e documento assinado não é anexo público.
+ */
+const ASSINADOS_ROOT = path.resolve(process.cwd(), 'uploads', 'assinados')
+
+/**
+ * Por quanto tempo o assinado fica guardado.
+ *
+ * O histórico existe para evitar reassinar o mesmo documento, o que acontece
+ * em dias, não em anos. Guardar para sempre transformaria a pasta num arquivo
+ * morto de documentos sigilosos, que é exatamente o que não se quer manter sem
+ * necessidade.
+ */
+const DIAS_DE_GUARDA = 90
+
 /** Fuso do escritório — o contêiner roda em UTC. */
 const FUSO = 'America/Sao_Paulo'
 
@@ -36,6 +55,15 @@ export interface AreaAssinatura {
   altura: number
 }
 
+export interface AssinaturaGuardada {
+  id: string
+  nome: string
+  bytes: number
+  titular: string
+  padesLevel: string
+  criadoEm: Date
+}
+
 export interface PdfAssinado {
   nome: string
   base64: string
@@ -43,6 +71,8 @@ export interface PdfAssinado {
   padesLevel: 'BES' | 'T'
   tsaInfo?: string
   titular: string
+  /** Linha do histórico, quando deu para guardar. */
+  historicoId?: string
 }
 
 @Injectable()
@@ -97,6 +127,128 @@ export class AssinaturaPdfService {
     }))
   }
 
+  /**
+   * Documento já assinado antes, reconhecido pelo conteúdo do arquivo.
+   *
+   * A comparação é pelo hash do PDF de entrada, não pelo nome: renomear um
+   * arquivo é comum e não muda o que ele é. Assim, arrastar de novo o mesmo
+   * documento avisa que ele já foi assinado, em vez de assinar duas vezes.
+   */
+  async jaAssinado(hashOriginal: string, empresaId: string | null, usuarioId: string) {
+    const linha = await prisma.assinaturaPdfHistorico.findFirst({
+      where: { hashOriginal, empresaId, usuarioId },
+      orderBy: { criadoEm: 'desc' },
+      select: { id: true, nome: true, bytes: true, titular: true, padesLevel: true, criadoEm: true },
+    })
+    return linha
+  }
+
+  /** Assinaturas recentes de quem está na tela. */
+  async historico(empresaId: string | null, usuarioId: string): Promise<AssinaturaGuardada[]> {
+    await this.limparVencidos()
+    return prisma.assinaturaPdfHistorico.findMany({
+      where: { empresaId, usuarioId },
+      orderBy: { criadoEm: 'desc' },
+      take: 20,
+      select: { id: true, nome: true, bytes: true, titular: true, padesLevel: true, criadoEm: true },
+    })
+  }
+
+  /** Devolve o PDF assinado de volta, sem precisar assinar de novo. */
+  async baixarAssinado(id: string, empresaId: string | null, usuarioId: string) {
+    // O dono é parte da busca, não uma checagem depois: assim não existe
+    // caminho em que o arquivo é lido antes de saber de quem ele é.
+    const linha = await prisma.assinaturaPdfHistorico.findFirst({
+      where: { id, empresaId, usuarioId },
+      select: { nome: true, arquivoPath: true },
+    })
+    if (!linha) throw new Error('Assinatura não encontrada no seu histórico.')
+
+    try {
+      const conteudo = await fs.readFile(path.join(ASSINADOS_ROOT, linha.arquivoPath))
+      return { nome: linha.nome, base64: conteudo.toString('base64'), bytes: conteudo.length }
+    } catch {
+      throw new Error('O arquivo assinado não está mais guardado. Assine novamente.')
+    }
+  }
+
+  /** Tira do histórico, arquivo e registro. */
+  async removerDoHistorico(id: string, empresaId: string | null, usuarioId: string) {
+    const linha = await prisma.assinaturaPdfHistorico.findFirst({
+      where: { id, empresaId, usuarioId },
+      select: { id: true, arquivoPath: true },
+    })
+    if (!linha) throw new Error('Assinatura não encontrada no seu histórico.')
+
+    await fs.unlink(path.join(ASSINADOS_ROOT, linha.arquivoPath)).catch(() => undefined)
+    await prisma.assinaturaPdfHistorico.delete({ where: { id: linha.id } })
+    return { ok: true }
+  }
+
+  /**
+   * Apaga o que passou do prazo de guarda.
+   *
+   * Roda junto da listagem em vez de numa tarefa agendada: o volume é pequeno e
+   * o gatilho natural é alguém abrir a tela. O registro só sai depois que o
+   * arquivo saiu, para não sobrar arquivo sem dono na pasta.
+   */
+  private async limparVencidos() {
+    const limite = new Date(Date.now() - DIAS_DE_GUARDA * 24 * 60 * 60 * 1000)
+    const vencidos = await prisma.assinaturaPdfHistorico.findMany({
+      where: { criadoEm: { lt: limite } },
+      select: { id: true, arquivoPath: true },
+      take: 200,
+    }).catch(() => [])
+
+    for (const v of vencidos) {
+      await fs.unlink(path.join(ASSINADOS_ROOT, v.arquivoPath)).catch(() => undefined)
+      await prisma.assinaturaPdfHistorico.delete({ where: { id: v.id } }).catch(() => undefined)
+    }
+  }
+
+  /**
+   * Guarda o assinado para consulta posterior.
+   *
+   * Falhar aqui não pode derrubar a assinatura: o documento já está pronto na
+   * mão do usuário, e perder o histórico é bem menos grave que perder o
+   * trabalho de assinar.
+   */
+  private async guardar(dados: {
+    nome: string
+    conteudo: Buffer
+    hashOriginal: string
+    titular: string
+    certificadoId: string
+    padesLevel: string
+    empresaId: string | null
+    usuarioId: string
+  }): Promise<string | undefined> {
+    try {
+      const arquivoPath = `${randomUUID()}.pdf`
+      await fs.mkdir(ASSINADOS_ROOT, { recursive: true })
+      // 0600: só o processo lê. Documento assinado costuma ser contrato.
+      await fs.writeFile(path.join(ASSINADOS_ROOT, arquivoPath), dados.conteudo, { mode: 0o600 })
+
+      const linha = await prisma.assinaturaPdfHistorico.create({
+        data: {
+          nome: dados.nome,
+          hashOriginal: dados.hashOriginal,
+          arquivoPath,
+          bytes: dados.conteudo.length,
+          titular: dados.titular,
+          certificadoId: dados.certificadoId,
+          padesLevel: dados.padesLevel,
+          empresaId: dados.empresaId,
+          usuarioId: dados.usuarioId,
+        },
+        select: { id: true },
+      })
+      return linha.id
+    } catch {
+      return undefined
+    }
+  }
+
   async assinar(input: {
     nome: string
     pdfBase64: string
@@ -105,6 +257,7 @@ export class AssinaturaPdfService {
     motivo?: string
     local?: string
     empresaId: string | null
+    usuarioId: string
   }): Promise<PdfAssinado> {
     const cert = await prisma.certificadoDigital.findFirst({
       where: { id: input.certificadoId, ...(input.empresaId ? { empresaId: input.empresaId } : {}) },
@@ -143,13 +296,28 @@ export class AssinaturaPdfService {
       withTimestamp: true,
     })
 
+    const nome = input.nome.replace(/\.pdf$/i, '') + '_assinado.pdf'
+    const historicoId = await this.guardar({
+      nome,
+      conteudo: assinado.buffer,
+      // Hash do arquivo COMO ELE CHEGOU: é por ele que se reconhece o mesmo
+      // documento sendo arrastado de novo.
+      hashOriginal: createHash('sha256').update(original).digest('hex'),
+      titular: cert.titular,
+      certificadoId: cert.id,
+      padesLevel: assinado.padesLevel,
+      empresaId: input.empresaId,
+      usuarioId: input.usuarioId,
+    })
+
     return {
-      nome: input.nome.replace(/\.pdf$/i, '') + '_assinado.pdf',
+      nome,
       base64: assinado.buffer.toString('base64'),
       bytes: assinado.buffer.length,
       padesLevel: assinado.padesLevel,
       tsaInfo: assinado.tsaInfo,
       titular: cert.titular,
+      historicoId,
     }
   }
 

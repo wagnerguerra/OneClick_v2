@@ -7323,3 +7323,29 @@ model ToolJobEvent {
   @@index([toolJobId])
   @@map("tool_job_eventos")
 }
+
+/// Histórico de PDFs assinados pela ferramenta de assinatura.
+///
+/// Existe para evitar reassinar o mesmo documento: guarda o hash do arquivo
+/// original, então arrastar de novo o mesmo PDF é reconhecido mesmo que ele
+/// tenha sido renomeado. O assinado fica no disco (uploads/assinados) por
+/// tempo limitado — é documento sigiloso, não arquivo morto.
+model AssinaturaPdfHistorico {
+  id            String   @id @default(cuid())
+  empresaId     String?  @map("empresa_id")
+  usuarioId     String   @map("usuario_id")
+  nome          String
+  /// SHA-256 do PDF como ele chegou, antes de assinar.
+  hashOriginal  String   @map("hash_original")
+  /// Nome do arquivo dentro de uploads/assinados.
+  arquivoPath   String   @map("arquivo_path")
+  bytes         Int
+  titular       String
+  certificadoId String   @map("certificado_id")
+  padesLevel    String   @map("pades_level")
+  criadoEm      DateTime @default(now()) @map("criado_em")
+
+  @@index([empresaId, usuarioId, criadoEm])
+  @@index([hashOriginal])
+  @@map("assinatura_pdf_historico")
+}

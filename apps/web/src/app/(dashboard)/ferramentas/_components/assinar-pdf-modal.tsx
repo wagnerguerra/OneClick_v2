@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { PenLine, Loader2, Upload, Download, ChevronLeft, ChevronRight, Eraser } from 'lucide-react'
+import { PenLine, Loader2, Upload, Download, ChevronLeft, ChevronRight, Eraser, FileCheck2, X } from 'lucide-react'
 import {
   Button,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
@@ -33,8 +33,31 @@ interface Assinado {
   tsaInfo?: string
   titular: string
 }
+/** Uma assinatura já feita, guardada para não repetir o trabalho. */
+interface Guardado {
+  id: string
+  nome: string
+  bytes: number
+  titular: string
+  padesLevel: string
+  criadoEm: string
+}
+
 /** Retângulo em pixels da tela, origem no canto superior esquerdo. */
 interface Retangulo { x: number; y: number; w: number; h: number }
+
+/** "hoje às 14h32", "ontem", ou a data — o quando importa mais que o exato. */
+const fmtQuando = (iso: string) => {
+  const d = new Date(iso)
+  const hoje = new Date()
+  const dia = 24 * 60 * 60 * 1000
+  const so = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const diff = (so(hoje) - so(d)) / dia
+  const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  if (diff === 0) return `hoje às ${hora}`
+  if (diff === 1) return `ontem às ${hora}`
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
 
 const fmtTamanho = (b: number) =>
   b < 1024 ? `${b} B` : b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`
@@ -62,6 +85,10 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
   const [resultado, setResultado] = useState<Assinado | null>(null)
   const urlResultado = useUrlPdf(resultado)
   const [carregandoPagina, setCarregandoPagina] = useState(false)
+  const [historico, setHistorico] = useState<Guardado[]>([])
+  /** Assinatura anterior do MESMO arquivo, reconhecida pelo conteúdo. */
+  const [jaAssinado, setJaAssinado] = useState<Guardado | null>(null)
+  const [recuperando, setRecuperando] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -77,6 +104,14 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
       })
       .catch(() => setCertificados([]))
   }, [])
+
+  const recarregarHistorico = useCallback(() => {
+    ;(trpc.ferramentas as any).historicoAssinaturas.query()
+      .then((h: Guardado[]) => setHistorico(h || []))
+      .catch(() => setHistorico([]))
+  }, [])
+
+  useEffect(() => { recarregarHistorico() }, [recarregarHistorico])
 
   /** Desenha a página pedida e guarda a escala usada. */
   const desenharPagina = useCallback(async (n: number) => {
@@ -131,7 +166,55 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
     setPagina(1)
     setArea(null)
     setResultado(null)
+
+    // Reconhece o documento pelo CONTEÚDO, não pelo nome: o hash é calculado
+    // aqui e só ele viaja, então descobrir que o arquivo já foi assinado não
+    // custa enviá-lo de novo.
+    setJaAssinado(null)
+    try {
+      const digest = await crypto.subtle.digest('SHA-256', buffer)
+      const hash = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
+      const anterior = await (trpc.ferramentas as any).assinaturaPorHash.query({ hash })
+      if (anterior) setJaAssinado(anterior)
+    } catch {
+      // Sem o aviso, o fluxo continua igual — assinar de novo funciona.
+    }
   }, [])
+
+  /**
+   * Traz de volta o PDF já assinado, em vez de assinar outra vez.
+   *
+   * Cai no mesmo quadro verde do resultado, que já oferece o download como
+   * link de verdade — o navegador barra download disparado por código.
+   */
+  const recuperar = async (id: string, guardado: Guardado) => {
+    setRecuperando(true)
+    try {
+      const r = await (trpc.ferramentas as any).baixarAssinatura.mutate({ id })
+      setResultado({
+        nome: r.nome,
+        base64: r.base64,
+        bytes: r.bytes,
+        padesLevel: guardado.padesLevel === 'T' ? 'T' : 'BES',
+        titular: guardado.titular,
+      })
+    } catch (e) {
+      await alerts.error('Não foi possível recuperar', (e as Error).message)
+      recarregarHistorico()
+    } finally {
+      setRecuperando(false)
+    }
+  }
+
+  const remover = async (id: string) => {
+    try {
+      await (trpc.ferramentas as any).removerAssinatura.mutate({ id })
+      setHistorico((l) => l.filter((x) => x.id !== id))
+      setJaAssinado((j) => (j?.id === id ? null : j))
+    } catch (e) {
+      await alerts.error('Não foi possível remover', (e as Error).message)
+    }
+  }
 
   // ── seleção da área ──
   //
@@ -195,6 +278,7 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
         } : undefined,
       }) as Assinado
       setResultado(r)
+      recarregarHistorico()
     } catch (e) {
       await alerts.error('Falha ao assinar', (e as Error).message)
     } finally {
@@ -226,7 +310,62 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
               <input ref={inputRef} type="file" accept=".pdf,application/pdf" className="hidden"
                 onChange={(e) => { void aceitar(e.target.files); e.target.value = '' }} />
             </div>
-          ) : (
+          ) : null}
+
+          {/* Histórico logo abaixo do campo: é ali que a pessoa está olhando
+              quando vai arrastar um documento que talvez já tenha assinado. */}
+          {!arquivo && historico.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-baseline justify-between">
+                <h4 className="text-[13px] font-semibold text-foreground">Assinados recentemente</h4>
+                <span className="text-[11px] text-muted-foreground">guardados por 90 dias</span>
+              </div>
+              <div className="nice-scrollbar max-h-[220px] divide-y divide-border/60 overflow-y-auto rounded-lg border border-border">
+                {historico.map((h) => (
+                  <div key={h.id} className="flex items-center gap-3 px-3 py-2">
+                    <FileCheck2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px]" title={h.nome}>{h.nome}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {h.titular} · {fmtQuando(h.criadoEm)} · {fmtTamanho(h.bytes)}
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm" disabled={recuperando}
+                      onClick={() => recuperar(h.id, h)}>
+                      <Download className="h-3.5 w-3.5" />Baixar
+                    </Button>
+                    <button
+                      type="button" onClick={() => remover(h.id)} title="Remover do histórico"
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* O mesmo documento já passou por aqui. Não bloqueia: às vezes se
+              assina de novo de propósito (outro certificado, outra posição). */}
+          {arquivo && jaAssinado && (
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900/50 dark:bg-amber-950/20">
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-semibold text-amber-900 dark:text-amber-300">
+                  Este documento já foi assinado
+                </p>
+                <p className="text-[11px] text-amber-800/80 dark:text-amber-400/80">
+                  Por {jaAssinado.titular}, em {fmtQuando(jaAssinado.criadoEm)}. Baixe o assinado em vez de repetir.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" disabled={recuperando}
+                onClick={() => recuperar(jaAssinado.id, jaAssinado)}>
+                <Download className="h-3.5 w-3.5" />Baixar o assinado
+              </Button>
+            </div>
+          )}
+
+          {arquivo && (
             <>
               {/* Grudada no topo: a barra saía de vista ao rolar até a área de
                   assinatura, e o usuário ficava sem ver que faltava escolher o
