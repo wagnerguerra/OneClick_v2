@@ -1,0 +1,242 @@
+<meta charset="utf-8">
+<title>Auditoria de credenciais e certificados — 04/08/2026</title>
+<style>
+  :root{
+    --tinta:#16181d; --papel:#fbfaf8; --sutil:#6d7079; --linha:#e3e0da;
+    --grave:#b3261e; --alto:#a35b00; --medio:#5b5f66; --ok:#166534;
+    --realce:#0f4c81;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --tinta:#e8e6e1; --papel:#14161a; --sutil:#9aa0a8; --linha:#2b2f36;
+           --grave:#f2857c; --alto:#e0a458; --medio:#a3a8b0; --ok:#6ee7a8; --realce:#7fb3d9; }
+  }
+  :root[data-theme="dark"]{ --tinta:#e8e6e1; --papel:#14161a; --sutil:#9aa0a8; --linha:#2b2f36;
+           --grave:#f2857c; --alto:#e0a458; --medio:#a3a8b0; --ok:#6ee7a8; --realce:#7fb3d9; }
+  :root[data-theme="light"]{ --tinta:#16181d; --papel:#fbfaf8; --sutil:#6d7079; --linha:#e3e0da;
+           --grave:#b3261e; --alto:#a35b00; --medio:#5b5f66; --ok:#166534; --realce:#0f4c81; }
+
+  body{ margin:0; background:var(--papel); color:var(--tinta);
+        font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .folha{ max-width:56rem; margin:0 auto; padding:3rem 1.5rem 5rem; }
+  header{ border-bottom:2px solid var(--tinta); padding-bottom:1.25rem; margin-bottom:2rem; }
+  h1{ font-size:1.75rem; line-height:1.2; margin:0 0 .4rem; text-wrap:balance; letter-spacing:-.01em; }
+  .sub{ color:var(--sutil); font-size:.95rem; margin:0; }
+  h2{ font-size:1.05rem; margin:2.75rem 0 1rem; padding-bottom:.4rem;
+      border-bottom:1px solid var(--linha); letter-spacing:.02em; text-transform:uppercase; }
+  .placar{ display:flex; flex-wrap:wrap; gap:1.5rem; margin:1.5rem 0 0; }
+  .placar div{ min-width:6rem; }
+  .placar b{ display:block; font-size:1.9rem; line-height:1; font-variant-numeric:tabular-nums; }
+  .placar span{ font-size:.78rem; color:var(--sutil); text-transform:uppercase; letter-spacing:.06em; }
+  article{ border-left:3px solid var(--linha); padding:.1rem 0 .1rem 1.1rem; margin:0 0 1.75rem; }
+  article.g{ border-color:var(--grave); } article.a{ border-color:var(--alto); }
+  article.m{ border-color:var(--medio); }
+  article h3{ font-size:1rem; margin:0 0 .35rem; }
+  .selo{ display:inline-block; font-size:.68rem; font-weight:700; letter-spacing:.08em;
+         text-transform:uppercase; padding:.15rem .45rem; border-radius:3px; vertical-align:.15em;
+         margin-right:.5rem; border:1px solid currentColor; }
+  .g .selo{ color:var(--grave); } .a .selo{ color:var(--alto); } .m .selo{ color:var(--medio); }
+  article p{ margin:.4rem 0; }
+  .onde{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.8rem; color:var(--sutil); }
+  .estado{ font-size:.85rem; margin-top:.5rem; }
+  .estado b{ color:var(--ok); } .estado.pend b{ color:var(--grave); }
+  code{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.85em;
+        background:color-mix(in srgb, var(--tinta) 8%, transparent); padding:.1em .35em; border-radius:3px; }
+  ol,ul{ padding-left:1.2rem; } li{ margin:.35rem 0; }
+  .caixa{ border:1px solid var(--linha); border-radius:6px; padding:1rem 1.25rem; margin:1.25rem 0;
+          background:color-mix(in srgb, var(--tinta) 3%, transparent); }
+  .caixa h3{ margin-top:0; font-size:.95rem; }
+  footer{ margin-top:3.5rem; padding-top:1rem; border-top:1px solid var(--linha);
+          font-size:.82rem; color:var(--sutil); }
+</style>
+
+<div class="folha">
+<header>
+  <h1>Auditoria de credenciais e certificados</h1>
+  <p class="sub">Pontos de contato com o SERPRO e guarda de segredos · 4 de agosto de 2026</p>
+  <div class="placar">
+    <div><b>13</b><span>achados</span></div>
+    <div><b>6</b><span>corrigidos</span></div>
+    <div><b>7</b><span>dependem de você</span></div>
+    <div><b>1</b><span>exposto na internet</span></div>
+  </div>
+</header>
+
+<h2>O que exige ação imediata</h2>
+
+<article class="g">
+  <h3><span class="selo">Grave</span>O certificado da empresa estava sendo baixado por qualquer um</h3>
+  <p>A rota que serve anexos entregava a pasta <code>uploads/</code> inteira, sem sessão. O certificado
+     do escritório mora nessa pasta, ao lado das imagens de e-mail. Bastava saber o nome do arquivo.</p>
+  <p class="onde">apps/api/src/upload/upload.controller.ts:113</p>
+  <p><b>Comprovado em produção</b> antes da correção: a requisição devolveu HTTP 200 e o arquivo
+     completo, 9.096 bytes.</p>
+  <p class="estado"><b>Corrigido</b> — commit <code>d6f3fc35</code>. A rota passa a recusar material
+     criptográfico por extensão, e responde 404 para não confirmar que o arquivo existe.</p>
+  <p class="estado pend"><b>Ainda depende de você:</b> o certificado precisa ser considerado
+     comprometido. Não há como saber se alguém baixou — o servidor não guardava registro de acesso
+     dessa rota. Ver "Decisões" abaixo.</p>
+</article>
+
+<article class="g">
+  <h3><span class="selo">Grave</span>Qualquer um podia trocar o certificado da empresa</h3>
+  <p>As rotas que substituem o certificado do escritório e o do contador não pediam autenticação.
+     Quem trocasse o arquivo passaria a assinar documentos em nome da empresa.</p>
+  <p class="onde">apps/api/src/upload/upload.controller.ts:59 e :86</p>
+  <p class="estado"><b>Corrigido</b> — commit <code>d6f3fc35</code>. Exigem sessão.</p>
+</article>
+
+<article class="g">
+  <h3><span class="selo">Grave</span>Chave privada do certificado commitada no repositório</h3>
+  <p>A pasta <code>certs/</code> está versionada e contém o certificado da CENTRAL CONTABIL em três
+     formatos, incluindo a chave privada <b>sem cifra alguma</b> (<code>-----BEGIN PRIVATE KEY-----</code>).
+     Certificado vigente, válido até 04/12/2026. Nenhum arquivo do código referencia essa pasta —
+     ela não serve para nada em execução.</p>
+  <p class="onde">certs/key.pem · certs/cert.pem · certs/certificado.pfx (commit 5f91faf7)</p>
+  <p class="estado pend"><b>Não corrigido</b> — apagar os arquivos não basta: eles continuam no
+     histórico do git, recuperáveis por qualquer pessoa com acesso ao repositório. Ver "Decisões".</p>
+</article>
+
+<article class="g">
+  <h3><span class="selo">Grave</span>Dumps do banco de produção commitados na raiz</h3>
+  <p>Dois dumps SQL versionados, de abril. Contêm a tabela de contas com 42 linhas — hashes de senha,
+     tokens de acesso e de renovação — e a tabela de usuários com nomes e e-mails.
+     A tabela de configurações está vazia neles, então não há chave de API ali.</p>
+  <p class="onde">database-dump-2026-04-13.sql · database-2026-04-11T19-17-47.sql</p>
+  <p class="estado pend"><b>Não corrigido</b> — mesma situação do item anterior: estão no histórico.</p>
+</article>
+
+<h2>Corrigido nesta rodada</h2>
+
+<article class="a">
+  <h3><span class="selo">Alto</span>Backup completo baixável sem sessão</h3>
+  <p>O ZIP de backup carrega o dump do banco e a pasta <code>uploads/</code> — com o certificado
+     dentro. A rota entregava a quem acertasse o nome do arquivo. O nome tem carimbo de tempo ao
+     segundo: atrasa quem adivinha, mas um dia inteiro cabe em 86.400 tentativas.</p>
+  <p class="onde">apps/api/src/main.ts:74</p>
+  <p class="estado"><b>Corrigido</b> — commit <code>68a03977</code>. Exige sessão.</p>
+</article>
+
+<article class="a">
+  <h3><span class="selo">Alto</span>Consumer Key aparecendo na tela do usuário</h3>
+  <p>O gateway do SERPRO devolve a própria chave dentro da mensagem de erro (campo
+     <code>client_id</code> de um 401), e nós repassávamos o corpo cru da resposta para a tela de quem
+     assina — além do log e, no caso do CNPJ, de uma tabela do banco. Três lugares publicando a chave
+     de uma vez.</p>
+  <p class="onde">SERPRO (token e carimbo), CND, CNPJ, SITFIS, gateway do webapp, NFS-e</p>
+  <p class="estado"><b>Corrigido</b> — commit <code>c22b0f9e</code>. Todo texto de resposta que vira
+     mensagem passa por um filtro que ataca por valor (as credenciais que conhecemos) e por formato
+     (<code>client_id</code>, <code>token</code>, <code>Bearer</code>, <code>Basic</code>).</p>
+</article>
+
+<article class="a">
+  <h3><span class="selo">Alto</span>Senha do certificado na linha de comando</h3>
+  <p>A leitura do certificado chamava o <code>openssl</code> com a senha no argumento
+     (<code>-passin pass:…</code>). A linha de comando de um processo é legível por qualquer usuário
+     da máquina. Passou a ir por variável de ambiente do processo filho.</p>
+  <p class="onde">apps/api/src/admin/admin.service.ts:1012 e :1115</p>
+  <p class="estado"><b>Corrigido</b> — commit <code>764c5bae</code>.</p>
+</article>
+
+<article class="a">
+  <h3><span class="selo">Alto</span>Configuração que sumia no restart</h3>
+  <p>A tela de configurações gravava num arquivo <code>.env</code> dentro do contêiner. Em produção a
+     API recebe as variáveis do compose e não tem esse arquivo: o que era digitado valia até a
+     publicação seguinte. Foi por isso que a Consumer Key nova não pegou e o gateway continuou
+     recebendo a antiga.</p>
+  <p class="estado"><b>Corrigido</b> — commit <code>af5213b0</code>. Passa a gravar no banco, que já
+     era de onde CND, SITFIS e Caixa Postal liam primeiro.</p>
+</article>
+
+<h2>Aberto — recomendações</h2>
+
+<article class="a">
+  <h3><span class="selo">Alto</span>Segredos no banco em texto puro</h3>
+  <p>A tabela de configurações guarda o valor sem cifra, e ela agora é a fonte principal.
+     O modelo tem um campo <code>encrypted</code> que <b>nunca foi usado</b>. Já existe cifragem
+     AES-256-GCM pronta no projeto, usada nas senhas dos certificados de cliente, com chave-mestra em
+     <code>CERTIFICADO_KEK</code>.</p>
+  <p class="onde">packages/db/prisma/schema.prisma:2228 · apps/api/src/certificado-digital/crypto.helper.ts</p>
+  <p><b>Proposta:</b> cifrar com a mesma chave-mestra os valores marcados como segredo, decifrando na
+     leitura. Aproveita o que já existe e não muda nada para quem usa a tela.</p>
+</article>
+
+<article class="a">
+  <h3><span class="selo">Alto</span>Senhas de portais de clientes em texto puro</h3>
+  <p>As credenciais de acesso a portais guardadas no cadastro do cliente ficam sem cifra no banco e
+     são devolvidas ao frontend na listagem, para quem tem leitura de Clientes.</p>
+  <p class="onde">packages/db/prisma/schema.prisma:961 · apps/api/src/cliente/cliente.service.ts:1630</p>
+  <p><b>Proposta:</b> mesma cifragem do item acima, e devolver a senha só num pedido explícito
+     ("revelar"), com registro de quem revelou — como já é feito na Gestão de Certificados.</p>
+</article>
+
+<article class="m">
+  <h3><span class="selo">Médio</span>Rotas REST sem autenticação</h3>
+  <p>Não existe guard global: cada controller decide. Ficaram sem sessão o download de PDF de CND e de
+     Situação Fiscal (documentos de clientes, protegidos só pela dificuldade de adivinhar o
+     identificador) e o envio genérico de anexos, que permite encher o disco.</p>
+  <p class="onde">apps/api/src/cnd/cnd.controller.ts:10 · sitfis/sitfis.controller.ts:12 · upload.controller.ts:58</p>
+  <p><b>Proposta:</b> exigir sessão nos dois downloads. O envio genérico precisa de checagem antes —
+     o fluxo público de assinatura de contrato pode depender dele.</p>
+</article>
+
+<article class="m">
+  <h3><span class="selo">Médio</span>Resposta crua do SERPRO gravada no banco</h3>
+  <p>A consulta de Situação Fiscal guarda o JSON completo devolvido pelo SERPRO. Hoje não há
+     credencial nesse retorno, mas é um lugar onde ela cairia sem ninguém perceber.</p>
+  <p class="onde">apps/api/src/sitfis/sitfis.service.ts:275</p>
+  <p><b>Proposta:</b> aplicar o mesmo filtro de segredos antes de gravar.</p>
+</article>
+
+<article class="m">
+  <h3><span class="selo">Médio</span>Rotação e prazo de validade das chaves</h3>
+  <p>Não há registro de quando cada credencial foi trocada, nem aviso de validade. O certificado do
+     escritório vence em 04/12/2026 e a validade só aparece se alguém abrir a tela.</p>
+  <p><b>Proposta:</b> a aba Certificados já mostra validade; falta o aviso proativo, no mesmo
+     formato do alerta de vencimento dos benefícios fiscais.</p>
+</article>
+
+<h2>Decisões que dependem de você</h2>
+
+<div class="caixa">
+  <h3>1. Revogar e substituir o certificado do escritório</h3>
+  <p>Ele esteve baixável pela internet por tempo indeterminado, e a chave privada está no histórico do
+     git sem cifra. Não há como provar que ninguém copiou. A recomendação é revogar junto à
+     autoridade certificadora e emitir outro. É a única medida que encerra o risco — todo o resto
+     apenas fecha as portas por onde ele saía.</p>
+</div>
+
+<div class="caixa">
+  <h3>2. Trocar a Consumer Key e a Consumer Secret do SERPRO</h3>
+  <p>A chave antiga apareceu na tela de erro e pode ter aparecido antes, para outros usuários. Como é
+     a mesma credencial para todos os contratos, trocar no portal do SERPRO e salvar na aba SERPRO
+     resolve para tudo de uma vez — e agora a configuração sobrevive ao restart.</p>
+</div>
+
+<div class="caixa">
+  <h3>3. Limpar o histórico do git</h3>
+  <p>Remover <code>certs/</code> e os dois dumps do histórico exige reescrever os commits
+     (<code>git filter-repo</code>) e forçar a atualização no GitHub — operação destrutiva, que invalida
+     os clones de todo mundo. Precisa ser combinada com a equipe e feita por você. Enquanto isso não
+     acontece, o item 1 é o que de fato protege.</p>
+</div>
+
+<h2>Práticas de referência aplicadas</h2>
+<ul>
+  <li><b>Nunca registrar credencial em log</b> — filtro de segredos em toda mensagem de erro que sai
+      do servidor (OWASP <i>Secrets Management</i>).</li>
+  <li><b>Segredo cifrado em repouso</b> — já vale para senhas de certificado de cliente; proposto para
+      a tabela de configurações e para as senhas de portais (OWASP <i>Cryptographic Storage</i>).</li>
+  <li><b>Material criptográfico fora do repositório</b> — o que está versionado precisa sair, e o que
+      vazou precisa ser rotacionado, não só removido (OWASP <i>Key Management</i>).</li>
+  <li><b>Menor privilégio</b> — tela de configurações restrita ao perfil master; download de PFX com
+      sub-permissão, reautenticação e trilha de auditoria.</li>
+  <li><b>Segredo não trafega para o cliente</b> — a listagem de configurações devolve vazio para todo
+      campo marcado como segredo.</li>
+</ul>
+
+<footer>
+  Auditoria conduzida sobre o código em <code>D:\oc</code> e verificada contra o ambiente de produção.
+  Nenhum valor de credencial foi transcrito neste documento.
+  Referências: OWASP Secrets Management, Key Management e Cryptographic Storage Cheat Sheets.
+</footer>
+</div>
