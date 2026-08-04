@@ -48,6 +48,10 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
     }
   }, [pathname])
 
+  // O item Ferramentas fica fora dos blocos, então não passa pelo filtro da
+  // navegação — a checagem é aqui.
+  const podeFerramentas = isMaster || isEmpresaMaster || allowedSlugs.includes('ferramentas-gerais')
+
   const filteredNavigation = useMemo(() => {
     const isAdmin = isMaster || isEmpresaMaster
     // Sub-permissão satisfeita? Admin (master/empresaMaster) sempre vê.
@@ -166,13 +170,15 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
                 icon={LayoutDashboard}
                 collapsed
               />
-              <SidebarItem
-                label="Ferramentas"
-                href="/ferramentas"
-                icon={Wrench}
-                collapsed
-                exact
-              />
+              {podeFerramentas && (
+                <SidebarItem
+                  label="Ferramentas"
+                  href="/ferramentas"
+                  icon={Wrench}
+                  collapsed
+                  exact
+                />
+              )}
             </div>
 
             <Separator />
@@ -204,13 +210,15 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
               />
               {/* Utilitários de uso geral, fora dos blocos de negócio. `exact`
                   porque /ferramentas/fiscal pertence ao bloco Fiscal. */}
-              <SidebarItem
-                label="Ferramentas"
-                href="/ferramentas"
-                icon={Wrench}
-                collapsed={false}
-                exact
-              />
+              {podeFerramentas && (
+                <SidebarItem
+                  label="Ferramentas"
+                  href="/ferramentas"
+                  icon={Wrench}
+                  collapsed={false}
+                  exact
+                />
+              )}
 
               <Separator className="my-3" />
 

@@ -65,6 +65,8 @@ export const MODULE_SLUGS = [
   'bi-categorias-balancete', 'bi-faturamento', 'ferramentas-contabil', 'tratamento-lancamentos',
   // TI
   'ativos', 'helpdesk', 'projetos',
+  // Ferramentas (utilitarios de uso geral, item proprio no menu)
+  'ferramentas-gerais',
   // Qualidade
   'qualidade', 'aquisicoes', 'analise-contexto', 'capacitacoes',
   'documentos-internos', 'documentos-externos', 'tabelas-registros',
@@ -120,6 +122,7 @@ export const MODULE_LABELS: Record<string, string> = {
   // Contábil
   'bi-categorias-balancete': 'Categorias de Balancete', 'bi-faturamento': 'Dashboard Financeiro',
   'ferramentas-contabil': 'Ferramentas',
+  'ferramentas-gerais': 'Ferramentas (utilitários gerais)',
   'tratamento-lancamentos': 'Tratamento de Lançamentos',
   // TI
   ativos: 'Gestão de Ativos', helpdesk: 'HelpDesk', projetos: 'Projetos',
@@ -145,6 +148,7 @@ export const MODULE_GROUPS = {
   'Fiscal': ['caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal', 'reforma-tributaria', 'ferramentas-fiscal'],
   'Contábil': ['bi-categorias-balancete', 'bi-faturamento', 'ferramentas-contabil', 'tratamento-lancamentos'],
   'TI': ['ativos', 'helpdesk', 'projetos'],
+  'Ferramentas': ['ferramentas-gerais'],
   'Qualidade': ['qualidade', 'aquisicoes', 'analise-contexto', 'capacitacoes', 'documentos-internos', 'documentos-externos', 'tabelas-registros', 'elogios', 'melhorias', 'nao-conformidades', 'reclamacoes', 'reunioes', 'sugestoes'],
   'Configurações': ['configuracoes', 'metricas', 'backup-restore'],
 } as const

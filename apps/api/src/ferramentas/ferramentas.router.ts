@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
-import { router, readProcedureAnyOf, protectedProcedure } from '../trpc/trpc.service'
+import { router, readProcedureAnyOf, readProcedure } from '../trpc/trpc.service'
 import { listToolJobsSchema } from '@saas/types'
 import { FerramentasService } from './ferramentas.service'
 import { HtmlPdfService } from './html-pdf.service'
@@ -11,12 +11,16 @@ import { HtmlPdfService } from './html-pdf.service'
 const SLUGS = ['ferramentas-fiscal', 'ferramentas-contabil']
 
 /**
- * Utilitários de uso geral (HTML → PDF): basta estar autenticado, porque não
- * tocam em dado de cliente — o conteúdo vem do próprio usuário e some depois
- * da conversão.
+ * Utilitários de uso geral (HTML → PDF), sob o módulo `ferramentas-gerais`.
+ *
+ * Não tocam em dado de cliente — o conteúdo vem do próprio usuário e some
+ * depois da conversão —, mas consomem CPU do servidor, e por isso quem usa
+ * precisa estar liberado como em qualquer outro módulo.
  *
  * Teto por requisição: converter é caro, e um envio absurdo derrubaria a API.
  */
+const SLUG_GERAIS = 'ferramentas-gerais'
+
 const LIMITE_ARQUIVOS = 30
 const LIMITE_TOTAL_MB = 20
 
@@ -44,14 +48,14 @@ export function createFerramentasRouter(service: FerramentasService, htmlPdf?: H
 
   return router({
     // ── HTML → PDF ──
-    htmlParaPdf: protectedProcedure
+    htmlParaPdf: readProcedure(SLUG_GERAIS)
       .input(z.object({ arquivos: z.array(arquivoHtmlSchema).min(1) }))
       .mutation(({ input }) => {
         validarLote(input.arquivos)
         return pdf().converter(input.arquivos)
       }),
 
-    htmlParaPdfUnico: protectedProcedure
+    htmlParaPdfUnico: readProcedure(SLUG_GERAIS)
       .input(z.object({
         arquivos: z.array(arquivoHtmlSchema).min(1),
         nome: z.string().min(1).max(255).optional(),
