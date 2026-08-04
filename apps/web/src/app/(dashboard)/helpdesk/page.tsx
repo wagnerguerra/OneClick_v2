@@ -145,6 +145,8 @@ export default function HelpdeskPage() {
   const [novoOpen, setNovoOpen] = useState(false)
   // Ticket aberto no sheet de detalhe (click esquerdo no card do kanban)
   const [openTicketId, setOpenTicketId] = useState<string | null>(null)
+  // Ticket recém-desarquivado: usado pra rolar até ele + destacá-lo na lista de ativos.
+  const [recemDesarquivado, setRecemDesarquivado] = useState<string | null>(null)
 
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem('helpdesk:viewMode', viewMode)
@@ -343,6 +345,34 @@ export default function HelpdeskPage() {
       alerts.error('Erro', (e as Error).message)
     }
   }, [fetchData])
+
+  // Desarquivar in-place (da lista normal OU do modo "ver arquivados"). Sai do
+  // modo arquivados e marca o ticket pra rolar/destacar já na lista de ativos.
+  const desarquivar = useCallback(async (t: Ticket) => {
+    try {
+      await (trpc.helpdesk as any).update.mutate({ id: t.id, data: { arquivado: false } })
+      alerts.success('Desarquivado', 'Ticket voltou pra lista ativa.')
+      setRecemDesarquivado(t.id)
+      // Garante a visão em lista (o scroll/destaque até o ticket só existe nela;
+      // no kanban não há "posição" pra rolar).
+      setViewMode('lista')
+      // Vindo do modo "ver arquivados": só sair do modo — a troca de verArquivados
+      // recria o fetchData e o efeito recarrega os ATIVOS (sem refetch dos
+      // arquivados no meio). Na lista normal: recarrega no lugar (silencioso).
+      if (verArquivados) setVerArquivados(false)
+      else fetchData({ silent: true })
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }, [fetchData, verArquivados])
+
+  // Após desarquivar + recarregar: quando o ticket aparece nos ativos, rola até
+  // ele e mantém o destaque por ~2,5s.
+  useEffect(() => {
+    if (!recemDesarquivado || !items.some(t => t.id === recemDesarquivado)) return
+    const el = document.getElementById(`hlp-row-${recemDesarquivado}`)
+    if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+    const timer = setTimeout(() => setRecemDesarquivado(null), 2500)
+    return () => clearTimeout(timer)
+  }, [recemDesarquivado, items])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -702,10 +732,12 @@ export default function HelpdeskPage() {
         ) : (
           <div className="nice-scrollbar flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
             <TicketPanel titulo="Ativos" icon={Inbox} tickets={items} vazio="Nenhum ticket ativo no momento."
-              currentUserId={currentUserId} onCancelar={cancelarProprio} onOpen={setOpenTicketId} />
+              currentUserId={currentUserId} onCancelar={cancelarProprio} onOpen={setOpenTicketId} highlightId={recemDesarquivado} />
             {arquivados.length > 0 && (
-              // Arquivados não recebem o cancelar: são chamados já encerrados.
-              <TicketPanel titulo="Arquivados" icon={Archive} tickets={arquivados} vazio="Nenhum ticket arquivado." arquivado onOpen={setOpenTicketId} />
+              // Arquivados não recebem o cancelar (já encerrados), mas podem ser
+              // desarquivados in-place — o ticket sobe pros Ativos e é destacado.
+              <TicketPanel titulo="Arquivados" icon={Archive} tickets={arquivados} vazio="Nenhum ticket arquivado." arquivado
+                onOpen={setOpenTicketId} onUnarchive={podeAtuar ? desarquivar : undefined} />
             )}
           </div>
         )
@@ -755,27 +787,20 @@ export default function HelpdeskPage() {
           </DragOverlay>
         </DndContext>
       ) : (
-        <Card className="flex-1 overflow-hidden flex flex-col">
-          <div className="nice-scrollbar flex-1 overflow-y-auto divide-y divide-border/60">
-            {items.map(t => (
-              <TicketRow
-                key={t.id}
-                ticket={t}
-                currentUserId={currentUserId}
-                onCancelar={cancelarProprio}
-                onOpen={setOpenTicketId}
-                // Em modo arquivado, oferece desarquivar in-place (sem entrar no ticket)
-                onUnarchive={verArquivados && podeAtuar ? async () => {
-                  try {
-                    await (trpc.helpdesk as any).update.mutate({ id: t.id, data: { arquivado: false } })
-                    alerts.success('Desarquivado', 'Ticket voltou pra lista ativa.')
-                    fetchData()
-                  } catch (e) { alerts.error('Erro', (e as Error).message) }
-                } : undefined}
-              />
-            ))}
-          </div>
-        </Card>
+        // Modo arquivados — reaproveita o mesmo TicketPanel da lista normal, com
+        // o desarquivar in-place por linha (sem entrar no ticket).
+        <div className="nice-scrollbar flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
+          <TicketPanel
+            titulo="Arquivados"
+            icon={Archive}
+            tickets={items}
+            vazio="Nenhum ticket arquivado."
+            arquivado
+            currentUserId={currentUserId}
+            onOpen={setOpenTicketId}
+            onUnarchive={podeAtuar ? desarquivar : undefined}
+          />
+        </div>
       )}
 
       <NovoTicketModal
@@ -1122,7 +1147,7 @@ function ScoreIaBadge({ ticket }: { ticket: Ticket }) {
   )
 }
 
-function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar, onOpen }: {
+function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar, onOpen, highlight }: {
   ticket: Ticket
   onUnarchive?: () => void
   /** Id do usuário logado — habilita o cancelar quando ele é o solicitante (#HLP0172). */
@@ -1130,6 +1155,8 @@ function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar, onOpen }: {
   onCancelar?: (t: Ticket) => void
   /** Clique esquerdo simples abre o modal de detalhes (como no kanban). */
   onOpen?: (id: string) => void
+  /** Destaca a linha (ex.: ticket recém-desarquivado). */
+  highlight?: boolean
 }) {
   const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
   // #HLP0172: regra vem de @saas/types — mesma fonte que o backend impõe e que
@@ -1142,12 +1169,17 @@ function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar, onOpen }: {
   // O próprio solicitante precisa avaliar este chamado resolvido? → CTA "Avaliar".
   const precisaCsat = ticket.status === 'RESOLVIDO' && !ticket.csatRespondidoEm && ticket.solicitante?.id === currentUserId
   return (
-    <div className={cn(
-      'relative flex items-center gap-3 px-4 py-3 group',
-      precisaCsat
-        ? 'bg-emerald-50/40 dark:bg-emerald-900/10 hover:bg-emerald-50/70 dark:hover:bg-emerald-900/20'
-        : 'hover:bg-muted/30',
-    )}>
+    <div
+      id={`hlp-row-${ticket.id}`}
+      className={cn(
+        'relative flex items-center gap-3 px-4 py-3 group transition-colors',
+        highlight
+          ? 'bg-slate-200/70 dark:bg-slate-700/40 ring-1 ring-inset ring-slate-300 dark:ring-slate-600'
+          : precisaCsat
+          ? 'bg-emerald-50/40 dark:bg-emerald-900/10 hover:bg-emerald-50/70 dark:hover:bg-emerald-900/20'
+          : 'hover:bg-muted/30',
+      )}
+    >
       {/* Link esticado cobre a linha. Clique esquerdo simples → modal de detalhes
           (como no kanban); Ctrl/⌘+clique, botão do meio e "abrir em nova aba"
           abrem a PÁGINA COMPLETA em nova aba. target="_blank": as vias de nova
@@ -1257,7 +1289,7 @@ function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar, onOpen }: {
  * "Arquivados" embaixo (variante `arquivado` = header âmbar + linhas suaves),
  * pra que colaboradores como a Erica vejam também os tickets já arquivados.
  */
-function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, currentUserId, onCancelar, onOpen }: {
+function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, currentUserId, onCancelar, onOpen, onUnarchive, highlightId }: {
   titulo: string
   icon: typeof Inbox
   tickets: Ticket[]
@@ -1266,6 +1298,8 @@ function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, cu
   currentUserId?: string | null
   onCancelar?: (t: Ticket) => void
   onOpen?: (id: string) => void
+  onUnarchive?: (t: Ticket) => void
+  highlightId?: string | null
 }) {
   return (
     <Card className="overflow-hidden flex flex-col shrink-0">
@@ -1287,7 +1321,7 @@ function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, cu
       ) : (
         <div className={cn('divide-y divide-border/60', arquivado && 'opacity-80')}>
           {tickets.map(t => (
-            <TicketRow key={t.id} ticket={t} currentUserId={currentUserId} onCancelar={onCancelar} onOpen={onOpen} />
+            <TicketRow key={t.id} ticket={t} currentUserId={currentUserId} onCancelar={onCancelar} onOpen={onOpen} onUnarchive={onUnarchive ? () => onUnarchive(t) : undefined} highlight={t.id === highlightId} />
           ))}
         </div>
       )}
