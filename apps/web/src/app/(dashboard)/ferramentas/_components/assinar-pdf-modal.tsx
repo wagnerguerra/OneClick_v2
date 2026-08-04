@@ -5,9 +5,9 @@ import { PenLine, Loader2, Upload, Download, ChevronLeft, ChevronRight, Eraser }
 import {
   Button,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
-  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { EntityCombobox } from '@/components/ui/entity-combobox'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { FERRAMENTAS } from './catalogo'
@@ -111,7 +111,13 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
     }
   }, [])
 
-  useEffect(() => { if (docRef.current) void desenharPagina(pagina) }, [pagina, desenharPagina])
+  // Depende de `arquivo` de propósito: o canvas só existe depois que o estado
+  // muda e a tela é redesenhada. Chamar o desenho dentro do `aceitar` pegava a
+  // referência ainda vazia e não pintava nada — só a troca de página, mais
+  // tarde, encontrava o canvas pronto.
+  useEffect(() => {
+    if (arquivo && docRef.current) void desenharPagina(pagina)
+  }, [arquivo, pagina, desenharPagina])
 
   const aceitar = useCallback(async (lista: FileList | null) => {
     const f = lista?.[0]
@@ -135,8 +141,7 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
     setPagina(1)
     setArea(null)
     setResultado(null)
-    await desenharPagina(1)
-  }, [desenharPagina])
+  }, [])
 
   // ── seleção da área ──
   const posicaoNoCanvas = (e: React.MouseEvent) => {
@@ -219,18 +224,22 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
           ) : (
             <>
               <div className="flex flex-wrap items-center gap-2">
-                <Select value={certificadoId} onValueChange={setCertificadoId}>
-                  <SelectTrigger className="h-9 w-[320px] text-xs">
-                    <SelectValue placeholder="Escolha o certificado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {certificados.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.titular} · {c.tipo} · vence {new Date(c.expiraEm).toLocaleDateString('pt-BR')}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Combobox e não seleção simples: a lista tem um certificado
+                    por cliente, e rolar centenas atrás de um nome é inviável. */}
+                <EntityCombobox
+                  className="w-[340px]"
+                  items={certificados.map((c) => ({
+                    id: c.id,
+                    label: c.titular,
+                    sublabel: `${c.documento} · vence ${new Date(c.expiraEm).toLocaleDateString('pt-BR')}`,
+                  }))}
+                  value={certificadoId}
+                  onSelect={setCertificadoId}
+                  placeholder="Escolha o certificado"
+                  searchPlaceholder="Buscar por nome ou documento..."
+                  emptyText="Nenhum certificado válido"
+                  disabled={assinando}
+                />
 
                 <div className="flex items-center gap-1">
                   <Button variant="outline" size="icon-sm" disabled={pagina <= 1 || carregandoPagina}
