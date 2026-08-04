@@ -51,6 +51,8 @@ export default function HtmlParaPdfPage() {
   const [convertendo, setConvertendo] = useState(false)
   const [gerados, setGerados] = useState<PdfGerado[]>([])
   const [arrastando, setArrastando] = useState(false)
+  /** `total` 0 = etapa sem passos contáveis (a barra fica indeterminada). */
+  const [progresso, setProgresso] = useState<{ feitos: number; total: number; rotulo: string } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const aceitar = useCallback(async (lista: FileList | null) => {
@@ -81,20 +83,49 @@ export default function HtmlParaPdfPage() {
     if (arquivos.length === 0) return
     setConvertendo(true)
     setGerados([])
+    const entrada = arquivos.map(({ nome, conteudo }) => ({ nome, conteudo }))
+    const prontos: PdfGerado[] = []
+
     try {
-      const entrada = arquivos.map(({ nome, conteudo }) => ({ nome, conteudo }))
-      const saida = unico
-        ? [await (trpc.ferramentas as any).htmlParaPdfUnico.mutate({ arquivos: entrada })]
-        : await (trpc.ferramentas as any).htmlParaPdf.mutate({ arquivos: entrada })
-      setGerados(saida as PdfGerado[])
-      // Um arquivo só: baixa direto, que é o desfecho esperado de qualquer jeito.
-      if ((saida as PdfGerado[]).length === 1) {
-        const p = (saida as PdfGerado[])[0]!
-        baixar(p.nome, p.base64)
+      if (unico) {
+        // Documento único é UMA impressão, sem passos intermediários para
+        // contar: a barra fica indeterminada em vez de fingir percentual.
+        setProgresso({ feitos: 0, total: 0, rotulo: 'Montando o documento único…' })
+        prontos.push(await (trpc.ferramentas as any).htmlParaPdfUnico.mutate({ arquivos: entrada }))
+      } else {
+        // Em lotes, e não tudo de uma vez, para o usuário ver a barra andar.
+        // O tamanho é um meio-termo: o servidor abre o navegador uma vez por
+        // chamada, então lote de 1 daria o progresso mais fino ao custo de
+        // reabrir o navegador a cada arquivo.
+        const LOTE = 3
+        for (let i = 0; i < entrada.length; i += LOTE) {
+          const parte = entrada.slice(i, i + LOTE)
+          setProgresso({
+            feitos: i,
+            total: entrada.length,
+            rotulo: parte.length === 1 ? parte[0]!.nome : `${parte.length} arquivos`,
+          })
+          const r = await (trpc.ferramentas as any).htmlParaPdf.mutate({ arquivos: parte })
+          prontos.push(...(r as PdfGerado[]))
+          setProgresso({ feitos: Math.min(i + LOTE, entrada.length), total: entrada.length, rotulo: '' })
+        }
       }
+
+      setGerados(prontos)
+      // Um arquivo só: baixa direto, que é o desfecho esperado de qualquer jeito.
+      if (prontos.length === 1) baixar(prontos[0]!.nome, prontos[0]!.base64)
     } catch (e) {
-      await alerts.error('Falha na conversão', (e as Error).message)
+      // O que já converteu fica disponível: perder oito PDFs prontos porque o
+      // nono falhou obrigaria a refazer tudo.
+      setGerados(prontos)
+      await alerts.error(
+        'Falha na conversão',
+        prontos.length > 0
+          ? `${(e as Error).message}\n\n${prontos.length} arquivo(s) já convertido(s) continuam disponíveis abaixo.`
+          : (e as Error).message,
+      )
     } finally {
+      setProgresso(null)
       setConvertendo(false)
     }
   }
@@ -181,6 +212,39 @@ export default function HtmlParaPdfPage() {
               </div>
             </div>
           </>
+        )}
+
+        {progresso && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[12px] text-muted-foreground">
+              <span className="truncate">
+                {progresso.total > 0
+                  ? `Convertendo ${Math.min(progresso.feitos + 1, progresso.total)} de ${progresso.total}`
+                  : progresso.rotulo}
+                {progresso.rotulo && progresso.total > 0 ? ` · ${progresso.rotulo}` : ''}
+              </span>
+              {progresso.total > 0 && (
+                <span className="shrink-0 tabular-nums">
+                  {Math.round((progresso.feitos / progresso.total) * 100)}%
+                </span>
+              )}
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              {progresso.total > 0 ? (
+                <div className="h-full rounded-full transition-[width] duration-300"
+                  style={{ width: `${(progresso.feitos / progresso.total) * 100}%`, backgroundColor: FERRAMENTA.cor }} />
+              ) : (
+                // Sem passos para contar, a faixa percorre a barra — anuncia
+                // "trabalhando" sem inventar um percentual que não existe.
+                <div className="h-full w-1/3 animate-[indeterminado_1.2s_ease-in-out_infinite] rounded-full"
+                  style={{ backgroundColor: FERRAMENTA.cor }} />
+              )}
+            </div>
+            <style>{`@keyframes indeterminado {
+              0% { transform: translateX(-100%) }
+              100% { transform: translateX(300%) }
+            }`}</style>
+          </div>
         )}
 
         {gerados.length > 0 && (
