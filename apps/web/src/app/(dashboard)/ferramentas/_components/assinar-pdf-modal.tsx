@@ -170,7 +170,11 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
   }
 
   const assinar = async () => {
-    if (!arquivo || !certificadoId) return
+    if (!arquivo) return
+    if (!certificadoId) {
+      await alerts.warning('Falta o certificado', 'Escolha com qual certificado o documento será assinado.')
+      return
+    }
     setAssinando(true)
     setResultado(null)
     try {
@@ -223,7 +227,10 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
             </div>
           ) : (
             <>
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Grudada no topo: a barra saía de vista ao rolar até a área de
+                  assinatura, e o usuário ficava sem ver que faltava escolher o
+                  certificado — só encontrava um botão desabilitado. */}
+              <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-2 bg-background/95 px-1 py-2 backdrop-blur">
                 {/* Combobox e não seleção simples: a lista tem um certificado
                     por cliente, e rolar centenas atrás de um nome é inviável. */}
                 <EntityCombobox
@@ -327,6 +334,13 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
         </DialogBody>
 
         <DialogFooter>
+          {/* O motivo do bloqueio fica à vista. Botão desabilitado sem
+              explicação é o que fez "marquei a área e nada acontece". */}
+          {arquivo && !certificadoId && certificados.length > 0 && (
+            <span className="mr-auto text-[12px] text-amber-600 dark:text-amber-400">
+              Escolha o certificado para assinar
+            </span>
+          )}
           {arquivo && (
             <Button variant="outline" size="sm" disabled={assinando}
               onClick={() => { docRef.current = null; setArquivo(null); setArea(null); setResultado(null) }}>
