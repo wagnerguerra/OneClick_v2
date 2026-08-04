@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import {
   Headphones, Loader2, MessageSquare, Lock, Send, Paperclip, Clock,
@@ -2249,8 +2250,12 @@ function AnexoLightbox({ anexo, onClose }: { anexo: Anexo | null; onClose: () =>
     window.addEventListener('keydown', h, true)
     return () => window.removeEventListener('keydown', h, true)
   }, [anexo, onClose])
-  if (!anexo) return null
-  return (
+  if (!anexo || typeof document === 'undefined') return null
+  // Portal para o body: o overlay é `fixed`, mas dentro do modal lateral (Sheet)
+  // o ancestral tem `transform` (animação de slide), o que faria o `fixed` se
+  // ancorar na caixa do modal em vez da viewport. O portal escapa desse contexto
+  // e o lightbox cobre a tela inteira.
+  return createPortal(
     <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 sm:p-8" onClick={onClose}>
       <div className="bg-card rounded-xl border border-border shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border shrink-0">
@@ -2261,7 +2266,8 @@ function AnexoLightbox({ anexo, onClose }: { anexo: Anexo | null; onClose: () =>
         </div>
         <div className="flex-1 overflow-auto p-3 min-h-[300px]"><AnexoPreview anexo={anexo} /></div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
