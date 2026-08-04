@@ -61,20 +61,40 @@ export class AssinaturaPdfService {
       },
       select: {
         id: true, titular: true, documento: true, tipo: true, expiraEm: true,
+        arquivoHash: true, clienteId: true, updatedAt: true,
       },
       orderBy: { expiraEm: 'desc' },
     })
+
     // Vencido não assina: o arquivo continua no cadastro para histórico, mas
     // oferecê-lo aqui seria oferecer uma assinatura que ninguém aceita.
-    return certs
-      .filter((c) => c.expiraEm >= hoje)
-      .map((c) => ({
-        id: c.id,
-        titular: c.titular,
-        documento: c.documento,
-        tipo: c.tipo,
-        expiraEm: c.expiraEm,
-      }))
+    const validos = certs.filter((c) => c.expiraEm >= hoje)
+
+    // O MESMO arquivo pode estar cadastrado mais de uma vez — importações
+    // diferentes gravaram o PFX duas vezes, uma vinculada a cliente e outra
+    // não. Para assinar são o mesmo certificado, e a lista mostrava dois itens
+    // idênticos, sem nada que os distinguisse. Agrupa pelo hash do arquivo, que
+    // é o que de fato identifica o certificado; sem hash, cai no documento mais
+    // a validade.
+    const porArquivo = new Map<string, (typeof validos)[number]>()
+    for (const c of validos) {
+      const chave = c.arquivoHash || `doc:${c.documento}:${c.expiraEm.toISOString()}`
+      const atual = porArquivo.get(chave)
+      // Fica o registro mais completo: o que tem cliente vinculado e, entre
+      // iguais nisso, o mais recente.
+      const melhor = !atual
+        || (!!c.clienteId && !atual.clienteId)
+        || (!!c.clienteId === !!atual.clienteId && c.updatedAt > atual.updatedAt)
+      if (melhor) porArquivo.set(chave, c)
+    }
+
+    return [...porArquivo.values()].map((c) => ({
+      id: c.id,
+      titular: c.titular,
+      documento: c.documento,
+      tipo: c.tipo,
+      expiraEm: c.expiraEm,
+    }))
   }
 
   async assinar(input: {
