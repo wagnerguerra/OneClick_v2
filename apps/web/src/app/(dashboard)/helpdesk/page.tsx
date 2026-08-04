@@ -1283,9 +1283,9 @@ function TicketRow({ ticket, onUnarchive, onArchive, currentUserId, onCancelar, 
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem asChild>
-            <Link href={`/helpdesk/${ticket.id}`} className="gap-2">
+            <Link href={`/helpdesk/${ticket.id}`} target="_blank" rel="noopener noreferrer" className="gap-2">
               <ExternalLink className="h-3.5 w-3.5" />
-              Ver detalhes
+              Abrir em nova aba
             </Link>
           </DropdownMenuItem>
           {podeCancelar && (
