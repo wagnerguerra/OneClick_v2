@@ -11,16 +11,17 @@ interface SidebarItemProps {
   icon: LucideIcon
   collapsed: boolean
   groupHex?: string
-  /** Acende só na rota exata — ver o comentário em `isActive`. */
-  exact?: boolean
+  /** Rotas filhas que NÃO pertencem a este item — ver o comentário em `isActive`. */
+  exceto?: string[]
 }
 
-export function SidebarItem({ label, href, icon: Icon, collapsed, groupHex, exact }: SidebarItemProps) {
+export function SidebarItem({ label, href, icon: Icon, collapsed, groupHex, exceto }: SidebarItemProps) {
   const pathname = usePathname()
-  // `exact` para item cuja rota é prefixo de outras que NÃO lhe pertencem:
-  // /ferramentas é o hub geral, mas /ferramentas/fiscal é do bloco Fiscal, e
-  // sem isso os dois acenderiam juntos.
-  const isActive = exact ? pathname === href : pathname === href || pathname.startsWith(href + '/')
+  // `exceto` para item cuja rota é prefixo de outras que NÃO lhe pertencem:
+  // /ferramentas é o hub geral e acende nas ferramentas dele, mas
+  // /ferramentas/fiscal é do bloco Fiscal e não deve acendê-lo.
+  const isActive = pathname === href
+    || (pathname.startsWith(href + '/') && !(exceto ?? []).some((r) => pathname.startsWith(r)))
 
   const content = (
     <Link

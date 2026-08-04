@@ -7,6 +7,13 @@ import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import { cn, ScrollArea, Separator, TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@saas/ui'
 import { navigation, type NavItem } from '@/lib/navigation'
+
+/**
+ * Rotas sob /ferramentas que pertencem a OUTROS blocos. O item "Ferramentas" do
+ * topo é o hub dos utilitários gerais e acende nas rotas dele; estas duas são
+ * do Fiscal e do Contábil e não devem acendê-lo.
+ */
+const FERRAMENTAS_DE_OUTROS_BLOCOS = ['/ferramentas/fiscal', '/ferramentas/contabil']
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { SidebarGroup } from './sidebar-group'
 import { SidebarItem } from './sidebar-item'
@@ -176,7 +183,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
                   href="/ferramentas"
                   icon={Wrench}
                   collapsed
-                  exact
+                  exceto={FERRAMENTAS_DE_OUTROS_BLOCOS}
                 />
               )}
             </div>
@@ -208,15 +215,16 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
                 icon={LayoutDashboard}
                 collapsed={false}
               />
-              {/* Utilitários de uso geral, fora dos blocos de negócio. `exact`
-                  porque /ferramentas/fiscal pertence ao bloco Fiscal. */}
+              {/* Utilitários de uso geral, fora dos blocos de negócio. As rotas
+                  fiscal/contábil moram sob o mesmo prefixo mas são de outros
+                  blocos — por isso a exclusão. */}
               {podeFerramentas && (
                 <SidebarItem
                   label="Ferramentas"
                   href="/ferramentas"
                   icon={Wrench}
                   collapsed={false}
-                  exact
+                  exceto={FERRAMENTAS_DE_OUTROS_BLOCOS}
                 />
               )}
 
