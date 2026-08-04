@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import * as https from 'https'
+import * as fs from 'fs'
+import * as path from 'path'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const forge = require('node-forge')
 
@@ -24,11 +27,7 @@ export class TsaSerproService {
    * (assinatura permanece BES, ainda válida).
    */
   isConfigured(): boolean {
-    return !!(
-      process.env.TSA_URL
-      || (process.env.TSA_CONSUMER_KEY && process.env.TSA_CONSUMER_SECRET)
-      || (process.env.CONSUMER_KEY && process.env.CONSUMER_SECRET)
-    )
+    return !!(process.env.TSA_URL || (process.env.CONSUMER_KEY && process.env.CONSUMER_SECRET))
   }
 
   /**
@@ -48,28 +47,36 @@ export class TsaSerproService {
   }
 
   /**
-   * Credencial do Carimbo de Tempo.
+   * Credencial SERPRO — a mesma para todos os contratos do escritório.
    *
-   * O Carimbo de Tempo é um PRODUTO À PARTE no SERPRO, com assinatura própria e
-   * gateway próprio (`gateway.apiserpro`), diferente do Integra Contador
-   * (`autenticacao.sapi`, com certificado). A chave de um não vale no outro — o
-   * gateway responde "A valid OAuth client could not be found". Por isso existe
-   * o par TSA_*, e o CONSUMER_* fica só como retrocompatibilidade.
-   *
-   * Lê primeiro do banco, como os demais serviços SERPRO: assim a credencial
-   * pode ser trocada em /configuracoes, sem publicar versão nova.
+   * Lê primeiro do banco, como os demais serviços SERPRO (CND, SITFIS,
+   * Caixa Postal): assim a credencial pode ser trocada em /configuracoes sem
+   * publicar versão nova, e existe um lugar só para mantê-la.
    */
-  private async getCredenciais(): Promise<{ key: string; secret: string }> {
+  private async getCredenciais(): Promise<{ key: string; secret: string; senhaCert: string }> {
     const linhas = await prisma.systemConfig.findMany({
-      where: { key: { in: ['TSA_CONSUMER_KEY', 'TSA_CONSUMER_SECRET', 'CONSUMER_KEY', 'CONSUMER_SECRET'] } },
+      where: { key: { in: ['CONSUMER_KEY', 'CONSUMER_SECRET', 'CERTIFICADO_SENHA'] } },
     }).catch(() => [] as Array<{ key: string; value: string }>)
     const doBanco = new Map(linhas.map((l) => [l.key, l.value]))
 
-    const key = doBanco.get('TSA_CONSUMER_KEY') || process.env.TSA_CONSUMER_KEY
-      || doBanco.get('CONSUMER_KEY') || process.env.CONSUMER_KEY || ''
-    const secret = doBanco.get('TSA_CONSUMER_SECRET') || process.env.TSA_CONSUMER_SECRET
-      || doBanco.get('CONSUMER_SECRET') || process.env.CONSUMER_SECRET || ''
-    return { key, secret }
+    return {
+      key: doBanco.get('CONSUMER_KEY') || process.env.CONSUMER_KEY || '',
+      secret: doBanco.get('CONSUMER_SECRET') || process.env.CONSUMER_SECRET || '',
+      senhaCert: doBanco.get('CERTIFICADO_SENHA') || process.env.CERTIFICADO_SENHA || '',
+    }
+  }
+
+  /**
+   * Certificado da empresa, o mesmo que as outras consultas SERPRO usam.
+   *
+   * O gateway exige o certificado no próprio handshake (mTLS): sem ele a
+   * assinatura do contrato não é reconhecida e a resposta é
+   * "A valid OAuth client could not be found for client_id" — mensagem que
+   * parece chave errada, mas é certificado ausente.
+   */
+  private lerCertificado(): Buffer | undefined {
+    const caminho = path.resolve(process.cwd(), 'uploads', 'certificado.pfx')
+    return fs.existsSync(caminho) ? fs.readFileSync(caminho) : undefined
   }
 
   /** Obtém access token do gateway SERPRO (cache até 1h). */
@@ -77,34 +84,71 @@ export class TsaSerproService {
     if (this.cachedToken && this.cachedToken.expiresAt > Date.now() + 60_000) {
       return this.cachedToken.token
     }
-    const { key: consumerKey, secret: consumerSecret } = await this.getCredenciais()
+    const { key: consumerKey, secret: consumerSecret, senhaCert } = await this.getCredenciais()
     if (!consumerKey || !consumerSecret) {
-      throw new Error('Credencial do Carimbo de Tempo não configurada (TSA_CONSUMER_KEY/SECRET)')
+      throw new Error('Consumer Key/Secret do SERPRO não configurados (Configurações → SERPRO)')
     }
 
     const basic = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64')
-    const res = await fetch('https://gateway.apiserpro.serpro.gov.br/token', {
+    const corpo = 'grant_type=client_credentials'
+    const pfx = this.lerCertificado()
+
+    const res = await this.postHttps({
+      hostname: 'gateway.apiserpro.serpro.gov.br',
+      port: 443,
+      path: '/token',
       method: 'POST',
+      ...(pfx ? { pfx, passphrase: senhaCert } : {}),
       headers: {
         'Authorization': `Basic ${basic}`,
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': String(Buffer.byteLength(corpo)),
       },
-      body: 'grant_type=client_credentials',
-    })
-    if (!res.ok) {
-      const t = await res.text()
-      // O 401 aqui costuma ser assinatura ausente no produto Carimbo de Tempo,
-      // e não senha errada: a chave do Integra Contador não vale neste gateway.
+      rejectUnauthorized: true,
+    }, Buffer.from(corpo))
+
+    if (res.status !== 200) {
       throw new Error(
-        `SERPRO token falhou: ${res.status} ${t.slice(0, 200)}`
-        + (res.status === 401 ? ' — confira se a chave é a do produto Carimbo de Tempo (TSA_CONSUMER_KEY).' : ''),
+        `SERPRO token falhou: ${res.status} ${res.corpo.toString('utf8').slice(0, 200)}`
+        + (res.status === 401 && !pfx
+          ? ' — o certificado da empresa (uploads/certificado.pfx) não foi encontrado, e o gateway exige ele no handshake.'
+          : ''),
       )
     }
-    const json: any = await res.json()
-    const token = json.access_token as string
-    const expiresIn = (json.expires_in as number) || 3600
-    this.cachedToken = { token, expiresAt: Date.now() + expiresIn * 1000 }
-    return token
+
+    const json = JSON.parse(res.corpo.toString('utf8')) as { access_token: string; expires_in?: number }
+    this.cachedToken = { token: json.access_token, expiresAt: Date.now() + (json.expires_in || 3600) * 1000 }
+    return json.access_token
+  }
+
+  /**
+   * POST HTTPS com corpo binário e certificado de cliente opcional.
+   *
+   * O `fetch` do Node não aceita certificado por requisição, e a resposta do
+   * carimbo é DER — daí `https.request` e Buffer, em vez de texto.
+   */
+  private postHttps(
+    opcoes: https.RequestOptions,
+    corpo: Buffer,
+  ): Promise<{ status: number; contentType: string | null; corpo: Buffer }> {
+    return new Promise((resolve, reject) => {
+      const limite = setTimeout(() => reject(new Error('Timeout SERPRO (60s)')), 60_000)
+      const req = https.request(opcoes, (res) => {
+        const partes: Buffer[] = []
+        res.on('data', (c: Buffer) => partes.push(c))
+        res.on('end', () => {
+          clearTimeout(limite)
+          resolve({
+            status: res.statusCode || 0,
+            contentType: (res.headers['content-type'] as string) || null,
+            corpo: Buffer.concat(partes),
+          })
+        })
+      })
+      req.on('error', (e) => { clearTimeout(limite); reject(e) })
+      req.write(corpo)
+      req.end()
+    })
   }
 
   /**
@@ -114,10 +158,11 @@ export class TsaSerproService {
    */
   async timestampHash(hashHex: string): Promise<Buffer> {
     const url = await this.getUrl()
-    // Autoridade fora do SERPRO fala RFC 3161 direto, sem OAuth. Exigir token
-    // ali impediria justamente o caminho alternativo.
-    const { key, secret } = await this.getCredenciais()
-    const token = url === TSA_SERPRO_PADRAO && key && secret ? await this.getAccessToken() : null
+    const noSerpro = url === TSA_SERPRO_PADRAO
+    // Autoridade fora do SERPRO fala RFC 3161 direto, sem OAuth nem
+    // certificado. Exigir token ali impediria justamente o caminho alternativo.
+    const { senhaCert } = await this.getCredenciais()
+    const token = noSerpro ? await this.getAccessToken() : null
 
     // Constrói TimeStampReq RFC 3161 manualmente:
     //   TimeStampReq ::= SEQUENCE {
@@ -149,28 +194,36 @@ export class TsaSerproService {
     const reqDer = forge.asn1.toDer(tsReq).getBytes()
     const reqBuffer = Buffer.from(reqDer, 'binary')
 
-    // POST application/timestamp-query
-    const res = await fetch(url, {
+    // POST application/timestamp-query — no SERPRO, com o mesmo certificado do
+    // token: o gateway pede mTLS na chamada inteira, não só na autenticação.
+    const alvo = new URL(url)
+    const pfx = noSerpro ? this.lerCertificado() : undefined
+    const res = await this.postHttps({
+      hostname: alvo.hostname,
+      port: alvo.port ? Number(alvo.port) : 443,
+      path: alvo.pathname + alvo.search,
       method: 'POST',
+      ...(pfx ? { pfx, passphrase: senhaCert } : {}),
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         'Content-Type': 'application/timestamp-query',
         'Accept': 'application/timestamp-reply',
+        'Content-Length': String(reqBuffer.length),
       },
-      body: reqBuffer,
-    })
-    if (!res.ok) {
-      const t = await res.text()
-      throw new Error(`SERPRO timestamp falhou: ${res.status} ${t.slice(0, 200)}`)
+      rejectUnauthorized: true,
+    }, reqBuffer)
+
+    if (res.status !== 200) {
+      throw new Error(`Carimbo do tempo falhou: ${res.status} ${res.corpo.toString('utf8').slice(0, 200)}`)
     }
-    const respBuffer = Buffer.from(await res.arrayBuffer())
+    const respBuffer = res.corpo
 
     // Parse TimeStampResp:
     //   TimeStampResp ::= SEQUENCE {
     //     status     PKIStatusInfo,
     //     timeStampToken TimeStampToken OPTIONAL
     //   }
-    const respAsn1 = this.lerTimeStampResp(respBuffer, res.headers.get('content-type'))
+    const respAsn1 = this.lerTimeStampResp(respBuffer, res.contentType)
     if (!respAsn1.value || respAsn1.value.length < 2) {
       throw new Error('Resposta TSA inválida (sem TimeStampToken)')
     }

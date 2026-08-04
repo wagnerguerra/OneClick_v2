@@ -158,7 +158,7 @@ const CONFIG_FIELDS: ConfigField[] = [
   { key: 'tabs.max_tabs', label: 'Limite de abas por usuário', group: 'Abas', type: 'number', placeholder: '10', help: 'Máximo de abas simultâneas que cada usuário pode ter abertas (1-50). Padrão: 10.' },
 
   // TSA
-  { key: 'TSA_URL', label: 'URL TSA', group: 'Carimbo de Tempo (TSA)', type: 'text' },
+  { key: 'TSA_URL', label: 'URL TSA', group: 'Carimbo de Tempo (TSA)', type: 'text', placeholder: 'https://gateway.apiserpro.serpro.gov.br/apitimestamp/v1/stamps-asn1', help: 'Em branco, usa o Carimbo de Tempo do SERPRO com a Consumer Key/Secret e o certificado da aba SERPRO. Carimbar é RFC 3161 puro, então outra autoridade também serve — e aí não usa chave nem certificado. Para valer dentro da ICP-Brasil, precisa ser uma ACT credenciada.' },
   { key: 'TSA_AUTH', label: 'Tipo Auth', group: 'Carimbo de Tempo (TSA)', type: 'text', help: 'none | basic | serpro_oauth' },
   { key: 'TSA_HASH_ALGO', label: 'Algoritmo Hash', group: 'Carimbo de Tempo (TSA)', type: 'text', default: 'SHA-256' },
   { key: 'TSA_TIMEOUT_MS', label: 'Timeout (ms)', group: 'Carimbo de Tempo (TSA)', type: 'number', default: '30000' },
@@ -183,9 +183,6 @@ const CONFIG_FIELDS: ConfigField[] = [
   // Acessórias — integração pra dar baixa automática nas rotinas mensais.
   // API REST com Bearer Token (gerado em Configurações → API Token no Acessórias).
   // Documentação: https://api.acessorias.com/documentation
-  { key: 'TSA_URL', label: 'Autoridade de Carimbo do Tempo (RFC 3161)', group: 'SERPRO', type: 'text', placeholder: 'https://gateway.apiserpro.serpro.gov.br/apitimestamp/v1/stamps-asn1', help: 'Carimbar e RFC 3161 puro: qualquer autoridade que fale o protocolo serve. Fora do SERPRO nao usa chave nenhuma. Para valer dentro da ICP-Brasil, precisa ser uma ACT credenciada.' },
-  { key: 'TSA_CONSUMER_KEY', label: 'Consumer Key — Carimbo de Tempo', group: 'SERPRO', type: 'text', help: 'Produto "API Carimbo de Tempo", que tem assinatura SEPARADA do Integra Contador. Em branco, cai na CONSUMER_KEY geral — que costuma ser recusada por este gateway.' },
-  { key: 'TSA_CONSUMER_SECRET', label: 'Consumer Secret — Carimbo de Tempo', group: 'SERPRO', type: 'password', secret: true, help: 'Par da chave acima.' },
   { key: 'ACESSORIAS_API_URL', label: 'URL Base da API', group: 'Acessórias', type: 'text', default: 'https://api.acessorias.com', placeholder: 'https://api.acessorias.com', help: 'Endpoint REST do Acessórias (sem /v1 ou afins)' },
   { key: 'ACESSORIAS_API_TOKEN', label: 'API Token', group: 'Acessórias', type: 'password', secret: true, help: 'Bearer Token gerado em Configurações → API Token no Acessórias. Rate limit 100 req/min.' },
   { key: 'ACESSORIAS_USER', label: 'Usuário (e-mail)', group: 'Acessórias', type: 'text', placeholder: 'usuario@empresa.com.br', help: 'E-mail do usuário no Acessórias (auditoria/identificação)' },
