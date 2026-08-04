@@ -11,6 +11,7 @@ import { EntityCombobox } from '@/components/ui/entity-combobox'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { FERRAMENTAS } from './catalogo'
+import { useUrlPdf } from './baixar'
 
 const FERRAMENTA = FERRAMENTAS.find((f) => f.slug === 'assinar-pdf')!
 
@@ -38,18 +39,6 @@ interface Retangulo { x: number; y: number; w: number; h: number }
 const fmtTamanho = (b: number) =>
   b < 1024 ? `${b} B` : b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`
 
-function baixar(nome: string, base64: string) {
-  const bin = atob(base64)
-  const bytes = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = nome
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
 /**
  * Assina PDF com certificado A1 do cadastro, marcando a área na página.
  *
@@ -71,6 +60,7 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
   const [desenhando, setDesenhando] = useState<{ x0: number; y0: number } | null>(null)
   const [assinando, setAssinando] = useState(false)
   const [resultado, setResultado] = useState<Assinado | null>(null)
+  const urlResultado = useUrlPdf(resultado)
   const [carregandoPagina, setCarregandoPagina] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -341,10 +331,12 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
                       </p>
                     )}
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => baixar(resultado.nome, resultado.base64)}>
-                    <Download className="h-3.5 w-3.5" />
-                    <span className="max-w-[240px] truncate">{resultado.nome}</span>
-                    <span className="text-[11px] text-muted-foreground">{fmtTamanho(resultado.bytes)}</span>
+                  <Button asChild variant="outline" size="sm">
+                    <a href={urlResultado} download={resultado.nome}>
+                      <Download className="h-3.5 w-3.5" />
+                      <span className="max-w-[240px] truncate">{resultado.nome}</span>
+                      <span className="text-[11px] text-muted-foreground">{fmtTamanho(resultado.bytes)}</span>
+                    </a>
                   </Button>
                 </div>
               )}

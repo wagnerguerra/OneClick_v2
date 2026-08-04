@@ -10,6 +10,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { FERRAMENTAS } from './catalogo'
+import { useUrlsPdf } from './baixar'
 
 const FERRAMENTA = FERRAMENTAS.find((f) => f.slug === 'html-pdf')!
 
@@ -27,20 +28,6 @@ interface PdfGerado {
 const fmtTamanho = (b: number) =>
   b < 1024 ? `${b} B` : b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`
 
-/** Baixa um arquivo que já está na memória, sem passar de novo pelo servidor. */
-function baixar(nome: string, base64: string) {
-  const bin = atob(base64)
-  const bytes = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = nome
-  a.click()
-  // Sem revoke o blob fica preso na memória da aba até recarregar a página.
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
 /**
  * HTML → PDF. Porte do aplicativo de mesa que a equipe já usava.
  *
@@ -57,6 +44,7 @@ export function HtmlPdfModal({ onClose }: { onClose: () => void }) {
   /** `total` 0 = etapa sem passos contáveis (a barra fica indeterminada). */
   const [progresso, setProgresso] = useState<{ feitos: number; total: number; rotulo: string } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const urls = useUrlsPdf(gerados)
 
   const aceitar = useCallback(async (lista: FileList | null) => {
     if (!lista) return
@@ -235,11 +223,13 @@ export function HtmlPdfModal({ onClose }: { onClose: () => void }) {
                   vários downloads de uma vez faz o navegador bloquear todos
                   menos o primeiro, sem avisar ninguém. */}
               <div className="flex flex-wrap gap-2">
-                {gerados.map((p) => (
-                  <Button key={p.nome} variant="outline" size="sm" onClick={() => baixar(p.nome, p.base64)}>
-                    <Download className="h-3.5 w-3.5" />
-                    <span className="max-w-[240px] truncate">{p.nome}</span>
-                    <span className="text-[11px] text-muted-foreground">{fmtTamanho(p.bytes)}</span>
+                {gerados.map((p, i) => (
+                  <Button key={p.nome} asChild variant="outline" size="sm">
+                    <a href={urls[i]} download={p.nome}>
+                      <Download className="h-3.5 w-3.5" />
+                      <span className="max-w-[240px] truncate">{p.nome}</span>
+                      <span className="text-[11px] text-muted-foreground">{fmtTamanho(p.bytes)}</span>
+                    </a>
                   </Button>
                 ))}
               </div>
