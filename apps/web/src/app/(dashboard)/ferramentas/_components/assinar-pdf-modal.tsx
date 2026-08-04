@@ -144,25 +144,37 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
   }, [])
 
   // ── seleção da área ──
-  const posicaoNoCanvas = (e: React.MouseEvent) => {
-    const r = (e.target as HTMLElement).closest('[data-folha]')!.getBoundingClientRect()
+  //
+  // Eventos de PONTEIRO com captura, e não de mouse. Com mouse, qualquer coisa
+  // que tirasse o cursor de cima da folha no meio do gesto — o próprio corpo do
+  // modal rolando, a borda da página — disparava o "soltar" e o retângulo
+  // recém-criado era descartado por ser pequeno demais. A captura prende o
+  // gesto ao elemento até o dedo/botão levantar, aconteça o que acontecer.
+  const posicaoNaFolha = (e: React.PointerEvent<HTMLElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
     return { x: e.clientX - r.left, y: e.clientY - r.top }
   }
-  const aoPressionar = (e: React.MouseEvent) => {
+  const aoPressionar = (e: React.PointerEvent<HTMLElement>) => {
     if (assinando) return
-    const p = posicaoNoCanvas(e)
+    e.currentTarget.setPointerCapture(e.pointerId)
+    e.preventDefault()
+    const p = posicaoNaFolha(e)
     setDesenhando({ x0: p.x, y0: p.y })
     setArea({ x: p.x, y: p.y, w: 0, h: 0 })
   }
-  const aoMover = (e: React.MouseEvent) => {
+  const aoMover = (e: React.PointerEvent<HTMLElement>) => {
     if (!desenhando) return
-    const p = posicaoNoCanvas(e)
+    const p = posicaoNaFolha(e)
     setArea({
       x: Math.min(desenhando.x0, p.x), y: Math.min(desenhando.y0, p.y),
       w: Math.abs(p.x - desenhando.x0), h: Math.abs(p.y - desenhando.y0),
     })
   }
-  const aoSoltar = () => {
+  const aoSoltar = (e: React.PointerEvent<HTMLElement>) => {
+    if (!desenhando) return
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    }
     setDesenhando(null)
     // Clique sem arrastar não é uma área — sem isso sobraria um retângulo de
     // tamanho zero e a assinatura sairia invisível sem ninguém entender.
@@ -278,11 +290,16 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
                 <div
                   data-folha
                   className="relative select-none border border-border shadow-sm"
-                  style={{ width: LARGURA_TELA, cursor: assinando ? 'default' : 'crosshair' }}
-                  onMouseDown={aoPressionar}
-                  onMouseMove={aoMover}
-                  onMouseUp={aoSoltar}
-                  onMouseLeave={aoSoltar}
+                  style={{
+                    width: LARGURA_TELA,
+                    cursor: assinando ? 'default' : 'crosshair',
+                    // Sem isto, o gesto no toque vira rolagem do modal.
+                    touchAction: 'none',
+                  }}
+                  onPointerDown={aoPressionar}
+                  onPointerMove={aoMover}
+                  onPointerUp={aoSoltar}
+                  onPointerCancel={aoSoltar}
                 >
                   <canvas ref={canvasRef} className="block w-full" />
                   {carregandoPagina && (
