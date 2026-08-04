@@ -111,7 +111,7 @@ export class TsaSerproService {
     //     status     PKIStatusInfo,
     //     timeStampToken TimeStampToken OPTIONAL
     //   }
-    const respAsn1 = forge.asn1.fromDer(forge.util.createBuffer(respBuffer.toString('binary')))
+    const respAsn1 = this.lerTimeStampResp(respBuffer, res.headers.get('content-type'))
     if (!respAsn1.value || respAsn1.value.length < 2) {
       throw new Error('Resposta TSA inválida (sem TimeStampToken)')
     }
@@ -123,5 +123,50 @@ export class TsaSerproService {
     const timeStampToken = respAsn1.value[1]
     const tokenDer = forge.asn1.toDer(timeStampToken).getBytes()
     return Buffer.from(tokenDer, 'binary')
+  }
+
+  /**
+   * Lê a TimeStampResp aceitando as formas em que ela chega.
+   *
+   * O RFC 3161 prevê DER puro, mas gateway costuma reembalar: já vimos a
+   * resposta vir em base64 (às vezes dentro de JSON). Tentar só o DER produzia
+   * "Too few bytes to read ASN.1 value", que não diz nada sobre o que chegou.
+   *
+   * Quando nenhuma forma serve, o erro carrega tipo, tamanho e o começo do
+   * conteúdo — sem isso, diagnosticar exige mais uma rodada de produção.
+   */
+  private lerTimeStampResp(corpo: Buffer, contentType: string | null): any {
+    const tentativas: Array<{ como: string; bytes: Buffer }> = [{ como: 'DER', bytes: corpo }]
+
+    const texto = corpo.toString('utf8').trim()
+
+    // JSON com o token num campo — pega o primeiro valor que pareça base64 longo.
+    if (texto.startsWith('{')) {
+      try {
+        const json = JSON.parse(texto)
+        for (const v of Object.values(json)) {
+          if (typeof v === 'string' && v.length > 100) {
+            tentativas.push({ como: 'JSON+base64', bytes: Buffer.from(v, 'base64') })
+          }
+        }
+      } catch { /* não era JSON — segue para as outras formas */ }
+    }
+
+    // Base64 cru (com ou sem quebras de linha).
+    if (/^[A-Za-z0-9+/=\s]+$/.test(texto) && texto.length > 100) {
+      tentativas.push({ como: 'base64', bytes: Buffer.from(texto.replace(/\s+/g, ''), 'base64') })
+    }
+
+    for (const t of tentativas) {
+      try {
+        const asn1 = forge.asn1.fromDer(forge.util.createBuffer(t.bytes.toString('binary')))
+        if (asn1?.value?.length >= 2) return asn1
+      } catch { /* tenta a próxima forma */ }
+    }
+
+    throw new Error(
+      `Resposta da TSA ilegível (content-type: ${contentType ?? 'ausente'}, ${corpo.length} bytes, `
+      + `início: ${JSON.stringify(texto.slice(0, 60))})`,
+    )
   }
 }
